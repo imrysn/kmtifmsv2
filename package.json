@@ -1,0 +1,53 @@
+{
+  "name": "electron-react-app",
+  "version": "1.0.0",
+  "description": "Desktop application with React, Electron, Express, and SQLite",
+  "main": "main.js",
+  "scripts": {
+    "dev": "concurrently --kill-others \"npm run client:dev\" \"npm run electron:dev\"",
+    "client:dev": "cd client && npm run dev",
+    "electron:dev": "cross-env NODE_ENV=development electron .",
+    "client:build": "cd client && npm run build",
+    "electron:pack": "electron-builder",
+    "build": "npm run client:build && npm run electron:pack",
+    "postinstall": "cd client && npm install",
+    "test:api": "node test-api.js",
+    "server:standalone": "node server.js",
+    "reset:db": "node reset-db.js"
+  },
+  "devDependencies": {
+    "electron": "^27.0.0",
+    "electron-builder": "^24.6.4",
+    "concurrently": "^8.2.2",
+    "wait-on": "^7.0.1",
+    "cross-env": "^7.0.3"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "cors": "^2.8.5",
+    "sqlite3": "^5.1.6",
+    "bcryptjs": "^2.4.3"
+  },
+  "build": {
+    "appId": "com.example.electron-react-app",
+    "productName": "Electron React App",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "main.js",
+      "server.js",
+      "client/dist/**/*",
+      "node_modules/**/*"
+    ],
+    "win": {
+      "target": "nsis"
+    },
+    "mac": {
+      "target": "dmg"
+    },
+    "linux": {
+      "target": "AppImage"
+    }
+  }
+}
