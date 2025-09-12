@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
+import anime from 'animejs'
 import './AdminDashboard.css'
 
 const AdminDashboard = ({ user, onLogout }) => {
@@ -25,7 +26,26 @@ const AdminDashboard = ({ user, onLogout }) => {
     team: 'General'
   })
 
+  const sidebarRef = useRef(null)
+  const mainContentRef = useRef(null)
+
   useEffect(() => {
+    // Simplified initial animations
+    anime({
+      targets: sidebarRef.current,
+      opacity: [0, 1],
+      duration: 300,
+      easing: 'easeOutCubic'
+    })
+
+    anime({
+      targets: mainContentRef.current,
+      opacity: [0, 1],
+      duration: 300,
+      delay: 100,
+      easing: 'easeOutCubic'
+    })
+
     if (activeTab === 'users') {
       fetchUsers()
     } else if (activeTab === 'activity-logs') {
@@ -281,14 +301,15 @@ const AdminDashboard = ({ user, onLogout }) => {
   }
 
   return (
-    <div className="admin-dashboard">
+    <div className="minimal-admin-dashboard">
       {/* Sidebar */}
-      <div className="sidebar">
+      <div className="admin-sidebar" ref={sidebarRef}>
         <div className="sidebar-header">
-          <h2>👨‍💼 Admin Panel</h2>
-          <div className="user-info">
-            <p className="user-name">{user.fullName || 'Administrator'}</p>
-            <p className="user-role">{user.role}</p>
+          <div className="admin-avatar">A</div>
+          <h2>Admin Center</h2>
+          <div className="admin-info">
+            <div className="admin-name">{user.fullName || 'Administrator'}</div>
+            <div className="admin-role">{user.role}</div>
           </div>
         </div>
         
@@ -296,99 +317,145 @@ const AdminDashboard = ({ user, onLogout }) => {
           <button 
             className={`nav-item ${activeTab === 'dashboard' ? 'active' : ''}`}
             onClick={() => { 
-              setActiveTab('dashboard'); 
-              clearMessages(); 
+              setActiveTab('dashboard')
+              clearMessages()
             }}
           >
-            <span className="nav-icon">📊</span>
-            Dashboard
+            <span className="nav-label">Dashboard</span>
           </button>
           <button 
             className={`nav-item ${activeTab === 'users' ? 'active' : ''}`}
             onClick={() => { 
-              setActiveTab('users'); 
-              clearMessages(); 
+              setActiveTab('users')
+              clearMessages()
             }}
           >
-            <span className="nav-icon">👥</span>
-            User Management
+            <span className="nav-label">User Management</span>
           </button>
           <button 
             className={`nav-item ${activeTab === 'activity-logs' ? 'active' : ''}`}
             onClick={() => { 
-              setActiveTab('activity-logs'); 
-              clearMessages(); 
+              setActiveTab('activity-logs')
+              clearMessages()
             }}
           >
-            <span className="nav-icon">📋</span>
-            Activity Logs
+            <span className="nav-label">Activity Logs</span>
           </button>
         </nav>
         
         <div className="sidebar-footer">
           <button onClick={handleLogout} className="logout-btn">
-            <span className="nav-icon">🚪</span>
             Logout
           </button>
         </div>
       </div>
 
       {/* Main Content */}
-      <div className="main-content">
+      <div className="admin-main-content" ref={mainContentRef}>
         {/* Dashboard Tab */}
         {activeTab === 'dashboard' && (
-          <div className="dashboard-tab">
+          <div className="dashboard-overview">
             <div className="page-header">
-              <h1>Dashboard Overview</h1>
-              <p>Welcome back, {user.fullName || 'Administrator'}!</p>
+              <h1>System Overview</h1>
+              <p>Welcome back, {user.fullName || 'Administrator'}! Here's your system status.</p>
             </div>
             
-            <div className="stats-grid">
-              <div className="stat-card">
-                <div className="stat-icon">👥</div>
-                <div className="stat-info">
-                  <h3>{users.length}</h3>
-                  <p>Total Users</p>
+            <div className="stats-section">
+              <div className="stats-grid">
+                <div className="stat-card">
+                  <div className="stat-icon users-icon">U</div>
+                  <div className="stat-info">
+                    <div className="stat-number">{users.length}</div>
+                    <div className="stat-label">Total Users</div>
+                    <div className="stat-change positive">+2 this week</div>
+                  </div>
                 </div>
-              </div>
-              <div className="stat-card">
-                <div className="stat-icon">👨‍💼</div>
-                <div className="stat-info">
-                  <h3>{users.filter(u => u.role === 'ADMIN').length}</h3>
-                  <p>Admins</p>
+                
+                <div className="stat-card">
+                  <div className="stat-icon admins-icon">A</div>
+                  <div className="stat-info">
+                    <div className="stat-number">{users.filter(u => u.role === 'ADMIN').length}</div>
+                    <div className="stat-label">Administrators</div>
+                    <div className="stat-change neutral">No change</div>
+                  </div>
                 </div>
-              </div>
-              <div className="stat-card">
-                <div className="stat-icon">👨‍👥</div>
-                <div className="stat-info">
-                  <h3>{users.filter(u => u.role === 'TEAM LEADER').length}</h3>
-                  <p>Team Leaders</p>
+                
+                <div className="stat-card">
+                  <div className="stat-icon leaders-icon">L</div>
+                  <div className="stat-info">
+                    <div className="stat-number">{users.filter(u => u.role === 'TEAM LEADER').length}</div>
+                    <div className="stat-label">Team Leaders</div>
+                    <div className="stat-change positive">+1 this month</div>
+                  </div>
                 </div>
-              </div>
-              <div className="stat-card">
-                <div className="stat-icon">👤</div>
-                <div className="stat-info">
-                  <h3>{users.filter(u => u.role === 'USER').length}</h3>
-                  <p>Users</p>
+                
+                <div className="stat-card">
+                  <div className="stat-icon users-only-icon">M</div>
+                  <div className="stat-info">
+                    <div className="stat-number">{users.filter(u => u.role === 'USER').length}</div>
+                    <div className="stat-label">Regular Users</div>
+                    <div className="stat-change positive">+1 this week</div>
+                  </div>
                 </div>
               </div>
             </div>
             
-            <div className="welcome-section">
-              <h2>System Administration</h2>
-              <p>Use the sidebar navigation to access different administrative functions:</p>
-              <ul>
-                <li><strong>User Management:</strong> Create, edit, and manage user accounts</li>
-                <li><strong>Role Assignment:</strong> Assign appropriate roles to users</li>
-                <li><strong>Password Management:</strong> Reset user passwords when needed</li>
-              </ul>
+            <div className="admin-features-section">
+              <div className="features-header">
+                <h2>Administration Features</h2>
+                <p>Comprehensive system management tools</p>
+              </div>
+              
+              <div className="admin-features-grid">
+                <div className="admin-feature-card">
+                  <div className="feature-header">
+                    <div className="feature-icon">UM</div>
+                    <h3>User Management</h3>
+                  </div>
+                  <p>Create, edit, and manage user accounts with role-based permissions and team assignments.</p>
+                  <ul>
+                    <li>CRUD operations for all users</li>
+                    <li>Role assignment and permissions</li>
+                    <li>Team organization</li>
+                    <li>Password management</li>
+                  </ul>
+                </div>
+                
+                <div className="admin-feature-card">
+                  <div className="feature-header">
+                    <div className="feature-icon">SA</div>
+                    <h3>Security & Access</h3>
+                  </div>
+                  <p>Monitor system access, manage authentication, and maintain security protocols.</p>
+                  <ul>
+                    <li>Access control management</li>
+                    <li>Login monitoring</li>
+                    <li>Security audit trails</li>
+                    <li>Permission management</li>
+                  </ul>
+                </div>
+                
+                <div className="admin-feature-card">
+                  <div className="feature-header">
+                    <div className="feature-icon">AR</div>
+                    <h3>Analytics & Reports</h3>
+                  </div>
+                  <p>Generate comprehensive reports and analyze system usage patterns and trends.</p>
+                  <ul>
+                    <li>User activity reports</li>
+                    <li>System usage analytics</li>
+                    <li>Performance metrics</li>
+                    <li>Export capabilities</li>
+                  </ul>
+                </div>
+              </div>
             </div>
           </div>
         )}
 
         {/* User Management Tab */}
         {activeTab === 'users' && (
-          <div className="users-tab">
+          <div className="users-management">
             <div className="page-header">
               <h1>User Management</h1>
               <p>Manage system users, roles, and permissions</p>
@@ -396,14 +463,16 @@ const AdminDashboard = ({ user, onLogout }) => {
             
             {/* Action Bar */}
             <div className="action-bar">
-              <div className="search-container">
-                <input
-                  type="text"
-                  placeholder="Search users..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="search-input"
-                />
+              <div className="search-section">
+                <div className="search-container">
+                  <input
+                    type="text"
+                    placeholder="Search users by name, email, role, or team..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="search-input"
+                  />
+                </div>
               </div>
               
               <div className="action-buttons">
@@ -421,7 +490,7 @@ const AdminDashboard = ({ user, onLogout }) => {
                     setShowAddModal(true)
                   }}
                 >
-                  + Add User
+                  Add User
                 </button>
               </div>
             </div>
@@ -429,87 +498,99 @@ const AdminDashboard = ({ user, onLogout }) => {
             {/* Messages */}
             {error && (
               <div className="alert alert-error">
-                {error}
+                <span className="alert-message">{error}</span>
                 <button onClick={clearMessages} className="alert-close">×</button>
               </div>
             )}
             
             {success && (
               <div className="alert alert-success">
-                {success}
+                <span className="alert-message">{success}</span>
                 <button onClick={clearMessages} className="alert-close">×</button>
               </div>
             )}
             
             {/* Users Table */}
-            <div className="table-container">
+            <div className="table-section">
               {isLoading ? (
                 <div className="loading-state">
                   <div className="spinner"></div>
                   <p>Loading users...</p>
                 </div>
               ) : (
-                <table className="users-table">
-                  <thead>
-                    <tr>
-                      <th>Full Name</th>
-                      <th>Username</th>
-                      <th>Email</th>
-                      <th>Password</th>
-                      <th>Role</th>
-                      <th>Team</th>
-                      <th>Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredUsers.map((user) => (
-                      <tr key={user.id}>
-                        <td>{user.fullName}</td>
-                        <td>{user.username}</td>
-                        <td>{user.email}</td>
-                        <td>
-                          <span className="password-hidden">••••••••</span>
-                          <button 
-                            className="btn-link"
-                            onClick={() => openPasswordModal(user)}
-                            title="Reset Password"
-                          >
-                            🔄
-                          </button>
-                        </td>
-                        <td>
-                          <span className={`role-badge ${user.role.toLowerCase().replace(' ', '-')}`}>
-                            {user.role}
-                          </span>
-                        </td>
-                        <td>{user.team}</td>
-                        <td>
-                          <div className="action-buttons">
-                            <button 
-                              className="btn btn-sm btn-secondary"
-                              onClick={() => openEditModal(user)}
-                              title="Edit User"
-                            >
-                              ✏️
-                            </button>
-                            <button 
-                              className="btn btn-sm btn-danger"
-                              onClick={() => handleDeleteUser(user.id, user.fullName)}
-                              title="Delete User"
-                            >
-                              🗑️
-                            </button>
-                          </div>
-                        </td>
+                <div className="users-table-container">
+                  <table className="users-table">
+                    <thead>
+                      <tr>
+                        <th>User</th>
+                        <th>Username</th>
+                        <th>Email</th>
+                        <th>Password</th>
+                        <th>Role</th>
+                        <th>Team</th>
+                        <th>Actions</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody>
+                      {filteredUsers.map((user) => (
+                        <tr key={user.id} className="user-row">
+                          <td>
+                            <div className="user-cell">
+                              <div className="user-avatar">{user.fullName.charAt(0).toUpperCase()}</div>
+                              <span className="user-name">{user.fullName}</span>
+                            </div>
+                          </td>
+                          <td>{user.username}</td>
+                          <td className="email-cell">{user.email}</td>
+                          <td>
+                            <div className="password-cell">
+                              <span className="password-hidden">••••••••</span>
+                              <button 
+                                className="password-reset-btn"
+                                onClick={() => openPasswordModal(user)}
+                                title="Reset Password"
+                              >
+                                Reset
+                              </button>
+                            </div>
+                          </td>
+                          <td>
+                            <span className={`role-badge ${user.role.toLowerCase().replace(' ', '-')}`}>
+                              {user.role}
+                            </span>
+                          </td>
+                          <td>
+                            <span className="team-badge">{user.team}</span>
+                          </td>
+                          <td>
+                            <div className="action-buttons">
+                              <button 
+                                className="action-btn edit-btn"
+                                onClick={() => openEditModal(user)}
+                                title="Edit User"
+                              >
+                                Edit
+                              </button>
+                              <button 
+                                className="action-btn delete-btn"
+                                onClick={() => handleDeleteUser(user.id, user.fullName)}
+                                title="Delete User"
+                              >
+                                Delete
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               )}
               
               {!isLoading && filteredUsers.length === 0 && (
                 <div className="empty-state">
-                  <p>No users found matching your search.</p>
+                  <h3>No users found</h3>
+                  <p>No users match your current search criteria.</p>
                 </div>
               )}
             </div>
@@ -518,7 +599,7 @@ const AdminDashboard = ({ user, onLogout }) => {
 
         {/* Activity Logs Tab */}
         {activeTab === 'activity-logs' && (
-          <div className="activity-logs-tab">
+          <div className="activity-logs-section">
             <div className="page-header">
               <h1>Activity Logs</h1>
               <p>Monitor system activities and user actions</p>
@@ -526,14 +607,16 @@ const AdminDashboard = ({ user, onLogout }) => {
             
             {/* Action Bar */}
             <div className="action-bar">
-              <div className="search-container">
-                <input
-                  type="text"
-                  placeholder="Search activity logs..."
-                  value={logsSearchQuery}
-                  onChange={(e) => setLogsSearchQuery(e.target.value)}
-                  className="search-input"
-                />
+              <div className="search-section">
+                <div className="search-container">
+                  <input
+                    type="text"
+                    placeholder="Search activity logs..."
+                    value={logsSearchQuery}
+                    onChange={(e) => setLogsSearchQuery(e.target.value)}
+                    className="search-input"
+                  />
+                </div>
               </div>
               
               <div className="action-buttons">
@@ -542,14 +625,14 @@ const AdminDashboard = ({ user, onLogout }) => {
                   onClick={clearLogFilters}
                   disabled={logsSearchQuery === ''}
                 >
-                  Clear Filtered
+                  Clear Filters
                 </button>
                 <button 
                   className="btn btn-primary"
                   onClick={exportLogs}
                   disabled={filteredLogs.length === 0}
                 >
-                  📊 Export Logs
+                  Export Logs
                 </button>
               </div>
             </div>
@@ -557,64 +640,74 @@ const AdminDashboard = ({ user, onLogout }) => {
             {/* Messages */}
             {error && (
               <div className="alert alert-error">
-                {error}
+                <span className="alert-message">{error}</span>
                 <button onClick={clearMessages} className="alert-close">×</button>
               </div>
             )}
             
             {success && (
               <div className="alert alert-success">
-                {success}
+                <span className="alert-message">{success}</span>
                 <button onClick={clearMessages} className="alert-close">×</button>
               </div>
             )}
             
             {/* Activity Logs Table */}
-            <div className="table-container">
+            <div className="table-section">
               {isLoading ? (
                 <div className="loading-state">
                   <div className="spinner"></div>
                   <p>Loading activity logs...</p>
                 </div>
               ) : (
-                <table className="activity-logs-table">
-                  <thead>
-                    <tr>
-                      <th>Username</th>
-                      <th>Role</th>
-                      <th>Team</th>
-                      <th>Date & Time</th>
-                      <th>Activity</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredLogs.map((log) => (
-                      <tr key={log.id}>
-                        <td>{log.username}</td>
-                        <td>
-                          <span className={`role-badge ${log.role.toLowerCase().replace(' ', '-')}`}>
-                            {log.role}
-                          </span>
-                        </td>
-                        <td>{log.team}</td>
-                        <td>
-                          <div className="datetime-column">
-                            <div className="date">{new Date(log.timestamp).toLocaleDateString()}</div>
-                            <div className="time">{new Date(log.timestamp).toLocaleTimeString()}</div>
-                          </div>
-                        </td>
-                        <td>
-                          <div className="activity-description">{log.activity}</div>
-                        </td>
+                <div className="logs-table-container">
+                  <table className="activity-logs-table">
+                    <thead>
+                      <tr>
+                        <th>User</th>
+                        <th>Role</th>
+                        <th>Team</th>
+                        <th>Date & Time</th>
+                        <th>Activity</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody>
+                      {filteredLogs.map((log) => (
+                        <tr key={log.id} className="log-row">
+                          <td>
+                            <div className="user-cell">
+                              <div className="user-avatar">{log.username.charAt(0).toUpperCase()}</div>
+                              <span className="user-name">{log.username}</span>
+                            </div>
+                          </td>
+                          <td>
+                            <span className={`role-badge ${log.role.toLowerCase().replace(' ', '-')}`}>
+                              {log.role}
+                            </span>
+                          </td>
+                          <td>
+                            <span className="team-badge">{log.team}</span>
+                          </td>
+                          <td>
+                            <div className="datetime-cell">
+                              <div className="date">{new Date(log.timestamp).toLocaleDateString()}</div>
+                              <div className="time">{new Date(log.timestamp).toLocaleTimeString()}</div>
+                            </div>
+                          </td>
+                          <td>
+                            <div className="activity-cell">{log.activity}</div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               )}
               
               {!isLoading && filteredLogs.length === 0 && (
                 <div className="empty-state">
-                  <p>No activity logs found matching your search.</p>
+                  <h3>No activity logs found</h3>
+                  <p>No activity logs match your current search criteria.</p>
                 </div>
               )}
             </div>
@@ -622,72 +715,80 @@ const AdminDashboard = ({ user, onLogout }) => {
         )}
       </div>
 
-      {/* Add User Modal */}
+      {/* Modals */}
       {showAddModal && (
         <div className="modal-overlay" onClick={() => setShowAddModal(false)}>
           <div className="modal" onClick={e => e.stopPropagation()}>
             <div className="modal-header">
               <h3>Add New User</h3>
-              <button onClick={() => setShowAddModal(false)}>×</button>
+              <button onClick={() => setShowAddModal(false)} className="modal-close">×</button>
             </div>
             <form onSubmit={handleAddUser}>
-              <div className="form-grid">
-                <div className="form-group">
-                  <label>Full Name *</label>
-                  <input
-                    type="text"
-                    value={formData.fullName}
-                    onChange={e => setFormData({...formData, fullName: e.target.value})}
-                    required
-                  />
-                </div>
-                <div className="form-group">
-                  <label>Username *</label>
-                  <input
-                    type="text"
-                    value={formData.username}
-                    onChange={e => setFormData({...formData, username: e.target.value})}
-                    required
-                  />
-                </div>
-                <div className="form-group">
-                  <label>Email *</label>
-                  <input
-                    type="email"
-                    value={formData.email}
-                    onChange={e => setFormData({...formData, email: e.target.value})}
-                    required
-                  />
-                </div>
-                <div className="form-group">
-                  <label>Password *</label>
-                  <input
-                    type="password"
-                    value={formData.password}
-                    onChange={e => setFormData({...formData, password: e.target.value})}
-                    required
-                    minLength="6"
-                  />
-                </div>
-                <div className="form-group">
-                  <label>Role *</label>
-                  <select
-                    value={formData.role}
-                    onChange={e => setFormData({...formData, role: e.target.value})}
-                  >
-                    <option value="USER">User</option>
-                    <option value="TEAM LEADER">Team Leader</option>
-                    <option value="ADMIN">Admin</option>
-                  </select>
-                </div>
-                <div className="form-group">
-                  <label>Team</label>
-                  <input
-                    type="text"
-                    value={formData.team}
-                    onChange={e => setFormData({...formData, team: e.target.value})}
-                    placeholder="General"
-                  />
+              <div className="modal-body">
+                <div className="form-grid">
+                  <div className="form-group">
+                    <label>Full Name *</label>
+                    <input
+                      type="text"
+                      value={formData.fullName}
+                      onChange={e => setFormData({...formData, fullName: e.target.value})}
+                      required
+                      className="form-input"
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Username *</label>
+                    <input
+                      type="text"
+                      value={formData.username}
+                      onChange={e => setFormData({...formData, username: e.target.value})}
+                      required
+                      className="form-input"
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Email *</label>
+                    <input
+                      type="email"
+                      value={formData.email}
+                      onChange={e => setFormData({...formData, email: e.target.value})}
+                      required
+                      className="form-input"
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Password *</label>
+                    <input
+                      type="password"
+                      value={formData.password}
+                      onChange={e => setFormData({...formData, password: e.target.value})}
+                      required
+                      minLength="6"
+                      className="form-input"
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Role *</label>
+                    <select
+                      value={formData.role}
+                      onChange={e => setFormData({...formData, role: e.target.value})}
+                      className="form-select"
+                    >
+                      <option value="USER">User</option>
+                      <option value="TEAM LEADER">Team Leader</option>
+                      <option value="ADMIN">Admin</option>
+                    </select>
+                  </div>
+                  <div className="form-group">
+                    <label>Team</label>
+                    <input
+                      type="text"
+                      value={formData.team}
+                      onChange={e => setFormData({...formData, team: e.target.value})}
+                      placeholder="General"
+                      className="form-input"
+                    />
+                  </div>
                 </div>
               </div>
               <div className="modal-footer">
@@ -717,56 +818,63 @@ const AdminDashboard = ({ user, onLogout }) => {
           <div className="modal" onClick={e => e.stopPropagation()}>
             <div className="modal-header">
               <h3>Edit User</h3>
-              <button onClick={() => setShowEditModal(false)}>×</button>
+              <button onClick={() => setShowEditModal(false)} className="modal-close">×</button>
             </div>
             <form onSubmit={handleEditUser}>
-              <div className="form-grid">
-                <div className="form-group">
-                  <label>Full Name *</label>
-                  <input
-                    type="text"
-                    value={formData.fullName}
-                    onChange={e => setFormData({...formData, fullName: e.target.value})}
-                    required
-                  />
-                </div>
-                <div className="form-group">
-                  <label>Username *</label>
-                  <input
-                    type="text"
-                    value={formData.username}
-                    onChange={e => setFormData({...formData, username: e.target.value})}
-                    required
-                  />
-                </div>
-                <div className="form-group">
-                  <label>Email *</label>
-                  <input
-                    type="email"
-                    value={formData.email}
-                    onChange={e => setFormData({...formData, email: e.target.value})}
-                    required
-                  />
-                </div>
-                <div className="form-group">
-                  <label>Role *</label>
-                  <select
-                    value={formData.role}
-                    onChange={e => setFormData({...formData, role: e.target.value})}
-                  >
-                    <option value="USER">User</option>
-                    <option value="TEAM LEADER">Team Leader</option>
-                    <option value="ADMIN">Admin</option>
-                  </select>
-                </div>
-                <div className="form-group">
-                  <label>Team</label>
-                  <input
-                    type="text"
-                    value={formData.team}
-                    onChange={e => setFormData({...formData, team: e.target.value})}
-                    placeholder="General"
-                  />
+              <div className="modal-body">
+                <div className="form-grid">
+                  <div className="form-group">
+                    <label>Full Name *</label>
+                    <input
+                      type="text"
+                      value={formData.fullName}
+                      onChange={e => setFormData({...formData, fullName: e.target.value})}
+                      required
+                      className="form-input"
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Username *</label>
+                    <input
+                      type="text"
+                      value={formData.username}
+                      onChange={e => setFormData({...formData, username: e.target.value})}
+                      required
+                      className="form-input"
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Email *</label>
+                    <input
+                      type="email"
+                      value={formData.email}
+                      onChange={e => setFormData({...formData, email: e.target.value})}
+                      required
+                      className="form-input"
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Role *</label>
+                    <select
+                      value={formData.role}
+                      onChange={e => setFormData({...formData, role: e.target.value})}
+                      className="form-select"
+                    >
+                      <option value="USER">User</option>
+                      <option value="TEAM LEADER">Team Leader</option>
+                      <option value="ADMIN">Admin</option>
+                    </select>
+                  </div>
+                  <div className="form-group">
+                    <label>Team</label>
+                    <input
+                      type="text"
+                      value={formData.team}
+                      onChange={e => setFormData({...formData, team: e.target.value})}
+                      placeholder="General"
+                      className="form-input"
+                    />
+                  </div>
                 </div>
               </div>
               <div className="modal-footer">
@@ -796,22 +904,25 @@ const AdminDashboard = ({ user, onLogout }) => {
           <div className="modal" onClick={e => e.stopPropagation()}>
             <div className="modal-header">
               <h3>Reset Password</h3>
-              <button onClick={() => setShowPasswordModal(false)}>×</button>
+              <button onClick={() => setShowPasswordModal(false)} className="modal-close">×</button>
             </div>
             <form onSubmit={handleResetPassword}>
-              <div className="form-group">
-                <label>User: <strong>{selectedUser.fullName} ({selectedUser.username})</strong></label>
-              </div>
-              <div className="form-group">
-                <label>New Password *</label>
-                <input
-                  type="password"
-                  value={formData.password}
-                  onChange={e => setFormData({...formData, password: e.target.value})}
-                  required
-                  minLength="6"
-                  placeholder="Enter new password"
-                />
+              <div className="modal-body">
+                <div className="form-group">
+                  <label>User: <strong>{selectedUser.fullName} ({selectedUser.username})</strong></label>
+                </div>
+                <div className="form-group">
+                  <label>New Password *</label>
+                  <input
+                    type="password"
+                    value={formData.password}
+                    onChange={e => setFormData({...formData, password: e.target.value})}
+                    required
+                    minLength="6"
+                    placeholder="Enter new password"
+                    className="form-input"
+                  />
+                </div>
               </div>
               <div className="modal-footer">
                 <button 

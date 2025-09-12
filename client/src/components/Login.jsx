@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
+import anime from 'animejs'
 import './Login.css'
 
 const Login = ({ onLogin }) => {
@@ -11,27 +12,43 @@ const Login = ({ onLogin }) => {
   const [isLoading, setIsLoading] = useState(false)
   const [apiError, setApiError] = useState('')
 
+  const loginCardRef = useRef(null)
+  const formRef = useRef(null)
+
+  useEffect(() => {
+    // Simplified entrance animation
+    anime({
+      targets: loginCardRef.current,
+      opacity: [0, 1],
+      translateY: [20, 0],
+      duration: 400,
+      easing: 'easeOutCubic'
+    })
+
+    anime({
+      targets: '.form-group',
+      opacity: [0, 1],
+      duration: 300,
+      delay: anime.stagger(50, {start: 200}),
+      easing: 'easeOutCubic'
+    })
+  }, [])
+
   const handleToggle = () => {
     const newLoginType = loginType === 'user' ? 'admin' : 'user'
     setLoginType(newLoginType)
-    // Clear form and errors when switching
     setFormData({ email: '', password: '' })
     setErrors({})
     setApiError('')
-    console.log(`Switched to ${newLoginType} login mode`)
   }
 
   const validateUsernameOrEmail = (input) => {
-    // Check if it's an email format
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-    // Check if it's a valid username format (alphanumeric, dots, underscores, hyphens)
     const usernameRegex = /^[a-zA-Z0-9._-]+$/
     
-    // If it contains @, validate as email
     if (input.includes('@')) {
       return emailRegex.test(input)
     }
-    // Otherwise validate as username
     return usernameRegex.test(input) && input.length >= 3 && input.length <= 30
   }
 
@@ -63,7 +80,6 @@ const Login = ({ onLogin }) => {
       [name]: value
     }))
     
-    // Clear errors when user starts typing
     if (errors[name]) {
       setErrors(prev => ({
         ...prev,
@@ -71,7 +87,6 @@ const Login = ({ onLogin }) => {
       }))
     }
     
-    // Clear API error when user starts typing
     if (apiError) {
       setApiError('')
     }
@@ -79,16 +94,13 @@ const Login = ({ onLogin }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
-    console.log(`${loginType} login form submitted with:`, formData)
     
     if (!validateForm()) {
-      console.log('Form validation failed')
       return
     }
     
     setIsLoading(true)
     setApiError('')
-    console.log(`Sending ${loginType} login request...`)
     
     try {
       const response = await fetch('http://localhost:3001/api/auth/login', {
@@ -103,14 +115,19 @@ const Login = ({ onLogin }) => {
       })
       
       const data = await response.json()
-      console.log('API response:', data)
       
       if (data.success) {
-        console.log('Login successful, calling onLogin...')
-        // Call the onLogin prop to update app state
-        onLogin(data.user)
+        // Simple success animation
+        anime({
+          targets: loginCardRef.current,
+          opacity: [1, 0],
+          duration: 300,
+          easing: 'easeInCubic',
+          complete: () => {
+            onLogin(data.user)
+          }
+        })
       } else {
-        console.log('Login failed:', data.message)
         setApiError(data.message || 'Login failed')
       }
     } catch (error) {
@@ -121,11 +138,14 @@ const Login = ({ onLogin }) => {
     }
   }
 
-
-
   return (
-    <div className="login-container">
-      <div className="login-card">
+    <div className="minimal-login-container">
+      <div className="login-card" ref={loginCardRef}>
+        <div className="login-header">
+          <h1>Welcome Back</h1>
+          <p>Sign in to access your workspace</p>
+        </div>
+
         <div className="login-toggle">
           <div className="toggle-container">
             <button
@@ -133,19 +153,19 @@ const Login = ({ onLogin }) => {
               className={`toggle-btn ${loginType === 'user' ? 'active' : ''}`}
               onClick={() => loginType !== 'user' && handleToggle()}
             >
-              User
+              User Portal
             </button>
             <button
               type="button"
               className={`toggle-btn ${loginType === 'admin' ? 'active' : ''}`}
               onClick={() => loginType !== 'admin' && handleToggle()}
             >
-              Admin
+              Admin Panel
             </button>
           </div>
         </div>
         
-        <form onSubmit={handleSubmit} className="login-form">
+        <form onSubmit={handleSubmit} className="login-form" ref={formRef}>
           <div className="form-group">
             <label htmlFor="email">Username or Email</label>
             <input
@@ -176,20 +196,27 @@ const Login = ({ onLogin }) => {
             {errors.password && <span className="error-message">{errors.password}</span>}
           </div>
           
-          {apiError && <div className="api-error">{apiError}</div>}
+          {apiError && (
+            <div className="api-error">
+              {apiError}
+            </div>
+          )}
           
           <button 
             type="submit" 
-            className={`login-button ${loginType}`}
+            className={`login-button ${loginType} ${isLoading ? 'loading' : ''}`}
             disabled={isLoading}
           >
-            {isLoading 
-              ? 'Logging in...' 
-              : 'Login'
-            }
+            {isLoading ? (
+              <>
+                <span className="loading-spinner"></span>
+                <span>Signing In...</span>
+              </>
+            ) : (
+              'Sign In'
+            )}
           </button>
         </form>
-
       </div>
     </div>
   )
