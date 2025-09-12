@@ -21,18 +21,31 @@ const Login = ({ onLogin }) => {
     console.log(`Switched to ${newLoginType} login mode`)
   }
 
-  const validateEmail = (email) => {
+  const validateUsernameOrEmail = (input) => {
+    // Check if it's an email format
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-    return emailRegex.test(email)
+    // Check if it's a valid username format (alphanumeric, dots, underscores, hyphens)
+    const usernameRegex = /^[a-zA-Z0-9._-]+$/
+    
+    // If it contains @, validate as email
+    if (input.includes('@')) {
+      return emailRegex.test(input)
+    }
+    // Otherwise validate as username
+    return usernameRegex.test(input) && input.length >= 3 && input.length <= 30
   }
 
   const validateForm = () => {
     const newErrors = {}
     
     if (!formData.email.trim()) {
-      newErrors.email = 'Email is required'
-    } else if (!validateEmail(formData.email)) {
-      newErrors.email = 'Please enter a valid email address'
+      newErrors.email = 'Username or email is required'
+    } else if (!validateUsernameOrEmail(formData.email)) {
+      if (formData.email.includes('@')) {
+        newErrors.email = 'Please enter a valid email address'
+      } else {
+        newErrors.email = 'Username must be 3-30 characters and contain only letters, numbers, dots, underscores, or hyphens'
+      }
     }
     
     if (!formData.password.trim()) {
@@ -134,16 +147,16 @@ const Login = ({ onLogin }) => {
         
         <form onSubmit={handleSubmit} className="login-form">
           <div className="form-group">
-            <label htmlFor="email">Email</label>
+            <label htmlFor="email">Username or Email</label>
             <input
-              type="email"
+              type="text"
               id="email"
               name="email"
               value={formData.email}
               onChange={handleInputChange}
               className={errors.email ? 'error' : ''}
               disabled={isLoading}
-              placeholder="Enter your email"
+              placeholder="Enter username or email"
             />
             {errors.email && <span className="error-message">{errors.email}</span>}
           </div>
