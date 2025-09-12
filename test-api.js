@@ -148,7 +148,12 @@ const testHealth = () => {
     });
   }).on('error', (e) => {
     console.error(`Health check failed: ${e.message}`);
-    console.log('Make sure the Express server is running on port 3001');
+    console.log('\n🚨 The Express server is not running!');
+    console.log('\n📋 To fix this, run ONE of the following:');
+    console.log('   1. npm run server:standalone  (starts just the Express server)');
+    console.log('   2. npm run dev                (starts full development environment)');
+    console.log('\n⚡ Then run: npm run test:api');
+    console.log('\n🔍 Expected server URL: http://localhost:3001');
   });
 };
 
