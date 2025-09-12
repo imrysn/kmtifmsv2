@@ -225,8 +225,12 @@ app.post('/api/auth/login', (req, res) => {
     });
   }
   
-  // Find user by email
-  db.get('SELECT * FROM users WHERE email = ?', [email], (err, user) => {
+  // Find user by email OR username
+  const query = email.includes('@') 
+    ? 'SELECT * FROM users WHERE email = ?'
+    : 'SELECT * FROM users WHERE username = ?';
+    
+  db.get(query, [email], (err, user) => {
     if (err) {
       console.error('❌ Database error:', err);
       return res.status(500).json({ 

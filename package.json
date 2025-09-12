@@ -13,7 +13,8 @@
     "postinstall": "cd client && npm install",
     "test:api": "node test-api.js",
     "server:standalone": "node server.js",
-    "reset:db": "node reset-db.js"
+    "reset:db": "node reset-db.js",
+    "reset:db:force": "node reset-db-force.js"
   },
   "devDependencies": {
     "electron": "^27.0.0",
