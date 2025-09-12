@@ -47,8 +47,27 @@ function initializeDatabase() {
         
         console.log('✅ Users table created/verified');
         
-        // Check table structure and add missing columns if needed
-        db.all('PRAGMA table_info(users)', (err, columns) => {
+        // Create activity_logs table
+        db.run(`CREATE TABLE IF NOT EXISTS activity_logs (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          user_id INTEGER,
+          username TEXT NOT NULL,
+          role TEXT NOT NULL,
+          team TEXT NOT NULL,
+          activity TEXT NOT NULL,
+          timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (user_id) REFERENCES users (id)
+        )`, (err) => {
+          if (err) {
+            console.error('Error creating activity_logs table:', err);
+            reject(err);
+            return;
+          }
+          
+          console.log('✅ Activity logs table created/verified');
+        
+          // Check table structure and add missing columns if needed
+          db.all('PRAGMA table_info(users)', (err, columns) => {
           if (err) {
             console.error('Error getting table info:', err);
             reject(err);
@@ -116,6 +135,7 @@ function initializeDatabase() {
               seedTestUsers(resolve, reject);
             });
           }).catch(reject);
+          });
         });
       });
     });
@@ -192,12 +212,43 @@ function seedTestUsers(resolve, reject) {
             console.log('  TEAM LEADER: teamleader@example.com / password123 (Sarah Team Leader)');
             console.log('  ADMIN: admin@example.com / password123 (Admin Administrator)');
             console.log('  Legacy USER: test@example.com / password123 (Test User)\n');
+            
+            // Add some sample activity logs
+            const sampleActivities = [
+              { username: 'admin', role: 'ADMIN', team: 'IT Administration', activity: 'System initialized and test users created' },
+              { username: 'john.user', role: 'USER', team: 'Development', activity: 'User account created by administrator' },
+              { username: 'sarah.leader', role: 'TEAM LEADER', team: 'Management', activity: 'User account created by administrator' },
+              { username: 'test.user', role: 'USER', team: 'QA Testing', activity: 'User account created by administrator' },
+              { username: 'admin', role: 'ADMIN', team: 'IT Administration', activity: 'User logged in via admin portal' }
+            ];
+            
+            sampleActivities.forEach((activity, index) => {
+              setTimeout(() => {
+                logActivity(null, activity.username, activity.role, activity.team, activity.activity);
+              }, index * 100); // Stagger the logs slightly
+            });
+            
             resolve();
           }
         }
       );
     });
   });
+}
+
+// Activity logging function
+function logActivity(userId, username, role, team, activity) {
+  db.run(
+    'INSERT INTO activity_logs (user_id, username, role, team, activity) VALUES (?, ?, ?, ?, ?)',
+    [userId, username, role, team, activity],
+    function(err) {
+      if (err) {
+        console.error('❌ Error logging activity:', err);
+      } else {
+        console.log(`📋 Activity logged: ${activity} by ${username}`);
+      }
+    }
+  );
 }
 
 // Routes
@@ -299,6 +350,15 @@ app.post('/api/auth/login', (req, res) => {
     
     console.log(`✅ Login successful for ${userRole} -> ${panelType} panel`);
     
+    // Log activity
+    logActivity(
+      user.id,
+      user.username,
+      user.role,
+      user.team,
+      `User logged in via ${loginType} portal`
+    );
+    
     // Remove password from user object before sending response
     const { password: _, ...userWithoutPassword } = user;
     
@@ -372,6 +432,16 @@ app.post('/api/users', (req, res) => {
       }
       
       console.log(`✅ User created with ID: ${this.lastID}`);
+      
+      // Log activity
+      logActivity(
+        this.lastID,
+        username,
+        role,
+        team,
+        `User account created by administrator`
+      );
+      
       res.status(201).json({ 
         success: true, 
         message: 'User created successfully',
@@ -422,6 +492,16 @@ app.put('/api/users/:id', (req, res) => {
       }
       
       console.log(`✅ User ${userId} updated successfully`);
+      
+      // Log activity
+      logActivity(
+        userId,
+        username,
+        role,
+        team,
+        `User profile updated by administrator (Name: ${fullName}, Role: ${role}, Team: ${team})`
+      );
+      
       res.json({ 
         success: true, 
         message: 'User updated successfully' 
@@ -466,6 +546,20 @@ app.put('/api/users/:id/password', (req, res) => {
       }
       
       console.log(`✅ Password reset for user ${userId}`);
+      
+      // Get user details for logging
+      db.get('SELECT username, role, team FROM users WHERE id = ?', [userId], (err, userDetails) => {
+        if (!err && userDetails) {
+          logActivity(
+            userId,
+            userDetails.username,
+            userDetails.role,
+            userDetails.team,
+            'Password reset by administrator'
+          );
+        }
+      });
+      
       res.json({ 
         success: true, 
         message: 'Password reset successfully' 
@@ -508,6 +602,16 @@ app.delete('/api/users/:id', (req, res) => {
       }
       
       console.log(`✅ User deleted: ${user.fullName} (${user.email})`);
+      
+      // Log activity (using user info before deletion)
+      logActivity(
+        null, // user_id is null since user is deleted
+        'System',
+        'ADMIN',
+        'System',
+        `User account deleted by administrator: ${user.fullName} (${user.email})`
+      );
+      
       res.json({ 
         success: true, 
         message: `User ${user.fullName} deleted successfully` 
@@ -550,6 +654,33 @@ app.get('/api/users/search', (req, res) => {
       res.json({ 
         success: true, 
         users 
+      });
+    }
+  );
+});
+
+// Activity Logs Endpoints
+
+// Get all activity logs (Admin only)
+app.get('/api/activity-logs', (req, res) => {
+  console.log('📋 Getting activity logs...');
+  
+  db.all(
+    'SELECT * FROM activity_logs ORDER BY timestamp DESC LIMIT 1000',
+    [],
+    (err, logs) => {
+      if (err) {
+        console.error('❌ Database error getting activity logs:', err);
+        return res.status(500).json({ 
+          success: false, 
+          message: 'Failed to fetch activity logs' 
+        });
+      }
+      
+      console.log(`✅ Retrieved ${logs.length} activity logs`);
+      res.json({ 
+        success: true, 
+        logs 
       });
     }
   );

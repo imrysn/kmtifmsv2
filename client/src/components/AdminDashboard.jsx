@@ -6,6 +6,9 @@ const AdminDashboard = ({ user, onLogout }) => {
   const [users, setUsers] = useState([])
   const [searchQuery, setSearchQuery] = useState('')
   const [filteredUsers, setFilteredUsers] = useState([])
+  const [activityLogs, setActivityLogs] = useState([])
+  const [filteredLogs, setFilteredLogs] = useState([])
+  const [logsSearchQuery, setLogsSearchQuery] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [selectedUser, setSelectedUser] = useState(null)
   const [showAddModal, setShowAddModal] = useState(false)
@@ -25,6 +28,8 @@ const AdminDashboard = ({ user, onLogout }) => {
   useEffect(() => {
     if (activeTab === 'users') {
       fetchUsers()
+    } else if (activeTab === 'activity-logs') {
+      fetchActivityLogs()
     }
   }, [activeTab])
 
@@ -43,6 +48,20 @@ const AdminDashboard = ({ user, onLogout }) => {
     }
   }, [searchQuery, users])
 
+  useEffect(() => {
+    if (logsSearchQuery.trim() === '') {
+      setFilteredLogs(activityLogs)
+    } else {
+      const filtered = activityLogs.filter(log => 
+        log.username.toLowerCase().includes(logsSearchQuery.toLowerCase()) ||
+        log.role.toLowerCase().includes(logsSearchQuery.toLowerCase()) ||
+        log.team.toLowerCase().includes(logsSearchQuery.toLowerCase()) ||
+        log.activity.toLowerCase().includes(logsSearchQuery.toLowerCase())
+      )
+      setFilteredLogs(filtered)
+    }
+  }, [logsSearchQuery, activityLogs])
+
   const fetchUsers = async () => {
     setIsLoading(true)
     try {
@@ -60,6 +79,55 @@ const AdminDashboard = ({ user, onLogout }) => {
     } finally {
       setIsLoading(false)
     }
+  }
+
+  const fetchActivityLogs = async () => {
+    setIsLoading(true)
+    try {
+      const response = await fetch('http://localhost:3001/api/activity-logs')
+      const data = await response.json()
+      if (data.success) {
+        setActivityLogs(data.logs)
+        setFilteredLogs(data.logs)
+      } else {
+        setError('Failed to fetch activity logs')
+      }
+    } catch (error) {
+      console.error('Error fetching activity logs:', error)
+      setError('Failed to connect to server')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const exportLogs = () => {
+    const csvContent = [
+      ['Username', 'Role', 'Team', 'Date & Time', 'Activity'],
+      ...filteredLogs.map(log => [
+        log.username,
+        log.role,
+        log.team,
+        new Date(log.timestamp).toLocaleString(),
+        log.activity
+      ])
+    ].map(row => row.join(',')).join('\n')
+    
+    const blob = new Blob([csvContent], { type: 'text/csv' })
+    const url = window.URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `activity-logs-${new Date().toISOString().split('T')[0]}.csv`
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    window.URL.revokeObjectURL(url)
+    setSuccess('Activity logs exported successfully')
+  }
+
+  const clearLogFilters = () => {
+    setLogsSearchQuery('')
+    setFilteredLogs(activityLogs)
+    setSuccess('Filters cleared')
   }
 
   const handleAddUser = async (e) => {
@@ -244,6 +312,16 @@ const AdminDashboard = ({ user, onLogout }) => {
           >
             <span className="nav-icon">👥</span>
             User Management
+          </button>
+          <button 
+            className={`nav-item ${activeTab === 'activity-logs' ? 'active' : ''}`}
+            onClick={() => { 
+              setActiveTab('activity-logs'); 
+              clearMessages(); 
+            }}
+          >
+            <span className="nav-icon">📋</span>
+            Activity Logs
           </button>
         </nav>
         
@@ -432,6 +510,111 @@ const AdminDashboard = ({ user, onLogout }) => {
               {!isLoading && filteredUsers.length === 0 && (
                 <div className="empty-state">
                   <p>No users found matching your search.</p>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Activity Logs Tab */}
+        {activeTab === 'activity-logs' && (
+          <div className="activity-logs-tab">
+            <div className="page-header">
+              <h1>Activity Logs</h1>
+              <p>Monitor system activities and user actions</p>
+            </div>
+            
+            {/* Action Bar */}
+            <div className="action-bar">
+              <div className="search-container">
+                <input
+                  type="text"
+                  placeholder="Search activity logs..."
+                  value={logsSearchQuery}
+                  onChange={(e) => setLogsSearchQuery(e.target.value)}
+                  className="search-input"
+                />
+              </div>
+              
+              <div className="action-buttons">
+                <button 
+                  className="btn btn-secondary"
+                  onClick={clearLogFilters}
+                  disabled={logsSearchQuery === ''}
+                >
+                  Clear Filtered
+                </button>
+                <button 
+                  className="btn btn-primary"
+                  onClick={exportLogs}
+                  disabled={filteredLogs.length === 0}
+                >
+                  📊 Export Logs
+                </button>
+              </div>
+            </div>
+            
+            {/* Messages */}
+            {error && (
+              <div className="alert alert-error">
+                {error}
+                <button onClick={clearMessages} className="alert-close">×</button>
+              </div>
+            )}
+            
+            {success && (
+              <div className="alert alert-success">
+                {success}
+                <button onClick={clearMessages} className="alert-close">×</button>
+              </div>
+            )}
+            
+            {/* Activity Logs Table */}
+            <div className="table-container">
+              {isLoading ? (
+                <div className="loading-state">
+                  <div className="spinner"></div>
+                  <p>Loading activity logs...</p>
+                </div>
+              ) : (
+                <table className="activity-logs-table">
+                  <thead>
+                    <tr>
+                      <th>Username</th>
+                      <th>Role</th>
+                      <th>Team</th>
+                      <th>Date & Time</th>
+                      <th>Activity</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredLogs.map((log) => (
+                      <tr key={log.id}>
+                        <td>{log.username}</td>
+                        <td>
+                          <span className={`role-badge ${log.role.toLowerCase().replace(' ', '-')}`}>
+                            {log.role}
+                          </span>
+                        </td>
+                        <td>{log.team}</td>
+                        <td>
+                          <div className="datetime-column">
+                            <div className="date">{new Date(log.timestamp).toLocaleDateString()}</div>
+                            <div className="time">{new Date(log.timestamp).toLocaleTimeString()}</div>
+                          </div>
+                        </td>
+                        <td>
+                          <div className="activity-description">{log.activity}</div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+              
+              {!isLoading && filteredLogs.length === 0 && (
+                <div className="empty-state">
+                  <p>No activity logs found matching your search.</p>
                 </div>
               )}
             </div>

@@ -366,12 +366,14 @@
   overflow: hidden;
 }
 
-.users-table {
+.users-table,
+.activity-logs-table {
   width: 100%;
   border-collapse: collapse;
 }
 
-.users-table th {
+.users-table th,
+.activity-logs-table th {
   background: #f8f9fa;
   padding: 16px;
   text-align: left;
@@ -381,14 +383,17 @@
   font-size: 14px;
 }
 
-.users-table td {
+.users-table td,
+.activity-logs-table td {
   padding: 16px;
   border-bottom: 1px solid #e1e5e9;
   color: #2c3e50;
   font-size: 14px;
+  vertical-align: top;
 }
 
-.users-table tbody tr:hover {
+.users-table tbody tr:hover,
+.activity-logs-table tbody tr:hover {
   background: #f8f9fa;
 }
 
@@ -420,6 +425,42 @@
 .role-badge.admin {
   background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
   color: white;
+}
+
+/* Activity Logs Specific Styles */
+.activity-logs-tab {
+  padding: 0;
+}
+
+.datetime-column {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.datetime-column .date {
+  font-weight: 600;
+  color: #2c3e50;
+  font-size: 14px;
+}
+
+.datetime-column .time {
+  color: #7f8c8d;
+  font-size: 12px;
+}
+
+.activity-description {
+  line-height: 1.4;
+  max-width: 300px;
+  word-wrap: break-word;
+}
+
+.activity-logs-table th:nth-child(4) {
+  width: 140px;
+}
+
+.activity-logs-table th:nth-child(5) {
+  width: 35%;
 }
 
 /* Loading and Empty States */
