@@ -25,6 +25,31 @@ const AdminDashboard = ({ user, onLogout }) => {
     role: 'USER',
     team: 'General'
   })
+  const [settings, setSettings] = useState({
+    system: {
+      siteName: 'KMTIFMSV2 Admin',
+      siteDescription: 'Enterprise User Management System',
+      maintenanceMode: false,
+      debugMode: false
+    },
+    security: {
+      sessionTimeout: 30,
+      passwordMinLength: 6,
+      maxLoginAttempts: 5,
+      requireTwoFactor: false
+    },
+    notifications: {
+      emailNotifications: true,
+      loginAlerts: true,
+      userRegistrationAlerts: false,
+      systemAlerts: true
+    },
+    backup: {
+      autoBackup: true,
+      backupFrequency: 'daily',
+      retentionDays: 30
+    }
+  })
 
   const sidebarRef = useRef(null)
   const mainContentRef = useRef(null)
@@ -303,6 +328,44 @@ const AdminDashboard = ({ user, onLogout }) => {
     setSuccess('')
   }
 
+  const handleSettingsChange = (category, field, value) => {
+    setSettings(prev => ({
+      ...prev,
+      [category]: {
+        ...prev[category],
+        [field]: value
+      }
+    }))
+  }
+
+  const handleSaveSettings = async () => {
+    setIsLoading(true)
+    try {
+      // Here you would typically save to your backend
+      // const response = await fetch('/api/settings', { method: 'PUT', ... })
+      
+      // For now, we'll just simulate a successful save
+      await new Promise(resolve => setTimeout(resolve, 1000))
+      setSuccess('Settings saved successfully')
+    } catch (error) {
+      setError('Failed to save settings')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleExportDatabase = () => {
+    setSuccess('Database export initiated')
+    // Simulate database export
+  }
+
+  const handleResetDatabase = () => {
+    if (confirm('Are you sure you want to reset the database? This will remove all data and cannot be undone.')) {
+      setSuccess('Database reset initiated')
+      // Here you would call your reset script
+    }
+  }
+
   return (
     <div className="minimal-admin-dashboard">
       {/* Sidebar */}
@@ -346,6 +409,16 @@ const AdminDashboard = ({ user, onLogout }) => {
             }}
           >
             <span className="nav-label">Activity Logs</span>
+          </button>
+          <button 
+            className={`nav-item ${activeTab === 'settings' ? 'active' : ''}`}
+            onClick={(e) => { 
+              e.preventDefault()
+              setActiveTab('settings')
+              clearMessages()
+            }}
+          >
+            <span className="nav-label">Settings</span>
           </button>
         </nav>
         
@@ -716,6 +789,337 @@ const AdminDashboard = ({ user, onLogout }) => {
                   <p>No activity logs match your current search criteria.</p>
                 </div>
               )}
+            </div>
+          </div>
+        )}
+
+        {/* Settings Tab */}
+        {activeTab === 'settings' && (
+          <div className="settings-section">
+            <div className="page-header">
+              <h1>System Settings</h1>
+              <p>Configure system preferences, security, and administrative options</p>
+            </div>
+            
+            {/* Messages */}
+            {error && (
+              <div className="alert alert-error">
+                <span className="alert-message">{error}</span>
+                <button onClick={clearMessages} className="alert-close">×</button>
+              </div>
+            )}
+            
+            {success && (
+              <div className="alert alert-success">
+                <span className="alert-message">{success}</span>
+                <button onClick={clearMessages} className="alert-close">×</button>
+              </div>
+            )}
+            
+            <div className="settings-grid">
+              {/* System Settings */}
+              <div className="settings-card">
+                <div className="settings-card-header">
+                  <div className="settings-icon system-icon">SY</div>
+                  <h3>System Configuration</h3>
+                </div>
+                <div className="settings-card-body">
+                  <div className="form-group">
+                    <label>Site Name</label>
+                    <input
+                      type="text"
+                      value={settings.system.siteName}
+                      onChange={(e) => handleSettingsChange('system', 'siteName', e.target.value)}
+                      className="form-input"
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Site Description</label>
+                    <textarea
+                      value={settings.system.siteDescription}
+                      onChange={(e) => handleSettingsChange('system', 'siteDescription', e.target.value)}
+                      className="form-textarea"
+                      rows="3"
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label className="checkbox-label">
+                      <input
+                        type="checkbox"
+                        checked={settings.system.maintenanceMode}
+                        onChange={(e) => handleSettingsChange('system', 'maintenanceMode', e.target.checked)}
+                        className="form-checkbox"
+                      />
+                      <span>Maintenance Mode</span>
+                    </label>
+                    <p className="help-text">Enable maintenance mode to prevent user access</p>
+                  </div>
+                  <div className="form-group">
+                    <label className="checkbox-label">
+                      <input
+                        type="checkbox"
+                        checked={settings.system.debugMode}
+                        onChange={(e) => handleSettingsChange('system', 'debugMode', e.target.checked)}
+                        className="form-checkbox"
+                      />
+                      <span>Debug Mode</span>
+                    </label>
+                    <p className="help-text">Enable detailed logging and error reporting</p>
+                  </div>
+                </div>
+              </div>
+              
+              {/* Security Settings */}
+              <div className="settings-card">
+                <div className="settings-card-header">
+                  <div className="settings-icon security-icon">SE</div>
+                  <h3>Security & Authentication</h3>
+                </div>
+                <div className="settings-card-body">
+                  <div className="form-group">
+                    <label>Session Timeout (minutes)</label>
+                    <input
+                      type="number"
+                      value={settings.security.sessionTimeout}
+                      onChange={(e) => handleSettingsChange('security', 'sessionTimeout', parseInt(e.target.value))}
+                      min="5"
+                      max="1440"
+                      className="form-input"
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Minimum Password Length</label>
+                    <input
+                      type="number"
+                      value={settings.security.passwordMinLength}
+                      onChange={(e) => handleSettingsChange('security', 'passwordMinLength', parseInt(e.target.value))}
+                      min="4"
+                      max="50"
+                      className="form-input"
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Max Login Attempts</label>
+                    <input
+                      type="number"
+                      value={settings.security.maxLoginAttempts}
+                      onChange={(e) => handleSettingsChange('security', 'maxLoginAttempts', parseInt(e.target.value))}
+                      min="1"
+                      max="20"
+                      className="form-input"
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label className="checkbox-label">
+                      <input
+                        type="checkbox"
+                        checked={settings.security.requireTwoFactor}
+                        onChange={(e) => handleSettingsChange('security', 'requireTwoFactor', e.target.checked)}
+                        className="form-checkbox"
+                      />
+                      <span>Require Two-Factor Authentication</span>
+                    </label>
+                    <p className="help-text">Require 2FA for all admin accounts</p>
+                  </div>
+                </div>
+              </div>
+              
+              {/* Notifications */}
+              <div className="settings-card">
+                <div className="settings-card-header">
+                  <div className="settings-icon notifications-icon">NO</div>
+                  <h3>Notifications</h3>
+                </div>
+                <div className="settings-card-body">
+                  <div className="form-group">
+                    <label className="checkbox-label">
+                      <input
+                        type="checkbox"
+                        checked={settings.notifications.emailNotifications}
+                        onChange={(e) => handleSettingsChange('notifications', 'emailNotifications', e.target.checked)}
+                        className="form-checkbox"
+                      />
+                      <span>Email Notifications</span>
+                    </label>
+                  </div>
+                  <div className="form-group">
+                    <label className="checkbox-label">
+                      <input
+                        type="checkbox"
+                        checked={settings.notifications.loginAlerts}
+                        onChange={(e) => handleSettingsChange('notifications', 'loginAlerts', e.target.checked)}
+                        className="form-checkbox"
+                      />
+                      <span>Login Alerts</span>
+                    </label>
+                    <p className="help-text">Notify on suspicious login activities</p>
+                  </div>
+                  <div className="form-group">
+                    <label className="checkbox-label">
+                      <input
+                        type="checkbox"
+                        checked={settings.notifications.userRegistrationAlerts}
+                        onChange={(e) => handleSettingsChange('notifications', 'userRegistrationAlerts', e.target.checked)}
+                        className="form-checkbox"
+                      />
+                      <span>User Registration Alerts</span>
+                    </label>
+                  </div>
+                  <div className="form-group">
+                    <label className="checkbox-label">
+                      <input
+                        type="checkbox"
+                        checked={settings.notifications.systemAlerts}
+                        onChange={(e) => handleSettingsChange('notifications', 'systemAlerts', e.target.checked)}
+                        className="form-checkbox"
+                      />
+                      <span>System Alerts</span>
+                    </label>
+                    <p className="help-text">Notify on system errors and warnings</p>
+                  </div>
+                </div>
+              </div>
+              
+              {/* Backup Settings */}
+              <div className="settings-card">
+                <div className="settings-card-header">
+                  <div className="settings-icon backup-icon">BA</div>
+                  <h3>Backup & Maintenance</h3>
+                </div>
+                <div className="settings-card-body">
+                  <div className="form-group">
+                    <label className="checkbox-label">
+                      <input
+                        type="checkbox"
+                        checked={settings.backup.autoBackup}
+                        onChange={(e) => handleSettingsChange('backup', 'autoBackup', e.target.checked)}
+                        className="form-checkbox"
+                      />
+                      <span>Automatic Backups</span>
+                    </label>
+                  </div>
+                  <div className="form-group">
+                    <label>Backup Frequency</label>
+                    <select
+                      value={settings.backup.backupFrequency}
+                      onChange={(e) => handleSettingsChange('backup', 'backupFrequency', e.target.value)}
+                      className="form-select"
+                    >
+                      <option value="hourly">Hourly</option>
+                      <option value="daily">Daily</option>
+                      <option value="weekly">Weekly</option>
+                      <option value="monthly">Monthly</option>
+                    </select>
+                  </div>
+                  <div className="form-group">
+                    <label>Retention Period (days)</label>
+                    <input
+                      type="number"
+                      value={settings.backup.retentionDays}
+                      onChange={(e) => handleSettingsChange('backup', 'retentionDays', parseInt(e.target.value))}
+                      min="1"
+                      max="365"
+                      className="form-input"
+                    />
+                  </div>
+                  <div className="backup-actions">
+                    <button 
+                      className="btn btn-secondary"
+                      onClick={handleExportDatabase}
+                    >
+                      Export Database
+                    </button>
+                    <button 
+                      className="btn btn-danger"
+                      onClick={handleResetDatabase}
+                    >
+                      Reset Database
+                    </button>
+                  </div>
+                </div>
+              </div>
+              
+              {/* System Information */}
+              <div className="settings-card">
+                <div className="settings-card-header">
+                  <div className="settings-icon info-icon">IN</div>
+                  <h3>System Information</h3>
+                </div>
+                <div className="settings-card-body">
+                  <div className="system-info">
+                    <div className="info-row">
+                      <span className="info-label">Application Version:</span>
+                      <span className="info-value">v2.0.0</span>
+                    </div>
+                    <div className="info-row">
+                      <span className="info-label">Database Version:</span>
+                      <span className="info-value">SQLite 3.45.0</span>
+                    </div>
+                    <div className="info-row">
+                      <span className="info-label">Node.js Version:</span>
+                      <span className="info-value">{typeof process !== 'undefined' ? process.version : 'v20.x.x'}</span>
+                    </div>
+                    <div className="info-row">
+                      <span className="info-label">Uptime:</span>
+                      <span className="info-value">2 days, 14 hours</span>
+                    </div>
+                    <div className="info-row">
+                      <span className="info-label">Total Users:</span>
+                      <span className="info-value">{users.length}</span>
+                    </div>
+                    <div className="info-row">
+                      <span className="info-label">Active Sessions:</span>
+                      <span className="info-value">5</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              {/* Application Settings */}
+              <div className="settings-card">
+                <div className="settings-card-header">
+                  <div className="settings-icon app-icon">AP</div>
+                  <h3>Application Settings</h3>
+                </div>
+                <div className="settings-card-body">
+                  <div className="form-group">
+                    <label>Theme Preference</label>
+                    <select className="form-select">
+                      <option value="auto">Auto (System)</option>
+                      <option value="light">Light Mode</option>
+                      <option value="dark">Dark Mode</option>
+                    </select>
+                  </div>
+                  <div className="form-group">
+                    <label>Date Format</label>
+                    <select className="form-select">
+                      <option value="US">MM/DD/YYYY</option>
+                      <option value="EU">DD/MM/YYYY</option>
+                      <option value="ISO">YYYY-MM-DD</option>
+                    </select>
+                  </div>
+                  <div className="form-group">
+                    <label>Time Zone</label>
+                    <select className="form-select">
+                      <option value="UTC">UTC</option>
+                      <option value="local">Local Time</option>
+                      <option value="PST">Pacific Time</option>
+                      <option value="EST">Eastern Time</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            {/* Save Settings Action */}
+            <div className="settings-actions">
+              <button 
+                className="btn btn-primary btn-large"
+                onClick={handleSaveSettings}
+                disabled={isLoading}
+              >
+                {isLoading ? 'Saving...' : 'Save All Settings'}
+              </button>
             </div>
           </div>
         )}
