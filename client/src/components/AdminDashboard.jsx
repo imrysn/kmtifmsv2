@@ -29,8 +29,8 @@ const AdminDashboard = ({ user, onLogout }) => {
   const sidebarRef = useRef(null)
   const mainContentRef = useRef(null)
 
+  // Initial animations on component mount only
   useEffect(() => {
-    // Simplified initial animations
     anime({
       targets: sidebarRef.current,
       opacity: [0, 1],
@@ -45,7 +45,10 @@ const AdminDashboard = ({ user, onLogout }) => {
       delay: 100,
       easing: 'easeOutCubic'
     })
+  }, []) // Only run on component mount
 
+  // Handle tab changes and fetch data when needed
+  useEffect(() => {
     if (activeTab === 'users') {
       fetchUsers()
     } else if (activeTab === 'activity-logs') {
@@ -316,7 +319,8 @@ const AdminDashboard = ({ user, onLogout }) => {
         <nav className="sidebar-nav">
           <button 
             className={`nav-item ${activeTab === 'dashboard' ? 'active' : ''}`}
-            onClick={() => { 
+            onClick={(e) => { 
+              e.preventDefault()
               setActiveTab('dashboard')
               clearMessages()
             }}
@@ -325,7 +329,8 @@ const AdminDashboard = ({ user, onLogout }) => {
           </button>
           <button 
             className={`nav-item ${activeTab === 'users' ? 'active' : ''}`}
-            onClick={() => { 
+            onClick={(e) => { 
+              e.preventDefault()
               setActiveTab('users')
               clearMessages()
             }}
@@ -334,7 +339,8 @@ const AdminDashboard = ({ user, onLogout }) => {
           </button>
           <button 
             className={`nav-item ${activeTab === 'activity-logs' ? 'active' : ''}`}
-            onClick={() => { 
+            onClick={(e) => { 
+              e.preventDefault()
               setActiveTab('activity-logs')
               clearMessages()
             }}
