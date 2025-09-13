@@ -58,6 +58,8 @@ const AdminDashboard = ({ user, onLogout }) => {
   const [selectedFile, setSelectedFile] = useState(null)
   const [showFileModal, setShowFileModal] = useState(false)
   const [fileComment, setFileComment] = useState('')
+  const [showDeleteModal, setShowDeleteModal] = useState(false)
+  const [fileToDelete, setFileToDelete] = useState(null)
 
   const sidebarRef = useRef(null)
   const mainContentRef = useRef(null)
@@ -314,18 +316,18 @@ const AdminDashboard = ({ user, onLogout }) => {
     setSuccess('File filters cleared')
   }
 
-  const deleteFile = async (fileId, filename) => {
-    if (!confirm(`Are you sure you want to delete ${filename}? This action cannot be undone.`)) {
-      return
-    }
+  const deleteFile = async () => {
+    if (!fileToDelete) return
     
     setIsLoading(true)
     try {
       // Simulate API call
       await new Promise(resolve => setTimeout(resolve, 500))
       
-      const updatedFiles = files.filter(file => file.id !== fileId)
+      const updatedFiles = files.filter(file => file.id !== fileToDelete.id)
       setFiles(updatedFiles)
+      setShowDeleteModal(false)
+      setFileToDelete(null)
       setSuccess('File deleted successfully')
     } catch (error) {
       setError('Failed to delete file')
@@ -334,10 +336,55 @@ const AdminDashboard = ({ user, onLogout }) => {
     }
   }
 
+  const openDeleteModal = (file) => {
+    setFileToDelete(file)
+    setShowDeleteModal(true)
+  }
+
   const openFileModal = (file) => {
     setSelectedFile(file)
     setFileComment('')
     setShowFileModal(true)
+  }
+
+  const addComment = async () => {
+    if (!selectedFile || !fileComment.trim()) return
+    
+    setIsLoading(true)
+    try {
+      // Simulate API call
+      await new Promise(resolve => setTimeout(resolve, 500))
+      
+      const updatedFiles = files.map(file => {
+        if (file.id === selectedFile.id) {
+          const updatedFile = {
+            ...file,
+            comments: [
+              ...file.comments,
+              { text: fileComment.trim(), date: new Date() }
+            ]
+          }
+          setSelectedFile(updatedFile) // Update the selected file in modal
+          return updatedFile
+        }
+        return file
+      })
+      
+      setFiles(updatedFiles)
+      setFileComment('')
+      setSuccess('Comment added successfully')
+    } catch (error) {
+      setError('Failed to add comment')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleCommentKeyPress = (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault()
+      addComment()
+    }
   }
 
   const approveFile = async () => {
@@ -1202,7 +1249,7 @@ const AdminDashboard = ({ user, onLogout }) => {
                               className="action-btn delete-btn"
                               onClick={(e) => {
                                 e.stopPropagation()
-                                deleteFile(file.id, file.filename)
+                                openDeleteModal(file)
                               }}
                               title="Delete File"
                             >
@@ -1854,14 +1901,24 @@ const AdminDashboard = ({ user, onLogout }) => {
               {/* Add Comment */}
               <div className="add-comment-section">
                 <h4>Add Comment</h4>
-                <textarea
-                  value={fileComment}
-                  onChange={(e) => setFileComment(e.target.value)}
-                  placeholder="Add a comment for the user..."
-                  className="comment-textarea"
-                  rows="3"
-                />
-                <p className="help-text">This comment will be sent to the user.</p>
+                <div className="comment-input-container">
+                  <textarea
+                    value={fileComment}
+                    onChange={(e) => setFileComment(e.target.value)}
+                    onKeyPress={handleCommentKeyPress}
+                    placeholder="Add a comment for the user..."
+                    className="comment-textarea"
+                    rows="3"
+                  />
+                  <button
+                    className="btn btn-primary comment-btn"
+                    onClick={addComment}
+                    disabled={isLoading || !fileComment.trim()}
+                  >
+                    {isLoading ? 'Adding...' : 'Add Comment'}
+                  </button>
+                </div>
+                <p className="help-text">This comment will be sent to the user. Press Enter to submit or Shift+Enter for new line.</p>
               </div>
             </div>
             <div className="modal-footer">
@@ -1888,6 +1945,53 @@ const AdminDashboard = ({ user, onLogout }) => {
                   disabled={isLoading}
                 >
                   {isLoading ? 'Approving...' : 'Approve File'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteModal && fileToDelete && (
+        <div className="modal-overlay" onClick={() => setShowDeleteModal(false)}>
+          <div className="modal delete-modal" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>Delete File</h3>
+              <button onClick={() => setShowDeleteModal(false)} className="modal-close">×</button>
+            </div>
+            <div className="modal-body">
+              <div className="delete-warning">
+                <div className="warning-icon">⚠️</div>
+                <div className="warning-content">
+                  <h4>Are you sure you want to delete this file?</h4>
+                  <p className="file-info">
+                    <strong>{fileToDelete.filename}</strong>
+                    <br />
+                    Submitted by <strong>{fileToDelete.username}</strong> from <strong>{fileToDelete.team}</strong> team
+                  </p>
+                  <p className="warning-text">
+                    This action cannot be undone. The file and all its associated data will be permanently removed.
+                  </p>
+                </div>
+              </div>
+            </div>
+            <div className="modal-footer">
+              <div className="delete-actions">
+                <button 
+                  type="button" 
+                  onClick={() => setShowDeleteModal(false)} 
+                  className="btn btn-secondary"
+                >
+                  Cancel
+                </button>
+                <button 
+                  type="button" 
+                  onClick={deleteFile}
+                  className="btn btn-danger" 
+                  disabled={isLoading}
+                >
+                  {isLoading ? 'Deleting...' : 'Delete File'}
                 </button>
               </div>
             </div>
