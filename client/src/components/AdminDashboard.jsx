@@ -48,6 +48,12 @@ const AdminDashboard = ({ user, onLogout }) => {
       autoBackup: true,
       backupFrequency: 'daily',
       retentionDays: 30
+    },
+    fileManagement: {
+      rootDirectory: '/home/admin/files',
+      allowedExtensions: ['.pdf', '.doc', '.docx', '.xls', '.xlsx', '.txt', '.jpg', '.png', '.zip'],
+      maxFileSize: '100MB',
+      showHiddenFiles: false
     }
   })
   const [files, setFiles] = useState([])
@@ -60,6 +66,12 @@ const AdminDashboard = ({ user, onLogout }) => {
   const [fileComment, setFileComment] = useState('')
   const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [fileToDelete, setFileToDelete] = useState(null)
+  const [currentPath, setCurrentPath] = useState('/')
+  const [fileSystemItems, setFileSystemItems] = useState([])
+  const [filteredItems, setFilteredItems] = useState([])
+  const [fileManagementSearch, setFileManagementSearch] = useState('')
+  const [selectedItems, setSelectedItems] = useState([])
+  const [viewMode, setViewMode] = useState('grid') // 'grid' or 'list'
 
   const sidebarRef = useRef(null)
   const mainContentRef = useRef(null)
@@ -90,8 +102,10 @@ const AdminDashboard = ({ user, onLogout }) => {
       fetchActivityLogs()
     } else if (activeTab === 'file-approval') {
       fetchFiles()
+    } else if (activeTab === 'file-management') {
+      fetchFileSystemItems()
     }
-  }, [activeTab])
+  }, [activeTab, currentPath])
 
   useEffect(() => {
     if (searchQuery.trim() === '') {
@@ -162,6 +176,17 @@ const AdminDashboard = ({ user, onLogout }) => {
     setFilteredFiles(filtered)
   }, [files, fileSearchQuery, fileFilter, fileSortBy])
 
+  useEffect(() => {
+    if (fileManagementSearch.trim() === '') {
+      setFilteredItems(fileSystemItems)
+    } else {
+      const filtered = fileSystemItems.filter(item => 
+        item.name.toLowerCase().includes(fileManagementSearch.toLowerCase())
+      )
+      setFilteredItems(filtered)
+    }
+  }, [fileSystemItems, fileManagementSearch])
+
   const fetchUsers = async () => {
     setIsLoading(true)
     try {
@@ -179,6 +204,153 @@ const AdminDashboard = ({ user, onLogout }) => {
     } finally {
       setIsLoading(false)
     }
+  }
+
+  const fetchFileSystemItems = async () => {
+    setIsLoading(true)
+    try {
+      // Simulate API call with mock file system data
+      const mockItems = generateMockFileSystem(currentPath)
+      
+      // Simulate API delay
+      await new Promise(resolve => setTimeout(resolve, 600))
+      setFileSystemItems(mockItems)
+      setFilteredItems(mockItems)
+    } catch (error) {
+      console.error('Error fetching file system items:', error)
+      setError('Failed to load file system')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const generateMockFileSystem = (path) => {
+    const items = []
+    
+    // Add parent directory if not at root
+    if (path !== '/') {
+      items.push({
+        id: 'parent',
+        name: '..',
+        type: 'folder',
+        path: getParentPath(path),
+        size: null,
+        modified: null,
+        isParent: true
+      })
+    }
+    
+    // Mock folder structure
+    const mockStructure = {
+      '/': {
+        folders: ['Documents', 'Images', 'Projects', 'Archives'],
+        files: [
+          { name: 'README.txt', size: '2.1 KB', type: 'text' },
+          { name: 'system_config.json', size: '1.5 KB', type: 'json' }
+        ]
+      },
+      '/Documents': {
+        folders: ['Reports', 'Templates', 'Drafts'],
+        files: [
+          { name: 'annual_report_2024.pdf', size: '3.2 MB', type: 'pdf' },
+          { name: 'meeting_notes.docx', size: '156 KB', type: 'docx' },
+          { name: 'budget_analysis.xlsx', size: '892 KB', type: 'xlsx' }
+        ]
+      },
+      '/Images': {
+        folders: ['Screenshots', 'Logos', 'Thumbnails'],
+        files: [
+          { name: 'company_logo.png', size: '245 KB', type: 'png' },
+          { name: 'banner_image.jpg', size: '1.8 MB', type: 'jpg' },
+          { name: 'profile_pics.zip', size: '5.4 MB', type: 'zip' }
+        ]
+      },
+      '/Projects': {
+        folders: ['Active', 'Completed', 'Archive'],
+        files: [
+          { name: 'project_timeline.pdf', size: '678 KB', type: 'pdf' },
+          { name: 'requirements.docx', size: '234 KB', type: 'docx' }
+        ]
+      }
+    }
+    
+    const currentStructure = mockStructure[path] || { folders: [], files: [] }
+    
+    // Add folders
+    currentStructure.folders.forEach((folderName, index) => {
+      items.push({
+        id: `folder-${index}`,
+        name: folderName,
+        type: 'folder',
+        path: path === '/' ? `/${folderName}` : `${path}/${folderName}`,
+        size: null,
+        modified: new Date(Date.now() - Math.random() * 30 * 24 * 60 * 60 * 1000),
+        isParent: false
+      })
+    })
+    
+    // Add files
+    currentStructure.files.forEach((file, index) => {
+      items.push({
+        id: `file-${index}`,
+        name: file.name,
+        type: 'file',
+        fileType: file.type,
+        path: path === '/' ? `/${file.name}` : `${path}/${file.name}`,
+        size: file.size,
+        modified: new Date(Date.now() - Math.random() * 60 * 24 * 60 * 60 * 1000),
+        isParent: false
+      })
+    })
+    
+    return items
+  }
+
+  const getParentPath = (path) => {
+    const parts = path.split('/').filter(p => p)
+    if (parts.length <= 1) return '/'
+    return '/' + parts.slice(0, -1).join('/')
+  }
+
+  const navigateToPath = (newPath) => {
+    setCurrentPath(newPath)
+    setFileManagementSearch('')
+    setSelectedItems([])
+  }
+
+  const getBreadcrumbs = () => {
+    if (currentPath === '/') return [{ name: 'Root', path: '/' }]
+    
+    const parts = currentPath.split('/').filter(p => p)
+    const breadcrumbs = [{ name: 'Root', path: '/' }]
+    
+    let currentBreadcrumbPath = ''
+    parts.forEach(part => {
+      currentBreadcrumbPath += `/${part}`
+      breadcrumbs.push({
+        name: part,
+        path: currentBreadcrumbPath
+      })
+    })
+    
+    return breadcrumbs
+  }
+
+  const getFileIcon = (fileType) => {
+    const iconMap = {
+      pdf: '📄',
+      doc: '📝',
+      docx: '📝', 
+      xls: '📊',
+      xlsx: '📊',
+      txt: '📄',
+      json: '📄',
+      jpg: '🖼️',
+      png: '🖼️',
+      zip: '🗜️',
+      unknown: '📄'
+    }
+    return iconMap[fileType] || iconMap.unknown
   }
 
   const fetchActivityLogs = async () => {
@@ -670,6 +842,16 @@ const AdminDashboard = ({ user, onLogout }) => {
             <span className="nav-label">Dashboard</span>
           </button>
           <button 
+            className={`nav-item ${activeTab === 'file-management' ? 'active' : ''}`}
+            onClick={(e) => { 
+              e.preventDefault()
+              setActiveTab('file-management')
+              clearMessages()
+            }}
+          >
+            <span className="nav-label">File Management</span>
+          </button>
+          <button 
             className={`nav-item ${activeTab === 'users' ? 'active' : ''}`}
             onClick={(e) => { 
               e.preventDefault()
@@ -817,6 +999,194 @@ const AdminDashboard = ({ user, onLogout }) => {
                   </ul>
                 </div>
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* File Management Tab */}
+        {activeTab === 'file-management' && (
+          <div className="file-management-section">
+            <div className="page-header">
+              <h1>File Management</h1>
+              <p>Browse and manage files and folders in the system directory</p>
+            </div>
+            
+            {/* Navigation Controls */}
+            <div className="file-nav-controls">
+              {/* Breadcrumb Navigation */}
+              <div className="breadcrumb-container">
+                <nav className="breadcrumb">
+                  {getBreadcrumbs().map((crumb, index) => (
+                    <span key={crumb.path} className="breadcrumb-item">
+                      {index > 0 && <span className="breadcrumb-separator">/</span>}
+                      <button
+                        className={`breadcrumb-link ${index === getBreadcrumbs().length - 1 ? 'active' : ''}`}
+                        onClick={() => navigateToPath(crumb.path)}
+                        disabled={index === getBreadcrumbs().length - 1}
+                      >
+                        {crumb.name}
+                      </button>
+                    </span>
+                  ))}
+                </nav>
+              </div>
+              
+              {/* Search and View Controls */}
+              <div className="file-controls-right">
+                <div className="file-search">
+                  <input
+                    type="text"
+                    placeholder="Search files and folders..."
+                    value={fileManagementSearch}
+                    onChange={(e) => setFileManagementSearch(e.target.value)}
+                    className="search-input"
+                  />
+                  {fileManagementSearch && (
+                    <button 
+                      className="search-clear-btn"
+                      onClick={() => setFileManagementSearch('')}
+                      title="Clear search"
+                    >
+                      ×
+                    </button>
+                  )}
+                </div>
+                
+                <div className="view-mode-toggle">
+                  <button
+                    className={`view-btn ${viewMode === 'grid' ? 'active' : ''}`}
+                    onClick={() => setViewMode('grid')}
+                    title="Grid View"
+                  >
+                    ☰
+                  </button>
+                  <button
+                    className={`view-btn ${viewMode === 'list' ? 'active' : ''}`}
+                    onClick={() => setViewMode('list')}
+                    title="List View"
+                  >
+                    ≡
+                  </button>
+                </div>
+              </div>
+            </div>
+            
+            {/* Messages */}
+            {error && (
+              <div className="alert alert-error">
+                <span className="alert-message">{error}</span>
+                <button onClick={clearMessages} className="alert-close">×</button>
+              </div>
+            )}
+            
+            {success && (
+              <div className="alert alert-success">
+                <span className="alert-message">{success}</span>
+                <button onClick={clearMessages} className="alert-close">×</button>
+              </div>
+            )}
+            
+            {/* File System Display */}
+            <div className="file-system-container">
+              {isLoading ? (
+                <div className="loading-state">
+                  <div className="spinner"></div>
+                  <p>Loading files...</p>
+                </div>
+              ) : (
+                <>
+                  {viewMode === 'grid' ? (
+                    <div className="files-grid">
+                      {filteredItems.map((item) => (
+                        <div
+                          key={item.id}
+                          className={`file-item ${item.type} ${selectedItems.includes(item.id) ? 'selected' : ''}`}
+                          onClick={() => item.type === 'folder' ? navigateToPath(item.path) : null}
+                          onDoubleClick={() => item.type === 'file' ? console.log('Open file:', item.name) : null}
+                        >
+                          <div className="file-icon-container">
+                            <div className={`file-icon ${item.type === 'folder' ? 'folder-icon' : 'file-icon-' + (item.fileType || 'unknown')}`}>
+                              {item.type === 'folder' ? (
+                                item.isParent ? '←' : '📁'
+                              ) : (
+                                getFileIcon(item.fileType)
+                              )}
+                            </div>
+                            {item.type === 'folder' && !item.isParent && (
+                              <div className="folder-overlay"></div>
+                            )}
+                          </div>
+                          <div className="file-info">
+                            <div className="file-name" title={item.name}>
+                              {item.name}
+                            </div>
+                            {item.size && (
+                              <div className="file-size">{item.size}</div>
+                            )}
+                            {item.modified && (
+                              <div className="file-date">
+                                {item.modified.toLocaleDateString()}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="files-list">
+                      <table className="files-table">
+                        <thead>
+                          <tr>
+                            <th>Name</th>
+                            <th>Size</th>
+                            <th>Type</th>
+                            <th>Modified</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {filteredItems.map((item) => (
+                            <tr
+                              key={item.id}
+                              className={`file-row ${item.type} ${selectedItems.includes(item.id) ? 'selected' : ''}`}
+                              onClick={() => item.type === 'folder' ? navigateToPath(item.path) : null}
+                              onDoubleClick={() => item.type === 'file' ? console.log('Open file:', item.name) : null}
+                            >
+                              <td className="file-name-cell">
+                                <div className="file-name-container">
+                                  <div className={`file-icon-small ${item.type === 'folder' ? 'folder-icon' : 'file-icon-' + (item.fileType || 'unknown')}`}>
+                                    {item.type === 'folder' ? (
+                                      item.isParent ? '←' : '📁'
+                                    ) : (
+                                      getFileIcon(item.fileType)
+                                    )}
+                                  </div>
+                                  <span className="file-name">{item.name}</span>
+                                </div>
+                              </td>
+                              <td className="file-size-cell">
+                                {item.size || (item.type === 'folder' ? '--' : '')}
+                              </td>
+                              <td className="file-type-cell">
+                                {item.type === 'folder' ? 'Folder' : (item.fileType?.toUpperCase() || 'File')}
+                              </td>
+                              <td className="file-date-cell">
+                                {item.modified ? item.modified.toLocaleString() : '--'}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                  
+                  {!isLoading && filteredItems.length === 0 && (
+                    <div className="empty-state">
+                      <h3>No files found</h3>
+                      <p>This directory is empty or no files match your search criteria.</p>
+                    </div>
+                  )}
+                </>
+              )}
             </div>
           </div>
         )}
@@ -1586,6 +1956,67 @@ const AdminDashboard = ({ user, onLogout }) => {
                       <option value="PST">Pacific Time</option>
                       <option value="EST">Eastern Time</option>
                     </select>
+                  </div>
+                </div>
+              </div>
+              
+              {/* File Management Settings */}
+              <div className="settings-card">
+                <div className="settings-card-header">
+                  <div className="settings-icon file-mgmt-icon">FM</div>
+                  <h3>File Management</h3>
+                </div>
+                <div className="settings-card-body">
+                  <div className="form-group">
+                    <label>Root Directory Path</label>
+                    <input
+                      type="text"
+                      value={settings.fileManagement.rootDirectory}
+                      onChange={(e) => handleSettingsChange('fileManagement', 'rootDirectory', e.target.value)}
+                      placeholder="/home/admin/files"
+                      className="form-input"
+                    />
+                    <p className="help-text">Base directory for file management system</p>
+                  </div>
+                  <div className="form-group">
+                    <label>Maximum File Size</label>
+                    <select
+                      value={settings.fileManagement.maxFileSize}
+                      onChange={(e) => handleSettingsChange('fileManagement', 'maxFileSize', e.target.value)}
+                      className="form-select"
+                    >
+                      <option value="10MB">10 MB</option>
+                      <option value="50MB">50 MB</option>
+                      <option value="100MB">100 MB</option>
+                      <option value="500MB">500 MB</option>
+                      <option value="1GB">1 GB</option>
+                    </select>
+                  </div>
+                  <div className="form-group">
+                    <label className="checkbox-label">
+                      <input
+                        type="checkbox"
+                        checked={settings.fileManagement.showHiddenFiles}
+                        onChange={(e) => handleSettingsChange('fileManagement', 'showHiddenFiles', e.target.checked)}
+                        className="form-checkbox"
+                      />
+                      <span>Show Hidden Files</span>
+                    </label>
+                    <p className="help-text">Display files starting with dot (.)</p>
+                  </div>
+                  <div className="form-group">
+                    <label>Allowed File Extensions</label>
+                    <textarea
+                      value={settings.fileManagement.allowedExtensions.join(', ')}
+                      onChange={(e) => {
+                        const extensions = e.target.value.split(',').map(ext => ext.trim()).filter(ext => ext)
+                        handleSettingsChange('fileManagement', 'allowedExtensions', extensions)
+                      }}
+                      placeholder=".pdf, .doc, .docx, .jpg, .png"
+                      className="form-textarea"
+                      rows="2"
+                    />
+                    <p className="help-text">Comma-separated list of allowed file extensions</p>
                   </div>
                 </div>
               </div>
