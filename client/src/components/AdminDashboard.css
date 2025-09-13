@@ -39,6 +39,7 @@
   min-height: 100vh;
   background: var(--macos-bg);
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  position: relative;
 }
 
 /* Sidebar Styles */
@@ -50,8 +51,13 @@
   border-right: 1px solid rgba(255, 255, 255, 0.1);
   display: flex;
   flex-direction: column;
-  position: relative;
+  position: fixed;
+  top: 0;
+  left: 0;
+  height: 100vh;
+  z-index: 100;
   opacity: 0;
+  box-shadow: 2px 0 20px rgba(0, 0, 0, 0.1);
 }
 
 .sidebar-header {
@@ -167,14 +173,39 @@
 /* Main Content */
 .admin-main-content {
   flex: 1;
+  margin-left: 260px;
+  height: 100vh;
   overflow-y: auto;
   opacity: 0;
+  position: relative;
+  scroll-behavior: smooth;
+}
+
+/* Custom scrollbar for main content */
+.admin-main-content::-webkit-scrollbar {
+  width: 8px;
+}
+
+.admin-main-content::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.1);
+  border-radius: 4px;
+}
+
+.admin-main-content::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 4px;
+  transition: background 0.2s ease;
+}
+
+.admin-main-content::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.5);
 }
 
 /* Smooth content transitions */
 .dashboard-overview,
 .users-management,
 .activity-logs-section,
+.file-approval-section,
 .settings-section {
   animation: fadeInContent 0.3s ease-out;
 }
@@ -768,6 +799,404 @@
   font-size: 13px;
 }
 
+/* File Approval Section Styles */
+.file-approval-section {
+  padding: 0 var(--spacing-lg) var(--spacing-lg);
+}
+
+/* File Status Cards */
+.file-status-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: var(--spacing-lg);
+  margin-bottom: var(--spacing-xl);
+}
+
+.file-status-card {
+  background: var(--macos-card-bg);
+  backdrop-filter: var(--macos-blur);
+  -webkit-backdrop-filter: var(--macos-blur);
+  border: var(--macos-border);
+  border-radius: var(--radius-xl);
+  padding: var(--spacing-xl);
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-lg);
+  transition: all 0.2s ease;
+  box-shadow: var(--macos-shadow);
+}
+
+.file-status-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.12);
+}
+
+.status-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  font-weight: 700;
+  color: white;
+  flex-shrink: 0;
+}
+
+.pending-icon {
+  background: linear-gradient(135deg, var(--macos-orange), #FFCC00);
+}
+
+.approved-icon {
+  background: linear-gradient(135deg, var(--macos-green), #4ECDC4);
+}
+
+.rejected-icon {
+  background: linear-gradient(135deg, var(--macos-red), #FF6B9D);
+}
+
+.status-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.status-number {
+  font-size: 24px;
+  font-weight: 700;
+  color: #1D1D1F;
+  margin-bottom: 2px;
+}
+
+.status-label {
+  font-size: 14px;
+  color: var(--macos-gray);
+  font-weight: 500;
+}
+
+/* File Controls */
+.file-controls {
+  background: var(--macos-card-bg);
+  backdrop-filter: var(--macos-blur);
+  -webkit-backdrop-filter: var(--macos-blur);
+  border: var(--macos-border);
+  border-radius: var(--radius-xl);
+  padding: var(--spacing-lg);
+  margin-bottom: var(--spacing-lg);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--spacing-lg);
+  box-shadow: var(--macos-shadow);
+}
+
+.file-filters {
+  display: flex;
+  gap: var(--spacing-md);
+  align-items: center;
+}
+
+.file-search {
+  position: relative;
+  max-width: 400px;
+  flex: 1;
+}
+
+.search-clear-btn {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: rgba(142, 142, 147, 0.2);
+  border: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 14px;
+  color: var(--macos-gray);
+  transition: all 0.2s ease;
+}
+
+.search-clear-btn:hover {
+  background: rgba(142, 142, 147, 0.3);
+  color: #1D1D1F;
+}
+
+/* Files Table */
+.files-table-container {
+  overflow-x: auto;
+}
+
+.files-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.files-table th {
+  background: rgba(248, 249, 250, 0.8);
+  padding: var(--spacing-md) var(--spacing-lg);
+  text-align: left;
+  font-weight: 600;
+  color: #1D1D1F;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.files-table td {
+  padding: var(--spacing-md) var(--spacing-lg);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.04);
+  color: #1D1D1F;
+  font-size: 14px;
+  vertical-align: middle;
+}
+
+.file-row {
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.file-row:hover {
+  background: rgba(0, 122, 255, 0.03);
+}
+
+.file-cell {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+}
+
+.file-icon {
+  width: 32px;
+  height: 32px;
+  background: linear-gradient(135deg, var(--macos-blue), var(--macos-purple));
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: 600;
+  color: white;
+  flex-shrink: 0;
+}
+
+.file-details {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.file-name {
+  font-weight: 500;
+  color: #1D1D1F;
+}
+
+.file-size {
+  font-size: 12px;
+  color: var(--macos-gray);
+}
+
+.status-badge {
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.status-pending {
+  background: rgba(255, 149, 0, 0.1);
+  color: var(--macos-orange);
+}
+
+.status-approved {
+  background: rgba(52, 199, 89, 0.1);
+  color: var(--macos-green);
+}
+
+.status-rejected {
+  background: rgba(255, 59, 48, 0.1);
+  color: var(--macos-red);
+}
+
+/* File Modal Styles */
+.file-modal {
+  max-width: 600px;
+  max-height: 80vh;
+}
+
+.file-details-section {
+  margin-bottom: var(--spacing-lg);
+}
+
+.file-detail-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: var(--spacing-sm) 0;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.04);
+  gap: var(--spacing-md);
+}
+
+.file-detail-row:last-child {
+  border-bottom: none;
+}
+
+.detail-label {
+  font-weight: 600;
+  color: var(--macos-gray);
+  font-size: 14px;
+  min-width: 120px;
+  flex-shrink: 0;
+}
+
+.detail-value {
+  font-weight: 500;
+  color: #1D1D1F;
+  font-size: 14px;
+  text-align: right;
+  word-break: break-word;
+}
+
+.comments-section {
+  margin: var(--spacing-lg) 0;
+  padding-top: var(--spacing-lg);
+  border-top: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.comments-section h4 {
+  margin: 0 0 var(--spacing-md) 0;
+  color: #1D1D1F;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.comments-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+}
+
+.comment-item {
+  background: rgba(248, 249, 250, 0.5);
+  padding: var(--spacing-md);
+  border-radius: var(--radius-md);
+  border-left: 3px solid var(--macos-blue);
+}
+
+.comment-text {
+  color: #1D1D1F;
+  font-size: 14px;
+  line-height: 1.5;
+  margin-bottom: 4px;
+}
+
+.comment-date {
+  color: var(--macos-gray);
+  font-size: 12px;
+}
+
+.no-comments {
+  color: var(--macos-gray);
+  font-style: italic;
+  text-align: center;
+  padding: var(--spacing-lg);
+  background: rgba(248, 249, 250, 0.3);
+  border-radius: var(--radius-md);
+}
+
+.add-comment-section {
+  padding-top: var(--spacing-lg);
+  border-top: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.add-comment-section h4 {
+  margin: 0 0 var(--spacing-md) 0;
+  color: #1D1D1F;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.comment-textarea {
+  width: 100%;
+  padding: 12px var(--spacing-md);
+  border: 1px solid var(--macos-gray4);
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.9);
+  font-size: 14px;
+  color: #1D1D1F;
+  font-family: inherit;
+  resize: vertical;
+  min-height: 80px;
+  transition: all 0.2s ease;
+  margin-bottom: var(--spacing-sm);
+}
+
+.comment-textarea:focus {
+  outline: none;
+  border-color: var(--macos-blue);
+  background: white;
+  box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.1);
+}
+
+.approval-actions {
+  display: flex;
+  gap: var(--spacing-md);
+  justify-content: flex-end;
+}
+
+/* File Controls Mobile Responsiveness */
+@media (max-width: 768px) {
+  .file-controls {
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--spacing-md);
+  }
+  
+  .file-filters {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  .file-search {
+    max-width: none;
+  }
+  
+  .file-status-cards {
+    grid-template-columns: 1fr;
+  }
+  
+  .files-table {
+    min-width: 600px;
+  }
+  
+  .approval-actions {
+    flex-direction: column;
+  }
+}
+
+@media (max-width: 480px) {
+  .file-approval-section {
+    padding: 0 var(--spacing-md) var(--spacing-md);
+  }
+  
+  .file-detail-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+  }
+  
+  .detail-value {
+    text-align: left;
+  }
+}
+
 /* Loading and Empty States */
 .loading-state,
 .empty-state {
@@ -936,6 +1365,16 @@
   .admin-sidebar {
     width: 100%;
     height: auto;
+    position: relative;
+    top: auto;
+    left: auto;
+    box-shadow: none;
+  }
+  
+  .admin-main-content {
+    margin-left: 0;
+    height: auto;
+    min-height: calc(100vh - 200px);
   }
   
   .sidebar-nav {
