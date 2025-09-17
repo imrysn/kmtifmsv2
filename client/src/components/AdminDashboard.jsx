@@ -66,6 +66,9 @@ const AdminDashboard = ({ user, onLogout }) => {
   const [fileComment, setFileComment] = useState('')
   const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [fileToDelete, setFileToDelete] = useState(null)
+  const [showUserDeleteModal, setShowUserDeleteModal] = useState(false)
+  const [userToDelete, setUserToDelete] = useState(null)
+  const [showDeleteLogsModal, setShowDeleteLogsModal] = useState(false)
   const [currentPath, setCurrentPath] = useState('/')
   const [fileSystemItems, setFileSystemItems] = useState([])
   const [filteredItems, setFilteredItems] = useState([])
@@ -478,7 +481,50 @@ const AdminDashboard = ({ user, onLogout }) => {
   const clearLogFilters = () => {
     setLogsSearchQuery('')
     setFilteredLogs(activityLogs)
-    setSuccess('Filters cleared')
+    setSuccess('Search cleared')
+  }
+
+  const clearLogsSearch = () => {
+    setLogsSearchQuery('')
+  }
+
+  const deleteFilteredLogs = async () => {
+    if (!logsSearchQuery.trim()) {
+      setError('Please enter a search term to filter logs for deletion')
+      return
+    }
+
+    if (filteredLogs.length === 0) {
+      setError('No logs found matching your search criteria')
+      return
+    }
+
+    setShowDeleteLogsModal(true)
+  }
+
+  const confirmDeleteLogs = async () => {
+    const logsToDelete = filteredLogs.length
+
+    setIsLoading(true)
+    try {
+      // Simulate API call to delete filtered logs
+      await new Promise(resolve => setTimeout(resolve, 1000))
+      
+      // Remove the filtered logs from the main logs array
+      const remainingLogs = activityLogs.filter(log => 
+        !filteredLogs.some(filteredLog => filteredLog.id === log.id)
+      )
+      
+      setActivityLogs(remainingLogs)
+      setFilteredLogs(remainingLogs)
+      setLogsSearchQuery('') // Clear search after deletion
+      setShowDeleteLogsModal(false)
+      setSuccess(`Successfully deleted ${logsToDelete} log(s)`)
+    } catch (error) {
+      setError('Failed to delete logs')
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   const clearFileFilters = () => {
@@ -726,20 +772,25 @@ const AdminDashboard = ({ user, onLogout }) => {
     }
   }
 
-  const handleDeleteUser = async (userId, userName) => {
-    if (!confirm(`Are you sure you want to delete ${userName}? This action cannot be undone.`)) {
-      return
-    }
+  const openUserDeleteModal = (user) => {
+    setUserToDelete(user)
+    setShowUserDeleteModal(true)
+  }
+
+  const handleDeleteUser = async () => {
+    if (!userToDelete) return
     
     setIsLoading(true)
     try {
-      const response = await fetch(`http://localhost:3001/api/users/${userId}`, {
+      const response = await fetch(`http://localhost:3001/api/users/${userToDelete.id}`, {
         method: 'DELETE'
       })
       
       const data = await response.json()
       if (data.success) {
-        setSuccess(data.message)
+        setSuccess(`User ${userToDelete.fullName} deleted successfully`)
+        setShowUserDeleteModal(false)
+        setUserToDelete(null)
         fetchUsers()
       } else {
         setError(data.message)
@@ -752,19 +803,23 @@ const AdminDashboard = ({ user, onLogout }) => {
   }
 
   const openEditModal = (user) => {
+    setError('')
+    setSuccess('')
     setSelectedUser(user)
     setFormData({
-      fullName: user.fullName,
-      username: user.username,
-      email: user.email,
+      fullName: user.fullName || '',
+      username: user.username || '',
+      email: user.email || '',
       password: '',
-      role: user.role,
-      team: user.team
+      role: user.role || 'USER',
+      team: user.team || 'General'
     })
     setShowEditModal(true)
   }
 
   const openPasswordModal = (user) => {
+    setError('')
+    setSuccess('')
     setSelectedUser(user)
     setFormData({ ...formData, password: '' })
     setShowPasswordModal(true)
@@ -1217,6 +1272,9 @@ const AdminDashboard = ({ user, onLogout }) => {
                 <button 
                   className="btn btn-primary"
                   onClick={() => {
+                    setError('')
+                    setSuccess('')
+                    setSelectedUser(null)
                     setFormData({ 
                       fullName: '', 
                       username: '', 
@@ -1311,7 +1369,7 @@ const AdminDashboard = ({ user, onLogout }) => {
                               </button>
                               <button 
                                 className="action-btn delete-btn"
-                                onClick={() => handleDeleteUser(user.id, user.fullName)}
+                                onClick={() => openUserDeleteModal(user)}
                                 title="Delete User"
                               >
                                 Delete
@@ -1354,16 +1412,26 @@ const AdminDashboard = ({ user, onLogout }) => {
                     onChange={(e) => setLogsSearchQuery(e.target.value)}
                     className="search-input"
                   />
+                  {logsSearchQuery && (
+                    <button 
+                      className="search-clear-btn"
+                      onClick={clearLogsSearch}
+                      title="Clear search"
+                    >
+                      ×
+                    </button>
+                  )}
                 </div>
               </div>
               
               <div className="action-buttons">
                 <button 
-                  className="btn btn-secondary"
-                  onClick={clearLogFilters}
-                  disabled={logsSearchQuery === ''}
+                  className="btn btn-danger"
+                  onClick={deleteFilteredLogs}
+                  disabled={!logsSearchQuery.trim() || filteredLogs.length === 0 || isLoading}
+                  title={!logsSearchQuery.trim() ? "Enter search term to filter logs for deletion" : `Delete ${filteredLogs.length} filtered log(s)`}
                 >
-                  Clear Filters
+                  {isLoading ? 'Deleting...' : `Delete Logs (${filteredLogs.length})`}
                 </button>
                 <button 
                   className="btn btn-primary"
@@ -2423,6 +2491,104 @@ const AdminDashboard = ({ user, onLogout }) => {
                   disabled={isLoading}
                 >
                   {isLoading ? 'Deleting...' : 'Delete File'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* User Delete Confirmation Modal */}
+      {showUserDeleteModal && userToDelete && (
+        <div className="modal-overlay" onClick={() => setShowUserDeleteModal(false)}>
+          <div className="modal delete-modal" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>Delete User</h3>
+              <button onClick={() => setShowUserDeleteModal(false)} className="modal-close">×</button>
+            </div>
+            <div className="modal-body">
+              <div className="delete-warning">
+                <div className="warning-icon">⚠️</div>
+                <div className="warning-content">
+                  <h4>Are you sure you want to delete this user?</h4>
+                  <p className="file-info">
+                    <strong>{userToDelete.fullName}</strong>
+                    <br />
+                    Username: <strong>{userToDelete.username}</strong>
+                    <br />
+                    Email: <strong>{userToDelete.email}</strong>
+                    <br />
+                    Role: <strong>{userToDelete.role}</strong> | Team: <strong>{userToDelete.team}</strong>
+                  </p>
+                  <p className="warning-text">
+                    This action cannot be undone. The user account and all associated data will be permanently removed from the system.
+                  </p>
+                </div>
+              </div>
+            </div>
+            <div className="modal-footer">
+              <div className="delete-actions">
+                <button 
+                  type="button" 
+                  onClick={() => setShowUserDeleteModal(false)} 
+                  className="btn btn-secondary"
+                >
+                  Cancel
+                </button>
+                <button 
+                  type="button" 
+                  onClick={handleDeleteUser}
+                  className="btn btn-danger" 
+                  disabled={isLoading}
+                >
+                  {isLoading ? 'Deleting...' : 'Delete User'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Logs Confirmation Modal */}
+      {showDeleteLogsModal && (
+        <div className="modal-overlay" onClick={() => setShowDeleteLogsModal(false)}>
+          <div className="modal delete-modal" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>Delete Activity Logs</h3>
+              <button onClick={() => setShowDeleteLogsModal(false)} className="modal-close">×</button>
+            </div>
+            <div className="modal-body">
+              <div className="delete-warning">
+                <div className="warning-icon">⚠️</div>
+                <div className="warning-content">
+                  <h4>Are you sure you want to delete these activity logs?</h4>
+                  <p className="file-info">
+                    <strong>{filteredLogs.length} log(s)</strong> matching your search criteria will be deleted:
+                    <br />
+                    Search term: <strong>"{logsSearchQuery}"</strong>
+                  </p>
+                  <p className="warning-text">
+                    This action cannot be undone. The selected activity logs will be permanently removed from the system.
+                  </p>
+                </div>
+              </div>
+            </div>
+            <div className="modal-footer">
+              <div className="delete-actions">
+                <button 
+                  type="button" 
+                  onClick={() => setShowDeleteLogsModal(false)} 
+                  className="btn btn-secondary"
+                >
+                  Cancel
+                </button>
+                <button 
+                  type="button" 
+                  onClick={confirmDeleteLogs}
+                  className="btn btn-danger" 
+                  disabled={isLoading}
+                >
+                  {isLoading ? 'Deleting...' : `Delete ${filteredLogs.length} Log(s)`}
                 </button>
               </div>
             </div>

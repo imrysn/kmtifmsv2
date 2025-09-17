@@ -882,6 +882,7 @@
 .search-input {
   width: 100%;
   padding: 12px var(--spacing-md);
+  padding-right: 40px; /* Make room for clear button */
   border: 1px solid var(--macos-gray4);
   border-radius: var(--radius-md);
   background: rgba(255, 255, 255, 0.8);
@@ -899,6 +900,32 @@
 
 .search-input::placeholder {
   color: var(--macos-gray);
+}
+
+/* Search Clear Button */
+.search-clear-btn {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: rgba(142, 142, 147, 0.2);
+  border: none;
+  width: 24px;
+  height: 24px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 16px;
+  color: var(--macos-gray);
+  transition: all 0.2s ease;
+  z-index: 10;
+}
+
+.search-clear-btn:hover {
+  background: rgba(142, 142, 147, 0.3);
+  color: #1D1D1F;
 }
 
 .action-buttons {
@@ -1774,12 +1801,15 @@
 
 .modal-body {
   padding: var(--spacing-lg) var(--spacing-xl);
+  background: white;
+  min-height: 200px;
 }
 
 .form-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: var(--spacing-lg);
+  display: grid !important;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)) !important;
+  gap: var(--spacing-lg) !important;
+  width: 100%;
 }
 
 .form-group {
@@ -1799,18 +1829,53 @@
   padding: 12px var(--spacing-md);
   border: 1px solid var(--macos-gray4);
   border-radius: var(--radius-md);
-  background: rgba(255, 255, 255, 0.9);
+  background: white !important;
   font-size: 14px;
-  color: #1D1D1F;
+  color: #1D1D1F !important;
   transition: all 0.2s ease;
+  width: 100%;
+  box-sizing: border-box;
+  font-family: inherit;
 }
 
 .form-input:focus,
 .form-select:focus {
   outline: none;
-  border-color: var(--macos-blue);
-  background: white;
-  box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.1);
+  border-color: var(--macos-blue) !important;
+  background: white !important;
+  box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.1) !important;
+}
+
+.form-input::placeholder {
+  color: var(--macos-gray) !important;
+  opacity: 1;
+}
+
+/* Force visibility for modal form elements */
+.modal .form-input,
+.modal .form-select {
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  background: white !important;
+  color: #1D1D1F !important;
+  border: 1px solid var(--macos-gray4) !important;
+  min-height: 44px;
+}
+
+.modal .form-group {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: var(--spacing-sm) !important;
+  margin-bottom: var(--spacing-md);
+}
+
+.modal .form-group label {
+  display: block !important;
+  color: #1D1D1F !important;
+  font-weight: 500 !important;
+  font-size: 14px !important;
+  margin-bottom: 4px;
 }
 
 .modal-footer {
@@ -2087,6 +2152,19 @@
   transform: translateY(-1px);
   box-shadow: 0 4px 12px rgba(255, 59, 48, 0.3);
   background: #E6342A;
+}
+
+.btn-danger:disabled {
+  background: var(--macos-gray3);
+  color: var(--macos-gray);
+  box-shadow: none;
+  cursor: not-allowed;
+}
+
+/* Activity Logs Delete Button Specific */
+.activity-logs-section .btn-danger {
+  font-weight: 600;
+  min-width: 140px;
 }
 
 .system-info {
