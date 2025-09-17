@@ -48,39 +48,40 @@
   overflow-x: hidden;
 }
 
-/* Team Leader Dashboard Header */
-.team-leader-dashboard .dashboard-header {
+/* Dashboard Sidebar */
+.team-leader-dashboard .dashboard-sidebar {
+  width: 280px;
+  height: 100vh;
   background: rgba(255, 255, 255, 0.12);
   backdrop-filter: var(--macos-blur);
   -webkit-backdrop-filter: var(--macos-blur);
-  border-bottom: var(--macos-border);
-  padding: var(--spacing-lg) var(--spacing-2xl);
-  position: relative;
+  border-right: var(--macos-border);
+  display: flex;
+  flex-direction: column;
+  position: fixed;
+  top: 0;
+  left: 0;
   opacity: 0;
+  flex-shrink: 0;
+  z-index: 100;
+  overflow: hidden;
 }
 
-.team-leader-dashboard .header-content {
-  max-width: 1200px;
-  margin: 0 auto;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.team-leader-dashboard .header-info {
-  display: flex;
-  align-items: center;
+.team-leader-dashboard .sidebar-header {
+  padding: var(--spacing-xl) var(--spacing-lg);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .team-leader-dashboard .header-title {
   display: flex;
-  align-items: center;
-  gap: var(--spacing-md);
+  flex-direction: column;
+  gap: var(--spacing-sm);
+  text-align: center;
 }
 
-.team-leader-dashboard .dashboard-header h1 {
+.team-leader-dashboard .sidebar-header h1 {
   color: white;
-  font-size: 28px;
+  font-size: 20px;
   font-weight: 700;
   margin: 0;
   text-shadow: 0 1px 8px rgba(0, 0, 0, 0.2);
@@ -92,18 +93,28 @@
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
   color: white;
-  padding: var(--spacing-sm) var(--spacing-md);
-  border-radius: 16px;
-  font-size: 12px;
+  padding: var(--spacing-xs) var(--spacing-sm);
+  border-radius: 12px;
+  font-size: 11px;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.5px;
   border: 1px solid rgba(255, 255, 255, 0.3);
+  align-self: center;
 }
 
 .team-leader-dashboard .role-badge.team-leader {
   background: rgba(240, 147, 251, 0.3);
   box-shadow: 0 2px 8px rgba(240, 147, 251, 0.2);
+}
+
+.team-leader-dashboard .sidebar-footer {
+  padding: var(--spacing-lg);
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
 }
 
 .team-leader-dashboard .logout-button {
@@ -112,12 +123,17 @@
   -webkit-backdrop-filter: blur(10px);
   border: 1px solid rgba(255, 59, 48, 0.3);
   color: white;
-  padding: 10px var(--spacing-md);
+  padding: var(--spacing-md) var(--spacing-lg);
   border-radius: var(--radius-md);
   font-size: 14px;
   font-weight: 500;
   cursor: pointer;
   transition: all 0.2s ease;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-sm);
 }
 
 .team-leader-dashboard .logout-button:hover {
@@ -126,15 +142,20 @@
   box-shadow: 0 4px 12px rgba(255, 59, 48, 0.3);
 }
 
-/* Navigation Tabs */
-.team-leader-dashboard .dashboard-nav {
-  background: rgba(255, 255, 255, 0.08);
-  backdrop-filter: var(--macos-blur);
-  -webkit-backdrop-filter: var(--macos-blur);
-  border-bottom: var(--macos-border);
-  padding: 0 var(--spacing-2xl);
+.team-leader-dashboard .logout-icon {
+  font-size: 16px;
+}
+
+/* Sidebar Navigation */
+.team-leader-dashboard .sidebar-nav {
+  flex: 1;
+  padding: var(--spacing-lg) var(--spacing-md);
+  padding-bottom: calc(var(--spacing-lg) + 80px);
   display: flex;
-  gap: var(--spacing-sm);
+  flex-direction: column;
+  gap: var(--spacing-xs);
+  overflow: hidden;
+  min-height: 0;
 }
 
 .team-leader-dashboard .nav-tab {
@@ -145,26 +166,79 @@
   cursor: pointer;
   font-size: 14px;
   font-weight: 500;
-  border-radius: var(--radius-md) var(--radius-md) 0 0;
+  border-radius: var(--radius-md);
   transition: all 0.2s ease;
-  border-bottom: 2px solid transparent;
+  text-align: left;
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  position: relative;
+  opacity: 0.7;
+  border: 1px solid transparent;
+  animation: navTabFadeIn 0.6s ease-out 0.3s forwards;
+}
+
+@keyframes navTabFadeIn {
+  0% {
+    opacity: 0.7;
+    transform: translateX(-10px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0);
+  }
 }
 
 .team-leader-dashboard .nav-tab:hover {
   color: white;
-  background: rgba(255, 255, 255, 0.05);
+  background: rgba(255, 255, 255, 0.1);
+  transform: translateX(2px);
+  border-color: rgba(255, 255, 255, 0.2);
 }
 
 .team-leader-dashboard .nav-tab.active {
   color: white;
-  background: rgba(255, 255, 255, 0.1);
-  border-bottom-color: var(--team-leader-accent);
+  background: rgba(255, 255, 255, 0.15);
+  border-color: var(--team-leader-accent);
+  box-shadow: 0 2px 8px rgba(175, 82, 222, 0.3);
+}
+
+.team-leader-dashboard .nav-tab.active::before {
+  content: '';
+  position: absolute;
+  left: -var(--spacing-md);
+  top: 50%;
+  transform: translateY(-50%);
+  width: 4px;
+  height: 50%;
+  background: var(--team-leader-accent);
+  border-radius: 0 4px 4px 0;
+}
+
+.team-leader-dashboard .nav-icon {
+  font-size: 16px;
+  opacity: 0.8;
+}
+
+.team-leader-dashboard .nav-badge {
+  background: var(--team-leader-orange);
+  color: white;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 10px;
+  margin-left: auto;
+  min-width: 18px;
+  text-align: center;
 }
 
 /* Dashboard Content */
 .team-leader-dashboard .dashboard-content {
+  margin-left: 280px;
   padding: var(--spacing-2xl);
   position: relative;
+  overflow-y: auto;
+  min-height: 100vh;
 }
 
 .team-leader-dashboard .dashboard-grid {
@@ -186,9 +260,21 @@
   box-shadow: var(--macos-shadow);
   position: relative;
   overflow: hidden;
-  opacity: 0;
+  opacity: 0.3;
   transform: translateY(20px);
   transition: all 0.2s ease;
+  animation: dashboardCardFadeIn 0.8s ease-out 0.5s forwards;
+}
+
+@keyframes dashboardCardFadeIn {
+  0% {
+    opacity: 0.3;
+    transform: translateY(20px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .team-leader-dashboard .dashboard-card::before {
@@ -1370,6 +1456,22 @@
 
 /* Responsive Design */
 @media (max-width: 1024px) {
+  .team-leader-dashboard .dashboard-sidebar {
+    width: 240px;
+  }
+  
+  .team-leader-dashboard .dashboard-content {
+    margin-left: 240px;
+  }
+  
+  .team-leader-dashboard .sidebar-header {
+    padding: var(--spacing-lg) var(--spacing-md);
+  }
+  
+  .team-leader-dashboard .sidebar-header h1 {
+    font-size: 18px;
+  }
+  
   .team-leader-dashboard .team-stats {
     grid-template-columns: repeat(3, 1fr);
   }
@@ -1396,22 +1498,80 @@
 }
 
 @media (max-width: 768px) {
-  .team-leader-dashboard .dashboard-content {
-    padding: var(--spacing-lg);
-  }
-  
-  .team-leader-dashboard .header-content {
+  .team-leader-dashboard {
+    display: flex;
     flex-direction: column;
+  }
+  
+  .team-leader-dashboard .dashboard-sidebar {
+    width: 100%;
+    height: auto;
+    min-height: auto;
+    flex-direction: row;
+    align-items: center;
+    border-right: none;
+    border-bottom: var(--macos-border);
+    position: relative;
+    top: auto;
+    left: auto;
+  }
+  
+  .team-leader-dashboard .dashboard-content {
+    margin-left: 0;
+  }
+  
+  .team-leader-dashboard .sidebar-header {
+    border-bottom: none;
+    border-right: 1px solid rgba(255, 255, 255, 0.1);
+    flex: 0 0 auto;
+  }
+  
+  .team-leader-dashboard .header-title {
+    flex-direction: row;
+    align-items: center;
+    text-align: left;
     gap: var(--spacing-md);
-    align-items: stretch;
   }
   
-  .team-leader-dashboard .header-info {
+  .team-leader-dashboard .sidebar-header h1 {
+    font-size: 16px;
+  }
+  
+  .team-leader-dashboard .sidebar-nav {
+    flex: 1;
+    flex-direction: row;
+    padding: var(--spacing-md);
+    align-items: center;
     justify-content: center;
+    gap: var(--spacing-md);
   }
   
-  .team-leader-dashboard .dashboard-header h1 {
-    font-size: 22px;
+  .team-leader-dashboard .nav-tab {
+    flex: 1;
+    text-align: center;
+    justify-content: center;
+    padding: var(--spacing-sm) var(--spacing-md);
+    font-size: 13px;
+  }
+  
+  .team-leader-dashboard .nav-tab.active::before {
+    display: none;
+  }
+  
+  .team-leader-dashboard .sidebar-footer {
+    border-top: none;
+    border-left: 1px solid rgba(255, 255, 255, 0.1);
+    margin-top: 0;
+    flex: 0 0 auto;
+    position: relative;
+    bottom: auto;
+    left: auto;
+    right: auto;
+  }
+  
+  .team-leader-dashboard .dashboard-content {
+    min-height: calc(100vh - 80px);
+    padding: var(--spacing-lg);
   }
   
   .team-leader-dashboard .leader-info-section {
@@ -1451,12 +1611,48 @@
 }
 
 @media (max-width: 480px) {
+  .team-leader-dashboard .dashboard-sidebar {
+    flex-direction: column;
+    align-items: stretch;
+    position: relative;
+    top: auto;
+    left: auto;
+    height: auto;
+  }
+  
   .team-leader-dashboard .dashboard-content {
+    margin-left: 0;
+  }
+  
+  .team-leader-dashboard .sidebar-header {
+    border-right: none;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
     padding: var(--spacing-md);
   }
   
-  .team-leader-dashboard .dashboard-header {
-    padding: var(--spacing-md) var(--spacing-lg);
+  .team-leader-dashboard .header-title {
+    flex-direction: column;
+    text-align: center;
+    gap: var(--spacing-sm);
+  }
+  
+  .team-leader-dashboard .sidebar-nav {
+    flex-direction: column;
+    padding: var(--spacing-sm);
+    gap: var(--spacing-xs);
+  }
+  
+  .team-leader-dashboard .sidebar-footer {
+    border-left: none;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    position: relative;
+    bottom: auto;
+    left: auto;
+    right: auto;
+  }
+  
+  .team-leader-dashboard .dashboard-content {
+    padding: var(--spacing-md);
   }
   
   .team-leader-dashboard .dashboard-card {
@@ -1474,6 +1670,358 @@
   .team-leader-dashboard .modal {
     margin: var(--spacing-md);
     max-width: none;
+  }
+  
+  .team-leader-dashboard .nav-icon {
+    display: none;
+  }
+}
+
+/* Manage Team Section */
+.team-leader-dashboard .manage-team-section {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.team-leader-dashboard .team-controls {
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: var(--macos-blur);
+  -webkit-backdrop-filter: var(--macos-blur);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-lg);
+  margin-bottom: var(--spacing-xl);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--spacing-lg);
+  border: var(--macos-border);
+}
+
+.team-leader-dashboard .team-summary {
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 16px;
+  font-weight: 500;
+}
+
+.team-leader-dashboard .team-container {
+  position: relative;
+  min-height: 200px;
+}
+
+.team-leader-dashboard .team-members-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: var(--spacing-xl);
+}
+
+.team-leader-dashboard .team-member-card {
+  background: var(--macos-card-bg);
+  backdrop-filter: var(--macos-blur);
+  -webkit-backdrop-filter: var(--macos-blur);
+  border: var(--macos-border);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-xl);
+  box-shadow: var(--macos-shadow);
+  transition: all 0.2s ease;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.team-leader-dashboard .team-member-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+}
+
+.team-leader-dashboard .member-avatar {
+  width: 64px;
+  height: 64px;
+  background: linear-gradient(135deg, var(--team-leader-accent), var(--team-leader-orange));
+  border-radius: var(--radius-lg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  font-weight: 700;
+  color: white;
+  margin-bottom: var(--spacing-lg);
+  box-shadow: 0 2px 8px rgba(175, 82, 222, 0.3);
+}
+
+.team-leader-dashboard .member-info {
+  width: 100%;
+}
+
+.team-leader-dashboard .member-name {
+  color: #1D1D1F;
+  font-size: 18px;
+  font-weight: 600;
+  margin-bottom: var(--spacing-sm);
+}
+
+.team-leader-dashboard .member-details {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+  margin-bottom: var(--spacing-lg);
+}
+
+.team-leader-dashboard .member-username {
+  color: var(--team-leader-accent);
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.team-leader-dashboard .member-email {
+  color: var(--macos-gray);
+  font-size: 13px;
+}
+
+.team-leader-dashboard .member-role {
+  color: #1D1D1F;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.team-leader-dashboard .member-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--spacing-md);
+  margin: var(--spacing-lg) 0;
+  padding: var(--spacing-md);
+  background: rgba(255, 255, 255, 0.3);
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.team-leader-dashboard .member-stats .stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--spacing-xs);
+}
+
+.team-leader-dashboard .member-stats .stat-number {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--team-leader-accent);
+}
+
+.team-leader-dashboard .member-stats .stat-label {
+  font-size: 11px;
+  color: var(--macos-gray);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-weight: 500;
+}
+
+.team-leader-dashboard .member-actions {
+  width: 100%;
+}
+
+.team-leader-dashboard .btn-primary {
+  background: var(--team-leader-accent);
+  color: white;
+  border: none;
+  padding: var(--spacing-sm) var(--spacing-lg);
+  border-radius: var(--radius-md);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  width: 100%;
+  box-shadow: 0 2px 8px rgba(175, 82, 222, 0.3);
+}
+
+.team-leader-dashboard .btn-primary:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(175, 82, 222, 0.4);
+}
+
+/* Member Files Modal */
+.team-leader-dashboard .member-files-modal {
+  max-width: 800px;
+  max-height: 80vh;
+}
+
+.team-leader-dashboard .member-files-info {
+  margin-bottom: var(--spacing-lg);
+  color: var(--macos-gray);
+  font-size: 14px;
+}
+
+.team-leader-dashboard .member-files-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.team-leader-dashboard .member-file-item {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+  padding: var(--spacing-md);
+  background: rgba(255, 255, 255, 0.3);
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  transition: all 0.2s ease;
+}
+
+.team-leader-dashboard .member-file-item:hover {
+  background: rgba(255, 255, 255, 0.4);
+  transform: translateY(-1px);
+}
+
+.team-leader-dashboard .member-file-item .file-icon {
+  width: 40px;
+  height: 40px;
+  background: var(--team-leader-accent);
+  color: white;
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.team-leader-dashboard .member-file-item .file-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.team-leader-dashboard .member-file-item .file-name {
+  color: #1D1D1F;
+  font-size: 15px;
+  font-weight: 600;
+  margin-bottom: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.team-leader-dashboard .member-file-item .file-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-md);
+  margin-bottom: 4px;
+  font-size: 12px;
+  color: var(--macos-gray);
+}
+
+.team-leader-dashboard .member-file-item .file-status {
+  margin-top: 4px;
+}
+
+.team-leader-dashboard .status-badge {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.team-leader-dashboard .status-badge.pending {
+  background: rgba(255, 149, 0, 0.2);
+  color: var(--team-leader-orange);
+}
+
+.team-leader-dashboard .status-badge.team-leader-approved {
+  background: rgba(52, 199, 89, 0.2);
+  color: var(--macos-green);
+}
+
+.team-leader-dashboard .status-badge.admin-approved {
+  background: rgba(0, 122, 255, 0.2);
+  color: var(--macos-blue);
+}
+
+.team-leader-dashboard .status-badge.rejected {
+  background: rgba(255, 59, 48, 0.2);
+  color: var(--macos-red);
+}
+
+.team-leader-dashboard .status-badge.published {
+  background: rgba(175, 82, 222, 0.2);
+  color: var(--team-leader-accent);
+}
+
+.team-leader-dashboard .member-file-item .file-actions {
+  flex-shrink: 0;
+}
+
+.team-leader-dashboard .btn-sm {
+  padding: 6px 12px;
+  font-size: 12px;
+}
+
+.team-leader-dashboard .empty-files {
+  text-align: center;
+  padding: var(--spacing-2xl);
+  color: var(--macos-gray);
+}
+
+.team-leader-dashboard .empty-files .empty-icon {
+  font-size: 48px;
+  margin-bottom: var(--spacing-md);
+}
+
+.team-leader-dashboard .empty-files p {
+  font-size: 14px;
+  margin: 0;
+}
+
+/* Responsive Design for Manage Team */
+@media (max-width: 768px) {
+  .team-leader-dashboard .team-members-grid {
+    grid-template-columns: 1fr;
+    gap: var(--spacing-lg);
+  }
+  
+  .team-leader-dashboard .team-controls {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  .team-leader-dashboard .member-stats {
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--spacing-sm);
+  }
+}
+
+@media (max-width: 480px) {
+  .team-leader-dashboard .team-member-card {
+    padding: var(--spacing-lg);
+  }
+  
+  .team-leader-dashboard .member-avatar {
+    width: 56px;
+    height: 56px;
+    font-size: 20px;
+  }
+  
+  .team-leader-dashboard .member-stats {
+    grid-template-columns: 1fr;
+    gap: var(--spacing-sm);
+    text-align: center;
+  }
+  
+  .team-leader-dashboard .member-file-item {
+    flex-direction: column;
+    align-items: stretch;
+    text-align: center;
+    gap: var(--spacing-sm);
+  }
+  
+  .team-leader-dashboard .member-file-item .file-actions {
+    align-self: center;
   }
 }
 
