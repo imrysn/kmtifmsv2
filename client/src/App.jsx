@@ -1,7 +1,7 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
 import { useState, useEffect } from 'react'
 import Login from './components/Login'
-import UserDashboard from './components/UserDashboard'
+import UserDashboard from './components/UserDashboard-Enhanced'
 import TeamLeaderDashboard from './components/TeamLeaderDashboard'
 import AdminDashboard from './components/AdminDashboard'
 import './App.css'

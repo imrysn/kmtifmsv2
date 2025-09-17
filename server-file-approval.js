@@ -372,11 +372,11 @@ function seedTestUsers(resolve, reject) {
           
           completed++;
           if (completed === total) {
-            console.log('\n👤 Available test accounts:');
+            console.log('\\n👤 Available test accounts:');
             console.log('  USER: user@example.com / password123 (John User)');
             console.log('  TEAM LEADER: teamleader@example.com / password123 (Sarah Team Leader)');
             console.log('  ADMIN: admin@example.com / password123 (Admin Administrator)');
-            console.log('  Legacy USER: test@example.com / password123 (Test User)\n');
+            console.log('  Legacy USER: test@example.com / password123 (Test User)\\n');
             
             // Add sample files and activity logs
             seedSampleData(resolve, reject);
@@ -391,7 +391,7 @@ function seedTestUsers(resolve, reject) {
 function seedSampleData(resolve, reject) {
   // Add some sample activity logs
   const sampleActivities = [
-    { username: 'admin', role: 'ADMIN', team: 'IT Administration', activity: 'File approval system initialized with sample data' },
+    { username: 'admin', role: 'ADMIN', team: 'IT Administration', activity: 'System initialized and test users created' },
     { username: 'john.user', role: 'USER', team: 'Development', activity: 'User account created by administrator' },
     { username: 'sarah.leader', role: 'TEAM LEADER', team: 'Management', activity: 'User account created by administrator' },
     { username: 'test.user', role: 'USER', team: 'QA Testing', activity: 'User account created by administrator' }
@@ -416,7 +416,7 @@ function seedSampleData(resolve, reject) {
       user_id: 1,
       username: 'john.user',
       user_team: 'Development',
-      status: 'uploaded',
+      status: 'pending_team_leader',
       current_stage: 'pending_team_leader'
     },
     {
@@ -512,7 +512,7 @@ function seedSampleData(resolve, reject) {
       
       fileCompleted++;
       if (fileCompleted === sampleFiles.length) {
-        console.log('\n📁 File approval system initialized with sample data');
+        console.log('\\n📁 File approval system initialized with sample data');
         resolve();
       }
     });
@@ -1614,11 +1614,11 @@ async function startServer() {
       console.log(`🚀 Express server running on http://localhost:${PORT}`);
       console.log(`📁 Database file: ${dbPath}`);
       console.log(`📂 Uploads directory: ${uploadsDir}`);
-      console.log(`\n🔄 File Approval Workflow:`);
+      console.log(`\\n🔄 File Approval Workflow:`);
       console.log(`   1. User uploads file → Pending Team Leader Review`);
       console.log(`   2. Team Leader approves → Pending Admin Review`);
       console.log(`   3. Admin approves → Published to Public Network`);
-      console.log(`   ❌ Any stage can reject → Back to User with comments\n`);
+      console.log(`   ❌ Any stage can reject → Back to User with comments\\n`);
     });
   } catch (error) {
     console.error('Failed to start server:', error);
@@ -1626,11 +1626,24 @@ async function startServer() {
   }
 }
 
+// Add multer dependency to package.json if not present
+const packageJsonPath = path.join(__dirname, 'package.json');
+try {
+  const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
+  if (!packageJson.dependencies.multer) {
+    console.log('⚠️  Warning: multer dependency not found in package.json');
+    console.log('   Please run: npm install multer');
+    console.log('   Or add "multer": "^1.4.5-lts.1" to dependencies in package.json\\n');
+  }
+} catch (error) {
+  console.error('Error checking package.json:', error.message);
+}
+
 startServer();
 
 // Graceful shutdown
 process.on('SIGINT', () => {
-  console.log('\n⏹️  Server shutting down...');
+  console.log('\\n⏹️  Server shutting down...');
   db.close((err) => {
     if (err) {
       console.error('Error closing database:', err);
