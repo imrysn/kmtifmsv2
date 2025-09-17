@@ -12,7 +12,7 @@
   --macos-gray6: #F2F2F7;
   
   --macos-bg: #F2F2F7;
-  --macos-card-bg: rgba(255, 255, 255, 0.85);
+  --macos-card-bg: rgba(8, 8, 8, 0.85);
   --macos-blur: blur(20px);
   --macos-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
   --macos-border: 1px solid rgba(255, 255, 255, 0.2);
@@ -34,14 +34,14 @@
   justify-content: center;
   align-items: center;
   min-height: 100vh;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(180deg, #F2F2F7, #c8e7f2);
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif;
   padding: var(--spacing-lg);
 }
 
 /* Login Card */
 .login-card {
-  background: var(--macos-card-bg);
+  background: var(--macos-bg);
   backdrop-filter: var(--macos-blur);
   -webkit-backdrop-filter: var(--macos-blur);
   border: var(--macos-border);
@@ -93,9 +93,9 @@
 .toggle-container {
   display: flex;
   background: rgba(242, 242, 247, 0.7);
-  border-radius: var(--radius-md);
+  border-radius: 25px;
   padding: 3px;
-  border: 1px solid rgba(0, 0, 0, 0.06);
+  border: 1px solid rgba(0, 0, 0, 0.212);
 }
 
 .toggle-btn {
@@ -103,7 +103,7 @@
   padding: 12px var(--spacing-md);
   border: none;
   background: transparent;
-  border-radius: 9px;
+  border-radius: 25px;
   font-size: 15px;
   font-weight: 500;
   cursor: pointer;
@@ -113,7 +113,7 @@
 }
 
 .toggle-btn.active {
-  background: var(--macos-blue);
+  background: #000;
   color: white;
   box-shadow: 0 1px 4px rgba(0, 122, 255, 0.3);
 }
@@ -148,7 +148,7 @@
   border-radius: var(--radius-md);
   font-size: 16px;
   font-family: inherit;
-  background: rgba(255, 255, 255, 0.9);
+  background: transparent;
   color: #1D1D1F;
   transition: all 0.2s ease;
 }
@@ -160,7 +160,7 @@
 .form-group input:focus {
   outline: none;
   border-color: var(--macos-blue);
-  background: white;
+  background: transparent;
   box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.1);
 }
 
@@ -196,7 +196,7 @@
 
 /* Login Button */
 .login-button {
-  background: var(--macos-blue);
+  background: #000;
   color: white;
   border: none;
   padding: 14px var(--spacing-lg);
