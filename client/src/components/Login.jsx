@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import anime from 'animejs'
 import './Login.css'
+import Logo from '../assets/kmti_logo.png'
 
 const Login = ({ onLogin }) => {
   const [loginType, setLoginType] = useState('user') // 'user' or 'admin'
@@ -140,9 +141,12 @@ const Login = ({ onLogin }) => {
 
   return (
     <div className="minimal-login-container">
+      <div className='logo'>
+        <img src={Logo} alt="kmti logo" />
+      </div>
       <div className="login-card" ref={loginCardRef}>
         <div className="login-header">
-          <h1>Welcome Back</h1>
+          <h1>Welcome</h1>
           <p>Sign in to access your workspace</p>
         </div>
 
@@ -153,14 +157,14 @@ const Login = ({ onLogin }) => {
               className={`toggle-btn ${loginType === 'user' ? 'active' : ''}`}
               onClick={() => loginType !== 'user' && handleToggle()}
             >
-              User Portal
+              User
             </button>
             <button
               type="button"
               className={`toggle-btn ${loginType === 'admin' ? 'active' : ''}`}
               onClick={() => loginType !== 'admin' && handleToggle()}
             >
-              Admin Panel
+              Admin
             </button>
           </div>
         </div>
