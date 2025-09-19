@@ -570,10 +570,13 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
                       backgroundColor: 'transparent',
                       color: getTeamColor(selectedFile.user_team),
                       borderColor: getTeamColor(selectedFile.user_team),
-                      padding: '0.25rem 0.75rem',
+                      padding: '0.375rem 0.875rem',
                       borderRadius: '12px',
                       fontSize: '0.75rem',
-                      fontWeight: '500'
+                      fontWeight: '500',
+                      width: '130px',
+                      textAlign: 'center',
+                      display: 'inline-block'
                     }}
                   >
                     {selectedFile.user_team}
