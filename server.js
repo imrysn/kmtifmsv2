@@ -1124,6 +1124,50 @@ app.get('/api/files/user/:userId', (req, res) => {
   );
 });
 
+// Get pending files for user (files that are not final_approved)
+app.get('/api/files/user/:userId/pending', (req, res) => {
+  const { userId } = req.params;
+  
+  console.log(`📁 Getting pending files for user ${userId}`);
+  
+  db.all(
+    `SELECT f.*, 
+            GROUP_CONCAT(fc.comment, ' | ') as comments
+     FROM files f 
+     LEFT JOIN file_comments fc ON f.id = fc.file_id
+     WHERE f.user_id = ? AND f.status != 'final_approved'
+     GROUP BY f.id
+     ORDER BY f.uploaded_at DESC`,
+    [userId],
+    (err, files) => {
+      if (err) {
+        console.error('❌ Error getting user pending files:', err);
+        return res.status(500).json({
+          success: false,
+          message: 'Failed to fetch pending files'
+        });
+      }
+      
+      // Process the files to include comments as an array
+      const processedFiles = files.map(file => {
+        const comments = file.comments ? 
+          file.comments.split(' | ').map(comment => ({ comment })) : [];
+        
+        return {
+          ...file,
+          comments
+        };
+      });
+      
+      console.log(`✅ Retrieved ${processedFiles.length} pending files for user ${userId}`);
+      res.json({
+        success: true,
+        files: processedFiles
+      });
+    }
+  );
+});
+
 // Get files for team leader review (Team Leader only)
 app.get('/api/files/team-leader/:team', (req, res) => {
   const { team } = req.params;

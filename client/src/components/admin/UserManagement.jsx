@@ -12,6 +12,13 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess })
   const [showPasswordModal, setShowPasswordModal] = useState(false)
   const [showUserDeleteModal, setShowUserDeleteModal] = useState(false)
   const [userToDelete, setUserToDelete] = useState(null)
+  const [showUserDetailsModal, setShowUserDetailsModal] = useState(false)
+  const [userDetails, setUserDetails] = useState({
+    user: null,
+    files: [],
+    pendingFiles: [],
+    isLoadingDetails: false
+  })
   const [formData, setFormData] = useState({
     fullName: '',
     username: '',
@@ -211,6 +218,50 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess })
     setShowUserDeleteModal(true)
   }
 
+  const fetchUserDetails = async (userId) => {
+    setUserDetails(prev => ({ ...prev, isLoadingDetails: true }))
+    
+    try {
+      // Fetch user files
+      const filesResponse = await fetch(`http://localhost:3001/api/files/user/${userId}`)
+      const filesData = await filesResponse.json()
+      
+      // Fetch pending files (files with status != 'APPROVED')
+      const pendingResponse = await fetch(`http://localhost:3001/api/files/user/${userId}/pending`)
+      const pendingData = await pendingResponse.json()
+      
+      setUserDetails(prev => ({
+        ...prev,
+        files: filesData.success ? filesData.files : [],
+        pendingFiles: pendingData.success ? pendingData.files : [],
+        isLoadingDetails: false
+      }))
+    } catch (error) {
+      console.error('Error fetching user details:', error)
+      setUserDetails(prev => ({
+        ...prev,
+        files: [],
+        pendingFiles: [],
+        isLoadingDetails: false
+      }))
+    }
+  }
+
+  const openUserDetailsModal = async (user) => {
+    setError('')
+    setSuccess('')
+    setUserDetails({
+      user: user,
+      files: [],
+      pendingFiles: [],
+      isLoadingDetails: true
+    })
+    setShowUserDetailsModal(true)
+    
+    // Fetch user details
+    await fetchUserDetails(user.id)
+  }
+
   return (
     <div className="users-management">
       <div className="page-header">
@@ -297,7 +348,13 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess })
                     <td>
                       <div className="user-cell">
                         <div className="user-avatar">{user.fullName.charAt(0).toUpperCase()}</div>
-                        <span className="user-name">{user.fullName}</span>
+                        <span 
+                          className="user-name clickable" 
+                          onClick={() => openUserDetailsModal(user)}
+                          title="View user details, files, and pending files"
+                        >
+                          {user.fullName}
+                        </span>
                       </div>
                     </td>
                     <td>{user.username}</td>
@@ -358,7 +415,7 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess })
       {/* Add User Modal */}
       {showAddModal && (
         <div className="modal-overlay" onClick={() => setShowAddModal(false)}>
-          <div className="modal" onClick={e => e.stopPropagation()}>
+          <div className="modal compact" onClick={e => e.stopPropagation()}>
             <div className="modal-header">
               <h3>Add New User</h3>
               <button onClick={() => setShowAddModal(false)} className="modal-close">×</button>
@@ -455,7 +512,7 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess })
       {/* Edit User Modal */}
       {showEditModal && selectedUser && (
         <div className="modal-overlay" onClick={() => setShowEditModal(false)}>
-          <div className="modal" onClick={e => e.stopPropagation()}>
+          <div className="modal compact" onClick={e => e.stopPropagation()}>
             <div className="modal-header">
               <h3>Edit User</h3>
               <button onClick={() => setShowEditModal(false)} className="modal-close">×</button>
@@ -541,7 +598,7 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess })
       {/* Reset Password Modal */}
       {showPasswordModal && selectedUser && (
         <div className="modal-overlay" onClick={() => setShowPasswordModal(false)}>
-          <div className="modal" onClick={e => e.stopPropagation()}>
+          <div className="modal compact" onClick={e => e.stopPropagation()}>
             <div className="modal-header">
               <h3>Reset Password</h3>
               <button onClick={() => setShowPasswordModal(false)} className="modal-close">×</button>
@@ -595,17 +652,10 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess })
             </div>
             <div className="modal-body">
               <div className="delete-warning">
-                <div className="warning-icon">⚠️</div>
                 <div className="warning-content">
                   <h4>Are you sure you want to delete this user?</h4>
                   <p className="file-info">
                     <strong>{userToDelete.fullName}</strong>
-                    <br />
-                    Username: <strong>{userToDelete.username}</strong>
-                    <br />
-                    Email: <strong>{userToDelete.email}</strong>
-                    <br />
-                    Role: <strong>{userToDelete.role}</strong> | Team: <strong>{userToDelete.team}</strong>
                   </p>
                   <p className="warning-text">
                     This action cannot be undone. The user account and all associated data will be permanently removed from the system.
@@ -635,8 +685,167 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess })
           </div>
         </div>
       )}
+
+      {/* User Details Modal */}
+      {showUserDetailsModal && userDetails.user && (
+        <div className="modal-overlay" onClick={() => setShowUserDetailsModal(false)}>
+          <div className="modal user-details-modal" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>User Details</h3>
+              <button onClick={() => setShowUserDetailsModal(false)} className="modal-close">×</button>
+            </div>
+            <div className="modal-body">
+              <div className="user-details-content">
+                {/* User Information */}
+                <div className="user-info-section">
+                  <div className="section-header">
+                    <div className="user-header">
+                      <div className="user-avatar-large">
+                        {userDetails.user.fullName.charAt(0).toUpperCase()}
+                      </div>
+                      <div className="user-info">
+                        <h4 className="user-full-name">{userDetails.user.fullName}</h4>
+                        <p className="user-subtitle">{userDetails.user.username} • {userDetails.user.email}</p>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="user-details-grid">
+                    <div className="detail-item">
+                      <label>Role</label>
+                      <span className={`role-badge ${userDetails.user.role.toLowerCase().replace(' ', '-')}`}>
+                        {userDetails.user.role}
+                      </span>
+                    </div>
+                    <div className="detail-item">
+                      <label>Team</label>
+                      <span className="team-badge">{userDetails.user.team}</span>
+                    </div>
+                    <div className="detail-item">
+                      <label>Account Status</label>
+                      <span className="status-badge active">Active</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Files Section */}
+                <div className="files-section">
+                  <div className="section-header">
+                    <h5>All Files ({userDetails.isLoadingDetails ? '...' : userDetails.files.length})</h5>
+                  </div>
+                  <div className="files-list">
+                    {userDetails.isLoadingDetails ? (
+                      <div className="loading-files">
+                        <div className="spinner-small"></div>
+                        <span>Loading files...</span>
+                      </div>
+                    ) : userDetails.files.length > 0 ? (
+                      userDetails.files.map((file) => (
+                        <div key={file.id} className="file-item">
+                          <div className="file-info">
+                            <div className="file-name">{file.filename}</div>
+                            <div className="file-meta">
+                              <span className="file-size">{formatFileSize(file.size)}</span>
+                              <span className="file-date">{formatDate(file.uploadedAt)}</span>
+                              <span className={`status-badge ${file.status.toLowerCase()}`}>
+                                {file.status}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="empty-files">
+                        <p>No files uploaded yet</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Pending Files Section */}
+                <div className="pending-files-section">
+                  <div className="section-header">
+                    <h5>Pending Files ({userDetails.isLoadingDetails ? '...' : userDetails.pendingFiles.length})</h5>
+                  </div>
+                  <div className="files-list">
+                    {userDetails.isLoadingDetails ? (
+                      <div className="loading-files">
+                        <div className="spinner-small"></div>
+                        <span>Loading pending files...</span>
+                      </div>
+                    ) : userDetails.pendingFiles.length > 0 ? (
+                      userDetails.pendingFiles.map((file) => (
+                        <div key={file.id} className="file-item pending">
+                          <div className="file-info">
+                            <div className="file-name">{file.filename}</div>
+                            <div className="file-meta">
+                              <span className="file-size">{formatFileSize(file.size)}</span>
+                              <span className="file-date">{formatDate(file.uploadedAt)}</span>
+                              <span className={`status-badge ${file.status.toLowerCase()}`}>
+                                {file.status}
+                              </span>
+                            </div>
+                          </div>
+                          {file.comments && file.comments.length > 0 && (
+                            <div className="file-comments">
+                              <div className="comments-label">Latest Comment:</div>
+                              <div className="comment-text">{file.comments[file.comments.length - 1].comment}</div>
+                            </div>
+                          )}
+                        </div>
+                      ))
+                    ) : (
+                      <div className="empty-files">
+                        <p>No pending files</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button 
+                type="button" 
+                onClick={() => setShowUserDetailsModal(false)} 
+                className="btn btn-secondary"
+              >
+                Close
+              </button>
+              <button 
+                type="button" 
+                onClick={() => {
+                  setShowUserDetailsModal(false)
+                  openEditModal(userDetails.user)
+                }}
+                className="btn btn-primary"
+              >
+                Edit User
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
+}
+
+// Utility functions for formatting
+const formatFileSize = (bytes) => {
+  if (bytes === 0) return '0 Bytes'
+  const k = 1024
+  const sizes = ['Bytes', 'KB', 'MB', 'GB']
+  const i = Math.floor(Math.log(bytes) / Math.log(k))
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
+}
+
+const formatDate = (dateString) => {
+  const date = new Date(dateString)
+  return date.toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  })
 }
 
 export default UserManagement
