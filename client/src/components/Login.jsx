@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import anime from 'animejs'
-import './Login.css'
+import '../css/Login.css'
 import Logo from '../assets/kmti_logo.png'
 
 const Login = ({ onLogin }) => {

@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import anime from 'animejs'
-import './AdminDashboard.css'
+import '../css/AdminDashboard.css'
 
 const AdminDashboard = ({ user, onLogout }) => {
   const [activeTab, setActiveTab] = useState('dashboard')
