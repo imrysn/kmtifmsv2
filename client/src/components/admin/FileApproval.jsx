@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import './FileApproval.css'
 
 const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) => {
@@ -13,6 +13,36 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
   const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [fileToDelete, setFileToDelete] = useState(null)
   const [isLoading, setIsLoading] = useState(false)
+  const statusCardsRef = useRef(null)
+  const searchInputRef = useRef(null)
+  const filterSelectRef = useRef(null)
+
+  // Auto-clear messages after 3 seconds
+  useEffect(() => {
+    if (error || success) {
+      const timer = setTimeout(() => {
+        clearMessages()
+      }, 3000)
+      return () => clearTimeout(timer)
+    }
+  }, [error, success, clearMessages])
+
+  // Mouse move handler for cursor shadow effect
+  useEffect(() => {
+    const handleMouseMove = (e) => {
+      const elements = document.querySelectorAll('.file-status-card, .search-input, .form-select')
+      elements.forEach(el => {
+        const rect = el.getBoundingClientRect()
+        const x = e.clientX - rect.left
+        const y = e.clientY - rect.top
+        el.style.setProperty('--mouse-x', `${x}px`)
+        el.style.setProperty('--mouse-y', `${y}px`)
+      })
+    }
+
+    document.addEventListener('mousemove', handleMouseMove)
+    return () => document.removeEventListener('mousemove', handleMouseMove)
+  }, [])
 
   // Fetch files on component mount
   useEffect(() => {
@@ -137,13 +167,6 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
     } finally {
       setIsLoading(false)
     }
-  }
-
-  const clearFileFilters = () => {
-    setFileSearchQuery('')
-    setFileFilter('all')
-    setFileSortBy('date-desc')
-    setSuccess('File filters cleared')
   }
 
   const deleteFile = async () => {
@@ -294,8 +317,16 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
         <p>Review and manage submitted files requiring approval</p>
       </div>
       
+      {/* Messages */}
+      {(error || success) && (
+        <div className={`alert ${error ? 'alert-error' : 'alert-success'} message-fade`}>
+          <span className="alert-message">{error || success}</span>
+          <button onClick={clearMessages} className="alert-close">×</button>
+        </div>
+      )}
+      
       {/* Status Cards */}
-      <div className="file-status-cards">
+      <div className="file-status-cards" ref={statusCardsRef}>
         <div className="file-status-card pending">
           <div className="status-icon pending-icon">PE</div>
           <div className="status-info">
@@ -323,40 +354,6 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
       
       {/* Filter and Search Controls */}
       <div className="file-controls">
-        <div className="file-filters">
-          <select
-            value={fileFilter}
-            onChange={(e) => setFileFilter(e.target.value)}
-            className="form-select"
-          >
-            <option value="all">All Files</option>
-            <option value="pending">Pending</option>
-            <option value="approved">Approved</option>
-            <option value="rejected">Rejected</option>
-          </select>
-          
-          <select
-            value={fileSortBy}
-            onChange={(e) => setFileSortBy(e.target.value)}
-            className="form-select"
-          >
-            <option value="date-desc">Latest First</option>
-            <option value="date-asc">Oldest First</option>
-            <option value="filename-asc">Filename A-Z</option>
-            <option value="filename-desc">Filename Z-A</option>
-            <option value="user-asc">User A-Z</option>
-            <option value="user-desc">User Z-A</option>
-          </select>
-          
-          <button 
-            className="btn btn-secondary"
-            onClick={clearFileFilters}
-            disabled={fileSearchQuery === '' && fileFilter === 'all' && fileSortBy === 'date-desc'}
-          >
-            Clear Filters
-          </button>
-        </div>
-        
         <div className="file-search">
           <input
             type="text"
@@ -364,6 +361,7 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
             value={fileSearchQuery}
             onChange={(e) => setFileSearchQuery(e.target.value)}
             className="search-input"
+            ref={searchInputRef}
           />
           {fileSearchQuery && (
             <button 
@@ -375,22 +373,35 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
             </button>
           )}
         </div>
+        
+        <div className="file-filters">
+          <select
+            value={fileFilter}
+            onChange={(e) => setFileFilter(e.target.value)}
+            className="form-select"
+            ref={filterSelectRef}
+          >
+            <option value="all">All Files</option>
+            <option value="pending">Pending</option>
+            <option value="approved">Approved</option>
+            <option value="rejected">Rejected</option>
+          </select>
+          
+          <select
+            value={fileSortBy}
+            onChange={(e) => setFileSortBy(e.target.value)}
+            className="form-select"
+            ref={filterSelectRef}
+          >
+            <option value="date-desc">Latest First</option>
+            <option value="date-asc">Oldest First</option>
+            <option value="filename-asc">Filename A-Z</option>
+            <option value="filename-desc">Filename Z-A</option>
+            <option value="user-asc">User A-Z</option>
+            <option value="user-desc">User Z-A</option>
+          </select>
+        </div>
       </div>
-      
-      {/* Messages */}
-      {error && (
-        <div className="alert alert-error">
-          <span className="alert-message">{error}</span>
-          <button onClick={clearMessages} className="alert-close">×</button>
-        </div>
-      )}
-      
-      {success && (
-        <div className="alert alert-success">
-          <span className="alert-message">{success}</span>
-          <button onClick={clearMessages} className="alert-close">×</button>
-        </div>
-      )}
       
       {/* Files Table */}
       <div className="table-section">
