@@ -242,465 +242,499 @@ const UserDashboard = ({ user, onLogout }) => {
 
   return (
     <div className="minimal-dashboard user-dashboard" ref={dashboardRef}>
-      <div className="dashboard-header" ref={headerRef}>
-        <div className="header-content">
-          <div className="header-info">
-            <div className="header-title">
-              <h1>User Portal</h1>
-              <span className="role-badge user">{user.role}</span>
-            </div>
-          </div>
-          <button onClick={handleLogout} className="logout-button">
-            Logout
+      {/* Sidebar */}
+      <div className="sidebar">
+        <nav className="sidebar-nav">
+          <button
+            className={`sidebar-item ${activeTab === 'dashboard' ? 'active' : ''}`}
+            onClick={() => setActiveTab('dashboard')}
+          >
+            Dashboard
           </button>
-        </div>
+          <button
+            className={`sidebar-item ${activeTab === 'team-files' ? 'active' : ''}`}
+            onClick={() => setActiveTab('team-files')}
+          >
+            Team Files
+          </button>
+          <button
+            className={`sidebar-item ${activeTab === 'my-files' ? 'active' : ''}`}
+            onClick={() => {
+              setActiveTab('my-files')
+              clearMessages()
+            }}
+          >
+            My Files ({files.length})
+          </button>
+          <button
+            className={`sidebar-item ${activeTab === 'upload' ? 'active' : ''}`}
+            onClick={() => {
+              setActiveTab('upload')
+              clearMessages()
+            }}
+          >
+            File Approvals
+          </button>
+        </nav>
+        <button className="sidebar-logout" onClick={handleLogout}>
+          Logout
+        </button>
       </div>
 
-      {/* Navigation Tabs */}
-      <div className="dashboard-nav">
-        <button 
-          className={`nav-tab ${activeTab === 'dashboard' ? 'active' : ''}`}
-          onClick={() => setActiveTab('dashboard')}
-        >
-          Dashboard
-        </button>
-        <button 
-          className={`nav-tab ${activeTab === 'upload' ? 'active' : ''}`}
-          onClick={() => {
-            setActiveTab('upload')
-            clearMessages()
-          }}
-        >
-          Upload File
-        </button>
-        <button 
-          className={`nav-tab ${activeTab === 'my-files' ? 'active' : ''}`}
-          onClick={() => {
-            setActiveTab('my-files')
-            clearMessages()
-          }}
-        >
-          My Files ({files.length})
-        </button>
-      </div>
-      
-      <div className="dashboard-content">
-        {/* Dashboard Tab */}
-        {activeTab === 'dashboard' && (
-          <div className="dashboard-grid">
-            {/* Welcome Card */}
-            <div className="dashboard-card welcome-card">
-              <div className="card-header">
-                <h2>Welcome Back</h2>
-                <p className="card-subtitle">Your personal workspace</p>
+      {/* Main Content */}
+      <div className="main-content">
+        <div className="dashboard-header" ref={headerRef}>
+          <div className="header-content">
+            {/* Removed: "User Portal" and "USER" badge */}
+            {/* <div className="header-info">
+              <div className="header-title">
+                <h1>User Portal</h1>
+                <span className="role-badge user">{user.role}</span>
               </div>
-              
-              {user && (
-                <div className="user-info-section">
-                  <div className="user-avatar">
-                    {user.fullName ? user.fullName.charAt(0).toUpperCase() : 'U'}
+            </div> */}
+          </div>
+        </div>
+
+        <div className="dashboard-content">
+          {/* Dashboard Tab */}
+          {activeTab === 'dashboard' && (
+            <div className="dashboard-grid">
+              {/* Welcome Card */}
+              <div className="dashboard-card welcome-card">
+                <div className="card-header">
+                  <h2>Welcome Back</h2>
+                  <p className="card-subtitle">Your personal workspace</p>
+                </div>
+                
+                {user && (
+                  <div className="user-info-section">
+                    <div className="user-avatar">
+                      {user.fullName ? user.fullName.charAt(0).toUpperCase() : 'U'}
+                    </div>
+                    <div className="user-details">
+                      <div className="user-detail-item">
+                        <span className="detail-label">Full Name</span>
+                        <span className="detail-value">{user.fullName}</span>
+                      </div>
+                      <div className="user-detail-item">
+                        <span className="detail-label">Email</span>
+                        <span className="detail-value">{user.email}</span>
+                      </div>
+                      <div className="user-detail-item">
+                        <span className="detail-label">Team</span>
+                        <span className="detail-value team-highlight">{user.team}</span>
+                      </div>
+                      <div className="user-detail-item">
+                        <span className="detail-label">Role</span>
+                        <span className="detail-value role-highlight">{user.role}</span>
+                      </div>
+                    </div>
                   </div>
-                  <div className="user-details">
-                    <div className="user-detail-item">
-                      <span className="detail-label">Full Name</span>
-                      <span className="detail-value">{user.fullName}</span>
+                )}
+                
+                <div className="success-indicator">
+                  <div className="success-content">
+                    <h3>Authentication Successful</h3>
+                    <p>You have successfully logged into your User Portal. You can now upload files for review and track their approval status.</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* File Status Overview */}
+              <div className="dashboard-card files-overview-card">
+                <div className="card-header">
+                  <h3>Files Overview</h3>
+                  <p className="card-subtitle">Your file submission status</p>
+                </div>
+                
+                <div className="files-stats">
+                  <div className="file-stat">
+                    <div className="stat-number">{files.length}</div>
+                    <div className="stat-label">Total Files</div>
+                  </div>
+                  <div className="file-stat">
+                    <div className="stat-number">{files.filter(f => f.current_stage.includes('pending')).length}</div>
+                    <div className="stat-label">Under Review</div>
+                  </div>
+                  <div className="file-stat">
+                    <div className="stat-number">{files.filter(f => f.status === 'final_approved').length}</div>
+                    <div className="stat-label">Approved</div>
+                  </div>
+                  <div className="file-stat">
+                    <div className="stat-number">{files.filter(f => f.status.includes('rejected')).length}</div>
+                    <div className="stat-label">Rejected</div>
+                  </div>
+                </div>
+
+                <div className="file-actions">
+                  <button 
+                    className="action-btn primary"
+                    onClick={() => setActiveTab('upload')}
+                  >
+                    Submit New File
+                  </button>
+                  <button 
+                    className="action-btn secondary"
+                    onClick={() => setActiveTab('my-files')}
+                  >
+                    View My Files
+                  </button>
+                </div>
+              </div>
+
+              {/* File Approval Workflow Info */}
+              <div className="dashboard-card workflow-info-card">
+                <div className="card-header">
+                  <h3>File Approval Process</h3>
+                  <p className="card-subtitle">How your files get reviewed</p>
+                </div>
+                
+                <div className="workflow-steps">
+                  <div className="workflow-step">
+                    <div className="step-number">1</div>
+                    <div className="step-content">
+                      <h4>Upload File</h4>
+                      <p>Submit your file with description for review</p>
                     </div>
-                    <div className="user-detail-item">
-                      <span className="detail-label">Email</span>
-                      <span className="detail-value">{user.email}</span>
+                  </div>
+                  <div className="workflow-step">
+                    <div className="step-number">2</div>
+                    <div className="step-content">
+                      <h4>Team Leader Review</h4>
+                      <p>Your team leader reviews and approves/rejects</p>
                     </div>
-                    <div className="user-detail-item">
-                      <span className="detail-label">Team</span>
-                      <span className="detail-value team-highlight">{user.team}</span>
+                  </div>
+                  <div className="workflow-step">
+                    <div className="step-number">3</div>
+                    <div className="step-content">
+                      <h4>Admin Review</h4>
+                      <p>Final approval by system administrator</p>
                     </div>
-                    <div className="user-detail-item">
-                      <span className="detail-label">Role</span>
-                      <span className="detail-value role-highlight">{user.role}</span>
+                  </div>
+                  <div className="workflow-step">
+                    <div className="step-number">4</div>
+                    <div className="step-content">
+                      <h4>Public Network</h4>
+                      <p>Approved files are published to public network</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Team Leader Notice (if applicable) */}
+              {user.role === 'TEAM LEADER' && (
+                <div className="dashboard-card team-leader-notice">
+                  <div className="notice-header">
+                    <div className="notice-icon">TL</div>
+                    <h3>Team Leader Access</h3>
+                  </div>
+                  
+                  <div className="notice-content">
+                    <p>You have additional privileges as a Team Leader. You can access the Admin Panel for team management features and file approval.</p>
+                    
+                    <div className="access-info">
+                      <div className="access-item">
+                        <span className="access-label">User Portal</span>
+                        <span className="access-status current">Currently Active</span>
+                      </div>
+                      <div className="access-item">
+                        <span className="access-label">Admin Panel</span>
+                        <span className="access-status available">Switch Available</span>
+                      </div>
+                    </div>
+                    
+                    <div className="switch-instruction">
+                      <p>To access your Team Leader panel, logout and use the Admin Login option.</p>
                     </div>
                   </div>
                 </div>
               )}
-              
-              <div className="success-indicator">
-                <div className="success-content">
-                  <h3>Authentication Successful</h3>
-                  <p>You have successfully logged into your User Portal. You can now upload files for review and track their approval status.</p>
+            </div>
+          )}
+
+          {/* Team Files Tab */}
+          {activeTab === 'team-files' && (
+            <div className="dashboard-grid">
+              <div className="dashboard-card team-files-card">
+                <div className="card-header">
+                  <h2>Team Files</h2>
+                  <p className="card-subtitle">Files submitted by your team members</p>
+                </div>
+                <div className="placeholder-content">
+                  <p>This section will display files uploaded by members of your team.</p>
+                  <p>Currently, no team files are visible.</p>
+                  <button 
+                    className="btn btn-primary"
+                    onClick={() => setActiveTab('my-files')}
+                  >
+                    View Your Files
+                  </button>
                 </div>
               </div>
             </div>
+          )}
 
-            {/* File Status Overview */}
-            <div className="dashboard-card files-overview-card">
-              <div className="card-header">
-                <h3>Files Overview</h3>
-                <p className="card-subtitle">Your file submission status</p>
+          {/* File Approvals Tab */}
+          {activeTab === 'upload' && (
+            <div className="upload-section">
+              <div className="page-header">
+                <h2>Submit File for Approval</h2>
+                <p>Upload your file to begin the approval workflow. Your team leader will review it first, followed by an administrator.</p>
               </div>
+
+              {/* Messages */}
+              {error && (
+                <div className="alert alert-error">
+                  <span className="alert-message">{error}</span>
+                  <button onClick={clearMessages} className="alert-close">×</button>
+                </div>
+              )}
               
-              <div className="files-stats">
-                <div className="file-stat">
-                  <div className="stat-number">{files.length}</div>
-                  <div className="stat-label">Total Files</div>
+              {success && (
+                <div className="alert alert-success">
+                  <span className="alert-message">{success}</span>
+                  <button onClick={clearMessages} className="alert-close">×</button>
                 </div>
-                <div className="file-stat">
-                  <div className="stat-number">{files.filter(f => f.current_stage.includes('pending')).length}</div>
-                  <div className="stat-label">Under Review</div>
-                </div>
-                <div className="file-stat">
-                  <div className="stat-number">{files.filter(f => f.status === 'final_approved').length}</div>
-                  <div className="stat-label">Approved</div>
-                </div>
-                <div className="file-stat">
-                  <div className="stat-number">{files.filter(f => f.status.includes('rejected')).length}</div>
-                  <div className="stat-label">Rejected</div>
-                </div>
-              </div>
+              )}
 
-              <div className="file-actions">
-                <button 
-                  className="action-btn primary"
-                  onClick={() => setActiveTab('upload')}
-                >
-                  Upload New File
-                </button>
-                <button 
-                  className="action-btn secondary"
-                  onClick={() => setActiveTab('my-files')}
-                >
-                  View My Files
-                </button>
-              </div>
-            </div>
-
-            {/* File Approval Workflow Info */}
-            <div className="dashboard-card workflow-info-card">
-              <div className="card-header">
-                <h3>File Approval Process</h3>
-                <p className="card-subtitle">How your files get reviewed</p>
-              </div>
-              
-              <div className="workflow-steps">
-                <div className="workflow-step">
-                  <div className="step-number">1</div>
-                  <div className="step-content">
-                    <h4>Upload File</h4>
-                    <p>Submit your file with description for review</p>
-                  </div>
-                </div>
-                <div className="workflow-step">
-                  <div className="step-number">2</div>
-                  <div className="step-content">
-                    <h4>Team Leader Review</h4>
-                    <p>Your team leader reviews and approves/rejects</p>
-                  </div>
-                </div>
-                <div className="workflow-step">
-                  <div className="step-number">3</div>
-                  <div className="step-content">
-                    <h4>Admin Review</h4>
-                    <p>Final approval by system administrator</p>
-                  </div>
-                </div>
-                <div className="workflow-step">
-                  <div className="step-number">4</div>
-                  <div className="step-content">
-                    <h4>Public Network</h4>
-                    <p>Approved files are published to public network</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Team Leader Notice (if applicable) */}
-            {user.role === 'TEAM LEADER' && (
-              <div className="dashboard-card team-leader-notice">
-                <div className="notice-header">
-                  <div className="notice-icon">TL</div>
-                  <h3>Team Leader Access</h3>
-                </div>
-                
-                <div className="notice-content">
-                  <p>You have additional privileges as a Team Leader. You can access the Admin Panel for team management features and file approval.</p>
-                  
-                  <div className="access-info">
-                    <div className="access-item">
-                      <span className="access-label">User Portal</span>
-                      <span className="access-status current">Currently Active</span>
+              <div className="upload-container">
+                <div className="upload-card">
+                  <form onSubmit={handleFileUpload} className="upload-form">
+                    <div className="form-group">
+                      <label className="form-label">Select File</label>
+                      <div className="file-input-container">
+                        <input
+                          ref={fileInputRef}
+                          type="file"
+                          onChange={handleFileSelect}
+                          accept=".pdf,.doc,.docx,.xls,.xlsx,.txt,.jpg,.jpeg,.png,.gif,.zip"
+                          className="file-input"
+                          disabled={isUploading}
+                        />
+                        <div className="file-input-info">
+                          <p>Supported formats: PDF, Word, Excel, Text, Images, ZIP</p>
+                          <p>Maximum file size: 100MB</p>
+                        </div>
+                      </div>
                     </div>
-                    <div className="access-item">
-                      <span className="access-label">Admin Panel</span>
-                      <span className="access-status available">Switch Available</span>
-                    </div>
-                  </div>
-                  
-                  <div className="switch-instruction">
-                    <p>To access your Team Leader panel, logout and use the Admin Login option.</p>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
 
-        {/* Upload File Tab */}
-        {activeTab === 'upload' && (
-          <div className="upload-section">
-            <div className="page-header">
-              <h2>Upload File for Review</h2>
-              <p>Submit your file to the approval workflow. Files will be reviewed by your team leader first, then by an administrator.</p>
-            </div>
+                    {uploadedFile && (
+                      <div className="selected-file-info">
+                        <h4>Selected File:</h4>
+                        <div className="file-preview">
+                          <div className="file-icon">{uploadedFile.name.split('.').pop().toUpperCase()}</div>
+                          <div className="file-details">
+                            <div className="file-name">{uploadedFile.name}</div>
+                            <div className="file-size">{formatFileSize(uploadedFile.size)}</div>
+                            <div className="file-type">{uploadedFile.type || 'Unknown type'}</div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
 
-            {/* Messages */}
-            {error && (
-              <div className="alert alert-error">
-                <span className="alert-message">{error}</span>
-                <button onClick={clearMessages} className="alert-close">×</button>
-              </div>
-            )}
-            
-            {success && (
-              <div className="alert alert-success">
-                <span className="alert-message">{success}</span>
-                <button onClick={clearMessages} className="alert-close">×</button>
-              </div>
-            )}
-
-            <div className="upload-container">
-              <div className="upload-card">
-                <form onSubmit={handleFileUpload} className="upload-form">
-                  <div className="form-group">
-                    <label className="form-label">Select File</label>
-                    <div className="file-input-container">
-                      <input
-                        ref={fileInputRef}
-                        type="file"
-                        onChange={handleFileSelect}
-                        accept=".pdf,.doc,.docx,.xls,.xlsx,.txt,.jpg,.jpeg,.png,.gif,.zip"
-                        className="file-input"
+                    <div className="form-group">
+                      <label className="form-label">Description</label>
+                      <textarea
+                        value={description}
+                        onChange={(e) => setDescription(e.target.value)}
+                        placeholder="Provide a brief description of this file and its purpose..."
+                        rows="4"
+                        className="form-textarea"
                         disabled={isUploading}
                       />
-                      <div className="file-input-info">
-                        <p>Supported formats: PDF, Word, Excel, Text, Images, ZIP</p>
-                        <p>Maximum file size: 100MB</p>
-                      </div>
                     </div>
-                  </div>
 
-                  {uploadedFile && (
-                    <div className="selected-file-info">
-                      <h4>Selected File:</h4>
-                      <div className="file-preview">
-                        <div className="file-icon">{uploadedFile.name.split('.').pop().toUpperCase()}</div>
-                        <div className="file-details">
-                          <div className="file-name">{uploadedFile.name}</div>
-                          <div className="file-size">{formatFileSize(uploadedFile.size)}</div>
-                          <div className="file-type">{uploadedFile.type || 'Unknown type'}</div>
+                    <div className="form-group">
+                      <label className="form-label">Submission Details</label>
+                      <div className="submission-info">
+                        <div className="info-item">
+                          <span className="info-label">Team:</span>
+                          <span className="info-value">{user.team}</span>
+                        </div>
+                        <div className="info-item">
+                          <span className="info-label">Submitted by:</span>
+                          <span className="info-value">{user.fullName} ({user.username})</span>
+                        </div>
+                        <div className="info-item">
+                          <span className="info-label">Will be reviewed by:</span>
+                          <span className="info-value">{user.team} Team Leader → Administrator</span>
                         </div>
                       </div>
                     </div>
-                  )}
 
-                  <div className="form-group">
-                    <label className="form-label">Description</label>
-                    <textarea
-                      value={description}
-                      onChange={(e) => setDescription(e.target.value)}
-                      placeholder="Provide a brief description of this file and its purpose..."
-                      rows="4"
-                      className="form-textarea"
-                      disabled={isUploading}
+                    <div className="form-actions">
+                      <button
+                        type="submit"
+                        disabled={!uploadedFile || isUploading}
+                        className={`btn btn-primary ${isUploading ? 'loading' : ''}`}
+                      >
+                        {isUploading ? 'Uploading...' : 'Submit for Approval'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setUploadedFile(null)
+                          setDescription('')
+                          if (fileInputRef.current) {
+                            fileInputRef.current.value = ''
+                          }
+                          clearMessages()
+                        }}
+                        disabled={isUploading}
+                        className="btn btn-secondary"
+                      >
+                        Clear
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* My Files Tab */}
+          {activeTab === 'my-files' && (
+            <div className="my-files-section">
+              <div className="page-header">
+                <h2>My Files</h2>
+                <p>Track the status of all your submitted files through the approval workflow.</p>
+              </div>
+
+              {/* Filters and Search */}
+              <div className="files-controls">
+                <div className="files-filters">
+                  <select
+                    value={filterStatus}
+                    onChange={(e) => setFilterStatus(e.target.value)}
+                    className="form-select"
+                  >
+                    <option value="all">All Files</option>
+                    <option value="pending">Under Review</option>
+                    <option value="approved">Approved</option>
+                    <option value="rejected">Rejected</option>
+                  </select>
+                  
+                  <div className="files-search">
+                    <input
+                      type="text"
+                      placeholder="Search files..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="search-input"
                     />
+                    {searchQuery && (
+                      <button 
+                        className="search-clear-btn"
+                        onClick={() => setSearchQuery('')}
+                        title="Clear search"
+                      >
+                        ×
+                      </button>
+                    )}
                   </div>
-
-                  <div className="form-group">
-                    <label className="form-label">Submission Details</label>
-                    <div className="submission-info">
-                      <div className="info-item">
-                        <span className="info-label">Team:</span>
-                        <span className="info-value">{user.team}</span>
-                      </div>
-                      <div className="info-item">
-                        <span className="info-label">Submitted by:</span>
-                        <span className="info-value">{user.fullName} ({user.username})</span>
-                      </div>
-                      <div className="info-item">
-                        <span className="info-label">Will be reviewed by:</span>
-                        <span className="info-value">{user.team} Team Leader → Administrator</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="form-actions">
-                    <button
-                      type="submit"
-                      disabled={!uploadedFile || isUploading}
-                      className={`btn btn-primary ${isUploading ? 'loading' : ''}`}
-                    >
-                      {isUploading ? 'Uploading...' : 'Submit for Review'}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setUploadedFile(null)
-                        setDescription('')
-                        if (fileInputRef.current) {
-                          fileInputRef.current.value = ''
-                        }
-                        clearMessages()
-                      }}
-                      disabled={isUploading}
-                      className="btn btn-secondary"
-                    >
-                      Clear
-                    </button>
-                  </div>
-                </form>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* My Files Tab */}
-        {activeTab === 'my-files' && (
-          <div className="my-files-section">
-            <div className="page-header">
-              <h2>My Files</h2>
-              <p>Track the status of all your submitted files through the approval workflow.</p>
-            </div>
-
-            {/* Filters and Search */}
-            <div className="files-controls">
-              <div className="files-filters">
-                <select
-                  value={filterStatus}
-                  onChange={(e) => setFilterStatus(e.target.value)}
-                  className="form-select"
-                >
-                  <option value="all">All Files</option>
-                  <option value="pending">Under Review</option>
-                  <option value="approved">Approved</option>
-                  <option value="rejected">Rejected</option>
-                </select>
+                </div>
                 
-                <div className="files-search">
-                  <input
-                    type="text"
-                    placeholder="Search files..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="search-input"
-                  />
-                  {searchQuery && (
-                    <button 
-                      className="search-clear-btn"
-                      onClick={() => setSearchQuery('')}
-                      title="Clear search"
-                    >
-                      ×
-                    </button>
-                  )}
-                </div>
-              </div>
-              
-              <div className="files-actions">
-                <button 
-                  className="btn btn-primary"
-                  onClick={() => setActiveTab('upload')}
-                >
-                  Upload New File
-                </button>
-                <button 
-                  className="btn btn-secondary"
-                  onClick={fetchUserFiles}
-                  disabled={isLoading}
-                >
-                  {isLoading ? 'Refreshing...' : 'Refresh'}
-                </button>
-              </div>
-            </div>
-
-            {/* Messages */}
-            {error && (
-              <div className="alert alert-error">
-                <span className="alert-message">{error}</span>
-                <button onClick={clearMessages} className="alert-close">×</button>
-              </div>
-            )}
-
-            {/* Files List */}
-            <div className="files-container">
-              {isLoading ? (
-                <div className="loading-state">
-                  <div className="spinner"></div>
-                  <p>Loading your files...</p>
-                </div>
-              ) : filteredFiles.length > 0 ? (
-                <div className="files-grid">
-                  {filteredFiles.map((file) => (
-                    <div 
-                      key={file.id} 
-                      className="file-card"
-                      onClick={() => openFileModal(file)}
-                    >
-                      <div className="file-header">
-                        <div className="file-icon-large">
-                          {file.file_type.split(' ')[0].slice(0, 3).toUpperCase()}
-                        </div>
-                        <div className="file-basic-info">
-                          <h3 className="file-name">{file.original_name}</h3>
-                          <p className="file-size">{formatFileSize(file.file_size)}</p>
-                        </div>
-                      </div>
-                      
-                      <div className="file-content">
-                        <div className="file-description">
-                          {file.description || 'No description provided'}
-                        </div>
-                        
-                        <div className="file-meta">
-                          <div className="meta-item">
-                            <span className="meta-label">Type:</span>
-                            <span className="meta-value">{file.file_type}</span>
-                          </div>
-                          <div className="meta-item">
-                            <span className="meta-label">Uploaded:</span>
-                            <span className="meta-value">{new Date(file.uploaded_at).toLocaleDateString()}</span>
-                          </div>
-                        </div>
-                      </div>
-                      
-                      <div className="file-footer">
-                        <div className="file-status-info">
-                          <div className={`status-badge ${getStatusBadgeClass(file.status, file.current_stage)}`}>
-                            {getStatusText(file.status, file.current_stage)}
-                          </div>
-                          <div className="current-stage">
-                            {getCurrentStageText(file.current_stage)}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="empty-state">
-                  <div className="empty-icon">📁</div>
-                  <h3>No files found</h3>
-                  <p>
-                    {files.length === 0 
-                      ? "You haven't uploaded any files yet." 
-                      : "No files match your current filter criteria."}
-                  </p>
+                <div className="files-actions">
                   <button 
                     className="btn btn-primary"
                     onClick={() => setActiveTab('upload')}
                   >
-                    Upload Your First File
+                    Submit New File
+                  </button>
+                  <button 
+                    className="btn btn-secondary"
+                    onClick={fetchUserFiles}
+                    disabled={isLoading}
+                  >
+                    {isLoading ? 'Refreshing...' : 'Refresh'}
                   </button>
                 </div>
+              </div>
+
+              {/* Messages */}
+              {error && (
+                <div className="alert alert-error">
+                  <span className="alert-message">{error}</span>
+                  <button onClick={clearMessages} className="alert-close">×</button>
+                </div>
               )}
+
+              {/* Files List */}
+              <div className="files-container">
+                {isLoading ? (
+                  <div className="loading-state">
+                    <div className="spinner"></div>
+                    <p>Loading your files...</p>
+                  </div>
+                ) : filteredFiles.length > 0 ? (
+                  <div className="files-grid">
+                    {filteredFiles.map((file) => (
+                      <div 
+                        key={file.id} 
+                        className="file-card"
+                        onClick={() => openFileModal(file)}
+                      >
+                        <div className="file-header">
+                          <div className="file-icon-large">
+                            {file.file_type.split(' ')[0].slice(0, 3).toUpperCase()}
+                          </div>
+                          <div className="file-basic-info">
+                            <h3 className="file-name">{file.original_name}</h3>
+                            <p className="file-size">{formatFileSize(file.file_size)}</p>
+                          </div>
+                        </div>
+                        
+                        <div className="file-content">
+                          <div className="file-description">
+                            {file.description || 'No description provided'}
+                          </div>
+                          
+                          <div className="file-meta">
+                            <div className="meta-item">
+                              <span className="meta-label">Type:</span>
+                              <span className="meta-value">{file.file_type}</span>
+                            </div>
+                            <div className="meta-item">
+                              <span className="meta-label">Uploaded:</span>
+                              <span className="meta-value">{new Date(file.uploaded_at).toLocaleDateString()}</span>
+                            </div>
+                          </div>
+                        </div>
+                        
+                        <div className="file-footer">
+                          <div className="file-status-info">
+                            <div className={`status-badge ${getStatusBadgeClass(file.status, file.current_stage)}`}>
+                              {getStatusText(file.status, file.current_stage)}
+                            </div>
+                            <div className="current-stage">
+                              {getCurrentStageText(file.current_stage)}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="empty-state">
+                    <div className="empty-icon">📁</div>
+                    <h3>No files found</h3>
+                    <p>
+                      {files.length === 0 
+                        ? "You haven't uploaded any files yet." 
+                        : "No files match your current filter criteria."}
+                    </p>
+                    <button 
+                      className="btn btn-primary"
+                      onClick={() => setActiveTab('upload')}
+                    >
+                      Submit Your First File
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
 
       {/* File Details Modal */}
