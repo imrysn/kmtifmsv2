@@ -1,8 +1,17 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import './Settings.css'
 
 const Settings = ({ clearMessages, error, success, setError, setSuccess, users }) => {
   const [isLoading, setIsLoading] = useState(false)
+  const [teams, setTeams] = useState([])
+  const [teamsLoading, setTeamsLoading] = useState(false)
+  const [newTeam, setNewTeam] = useState({
+    name: '',
+    leaderId: '',
+    leaderUsername: '',
+    color: '#3B82F6'
+  })
+  const [editingTeam, setEditingTeam] = useState(null)
   const [settings, setSettings] = useState({
     system: {
       siteName: 'KMTIFMSV2 Admin',
@@ -71,6 +80,142 @@ const Settings = ({ clearMessages, error, success, setError, setSuccess, users }
       setSuccess('Database reset initiated')
       // Here you would call your reset script
     }
+  }
+
+  // Team Management Functions
+  useEffect(() => {
+    fetchTeams()
+  }, [])
+
+  const fetchTeams = async () => {
+    setTeamsLoading(true)
+    try {
+      const response = await fetch('http://localhost:3001/api/teams')
+      const data = await response.json()
+      if (data.success) {
+        setTeams(data.teams || [])
+      } else {
+        setError('Failed to fetch teams')
+      }
+    } catch (error) {
+      setError('Failed to fetch teams')
+    } finally {
+      setTeamsLoading(false)
+    }
+  }
+
+  const handleCreateTeam = async () => {
+    if (!newTeam.name.trim()) {
+      setError('Team name is required')
+      return
+    }
+
+    setIsLoading(true)
+    try {
+      const response = await fetch('http://localhost:3001/api/teams', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          name: newTeam.name,
+          leaderId: newTeam.leaderId,
+          leaderUsername: newTeam.leaderUsername,
+          color: newTeam.color
+        })
+      })
+      const data = await response.json()
+      if (data.success) {
+        setSuccess('Team created successfully')
+        setNewTeam({
+          name: '',
+          leaderId: '',
+          leaderUsername: '',
+          color: '#3B82F6'
+        })
+        fetchTeams() // Refresh teams list
+      } else {
+        setError(data.message || 'Failed to create team')
+      }
+    } catch (error) {
+      setError('Failed to create team')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleUpdateTeam = async () => {
+    if (!editingTeam || !editingTeam.name.trim()) {
+      setError('Team name is required')
+      return
+    }
+
+    setIsLoading(true)
+    try {
+      const response = await fetch(`http://localhost:3001/api/teams/${editingTeam.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          name: editingTeam.name,
+          leaderId: editingTeam.leader_id,
+          leaderUsername: editingTeam.leader_username,
+          color: editingTeam.color,
+          isActive: editingTeam.is_active
+        })
+      })
+      const data = await response.json()
+      if (data.success) {
+        setSuccess('Team updated successfully')
+        setEditingTeam(null)
+        fetchTeams() // Refresh teams list
+      } else {
+        setError(data.message || 'Failed to update team')
+      }
+    } catch (error) {
+      setError('Failed to update team')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleDeleteTeam = async (teamId, teamName) => {
+    if (!confirm(`Are you sure you want to delete team '${teamName}'? This action cannot be undone.`)) {
+      return
+    }
+
+    setIsLoading(true)
+    try {
+      const response = await fetch(`http://localhost:3001/api/teams/${teamId}`, {
+        method: 'DELETE'
+      })
+      const data = await response.json()
+      if (data.success) {
+        setSuccess(`Team '${teamName}' deleted successfully`)
+        fetchTeams() // Refresh teams list
+      } else {
+        setError(data.message || 'Failed to delete team')
+      }
+    } catch (error) {
+      setError('Failed to delete team')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const startEditingTeam = (team) => {
+    setEditingTeam({ ...team })
+  }
+
+  const cancelEditingTeam = () => {
+    setEditingTeam(null)
+  }
+
+  const getTeamLeaderOptions = () => {
+    return users?.filter(user => 
+      user.role === 'TEAM LEADER' || user.role === 'ADMIN'
+    ) || []
   }
 
   return (
@@ -446,6 +591,183 @@ const Settings = ({ clearMessages, error, success, setError, setSuccess, users }
                 rows="2"
               />
               <p className="help-text">Comma-separated list of allowed file extensions</p>
+            </div>
+          </div>
+        </div>
+        
+        {/* Team Management */}
+        <div className="settings-card team-management-card">
+          <div className="settings-card-header">
+            <div className="settings-icon team-icon">TM</div>
+            <h3>Team Management</h3>
+          </div>
+          <div className="settings-card-body">
+            {/* Create New Team */}
+            <div className="team-section">
+              <h4>Create New Team</h4>
+              <div className="team-form">
+                <div className="form-row">
+                  <div className="form-group">
+                    <label>Team Name</label>
+                    <input
+                      type="text"
+                      value={newTeam.name}
+                      onChange={(e) => setNewTeam(prev => ({ ...prev, name: e.target.value }))}
+                      placeholder="Enter team name"
+                      className="form-input"
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Team Color</label>
+                    <input
+                      type="color"
+                      value={newTeam.color}
+                      onChange={(e) => setNewTeam(prev => ({ ...prev, color: e.target.value }))}
+                      className="form-input color-input"
+                    />
+                  </div>
+                </div>
+                <div className="form-row">
+                  <div className="form-group">
+                    <label>Team Leader</label>
+                    <select
+                      value={newTeam.leaderId}
+                      onChange={(e) => {
+                        const selectedUser = getTeamLeaderOptions().find(u => u.id == e.target.value)
+                        setNewTeam(prev => ({ 
+                          ...prev, 
+                          leaderId: e.target.value,
+                          leaderUsername: selectedUser ? selectedUser.username : ''
+                        }))
+                      }}
+                      className="form-select"
+                    >
+                      <option value="">No Team Leader</option>
+                      {getTeamLeaderOptions().map(user => (
+                        <option key={user.id} value={user.id}>
+                          {user.fullName} ({user.username}) - {user.role}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+                <button
+                  className="btn btn-primary"
+                  onClick={handleCreateTeam}
+                  disabled={isLoading || !newTeam.name.trim()}
+                >
+                  {isLoading ? 'Creating...' : 'Create Team'}
+                </button>
+              </div>
+            </div>
+            
+            {/* Teams List */}
+            <div className="team-section">
+              <h4>Existing Teams ({teams.length})</h4>
+              {teamsLoading ? (
+                <div className="loading-state">Loading teams...</div>
+              ) : teams.length === 0 ? (
+                <div className="empty-state">No teams found</div>
+              ) : (
+                <div className="teams-grid">
+                  {teams.map(team => (
+                    <div key={team.id} className="team-item">
+                      {editingTeam && editingTeam.id === team.id ? (
+                        // Edit mode
+                        <div className="team-edit-form">
+                          <div className="form-row">
+                            <input
+                              type="text"
+                              value={editingTeam.name}
+                              onChange={(e) => setEditingTeam(prev => ({ ...prev, name: e.target.value }))}
+                              className="form-input"
+                              placeholder="Team name"
+                            />
+                            <input
+                              type="color"
+                              value={editingTeam.color}
+                              onChange={(e) => setEditingTeam(prev => ({ ...prev, color: e.target.value }))}
+                              className="form-input color-input"
+                            />
+                          </div>
+                          <select
+                            value={editingTeam.leader_id || ''}
+                            onChange={(e) => {
+                              const selectedUser = getTeamLeaderOptions().find(u => u.id == e.target.value)
+                              setEditingTeam(prev => ({ 
+                                ...prev, 
+                                leader_id: e.target.value,
+                                leader_username: selectedUser ? selectedUser.username : ''
+                              }))
+                            }}
+                            className="form-select"
+                          >
+                            <option value="">No Team Leader</option>
+                            {getTeamLeaderOptions().map(user => (
+                              <option key={user.id} value={user.id}>
+                                {user.fullName} ({user.username})
+                              </option>
+                            ))}
+                          </select>
+                          <div className="team-actions">
+                            <button
+                              className="btn btn-primary btn-sm"
+                              onClick={handleUpdateTeam}
+                              disabled={isLoading}
+                            >
+                              {isLoading ? 'Saving...' : 'Save'}
+                            </button>
+                            <button
+                              className="btn btn-secondary btn-sm"
+                              onClick={cancelEditingTeam}
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        // View mode
+                        <>
+                          <div className="team-header">
+                            <div 
+                              className="team-color-indicator" 
+                              style={{ backgroundColor: team.color }}
+                            ></div>
+                            <div className="team-info">
+                              <h5>{team.name}</h5>
+                              <p className="team-leader">
+                                Leader: {team.leader_username ? 
+                                  `${team.leader_username}` : 
+                                  'No leader assigned'
+                                }
+                              </p>
+                              <p className="team-status">
+                                Status: <span className={`status ${team.is_active ? 'active' : 'inactive'}`}>
+                                  {team.is_active ? 'Active' : 'Inactive'}
+                                </span>
+                              </p>
+                            </div>
+                          </div>
+                          <div className="team-actions">
+                            <button
+                              className="btn btn-secondary btn-sm"
+                              onClick={() => startEditingTeam(team)}
+                            >
+                              Edit
+                            </button>
+                            <button
+                              className="btn btn-danger btn-sm"
+                              onClick={() => handleDeleteTeam(team.id, team.name)}
+                            >
+                              Delete
+                            </button>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         </div>

@@ -3,6 +3,8 @@ import './UserManagement.css'
 
 const UserManagement = ({ clearMessages, error, success, setError, setSuccess }) => {
   const [users, setUsers] = useState([])
+  const [teams, setTeams] = useState([])
+  const [teamsLoading, setTeamsLoading] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [filteredUsers, setFilteredUsers] = useState([])
   const [isLoading, setIsLoading] = useState(false)
@@ -31,6 +33,7 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess })
   // Fetch users on component mount
   useEffect(() => {
     fetchUsers()
+    fetchTeams()
   }, [])
 
   // Filter users when search query or users change
@@ -65,6 +68,23 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess })
       setError('Failed to connect to server')
     } finally {
       setIsLoading(false)
+    }
+  }
+
+  const fetchTeams = async () => {
+    setTeamsLoading(true)
+    try {
+      const response = await fetch('http://localhost:3001/api/teams')
+      const data = await response.json()
+      if (data.success) {
+        setTeams(data.teams || [])
+      } else {
+        console.error('Failed to fetch teams')
+      }
+    } catch (error) {
+      console.error('Error fetching teams:', error)
+    } finally {
+      setTeamsLoading(false)
     }
   }
 
@@ -478,13 +498,21 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess })
                   </div>
                   <div className="form-group">
                     <label>Team</label>
-                    <input
-                      type="text"
+                    <select
                       value={formData.team}
                       onChange={e => setFormData({...formData, team: e.target.value})}
-                      placeholder="General"
-                      className="form-input"
-                    />
+                      className="form-select"
+                      disabled={teamsLoading}
+                    >
+                      <option value="General">General</option>
+                      {teams.filter(team => team.is_active).map(team => (
+                        <option key={team.id} value={team.name}>
+                          {team.name}
+                          {team.leader_username && ` (Led by ${team.leader_username})`}
+                        </option>
+                      ))}
+                    </select>
+                    {teamsLoading && <p className="help-text">Loading teams...</p>}
                   </div>
                 </div>
               </div>
@@ -564,13 +592,21 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess })
                   </div>
                   <div className="form-group">
                     <label>Team</label>
-                    <input
-                      type="text"
+                    <select
                       value={formData.team}
                       onChange={e => setFormData({...formData, team: e.target.value})}
-                      placeholder="General"
-                      className="form-input"
-                    />
+                      className="form-select"
+                      disabled={teamsLoading}
+                    >
+                      <option value="General">General</option>
+                      {teams.filter(team => team.is_active).map(team => (
+                        <option key={team.id} value={team.name}>
+                          {team.name}
+                          {team.leader_username && ` (Led by ${team.leader_username})`}
+                        </option>
+                      ))}
+                    </select>
+                    {teamsLoading && <p className="help-text">Loading teams...</p>}
                   </div>
                 </div>
               </div>
