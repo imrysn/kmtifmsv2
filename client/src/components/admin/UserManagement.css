@@ -455,6 +455,10 @@
   gap: 0.5rem;
 }
 
+.form-group {
+  margin-bottom: 0.5rem;
+}
+
 .form-group label {
   display: block;
   margin-bottom: 0.4rem;
@@ -467,7 +471,8 @@
   width: 100%;
   padding: 0.75rem;
   border: 2px solid var(--border-color);
-  background: #8a8a8a;
+  border-radius: 8px;
+  background: #f8f9fa;
   color: var(--text-primary);
   font-size: 0.9rem;
   transition: all 0.2s ease;
