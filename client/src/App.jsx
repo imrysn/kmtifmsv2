@@ -1,10 +1,10 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
 import { useState, useEffect } from 'react'
 import Login from './components/Login'
-import UserDashboard from './components/UserDashboard-Enhanced'
-import TeamLeaderDashboard from './components/TeamLeaderDashboard-Enhanced'
-import AdminDashboard from './components/AdminDashboard'
-import './App.css'
+import UserDashboard from './pages/UserDashboard-Enhanced'
+import TeamLeaderDashboard from './pages/TeamLeaderDashboard-Enhanced'
+import AdminDashboard from './pages/AdminDashboard'
+import './css/App.css'
 
 function App() {
   const [user, setUser] = useState(null)
