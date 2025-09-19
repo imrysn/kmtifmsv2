@@ -4,6 +4,8 @@ import './FileApproval.css'
 const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) => {
   const [files, setFiles] = useState([])
   const [filteredFiles, setFilteredFiles] = useState([])
+  const [teams, setTeams] = useState([])
+  const [teamsLoading, setTeamsLoading] = useState(false)
   const [fileSearchQuery, setFileSearchQuery] = useState('')
   const [fileFilter, setFileFilter] = useState('all')
   const [fileSortBy, setFileSortBy] = useState('date-desc')
@@ -44,9 +46,10 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
     return () => document.removeEventListener('mousemove', handleMouseMove)
   }, [])
 
-  // Fetch files on component mount
+  // Fetch files and teams on component mount
   useEffect(() => {
     fetchFiles()
+    fetchTeams()
   }, [])
 
   // Filter and sort files when dependencies change
@@ -55,7 +58,10 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
 
     // Apply status filter
     if (fileFilter !== 'all') {
-      filtered = filtered.filter(file => file.status === fileFilter)
+      filtered = filtered.filter(file => {
+        const mappedStatus = mapFileStatus(file.status)
+        return mappedStatus === fileFilter
+      })
     }
 
     // Apply search filter
@@ -63,7 +69,7 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
       filtered = filtered.filter(file => 
         file.filename.toLowerCase().includes(fileSearchQuery.toLowerCase()) ||
         file.username.toLowerCase().includes(fileSearchQuery.toLowerCase()) ||
-        file.team.toLowerCase().includes(fileSearchQuery.toLowerCase())
+        file.user_team.toLowerCase().includes(fileSearchQuery.toLowerCase())
       )
     }
 
@@ -71,9 +77,9 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
     filtered = [...filtered].sort((a, b) => {
       switch (fileSortBy) {
         case 'date-desc':
-          return new Date(b.submittedAt) - new Date(a.submittedAt)
+          return new Date(b.uploaded_at) - new Date(a.uploaded_at)
         case 'date-asc':
-          return new Date(a.submittedAt) - new Date(b.submittedAt)
+          return new Date(a.uploaded_at) - new Date(b.uploaded_at)
         case 'filename-asc':
           return a.filename.localeCompare(b.filename)
         case 'filename-desc':
@@ -90,83 +96,86 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
     setFilteredFiles(filtered)
   }, [files, fileSearchQuery, fileFilter, fileSortBy])
 
+  const fetchTeams = async () => {
+    setTeamsLoading(true)
+    try {
+      const response = await fetch('http://localhost:3001/api/teams')
+      const data = await response.json()
+      if (data.success) {
+        setTeams(data.teams || [])
+      } else {
+        console.error('Failed to fetch teams:', data.message)
+      }
+    } catch (error) {
+      console.error('Error fetching teams:', error)
+    } finally {
+      setTeamsLoading(false)
+    }
+  }
+
   const fetchFiles = async () => {
     setIsLoading(true)
     try {
-      // Simulate API call with mock data
-      const mockFiles = [
-        {
-          id: 1,
-          filename: 'project_proposal.pdf',
-          username: 'john_doe',
-          submittedAt: new Date('2025-01-10T10:30:00'),
-          team: 'Development',
-          status: 'pending',
-          fileSize: '2.5 MB',
-          fileType: 'PDF Document',
-          description: 'Q1 2025 project proposal for new features',
-          comments: []
-        },
-        {
-          id: 2,
-          filename: 'budget_report.xlsx',
-          username: 'jane_smith',
-          submittedAt: new Date('2025-01-09T14:15:00'),
-          team: 'Finance',
-          status: 'approved',
-          fileSize: '1.8 MB',
-          fileType: 'Excel Spreadsheet',
-          description: 'Annual budget report with projections',
-          comments: [{ text: 'Approved - looks comprehensive', date: new Date('2025-01-09T16:20:00') }]
-        },
-        {
-          id: 3,
-          filename: 'design_mockups.zip',
-          username: 'mike_wilson',
-          submittedAt: new Date('2025-01-08T09:45:00'),
-          team: 'Design',
-          status: 'rejected',
-          fileSize: '15.2 MB',
-          fileType: 'ZIP Archive',
-          description: 'UI/UX mockups for mobile app redesign',
-          comments: [{ text: 'Please revise the color scheme and resubmit', date: new Date('2025-01-08T11:30:00') }]
-        },
-        {
-          id: 4,
-          filename: 'meeting_notes.docx',
-          username: 'sarah_johnson',
-          submittedAt: new Date('2025-01-07T16:20:00'),
-          team: 'Management',
-          status: 'pending',
-          fileSize: '845 KB',
-          fileType: 'Word Document',
-          description: 'Weekly team meeting notes and action items',
-          comments: []
-        },
-        {
-          id: 5,
-          filename: 'test_results.pdf',
-          username: 'alex_brown',
-          submittedAt: new Date('2025-01-06T13:10:00'),
-          team: 'QA',
-          status: 'approved',
-          fileSize: '3.1 MB',
-          fileType: 'PDF Document',
-          description: 'Automated testing results for latest build',
-          comments: [{ text: 'All tests passed - approved for release', date: new Date('2025-01-06T15:45:00') }]
-        }
-      ]
-      
-      // Simulate API delay
-      await new Promise(resolve => setTimeout(resolve, 800))
-      setFiles(mockFiles)
-      setFilteredFiles(mockFiles)
+      const response = await fetch('http://localhost:3001/api/files/all')
+      const data = await response.json()
+      if (data.success) {
+        setFiles(data.files)
+        setFilteredFiles(data.files)
+      } else {
+        setError('Failed to fetch files')
+      }
     } catch (error) {
       console.error('Error fetching files:', error)
-      setError('Failed to fetch files')
+      setError('Failed to connect to server')
     } finally {
       setIsLoading(false)
     }
+  }
+
+  // Map database status to display status
+  const mapFileStatus = (dbStatus) => {
+    switch (dbStatus) {
+      case 'uploaded':
+      case 'team_leader_approved':
+        return 'pending'
+      case 'final_approved':
+        return 'approved'
+      case 'rejected_by_team_leader':
+      case 'rejected_by_admin':
+        return 'rejected'
+      default:
+        return 'pending'
+    }
+  }
+
+  const getStatusDisplayName = (dbStatus) => {
+    switch (dbStatus) {
+      case 'uploaded':
+        return 'Pending Team Leader'
+      case 'team_leader_approved':
+        return 'Pending Admin'
+      case 'final_approved':
+        return 'Final Approved'
+      case 'rejected_by_team_leader':
+        return 'Rejected by Team Leader'
+      case 'rejected_by_admin':
+        return 'Rejected by Admin'
+      default:
+        return dbStatus.charAt(0).toUpperCase() + dbStatus.slice(1)
+    }
+  }
+
+  const getTeamColor = (teamName) => {
+    const team = teams.find(t => t.name === teamName)
+    return team ? team.color : '#6B7280' // Default gray color
+  }
+
+  const formatFileSize = (bytes) => {
+    if (bytes === 0) return '0 Bytes'
+    const k = 1024
+    const sizes = ['Bytes', 'KB', 'MB', 'GB']
+    const i = Math.floor(Math.log(bytes) / Math.log(k))
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
   }
 
   const deleteFile = async () => {
@@ -174,15 +183,31 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
     
     setIsLoading(true)
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 500))
+      const response = await fetch(`http://localhost:3001/api/files/${fileToDelete.id}`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          adminId: 1, // Should come from logged in admin user
+          adminUsername: 'admin',
+          adminRole: 'ADMIN',
+          team: 'IT Administration'
+        })
+      })
       
-      const updatedFiles = files.filter(file => file.id !== fileToDelete.id)
-      setFiles(updatedFiles)
-      setShowDeleteModal(false)
-      setFileToDelete(null)
-      setSuccess('File deleted successfully')
+      const data = await response.json()
+      if (data.success) {
+        const updatedFiles = files.filter(file => file.id !== fileToDelete.id)
+        setFiles(updatedFiles)
+        setShowDeleteModal(false)
+        setFileToDelete(null)
+        setSuccess('File deleted successfully')
+      } else {
+        setError(data.message || 'Failed to delete file')
+      }
     } catch (error) {
+      console.error('Error deleting file:', error)
       setError('Failed to delete file')
     } finally {
       setIsLoading(false)
@@ -195,7 +220,10 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
   }
 
   const openFileModal = (file) => {
-    setSelectedFile(file)
+    setSelectedFile({
+      ...file,
+      comments: [] // Initialize comments array for UI compatibility
+    })
     setFileComment('')
     setShowFileModal(true)
   }
@@ -205,28 +233,38 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
     
     setIsLoading(true)
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 500))
-      
-      const updatedFiles = files.map(file => {
-        if (file.id === selectedFile.id) {
-          const updatedFile = {
-            ...file,
-            comments: [
-              ...file.comments,
-              { text: fileComment.trim(), date: new Date() }
-            ]
-          }
-          setSelectedFile(updatedFile) // Update the selected file in modal
-          return updatedFile
-        }
-        return file
+      const response = await fetch(`http://localhost:3001/api/files/${selectedFile.id}/comments`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          comment: fileComment.trim(),
+          userId: 1, // Should come from logged in admin user
+          username: 'admin',
+          userRole: 'ADMIN'
+        })
       })
       
-      setFiles(updatedFiles)
-      setFileComment('')
-      setSuccess('Comment added successfully')
+      const data = await response.json()
+      if (data.success) {
+        // Update the selected file with new comment
+        const updatedComments = [
+          ...selectedFile.comments,
+          { text: fileComment.trim(), date: new Date() }
+        ]
+        setSelectedFile({
+          ...selectedFile,
+          comments: updatedComments
+        })
+        
+        setFileComment('')
+        setSuccess('Comment added successfully')
+      } else {
+        setError(data.message || 'Failed to add comment')
+      }
     } catch (error) {
+      console.error('Error adding comment:', error)
       setError('Failed to add comment')
     } finally {
       setIsLoading(false)
@@ -245,30 +283,34 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
     
     setIsLoading(true)
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 500))
-      
-      const updatedFiles = files.map(file => {
-        if (file.id === selectedFile.id) {
-          const updatedFile = {
-            ...file,
-            status: 'approved',
-            comments: [
-              ...file.comments,
-              ...(fileComment.trim() ? [{ text: fileComment.trim(), date: new Date() }] : [])
-            ]
-          }
-          return updatedFile
-        }
-        return file
+      const response = await fetch(`http://localhost:3001/api/files/${selectedFile.id}/admin-review`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          action: 'approve',
+          comments: fileComment.trim(),
+          adminId: 1, // Should come from logged in admin user
+          adminUsername: 'admin',
+          adminRole: 'ADMIN',
+          team: 'IT Administration'
+        })
       })
       
-      setFiles(updatedFiles)
-      setShowFileModal(false)
-      setSelectedFile(null)
-      setFileComment('')
-      setSuccess('File approved successfully')
+      const data = await response.json()
+      if (data.success) {
+        // Refresh files list
+        fetchFiles()
+        setShowFileModal(false)
+        setSelectedFile(null)
+        setFileComment('')
+        setSuccess('File approved successfully')
+      } else {
+        setError(data.message || 'Failed to approve file')
+      }
     } catch (error) {
+      console.error('Error approving file:', error)
       setError('Failed to approve file')
     } finally {
       setIsLoading(false)
@@ -280,30 +322,34 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
     
     setIsLoading(true)
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 500))
-      
-      const updatedFiles = files.map(file => {
-        if (file.id === selectedFile.id) {
-          const updatedFile = {
-            ...file,
-            status: 'rejected',
-            comments: [
-              ...file.comments,
-              ...(fileComment.trim() ? [{ text: fileComment.trim(), date: new Date() }] : [])
-            ]
-          }
-          return updatedFile
-        }
-        return file
+      const response = await fetch(`http://localhost:3001/api/files/${selectedFile.id}/admin-review`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          action: 'reject',
+          comments: fileComment.trim(),
+          adminId: 1, // Should come from logged in admin user
+          adminUsername: 'admin',
+          adminRole: 'ADMIN',
+          team: 'IT Administration'
+        })
       })
       
-      setFiles(updatedFiles)
-      setShowFileModal(false)
-      setSelectedFile(null)
-      setFileComment('')
-      setSuccess('File rejected successfully')
+      const data = await response.json()
+      if (data.success) {
+        // Refresh files list
+        fetchFiles()
+        setShowFileModal(false)
+        setSelectedFile(null)
+        setFileComment('')
+        setSuccess('File rejected successfully')
+      } else {
+        setError(data.message || 'Failed to reject file')
+      }
     } catch (error) {
+      console.error('Error rejecting file:', error)
       setError('Failed to reject file')
     } finally {
       setIsLoading(false)
@@ -330,7 +376,7 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
         <div className="file-status-card pending">
           <div className="status-icon pending-icon">PE</div>
           <div className="status-info">
-            <div className="status-number">{files.filter(f => f.status === 'pending').length}</div>
+            <div className="status-number">{files.filter(f => mapFileStatus(f.status) === 'pending').length}</div>
             <div className="status-label">Pending Review</div>
           </div>
         </div>
@@ -338,7 +384,7 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
         <div className="file-status-card approved">
           <div className="status-icon approved-icon">AP</div>
           <div className="status-info">
-            <div className="status-number">{files.filter(f => f.status === 'approved').length}</div>
+            <div className="status-number">{files.filter(f => mapFileStatus(f.status) === 'approved').length}</div>
             <div className="status-label">Approved Files</div>
           </div>
         </div>
@@ -346,7 +392,7 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
         <div className="file-status-card rejected">
           <div className="status-icon rejected-icon">RE</div>
           <div className="status-info">
-            <div className="status-number">{files.filter(f => f.status === 'rejected').length}</div>
+            <div className="status-number">{files.filter(f => mapFileStatus(f.status) === 'rejected').length}</div>
             <div className="status-label">Rejected Files</div>
           </div>
         </div>
@@ -391,7 +437,6 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
             value={fileSortBy}
             onChange={(e) => setFileSortBy(e.target.value)}
             className="form-select"
-            ref={filterSelectRef}
           >
             <option value="date-desc">Latest First</option>
             <option value="date-asc">Oldest First</option>
@@ -432,10 +477,10 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
                   >
                     <td>
                       <div className="file-cell">
-                        <div className="file-icon">{file.fileType.charAt(0)}</div>
+                        <div className="file-icon">{file.file_type.charAt(0)}</div>
                         <div className="file-details">
                           <span className="file-name">{file.filename}</span>
-                          <span className="file-size">{file.fileSize}</span>
+                          <span className="file-size">{formatFileSize(file.file_size)}</span>
                         </div>
                       </div>
                     </td>
@@ -447,16 +492,25 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
                     </td>
                     <td>
                       <div className="datetime-cell">
-                        <div className="date">{file.submittedAt.toLocaleDateString()}</div>
-                        <div className="time">{file.submittedAt.toLocaleTimeString()}</div>
+                        <div className="date">{new Date(file.uploaded_at).toLocaleDateString()}</div>
+                        <div className="time">{new Date(file.uploaded_at).toLocaleTimeString()}</div>
                       </div>
                     </td>
                     <td>
-                      <span className="team-badge">{file.team}</span>
+                      <span 
+                        className="team-badge"
+                        style={{ 
+                          backgroundColor: 'transparent',
+                          color: getTeamColor(file.user_team),
+                          borderColor: getTeamColor(file.user_team)
+                        }}
+                      >
+                        {file.user_team}
+                      </span>
                     </td>
                     <td>
-                      <span className={`status-badge status-${file.status}`}>
-                        {file.status.charAt(0).toUpperCase() + file.status.slice(1)}
+                      <span className={`status-badge status-${mapFileStatus(file.status)}`}>
+                        {getStatusDisplayName(file.status)}
                       </span>
                     </td>
                     <td>
@@ -501,50 +555,82 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
                   <span className="detail-value">{selectedFile.filename}</span>
                 </div>
                 <div className="file-detail-row">
+                  <span className="detail-label">Original Name:</span>
+                  <span className="detail-value">{selectedFile.original_name}</span>
+                </div>
+                <div className="file-detail-row">
                   <span className="detail-label">Submitted By:</span>
                   <span className="detail-value">{selectedFile.username}</span>
                 </div>
                 <div className="file-detail-row">
                   <span className="detail-label">Team:</span>
-                  <span className="detail-value">{selectedFile.team}</span>
+                  <span 
+                    className="detail-value team-badge"
+                    style={{ 
+                      backgroundColor: 'transparent',
+                      color: getTeamColor(selectedFile.user_team),
+                      borderColor: getTeamColor(selectedFile.user_team),
+                      padding: '0.25rem 0.75rem',
+                      borderRadius: '12px',
+                      fontSize: '0.75rem',
+                      fontWeight: '500'
+                    }}
+                  >
+                    {selectedFile.user_team}
+                  </span>
                 </div>
                 <div className="file-detail-row">
                   <span className="detail-label">Date Submitted:</span>
-                  <span className="detail-value">{selectedFile.submittedAt.toLocaleString()}</span>
+                  <span className="detail-value">{new Date(selectedFile.uploaded_at).toLocaleString()}</span>
                 </div>
                 <div className="file-detail-row">
                   <span className="detail-label">File Size:</span>
-                  <span className="detail-value">{selectedFile.fileSize}</span>
+                  <span className="detail-value">{formatFileSize(selectedFile.file_size)}</span>
                 </div>
                 <div className="file-detail-row">
                   <span className="detail-label">File Type:</span>
-                  <span className="detail-value">{selectedFile.fileType}</span>
+                  <span className="detail-value">{selectedFile.file_type}</span>
                 </div>
                 <div className="file-detail-row">
                   <span className="detail-label">Current Status:</span>
-                  <span className={`detail-value status-badge status-${selectedFile.status}`}>
-                    {selectedFile.status.charAt(0).toUpperCase() + selectedFile.status.slice(1)}
+                  <span className={`detail-value status-badge status-${mapFileStatus(selectedFile.status)}`}>
+                    {getStatusDisplayName(selectedFile.status)}
                   </span>
                 </div>
                 <div className="file-detail-row">
                   <span className="detail-label">Description:</span>
-                  <span className="detail-value">{selectedFile.description}</span>
+                  <span className="detail-value">{selectedFile.description || 'No description provided'}</span>
                 </div>
               </div>
               
               {/* Comments Section */}
               <div className="comments-section">
                 <h4>Comments History</h4>
-                {selectedFile.comments && selectedFile.comments.length > 0 ? (
+                {selectedFile.team_leader_comments && (
                   <div className="comments-list">
-                    {selectedFile.comments.map((comment, index) => (
-                      <div key={index} className="comment-item">
-                        <div className="comment-text">{comment.text}</div>
-                        <div className="comment-date">{comment.date.toLocaleString()}</div>
+                    <div className="comment-item">
+                      <div className="comment-text">
+                        <strong>Team Leader:</strong> {selectedFile.team_leader_comments}
                       </div>
-                    ))}
+                      <div className="comment-date">
+                        {selectedFile.team_leader_reviewed_at && new Date(selectedFile.team_leader_reviewed_at).toLocaleString()}
+                      </div>
+                    </div>
                   </div>
-                ) : (
+                )}
+                {selectedFile.admin_comments && (
+                  <div className="comments-list">
+                    <div className="comment-item">
+                      <div className="comment-text">
+                        <strong>Admin:</strong> {selectedFile.admin_comments}
+                      </div>
+                      <div className="comment-date">
+                        {selectedFile.admin_reviewed_at && new Date(selectedFile.admin_reviewed_at).toLocaleString()}
+                      </div>
+                    </div>
+                  </div>
+                )}
+                {!selectedFile.team_leader_comments && !selectedFile.admin_comments && (
                   <p className="no-comments">No comments yet.</p>
                 )}
               </div>
@@ -619,7 +705,7 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
                   <p className="file-info">
                     <strong>{fileToDelete.filename}</strong>
                     <br />
-                    Submitted by <strong>{fileToDelete.username}</strong> from <strong>{fileToDelete.team}</strong> team
+                    Submitted by <strong>{fileToDelete.username}</strong> from <strong>{fileToDelete.user_team}</strong> team
                   </p>
                   <p className="warning-text">
                     This action cannot be undone. The file and all its associated data will be permanently removed.

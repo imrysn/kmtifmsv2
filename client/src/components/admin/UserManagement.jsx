@@ -282,6 +282,12 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess })
     await fetchUserDetails(user.id)
   }
 
+  // Get team color by team name
+  const getTeamColor = (teamName) => {
+    const team = teams.find(t => t.name === teamName)
+    return team ? team.color : '#6B7280' // Default gray color
+  }
+
   return (
     <div className="users-management">
       <div className="page-header">
@@ -397,7 +403,16 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess })
                       </span>
                     </td>
                     <td>
-                      <span className="team-badge">{user.team}</span>
+                      <span 
+                        className="team-badge"
+                        style={{ 
+                          backgroundColor: 'transparent',
+                          color: getTeamColor(user.team),
+                          borderColor: getTeamColor(user.team)
+                        }}
+                      >
+                        {user.team}
+                      </span>
                     </td>
                     <td>
                       <div className="action-buttons">
@@ -754,7 +769,16 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess })
                     </div>
                     <div className="detail-item">
                       <label>Team</label>
-                      <span className="team-badge">{userDetails.user.team}</span>
+                      <span 
+                        className="team-badge"
+                        style={{ 
+                          backgroundColor: 'transparent',
+                          color: getTeamColor(userDetails.user.team),
+                          borderColor: getTeamColor(userDetails.user.team)
+                        }}
+                      >
+                        {userDetails.user.team}
+                      </span>
                     </div>
                     <div className="detail-item">
                       <label>Account Status</label>
