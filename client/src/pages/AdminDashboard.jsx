@@ -131,7 +131,7 @@ const AdminDashboard = ({ user, onLogout }) => {
           <div className="admin-avatar">A</div>
           <h2>Admin Center</h2>
           <div className="admin-info">
-            <div className="admin-name">{user.fullName || 'Administrator'}</div>
+            <div className="admin-name">{user.fullName || ''}</div>
             <div className="admin-role">{user.role}</div>
           </div>
         </div>

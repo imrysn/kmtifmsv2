@@ -76,7 +76,6 @@
   box-shadow: 
     2px 0 20px rgba(0, 0, 0, 0.1),
     inset 0 0 0 1px rgba(0, 0, 0, 0.05);
-  border-radius: 0 20px 20px 0;
 }
 
 .sidebar-header {
