@@ -244,7 +244,6 @@ const Settings = ({ clearMessages, error, success, setError, setSuccess, users }
         {/* System Settings */}
         <div className="settings-card">
           <div className="settings-card-header">
-            <div className="settings-icon system-icon">SY</div>
             <h3>System Configuration</h3>
           </div>
           <div className="settings-card-body">
@@ -296,7 +295,6 @@ const Settings = ({ clearMessages, error, success, setError, setSuccess, users }
         {/* Security Settings */}
         <div className="settings-card">
           <div className="settings-card-header">
-            <div className="settings-icon security-icon">SE</div>
             <h3>Security & Authentication</h3>
           </div>
           <div className="settings-card-body">
@@ -351,7 +349,6 @@ const Settings = ({ clearMessages, error, success, setError, setSuccess, users }
         {/* Notifications */}
         <div className="settings-card">
           <div className="settings-card-header">
-            <div className="settings-icon notifications-icon">NO</div>
             <h3>Notifications</h3>
           </div>
           <div className="settings-card-body">
@@ -407,7 +404,6 @@ const Settings = ({ clearMessages, error, success, setError, setSuccess, users }
         {/* Backup Settings */}
         <div className="settings-card">
           <div className="settings-card-header">
-            <div className="settings-icon backup-icon">BA</div>
             <h3>Backup & Maintenance</h3>
           </div>
           <div className="settings-card-body">
@@ -466,7 +462,6 @@ const Settings = ({ clearMessages, error, success, setError, setSuccess, users }
         {/* System Information */}
         <div className="settings-card">
           <div className="settings-card-header">
-            <div className="settings-icon info-icon">IN</div>
             <h3>System Information</h3>
           </div>
           <div className="settings-card-body">
@@ -502,7 +497,6 @@ const Settings = ({ clearMessages, error, success, setError, setSuccess, users }
         {/* Application Settings */}
         <div className="settings-card">
           <div className="settings-card-header">
-            <div className="settings-icon app-icon">AP</div>
             <h3>Application Settings</h3>
           </div>
           <div className="settings-card-body">
@@ -537,7 +531,6 @@ const Settings = ({ clearMessages, error, success, setError, setSuccess, users }
         {/* File Management Settings */}
         <div className="settings-card">
           <div className="settings-card-header">
-            <div className="settings-icon file-mgmt-icon">FM</div>
             <h3>File Management</h3>
           </div>
           <div className="settings-card-body">
@@ -598,7 +591,6 @@ const Settings = ({ clearMessages, error, success, setError, setSuccess, users }
         {/* Team Management */}
         <div className="settings-card team-management-card">
           <div className="settings-card-header">
-            <div className="settings-icon team-icon">TM</div>
             <h3>Team Management</h3>
           </div>
           <div className="settings-card-body">
@@ -653,6 +645,7 @@ const Settings = ({ clearMessages, error, success, setError, setSuccess, users }
                 </div>
                 <button
                   className="btn btn-primary"
+                  id='create-team-btn'
                   onClick={handleCreateTeam}
                   disabled={isLoading || !newTeam.name.trim()}
                 >

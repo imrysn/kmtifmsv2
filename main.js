@@ -2,6 +2,7 @@ const { app, BrowserWindow } = require('electron');
 const path = require('path');
 const { spawn } = require('child_process');
 const http = require('http');
+const { url } = require('inspector');
 
 let mainWindow;
 let serverProcess;
@@ -13,6 +14,7 @@ function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1200,
     height: 800,
+    icon: url.pathToFileURL(path.join(__dirname, 'assets', 'kmti_logo.png')),
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,

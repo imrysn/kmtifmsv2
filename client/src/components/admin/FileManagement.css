@@ -171,6 +171,7 @@
   border-radius: 12px;
   overflow: hidden;
   min-height: 400px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
 }
 
 /* Grid View */

@@ -11,7 +11,6 @@ const DashboardOverview = ({ user, users }) => {
       <div className="stats-section">
         <div className="stats-grid">
           <div className="stat-card">
-            <div className="stat-icon users-icon">U</div>
             <div className="stat-info">
               <div className="stat-number">{users.length}</div>
               <div className="stat-label">Total Users</div>
@@ -20,7 +19,6 @@ const DashboardOverview = ({ user, users }) => {
           </div>
           
           <div className="stat-card">
-            <div className="stat-icon admins-icon">A</div>
             <div className="stat-info">
               <div className="stat-number">{users.filter(u => u.role === 'ADMIN').length}</div>
               <div className="stat-label">Administrators</div>
@@ -29,7 +27,6 @@ const DashboardOverview = ({ user, users }) => {
           </div>
           
           <div className="stat-card">
-            <div className="stat-icon leaders-icon">L</div>
             <div className="stat-info">
               <div className="stat-number">{users.filter(u => u.role === 'TEAM LEADER').length}</div>
               <div className="stat-label">Team Leaders</div>
@@ -38,7 +35,6 @@ const DashboardOverview = ({ user, users }) => {
           </div>
           
           <div className="stat-card">
-            <div className="stat-icon users-only-icon">M</div>
             <div className="stat-info">
               <div className="stat-number">{users.filter(u => u.role === 'USER').length}</div>
               <div className="stat-label">Regular Users</div>
