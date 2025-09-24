@@ -125,6 +125,10 @@
   background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
 }
 
+.status-icon.pending-admin-icon {
+  background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+}
+
 .status-info {
   flex: 1;
 }
@@ -782,6 +786,73 @@
   justify-content: flex-end;
 }
 
+/* Pagination Styles */
+.pagination-section {
+  padding: 1.5rem;
+  border-top: 1px solid var(--border-color);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.pagination-info {
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+
+.pagination-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.pagination-btn {
+  min-width: 40px;
+  height: 40px;
+  border: 1px solid var(--border-color);
+  background: var(--surface-color);
+  color: var(--text-primary);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 0.9rem;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pagination-btn:hover:not(:disabled) {
+  background: var(--background-hover);
+  border-color: var(--primary-color);
+  transform: translateY(-1px);
+}
+
+.pagination-btn.active {
+  background: var(--primary-color);
+  color: white;
+  border-color: var(--primary-color);
+}
+
+.pagination-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none !important;
+}
+
+.pagination-ellipsis {
+  padding: 0 0.5rem;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+
+/* Pending Admin Card Styles */
+.file-status-card.pending-admin {
+  border-left: 4px solid #8b5cf6;
+}
+
 /* Responsive Design */
 @media (max-width: 768px) {
   .file-controls {
@@ -841,5 +912,23 @@
     right: 10px;
     left: 10px;
     max-width: none;
+  }
+  
+  .pagination-section {
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 1rem;
+  }
+  
+  .pagination-controls {
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  
+  .pagination-btn {
+    min-width: 36px;
+    height: 36px;
+    font-size: 0.85rem;
   }
 }

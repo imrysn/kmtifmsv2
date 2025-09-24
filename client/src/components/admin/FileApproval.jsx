@@ -9,6 +9,8 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
   const [fileSearchQuery, setFileSearchQuery] = useState('')
   const [fileFilter, setFileFilter] = useState('all')
   const [fileSortBy, setFileSortBy] = useState('date-desc')
+  const [currentPage, setCurrentPage] = useState(1)
+  const [filesPerPage] = useState(10)
   const [selectedFile, setSelectedFile] = useState(null)
   const [showFileModal, setShowFileModal] = useState(false)
   const [fileComment, setFileComment] = useState('')
@@ -59,8 +61,14 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
     // Apply status filter
     if (fileFilter !== 'all') {
       filtered = filtered.filter(file => {
-        const mappedStatus = mapFileStatus(file.status)
-        return mappedStatus === fileFilter
+        if (fileFilter === 'pending-team-leader') {
+          return file.status === 'uploaded'
+        } else if (fileFilter === 'pending-admin') {
+          return file.status === 'team_leader_approved'
+        } else {
+          const mappedStatus = mapFileStatus(file.status)
+          return mappedStatus === fileFilter
+        }
       })
     }
 
@@ -94,6 +102,8 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
     })
 
     setFilteredFiles(filtered)
+    // Reset to page 1 when filters change
+    setCurrentPage(1)
   }, [files, fileSearchQuery, fileFilter, fileSortBy])
 
   const fetchTeams = async () => {
@@ -356,6 +366,96 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
     }
   }
 
+  // Pagination helper functions
+  const getCurrentPageFiles = () => {
+    const startIndex = (currentPage - 1) * filesPerPage
+    const endIndex = startIndex + filesPerPage
+    return filteredFiles.slice(startIndex, endIndex)
+  }
+
+  const getTotalPages = () => {
+    return Math.ceil(filteredFiles.length / filesPerPage)
+  }
+
+  const renderPaginationNumbers = () => {
+    const totalPages = getTotalPages()
+    const pageNumbers = []
+    const maxVisiblePages = 5
+
+    if (totalPages <= maxVisiblePages) {
+      // Show all pages if total pages is less than or equal to maxVisiblePages
+      for (let i = 1; i <= totalPages; i++) {
+        pageNumbers.push(
+          <button
+            key={i}
+            className={`pagination-btn ${i === currentPage ? 'active' : ''}`}
+            onClick={() => setCurrentPage(i)}
+          >
+            {i}
+          </button>
+        )
+      }
+    } else {
+      // Always show first page
+      pageNumbers.push(
+        <button
+          key={1}
+          className={`pagination-btn ${1 === currentPage ? 'active' : ''}`}
+          onClick={() => setCurrentPage(1)}
+        >
+          1
+        </button>
+      )
+
+      // Show ellipsis if there's a gap
+      if (currentPage > 3) {
+        pageNumbers.push(
+          <span key="ellipsis1" className="pagination-ellipsis">...</span>
+        )
+      }
+
+      // Show pages around current page
+      const startPage = Math.max(2, currentPage - 1)
+      const endPage = Math.min(totalPages - 1, currentPage + 1)
+
+      for (let i = startPage; i <= endPage; i++) {
+        if (i !== 1 && i !== totalPages) {
+          pageNumbers.push(
+            <button
+              key={i}
+              className={`pagination-btn ${i === currentPage ? 'active' : ''}`}
+              onClick={() => setCurrentPage(i)}
+            >
+              {i}
+            </button>
+          )
+        }
+      }
+
+      // Show ellipsis if there's a gap
+      if (currentPage < totalPages - 2) {
+        pageNumbers.push(
+          <span key="ellipsis2" className="pagination-ellipsis">...</span>
+        )
+      }
+
+      // Always show last page if more than 1 page
+      if (totalPages > 1) {
+        pageNumbers.push(
+          <button
+            key={totalPages}
+            className={`pagination-btn ${totalPages === currentPage ? 'active' : ''}`}
+            onClick={() => setCurrentPage(totalPages)}
+          >
+            {totalPages}
+          </button>
+        )
+      }
+    }
+
+    return pageNumbers
+  }
+
   return (
     <div className="file-approval-section">
       <div className="page-header">
@@ -374,10 +474,18 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
       {/* Status Cards */}
       <div className="file-status-cards" ref={statusCardsRef}>
         <div className="file-status-card pending">
-          <div className="status-icon pending-icon">PE</div>
+          <div className="status-icon pending-icon">TL</div>
           <div className="status-info">
-            <div className="status-number">{files.filter(f => mapFileStatus(f.status) === 'pending').length}</div>
-            <div className="status-label">Pending Review</div>
+            <div className="status-number">{files.filter(f => f.status === 'uploaded').length}</div>
+            <div className="status-label">Pending Team Leader</div>
+          </div>
+        </div>
+        
+        <div className="file-status-card pending-admin">
+          <div className="status-icon pending-admin-icon">AD</div>
+          <div className="status-info">
+            <div className="status-number">{files.filter(f => f.status === 'team_leader_approved').length}</div>
+            <div className="status-label">Pending Admin</div>
           </div>
         </div>
         
@@ -428,7 +536,8 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
             ref={filterSelectRef}
           >
             <option value="all">All Files</option>
-            <option value="pending">Pending</option>
+            <option value="pending-team-leader">Pending Team Leader</option>
+            <option value="pending-admin">Pending Admin</option>
             <option value="approved">Approved</option>
             <option value="rejected">Rejected</option>
           </select>
@@ -469,7 +578,7 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
                 </tr>
               </thead>
               <tbody>
-                {filteredFiles.map((file) => (
+                {getCurrentPageFiles().map((file) => (
                   <tr 
                     key={file.id} 
                     className="file-row"
@@ -536,6 +645,34 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
           <div className="empty-state">
             <h3>No files found</h3>
             <p>No files match your current search and filter criteria.</p>
+          </div>
+        )}
+        
+        {/* Pagination */}
+        {!isLoading && filteredFiles.length > 0 && (
+          <div className="pagination-section">
+            <div className="pagination-info">
+              Showing {((currentPage - 1) * filesPerPage) + 1} to {Math.min(currentPage * filesPerPage, filteredFiles.length)} of {filteredFiles.length} files
+            </div>
+            {getTotalPages() > 1 && (
+              <div className="pagination-controls">
+                <button 
+                  className="pagination-btn" 
+                  onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                  disabled={currentPage === 1}
+                >
+                  ‹
+                </button>
+                {renderPaginationNumbers()}
+                <button 
+                  className="pagination-btn" 
+                  onClick={() => setCurrentPage(prev => Math.min(prev + 1, getTotalPages()))}
+                  disabled={currentPage === getTotalPages()}
+                >
+                  ›
+                </button>
+              </div>
+            )}
           </div>
         )}
       </div>
