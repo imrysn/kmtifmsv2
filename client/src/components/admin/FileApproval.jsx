@@ -61,13 +61,17 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
     // Apply status filter
     if (fileFilter !== 'all') {
       filtered = filtered.filter(file => {
-        if (fileFilter === 'pending-team-leader') {
-          return file.status === 'uploaded'
-        } else if (fileFilter === 'pending-admin') {
-          return file.status === 'team_leader_approved'
-        } else {
-          const mappedStatus = mapFileStatus(file.status)
-          return mappedStatus === fileFilter
+        switch (fileFilter) {
+          case 'pending-team-leader':
+            return file.status === 'uploaded'
+          case 'pending-admin':
+            return file.status === 'team_leader_approved'
+          case 'approved':
+            return file.status === 'final_approved'
+          case 'rejected':
+            return file.status === 'rejected_by_team_leader' || file.status === 'rejected_by_admin'
+          default:
+            return false
         }
       })
     }
@@ -492,7 +496,7 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
         <div className="file-status-card approved">
           <div className="status-icon approved-icon">AP</div>
           <div className="status-info">
-            <div className="status-number">{files.filter(f => mapFileStatus(f.status) === 'approved').length}</div>
+            <div className="status-number">{files.filter(f => f.status === 'final_approved').length}</div>
             <div className="status-label">Approved Files</div>
           </div>
         </div>
@@ -500,7 +504,7 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
         <div className="file-status-card rejected">
           <div className="status-icon rejected-icon">RE</div>
           <div className="status-info">
-            <div className="status-number">{files.filter(f => mapFileStatus(f.status) === 'rejected').length}</div>
+            <div className="status-number">{files.filter(f => f.status === 'rejected_by_team_leader' || f.status === 'rejected_by_admin').length}</div>
             <div className="status-label">Rejected Files</div>
           </div>
         </div>
