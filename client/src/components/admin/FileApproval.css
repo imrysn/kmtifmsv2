@@ -300,7 +300,7 @@
   gap: 0.75rem;
 }
 
-.file-icon {
+.file-cell .file-icon {
   width: 40px;
   height: 40px;
   border-radius: 8px;

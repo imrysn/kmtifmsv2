@@ -1,27 +1,64 @@
 import { useState, useEffect } from 'react'
 import './FileManagement.css'
 
+const API_BASE = process.env.NODE_ENV === 'development'
+  ? 'http://localhost:3001'
+  : 'http://localhost:3001'
+
+// Flaticon icon map
+const iconMap = {
+  folder: "https://cdn-icons-png.flaticon.com/512/12075/12075377.png",
+  pdf: "https://cdn-icons-png.flaticon.com/512/337/337946.png",
+  doc: "https://cdn-icons-png.flaticon.com/512/337/337932.png",
+  docx: "https://cdn-icons-png.flaticon.com/512/337/337932.png",
+  xls: "https://cdn-icons-png.flaticon.com/512/337/337958.png",
+  xlsx: "https://cdn-icons-png.flaticon.com/512/337/337958.png",
+  jpg: "https://cdn-icons-png.flaticon.com/512/337/337940.png",
+  jpeg: "https://cdn-icons-png.flaticon.com/512/337/337940.png",
+  png: "https://cdn-icons-png.flaticon.com/512/337/337940.png",
+  zip: "https://cdn-icons-png.flaticon.com/512/8629/8629976.png",
+  rar: "https://cdn-icons-png.flaticon.com/512/8629/8629976.png",
+  mp4: "https://cdn-icons-png.flaticon.com/512/8243/8243015.png",
+  mov: "https://cdn-icons-png.flaticon.com/512/8243/8243015.png",
+  avi: "https://cdn-icons-png.flaticon.com/512/8243/8243015.png",
+  mp3: "https://cdn-icons-png.flaticon.com/512/3767/3767196.png",
+  wav: "https://cdn-icons-png.flaticon.com/512/3767/3767196.png",
+  txt: "https://cdn-icons-png.flaticon.com/512/4248/4248224.png",
+  json: "https://cdn-icons-png.flaticon.com/512/11570/11570273.png",
+  html: "https://cdn-icons-png.flaticon.com/512/337/337937.png",
+  css: "https://cdn-icons-png.flaticon.com/512/8242/8242982.png",
+  default: "https://cdn-icons-png.flaticon.com/512/342/342348.png",
+  icd: "https://cdn-icons-png.flaticon.com/512/10121/10121902.png",
+  sldprt: "https://cdn-icons-png.flaticon.com/512/14421/14421956.png",
+  sldasm: "https://cdn-icons-png.flaticon.com/512/14421/14421962.png",
+  slddrw: "https://cdn-icons-png.flaticon.com/512/2266/2266786.png",
+  dwg: "https://cdn-icons-png.flaticon.com/512/2266/2266786.png",
+}
+
+function getIconForFile(item) {
+  if (item.type === 'folder') return iconMap.folder
+  const ext = item.fileType?.toLowerCase() || ''
+  return iconMap[ext] || iconMap.default
+}
+
 const FileManagement = ({ clearMessages, error, success, setError, setSuccess }) => {
   const [currentPath, setCurrentPath] = useState('/')
   const [fileSystemItems, setFileSystemItems] = useState([])
   const [filteredItems, setFilteredItems] = useState([])
   const [fileManagementSearch, setFileManagementSearch] = useState('')
   const [selectedItems, setSelectedItems] = useState([])
-  const [viewMode, setViewMode] = useState('grid') // 'grid' or 'list'
+  const [viewMode, setViewMode] = useState('grid')
   const [isLoading, setIsLoading] = useState(false)
   const [networkInfo, setNetworkInfo] = useState(null)
 
-  // Check network directory accessibility on component mount
   useEffect(() => {
     checkNetworkAccess()
   }, [])
 
-  // Fetch file system items when path changes
   useEffect(() => {
     fetchFileSystemItems()
   }, [currentPath])
 
-  // Filter items when search query changes
   useEffect(() => {
     if (fileManagementSearch.trim() === '') {
       setFilteredItems(fileSystemItems)
@@ -35,24 +72,11 @@ const FileManagement = ({ clearMessages, error, success, setError, setSuccess })
 
   const checkNetworkAccess = async () => {
     try {
-      const response = await fetch('/api/file-system/info')
-      
-      // Check if response is JSON
-      const contentType = response.headers.get('content-type')
-      if (!contentType || !contentType.includes('application/json')) {
-        console.error('API returned non-JSON response:', contentType)
-        const textResponse = await response.text()
-        console.error('Response text:', textResponse.substring(0, 200))
-        setError('Server returned invalid response format. Check server logs.')
-        setNetworkInfo({ accessible: false, message: 'Invalid server response' })
-        return
-      }
-      
+      const response = await fetch(`${API_BASE}/api/file-system/info`)
       const data = await response.json()
       setNetworkInfo(data)
-      
       if (!data.accessible) {
-        setError('Network projects directory is not accessible. Please check VPN connection and permissions.')
+        setError('Network projects directory is not accessible.')
       }
     } catch (error) {
       console.error('Error checking network access:', error)
@@ -64,25 +88,12 @@ const FileManagement = ({ clearMessages, error, success, setError, setSuccess })
   const fetchFileSystemItems = async () => {
     setIsLoading(true)
     clearMessages()
-    
     try {
-      const response = await fetch(`/api/file-system/browse?path=${encodeURIComponent(currentPath)}`)
-      
-      // Check if response is JSON
-      const contentType = response.headers.get('content-type')
-      if (!contentType || !contentType.includes('application/json')) {
-        console.error('Browse API returned non-JSON response:', contentType)
-        const textResponse = await response.text()
-        console.error('Response text:', textResponse.substring(0, 200))
-        throw new Error('Server returned invalid response format. Check server logs.')
-      }
-      
+      const response = await fetch(`${API_BASE}/api/file-system/browse?path=${encodeURIComponent(currentPath)}`)
       const data = await response.json()
-      
       if (data.success) {
         setFileSystemItems(data.items)
         setFilteredItems(data.items)
-        console.log(`Loaded ${data.items.length} items from:`, data.networkPath)
       } else {
         throw new Error(data.message || 'Failed to load directory')
       }
@@ -104,10 +115,8 @@ const FileManagement = ({ clearMessages, error, success, setError, setSuccess })
 
   const getBreadcrumbs = () => {
     if (currentPath === '/') return [{ name: 'PROJECTS', path: '/' }]
-    
     const parts = currentPath.split('/').filter(p => p)
     const breadcrumbs = [{ name: 'PROJECTS', path: '/' }]
-    
     let currentBreadcrumbPath = ''
     parts.forEach(part => {
       currentBreadcrumbPath += `/${part}`
@@ -117,57 +126,7 @@ const FileManagement = ({ clearMessages, error, success, setError, setSuccess })
         fullName: part
       })
     })
-    
     return breadcrumbs
-  }
-
-  const getFileIcon = (fileType) => {
-    const iconMap = {
-      pdf: '📄',
-      doc: '📝',
-      docx: '📝', 
-      xls: '📊',
-      xlsx: '📊',
-      txt: '📄',
-      json: '📄',
-      js: '📜',
-      jsx: '📜',
-      ts: '📜',
-      tsx: '📜',
-      html: '🌐',
-      css: '🎨',
-      jpg: '🖼️',
-      jpeg: '🖼️',
-      png: '🖼️',
-      gif: '🖼️',
-      svg: '🖼️',
-      zip: '🗜️',
-      rar: '🗜️',
-      '7z': '🗜️',
-      mp4: '🎥',
-      avi: '🎥',
-      mov: '🎥',
-      mp3: '🎵',
-      wav: '🎵',
-      exe: '⚙️',
-      msi: '⚙️',
-      unknown: '📄'
-    }
-    return iconMap[fileType] || iconMap.unknown
-  }
-
-  const formatDate = (dateString) => {
-    try {
-      return new Date(dateString).toLocaleDateString('en-US', {
-        year: 'numeric',
-        month: 'short',
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit'
-      })
-    } catch {
-      return '--'
-    }
   }
 
   return (
@@ -177,7 +136,6 @@ const FileManagement = ({ clearMessages, error, success, setError, setSuccess })
         <p>Browse and manage files in the network projects directory</p>
         {networkInfo && (
           <div className={`network-status ${networkInfo.accessible ? 'accessible' : 'not-accessible'}`}>
-            <span className="status-icon">{networkInfo.accessible ? '🟢' : '🔴'}</span>
             <span className="status-text">
               {networkInfo.accessible ? 'Network directory accessible' : 'Network directory not accessible'}
             </span>
@@ -185,10 +143,8 @@ const FileManagement = ({ clearMessages, error, success, setError, setSuccess })
           </div>
         )}
       </div>
-      
-      {/* Navigation Controls */}
+
       <div className="file-nav-controls">
-        {/* Breadcrumb Navigation */}
         <div className="breadcrumb-container">
           <nav className="breadcrumb">
             {getBreadcrumbs().map((crumb, index) => (
@@ -206,8 +162,7 @@ const FileManagement = ({ clearMessages, error, success, setError, setSuccess })
             ))}
           </nav>
         </div>
-        
-        {/* Search and View Controls */}
+
         <div className="file-controls-right">
           <div className="file-search">
             <input
@@ -227,36 +182,9 @@ const FileManagement = ({ clearMessages, error, success, setError, setSuccess })
               </button>
             )}
           </div>
-          
-          <div className="view-mode-toggle">
-            <button
-              className={`view-btn ${viewMode === 'grid' ? 'active' : ''}`}
-              onClick={() => setViewMode('grid')}
-              title="Grid View"
-            >
-              ☰
-            </button>
-            <button
-              className={`view-btn ${viewMode === 'list' ? 'active' : ''}`}
-              onClick={() => setViewMode('list')}
-              title="List View"
-            >
-              ≡
-            </button>
-          </div>
-          
-          <button 
-            className="refresh-btn"
-            onClick={() => fetchFileSystemItems()}
-            disabled={isLoading}
-            title="Refresh directory"
-          >
-            🔄
-          </button>
         </div>
       </div>
-      
-      {/* Messages */}
+
       {error && (
         <div className="alert alert-error">
           <span className="alert-message">{error}</span>
@@ -270,8 +198,7 @@ const FileManagement = ({ clearMessages, error, success, setError, setSuccess })
           <button onClick={clearMessages} className="alert-close">×</button>
         </div>
       )}
-      
-      {/* File System Display */}
+
       <div className="file-system-container">
         {isLoading ? (
           <div className="loading-state">
@@ -287,32 +214,19 @@ const FileManagement = ({ clearMessages, error, success, setError, setSuccess })
                     key={item.id}
                     className={`file-item ${item.type} ${selectedItems.includes(item.id) ? 'selected' : ''}`}
                     onClick={() => item.type === 'folder' ? navigateToPath(item.path) : null}
-                    title={`${item.name}${item.size ? ` (${item.size})` : ''}${item.modified ? ` - Modified: ${formatDate(item.modified)}` : ''}`}
+                    title={item.name}
                   >
-                    <div className="file-icon-container">
-                      <div className={`file-icon ${item.type === 'folder' ? 'folder-icon' : 'file-icon-' + (item.fileType || 'unknown')}`}>
-                        {item.type === 'folder' ? (
-                          item.isParent ? '←' : '📁'
-                        ) : (
-                          getFileIcon(item.fileType)
-                        )}
-                      </div>
-                      {item.type === 'folder' && !item.isParent && (
-                        <div className="folder-overlay"></div>
-                      )}
+                    <div className="file-icon">
+                      <img 
+                        src={getIconForFile(item)} 
+                        alt={item.type} 
+                        className="file-icon-img"
+                      />
                     </div>
                     <div className="file-info">
                       <div className="file-name" title={item.name}>
                         {item.displayName}
                       </div>
-                      {item.size && (
-                        <div className="file-size">{item.size}</div>
-                      )}
-                      {item.modified && (
-                        <div className="file-date">
-                          {formatDate(item.modified)}
-                        </div>
-                      )}
                     </div>
                   </div>
                 ))}
@@ -323,9 +237,7 @@ const FileManagement = ({ clearMessages, error, success, setError, setSuccess })
                   <thead>
                     <tr>
                       <th>Name</th>
-                      <th>Size</th>
                       <th>Type</th>
-                      <th>Modified</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -334,53 +246,24 @@ const FileManagement = ({ clearMessages, error, success, setError, setSuccess })
                         key={item.id}
                         className={`file-row ${item.type} ${selectedItems.includes(item.id) ? 'selected' : ''}`}
                         onClick={() => item.type === 'folder' ? navigateToPath(item.path) : null}
-                        title={item.name !== item.displayName ? `Full name: ${item.name}` : ''}
                       >
                         <td className="file-name-cell">
                           <div className="file-name-container">
-                            <div className={`file-icon-small ${item.type === 'folder' ? 'folder-icon' : 'file-icon-' + (item.fileType || 'unknown')}`}>
-                              {item.type === 'folder' ? (
-                                item.isParent ? '←' : '📁'
-                              ) : (
-                                getFileIcon(item.fileType)
-                              )}
-                            </div>
+                            <img 
+                              src={getIconForFile(item)} 
+                              alt={item.type} 
+                              className="file-icon-img-small"
+                            />
                             <span className="file-name">{item.displayName}</span>
-                            {item.name !== item.displayName && (
-                              <span className="truncated-indicator" title={`Full name: ${item.name}`}>*</span>
-                            )}
                           </div>
-                        </td>
-                        <td className="file-size-cell">
-                          {item.size || (item.type === 'folder' ? '--' : '')}
                         </td>
                         <td className="file-type-cell">
                           {item.type === 'folder' ? 'Folder' : (item.fileType?.toUpperCase() || 'File')}
-                        </td>
-                        <td className="file-date-cell">
-                          {item.modified ? formatDate(item.modified) : '--'}
                         </td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
-              </div>
-            )}
-            
-            {!isLoading && filteredItems.length === 0 && (
-              <div className="empty-state">
-                <h3>No files found</h3>
-                <p>This directory is empty or no files match your search criteria.</p>
-                {!networkInfo?.accessible && (
-                  <div className="network-help">
-                    <p><strong>Network Access Issue:</strong></p>
-                    <ul>
-                      <li>Check VPN connection if working remotely</li>
-                      <li>Verify access to \\KMTI-NAS\Shared\Public\PROJECTS</li>
-                      <li>Contact IT for network permissions</li>
-                    </ul>
-                  </div>
-                )}
               </div>
             )}
           </>
