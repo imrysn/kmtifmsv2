@@ -1,136 +1,110 @@
 import { useState, useEffect } from 'react'
 import './FileManagement.css'
 
+const API_BASE = process.env.NODE_ENV === 'development'
+  ? 'http://localhost:3001'
+  : 'http://localhost:3001'
+
+// Flaticon icon map
+const iconMap = {
+  folder: "https://cdn-icons-png.flaticon.com/512/12075/12075377.png",
+  pdf: "https://cdn-icons-png.flaticon.com/512/337/337946.png",
+  doc: "https://cdn-icons-png.flaticon.com/512/337/337932.png",
+  docx: "https://cdn-icons-png.flaticon.com/512/337/337932.png",
+  xls: "https://cdn-icons-png.flaticon.com/512/337/337958.png",
+  xlsx: "https://cdn-icons-png.flaticon.com/512/337/337958.png",
+  jpg: "https://cdn-icons-png.flaticon.com/512/337/337940.png",
+  jpeg: "https://cdn-icons-png.flaticon.com/512/337/337940.png",
+  png: "https://cdn-icons-png.flaticon.com/512/337/337940.png",
+  zip: "https://cdn-icons-png.flaticon.com/512/8629/8629976.png",
+  rar: "https://cdn-icons-png.flaticon.com/512/8629/8629976.png",
+  mp4: "https://cdn-icons-png.flaticon.com/512/8243/8243015.png",
+  mov: "https://cdn-icons-png.flaticon.com/512/8243/8243015.png",
+  avi: "https://cdn-icons-png.flaticon.com/512/8243/8243015.png",
+  mp3: "https://cdn-icons-png.flaticon.com/512/3767/3767196.png",
+  wav: "https://cdn-icons-png.flaticon.com/512/3767/3767196.png",
+  txt: "https://cdn-icons-png.flaticon.com/512/4248/4248224.png",
+  json: "https://cdn-icons-png.flaticon.com/512/11570/11570273.png",
+  html: "https://cdn-icons-png.flaticon.com/512/337/337937.png",
+  css: "https://cdn-icons-png.flaticon.com/512/8242/8242982.png",
+  default: "https://cdn-icons-png.flaticon.com/512/342/342348.png",
+  icd: "https://cdn-icons-png.flaticon.com/512/10121/10121902.png",
+  sldprt: "https://cdn-icons-png.flaticon.com/512/14421/14421956.png",
+  sldasm: "https://cdn-icons-png.flaticon.com/512/14421/14421962.png",
+  slddrw: "https://cdn-icons-png.flaticon.com/512/2266/2266786.png",
+  dwg: "https://cdn-icons-png.flaticon.com/512/2266/2266786.png",
+}
+
+function getIconForFile(item) {
+  if (item.type === 'folder') return iconMap.folder
+  const ext = item.fileType?.toLowerCase() || ''
+  return iconMap[ext] || iconMap.default
+}
+
 const FileManagement = ({ clearMessages, error, success, setError, setSuccess }) => {
   const [currentPath, setCurrentPath] = useState('/')
   const [fileSystemItems, setFileSystemItems] = useState([])
   const [filteredItems, setFilteredItems] = useState([])
   const [fileManagementSearch, setFileManagementSearch] = useState('')
   const [selectedItems, setSelectedItems] = useState([])
-  const [viewMode, setViewMode] = useState('grid') // 'grid' or 'list'
+  const [viewMode, setViewMode] = useState('grid')
   const [isLoading, setIsLoading] = useState(false)
+  const [networkInfo, setNetworkInfo] = useState(null)
 
-  // Fetch file system items when path changes
+  useEffect(() => {
+    checkNetworkAccess()
+  }, [])
+
   useEffect(() => {
     fetchFileSystemItems()
   }, [currentPath])
 
-  // Filter items when search query changes
   useEffect(() => {
     if (fileManagementSearch.trim() === '') {
       setFilteredItems(fileSystemItems)
     } else {
       const filtered = fileSystemItems.filter(item => 
-        item.name.toLowerCase().includes(fileManagementSearch.toLowerCase())
+        item.displayName.toLowerCase().includes(fileManagementSearch.toLowerCase())
       )
       setFilteredItems(filtered)
     }
   }, [fileSystemItems, fileManagementSearch])
 
+  const checkNetworkAccess = async () => {
+    try {
+      const response = await fetch(`${API_BASE}/api/file-system/info`)
+      const data = await response.json()
+      setNetworkInfo(data)
+      if (!data.accessible) {
+        setError('Network projects directory is not accessible.')
+      }
+    } catch (error) {
+      console.error('Error checking network access:', error)
+      setError('Failed to check network directory access: ' + error.message)
+      setNetworkInfo({ accessible: false, message: 'Connection failed' })
+    }
+  }
+
   const fetchFileSystemItems = async () => {
     setIsLoading(true)
+    clearMessages()
     try {
-      // Simulate API call with mock file system data
-      const mockItems = generateMockFileSystem(currentPath)
-      
-      // Simulate API delay
-      await new Promise(resolve => setTimeout(resolve, 600))
-      setFileSystemItems(mockItems)
-      setFilteredItems(mockItems)
+      const response = await fetch(`${API_BASE}/api/file-system/browse?path=${encodeURIComponent(currentPath)}`)
+      const data = await response.json()
+      if (data.success) {
+        setFileSystemItems(data.items)
+        setFilteredItems(data.items)
+      } else {
+        throw new Error(data.message || 'Failed to load directory')
+      }
     } catch (error) {
       console.error('Error fetching file system items:', error)
-      setError('Failed to load file system')
+      setError(error.message || 'Failed to load directory contents')
+      setFileSystemItems([])
+      setFilteredItems([])
     } finally {
       setIsLoading(false)
     }
-  }
-
-  const generateMockFileSystem = (path) => {
-    const items = []
-    
-    // Add parent directory if not at root
-    if (path !== '/') {
-      items.push({
-        id: 'parent',
-        name: '..',
-        type: 'folder',
-        path: getParentPath(path),
-        size: null,
-        modified: null,
-        isParent: true
-      })
-    }
-    
-    // Mock folder structure
-    const mockStructure = {
-      '/': {
-        folders: ['Documents', 'Images', 'Projects', 'Archives'],
-        files: [
-          { name: 'README.txt', size: '2.1 KB', type: 'text' },
-          { name: 'system_config.json', size: '1.5 KB', type: 'json' }
-        ]
-      },
-      '/Documents': {
-        folders: ['Reports', 'Templates', 'Drafts'],
-        files: [
-          { name: 'annual_report_2024.pdf', size: '3.2 MB', type: 'pdf' },
-          { name: 'meeting_notes.docx', size: '156 KB', type: 'docx' },
-          { name: 'budget_analysis.xlsx', size: '892 KB', type: 'xlsx' }
-        ]
-      },
-      '/Images': {
-        folders: ['Screenshots', 'Logos', 'Thumbnails'],
-        files: [
-          { name: 'company_logo.png', size: '245 KB', type: 'png' },
-          { name: 'banner_image.jpg', size: '1.8 MB', type: 'jpg' },
-          { name: 'profile_pics.zip', size: '5.4 MB', type: 'zip' }
-        ]
-      },
-      '/Projects': {
-        folders: ['Active', 'Completed', 'Archive'],
-        files: [
-          { name: 'project_timeline.pdf', size: '678 KB', type: 'pdf' },
-          { name: 'requirements.docx', size: '234 KB', type: 'docx' }
-        ]
-      }
-    }
-    
-    const currentStructure = mockStructure[path] || { folders: [], files: [] }
-    
-    // Add folders
-    currentStructure.folders.forEach((folderName, index) => {
-      items.push({
-        id: `folder-${index}`,
-        name: folderName,
-        type: 'folder',
-        path: path === '/' ? `/${folderName}` : `${path}/${folderName}`,
-        size: null,
-        modified: new Date(Date.now() - Math.random() * 30 * 24 * 60 * 60 * 1000),
-        isParent: false
-      })
-    })
-    
-    // Add files
-    currentStructure.files.forEach((file, index) => {
-      items.push({
-        id: `file-${index}`,
-        name: file.name,
-        type: 'file',
-        fileType: file.type,
-        path: path === '/' ? `/${file.name}` : `${path}/${file.name}`,
-        size: file.size,
-        modified: new Date(Date.now() - Math.random() * 60 * 24 * 60 * 60 * 1000),
-        isParent: false
-      })
-    })
-    
-    return items
-  }
-
-  const getParentPath = (path) => {
-    const parts = path.split('/').filter(p => p)
-    if (parts.length <= 1) return '/'
-    return '/' + parts.slice(0, -1).join('/')
   }
 
   const navigateToPath = (newPath) => {
@@ -140,50 +114,37 @@ const FileManagement = ({ clearMessages, error, success, setError, setSuccess })
   }
 
   const getBreadcrumbs = () => {
-    if (currentPath === '/') return [{ name: 'Root', path: '/' }]
-    
+    if (currentPath === '/') return [{ name: 'PROJECTS', path: '/' }]
     const parts = currentPath.split('/').filter(p => p)
-    const breadcrumbs = [{ name: 'Root', path: '/' }]
-    
+    const breadcrumbs = [{ name: 'PROJECTS', path: '/' }]
     let currentBreadcrumbPath = ''
     parts.forEach(part => {
       currentBreadcrumbPath += `/${part}`
       breadcrumbs.push({
-        name: part,
-        path: currentBreadcrumbPath
+        name: part.length > 20 ? part.substring(0, 20) + '...' : part,
+        path: currentBreadcrumbPath,
+        fullName: part
       })
     })
-    
     return breadcrumbs
-  }
-
-  const getFileIcon = (fileType) => {
-    const iconMap = {
-      pdf: '📄',
-      doc: '📝',
-      docx: '📝', 
-      xls: '📊',
-      xlsx: '📊',
-      txt: '📄',
-      json: '📄',
-      jpg: '🖼️',
-      png: '🖼️',
-      zip: '🗜️',
-      unknown: '📄'
-    }
-    return iconMap[fileType] || iconMap.unknown
   }
 
   return (
     <div className="file-management-section">
       <div className="page-header">
         <h1>File Management</h1>
-        <p>Browse and manage files and folders in the system directory</p>
+        <p>Browse and manage files in the network projects directory</p>
+        {networkInfo && (
+          <div className={`network-status ${networkInfo.accessible ? 'accessible' : 'not-accessible'}`}>
+            <span className="status-text">
+              {networkInfo.accessible ? 'Network directory accessible' : 'Network directory not accessible'}
+            </span>
+            <span className="network-path">\\KMTI-NAS\Shared\Public\PROJECTS</span>
+          </div>
+        )}
       </div>
-      
-      {/* Navigation Controls */}
+
       <div className="file-nav-controls">
-        {/* Breadcrumb Navigation */}
         <div className="breadcrumb-container">
           <nav className="breadcrumb">
             {getBreadcrumbs().map((crumb, index) => (
@@ -193,6 +154,7 @@ const FileManagement = ({ clearMessages, error, success, setError, setSuccess })
                   className={`breadcrumb-link ${index === getBreadcrumbs().length - 1 ? 'active' : ''}`}
                   onClick={() => navigateToPath(crumb.path)}
                   disabled={index === getBreadcrumbs().length - 1}
+                  title={crumb.fullName || crumb.name}
                 >
                   {crumb.name}
                 </button>
@@ -200,8 +162,7 @@ const FileManagement = ({ clearMessages, error, success, setError, setSuccess })
             ))}
           </nav>
         </div>
-        
-        {/* Search and View Controls */}
+
         <div className="file-controls-right">
           <div className="file-search">
             <input
@@ -221,27 +182,9 @@ const FileManagement = ({ clearMessages, error, success, setError, setSuccess })
               </button>
             )}
           </div>
-          
-          <div className="view-mode-toggle">
-            <button
-              className={`view-btn ${viewMode === 'grid' ? 'active' : ''}`}
-              onClick={() => setViewMode('grid')}
-              title="Grid View"
-            >
-              ☰
-            </button>
-            <button
-              className={`view-btn ${viewMode === 'list' ? 'active' : ''}`}
-              onClick={() => setViewMode('list')}
-              title="List View"
-            >
-              ≡
-            </button>
-          </div>
         </div>
       </div>
-      
-      {/* Messages */}
+
       {error && (
         <div className="alert alert-error">
           <span className="alert-message">{error}</span>
@@ -255,13 +198,12 @@ const FileManagement = ({ clearMessages, error, success, setError, setSuccess })
           <button onClick={clearMessages} className="alert-close">×</button>
         </div>
       )}
-      
-      {/* File System Display */}
+
       <div className="file-system-container">
         {isLoading ? (
           <div className="loading-state">
             <div className="spinner"></div>
-            <p>Loading files...</p>
+            <p>Loading files from network directory...</p>
           </div>
         ) : (
           <>
@@ -272,32 +214,19 @@ const FileManagement = ({ clearMessages, error, success, setError, setSuccess })
                     key={item.id}
                     className={`file-item ${item.type} ${selectedItems.includes(item.id) ? 'selected' : ''}`}
                     onClick={() => item.type === 'folder' ? navigateToPath(item.path) : null}
-                    onDoubleClick={() => item.type === 'file' ? console.log('Open file:', item.name) : null}
+                    title={item.name}
                   >
-                    <div className="file-icon-container">
-                      <div className={`file-icon ${item.type === 'folder' ? 'folder-icon' : 'file-icon-' + (item.fileType || 'unknown')}`}>
-                        {item.type === 'folder' ? (
-                          item.isParent ? '←' : '📁'
-                        ) : (
-                          getFileIcon(item.fileType)
-                        )}
-                      </div>
-                      {item.type === 'folder' && !item.isParent && (
-                        <div className="folder-overlay"></div>
-                      )}
+                    <div className="file-icon">
+                      <img 
+                        src={getIconForFile(item)} 
+                        alt={item.type} 
+                        className="file-icon-img"
+                      />
                     </div>
                     <div className="file-info">
                       <div className="file-name" title={item.name}>
-                        {item.name}
+                        {item.displayName}
                       </div>
-                      {item.size && (
-                        <div className="file-size">{item.size}</div>
-                      )}
-                      {item.modified && (
-                        <div className="file-date">
-                          {item.modified.toLocaleDateString()}
-                        </div>
-                      )}
                     </div>
                   </div>
                 ))}
@@ -308,9 +237,7 @@ const FileManagement = ({ clearMessages, error, success, setError, setSuccess })
                   <thead>
                     <tr>
                       <th>Name</th>
-                      <th>Size</th>
                       <th>Type</th>
-                      <th>Modified</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -319,40 +246,24 @@ const FileManagement = ({ clearMessages, error, success, setError, setSuccess })
                         key={item.id}
                         className={`file-row ${item.type} ${selectedItems.includes(item.id) ? 'selected' : ''}`}
                         onClick={() => item.type === 'folder' ? navigateToPath(item.path) : null}
-                        onDoubleClick={() => item.type === 'file' ? console.log('Open file:', item.name) : null}
                       >
                         <td className="file-name-cell">
                           <div className="file-name-container">
-                            <div className={`file-icon-small ${item.type === 'folder' ? 'folder-icon' : 'file-icon-' + (item.fileType || 'unknown')}`}>
-                              {item.type === 'folder' ? (
-                                item.isParent ? '←' : '📁'
-                              ) : (
-                                getFileIcon(item.fileType)
-                              )}
-                            </div>
-                            <span className="file-name">{item.name}</span>
+                            <img 
+                              src={getIconForFile(item)} 
+                              alt={item.type} 
+                              className="file-icon-img-small"
+                            />
+                            <span className="file-name">{item.displayName}</span>
                           </div>
-                        </td>
-                        <td className="file-size-cell">
-                          {item.size || (item.type === 'folder' ? '--' : '')}
                         </td>
                         <td className="file-type-cell">
                           {item.type === 'folder' ? 'Folder' : (item.fileType?.toUpperCase() || 'File')}
-                        </td>
-                        <td className="file-date-cell">
-                          {item.modified ? item.modified.toLocaleString() : '--'}
                         </td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
-              </div>
-            )}
-            
-            {!isLoading && filteredItems.length === 0 && (
-              <div className="empty-state">
-                <h3>No files found</h3>
-                <p>This directory is empty or no files match your search criteria.</p>
               </div>
             )}
           </>

@@ -14,7 +14,18 @@
     "test:api": "node test-api.js",
     "server:standalone": "node server.js",
     "reset:db": "node reset-db.js",
-    "reset:db:force": "node reset-db-force.js"
+    "reset:db:force": "node reset-db-force.js",
+    "test:team-delete": "node test-team-delete.js",
+    "verify:network": "node verify-network-connection.js",
+    "check:db": "node check-db-tables.js",
+    "network:status": "node network-config-manager.js status",
+    "network:test": "node network-config-manager.js test",
+    "network:backup": "node network-config-manager.js backup-local",
+    "test:file-management": "node test-file-management-api.js",
+    "debug:file-management": "node debug-file-management.js",
+    "create:test-directory": "node create-local-test-directory.js",
+    "switch:local-test": "node switch-to-local-test.js",
+    "restore:network-mode": "node restore-network-mode.js"
   },
   "devDependencies": {
     "electron": "^27.0.0",
@@ -28,7 +39,8 @@
     "cors": "^2.8.5",
     "sqlite3": "^5.1.6",
     "bcryptjs": "^2.4.3",
-    "multer": "^1.4.5-lts.1"
+    "multer": "^1.4.5-lts.1",
+    "node-fetch": "^2.7.0"
   },
   "build": {
     "appId": "com.example.electron-react-app",

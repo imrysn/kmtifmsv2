@@ -2,6 +2,7 @@ const { app, BrowserWindow } = require('electron');
 const path = require('path');
 const { spawn } = require('child_process');
 const http = require('http');
+const { url } = require('inspector');
 
 let mainWindow;
 let serverProcess;

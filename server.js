@@ -10,21 +10,33 @@ const crypto = require('crypto');
 const app = express();
 const PORT = 3001;
 
+// Network Database and Uploads Configuration
+const networkDataPath = '\\\\KMTI-NAS\\Shared\\data';
+const dbPath = path.join(networkDataPath, 'database.sqlite');
+const uploadsDir = path.join(networkDataPath, 'uploads');
+
 // Database setup
-const dbPath = path.join(__dirname, 'database.sqlite');
 const db = new sqlite3.Database(dbPath, (err) => {
   if (err) {
-    console.error('Error opening database:', err.message);
+    console.error('❌ Error opening network database:', err.message);
+    console.error('💡 Make sure network path is accessible:', networkDataPath);
   } else {
-    console.log('✅ Connected to SQLite database:', dbPath);
+    console.log('✅ Connected to network SQLite database:', dbPath);
   }
 });
 
-// Create uploads directory if it doesn't exist
-const uploadsDir = path.join(__dirname, 'uploads');
+// Verify network uploads directory access
 if (!fs.existsSync(uploadsDir)) {
-  fs.mkdirSync(uploadsDir, { recursive: true });
-  console.log('✅ Created uploads directory:', uploadsDir);
+  console.log('⚠️ Network uploads directory not found, attempting to create:', uploadsDir);
+  try {
+    fs.mkdirSync(uploadsDir, { recursive: true });
+    console.log('✅ Created network uploads directory:', uploadsDir);
+  } catch (err) {
+    console.error('❌ Failed to create network uploads directory:', err.message);
+    console.error('💡 Please ensure network path is accessible and has write permissions');
+  }
+} else {
+  console.log('✅ Network uploads directory found:', uploadsDir);
 }
 
 // Configure multer for file uploads
@@ -349,7 +361,7 @@ function seedTestUsers(resolve, reject) {
         email: 'user@example.com', 
         password: 'password123', 
         role: 'USER', 
-        team: 'Development' 
+        team: 'General' 
       },
       { 
         fullName: 'Sarah Team Leader', 
@@ -357,7 +369,7 @@ function seedTestUsers(resolve, reject) {
         email: 'teamleader@example.com', 
         password: 'password123', 
         role: 'TEAM LEADER', 
-        team: 'Management' 
+        team: 'General' 
       },
       { 
         fullName: 'Admin Administrator', 
@@ -365,7 +377,7 @@ function seedTestUsers(resolve, reject) {
         email: 'admin@example.com', 
         password: 'password123', 
         role: 'ADMIN', 
-        team: 'IT Administration' 
+        team: 'General' 
       },
       { 
         fullName: 'Test User', 
@@ -373,66 +385,29 @@ function seedTestUsers(resolve, reject) {
         email: 'test@example.com', 
         password: 'password123', 
         role: 'USER', 
-        team: 'QA Testing' 
+        team: 'General' 
       }
     ];
     
     let completed = 0;
     const total = testUsers.length;
     
-    // Create default teams first
-    const defaultTeams = [
-      { 
-        name: 'Development', 
-        description: 'Software development and engineering team',
-        color: '#3B82F6'
-      },
-      { 
-        name: 'Management', 
-        description: 'Team leadership and project management',
-        color: '#10B981'
-      },
-      { 
-        name: 'IT Administration', 
-        description: 'System administration and technical support',
-        color: '#8B5CF6'
-      },
-      { 
-        name: 'QA Testing', 
-        description: 'Quality assurance and testing team',
-        color: '#F59E0B'
-      },
-      { 
-        name: 'General', 
-        description: 'General team for new members',
-        color: '#6B7280'
-      }
-    ];
-    
-    let teamsCompleted = 0;
-    const totalTeams = defaultTeams.length;
-    
-    // Create teams first
-    defaultTeams.forEach(team => {
-      const now = new Date().toISOString();
-      db.run(
-        'INSERT INTO teams (name, description, color, created_at, updated_at) VALUES (?, ?, ?, ?, ?)',
-        [team.name, team.description, team.color, now, now],
-        function(err) {
-          if (err && err.code !== 'SQLITE_CONSTRAINT') {
-            console.error(`❌ Error creating team ${team.name}:`, err);
-          } else {
-            console.log(`✅ Team created: ${team.name}`);
-          }
-          
-          teamsCompleted++;
-          if (teamsCompleted === totalTeams) {
-            // Now create users after teams are created
-            createTestUsers();
-          }
+    // Create only the General team (required for test users)
+    const now = new Date().toISOString();
+    db.run(
+      'INSERT OR IGNORE INTO teams (name, description, created_at, updated_at) VALUES (?, ?, ?, ?)',
+      ['General', 'Default team for all users', now, now],
+      function(err) {
+        if (err) {
+          console.error('❌ Error creating General team:', err);
+        } else {
+          console.log('✅ General team ensured in database');
         }
-      );
-    });
+        
+        // Now create users
+        createTestUsers();
+      }
+    );
     
     function createTestUsers() {
       testUsers.forEach(user => {
@@ -449,180 +424,51 @@ function seedTestUsers(resolve, reject) {
             
             completed++;
             if (completed === total) {
-              // Update team leaders after users are created
-              updateTeamLeaders();
+              // Complete user creation process
+              completeUserCreation();
             }
           }
         );
       });
     }
     
-    function updateTeamLeaders() {
-      // Set Sarah as Management team leader and Admin as IT Administration team leader
-      const teamUpdates = [
-        { teamName: 'Management', leaderId: 2, leaderUsername: 'sarah.leader' },
-        { teamName: 'IT Administration', leaderId: 3, leaderUsername: 'admin' }
-      ];
+    function completeUserCreation() {
+      console.log('\n👤 Available test accounts:');
+      console.log('  USER: user@example.com / password123 (John User)');
+      console.log('  TEAM LEADER: teamleader@example.com / password123 (Sarah Team Leader)');
+      console.log('  ADMIN: admin@example.com / password123 (Admin Administrator)');
+      console.log('  Legacy USER: test@example.com / password123 (Test User)\n');
       
-      let updatesCompleted = 0;
-      teamUpdates.forEach(update => {
-        db.run(
-          'UPDATE teams SET leader_id = ?, leader_username = ? WHERE name = ?',
-          [update.leaderId, update.leaderUsername, update.teamName],
-          function(err) {
-            if (err) {
-              console.error(`❌ Error updating team leader for ${update.teamName}:`, err);
-            } else {
-              console.log(`✅ Team leader set: ${update.leaderUsername} -> ${update.teamName}`);
-            }
-            
-            updatesCompleted++;
-            if (updatesCompleted === teamUpdates.length) {
-              console.log('\n👤 Available test accounts:');
-              console.log('  USER: user@example.com / password123 (John User)');
-              console.log('  TEAM LEADER: teamleader@example.com / password123 (Sarah Team Leader)');
-              console.log('  ADMIN: admin@example.com / password123 (Admin Administrator)');
-              console.log('  Legacy USER: test@example.com / password123 (Test User)\n');
-              
-              // Add sample files and activity logs
-              seedSampleData(resolve, reject);
-            }
-          }
-        );
-      });
+      // Add sample files and activity logs
+      seedSampleData(resolve, reject);
     }
   });
 }
 
-// Seed sample files and activity logs
+// Seed sample data only on first run or when database is empty
 function seedSampleData(resolve, reject) {
-  // Add some sample activity logs
-  const sampleActivities = [
-    { username: 'admin', role: 'ADMIN', team: 'IT Administration', activity: 'File approval system initialized with sample data' },
-    { username: 'john.user', role: 'USER', team: 'Development', activity: 'User account created by administrator' },
-    { username: 'sarah.leader', role: 'TEAM LEADER', team: 'Management', activity: 'User account created by administrator' },
-    { username: 'test.user', role: 'USER', team: 'QA Testing', activity: 'User account created by administrator' }
-  ];
-  
-  sampleActivities.forEach((activity, index) => {
-    setTimeout(() => {
-      logActivity(null, activity.username, activity.role, activity.team, activity.activity);
-    }, index * 100);
-  });
-  
-  // Add sample files for testing
-  const sampleFiles = [
-    {
-      filename: 'project_proposal_2025.pdf',
-      original_name: 'project_proposal_2025.pdf',
-      file_path: '/sample/project_proposal_2025.pdf',
-      file_size: 2621440, // 2.5 MB
-      file_type: 'PDF Document',
-      mime_type: 'application/pdf',
-      description: 'Q1 2025 project proposal for new product development features',
-      user_id: 1,
-      username: 'john.user',
-      user_team: 'Development',
-      status: 'uploaded',
-      current_stage: 'pending_team_leader'
-    },
-    {
-      filename: 'budget_analysis_q4.xlsx',
-      original_name: 'budget_analysis_q4.xlsx',
-      file_path: '/sample/budget_analysis_q4.xlsx',
-      file_size: 1887436, // 1.8 MB
-      file_type: 'Excel Spreadsheet',
-      mime_type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-      description: 'Q4 budget analysis with cost projections and resource allocation',
-      user_id: 4,
-      username: 'test.user',
-      user_team: 'QA Testing',
-      status: 'team_leader_approved',
-      current_stage: 'pending_admin',
-      team_leader_id: 2,
-      team_leader_username: 'sarah.leader',
-      team_leader_reviewed_at: '2025-01-09 14:30:00',
-      team_leader_comments: 'Budget figures look accurate. Approved for final admin review.'
-    },
-    {
-      filename: 'design_mockups_mobile.zip',
-      original_name: 'design_mockups_mobile.zip',
-      file_path: '/sample/design_mockups_mobile.zip',
-      file_size: 15728640, // 15 MB
-      file_type: 'ZIP Archive',
-      mime_type: 'application/zip',
-      description: 'Mobile app UI/UX design mockups for the new user interface',
-      user_id: 1,
-      username: 'john.user',
-      user_team: 'Development',
-      status: 'rejected_by_team_leader',
-      current_stage: 'rejected_by_team_leader',
-      team_leader_id: 2,
-      team_leader_username: 'sarah.leader',
-      team_leader_reviewed_at: '2025-01-08 11:45:00',
-      team_leader_comments: 'Design direction needs revision. Please update color scheme to match brand guidelines.',
-      rejection_reason: 'Design does not align with current brand guidelines. Color scheme needs updating.',
-      rejected_by: 'sarah.leader',
-      rejected_at: '2025-01-08 11:45:00'
-    },
-    {
-      filename: 'test_results_automation.pdf',
-      original_name: 'test_results_automation.pdf',
-      file_path: '/sample/test_results_automation.pdf',
-      file_size: 3145728, // 3 MB
-      file_type: 'PDF Document',
-      mime_type: 'application/pdf',
-      description: 'Comprehensive automated testing results for release v2.1.0',
-      user_id: 4,
-      username: 'test.user',
-      user_team: 'QA Testing',
-      status: 'final_approved',
-      current_stage: 'published_to_public',
-      team_leader_id: 2,
-      team_leader_username: 'sarah.leader',
-      team_leader_reviewed_at: '2025-01-07 09:15:00',
-      team_leader_comments: 'All tests passed successfully. Ready for final approval.',
-      admin_id: 3,
-      admin_username: 'admin',
-      admin_reviewed_at: '2025-01-07 15:30:00',
-      admin_comments: 'Excellent test coverage. Approved for public release.',
-      public_network_url: 'https://public-network.example.com/files/test_results_automation_v2.1.0.pdf',
-      final_approved_at: '2025-01-07 15:30:00'
+  // Check if sample data already exists to prevent duplication
+  db.get('SELECT COUNT(*) as count FROM files', [], (err, result) => {
+    if (err) {
+      console.error('❌ Error checking existing files:', err);
+      reject(err);
+      return;
     }
-  ];
-  
-  let fileCompleted = 0;
-  sampleFiles.forEach(file => {
-    db.run(`INSERT INTO files (
-      filename, original_name, file_path, file_size, file_type, mime_type, description,
-      user_id, username, user_team, status, current_stage,
-      team_leader_id, team_leader_username, team_leader_reviewed_at, team_leader_comments,
-      admin_id, admin_username, admin_reviewed_at, admin_comments,
-      public_network_url, final_approved_at, rejection_reason, rejected_by, rejected_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [
-      file.filename, file.original_name, file.file_path, file.file_size, 
-      file.file_type, file.mime_type, file.description,
-      file.user_id, file.username, file.user_team, file.status, file.current_stage,
-      file.team_leader_id || null, file.team_leader_username || null, 
-      file.team_leader_reviewed_at || null, file.team_leader_comments || null,
-      file.admin_id || null, file.admin_username || null,
-      file.admin_reviewed_at || null, file.admin_comments || null,
-      file.public_network_url || null, file.final_approved_at || null,
-      file.rejection_reason || null, file.rejected_by || null, file.rejected_at || null
-    ], function(err) {
-      if (err) {
-        console.error(`❌ Error inserting sample file ${file.filename}:`, err);
-      } else {
-        console.log(`✅ Sample file created: ${file.filename} (Status: ${file.status})`);
-      }
-      
-      fileCompleted++;
-      if (fileCompleted === sampleFiles.length) {
-        console.log('\n📁 File approval system initialized with sample data');
-        resolve();
-      }
-    });
+    
+    if (result.count > 0) {
+      console.log('✅ Database already contains files, skipping sample data seeding');
+      resolve();
+      return;
+    }
+    
+    console.log('📁 Database is empty, adding sample data for first-time setup...');
+    
+    // Add initial activity log
+    logActivity(null, 'System', 'SYSTEM', 'System', 'File approval system initialized');
+    
+    console.log('\n📁 File approval system initialized without mock data');
+    console.log('✅ Ready for real file uploads');
+    resolve();
   });
 }
 
@@ -1332,12 +1178,302 @@ app.get('/api/activity-logs', (req, res) => {
   );
 });
 
-// FILE APPROVAL SYSTEM ENDPOINTS
+// Bulk delete activity logs (Admin only)
+app.delete('/api/activity-logs/bulk-delete', (req, res) => {
+  const { logIds } = req.body;
+  
+  console.log(`🗑️ Bulk deleting ${logIds?.length || 0} activity logs`);
+  
+  // Validation
+  if (!logIds || !Array.isArray(logIds) || logIds.length === 0) {
+    return res.status(400).json({
+      success: false,
+      message: 'Log IDs array is required and must not be empty'
+    });
+  }
+  
+  // Create placeholders for the SQL IN clause
+  const placeholders = logIds.map(() => '?').join(',');
+  
+  // Get log details for logging purposes before deletion
+  db.all(
+    `SELECT id, username, activity FROM activity_logs WHERE id IN (${placeholders})`,
+    logIds,
+    (err, logsToDelete) => {
+      if (err) {
+        console.error('❌ Error fetching logs for deletion:', err);
+        return res.status(500).json({
+          success: false,
+          message: 'Failed to fetch logs for deletion'
+        });
+      }
+      
+      if (logsToDelete.length === 0) {
+        return res.status(404).json({
+          success: false,
+          message: 'No logs found with the provided IDs'
+        });
+      }
+      
+      // Delete the logs
+      db.run(
+        `DELETE FROM activity_logs WHERE id IN (${placeholders})`,
+        logIds,
+        function(err) {
+          if (err) {
+            console.error('❌ Error deleting activity logs:', err);
+            return res.status(500).json({
+              success: false,
+              message: 'Failed to delete activity logs'
+            });
+          }
+          
+          const deletedCount = this.changes;
+          console.log(`✅ Successfully deleted ${deletedCount} activity logs`);
+          
+          // Log the bulk deletion activity
+          logActivity(
+            null,
+            'System',
+            'ADMIN',
+            'System',
+            `Bulk deletion: ${deletedCount} activity log(s) removed by administrator`
+          );
+          
+          res.json({
+            success: true,
+            message: `Successfully deleted ${deletedCount} activity log(s)`,
+            deletedCount: deletedCount,
+            requestedCount: logIds.length
+          });
+        }
+      );
+    }
+  );
+});
+
+// FILE MANAGEMENT SYSTEM ENDPOINTS (Network Directory Browsing)
+
+// Browse network project directory
+app.get('/api/file-system/browse', (req, res) => {
+  const requestPath = req.query.path || '/';
+  
+  // Network projects directory configuration
+  const networkProjectsPath = '\\\\KMTI-NAS\\Shared\\Public\\PROJECTS';
+  
+  console.log(`📁 Browsing network directory: ${requestPath}`);
+  
+  try {
+    let fullPath;
+    
+    if (requestPath === '/') {
+      fullPath = networkProjectsPath;
+    } else {
+      // Remove leading slash and join with network path
+      const relativePath = requestPath.startsWith('/') ? requestPath.slice(1) : requestPath;
+      fullPath = path.join(networkProjectsPath, relativePath);
+    }
+    
+    console.log(`🔍 Reading directory: ${fullPath}`);
+    
+    // Check if directory exists
+    if (!fs.existsSync(fullPath)) {
+      console.log('❌ Directory not found:', fullPath);
+      return res.status(404).json({
+        success: false,
+        message: 'Directory not found',
+        path: requestPath
+      });
+    }
+    
+    // Check if it's actually a directory
+    const stats = fs.statSync(fullPath);
+    if (!stats.isDirectory()) {
+      return res.status(400).json({
+        success: false,
+        message: 'Path is not a directory',
+        path: requestPath
+      });
+    }
+    
+    // Read directory contents
+    const items = fs.readdirSync(fullPath);
+    const fileSystemItems = [];
+    
+    // Function to truncate names to prevent UI misalignment
+    const truncateName = (name, maxLength = 50) => {
+      if (name.length <= maxLength) return name;
+      const extension = path.extname(name);
+      const nameWithoutExt = path.basename(name, extension);
+      const truncatedName = nameWithoutExt.slice(0, maxLength - extension.length - 3);
+      return truncatedName + '...' + extension;
+    };
+    
+    // Add parent directory if not at root
+    if (requestPath !== '/') {
+      fileSystemItems.push({
+        id: 'parent',
+        name: '..',
+        displayName: '..',
+        type: 'folder',
+        path: getParentPath(requestPath),
+        size: null,
+        modified: null,
+        isParent: true
+      });
+    }
+    
+    // Process each item in the directory
+    items.forEach((item, index) => {
+      try {
+        const itemPath = path.join(fullPath, item);
+        const itemStats = fs.statSync(itemPath);
+        const isDirectory = itemStats.isDirectory();
+        
+        // Skip hidden files/folders
+        if (item.startsWith('.')) return;
+        
+        const truncatedName = truncateName(item);
+        const itemRequestPath = requestPath === '/' ? `/${item}` : `${requestPath}/${item}`;
+        
+        const fileSystemItem = {
+          id: `${isDirectory ? 'folder' : 'file'}-${index}`,
+          name: item,
+          displayName: truncatedName,
+          type: isDirectory ? 'folder' : 'file',
+          path: itemRequestPath,
+          size: isDirectory ? null : formatFileSize(itemStats.size),
+          modified: itemStats.mtime,
+          isParent: false
+        };
+        
+        // Add file type for files
+        if (!isDirectory) {
+          const extension = path.extname(item).toLowerCase().slice(1);
+          fileSystemItem.fileType = extension || 'unknown';
+        }
+        
+        fileSystemItems.push(fileSystemItem);
+      } catch (itemError) {
+        console.error(`❌ Error processing item ${item}:`, itemError.message);
+        // Skip items that can't be processed
+      }
+    });
+    
+    // Sort items: folders first, then files, alphabetically
+    fileSystemItems.sort((a, b) => {
+      if (a.isParent) return -1;
+      if (b.isParent) return 1;
+      if (a.type !== b.type) {
+        return a.type === 'folder' ? -1 : 1;
+      }
+      return a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' });
+    });
+    
+    console.log(`✅ Found ${fileSystemItems.length} items in ${requestPath}`);
+    
+    res.json({
+      success: true,
+      items: fileSystemItems,
+      path: requestPath,
+      networkPath: fullPath
+    });
+    
+  } catch (error) {
+    console.error('❌ Error browsing network directory:', error);
+    
+    let errorMessage = 'Failed to browse directory';
+    if (error.code === 'ENOENT') {
+      errorMessage = 'Network directory not accessible. Please check VPN connection and permissions.';
+    } else if (error.code === 'EACCES') {
+      errorMessage = 'Access denied. Please check directory permissions.';
+    }
+    
+    res.status(500).json({
+      success: false,
+      message: errorMessage,
+      path: requestPath,
+      error: error.code || error.message
+    });
+  }
+});
+
+// Helper function to get parent path
+function getParentPath(currentPath) {
+  const parts = currentPath.split('/').filter(p => p);
+  if (parts.length <= 1) return '/';
+  return '/' + parts.slice(0, -1).join('/');
+}
+
+// Helper function to format file size
+function formatFileSize(bytes) {
+  if (bytes === 0) return '0 B';
+  const k = 1024;
+  const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+}
+
+// Get network directory info
+app.get('/api/file-system/info', (req, res) => {
+  const networkProjectsPath = '\\\\KMTI-NAS\\Shared\\Public\\PROJECTS';
+  
+  try {
+    if (fs.existsSync(networkProjectsPath)) {
+      const stats = fs.statSync(networkProjectsPath);
+      res.json({
+        success: true,
+        accessible: true,
+        path: networkProjectsPath,
+        modified: stats.mtime,
+        message: 'Network directory accessible'
+      });
+    } else {
+      res.json({
+        success: false,
+        accessible: false,
+        path: networkProjectsPath,
+        message: 'Network directory not accessible'
+      });
+    }
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      accessible: false,
+      path: networkProjectsPath,
+      message: 'Error accessing network directory',
+      error: error.message
+    });
+  }
+});
+
+// Check for duplicate file names
+app.post('/api/files/check-duplicate', (req, res) => {
+  const { originalName, userId } = req.body;
+  
+  console.log(`🔍 Checking for duplicate file: ${originalName} by user ${userId}`);
+  
+  db.get('SELECT * FROM files WHERE original_name = ? AND user_id = ?', [originalName, userId], (err, existingFile) => {
+    if (err) {
+      console.error('❌ Error checking for duplicate file:', err);
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to check for duplicate files'
+      });
+    }
+    
+    res.json({
+      success: true,
+      isDuplicate: !!existingFile,
+      existingFile: existingFile || null
+    });
+  });
+});
 
 // Upload file (User only)
 app.post('/api/files/upload', upload.single('file'), async (req, res) => {
   try {
-    const { description, userId, username, userTeam } = req.body;
+    const { description, userId, username, userTeam, replaceExisting } = req.body;
     
     if (!req.file) {
       return res.status(400).json({
@@ -1346,7 +1482,7 @@ app.post('/api/files/upload', upload.single('file'), async (req, res) => {
       });
     }
     
-    console.log(`📁 File upload by ${username} from ${userTeam} team:`, req.file.filename);
+    console.log(`📁 File upload by ${username} from ${userTeam} team:`, req.file.originalname);
     
     // Get file type description based on mime type
     const getFileTypeDescription = (mimeType) => {
@@ -1364,71 +1500,137 @@ app.post('/api/files/upload', upload.single('file'), async (req, res) => {
       return types[mimeType] || 'Unknown File Type';
     };
     
-    // Insert file record into database
-    db.run(`INSERT INTO files (
-      filename, original_name, file_path, file_size, file_type, mime_type, description,
-      user_id, username, user_team, status, current_stage
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [
-      req.file.filename,
-      req.file.originalname,
-      `/uploads/${req.file.filename}`,
-      req.file.size,
-      getFileTypeDescription(req.file.mimetype),
-      req.file.mimetype,
-      description || '',
-      userId,
-      username,
-      userTeam,
-      'uploaded',
-      'pending_team_leader'
-    ], function(err) {
-      if (err) {
-        console.error('❌ Error saving file to database:', err);
-        // Delete the uploaded file if database save fails
-        fs.unlink(req.file.path, () => {});
-        return res.status(500).json({
-          success: false,
-          message: 'Failed to save file information'
-        });
-      }
-      
-      const fileId = this.lastID;
-      
-      // Log the file upload
-      logActivity(userId, username, 'USER', userTeam, `File uploaded: ${req.file.originalname}`);
-      
-      // Log status history
-      logFileStatusChange(
-        fileId, 
-        null, 
-        'uploaded', 
-        null, 
-        'pending_team_leader', 
-        userId, 
-        username, 
-        'USER', 
-        'File uploaded by user'
-      );
-      
-      console.log(`✅ File uploaded successfully with ID: ${fileId}`);
-      
-      res.json({
-        success: true,
-        message: 'File uploaded successfully',
-        file: {
-          id: fileId,
-          filename: req.file.filename,
-          original_name: req.file.originalname,
-          file_size: req.file.size,
-          file_type: getFileTypeDescription(req.file.mimetype),
-          description: description || '',
-          status: 'uploaded',
-          current_stage: 'pending_team_leader',
-          uploaded_at: new Date()
+    // Check for duplicate file if replaceExisting is not explicitly set
+    if (replaceExisting !== 'true') {
+      db.get('SELECT * FROM files WHERE original_name = ? AND user_id = ?', [req.file.originalname, userId], (err, existingFile) => {
+        if (err) {
+          console.error('❌ Error checking for duplicate:', err);
+          fs.unlink(req.file.path, () => {});
+          return res.status(500).json({
+            success: false,
+            message: 'Failed to check for duplicate files'
+          });
         }
+        
+        if (existingFile) {
+          // Delete the newly uploaded file since we found a duplicate
+          fs.unlink(req.file.path, () => {});
+          
+          return res.status(409).json({
+            success: false,
+            isDuplicate: true,
+            message: 'File with this name already exists',
+            existingFile: {
+              id: existingFile.id,
+              original_name: existingFile.original_name,
+              uploaded_at: existingFile.uploaded_at,
+              status: existingFile.status
+            }
+          });
+        }
+        
+        // No duplicate found, proceed with upload
+        insertFileRecord();
       });
-    });
+    } else {
+      // Replace existing file - first find and remove the old one
+      db.get('SELECT * FROM files WHERE original_name = ? AND user_id = ?', [req.file.originalname, userId], (err, existingFile) => {
+        if (existingFile) {
+          // Delete old physical file
+          const oldFilePath = path.join(uploadsDir, path.basename(existingFile.file_path));
+          fs.unlink(oldFilePath, (unlinkErr) => {
+            if (unlinkErr) {
+              console.error('❌ Error deleting old file:', unlinkErr);
+            } else {
+              console.log('✅ Old file deleted:', oldFilePath);
+            }
+          });
+          
+          // Delete old database record
+          db.run('DELETE FROM files WHERE id = ?', [existingFile.id], (deleteErr) => {
+            if (deleteErr) {
+              console.error('❌ Error deleting old file record:', deleteErr);
+            } else {
+              console.log('✅ Old file record deleted');
+              logActivity(userId, username, 'USER', userTeam, `File replaced: ${req.file.originalname}`);
+            }
+          });
+        }
+        
+        // Insert new file record
+        insertFileRecord();
+      });
+    }
+    
+    function insertFileRecord() {
+      // Insert file record into database
+      db.run(`INSERT INTO files (
+        filename, original_name, file_path, file_size, file_type, mime_type, description,
+        user_id, username, user_team, status, current_stage
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        req.file.filename,
+        req.file.originalname,
+        `/uploads/${req.file.filename}`,
+        req.file.size,
+        getFileTypeDescription(req.file.mimetype),
+        req.file.mimetype,
+        description || '',
+        userId,
+        username,
+        userTeam,
+        'uploaded',
+        'pending_team_leader'
+      ], function(err) {
+        if (err) {
+          console.error('❌ Error saving file to database:', err);
+          // Delete the uploaded file if database save fails
+          fs.unlink(req.file.path, () => {});
+          return res.status(500).json({
+            success: false,
+            message: 'Failed to save file information'
+          });
+        }
+        
+        const fileId = this.lastID;
+        
+        // Log the file upload
+        const action = replaceExisting === 'true' ? 'replaced' : 'uploaded';
+        logActivity(userId, username, 'USER', userTeam, `File ${action}: ${req.file.originalname}`);
+        
+        // Log status history
+        logFileStatusChange(
+          fileId, 
+          null, 
+          'uploaded', 
+          null, 
+          'pending_team_leader', 
+          userId, 
+          username, 
+          'USER', 
+          `File ${action} by user`
+        );
+        
+        console.log(`✅ File ${action} successfully with ID: ${fileId}`);
+        
+        res.json({
+          success: true,
+          message: `File ${action} successfully`,
+          file: {
+            id: fileId,
+            filename: req.file.filename,
+            original_name: req.file.originalname,
+            file_size: req.file.size,
+            file_type: getFileTypeDescription(req.file.mimetype),
+            description: description || '',
+            status: 'uploaded',
+            current_stage: 'pending_team_leader',
+            uploaded_at: new Date()
+          },
+          replaced: replaceExisting === 'true'
+        });
+      });
+    }
     
   } catch (error) {
     console.error('❌ Error handling file upload:', error);
@@ -2004,8 +2206,9 @@ async function startServer() {
     
     app.listen(PORT, () => {
       console.log(`🚀 Express server running on http://localhost:${PORT}`);
-      console.log(`📁 Database file: ${dbPath}`);
-      console.log(`📂 Uploads directory: ${uploadsDir}`);
+      console.log(`🌐 Network Database: ${dbPath}`);
+      console.log(`🌐 Network Uploads: ${uploadsDir}`);
+      console.log(`🔗 Network Data Path: ${networkDataPath}`);
       console.log(`\n🔄 File Approval Workflow:`);
       console.log(`   1. User uploads file → Pending Team Leader Review`);
       console.log(`   2. Team Leader approves → Pending Admin Review`);

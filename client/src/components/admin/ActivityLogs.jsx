@@ -7,8 +7,12 @@ const ActivityLogs = ({ clearMessages, error, success, setError, setSuccess }) =
   const [teams, setTeams] = useState([])
   const [teamsLoading, setTeamsLoading] = useState(false)
   const [logsSearchQuery, setLogsSearchQuery] = useState('')
+  const [dateFilter, setDateFilter] = useState('all')
+  const [currentPage, setCurrentPage] = useState(1)
   const [isLoading, setIsLoading] = useState(false)
   const [showDeleteLogsModal, setShowDeleteLogsModal] = useState(false)
+  
+  const itemsPerPage = 10
 
   // Fetch activity logs on component mount
   useEffect(() => {
@@ -16,20 +20,48 @@ const ActivityLogs = ({ clearMessages, error, success, setError, setSuccess }) =
     fetchTeams()
   }, [])
 
-  // Filter logs when search query or logs change
+  // Filter logs when search query, date filter, or logs change
   useEffect(() => {
-    if (logsSearchQuery.trim() === '') {
-      setFilteredLogs(activityLogs)
-    } else {
-      const filtered = activityLogs.filter(log => 
+    let filtered = [...activityLogs]
+    
+    // Apply search filter
+    if (logsSearchQuery.trim() !== '') {
+      filtered = filtered.filter(log => 
         log.username.toLowerCase().includes(logsSearchQuery.toLowerCase()) ||
         log.role.toLowerCase().includes(logsSearchQuery.toLowerCase()) ||
         log.team.toLowerCase().includes(logsSearchQuery.toLowerCase()) ||
         log.activity.toLowerCase().includes(logsSearchQuery.toLowerCase())
       )
-      setFilteredLogs(filtered)
     }
-  }, [logsSearchQuery, activityLogs])
+    
+    // Apply date filter
+    if (dateFilter !== 'all') {
+      const now = new Date()
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+      
+      filtered = filtered.filter(log => {
+        const logDate = new Date(log.timestamp)
+        
+        switch (dateFilter) {
+          case 'today':
+            return logDate >= today
+          case 'week':
+            const weekAgo = new Date(today)
+            weekAgo.setDate(today.getDate() - 7)
+            return logDate >= weekAgo
+          case 'month':
+            const monthAgo = new Date(today)
+            monthAgo.setMonth(today.getMonth() - 1)
+            return logDate >= monthAgo
+          default:
+            return true
+        }
+      })
+    }
+    
+    setFilteredLogs(filtered)
+    setCurrentPage(1) // Reset to first page when filters change
+  }, [logsSearchQuery, dateFilter, activityLogs])
 
   const fetchTeams = async () => {
     setTeamsLoading(true)
@@ -98,22 +130,71 @@ const ActivityLogs = ({ clearMessages, error, success, setError, setSuccess }) =
 
   const clearLogFilters = () => {
     setLogsSearchQuery('')
+    setDateFilter('all')
+    setCurrentPage(1)
     setFilteredLogs(activityLogs)
-    setSuccess('Search cleared')
+    setSuccess('All filters cleared')
   }
 
   const clearLogsSearch = () => {
     setLogsSearchQuery('')
   }
+  
+  // Pagination calculations
+  const totalPages = Math.ceil(filteredLogs.length / itemsPerPage)
+  const startIndex = (currentPage - 1) * itemsPerPage
+  const endIndex = startIndex + itemsPerPage
+  const currentLogs = filteredLogs.slice(startIndex, endIndex)
+  
+  const goToPage = (page) => {
+    setCurrentPage(page)
+  }
+  
+  const goToPreviousPage = () => {
+    setCurrentPage(prev => Math.max(prev - 1, 1))
+  }
+  
+  const goToNextPage = () => {
+    setCurrentPage(prev => Math.min(prev + 1, totalPages))
+  }
+  
+  // Helper function to get current filter description
+  const getFilterDescription = () => {
+    const hasSearchFilter = logsSearchQuery.trim() !== ''
+    const hasDateFilter = dateFilter !== 'all'
+    
+    if (hasSearchFilter && hasDateFilter) {
+      const dateFilterText = {
+        'today': 'today',
+        'week': 'this week',
+        'month': 'this month'
+      }[dateFilter]
+      return `search "${logsSearchQuery}" and ${dateFilterText}`
+    } else if (hasSearchFilter) {
+      return `search "${logsSearchQuery}"`
+    } else if (hasDateFilter) {
+      const dateFilterText = {
+        'today': 'today',
+        'week': 'this week', 
+        'month': 'this month'
+      }[dateFilter]
+      return `date filter "${dateFilterText}"`
+    }
+    return 'current filters'
+  }
 
   const deleteFilteredLogs = async () => {
-    if (!logsSearchQuery.trim()) {
-      setError('Please enter a search term to filter logs for deletion')
+    // Check if any filter is applied
+    const hasSearchFilter = logsSearchQuery.trim() !== ''
+    const hasDateFilter = dateFilter !== 'all'
+    
+    if (!hasSearchFilter && !hasDateFilter) {
+      setError('Please apply a search term or date filter to specify logs for deletion')
       return
     }
 
     if (filteredLogs.length === 0) {
-      setError('No logs found matching your search criteria')
+      setError('No logs found matching your current filter criteria')
       return
     }
 
@@ -122,24 +203,115 @@ const ActivityLogs = ({ clearMessages, error, success, setError, setSuccess }) =
 
   const confirmDeleteLogs = async () => {
     const logsToDelete = filteredLogs.length
+    const logIdsToDelete = filteredLogs.map(log => log.id)
+    
+    console.log('Attempting to delete logs:', { logsToDelete, logIdsToDelete })
+
+    // Quick API test first
+    try {
+      const testResponse = await fetch('http://localhost:3001/api/health')
+      console.log('API health check:', testResponse.status, testResponse.ok)
+    } catch (healthError) {
+      console.error('API health check failed:', healthError)
+      setError('Cannot connect to server. Please ensure the server is running.')
+      setIsLoading(false)
+      return
+    }
 
     setIsLoading(true)
     try {
-      // Simulate API call to delete filtered logs
-      await new Promise(resolve => setTimeout(resolve, 1000))
+      console.log('Making delete request to:', 'http://localhost:3001/api/activity-logs/bulk-delete')
       
-      // Remove the filtered logs from the main logs array
-      const remainingLogs = activityLogs.filter(log => 
-        !filteredLogs.some(filteredLog => filteredLog.id === log.id)
+      // Make API call to delete the logs
+      const response = await fetch('http://localhost:3001/api/activity-logs/bulk-delete', {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ logIds: logIdsToDelete })
+      })
+      
+      console.log('Response status:', response.status, 'OK:', response.ok)
+      
+      if (!response.ok) {
+        const errorText = await response.text()
+        console.error('Response error text:', errorText)
+        throw new Error(`HTTP error! status: ${response.status} - ${errorText}`)
+      }
+      
+      const data = await response.json()
+      console.log('Delete response:', data)
+      
+      if (!data.success) {
+        throw new Error(data.message || 'Failed to delete logs')
+      }
+      
+      // Update the state by removing deleted logs
+      const updatedActivityLogs = activityLogs.filter(log => 
+        !logIdsToDelete.includes(log.id)
       )
       
-      setActivityLogs(remainingLogs)
-      setFilteredLogs(remainingLogs)
-      setLogsSearchQuery('') // Clear search after deletion
+      console.log('Updating state:', { 
+        originalCount: activityLogs.length, 
+        newCount: updatedActivityLogs.length,
+        deletedCount: data.deletedCount
+      })
+      
+      // Set the new activity logs
+      setActivityLogs(updatedActivityLogs)
+      
+      // Re-apply filters to the updated logs
+      let newFilteredLogs = [...updatedActivityLogs]
+      
+      // Apply search filter
+      if (logsSearchQuery.trim() !== '') {
+        newFilteredLogs = newFilteredLogs.filter(log => 
+          log.username.toLowerCase().includes(logsSearchQuery.toLowerCase()) ||
+          log.role.toLowerCase().includes(logsSearchQuery.toLowerCase()) ||
+          log.team.toLowerCase().includes(logsSearchQuery.toLowerCase()) ||
+          log.activity.toLowerCase().includes(logsSearchQuery.toLowerCase())
+        )
+      }
+      
+      // Apply date filter
+      if (dateFilter !== 'all') {
+        const now = new Date()
+        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+        
+        newFilteredLogs = newFilteredLogs.filter(log => {
+          const logDate = new Date(log.timestamp)
+          
+          switch (dateFilter) {
+            case 'today':
+              return logDate >= today
+            case 'week':
+              const weekAgo = new Date(today)
+              weekAgo.setDate(today.getDate() - 7)
+              return logDate >= weekAgo
+            case 'month':
+              const monthAgo = new Date(today)
+              monthAgo.setMonth(today.getMonth() - 1)
+              return logDate >= monthAgo
+            default:
+              return true
+          }
+        })
+      }
+      
+      setFilteredLogs(newFilteredLogs)
+      setCurrentPage(1) // Reset to first page
       setShowDeleteLogsModal(false)
-      setSuccess(`Successfully deleted ${logsToDelete} log(s)`)
+      
+      // Clear any existing errors
+      if (error) {
+        setError('')
+      }
+      
+      setSuccess(`Successfully deleted ${data.deletedCount || logsToDelete} log(s) matching your filter criteria`)
+      
     } catch (error) {
-      setError('Failed to delete logs')
+      console.error('Error deleting logs:', error)
+      setError(`Failed to delete logs: ${error.message}`)
     } finally {
       setIsLoading(false)
     }
@@ -154,7 +326,7 @@ const ActivityLogs = ({ clearMessages, error, success, setError, setSuccess }) =
       
       {/* Action Bar */}
       <div className="action-bar">
-        <div className="search-section">
+        <div className="filters-section">
           <div className="search-container">
             <input
               type="text"
@@ -173,14 +345,40 @@ const ActivityLogs = ({ clearMessages, error, success, setError, setSuccess }) =
               </button>
             )}
           </div>
+          
+          <div className="date-filter-container">
+            <select
+              value={dateFilter}
+              onChange={(e) => setDateFilter(e.target.value)}
+              className="date-filter-select"
+            >
+              <option value="all">All Time</option>
+              <option value="today">Today</option>
+              <option value="week">This Week</option>
+              <option value="month">This Month</option>
+            </select>
+          </div>
+          
+          {(logsSearchQuery || dateFilter !== 'all') && (
+            <button 
+              className="btn btn-secondary btn-sm"
+              onClick={clearLogFilters}
+            >
+              Clear Filters
+            </button>
+          )}
         </div>
         
         <div className="action-buttons">
           <button 
             className="btn btn-danger"
             onClick={deleteFilteredLogs}
-            disabled={!logsSearchQuery.trim() || filteredLogs.length === 0 || isLoading}
-            title={!logsSearchQuery.trim() ? "Enter search term to filter logs for deletion" : `Delete ${filteredLogs.length} filtered log(s)`}
+            disabled={(logsSearchQuery.trim() === '' && dateFilter === 'all') || filteredLogs.length === 0 || isLoading}
+            title={
+              (logsSearchQuery.trim() === '' && dateFilter === 'all') 
+                ? "Apply a search term or date filter to specify logs for deletion" 
+                : `Delete ${filteredLogs.length} filtered log(s)`
+            }
           >
             {isLoading ? 'Deleting...' : `Delete Logs (${filteredLogs.length})`}
           </button>
@@ -229,7 +427,7 @@ const ActivityLogs = ({ clearMessages, error, success, setError, setSuccess }) =
                 </tr>
               </thead>
               <tbody>
-                {filteredLogs.map((log) => (
+                {currentLogs.map((log) => (
                   <tr key={log.id} className="log-row">
                     <td>
                       <div className="user-cell">
@@ -276,15 +474,77 @@ const ActivityLogs = ({ clearMessages, error, success, setError, setSuccess }) =
             <p>No activity logs match your current search criteria.</p>
           </div>
         )}
+        
+        {/* Pagination */}
+        {!isLoading && filteredLogs.length > 0 && totalPages > 1 && (
+          <div className="pagination-container">
+            <div className="pagination-info">
+              Showing {startIndex + 1}-{Math.min(endIndex, filteredLogs.length)} of {filteredLogs.length} logs
+            </div>
+            <div className="pagination-controls">
+              <button 
+                className="pagination-btn"
+                onClick={goToPreviousPage}
+                disabled={currentPage === 1}
+                title="Previous page"
+              >
+                ‹
+              </button>
+              
+              {Array.from({ length: totalPages }, (_, i) => i + 1)
+                .filter(page => {
+                  // Show first page, last page, current page, and pages around current
+                  return page === 1 || 
+                         page === totalPages || 
+                         Math.abs(page - currentPage) <= 1
+                })
+                .map((page, index, array) => {
+                  // Add ellipsis if there's a gap
+                  const showEllipsis = index > 0 && page - array[index - 1] > 1
+                  return (
+                    <div key={page}>
+                      {showEllipsis && <span className="pagination-ellipsis">...</span>}
+                      <button
+                        className={`pagination-btn ${currentPage === page ? 'active' : ''}`}
+                        onClick={() => goToPage(page)}
+                      >
+                        {page}
+                      </button>
+                    </div>
+                  )
+                })}
+              
+              <button 
+                className="pagination-btn"
+                onClick={goToNextPage}
+                disabled={currentPage === totalPages}
+                title="Next page"
+              >
+                ›
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Delete Logs Confirmation Modal */}
       {showDeleteLogsModal && (
-        <div className="modal-overlay" onClick={() => setShowDeleteLogsModal(false)}>
-          <div className="modal delete-modal" onClick={e => e.stopPropagation()}>
+        <div className="modal-overlay" onClick={(e) => {
+          e.preventDefault()
+          e.stopPropagation()
+          setShowDeleteLogsModal(false)
+        }}>
+          <div className="modal delete-modal" onClick={(e) => {
+            e.preventDefault()
+            e.stopPropagation()
+          }}>
             <div className="modal-header">
               <h3>Delete Activity Logs</h3>
-              <button onClick={() => setShowDeleteLogsModal(false)} className="modal-close">×</button>
+              <button onClick={(e) => {
+                e.preventDefault()
+                e.stopPropagation()
+                setShowDeleteLogsModal(false)
+              }} className="modal-close">×</button>
             </div>
             <div className="modal-body">
               <div className="delete-warning">
@@ -292,7 +552,7 @@ const ActivityLogs = ({ clearMessages, error, success, setError, setSuccess }) =
                 <div className="warning-content">
                   <h4>Are you sure you want to delete these activity logs?</h4>
                   <p className="file-info">
-                    You are about to delete <strong>{filteredLogs.length} log(s)</strong> that match your search criteria: "<strong>{logsSearchQuery}</strong>"
+                    You are about to delete <strong>{filteredLogs.length} log(s)</strong> that match your {getFilterDescription()}.
                   </p>
                   <p className="warning-text">
                     This action cannot be undone. The selected activity logs will be permanently removed from the system and cannot be recovered.
@@ -304,14 +564,22 @@ const ActivityLogs = ({ clearMessages, error, success, setError, setSuccess }) =
               <div className="delete-actions">
                 <button 
                   type="button" 
-                  onClick={() => setShowDeleteLogsModal(false)} 
+                  onClick={(e) => {
+                    e.preventDefault()
+                    e.stopPropagation()
+                    setShowDeleteLogsModal(false)
+                  }} 
                   className="btn btn-secondary"
                 >
                   Cancel
                 </button>
                 <button 
                   type="button" 
-                  onClick={confirmDeleteLogs}
+                  onClick={(e) => {
+                    e.preventDefault()
+                    e.stopPropagation()
+                    confirmDeleteLogs()
+                  }}
                   className="btn btn-danger" 
                   disabled={isLoading}
                 >
