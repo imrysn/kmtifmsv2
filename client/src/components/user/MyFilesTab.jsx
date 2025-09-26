@@ -20,6 +20,8 @@ const MyFilesTab = ({
   const [uploadedFile, setUploadedFile] = useState(null);
   const [description, setDescription] = useState('');
   const [isUploading, setIsUploading] = useState(false);
+  const [showDuplicateModal, setShowDuplicateModal] = useState(false);
+  const [duplicateFileInfo, setDuplicateFileInfo] = useState(null);
   const fileInputRef = useRef(null);
 
   const handleFileSelect = (e) => {
@@ -34,7 +36,7 @@ const MyFilesTab = ({
     }
   };
 
-  const handleFileUpload = async (e) => {
+  const handleFileUpload = async (e, replaceExisting = false) => {
     e.preventDefault();
     
     if (!uploadedFile) {
@@ -45,12 +47,42 @@ const MyFilesTab = ({
     setIsUploading(true);
 
     try {
+      // If not explicitly replacing, check for duplicates first
+      if (!replaceExisting) {
+        const duplicateResponse = await fetch('http://localhost:3001/api/files/check-duplicate', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            originalName: uploadedFile.name,
+            userId: user.id
+          })
+        });
+        
+        const duplicateData = await duplicateResponse.json();
+        
+        if (duplicateData.success && duplicateData.isDuplicate) {
+          setDuplicateFileInfo({
+            newFile: uploadedFile,
+            existingFile: duplicateData.existingFile
+          });
+          setShowDuplicateModal(true);
+          setIsUploading(false);
+          return;
+        }
+      }
+      
+      // Proceed with upload
       const formData = new FormData();
       formData.append('file', uploadedFile);
       formData.append('description', description);
       formData.append('userId', user.id);
       formData.append('username', user.username);
       formData.append('userTeam', user.team);
+      if (replaceExisting) {
+        formData.append('replaceExisting', 'true');
+      }
 
       const response = await fetch('http://localhost:3001/api/files/upload', {
         method: 'POST',
@@ -60,10 +92,13 @@ const MyFilesTab = ({
       const data = await response.json();
 
       if (data.success) {
-        alert('File uploaded successfully! It has been submitted for team leader review.');
+        const action = data.replaced ? 'replaced' : 'uploaded';
+        alert(`File ${action} successfully! It has been submitted for team leader review.`);
         setUploadedFile(null);
         setDescription('');
         setShowUploadModal(false);
+        setShowDuplicateModal(false);
+        setDuplicateFileInfo(null);
         if (fileInputRef.current) {
           fileInputRef.current.value = '';
         }
@@ -71,10 +106,18 @@ const MyFilesTab = ({
         // Refresh file list
         fetchUserFiles();
         if (onUploadSuccess) {
-          onUploadSuccess('File uploaded successfully! It has been submitted for team leader review.');
+          onUploadSuccess(`File ${action} successfully! It has been submitted for team leader review.`);
         }
       } else {
-        alert(data.message || 'Failed to upload file');
+        if (data.isDuplicate) {
+          setDuplicateFileInfo({
+            newFile: uploadedFile,
+            existingFile: data.existingFile
+          });
+          setShowDuplicateModal(true);
+        } else {
+          alert(data.message || 'Failed to upload file');
+        }
       }
     } catch (error) {
       console.error('Error uploading file:', error);
@@ -82,6 +125,16 @@ const MyFilesTab = ({
     } finally {
       setIsUploading(false);
     }
+  };
+
+  const handleReplaceFile = async () => {
+    await handleFileUpload({ preventDefault: () => {} }, true);
+  };
+  
+  const handleKeepBoth = () => {
+    setShowDuplicateModal(false);
+    setDuplicateFileInfo(null);
+    alert('Please rename your file and try uploading again.');
   };
 
   const clearUploadForm = () => {
@@ -412,6 +465,90 @@ const MyFilesTab = ({
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Duplicate File Modal */}
+      {showDuplicateModal && duplicateFileInfo && (
+        <div className="upload-modal-overlay" onClick={() => setShowDuplicateModal(false)}>
+          <div className="duplicate-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>File Already Exists</h3>
+              <button className="modal-close" onClick={() => setShowDuplicateModal(false)}>
+                <svg viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M19,6.41L17.59,5L12,10.59L6.41,5L5,6.41L10.59,12L5,17.59L6.41,19L12,13.41L17.59,19L19,17.59L13.41,12L19,6.41Z"/>
+                </svg>
+              </button>
+            </div>
+            
+            <div className="duplicate-content">
+              <div className="warning-section">
+                <div className="warning-icon">⚠️</div>
+                <p className="warning-text">
+                  A file with this name already exists in your account. What would you like to do?
+                </p>
+              </div>
+              
+              <div className="file-comparison">
+                <div className="file-info existing">
+                  <div className="file-header">
+                    <div className="file-icon existing-icon">
+                      {duplicateFileInfo.existingFile.original_name.split('.').pop().toUpperCase()}
+                    </div>
+                    <div>
+                      <h4>Existing File</h4>
+                      <p className="file-name">{duplicateFileInfo.existingFile.original_name}</p>
+                    </div>
+                  </div>
+                  <div className="file-details">
+                    <p><strong>Uploaded:</strong> {new Date(duplicateFileInfo.existingFile.uploaded_at).toLocaleDateString()}</p>
+                    <p><strong>Status:</strong> {duplicateFileInfo.existingFile.status}</p>
+                  </div>
+                </div>
+                
+                <div className="file-info new">
+                  <div className="file-header">
+                    <div className="file-icon new-icon">
+                      {duplicateFileInfo.newFile.name.split('.').pop().toUpperCase()}
+                    </div>
+                    <div>
+                      <h4>New File</h4>
+                      <p className="file-name">{duplicateFileInfo.newFile.name}</p>
+                    </div>
+                  </div>
+                  <div className="file-details">
+                    <p><strong>Size:</strong> {formatFileSize(duplicateFileInfo.newFile.size)}</p>
+                    <p><strong>Type:</strong> {duplicateFileInfo.newFile.type}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <div className="modal-actions duplicate-actions">
+              <button
+                type="button"
+                onClick={() => setShowDuplicateModal(false)}
+                className="btn secondary"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleKeepBoth}
+                className="btn secondary"
+              >
+                Keep Both (Rename)
+              </button>
+              <button
+                type="button"
+                onClick={handleReplaceFile}
+                className="btn danger"
+                disabled={isUploading}
+              >
+                {isUploading ? 'Replacing...' : 'Replace Existing File'}
+              </button>
+            </div>
           </div>
         </div>
       )}

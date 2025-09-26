@@ -227,12 +227,6 @@ const UserDashboard = ({ user, onLogout }) => {
 
       {/* Main Content */}
       <div className="main-content">
-        <div className="dashboard-header" ref={headerRef}>
-          <div className="header-content">
-            {/* Header content can be added here if needed */}
-          </div>
-        </div>
-
         <div className="dashboard-content">
           {/* Alert Messages */}
           <AlertMessage 
