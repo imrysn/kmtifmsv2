@@ -8,8 +8,7 @@ const Settings = ({ clearMessages, error, success, setError, setSuccess, users }
   const [newTeam, setNewTeam] = useState({
     name: '',
     leaderId: '',
-    leaderUsername: '',
-    color: '#3B82F6'
+    leaderUsername: ''
   })
   const [editingTeam, setEditingTeam] = useState(null)
   const [settings, setSettings] = useState({
@@ -120,8 +119,7 @@ const Settings = ({ clearMessages, error, success, setError, setSuccess, users }
         body: JSON.stringify({
           name: newTeam.name,
           leaderId: newTeam.leaderId,
-          leaderUsername: newTeam.leaderUsername,
-          color: newTeam.color
+          leaderUsername: newTeam.leaderUsername
         })
       })
       const data = await response.json()
@@ -130,8 +128,7 @@ const Settings = ({ clearMessages, error, success, setError, setSuccess, users }
         setNewTeam({
           name: '',
           leaderId: '',
-          leaderUsername: '',
-          color: '#3B82F6'
+          leaderUsername: ''
         })
         fetchTeams() // Refresh teams list
       } else {
@@ -161,7 +158,6 @@ const Settings = ({ clearMessages, error, success, setError, setSuccess, users }
           name: editingTeam.name,
           leaderId: editingTeam.leader_id,
           leaderUsername: editingTeam.leader_username,
-          color: editingTeam.color,
           isActive: editingTeam.is_active
         })
       })
@@ -598,50 +594,37 @@ const Settings = ({ clearMessages, error, success, setError, setSuccess, users }
             <div className="team-section">
               <h4>Create New Team</h4>
               <div className="team-form">
-                <div className="form-row">
-                  <div className="form-group">
-                    <label>Team Name</label>
-                    <input
-                      type="text"
-                      value={newTeam.name}
-                      onChange={(e) => setNewTeam(prev => ({ ...prev, name: e.target.value }))}
-                      placeholder="Enter team name"
-                      className="form-input"
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label>Team Color</label>
-                    <input
-                      type="color"
-                      value={newTeam.color}
-                      onChange={(e) => setNewTeam(prev => ({ ...prev, color: e.target.value }))}
-                      className="form-input color-input"
-                    />
-                  </div>
+                <div className="form-group">
+                  <label>Team Name</label>
+                  <input
+                    type="text"
+                    value={newTeam.name}
+                    onChange={(e) => setNewTeam(prev => ({ ...prev, name: e.target.value }))}
+                    placeholder="Enter team name"
+                    className="form-input"
+                  />
                 </div>
-                <div className="form-row">
-                  <div className="form-group">
-                    <label>Team Leader</label>
-                    <select
-                      value={newTeam.leaderId}
-                      onChange={(e) => {
-                        const selectedUser = getTeamLeaderOptions().find(u => u.id == e.target.value)
-                        setNewTeam(prev => ({ 
-                          ...prev, 
-                          leaderId: e.target.value,
-                          leaderUsername: selectedUser ? selectedUser.username : ''
-                        }))
-                      }}
-                      className="form-select"
-                    >
-                      <option value="">No Team Leader</option>
-                      {getTeamLeaderOptions().map(user => (
-                        <option key={user.id} value={user.id}>
-                          {user.fullName} ({user.username}) - {user.role}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
+                <div className="form-group">
+                  <label>Team Leader</label>
+                  <select
+                    value={newTeam.leaderId}
+                    onChange={(e) => {
+                      const selectedUser = getTeamLeaderOptions().find(u => u.id == e.target.value)
+                      setNewTeam(prev => ({ 
+                        ...prev, 
+                        leaderId: e.target.value,
+                        leaderUsername: selectedUser ? selectedUser.username : ''
+                      }))
+                    }}
+                    className="form-select"
+                  >
+                    <option value="">No Team Leader</option>
+                    {getTeamLeaderOptions().map(user => (
+                      <option key={user.id} value={user.id}>
+                        {user.fullName} ({user.username}) - {user.role}
+                      </option>
+                    ))}
+                  </select>
                 </div>
                 <button
                   className="btn btn-primary"
@@ -668,7 +651,7 @@ const Settings = ({ clearMessages, error, success, setError, setSuccess, users }
                       {editingTeam && editingTeam.id === team.id ? (
                         // Edit mode
                         <div className="team-edit-form">
-                          <div className="form-row">
+                          <div className="form-group">
                             <input
                               type="text"
                               value={editingTeam.name}
@@ -676,32 +659,28 @@ const Settings = ({ clearMessages, error, success, setError, setSuccess, users }
                               className="form-input"
                               placeholder="Team name"
                             />
-                            <input
-                              type="color"
-                              value={editingTeam.color}
-                              onChange={(e) => setEditingTeam(prev => ({ ...prev, color: e.target.value }))}
-                              className="form-input color-input"
-                            />
                           </div>
-                          <select
-                            value={editingTeam.leader_id || ''}
-                            onChange={(e) => {
-                              const selectedUser = getTeamLeaderOptions().find(u => u.id == e.target.value)
-                              setEditingTeam(prev => ({ 
-                                ...prev, 
-                                leader_id: e.target.value,
-                                leader_username: selectedUser ? selectedUser.username : ''
-                              }))
-                            }}
-                            className="form-select"
-                          >
-                            <option value="">No Team Leader</option>
-                            {getTeamLeaderOptions().map(user => (
-                              <option key={user.id} value={user.id}>
-                                {user.fullName} ({user.username})
-                              </option>
-                            ))}
-                          </select>
+                          <div className="form-group">
+                            <select
+                              value={editingTeam.leader_id || ''}
+                              onChange={(e) => {
+                                const selectedUser = getTeamLeaderOptions().find(u => u.id == e.target.value)
+                                setEditingTeam(prev => ({ 
+                                  ...prev, 
+                                  leader_id: e.target.value,
+                                  leader_username: selectedUser ? selectedUser.username : ''
+                                }))
+                              }}
+                              className="form-select"
+                            >
+                              <option value="">No Team Leader</option>
+                              {getTeamLeaderOptions().map(user => (
+                                <option key={user.id} value={user.id}>
+                                  {user.fullName} ({user.username})
+                                </option>
+                              ))}
+                            </select>
+                          </div>
                           <div className="team-actions">
                             <button
                               className="btn btn-primary btn-sm"
@@ -722,10 +701,6 @@ const Settings = ({ clearMessages, error, success, setError, setSuccess, users }
                         // View mode
                         <>
                           <div className="team-header">
-                            <div 
-                              className="team-color-indicator" 
-                              style={{ backgroundColor: team.color }}
-                            ></div>
                             <div className="team-info">
                               <h5>{team.name}</h5>
                               <p className="team-leader">

@@ -17,7 +17,50 @@
 .page-header p {
   font-size: 1rem;
   color: var(--text-secondary);
-  margin: 0;
+  margin: 0 0 1rem 0;
+}
+
+/* Network Status Indicator */
+.network-status {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  margin-top: 0.75rem;
+}
+
+.network-status.accessible {
+  background: rgba(16, 185, 129, 0.1);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  color: #059669;
+}
+
+.network-status.not-accessible {
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  color: #dc2626;
+}
+
+.status-icon {
+  font-size: 0.8rem;
+  flex-shrink: 0;
+}
+
+.status-text {
+  font-weight: 500;
+  flex-shrink: 0;
+}
+
+.network-path {
+  font-family: 'Courier New', monospace;
+  font-size: 0.85rem;
+  background: rgba(255, 255, 255, 0.5);
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  flex-shrink: 0;
+  margin-left: auto;
 }
 
 /* Navigation Controls */
@@ -162,6 +205,36 @@
 
 .view-btn + .view-btn {
   border-left: 1px solid var(--border-color);
+}
+
+/* Refresh Button */
+.refresh-btn {
+  background: var(--surface-color);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 0.75rem;
+  cursor: pointer;
+  color: var(--text-secondary);
+  transition: all 0.2s ease;
+  font-size: 1rem;
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: 0.5rem;
+}
+
+.refresh-btn:hover:not(:disabled) {
+  background: var(--background-hover);
+  color: var(--text-primary);
+  transform: rotate(90deg);
+}
+
+.refresh-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
 }
 
 /* File System Container */
@@ -362,6 +435,14 @@
   color: var(--text-primary);
 }
 
+.truncated-indicator {
+  color: var(--primary-color);
+  font-weight: bold;
+  margin-left: 0.25rem;
+  font-size: 0.9rem;
+  cursor: help;
+}
+
 .file-size-cell {
   color: var(--text-secondary);
   font-size: 0.9rem;
@@ -405,6 +486,32 @@
 .empty-state h3 {
   color: var(--text-primary);
   margin-bottom: 0.5rem;
+}
+
+.network-help {
+  margin-top: 2rem;
+  padding: 1.5rem;
+  background: rgba(239, 68, 68, 0.05);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  border-radius: 8px;
+  text-align: left;
+}
+
+.network-help p {
+  color: #dc2626;
+  font-weight: 600;
+  margin-bottom: 1rem;
+}
+
+.network-help ul {
+  list-style-type: disc;
+  margin-left: 1.5rem;
+  color: var(--text-secondary);
+}
+
+.network-help li {
+  margin-bottom: 0.5rem;
+  line-height: 1.4;
 }
 
 /* Alerts */
@@ -530,5 +637,24 @@
   
   .view-mode-toggle {
     flex-shrink: 0;
+  }
+  
+  .refresh-btn {
+    width: 38px;
+    height: 38px;
+    font-size: 0.9rem;
+    margin-left: 0.25rem;
+  }
+  
+  .network-status {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+  
+  .network-path {
+    font-size: 0.75rem;
+    word-break: break-all;
+    margin-left: 0;
   }
 }
