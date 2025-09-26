@@ -1,7 +1,7 @@
-import './css/MyFilesTab.css';
+import './css/MyFilesTab-TableView.css';
 import { useState, useRef } from 'react';
 
-const MyFilesTab = ({ 
+const MyFilesTabTableView = ({ 
   filteredFiles,
   isLoading,
   filterStatus,
@@ -103,7 +103,7 @@ const MyFilesTab = ({
     
     if (['pdf'].includes(extension)) {
       return (
-        <div className="file-icon-list pdf-icon">
+        <div className="file-icon-table pdf-icon">
           <svg viewBox="0 0 24 24" fill="currentColor">
             <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z" />
           </svg>
@@ -112,7 +112,7 @@ const MyFilesTab = ({
       );
     } else if (['doc', 'docx'].includes(extension)) {
       return (
-        <div className="file-icon-list docx-icon">
+        <div className="file-icon-table docx-icon">
           <svg viewBox="0 0 24 24" fill="currentColor">
             <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z" />
           </svg>
@@ -121,7 +121,7 @@ const MyFilesTab = ({
       );
     } else if (['xls', 'xlsx'].includes(extension)) {
       return (
-        <div className="file-icon-list xlsx-icon">
+        <div className="file-icon-table xlsx-icon">
           <svg viewBox="0 0 24 24" fill="currentColor">
             <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z" />
           </svg>
@@ -130,7 +130,7 @@ const MyFilesTab = ({
       );
     } else if (['jpg', 'jpeg', 'png', 'gif'].includes(extension)) {
       return (
-        <div className="file-icon-list image-icon">
+        <div className="file-icon-table image-icon">
           <svg viewBox="0 0 24 24" fill="currentColor">
             <path d="M8.5,13.5L11,16.5L14.5,12L19,18H5M21,19V5C21,3.89 20.1,3 19,3H5A2,2 0 0,0 3,5V19A2,2 0 0,0 5,21H19A2,2 0 0,0 21,19Z" />
           </svg>
@@ -139,7 +139,7 @@ const MyFilesTab = ({
       );
     } else {
       return (
-        <div className="file-icon-list default-icon">
+        <div className="file-icon-table default-icon">
           <svg viewBox="0 0 24 24" fill="currentColor">
             <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z" />
           </svg>
@@ -155,61 +155,31 @@ const MyFilesTab = ({
       year: 'numeric',
       month: '2-digit', 
       day: '2-digit'
-    }) + ' ' + date.toLocaleTimeString('en-US', {
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: true
     });
   };
 
-  const getStatusDisplay = (file) => {
+  const getStatusBadge = (file) => {
     if (file.status === 'final_approved') {
-      return <span className="status-badge approved">Approved by admin</span>;
+      return <span className="status-badge approved">Approved</span>;
     } else if (file.current_stage.includes('pending')) {
-      return <span className="status-badge pending">Pending approval</span>;
+      return <span className="status-badge pending">Pending</span>;
+    } else {
+      return <span className="status-badge draft">Draft</span>;
     }
-    return null;
   };
-
-  const getSubmissionStatus = (file) => {
-    if (file.status === 'final_approved' || file.current_stage.includes('pending')) {
-      return <span className="submission-status">✓ Submitted</span>;
-    }
-    return null;
-  };
-
-  // Group files by status
-  const notSubmittedFiles = filteredFiles.filter(f => 
-    !f.status || (f.status !== 'final_approved' && !f.current_stage.includes('pending'))
-  );
-  
-  const submittedFiles = filteredFiles.filter(f => 
-    f.status === 'final_approved' || f.current_stage.includes('pending')
-  );
 
   return (
-    <div className="my-files-section">
+    <div className="my-files-table-section">
       {/* Header */}
       <div className="files-header">
         <div className="header-left">
           <h2>My Files</h2>
           <p>{filteredFiles.length} files • {formatFileSize(filteredFiles.reduce((total, file) => total + file.file_size, 0))} total</p>
         </div>
-        <div className="header-right">
-          <button 
-            className="upload-btn"
-            onClick={() => setShowUploadModal(true)}
-          >
-            <svg viewBox="0 0 24 24" fill="currentColor">
-              <path d="M9,16V10H5L12,3L19,10H15V16H9M5,20V18H19V20H5Z"/>
-            </svg>
-            Upload Files
-          </button>
-        </div>
       </div>
 
-      {/* Search and Filter */}
-      <div className="files-controls-simple">
+      {/* Controls Row - Search and Upload aligned */}
+      <div className="files-controls-row">
         <div className="search-wrapper">
           <svg className="search-icon" viewBox="0 0 24 24" fill="currentColor">
             <path d="M9.5,3A6.5,6.5 0 0,1 16,9.5C16,11.11 15.41,12.59 14.44,13.73L14.71,14H15.5L20.5,19L19,20.5L14,15.5V14.71L13.73,14.44C12.59,15.41 11.11,16 9.5,16A6.5,6.5 0 0,1 3,9.5A6.5,6.5 0 0,1 9.5,3M9.5,5C7,5 5,7 5,9.5C5,12 7,14 9.5,14C12,14 14,12 14,9.5C14,7 12,5 9.5,5Z"/>
@@ -222,110 +192,125 @@ const MyFilesTab = ({
             className="search-input"
           />
         </div>
+        <button 
+          className="upload-btn"
+          onClick={() => setShowUploadModal(true)}
+        >
+          <svg viewBox="0 0 24 24" fill="currentColor">
+            <path d="M9,16V10H5L12,3L19,10H15V16H9M5,20V18H19V20H5Z"/>
+          </svg>
+          Upload Files
+        </button>
       </div>
 
-      {/* Files List */}
-      <div className="files-container-list">
+      {/* Files Table */}
+      <div className="files-table-container">
         {isLoading ? (
           <div className="loading-state">
             <div className="spinner"></div>
             <p>Loading your files...</p>
           </div>
+        ) : filteredFiles.length === 0 ? (
+          <div className="empty-state">
+            <div className="empty-content">
+              <h3>No files found</h3>
+              <p>
+                {files.length === 0 
+                  ? "Ready to upload your first file? Click the Upload Files button to get started." 
+                  : "No files match your current search criteria."}
+              </p>
+            </div>
+          </div>
         ) : (
-          <>
-            {/* Not Submitted Section */}
-            {notSubmittedFiles.length > 0 && (
-              <div className="files-section">
-                <div className="section-header">
-                  <svg viewBox="0 0 24 24" fill="currentColor" className="section-icon not-submitted">
-                    <path d="M13,13H11V7H13M13,17H11V15H13M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2Z"/>
-                  </svg>
-                  <span className="section-title">Not Submitted</span>
-                  <span className="section-count">({notSubmittedFiles.length})</span>
-                </div>
-                <div className="files-list">
-                  {notSubmittedFiles.map((file) => (
-                    <div key={file.id} className="file-item" onClick={() => openFileModal(file)}>
+          <table className="files-table">
+            <thead>
+              <tr>
+                <th className="col-file">File</th>
+                <th className="col-size">Size</th>
+                <th className="col-uploaded">Uploaded</th>
+                <th className="col-status">Status</th>
+                <th className="col-actions">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredFiles.map((file) => (
+                <tr 
+                  key={file.id} 
+                  className="file-row"
+                  onClick={() => openFileModal(file)}
+                >
+                  <td className="col-file">
+                    <div className="file-info">
                       <div className="file-icon-wrapper">
                         {getFileIcon(file.original_name)}
                       </div>
-                      <div className="file-info">
-                        <h3 className="file-name">{file.original_name}</h3>
-                        <p className="file-size">{formatFileSize(file.file_size)}</p>
-                      </div>
-                      <div className="file-actions">
-                        <button 
-                          className="action-btn submit"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            console.log('Submit file:', file.id);
-                          }}
-                        >
-                          Submit
-                        </button>
-                        <button 
-                          className="action-btn delete"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            if (confirm(`Are you sure you want to delete "${file.original_name}"?`)) {
-                              console.log('Delete file:', file.id);
-                            }
-                          }}
-                        >
-                          Delete
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Submitted Section */}
-            {submittedFiles.length > 0 && (
-              <div className="files-section">
-                <div className="section-header">
-                  <svg viewBox="0 0 24 24" fill="currentColor" className="section-icon submitted">
-                    <path d="M9,20.42L2.79,14.21L5.62,11.38L9,14.77L18.88,4.88L21.71,7.71L9,20.42Z"/>
-                  </svg>
-                  <span className="section-title">Submitted for Approval</span>
-                  <span className="section-count">({submittedFiles.length})</span>
-                </div>
-                <div className="files-list">
-                  {submittedFiles.map((file) => (
-                    <div key={file.id} className="file-item-card" onClick={() => openFileModal(file)}>
-                      <div className="card-content">
-                        <div className="file-icon-large">
-                          {getFileIcon(file.original_name)}
-                        </div>
-                        <div className="file-info-center">
-                          <h3 className="file-name-center">{file.original_name}</h3>
-                          <p className="file-size-center">{formatFileSize(file.file_size)}</p>
-                        </div>
-                        <div className="file-status-center">
-                          {getStatusDisplay(file)}
-                          {getSubmissionStatus(file)}
+                      <div className="file-details">
+                        <div className="file-name">{file.original_name}</div>
+                        <div className="file-type">
+                          {file.original_name.split('.').pop().toLowerCase()}
                         </div>
                       </div>
                     </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {filteredFiles.length === 0 && (
-              <div className="empty-state">
-                <div className="empty-content">
-                  <h3>No files found</h3>
-                  <p>
-                    {files.length === 0 
-                      ? "Ready to upload your first file? Click the button above to get started." 
-                      : "No files match your current search criteria."}
-                  </p>
-                </div>
-              </div>
-            )}
-          </>
+                  </td>
+                  <td className="col-size">
+                    <span className="file-size">{formatFileSize(file.file_size)}</span>
+                  </td>
+                  <td className="col-uploaded">
+                    <span className="upload-date">{formatDate(file.uploaded_at)}</span>
+                  </td>
+                  <td className="col-status">
+                    {getStatusBadge(file)}
+                  </td>
+                  <td className="col-actions">
+                    <div className="action-buttons">
+                      <button 
+                        className="action-btn view"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          openFileModal(file);
+                        }}
+                        title="View details"
+                      >
+                        <svg viewBox="0 0 24 24" fill="currentColor">
+                          <path d="M12,9A3,3 0 0,0 9,12A3,3 0 0,0 12,15A3,3 0 0,0 15,12A3,3 0 0,0 12,9M12,17A5,5 0 0,1 7,12A5,5 0 0,1 12,7A5,5 0 0,1 17,12A5,5 0 0,1 12,17M12,4.5C7,4.5 2.73,7.61 1,12C2.73,16.39 7,19.5 12,19.5C17,19.5 21.27,16.39 23,12C21.27,7.61 17,4.5 12,4.5Z"/>
+                        </svg>
+                      </button>
+                      {(!file.status || (file.status !== 'final_approved' && !file.current_stage.includes('pending'))) && (
+                        <>
+                          <button 
+                            className="action-btn submit"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              console.log('Submit file:', file.id);
+                            }}
+                            title="Submit for approval"
+                          >
+                            <svg viewBox="0 0 24 24" fill="currentColor">
+                              <path d="M9,16V10H5L12,3L19,10H15V16H9M5,20V18H19V20H5Z"/>
+                            </svg>
+                          </button>
+                          <button 
+                            className="action-btn delete"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (confirm(`Are you sure you want to delete "${file.original_name}"?`)) {
+                                console.log('Delete file:', file.id);
+                              }
+                            }}
+                            title="Delete file"
+                          >
+                            <svg viewBox="0 0 24 24" fill="currentColor">
+                              <path d="M19,4H15.5L14.5,3H9.5L8.5,4H5V6H19M6,19A2,2 0 0,0 8,21H16A2,2 0 0,0 18,19V7H6V19Z"/>
+                            </svg>
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         )}
       </div>
 
@@ -419,4 +404,4 @@ const MyFilesTab = ({
   );
 };
 
-export default MyFilesTab;
+export default MyFilesTabTableView;

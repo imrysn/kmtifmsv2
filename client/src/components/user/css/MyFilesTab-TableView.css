@@ -1,7 +1,7 @@
-/* My Files Tab Component Styles - List View */
+/* My Files Table View Styles - NO HOVER ANIMATIONS */
 @import './variables.css';
 
-.my-files-section {
+.my-files-table-section {
   width: 100%;
   height: 100%;
   padding: 20px;
@@ -13,9 +13,6 @@
 
 /* Header */
 .files-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
   margin-bottom: 20px;
 }
 
@@ -32,37 +29,18 @@
   margin: 0;
 }
 
-.upload-btn {
-  background: #007aff;
-  color: white;
-  border: none;
-  border-radius: 8px;
-  padding: 10px 16px;
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
+/* Controls Row - Aligned Search and Upload */
+.files-controls-row {
   display: flex;
+  justify-content: space-between;
   align-items: center;
-  gap: 6px;
-  transition: all 0.2s ease;
-}
-
-.upload-btn:hover {
-  background: #0051d0;
-}
-
-.upload-btn svg {
-  width: 16px;
-  height: 16px;
-}
-
-/* Simple Controls */
-.files-controls-simple {
   margin-bottom: 20px;
+  gap: 20px;
 }
 
 .search-wrapper {
   position: relative;
+  flex: 1;
   max-width: 300px;
 }
 
@@ -78,29 +56,58 @@
 
 .search-input {
   width: 100%;
-  padding: 8px 12px 8px 36px;
+  padding: 10px 12px 10px 36px;
   border: 1px solid #d2d2d7;
   border-radius: 8px;
   background: white;
   color: #1d1d1f;
   font-size: 14px;
   outline: none;
-  transition: border-color 0.2s ease;
+  height: 40px;
+  box-sizing: border-box;
 }
 
 .search-input:focus {
   border-color: #007aff;
 }
 
-/* Files Container List */
-.files-container-list {
+.upload-btn {
+  background: #007aff;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  padding: 10px 16px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 40px;
+  box-sizing: border-box;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* NO HOVER ANIMATION */
+.upload-btn:hover {
+  background: #0051d0;
+}
+
+.upload-btn svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* Files Table Container */
+.files-table-container {
   flex: 1;
   background: white;
   border-radius: 12px;
   border: 1px solid #d2d2d7;
-  overflow-y: auto;
-  min-height: calc(100vh - 200px);
-  max-height: calc(100vh - 200px);
+  overflow: hidden;
+  min-height: calc(100vh - 250px);
+  max-height: calc(100vh - 250px);
 }
 
 /* Loading State */
@@ -111,6 +118,7 @@
   justify-content: center;
   padding: 40px;
   color: #86868b;
+  height: 100%;
 }
 
 .spinner {
@@ -128,325 +136,6 @@
   to { transform: rotate(360deg); }
 }
 
-/* Files Sections */
-.files-section {
-  border-bottom: 1px solid #f2f2f7;
-}
-
-.files-section:last-child {
-  border-bottom: none;
-}
-
-.section-header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 16px 20px;
-  background: #f9f9fb;
-  border-bottom: 1px solid #f2f2f7;
-}
-
-.section-icon {
-  width: 16px;
-  height: 16px;
-}
-
-.section-icon.not-submitted {
-  color: #007aff;
-}
-
-.section-icon.submitted {
-  color: #34c759;
-}
-
-.section-title {
-  color: #1d1d1f;
-  font-size: 14px;
-  font-weight: 500;
-}
-
-.section-count {
-  color: #86868b;
-  font-size: 14px;
-}
-
-/* File Item Card for Submitted Files */
-.file-item-card {
-  display: flex;
-  align-items: center;
-  padding: 20px;
-  margin: 16px;
-  background: white;
-  border-radius: 12px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  border-left: 4px solid #ff3b30;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
-}
-
-.file-item-card:hover {
-  background: #fafafa;
-  transform: translateY(-1px);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-}
-
-.card-content {
-  display: flex;
-  align-items: center;
-  width: 100%;
-  gap: 20px;
-}
-
-.file-icon-large {
-  flex-shrink: 0;
-}
-
-.file-icon-large .file-icon-list {
-  width: 48px;
-  height: 48px;
-  border-radius: 10px;
-}
-
-.file-icon-large .file-icon-list svg {
-  width: 24px;
-  height: 24px;
-}
-
-.file-info-center {
-  flex: 1;
-  text-align: center;
-  min-width: 0;
-}
-
-.file-name-center {
-  color: #1d1d1f;
-  font-size: 16px;
-  font-weight: 500;
-  margin: 0 0 4px 0;
-  word-break: break-word;
-  line-height: 1.3;
-}
-
-.file-size-center {
-  color: #86868b;
-  font-size: 14px;
-  margin: 0;
-}
-
-.file-status-center {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 6px;
-  flex-shrink: 0;
-}
-
-.file-status-center .status-badge {
-  font-size: 11px;
-  font-weight: 600;
-  padding: 4px 12px;
-  border-radius: 12px;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  white-space: nowrap;
-}
-
-.file-status-center .status-badge.pending {
-  background: #fff3cd;
-  color: #996633;
-  border: 1px solid #ffeaa7;
-}
-
-.file-status-center .status-badge.approved {
-  background: #d1f2eb;
-  color: #0f5132;
-  border: 1px solid #a7f3d0;
-}
-
-.file-status-center .submission-status {
-  color: #86868b;
-  font-size: 12px;
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-
-/* Files List for Card Layout */
-.files-section .files-list {
-  padding: 8px 16px 16px 16px;
-}
-
-.file-item {
-  display: flex;
-  align-items: center;
-  padding: 12px 20px;
-  border-bottom: 1px solid #f2f2f7;
-  cursor: pointer;
-  transition: background-color 0.2s ease;
-}
-
-.file-item:hover {
-  background: #f9f9fb;
-}
-
-.file-item:last-child {
-  border-bottom: none;
-}
-
-/* File Icons */
-.file-icon-wrapper {
-  margin-right: 16px;
-}
-
-.file-icon-list {
-  width: 40px;
-  height: 40px;
-  border-radius: 8px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  position: relative;
-  flex-shrink: 0;
-}
-
-.file-icon-list svg {
-  width: 20px;
-  height: 20px;
-}
-
-.file-type-label {
-  position: absolute;
-  bottom: -2px;
-  right: -2px;
-  background: white;
-  color: #86868b;
-  font-size: 8px;
-  font-weight: 600;
-  padding: 1px 3px;
-  border-radius: 2px;
-  border: 1px solid #f2f2f7;
-}
-
-.file-icon-list.pdf-icon {
-  background: #ff3b30;
-  color: white;
-}
-
-.file-icon-list.docx-icon {
-  background: #007aff;
-  color: white;
-}
-
-.file-icon-list.xlsx-icon {
-  background: #34c759;
-  color: white;
-}
-
-.file-icon-list.image-icon {
-  background: #34c759;
-  color: white;
-}
-
-.file-icon-list.default-icon {
-  background: #86868b;
-  color: white;
-}
-
-/* File Info */
-.file-info {
-  flex: 1;
-  min-width: 0;
-}
-
-.file-name {
-  color: #1d1d1f;
-  font-size: 16px;
-  font-weight: 400;
-  margin: 0 0 2px 0;
-  word-break: break-word;
-  line-height: 1.3;
-}
-
-.file-size {
-  color: #86868b;
-  font-size: 14px;
-  margin: 0;
-}
-
-/* File Status Info */
-.file-status-info {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-right: 16px;
-}
-
-.status-badge {
-  font-size: 12px;
-  font-weight: 500;
-  padding: 4px 8px;
-  border-radius: 4px;
-  white-space: nowrap;
-}
-
-.status-badge.pending {
-  background: #fff3cd;
-  color: #856404;
-  border: 1px solid #ffeaa7;
-}
-
-.status-badge.approved {
-  background: #d1f2eb;
-  color: #0f5132;
-  border: 1px solid #a7f3d0;
-}
-
-.submission-status {
-  color: #86868b;
-  font-size: 12px;
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-
-/* File Actions */
-.file-actions {
-  display: flex;
-  gap: 8px;
-}
-
-.action-btn {
-  background: none;
-  border: none;
-  padding: 6px 12px;
-  border-radius: 6px;
-  font-size: 12px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  white-space: nowrap;
-}
-
-.action-btn.submit {
-  background: #d1f2eb;
-  color: #0f5132;
-  border: 1px solid #a7f3d0;
-}
-
-.action-btn.submit:hover {
-  background: #a7f3d0;
-}
-
-.action-btn.delete {
-  background: #f8d7da;
-  color: #721c24;
-  border: 1px solid #f1aeb5;
-}
-
-.action-btn.delete:hover {
-  background: #f1aeb5;
-}
-
 /* Empty State */
 .empty-state {
   display: flex;
@@ -455,7 +144,7 @@
   justify-content: center;
   padding: 60px 20px;
   text-align: center;
-  flex: 1;
+  height: 100%;
   min-height: 300px;
 }
 
@@ -474,7 +163,253 @@
   line-height: 1.4;
 }
 
-/* Upload Modal Styles */
+/* Files Table */
+.files-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+.files-table thead {
+  background: #f9f9fb;
+  border-bottom: 1px solid #d2d2d7;
+}
+
+.files-table th {
+  padding: 16px 20px;
+  text-align: left;
+  color: #1d1d1f;
+  font-size: 14px;
+  font-weight: 600;
+  border-bottom: 1px solid #d2d2d7;
+}
+
+.files-table tbody tr {
+  border-bottom: 1px solid #f2f2f7;
+  cursor: pointer;
+}
+
+.files-table tbody tr:last-child {
+  border-bottom: none;
+}
+
+/* NO HOVER ANIMATION - Simple background change only */
+.files-table tbody tr:hover {
+  background: #fafafa;
+}
+
+.files-table td {
+  padding: 16px 20px;
+  vertical-align: middle;
+}
+
+/* Column Widths */
+.col-file {
+  width: 40%;
+}
+
+.col-size {
+  width: 15%;
+}
+
+.col-uploaded {
+  width: 15%;
+}
+
+.col-status {
+  width: 15%;
+}
+
+.col-actions {
+  width: 15%;
+}
+
+/* File Info Column */
+.file-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.file-icon-wrapper {
+  flex-shrink: 0;
+}
+
+.file-icon-table {
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  flex-shrink: 0;
+}
+
+.file-icon-table svg {
+  width: 20px;
+  height: 20px;
+}
+
+.file-type-label {
+  position: absolute;
+  bottom: -2px;
+  right: -2px;
+  background: white;
+  color: #86868b;
+  font-size: 8px;
+  font-weight: 600;
+  padding: 1px 3px;
+  border-radius: 2px;
+  border: 1px solid #f2f2f7;
+}
+
+.file-icon-table.pdf-icon {
+  background: #ff3b30;
+  color: white;
+}
+
+.file-icon-table.docx-icon {
+  background: #007aff;
+  color: white;
+}
+
+.file-icon-table.xlsx-icon {
+  background: #34c759;
+  color: white;
+}
+
+.file-icon-table.image-icon {
+  background: #34c759;
+  color: white;
+}
+
+.file-icon-table.default-icon {
+  background: #86868b;
+  color: white;
+}
+
+.file-details {
+  flex: 1;
+  min-width: 0;
+}
+
+.file-name {
+  color: #1d1d1f;
+  font-size: 16px;
+  font-weight: 500;
+  margin: 0 0 2px 0;
+  word-break: break-word;
+  line-height: 1.3;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.file-type {
+  color: #86868b;
+  font-size: 12px;
+  text-transform: uppercase;
+  font-weight: 500;
+}
+
+/* Size Column */
+.file-size {
+  color: #1d1d1f;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+/* Upload Date Column */
+.upload-date {
+  color: #86868b;
+  font-size: 14px;
+}
+
+/* Status Column */
+.status-badge {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 8px;
+  border-radius: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  white-space: nowrap;
+}
+
+.status-badge.pending {
+  background: #fff3cd;
+  color: #996633;
+  border: 1px solid #ffeaa7;
+}
+
+.status-badge.approved {
+  background: #d1f2eb;
+  color: #0f5132;
+  border: 1px solid #a7f3d0;
+}
+
+.status-badge.draft {
+  background: #e3f2fd;
+  color: #1565c0;
+  border: 1px solid #bbdefb;
+}
+
+/* Actions Column */
+.action-buttons {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.action-btn {
+  background: none;
+  border: none;
+  padding: 6px;
+  border-radius: 6px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+}
+
+.action-btn svg {
+  width: 16px;
+  height: 16px;
+}
+
+.action-btn.view {
+  background: #e3f2fd;
+  color: #1565c0;
+}
+
+.action-btn.submit {
+  background: #d1f2eb;
+  color: #0f5132;
+}
+
+.action-btn.delete {
+  background: #f8d7da;
+  color: #721c24;
+}
+
+/* NO HOVER ANIMATIONS */
+.action-btn.view:hover {
+  background: #bbdefb;
+}
+
+.action-btn.submit:hover {
+  background: #a7f3d0;
+}
+
+.action-btn.delete:hover {
+  background: #f1aeb5;
+}
+
+/* Upload Modal Styles - Reusing existing styles */
 .upload-modal-overlay {
   position: fixed;
   top: 0;
@@ -499,18 +434,6 @@
   max-width: 500px;
   max-height: 90vh;
   overflow-y: auto;
-  animation: modalFadeIn 0.3s ease-out;
-}
-
-@keyframes modalFadeIn {
-  from {
-    opacity: 0;
-    transform: scale(0.95) translateY(-20px);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1) translateY(0);
-  }
 }
 
 .modal-header {
@@ -535,7 +458,6 @@
   cursor: pointer;
   border-radius: 6px;
   color: #86868b;
-  transition: all 0.2s ease;
 }
 
 .modal-close:hover {
@@ -571,7 +493,6 @@
   border-radius: 8px;
   background: #f9f9fb;
   cursor: pointer;
-  transition: all 0.2s ease;
   font-size: 14px;
   color: #1d1d1f;
 }
@@ -626,23 +547,27 @@
   flex-shrink: 0;
 }
 
-.file-details {
+.file-preview .file-details {
   flex: 1;
   min-width: 0;
 }
 
-.file-details .file-name {
+.file-preview .file-name {
   font-size: 14px;
   font-weight: 500;
   color: #1d1d1f;
   margin-bottom: 2px;
   word-break: break-word;
+  white-space: normal;
+  overflow: visible;
+  text-overflow: initial;
 }
 
-.file-details .file-size {
+.file-preview .file-size {
   font-size: 12px;
   color: #86868b;
   margin: 0;
+  font-weight: normal;
 }
 
 .form-textarea {
@@ -655,7 +580,6 @@
   font-size: 14px;
   resize: vertical;
   min-height: 80px;
-  transition: border-color 0.2s ease;
   color: #1d1d1f;
 }
 
@@ -711,7 +635,6 @@
   font-size: 14px;
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.2s ease;
   border: none;
   white-space: nowrap;
 }
@@ -760,33 +683,89 @@
 }
 
 /* Responsive Design */
+@media (max-width: 1024px) {
+  .col-file {
+    width: 35%;
+  }
+  
+  .col-size {
+    width: 12%;
+  }
+  
+  .col-uploaded {
+    width: 15%;
+  }
+  
+  .col-status {
+    width: 15%;
+  }
+  
+  .col-actions {
+    width: 23%;
+  }
+}
+
 @media (max-width: 768px) {
-  .my-files-section {
+  .my-files-table-section {
     padding: 16px;
   }
   
-  .files-header {
+  .files-controls-row {
     flex-direction: column;
-    gap: 16px;
+    gap: 12px;
     align-items: stretch;
+  }
+  
+  .search-wrapper {
+    max-width: none;
   }
   
   .upload-btn {
     align-self: flex-start;
   }
   
-  .files-controls-simple .search-wrapper {
-    max-width: none;
+  .files-table-container {
+    overflow-x: auto;
+    min-height: calc(100vh - 280px);
+    max-height: calc(100vh - 280px);
   }
   
-  .file-item {
+  .files-table {
+    min-width: 600px;
+  }
+  
+  .files-table th,
+  .files-table td {
+    padding: 12px 16px;
+  }
+  
+  .file-name {
+    font-size: 14px;
+  }
+  
+  .action-buttons {
     flex-wrap: wrap;
-    gap: 12px;
+    gap: 4px;
   }
   
-  .file-actions {
-    width: 100%;
-    justify-content: flex-end;
+  .action-btn {
+    width: 24px;
+    height: 24px;
+  }
+  
+  .action-btn svg {
+    width: 14px;
+    height: 14px;
+  }
+}
+
+@media (max-width: 480px) {
+  .header-left h2 {
+    font-size: 24px;
+  }
+  
+  .files-table {
+    min-width: 700px;
   }
   
   .upload-modal {
@@ -800,25 +779,5 @@
   
   .modal-actions .btn {
     width: 100%;
-  }
-}
-
-@media (max-width: 480px) {
-  .header-left h2 {
-    font-size: 24px;
-  }
-  
-  .file-item {
-    padding: 16px;
-  }
-  
-  .file-status-info {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 4px;
-  }
-  
-  .section-header {
-    padding: 12px 16px;
   }
 }

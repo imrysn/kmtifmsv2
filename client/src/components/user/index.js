@@ -8,3 +8,5 @@ export { default as MyFilesTab } from './MyFilesTab';
 export { default as FileCard } from './FileCard';
 export { default as FileModal } from './FileModal';
 export { default as NotificationTab } from './NotificationTab';
+export { default as FileApprovalTab } from './FileApprovalTab';
+export { default as FileApprovalTabEnhanced } from './FileApprovalTab-Enhanced';

@@ -20,10 +20,10 @@
   --user-accent: #007AFF;
   
   --macos-bg: #F2F2F7;
-  --macos-card-bg: rgba(255, 255, 255, 0.85);
+  --macos-card-bg: rgba(255, 255, 255, 0.95);
   --macos-blur: blur(20px);
   --macos-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
-  --macos-border: 1px solid rgba(255, 255, 255, 0.2);
+  --macos-border: 1px solid #D1D5DB;
   
   --spacing-xs: 4px;
   --spacing-sm: 8px;
@@ -72,7 +72,7 @@
   box-shadow: 2px 0 10px rgba(0, 0, 0, 0.1);
 }
 
-/* Sidebar Profile Section */
+/* Sidebar Profile Section - UPDATED SPACING */
 .user-dashboard .sidebar-profile {
   display: flex;
   align-items: center;
@@ -80,7 +80,7 @@
   padding: 16px;
   background: #F8F9FA;
   border-radius: 16px;
-  margin-bottom: 32px;
+  margin-bottom: 48px; /* CHANGED: Increased from 32px to 48px for more space */
   border: 1px solid #E5E5EA;
 }
 
@@ -306,10 +306,10 @@
   background: var(--macos-card-bg);
   backdrop-filter: var(--macos-blur);
   -webkit-backdrop-filter: var(--macos-blur);
-  border: var(--macos-border);
+  border: none;
   border-radius: var(--radius-xl);
   padding: var(--spacing-xl);
-  box-shadow: var(--macos-shadow);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.12), 0 1px 3px rgba(0, 0, 0, 0.08);
   position: relative;
   overflow: hidden;
   opacity: 0;
@@ -365,7 +365,7 @@
   display: flex;
   align-items: center;
   gap: var(--spacing-lg);
-  border: 1px solid rgba(255, 255, 255, 0.3);
+  border: 1px solid #E5E7EB;
 }
 
 .user-dashboard .user-avatar {
@@ -460,7 +460,7 @@
   padding: var(--spacing-md);
   background: rgba(255, 255, 255, 0.3);
   border-radius: var(--radius-md);
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  border: 1px solid #E5E7EB;
 }
 
 .user-dashboard .stat-number {
@@ -509,7 +509,7 @@
 .user-dashboard .action-btn.secondary {
   background: rgba(255, 255, 255, 0.5);
   color: #1D1D1F;
-  border: 1px solid rgba(255, 255, 255, 0.3);
+  border: 1px solid #E5E7EB;
 }
 
 .user-dashboard .action-btn.secondary:hover {
@@ -520,7 +520,7 @@
 /* Workflow Info */
 .user-dashboard .workflow-info-card {
   background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid #E5E7EB;
 }
 
 .user-dashboard .workflow-steps {
@@ -536,7 +536,7 @@
   padding: var(--spacing-md);
   background: rgba(255, 255, 255, 0.3);
   border-radius: var(--radius-md);
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  border: 1px solid #E5E7EB;
 }
 
 .user-dashboard .step-number {
@@ -640,7 +640,7 @@
   padding: var(--spacing-md);
   background: rgba(255, 255, 255, 0.3);
   border-radius: var(--radius-sm);
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  border: 1px solid #E5E7EB;
 }
 
 .user-dashboard .switch-instruction p {
@@ -920,7 +920,7 @@
 .user-dashboard .btn-secondary {
   background: rgba(255, 255, 255, 0.5);
   color: #1D1D1F;
-  border: 1px solid rgba(255, 255, 255, 0.3);
+  border: 1px solid #E5E7EB;
 }
 
 .user-dashboard .btn-secondary:hover:not(:disabled) {
@@ -1488,7 +1488,7 @@
   padding: var(--spacing-lg);
   background: rgba(255, 255, 255, 0.3);
   border-radius: var(--radius-md);
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  border: 1px solid #E5E7EB;
 }
 
 .user-dashboard .review-section h4,
@@ -1558,7 +1558,7 @@
   padding: var(--spacing-lg);
   background: rgba(255, 255, 255, 0.3);
   border-radius: var(--radius-md);
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  border: 1px solid #E5E7EB;
 }
 
 .user-dashboard .comments-section h4 {
@@ -1578,7 +1578,7 @@
   background: rgba(255, 255, 255, 0.4);
   padding: var(--spacing-md);
   border-radius: var(--radius-sm);
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  border: 1px solid #E5E7EB;
 }
 
 .user-dashboard .comment-header {
@@ -1628,6 +1628,7 @@
     text-align: center;
     background: #F8F9FA;
     border: 1px solid #E5E5EA;
+    margin-bottom: 36px; /* RESPONSIVE: Reduced spacing for tablet screens */
   }
   
   .user-dashboard .profile-avatar {
@@ -1695,6 +1696,7 @@
     padding: 8px;
     background: #F8F9FA;
     border: 1px solid #E5E5EA;
+    margin-bottom: 24px; /* RESPONSIVE: Further reduced spacing for mobile screens */
   }
   
   .user-dashboard .profile-avatar {

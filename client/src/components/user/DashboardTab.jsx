@@ -73,12 +73,6 @@ const DashboardTab = ({ user, files, setActiveTab }) => {
         <div className="file-actions">
           <button 
             className="action-btn primary"
-            onClick={() => setActiveTab('upload')}
-          >
-            Submit New File
-          </button>
-          <button 
-            className="action-btn secondary"
             onClick={() => setActiveTab('my-files')}
           >
             View My Files

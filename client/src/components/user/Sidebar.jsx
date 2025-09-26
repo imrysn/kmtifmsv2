@@ -15,6 +15,13 @@ const Sidebar = ({ activeTab, setActiveTab, filesCount, onLogout, user }) => {
       {/* Navigation */}
       <nav className="sidebar-nav">
         <button
+          className={`sidebar-item ${activeTab === 'notification' ? 'active' : ''}`}
+          onClick={() => setActiveTab('notification')}
+        >
+          <span className="nav-icon">🔔</span>
+          <span className="nav-text">Notifications</span>
+        </button>
+        <button
           className={`sidebar-item ${activeTab === 'dashboard' ? 'active' : ''}`}
           onClick={() => setActiveTab('dashboard')}
         >
@@ -36,18 +43,11 @@ const Sidebar = ({ activeTab, setActiveTab, filesCount, onLogout, user }) => {
           <span className="nav-text">My Files ({filesCount})</span>
         </button>
         <button
-          className={`sidebar-item ${activeTab === 'upload' ? 'active' : ''}`}
-          onClick={() => setActiveTab('upload')}
+          className={`sidebar-item ${activeTab === 'file-approvals' ? 'active' : ''}`}
+          onClick={() => setActiveTab('file-approvals')}
         >
-          <span className="nav-icon">📤</span>
+          <span className="nav-icon">📋</span>
           <span className="nav-text">File Approvals</span>
-        </button>
-        <button
-          className={`sidebar-item ${activeTab === 'notification' ? 'active' : ''}`}
-          onClick={() => setActiveTab('notification')}
-        >
-          <span className="nav-icon">🔔</span>
-          <span className="nav-text">Notifications</span>
         </button>
       </nav>
 
