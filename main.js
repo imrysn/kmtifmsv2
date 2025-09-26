@@ -14,7 +14,6 @@ function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1200,
     height: 800,
-    icon: url.pathToFileURL(path.join(__dirname, 'assets', 'kmti_logo.png')),
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,
