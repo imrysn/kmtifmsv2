@@ -1,18 +1,18 @@
 import { useState, useEffect, useRef } from 'react'
 import anime from 'animejs'
-import '../css/UserDashboard.css'
+import '../css/UserDashboard-NoHover.css'
 
 // Import refactored components
 import Sidebar from '../components/user/Sidebar'
 import AlertMessage from '../components/user/AlertMessage'
 import DashboardTab from '../components/user/DashboardTab'
 import TeamFilesTab from '../components/user/TeamFilesTab'
-import MyFilesTab from '../components/user/MyFilesTab'
+import MyFilesTabTableView from '../components/user/MyFilesTab-TableView'
 import NotificationTab from '../components/user/NotificationTab'
 import FileModal from '../components/user/FileModal'
-import FileApprovalTabEnhanced from '../components/user/FileApprovalTab-Enhanced'
+import FileApprovalTabTableView from '../components/user/FileApprovalTab-TableView'
 
-const UserDashboard = ({ user, onLogout }) => {
+const UserDashboardNoHover = ({ user, onLogout }) => {
   const [activeTab, setActiveTab] = useState('dashboard')
   const [files, setFiles] = useState([])
   const [filteredFiles, setFilteredFiles] = useState([])
@@ -175,7 +175,7 @@ const UserDashboard = ({ user, onLogout }) => {
         return <TeamFilesTab setActiveTab={setActiveTab} />;
       case 'my-files':
         return (
-          <MyFilesTab 
+          <MyFilesTabTableView 
             filteredFiles={filteredFiles}
             isLoading={isLoading}
             filterStatus={filterStatus}
@@ -193,7 +193,7 @@ const UserDashboard = ({ user, onLogout }) => {
         );
       case 'file-approvals':
         return (
-          <FileApprovalTabEnhanced
+          <FileApprovalTabTableView
             user={user}
             files={files}
             isLoading={isLoading}
@@ -216,7 +216,7 @@ const UserDashboard = ({ user, onLogout }) => {
   };
 
   return (
-    <div className="minimal-dashboard user-dashboard" ref={dashboardRef}>
+    <div className="minimal-dashboard user-dashboard no-hover" ref={dashboardRef}>
       <Sidebar 
         activeTab={activeTab}
         setActiveTab={handleTabChange}
@@ -263,4 +263,4 @@ const UserDashboard = ({ user, onLogout }) => {
   )
 }
 
-export default UserDashboard
+export default UserDashboardNoHover

@@ -1,0 +1,53 @@
+/* Shared CSS Variables for User Dashboard Components */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+:root {
+  --macos-blue: #007AFF;
+  --macos-green: #34C759;
+  --macos-orange: #FF9500;
+  --macos-red: #FF3B30;
+  --macos-purple: #AF52DE;
+  --macos-gray: #8E8E93;
+  --macos-gray2: #AEAEB2;
+  --macos-gray3: #C7C7CC;
+  --macos-gray4: #D1D1D6;
+  --macos-gray5: #E5E5EA;
+  --macos-gray6: #F2F2F7;
+  
+  /* User Dashboard specific colors */
+  --user-primary: #667eea;
+  --user-secondary: #764ba2;
+  --user-accent: #007AFF;
+  
+  --macos-bg: #F2F2F7;
+  --macos-card-bg: rgba(255, 255, 255, 0.85);
+  --macos-blur: blur(20px);
+  --macos-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+  --macos-border: 1px solid rgba(255, 255, 255, 0.2);
+  
+  --spacing-xs: 4px;
+  --spacing-sm: 8px;
+  --spacing-md: 16px;
+  --spacing-lg: 24px;
+  --spacing-xl: 32px;
+  --spacing-2xl: 48px;
+  
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 20px;
+}
+
+/* Animations */
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* Performance optimizations */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
