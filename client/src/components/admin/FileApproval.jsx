@@ -4,8 +4,6 @@ import './FileApproval.css'
 const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) => {
   const [files, setFiles] = useState([])
   const [filteredFiles, setFilteredFiles] = useState([])
-  const [teams, setTeams] = useState([])
-  const [teamsLoading, setTeamsLoading] = useState(false)
   const [fileSearchQuery, setFileSearchQuery] = useState('')
   const [fileFilter, setFileFilter] = useState('all')
   const [fileSortBy, setFileSortBy] = useState('date-desc')
@@ -48,10 +46,9 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
     return () => document.removeEventListener('mousemove', handleMouseMove)
   }, [])
 
-  // Fetch files and teams on component mount
+  // Fetch files on component mount
   useEffect(() => {
     fetchFiles()
-    fetchTeams()
   }, [])
 
   // Filter and sort files when dependencies change
@@ -110,23 +107,6 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
     setCurrentPage(1)
   }, [files, fileSearchQuery, fileFilter, fileSortBy])
 
-  const fetchTeams = async () => {
-    setTeamsLoading(true)
-    try {
-      const response = await fetch('http://localhost:3001/api/teams')
-      const data = await response.json()
-      if (data.success) {
-        setTeams(data.teams || [])
-      } else {
-        console.error('Failed to fetch teams:', data.message)
-      }
-    } catch (error) {
-      console.error('Error fetching teams:', error)
-    } finally {
-      setTeamsLoading(false)
-    }
-  }
-
   const fetchFiles = async () => {
     setIsLoading(true)
     try {
@@ -177,11 +157,6 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
       default:
         return dbStatus.charAt(0).toUpperCase() + dbStatus.slice(1)
     }
-  }
-
-  const getTeamColor = (teamName) => {
-    const team = teams.find(t => t.name === teamName)
-    return team ? team.color : '#6B7280' // Default gray color
   }
 
   const formatFileSize = (bytes) => {
@@ -610,14 +585,7 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
                       </div>
                     </td>
                     <td>
-                      <span 
-                        className="team-badge"
-                        style={{ 
-                          backgroundColor: 'transparent',
-                          color: getTeamColor(file.user_team),
-                          borderColor: getTeamColor(file.user_team)
-                        }}
-                      >
+                      <span className="team-badge">
                         {file.user_team}
                       </span>
                     </td>
@@ -692,10 +660,6 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
             <div className="modal-body">
               <div className="file-details-section">
                 <div className="file-detail-row">
-                  <span className="detail-label">Filename:</span>
-                  <span className="detail-value">{selectedFile.filename}</span>
-                </div>
-                <div className="file-detail-row">
                   <span className="detail-label">Original Name:</span>
                   <span className="detail-value">{selectedFile.original_name}</span>
                 </div>
@@ -705,21 +669,7 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
                 </div>
                 <div className="file-detail-row">
                   <span className="detail-label">Team:</span>
-                  <span 
-                    className="detail-value team-badge"
-                    style={{ 
-                      backgroundColor: 'transparent',
-                      color: getTeamColor(selectedFile.user_team),
-                      borderColor: getTeamColor(selectedFile.user_team),
-                      padding: '0.375rem 0.875rem',
-                      borderRadius: '12px',
-                      fontSize: '0.75rem',
-                      fontWeight: '500',
-                      width: '130px',
-                      textAlign: 'center',
-                      display: 'inline-block'
-                    }}
-                  >
+                  <span className="detail-value team-badge">
                     {selectedFile.user_team}
                   </span>
                 </div>
