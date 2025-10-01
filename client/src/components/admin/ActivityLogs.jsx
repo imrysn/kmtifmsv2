@@ -10,7 +10,7 @@ const ActivityLogs = ({ clearMessages, error, success, setError, setSuccess }) =
   const [isLoading, setIsLoading] = useState(false)
   const [showDeleteLogsModal, setShowDeleteLogsModal] = useState(false)
   
-  const itemsPerPage = 10
+  const itemsPerPage = 7
 
   // Fetch activity logs on component mount
   useEffect(() => {
