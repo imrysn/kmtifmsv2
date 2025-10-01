@@ -1,0 +1,828 @@
+const express = require('express');
+const fs = require('fs').promises;
+const path = require('path');
+const { db } = require('../config/database');
+const { upload, uploadsDir } = require('../config/middleware');
+const { logActivity, logFileStatusChange } = require('../utils/logger');
+const { getFileTypeDescription } = require('../utils/fileHelpers');
+
+const router = express.Router();
+
+// Check for duplicate file names
+router.post('/check-duplicate', (req, res) => {
+  const { originalName, userId } = req.body;
+  console.log(`🔍 Checking for duplicate file: ${originalName} by user ${userId}`);
+
+  db.get('SELECT * FROM files WHERE original_name = ? AND user_id = ?', [originalName, userId], (err, existingFile) => {
+    if (err) {
+      console.error('❌ Error checking for duplicate file:', err);
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to check for duplicate files'
+      });
+    }
+    res.json({
+      success: true,
+      isDuplicate: !!existingFile,
+      existingFile: existingFile || null
+    });
+  });
+});
+
+// Upload file (User only)
+router.post('/upload', upload.single('file'), async (req, res) => {
+  try {
+    const { description, userId, username, userTeam, replaceExisting } = req.body;
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        message: 'No file uploaded'
+      });
+    }
+
+    console.log(`📁 File upload by ${username} from ${userTeam} team:`, req.file.originalname);
+
+    // Check for duplicate file if replaceExisting is not explicitly set
+    if (replaceExisting !== 'true') {
+      db.get('SELECT * FROM files WHERE original_name = ? AND user_id = ?', [req.file.originalname, userId], (err, existingFile) => {
+        if (err) {
+          console.error('❌ Error checking for duplicate:', err);
+          fs.unlink(req.file.path, () => {});
+          return res.status(500).json({
+            success: false,
+            message: 'Failed to check for duplicate files'
+          });
+        }
+        if (existingFile) {
+          // Delete the newly uploaded file since we found a duplicate
+          fs.unlink(req.file.path, (unlinkErr) => {
+             if (unlinkErr) console.error('Error deleting duplicate upload:', unlinkErr);
+          });
+          return res.status(409).json({
+            success: false,
+            isDuplicate: true,
+            message: 'File with this name already exists',
+            existingFile: {
+              id: existingFile.id,
+              original_name: existingFile.original_name,
+              uploaded_at: existingFile.uploaded_at,
+              status: existingFile.status
+            }
+          });
+        }
+
+        // No duplicate found, proceed with upload
+        insertFileRecord();
+      });
+    } else {
+      // Replace existing file - first find and remove the old one
+      db.get('SELECT * FROM files WHERE original_name = ? AND user_id = ?', [req.file.originalname, userId], (err, existingFile) => {
+        if (existingFile) {
+          // Delete old physical file
+          const oldFilePath = path.join(uploadsDir, path.basename(existingFile.file_path));
+          fs.unlink(oldFilePath, (unlinkErr) => {
+            if (unlinkErr) {
+              console.error('❌ Error deleting old file:', unlinkErr);
+            } else {
+              console.log('✅ Old file deleted:', oldFilePath);
+            }
+          });
+
+          // Delete old database record
+          db.run('DELETE FROM files WHERE id = ?', [existingFile.id], (deleteErr) => {
+            if (deleteErr) {
+              console.error('❌ Error deleting old file record:', deleteErr);
+            } else {
+              console.log('✅ Old file record deleted');
+              logActivity(db, userId, username, 'USER', userTeam, `File replaced: ${req.file.originalname}`);
+            }
+          });
+        }
+
+        // Insert new file record
+        insertFileRecord();
+      });
+    }
+
+    function insertFileRecord() {
+      // Insert file record into database
+      db.run(`INSERT INTO files (
+        filename, original_name, file_path, file_size, file_type, mime_type, description,
+        user_id, username, user_team, status, current_stage
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        req.file.filename,
+        req.file.originalname,
+        `/uploads/${req.file.filename}`,
+        req.file.size,
+        getFileTypeDescription(req.file.mimetype),
+        req.file.mimetype,
+        description || '',
+        userId,
+        username,
+        userTeam,
+        'uploaded',
+        'pending_team_leader'
+      ], function(err) {
+        if (err) {
+          console.error('❌ Error saving file to database:', err);
+          // Delete the uploaded file if database save fails
+          fs.unlink(req.file.path, (unlinkErr) => {
+             if (unlinkErr) console.error('Error deleting failed upload:', unlinkErr);
+          });
+          return res.status(500).json({
+            success: false,
+            message: 'Failed to save file information'
+          });
+        }
+        const fileId = this.lastID;
+
+        // Log the file upload
+        const action = replaceExisting === 'true' ? 'replaced' : 'uploaded';
+        logActivity(db, userId, username, 'USER', userTeam, `File ${action}: ${req.file.originalname}`);
+
+        // Log status history
+        logFileStatusChange(
+          db,
+          fileId,
+          null,
+          'uploaded',
+          null,
+          'pending_team_leader',
+          userId,
+          username,
+          'USER',
+          `File ${action} by user`
+        );
+
+        console.log(`✅ File ${action} successfully with ID: ${fileId}`);
+        res.json({
+          success: true,
+          message: `File ${action} successfully`,
+          file: {
+            id: fileId,
+            filename: req.file.filename,
+            original_name: req.file.originalname,
+            file_size: req.file.size,
+            file_type: getFileTypeDescription(req.file.mimetype),
+            description: description || '',
+            status: 'uploaded',
+            current_stage: 'pending_team_leader',
+            uploaded_at: new Date()
+          },
+          replaced: replaceExisting === 'true'
+        });
+      });
+    }
+  } catch (error) {
+    console.error('❌ Error handling file upload:', error);
+    res.status(500).json({
+      success: false,
+      message: 'File upload failed'
+    });
+  }
+});
+
+// Get files for user (User only - their own files) with pagination
+router.get('/user/:userId', (req, res) => {
+  const { userId } = req.params;
+  const page = parseInt(req.query.page) || 1;
+  const limit = parseInt(req.query.limit) || 50;
+  const offset = (page - 1) * limit;
+
+  console.log(`📁 Getting files for user ${userId} - Page ${page}, Limit ${limit}`);
+
+  // Get total count
+  db.get('SELECT COUNT(*) as total FROM files WHERE user_id = ?', [userId], (err, countResult) => {
+    if (err) {
+      console.error('❌ Error getting user file count:', err);
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to fetch files'
+      });
+    }
+
+    db.all(
+      `SELECT f.*, fc.comment as latest_comment
+       FROM files f
+       LEFT JOIN file_comments fc ON f.id = fc.file_id AND fc.id = (
+         SELECT MAX(id) FROM file_comments WHERE file_id = f.id
+       )
+       WHERE f.user_id = ?
+       ORDER BY f.uploaded_at DESC LIMIT ? OFFSET ?`,
+      [userId, limit, offset],
+      (err, files) => {
+        if (err) {
+          console.error('❌ Error getting user files:', err);
+          return res.status(500).json({
+            success: false,
+            message: 'Failed to fetch files'
+          });
+        }
+        console.log(`✅ Retrieved ${files.length} files for user ${userId}`);
+        res.json({
+          success: true,
+          files,
+          pagination: {
+            page,
+            limit,
+            total: countResult.total,
+            pages: Math.ceil(countResult.total / limit)
+          }
+        });
+      }
+    );
+  });
+});
+
+// Get pending files for user (files that are not final_approved) with pagination
+router.get('/user/:userId/pending', (req, res) => {
+  const { userId } = req.params;
+  const page = parseInt(req.query.page) || 1;
+  const limit = parseInt(req.query.limit) || 50;
+  const offset = (page - 1) * limit;
+
+  console.log(`📁 Getting pending files for user ${userId} - Page ${page}, Limit ${limit}`);
+
+  // Get total count
+  db.get('SELECT COUNT(*) as total FROM files WHERE user_id = ? AND status != ?', [userId, 'final_approved'], (err, countResult) => {
+    if (err) {
+      console.error('❌ Error getting user pending file count:', err);
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to fetch pending files'
+      });
+    }
+
+    db.all(
+      `SELECT f.*,
+              GROUP_CONCAT(fc.comment, ' | ') as comments
+       FROM files f
+       LEFT JOIN file_comments fc ON f.id = fc.file_id
+       WHERE f.user_id = ? AND f.status != 'final_approved'
+       GROUP BY f.id
+       ORDER BY f.uploaded_at DESC LIMIT ? OFFSET ?`,
+      [userId, limit, offset],
+      (err, files) => {
+        if (err) {
+          console.error('❌ Error getting user pending files:', err);
+          return res.status(500).json({
+            success: false,
+            message: 'Failed to fetch pending files'
+          });
+        }
+
+        // Process the files to include comments as an array
+        const processedFiles = files.map(file => {
+          const comments = file.comments ?
+            file.comments.split(' | ').map(comment => ({ comment })) : [];
+          return {
+            ...file,
+            comments
+          };
+        });
+
+        console.log(`✅ Retrieved ${processedFiles.length} pending files for user ${userId}`);
+        res.json({
+          success: true,
+          files: processedFiles,
+          pagination: {
+            page,
+            limit,
+            total: countResult.total,
+            pages: Math.ceil(countResult.total / limit)
+          }
+        });
+      }
+    );
+  });
+});
+
+// Get files for team leader review (Team Leader only) with pagination
+router.get('/team-leader/:team', (req, res) => {
+  const { team } = req.params;
+  const page = parseInt(req.query.page) || 1;
+  const limit = parseInt(req.query.limit) || 50;
+  const offset = (page - 1) * limit;
+
+  console.log(`📁 Getting files for team leader review: ${team} team - Page ${page}, Limit ${limit}`);
+
+  // Get total count
+  db.get('SELECT COUNT(*) as total FROM files WHERE user_team = ? AND current_stage = ?', [team, 'pending_team_leader'], (err, countResult) => {
+    if (err) {
+      console.error('❌ Error getting team leader file count:', err);
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to fetch files for review'
+      });
+    }
+
+    db.all(
+      `SELECT f.*, fc.comment as latest_comment
+       FROM files f
+       LEFT JOIN file_comments fc ON f.id = fc.file_id AND fc.id = (
+         SELECT MAX(id) FROM file_comments WHERE file_id = f.id
+       )
+       WHERE f.user_team = ? AND f.current_stage = 'pending_team_leader'
+       ORDER BY f.uploaded_at DESC LIMIT ? OFFSET ?`,
+      [team, limit, offset],
+      (err, files) => {
+        if (err) {
+          console.error('❌ Error getting team leader files:', err);
+          return res.status(500).json({
+            success: false,
+            message: 'Failed to fetch files for review'
+          });
+        }
+        console.log(`✅ Retrieved ${files.length} files for ${team} team leader review`);
+        res.json({
+          success: true,
+          files,
+          pagination: {
+            page,
+            limit,
+            total: countResult.total,
+            pages: Math.ceil(countResult.total / limit)
+          }
+        });
+      }
+    );
+  });
+});
+
+// Get files for admin review (Admin only) with pagination
+router.get('/admin', (req, res) => {
+  const page = parseInt(req.query.page) || 1;
+  const limit = parseInt(req.query.limit) || 50;
+  const offset = (page - 1) * limit;
+
+  console.log(`📁 Getting files for admin review - Page ${page}, Limit ${limit}`);
+
+  // Get total count
+  db.get('SELECT COUNT(*) as total FROM files WHERE current_stage = ?', ['pending_admin'], (err, countResult) => {
+    if (err) {
+      console.error('❌ Error getting admin file count:', err);
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to fetch files for admin review'
+      });
+    }
+
+    db.all(
+      `SELECT f.*, fc.comment as latest_comment
+       FROM files f
+       LEFT JOIN file_comments fc ON f.id = fc.file_id AND fc.id = (
+         SELECT MAX(id) FROM file_comments WHERE file_id = f.id
+       )
+       WHERE f.current_stage = 'pending_admin'
+       ORDER BY f.uploaded_at DESC LIMIT ? OFFSET ?`,
+      [limit, offset],
+      (err, files) => {
+        if (err) {
+          console.error('❌ Error getting admin files:', err);
+          return res.status(500).json({
+            success: false,
+            message: 'Failed to fetch files for admin review'
+          });
+        }
+        console.log(`✅ Retrieved ${files.length} files for admin review`);
+        res.json({
+          success: true,
+          files,
+          pagination: {
+            page,
+            limit,
+            total: countResult.total,
+            pages: Math.ceil(countResult.total / limit)
+          }
+        });
+      }
+    );
+  });
+});
+
+// Get all files (Admin only - for comprehensive view) with pagination
+router.get('/all', (req, res) => {
+  const page = parseInt(req.query.page) || 1;
+  const limit = parseInt(req.query.limit) || 50;
+  const offset = (page - 1) * limit;
+
+  console.log(`📁 Getting all files (admin view) - Page ${page}, Limit ${limit}`);
+
+  // Get total count
+  db.get('SELECT COUNT(*) as total FROM files', [], (err, countResult) => {
+    if (err) {
+      console.error('❌ Error getting all file count:', err);
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to fetch all files'
+      });
+    }
+
+    db.all(
+      `SELECT f.*, fc.comment as latest_comment
+       FROM files f
+       LEFT JOIN file_comments fc ON f.id = fc.file_id AND fc.id = (
+         SELECT MAX(id) FROM file_comments WHERE file_id = f.id
+       )
+       ORDER BY f.uploaded_at DESC LIMIT ? OFFSET ?`,
+      [limit, offset],
+      (err, files) => {
+        if (err) {
+          console.error('❌ Error getting all files:', err);
+          return res.status(500).json({
+            success: false,
+            message: 'Failed to fetch all files'
+          });
+        }
+        console.log(`✅ Retrieved ${files.length} files (all files view)`);
+        res.json({
+          success: true,
+          files,
+          pagination: {
+            page,
+            limit,
+            total: countResult.total,
+            pages: Math.ceil(countResult.total / limit)
+          }
+        });
+      }
+    );
+  });
+});
+
+// Team leader approve/reject file
+router.post('/:fileId/team-leader-review', (req, res) => {
+  const { fileId } = req.params;
+  const { action, comments, teamLeaderId, teamLeaderUsername, teamLeaderRole, team } = req.body;
+  console.log(`📋 Team leader ${action} for file ${fileId} by ${teamLeaderUsername}`);
+
+  if (!['approve', 'reject'].includes(action)) {
+    return res.status(400).json({
+      success: false,
+      message: 'Invalid action. Must be approve or reject'
+    });
+  }
+
+  // Get current file status
+  db.get('SELECT * FROM files WHERE id = ?', [fileId], (err, file) => {
+    if (err || !file) {
+      return res.status(404).json({
+        success: false,
+        message: 'File not found'
+      });
+    }
+    if (file.current_stage !== 'pending_team_leader') {
+      return res.status(400).json({
+        success: false,
+        message: 'File is not in pending team leader review stage'
+      });
+    }
+
+    const now = new Date().toISOString();
+    let newStatus, newStage;
+    if (action === 'approve') {
+      newStatus = 'team_leader_approved';
+      newStage = 'pending_admin';
+    } else {
+      newStatus = 'rejected_by_team_leader';
+      newStage = 'rejected_by_team_leader';
+    }
+
+    // Update file status
+    db.run(`UPDATE files SET
+      status = ?,
+      current_stage = ?,
+      team_leader_id = ?,
+      team_leader_username = ?,
+      team_leader_reviewed_at = ?,
+      team_leader_comments = ?,
+      ${action === 'reject' ? 'rejection_reason = ?, rejected_by = ?, rejected_at = ?,' : ''}
+      updated_at = ?
+    WHERE id = ?`,
+    action === 'reject' ? [
+      newStatus, newStage, teamLeaderId, teamLeaderUsername, now, comments,
+      comments, teamLeaderUsername, now, now, fileId
+    ] : [
+      newStatus, newStage, teamLeaderId, teamLeaderUsername, now, comments, now, fileId
+    ], function(err) {
+      if (err) {
+        console.error('❌ Error updating file status:', err);
+        return res.status(500).json({
+          success: false,
+          message: 'Failed to update file status'
+        });
+      }
+
+      // Add comment if provided
+      if (comments) {
+        db.run(
+          'INSERT INTO file_comments (file_id, user_id, username, user_role, comment, comment_type) VALUES (?, ?, ?, ?, ?, ?)',
+          [fileId, teamLeaderId, teamLeaderUsername, teamLeaderRole, comments, action],
+          (err) => {
+            if (err) {
+              console.error('❌ Error adding comment:', err);
+            }
+          }
+        );
+      }
+
+      // Log activity
+      logActivity(
+        db,
+        teamLeaderId,
+        teamLeaderUsername,
+        teamLeaderRole,
+        team,
+        `File ${action}d: ${file.filename} (Team Leader Review)`
+      );
+
+      // Log status history
+      logFileStatusChange(
+        db,
+        fileId,
+        file.status,
+        newStatus,
+        file.current_stage,
+        newStage,
+        teamLeaderId,
+        teamLeaderUsername,
+        teamLeaderRole,
+        `Team leader ${action}: ${comments || 'No comments'}`
+      );
+
+      console.log(`✅ File ${action}d by team leader: ${file.filename}`);
+      res.json({
+        success: true,
+        message: `File ${action}d successfully`,
+        file: {
+          ...file,
+          status: newStatus,
+          current_stage: newStage,
+          team_leader_reviewed_at: now,
+          team_leader_comments: comments
+        }
+      });
+    });
+  });
+});
+
+// Admin approve/reject file (Final approval)
+router.post('/:fileId/admin-review', (req, res) => {
+  const { fileId } = req.params;
+  const { action, comments, adminId, adminUsername, adminRole, team } = req.body;
+  console.log(`📋 Admin ${action} for file ${fileId} by ${adminUsername}`);
+
+  if (!['approve', 'reject'].includes(action)) {
+    return res.status(400).json({
+      success: false,
+      message: 'Invalid action. Must be approve or reject'
+    });
+  }
+
+  // Get current file status
+  db.get('SELECT * FROM files WHERE id = ?', [fileId], (err, file) => {
+    if (err || !file) {
+      return res.status(404).json({
+        success: false,
+        message: 'File not found'
+      });
+    }
+    if (file.current_stage !== 'pending_admin') {
+      return res.status(400).json({
+        success: false,
+        message: 'File is not in pending admin review stage'
+      });
+    }
+
+    const now = new Date().toISOString();
+    let newStatus, newStage, publicNetworkUrl = null;
+    if (action === 'approve') {
+      newStatus = 'final_approved';
+      newStage = 'published_to_public';
+      // Simulate public network URL
+      publicNetworkUrl = `https://public-network.example.com/files/${file.filename}`;
+    } else {
+      newStatus = 'rejected_by_admin';
+      newStage = 'rejected_by_admin';
+    }
+
+    // Update file status
+    db.run(`UPDATE files SET
+      status = ?,
+      current_stage = ?,
+      admin_id = ?,
+      admin_username = ?,
+      admin_reviewed_at = ?,
+      admin_comments = ?,
+      ${action === 'approve' ? 'public_network_url = ?, final_approved_at = ?,' : ''}
+      ${action === 'reject' ? 'rejection_reason = ?, rejected_by = ?, rejected_at = ?,' : ''}
+      updated_at = ?
+    WHERE id = ?`,
+    action === 'approve' ? [
+      newStatus, newStage, adminId, adminUsername, now, comments,
+      publicNetworkUrl, now, now, fileId
+    ] : action === 'reject' ? [
+      newStatus, newStage, adminId, adminUsername, now, comments,
+      comments, adminUsername, now, now, fileId
+    ] : [
+      newStatus, newStage, adminId, adminUsername, now, comments, now, fileId
+    ], function(err) {
+      if (err) {
+        console.error('❌ Error updating file status:', err);
+        return res.status(500).json({
+          success: false,
+          message: 'Failed to update file status'
+        });
+      }
+
+      // Add comment if provided
+      if (comments) {
+        db.run(
+          'INSERT INTO file_comments (file_id, user_id, username, user_role, comment, comment_type) VALUES (?, ?, ?, ?, ?, ?)',
+          [fileId, adminId, adminUsername, adminRole, comments, action === 'approve' ? 'final_approval' : 'final_rejection'],
+          (err) => {
+            if (err) {
+              console.error('❌ Error adding comment:', err);
+            }
+          }
+        );
+      }
+
+      // Log activity
+      logActivity(
+        db,
+        adminId,
+        adminUsername,
+        adminRole,
+        team,
+        `File ${action}d: ${file.filename} (Admin Final Review)${action === 'approve' ? ' - Published to Public Network' : ''}`
+      );
+
+      // Log status history
+      logFileStatusChange(
+        db,
+        fileId,
+        file.status,
+        newStatus,
+        file.current_stage,
+        newStage,
+        adminId,
+        adminUsername,
+        adminRole,
+        `Admin ${action}: ${comments || 'No comments'}${action === 'approve' ? ' - Published to Public Network' : ''}`
+      );
+
+      console.log(`✅ File ${action}d by admin: ${file.filename}${action === 'approve' ? ' - Published to Public Network' : ''}`);
+      res.json({
+        success: true,
+        message: `File ${action}d successfully${action === 'approve' ? ' and published to Public Network' : ''}`,
+        file: {
+          ...file,
+          status: newStatus,
+          current_stage: newStage,
+          admin_reviewed_at: now,
+          admin_comments: comments,
+          ...(action === 'approve' && { public_network_url: publicNetworkUrl, final_approved_at: now })
+        }
+      });
+    });
+  });
+});
+
+// Get file comments
+router.get('/:fileId/comments', (req, res) => {
+  const { fileId } = req.params;
+  db.all(
+    'SELECT * FROM file_comments WHERE file_id = ? ORDER BY created_at DESC',
+    [fileId],
+    (err, comments) => {
+      if (err) {
+        console.error('❌ Error getting file comments:', err);
+        return res.status(500).json({
+          success: false,
+          message: 'Failed to fetch comments'
+        });
+      }
+      res.json({
+        success: true,
+        comments
+      });
+    }
+  );
+});
+
+// Add comment to file
+router.post('/:fileId/comments', (req, res) => {
+  const { fileId } = req.params;
+  const { comment, userId, username, userRole } = req.body;
+  if (!comment || !comment.trim()) {
+    return res.status(400).json({
+      success: false,
+      message: 'Comment cannot be empty'
+    });
+  }
+  db.run(
+    'INSERT INTO file_comments (file_id, user_id, username, user_role, comment) VALUES (?, ?, ?, ?, ?)',
+    [fileId, userId, username, userRole, comment.trim()],
+    function(err) {
+      if (err) {
+        console.error('❌ Error adding comment:', err);
+        return res.status(500).json({
+          success: false,
+          message: 'Failed to add comment'
+        });
+      }
+      res.json({
+        success: true,
+        message: 'Comment added successfully',
+        comment: {
+          id: this.lastID,
+          file_id: fileId,
+          user_id: userId,
+          username: username,
+          user_role: userRole,
+          comment: comment.trim(),
+          created_at: new Date()
+        }
+      });
+    }
+  );
+});
+
+// Get file status history
+router.get('/:fileId/history', (req, res) => {
+  const { fileId } = req.params;
+  db.all(
+    'SELECT * FROM file_status_history WHERE file_id = ? ORDER BY created_at DESC',
+    [fileId],
+    (err, history) => {
+      if (err) {
+        console.error('❌ Error getting file history:', err);
+        return res.status(500).json({
+          success: false,
+          message: 'Failed to fetch file history'
+        });
+      }
+      res.json({
+        success: true,
+        history
+      });
+    }
+  );
+});
+
+// Delete file (Admin only)
+router.delete('/:fileId', (req, res) => {
+  const { fileId } = req.params;
+  const { adminId, adminUsername, adminRole, team } = req.body;
+  console.log(`🗑️ Deleting file ${fileId} by admin ${adminUsername}`);
+
+  // Get file info first
+  db.get('SELECT * FROM files WHERE id = ?', [fileId], (err, file) => {
+    if (err || !file) {
+      return res.status(404).json({
+        success: false,
+        message: 'File not found'
+      });
+    }
+
+    // Delete file from filesystem
+    const filePath = path.join(uploadsDir, path.basename(file.file_path));
+    fs.unlink(filePath, (unlinkErr) => {
+      if (unlinkErr) {
+        console.error('❌ Error deleting physical file:', unlinkErr);
+      } else {
+        console.log('✅ Physical file deleted:', filePath);
+      }
+    });
+
+    // Delete file record from database
+    db.run('DELETE FROM files WHERE id = ?', [fileId], function(err) {
+      if (err) {
+        console.error('❌ Error deleting file from database:', err);
+        return res.status(500).json({
+          success: false,
+          message: 'Failed to delete file'
+        });
+      }
+
+      // Log activity
+      logActivity(
+        db,
+        adminId,
+        adminUsername,
+        adminRole,
+        team,
+        `File deleted: ${file.filename} (Admin Action)`
+      );
+      console.log(`✅ File deleted: ${file.filename}`);
+      res.json({
+        success: true,
+        message: 'File deleted successfully'
+      });
+    });
+  });
+});
+
+module.exports = router;
