@@ -214,44 +214,12 @@
 
 .team-badge {
   background: transparent;
-  color: var(--text-secondary);
-  border: 1px solid var(--border-color);
+  color: #000000;
+  border: 1px solid #000000;
   transition: all 0.2s ease;
   backdrop-filter: blur(4px);
 }
 
-/* Team badge with dynamic colors will override these styles inline */
-.team-badge[style] {
-  font-weight: 600;
-  border-width: 2px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-  position: relative;
-  overflow: hidden;
-}
-
-/* Add subtle hover effect for team badges */
-.team-badge[style]:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
-}
-
-/* Add subtle background tint using the team color */
-.team-badge[style]::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: currentColor;
-  opacity: 0.05;
-  border-radius: inherit;
-  transition: opacity 0.2s ease;
-}
-
-.team-badge[style]:hover::before {
-  opacity: 0.1;
-}
 
 .datetime-cell {
   display: flex;

@@ -4,8 +4,6 @@ import './ActivityLogs.css'
 const ActivityLogs = ({ clearMessages, error, success, setError, setSuccess }) => {
   const [activityLogs, setActivityLogs] = useState([])
   const [filteredLogs, setFilteredLogs] = useState([])
-  const [teams, setTeams] = useState([])
-  const [teamsLoading, setTeamsLoading] = useState(false)
   const [logsSearchQuery, setLogsSearchQuery] = useState('')
   const [dateFilter, setDateFilter] = useState('all')
   const [currentPage, setCurrentPage] = useState(1)
@@ -17,7 +15,6 @@ const ActivityLogs = ({ clearMessages, error, success, setError, setSuccess }) =
   // Fetch activity logs on component mount
   useEffect(() => {
     fetchActivityLogs()
-    fetchTeams()
   }, [])
 
   // Filter logs when search query, date filter, or logs change
@@ -63,23 +60,6 @@ const ActivityLogs = ({ clearMessages, error, success, setError, setSuccess }) =
     setCurrentPage(1) // Reset to first page when filters change
   }, [logsSearchQuery, dateFilter, activityLogs])
 
-  const fetchTeams = async () => {
-    setTeamsLoading(true)
-    try {
-      const response = await fetch('http://localhost:3001/api/teams')
-      const data = await response.json()
-      if (data.success) {
-        setTeams(data.teams || [])
-      } else {
-        console.error('Failed to fetch teams:', data.message)
-      }
-    } catch (error) {
-      console.error('Error fetching teams:', error)
-    } finally {
-      setTeamsLoading(false)
-    }
-  }
-
   const fetchActivityLogs = async () => {
     setIsLoading(true)
     try {
@@ -97,11 +77,6 @@ const ActivityLogs = ({ clearMessages, error, success, setError, setSuccess }) =
     } finally {
       setIsLoading(false)
     }
-  }
-
-  const getTeamColor = (teamName) => {
-    const team = teams.find(t => t.name === teamName)
-    return team ? team.color : '#6B7280' // Default gray color
   }
 
   const exportLogs = () => {
@@ -441,14 +416,7 @@ const ActivityLogs = ({ clearMessages, error, success, setError, setSuccess }) =
                       </span>
                     </td>
                     <td>
-                      <span 
-                        className="team-badge"
-                        style={{ 
-                          backgroundColor: 'transparent',
-                          color: getTeamColor(log.team),
-                          borderColor: getTeamColor(log.team)
-                        }}
-                      >
+                      <span className="team-badge">
                         {log.team}
                       </span>
                     </td>
