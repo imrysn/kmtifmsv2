@@ -15,13 +15,31 @@ const networkDataPath = '\\\\KMTI-NAS\\Shared\\data';
 const dbPath = path.join(networkDataPath, 'database.sqlite');
 const uploadsDir = path.join(networkDataPath, 'uploads');
 
-// Database setup
+// Database setup with WAL mode for better write performance
 const db = new sqlite3.Database(dbPath, (err) => {
   if (err) {
     console.error('❌ Error opening network database:', err.message);
     console.error('💡 Make sure network path is accessible:', networkDataPath);
   } else {
     console.log('✅ Connected to network SQLite database:', dbPath);
+    
+    // Enable WAL mode for better concurrency and write performance
+    db.run('PRAGMA journal_mode = WAL;', (err) => {
+      if (err) {
+        console.error('❌ Error enabling WAL mode:', err);
+      } else {
+        console.log('✅ WAL mode enabled for database');
+      }
+    });
+    
+    // Set synchronous mode to NORMAL for better performance while maintaining safety
+    db.run('PRAGMA synchronous = NORMAL;', (err) => {
+      if (err) {
+        console.error('❌ Error setting synchronous mode:', err);
+      } else {
+        console.log('✅ Synchronous mode set to NORMAL');
+      }
+    });
   }
 });
 
@@ -717,48 +735,109 @@ app.put('/api/users/:id', (req, res) => {
     });
   }
   
-  db.run(
-    'UPDATE users SET fullName = ?, username = ?, email = ?, role = ?, team = ? WHERE id = ?',
-    [fullName, username, email, role, team || 'General', userId],
-    function(err) {
-      if (err) {
-        console.error('❌ Error updating user:', err);
-        if (err.code === 'SQLITE_CONSTRAINT') {
-          return res.status(409).json({ 
-            success: false, 
-            message: 'Username or email already exists' 
-          });
-        }
-        return res.status(500).json({ 
-          success: false, 
-          message: 'Failed to update user' 
-        });
-      }
-      
-      if (this.changes === 0) {
-        return res.status(404).json({ 
-          success: false, 
-          message: 'User not found' 
-        });
-      }
-      
-      console.log(`✅ User ${userId} updated successfully`);
-      
-      // Log activity
-      logActivity(
-        userId,
-        username,
-        role,
-        team,
-        `User profile updated by administrator (Name: ${fullName}, Role: ${role}, Team: ${team})`
-      );
-      
-      res.json({ 
-        success: true, 
-        message: 'User updated successfully' 
+  // First, check if user exists and get current data
+  db.get('SELECT * FROM users WHERE id = ?', [userId], (err, currentUser) => {
+    if (err) {
+      console.error('❌ Error fetching user:', err);
+      return res.status(500).json({ 
+        success: false, 
+        message: 'Failed to fetch user data' 
       });
     }
-  );
+    
+    if (!currentUser) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'User not found' 
+      });
+    }
+    
+    // Perform the update with explicit transaction
+    db.serialize(() => {
+      db.run('BEGIN TRANSACTION', (err) => {
+        if (err) {
+          console.error('❌ Error beginning transaction:', err);
+          return res.status(500).json({ 
+            success: false, 
+            message: 'Failed to update user' 
+          });
+        }
+        
+        db.run(
+          'UPDATE users SET fullName = ?, username = ?, email = ?, role = ?, team = ? WHERE id = ?',
+          [fullName, username, email, role, team || 'General', userId],
+          function(err) {
+            if (err) {
+              console.error('❌ Error updating user:', err);
+              
+              // Rollback on error
+              db.run('ROLLBACK', (rollbackErr) => {
+                if (rollbackErr) {
+                  console.error('❌ Error rolling back:', rollbackErr);
+                }
+              });
+              
+              if (err.code === 'SQLITE_CONSTRAINT') {
+                return res.status(409).json({ 
+                  success: false, 
+                  message: 'Username or email already exists' 
+                });
+              }
+              return res.status(500).json({ 
+                success: false, 
+                message: 'Failed to update user' 
+              });
+            }
+            
+            if (this.changes === 0) {
+              db.run('ROLLBACK');
+              return res.status(404).json({ 
+                success: false, 
+                message: 'User not found or no changes made' 
+              });
+            }
+            
+            // Commit the transaction
+            db.run('COMMIT', (commitErr) => {
+              if (commitErr) {
+                console.error('❌ Error committing transaction:', commitErr);
+                return res.status(500).json({ 
+                  success: false, 
+                  message: 'Failed to commit changes' 
+                });
+              }
+              
+              console.log(`✅ User ${userId} updated successfully - ${this.changes} row(s) affected`);
+              console.log(`   Old values: ${currentUser.fullName} (${currentUser.username}) - ${currentUser.role} - ${currentUser.team}`);
+              console.log(`   New values: ${fullName} (${username}) - ${role} - ${team || 'General'}`);
+              
+              // Log activity
+              logActivity(
+                userId,
+                username,
+                role,
+                team || 'General',
+                `User profile updated by administrator (Name: ${fullName}, Role: ${role}, Team: ${team || 'General'})`
+              );
+              
+              res.json({ 
+                success: true, 
+                message: 'User updated successfully',
+                updatedUser: {
+                  id: userId,
+                  fullName,
+                  username,
+                  email,
+                  role,
+                  team: team || 'General'
+                }
+              });
+            });
+          }
+        );
+      });
+    });
+  });
 });
 
 // Reset user password (Admin only)
