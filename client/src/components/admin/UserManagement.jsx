@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import './UserManagement.css'
 
-const UserManagement = ({ clearMessages, error, success, setError, setSuccess }) => {
+const UserManagement = ({ clearMessages, error, success, setError, setSuccess, user }) => {
   const [users, setUsers] = useState([])
   const [teams, setTeams] = useState([])
   const [teamsLoading, setTeamsLoading] = useState(false)
@@ -97,7 +97,13 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess })
       const response = await fetch('http://localhost:3001/api/users', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData)
+        body: JSON.stringify({
+          ...formData,
+          adminId: user.id,
+          adminUsername: user.username,
+          adminRole: user.role,
+          adminTeam: user.team
+        })
       })
       
       const data = await response.json()
@@ -137,7 +143,11 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess })
           username: formData.username,
           email: formData.email,
           role: formData.role,
-          team: formData.team
+          team: formData.team,
+          adminId: user.id,
+          adminUsername: user.username,
+          adminRole: user.role,
+          adminTeam: user.team
         })
       })
       
@@ -166,7 +176,13 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess })
       const response = await fetch(`http://localhost:3001/api/users/${selectedUser.id}/password`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ password: formData.password })
+        body: JSON.stringify({ 
+          password: formData.password,
+          adminId: user.id,
+          adminUsername: user.username,
+          adminRole: user.role,
+          adminTeam: user.team
+        })
       })
       
       const data = await response.json()
@@ -191,7 +207,14 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess })
     setIsLoading(true)
     try {
       const response = await fetch(`http://localhost:3001/api/users/${userToDelete.id}`, {
-        method: 'DELETE'
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          adminId: user.id,
+          adminUsername: user.username,
+          adminRole: user.role,
+          adminTeam: user.team
+        })
       })
       
       const data = await response.json()

@@ -285,7 +285,7 @@ function initializeDatabase() {
   });
 }
 
-// Handle user table migration and seeding
+// Handle user table migration
 function handleUserTableMigration(resolve, reject) {
   // Check table structure and add missing columns if needed
   db.all('PRAGMA table_info(users)', (err, columns) => {
@@ -353,142 +353,15 @@ function handleUserTableMigration(resolve, reject) {
           console.log('✅ Updated usernames for existing records');
         }
         
-        seedTestUsers(resolve, reject);
+        // Database initialization complete
+        console.log('\n📁 File approval system ready');
+        console.log('✅ Database initialized successfully\n');
+        resolve();
       });
     }).catch(reject);
   });
 }
 
-// Seed test users and sample files
-function seedTestUsers(resolve, reject) {
-  // Delete existing test users first to avoid conflicts
-  const testEmails = ['user@example.com', 'teamleader@example.com', 'admin@example.com', 'test@example.com'];
-  
-  db.run(`DELETE FROM users WHERE email IN (${testEmails.map(() => '?').join(',')})`, testEmails, (err) => {
-    if (err) {
-      console.error('Error deleting existing test users:', err);
-    } else {
-      console.log('✅ Cleared existing test users');
-    }
-    
-    // Create new test users
-    const testUsers = [
-      { 
-        fullName: 'John User', 
-        username: 'john.user', 
-        email: 'user@example.com', 
-        password: 'password123', 
-        role: 'USER', 
-        team: 'General' 
-      },
-      { 
-        fullName: 'Sarah Team Leader', 
-        username: 'sarah.leader', 
-        email: 'teamleader@example.com', 
-        password: 'password123', 
-        role: 'TEAM LEADER', 
-        team: 'General' 
-      },
-      { 
-        fullName: 'Admin Administrator', 
-        username: 'admin', 
-        email: 'admin@example.com', 
-        password: 'password123', 
-        role: 'ADMIN', 
-        team: 'General' 
-      },
-      { 
-        fullName: 'Test User', 
-        username: 'test.user', 
-        email: 'test@example.com', 
-        password: 'password123', 
-        role: 'USER', 
-        team: 'General' 
-      }
-    ];
-    
-    let completed = 0;
-    const total = testUsers.length;
-    
-    // Create only the General team (required for test users)
-    const now = new Date().toISOString();
-    db.run(
-      'INSERT OR IGNORE INTO teams (name, description, created_at, updated_at) VALUES (?, ?, ?, ?)',
-      ['General', 'Default team for all users', now, now],
-      function(err) {
-        if (err) {
-          console.error('❌ Error creating General team:', err);
-        } else {
-          console.log('✅ General team ensured in database');
-        }
-        
-        // Now create users
-        createTestUsers();
-      }
-    );
-    
-    function createTestUsers() {
-      testUsers.forEach(user => {
-        const hashedPassword = bcrypt.hashSync(user.password, 10);
-        db.run(
-          'INSERT INTO users (fullName, username, email, password, role, team) VALUES (?, ?, ?, ?, ?, ?)', 
-          [user.fullName, user.username, user.email, hashedPassword, user.role, user.team], 
-          function(err) {
-            if (err) {
-              console.error(`Error creating ${user.role} user:`, err);
-            } else {
-              console.log(`✅ ${user.role} user created: ${user.username} (${user.email}) - Team: ${user.team}`);
-            }
-            
-            completed++;
-            if (completed === total) {
-              // Complete user creation process
-              completeUserCreation();
-            }
-          }
-        );
-      });
-    }
-    
-    function completeUserCreation() {
-      console.log('\n👤 Available test accounts:');
-      console.log('  USER: user@example.com / password123 (John User)');
-      console.log('  TEAM LEADER: teamleader@example.com / password123 (Sarah Team Leader)');
-      console.log('  ADMIN: admin@example.com / password123 (Admin Administrator)');
-      console.log('  Legacy USER: test@example.com / password123 (Test User)\n');
-      
-      // Add sample files and activity logs
-      seedSampleData(resolve, reject);
-    }
-  });
-}
-
-// Seed sample data only on first run or when database is empty
-function seedSampleData(resolve, reject) {
-  // Check if sample data already exists to prevent duplication
-  db.get('SELECT COUNT(*) as count FROM files', [], (err, result) => {
-    if (err) {
-      console.error('❌ Error checking existing files:', err);
-      reject(err);
-      return;
-    }
-    
-    if (result.count > 0) {
-      console.log('✅ Database already contains files, skipping sample data seeding');
-      resolve();
-      return;
-    }
-    
-    console.log('📁 Database is empty, adding sample data for first-time setup...');
-    
-    // Add initial activity log
-    logActivity(null, 'System', 'SYSTEM', 'System', 'File approval system initialized');
-    
-    console.log('\n📁 File approval system initialized without mock data');
-    console.log('✅ Ready for real file uploads');
-    resolve();
-  });
-}
 
 // Activity logging function
 function logActivity(userId, username, role, team, activity) {
@@ -667,7 +540,7 @@ app.get('/api/users', (req, res) => {
 
 // Create new user (Admin only)
 app.post('/api/users', (req, res) => {
-  const { fullName, username, email, password, role = 'USER', team = 'General' } = req.body;
+  const { fullName, username, email, password, role = 'USER', team = 'General', adminId, adminUsername, adminRole, adminTeam } = req.body;
   
   console.log('👥 Creating new user:', { fullName, username, email, role, team });
   
@@ -702,13 +575,13 @@ app.post('/api/users', (req, res) => {
       
       console.log(`✅ User created with ID: ${this.lastID}`);
       
-      // Log activity
+      // Log activity using admin's information
       logActivity(
-        this.lastID,
-        username,
-        role,
-        team,
-        `User account created by administrator`
+        adminId || null,
+        adminUsername || 'Administrator',
+        adminRole || 'ADMIN',
+        adminTeam || 'System',
+        `User account created by administrator: ${fullName} (${username})`
       );
       
       res.status(201).json({ 
@@ -723,7 +596,7 @@ app.post('/api/users', (req, res) => {
 // Update user (Admin only)
 app.put('/api/users/:id', (req, res) => {
   const userId = req.params.id;
-  const { fullName, username, email, role, team } = req.body;
+  const { fullName, username, email, role, team, adminId, adminUsername, adminRole, adminTeam } = req.body;
   
   console.log(`✏️ Updating user ${userId}:`, { fullName, username, email, role, team });
   
@@ -811,12 +684,12 @@ app.put('/api/users/:id', (req, res) => {
               console.log(`   Old values: ${currentUser.fullName} (${currentUser.username}) - ${currentUser.role} - ${currentUser.team}`);
               console.log(`   New values: ${fullName} (${username}) - ${role} - ${team || 'General'}`);
               
-              // Log activity
+              // Log activity using admin's information
               logActivity(
-                userId,
-                username,
-                role,
-                team || 'General',
+                adminId || null,
+                adminUsername || 'Administrator',
+                adminRole || 'ADMIN',
+                adminTeam || 'System',
                 `User profile updated by administrator (Name: ${fullName}, Role: ${role}, Team: ${team || 'General'})`
               );
               
@@ -843,7 +716,7 @@ app.put('/api/users/:id', (req, res) => {
 // Reset user password (Admin only)
 app.put('/api/users/:id/password', (req, res) => {
   const userId = req.params.id;
-  const { password } = req.body;
+  const { password, adminId, adminUsername, adminRole, adminTeam } = req.body;
   
   console.log(`🔐 Resetting password for user ${userId}`);
   
@@ -877,15 +750,16 @@ app.put('/api/users/:id/password', (req, res) => {
       
       console.log(`✅ Password reset for user ${userId}`);
       
-      // Get user details for logging
-      db.get('SELECT username, role, team FROM users WHERE id = ?', [userId], (err, userDetails) => {
+      // Get user details for logging the affected user's name
+      db.get('SELECT username, fullName FROM users WHERE id = ?', [userId], (err, userDetails) => {
         if (!err && userDetails) {
+          // Log activity using admin's information
           logActivity(
-            userId,
-            userDetails.username,
-            userDetails.role,
-            userDetails.team,
-            'Password reset by administrator'
+            adminId || null,
+            adminUsername || 'Administrator',
+            adminRole || 'ADMIN',
+            adminTeam || 'System',
+            `Password reset by administrator for user: ${userDetails.fullName} (${userDetails.username})`
           );
         }
       });
@@ -901,6 +775,7 @@ app.put('/api/users/:id/password', (req, res) => {
 // Delete user (Admin only)
 app.delete('/api/users/:id', (req, res) => {
   const userId = req.params.id;
+  const { adminId, adminUsername, adminRole, adminTeam } = req.body;
   
   console.log(`🗑️ Deleting user ${userId}`);
   
@@ -933,13 +808,13 @@ app.delete('/api/users/:id', (req, res) => {
       
       console.log(`✅ User deleted: ${user.fullName} (${user.email})`);
       
-      // Log activity (using user info before deletion)
+      // Log activity using admin's information
       logActivity(
-        null, // user_id is null since user is deleted
-        'System',
-        'ADMIN',
-        'System',
-        `User account deleted by administrator: ${user.fullName} (${user.email})`
+      adminId || null,
+      adminUsername || 'Administrator',
+      adminRole || 'ADMIN',
+      adminTeam || 'System',
+      `User account deleted by administrator: ${user.fullName} (${user.email})`
       );
       
       res.json({ 

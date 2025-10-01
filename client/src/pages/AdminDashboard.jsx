@@ -103,7 +103,7 @@ const AdminDashboard = ({ user, onLogout }) => {
       case 'dashboard':
         return <DashboardOverview user={user} users={users} />
       case 'users':
-        return <UserManagement {...commonProps} />
+        return <UserManagement {...commonProps} user={user} />
       case 'activity-logs':
         return <ActivityLogs {...commonProps} />
       case 'file-approval':

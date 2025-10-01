@@ -79,7 +79,7 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
     // Apply search filter
     if (fileSearchQuery.trim() !== '') {
       filtered = filtered.filter(file => 
-        file.filename.toLowerCase().includes(fileSearchQuery.toLowerCase()) ||
+        file.original_name.toLowerCase().includes(fileSearchQuery.toLowerCase()) ||
         file.username.toLowerCase().includes(fileSearchQuery.toLowerCase()) ||
         file.user_team.toLowerCase().includes(fileSearchQuery.toLowerCase())
       )
@@ -93,9 +93,9 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
         case 'date-asc':
           return new Date(a.uploaded_at) - new Date(b.uploaded_at)
         case 'filename-asc':
-          return a.filename.localeCompare(b.filename)
+          return a.original_name.localeCompare(b.original_name)
         case 'filename-desc':
-          return b.filename.localeCompare(a.filename)
+          return b.original_name.localeCompare(a.original_name)
         case 'user-asc':
           return a.username.localeCompare(b.username)
         case 'user-desc':
@@ -592,7 +592,7 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
                       <div className="file-cell">
                         <div className="file-icon">{file.file_type.charAt(0)}</div>
                         <div className="file-details">
-                          <span className="file-name">{file.filename}</span>
+                          <span className="file-name">{file.original_name}</span>
                           <span className="file-size">{formatFileSize(file.file_size)}</span>
                         </div>
                       </div>
