@@ -1,3 +1,4 @@
+
 const fs = require('fs');
 const path = require('path');
 const sqlite3 = require('sqlite3').verbose();
@@ -137,7 +138,7 @@ function checkUploadsDirectory() {
     }
     
     console.log('\n✅ Network verification complete!');
-    console.log('\n🚀 Ready to start server with network configuration');
+    console.log('\n🚀 Ready to start server with network configuration');                                                                                                                                                                                                                                                                                                                                                        
     console.log('💡 Run: npm run dev');
     
   } catch (error) {

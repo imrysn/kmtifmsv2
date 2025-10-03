@@ -1,5 +1,6 @@
 import './css/MyFilesTab.css';
 import { useState, useRef } from 'react';
+import SingleSelectTags from './SingleSelectTags';
 
 const MyFilesTab = ({ 
   filteredFiles,
@@ -19,6 +20,7 @@ const MyFilesTab = ({
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [uploadedFile, setUploadedFile] = useState(null);
   const [description, setDescription] = useState('');
+  const [selectedTag, setSelectedTag] = useState('');
   const [isUploading, setIsUploading] = useState(false);
   const [showDuplicateModal, setShowDuplicateModal] = useState(false);
   const [duplicateFileInfo, setDuplicateFileInfo] = useState(null);
@@ -77,6 +79,7 @@ const MyFilesTab = ({
       const formData = new FormData();
       formData.append('file', uploadedFile);
       formData.append('description', description);
+      formData.append('tags', selectedTag ? JSON.stringify([selectedTag]) : '[]');
       formData.append('userId', user.id);
       formData.append('username', user.username);
       formData.append('userTeam', user.team);
@@ -96,6 +99,7 @@ const MyFilesTab = ({
         alert(`File ${action} successfully! It has been submitted for team leader review.`);
         setUploadedFile(null);
         setDescription('');
+        setSelectedTag('');
         setShowUploadModal(false);
         setShowDuplicateModal(false);
         setDuplicateFileInfo(null);
@@ -140,6 +144,7 @@ const MyFilesTab = ({
   const clearUploadForm = () => {
     setUploadedFile(null);
     setDescription('');
+    setSelectedTag('');
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
@@ -213,6 +218,16 @@ const MyFilesTab = ({
       minute: '2-digit',
       hour12: true
     });
+  };
+
+  const getTags = (file) => {
+    if (!file.tags) return [];
+    try {
+      const tags = JSON.parse(file.tags);
+      return Array.isArray(tags) ? tags : [];
+    } catch (e) {
+      return [];
+    }
   };
 
   const getStatusDisplay = (file) => {
@@ -303,9 +318,14 @@ const MyFilesTab = ({
                         {getFileIcon(file.original_name)}
                       </div>
                       <div className="file-info">
-                        <h3 className="file-name">{file.original_name}</h3>
-                        <p className="file-size">{formatFileSize(file.file_size)}</p>
-                      </div>
+                      <h3 className="file-name">{file.original_name}</h3>
+                      <div className="file-metadata">
+                          <p className="file-size">{formatFileSize(file.file_size)}</p>
+                      {getTags(file).length > 0 && (
+                        <span className="file-tag-badge">{getTags(file)[0]}</span>
+                      )}
+                    </div>
+                  </div>
                       <div className="file-actions">
                         <button 
                           className="action-btn submit"
@@ -345,23 +365,40 @@ const MyFilesTab = ({
                   <span className="section-count">({submittedFiles.length})</span>
                 </div>
                 <div className="files-list">
-                  {submittedFiles.map((file) => (
-                    <div key={file.id} className="file-item-card" onClick={() => openFileModal(file)}>
-                      <div className="card-content">
-                        <div className="file-icon-large">
+                  {submittedFiles.map((file) => {
+                    const tags = getTags(file);
+                    return (
+                      <div key={file.id} className="file-item-compact" onClick={() => openFileModal(file)}>
+                        <div className="file-icon-wrapper">
                           {getFileIcon(file.original_name)}
                         </div>
-                        <div className="file-info-center">
-                          <h3 className="file-name-center">{file.original_name}</h3>
-                          <p className="file-size-center">{formatFileSize(file.file_size)}</p>
+                        <div className="file-info-compact">
+                          <h3 className="file-name">{file.original_name}</h3>
+                          <div className="file-metadata">
+                            <p className="file-size">{formatFileSize(file.file_size)}</p>
+                            <p className="file-date">{formatDate(file.uploaded_at)}</p>
+                          </div>
+                          {tags.length > 0 && (
+                            <div className="file-tags-row">
+                              <svg viewBox="0 0 24 24" fill="currentColor" className="tag-icon">
+                                <path d="M5.5,7A1.5,1.5 0 0,1 4,5.5A1.5,1.5 0 0,1 5.5,4A1.5,1.5 0 0,1 7,5.5A1.5,1.5 0 0,1 5.5,7M21.41,11.58L12.41,2.58C12.05,2.22 11.55,2 11,2H4C2.89,2 2,2.89 2,4V11C2,11.55 2.22,12.05 2.59,12.41L11.58,21.41C11.95,21.77 12.45,22 13,22C13.55,22 14.05,21.77 14.41,21.41L21.41,14.41C21.77,14.05 22,13.55 22,13C22,12.45 21.77,11.95 21.41,11.58Z"/>
+                              </svg>
+                              {tags.slice(0, 2).map((tag, index) => (
+                                <span key={index} className="file-tag-badge-inline">{tag}</span>
+                              ))}
+                              {tags.length > 2 && (
+                                <span className="tag-more-inline">+{tags.length - 2} more</span>
+                              )}
+                            </div>
+                          )}
                         </div>
-                        <div className="file-status-center">
+                        <div className="file-status-compact">
                           {getStatusDisplay(file)}
                           {getSubmissionStatus(file)}
                         </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             )}
@@ -438,13 +475,21 @@ const MyFilesTab = ({
                 />
               </div>
 
-              <div className="submission-details">
-                <div className="detail-item">
-                  <span>Team:</span> <strong>{user?.team}</strong>
-                </div>
-                <div className="detail-item">
-                  <span>Submitted by:</span> <strong>{user?.fullName}</strong>
-                </div>
+              <div className="form-group">
+                <label className="form-label">Tag</label>
+                <SingleSelectTags
+                  selectedTag={selectedTag}
+                  onChange={setSelectedTag}
+                  disabled={isUploading}
+                />
+                {selectedTag && (
+                  <div className="tags-info">
+                    <svg viewBox="0 0 24 24" fill="currentColor" className="info-icon">
+                      <path d="M13,9H11V7H13M13,17H11V11H13M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2Z"/>
+                    </svg>
+                    <span>1 tag selected</span>
+                  </div>
+                )}
               </div>
 
               <div className="modal-actions">

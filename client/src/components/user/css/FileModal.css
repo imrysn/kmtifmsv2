@@ -108,6 +108,41 @@
   text-align: right;
 }
 
+.description-text {
+  text-align: right;
+  line-height: 1.5;
+  word-break: break-word;
+}
+
+.category-badge {
+  display: inline-block;
+  padding: 4px 12px;
+  background: rgba(0, 122, 255, 0.1);
+  border: 1px solid rgba(0, 122, 255, 0.3);
+  border-radius: 6px;
+  color: #007aff;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.tags-display {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: flex-end;
+}
+
+.tag-badge {
+  display: inline-block;
+  padding: 4px 10px;
+  background: rgba(52, 199, 89, 0.1);
+  border: 1px solid rgba(52, 199, 89, 0.3);
+  border-radius: 6px;
+  color: #34c759;
+  font-size: 12px;
+  font-weight: 500;
+}
+
 .status-container {
   display: flex;
   flex-direction: column;

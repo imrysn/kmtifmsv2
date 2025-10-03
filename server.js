@@ -143,6 +143,8 @@ function initializeDatabase() {
             file_type TEXT NOT NULL,
             mime_type TEXT NOT NULL,
             description TEXT,
+            category TEXT,
+            tags TEXT,
             
             -- User Information
             user_id INTEGER NOT NULL,
@@ -1473,7 +1475,7 @@ app.post('/api/files/check-duplicate', (req, res) => {
 // Upload file (User only)
 app.post('/api/files/upload', upload.single('file'), async (req, res) => {
   try {
-    const { description, userId, username, userTeam, replaceExisting } = req.body;
+    const { description, category, tags, userId, username, userTeam, replaceExisting } = req.body;
     
     if (!req.file) {
       return res.status(400).json({
@@ -1565,9 +1567,9 @@ app.post('/api/files/upload', upload.single('file'), async (req, res) => {
     function insertFileRecord() {
       // Insert file record into database
       db.run(`INSERT INTO files (
-        filename, original_name, file_path, file_size, file_type, mime_type, description,
+        filename, original_name, file_path, file_size, file_type, mime_type, description, category, tags,
         user_id, username, user_team, status, current_stage
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         req.file.filename,
         req.file.originalname,
@@ -1576,6 +1578,8 @@ app.post('/api/files/upload', upload.single('file'), async (req, res) => {
         getFileTypeDescription(req.file.mimetype),
         req.file.mimetype,
         description || '',
+        category || '',
+        tags || '[]',
         userId,
         username,
         userTeam,
