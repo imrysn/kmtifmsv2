@@ -67,7 +67,7 @@ router.post('/login', (req, res) => {
     // Role-based access control
     const userRole = user.role;
     if (loginType === 'user') {
-      // User window: USER and TEAM LEADER can access
+      // User window: USER and TEAM_LEADER can access
       if (userRole === 'ADMIN') {
         console.log('❌ ADMIN user trying to access user window');
         return res.status(403).json({
@@ -76,7 +76,7 @@ router.post('/login', (req, res) => {
         });
       }
     } else if (loginType === 'admin') {
-      // Admin window: TEAM LEADER and ADMIN can access
+      // Admin window: TEAM_LEADER and ADMIN can access
       if (userRole === 'USER') {
         console.log('❌ USER trying to access admin window');
         return res.status(403).json({
@@ -89,9 +89,9 @@ router.post('/login', (req, res) => {
     // Determine panel type based on role and login type
     let panelType;
     if (loginType === 'user') {
-      panelType = 'user'; // Both USER and TEAM LEADER get user panel via user login
+      panelType = 'user'; // Both USER and TEAM_LEADER get user panel via user login
     } else if (loginType === 'admin') {
-      if (userRole === 'TEAM LEADER') {
+      if (userRole === 'TEAM_LEADER') {
         panelType = 'teamleader';
       } else if (userRole === 'ADMIN') {
         panelType = 'admin';

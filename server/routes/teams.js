@@ -43,7 +43,7 @@ router.post('/', (req, res) => {
     function(err) {
       if (err) {
         console.error('❌ Error creating team:', err);
-        if (err.code === 'SQLITE_CONSTRAINT') {
+        if (err.code === 'ER_DUP_ENTRY' || err.code === 'SQLITE_CONSTRAINT') {
           return res.status(409).json({
             success: false,
             message: 'Team name already exists'
@@ -107,7 +107,7 @@ router.put('/:id', (req, res) => {
     function(err) {
       if (err) {
         console.error('❌ Error updating team:', err);
-        if (err.code === 'SQLITE_CONSTRAINT') {
+        if (err.code === 'ER_DUP_ENTRY' || err.code === 'SQLITE_CONSTRAINT') {
           return res.status(409).json({
             success: false,
             message: 'Team name already exists'

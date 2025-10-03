@@ -1,10 +1,11 @@
-// MySQL Database Initialization Script - Compatible with MySQL 5.1
-// Fixed for QNAP MySQL 5.1.73 limitations
+// Force Recreate MySQL Database Tables with Correct Schema
+// This script DROPS existing tables and recreates them with fixed enums
 
 const { getPool, testConnection, closePool } = require('./config');
 
-async function initializeMySQL() {
-  console.log('🚀 Starting MySQL database initialization...\n');
+async function recreateDatabase() {
+  console.log('🔄 Force Recreating MySQL Database Tables...\n');
+  console.log('⚠️  WARNING: This will DELETE all existing data!\n');
   
   try {
     // Test connection first
@@ -19,15 +20,38 @@ async function initializeMySQL() {
     console.log('✅ Database connection successful\n');
     
     const pool = getPool();
-    let successCount = 0;
     
-    console.log('📋 Creating database tables...\n');
+    // STEP 1: Drop existing tables (in correct order due to foreign keys)
+    console.log('🗑️  Dropping existing tables...\n');
+    
+    const tablesToDrop = [
+      'file_status_history',
+      'file_comments', 
+      'files',
+      'activity_logs',
+      'teams',
+      'users'
+    ];
+    
+    for (const table of tablesToDrop) {
+      try {
+        process.stdout.write(`   Dropping ${table}... `);
+        await pool.query(`DROP TABLE IF EXISTS ${table}`);
+        console.log('✅');
+      } catch (error) {
+        console.log(`❌ ${error.message}`);
+      }
+    }
+    
+    console.log('\n📋 Creating tables with correct schema...\n');
+    
+    // STEP 2: Create tables with CORRECT enum definitions
     
     // USERS TABLE
     try {
       process.stdout.write('   Creating users table... ');
       await pool.query(`
-        CREATE TABLE IF NOT EXISTS users (
+        CREATE TABLE users (
           id INT AUTO_INCREMENT PRIMARY KEY,
           fullName VARCHAR(255) NOT NULL,
           username VARCHAR(100) UNIQUE NOT NULL,
@@ -43,16 +67,16 @@ async function initializeMySQL() {
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8
       `);
       console.log('✅');
-      successCount++;
     } catch (error) {
       console.log('❌', error.message);
+      throw error;
     }
     
     // TEAMS TABLE
     try {
       process.stdout.write('   Creating teams table... ');
       await pool.query(`
-        CREATE TABLE IF NOT EXISTS teams (
+        CREATE TABLE teams (
           id INT AUTO_INCREMENT PRIMARY KEY,
           name VARCHAR(100) UNIQUE NOT NULL,
           description TEXT,
@@ -68,16 +92,16 @@ async function initializeMySQL() {
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8
       `);
       console.log('✅');
-      successCount++;
     } catch (error) {
       console.log('❌', error.message);
+      throw error;
     }
     
-    // FILES TABLE
+    // FILES TABLE - WITH CORRECTED ENUMS
     try {
-      process.stdout.write('   Creating files table... ');
+      process.stdout.write('   Creating files table (with fixed enums)... ');
       await pool.query(`
-        CREATE TABLE IF NOT EXISTS files (
+        CREATE TABLE files (
           id INT AUTO_INCREMENT PRIMARY KEY,
           filename VARCHAR(255) NOT NULL,
           original_name VARCHAR(255) NOT NULL,
@@ -116,16 +140,16 @@ async function initializeMySQL() {
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8
       `);
       console.log('✅');
-      successCount++;
     } catch (error) {
       console.log('❌', error.message);
+      throw error;
     }
     
     // FILE COMMENTS TABLE
     try {
       process.stdout.write('   Creating file_comments table... ');
       await pool.query(`
-        CREATE TABLE IF NOT EXISTS file_comments (
+        CREATE TABLE file_comments (
           id INT AUTO_INCREMENT PRIMARY KEY,
           file_id INT NOT NULL,
           user_id INT NOT NULL,
@@ -141,16 +165,16 @@ async function initializeMySQL() {
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8
       `);
       console.log('✅');
-      successCount++;
     } catch (error) {
       console.log('❌', error.message);
+      throw error;
     }
     
     // FILE STATUS HISTORY TABLE
     try {
       process.stdout.write('   Creating file_status_history table... ');
       await pool.query(`
-        CREATE TABLE IF NOT EXISTS file_status_history (
+        CREATE TABLE file_status_history (
           id INT AUTO_INCREMENT PRIMARY KEY,
           file_id INT NOT NULL,
           old_status VARCHAR(50),
@@ -168,16 +192,16 @@ async function initializeMySQL() {
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8
       `);
       console.log('✅');
-      successCount++;
     } catch (error) {
       console.log('❌', error.message);
+      throw error;
     }
     
     // ACTIVITY LOGS TABLE
     try {
       process.stdout.write('   Creating activity_logs table... ');
       await pool.query(`
-        CREATE TABLE IF NOT EXISTS activity_logs (
+        CREATE TABLE activity_logs (
           id INT AUTO_INCREMENT PRIMARY KEY,
           user_id INT,
           username VARCHAR(100) NOT NULL,
@@ -191,12 +215,12 @@ async function initializeMySQL() {
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8
       `);
       console.log('✅');
-      successCount++;
     } catch (error) {
       console.log('❌', error.message);
+      throw error;
     }
     
-    // INSERT DEFAULT DATA
+    // STEP 3: Insert default data
     console.log('\n📝 Inserting default data...\n');
     
     // Default admin user
@@ -210,11 +234,7 @@ async function initializeMySQL() {
       `);
       console.log('✅');
     } catch (error) {
-      if (error.code === 'ER_DUP_ENTRY') {
-        console.log('⏭️  (already exists)');
-      } else {
-        console.log('❌', error.message);
-      }
+      console.log('❌', error.message);
     }
     
     // Default team
@@ -226,16 +246,11 @@ async function initializeMySQL() {
       `);
       console.log('✅');
     } catch (error) {
-      if (error.code === 'ER_DUP_ENTRY') {
-        console.log('⏭️  (already exists)');
-      } else {
-        console.log('❌', error.message);
-      }
+      console.log('❌', error.message);
     }
     
     console.log('\n' + '='.repeat(60));
-    console.log('✅ Database initialization complete!');
-    console.log(`   Created: ${successCount} tables`);
+    console.log('✅ Database recreation complete!');
     console.log('='.repeat(60));
     
     // Verify tables
@@ -248,43 +263,46 @@ async function initializeMySQL() {
       console.log(`   ✓ ${tableName}`);
     });
     
-    const tableNames = tables.map(t => Object.values(t)[0]);
-    const requiredTables = ['users', 'teams', 'files', 'file_comments', 
-                           'file_status_history', 'activity_logs'];
+    // Verify enum values
+    console.log('\n🔧 Verifying enum definitions...');
+    const [columns] = await pool.query("SHOW COLUMNS FROM files WHERE Field IN ('status', 'current_stage')");
     
-    const missingTables = requiredTables.filter(t => !tableNames.includes(t));
-    
-    if (missingTables.length === 0) {
-      console.log('\n✅ All required tables present!');
-      console.log('\n🎉 Database is ready for multi-user access!');
-      console.log('\n📝 Default login credentials:');
-      console.log('   Username: admin');
-      console.log('   Password: admin123');
-      console.log('\n📝 Next steps:');
-      console.log('1. Start server: npm run server:standalone');
-      console.log('2. Or full app: npm run dev');
-      console.log('3. Login with admin/admin123');
-      console.log('4. Deploy to other PCs in office');
-    } else {
-      console.log('\n⚠️  Warning: Missing tables:', missingTables.join(', '));
+    const statusColumn = columns.find(c => c.Field === 'status');
+    if (statusColumn) {
+      const statusEnums = statusColumn.Type.match(/enum\((.*)\)/i)[1];
+      console.log(`   Status enum: ${statusEnums}`);
     }
     
-    console.log('\n✨ MySQL multi-user system ready!\n');
+    const stageColumn = columns.find(c => c.Field === 'current_stage');
+    if (stageColumn) {
+      const stageEnums = stageColumn.Type.match(/enum\((.*)\)/i)[1];
+      console.log(`   Stage enum: ${stageEnums}`);
+    }
+    
+    console.log('\n✅ All tables recreated with correct schema!');
+    console.log('\n📝 Default login credentials:');
+    console.log('   Username: admin');
+    console.log('   Password: admin123');
+    console.log('\n📝 Next steps:');
+    console.log('1. Run: npm run db:verify');
+    console.log('2. Start server: npm run server:standalone');
+    console.log('3. Login with admin/admin123\n');
     
   } catch (error) {
-    console.error('\n❌ Initialization failed:', error.message);
+    console.error('\n❌ Recreation failed:', error.message);
+    console.error('\nStack:', error.stack);
     process.exit(1);
   } finally {
     await closePool();
   }
 }
 
-// Run initialization
+// Run recreation
 if (require.main === module) {
-  initializeMySQL().catch(error => {
+  recreateDatabase().catch(error => {
     console.error('Fatal error:', error);
     process.exit(1);
   });
 }
 
-module.exports = { initializeMySQL };
+module.exports = { recreateDatabase };

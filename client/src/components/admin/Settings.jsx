@@ -210,7 +210,7 @@ const Settings = ({ clearMessages, error, success, setError, setSuccess, users }
 
   const getTeamLeaderOptions = () => {
     return users?.filter(user => 
-      user.role === 'TEAM LEADER' || user.role === 'ADMIN'
+      user.role === 'TEAM_LEADER' || user.role === 'ADMIN'
     ) || []
   }
 
