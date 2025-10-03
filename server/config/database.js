@@ -1,6 +1,9 @@
 // Database Configuration - Supports both SQLite and MySQL
 // Automatically uses MySQL if configured, falls back to SQLite
 
+// Load environment variables FIRST
+require('dotenv').config();
+
 const path = require('path');
 const fs = require('fs');
 
