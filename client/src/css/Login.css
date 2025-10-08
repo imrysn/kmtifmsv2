@@ -241,7 +241,7 @@ body {
   left: 3px;
   width: calc(50% - 3px);
   height: 30px;
-  background: #6d706e;
+  background: #000000;
   border-radius: 10px;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
@@ -251,7 +251,7 @@ body {
 /* Move slider to the right for admin */
 .toggle-switch.admin .toggle-slider {
   left: calc(50% + 0px);
-  background: #6d706e;
+  background: #000000;
 }
 
 /* Form Styles */
@@ -311,7 +311,7 @@ body {
   transform: translateY(-50%);
   background: none;
   border: none;
-  color: #6d706e;
+  color: #1075e9;
   font-size: 12px;
   font-weight: 600;
   cursor: pointer;
@@ -322,7 +322,7 @@ body {
 }
 
 .show-password-btn:hover {
-  color: #6d706e;
+  text-decoration: underline;
 }
 
 .form-options {
@@ -373,7 +373,7 @@ body {
 .forgot-password {
   background: none;
   border: none;
-  color: #6d706e;
+  color: #1075e9;
   font-size: 14px;
   cursor: pointer;
   text-decoration: none;
@@ -383,7 +383,7 @@ body {
 }
 
 .forgot-password:hover {
-  color: #6d706e;
+  color: #1075e9;
   text-decoration: underline;
 }
 
@@ -408,7 +408,7 @@ body {
 }
 
 .login-button {
-  background: #6d706e;
+  background: #000000;
   color: white;
   border: none;
   padding: 12px 24px;
@@ -427,17 +427,17 @@ body {
 }
 
 .login-button:hover:not(:disabled) {
-  background: #6d706e;
+  background: #000000;
   transform: translateY(-1px);
-  box-shadow: 0 4px 8px rgba(79, 57, 246, 0.3);
+  box-shadow: 0 4px 8px rgba(47, 46, 58, 0.3);
 }
 
 .login-button.admin {
-  background: #6d706e;
+  background: #f12b2b;
 }
 
 .login-button.admin:hover:not(:disabled) {
-  background: #6d706e;
+  background: #f12b2b;
   box-shadow: 0 4px 8px rgba(239, 68, 68, 0.3);
 }
 
