@@ -36,7 +36,10 @@ router.get('/', (req, res) => {
 
 // Create new user (Admin only)
 router.post('/', (req, res) => {
-  const { fullName, username, email, password, role = 'USER', team = 'General', adminId, adminUsername, adminRole, adminTeam } = req.body;
+  let { fullName, username, email, password, role = 'USER', team = 'General', adminId, adminUsername, adminRole, adminTeam } = req.body;
+  // Normalize role and team
+  role = (role || 'USER').toString().trim().toUpperCase();
+  team = (team || 'General').toString().trim();
   console.log('👥 Creating new user:', { fullName, username, email, role, team });
 
   // Validation
@@ -52,7 +55,7 @@ router.post('/', (req, res) => {
   db.run(
     'INSERT INTO users (fullName, username, email, password, role, team) VALUES (?, ?, ?, ?, ?, ?)',
     [fullName, username, email, hashedPassword, role, team],
-    function(err) {
+    function(err, result) {
       if (err) {
         console.error('❌ Error creating user:', err);
         if (err.code === 'ER_DUP_ENTRY' || err.code === 'SQLITE_CONSTRAINT') {
@@ -66,7 +69,9 @@ router.post('/', (req, res) => {
           message: 'Failed to create user'
         });
       }
-      console.log(`✅ User created with ID: ${this.lastID}`);
+      // For SQLite callback style, result may be undefined and 'this' contains lastID. For MySQL, result.insertId is available.
+      const newUserId = (result && (result.insertId || result.insert_id)) || (this && this.lastID) || null;
+      console.log(`✅ User created with ID: ${newUserId}`);
 
       // Clear cache since users list changed
       clearCache('all_users');
@@ -80,10 +85,25 @@ router.post('/', (req, res) => {
         adminTeam || 'System',
         `User account created by administrator: ${fullName} (${username})`
       );
+
+      // If the new user is a Team Leader and a team is specified, set the team's leader
+      if (role === 'TEAM LEADER' && team) {
+        db.get('SELECT id FROM teams WHERE name = ?', [team], (err, teamRow) => {
+          if (!err && teamRow) {
+            db.run('UPDATE teams SET leader_id = ?, leader_username = ? WHERE id = ?', [newUserId, username, teamRow.id], (err) => {
+              if (err) console.error('❌ Error assigning team leader to team:', err);
+              else console.log(`✅ Assigned ${username} (ID: ${newUserId}) as leader for team '${team}'`);
+            });
+          } else {
+            console.log(`⚠️ Team '${team}' not found; skipping leader assignment`);
+          }
+        });
+      }
+
       res.status(201).json({
         success: true,
         message: 'User created successfully',
-        userId: this.lastID
+        userId: newUserId
       });
     }
   );
@@ -92,7 +112,10 @@ router.post('/', (req, res) => {
 // Update user (Admin only)
 router.put('/:id', (req, res) => {
   const userId = req.params.id;
-  const { fullName, username, email, role, team, adminId, adminUsername, adminRole, adminTeam } = req.body;
+  let { fullName, username, email, role, team, adminId, adminUsername, adminRole, adminTeam } = req.body;
+  // Normalize role and team
+  role = (role || '').toString().trim().toUpperCase();
+  team = (team || 'General').toString().trim();
   console.log(`✏️ Updating user ${userId}:`, { fullName, username, email, role, team });
 
   // Validation
@@ -119,89 +142,90 @@ router.put('/:id', (req, res) => {
       });
     }
 
-    // Perform the update with explicit transaction
-    db.run('BEGIN TRANSACTION', (err) => {
-      if (err) {
-        console.error('❌ Error beginning transaction:', err);
-        return res.status(500).json({
-          success: false,
-          message: 'Failed to update user'
-        });
-      }
-
-      db.run(
-        'UPDATE users SET fullName = ?, username = ?, email = ?, role = ?, team = ? WHERE id = ?',
-        [fullName, username, email, role, team || 'General', userId],
-        function(err) {
-          if (err) {
-            console.error('❌ Error updating user:', err);
-            // Rollback on error
-            db.run('ROLLBACK', (rollbackErr) => {
-              if (rollbackErr) {
-                console.error('❌ Error rolling back:', rollbackErr);
-              }
-            });
-            if (err.code === 'ER_DUP_ENTRY' || err.code === 'SQLITE_CONSTRAINT') {
-              return res.status(409).json({
-                success: false,
-                message: 'Username or email already exists'
-              });
-            }
-            return res.status(500).json({
+    // Perform a single UPDATE (no explicit SQL transaction; helper transaction is available)
+    db.run(
+      'UPDATE users SET fullName = ?, username = ?, email = ?, role = ?, team = ? WHERE id = ?',
+      [fullName, username, email, role, team || 'General', userId],
+      function(err, result) {
+        if (err) {
+          console.error('❌ Error updating user:', err);
+          if (err.code === 'ER_DUP_ENTRY' || err.code === 'SQLITE_CONSTRAINT') {
+            return res.status(409).json({
               success: false,
-              message: 'Failed to update user'
+              message: 'Username or email already exists'
             });
           }
-          if (this.changes === 0) {
-            db.run('ROLLBACK');
-            return res.status(404).json({
-              success: false,
-              message: 'User not found or no changes made'
-            });
-          }
-
-          // Commit the transaction
-          db.run('COMMIT', (commitErr) => {
-            if (commitErr) {
-              console.error('❌ Error committing transaction:', commitErr);
-              return res.status(500).json({
-                success: false,
-                message: 'Failed to commit changes'
-              });
-            }
-
-            // Clear cache since users list changed
-            clearCache('all_users');
-
-            console.log(`✅ User ${userId} updated successfully - ${this.changes} row(s) affected`);
-            console.log(`   Old values: ${currentUser.fullName} (${currentUser.username}) - ${currentUser.role} - ${currentUser.team}`);
-            console.log(`   New values: ${fullName} (${username}) - ${role} - ${team || 'General'}`);
-
-            // Log activity using admin's information
-            logActivity(
-              db,
-              adminId || null,
-              adminUsername || 'Administrator',
-              adminRole || 'ADMIN',
-              adminTeam || 'System',
-              `User profile updated by administrator (Name: ${fullName}, Role: ${role}, Team: ${team || 'General'})`
-            );
-            res.json({
-              success: true,
-              message: 'User updated successfully',
-              updatedUser: {
-                id: userId,
-                fullName,
-                username,
-                email,
-                role,
-                team: team || 'General'
-              }
-            });
+          return res.status(500).json({
+            success: false,
+            message: 'Failed to update user'
           });
         }
-      );
-    });
+
+        // Determine affected rows for SQLite (this.changes) or MySQL (result.affectedRows)
+        const rowsAffected = (result && (result.affectedRows || result.affected_rows || result.length)) || (this && this.changes) || 0;
+        if (!rowsAffected) {
+          return res.status(404).json({
+            success: false,
+            message: 'User not found or no changes made'
+          });
+        }
+
+        // Clear cache since users list changed
+        clearCache('all_users');
+
+        console.log(`✅ User ${userId} updated successfully - ${rowsAffected} row(s) affected`);
+        console.log(`   Old values: ${currentUser.fullName} (${currentUser.username}) - ${currentUser.role} - ${currentUser.team}`);
+        console.log(`   New values: ${fullName} (${username}) - ${role} - ${team || 'General'}`);
+
+        // If role changed to TEAM LEADER, assign to team; if role changed away from TEAM LEADER, clear previous team leader entries
+        try {
+          if (role === 'TEAM LEADER') {
+            db.get('SELECT id FROM teams WHERE name = ?', [team], (err, teamRow) => {
+              if (!err && teamRow) {
+                db.run('UPDATE teams SET leader_id = ?, leader_username = ? WHERE id = ?', [userId, username, teamRow.id], (err) => {
+                  if (err) console.error('❌ Error assigning team leader during user update:', err);
+                  else console.log(`✅ Assigned ${username} (ID: ${userId}) as leader for team '${team}'`);
+                });
+              } else {
+                console.log(`⚠️ Team '${team}' not found; skipping leader assignment`);
+              }
+            });
+          }
+
+          if (currentUser.role === 'TEAM LEADER' && role !== 'TEAM LEADER') {
+            db.run('UPDATE teams SET leader_id = NULL, leader_username = NULL WHERE leader_id = ?', [userId], (err) => {
+              if (err) console.error('❌ Error clearing leader assignment:', err);
+              else console.log(`✅ Cleared leader assignment for user ID ${userId}`);
+            });
+          }
+        } catch (err) {
+          console.error('❌ Error handling team leader assignment during user update:', err);
+        }
+
+        // Log activity using admin's information
+        logActivity(
+          db,
+          adminId || null,
+          adminUsername || 'Administrator',
+          adminRole || 'ADMIN',
+          adminTeam || 'System',
+          `User profile updated by administrator (Name: ${fullName}, Role: ${role}, Team: ${team || 'General'})`
+        );
+
+        res.json({
+          success: true,
+          message: 'User updated successfully',
+          updatedUser: {
+            id: userId,
+            fullName,
+            username,
+            email,
+            role,
+            team: team || 'General'
+          }
+        });
+      }
+    );
   });
 });
 

@@ -10,6 +10,7 @@ const teamsRoutes = require('./routes/teams');
 const activityLogsRoutes = require('./routes/activityLogs');
 const fileSystemRoutes = require('./routes/fileSystem');
 const filesRoutes = require('./routes/files');
+const dashboardRoutes = require('./routes/dashboard');
 
 const app = express();
 const PORT = process.env.SERVER_PORT || 3001;
@@ -24,6 +25,7 @@ app.use('/api/teams', teamsRoutes);
 app.use('/api/activity-logs', activityLogsRoutes);
 app.use('/api/file-system', fileSystemRoutes);
 app.use('/api/files', filesRoutes);
+app.use('/api/dashboard', dashboardRoutes);
 
 // Start server
 async function startServer() {

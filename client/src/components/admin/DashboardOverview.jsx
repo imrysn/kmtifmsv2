@@ -1,11 +1,52 @@
 import './DashboardOverview.css'
+import { useEffect, useState } from 'react'
 
 const DashboardOverview = ({ user, users }) => {
-  const pendingCount = 127
-  const approvedCount = 1842
-  const rejectedCount = 23
-  const totalCount = 3156
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+  const [summary, setSummary] = useState({
+    totalFiles: 0,
+    approved: 0,
+    pending: 0,
+    rejected: 0,
+    fileTypes: [],
+    recentActivity: [],
+    approvalRate: 0
+  })
 
+  useEffect(() => {
+    let mounted = true
+    const fetchSummary = async () => {
+      setLoading(true)
+      setError('')
+      try {
+        const res = await fetch('http://localhost:3001/api/dashboard/summary')
+        const data = await res.json()
+        if (!mounted) return
+        if (data.success) {
+          setSummary(data.summary)
+        } else {
+          setError(data.message || 'Failed to load dashboard data')
+        }
+      } catch (err) {
+        console.error('Error fetching dashboard summary:', err)
+        if (!mounted) return
+        setError('Unable to connect to server')
+      } finally {
+        if (mounted) setLoading(false)
+      }
+    }
+
+    fetchSummary()
+    // optionally refresh every minute
+    const interval = setInterval(fetchSummary, 60 * 1000)
+    return () => { mounted = false; clearInterval(interval) }
+  }, [])
+
+  const pendingCount = summary.pending
+  const approvedCount = summary.approved
+  const rejectedCount = summary.rejected
+  const totalCount = summary.totalFiles
   return (
     <div className="dashboard-overview">
       <div className="page-header">
@@ -20,7 +61,7 @@ const DashboardOverview = ({ user, users }) => {
             <div className="stat-header">
               <span className="stat-label">Pending Files</span>
             </div>
-            <div className="stat-number">{pendingCount}</div>
+            <div className="stat-number">{loading ? '—' : pendingCount}</div>
             <div className="stat-change positive">↑ +8.2% from last month</div>
           </div>
           
@@ -28,7 +69,7 @@ const DashboardOverview = ({ user, users }) => {
             <div className="stat-header">
               <span className="stat-label">Approved Files</span>
             </div>
-            <div className="stat-number">{approvedCount.toLocaleString()}</div>
+            <div className="stat-number">{loading ? '—' : approvedCount.toLocaleString()}</div>
             <div className="stat-change positive">↑ +12.5% from last month</div>
           </div>
           
@@ -36,7 +77,7 @@ const DashboardOverview = ({ user, users }) => {
             <div className="stat-header">
               <span className="stat-label">Rejected Files</span>
             </div>
-            <div className="stat-number">{rejectedCount}</div>
+            <div className="stat-number">{loading ? '—' : rejectedCount}</div>
             <div className="stat-change negative">↓ -15.1% from last month</div>
           </div>
           
@@ -44,7 +85,7 @@ const DashboardOverview = ({ user, users }) => {
             <div className="stat-header">
               <span className="stat-label">Total Files</span>
             </div>
-            <div className="stat-number">{totalCount.toLocaleString()}</div>
+            <div className="stat-number">{loading ? '—' : totalCount.toLocaleString()}</div>
             <div className="stat-change positive">↑ +6.8% from last month</div>
           </div>
         </div>
@@ -54,19 +95,19 @@ const DashboardOverview = ({ user, users }) => {
       <div className="workflow-grid">
         <div className="workflow-card blue">
           <div className="workflow-title">Awaiting Team Leader</div>
-          <div className="workflow-number">23</div>
+          <div className="workflow-number">{loading ? '—' : summary.recentActivity.filter(a => a.activity && a.activity.toLowerCase().includes('team leader')).length}</div>
           <div className="workflow-subtitle">Files under review</div>
         </div>
         
         <div className="workflow-card yellow">
           <div className="workflow-title">Awaiting Admin</div>
-          <div className="workflow-number">8</div>
+          <div className="workflow-number">{loading ? '—' : summary.recentActivity.filter(a => a.activity && a.activity.toLowerCase().includes('admin')).length}</div>
           <div className="workflow-subtitle">Ready for final approval</div>
         </div>
         
         <div className="workflow-card green">
           <div className="workflow-title">Ready for NAS</div>
-          <div className="workflow-number">45</div>
+          <div className="workflow-number">{loading ? '—' : approvedCount}</div>
           <div className="workflow-subtitle">Approved files to upload</div>
         </div>
       </div>
@@ -118,10 +159,12 @@ const DashboardOverview = ({ user, users }) => {
             </svg>
             <div style={{ textAlign: 'center', marginTop: '1rem' }}>
               <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
-                <span style={{ color: '#6366F1' }}>■</span> CAD Files &nbsp;
-                <span style={{ color: '#10B981' }}>■</span> Documents &nbsp;
-                <span style={{ color: '#F59E0B' }}>■</span> Drawings &nbsp;
-                <span style={{ color: '#EF4444' }}>■</span> Other
+                {summary.fileTypes.slice(0,4).map((t, i) => (
+                  <span key={t.file_type}>
+                    <span style={{ color: ['#6366F1','#10B981','#F59E0B','#EF4444'][i] || '#999' }}>■</span>
+                    &nbsp;{t.file_type || 'Unknown'} ({t.count}) &nbsp;
+                  </span>
+                ))}
               </div>
             </div>
           </div>
@@ -135,71 +178,20 @@ const DashboardOverview = ({ user, users }) => {
             <h3>Recent Activity</h3>
           </div>
           <div className="activity-list">
-            <div className="activity-item">
-              <div className="activity-content">
-                <div className="activity-header">
-                  <span className="activity-user">Mike Rodriguez</span>
-                  <span className="activity-badge upload">Upload</span>
+            {loading && <div style={{ padding: '1rem' }}>Loading recent activity…</div>}
+            {!loading && summary.recentActivity.length === 0 && <div style={{ padding: '1rem' }}>No recent activity</div>}
+            {!loading && summary.recentActivity.map(act => (
+              <div className="activity-item" key={act.id}>
+                <div className="activity-content">
+                  <div className="activity-header">
+                    <span className="activity-user">{act.username || act.role || 'System'}</span>
+                    <span className={"activity-badge " + (act.activity && act.activity.toLowerCase().includes('approved') ? 'approved' : act.activity && act.activity.toLowerCase().includes('rejected') ? 'rejected' : 'upload')}>{(act.activity || '').split(' ')[0]}</span>
+                  </div>
+                  <div className="activity-description">{act.activity}</div>
+                  <div className="activity-meta">{new Date(act.timestamp).toLocaleString()}</div>
                 </div>
-                <div className="activity-description">Submitted CAD file for approval</div>
-                <div className="activity-meta">engine_design_v2.dwg • 5 minutes ago</div>
               </div>
-            </div>
-            
-            <div className="activity-item">
-              <div className="activity-content">
-                <div className="activity-header">
-                  <span className="activity-user">Sarah Chen</span>
-                  <span className="activity-badge approved">Approved</span>
-                </div>
-                <div className="activity-description">Approved file from Engineering team</div>
-                <div className="activity-meta">structural_analysis.pdf • 12 minutes ago</div>
-              </div>
-            </div>
-            
-            <div className="activity-item">
-              <div className="activity-content">
-                <div className="activity-header">
-                  <span className="activity-user">Admin</span>
-                  <span className="activity-badge rejected">Rejected</span>
-                </div>
-                <div className="activity-description">Rejected file due to format issues</div>
-                <div className="activity-meta">blueprint_scan.jpg • 25 minutes ago</div>
-              </div>
-            </div>
-            
-            <div className="activity-item">
-              <div className="activity-content">
-                <div className="activity-header">
-                  <span className="activity-user">Emily Johnson</span>
-                  <span className="activity-badge upload">Upload</span>
-                </div>
-                <div className="activity-description">Uploaded final design document</div>
-                <div className="activity-meta">final_specifications.pdf • 1 hour ago</div>
-              </div>
-            </div>
-            
-            <div className="activity-item">
-              <div className="activity-content">
-                <div className="activity-header">
-                  <span className="activity-user">David Park</span>
-                  <span className="activity-badge approved">Approved</span>
-                </div>
-                <div className="activity-description">Completed team leader review</div>
-                <div className="activity-meta">quality_report.xlsx • 2 hours ago</div>
-              </div>
-            </div>
-            
-            <div className="activity-item">
-              <div className="activity-content">
-                <div className="activity-header">
-                  <span className="activity-user">System</span>
-                  <span className="activity-badge upload">System</span>
-                </div>
-                <div className="activity-description">Files uploaded to NAS storage</div>
-                <div className="activity-meta">Batch: 15 files • 3 hours ago</div>
-              </div>
-            </div>
+            ))}
           </div>
         </div>
         
@@ -210,7 +202,7 @@ const DashboardOverview = ({ user, users }) => {
           <div className="stats-list">
             <div className="stats-item">
               <span className="stats-label">Approval Rate</span>
-              <span className="stats-value success">94.2%</span>
+                <span className="stats-value success">{loading ? '—' : `${summary.approvalRate}%`}</span>
             </div>
             <div className="stats-item">
               <span className="stats-label">Avg. Processing Time</span>
