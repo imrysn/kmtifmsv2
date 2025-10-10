@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import './Settings.css'
 
-const Settings = ({ clearMessages, error, success, setError, setSuccess, users }) => {
+const Settings = ({ clearMessages, error, success, setError, setSuccess, users, user }) => {
   const [isLoading, setIsLoading] = useState(false)
   const [teams, setTeams] = useState([])
   const [teamsLoading, setTeamsLoading] = useState(false)
@@ -13,7 +13,7 @@ const Settings = ({ clearMessages, error, success, setError, setSuccess, users }
   const [editingTeam, setEditingTeam] = useState(null)
   const [settings, setSettings] = useState({
     fileManagement: {
-      rootDirectory: '/home/admin/files'
+      rootDirectory: ''
     },
     general: {
       timezone: 'UTC',
@@ -21,6 +21,7 @@ const Settings = ({ clearMessages, error, success, setError, setSuccess, users }
       language: 'en-US'
     }
   })
+  const [isLoadingSettings, setIsLoadingSettings] = useState(true)
 
   const handleSettingsChange = (category, field, value) => {
     setSettings(prev => ({
@@ -32,13 +33,89 @@ const Settings = ({ clearMessages, error, success, setError, setSuccess, users }
     }))
   }
 
+  const fetchSettings = async () => {
+    setIsLoadingSettings(true)
+    try {
+      const response = await fetch('http://localhost:3001/api/settings/root_directory')
+      const data = await response.json()
+      if (data.success && data.setting) {
+        setSettings(prev => ({
+          ...prev,
+          fileManagement: {
+            ...prev.fileManagement,
+            rootDirectory: data.setting.value || '/home/admin/files'
+          }
+        }))
+      }
+    } catch (error) {
+      console.error('Failed to fetch settings:', error)
+      setError('Failed to load settings')
+    } finally {
+      setIsLoadingSettings(false)
+    }
+  }
+
+  const handleBrowseDirectory = async () => {
+    clearMessages()
+    try {
+      // Check if running in Electron
+      console.log('Browse button clicked');
+      console.log('window.electron available:', !!window.electron);
+      console.log('window.electron.openDirectoryDialog available:', !!(window.electron && window.electron.openDirectoryDialog));
+      
+      if (window.electron && window.electron.openDirectoryDialog) {
+        console.log('Opening Electron directory dialog...');
+        const result = await window.electron.openDirectoryDialog()
+        console.log('Dialog result:', result);
+        
+        if (!result.canceled && result.filePaths && result.filePaths.length > 0) {
+          const selectedPath = result.filePaths[0]
+          console.log('Selected path:', selectedPath);
+          setSettings(prev => ({
+            ...prev,
+            fileManagement: {
+              ...prev.fileManagement,
+              rootDirectory: selectedPath
+            }
+          }))
+          setSuccess(`Selected directory: ${selectedPath}`)
+        } else {
+          console.log('Dialog was canceled');
+        }
+      } else {
+        console.warn('Electron API not available');
+        setError('Folder browser is only available in the desktop application. Please enter the path manually or run the Electron app.')
+      }
+    } catch (error) {
+      console.error('Error browsing directory:', error)
+      setError('Failed to open directory browser: ' + error.message)
+    }
+  }
+
   const handleSaveFileManagementSettings = async () => {
+    if (!settings.fileManagement.rootDirectory.trim()) {
+      setError('Root directory path is required')
+      return
+    }
+    
     setIsLoading(true)
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 500))
-      setSuccess('File management settings saved successfully')
+      const response = await fetch('http://localhost:3001/api/settings/root_directory', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          value: settings.fileManagement.rootDirectory,
+          updated_by: user?.username || 'admin'
+        })
+      })
+      const data = await response.json()
+      if (data.success) {
+        setSuccess('File management settings saved successfully')
+      } else {
+        setError(data.message || 'Failed to save file management settings')
+      }
     } catch (error) {
+      console.error('Error saving settings:', error)
       setError('Failed to save file management settings')
     } finally {
       setIsLoading(false)
@@ -59,6 +136,7 @@ const Settings = ({ clearMessages, error, success, setError, setSuccess, users }
 
   useEffect(() => {
     fetchTeams()
+    fetchSettings()
   }, [])
 
   const fetchTeams = async () => {
@@ -169,7 +247,7 @@ const Settings = ({ clearMessages, error, success, setError, setSuccess, users }
   const cancelEditingTeam = () => setEditingTeam(null)
 
   const getTeamLeaderOptions = () => {
-    return users?.filter(user => user.role === 'TEAM_LEADER' || user.role === 'ADMIN') || []
+    return users?.filter(user => user.role === 'TEAM LEADER' || user.role === 'ADMIN') || []
   }
 
   return (
@@ -202,21 +280,29 @@ const Settings = ({ clearMessages, error, success, setError, setSuccess, users }
           <div className="settings-card-body">
             <div className="form-group">
               <label>Root Directory Path</label>
-              <div style={{ display: 'flex', gap: '0.5rem' }}>
+              <div className="input-with-button">
                 <input
                   type="text"
                   value={settings.fileManagement.rootDirectory}
                   onChange={(e) => handleSettingsChange('fileManagement', 'rootDirectory', e.target.value)}
                   placeholder="/home/admin/files"
                   className="form-input"
-                  style={{ flex: 1 }}
+                  disabled={isLoadingSettings}
                 />
+                <button
+                  className="btn btn-secondary"
+                  onClick={handleBrowseDirectory}
+                  disabled={isLoading || isLoadingSettings}
+                  title="Browse for folder (Desktop app only)"
+                >
+                  Browse
+                </button>
                 <button
                   className="btn btn-primary"
                   onClick={handleSaveFileManagementSettings}
-                  disabled={isLoading}
+                  disabled={isLoading || isLoadingSettings}
                 >
-                  Save
+                  {isLoading ? 'Saving...' : 'Save'}
                 </button>
               </div>
               <p className="help-text">Base directory for file management system</p>
@@ -282,93 +368,109 @@ const Settings = ({ clearMessages, error, success, setError, setSuccess, users }
               ) : teams.length === 0 ? (
                 <div className="empty-state">No teams found</div>
               ) : (
-                <div className="teams-grid">
-                  {teams.map(team => (
-                    <div key={team.id} className="team-item">
-                      {editingTeam && editingTeam.id === team.id ? (
-                        <div className="team-edit-form">
-                          <div className="form-group">
-                            <input
-                              type="text"
-                              value={editingTeam.name}
-                              onChange={(e) => setEditingTeam(prev => ({ ...prev, name: e.target.value }))}
-                              className="form-input"
-                              placeholder="Team name"
-                            />
-                          </div>
-                          <div className="form-group">
-                            <select
-                              value={editingTeam.leader_id || ''}
-                              onChange={(e) => {
-                                const selectedUser = getTeamLeaderOptions().find(u => u.id == e.target.value)
-                                setEditingTeam(prev => ({ 
-                                  ...prev, 
-                                  leader_id: e.target.value,
-                                  leader_username: selectedUser ? selectedUser.username : ''
-                                }))
-                              }}
-                              className="form-select"
-                            >
-                              <option value="">No Team Leader</option>
-                              {getTeamLeaderOptions().map(user => (
-                                <option key={user.id} value={user.id}>
-                                  {user.fullName} ({user.username})
-                                </option>
-                              ))}
-                            </select>
-                          </div>
-                          <div className="team-actions">
-                            <button
-                              className="btn btn-primary btn-sm"
-                              onClick={handleUpdateTeam}
-                              disabled={isLoading}
-                            >
-                              {isLoading ? 'Saving...' : 'Save'}
-                            </button>
-                            <button
-                              className="btn btn-secondary btn-sm"
-                              onClick={cancelEditingTeam}
-                            >
-                              Cancel
-                            </button>
-                          </div>
-                        </div>
-                      ) : (
-                        <>
-                          <div className="team-header">
-                            <div className="team-info">
-                              <h5>{team.name}</h5>
-                              <p className="team-leader">
-                                Leader: {team.leader_username ? 
-                                  `${team.leader_username}` : 
-                                  'No leader assigned'
-                                }
-                              </p>
-                              <p className="team-status">
-                                Status: <span className={`status ${team.is_active ? 'active' : 'inactive'}`}>
+                <div className="table-container">
+                  <table className="teams-table">
+                    <thead>
+                      <tr>
+                        <th>Team Name</th>
+                        <th>Leader</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {teams.map(team => (
+                        <tr key={team.id}>
+                          {editingTeam && editingTeam.id === team.id ? (
+                            <>
+                              <td>
+                                <input
+                                  type="text"
+                                  value={editingTeam.name}
+                                  onChange={(e) => setEditingTeam(prev => ({ ...prev, name: e.target.value }))}
+                                  className="form-input"
+                                />
+                              </td>
+                              <td>
+                                <select
+                                  value={editingTeam.leader_id || ''}
+                                  onChange={(e) => {
+                                    const selectedUser = getTeamLeaderOptions().find(u => u.id == e.target.value)
+                                    setEditingTeam(prev => ({ 
+                                      ...prev, 
+                                      leader_id: e.target.value,
+                                      leader_username: selectedUser ? selectedUser.username : ''
+                                    }))
+                                  }}
+                                  className="form-select"
+                                >
+                                  <option value="">No Team Leader</option>
+                                  {getTeamLeaderOptions().map(user => (
+                                    <option key={user.id} value={user.id}>
+                                      {user.fullName} ({user.username})
+                                    </option>
+                                  ))}
+                                </select>
+                              </td>
+                              <td>
+                                <select
+                                  value={editingTeam.is_active}
+                                  onChange={(e) => setEditingTeam(prev => ({ ...prev, is_active: e.target.value === 'true' }))}
+                                  className="form-select"
+                                >
+                                  <option value="true">Active</option>
+                                  <option value="false">Inactive</option>
+                                </select>
+                              </td>
+                              <td>
+                                <div className="team-actions">
+                                  <button
+                                    className="btn btn-primary btn-sm"
+                                    onClick={handleUpdateTeam}
+                                    disabled={isLoading}
+                                  >
+                                    {isLoading ? 'Saving...' : 'Save'}
+                                  </button>
+                                  <button
+                                    className="btn btn-secondary btn-sm"
+                                    onClick={cancelEditingTeam}
+                                  >
+                                    Cancel
+                                  </button>
+                                </div>
+                              </td>
+                            </>
+                          ) : (
+                            <>
+                              <td>{team.name}</td>
+                              <td>{team.leader_username || 'No leader assigned'}</td>
+                              <td>
+                                <span className={`status ${team.is_active ? 'active' : 'inactive'}`}>
                                   {team.is_active ? 'Active' : 'Inactive'}
                                 </span>
-                              </p>
-                            </div>
-                          </div>
-                          <div className="team-actions">
-                            <button
-                              className="btn btn-secondary btn-sm"
-                              onClick={() => startEditingTeam(team)}
-                            >
-                              Edit
-                            </button>
-                            <button
-                              className="btn btn-danger btn-sm"
-                              onClick={() => handleDeleteTeam(team.id, team.name)}
-                            >
-                              Delete
-                            </button>
-                          </div>
-                        </>
-                      )}
-                    </div>
-                  ))}
+                              </td>
+                              <td>
+                                <div className="team-actions">
+                                  <button
+                                    className="btn btn-secondary btn-sm"
+                                    onClick={() => startEditingTeam(team)}
+                                  >
+                                    Edit
+                                  </button>
+                                  <button
+                                    className="btn btn-danger btn-sm"
+                                    onClick={() => handleDeleteTeam(team.id, team.name)}
+                                  >
+                                    Delete
+                                  </button>
+                                </div>
+                              </td>
+                            </>
+                          )}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
               )}
             </div>
