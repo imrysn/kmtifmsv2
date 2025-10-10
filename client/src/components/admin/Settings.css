@@ -227,12 +227,6 @@
   flex: 1;
 }
 
-/* Settings Actions */
-.settings-section .settings-actions {
-  display: flex;
-  justify-content: center;
-  padding: 2rem 0;
-}
 
 /* Buttons */
 .settings-section .btn {
@@ -337,10 +331,6 @@
   
   .settings-section .info-value {
     font-weight: 600;
-  }
-  
-  .settings-section .settings-actions {
-    padding: 1rem 0;
   }
   
   .settings-section .btn-large {

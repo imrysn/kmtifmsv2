@@ -479,52 +479,6 @@ const Settings = ({ clearMessages, error, success, setError, setSuccess, users, 
 
         <div className="settings-card">
           <div className="settings-card-header">
-            <h3>General Settings</h3>
-          </div>
-          <div className="settings-card-body">
-            <div className="form-group">
-              <label>Default Timezone</label>
-              <select
-                value={settings.general.timezone}
-                onChange={(e) => handleSettingsChange('general', 'timezone', e.target.value)}
-                className="form-select"
-              >
-                <option value="UTC">UTC</option>
-                <option value="local">Local Time</option>
-                <option value="PST">Pacific Time</option>
-                <option value="EST">Eastern Time</option>
-              </select>
-            </div>
-            <div className="form-group">
-              <label>Date Format</label>
-              <select
-                value={settings.general.dateFormat}
-                onChange={(e) => handleSettingsChange('general', 'dateFormat', e.target.value)}
-                className="form-select"
-              >
-                <option value="US">MM/DD/YYYY</option>
-                <option value="EU">DD/MM/YYYY</option>
-                <option value="ISO">YYYY-MM-DD</option>
-              </select>
-            </div>
-            <div className="form-group">
-              <label>Language</label>
-              <select
-                value={settings.general.language}
-                onChange={(e) => handleSettingsChange('general', 'language', e.target.value)}
-                className="form-select"
-              >
-                <option value="en-US">English (US)</option>
-                <option value="en-GB">English (UK)</option>
-                <option value="es-ES">Spanish</option>
-                <option value="fr-FR">French</option>
-              </select>
-            </div>
-          </div>
-        </div>
-
-        <div className="settings-card">
-          <div className="settings-card-header">
             <h3>System Information</h3>
           </div>
           <div className="settings-card-body">
@@ -567,15 +521,6 @@ const Settings = ({ clearMessages, error, success, setError, setSuccess, users, 
         
       </div>
       
-      <div className="settings-actions">
-        <button 
-          className="btn btn-primary btn-large"
-          onClick={handleSaveSettings}
-          disabled={isLoading}
-        >
-          {isLoading ? 'Saving...' : 'Save All Settings'}
-        </button>
-      </div>
     </div>
   )
 }
