@@ -1,5 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
-import anime from 'animejs'
+import { useState } from 'react'
 import '../css/Login.css'
 import Logo from '../assets/kmti_logo.png'
 
@@ -14,39 +13,6 @@ const Login = ({ onLogin }) => {
   const [apiError, setApiError] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [rememberMe, setRememberMe] = useState(false)
-
-  const mainContainerRef = useRef(null)
-  const welcomeSectionRef = useRef(null)
-  const loginCardRef = useRef(null)
-
-  useEffect(() => {
-    // Entrance animations
-    anime({
-      targets: mainContainerRef.current,
-      opacity: [0, 1],
-      scale: [0.95, 1],
-      duration: 600,
-      easing: 'easeOutCubic'
-    })
-
-    anime({
-      targets: welcomeSectionRef.current,
-      opacity: [0, 1],
-      translateX: [-20, 0],
-      duration: 400,
-      delay: 300,
-      easing: 'easeOutCubic'
-    })
-
-    anime({
-      targets: loginCardRef.current,
-      opacity: [0, 1],
-      translateX: [20, 0],
-      duration: 400,
-      delay: 400,
-      easing: 'easeOutCubic'
-    })
-  }, [])
 
   const handleToggle = () => {
     const newLoginType = loginType === 'user' ? 'admin' : 'user'
@@ -131,16 +97,10 @@ const Login = ({ onLogin }) => {
       const data = await response.json()
       
       if (data.success) {
-        anime({
-          targets: mainContainerRef.current,
-          opacity: [1, 0],
-          scale: [1, 0.95],
-          duration: 300,
-          easing: 'easeInCubic',
-          complete: () => {
-            onLogin(data.user)
-          }
-        })
+        // Smooth transition without anime.js
+        setTimeout(() => {
+          onLogin(data.user)
+        }, 200)
       } else {
         setApiError(data.message || 'Login failed')
       }
@@ -155,10 +115,10 @@ const Login = ({ onLogin }) => {
   return (
     <div className="unified-login-container">
       {/* Main Container holding both sections */}
-      <div className="main-login-card" ref={mainContainerRef}>
+      <div className="main-login-card">
         
         {/* Left Side - Welcome Section */}
-        <div className="welcome-section" ref={welcomeSectionRef}>
+        <div className="welcome-section">
           <div className="welcome-content">
             <div className="logo-container">
               <img src={Logo} alt="KMTI Logo" className="login-logo" />
@@ -170,29 +130,34 @@ const Login = ({ onLogin }) => {
         </div>
 
         {/* Right Side - Login Form */}
-        <div className="login-section" ref={loginCardRef}>
+        <div className="login-section">
           <div className="login-form-container">
             <div className="login-header">
               <h2>Sign in</h2>
             </div>
 
+            {/* Toggle Switch */}
             <div className="login-toggle">
-              <div className="toggle-container">
-                <button
-                  type="button"
-                  className={`toggle-btn ${loginType === 'user' ? 'active' : ''}`}
-                  onClick={() => loginType !== 'user' && handleToggle()}
-                >
-                  User
-                </button>
-                <button
-                  type="button"
-                  className={`toggle-btn ${loginType === 'admin' ? 'active' : ''}`}
-                  onClick={() => loginType !== 'admin' && handleToggle()}
-                >
-                  Admin
-                </button>
-              </div>
+              <button
+                type="button"
+                className={`toggle-switch ${loginType}`}
+                onClick={handleToggle}
+                aria-label={`Switch to ${loginType === 'user' ? 'Admin' : 'User'} login`}
+              >
+                <span className="toggle-slider"></span>
+              </button>
+            </div>
+            {/* Contextual hint for role-based portals */}
+            <div className="login-hint" style={{ marginTop: 8, marginBottom: 8, color: '#444', fontSize: 13 }}>
+              {loginType === 'user' ? (
+                <>
+                  <strong>Note:</strong> Team Leaders may also sign in using the <em>Admin Login</em> to access the Team Leader dashboard.
+                </>
+              ) : (
+                <>
+                  <strong>Note:</strong> Admin Login accepts Team Leaders and Admins. Regular users should use the <em>User Login</em>.
+                </>
+              )}
             </div>
             
             <form onSubmit={handleSubmit} className="login-form">

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import './UserManagement.css'
 
-const UserManagement = ({ clearMessages, error, success, setError, setSuccess }) => {
+const UserManagement = ({ clearMessages, error, success, setError, setSuccess, user }) => {
   const [users, setUsers] = useState([])
   const [teams, setTeams] = useState([])
   const [teamsLoading, setTeamsLoading] = useState(false)
@@ -97,7 +97,13 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess })
       const response = await fetch('http://localhost:3001/api/users', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData)
+        body: JSON.stringify({
+          ...formData,
+          adminId: user.id,
+          adminUsername: user.username,
+          adminRole: user.role,
+          adminTeam: user.team
+        })
       })
       
       const data = await response.json()
@@ -137,7 +143,11 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess })
           username: formData.username,
           email: formData.email,
           role: formData.role,
-          team: formData.team
+          team: formData.team,
+          adminId: user.id,
+          adminUsername: user.username,
+          adminRole: user.role,
+          adminTeam: user.team
         })
       })
       
@@ -166,7 +176,13 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess })
       const response = await fetch(`http://localhost:3001/api/users/${selectedUser.id}/password`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ password: formData.password })
+        body: JSON.stringify({ 
+          password: formData.password,
+          adminId: user.id,
+          adminUsername: user.username,
+          adminRole: user.role,
+          adminTeam: user.team
+        })
       })
       
       const data = await response.json()
@@ -191,7 +207,14 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess })
     setIsLoading(true)
     try {
       const response = await fetch(`http://localhost:3001/api/users/${userToDelete.id}`, {
-        method: 'DELETE'
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          adminId: user.id,
+          adminUsername: user.username,
+          adminRole: user.role,
+          adminTeam: user.team
+        })
       })
       
       const data = await response.json()
@@ -280,12 +303,6 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess })
     
     // Fetch user details
     await fetchUserDetails(user.id)
-  }
-
-  // Get team color by team name
-  const getTeamColor = (teamName) => {
-    const team = teams.find(t => t.name === teamName)
-    return team ? team.color : '#6B7280' // Default gray color
   }
 
   return (
@@ -403,14 +420,7 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess })
                       </span>
                     </td>
                     <td>
-                      <span 
-                        className="team-badge"
-                        style={{ 
-                          backgroundColor: 'transparent',
-                          color: getTeamColor(user.team),
-                          borderColor: getTeamColor(user.team)
-                        }}
-                      >
+                      <span className="team-badge">
                         {user.team}
                       </span>
                     </td>
@@ -769,14 +779,7 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess })
                     </div>
                     <div className="detail-item">
                       <label>Team</label>
-                      <span 
-                        className="team-badge"
-                        style={{ 
-                          backgroundColor: 'transparent',
-                          color: getTeamColor(userDetails.user.team),
-                          borderColor: getTeamColor(userDetails.user.team)
-                        }}
-                      >
+                      <span className="team-badge">
                         {userDetails.user.team}
                       </span>
                     </div>

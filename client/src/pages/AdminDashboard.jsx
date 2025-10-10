@@ -20,7 +20,6 @@ const AdminDashboard = ({ user, onLogout }) => {
 
   const sidebarRef = useRef(null)
   const mainContentRef = useRef(null)
-  const navItemsRef = useRef([])
 
   // Initial animations on component mount only
   useEffect(() => {
@@ -38,25 +37,6 @@ const AdminDashboard = ({ user, onLogout }) => {
       delay: 100,
       easing: 'easeOutCubic'
     })
-  }, [])
-
-  // Mouse tracking effect
-  useEffect(() => {
-    const handleMouseMove = (e) => {
-      const navItems = navItemsRef.current.filter(item => item !== null)
-      navItems.forEach(item => {
-        const rect = item.getBoundingClientRect()
-        const x = e.clientX - rect.left
-        const y = e.clientY - rect.top
-        item.style.setProperty('--mouse-x', `${x}px`)
-        item.style.setProperty('--mouse-y', `${y}px`)
-      })
-    }
-
-    document.addEventListener('mousemove', handleMouseMove)
-    return () => {
-      document.removeEventListener('mousemove', handleMouseMove)
-    }
   }, [])
 
   // Fetch users for dashboard overview and settings
@@ -103,7 +83,7 @@ const AdminDashboard = ({ user, onLogout }) => {
       case 'dashboard':
         return <DashboardOverview user={user} users={users} />
       case 'users':
-        return <UserManagement {...commonProps} />
+        return <UserManagement {...commonProps} user={user} />
       case 'activity-logs':
         return <ActivityLogs {...commonProps} />
       case 'file-approval':
@@ -117,10 +97,9 @@ const AdminDashboard = ({ user, onLogout }) => {
     }
   }
 
-  const setNavItemRef = (index) => (el) => {
-    if (el) {
-      navItemsRef.current[index] = el
-    }
+  const getInitials = (name) => {
+    if (!name) return 'A'
+    return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
   }
 
   return (
@@ -128,11 +107,13 @@ const AdminDashboard = ({ user, onLogout }) => {
       {/* Sidebar */}
       <div className="admin-sidebar" ref={sidebarRef}>
         <div className="sidebar-header">
-          <div className="admin-avatar">A</div>
-          <h2>Admin Center</h2>
+          <div className="logo-section">
+            <div className="admin-avatar">{getInitials(user.fullName)}</div>
+            <h2>FileFlow</h2>
+          </div>
           <div className="admin-info">
-            <div className="admin-name">{user.fullName || ''}</div>
-            <div className="admin-role">{user.role}</div>
+            <div className="admin-name">{user.fullName || 'Admin User'}</div>
+            <div className="admin-role">{user.role || 'Administrator'}</div>
           </div>
         </div>
         
@@ -140,49 +121,43 @@ const AdminDashboard = ({ user, onLogout }) => {
           <button 
             className={`nav-item ${activeTab === 'dashboard' ? 'active' : ''}`}
             onClick={() => handleTabChange('dashboard')}
-            ref={setNavItemRef(0)}
           >
             <span className="nav-label">Dashboard</span>
           </button>
           <button 
             className={`nav-item ${activeTab === 'file-management' ? 'active' : ''}`}
             onClick={() => handleTabChange('file-management')}
-            ref={setNavItemRef(1)}
           >
             <span className="nav-label">File Management</span>
           </button>
           <button 
             className={`nav-item ${activeTab === 'users' ? 'active' : ''}`}
             onClick={() => handleTabChange('users')}
-            ref={setNavItemRef(2)}
           >
             <span className="nav-label">User Management</span>
           </button>
           <button 
             className={`nav-item ${activeTab === 'activity-logs' ? 'active' : ''}`}
             onClick={() => handleTabChange('activity-logs')}
-            ref={setNavItemRef(3)}
           >
             <span className="nav-label">Activity Logs</span>
           </button>
           <button 
             className={`nav-item ${activeTab === 'file-approval' ? 'active' : ''}`}
             onClick={() => handleTabChange('file-approval')}
-            ref={setNavItemRef(4)}
           >
             <span className="nav-label">File Approval</span>
           </button>
           <button 
             className={`nav-item ${activeTab === 'settings' ? 'active' : ''}`}
             onClick={() => handleTabChange('settings')}
-            ref={setNavItemRef(5)}
           >
             <span className="nav-label">Settings</span>
           </button>
         </nav>
         
         <div className="sidebar-footer">
-          <button onClick={handleLogout} className="logout-btn" ref={setNavItemRef(6)}>
+          <button onClick={handleLogout} className="logout-btn">
             Logout
           </button>
         </div>
@@ -190,7 +165,18 @@ const AdminDashboard = ({ user, onLogout }) => {
 
       {/* Main Content */}
       <div className="admin-main-content" ref={mainContentRef}>
-        {renderActiveTab()}
+        {/* Top Bar */}
+        <div className="top-bar">
+          <button className="menu-toggle">☰</button>
+          <div className="search-bar">
+            <input type="text" placeholder="Search..." />
+          </div>
+        </div>
+
+        {/* Content Area */}
+        <div className="content-area">
+          {renderActiveTab()}
+        </div>
       </div>
     </div>
   )

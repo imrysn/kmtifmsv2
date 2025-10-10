@@ -1,27 +1,27 @@
-/* User Management Styles */
+/* User Management Styles - Scoped to .users-management */
 .users-management {
   padding: 0;
 }
 
-.page-header {
+.users-management .page-header {
   margin-bottom: 2rem;
 }
 
-.page-header h1 {
+.users-management .page-header h1 {
   font-size: 2rem;
   font-weight: 600;
   color: var(--text-primary);
   margin: 0 0 0.5rem 0;
 }
 
-.page-header p {
+.users-management .page-header p {
   font-size: 1rem;
   color: var(--text-secondary);
   margin: 0;
 }
 
 /* Action Bar */
-.action-bar {
+.users-management .action-bar {
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -30,16 +30,16 @@
   flex-wrap: wrap;
 }
 
-.search-section {
+.users-management .search-section {
   flex: 1;
   max-width: 400px;
 }
 
-.search-container {
+.users-management .search-container {
   position: relative;
 }
 
-.search-input {
+.users-management .search-input {
   width: 100%;
   padding: 0.75rem 1rem;
   border: 2px solid var(--border-color);
@@ -51,30 +51,30 @@
   box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
-.search-input:hover {
+.users-management .search-input:hover {
   border-color: var(--border-hover);
   box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.1), 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
-.search-input:focus {
+.users-management .search-input:focus {
   outline: none;
   border-color: var(--primary-color);
   box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1), inset 0 1px 3px rgba(0, 0, 0, 0.1);
   background: #f1f3f4;
 }
 
-.search-input::placeholder {
+.users-management .search-input::placeholder {
   color: var(--text-secondary);
   opacity: 0.8;
 }
 
-.action-buttons {
+.users-management .action-buttons {
   display: flex;
   gap: 0.5rem;
 }
 
 /* Table Section */
-.table-section {
+.users-management .table-section {
   background: var(--surface-color);
   border: 1px solid var(--border-color);
   border-radius: 12px;
@@ -82,16 +82,16 @@
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
 }
 
-.users-table-container {
+.users-management .users-table-container {
   overflow-x: auto;
 }
 
-.users-table {
+.users-management .users-table {
   width: 100%;
   border-collapse: collapse;
 }
 
-.users-table th {
+.users-management .users-table th {
   background: var(--background-secondary);
   color: var(--text-primary);
   font-weight: 600;
@@ -101,23 +101,23 @@
   font-size: 0.9rem;
 }
 
-.users-table td {
+.users-management .users-table td {
   padding: 1rem;
   border-bottom: 1px solid var(--border-light);
   vertical-align: middle;
 }
 
-.user-row:hover {
+.users-management .user-row:hover {
   background: var(--background-hover);
 }
 
-.user-cell {
+.users-management .user-cell {
   display: flex;
   align-items: center;
   gap: 0.75rem;
 }
 
-.user-avatar {
+.users-management .user-avatar {
   width: 40px;
   height: 40px;
   border-radius: 8px;
@@ -130,12 +130,12 @@
   font-size: 0.9rem;
 }
 
-.user-name {
+.users-management .user-name {
   font-weight: 500;
   color: var(--text-primary);
 }
 
-.user-name.clickable {
+.users-management .user-name.clickable {
   cursor: pointer;
   transition: all 0.2s ease;
   border-radius: 4px;
@@ -143,27 +143,27 @@
   margin: -0.25rem -0.5rem;
 }
 
-.user-name.clickable:hover {
+.users-management .user-name.clickable:hover {
   text-decoration: underline;
 }
 
-.email-cell {
+.users-management .email-cell {
   color: var(--text-secondary);
   font-size: 0.9rem;
 }
 
-.password-cell {
+.users-management .password-cell {
   display: flex;
   align-items: center;
   gap: 0.5rem;
 }
 
-.password-hidden {
+.users-management .password-hidden {
   color: var(--text-secondary);
   font-family: monospace;
 }
 
-.password-reset-btn {
+.users-management .password-reset-btn {
   background: var(--primary-color);
   color: white;
   border: none;
@@ -174,11 +174,12 @@
   transition: background-color 0.2s ease;
 }
 
-.password-reset-btn:hover {
+.users-management .password-reset-btn:hover {
   background: var(--primary-hover);
 }
 
-.role-badge, .team-badge {
+.users-management .role-badge, 
+.users-management .team-badge {
   padding: 0.375rem 0.875rem;
   border-radius: 12px;
   font-size: 0.75rem;
@@ -188,74 +189,37 @@
   display: inline-block;
 }
 
-.role-badge {
+.users-management .role-badge {
   color: white;
 }
 
-.role-badge.user {
+.users-management .role-badge.user {
   background: linear-gradient(135deg, #10b981 0%, #059669 100%);
 }
 
-.role-badge.team-leader {
+.users-management .role-badge.team-leader {
   background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+  color: white;
 }
 
-.role-badge.admin {
+.users-management .role-badge.admin {
   background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
 }
 
-.team-badge {
+.users-management .team-badge {
   background: transparent;
-  color: var(--text-secondary);
-  border: 1px solid var(--border-color);
+  color: #000000;
+  border: 1px solid #000000;
   transition: all 0.2s ease;
   backdrop-filter: blur(4px);
 }
 
-/* Team badge with dynamic colors will override these styles inline */
-.team-badge[style] {
-  font-weight: 600;
-  border-width: 2px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-  position: relative;
-  overflow: hidden;
-}
-
-/* Add subtle hover effect for team badges */
-.team-badge[style]:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
-}
-
-/* Add subtle background tint using the team color */
-.team-badge[style]::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: currentColor;
-  opacity: 0.05;
-  border-radius: inherit;
-  transition: opacity 0.2s ease;
-}
-
-.team-badge[style]:hover::before {
-  opacity: 0.1;
-}
-
-/* Ensure user rows don't interfere with team badge hover */
-.user-row .team-badge[style]:hover {
-  z-index: 2;
-}
-
-.action-buttons {
+.users-management .action-buttons {
   display: flex;
   gap: 0.5rem;
 }
 
-.action-btn {
+.users-management .action-btn {
   padding: 0.5rem 0.75rem;
   border: none;
   border-radius: 6px;
@@ -265,55 +229,56 @@
   font-weight: 500;
 }
 
-.edit-btn {
+.users-management .edit-btn {
   background: var(--primary-color);
   color: white;
 }
 
-.edit-btn:hover {
+.users-management .edit-btn:hover {
   background: var(--primary-hover);
   transform: translateY(-1px);
 }
 
-.delete-btn {
+.users-management .delete-btn {
   background: #ef4444;
   color: white;
 }
 
-.delete-btn:hover {
+.users-management .delete-btn:hover {
   background: #dc2626;
   transform: translateY(-1px);
 }
 
 /* Loading and Empty States */
-.loading-state, .empty-state {
+.users-management .loading-state, 
+.users-management .empty-state {
   padding: 3rem;
   text-align: center;
   color: var(--text-secondary);
 }
 
-.spinner {
+.users-management .spinner {
   width: 32px;
   height: 32px;
   border: 3px solid var(--border-color);
   border-top: 3px solid var(--primary-color);
   border-radius: 50%;
-  animation: spin 1s linear infinite;
+  animation: userManagementSpin 1s linear infinite;
   margin: 0 auto 1rem;
 }
 
-@keyframes spin {
+@keyframes userManagementSpin {
   0% { transform: rotate(0deg); }
   100% { transform: rotate(360deg); }
 }
 
-.empty-state h3 {
+.users-management .empty-state h3 {
   color: var(--text-primary);
   margin-bottom: 0.5rem;
 }
 
 /* Buttons */
-.btn {
+.users-management .btn {
   padding: 0.75rem 1.5rem;
   border: none;
   border-radius: 8px;
@@ -326,45 +291,45 @@
   gap: 0.5rem;
 }
 
-.btn:disabled {
+.users-management .btn:disabled {
   opacity: 0.6;
   cursor: not-allowed;
   transform: none !important;
 }
 
-.btn-primary {
+.users-management .btn-primary {
   background: var(--primary-color);
   color: white;
 }
 
-.btn-primary:hover:not(:disabled) {
+.users-management .btn-primary:hover:not(:disabled) {
   background: var(--primary-hover);
   transform: translateY(-1px);
 }
 
-.btn-secondary {
+.users-management .btn-secondary {
   background: var(--background-secondary);
   color: var(--text-secondary);
   border: 1px solid var(--border-color);
 }
 
-.btn-secondary:hover:not(:disabled) {
+.users-management .btn-secondary:hover:not(:disabled) {
   background: var(--background-hover);
   border-color: var(--border-hover);
 }
 
-.btn-danger {
+.users-management .btn-danger {
   background: #ef4444;
   color: white;
 }
 
-.btn-danger:hover:not(:disabled) {
+.users-management .btn-danger:hover:not(:disabled) {
   background: #dc2626;
   transform: translateY(-1px);
 }
 
 /* Alerts */
-.alert {
+.users-management .alert {
   padding: 1rem;
   border-radius: 8px;
   margin-bottom: 1rem;
@@ -373,23 +338,23 @@
   justify-content: space-between;
 }
 
-.alert-error {
+.users-management .alert-error {
   background: #fef2f2;
   border: 1px solid #fecaca;
   color: #dc2626;
 }
 
-.alert-success {
+.users-management .alert-success {
   background: #f0fdf4;
   border: 1px solid #bbf7d0;
   color: #059669;
 }
 
-.alert-message {
+.users-management .alert-message {
   flex: 1;
 }
 
-.alert-close {
+.users-management .alert-close {
   background: none;
   border: none;
   font-size: 1.2rem;
@@ -400,7 +365,7 @@
 }
 
 /* Modal Styles */
-.modal-overlay {
+.users-management .modal-overlay {
   position: fixed;
   top: 0;
   left: 0;
@@ -414,7 +379,7 @@
   padding: 1rem;
 }
 
-.modal {
+.users-management .modal {
   background: var(--surface-color);
   border-radius: 12px;
   box-shadow: 0 20px 32px rgba(0, 0, 0, 0.15);
@@ -428,17 +393,17 @@
 }
 
 /* Compact modals for user forms */
-.modal.compact {
+.users-management .modal.compact {
   max-width: 520px;
 }
 
 @media (max-width: 480px) {
-  .modal.compact {
+  .users-management .modal.compact {
     max-width: calc(100vw - 1rem);
   }
 }
 
-.modal-header {
+.users-management .modal-header {
   padding: 1.5rem;
   border-bottom: 1px solid var(--border-color);
   display: flex;
@@ -448,13 +413,13 @@
   opacity: 1;
 }
 
-.modal-header h3 {
+.users-management .modal-header h3 {
   margin: 0;
   color: var(--text-primary);
   font-size: 1.25rem;
 }
 
-.modal-close {
+.users-management .modal-close {
   background: none;
   border: none;
   font-size: 1.5rem;
@@ -469,12 +434,12 @@
   transition: all 0.2s ease;
 }
 
-.modal-close:hover {
+.users-management .modal-close:hover {
   background: var(--background-hover);
   color: var(--text-primary);
 }
 
-.modal-body {
+.users-management .modal-body {
   padding: 1.5rem;
   flex: 1;
   overflow-y: auto;
@@ -482,7 +447,7 @@
   opacity: 1;
 }
 
-.modal-footer {
+.users-management .modal-footer {
   padding: 1.5rem;
   border-top: 1px solid var(--border-color);
   display: flex;
@@ -493,17 +458,17 @@
 }
 
 /* Form Styles */
-.form-grid {
+.users-management .form-grid {
   display: grid;
   grid-template-columns: 1fr;
   gap: 0.5rem;
 }
 
-.form-group {
+.users-management .form-group {
   margin-bottom: 0.5rem;
 }
 
-.form-group label {
+.users-management .form-group label {
   display: block;
   margin-bottom: 0.4rem;
   color: var(--text-primary);
@@ -511,7 +476,8 @@
   font-size: 0.9rem;
 }
 
-.form-input, .form-select {
+.users-management .form-input, 
+.users-management .form-select {
   width: 100%;
   padding: 0.75rem;
   border: 2px solid var(--border-color);
@@ -524,30 +490,33 @@
   box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
-.form-input:hover:not(:disabled), .form-select:hover:not(:disabled) {
+.users-management .form-input:hover:not(:disabled), 
+.users-management .form-select:hover:not(:disabled) {
   border-color: var(--border-hover);
   box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.1), 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
-.form-input:focus, .form-select:focus {
+.users-management .form-input:focus, 
+.users-management .form-select:focus {
   outline: none;
   border-color: var(--primary-color);
   box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1), inset 0 1px 3px rgba(0, 0, 0, 0.1);
   background: #f1f3f4;
 }
 
-.form-input::placeholder {
+.users-management .form-input::placeholder {
   color: var(--text-secondary);
   opacity: 0.7;
 }
 
-.form-select option {
+.users-management .form-select option {
   background: #f8f9fa;
   color: var(--text-primary);
   padding: 0.5rem;
 }
 
-.form-input:disabled, .form-select:disabled {
+.users-management .form-input:disabled, 
+.users-management .form-select:disabled {
   background: #e9ecef;
   border-color: #d1d5db;
   color: #6b7280;
@@ -555,43 +524,43 @@
   opacity: 0.7;
 }
 
-.form-input:disabled::placeholder {
+.users-management .form-input:disabled::placeholder {
   color: #9ca3af;
   opacity: 0.5;
 }
 
 /* Delete Modal Styles */
-.delete-modal .modal-body {
+.users-management .delete-modal .modal-body {
   padding: 1.5rem;
 }
 
-.delete-warning {
+.users-management .delete-warning {
   display: flex;
   gap: 1rem;
   align-items: flex-start;
 }
 
-.warning-content h4 {
+.users-management .warning-content h4 {
   color: var(--text-primary);
   margin: 0 0 1rem 0;
   font-size: 1.1rem;
 }
 
-.file-info {
+.users-management .file-info {
   background: var(--background-secondary);
   padding: 1rem;
   border-radius: 8px;
   margin: 0 0 1rem 0;
 }
 
-.warning-text {
+.users-management .warning-text {
   color: var(--text-secondary);
   margin: 0;
   font-size: 0.9rem;
   line-height: 1.5;
 }
 
-.delete-actions {
+.users-management .delete-actions {
   display: flex;
   gap: 0.75rem;
   justify-content: flex-end;
@@ -599,67 +568,67 @@
 
 /* Responsive Design */
 @media (max-width: 768px) {
-  .action-bar {
+  .users-management .action-bar {
     flex-direction: column;
     align-items: stretch;
   }
   
-  .search-section {
+  .users-management .search-section {
     max-width: none;
   }
   
-  .users-table th,
-  .users-table td {
+  .users-management .users-table th,
+  .users-management .users-table td {
     padding: 0.75rem 0.5rem;
     font-size: 0.85rem;
   }
   
-  .user-avatar {
+  .users-management .user-avatar {
     width: 32px;
     height: 32px;
     font-size: 0.8rem;
   }
   
-  .form-grid {
+  .users-management .form-grid {
     grid-template-columns: 1fr;
     gap: 0.5rem;
   }
   
-  .modal {
+  .users-management .modal {
     margin: 1rem;
     max-height: calc(100vh - 2rem);
   }
 }
 
 /* User Details Modal Styles */
-.user-details-modal {
+.users-management .user-details-modal {
   max-width: 800px;
   max-height: 85vh;
   background: var(--surface-color);
   border: 2px solid var(--border-color);
 }
 
-.user-details-content {
+.users-management .user-details-content {
   display: flex;
   flex-direction: column;
   gap: 1.5rem;
 }
 
-.user-info-section {
+.users-management .user-info-section {
   border-bottom: 1px solid var(--border-color);
   padding-bottom: 1.5rem;
   background: var(--surface-color);
   opacity: 1;
 }
 
-.user-header {
+.users-management .user-header {
   display: flex;
   align-items: center;
   gap: 1rem;
   margin-bottom: 1rem;
 }
 
-.user-avatar-large {
+.users-management .user-avatar-large {
   width: 60px;
   height: 60px;
   border-radius: 12px;
@@ -672,32 +641,32 @@
   font-size: 1.5rem;
 }
 
-.user-full-name {
+.users-management .user-full-name {
   margin: 0;
   color: var(--text-primary);
   font-size: 1.25rem;
   font-weight: 600;
 }
 
-.user-subtitle {
+.users-management .user-subtitle {
   margin: 0.25rem 0 0 0;
   color: var(--text-secondary);
   font-size: 0.9rem;
 }
 
-.user-details-grid {
+.users-management .user-details-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   gap: 1rem;
 }
 
-.detail-item {
+.users-management .detail-item {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
 }
 
-.detail-item label {
+.users-management .detail-item label {
   font-size: 0.8rem;
   color: var(--text-secondary);
   font-weight: 500;
@@ -705,7 +674,7 @@
   letter-spacing: 0.5px;
 }
 
-.status-badge {
+.users-management .status-badge {
   padding: 0.25rem 0.75rem;
   border-radius: 12px;
   font-size: 0.75rem;
@@ -713,48 +682,49 @@
   width: fit-content;
 }
 
-.status-badge.active {
+.users-management .status-badge.active {
   background: #d1fae5;
   color: #065f46;
   border: 1px solid #a7f3d0;
 }
 
-.status-badge.approved {
+.users-management .status-badge.approved {
   background: #d1fae5;
   color: #065f46;
   border: 1px solid #a7f3d0;
 }
 
-.status-badge.pending {
+.users-management .status-badge.pending {
   background: #fef3c7;
   color: #92400e;
   border: 1px solid #fde68a;
 }
 
-.status-badge.rejected {
+.users-management .status-badge.rejected {
   background: #fee2e2;
   color: #991b1b;
   border: 1px solid #fecaca;
 }
 
-.files-section, .pending-files-section {
+.users-management .files-section, 
+.users-management .pending-files-section {
   padding-bottom: 0.5rem;
   background: var(--surface-color);
   opacity: 1;
 }
 
-.section-header {
+.users-management .section-header {
   margin-bottom: 1rem;
 }
 
-.section-header h5 {
+.users-management .section-header h5 {
   margin: 0;
   color: var(--text-primary);
   font-size: 1rem;
   font-weight: 600;
 }
 
-.files-list {
+.users-management .files-list {
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
@@ -763,25 +733,25 @@
   padding-right: 0.5rem;
 }
 
-.files-list::-webkit-scrollbar {
+.users-management .files-list::-webkit-scrollbar {
   width: 4px;
 }
 
-.files-list::-webkit-scrollbar-track {
+.users-management .files-list::-webkit-scrollbar-track {
   background: var(--background-secondary);
   border-radius: 2px;
 }
 
-.files-list::-webkit-scrollbar-thumb {
+.users-management .files-list::-webkit-scrollbar-thumb {
   background: var(--border-color);
   border-radius: 2px;
 }
 
-.files-list::-webkit-scrollbar-thumb:hover {
+.users-management .files-list::-webkit-scrollbar-thumb:hover {
   background: var(--text-secondary);
 }
 
-.file-item {
+.users-management .file-item {
   padding: 0.75rem;
   border: 1px solid var(--border-color);
   border-radius: 8px;
@@ -790,28 +760,28 @@
   opacity: 1;
 }
 
-.file-item:hover {
+.users-management .file-item:hover {
   border-color: var(--border-hover);
   background: var(--background-hover);
 }
 
-.file-item.pending {
+.users-management .file-item.pending {
   border-left: 4px solid #fbbf24;
 }
 
-.file-info {
+.users-management .file-info {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
 }
 
-.file-name {
+.users-management .file-name {
   font-weight: 500;
   color: var(--text-primary);
   font-size: 0.9rem;
 }
 
-.file-meta {
+.users-management .file-meta {
   display: flex;
   align-items: center;
   gap: 0.75rem;
@@ -819,11 +789,12 @@
   color: var(--text-secondary);
 }
 
-.file-size, .file-date {
+.users-management .file-size, 
+.users-management .file-date {
   color: var(--text-secondary);
 }
 
-.file-comments {
+.users-management .file-comments {
   margin-top: 0.5rem;
   padding: 0.5rem;
   background: var(--background-secondary);
@@ -832,20 +803,20 @@
   opacity: 1;
 }
 
-.comments-label {
+.users-management .comments-label {
   font-size: 0.75rem;
   color: var(--text-secondary);
   font-weight: 500;
   margin-bottom: 0.25rem;
 }
 
-.comment-text {
+.users-management .comment-text {
   font-size: 0.8rem;
   color: var(--text-primary);
   line-height: 1.4;
 }
 
-.loading-files {
+.users-management .loading-files {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -854,49 +825,49 @@
   color: var(--text-secondary);
 }
 
-.spinner-small {
+.users-management .spinner-small {
   width: 16px;
   height: 16px;
   border: 2px solid var(--border-color);
   border-top: 2px solid var(--primary-color);
   border-radius: 50%;
-  animation: spin 1s linear infinite;
+  animation: userManagementSpin 1s linear infinite;
 }
 
-.empty-files {
+.users-management .empty-files {
   text-align: center;
   padding: 2rem;
   color: var(--text-secondary);
 }
 
-.empty-files p {
+.users-management .empty-files p {
   margin: 0;
   font-style: italic;
 }
 
 /* Responsive adjustments for user details modal */
 @media (max-width: 768px) {
-  .user-details-modal {
+  .users-management .user-details-modal {
     max-width: calc(100vw - 2rem);
   }
   
-  .user-header {
+  .users-management .user-header {
     flex-direction: column;
     align-items: center;
     text-align: center;
     gap: 0.75rem;
   }
   
-  .user-details-grid {
+  .users-management .user-details-grid {
     grid-template-columns: 1fr;
     gap: 0.75rem;
   }
   
-  .files-list {
+  .users-management .files-list {
     max-height: 150px;
   }
   
-  .file-meta {
+  .users-management .file-meta {
     flex-wrap: wrap;
     gap: 0.5rem;
   }
