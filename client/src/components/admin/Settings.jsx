@@ -489,31 +489,7 @@ const Settings = ({ clearMessages, error, success, setError, setSuccess, users, 
               </div>
               <div className="info-row">
                 <span className="info-label">Database Version:</span>
-                <span className="info-value">SQLite 3.45.0</span>
-              </div>
-              <div className="info-row">
-                <span className="info-label">Node.js Version:</span>
-                <span className="info-value">{typeof process !== 'undefined' ? process.version : 'v20.x.x'}</span>
-              </div>
-              <div className="info-row">
-                <span className="info-label">Uptime:</span>
-                <span className="info-value">2 days, 14 hours</span>
-              </div>
-              <div className="info-row">
-                <span className="info-label">Total Users:</span>
-                <span className="info-value">{users?.length || 0}</span>
-              </div>
-              <div className="info-row">
-                <span className="info-label">Active Sessions:</span>
-                <span className="info-value">5</span>
-              </div>
-              <div className="info-row">
-                <span className="info-label">Server OS:</span>
-                <span className="info-value">Linux Ubuntu 22.04</span>
-              </div>
-              <div className="info-row">
-                <span className="info-label">License Status:</span>
-                <span className="info-value status active">Valid</span>
+                <span className="info-value">MySQL</span>
               </div>
             </div>
           </div>
