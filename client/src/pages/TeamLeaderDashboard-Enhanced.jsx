@@ -191,6 +191,7 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
         setSelectedFile(null)
         setReviewComments('')
         setReviewAction(null)
+        setFileComments([])
         fetchPendingFiles()
       } else {
         setError(data.message || `Failed to ${reviewAction} file`)

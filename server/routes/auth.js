@@ -65,19 +65,22 @@ router.post('/login', (req, res) => {
     console.log(`✅ Password verified for ${user.role}: ${email}`);
 
     // Role-based access control
-    const userRole = user.role;
+    // Normalize role to handle both 'TEAM LEADER' and 'TEAM_LEADER' variants stored in DB
+    const rawRole = (user.role || '').toString().trim().toUpperCase();
+    const normalizedRole = rawRole.replace(/\s+/g, '_'); // e.g. 'TEAM LEADER' -> 'TEAM_LEADER'
+
     if (loginType === 'user') {
-      // User window: USER and TEAM_LEADER can access
-      if (userRole === 'ADMIN') {
-        console.log('❌ ADMIN user trying to access user window');
+      // User window: USER and TEAM_LEADER can access. ADMIN must use Admin Login.
+      if (normalizedRole === 'ADMIN') {
+        console.log('❌ ADMIN trying to access user window');
         return res.status(403).json({
           success: false,
-          message: 'Admin accounts must use the Admin Login. Please switch to Admin Login to continue.'
+          message: 'Please switch to Admin Login to continue.'
         });
       }
     } else if (loginType === 'admin') {
       // Admin window: TEAM_LEADER and ADMIN can access
-      if (userRole === 'USER') {
+      if (normalizedRole === 'USER') {
         console.log('❌ USER trying to access admin window');
         return res.status(403).json({
           success: false,
@@ -89,16 +92,16 @@ router.post('/login', (req, res) => {
     // Determine panel type based on role and login type
     let panelType;
     if (loginType === 'user') {
-      panelType = 'user'; // Both USER and TEAM_LEADER get user panel via user login
+      panelType = 'user';
     } else if (loginType === 'admin') {
-      if (userRole === 'TEAM_LEADER') {
+      if (normalizedRole === 'TEAM_LEADER') {
         panelType = 'teamleader';
-      } else if (userRole === 'ADMIN') {
+      } else if (normalizedRole === 'ADMIN') {
         panelType = 'admin';
       }
     }
 
-    console.log(`✅ Login successful for ${userRole} -> ${panelType} panel`);
+  console.log(`✅ Login successful for ${user.role} -> ${panelType} panel`);
 
     // Log activity
     logActivity(

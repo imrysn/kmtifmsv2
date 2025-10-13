@@ -15,6 +15,8 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
   const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [fileToDelete, setFileToDelete] = useState(null)
   const [isLoading, setIsLoading] = useState(false)
+  const [fileComments, setFileComments] = useState([])
+  const [isLoadingComments, setIsLoadingComments] = useState(false)
   const statusCardsRef = useRef(null)
   const searchInputRef = useRef(null)
   const filterSelectRef = useRef(null)
@@ -28,23 +30,6 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
       return () => clearTimeout(timer)
     }
   }, [error, success, clearMessages])
-
-  // Mouse move handler for cursor shadow effect
-  useEffect(() => {
-    const handleMouseMove = (e) => {
-      const elements = document.querySelectorAll('.file-status-card, .search-input, .form-select')
-      elements.forEach(el => {
-        const rect = el.getBoundingClientRect()
-        const x = e.clientX - rect.left
-        const y = e.clientY - rect.top
-        el.style.setProperty('--mouse-x', `${x}px`)
-        el.style.setProperty('--mouse-y', `${y}px`)
-      })
-    }
-
-    document.addEventListener('mousemove', handleMouseMove)
-    return () => document.removeEventListener('mousemove', handleMouseMove)
-  }, [])
 
   // Fetch files on component mount
   useEffect(() => {
@@ -208,13 +193,34 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
     setShowDeleteModal(true)
   }
 
-  const openFileModal = (file) => {
+  const openFileModal = async (file) => {
     setSelectedFile({
       ...file,
       comments: [] // Initialize comments array for UI compatibility
     })
     setFileComment('')
     setShowFileModal(true)
+    
+    // Fetch comments for this file
+    await fetchFileComments(file.id)
+  }
+
+  const fetchFileComments = async (fileId) => {
+    setIsLoadingComments(true)
+    try {
+      const response = await fetch(`http://localhost:3001/api/files/${fileId}/comments`)
+      const data = await response.json()
+      if (data.success) {
+        setFileComments(data.comments || [])
+      } else {
+        setFileComments([])
+      }
+    } catch (error) {
+      console.error('Error fetching comments:', error)
+      setFileComments([])
+    } finally {
+      setIsLoadingComments(false)
+    }
   }
 
   const addComment = async () => {
@@ -237,18 +243,10 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
       
       const data = await response.json()
       if (data.success) {
-        // Update the selected file with new comment
-        const updatedComments = [
-          ...selectedFile.comments,
-          { text: fileComment.trim(), date: new Date() }
-        ]
-        setSelectedFile({
-          ...selectedFile,
-          comments: updatedComments
-        })
-        
         setFileComment('')
         setSuccess('Comment added successfully')
+        // Refresh comments to show the new one
+        await fetchFileComments(selectedFile.id)
       } else {
         setError(data.message || 'Failed to add comment')
       }
@@ -269,6 +267,11 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
 
   const approveFile = async () => {
     if (!selectedFile) return
+    
+    // Add comment first if provided
+    if (fileComment.trim()) {
+      await addComment()
+    }
     
     setIsLoading(true)
     try {
@@ -294,6 +297,7 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
         setShowFileModal(false)
         setSelectedFile(null)
         setFileComment('')
+        setFileComments([])
         setSuccess('File approved successfully')
       } else {
         setError(data.message || 'Failed to approve file')
@@ -308,6 +312,14 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
 
   const rejectFile = async () => {
     if (!selectedFile) return
+    
+    if (!fileComment.trim()) {
+      setError('Please provide a reason for rejection')
+      return
+    }
+    
+    // Add comment first
+    await addComment()
     
     setIsLoading(true)
     try {
@@ -333,6 +345,7 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
         setShowFileModal(false)
         setSelectedFile(null)
         setFileComment('')
+        setFileComments([])
         setSuccess('File rejected successfully')
       } else {
         setError(data.message || 'Failed to reject file')
@@ -651,87 +664,102 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
 
       {/* File Details Modal */}
       {showFileModal && selectedFile && (
-        <div className="modal-overlay" onClick={() => setShowFileModal(false)}>
+        <div className="modal-overlay">
           <div className="modal file-modal" onClick={e => e.stopPropagation()}>
             <div className="modal-header">
               <h3>File Details</h3>
               <button onClick={() => setShowFileModal(false)} className="modal-close">×</button>
             </div>
             <div className="modal-body">
+              {/* File Details Section */}
               <div className="file-details-section">
-                <div className="file-detail-row">
-                  <span className="detail-label">Original Name:</span>
-                  <span className="detail-value">{selectedFile.original_name}</span>
+                <h4 className="section-title">File Details</h4>
+                <div className="file-details-grid">
+                  <div className="detail-item">
+                    <span className="detail-label">FILE NAME:</span>
+                    <span className="detail-value">{selectedFile.original_name}</span>
+                  </div>
+                  <div className="detail-item">
+                    <span className="detail-label">FILE TYPE:</span>
+                    <span className="detail-value">{selectedFile.file_type}</span>
+                  </div>
+                  <div className="detail-item">
+                    <span className="detail-label">FILE SIZE:</span>
+                    <span className="detail-value">{formatFileSize(selectedFile.file_size)}</span>
+                  </div>
+                  <div className="detail-item">
+                    <span className="detail-label">SUBMITTED BY:</span>
+                    <span className="detail-value">{selectedFile.username}</span>
+                  </div>
+                  <div className="detail-item">
+                    <span className="detail-label">TEAM:</span>
+                    <span className="detail-value team-badge-inline">
+                      {selectedFile.user_team}
+                    </span>
+                  </div>
+                  <div className="detail-item">
+                    <span className="detail-label">UPLOAD DATE:</span>
+                    <span className="detail-value">{new Date(selectedFile.uploaded_at).toLocaleString()}</span>
+                  </div>
+                  <div className="detail-item">
+                    <span className="detail-label">STATUS:</span>
+                    <span className={`detail-value status-badge status-${mapFileStatus(selectedFile.status)}`}>
+                      {getStatusDisplayName(selectedFile.status)}
+                    </span>
+                  </div>
                 </div>
-                <div className="file-detail-row">
-                  <span className="detail-label">Submitted By:</span>
-                  <span className="detail-value">{selectedFile.username}</span>
-                </div>
-                <div className="file-detail-row">
-                  <span className="detail-label">Team:</span>
-                  <span className="detail-value team-badge">
-                    {selectedFile.user_team}
-                  </span>
-                </div>
-                <div className="file-detail-row">
-                  <span className="detail-label">Date Submitted:</span>
-                  <span className="detail-value">{new Date(selectedFile.uploaded_at).toLocaleString()}</span>
-                </div>
-                <div className="file-detail-row">
-                  <span className="detail-label">File Size:</span>
-                  <span className="detail-value">{formatFileSize(selectedFile.file_size)}</span>
-                </div>
-                <div className="file-detail-row">
-                  <span className="detail-label">File Type:</span>
-                  <span className="detail-value">{selectedFile.file_type}</span>
-                </div>
-                <div className="file-detail-row">
-                  <span className="detail-label">Current Status:</span>
-                  <span className={`detail-value status-badge status-${mapFileStatus(selectedFile.status)}`}>
-                    {getStatusDisplayName(selectedFile.status)}
-                  </span>
-                </div>
-                <div className="file-detail-row">
-                  <span className="detail-label">Description:</span>
-                  <span className="detail-value">{selectedFile.description || 'No description provided'}</span>
-                </div>
+              </div>
+              
+              {/* Description Section */}
+              <div className="description-section">
+                <h4 className="section-title">Description</h4>
+                <p className="description-text">{selectedFile.description || 'No description provided'}</p>
               </div>
               
               {/* Comments Section */}
               <div className="comments-section">
-                <h4>Comments History</h4>
-                {selectedFile.team_leader_comments && (
-                  <div className="comments-list">
-                    <div className="comment-item">
-                      <div className="comment-text">
-                        <strong>Team Leader:</strong> {selectedFile.team_leader_comments}
-                      </div>
-                      <div className="comment-date">
-                        {selectedFile.team_leader_reviewed_at && new Date(selectedFile.team_leader_reviewed_at).toLocaleString()}
-                      </div>
-                    </div>
+                <h4 className="section-title">Comments & History</h4>
+                {isLoadingComments ? (
+                  <div className="loading-comments">
+                    <div className="spinner-small"></div>
+                    <span>Loading comments...</span>
                   </div>
-                )}
-                {selectedFile.admin_comments && (
+                ) : fileComments && fileComments.length > 0 ? (
                   <div className="comments-list">
-                    <div className="comment-item">
-                      <div className="comment-text">
-                        <strong>Admin:</strong> {selectedFile.admin_comments}
+                    {fileComments.map((comment, index) => (
+                      <div key={index} className="comment-item">
+                        <div className="comment-header">
+                          <span className="comment-author">{comment.reviewer_username || comment.username}</span>
+                          <span className="comment-role">{comment.reviewer_role || comment.role || 'USER'}</span>
+                          <span className="comment-date">
+                            {new Date(comment.reviewed_at || comment.created_at).toLocaleDateString('en-US', {
+                              month: 'short',
+                              day: 'numeric',
+                              year: 'numeric',
+                              hour: '2-digit',
+                              minute: '2-digit'
+                            })}
+                          </span>
+                        </div>
+                        <div className="comment-body">
+                          {comment.action && (
+                            <span className={`comment-action ${comment.action.toLowerCase()}`}>
+                              {comment.action.toUpperCase()}
+                            </span>
+                          )}
+                          {comment.comments && <p className="comment-text">{comment.comments}</p>}
+                        </div>
                       </div>
-                      <div className="comment-date">
-                        {selectedFile.admin_reviewed_at && new Date(selectedFile.admin_reviewed_at).toLocaleString()}
-                      </div>
-                    </div>
+                    ))}
                   </div>
-                )}
-                {!selectedFile.team_leader_comments && !selectedFile.admin_comments && (
-                  <p className="no-comments">No comments yet.</p>
+                ) : (
+                  <div className="no-comments">No comments yet</div>
                 )}
               </div>
               
-              {/* Add Comment */}
+              {/* Add Comment Section */}
               <div className="add-comment-section">
-                <h4>Add Comment</h4>
+                <h4 className="section-title">Add Comment</h4>
                 <div className="comment-input-container">
                   <textarea
                     value={fileComment}
@@ -751,32 +779,45 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
                 </div>
                 <p className="help-text">This comment will be sent to the user. Press Enter to submit or Shift+Enter for new line.</p>
               </div>
-            </div>
-            <div className="modal-footer">
-              <div className="approval-actions">
-                <button 
-                  type="button" 
-                  onClick={() => setShowFileModal(false)} 
-                  className="btn btn-secondary"
-                >
-                  Cancel
-                </button>
-                <button 
-                  type="button" 
-                  onClick={rejectFile}
-                  className="btn btn-danger" 
-                  disabled={isLoading}
-                >
-                  {isLoading ? 'Rejecting...' : 'Reject File'}
-                </button>
-                <button 
-                  type="button" 
-                  onClick={approveFile}
-                  className="btn btn-primary" 
-                  disabled={isLoading}
-                >
-                  {isLoading ? 'Approving...' : 'Approve File'}
-                </button>
+              
+              {/* Actions Section - Moved to Last */}
+              <div className="actions-section">
+                <h4 className="section-title">Actions</h4>
+                <div className="action-buttons-large">
+                  <button 
+                    type="button" 
+                    onClick={approveFile}
+                    className="btn btn-success-large" 
+                    disabled={isLoading}
+                  >
+                    <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                      <path d="M16.875 5L7.5 14.375L3.125 10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                    Approve File
+                  </button>
+                  <button 
+                    type="button" 
+                    onClick={rejectFile}
+                    className="btn btn-danger-large" 
+                    disabled={isLoading}
+                  >
+                    <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                      <path d="M15 5L5 15M5 5L15 15" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                    Reject File
+                  </button>
+                  <a 
+                    href={`http://localhost:3001${selectedFile.file_path}`} 
+                    target="_blank" 
+                    rel="noopener noreferrer" 
+                    className="btn btn-secondary-large"
+                  >
+                    <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                      <path d="M15 10.8333V15.8333C15 16.2754 14.8244 16.6993 14.5118 17.0118C14.1993 17.3244 13.7754 17.5 13.3333 17.5H4.16667C3.72464 17.5 3.30072 17.3244 2.98816 17.0118C2.67559 16.6993 2.5 16.2754 2.5 15.8333V6.66667C2.5 6.22464 2.67559 5.80072 2.98816 5.48816C3.30072 5.17559 3.72464 5 4.16667 5H9.16667M12.5 2.5H17.5M17.5 2.5V7.5M17.5 2.5L8.33333 11.6667" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                    Open File
+                  </a>
+                </div>
               </div>
             </div>
           </div>
@@ -785,7 +826,7 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
 
       {/* Delete Confirmation Modal */}
       {showDeleteModal && fileToDelete && (
-        <div className="modal-overlay" onClick={() => setShowDeleteModal(false)}>
+        <div className="modal-overlay">
           <div className="modal delete-modal" onClick={e => e.stopPropagation()}>
             <div className="modal-header">
               <h3>Delete File</h3>

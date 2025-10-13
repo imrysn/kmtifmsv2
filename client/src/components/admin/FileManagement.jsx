@@ -139,7 +139,7 @@ const FileManagement = ({ clearMessages, error, success, setError, setSuccess })
             <span className="status-text">
               {networkInfo.accessible ? 'Network directory accessible' : 'Network directory not accessible'}
             </span>
-            <span className="network-path">\\KMTI-NAS\Shared\Public\PROJECTS</span>
+            <span className="network-path">{networkInfo.path || '\\\\KMTI-NAS\\Shared\\Public\\PROJECTS'}</span>
           </div>
         )}
       </div>

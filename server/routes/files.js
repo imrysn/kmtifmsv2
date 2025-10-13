@@ -479,7 +479,9 @@ router.post('/:fileId/team-leader-review', (req, res) => {
       });
     }
 
-    const now = new Date().toISOString();
+  // Use MySQL-friendly DATETIME format: YYYY-MM-DD HH:MM:SS
+  const now = new Date();
+  const nowSql = now.toISOString().slice(0,19).replace('T', ' ');
     let newStatus, newStage;
     if (action === 'approve') {
       newStatus = 'team_leader_approved';
@@ -489,28 +491,34 @@ router.post('/:fileId/team-leader-review', (req, res) => {
       newStage = 'rejected_by_team_leader';
     }
 
-    // Update file status
-    db.run(`UPDATE files SET
+    // Update file status - build SQL and params so we can log them for debugging
+    const tlSql = `UPDATE files SET
       status = ?,
       current_stage = ?,
       team_leader_id = ?,
       team_leader_username = ?,
       team_leader_reviewed_at = ?,
-      team_leader_comments = ?,
-      ${action === 'reject' ? 'rejection_reason = ?, rejected_by = ?, rejected_at = ?,' : ''}
-      updated_at = ?
-    WHERE id = ?`,
-    action === 'reject' ? [
-      newStatus, newStage, teamLeaderId, teamLeaderUsername, now, comments,
-      comments, teamLeaderUsername, now, now, fileId
+      team_leader_comments = ?${action === 'reject' ? ', rejection_reason = ?, rejected_by = ?, rejected_at = ?' : ''}
+    WHERE id = ?`;
+
+    const tlParams = action === 'reject' ? [
+      newStatus, newStage, teamLeaderId, teamLeaderUsername, nowSql, comments,
+      comments, teamLeaderUsername, nowSql, fileId
     ] : [
-      newStatus, newStage, teamLeaderId, teamLeaderUsername, now, comments, now, fileId
-    ], function(err) {
+      newStatus, newStage, teamLeaderId, teamLeaderUsername, nowSql, comments, fileId
+    ];
+
+    console.log('DEBUG: Executing SQL (team-leader):', tlSql.replace(/\s+/g,' '));
+    console.log('DEBUG: Params (team-leader):', tlParams);
+
+    db.run(tlSql, tlParams, function(err) {
       if (err) {
         console.error('❌ Error updating file status:', err);
+        // Return DB error message to client in dev for easier debugging
         return res.status(500).json({
           success: false,
-          message: 'Failed to update file status'
+          message: 'Failed to update file status',
+          error: err.message
         });
       }
 
@@ -559,7 +567,7 @@ router.post('/:fileId/team-leader-review', (req, res) => {
           ...file,
           status: newStatus,
           current_stage: newStage,
-          team_leader_reviewed_at: now,
+          team_leader_reviewed_at: nowSql,
           team_leader_comments: comments
         }
       });
@@ -595,7 +603,9 @@ router.post('/:fileId/admin-review', (req, res) => {
       });
     }
 
-    const now = new Date().toISOString();
+  // Use MySQL-friendly DATETIME format
+  const now = new Date();
+  const nowSql = now.toISOString().slice(0,19).replace('T', ' ');
     let newStatus, newStage, publicNetworkUrl = null;
     if (action === 'approve') {
       newStatus = 'final_approved';
@@ -607,32 +617,36 @@ router.post('/:fileId/admin-review', (req, res) => {
       newStage = 'rejected_by_admin';
     }
 
-    // Update file status
-    db.run(`UPDATE files SET
+    // Update file status - build SQL and params so we can log them for debugging
+    const adminSql = `UPDATE files SET
       status = ?,
       current_stage = ?,
       admin_id = ?,
       admin_username = ?,
       admin_reviewed_at = ?,
-      admin_comments = ?,
-      ${action === 'approve' ? 'public_network_url = ?, final_approved_at = ?,' : ''}
-      ${action === 'reject' ? 'rejection_reason = ?, rejected_by = ?, rejected_at = ?,' : ''}
-      updated_at = ?
-    WHERE id = ?`,
-    action === 'approve' ? [
-      newStatus, newStage, adminId, adminUsername, now, comments,
-      publicNetworkUrl, now, now, fileId
+      admin_comments = ?${action === 'approve' ? ', public_network_url = ?, final_approved_at = ?' : ''}${action === 'reject' ? ', rejection_reason = ?, rejected_by = ?, rejected_at = ?' : ''}
+    WHERE id = ?`;
+
+    const adminParams = action === 'approve' ? [
+      newStatus, newStage, adminId, adminUsername, nowSql, comments,
+      publicNetworkUrl, nowSql, fileId
     ] : action === 'reject' ? [
-      newStatus, newStage, adminId, adminUsername, now, comments,
-      comments, adminUsername, now, now, fileId
+      newStatus, newStage, adminId, adminUsername, nowSql, comments,
+      comments, adminUsername, nowSql, fileId
     ] : [
-      newStatus, newStage, adminId, adminUsername, now, comments, now, fileId
-    ], function(err) {
+      newStatus, newStage, adminId, adminUsername, nowSql, comments, fileId
+    ];
+
+    console.log('DEBUG: Executing SQL (admin):', adminSql.replace(/\s+/g,' '));
+    console.log('DEBUG: Params (admin):', adminParams);
+
+    db.run(adminSql, adminParams, function(err) {
       if (err) {
-        console.error('❌ Error updating file status:', err);
+        console.error('❌ Error updating file status (admin):', err);
         return res.status(500).json({
           success: false,
-          message: 'Failed to update file status'
+          message: 'Failed to update file status',
+          error: err.message
         });
       }
 
