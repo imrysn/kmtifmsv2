@@ -3,10 +3,17 @@ const cors = require('cors');
 const multer = require('multer');
 const crypto = require('crypto');
 const path = require('path');
+const fs = require('fs');
 const { networkDataPath } = require('./database');
 
 // Network Uploads Configuration
 const uploadsDir = path.join(networkDataPath, 'uploads');
+
+// Ensure uploads directory exists
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true });
+  console.log(`✅ Created uploads directory: ${uploadsDir}`);
+}
 
 // Configure multer for file uploads
 const storage = multer.diskStorage({
@@ -22,31 +29,9 @@ const storage = multer.diskStorage({
 });
 
 const upload = multer({
-  storage: storage,
-  limits: {
-    fileSize: 100 * 1024 * 1024 // 100MB limit
-  },
-  fileFilter: function (req, file, cb) {
-    // Allow common file types
-    const allowedTypes = [
-      'application/pdf',
-      'application/msword',
-      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-      'application/vnd.ms-excel',
-      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-      'text/plain',
-      'image/jpeg',
-      'image/png',
-      'image/gif',
-      'application/zip',
-      'application/x-zip-compressed'
-    ];
-    if (allowedTypes.includes(file.mimetype)) {
-      cb(null, true);
-    } else {
-      cb(new Error('File type not allowed'), false);
-    }
-  }
+  storage: storage
+  // No file size limit - allow unlimited file sizes
+  // No file type filter - allow all file types
 });
 
 function setupMiddleware(app) {

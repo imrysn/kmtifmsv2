@@ -22,16 +22,16 @@ const MyFilesTab = ({
   const [isUploading, setIsUploading] = useState(false);
   const [showDuplicateModal, setShowDuplicateModal] = useState(false);
   const [duplicateFileInfo, setDuplicateFileInfo] = useState(null);
+  const [showFileDetailsModal, setShowFileDetailsModal] = useState(false);
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [fileComments, setFileComments] = useState([]);
+  const [loadingComments, setLoadingComments] = useState(false);
   const fileInputRef = useRef(null);
 
   const handleFileSelect = (e) => {
     const file = e.target.files[0];
     if (file) {
-      // Check file size (100MB limit)
-      if (file.size > 100 * 1024 * 1024) {
-        alert('File size must be less than 100MB');
-        return;
-      }
+      // No file size limit
       setUploadedFile(file);
     }
   };
@@ -158,68 +158,80 @@ const MyFilesTab = ({
     const fileUrl = `http://localhost:3001${file.file_path}`;
     window.open(fileUrl, '_blank');
   };
-  const getFileIcon = (fileName) => {
-    const extension = fileName.split('.').pop().toLowerCase();
+
+  const openFileDetails = async (file) => {
+    setSelectedFile(file);
+    setShowFileDetailsModal(true);
+    setLoadingComments(true);
     
-    if (['pdf'].includes(extension)) {
-      return (
-        <div className="file-icon-list pdf-icon">
-          <svg viewBox="0 0 24 24" fill="currentColor">
-            <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z" />
-          </svg>
-          <span className="file-type-label">PDF</span>
-        </div>
-      );
-    } else if (['doc', 'docx'].includes(extension)) {
-      return (
-        <div className="file-icon-list docx-icon">
-          <svg viewBox="0 0 24 24" fill="currentColor">
-            <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z" />
-          </svg>
-          <span className="file-type-label">DOC</span>
-        </div>
-      );
-    } else if (['xls', 'xlsx'].includes(extension)) {
-      return (
-        <div className="file-icon-list xlsx-icon">
-          <svg viewBox="0 0 24 24" fill="currentColor">
-            <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z" />
-          </svg>
-          <span className="file-type-label">XLS</span>
-        </div>
-      );
-    } else if (['jpg', 'jpeg', 'png', 'gif'].includes(extension)) {
-      return (
-        <div className="file-icon-list image-icon">
-          <svg viewBox="0 0 24 24" fill="currentColor">
-            <path d="M8.5,13.5L11,16.5L14.5,12L19,18H5M21,19V5C21,3.89 20.1,3 19,3H5A2,2 0 0,0 3,5V19A2,2 0 0,0 5,21H19A2,2 0 0,0 21,19Z" />
-          </svg>
-          <span className="file-type-label">IMG</span>
-        </div>
-      );
-    } else {
-      return (
-        <div className="file-icon-list default-icon">
-          <svg viewBox="0 0 24 24" fill="currentColor">
-            <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z" />
-          </svg>
-          <span className="file-type-label">FILE</span>
-        </div>
-      );
+    // Fetch comments from the API
+    try {
+      console.log('Fetching comments for file:', file.id);
+      const response = await fetch(`http://localhost:3001/api/files/${file.id}/comments`);
+      const data = await response.json();
+      console.log('Comments response:', data);
+      
+      if (data.success) {
+        setFileComments(data.comments || []);
+        console.log('Comments loaded:', data.comments?.length || 0);
+      } else {
+        console.error('Failed to fetch comments:', data.message);
+        setFileComments([]);
+      }
+    } catch (error) {
+      console.error('Error fetching comments:', error);
+      setFileComments([]);
+    } finally {
+      setLoadingComments(false);
     }
   };
 
-  const formatDate = (dateString) => {
+  const getStatusDisplayName = (dbStatus) => {
+    switch (dbStatus) {
+      case 'uploaded':
+        return 'PENDING TEAM LEADER';
+      case 'team_leader_approved':
+        return 'PENDING ADMIN';
+      case 'final_approved':
+        return 'FINAL APPROVED';
+      case 'rejected_by_team_leader':
+        return 'REJECTED BY TEAM LEADER';
+      case 'rejected_by_admin':
+        return 'REJECTED BY ADMIN';
+      default:
+        return dbStatus.toUpperCase();
+    }
+  };
+
+  const getStatusClass = (status) => {
+    switch (status) {
+      case 'uploaded':
+      case 'team_leader_approved':
+        return 'status-pending';
+      case 'final_approved':
+        return 'status-approved';
+      case 'rejected_by_team_leader':
+      case 'rejected_by_admin':
+        return 'status-rejected';
+      default:
+        return 'status-default';
+    }
+  };
+
+  const formatDateTime = (dateString) => {
     const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: '2-digit', 
-      day: '2-digit'
-    }) + ' ' + date.toLocaleTimeString('en-US', {
+    const dateStr = date.toLocaleDateString('en-US', {
+      month: '2-digit',
+      day: '2-digit',
+      year: 'numeric'
+    });
+    const timeStr = date.toLocaleTimeString('en-US', {
       hour: '2-digit',
       minute: '2-digit',
+      second: '2-digit',
       hour12: true
     });
+    return { date: dateStr, time: timeStr };
   };
 
   const getTags = (file) => {
@@ -232,28 +244,14 @@ const MyFilesTab = ({
     }
   };
 
-  const getStatusDisplay = (file) => {
-    if (file.status === 'final_approved') {
-      return <span className="status-badge approved">Final Approved</span>;
-    } else if (file.status === 'uploaded') {
-      return <span className="status-badge pending">Pending Team Leader Review</span>;
-    } else if (file.status === 'team_leader_approved') {
-      return <span className="status-badge pending">Pending Admin Review</span>;
-    }
-    return null;
-  };
-
-  const getSubmissionStatus = (file) => {
-    if (file.status === 'final_approved' || file.current_stage.includes('pending')) {
-      return <span className="submission-status">✓ Submitted</span>;
-    }
-    return null;
-  };
-
   // Only show submitted files
   const submittedFiles = filteredFiles.filter(f => 
     f.status === 'final_approved' || f.status === 'uploaded' || f.status === 'team_leader_approved'
   );
+
+  // Calculate statistics
+  const pendingFiles = submittedFiles.filter(f => f.status === 'uploaded' || f.status === 'team_leader_approved');
+  const approvedFiles = submittedFiles.filter(f => f.status === 'final_approved');
 
   return (
     <div className="my-files-section">
@@ -261,7 +259,7 @@ const MyFilesTab = ({
       <div className="files-header">
         <div className="header-left">
           <h2>My Files</h2>
-          <p>{filteredFiles.length} files • {formatFileSize(filteredFiles.reduce((total, file) => total + file.file_size, 0))} total</p>
+          <p>{submittedFiles.length} files • {formatFileSize(submittedFiles.reduce((total, file) => total + file.file_size, 0))} total</p>
         </div>
         <div className="header-right">
           <button 
@@ -276,63 +274,102 @@ const MyFilesTab = ({
         </div>
       </div>
 
-      {/* Files List */}
-      <div className="files-container-list">
+      {/* Files Table */}
+      <div className="table-container">
         {isLoading ? (
           <div className="loading-state">
             <div className="spinner"></div>
             <p>Loading your files...</p>
           </div>
-        ) : (
+        ) : submittedFiles.length > 0 ? (
           <>
-            {/* Submitted Section */}
-            {submittedFiles.length > 0 && (
-              <div className="files-section">
-                <div className="section-header">
-                  <svg viewBox="0 0 24 24" fill="currentColor" className="section-icon submitted">
-                    <path d="M9,20.42L2.79,14.21L5.62,11.38L9,14.77L18.88,4.88L21.71,7.71L9,20.42Z"/>
-                  </svg>
-                  <span className="section-title">Submitted for Approval</span>
-                  <span className="section-count">({submittedFiles.length})</span>
-                </div>
-                <div className="files-list">
-                  {submittedFiles.map((file) => {
-                    const tags = getTags(file);
-                    return (
-                      <div 
-                        key={file.id} 
-                        className="file-item-compact" 
-                        onDoubleClick={() => openFile(file)}
-                      >
-                        <div className="file-icon-wrapper">
-                          {getFileIcon(file.original_name)}
+            <table className="files-table">
+              <thead>
+                <tr>
+                  <th>Filename</th>
+                  <th>Submitted By</th>
+                  <th>Date & Time</th>
+                  <th>Team</th>
+                  <th>Status</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {submittedFiles.map((file) => {
+                  const { date, time } = formatDateTime(file.uploaded_at);
+                  return (
+                    <tr 
+                      key={file.id} 
+                      className="file-row" 
+                      onClick={() => openFileDetails(file)}
+                      title="Click to view details and comments"
+                    >
+                      <td>
+                        <div className="file-cell">
+                          <div className="file-icon">
+                            {file.file_type.substring(0, 3).toUpperCase()}
+                          </div>
+                          <div className="file-info">
+                            <div className="file-name">{file.original_name}</div>
+                            <div className="file-size">{formatFileSize(file.file_size)}</div>
+                          </div>
                         </div>
-                        <div className="file-info-compact">
-                          <h3 className="file-name">{file.original_name}</h3>
+                      </td>
+                      <td>
+                        <div className="user-cell">
+                          <div className="user-avatar">
+                            {file.username.charAt(0).toUpperCase()}
+                          </div>
+                          <span className="user-name">{file.username}</span>
                         </div>
-                        <div className="file-status-compact">
-                          {getStatusDisplay(file)}
+                      </td>
+                      <td>
+                        <div className="datetime-cell">
+                          <div className="date">{date}</div>
+                          <div className="time">{time}</div>
                         </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
+                      </td>
+                      <td>
+                        <span className="team-badge">{file.user_team}</span>
+                      </td>
+                      <td>
+                        <span className={`status-badge ${getStatusClass(file.status)}`}>
+                          {getStatusDisplayName(file.status)}
+                        </span>
+                      </td>
+                      <td>
+                        <button 
+                          className="action-btn open-btn"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            openFile(file);
+                          }}
+                        >
+                          OPEN
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
 
-            {filteredFiles.length === 0 && (
-              <div className="empty-state">
-                <div className="empty-content">
-                  <h3>No files found</h3>
-                  <p>
-                    {files.length === 0 
-                      ? "Ready to upload your first file? Click the button above to get started." 
-                      : "No files match your current search criteria."}
-                  </p>
-                </div>
-              </div>
-            )}
+            <div className="table-footer">
+              <p>Showing 1 to {submittedFiles.length} of {submittedFiles.length} files</p>
+            </div>
           </>
+        ) : (
+          <div className="empty-state">
+            <div className="empty-content">
+              <div className="empty-icon">📋</div>
+              <h3>No files found</h3>
+              <p>
+                {files.length === 0 
+                  ? "Ready to upload your first file? Click the button above to get started." 
+                  : "No files match your current search criteria."}
+              </p>
+            </div>
+          </div>
         )}
       </div>
 
@@ -356,13 +393,12 @@ const MyFilesTab = ({
                   ref={fileInputRef}
                   type="file"
                   onChange={handleFileSelect}
-                  accept=".pdf,.doc,.docx,.xls,.xlsx,.txt,.jpg,.jpeg,.png,.gif,.zip"
                   className="file-input"
                   disabled={isUploading}
                 />
                 <div className="file-input-info">
-                  <p>Supported: PDF, Word, Excel, Text, Images, ZIP</p>
-                  <p>Maximum size: 100MB</p>
+                  <p>All file types are supported</p>
+                  <p>No file size limit</p>
                 </div>
               </div>
 
@@ -509,6 +545,151 @@ const MyFilesTab = ({
                 disabled={isUploading}
               >
                 {isUploading ? 'Replacing...' : 'Replace Existing File'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* File Details Modal */}
+      {showFileDetailsModal && selectedFile && (
+        <div className="modal-overlay" onClick={() => setShowFileDetailsModal(false)}>
+          <div className="modal file-details-modal" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>File Details</h3>
+              <button onClick={() => setShowFileDetailsModal(false)} className="modal-close">×</button>
+            </div>
+            <div className="modal-body">
+              <div className="file-details-section">
+                <div className="file-detail-row">
+                  <span className="detail-label">Filename:</span>
+                  <span className="detail-value">{selectedFile.original_name}</span>
+                </div>
+                <div className="file-detail-row">
+                  <span className="detail-label">File Type:</span>
+                  <span className="detail-value">{selectedFile.file_type}</span>
+                </div>
+                <div className="file-detail-row">
+                  <span className="detail-label">File Size:</span>
+                  <span className="detail-value">{formatFileSize(selectedFile.file_size)}</span>
+                </div>
+                <div className="file-detail-row">
+                  <span className="detail-label">Uploaded:</span>
+                  <span className="detail-value">{new Date(selectedFile.uploaded_at).toLocaleString()}</span>
+                </div>
+                <div className="file-detail-row">
+                  <span className="detail-label">Team:</span>
+                  <span className="detail-value team-badge">{selectedFile.user_team}</span>
+                </div>
+                <div className="file-detail-row">
+                  <span className="detail-label">Current Status:</span>
+                  <span className={`detail-value status-badge ${getStatusClass(selectedFile.status)}`}>
+                    {getStatusDisplayName(selectedFile.status)}
+                  </span>
+                </div>
+                {selectedFile.description && (
+                  <div className="file-detail-row">
+                    <span className="detail-label">Description:</span>
+                    <span className="detail-value description-text">{selectedFile.description}</span>
+                  </div>
+                )}
+              </div>
+              
+              {/* Review Details from Files Table */}
+              {selectedFile.team_leader_reviewed_at && (
+                <div className="review-section">
+                  <h4>Team Leader Review</h4>
+                  <div className="review-info">
+                    <div className="review-detail">
+                      <span className="review-label">Reviewed by:</span>
+                      <span className="review-value">{selectedFile.team_leader_username}</span>
+                    </div>
+                    <div className="review-detail">
+                      <span className="review-label">Review Date:</span>
+                      <span className="review-value">{new Date(selectedFile.team_leader_reviewed_at).toLocaleString()}</span>
+                    </div>
+                    {selectedFile.team_leader_comments && (
+                      <div className="review-detail">
+                        <span className="review-label">Comments:</span>
+                        <span className="review-value">{selectedFile.team_leader_comments}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+              
+              {selectedFile.admin_reviewed_at && (
+                <div className="review-section">
+                  <h4>Admin Review</h4>
+                  <div className="review-info">
+                    <div className="review-detail">
+                      <span className="review-label">Reviewed by:</span>
+                      <span className="review-value">{selectedFile.admin_username}</span>
+                    </div>
+                    <div className="review-detail">
+                      <span className="review-label">Review Date:</span>
+                      <span className="review-value">{new Date(selectedFile.admin_reviewed_at).toLocaleString()}</span>
+                    </div>
+                    {selectedFile.admin_comments && (
+                      <div className="review-detail">
+                        <span className="review-label">Comments:</span>
+                        <span className="review-value">{selectedFile.admin_comments}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+              
+              {/* Comments Section from file_comments table */}
+              <div className="comments-section">
+                <h4>Review Comments</h4>
+                {loadingComments ? (
+                  <div style={{ textAlign: 'center', padding: '20px', color: '#6b7280' }}>
+                    <div className="spinner" style={{ margin: '0 auto' }}></div>
+                    <p>Loading comments...</p>
+                  </div>
+                ) : fileComments && fileComments.length > 0 ? (
+                  <div className="comments-list">
+                    {fileComments.map((comment, index) => (
+                      <div key={comment.id || index} className="comment-item">
+                        <div className="comment-header">
+                          <span className="comment-author">{comment.username}</span>
+                          <span className="comment-role">({comment.user_role})</span>
+                          <span className="comment-date">
+                            {new Date(comment.created_at).toLocaleString()}
+                          </span>
+                        </div>
+                        <div className="comment-text">{comment.comment}</div>
+                        {comment.comment_type && (
+                          <div className="comment-type-badge">{comment.comment_type}</div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="no-comments" style={{ fontStyle: 'italic', color: '#9ca3af', textAlign: 'center', padding: '20px' }}>
+                    No comments yet.
+                  </p>
+                )}
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button 
+                type="button" 
+                onClick={() => setShowFileDetailsModal(false)} 
+                className="btn btn-secondary"
+              >
+                Close
+              </button>
+              <button 
+                type="button" 
+                onClick={() => {
+                  setShowFileDetailsModal(false);
+                  openFile(selectedFile);
+                }}
+                className="btn btn-primary"
+              >
+                Open File
               </button>
             </div>
           </div>

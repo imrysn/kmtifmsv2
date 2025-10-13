@@ -13,30 +13,29 @@
 
 /* Statistics Cards Grid */
 .approval-stats-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 16px;
-  margin-bottom: 24px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+  position: relative;
 }
 
 .stat-card {
-  background: white;
+  background: var(--surface-color, white);
+  border: 1px solid var(--border-color, #d2d2d7);
   border-radius: 12px;
-  padding: 20px;
-  border: 1px solid #d2d2d7;
+  padding: 1.5rem;
   display: flex;
   align-items: center;
-  gap: 16px;
-  transition: all 0.2s ease;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  gap: 1rem;
+  min-width: 200px;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
 }
 
-.stat-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-}
-
-.stat-card .stat-icon {
+.stat-card .status-icon {
   width: 48px;
   height: 48px;
   border-radius: 50%;
@@ -47,33 +46,35 @@
   flex-shrink: 0;
 }
 
-.stat-card.pending .stat-icon {
+.stat-card .status-icon.pending-icon {
   background: #fff3cd;
   color: #996633;
 }
 
-.stat-card.approved .stat-icon {
+.stat-card .status-icon.approved-icon {
   background: #d1f2eb;
   color: #0f5132;
 }
 
-.stat-card.rejected .stat-icon {
+.stat-card .status-icon.rejected-icon {
   background: #f8d7da;
   color: #721c24;
 }
 
-.stat-card .stat-number {
-  font-size: 32px;
-  font-weight: 700;
-  color: #1d1d1f;
-  line-height: 1;
-  margin-bottom: 4px;
+.stat-card .status-info {
+  flex: 1;
 }
 
-.stat-card .stat-label {
-  font-size: 14px;
-  font-weight: 500;
-  color: #86868b;
+.stat-card .status-number {
+  font-size: 1.5rem;
+  font-weight: bold;
+  color: var(--text-primary, #1d1d1f);
+  margin-bottom: 0.25rem;
+}
+
+.stat-card .status-label {
+  font-size: 0.85rem;
+  color: var(--text-secondary, #86868b);
 }
 
 /* Table Container */
@@ -540,7 +541,7 @@
   }
   
   .approval-stats-grid {
-    grid-template-columns: 1fr;
+    justify-content: center;
   }
   
   .files-table {

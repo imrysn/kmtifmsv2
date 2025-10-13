@@ -154,21 +154,27 @@ const FileApprovalTabTable = ({
       {/* Statistics Cards */}
       <div className="approval-stats-grid">
         <div className="stat-card pending">
-          <div className="stat-icon">⏱</div>
-          <div className="stat-number">{pendingFiles.length}</div>
-          <div className="stat-label">Pending</div>
+          <div className="status-icon pending-icon">⏱</div>
+          <div className="status-info">
+            <div className="status-number">{pendingFiles.length}</div>
+            <div className="status-label">Pending</div>
+          </div>
         </div>
         
         <div className="stat-card approved">
-          <div className="stat-icon">✓</div>
-          <div className="stat-number">{approvedFiles.length}</div>
-          <div className="stat-label">Approved</div>
+          <div className="status-icon approved-icon">✓</div>
+          <div className="status-info">
+            <div className="status-number">{approvedFiles.length}</div>
+            <div className="status-label">Approved</div>
+          </div>
         </div>
         
         <div className="stat-card rejected">
-          <div className="stat-icon">✗</div>
-          <div className="stat-number">{rejectedFiles.length}</div>
-          <div className="stat-label">Rejected</div>
+          <div className="status-icon rejected-icon">✗</div>
+          <div className="status-info">
+            <div className="status-number">{rejectedFiles.length}</div>
+            <div className="status-label">Rejected</div>
+          </div>
         </div>
       </div>
 

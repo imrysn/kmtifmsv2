@@ -360,12 +360,11 @@ const MyFilesTab = ({
                   ref={fileInputRef}
                   type="file"
                   onChange={handleFileSelect}
-                  accept=".pdf,.doc,.docx,.xls,.xlsx,.txt,.jpg,.jpeg,.png,.gif,.zip"
                   className="file-input"
                   disabled={isUploading}
                 />
                 <div className="file-input-info">
-                  <p>Supported: PDF, Word, Excel, Text, Images, ZIP</p>
+                  <p>All file types are supported</p>
                   <p>Maximum size: 100MB</p>
                 </div>
               </div>

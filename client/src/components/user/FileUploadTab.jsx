@@ -16,11 +16,6 @@ const FileUploadTab = ({
   const handleFileSelect = (e) => {
     const file = e.target.files[0];
     if (file) {
-      // Check file size (100MB limit)
-      if (file.size > 100 * 1024 * 1024) {
-        // Handle error - this should be passed as a prop or handled in parent
-        return;
-      }
       setUploadedFile(file);
     }
   };
@@ -50,13 +45,12 @@ const FileUploadTab = ({
                   ref={fileInputRef}
                   type="file"
                   onChange={handleFileSelect}
-                  accept=".pdf,.doc,.docx,.xls,.xlsx,.txt,.jpg,.jpeg,.png,.gif,.zip"
                   className="file-input"
                   disabled={isUploading}
                 />
                 <div className="file-input-info">
-                  <p>Supported formats: PDF, Word, Excel, Text, Images, ZIP</p>
-                  <p>Maximum file size: 100MB</p>
+                  <p>All file types are supported</p>
+                  <p>No file size limit</p>
                 </div>
               </div>
             </div>
