@@ -10,7 +10,8 @@ const FileApprovalTab = ({
 }) => {
   
   // Helper function to open file
-  const openFile = (file) => {
+  const openFile = (file, e) => {
+    e.stopPropagation();
     const fileUrl = `http://localhost:3001${file.file_path}`;
     window.open(fileUrl, '_blank');
   };
@@ -20,7 +21,8 @@ const FileApprovalTab = ({
   const approvedFiles = files.filter(f => f.status === 'final_approved');
   const rejectedFiles = files.filter(f => f.status === 'rejected_by_team_leader' || f.status === 'rejected_by_admin');
 
-  const handleWithdraw = async (fileId) => {
+  const handleWithdraw = async (fileId, e) => {
+    e.stopPropagation();
     if (window.confirm('Are you sure you want to withdraw this file? This action cannot be undone.')) {
       try {
         const response = await fetch(`http://localhost:3001/api/files/${fileId}/withdraw`, {
@@ -66,7 +68,12 @@ const FileApprovalTab = ({
   };
 
   const FileItem = ({ file, showWithdraw = false }) => (
-    <div className="approval-file-item" onClick={() => openFile(file)}>
+    <div 
+      className="approval-file-item" 
+      onClick={() => openFileModal(file)}
+      onDoubleClick={(e) => openFile(file, e)}
+      title="Click to view details and comments, double-click to open file"
+    >
       <div className="file-icon-section">
         <div className={`file-type-icon ${file.file_type.includes('PDF') ? 'pdf' : 'doc'}`}>
           {getFileIcon(file.original_name, file.file_type)}
@@ -102,10 +109,7 @@ const FileApprovalTab = ({
         {showWithdraw && (
           <button 
             className="action-btn withdraw"
-            onClick={(e) => {
-              e.stopPropagation();
-              handleWithdraw(file.id);
-            }}
+            onClick={(e) => handleWithdraw(file.id, e)}
           >
             Withdraw
           </button>
@@ -114,10 +118,10 @@ const FileApprovalTab = ({
           className="action-btn details"
           onClick={(e) => {
             e.stopPropagation();
-            openFile(file);
+            openFileModal(file);
           }}
         >
-          <span className="action-icon">👁</span> Open
+          <span className="action-icon">👁</span> View Details
         </button>
       </div>
     </div>
@@ -163,7 +167,7 @@ const FileApprovalTab = ({
           <h2>File Approvals</h2>
           <p className="submissions-count">{files.length} submissions</p>
         </div>
-        <p className="header-subtitle">Submit files from the My Files page</p>
+        <p className="header-subtitle">Click on any file to view details and comments</p>
       </div>
 
       {/* Pending Files Section */}

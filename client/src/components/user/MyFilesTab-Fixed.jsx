@@ -154,10 +154,12 @@ const MyFilesTab = ({
   };
 
   // Helper function to open file
-  const openFile = (file) => {
+  const openFile = (file, e) => {
+    e.stopPropagation();
     const fileUrl = `http://localhost:3001${file.file_path}`;
     window.open(fileUrl, '_blank');
   };
+  
   const getFileIcon = (fileName) => {
     const extension = fileName.split('.').pop().toLowerCase();
     
@@ -302,7 +304,9 @@ const MyFilesTab = ({
                       <div 
                         key={file.id} 
                         className="file-item-compact" 
-                        onDoubleClick={() => openFile(file)}
+                        onClick={() => openFileModal(file)}
+                        onDoubleClick={(e) => openFile(file, e)}
+                        title="Click to view details and comments, double-click to open file"
                       >
                         <div className="file-icon-wrapper">
                           {getFileIcon(file.original_name)}

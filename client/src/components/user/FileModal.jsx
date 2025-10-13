@@ -239,9 +239,9 @@ const FileModal = ({
           </div>
           
           {/* Comments Section */}
-          {fileComments.length > 0 && (
-            <div className="comments-section">
-              <h4>Review Comments</h4>
+          <div className="comments-section">
+            <h4>Review Comments</h4>
+            {fileComments && fileComments.length > 0 ? (
               <div className="comments-list">
                 {fileComments.map((comment, index) => (
                   <div key={index} className="comment-item">
@@ -254,8 +254,12 @@ const FileModal = ({
                   </div>
                 ))}
               </div>
-            </div>
-          )}
+            ) : (
+              <div className="no-comments">
+                <p style={{ fontStyle: 'italic', color: '#9ca3af', textAlign: 'center', padding: '20px' }}>No comments yet.</p>
+              </div>
+            )}
+          </div>
         </div>
         <div className="modal-footer">
           <button 

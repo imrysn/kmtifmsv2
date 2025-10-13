@@ -142,7 +142,6 @@
 .user-dashboard .sidebar-item {
   display: flex;
   align-items: center;
-  gap: 12px;
   width: 100%;
   padding: 14px 20px;
   background: transparent;
@@ -168,14 +167,6 @@
   font-weight: 600;
 }
 
-.user-dashboard .nav-icon {
-  font-size: 18px;
-  width: 20px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
 .user-dashboard .nav-text {
   flex: 1;
 }
@@ -183,7 +174,6 @@
 .user-dashboard .sidebar-logout {
   display: flex;
   align-items: center;
-  gap: 12px;
   padding: 14px 20px;
   background: #FEF2F2;
   border: 1px solid #FECACA;

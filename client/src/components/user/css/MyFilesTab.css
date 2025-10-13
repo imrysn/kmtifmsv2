@@ -56,42 +56,6 @@
   height: 16px;
 }
 
-/* Simple Controls */
-.files-controls-simple {
-  margin-bottom: 20px;
-}
-
-.search-wrapper {
-  position: relative;
-  max-width: 300px;
-}
-
-.search-icon {
-  position: absolute;
-  left: 12px;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 16px;
-  height: 16px;
-  color: #86868b;
-}
-
-.search-input {
-  width: 100%;
-  padding: 8px 12px 8px 36px;
-  border: 1px solid #d2d2d7;
-  border-radius: 8px;
-  background: white;
-  color: #1d1d1f;
-  font-size: 14px;
-  outline: none;
-  transition: border-color 0.2s ease;
-}
-
-.search-input:focus {
-  border-color: #007aff;
-}
-
 /* Files Container List */
 .files-container-list {
   flex: 1;
@@ -99,8 +63,8 @@
   border-radius: 12px;
   border: 1px solid #d2d2d7;
   overflow-y: auto;
-  min-height: calc(100vh - 200px);
-  max-height: calc(100vh - 200px);
+  min-height: calc(100vh - 180px);
+  max-height: calc(100vh - 180px);
 }
 
 /* Loading State */
@@ -928,7 +892,7 @@
 /* Compact Layout for Submitted Files */
 .file-item-compact {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   padding: 16px 20px;
   border-bottom: 1px solid #f2f2f7;
   cursor: pointer;
@@ -965,9 +929,6 @@
 .file-info-compact {
   flex: 1;
   min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
 }
 
 .file-info-compact .file-name {
@@ -979,69 +940,9 @@
   word-break: break-word;
 }
 
-.file-info-compact .file-metadata {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.file-info-compact .file-metadata .file-size,
-.file-info-compact .file-metadata .file-date {
-  color: #86868b;
-  font-size: 13px;
-  margin: 0;
-}
-
-.file-info-compact .file-metadata .file-size::after {
-  content: "•";
-  margin-left: 8px;
-  color: #d2d2d7;
-}
-
-.file-tags-row {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex-wrap: wrap;
-  margin-top: 2px;
-}
-
-.file-tags-row .tag-icon {
-  width: 14px;
-  height: 14px;
-  color: #86868b;
-  flex-shrink: 0;
-}
-
-.file-tag-badge-inline {
-  display: inline-flex;
-  align-items: center;
-  padding: 3px 8px;
-  border-radius: 4px;
-  font-size: 11px;
-  font-weight: 600;
-  background: #f2f2f7;
-  color: #1d1d1f;
-  border: 1px solid #d2d2d7;
-  white-space: nowrap;
-}
-
-.tag-more-inline {
-  font-size: 11px;
-  font-weight: 600;
-  color: #86868b;
-  padding: 3px 8px;
-  background: #f9f9fb;
-  border-radius: 4px;
-  white-space: nowrap;
-}
-
 .file-status-compact {
   display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 6px;
+  align-items: center;
   flex-shrink: 0;
 }
 
@@ -1067,15 +968,6 @@
   border: 1px solid #a7f3d0;
 }
 
-.file-status-compact .submission-status {
-  color: #34c759;
-  font-size: 12px;
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  font-weight: 500;
-}
-
 /* Responsive adjustments for compact layout */
 @media (max-width: 768px) {
   .file-item-compact {
@@ -1098,11 +990,6 @@
   
   .file-info-compact .file-name {
     font-size: 14px;
-  }
-  
-  .file-info-compact .file-metadata .file-size,
-  .file-info-compact .file-metadata .file-date {
-    font-size: 12px;
   }
 }
 
