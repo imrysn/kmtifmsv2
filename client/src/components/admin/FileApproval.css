@@ -273,19 +273,6 @@
   gap: 0.75rem;
 }
 
-.file-approval-section .file-cell .file-icon {
-  width: 40px;
-  height: 40px;
-  border-radius: 8px;
-  background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: white;
-  font-weight: 600;
-  font-size: 1rem;
-}
-
 .file-approval-section .file-details {
   display: flex;
   flex-direction: column;
@@ -585,7 +572,7 @@
 
 .file-approval-section .detail-item {
   display: grid;
-  grid-template-columns: 120px 1fr;
+  grid-template-columns: 120px 1fr; /* Adjust width as needed */
   gap: 12px;
   align-items: center;
 }
@@ -604,14 +591,20 @@
   font-weight: 400;
   color: #101828;
   font-family: Arial, sans-serif;
+  /* Add these lines to handle long text */
+  overflow-wrap: break-word; /* Break long words if necessary */
+  word-wrap: break-word;     /* Fallback for older browsers */
+  word-break: break-word;    /* Break at any character if necessary */
+  overflow: hidden;          /* Hide overflow if break-word doesn't fit */
+  white-space: normal;       /* Allow wrapping */
 }
 
 .file-approval-section .team-badge-inline {
   display: inline-block;
   padding: 6px 12px;
-  background: #ffffff;
   border: 1px solid #E5E7EB;
-  border-radius: 6px;
+  border-radius: 14px;
+  text-align: center;
   font-size: 14px;
   font-weight: 400;
   color: #101828;
@@ -1039,7 +1032,7 @@
   }
   
   .file-approval-section .detail-item {
-    grid-template-columns: 100px 1fr;
+    grid-template-columns: 100px 1fr; /* Adjust width as needed for mobile */
     gap: 8px;
   }
   

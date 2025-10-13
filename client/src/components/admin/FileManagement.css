@@ -102,41 +102,6 @@
   flex-wrap: wrap;
 }
 
-.file-management-section .search-scope-toggle {
-  display: flex;
-  gap: 0;
-  background: var(--surface-color);
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
-  overflow: hidden;
-}
-
-.file-management-section .scope-btn {
-  padding: 0.75rem 1rem;
-  border: none;
-  background: none;
-  color: var(--text-secondary);
-  font-size: 0.85rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  white-space: nowrap;
-}
-
-.file-management-section .scope-btn:first-child {
-  border-right: 1px solid var(--border-color);
-}
-
-.file-management-section .scope-btn:hover:not(.active) {
-  background: var(--background-hover);
-  color: var(--text-primary);
-}
-
-.file-management-section .scope-btn.active {
-  background: var(--primary-color);
-  color: white;
-}
-
 .file-management-section .file-search {
   position: relative;
   min-width: 250px;

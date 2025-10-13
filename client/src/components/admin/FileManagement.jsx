@@ -1,52 +1,16 @@
 import { useState, useEffect, useRef } from 'react'
+import FileIcon from './FileIcon'; // Adjust the path as needed
 import './FileManagement.css'
 
 const API_BASE = process.env.NODE_ENV === 'development'
   ? 'http://localhost:3001'
   : 'http://localhost:3001'
 
-// Flaticon icon map
-const iconMap = {
-  folder: "https://cdn-icons-png.flaticon.com/512/12075/12075377.png",
-  pdf: "https://cdn-icons-png.flaticon.com/512/337/337946.png",
-  doc: "https://cdn-icons-png.flaticon.com/512/337/337932.png",
-  docx: "https://cdn-icons-png.flaticon.com/512/337/337932.png",
-  xls: "https://cdn-icons-png.flaticon.com/512/337/337958.png",
-  xlsx: "https://cdn-icons-png.flaticon.com/512/337/337958.png",
-  jpg: "https://cdn-icons-png.flaticon.com/512/337/337940.png",
-  jpeg: "https://cdn-icons-png.flaticon.com/512/337/337940.png",
-  png: "https://cdn-icons-png.flaticon.com/512/337/337940.png",
-  zip: "https://cdn-icons-png.flaticon.com/512/8629/8629976.png",
-  rar: "https://cdn-icons-png.flaticon.com/512/8629/8629976.png",
-  mp4: "https://cdn-icons-png.flaticon.com/512/8243/8243015.png",
-  mov: "https://cdn-icons-png.flaticon.com/512/8243/8243015.png",
-  avi: "https://cdn-icons-png.flaticon.com/512/8243/8243015.png",
-  mp3: "https://cdn-icons-png.flaticon.com/512/3767/3767196.png",
-  wav: "https://cdn-icons-png.flaticon.com/512/3767/3767196.png",
-  txt: "https://cdn-icons-png.flaticon.com/512/4248/4248224.png",
-  json: "https://cdn-icons-png.flaticon.com/512/11570/11570273.png",
-  html: "https://cdn-icons-png.flaticon.com/512/337/337937.png",
-  css: "https://cdn-icons-png.flaticon.com/512/8242/8242982.png",
-  default: "https://cdn-icons-png.flaticon.com/512/342/342348.png",
-  icd: "https://cdn-icons-png.flaticon.com/512/10121/10121902.png",
-  sldprt: "https://cdn-icons-png.flaticon.com/512/14421/14421956.png",
-  sldasm: "https://cdn-icons-png.flaticon.com/512/14421/14421962.png",
-  slddrw: "https://cdn-icons-png.flaticon.com/512/2266/2266786.png",
-  dwg: "https://cdn-icons-png.flaticon.com/512/2266/2266786.png",
-}
-
-function getIconForFile(item) {
-  if (item.type === 'folder') return iconMap.folder
-  const ext = item.fileType?.toLowerCase() || ''
-  return iconMap[ext] || iconMap.default
-}
-
 const FileManagement = ({ clearMessages, error, success, setError, setSuccess }) => {
   const [currentPath, setCurrentPath] = useState('/')
   const [fileSystemItems, setFileSystemItems] = useState([])
   const [filteredItems, setFilteredItems] = useState([])
   const [fileManagementSearch, setFileManagementSearch] = useState('')
-  const [searchScope, setSearchScope] = useState('folder') // 'folder' or 'global'
   const [isSearching, setIsSearching] = useState(false)
   const [selectedItem, setSelectedItem] = useState(null)
   const [viewMode, setViewMode] = useState('grid')
@@ -71,19 +35,17 @@ const FileManagement = ({ clearMessages, error, success, setError, setSuccess })
       setFilteredItems(fileSystemItems)
       setIsSearching(false)
     } else {
-      if (searchScope === 'folder') {
-        // Search only in current folder
-        const filtered = fileSystemItems.filter(item => 
-          item.displayName.toLowerCase().includes(fileManagementSearch.toLowerCase())
-        )
-        setFilteredItems(filtered)
-        setIsSearching(false)
-      } else {
-        // Global search - search through all folders
-        performGlobalSearch(fileManagementSearch)
-      }
+      // Global search - search through all subfolders
+      performGlobalSearch(fileManagementSearch)
     }
-  }, [fileSystemItems, fileManagementSearch, searchScope])
+  }, [fileManagementSearch])
+
+  // Update filtered items when file system items change and no search is active
+  useEffect(() => {
+    if (fileManagementSearch.trim() === '') {
+      setFilteredItems(fileSystemItems)
+    }
+  }, [fileSystemItems])
 
   // Cleanup timer on unmount
   useEffect(() => {
@@ -135,7 +97,24 @@ const FileManagement = ({ clearMessages, error, success, setError, setSuccess })
     setIsSearching(true)
     clearMessages()
     try {
-      const response = await fetch(`${API_BASE}/api/file-system/search?query=${encodeURIComponent(searchQuery)}&path=${encodeURIComponent(currentPath)}`)
+      const url = `${API_BASE}/api/file-system/search?query=${encodeURIComponent(searchQuery)}&path=${encodeURIComponent(currentPath)}`
+      console.log('Search URL:', url)
+      
+      const response = await fetch(url)
+      
+      // Check if response is JSON
+      const contentType = response.headers.get('content-type')
+      if (!contentType || !contentType.includes('application/json')) {
+        console.warn('Search endpoint not available, falling back to local search')
+        // Fallback to local filtering
+        const filtered = fileSystemItems.filter(item => 
+          item.displayName.toLowerCase().includes(searchQuery.toLowerCase())
+        )
+        setFilteredItems(filtered)
+        setIsSearching(false)
+        return
+      }
+      
       const data = await response.json()
       if (data.success) {
         setFilteredItems(data.results)
@@ -144,8 +123,13 @@ const FileManagement = ({ clearMessages, error, success, setError, setSuccess })
       }
     } catch (error) {
       console.error('Error performing global search:', error)
-      setError(error.message || 'Failed to search')
-      setFilteredItems([])
+      console.log('Falling back to local search')
+      
+      // Fallback to local filtering instead of showing error
+      const filtered = fileSystemItems.filter(item => 
+        item.displayName.toLowerCase().includes(searchQuery.toLowerCase())
+      )
+      setFilteredItems(filtered)
     } finally {
       setIsSearching(false)
     }
@@ -256,27 +240,10 @@ const FileManagement = ({ clearMessages, error, success, setError, setSuccess })
         </div>
 
         <div className="file-controls-right">
-          <div className="search-scope-toggle">
-            <button
-              className={`scope-btn ${searchScope === 'folder' ? 'active' : ''}`}
-              onClick={() => setSearchScope('folder')}
-              title="Search in current folder only"
-            >
-              Current Folder
-            </button>
-            <button
-              className={`scope-btn ${searchScope === 'global' ? 'active' : ''}`}
-              onClick={() => setSearchScope('global')}
-              title="Search all folders recursively"
-            >
-              Global Search
-            </button>
-          </div>
-          
           <div className="file-search">
             <input
               type="text"
-              placeholder={searchScope === 'folder' ? 'Search in current folder...' : 'Search all folders...'}
+              placeholder="Search files and folders..."
               value={fileManagementSearch}
               onChange={(e) => setFileManagementSearch(e.target.value)}
               className="search-input"
@@ -312,7 +279,7 @@ const FileManagement = ({ clearMessages, error, success, setError, setSuccess })
         {isLoading || isSearching ? (
           <div className="loading-state">
             <div className="spinner"></div>
-            <p>{isSearching ? 'Searching files...' : 'Loading files from network directory...'}</p>
+            <p>{isSearching ? 'Searching through all folders...' : 'Loading files from network directory...'}</p>
           </div>
         ) : (
           <>
@@ -326,17 +293,18 @@ const FileManagement = ({ clearMessages, error, success, setError, setSuccess })
                     title={`${item.name}\n1st click: Select\n2nd click: Open`}
                   >
                     <div className="file-icon">
-                      <img 
-                        src={getIconForFile(item)} 
-                        alt={item.type} 
-                        className="file-icon-img"
+                      <FileIcon
+                        fileType={item.fileType} // Pass fileType
+                        isFolder={item.type === 'folder'} // Pass type
+                        altText={item.type}
+                        className="file-icon-img" // Pass the existing class if needed
                       />
                     </div>
                     <div className="file-info">
                       <div className="file-name" title={item.name}>
                         {item.displayName}
                       </div>
-                      {searchScope === 'global' && item.parentPath && (
+                      {item.parentPath && fileManagementSearch && (
                         <div className="file-location" title={item.parentPath}>
                           {item.parentPath}
                         </div>
@@ -364,10 +332,11 @@ const FileManagement = ({ clearMessages, error, success, setError, setSuccess })
                       >
                         <td className="file-name-cell">
                           <div className="file-name-container">
-                            <img 
-                              src={getIconForFile(item)} 
-                              alt={item.type} 
-                              className="file-icon-img-small"
+                             <FileIcon
+                              fileType={item.fileType} // Pass fileType
+                              isFolder={item.type === 'folder'} // Pass type
+                              altText={item.type}
+                              className="file-icon-img-small" // Pass the existing class if needed
                             />
                             <span className="file-name">{item.displayName}</span>
                           </div>

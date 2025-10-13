@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import FileIcon from './FileIcon'; 
 import './FileApproval.css'
 
 const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) => {
@@ -578,7 +579,14 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
                   >
                     <td>
                       <div className="file-cell">
-                        <div className="file-icon">{file.file_type.charAt(0)}</div>
+                        <div className="file-icon">
+                          <FileIcon
+                            fileType={file.file_type} // Pass the file type
+                            isFolder={false} // Explicitly mark as not a folder for this context
+                            altText={`Icon for ${file.original_name}`}
+                            style={{ marginRight: '8px' }} // Add spacing
+                          />
+                        </div>
                         <div className="file-details">
                           <span className="file-name">{file.original_name}</span>
                           <span className="file-size">{formatFileSize(file.file_size)}</span>
