@@ -1,3 +1,4 @@
+// FileIcon.jsx
 import React from 'react';
 
 // Flaticon icon map (moved here)
@@ -46,10 +47,10 @@ const FileIcon = ({ fileType, isFolder = false, altText = "File Icon", className
       alt={altText}
       className={`file-icon-img ${className}`.trim()} // Combine default and custom classes
       style={{
-        width: '24px',   // Default size
-        height: '24px',
+        // Remove the fixed width/height here.
+        // Let the CSS classes control the size.
         objectFit: 'contain', // Ensure image fits nicely
-        ...style          // Allow overriding default styles via props
+        ...style          // Allow overriding via props if needed
       }}
     />
   );

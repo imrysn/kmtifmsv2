@@ -18,8 +18,9 @@ class FileIndexer {
    */
   async initializeIndexTable() {
     console.log('🔧 Initializing file_index table...');
-    
+
     if (USE_MYSQL) {
+      // --- CORRECTED SQL: Changed TIMESTAMP, CHARSET, COLLATE, and removed FULLTEXT INDEX ---
       const createTableSQL = `
         CREATE TABLE IF NOT EXISTS file_index (
           id INT PRIMARY KEY AUTO_INCREMENT,
@@ -31,18 +32,18 @@ class FileIndexer {
           is_directory BOOLEAN NOT NULL,
           file_size BIGINT,
           modified_date DATETIME,
-          indexed_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          indexed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, -- Changed DATETIME to TIMESTAMP
           INDEX idx_file_name (file_name),
           INDEX idx_parent_path (parent_path(255)),
           INDEX idx_file_type (file_type),
-          INDEX idx_is_directory (is_directory),
-          FULLTEXT INDEX idx_fulltext_name (file_name)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+          INDEX idx_is_directory (is_directory)
+          -- FULLTEXT INDEX idx_fulltext_name (file_name) -- Removed for older MySQL compatibility
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci -- Changed from utf8mb4
       `;
-      
+
       await db.query(createTableSQL);
       console.log('✅ MySQL file_index table created/verified');
-      
+
     } else {
       const createTableSQL = `
         CREATE TABLE IF NOT EXISTS file_index (
@@ -58,14 +59,14 @@ class FileIndexer {
           indexed_at DATETIME DEFAULT CURRENT_TIMESTAMP
         )
       `;
-      
+
       await new Promise((resolve, reject) => {
         db.run(createTableSQL, (err) => {
           if (err) reject(err);
           else resolve();
         });
       });
-      
+
       // Create indexes
       const indexes = [
         'CREATE INDEX IF NOT EXISTS idx_file_name ON file_index(file_name)',
@@ -73,7 +74,7 @@ class FileIndexer {
         'CREATE INDEX IF NOT EXISTS idx_file_type ON file_index(file_type)',
         'CREATE INDEX IF NOT EXISTS idx_is_directory ON file_index(is_directory)'
       ];
-      
+
       for (const indexSQL of indexes) {
         await new Promise((resolve, reject) => {
           db.run(indexSQL, (err) => {
@@ -82,7 +83,7 @@ class FileIndexer {
           });
         });
       }
-      
+
       console.log('✅ SQLite file_index table created/verified');
     }
   }
@@ -92,7 +93,7 @@ class FileIndexer {
    */
   async clearIndex() {
     console.log('🗑️  Clearing file index...');
-    
+
     if (USE_MYSQL) {
       await db.query('DELETE FROM file_index');
     } else {
@@ -103,7 +104,7 @@ class FileIndexer {
         });
       });
     }
-    
+
     console.log('✅ File index cleared');
   }
 
@@ -117,32 +118,32 @@ class FileIndexer {
 
     this.isIndexing = true;
     this.indexProgress = { current: 0, total: 0, currentPath: '' };
-    
+
     console.log('📁 Starting file system indexing...');
     console.log('📂 Root directory:', rootDirectory);
-    
+
     const startTime = Date.now();
-    
+
     try {
       // Clear existing index
       await this.clearIndex();
-      
+
       // Count total items first (for progress tracking)
       this.indexProgress.total = await this.countItems(rootDirectory);
       console.log(`📊 Total items to index: ${this.indexProgress.total}`);
-      
+
       // Build the index
       await this.indexDirectory(rootDirectory, rootDirectory, '/');
-      
+
       const duration = ((Date.now() - startTime) / 1000).toFixed(2);
       console.log(`✅ Indexing complete! Indexed ${this.indexProgress.current} items in ${duration}s`);
-      
+
       return {
         success: true,
         itemsIndexed: this.indexProgress.current,
         duration: duration
       };
-      
+
     } catch (error) {
       console.error('❌ Error during indexing:', error);
       throw error;
@@ -156,18 +157,18 @@ class FileIndexer {
    */
   async countItems(dirPath) {
     let count = 0;
-    
+
     try {
       const items = await fs.readdir(dirPath);
       count += items.length;
-      
+
       for (const item of items) {
         if (item.startsWith('.')) continue;
-        
+
         try {
           const fullPath = path.join(dirPath, item);
           const stats = await fs.stat(fullPath);
-          
+
           if (stats.isDirectory()) {
             count += await this.countItems(fullPath);
           }
@@ -178,7 +179,7 @@ class FileIndexer {
     } catch (err) {
       // Skip inaccessible directories
     }
-    
+
     return count;
   }
 
@@ -188,19 +189,19 @@ class FileIndexer {
   async indexDirectory(rootDirectory, currentPath, relativePath) {
     try {
       const items = await fs.readdir(currentPath);
-      
+
       for (const item of items) {
         // Skip hidden files
         if (item.startsWith('.')) continue;
-        
+
         try {
           const fullPath = path.join(currentPath, item);
           const stats = await fs.stat(fullPath);
           const isDirectory = stats.isDirectory();
-          
+
           // Build relative path
           const itemRelativePath = relativePath === '/' ? `/${item}` : `${relativePath}/${item}`;
-          
+
           // Insert into database
           await this.insertIndexEntry({
             fileName: item,
@@ -212,20 +213,20 @@ class FileIndexer {
             fileSize: isDirectory ? null : stats.size,
             modifiedDate: stats.mtime
           });
-          
+
           this.indexProgress.current++;
           this.indexProgress.currentPath = itemRelativePath;
-          
+
           // Log progress every 100 items
           if (this.indexProgress.current % 100 === 0) {
             console.log(`📊 Progress: ${this.indexProgress.current}/${this.indexProgress.total} - ${itemRelativePath}`);
           }
-          
+
           // Recursively index subdirectories
           if (isDirectory) {
             await this.indexDirectory(rootDirectory, fullPath, itemRelativePath);
           }
-          
+
         } catch (itemError) {
           console.error(`⚠️  Error indexing ${item}:`, itemError.message);
           // Continue with next item
@@ -286,21 +287,21 @@ class FileIndexer {
    */
   async search(searchQuery, searchPath = '/') {
     const searchLower = searchQuery.toLowerCase();
-    
+
     if (USE_MYSQL) {
-      // MySQL with FULLTEXT search for better performance
+      // MySQL with LIKE search (fallback due to removed FULLTEXT index for older MySQL)
       const results = await db.query(
         `SELECT * FROM file_index 
-         WHERE (file_name LIKE ? OR MATCH(file_name) AGAINST(? IN BOOLEAN MODE))
+         WHERE file_name LIKE ?
          AND (parent_path = ? OR parent_path LIKE ?)
          ORDER BY 
            CASE WHEN is_directory = 1 THEN 0 ELSE 1 END,
            file_name
          LIMIT 500`,
-        [`%${searchQuery}%`, searchQuery, searchPath, `${searchPath}/%`]
+        [`%${searchQuery}%`, searchPath, `${searchPath}/%`]
       );
       return results;
-      
+
     } else {
       // SQLite with LIKE search
       return new Promise((resolve, reject) => {
@@ -346,7 +347,7 @@ class FileIndexer {
          FROM file_index`
       );
       return result[0];
-      
+
     } else {
       return new Promise((resolve, reject) => {
         db.get(

@@ -1,0 +1,60 @@
+/* LoadingSpinner.css */
+
+.loading-spinner-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%; /* Default to full width container */
+  height: auto; /* Default to auto height */
+}
+
+.loading-spinner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem; /* Space between spinner and message */
+}
+
+/* --- Spinner Icon --- */
+.loading-spinner-icon {
+  width: 24px;  /* Default medium size */
+  height: 24px;
+  border: 2px solid rgba(0, 0, 0, 0.1); /* Light border */
+  border-top-color: #007bff; /* Primary color for the spinning part */
+  border-radius: 50%;
+  animation: loadingSpinnerRotate 0.8s linear infinite;
+}
+
+/* --- Size Variants for Icon --- */
+.loading-spinner-small .loading-spinner-icon {
+  width: 16px;
+  height: 16px;
+}
+
+.loading-spinner-large .loading-spinner-icon {
+  width: 32px;
+  height: 32px;
+}
+
+/* --- Message --- */
+.loading-spinner-message {
+  font-size: 0.875rem;
+  color: #6c757d; /* Muted color */
+  text-align: center;
+}
+
+/* --- Layout when message is present --- */
+.loading-spinner-with-message {
+  flex-direction: row; /* Align icon and message horizontally */
+}
+
+/* --- Animation --- */
+@keyframes loadingSpinnerRotate {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}

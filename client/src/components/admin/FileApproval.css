@@ -289,6 +289,18 @@
   color: var(--text-secondary);
 }
 
+/* --- ADDED RULE FOR FILE ICON SIZE IN TABLE --- */
+.file-approval-section .file-icon-img {
+  width: 32px; /* Adjust size as needed */
+  height: 32px; /* Adjust size as needed */
+  object-fit: contain; /* Ensures the image scales properly */
+  /* Remove any conflicting default styles if necessary */
+  /* e.g., if the original .file-icon had background/border/shadow, override them */
+  background: none;
+  border: none;
+  box-shadow: none;
+}
+
 .file-approval-section .user-cell {
   display: flex;
   align-items: center;
@@ -535,8 +547,22 @@
 .file-approval-section .modal-body {
   padding: 1.5rem;
   flex: 1;
-  overflow-y: auto;
+  overflow-y: auto; /* This is the key scrollable area */
   background: white;
+  /* Hide scrollbar for different browsers */
+  /* For Webkit browsers (Chrome, Safari, newer Edge) */
+  &::-webkit-scrollbar {
+    width: 0px;  /* Remove scrollbar space */
+    background: transparent; /* Optional: just make scrollbar invisible */
+  }
+  /* For Firefox */
+  & {
+    scrollbar-width: none;  /* Remove scrollbar */
+  }
+  /* For IE and Edge */
+  & {
+    -ms-overflow-style: none;  /* Remove scrollbar */
+  }
 }
 
 .file-approval-section .modal-footer {
@@ -602,9 +628,9 @@
 .file-approval-section .team-badge-inline {
   display: inline-block;
   padding: 6px 12px;
+  background: #ffffff;
   border: 1px solid #E5E7EB;
-  border-radius: 14px;
-  text-align: center;
+  border-radius: 6px;
   font-size: 14px;
   font-weight: 400;
   color: #101828;
@@ -1005,11 +1031,10 @@
     font-size: 0.85rem;
   }
   
-  .file-approval-section .file-icon,
+  .file-approval-section .file-icon-img, /* Apply size rules to responsive file icon */
   .file-approval-section .user-avatar {
-    width: 32px;
-    height: 32px;
-    font-size: 0.8rem;
+    width: 36px; /* Adjusted responsive size */
+    height: 36px; /* Adjusted responsive size */
   }
   
   .file-approval-section .modal {
