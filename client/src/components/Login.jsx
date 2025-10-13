@@ -147,18 +147,6 @@ const Login = ({ onLogin }) => {
                 <span className="toggle-slider"></span>
               </button>
             </div>
-            {/* Contextual hint for role-based portals */}
-            <div className="login-hint" style={{ marginTop: 8, marginBottom: 8, color: '#444', fontSize: 13 }}>
-              {loginType === 'user' ? (
-                <>
-                  <strong>Note:</strong> Team Leaders may also sign in using the <em>Admin Login</em> to access the Team Leader dashboard.
-                </>
-              ) : (
-                <>
-                  <strong>Note:</strong> Admin Login accepts Team Leaders and Admins. Regular users should use the <em>User Login</em>.
-                </>
-              )}
-            </div>
             
             <form onSubmit={handleSubmit} className="login-form">
               <div className="form-group">

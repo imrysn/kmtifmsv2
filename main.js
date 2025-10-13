@@ -1,4 +1,4 @@
-const { app, BrowserWindow } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog } = require('electron');
 const path = require('path');
 const { spawn } = require('child_process');
 const http = require('http');
@@ -18,6 +18,7 @@ function createWindow() {
       contextIsolation: true,
       nodeIntegration: false,
       enableRemoteModule: false,
+      preload: path.join(__dirname, 'preload.js')
     },
     show: false, // Don't show until ready
   });
@@ -151,4 +152,17 @@ app.on('before-quit', () => {
     console.log('🛑 Stopping Express server...');
     serverProcess.kill();
   }
+});
+
+// IPC Handlers
+ipcMain.handle('dialog:openDirectory', async () => {
+  const result = await dialog.showOpenDialog(mainWindow, {
+    properties: ['openDirectory']
+  });
+  
+  if (result.canceled) {
+    return { canceled: true };
+  }
+  
+  return { canceled: false, filePaths: result.filePaths };
 });

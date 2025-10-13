@@ -2,11 +2,45 @@ const express = require('express');
 const fs = require('fs').promises;
 const path = require('path');
 const { truncateName, formatFileSize, getParentPath } = require('../utils/fileHelpers');
+const { db, USE_MYSQL } = require('../config/database');
 
 const router = express.Router();
 
-// Network projects directory configuration
-const networkProjectsPath = '\\\\KMTI-NAS\\Shared\\Public\\PROJECTS';
+// Default network projects directory
+let networkProjectsPath = '\\\\KMTI-NAS\\Shared\\Public\\PROJECTS';
+
+// Function to get current root directory from settings
+async function getRootDirectory() {
+  try {
+    if (USE_MYSQL) {
+      const settings = await db.query(
+        'SELECT setting_value FROM settings WHERE setting_key = ?',
+        ['root_directory']
+      );
+      if (settings && settings.length > 0 && settings[0].setting_value) {
+        return settings[0].setting_value;
+      }
+    } else {
+      const setting = await new Promise((resolve, reject) => {
+        db.get(
+          'SELECT setting_value FROM settings WHERE setting_key = ?',
+          ['root_directory'],
+          (err, row) => {
+            if (err) reject(err);
+            else resolve(row);
+          }
+        );
+      });
+      if (setting && setting.setting_value) {
+        return setting.setting_value;
+      }
+    }
+  } catch (error) {
+    console.error('Error fetching root directory from settings:', error);
+  }
+  // Return default if not found
+  return networkProjectsPath;
+}
 
 // Browse network project directory - ASYNC
 router.get('/browse', async (req, res) => {
@@ -15,13 +49,17 @@ router.get('/browse', async (req, res) => {
   console.log(`📁 Browsing network directory: ${requestPath}`);
 
   try {
+    // Get the current root directory from settings
+    const rootDirectory = await getRootDirectory();
+    console.log(`📂 Using root directory: ${rootDirectory}`);
+
     let fullPath;
     if (requestPath === '/') {
-      fullPath = networkProjectsPath;
+      fullPath = rootDirectory;
     } else {
       // Remove leading slash and join with network path
       const relativePath = requestPath.startsWith('/') ? requestPath.slice(1) : requestPath;
-      fullPath = path.join(networkProjectsPath, relativePath);
+      fullPath = path.join(rootDirectory, relativePath);
     }
     console.log(`🔍 Reading directory: ${fullPath}`);
 
@@ -142,13 +180,16 @@ router.get('/browse', async (req, res) => {
 // Get network directory info - ASYNC
 router.get('/info', async (req, res) => {
   try {
-    const exists = await fs.access(networkProjectsPath).then(() => true).catch(() => false);
+    // Get the current root directory from settings
+    const rootDirectory = await getRootDirectory();
+    
+    const exists = await fs.access(rootDirectory).then(() => true).catch(() => false);
     if (exists) {
-      const stats = await fs.stat(networkProjectsPath);
+      const stats = await fs.stat(rootDirectory);
       res.json({
         success: true,
         accessible: true,
-        path: networkProjectsPath,
+        path: rootDirectory,
         modified: stats.mtime,
         message: 'Network directory accessible'
       });
@@ -156,15 +197,16 @@ router.get('/info', async (req, res) => {
       res.json({
         success: false,
         accessible: false,
-        path: networkProjectsPath,
+        path: rootDirectory,
         message: 'Network directory not accessible'
       });
     }
   } catch (error) {
+    const rootDirectory = await getRootDirectory();
     res.status(500).json({
       success: false,
       accessible: false,
-      path: networkProjectsPath,
+      path: rootDirectory,
       message: 'Error accessing network directory',
       error: error.message
     });

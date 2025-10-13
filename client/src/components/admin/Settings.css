@@ -73,7 +73,6 @@
   border: 1px solid var(--border-color);
   border-radius: 12px;
   overflow: hidden;
-  transition: all 0.3s ease;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
 }
 
@@ -172,6 +171,21 @@
   line-height: 1.4;
 }
 
+.settings-section .input-with-button {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.settings-section .input-with-button .form-input {
+  flex: 1;
+}
+
+.settings-section .input-with-button .btn {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
 /* System Information */
 .settings-section .system-info {
   display: flex;
@@ -213,12 +227,6 @@
   flex: 1;
 }
 
-/* Settings Actions */
-.settings-section .settings-actions {
-  display: flex;
-  justify-content: center;
-  padding: 2rem 0;
-}
 
 /* Buttons */
 .settings-section .btn {
@@ -325,10 +333,6 @@
     font-weight: 600;
   }
   
-  .settings-section .settings-actions {
-    padding: 1rem 0;
-  }
-  
   .settings-section .btn-large {
     width: 100%;
     max-width: 300px;
@@ -419,7 +423,6 @@
   border: 1px solid var(--border-color);
   border-radius: 8px;
   padding: 1rem;
-  transition: all 0.2s ease;
 }
 
 .settings-section .team-header {
@@ -537,4 +540,55 @@
     flex: 1;
     min-width: 0;
   }
+}
+
+/* Table Styles */
+.settings-section .table-container {
+  overflow-x: auto;
+}
+
+.settings-section .teams-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+.settings-section .teams-table th,
+.settings-section .teams-table td {
+  text-align: left;
+  padding: 0.75rem;
+  border-bottom: 1px solid var(--border-light);
+}
+
+.settings-section .teams-table th {
+  border-bottom: 2px solid var(--border-color);
+  font-weight: 600;
+  color: var(--text-primary);
+  background: var(--background-secondary);
+}
+
+/* Table column widths */
+.settings-section .teams-table th:nth-child(1),
+.settings-section .teams-table td:nth-child(1) {
+  width: 25%;
+}
+
+.settings-section .teams-table th:nth-child(2),
+.settings-section .teams-table td:nth-child(2) {
+  width: 30%;
+}
+
+.settings-section .teams-table th:nth-child(3),
+.settings-section .teams-table td:nth-child(3) {
+  width: 15%;
+}
+
+.settings-section .teams-table th:nth-child(4),
+.settings-section .teams-table td:nth-child(4) {
+  width: 30%;
+}
+
+.settings-section .table-container {
+  width: 100%;
+  overflow-x: auto;
 }

@@ -459,7 +459,7 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess, u
 
       {/* Add User Modal */}
       {showAddModal && (
-        <div className="modal-overlay" onClick={() => setShowAddModal(false)}>
+        <div className="modal-overlay">
           <div className="modal compact" onClick={e => e.stopPropagation()}>
             <div className="modal-header">
               <h3>Add New User</h3>
@@ -564,7 +564,7 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess, u
 
       {/* Edit User Modal */}
       {showEditModal && selectedUser && (
-        <div className="modal-overlay" onClick={() => setShowEditModal(false)}>
+        <div className="modal-overlay">
           <div className="modal compact" onClick={e => e.stopPropagation()}>
             <div className="modal-header">
               <h3>Edit User</h3>
@@ -658,7 +658,7 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess, u
 
       {/* Reset Password Modal */}
       {showPasswordModal && selectedUser && (
-        <div className="modal-overlay" onClick={() => setShowPasswordModal(false)}>
+        <div className="modal-overlay">
           <div className="modal compact" onClick={e => e.stopPropagation()}>
             <div className="modal-header">
               <h3>Reset Password</h3>
@@ -705,7 +705,7 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess, u
 
       {/* User Delete Confirmation Modal */}
       {showUserDeleteModal && userToDelete && (
-        <div className="modal-overlay" onClick={() => setShowUserDeleteModal(false)}>
+        <div className="modal-overlay">
           <div className="modal delete-modal" onClick={e => e.stopPropagation()}>
             <div className="modal-header">
               <h3>Delete User</h3>
@@ -749,7 +749,7 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess, u
 
       {/* User Details Modal */}
       {showUserDetailsModal && userDetails.user && (
-        <div className="modal-overlay" onClick={() => setShowUserDetailsModal(false)}>
+        <div className="modal-overlay">
           <div className="modal user-details-modal" onClick={e => e.stopPropagation()}>
             <div className="modal-header">
               <h3>User Details</h3>

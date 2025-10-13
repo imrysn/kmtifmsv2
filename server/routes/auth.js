@@ -75,7 +75,7 @@ router.post('/login', (req, res) => {
         console.log('❌ ADMIN trying to access user window');
         return res.status(403).json({
           success: false,
-          message: 'Admin accounts must use the Admin Login. Please switch to Admin Login to continue.'
+          message: 'Please switch to Admin Login to continue.'
         });
       }
     } else if (loginType === 'admin') {
