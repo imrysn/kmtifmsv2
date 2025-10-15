@@ -107,10 +107,6 @@ const AdminDashboard = ({ user, onLogout }) => {
       {/* Sidebar */}
       <div className="admin-sidebar" ref={sidebarRef}>
         <div className="sidebar-header">
-          <div className="logo-section">
-            <div className="admin-avatar">{getInitials(user.fullName)}</div>
-            <h2>FileFlow</h2>
-          </div>
           <div className="admin-info">
             <div className="admin-name">{user.fullName || 'Admin User'}</div>
             <div className="admin-role">{user.role || 'Administrator'}</div>
@@ -165,13 +161,6 @@ const AdminDashboard = ({ user, onLogout }) => {
 
       {/* Main Content */}
       <div className="admin-main-content" ref={mainContentRef}>
-        {/* Top Bar */}
-        <div className="top-bar">
-          <button className="menu-toggle">☰</button>
-          <div className="search-bar">
-            <input type="text" placeholder="Search..." />
-          </div>
-        </div>
 
         {/* Content Area */}
         <div className="content-area">

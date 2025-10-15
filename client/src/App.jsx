@@ -26,15 +26,15 @@ function App() {
 
   // Handle login
   const handleLogin = (userData) => {
-    console.log('🔑 App handleLogin called with:', userData)
+    console.log('App handleLogin called with:', userData)
     setUser(userData)
     localStorage.setItem('user', JSON.stringify(userData))
-    console.log('✅ User state updated and saved to localStorage')
+    console.log('User state updated and saved to localStorage')
   }
 
   // Handle logout
   const handleLogout = () => {
-    console.log('🔓 User logging out')
+    console.log('User logging out')
     setUser(null)
     localStorage.removeItem('user')
   }
@@ -43,7 +43,7 @@ function App() {
   const getDashboardComponent = () => {
     if (!user) return null
     
-    console.log(`📊 Rendering dashboard for panelType: ${user.panelType}`)
+    console.log(`Rendering dashboard for panelType: ${user.panelType}`)
     
     switch (user.panelType) {
       case 'user':

@@ -213,4 +213,207 @@ router.get('/info', async (req, res) => {
   }
 });
 
+// Serve individual file - ASYNC
+router.get('/file', async (req, res) => {
+  const requestPath = req.query.path;
+
+  if (!requestPath) {
+    return res.status(400).json({
+      success: false,
+      message: 'File path is required'
+    });
+  }
+
+  console.log(`📄 Serving file: ${requestPath}`);
+
+  try {
+    // Get the current root directory from settings
+    const rootDirectory = await getRootDirectory();
+    console.log(`📂 Using root directory: ${rootDirectory}`);
+
+    // Remove leading slash and join with network path
+    const relativePath = requestPath.startsWith('/') ? requestPath.slice(1) : requestPath;
+    const fullPath = path.join(rootDirectory, relativePath);
+    console.log(`🔍 Full file path: ${fullPath}`);
+
+    // Check if file exists
+    const exists = await fs.access(fullPath).then(() => true).catch(() => false);
+    if (!exists) {
+      console.log('❌ File not found:', fullPath);
+      return res.status(404).json({
+        success: false,
+        message: 'File not found',
+        path: requestPath
+      });
+    }
+
+    // Check if it's actually a file
+    const stats = await fs.stat(fullPath);
+    if (!stats.isFile()) {
+      return res.status(400).json({
+        success: false,
+        message: 'Path is not a file',
+        path: requestPath
+      });
+    }
+
+    // Get file extension and set appropriate content type
+    const ext = path.extname(fullPath).toLowerCase();
+    const contentTypes = {
+      '.pdf': 'application/pdf',
+      '.jpg': 'image/jpeg',
+      '.jpeg': 'image/jpeg',
+      '.png': 'image/png',
+      '.gif': 'image/gif',
+      '.txt': 'text/plain',
+      '.html': 'text/html',
+      '.css': 'text/css',
+      '.js': 'application/javascript',
+      '.json': 'application/json',
+      '.mp4': 'video/mp4',
+      '.mp3': 'audio/mpeg',
+      '.zip': 'application/zip',
+      '.rar': 'application/x-rar-compressed',
+      '.doc': 'application/msword',
+      '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      '.xls': 'application/vnd.ms-excel',
+      '.xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    };
+
+    const contentType = contentTypes[ext] || 'application/octet-stream';
+    const fileName = path.basename(fullPath);
+
+    // Set headers
+    res.setHeader('Content-Type', contentType);
+    res.setHeader('Content-Disposition', `inline; filename="${encodeURIComponent(fileName)}"`);
+    res.setHeader('Content-Length', stats.size);
+
+    // Stream the file
+    const fileStream = require('fs').createReadStream(fullPath);
+    fileStream.pipe(res);
+
+    fileStream.on('error', (error) => {
+      console.error('❌ Error streaming file:', error);
+      if (!res.headersSent) {
+        res.status(500).json({
+          success: false,
+          message: 'Error reading file',
+          error: error.message
+        });
+      }
+    });
+
+    console.log(`✅ Serving file: ${fileName}`);
+  } catch (error) {
+    console.error('❌ Error serving file:', error);
+    let errorMessage = 'Failed to serve file';
+    if (error.code === 'ENOENT') {
+      errorMessage = 'File not found';
+    } else if (error.code === 'EACCES') {
+      errorMessage = 'Access denied. Please check file permissions.';
+    }
+    res.status(500).json({
+      success: false,
+      message: errorMessage,
+      path: requestPath,
+      error: error.code || error.message
+    });
+  }
+});
+
+// Global search - recursively search through directories
+router.get('/search', async (req, res) => {
+  const searchQuery = req.query.query;
+  const searchPath = req.query.path || '/';
+
+  if (!searchQuery) {
+    return res.status(400).json({
+      success: false,
+      message: 'Search query is required'
+    });
+  }
+
+  console.log(`🔍 Global search for: "${searchQuery}" starting from: ${searchPath}`);
+
+  try {
+    const rootDirectory = await getRootDirectory();
+    const searchRoot = searchPath === '/' ? rootDirectory : path.join(rootDirectory, searchPath.slice(1));
+    
+    const results = [];
+    const searchLower = searchQuery.toLowerCase();
+
+    // Recursive function to search through directories
+    async function searchDirectory(dirPath, relativePath) {
+      try {
+        const items = await fs.readdir(dirPath);
+        
+        for (const item of items) {
+          // Skip hidden files/folders
+          if (item.startsWith('.')) continue;
+          
+          const fullPath = path.join(dirPath, item);
+          const itemRelativePath = relativePath === '/' ? `/${item}` : `${relativePath}/${item}`;
+          
+          try {
+            const stats = await fs.stat(fullPath);
+            const isDirectory = stats.isDirectory();
+            
+            // Check if item name matches search query
+            if (item.toLowerCase().includes(searchLower)) {
+              const truncatedName = truncateName(item);
+              results.push({
+                id: `${isDirectory ? 'folder' : 'file'}-${results.length}`,
+                name: item,
+                displayName: truncatedName,
+                type: isDirectory ? 'folder' : 'file',
+                path: itemRelativePath,
+                size: isDirectory ? null : formatFileSize(stats.size),
+                modified: stats.mtime,
+                parentPath: relativePath,
+                fileType: isDirectory ? null : path.extname(item).toLowerCase().slice(1) || 'unknown'
+              });
+            }
+            
+            // Recursively search subdirectories (limit depth to prevent infinite loops)
+            if (isDirectory && results.length < 500) {
+              await searchDirectory(fullPath, itemRelativePath);
+            }
+          } catch (itemError) {
+            // Skip items that can't be accessed
+            console.error(`Error accessing ${item}:`, itemError.message);
+          }
+        }
+      } catch (dirError) {
+        console.error(`Error reading directory ${dirPath}:`, dirError.message);
+      }
+    }
+
+    await searchDirectory(searchRoot, searchPath);
+
+    // Sort results: folders first, then files
+    results.sort((a, b) => {
+      if (a.type !== b.type) {
+        return a.type === 'folder' ? -1 : 1;
+      }
+      return a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' });
+    });
+
+    console.log(`✅ Found ${results.length} results for "${searchQuery}"`);
+    res.json({
+      success: true,
+      results: results,
+      query: searchQuery,
+      searchPath: searchPath,
+      count: results.length
+    });
+  } catch (error) {
+    console.error('❌ Error performing global search:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to perform search',
+      error: error.message
+    });
+  }
+});
+
 module.exports = router;
