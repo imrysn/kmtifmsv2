@@ -268,44 +268,157 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
 
   const approveFile = async () => {
     if (!selectedFile) return
-    
+
+    // capture comment now (addComment clears fileComment)
+    const commentToSend = fileComment.trim()
+
     // Add comment first if provided
-    if (fileComment.trim()) {
+    if (commentToSend) {
       await addComment()
     }
-    
+
     setIsLoading(true)
     try {
-      const response = await fetch(`http://localhost:3001/api/files/${selectedFile.id}/admin-review`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          action: 'approve',
-          comments: fileComment.trim(),
-          adminId: 1, // Should come from logged in admin user
-          adminUsername: 'admin',
-          adminRole: 'ADMIN',
-          team: 'IT Administration'
+      // 1) Electron path (native move on host machine)
+      if (window.electron && typeof window.electron.openDirectoryDialog === 'function') {
+        const result = await window.electron.openDirectoryDialog()
+        if (!result || result.canceled || !result.filePaths || result.filePaths.length === 0) {
+          setIsLoading(false)
+          return
+        }
+        const selectedPath = result.filePaths[0]
+
+        // Move on server/local service
+        const moveResp = await fetch(`http://localhost:3001/api/files/${selectedFile.id}/move-to-projects`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            destinationPath: selectedPath,
+            adminId: 1,
+            adminUsername: 'admin',
+            adminRole: 'ADMIN',
+            team: 'IT Administration'
+          })
         })
-      })
-      
-      const data = await response.json()
-      if (data.success) {
-        // Refresh files list
+        const moveData = await moveResp.json()
+        if (!moveData.success) {
+          throw new Error(moveData.message || 'Failed to move file')
+        }
+
+        // then approve
+        const approveResp = await fetch(`http://localhost:3001/api/files/${selectedFile.id}/admin-review`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'approve',
+            comments: commentToSend,
+            adminId: 1,
+            adminUsername: 'admin',
+            adminRole: 'ADMIN',
+            team: 'IT Administration'
+          })
+        })
+        const approveData = await approveResp.json()
+        if (!approveData.success) throw new Error(approveData.message || 'Failed to approve file')
+
         fetchFiles()
         setShowFileModal(false)
         setSelectedFile(null)
         setFileComment('')
         setFileComments([])
-        setSuccess('File approved successfully')
-      } else {
-        setError(data.message || 'Failed to approve file')
+        setSuccess('File approved and moved to projects successfully')
+        return
       }
-    } catch (error) {
-      console.error('Error approving file:', error)
-      setError('Failed to approve file')
+
+      // 2) Browser with File System Access API (Chrome/Edge). This will download the file into the folder chosen by the user.
+      if (window.showDirectoryPicker) {
+        const dirHandle = await window.showDirectoryPicker()
+        if (!dirHandle) {
+          setIsLoading(false)
+          return
+        }
+
+        // fetch file blob from server
+        const fileResp = await fetch(`http://localhost:3001${selectedFile.file_path}`)
+        if (!fileResp.ok) throw new Error('Failed to download file from server')
+        const blob = await fileResp.blob()
+
+        // create file in chosen folder and write
+        const fileHandle = await dirHandle.getFileHandle(selectedFile.original_name, { create: true })
+        const writable = await fileHandle.createWritable()
+        await writable.write(blob)
+        await writable.close()
+
+        // approve on server (no move-to-projects call because file saved to client disk)
+        const approveResp2 = await fetch(`http://localhost:3001/api/files/${selectedFile.id}/admin-review`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'approve',
+            comments: commentToSend,
+            adminId: 1,
+            adminUsername: 'admin',
+            adminRole: 'ADMIN',
+            team: 'IT Administration'
+          })
+        })
+        const approveData2 = await approveResp2.json()
+        if (!approveData2.success) throw new Error(approveData2.message || 'Failed to approve file')
+
+        fetchFiles()
+        setShowFileModal(false)
+        setSelectedFile(null)
+        setFileComment('')
+        setFileComments([])
+        setSuccess('File saved locally and approved')
+        return
+      }
+
+      // 3) Fallback for plain web: ask for destination path string (server-side move)
+      const manualPath = window.prompt('Enter destination path on server (or Cancel):')
+      if (!manualPath) {
+        setIsLoading(false)
+        return
+      }
+
+      const moveResp3 = await fetch(`http://localhost:3001/api/files/${selectedFile.id}/move-to-projects`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          destinationPath: manualPath,
+          adminId: 1,
+          adminUsername: 'admin',
+          adminRole: 'ADMIN',
+          team: 'IT Administration'
+        })
+      })
+      const moveData3 = await moveResp3.json()
+      if (!moveData3.success) throw new Error(moveData3.message || 'Failed to move file')
+
+      const approveResp3 = await fetch(`http://localhost:3001/api/files/${selectedFile.id}/admin-review`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'approve',
+          comments: commentToSend,
+          adminId: 1,
+          adminUsername: 'admin',
+          adminRole: 'ADMIN',
+          team: 'IT Administration'
+        })
+      })
+      const approveData3 = await approveResp3.json()
+      if (!approveData3.success) throw new Error(approveData3.message || 'Failed to approve file')
+
+      fetchFiles()
+      setShowFileModal(false)
+      setSelectedFile(null)
+      setFileComment('')
+      setFileComments([])
+      setSuccess('File approved and moved to projects successfully')
+    } catch (err) {
+      console.error('Approval error:', err)
+      setError(err.message || 'Failed to approve and move file')
     } finally {
       setIsLoading(false)
     }

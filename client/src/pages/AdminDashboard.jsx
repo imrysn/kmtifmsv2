@@ -124,13 +124,13 @@ const AdminDashboard = ({ user, onLogout }) => {
             className={`nav-item ${activeTab === 'file-management' ? 'active' : ''}`}
             onClick={() => handleTabChange('file-management')}
           >
-            <span className="nav-label">File Management</span>
+            <span className="nav-label">Files</span>
           </button>
           <button 
             className={`nav-item ${activeTab === 'users' ? 'active' : ''}`}
             onClick={() => handleTabChange('users')}
           >
-            <span className="nav-label">User Management</span>
+            <span className="nav-label">Users</span>
           </button>
           <button 
             className={`nav-item ${activeTab === 'activity-logs' ? 'active' : ''}`}

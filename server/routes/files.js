@@ -575,6 +575,106 @@ router.post('/:fileId/team-leader-review', (req, res) => {
   });
 });
 
+// Move approved file to network projects path
+router.post('/:fileId/move-to-projects', async (req, res) => {
+  const { fileId } = req.params;
+  const { destinationPath, adminId, adminUsername, adminRole, team } = req.body;
+  console.log(`📦 Moving file ${fileId} to destination: ${destinationPath}`);
+
+  try {
+    // Get file info
+    const file = await new Promise((resolve, reject) => {
+      db.get('SELECT * FROM files WHERE id = ?', [fileId], (err, row) => {
+        if (err) reject(err);
+        else resolve(row);
+      });
+    });
+
+    if (!file) {
+      return res.status(404).json({
+        success: false,
+        message: 'File not found'
+      });
+    }
+
+    // Get source file path
+    const sourcePath = path.join(uploadsDir, path.basename(file.file_path));
+    
+    // Check if source file exists
+    const sourceExists = await fs.access(sourcePath).then(() => true).catch(() => false);
+    if (!sourceExists) {
+      console.error('❌ Source file not found:', sourcePath);
+      return res.status(404).json({
+        success: false,
+        message: 'Source file not found'
+      });
+    }
+
+    // destinationPath now comes as full Windows path from file picker
+    // e.g., "C:\\Users\\...\\PROJECTS\\Engineering\\2025"
+    // or "\\\\KMTI-NAS\\Shared\\Public\\PROJECTS\\Engineering\\2025"
+    const fullDestinationPath = destinationPath;
+    
+    console.log('📂 Destination path:', fullDestinationPath);
+
+    // Ensure destination directory exists
+    await fs.mkdir(fullDestinationPath, { recursive: true });
+    
+    // Construct destination file path with original name
+    const destinationFilePath = path.join(fullDestinationPath, file.original_name);
+    
+    // Check if destination file already exists
+    const destExists = await fs.access(destinationFilePath).then(() => true).catch(() => false);
+    if (destExists) {
+      return res.status(409).json({
+        success: false,
+        message: 'File already exists in destination',
+        existingPath: destinationFilePath
+      });
+    }
+
+    // Copy file to destination
+    await fs.copyFile(sourcePath, destinationFilePath);
+    console.log('✅ File copied to:', destinationFilePath);
+
+    // Update database with new path
+    await new Promise((resolve, reject) => {
+      db.run(
+        'UPDATE files SET public_network_url = ?, projects_path = ? WHERE id = ?',
+        [destinationFilePath, fullDestinationPath, fileId],
+        (err) => {
+          if (err) reject(err);
+          else resolve();
+        }
+      );
+    });
+
+    // Log activity
+    logActivity(
+      db,
+      adminId,
+      adminUsername,
+      adminRole,
+      team,
+      `File moved to projects: ${file.original_name} -> ${fullDestinationPath}`
+    );
+
+    console.log(`✅ File moved successfully: ${file.original_name}`);
+    res.json({
+      success: true,
+      message: 'File moved to projects directory successfully',
+      destinationPath: destinationFilePath
+    });
+  } catch (error) {
+    console.error('❌ Error moving file to projects:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to move file to projects directory',
+      error: error.message
+    });
+  }
+});
+
 // Admin approve/reject file (Final approval)
 router.post('/:fileId/admin-review', (req, res) => {
   const { fileId } = req.params;

@@ -1,6 +1,6 @@
 // LoadingSpinner.jsx
 import React from 'react';
-import '../css/LoadingSpinner.css';
+import '../css/LoadingSpinner.css'; // Adjust the path if necessary
 
 const LoadingSpinner = ({ size = 'medium', message = '', className = '' }) => {
   const sizeClass = `loading-spinner-${size}`;
@@ -9,7 +9,12 @@ const LoadingSpinner = ({ size = 'medium', message = '', className = '' }) => {
   return (
     <div className={`loading-spinner-container ${className}`}>
       <div className={`loading-spinner ${sizeClass}${hasMessage}`}>
-        <div className="loading-spinner-icon"></div>
+        {/* Use a CSS-based "Pulse Grid" animation */}
+        <div className="loading-spinner-css-grid">
+          <div className="css-dot"></div>
+          <div className="css-dot"></div>
+          <div className="css-dot"></div>
+        </div>
         {message && <div className="loading-spinner-message">{message}</div>}
       </div>
     </div>

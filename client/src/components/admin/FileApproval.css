@@ -1105,3 +1105,133 @@
     font-size: 0.85rem;
   }
 }
+
+/* Location Picker Modal Styles */
+.file-approval-section .location-picker-modal {
+  max-width: 800px;
+}
+
+.file-approval-section .location-picker-info {
+  background: #F9FAFB;
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+
+.file-approval-section .location-picker-info p {
+  margin: 8px 0;
+  font-size: 14px;
+  color: #101828;
+}
+
+.file-approval-section .location-picker-info strong {
+  font-weight: 600;
+}
+
+.file-approval-section .current-path {
+  background: #F3F4F6;
+  border: 1px solid #E5E7EB;
+  border-radius: 8px;
+  padding: 12px 16px;
+  margin-bottom: 16px;
+  font-size: 14px;
+  color: #101828;
+  font-family: 'Courier New', monospace;
+  word-break: break-all;
+}
+
+.file-approval-section .directory-browser {
+  border: 1px solid #E5E7EB;
+  border-radius: 8px;
+  background: white;
+  min-height: 300px;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.file-approval-section .directory-list {
+  padding: 8px;
+}
+
+.file-approval-section .directory-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: 2px solid transparent;
+}
+
+.file-approval-section .directory-item:hover {
+  background: #F9FAFB;
+}
+
+.file-approval-section .directory-item.selected {
+  background: #EEF2FF;
+  border-color: var(--primary-color);
+}
+
+.file-approval-section .directory-item.folder {
+  font-weight: 500;
+}
+
+.file-approval-section .directory-item.file {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.file-approval-section .item-icon {
+  font-size: 20px;
+  flex-shrink: 0;
+}
+
+.file-approval-section .item-name {
+  flex: 1;
+  font-size: 14px;
+  color: #101828;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.file-approval-section .item-action {
+  color: var(--text-secondary);
+  font-size: 16px;
+}
+
+.file-approval-section .selected-destination {
+  background: #EEF2FF;
+  border: 1px solid var(--primary-color);
+  border-radius: 8px;
+  padding: 12px 16px;
+  margin-top: 16px;
+  font-size: 14px;
+  color: #101828;
+}
+
+.file-approval-section .selected-destination strong {
+  font-weight: 600;
+  color: var(--primary-color);
+}
+
+.file-approval-section .location-picker-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+}
+
+@media (max-width: 768px) {
+  .file-approval-section .location-picker-modal {
+    max-width: none;
+  }
+  
+  .file-approval-section .location-picker-actions {
+    flex-direction: column;
+  }
+  
+  .file-approval-section .location-picker-actions .btn {
+    width: 100%;
+  }
+}
