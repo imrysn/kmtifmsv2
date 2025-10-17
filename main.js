@@ -3,17 +3,24 @@ const path = require('path');
 const { spawn } = require('child_process');
 const http = require('http');
 const { url } = require('inspector');
+import Logo from './assets/kmti_logo.png';
 
 let mainWindow;
 let serverProcess;
 
 const isDev = process.env.NODE_ENV === 'development';
 
+if (process.env.SILENCE_ELECTRON_CONSOLE === 'true') {
+  ['log', 'info', 'warn', 'error', 'debug'].forEach(fn => {
+    console[fn] = () => {}
+  })
+}
+
 function createWindow() {
-  // Create the browser window
   mainWindow = new BrowserWindow({
     width: 1200,
     height: 800,
+    icon: path.join(__dirname, {Logo}),
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,
@@ -23,18 +30,17 @@ function createWindow() {
     show: false, // Don't show until ready
   });
 
-  // Show window when ready to prevent visual flash
   mainWindow.once('ready-to-show', () => {
     mainWindow.show();
     console.log('🖥️  Electron window opened!');
   });
 
-  // Load the app
   if (isDev) {
-    // Development: load from Vite dev server
     console.log('🔗 Loading React app from http://localhost:5173');
     mainWindow.loadURL('http://localhost:5173');
-    mainWindow.webContents.openDevTools();
+    if (process.env.ELECTRON_OPEN_DEVTOOLS === 'true') {
+      mainWindow.webContents.openDevTools();
+    }
   } else {
     // Production: load from built files
     mainWindow.loadFile(path.join(__dirname, 'client/dist/index.html'));

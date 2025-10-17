@@ -87,7 +87,6 @@
 }
 
 .file-approval-section .file-status-card {
-  border-radius: 12px;
   border-right: 1px solid var(--border-color);
   padding: 1.5rem;
   display: flex;
@@ -111,11 +110,11 @@
 }
 
 .file-approval-section .status-icon.pending-icon {
-  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+  background: linear-gradient(135deg, #dad75c 0%, #d3a308 100%);
 }
 
 .file-approval-section .status-icon.approved-icon {
-  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  background: linear-gradient(135deg, #10b981 0%, #0a6e4f 100%);
 }
 
 .file-approval-section .status-icon.rejected-icon {
@@ -123,7 +122,7 @@
 }
 
 .file-approval-section .status-icon.pending-admin-icon {
-  background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+  background: linear-gradient(135deg, #f1a829 0%, #bd6f16 100%);
 }
 
 .file-approval-section .status-info {
@@ -169,7 +168,7 @@
   padding: 0.75rem 1rem;
   border: 1px solid var(--border-color);
   border-radius: 8px;
-  background: var(--surface-color);
+  background: white;
   color: var(--text-primary);
   font-size: 0.9rem;
   transition: all 0.2s ease;
@@ -178,8 +177,7 @@
 
 .file-approval-section .search-input:focus {
   outline: none;
-  border-color: var(--primary-color);
-  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+  border-color: #000000;
 }
 
 .file-approval-section .search-clear-btn {
@@ -217,11 +215,6 @@
   transition: all 0.2s ease;
 }
 
-.file-approval-section .form-select:focus {
-  outline: none;
-  border-color: var(--primary-color);
-  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
-}
 
 /* Table Section */
 .file-approval-section .table-section {
@@ -247,7 +240,7 @@
   padding: 1rem;
   text-align: left;
   border-bottom: 1px solid var(--border-color);
-  font-size: 0.9rem;
+  font-size: 14px;
 }
 
 .file-approval-section .files-table td {
@@ -259,10 +252,6 @@
 .file-approval-section .file-row {
   cursor: pointer;
   transition: background-color 0.2s ease;
-}
-
-.file-approval-section .file-row:hover {
-  background: var(--background-hover);
 }
 
 .file-approval-section .file-cell {
@@ -303,19 +292,6 @@
   display: flex;
   align-items: center;
   gap: 0.75rem;
-}
-
-.file-approval-section .user-avatar {
-  width: 40px;
-  height: 40px;
-  border-radius: 8px;
-  background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: white;
-  font-weight: 600;
-  font-size: 0.9rem;
 }
 
 .file-approval-section .user-name {
@@ -527,7 +503,7 @@
   border: none;
   font-size: 1.5rem;
   cursor: pointer;
-  color: var(--text-secondary);
+  color: var(--text-primary);
   width: 32px;
   height: 32px;
   display: flex;
@@ -545,21 +521,17 @@
 .file-approval-section .modal-body {
   padding: 1.5rem;
   flex: 1;
-  overflow-y: auto; /* This is the key scrollable area */
+  overflow-y: auto;
   background: white;
-  /* Hide scrollbar for different browsers */
-  /* For Webkit browsers (Chrome, Safari, newer Edge) */
   &::-webkit-scrollbar {
-    width: 0px;  /* Remove scrollbar space */
-    background: transparent; /* Optional: just make scrollbar invisible */
+    width: 0px;
+    background: transparent;
   }
-  /* For Firefox */
   & {
-    scrollbar-width: none;  /* Remove scrollbar */
+    scrollbar-width: none;
   }
-  /* For IE and Edge */
   & {
-    -ms-overflow-style: none;  /* Remove scrollbar */
+    -ms-overflow-style: none;
   }
 }
 
@@ -578,10 +550,11 @@
   border-radius: 12px;
   padding: 20px;
   margin-bottom: 24px;
+  border: 1px solid var(--border-color);
 }
 
 .file-approval-section .section-title {
-  font-size: 16px;
+  font-size: 18px;
   font-weight: 600;
   color: #101828;
   margin-bottom: 16px;
@@ -596,13 +569,13 @@
 
 .file-approval-section .detail-item {
   display: grid;
-  grid-template-columns: 120px 1fr; /* Adjust width as needed */
+  grid-template-columns: 120px 1fr;
   gap: 12px;
   align-items: center;
 }
 
 .file-approval-section .detail-label {
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 500;
   color: #6a7282;
   text-transform: uppercase;
@@ -615,12 +588,11 @@
   font-weight: 400;
   color: #101828;
   font-family: Arial, sans-serif;
-  /* Add these lines to handle long text */
-  overflow-wrap: break-word; /* Break long words if necessary */
-  word-wrap: break-word;     /* Fallback for older browsers */
-  word-break: break-word;    /* Break at any character if necessary */
-  overflow: hidden;          /* Hide overflow if break-word doesn't fit */
-  white-space: normal;       /* Allow wrapping */
+  overflow-wrap: break-word; 
+  word-wrap: break-word;     
+  word-break: break-word;    
+  overflow: hidden;          
+  white-space: normal;       
 }
 
 .file-approval-section .team-badge-inline {
@@ -628,11 +600,12 @@
   padding: 6px 12px;
   background: #ffffff;
   border: 1px solid #E5E7EB;
-  border-radius: 6px;
+  border-radius: 16px;
   font-size: 14px;
-  font-weight: 400;
+  font-weight: 500;
   color: #101828;
   font-family: Arial, sans-serif;
+  text-align: center;
 }
 
 /* Description Section */
@@ -641,6 +614,7 @@
   border-radius: 12px;
   padding: 20px;
   margin-bottom: 24px;
+  border: 1px solid var(--border-color);
 }
 
 .file-approval-section .description-text {
@@ -658,6 +632,7 @@
   border-radius: 12px;
   padding: 20px;
   margin-bottom: 24px;
+  border: 1px solid var(--border-color);
 }
 
 .file-approval-section .comments-list {
@@ -776,6 +751,7 @@
   background: #F9FAFB;
   border-radius: 12px;
   padding: 20px;
+  border: 1px solid var(--border-color);
 }
 
 .file-approval-section .add-comment-section .section-title {
@@ -805,12 +781,6 @@
   resize: vertical;
   min-height: 80px;
   transition: all 0.2s ease;
-}
-
-.file-approval-section .comment-textarea:focus {
-  outline: none;
-  border-color: #4f39f6;
-  box-shadow: 0 0 0 3px rgba(79, 57, 246, 0.1);
 }
 
 .file-approval-section .comment-btn {
@@ -1030,7 +1000,7 @@
   }
   
   .file-approval-section .file-icon-img, /* Apply size rules to responsive file icon */
-  .file-approval-section .user-avatar {
+  .file-approval-section {
     width: 36px; /* Adjusted responsive size */
     height: 36px; /* Adjusted responsive size */
   }

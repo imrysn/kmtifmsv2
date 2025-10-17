@@ -696,12 +696,9 @@ router.post('/:fileId/admin-review', (req, res) => {
         message: 'File not found'
       });
     }
-    if (file.current_stage !== 'pending_admin') {
-      return res.status(400).json({
-        success: false,
-        message: 'File is not in pending admin review stage'
-      });
-    }
+    // Allow approval from any stage (pending_admin, pending_team_leader, etc.)
+    // This fixes the issue where Team Leader approved files can't be approved by Admin
+    console.log(`Current stage: ${file.current_stage}, Status: ${file.status}`);
 
   // Use MySQL-friendly DATETIME format
   const now = new Date();
@@ -749,6 +746,8 @@ router.post('/:fileId/admin-review', (req, res) => {
           error: err.message
         });
       }
+
+      console.log(`✅ Database updated successfully. Rows affected: ${this.changes}`);
 
       // Add comment if provided
       if (comments) {
@@ -937,6 +936,144 @@ router.delete('/:fileId', (req, res) => {
       });
     });
   });
+});
+
+// Helper: convert stored file_path to a filesystem path the server can unlink
+function resolveFilePath(storedPath) {
+  if (!storedPath) return null;
+
+  // If UNC path (\\server\share...) or absolute Windows (C:\...) or POSIX absolute (/...), return as-is
+  if (/^\\\\/.test(storedPath) || path.isAbsolute(storedPath)) {
+    return storedPath;
+  }
+
+  // Otherwise assume path is relative to project root (or to a known uploads folder).
+  // Try common locations: process.cwd(), project 'uploads' folder, database folder, etc.
+  // First try as relative to project root
+  const try1 = path.join(process.cwd(), storedPath);
+  // Then try inside a common uploads folder
+  const try2 = path.join(process.cwd(), 'uploads', storedPath);
+  return try1 || try2;
+}
+
+// POST /api/files/:id/delete-file
+// Attempt to delete the physical file from disk/network.
+// Body optionally contains admin info for audit (adminId, adminUsername, ...)
+router.post('/:id/delete-file', async (req, res) => {
+  const id = req.params.id;
+  try {
+    // Use callback-based db.get to match existing pattern
+    db.get('SELECT * FROM files WHERE id = ?', [id], async (err, file) => {
+      if (err || !file) {
+        return res.status(404).json({ success: false, message: 'File record not found' });
+      }
+
+      const storedPath = file.file_path || file.storage_path || file.filepath || file.path;
+      const resolved = resolveFilePath(storedPath);
+
+      if (!resolved) {
+        return res.status(400).json({ success: false, message: 'No file path available to delete' });
+      }
+
+      console.log(`🗑️ Attempting to delete physical file: ${resolved}`);
+
+      try {
+        await fs.unlink(resolved);
+        console.log(`✅ Physical file deleted successfully: ${resolved}`);
+        return res.json({ success: true, message: 'Physical file deleted' });
+      } catch (err) {
+        // If file doesn't exist, treat as success (storage already cleaned)
+        if (err.code === 'ENOENT') {
+          console.log(`ℹ️ Physical file not found (already removed): ${resolved}`);
+          return res.json({ success: true, message: 'Physical file not found (already removed)' });
+        }
+        // Other errors should be reported
+        console.error('❌ Error deleting physical file:', resolved, err);
+        return res.status(500).json({ success: false, message: 'Failed to delete physical file', detail: err.message });
+      }
+    });
+  } catch (err) {
+    console.error('❌ delete-file error:', err);
+    return res.status(500).json({ success: false, message: 'Server error', detail: err.message });
+  }
+});
+
+// DELETE /api/files/:id
+// Delete DB record. Expect admin audit info in body optionally.
+router.delete('/:id', async (req, res) => {
+  const id = req.params.id;
+  try {
+    const result = await db.query('DELETE FROM files WHERE id = ?', [id]);
+    // mysql2 returns affectedRows in result. If using query that returns array, handle gracefully.
+    // For compatibility, check result.affectedRows or affectedRows in returned object.
+    const affected = (result && result.affectedRows) || (Array.isArray(result) && result[0] && result[0].affectedRows) || null;
+    // best-effort: consider success if no error thrown
+    return res.json({ success: true, message: 'File record deleted' });
+  } catch (err) {
+    console.error('Error deleting DB record:', err);
+    return res.status(500).json({ success: false, message: 'Failed to delete file record', detail: err.message });
+  }
+});
+
+// POST /api/files/:id/admin-review
+// Body: { action: 'approve'|'reject', comments, adminId, adminUsername, adminRole, team }
+// This will mark the file status and insert a comment/history row if table exists.
+router.post('/:id/admin-review', async (req, res) => {
+  const id = req.params.id;
+  const { action, comments, adminId, adminUsername, adminRole, team } = req.body || {};
+
+  if (!action) {
+    return res.status(400).json({ success: false, message: 'Action required (approve|reject)' });
+  }
+
+  // map action to DB status
+  let newStatus = null;
+  if (action === 'approve') newStatus = 'final_approved';
+  else if (action === 'reject') newStatus = 'rejected_by_admin';
+  else {
+    return res.status(400).json({ success: false, message: 'Unknown action' });
+  }
+
+  try {
+    // Use transaction to update status + optional insert comment/history
+    await db.transaction(async (conn) => {
+      // Update files table status and reviewed fields if present
+      const updateSql = `
+        UPDATE files
+        SET status = ?, reviewed_by = ?, reviewed_role = ?, reviewed_at = NOW()
+        WHERE id = ?
+      `;
+      await conn.execute(updateSql, [newStatus, adminUsername || null, adminRole || null, id]);
+
+      // If a comments/history table exists, attempt to insert a record.
+      // Try common table names: file_comments, comments, file_history
+      if (comments && comments.trim()) {
+        // Try insert into file_comments if exists
+        try {
+          await conn.execute(
+            `INSERT INTO file_comments (file_id, comments, reviewer_id, reviewer_username, reviewer_role, created_at) VALUES (?, ?, ?, ?, ?, NOW())`,
+            [id, comments, adminId || null, adminUsername || null, adminRole || null]
+          );
+        } catch (e) {
+          // If file_comments doesn't exist, try generic comments table, otherwise ignore
+          try {
+            await conn.execute(
+              `INSERT INTO comments (file_id, comment_text, user_id, username, role, created_at) VALUES (?, ?, ?, ?, ?, NOW())`,
+              [id, comments, adminId || null, adminUsername || null, adminRole || null]
+            );
+          } catch (e2) {
+            // Not fatal: log and continue
+            console.warn('Could not insert comment into file_comments/comments table:', e.message || e2.message);
+          }
+        }
+      }
+    });
+
+    return res.json({ success: true, message: `File ${action}d successfully` });
+  } catch (err) {
+    console.error('admin-review error:', err);
+    return res.status(500).json({ success: false, message: 'Failed to update file review status', detail: err.message });
+  }
 });
 
 module.exports = router;

@@ -1,15 +1,18 @@
-import { useState, useEffect, useRef } from 'react'
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import FileIcon from './FileIcon'; 
 import './FileApproval.css'
 
+const API_BASE = 'http://localhost:3001/api'
+const SERVER_BASE = API_BASE.replace(/\/api$/, '')
+
 const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) => {
   const [files, setFiles] = useState([])
-  const [filteredFiles, setFilteredFiles] = useState([])
   const [fileSearchQuery, setFileSearchQuery] = useState('')
+  const [fileSearchInput, setFileSearchInput] = useState('')
   const [fileFilter, setFileFilter] = useState('all')
   const [fileSortBy, setFileSortBy] = useState('date-desc')
   const [currentPage, setCurrentPage] = useState(1)
-  const [filesPerPage] = useState(10)
+  const [filesPerPage] = useState(7)
   const [selectedFile, setSelectedFile] = useState(null)
   const [showFileModal, setShowFileModal] = useState(false)
   const [fileComment, setFileComment] = useState('')
@@ -22,7 +25,6 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
   const searchInputRef = useRef(null)
   const filterSelectRef = useRef(null)
 
-  // Auto-clear messages after 3 seconds
   useEffect(() => {
     if (error || success) {
       const timer = setTimeout(() => {
@@ -32,16 +34,18 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
     }
   }, [error, success, clearMessages])
 
-  // Fetch files on component mount
   useEffect(() => {
     fetchFiles()
   }, [])
 
-  // Filter and sort files when dependencies change
   useEffect(() => {
+    const t = setTimeout(() => setFileSearchQuery(fileSearchInput), 300)
+    return () => clearTimeout(t)
+  }, [fileSearchInput])
+
+  const filteredFiles = useMemo(() => {
     let filtered = files
 
-    // Apply status filter
     if (fileFilter !== 'all') {
       filtered = filtered.filter(file => {
         switch (fileFilter) {
@@ -59,16 +63,15 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
       })
     }
 
-    // Apply search filter
-    if (fileSearchQuery.trim() !== '') {
-      filtered = filtered.filter(file => 
-        file.original_name.toLowerCase().includes(fileSearchQuery.toLowerCase()) ||
-        file.username.toLowerCase().includes(fileSearchQuery.toLowerCase()) ||
-        file.user_team.toLowerCase().includes(fileSearchQuery.toLowerCase())
+    if (fileSearchQuery && fileSearchQuery.trim() !== '') {
+      const q = fileSearchQuery.toLowerCase()
+      filtered = filtered.filter(file =>
+        file.original_name.toLowerCase().includes(q) ||
+        file.username.toLowerCase().includes(q) ||
+        file.user_team.toLowerCase().includes(q)
       )
     }
 
-    // Apply sorting
     filtered = [...filtered].sort((a, b) => {
       switch (fileSortBy) {
         case 'date-desc':
@@ -88,10 +91,10 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
       }
     })
 
-    setFilteredFiles(filtered)
-    // Reset to page 1 when filters change
-    setCurrentPage(1)
+    return filtered
   }, [files, fileSearchQuery, fileFilter, fileSortBy])
+
+  useEffect(() => setCurrentPage(1), [fileSearchQuery, fileFilter, fileSortBy])
 
   const fetchFiles = async () => {
     setIsLoading(true)
@@ -100,7 +103,6 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
       const data = await response.json()
       if (data.success) {
         setFiles(data.files)
-        setFilteredFiles(data.files)
       } else {
         setError('Failed to fetch files')
       }
@@ -112,7 +114,6 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
     }
   }
 
-  // Map database status to display status
   const mapFileStatus = (dbStatus) => {
     switch (dbStatus) {
       case 'uploaded':
@@ -155,22 +156,42 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
 
   const deleteFile = async () => {
     if (!fileToDelete) return
-    
+
     setIsLoading(true)
     try {
-      const response = await fetch(`http://localhost:3001/api/files/${fileToDelete.id}`, {
+      const delFileResp = await fetch(`${API_BASE}/files/${fileToDelete.id}/delete-file`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          adminId: 1,
+          adminUsername: 'admin',
+          adminRole: 'ADMIN'
+        })
+      })
+      let delFileData = {}
+      try {
+        delFileData = await delFileResp.json()
+      } catch (e) {
+        delFileData = {}
+      }
+
+      if (!delFileResp.ok || delFileData.success === false) {
+        console.warn('Physical file deletion failed or not available:', delFileData.message || delFileResp.status)
+      }
+
+      const response = await fetch(`${API_BASE}/files/${fileToDelete.id}`, {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          adminId: 1, // Should come from logged in admin user
+          adminId: 1,
           adminUsername: 'admin',
           adminRole: 'ADMIN',
           team: 'IT Administration'
         })
       })
-      
+
       const data = await response.json()
       if (data.success) {
         const updatedFiles = files.filter(file => file.id !== fileToDelete.id)
@@ -178,32 +199,16 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
         setShowDeleteModal(false)
         setFileToDelete(null)
         setSuccess('File deleted successfully')
+        await fetchFiles()
       } else {
-        setError(data.message || 'Failed to delete file')
+        setError(data.message || 'Failed to delete file record')
       }
     } catch (error) {
       console.error('Error deleting file:', error)
-      setError('Failed to delete file')
+      setError(error.message || 'Failed to delete file')
     } finally {
       setIsLoading(false)
     }
-  }
-
-  const openDeleteModal = (file) => {
-    setFileToDelete(file)
-    setShowDeleteModal(true)
-  }
-
-  const openFileModal = async (file) => {
-    setSelectedFile({
-      ...file,
-      comments: [] // Initialize comments array for UI compatibility
-    })
-    setFileComment('')
-    setShowFileModal(true)
-    
-    // Fetch comments for this file
-    await fetchFileComments(file.id)
   }
 
   const fetchFileComments = async (fileId) => {
@@ -224,8 +229,23 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
     }
   }
 
+  const openDeleteModal = useCallback((file) => {
+    setFileToDelete(file)
+    setShowDeleteModal(true)
+  }, [])
+
+  const openFileModal = useCallback(async (file) => {
+    setSelectedFile({
+      ...file,
+      comments: []
+    })
+    setFileComment('')
+    setShowFileModal(true)
+    await fetchFileComments(file.id)
+  }, [])
+
   const addComment = async () => {
-    if (!selectedFile || !fileComment.trim()) return
+    if (!selectedFile || !fileComment.trim()) return false
     
     setIsLoading(true)
     try {
@@ -236,7 +256,7 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
         },
         body: JSON.stringify({
           comment: fileComment.trim(),
-          userId: 1, // Should come from logged in admin user
+          userId: 1,
           username: 'admin',
           userRole: 'ADMIN'
         })
@@ -246,14 +266,16 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
       if (data.success) {
         setFileComment('')
         setSuccess('Comment added successfully')
-        // Refresh comments to show the new one
         await fetchFileComments(selectedFile.id)
+        return true
       } else {
         setError(data.message || 'Failed to add comment')
+        return false
       }
     } catch (error) {
       console.error('Error adding comment:', error)
       setError('Failed to add comment')
+      return false
     } finally {
       setIsLoading(false)
     }
@@ -266,30 +288,62 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
     }
   }
 
+  const deletePhysicalFileIfExists = async (fileId) => {
+    try {
+      const resp = await fetch(`${API_BASE}/files/${fileId}/delete-file`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ adminId: 1, adminUsername: 'admin', adminRole: 'ADMIN' })
+      })
+      const json = await resp.json().catch(() => ({}))
+      if (resp.ok && json.success !== false) return true
+      console.warn('deletePhysicalFileIfExists: server responded non-success', json)
+      return false
+    } catch (e) {
+      console.warn('deletePhysicalFileIfExists error', e)
+      return false
+    }
+  }
+
   const approveFile = async () => {
     if (!selectedFile) return
 
-    // capture comment now (addComment clears fileComment)
     const commentToSend = fileComment.trim()
 
-    // Add comment first if provided
     if (commentToSend) {
       await addComment()
     }
 
     setIsLoading(true)
     try {
-      // 1) Electron path (native move on host machine)
+      let approvedOnServer = false
+      let movedViaServer = false
+
       if (window.electron && typeof window.electron.openDirectoryDialog === 'function') {
-        const result = await window.electron.openDirectoryDialog()
+        const options = {}
+        try {
+          if (typeof window.electron.getNetworkProjectsPath === 'function') {
+            const dp = await window.electron.getNetworkProjectsPath()
+            if (dp) options.defaultPath = dp
+          } else if (typeof window.electron.getDefaultProjectPickerPath === 'function') {
+            const dp = await window.electron.getDefaultProjectPickerPath()
+            if (dp) options.defaultPath = dp
+          } else if (typeof window.electron.getNetworkDataPath === 'function') {
+            const dp = await window.electron.getNetworkDataPath()
+            if (dp) options.defaultPath = dp
+          }
+        } catch (err) {
+          console.warn('Could not get default project picker path from electron API', err)
+        }
+
+        const result = await window.electron.openDirectoryDialog(options)
         if (!result || result.canceled || !result.filePaths || result.filePaths.length === 0) {
           setIsLoading(false)
           return
         }
         const selectedPath = result.filePaths[0]
 
-        // Move on server/local service
-        const moveResp = await fetch(`http://localhost:3001/api/files/${selectedFile.id}/move-to-projects`, {
+        const moveResp = await fetch(`${API_BASE}/files/${selectedFile.id}/move-to-projects`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -304,14 +358,14 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
         if (!moveData.success) {
           throw new Error(moveData.message || 'Failed to move file')
         }
+        movedViaServer = true
 
-        // then approve
-        const approveResp = await fetch(`http://localhost:3001/api/files/${selectedFile.id}/admin-review`, {
+        const approveResp = await fetch(`${API_BASE}/files/${selectedFile.id}/admin-review`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             action: 'approve',
-            comments: commentToSend,
+            comments: commentToSend || null,
             adminId: 1,
             adminUsername: 'admin',
             adminRole: 'ADMIN',
@@ -320,42 +374,31 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
         })
         const approveData = await approveResp.json()
         if (!approveData.success) throw new Error(approveData.message || 'Failed to approve file')
+        approvedOnServer = true
+      } else if (window.showDirectoryPicker) {
 
-        fetchFiles()
-        setShowFileModal(false)
-        setSelectedFile(null)
-        setFileComment('')
-        setFileComments([])
-        setSuccess('File approved and moved to projects successfully')
-        return
-      }
-
-      // 2) Browser with File System Access API (Chrome/Edge). This will download the file into the folder chosen by the user.
-      if (window.showDirectoryPicker) {
         const dirHandle = await window.showDirectoryPicker()
         if (!dirHandle) {
           setIsLoading(false)
           return
         }
 
-        // fetch file blob from server
-        const fileResp = await fetch(`http://localhost:3001${selectedFile.file_path}`)
+
+        const fileResp = await fetch(`${SERVER_BASE}${selectedFile.file_path}`)
         if (!fileResp.ok) throw new Error('Failed to download file from server')
         const blob = await fileResp.blob()
 
-        // create file in chosen folder and write
         const fileHandle = await dirHandle.getFileHandle(selectedFile.original_name, { create: true })
         const writable = await fileHandle.createWritable()
         await writable.write(blob)
         await writable.close()
 
-        // approve on server (no move-to-projects call because file saved to client disk)
-        const approveResp2 = await fetch(`http://localhost:3001/api/files/${selectedFile.id}/admin-review`, {
+        const approveResp2 = await fetch(`${API_BASE}/files/${selectedFile.id}/admin-review`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             action: 'approve',
-            comments: commentToSend,
+            comments: commentToSend || null,
             adminId: 1,
             adminUsername: 'admin',
             adminRole: 'ADMIN',
@@ -364,58 +407,70 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
         })
         const approveData2 = await approveResp2.json()
         if (!approveData2.success) throw new Error(approveData2.message || 'Failed to approve file')
+        approvedOnServer = true
 
-        fetchFiles()
+        await deletePhysicalFileIfExists(selectedFile.id)
+      } else {
+        const manualPath = window.prompt('Enter destination path on server (or Cancel):')
+        if (!manualPath) {
+          setIsLoading(false)
+          return
+        }
+
+        const moveResp3 = await fetch(`${API_BASE}/files/${selectedFile.id}/move-to-projects`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            destinationPath: manualPath,
+            adminId: 1,
+            adminUsername: 'admin',
+            adminRole: 'ADMIN',
+            team: 'IT Administration'
+          })
+        })
+        const moveData3 = await moveResp3.json()
+        if (!moveData3.success) throw new Error(moveData3.message || 'Failed to move file')
+
+        const approveResp3 = await fetch(`${API_BASE}/files/${selectedFile.id}/admin-review`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'approve',
+            comments: commentToSend || null,
+            adminId: 1,
+            adminUsername: 'admin',
+            adminRole: 'ADMIN',
+            team: 'IT Administration'
+          })
+        })
+        const approveData3 = await approveResp3.json()
+        if (!approveData3.success) throw new Error(approveData3.message || 'Failed to approve file')
+        approvedOnServer = true
+        movedViaServer = true
+      }
+
+      if (approvedOnServer) {
+
+        const updatedFiles = files.map(f => f.id === selectedFile.id ? { ...f, status: 'final_approved' } : f)
+        setFiles(updatedFiles)
+        setSelectedFile(prev => prev && prev.id === selectedFile.id ? { ...prev, status: 'final_approved' } : prev)
+
+        try {
+          await deletePhysicalFileIfExists(selectedFile.id)
+        } catch (delErr) {
+          console.warn('Failed to delete original upload after approval', delErr)
+        }
+
+        await fetchFiles()
         setShowFileModal(false)
         setSelectedFile(null)
         setFileComment('')
         setFileComments([])
-        setSuccess('File saved locally and approved')
+        setSuccess('File approved and moved to projects successfully')
         return
       }
 
-      // 3) Fallback for plain web: ask for destination path string (server-side move)
-      const manualPath = window.prompt('Enter destination path on server (or Cancel):')
-      if (!manualPath) {
-        setIsLoading(false)
-        return
-      }
-
-      const moveResp3 = await fetch(`http://localhost:3001/api/files/${selectedFile.id}/move-to-projects`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          destinationPath: manualPath,
-          adminId: 1,
-          adminUsername: 'admin',
-          adminRole: 'ADMIN',
-          team: 'IT Administration'
-        })
-      })
-      const moveData3 = await moveResp3.json()
-      if (!moveData3.success) throw new Error(moveData3.message || 'Failed to move file')
-
-      const approveResp3 = await fetch(`http://localhost:3001/api/files/${selectedFile.id}/admin-review`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'approve',
-          comments: commentToSend,
-          adminId: 1,
-          adminUsername: 'admin',
-          adminRole: 'ADMIN',
-          team: 'IT Administration'
-        })
-      })
-      const approveData3 = await approveResp3.json()
-      if (!approveData3.success) throw new Error(approveData3.message || 'Failed to approve file')
-
-      fetchFiles()
-      setShowFileModal(false)
-      setSelectedFile(null)
-      setFileComment('')
-      setFileComments([])
-      setSuccess('File approved and moved to projects successfully')
+      throw new Error('Approval flow did not complete')
     } catch (err) {
       console.error('Approval error:', err)
       setError(err.message || 'Failed to approve and move file')
@@ -432,7 +487,6 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
       return
     }
     
-    // Add comment first
     await addComment()
     
     setIsLoading(true)
@@ -445,7 +499,7 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
         body: JSON.stringify({
           action: 'reject',
           comments: fileComment.trim(),
-          adminId: 1, // Should come from logged in admin user
+          adminId: 1,
           adminUsername: 'admin',
           adminRole: 'ADMIN',
           team: 'IT Administration'
@@ -454,7 +508,6 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
       
       const data = await response.json()
       if (data.success) {
-        // Refresh files list
         fetchFiles()
         setShowFileModal(false)
         setSelectedFile(null)
@@ -472,12 +525,11 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
     }
   }
 
-  // Pagination helper functions
-  const getCurrentPageFiles = () => {
+  const getCurrentPageFiles = useCallback(() => {
     const startIndex = (currentPage - 1) * filesPerPage
     const endIndex = startIndex + filesPerPage
     return filteredFiles.slice(startIndex, endIndex)
-  }
+  }, [currentPage, filesPerPage, filteredFiles])
 
   const getTotalPages = () => {
     return Math.ceil(filteredFiles.length / filesPerPage)
@@ -489,7 +541,6 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
     const maxVisiblePages = 5
 
     if (totalPages <= maxVisiblePages) {
-      // Show all pages if total pages is less than or equal to maxVisiblePages
       for (let i = 1; i <= totalPages; i++) {
         pageNumbers.push(
           <button
@@ -502,7 +553,6 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
         )
       }
     } else {
-      // Always show first page
       pageNumbers.push(
         <button
           key={1}
@@ -513,14 +563,12 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
         </button>
       )
 
-      // Show ellipsis if there's a gap
       if (currentPage > 3) {
         pageNumbers.push(
           <span key="ellipsis1" className="pagination-ellipsis">...</span>
         )
       }
 
-      // Show pages around current page
       const startPage = Math.max(2, currentPage - 1)
       const endPage = Math.min(totalPages - 1, currentPage + 1)
 
@@ -538,14 +586,12 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
         }
       }
 
-      // Show ellipsis if there's a gap
       if (currentPage < totalPages - 2) {
         pageNumbers.push(
           <span key="ellipsis2" className="pagination-ellipsis">...</span>
         )
       }
 
-      // Always show last page if more than 1 page
       if (totalPages > 1) {
         pageNumbers.push(
           <button
@@ -618,8 +664,8 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
           <input
             type="text"
             placeholder="Search files by name, user, or team..."
-            value={fileSearchQuery}
-            onChange={(e) => setFileSearchQuery(e.target.value)}
+            value={fileSearchInput}
+            onChange={(e) => setFileSearchInput(e.target.value)}
             className="search-input"
             ref={searchInputRef}
           />
@@ -694,10 +740,10 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
                       <div className="file-cell">
                         <div className="file-icon">
                           <FileIcon
-                            fileType={file.file_type} // Pass the file type
-                            isFolder={false} // Explicitly mark as not a folder for this context
+                            fileType={file.file_type} 
+                            isFolder={false}
                             altText={`Icon for ${file.original_name}`}
-                            style={{ marginRight: '8px' }} // Add spacing
+                            className="" 
                           />
                         </div>
                         <div className="file-details">
@@ -708,7 +754,6 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
                     </td>
                     <td>
                       <div className="user-cell">
-                        <div className="user-avatar">{file.username.charAt(0).toUpperCase()}</div>
                         <span className="user-name">{file.username}</span>
                       </div>
                     </td>
@@ -903,7 +948,6 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
               
               {/* Actions Section - Moved to Last */}
               <div className="actions-section">
-                <h4 className="section-title">Actions</h4>
                 <div className="action-buttons-large">
                   <button 
                     type="button" 
@@ -995,4 +1039,38 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
   )
 }
 
-export default FileApproval
+class FileApprovalErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props)
+    this.state = { error: null, errorInfo: null }
+  }
+
+  componentDidCatch(error, errorInfo) {
+    console.error('FileApproval render error:', error, errorInfo)
+    this.setState({ error, errorInfo })
+  }
+
+  render() {
+    if (this.state.error) {
+      return (
+        <div className="file-approval-section error-boundary">
+          <h2>Something went wrong rendering File Approval</h2>
+          <pre style={{ whiteSpace: 'pre-wrap', color: 'var(--text-secondary)' }}>
+            {this.state.error && this.state.error.toString()}
+            {this.state.errorInfo && '\n' + (this.state.errorInfo.componentStack || '')}
+          </pre>
+        </div>
+      )
+    }
+
+    return this.props.children
+  }
+}
+
+const WrappedFileApproval = (props) => (
+  <FileApprovalErrorBoundary>
+    <FileApproval {...props} />
+  </FileApprovalErrorBoundary>
+)
+
+export default WrappedFileApproval

@@ -1,7 +1,5 @@
-// FileIcon.jsx
 import React from 'react';
 
-// Flaticon icon map (moved here)
 const iconMap = {
   folder: "https://cdn-icons-png.flaticon.com/512/12075/12075377.png",
   pdf: "https://cdn-icons-png.flaticon.com/512/337/337946.png",
@@ -31,9 +29,8 @@ const iconMap = {
   dwg: "https://cdn-icons-png.flaticon.com/512/2266/2266786.png",
 };
 
-// Helper function to get icon based on file type
 const getIconForFile = (fileType, isFolder = false) => {
-  if (isFolder) return iconMap.folder; // Prioritize folder if explicitly marked
+  if (isFolder) return iconMap.folder;
   const ext = fileType?.toLowerCase() || '';
   return iconMap[ext] || iconMap.default;
 };
@@ -45,15 +42,13 @@ const FileIcon = ({ fileType, isFolder = false, altText = "File Icon", className
     <img
       src={iconSrc}
       alt={altText}
-      className={`file-icon-img ${className}`.trim()} // Combine default and custom classes
+      className={`file-icon-img ${className}`.trim()}
       style={{
-        // Remove the fixed width/height here.
-        // Let the CSS classes control the size.
-        objectFit: 'contain', // Ensure image fits nicely
-        ...style          // Allow overriding via props if needed
+        objectFit: 'contain', 
+        ...style          
       }}
     />
   );
 };
 
-export default FileIcon;
+export default React.memo(FileIcon);
