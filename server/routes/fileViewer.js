@@ -26,6 +26,7 @@ router.get('/view/*', (req, res) => {
     
     // Get file extension
     const ext = path.extname(fullPath).toLowerCase();
+    const filename = path.basename(fullPath);
     
     // Set appropriate content type based on file extension
     const contentTypes = {
@@ -60,17 +61,31 @@ router.get('/view/*', (req, res) => {
     
     const contentType = contentTypes[ext] || 'application/octet-stream';
     
-    // Set headers to force inline display
+    // CRITICAL: Force inline display for ALL files
+    // Use filename* (RFC 5987) for better compatibility with special characters
     res.setHeader('Content-Type', contentType);
     res.setHeader('Content-Length', stat.size);
-    res.setHeader('Content-Disposition', 'inline'); // This is the key!
-    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Content-Disposition', `inline; filename="${filename}"; filename*=UTF-8''${encodeURIComponent(filename)}`);
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+    res.setHeader('X-Content-Type-Options', 'nosniff');
     
-    // Stream the file
+    console.log('✅ File serving as inline:', filePath);
+    console.log('✅ Content-Type:', contentType);
+    console.log('✅ Content-Disposition: inline');
+    
+    // Stream the file with proper error handling
     const readStream = fs.createReadStream(fullPath);
-    readStream.pipe(res);
     
-    console.log('✅ File served successfully:', filePath);
+    readStream.on('error', (error) => {
+      console.error('❌ Stream error:', error);
+      if (!res.headersSent) {
+        res.status(500).send('Error reading file');
+      }
+    });
+    
+    readStream.pipe(res);
     
   } catch (error) {
     console.error('❌ Error serving file:', error);
@@ -93,11 +108,20 @@ router.get('/download/*', (req, res) => {
     
     const filename = path.basename(fullPath);
     
-    // Force download with original filename
-    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
-    res.download(fullPath, filename);
+    // Force download with original filename using RFC 5987 format
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"; filename*=UTF-8''${encodeURIComponent(filename)}`);
+    res.setHeader('Content-Type', 'application/octet-stream');
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
     
-    console.log('✅ File download started:', filename);
+    console.log('✅ File download starting:', filename);
+    
+    res.download(fullPath, filename, (err) => {
+      if (err) {
+        console.error('❌ Download error:', err);
+      } else {
+        console.log('✅ File download completed:', filename);
+      }
+    });
     
   } catch (error) {
     console.error('❌ Error downloading file:', error);

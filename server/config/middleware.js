@@ -14,7 +14,7 @@ if (!fs.existsSync(uploadsDir)) {
   console.log(`✅ Created uploads directory: ${uploadsDir}`);
 }
 
-// Configure multer storage - Keep temp filename simple
+// Configure multer storage with optimizations for large files
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
     // Save to uploads root first
@@ -29,11 +29,14 @@ const storage = multer.diskStorage({
   }
 });
 
-// Create multer upload middleware
+// Create multer upload middleware with optimizations
 const upload = multer({
   storage: storage,
-  // No file size limit - allow unlimited file sizes
-  // No file type filter - allow all file types
+  // Optimized limits for better performance
+  limits: {
+    fileSize: 0, // No limit
+    files: 1 // Only one file at a time
+  }
 });
 
 // Helper to sanitize filename for Windows file system
@@ -91,19 +94,25 @@ function moveToUserFolder(tempPath, username, originalFilename) {
     throw error;
   }
   
-  // Move the file (use copy + delete for better cross-platform support)
+  // Move the file using rename (faster than copy + delete for local drives)
   try {
-    fs.copyFileSync(tempPath, finalPath);
-    fs.unlinkSync(tempPath);
+    fs.renameSync(tempPath, finalPath);
     console.log(`✅ Successfully moved file to: ${finalPath}`);
   } catch (moveError) {
-    console.error('❌ Error moving file:', moveError);
-    console.error('  Temp path:', tempPath);
-    console.error('  Final path:', finalPath);
-    console.error('  Temp exists:', fs.existsSync(tempPath));
-    console.error('  User dir exists:', fs.existsSync(userDir));
-    console.error('  Full error:', moveError.stack);
-    throw new Error(`Failed to move file: ${moveError.message}`);
+    // Fallback to copy if rename fails (e.g., cross-device link)
+    try {
+      fs.copyFileSync(tempPath, finalPath);
+      fs.unlinkSync(tempPath);
+      console.log(`✅ Successfully copied file to: ${finalPath}`);
+    } catch (copyError) {
+      console.error('❌ Error moving file:', moveError);
+      console.error('❌ Error copying file:', copyError);
+      console.error('  Temp path:', tempPath);
+      console.error('  Final path:', finalPath);
+      console.error('  Temp exists:', fs.existsSync(tempPath));
+      console.error('  User dir exists:', fs.existsSync(userDir));
+      throw new Error(`Failed to move file: ${moveError.message}`);
+    }
   }
   
   return finalPath;
@@ -129,35 +138,41 @@ function setupMiddleware(app) {
     parameterLimit: 50000
   }));
 
-  // Serve uploaded files with proper UTF-8 headers
-  app.use('/uploads', (req, res, next) => {
-    // Decode the URI to handle UTF-8 filenames properly
-    try {
-      req.url = decodeURIComponent(req.url);
-    } catch (e) {
-      console.warn('Could not decode URL:', req.url);
-    }
-    
-    // Set Content-Disposition to inline to prevent automatic downloads
-    res.setHeader('Content-Disposition', 'inline');
-    
-    // Ensure UTF-8 encoding for file responses
-    const contentType = res.getHeader('Content-Type') || 'application/octet-stream';
-    res.setHeader('Content-Type', contentType + '; charset=utf-8');
-    
-    next();
-  }, express.static(uploadsDir, {
-    // Enable proper handling of UTF-8 filenames
+  // Serve uploaded files - FORCE inline display (no downloads)
+  app.use('/uploads', express.static(uploadsDir, {
+    // Set headers to force inline display
     setHeaders: (res, filePath) => {
-      // Extract filename and encode it properly
-      const filename = path.basename(filePath);
-      try {
-        // Use RFC 5987 encoding for non-ASCII filenames
-        const encodedFilename = encodeURIComponent(filename);
-        res.setHeader('Content-Disposition', `inline; filename*=UTF-8''${encodedFilename}`);
-      } catch (e) {
-        console.warn('Could not encode filename for header:', filename);
-      }
+      // CRITICAL: Always use 'inline' to open in browser, never 'attachment'
+      res.setHeader('Content-Disposition', 'inline');
+      
+      // Set proper MIME type for common file types
+      const ext = path.extname(filePath).toLowerCase();
+      const mimeTypes = {
+        '.pdf': 'application/pdf',
+        '.jpg': 'image/jpeg',
+        '.jpeg': 'image/jpeg',
+        '.png': 'image/png',
+        '.gif': 'image/gif',
+        '.txt': 'text/plain',
+        '.html': 'text/html',
+        '.json': 'application/json',
+        '.xml': 'application/xml',
+        '.mp4': 'video/mp4',
+        '.mp3': 'audio/mpeg',
+        '.zip': 'application/zip',
+        '.doc': 'application/msword',
+        '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        '.xls': 'application/vnd.ms-excel',
+        '.xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        '.ppt': 'application/vnd.ms-powerpoint',
+        '.pptx': 'application/vnd.openxmlformats-officedocument.presentationml.presentation'
+      };
+      
+      const mimeType = mimeTypes[ext] || 'application/octet-stream';
+      res.setHeader('Content-Type', mimeType);
+      
+      // Disable download for all files
+      res.setHeader('X-Content-Type-Options', 'nosniff');
     }
   }));
 }

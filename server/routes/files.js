@@ -559,7 +559,7 @@ router.post('/:fileId/team-leader-review', (req, res) => {
         });
       }
 
-      // Add comment if provided
+      // Add comment if provided AND create notification for it
       if (comments) {
         const commentType = action === 'approve' ? 'approval' : 'rejection';
         db.run(
@@ -571,6 +571,23 @@ router.post('/:fileId/team-leader-review', (req, res) => {
               console.error('Comment details:', { fileId, teamLeaderId, teamLeaderUsername, teamLeaderRole, comments, commentType });
             } else {
               console.log('✅ Team leader comment added successfully');
+              
+              // Create a separate notification for the comment itself
+              const commentNotifTitle = `Team Leader ${action === 'approve' ? 'Approved' : 'Rejected'} with Comments`;
+              const commentNotifMessage = `${teamLeaderUsername} left ${commentType} comments on your file: "${comments.substring(0, 150)}${comments.length > 150 ? '...' : ''}"`.replace(/\\"/g, '"');
+              
+              createNotification(
+                file.user_id,
+                fileId,
+                'comment',
+                commentNotifTitle,
+                commentNotifMessage,
+                teamLeaderId,
+                teamLeaderUsername,
+                teamLeaderRole
+              ).catch(err => {
+                console.error('❌ Failed to create comment notification:', err);
+              });
             }
           }
         );
@@ -725,6 +742,23 @@ router.post('/:fileId/admin-review', (req, res) => {
               console.error('Comment details:', { fileId, adminId, adminUsername, adminRole, comments, commentType });
             } else {
               console.log('✅ Admin comment added successfully');
+              
+              // Create a separate notification for the admin comment
+              const commentNotifTitle = `Admin ${action === 'approve' ? 'Approved' : 'Rejected'} with Comments`;
+              const commentNotifMessage = `${adminUsername} (Admin) left ${commentType} comments on your file: "${comments.substring(0, 150)}${comments.length > 150 ? '...' : ''}"`;
+              
+              createNotification(
+                file.user_id,
+                fileId,
+                'comment',
+                commentNotifTitle,
+                commentNotifMessage,
+                adminId,
+                adminUsername,
+                adminRole
+              ).catch(err => {
+                console.error('❌ Failed to create admin comment notification:', err);
+              });
             }
           }
         );
@@ -825,32 +859,63 @@ router.post('/:fileId/comments', (req, res) => {
       message: 'Comment cannot be empty'
     });
   }
-  db.run(
-    'INSERT INTO file_comments (file_id, user_id, username, user_role, comment) VALUES (?, ?, ?, ?, ?)',
-    [fileId, userId, username, userRole, comment.trim()],
-    function(err) {
-      if (err) {
-        console.error('❌ Error adding comment:', err);
-        return res.status(500).json({
-          success: false,
-          message: 'Failed to add comment'
-        });
-      }
-      res.json({
-        success: true,
-        message: 'Comment added successfully',
-        comment: {
-          id: this.lastID,
-          file_id: fileId,
-          user_id: userId,
-          username: username,
-          user_role: userRole,
-          comment: comment.trim(),
-          created_at: new Date()
-        }
+  
+  // Get file info to send notification to owner
+  db.get('SELECT * FROM files WHERE id = ?', [fileId], (err, file) => {
+    if (err || !file) {
+      return res.status(404).json({
+        success: false,
+        message: 'File not found'
       });
     }
-  );
+    
+    db.run(
+      'INSERT INTO file_comments (file_id, user_id, username, user_role, comment) VALUES (?, ?, ?, ?, ?)',
+      [fileId, userId, username, userRole, comment.trim()],
+      function(err) {
+        if (err) {
+          console.error('❌ Error adding comment:', err);
+          return res.status(500).json({
+            success: false,
+            message: 'Failed to add comment'
+          });
+        }
+        
+        // Create notification for the file owner (if comment is not by the owner)
+        if (userId !== file.user_id) {
+          const notificationTitle = 'New Comment on Your File';
+          const notificationMessage = `${username} commented on your file "${file.original_name}": ${comment.trim().substring(0, 100)}${comment.trim().length > 100 ? '...' : ''}`;
+          
+          createNotification(
+            file.user_id,
+            fileId,
+            'comment',
+            notificationTitle,
+            notificationMessage,
+            userId,
+            username,
+            userRole
+          ).catch(err => {
+            console.error('Failed to create notification for comment:', err);
+          });
+        }
+        
+        res.json({
+          success: true,
+          message: 'Comment added successfully',
+          comment: {
+            id: this.lastID,
+            file_id: fileId,
+            user_id: userId,
+            username: username,
+            user_role: userRole,
+            comment: comment.trim(),
+            created_at: new Date()
+          }
+        });
+      }
+    );
+  });
 });
 
 // Get file status history

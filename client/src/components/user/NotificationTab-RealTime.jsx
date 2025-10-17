@@ -9,10 +9,10 @@ const NotificationTab = ({ user, onOpenFile }) => {
   useEffect(() => {
     fetchNotifications();
     
-    // Poll for new notifications every 10 seconds
+    // Poll for new notifications every 5 seconds
     const interval = setInterval(() => {
       fetchNotifications();
-    }, 10000);
+    }, 5000);
 
     return () => clearInterval(interval);
   }, [user.id]);
@@ -25,9 +25,10 @@ const NotificationTab = ({ user, onOpenFile }) => {
       if (data.success) {
         setNotifications(data.notifications || []);
         setUnreadCount(data.unreadCount || 0);
+        console.log('📬 Notifications updated:', data.notifications?.length || 0);
       }
     } catch (error) {
-      console.error('Error fetching notifications:', error);
+      console.error('❌ Error fetching notifications:', error);
     } finally {
       setIsLoading(false);
     }
@@ -49,13 +50,31 @@ const NotificationTab = ({ user, onOpenFile }) => {
         );
         setUnreadCount(prev => Math.max(0, prev - 1));
       } catch (error) {
-        console.error('Error marking notification as read:', error);
+        console.error('❌ Error marking notification as read:', error);
       }
     }
 
     // Open the file details if onOpenFile callback is provided
     if (onOpenFile && notification.file_id) {
       onOpenFile(notification.file_id);
+    }
+  };
+
+  const handleDeleteNotification = async (e, notificationId) => {
+    e.stopPropagation();
+    try {
+      const response = await fetch(`http://localhost:3001/api/notifications/${notificationId}`, {
+        method: 'DELETE'
+      });
+      
+      const data = await response.json();
+      if (data.success) {
+        setNotifications(prevNotifications =>
+          prevNotifications.filter(n => n.id !== notificationId)
+        );
+      }
+    } catch (error) {
+      console.error('❌ Error deleting notification:', error);
     }
   };
 
@@ -116,11 +135,13 @@ const NotificationTab = ({ user, onOpenFile }) => {
     const seconds = Math.floor((now - date) / 1000);
 
     if (seconds < 60) return 'Just now';
-    if (seconds < 3600) return `${Math.floor(seconds / 60)} minutes ago`;
-    if (seconds < 86400) return `${Math.floor(seconds / 3600)} hours ago`;
-    if (seconds < 604800) return `${Math.floor(seconds / 86400)} days ago`;
+    if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
+    if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
+    if (seconds < 604800) return `${Math.floor(seconds / 86400)}d ago`;
     return date.toLocaleDateString();
   };
+
+
 
   if (isLoading) {
     return (
@@ -140,11 +161,6 @@ const NotificationTab = ({ user, onOpenFile }) => {
           <h2>Notifications</h2>
           <p>Stay updated with your file approvals and system messages</p>
         </div>
-        {unreadCount > 0 && (
-          <button onClick={handleMarkAllAsRead} className="mark-all-read-btn">
-            Mark all as read ({unreadCount})
-          </button>
-        )}
       </div>
 
       <div className="notifications-container">
@@ -163,16 +179,30 @@ const NotificationTab = ({ user, onOpenFile }) => {
                 <div className="notification-content">
                   <div className="notification-header">
                     <h4 className="notification-title">{notification.title}</h4>
-                    <span className="notification-time">{formatTimeAgo(notification.created_at)}</span>
+                    <div className="notification-time-actions">
+                      <span className="notification-time">{formatTimeAgo(notification.created_at)}</span>
+                      <button 
+                        className="delete-notification-btn"
+                        onClick={(e) => handleDeleteNotification(e, notification.id)}
+                        title="Delete notification"
+                      >
+                        ✕
+                      </button>
+                    </div>
                   </div>
                   <p className="notification-message">{notification.message}</p>
                   <div className="notification-footer">
                     <span className="notification-action-by">
-                      By {notification.action_by_username}
+                      👤 {notification.action_by_username} ({notification.action_by_role})
                     </span>
                     {notification.file_name && (
                       <span className="notification-file">
                         📄 {notification.file_name}
+                      </span>
+                    )}
+                    {notification.file_status && (
+                      <span className="notification-status">
+                        Status: {notification.file_status}
                       </span>
                     )}
                   </div>

@@ -13,6 +13,7 @@ const filesRoutes = require('./routes/files');
 const dashboardRoutes = require('./routes/dashboard');
 const settingsRoutes = require('./routes/settings');
 const fileViewerRoutes = require('./routes/fileViewer');
+const { router: notificationsRoutes } = require('./routes/notifications');
 
 const app = express();
 const PORT = process.env.SERVER_PORT || 3001;
@@ -30,6 +31,7 @@ app.use('/api/files', filesRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/settings', settingsRoutes);
 app.use('/api/file-viewer', fileViewerRoutes);
+app.use('/api/notifications', notificationsRoutes);
 
 // Start server
 async function startServer() {
@@ -44,8 +46,8 @@ async function startServer() {
       console.log(`📊 Database: ${dbPath}`);
       console.log(`🌐 Network Data Path: ${networkDataPath}`);
       console.log('='.repeat(70));
-      console.log(`
-🔄 File Approval Workflow:`);
+      console.log('\n✅ Notifications API routes registered');
+      console.log('\n🔄 File Approval Workflow:');
       console.log(`   1. User uploads file → Pending Team Leader Review`);
       console.log(`   2. Team Leader approves → Pending Admin Review`);
       console.log(`   3. Admin approves → Published to Public Network`);
