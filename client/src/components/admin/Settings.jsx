@@ -304,7 +304,7 @@ const Settings = ({ clearMessages, error, success, setError, setSuccess, users, 
                   {isLoading ? 'Saving...' : 'Save'}
                 </button>
               </div>
-              <p className="help-text">Base directory for file management system</p>
+              <p className="help-text">Base directory for files</p>
             </div>
           </div>
         </div>
