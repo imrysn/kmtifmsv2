@@ -1,24 +1,36 @@
-// LoadingSpinner.jsx
 import React from 'react';
-import '../css/LoadingSpinner.css'; // Adjust the path if necessary
+import '../css/LoadingSpinner.css';
 
-const LoadingSpinner = ({ size = 'medium', message = '', className = '' }) => {
-  const sizeClass = `loading-spinner-${size}`;
-  const hasMessage = message ? ' loading-spinner-with-message' : '';
+/**
+ * Optimized Loading Spinner Component
+ * Uses CSS animations instead of JS for better performance
+ */
+const LoadingSpinner = ({ size = 'medium', color = '#4CAF50', fullScreen = false }) => {
+  const sizeClasses = {
+    small: 'spinner-small',
+    medium: 'spinner-medium',
+    large: 'spinner-large'
+  };
 
-  return (
-    <div className={`loading-spinner-container ${className}`}>
-      <div className={`loading-spinner ${sizeClass}${hasMessage}`}>
-        {/* Use a CSS-based "Pulse Grid" animation */}
-        <div className="loading-spinner-css-grid">
-          <div className="css-dot"></div>
-          <div className="css-dot"></div>
-          <div className="css-dot"></div>
-        </div>
-        {message && <div className="loading-spinner-message">{message}</div>}
-      </div>
+  const spinnerContent = (
+    <div className="spinner-container">
+      <div 
+        className={`spinner ${sizeClasses[size]}`}
+        style={{ borderTopColor: color }}
+      />
+      <p className="spinner-text">Loading...</p>
     </div>
   );
+
+  if (fullScreen) {
+    return (
+      <div className="spinner-fullscreen">
+        {spinnerContent}
+      </div>
+    );
+  }
+
+  return spinnerContent;
 };
 
-export default LoadingSpinner;
+export default React.memo(LoadingSpinner);

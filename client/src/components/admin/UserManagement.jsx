@@ -309,10 +309,6 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess, u
 
   return (
     <div className="users-management">
-      <div className="page-header">
-        <h1>User Management</h1>
-        <p>Manage system users, roles, and permissions</p>
-      </div>
       
       {/* Action Bar */}
       <div className="action-bar">

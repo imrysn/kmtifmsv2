@@ -2,23 +2,7 @@
 .file-approval-section {
   padding: 0;
   position: relative;
-}
-
-.file-approval-section .page-header {
-  margin-bottom: 2rem;
-}
-
-.file-approval-section .page-header h1 {
-  font-size: 2rem;
-  font-weight: 600;
-  color: var(--text-primary);
-  margin: 0 0 0.5rem 0;
-}
-
-.file-approval-section .page-header p {
-  font-size: 1rem;
-  color: var(--text-secondary);
-  margin: 0;
+  margin-top: 30px;
 }
 
 /* Messages */
@@ -218,7 +202,7 @@
 
 /* Table Section */
 .file-approval-section .table-section {
-  background: var(--surface-color);
+  background: var(--background-secondary);
   border: 1px solid var(--border-color);
   border-radius: 12px;
   overflow: hidden;
@@ -254,6 +238,10 @@
   transition: background-color 0.2s ease;
 }
 
+.file-approval-section .file-row:hover {
+  background: rgba(0, 0, 0, 0.068);
+}
+
 .file-approval-section .file-cell {
   display: flex;
   align-items: center;
@@ -276,13 +264,10 @@
   color: var(--text-secondary);
 }
 
-/* --- ADDED RULE FOR FILE ICON SIZE IN TABLE --- */
 .file-approval-section .file-icon-img {
-  width: 32px; /* Adjust size as needed */
-  height: 32px; /* Adjust size as needed */
-  object-fit: contain; /* Ensures the image scales properly */
-  /* Remove any conflicting default styles if necessary */
-  /* e.g., if the original .file-icon had background/border/shadow, override them */
+  width: 32px;
+  height: 32px;
+  object-fit: contain;
   background: none;
   border: none;
   box-shadow: none;

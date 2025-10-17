@@ -253,10 +253,6 @@ const Settings = ({ clearMessages, error, success, setError, setSuccess, users, 
 
   return (
     <div className="settings-section">
-      <div className="page-header">
-        <h1>System Settings</h1>
-        <p>Configure file management, teams, and system information</p>
-      </div>
       
       {error && (
         <AlertMessage 

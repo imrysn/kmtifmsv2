@@ -1,23 +1,7 @@
 /* Activity Logs Styles - Scoped to .activity-logs-section */
 .activity-logs-section {
   padding: 0;
-}
-
-.activity-logs-section .page-header {
-  margin-bottom: 2rem;
-}
-
-.activity-logs-section .page-header h1 {
-  font-size: 2rem;
-  font-weight: 600;
-  color: var(--text-primary);
-  margin: 0 0 0.5rem 0;
-}
-
-.activity-logs-section .page-header p {
-  font-size: 1rem;
-  color: var(--text-secondary);
-  margin: 0;
+  margin-top: 30px;
 }
 
 /* Action Bar */
@@ -52,7 +36,7 @@
   padding: 0.75rem 1rem;
   border: 1px solid var(--border-color);
   border-radius: 8px;
-  background: var(--surface-color);
+  background: var(--background-secondary);
   color: var(--text-primary);
   font-size: 0.9rem;
   cursor: pointer;
@@ -67,8 +51,7 @@
 
 .activity-logs-section .date-filter-select:focus {
   outline: none;
-  border-color: var(--primary-color);
-  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+  border-color: var(--text-primary);
 }
 
 .activity-logs-section .date-filter-select:hover {
@@ -84,7 +67,7 @@
   padding: 0.75rem 1rem;
   border: 1px solid var(--border-color);
   border-radius: 8px;
-  background: var(--surface-color);
+  background: var(--background-secondary);
   color: var(--text-primary);
   font-size: 0.9rem;
   transition: all 0.2s ease;
@@ -92,8 +75,11 @@
 
 .activity-logs-section .search-input:focus {
   outline: none;
-  border-color: var(--primary-color);
-  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+  border-color: var(--text-primary);
+}
+
+.activity-logs-section .search-input:hover{
+  border: 1px solid var(--text-primary);
 }
 
 .activity-logs-section .search-clear-btn {
@@ -127,7 +113,7 @@
 
 /* Table Section */
 .activity-logs-section .table-section {
-  background: var(--surface-color);
+  background: var(--background-secondary);
   border: 1px solid var(--border-color);
   border-radius: 12px;
   overflow: hidden;

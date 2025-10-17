@@ -49,10 +49,6 @@ const DashboardOverview = ({ user, users }) => {
   const totalCount = summary.totalFiles
   return (
     <div className="dashboard-overview">
-      <div className="page-header">
-        <h1>File Approval Dashboard</h1>
-        <p>Monitor and manage engineering file submissions, approvals, and workflow status.</p>
-      </div>
       
       {/* Stats Grid */}
       <div className="stats-section">

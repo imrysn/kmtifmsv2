@@ -1,24 +1,7 @@
 /* Settings Styles - Scoped to .settings-section */
 .settings-section {
   padding: 0;
-}
-
-.settings-section .page-header {
-  margin-bottom: 2rem;
-  margin-left: 15rem;
-}
-
-.settings-section .page-header h1 {
-  font-size: 2rem;
-  font-weight: 600;
-  color: var(--text-primary);
-  margin: 0 0 0.5rem 0;
-}
-
-.settings-section .page-header p {
-  font-size: 1rem;
-  color: var(--text-secondary);
-  margin: 0;
+  margin-top: 30px;
 }
 
 /* Alerts */
@@ -69,11 +52,10 @@
 }
 
 .settings-section .settings-card {
-  background: var(--surface-color);
+  background: var(--background-secondary);
   border: 1px solid var(--border-color);
   border-radius: 12px;
   overflow: hidden;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
 }
 
 .settings-section .settings-card-header {

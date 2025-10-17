@@ -232,9 +232,6 @@ const FileManagement = ({ clearMessages, error, success, setError, setSuccess })
 
   return (
     <div className="file-management-section">
-      <div className="page-header">
-        <h1>File Management</h1>
-        <p>Browse and manage files in the network projects directory</p>
         {networkInfo && (
           <div className={`network-status ${networkInfo.accessible ? 'accessible' : 'not-accessible'}`}>
             <span className="status-text">
@@ -243,7 +240,6 @@ const FileManagement = ({ clearMessages, error, success, setError, setSuccess })
             <span className="network-path">{networkInfo.path || '\\\\KMTI-NAS\\Shared\\Public\\PROJECTS'}</span>
           </div>
         )}
-      </div>
 
       <div className="file-nav-controls">
         <div className="breadcrumb-container">

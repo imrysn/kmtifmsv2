@@ -611,10 +611,6 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
 
   return (
     <div className="file-approval-section">
-      <div className="page-header">
-        <h1>File Approval</h1>
-        <p>Review and manage submitted files requiring approval</p>
-      </div>
       
       {/* Messages */}
       {error && (

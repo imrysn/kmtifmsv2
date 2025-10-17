@@ -10,8 +10,7 @@ const ActivityLogs = ({ clearMessages, error, success, setError, setSuccess }) =
   const [currentPage, setCurrentPage] = useState(1)
   const [isLoading, setIsLoading] = useState(false)
   const [showDeleteLogsModal, setShowDeleteLogsModal] = useState(false)
-  
-  const itemsPerPage = 7
+  const itemsPerPage = 9
 
   // Fetch activity logs on component mount
   useEffect(() => {
@@ -295,10 +294,6 @@ const ActivityLogs = ({ clearMessages, error, success, setError, setSuccess }) =
 
   return (
     <div className="activity-logs-section">
-      <div className="page-header">
-        <h1>Activity Logs</h1>
-        <p>Monitor system activities and user actions</p>
-      </div>
       
       {/* Action Bar */}
       <div className="action-bar">

@@ -1,23 +1,8 @@
 .file-management-section {
   padding: 0;
+  margin-top: 30px;
 }
 
-.file-management-section .page-header {
-  margin-bottom: 2rem;
-}
-
-.file-management-section .page-header h1 {
-  font-size: 2rem;
-  font-weight: 600;
-  color: var(--text-primary);
-  margin: 0 0 0.5rem 0;
-}
-
-.file-management-section .page-header p {
-  font-size: 1rem;
-  color: var(--text-secondary);
-  margin: 0 0 1rem 0;
-}
 
 /* Network Status */
 .file-management-section .network-status {
@@ -28,10 +13,11 @@
   border-radius: 8px;
   font-size: 0.9rem;
   margin-top: 0.75rem;
+  margin-bottom: 1rem;
 }
 
 .file-management-section .network-status.accessible {
-  background: rgba(16, 185, 129, 0.1);
+  background: rgba(24, 248, 174, 0.1);
   border: 1px solid rgba(16, 185, 129, 0.3);
   color: #059669;
 }
@@ -143,7 +129,6 @@
   border-radius: 12px;
   overflow: hidden; 
   min-height: 400px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
   position: relative;
 }
 
