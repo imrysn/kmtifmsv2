@@ -250,7 +250,7 @@
 }
 
 .file-item:hover {
-  background: #f9f9fb;
+  background: transparent;
 }
 
 .file-item:last-child {
@@ -914,7 +914,7 @@
 }
 
 .file-item-compact:hover {
-  background: #f9f9fb;
+  background: transparent;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
 }
 
@@ -1283,7 +1283,7 @@
 }
 
 .files-table tbody tr:hover {
-  background: #f9f9fb;
+  background: transparent;
 }
 
 .files-table tbody tr:last-child {

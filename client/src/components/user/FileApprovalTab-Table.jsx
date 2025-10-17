@@ -151,6 +151,14 @@ const FileApprovalTabTable = ({
 
   return (
     <div className="file-approvals-table-section">
+      {/* Header */}
+      <div className="files-header">
+        <div className="header-left">
+          <h2>File Approvals</h2>
+          <p>{files.length} files • {formatFileSize(files.reduce((total, file) => total + file.file_size, 0))} total</p>
+        </div>
+      </div>
+
       {/* Statistics Cards */}
       <div className="approval-stats-grid">
         <div className="stat-card pending">

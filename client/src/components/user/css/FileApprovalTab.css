@@ -19,6 +19,29 @@
   margin-bottom: 20px;
 }
 
+/* Files Header (matching My Files style) */
+.files-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 24px;
+}
+
+.files-header .header-left h2 {
+  color: #1d1d1f;
+  font-size: 32px;
+  font-weight: 700;
+  margin: 0 0 8px 0;
+  letter-spacing: -0.5px;
+}
+
+.files-header .header-left p {
+  color: #86868b;
+  font-size: 15px;
+  margin: 0;
+  font-weight: 400;
+}
+
 .stat-card {
   background: white;
   border-radius: 12px;
@@ -74,39 +97,6 @@
   font-size: 14px;
   font-weight: 500;
   color: #86868b;
-}
-
-/* Header */
-.approvals-header {
-  margin-bottom: 20px;
-  padding-bottom: 16px;
-  border-bottom: 1px solid #d2d2d7;
-}
-
-.header-main {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 4px;
-}
-
-.header-main h2 {
-  color: #1d1d1f;
-  font-size: 28px;
-  font-weight: 600;
-  margin: 0;
-}
-
-.submissions-count {
-  color: #86868b;
-  font-size: 16px;
-  margin: 0;
-}
-
-.header-subtitle {
-  color: #86868b;
-  font-size: 14px;
-  margin: 0;
 }
 
 /* Approval Section */
@@ -180,7 +170,7 @@
 }
 
 .approval-file-item:hover {
-  background: #f9f9fb;
+  background: transparent;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
 }
 
@@ -417,12 +407,6 @@
   .file-actions-section {
     width: 100%;
     justify-content: flex-end;
-  }
-  
-  .header-main {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 4px;
   }
 }
 

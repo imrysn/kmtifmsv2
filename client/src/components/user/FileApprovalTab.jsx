@@ -9,7 +9,7 @@ const FileApprovalTab = ({
   onWithdrawFile
 }) => {
   
-  // Helper function to open file
+  // Helper function to open file (reverted to original)
   const openFile = (file) => {
     const fileUrl = `http://localhost:3001${file.file_path}`;
     window.open(fileUrl, '_blank');
@@ -136,6 +136,14 @@ const FileApprovalTab = ({
 
   return (
     <div className="file-approvals-section">
+      {/* Header */}
+      <div className="files-header">
+        <div className="header-left">
+          <h2>File Approvals</h2>
+          <p>{files.length} files • {formatFileSize(files.reduce((total, file) => total + file.file_size, 0))} total</p>
+        </div>
+      </div>
+
       {/* Statistics Cards */}
       <div className="approval-stats-grid">
         <div className="stat-card pending">
@@ -157,14 +165,7 @@ const FileApprovalTab = ({
         </div>
       </div>
 
-      {/* Header */}
-      <div className="approvals-header">
-        <div className="header-main">
-          <h2>File Approvals</h2>
-          <p className="submissions-count">{files.length} submissions</p>
-        </div>
-        <p className="header-subtitle">Submit files from the My Files page</p>
-      </div>
+
 
       {/* Pending Files Section */}
       {pendingFiles.length > 0 && (

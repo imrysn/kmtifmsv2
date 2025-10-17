@@ -195,7 +195,9 @@ const FileManagement = ({ clearMessages, error, success, setError, setSuccess })
       navigateToPath(item.path)
     } else {
       // Open file - construct the file URL and open it in new tab
-      const fileUrl = `${API_BASE}/api/file-system/file?path=${encodeURIComponent(item.path)}`
+      // Use the file viewer endpoint for proper inline display
+      const relativePath = item.path.replace(/^\\/, '').replace(/\\/g, '/');
+      const fileUrl = `${API_BASE}/api/file-viewer/view/${encodeURIComponent(relativePath)}`
       
       // Open all files in new tab
       window.open(fileUrl, '_blank')

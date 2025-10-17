@@ -12,6 +12,7 @@ const fileSystemRoutes = require('./routes/fileSystem');
 const filesRoutes = require('./routes/files');
 const dashboardRoutes = require('./routes/dashboard');
 const settingsRoutes = require('./routes/settings');
+const fileViewerRoutes = require('./routes/fileViewer');
 
 const app = express();
 const PORT = process.env.SERVER_PORT || 3001;
@@ -28,6 +29,7 @@ app.use('/api/file-system', fileSystemRoutes);
 app.use('/api/files', filesRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/settings', settingsRoutes);
+app.use('/api/file-viewer', fileViewerRoutes);
 
 // Start server
 async function startServer() {

@@ -2,7 +2,7 @@ const express = require('express');
 const fs = require('fs').promises;
 const path = require('path');
 const { db } = require('../config/database');
-const { upload, uploadsDir } = require('../config/middleware');
+const { upload, uploadsDir, moveToUserFolder } = require('../config/middleware');
 const { logActivity, logFileStatusChange } = require('../utils/logger');
 const { getFileTypeDescription } = require('../utils/fileHelpers');
 const { createNotification } = require('./notifications');
@@ -41,7 +41,40 @@ router.post('/upload', upload.single('file'), async (req, res) => {
       });
     }
 
-    console.log(`📁 File upload by ${username} from ${userTeam} team:`, req.file.originalname);
+    // Get the original filename and ensure proper UTF-8 encoding
+    let originalFilename = req.file.originalname;
+    
+    // Fix common UTF-8 encoding issues (garbled Japanese/Chinese characters)
+    try {
+      // Check if the filename contains typical garbled UTF-8 patterns
+      if (/[Ã¢â¬â¢Ã¤Â¸â‚¬Ã¦â€"‡Ã¨Â±Â¡]/.test(originalFilename)) {
+        // The filename was decoded as latin1/binary instead of utf8
+        // Re-encode as binary bytes, then decode as utf8
+        const buffer = Buffer.from(originalFilename, 'binary');
+        originalFilename = buffer.toString('utf8');
+        console.log('📝 Fixed UTF-8 encoding for filename:', originalFilename);
+      }
+    } catch (e) {
+      console.warn('⚠️ Could not decode filename, using original:', originalFilename);
+    }
+    
+    console.log(`📁 File upload by ${username} from ${userTeam} team:`, originalFilename);
+    
+    // Move file from temp location to user folder
+    try {
+      const finalPath = moveToUserFolder(req.file.path, username, originalFilename);
+      req.file.path = finalPath;
+      req.file.filename = originalFilename; // Use decoded original filename
+      req.file.originalname = originalFilename; // Update originalname with decoded version
+      console.log(`✅ File organized successfully`);
+    } catch (moveError) {
+      console.error('❌ Error organizing file:', moveError);
+      await fs.unlink(req.file.path).catch(() => {});
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to organize uploaded file'
+      });
+    }
 
     // Check for duplicate file if replaceExisting is not explicitly set
     if (replaceExisting !== 'true') {
@@ -106,6 +139,9 @@ router.post('/upload', upload.single('file'), async (req, res) => {
     }
 
     function insertFileRecord() {
+      // Get the relative path from the uploadsDir
+      const relativePath = path.relative(uploadsDir, req.file.path).replace(/\\/g, '/');
+      
       // Insert file record into database
       db.run(`INSERT INTO files (
         filename, original_name, file_path, file_size, file_type, mime_type, description,
@@ -114,7 +150,7 @@ router.post('/upload', upload.single('file'), async (req, res) => {
       [
         req.file.filename,
         req.file.originalname,
-        `/uploads/${req.file.filename}`,
+        `/uploads/${relativePath}`,
         req.file.size,
         getFileTypeDescription(req.file.mimetype),
         req.file.mimetype,

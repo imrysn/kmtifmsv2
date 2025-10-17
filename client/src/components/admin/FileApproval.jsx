@@ -807,7 +807,7 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
                     Reject File
                   </button>
                   <a 
-                    href={`http://localhost:3001${selectedFile.file_path}`} 
+                    href={`http://localhost:3001/api/file-viewer/view/${selectedFile.file_path.replace('/uploads/', '')}`} 
                     target="_blank" 
                     rel="noopener noreferrer" 
                     className="btn btn-secondary-large"

@@ -153,7 +153,7 @@ const MyFilesTab = ({
     clearUploadForm();
   };
 
-  // Helper function to open file
+  // Helper function to open file (reverted to original)
   const openFile = (file) => {
     const fileUrl = `http://localhost:3001${file.file_path}`;
     window.open(fileUrl, '_blank');
