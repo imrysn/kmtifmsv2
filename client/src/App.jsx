@@ -1,10 +1,29 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
-import { useState, useEffect } from 'react'
-import Login from './components/Login'
-import UserDashboard from './pages/UserDashboard-Enhanced'
-import TeamLeaderDashboard from './pages/TeamLeaderDashboard-Enhanced'
-import AdminDashboard from './pages/AdminDashboard'
+import { useState, useEffect, lazy, Suspense } from 'react'
 import './css/App.css'
+
+// Lazy load components for better performance
+const Login = lazy(() => import('./components/Login'))
+const UserDashboard = lazy(() => import('./pages/UserDashboard-Enhanced'))
+const TeamLeaderDashboard = lazy(() => import('./pages/TeamLeaderDashboard-Enhanced'))
+const AdminDashboard = lazy(() => import('./pages/AdminDashboard'))
+
+// Loading component
+const LoadingFallback = () => (
+  <div style={{ 
+    display: 'flex', 
+    justifyContent: 'center', 
+    alignItems: 'center', 
+    height: '100vh',
+    fontSize: '18px',
+    color: '#666'
+  }}>
+    <div>
+      <div style={{ marginBottom: '16px', textAlign: 'center' }}>⚡</div>
+      <div>Loading...</div>
+    </div>
+  </div>
+)
 
 function App() {
   const [user, setUser] = useState(null)
@@ -77,20 +96,22 @@ function App() {
   return (
     <Router>
       <div className="app">
-        <Routes>
-          <Route 
-            path="/login" 
-            element={!user ? <Login onLogin={handleLogin} /> : <Navigate to="/dashboard" replace />} 
-          />
-          <Route 
-            path="/dashboard" 
-            element={user ? getDashboardComponent() : <Navigate to="/login" replace />} 
-          />
-          <Route 
-            path="/" 
-            element={<Navigate to={user ? "/dashboard" : "/login"} replace />} 
-          />
-        </Routes>
+        <Suspense fallback={<LoadingFallback />}>
+          <Routes>
+            <Route 
+              path="/login" 
+              element={!user ? <Login onLogin={handleLogin} /> : <Navigate to="/dashboard" replace />} 
+            />
+            <Route 
+              path="/dashboard" 
+              element={user ? getDashboardComponent() : <Navigate to="/login" replace />} 
+            />
+            <Route 
+              path="/" 
+              element={<Navigate to={user ? "/dashboard" : "/login"} replace />} 
+            />
+          </Routes>
+        </Suspense>
       </div>
     </Router>
   )

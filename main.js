@@ -2,8 +2,6 @@ const { app, BrowserWindow, ipcMain, dialog } = require('electron');
 const path = require('path');
 const { spawn } = require('child_process');
 const http = require('http');
-const { url } = require('inspector');
-import Logo from './assets/kmti_logo.png';
 
 let mainWindow;
 let serverProcess;
@@ -20,12 +18,16 @@ function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1200,
     height: 800,
-    icon: path.join(__dirname, {Logo}),
+    // icon: path.join(__dirname, 'assets/kmti_logo.png'), // Uncomment if you have the logo
+    backgroundColor: '#1a1a1a', // Prevents white flash on load
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,
       enableRemoteModule: false,
-      preload: path.join(__dirname, 'preload.js')
+      preload: path.join(__dirname, 'preload.js'),
+      // Performance optimizations
+      backgroundThrottling: false, // Keep animations smooth
+      spellcheck: false, // Disable spellcheck for better performance
     },
     show: false, // Don't show until ready
   });
