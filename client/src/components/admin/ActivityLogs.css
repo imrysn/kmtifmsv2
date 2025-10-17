@@ -190,6 +190,7 @@
 .activity-logs-section .team-badge {
   padding: 0.375rem 0.875rem;
   border-radius: 12px;
+  border: 1px solid;
   font-size: 0.75rem;
   font-weight: 500;
   width: 130px;
@@ -202,15 +203,18 @@
 }
 
 .activity-logs-section .role-badge.user {
-  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  border: 1px solid linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: #059669;
 }
 
 .activity-logs-section .role-badge.team-leader {
-  background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+  border: 1px solid linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+  color: #1d4ed8;
 }
 
 .activity-logs-section .role-badge.admin {
-  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+  border: 1px solid linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+  color: #dc2626;
 }
 
 .activity-logs-section .team-badge {

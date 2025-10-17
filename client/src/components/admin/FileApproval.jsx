@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react'
-import FileIcon from './FileIcon'; 
+import FileIcon from './FileIcon'
 import './FileApproval.css'
+import { ConfirmationModal, AlertMessage } from './modals'
 
 const API_BASE = 'http://localhost:3001/api'
 const SERVER_BASE = API_BASE.replace(/\/api$/, '')
@@ -616,11 +617,20 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
       </div>
       
       {/* Messages */}
-      {(error || success) && (
-        <div className={`alert ${error ? 'alert-error' : 'alert-success'} message-fade`}>
-          <span className="alert-message">{error || success}</span>
-          <button onClick={clearMessages} className="alert-close">×</button>
-        </div>
+      {error && (
+        <AlertMessage 
+          type="error" 
+          message={error} 
+          onClose={clearMessages}
+        />
+      )}
+      
+      {success && (
+        <AlertMessage 
+          type="success" 
+          message={success} 
+          onClose={clearMessages}
+        />
       )}
       
       {/* Status Cards */}
@@ -990,51 +1000,29 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
       )}
 
       {/* Delete Confirmation Modal */}
-      {showDeleteModal && fileToDelete && (
-        <div className="modal-overlay">
-          <div className="modal delete-modal" onClick={e => e.stopPropagation()}>
-            <div className="modal-header">
-              <h3>Delete File</h3>
-              <button onClick={() => setShowDeleteModal(false)} className="modal-close">×</button>
-            </div>
-            <div className="modal-body">
-              <div className="delete-warning">
-                <div className="warning-icon">⚠️</div>
-                <div className="warning-content">
-                  <h4>Are you sure you want to delete this file?</h4>
-                  <p className="file-info">
-                    <strong>{fileToDelete.filename}</strong>
-                    <br />
-                    Submitted by <strong>{fileToDelete.username}</strong> from <strong>{fileToDelete.user_team}</strong> team
-                  </p>
-                  <p className="warning-text">
-                    This action cannot be undone. The file and all its associated data will be permanently removed.
-                  </p>
-                </div>
-              </div>
-            </div>
-            <div className="modal-footer">
-              <div className="delete-actions">
-                <button 
-                  type="button" 
-                  onClick={() => setShowDeleteModal(false)} 
-                  className="btn btn-secondary"
-                >
-                  Cancel
-                </button>
-                <button 
-                  type="button" 
-                  onClick={deleteFile}
-                  className="btn btn-danger" 
-                  disabled={isLoading}
-                >
-                  {isLoading ? 'Deleting...' : 'Delete File'}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      <ConfirmationModal
+        isOpen={showDeleteModal && fileToDelete}
+        onClose={() => setShowDeleteModal(false)}
+        onConfirm={deleteFile}
+        title="Delete File"
+        message="Are you sure you want to delete this file?"
+        confirmText="Delete File"
+        variant="danger"
+        isLoading={isLoading}
+      >
+        {fileToDelete && (
+          <>
+            <p className="confirmation-description">
+              <strong>{fileToDelete.original_name || fileToDelete.filename}</strong>
+              <br />
+              Submitted by <strong>{fileToDelete.username}</strong> from <strong>{fileToDelete.user_team}</strong> team
+            </p>
+            <p className="confirmation-description" style={{ marginTop: '0.5rem' }}>
+              This action cannot be undone. The file and all its associated data will be permanently removed.
+            </p>
+          </>
+        )}
+      </ConfirmationModal>
     </div>
   )
 }

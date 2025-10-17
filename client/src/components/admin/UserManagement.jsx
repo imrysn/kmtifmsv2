@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react'
 import './UserManagement.css'
+import { AlertMessage, ConfirmationModal, FormModal } from './modals'
+import ErrorBoundary from '../ErrorBoundary'
 
 const UserManagement = ({ clearMessages, error, success, setError, setSuccess, user }) => {
   const [users, setUsers] = useState([])
@@ -351,17 +353,19 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess, u
       
       {/* Messages */}
       {error && (
-        <div className="alert alert-error">
-          <span className="alert-message">{error}</span>
-          <button onClick={clearMessages} className="alert-close">×</button>
-        </div>
+        <AlertMessage 
+          type="error" 
+          message={error} 
+          onClose={clearMessages}
+        />
       )}
       
       {success && (
-        <div className="alert alert-success">
-          <span className="alert-message">{success}</span>
-          <button onClick={clearMessages} className="alert-close">×</button>
-        </div>
+        <AlertMessage 
+          type="success" 
+          message={success} 
+          onClose={clearMessages}
+        />
       )}
       
       {/* Users Table */}
@@ -390,7 +394,6 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess, u
                   <tr key={user.id} className="user-row">
                     <td>
                       <div className="user-cell">
-                        <div className="user-avatar">{user.fullName.charAt(0).toUpperCase()}</div>
                         <span 
                           className="user-name clickable" 
                           onClick={() => openUserDetailsModal(user)}
@@ -458,15 +461,15 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess, u
       </div>
 
       {/* Add User Modal */}
-      {showAddModal && (
-        <div className="modal-overlay">
-          <div className="modal compact" onClick={e => e.stopPropagation()}>
-            <div className="modal-header">
-              <h3>Add New User</h3>
-              <button onClick={() => setShowAddModal(false)} className="modal-close">×</button>
-            </div>
-            <form onSubmit={handleAddUser}>
-              <div className="modal-body">
+      <FormModal
+        isOpen={showAddModal}
+        onClose={() => setShowAddModal(false)}
+        onSubmit={handleAddUser}
+        title="Add New User"
+        submitText="Create User"
+        isLoading={isLoading}
+        size="medium"
+      >
                 <div className="form-grid">
                   <div className="form-group">
                     <label>Full Name *</label>
@@ -540,38 +543,18 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess, u
                     {teamsLoading && <p className="help-text">Loading teams...</p>}
                   </div>
                 </div>
-              </div>
-              <div className="modal-footer">
-                <button 
-                  type="button" 
-                  onClick={() => setShowAddModal(false)} 
-                  className="btn btn-secondary"
-                >
-                  Cancel
-                </button>
-                <button 
-                  type="submit" 
-                  className="btn btn-primary" 
-                  disabled={isLoading}
-                >
-                  {isLoading ? 'Creating...' : 'Create User'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      </FormModal>
 
       {/* Edit User Modal */}
-      {showEditModal && selectedUser && (
-        <div className="modal-overlay">
-          <div className="modal compact" onClick={e => e.stopPropagation()}>
-            <div className="modal-header">
-              <h3>Edit User</h3>
-              <button onClick={() => setShowEditModal(false)} className="modal-close">×</button>
-            </div>
-            <form onSubmit={handleEditUser}>
-              <div className="modal-body">
+      <FormModal
+        isOpen={showEditModal && selectedUser}
+        onClose={() => setShowEditModal(false)}
+        onSubmit={handleEditUser}
+        title="Edit User"
+        submitText="Update User"
+        isLoading={isLoading}
+        size="medium"
+      >
                 <div className="form-grid">
                   <div className="form-group">
                     <label>Full Name *</label>
@@ -634,38 +617,20 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess, u
                     {teamsLoading && <p className="help-text">Loading teams...</p>}
                   </div>
                 </div>
-              </div>
-              <div className="modal-footer">
-                <button 
-                  type="button" 
-                  onClick={() => setShowEditModal(false)} 
-                  className="btn btn-secondary"
-                >
-                  Cancel
-                </button>
-                <button 
-                  type="submit" 
-                  className="btn btn-primary" 
-                  disabled={isLoading}
-                >
-                  {isLoading ? 'Updating...' : 'Update User'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      </FormModal>
 
       {/* Reset Password Modal */}
-      {showPasswordModal && selectedUser && (
-        <div className="modal-overlay">
-          <div className="modal compact" onClick={e => e.stopPropagation()}>
-            <div className="modal-header">
-              <h3>Reset Password</h3>
-              <button onClick={() => setShowPasswordModal(false)} className="modal-close">×</button>
-            </div>
-            <form onSubmit={handleResetPassword}>
-              <div className="modal-body">
+      <FormModal
+        isOpen={showPasswordModal && selectedUser}
+        onClose={() => setShowPasswordModal(false)}
+        onSubmit={handleResetPassword}
+        title="Reset Password"
+        submitText="Reset Password"
+        isLoading={isLoading}
+        size="small"
+      >
+        {selectedUser && (
+          <>
                 <div className="form-group">
                   <label>User: <strong>{selectedUser.fullName} ({selectedUser.username})</strong></label>
                 </div>
@@ -681,71 +646,32 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess, u
                     className="form-input"
                   />
                 </div>
-              </div>
-              <div className="modal-footer">
-                <button 
-                  type="button" 
-                  onClick={() => setShowPasswordModal(false)} 
-                  className="btn btn-secondary"
-                >
-                  Cancel
-                </button>
-                <button 
-                  type="submit" 
-                  className="btn btn-primary" 
-                  disabled={isLoading}
-                >
-                  {isLoading ? 'Resetting...' : 'Reset Password'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+          </>
+        )}
+      </FormModal>
 
       {/* User Delete Confirmation Modal */}
-      {showUserDeleteModal && userToDelete && (
-        <div className="modal-overlay">
-          <div className="modal delete-modal" onClick={e => e.stopPropagation()}>
-            <div className="modal-header">
-              <h3>Delete User</h3>
-              <button onClick={() => setShowUserDeleteModal(false)} className="modal-close">×</button>
-            </div>
-            <div className="modal-body">
-              <div className="delete-warning">
-                <div className="warning-content">
-                  <h4>Are you sure you want to delete this user?</h4>
-                  <p className="file-info">
-                    <strong>{userToDelete.fullName}</strong>
-                  </p>
-                  <p className="warning-text">
-                    This action cannot be undone. The user account and all associated data will be permanently removed from the system.
-                  </p>
-                </div>
-              </div>
-            </div>
-            <div className="modal-footer">
-              <div className="delete-actions">
-                <button 
-                  type="button" 
-                  onClick={() => setShowUserDeleteModal(false)} 
-                  className="btn btn-secondary"
-                >
-                  Cancel
-                </button>
-                <button 
-                  type="button" 
-                  onClick={handleDeleteUser}
-                  className="btn btn-danger" 
-                  disabled={isLoading}
-                >
-                  {isLoading ? 'Deleting...' : 'Delete User'}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      <ConfirmationModal
+        isOpen={showUserDeleteModal && userToDelete}
+        onClose={() => setShowUserDeleteModal(false)}
+        onConfirm={handleDeleteUser}
+        title="Delete User"
+        message="Are you sure you want to delete this user?"
+        confirmText="Delete User"
+        variant="danger"
+        isLoading={isLoading}
+      >
+        {userToDelete && (
+          <>
+            <p className="confirmation-description">
+              <strong>{userToDelete.fullName}</strong>
+            </p>
+            <p className="confirmation-description" style={{ marginTop: '0.5rem' }}>
+              This action cannot be undone. The user account and all associated data will be permanently removed from the system.
+            </p>
+          </>
+        )}
+      </ConfirmationModal>
 
       {/* User Details Modal */}
       {showUserDetailsModal && userDetails.user && (
@@ -911,4 +837,11 @@ const formatDate = (dateString) => {
   })
 }
 
-export default UserManagement
+// Wrap component with ErrorBoundary
+const UserManagementWithErrorBoundary = (props) => (
+  <ErrorBoundary>
+    <UserManagement {...props} />
+  </ErrorBoundary>
+)
+
+export default UserManagementWithErrorBoundary

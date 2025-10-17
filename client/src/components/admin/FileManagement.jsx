@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from 'react'
-import FileIcon from './FileIcon';
-import LoadingSpinner from '../LoadingSpinner'; 
-import './FileManagement.css' 
+import FileIcon from './FileIcon'
+import LoadingSpinner from '../LoadingSpinner'
+import './FileManagement.css'
+import { AlertMessage } from './modals' 
 
 const API_BASE = process.env.NODE_ENV === 'development'
   ? 'http://localhost:3001'
@@ -285,19 +286,21 @@ const FileManagement = ({ clearMessages, error, success, setError, setSuccess })
         </div>
       </div>
 
-      {/* Add these alert divs here */}
+      {/* Messages */}
       {error && (
-        <div className={`alert alert-error`}>
-          <span className="alert-message">{error}</span>
-          <button onClick={clearMessages} className="alert-close">×</button>
-        </div>
+        <AlertMessage 
+          type="error" 
+          message={error} 
+          onClose={clearMessages}
+        />
       )}
 
-      {success && ( // This is the message you see for "Opening file:"
-        <div className={`alert alert-success`}>
-          <span className="alert-message">{success}</span>
-          <button onClick={clearMessages} className="alert-close">×</button>
-        </div>
+      {success && (
+        <AlertMessage 
+          type="success" 
+          message={success} 
+          onClose={clearMessages}
+        />
       )}
 
       <div className="file-system-container">

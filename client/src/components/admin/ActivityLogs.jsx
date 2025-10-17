@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import './ActivityLogs.css'
+import { ConfirmationModal, AlertMessage } from './modals'
 
 const ActivityLogs = ({ clearMessages, error, success, setError, setSuccess }) => {
   const [activityLogs, setActivityLogs] = useState([])
@@ -369,17 +370,19 @@ const ActivityLogs = ({ clearMessages, error, success, setError, setSuccess }) =
       
       {/* Messages */}
       {error && (
-        <div className="alert alert-error">
-          <span className="alert-message">{error}</span>
-          <button onClick={clearMessages} className="alert-close">×</button>
-        </div>
+        <AlertMessage 
+          type="error" 
+          message={error} 
+          onClose={clearMessages}
+        />
       )}
       
       {success && (
-        <div className="alert alert-success">
-          <span className="alert-message">{success}</span>
-          <button onClick={clearMessages} className="alert-close">×</button>
-        </div>
+        <AlertMessage 
+          type="success" 
+          message={success} 
+          onClose={clearMessages}
+        />
       )}
       
       {/* Activity Logs Table */}
@@ -496,68 +499,23 @@ const ActivityLogs = ({ clearMessages, error, success, setError, setSuccess }) =
       </div>
 
       {/* Delete Logs Confirmation Modal */}
-      {showDeleteLogsModal && (
-        <div className="modal-overlay" onClick={(e) => {
-          e.preventDefault()
-          e.stopPropagation()
-          setShowDeleteLogsModal(false)
-        }}>
-          <div className="modal delete-modal" onClick={(e) => {
-            e.preventDefault()
-            e.stopPropagation()
-          }}>
-            <div className="modal-header">
-              <h3>Delete Activity Logs</h3>
-              <button onClick={(e) => {
-                e.preventDefault()
-                e.stopPropagation()
-                setShowDeleteLogsModal(false)
-              }} className="modal-close">×</button>
-            </div>
-            <div className="modal-body">
-              <div className="delete-warning">
-                <div className="warning-icon">⚠️</div>
-                <div className="warning-content">
-                  <h4>Are you sure you want to delete these activity logs?</h4>
-                  <p className="file-info">
-                    You are about to delete <strong>{filteredLogs.length} log(s)</strong> that match your {getFilterDescription()}.
-                  </p>
-                  <p className="warning-text">
-                    This action cannot be undone. The selected activity logs will be permanently removed from the system and cannot be recovered.
-                  </p>
-                </div>
-              </div>
-            </div>
-            <div className="modal-footer">
-              <div className="delete-actions">
-                <button 
-                  type="button" 
-                  onClick={(e) => {
-                    e.preventDefault()
-                    e.stopPropagation()
-                    setShowDeleteLogsModal(false)
-                  }} 
-                  className="btn btn-secondary"
-                >
-                  Cancel
-                </button>
-                <button 
-                  type="button" 
-                  onClick={(e) => {
-                    e.preventDefault()
-                    e.stopPropagation()
-                    confirmDeleteLogs()
-                  }}
-                  className="btn btn-danger" 
-                  disabled={isLoading}
-                >
-                  {isLoading ? 'Deleting...' : `Delete ${filteredLogs.length} Log(s)`}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      <ConfirmationModal
+        isOpen={showDeleteLogsModal}
+        onClose={() => setShowDeleteLogsModal(false)}
+        onConfirm={confirmDeleteLogs}
+        title="Delete Activity Logs"
+        message="Are you sure you want to delete these activity logs?"
+        confirmText={`Delete ${filteredLogs.length} Log(s)`}
+        variant="danger"
+        isLoading={isLoading}
+      >
+        <p className="confirmation-description">
+          You are about to delete <strong>{filteredLogs.length} log(s)</strong> that match your {getFilterDescription()}.
+        </p>
+        <p className="confirmation-description" style={{ marginTop: '0.5rem' }}>
+          This action cannot be undone. The selected activity logs will be permanently removed from the system and cannot be recovered.
+        </p>
+      </ConfirmationModal>
     </div>
   )
 }
