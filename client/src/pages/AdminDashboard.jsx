@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, Suspense } from 'react'
 import anime from 'animejs'
 import '../css/AdminDashboard.css'
 import SkeletonLoader from '../components/common/SkeletonLoader'
+import { getSidebarIcon } from '../components/admin/FileIcon'
 
 // Import admin tab components
 import {
@@ -120,43 +121,50 @@ const AdminDashboard = ({ user, onLogout }) => {
             className={`nav-item ${activeTab === 'dashboard' ? 'active' : ''}`}
             onClick={() => handleTabChange('dashboard')}
           >
+            <img src={getSidebarIcon('dashboard')} alt="Dashboard" className="nav-icon" />
             <span className="nav-label">Dashboard</span>
           </button>
           <button 
             className={`nav-item ${activeTab === 'file-management' ? 'active' : ''}`}
             onClick={() => handleTabChange('file-management')}
           >
+            <img src={getSidebarIcon('files')} alt="Files" className="nav-icon" />
             <span className="nav-label">Files</span>
           </button>
           <button 
             className={`nav-item ${activeTab === 'users' ? 'active' : ''}`}
             onClick={() => handleTabChange('users')}
           >
+            <img src={getSidebarIcon('users')} alt="Users" className="nav-icon" />
             <span className="nav-label">Users</span>
           </button>
           <button 
             className={`nav-item ${activeTab === 'activity-logs' ? 'active' : ''}`}
             onClick={() => handleTabChange('activity-logs')}
           >
+            <img src={getSidebarIcon('activityLogs')} alt="Activity Logs" className="nav-icon" />
             <span className="nav-label">Activity Logs</span>
           </button>
           <button 
             className={`nav-item ${activeTab === 'file-approval' ? 'active' : ''}`}
             onClick={() => handleTabChange('file-approval')}
           >
+            <img src={getSidebarIcon('fileApproval')} alt="File Approval" className="nav-icon" />
             <span className="nav-label">File Approval</span>
           </button>
           <button 
             className={`nav-item ${activeTab === 'settings' ? 'active' : ''}`}
             onClick={() => handleTabChange('settings')}
           >
+            <img src={getSidebarIcon('settings')} alt="Settings" className="nav-icon" />
             <span className="nav-label">Settings</span>
           </button>
         </nav>
         
         <div className="sidebar-footer">
           <button onClick={handleLogout} className="logout-btn">
-            Logout
+            <img src={getSidebarIcon('logout')} alt="Logout" className="nav-icon" />
+            <span className="logout-btn-text">Logout</span>
           </button>
         </div>
       </div>

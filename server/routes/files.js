@@ -5,6 +5,7 @@ const { db } = require('../config/database');
 const { upload, uploadsDir, moveToUserFolder } = require('../config/middleware');
 const { logActivity, logFileStatusChange } = require('../utils/logger');
 const { getFileTypeDescription } = require('../utils/fileHelpers');
+const { safeDeleteFile } = require('../utils/fileUtils');
 const { createNotification } = require('./notifications');
 
 const router = express.Router();
@@ -75,7 +76,8 @@ router.post('/upload', upload.single('file'), async (req, res) => {
         originalFilename: originalFilename,
         stack: moveError.stack
       });
-      await fs.unlink(req.file.path).catch(() => {});
+      // Safely delete the temp file if it exists
+      await safeDeleteFile(req.file.path);
       return res.status(500).json({
         success: false,
         message: 'Failed to organize uploaded file: ' + moveError.message,
@@ -85,10 +87,10 @@ router.post('/upload', upload.single('file'), async (req, res) => {
 
     // Check for duplicate file if replaceExisting is not explicitly set
     if (replaceExisting !== 'true') {
-      db.get('SELECT * FROM files WHERE original_name = ? AND user_id = ?', [req.file.originalname, userId], (err, existingFile) => {
+      db.get('SELECT * FROM files WHERE original_name = ? AND user_id = ?', [req.file.originalname, userId], async (err, existingFile) => {
         if (err) {
           console.error('❌ Error checking for duplicate:', err);
-          fs.unlink(req.file.path, () => {});
+          await safeDeleteFile(req.file.path);
           return res.status(500).json({
             success: false,
             message: 'Failed to check for duplicate files'
@@ -96,9 +98,7 @@ router.post('/upload', upload.single('file'), async (req, res) => {
         }
         if (existingFile) {
           // Delete the newly uploaded file since we found a duplicate
-          fs.unlink(req.file.path, (unlinkErr) => {
-             if (unlinkErr) console.error('Error deleting duplicate upload:', unlinkErr);
-          });
+          await safeDeleteFile(req.file.path);
           return res.status(409).json({
             success: false,
             isDuplicate: true,
@@ -117,18 +117,12 @@ router.post('/upload', upload.single('file'), async (req, res) => {
       });
     } else {
       // Replace existing file - first find and remove the old one
-      db.get('SELECT * FROM files WHERE original_name = ? AND user_id = ?', [req.file.originalname, userId], (err, existingFile) => {
+      db.get('SELECT * FROM files WHERE original_name = ? AND user_id = ?', [req.file.originalname, userId], async (err, existingFile) => {
         if (existingFile) {
           // Delete old physical file
           const oldFilePath = path.join(uploadsDir, path.basename(existingFile.file_path));
-          fs.unlink(oldFilePath, (unlinkErr) => {
-            if (unlinkErr) {
-              console.error('❌ Error deleting old file:', unlinkErr);
-            } else {
-              console.log('✅ Old file deleted:', oldFilePath);
-            }
-          });
-
+          await safeDeleteFile(oldFilePath);
+          
           // Delete old database record
           db.run('DELETE FROM files WHERE id = ?', [existingFile.id], (deleteErr) => {
             if (deleteErr) {
@@ -167,13 +161,11 @@ router.post('/upload', upload.single('file'), async (req, res) => {
         userTeam,
         'uploaded',
         'pending_team_leader'
-      ], function(err) {
+      ], async function(err) {
         if (err) {
           console.error('❌ Error saving file to database:', err);
           // Delete the uploaded file if database save fails
-          fs.unlink(req.file.path, (unlinkErr) => {
-             if (unlinkErr) console.error('Error deleting failed upload:', unlinkErr);
-          });
+          await safeDeleteFile(req.file.path);
           return res.status(500).json({
             success: false,
             message: 'Failed to save file information'
@@ -1047,14 +1039,21 @@ router.get('/:fileId/history', (req, res) => {
 });
 
 // Delete file (Admin only)
-router.delete('/:fileId', (req, res) => {
+router.delete('/:fileId', async (req, res) => {
   const { fileId } = req.params;
   const { adminId, adminUsername, adminRole, team } = req.body;
   console.log(`🗑️ Deleting file ${fileId} by admin ${adminUsername}`);
 
-  // Get file info first
-  db.get('SELECT * FROM files WHERE id = ?', [fileId], (err, file) => {
-    if (err || !file) {
+  try {
+    // Get file info first
+    const file = await new Promise((resolve, reject) => {
+      db.get('SELECT * FROM files WHERE id = ?', [fileId], (err, row) => {
+        if (err) reject(err);
+        else resolve(row);
+      });
+    });
+
+    if (!file) {
       return res.status(404).json({
         success: false,
         message: 'File not found'
@@ -1062,59 +1061,129 @@ router.delete('/:fileId', (req, res) => {
     }
 
     // Delete file from filesystem
-    const filePath = path.join(uploadsDir, path.basename(file.file_path));
-    fs.unlink(filePath, (unlinkErr) => {
-      if (unlinkErr) {
-        console.error('❌ Error deleting physical file:', unlinkErr);
+    // First, properly resolve the file path using stored information
+    let filePath;
+    
+    if (file.file_path) {
+      // For paths stored in database, we need to handle user subdirectories
+      if (file.file_path.startsWith('/uploads/')) {
+        // Check if the path already includes the username directory
+        const relativePath = file.file_path.substring('/uploads/'.length);
+        
+        if (relativePath.includes('/')) {
+          // Already has subdirectory - use as is
+          filePath = path.join(uploadsDir, relativePath);
+        } else {
+          // Try to find in user's directory
+          filePath = path.join(uploadsDir, file.username, path.basename(file.file_path));
+          
+          // If not found in user directory, fallback to direct location
+          try {
+            await fs.access(filePath);
+          } catch (e) {
+            filePath = path.join(uploadsDir, path.basename(file.file_path));
+          }
+        }
       } else {
-        console.log('✅ Physical file deleted:', filePath);
+        // Direct path or already absolute
+        filePath = await resolveFilePath(file.file_path, file.username);
       }
-    });
+    } else {
+      // Fallback to basic resolution
+      filePath = path.join(uploadsDir, path.basename(file.file_path || ''));
+    }
+    
+    console.log(`🗑️ Attempting to delete file at: ${filePath}`);
+    const deleteResult = await safeDeleteFile(filePath);
+    
+    if (!deleteResult.success && !deleteResult.notFound) {
+      console.warn(`⚠️ Physical file deletion issue: ${deleteResult.message}`);
+    }
 
     // Delete file record from database
-    db.run('DELETE FROM files WHERE id = ?', [fileId], function(err) {
-      if (err) {
-        console.error('❌ Error deleting file from database:', err);
-        return res.status(500).json({
-          success: false,
-          message: 'Failed to delete file'
-        });
-      }
-
-      // Log activity
-      logActivity(
-        db,
-        adminId,
-        adminUsername,
-        adminRole,
-        team,
-        `File deleted: ${file.filename} (Admin Action)`
-      );
-      console.log(`✅ File deleted: ${file.filename}`);
-      res.json({
-        success: true,
-        message: 'File deleted successfully'
+    await new Promise((resolve, reject) => {
+      db.run('DELETE FROM files WHERE id = ?', [fileId], function(err) {
+        if (err) reject(err);
+        else resolve();
       });
     });
-  });
+
+    // Log activity
+    logActivity(
+      db,
+      adminId,
+      adminUsername,
+      adminRole,
+      team,
+      `File deleted: ${file.filename} (Admin Action)`
+    );
+    
+    console.log(`✅ File deleted: ${file.filename}`);
+    res.json({
+      success: true,
+      message: 'File deleted successfully'
+    });
+  } catch (error) {
+    console.error('❌ Error deleting file:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to delete file',
+      error: error.message
+    });
+  }
 });
 
 // Helper: convert stored file_path to a filesystem path the server can unlink
-function resolveFilePath(storedPath) {
+async function resolveFilePath(storedPath, username = null) {
   if (!storedPath) return null;
 
-  // If UNC path (\\server\share...) or absolute Windows (C:\...) or POSIX absolute (/...), return as-is
+  // If UNC path (\\server\share...) or absolute Windows (C:\...) or POSIX absolute (/..), return as-is
   if (/^\\\\/.test(storedPath) || path.isAbsolute(storedPath)) {
     return storedPath;
   }
+  
+  // Handle paths stored as relative URLs with /uploads/ prefix
+  if (storedPath.startsWith('/uploads/')) {
+    const relativePath = storedPath.substring('/uploads/'.length);
+    
+    // Check if this is a username path format like 'username/filename.ext'
+    if (relativePath.includes('/')) {
+      // This is likely a username/filename path
+      return path.join(uploadsDir, relativePath);
+    } 
+    // If username is provided, check if the file exists in that user's directory
+    else if (username) {
+      // Try the username directory first
+      const userPath = path.join(uploadsDir, username, path.basename(storedPath));
+      try {
+        await fs.access(userPath);
+        return userPath;
+      } catch (e) {
+        // File not found in user directory
+      }
+    }
+    
+    // Default to direct file in uploads dir
+    return path.join(uploadsDir, relativePath);
+  }
 
-  // Otherwise assume path is relative to project root (or to a known uploads folder).
-  // Try common locations: process.cwd(), project 'uploads' folder, database folder, etc.
-  // First try as relative to project root
-  const try1 = path.join(process.cwd(), storedPath);
-  // Then try inside a common uploads folder
-  const try2 = path.join(process.cwd(), 'uploads', storedPath);
-  return try1 || try2;
+  // For paths without /uploads/ prefix, try various locations
+  // First check if it exists directly in uploads folder
+  const directPath = path.join(uploadsDir, path.basename(storedPath));
+  
+  // If username is provided, also check in user's folder
+  if (username) {
+    const userPath = path.join(uploadsDir, username, path.basename(storedPath));
+    try {
+      await fs.access(userPath);
+      return userPath;
+    } catch (e) {
+      // File not found in user directory
+    }
+  }
+  
+  // Final fallback - direct join with uploads dir
+  return directPath;
 }
 
 // POST /api/files/:id/delete-file
@@ -1130,7 +1199,35 @@ router.post('/:id/delete-file', async (req, res) => {
       }
 
       const storedPath = file.file_path || file.storage_path || file.filepath || file.path;
-      const resolved = resolveFilePath(storedPath);
+      let resolved;
+      
+      // Try to properly resolve the file path using stored information
+      if (storedPath) {
+        if (storedPath.startsWith('/uploads/')) {
+          // Handle paths stored as relative URLs with /uploads/ prefix
+          const relativePath = storedPath.substring('/uploads/'.length);
+          
+          if (relativePath.includes('/')) {
+            // Already has subdirectory - use as is
+            resolved = path.join(uploadsDir, relativePath);
+          } else {
+            // Try to find in user's directory
+            const userPath = path.join(uploadsDir, file.username, path.basename(storedPath));
+            
+            // Check if file exists in user folder
+            try {
+              await fs.access(userPath);
+              resolved = userPath;
+            } catch (e) {
+              // Not found in user directory, fallback to direct location
+              resolved = path.join(uploadsDir, path.basename(storedPath));
+            }
+          }
+        } else {
+          // Direct path or already absolute
+          resolved = await resolveFilePath(storedPath, file.username);
+        }
+      }
 
       if (!resolved) {
         return res.status(400).json({ success: false, message: 'No file path available to delete' });
@@ -1138,19 +1235,23 @@ router.post('/:id/delete-file', async (req, res) => {
 
       console.log(`🗑️ Attempting to delete physical file: ${resolved}`);
 
-      try {
-        await fs.unlink(resolved);
-        console.log(`✅ Physical file deleted successfully: ${resolved}`);
-        return res.json({ success: true, message: 'Physical file deleted' });
-      } catch (err) {
-        // If file doesn't exist, treat as success (storage already cleaned)
-        if (err.code === 'ENOENT') {
+      const deleteResult = await safeDeleteFile(resolved);
+      
+      if (deleteResult.success) {
+        if (deleteResult.notFound) {
           console.log(`ℹ️ Physical file not found (already removed): ${resolved}`);
           return res.json({ success: true, message: 'Physical file not found (already removed)' });
         }
-        // Other errors should be reported
-        console.error('❌ Error deleting physical file:', resolved, err);
-        return res.status(500).json({ success: false, message: 'Failed to delete physical file', detail: err.message });
+        
+        console.log(`✅ Physical file deleted successfully: ${resolved}`);
+        return res.json({ success: true, message: 'Physical file deleted' });
+      } else {
+        console.error('❌ Error deleting physical file:', resolved, deleteResult.error);
+        return res.status(500).json({ 
+          success: false, 
+          message: 'Failed to delete physical file', 
+          detail: deleteResult.message 
+        });
       }
     });
   } catch (err) {

@@ -1,32 +1,44 @@
+// Script to add the notifications table to the MySQL database
 const fs = require('fs');
 const path = require('path');
-const { db } = require('../server/config/database');
+const { getPool, closePool } = require('./config');
 
-console.log('🔄 Adding notifications table to database...\n');
-
-// Read the SQL file
-const sqlFilePath = path.join(__dirname, 'sql', 'add-notifications-table.sql');
-const sql = fs.readFileSync(sqlFilePath, 'utf8');
-
-// Execute the SQL
-db.exec(sql, (err) => {
-  if (err) {
-    console.error('❌ Error creating notifications table:', err.message);
-    process.exit(1);
+async function addNotificationsTable() {
+  console.log('🚀 Adding notifications table to MySQL database...');
+  
+  try {
+    // Read the SQL file
+    const sqlFilePath = path.join(__dirname, 'sql', 'add-notifications-table.sql');
+    const sqlScript = fs.readFileSync(sqlFilePath, 'utf8');
+    
+    // Connect to the database
+    const pool = getPool();
+    
+    console.log('📝 Executing SQL script...');
+    await pool.query(sqlScript);
+    
+    console.log('✅ Notifications table added successfully!');
+    
+    // Verify the table exists
+    const [tables] = await pool.query('SHOW TABLES LIKE "notifications"');
+    if (tables.length > 0) {
+      console.log('✅ Verification successful: notifications table exists');
+    } else {
+      console.error('❌ Verification failed: notifications table was not created');
+    }
+  } catch (error) {
+    console.error('❌ Error adding notifications table:', error.message);
+  } finally {
+    await closePool();
   }
-  
-  console.log('✅ Notifications table created successfully!');
-  console.log('\nNotifications table structure:');
-  console.log('- id (Primary Key)');
-  console.log('- user_id (Who receives the notification)');
-  console.log('- file_id (Which file the notification is about)');
-  console.log('- type (comment, approval, rejection, final_approval, final_rejection)');
-  console.log('- title (Notification title)');
-  console.log('- message (Notification message)');
-  console.log('- action_by_id, action_by_username, action_by_role (Who performed the action)');
-  console.log('- is_read (Boolean flag)');
-  console.log('- created_at, read_at (Timestamps)');
-  console.log('\n✨ Your notification system is ready!');
-  
-  process.exit(0);
-});
+}
+
+// Run the script
+if (require.main === module) {
+  addNotificationsTable().catch(error => {
+    console.error('Fatal error:', error);
+    process.exit(1);
+  });
+}
+
+module.exports = { addNotificationsTable };

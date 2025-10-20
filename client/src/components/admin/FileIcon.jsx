@@ -27,12 +27,26 @@ const iconMap = {
   sldasm: "https://cdn-icons-png.flaticon.com/512/14421/14421962.png",
   slddrw: "https://cdn-icons-png.flaticon.com/512/2266/2266786.png",
   dwg: "https://cdn-icons-png.flaticon.com/512/2266/2266786.png",
+  
+  // Sidebar icons
+  dashboard: "https://cdn-icons-png.flaticon.com/512/9144/9144015.png",
+  files: "https://cdn-icons-png.flaticon.com/512/3073/3073439.png",
+  users: "https://cdn-icons-png.flaticon.com/512/511/511587.png",
+  activityLogs: "https://cdn-icons-png.flaticon.com/512/4991/4991413.png",
+  fileApproval: "https://cdn-icons-png.flaticon.com/512/2822/2822676.png",
+  settings: "https://cdn-icons-png.flaticon.com/512/3524/3524636.png",
+  logout: "https://cdn-icons-png.flaticon.com/512/1629/1629082.png",
 };
 
 const getIconForFile = (fileType, isFolder = false) => {
   if (isFolder) return iconMap.folder;
   const ext = fileType?.toLowerCase() || '';
   return iconMap[ext] || iconMap.default;
+};
+
+// Helper function to get sidebar icons
+export const getSidebarIcon = (iconName) => {
+  return iconMap[iconName] || iconMap.default;
 };
 
 const FileIcon = ({ fileType, isFolder = false, altText = "File Icon", className = "", style = {} }) => {

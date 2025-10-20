@@ -24,6 +24,6 @@ CREATE TABLE IF NOT EXISTS notifications (
   INDEX idx_notifications_is_read (is_read),
   INDEX idx_notifications_created_at (created_at),
   INDEX idx_notifications_user_unread (user_id, is_read)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 SELECT 'Notifications table created successfully' as Message;

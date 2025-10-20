@@ -196,6 +196,41 @@ async function initializeMySQL() {
       console.log('❌', error.message);
     }
     
+    // NOTIFICATIONS TABLE
+    try {
+      process.stdout.write('   Creating notifications table... ');
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS notifications (
+          id INT AUTO_INCREMENT PRIMARY KEY,
+          user_id INT NOT NULL,
+          file_id INT NOT NULL,
+          type ENUM('comment', 'approval', 'rejection', 'final_approval', 'final_rejection') NOT NULL,
+          title VARCHAR(255) NOT NULL,
+          message TEXT NOT NULL,
+          action_by_id INT,
+          action_by_username VARCHAR(100) NOT NULL,
+          action_by_role ENUM('USER', 'TEAM_LEADER', 'ADMIN') NOT NULL,
+          is_read BOOLEAN DEFAULT FALSE,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          read_at TIMESTAMP NULL,
+          
+          FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+          FOREIGN KEY (file_id) REFERENCES files(id) ON DELETE CASCADE,
+          FOREIGN KEY (action_by_id) REFERENCES users(id) ON DELETE SET NULL,
+          
+          INDEX idx_notifications_user_id (user_id),
+          INDEX idx_notifications_file_id (file_id),
+          INDEX idx_notifications_is_read (is_read),
+          INDEX idx_notifications_created_at (created_at),
+          INDEX idx_notifications_user_unread (user_id, is_read)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8
+      `);
+      console.log('✅');
+      successCount++;
+    } catch (error) {
+      console.log('❌', error.message);
+    }
+    
     // INSERT DEFAULT DATA
     console.log('\n📝 Inserting default data...\n');
     
@@ -250,7 +285,7 @@ async function initializeMySQL() {
     
     const tableNames = tables.map(t => Object.values(t)[0]);
     const requiredTables = ['users', 'teams', 'files', 'file_comments', 
-                           'file_status_history', 'activity_logs'];
+                           'file_status_history', 'activity_logs', 'notifications'];
     
     const missingTables = requiredTables.filter(t => !tableNames.includes(t));
     

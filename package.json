@@ -29,6 +29,7 @@
     "db:backup": "node database/backup-mysql.js",
     "db:switch": "node database/switch-database-mode.js",
     "db:verify": "node verify-mysql-fixes.js",
+    "db:add-notifications": "node database/add-notifications-table.js",
     "health": "node database/health-check.js",
     "reset:db": "node server/scripts/database/reset-db.js",
     "reset:db:force": "node server/scripts/database/reset-db-force.js",
