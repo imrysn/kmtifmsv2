@@ -31,7 +31,6 @@ const MyFilesTab = ({
   const handleFileSelect = (e) => {
     const file = e.target.files[0];
     if (file) {
-      // No file size limit
       setUploadedFile(file);
     }
   };
@@ -47,7 +46,6 @@ const MyFilesTab = ({
     setIsUploading(true);
 
     try {
-      // If not explicitly replacing, check for duplicates first
       if (!replaceExisting) {
         const duplicateResponse = await fetch('http://localhost:3001/api/files/check-duplicate', {
           method: 'POST',
@@ -73,7 +71,6 @@ const MyFilesTab = ({
         }
       }
       
-      // Proceed with upload
       const formData = new FormData();
       formData.append('file', uploadedFile);
       formData.append('description', description);
@@ -105,7 +102,6 @@ const MyFilesTab = ({
           fileInputRef.current.value = '';
         }
         
-        // Refresh file list
         fetchUserFiles();
         if (onUploadSuccess) {
           onUploadSuccess(`File ${action} successfully! It has been submitted for team leader review.`);
@@ -153,7 +149,6 @@ const MyFilesTab = ({
     clearUploadForm();
   };
 
-  // Helper function to open file (reverted to original)
   const openFile = (file) => {
     const fileUrl = `http://localhost:3001${file.file_path}`;
     window.open(fileUrl, '_blank');
@@ -164,7 +159,6 @@ const MyFilesTab = ({
     setShowFileDetailsModal(true);
     setLoadingComments(true);
     
-    // Fetch comments from the API
     try {
       console.log('Fetching comments for file:', file.id);
       const response = await fetch(`http://localhost:3001/api/files/${file.id}/comments`);
@@ -234,22 +228,10 @@ const MyFilesTab = ({
     return { date: dateStr, time: timeStr };
   };
 
-  const getTags = (file) => {
-    if (!file.tags) return [];
-    try {
-      const tags = JSON.parse(file.tags);
-      return Array.isArray(tags) ? tags : [];
-    } catch (e) {
-      return [];
-    }
-  };
-
-  // Only show submitted files
   const submittedFiles = filteredFiles.filter(f => 
     f.status === 'final_approved' || f.status === 'uploaded' || f.status === 'team_leader_approved'
   );
 
-  // Calculate statistics
   const pendingFiles = submittedFiles.filter(f => f.status === 'uploaded' || f.status === 'team_leader_approved');
   const approvedFiles = submittedFiles.filter(f => f.status === 'final_approved');
 
@@ -271,6 +253,25 @@ const MyFilesTab = ({
             </svg>
             Upload Files
           </button>
+        </div>
+      </div>
+
+      {/* Statistics Cards */}
+      <div className="approval-stats-grid">
+        <div className="stat-card pending">
+          <div className="status-icon pending-icon">⏱</div>
+          <div className="status-info">
+            <div className="status-number">{pendingFiles.length}</div>
+            <div className="status-label">Pending</div>
+          </div>
+        </div>
+        
+        <div className="stat-card approved">
+          <div className="status-icon approved-icon">✓</div>
+          <div className="status-info">
+            <div className="status-number">{approvedFiles.length}</div>
+            <div className="status-label">Approved</div>
+          </div>
         </div>
       </div>
 
@@ -595,7 +596,6 @@ const MyFilesTab = ({
                 )}
               </div>
               
-              {/* Review Details from Files Table */}
               {selectedFile.team_leader_reviewed_at && (
                 <div className="review-section">
                   <h4>Team Leader Review</h4>
@@ -640,7 +640,6 @@ const MyFilesTab = ({
                 </div>
               )}
               
-              {/* Comments Section from file_comments table */}
               <div className="comments-section">
                 <h4>Review Comments</h4>
                 {loadingComments ? (

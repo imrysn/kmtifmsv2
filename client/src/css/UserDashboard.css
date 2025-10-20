@@ -69,7 +69,7 @@
   left: 0;
   bottom: 0;
   z-index: 10;
-  box-shadow: 2px 0 10px rgba(0, 0, 0, 0.1);
+  box-shadow: none;
 }
 
 /* Sidebar Profile Section - UPDATED SPACING */
@@ -96,7 +96,7 @@
   font-weight: 700;
   color: white;
   flex-shrink: 0;
-  box-shadow: 0 2px 8px rgba(0, 122, 255, 0.3);
+  box-shadow: none;
 }
 
 .user-dashboard .profile-info {
@@ -254,7 +254,7 @@
 
 .user-dashboard .role-badge.user {
   background: rgba(102, 126, 234, 0.3);
-  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.2);
+  box-shadow: none;
 }
 
 .user-dashboard .logout-button {
@@ -274,7 +274,7 @@
 .user-dashboard .logout-button:hover {
   background: rgba(255, 59, 48, 0.3);
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(255, 59, 48, 0.3);
+  box-shadow: none;
 }
 
 /* Dashboard Content */
@@ -299,11 +299,11 @@
   border: none;
   border-radius: var(--radius-xl);
   padding: var(--spacing-xl);
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.12), 0 1px 3px rgba(0, 0, 0, 0.08);
+  box-shadow: none;
   position: relative;
   overflow: hidden;
-  opacity: 0;
-  transform: translateY(20px);
+  opacity: 1;
+  transform: translateY(0);
   transition: all 0.2s ease;
 }
 
@@ -313,7 +313,7 @@
 
 .user-dashboard .dashboard-card:hover {
   transform: translateY(-2px);
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.12);
+  box-shadow: none;
 }
 
 /* Card Headers */
@@ -493,7 +493,7 @@
 
 .user-dashboard .action-btn.primary:hover {
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(0, 122, 255, 0.4);
+  box-shadow: none;
 }
 
 .user-dashboard .action-btn.secondary {
@@ -711,7 +711,7 @@
   border: var(--macos-border);
   border-radius: var(--radius-xl);
   padding: var(--spacing-2xl);
-  box-shadow: var(--macos-shadow);
+  box-shadow: none;
   width: 100%;
   max-width: 600px;
 }
@@ -1038,14 +1038,14 @@
   border: var(--macos-border);
   border-radius: var(--radius-lg);
   padding: var(--spacing-lg);
-  box-shadow: var(--macos-shadow);
+  box-shadow: none;
   cursor: pointer;
   transition: all 0.2s ease;
 }
 
 .user-dashboard .file-card:hover {
   transform: translateY(-2px);
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  box-shadow: none;
 }
 
 .user-dashboard .file-header {
@@ -1240,7 +1240,7 @@
 
 .user-dashboard .notification-card:hover {
   transform: translateY(-1px);
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.12);
+  box-shadow: none;
 }
 
 .user-dashboard .notification-card.unread {
@@ -1372,7 +1372,7 @@
   backdrop-filter: var(--macos-blur);
   -webkit-backdrop-filter: var(--macos-blur);
   border-radius: var(--radius-xl);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+  box-shadow: none;
   width: 100%;
   max-width: 600px;
   max-height: 80vh;

@@ -1,5 +1,4 @@
 import { useState, useEffect, useRef } from 'react'
-import anime from 'animejs'
 import '../css/UserDashboard.css'
 
 // Import refactored components
@@ -28,27 +27,7 @@ const UserDashboard = ({ user, onLogout }) => {
   const headerRef = useRef(null)
 
   useEffect(() => {
-    // Simple entrance animation
-    if (headerRef.current) {
-      anime({
-        targets: headerRef.current,
-        opacity: [0, 1],
-        duration: 400,
-        easing: 'easeOutCubic'
-      })
-    }
-
-    // Animate dashboard cards when they appear
-    setTimeout(() => {
-      anime({
-        targets: '.dashboard-card',
-        opacity: [0, 1],
-        translateY: [20, 0],
-        duration: 400,
-        delay: anime.stagger(50, {start: 100}),
-        easing: 'easeOutCubic'
-      })
-    }, 100)
+    // Animations removed for better UX
   }, [activeTab]) // Re-run animation when tab changes
 
   useEffect(() => {
