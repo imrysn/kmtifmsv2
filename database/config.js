@@ -6,6 +6,8 @@ require('dotenv').config();
 
 const mysql = require('mysql2/promise');
 const path = require('path');
+const fs = require('fs');
+const os = require('os');
 
 // ============================================================================
 // CONFIGURATION
@@ -153,6 +155,42 @@ const networkProjectsPath = isProduction
   ? '\\\\KMTI-NAS\\Shared\\Public\\PROJECTS'
   : path.join(__dirname, '..', 'local-test', 'PROJECTS');
 
+// Returns a sensible default path suitable for native file pickers.
+// Prefer the networkProjectsPath when configured, otherwise fall back to user's Documents or home.
+function getDefaultProjectPickerPath() {
+  // Prefer the configured NETWORK PROJECTS path first (use the string even if it isn't accessible).
+  if (networkProjectsPath) {
+    return networkProjectsPath;
+  }
+
+  // Then fall back to Documents folder if available
+  const home = os.homedir() || '';
+  const documents = path.join(home, 'Documents');
+  try {
+    if (documents && fs.existsSync(documents)) {
+      return documents;
+    }
+  } catch (e) {
+    // ignore
+  }
+
+  // Final fallback to home or networkDataPath string
+  return home || networkDataPath;
+}
+
+// Explicit getter for the network PROJECTS path (useful for preload/exposed APIs)
+function getNetworkProjectsPath() {
+  return networkProjectsPath;
+}
+
+// Helper to build options for native file pickers (e.g. Electron dialog.showOpenDialog)
+// Pass extra options to merge with the defaults.
+function defaultOpenDialogOptions(extra = {}) {
+  return Object.assign({
+    defaultPath: getDefaultProjectPickerPath()
+  }, extra);
+}
+
 // ============================================================================
 // EXPORTS
 // ============================================================================
@@ -175,6 +213,11 @@ module.exports = {
   networkProjectsPath,
   isProduction,
   isDevelopment,
+  // Explicit network projects getter for preload/electron usage
+  getNetworkProjectsPath,
+  // Helpers for native file pickers
+  getDefaultProjectPickerPath,
+  defaultOpenDialogOptions,
   
   // Legacy compatibility (for gradual migration)
   // These provide a similar interface to the old SQLite db object

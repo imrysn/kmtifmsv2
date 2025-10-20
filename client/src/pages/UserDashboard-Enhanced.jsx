@@ -1,5 +1,7 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, Suspense } from 'react'
+import anime from 'animejs'
 import '../css/UserDashboard.css'
+import SkeletonLoader from '../components/common/SkeletonLoader'
 
 // Import refactored components
 import Sidebar from '../components/user/Sidebar'
@@ -207,7 +209,8 @@ const UserDashboard = ({ user, onLogout }) => {
   };
 
   return (
-    <div className="minimal-dashboard user-dashboard" ref={dashboardRef}>
+    <Suspense fallback={<SkeletonLoader type="dashboard" />}>
+      <div className="minimal-dashboard user-dashboard" ref={dashboardRef}>
       <Sidebar 
         activeTab={activeTab}
         setActiveTab={handleTabChange}
@@ -244,7 +247,8 @@ const UserDashboard = ({ user, onLogout }) => {
         fileComments={fileComments}
         formatFileSize={formatFileSize}
       />
-    </div>
+      </div>
+    </Suspense>
   )
 }
 

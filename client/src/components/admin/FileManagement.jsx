@@ -1,62 +1,39 @@
 import { useState, useEffect, useRef } from 'react'
+import FileIcon from './FileIcon'
+import LoadingSpinner from '../LoadingSpinner'
 import './FileManagement.css'
+import { AlertMessage } from './modals' 
 
 const API_BASE = process.env.NODE_ENV === 'development'
   ? 'http://localhost:3001'
   : 'http://localhost:3001'
-
-// Flaticon icon map
-const iconMap = {
-  folder: "https://cdn-icons-png.flaticon.com/512/12075/12075377.png",
-  pdf: "https://cdn-icons-png.flaticon.com/512/337/337946.png",
-  doc: "https://cdn-icons-png.flaticon.com/512/337/337932.png",
-  docx: "https://cdn-icons-png.flaticon.com/512/337/337932.png",
-  xls: "https://cdn-icons-png.flaticon.com/512/337/337958.png",
-  xlsx: "https://cdn-icons-png.flaticon.com/512/337/337958.png",
-  jpg: "https://cdn-icons-png.flaticon.com/512/337/337940.png",
-  jpeg: "https://cdn-icons-png.flaticon.com/512/337/337940.png",
-  png: "https://cdn-icons-png.flaticon.com/512/337/337940.png",
-  zip: "https://cdn-icons-png.flaticon.com/512/8629/8629976.png",
-  rar: "https://cdn-icons-png.flaticon.com/512/8629/8629976.png",
-  mp4: "https://cdn-icons-png.flaticon.com/512/8243/8243015.png",
-  mov: "https://cdn-icons-png.flaticon.com/512/8243/8243015.png",
-  avi: "https://cdn-icons-png.flaticon.com/512/8243/8243015.png",
-  mp3: "https://cdn-icons-png.flaticon.com/512/3767/3767196.png",
-  wav: "https://cdn-icons-png.flaticon.com/512/3767/3767196.png",
-  txt: "https://cdn-icons-png.flaticon.com/512/4248/4248224.png",
-  json: "https://cdn-icons-png.flaticon.com/512/11570/11570273.png",
-  html: "https://cdn-icons-png.flaticon.com/512/337/337937.png",
-  css: "https://cdn-icons-png.flaticon.com/512/8242/8242982.png",
-  default: "https://cdn-icons-png.flaticon.com/512/342/342348.png",
-  icd: "https://cdn-icons-png.flaticon.com/512/10121/10121902.png",
-  sldprt: "https://cdn-icons-png.flaticon.com/512/14421/14421956.png",
-  sldasm: "https://cdn-icons-png.flaticon.com/512/14421/14421962.png",
-  slddrw: "https://cdn-icons-png.flaticon.com/512/2266/2266786.png",
-  dwg: "https://cdn-icons-png.flaticon.com/512/2266/2266786.png",
-}
-
-function getIconForFile(item) {
-  if (item.type === 'folder') return iconMap.folder
-  const ext = item.fileType?.toLowerCase() || ''
-  return iconMap[ext] || iconMap.default
-}
 
 const FileManagement = ({ clearMessages, error, success, setError, setSuccess }) => {
   const [currentPath, setCurrentPath] = useState('/')
   const [fileSystemItems, setFileSystemItems] = useState([])
   const [filteredItems, setFilteredItems] = useState([])
   const [fileManagementSearch, setFileManagementSearch] = useState('')
-  const [searchScope, setSearchScope] = useState('folder') // 'folder' or 'global'
   const [isSearching, setIsSearching] = useState(false)
   const [selectedItem, setSelectedItem] = useState(null)
   const [viewMode, setViewMode] = useState('grid')
-  const [isLoading, setIsLoading] = useState(false)
+  const [isLoading, setIsLoading] = useState(false) // For initial load and search
+  const [isComponentLoading, setIsComponentLoading] = useState(false); // For file opening delay
   const [networkInfo, setNetworkInfo] = useState(null)
-  
+
   // For tracking double-clicks
   const clickTimerRef = useRef(null)
   const lastClickedItemRef = useRef(null)
   const CLICK_DELAY = 300 // milliseconds
+
+  // Auto-clear messages after 3 seconds
+  useEffect(() => {
+    if (error || success) {
+      const timer = setTimeout(() => {
+        clearMessages() // Assumes clearMessages clears both error and success
+      }, 3000);
+      return () => clearTimeout(timer) // Cleanup on unmount or if error/success changes
+    }
+  }, [error, success, clearMessages])
 
   useEffect(() => {
     checkNetworkAccess()
@@ -71,19 +48,17 @@ const FileManagement = ({ clearMessages, error, success, setError, setSuccess })
       setFilteredItems(fileSystemItems)
       setIsSearching(false)
     } else {
-      if (searchScope === 'folder') {
-        // Search only in current folder
-        const filtered = fileSystemItems.filter(item => 
-          item.displayName.toLowerCase().includes(fileManagementSearch.toLowerCase())
-        )
-        setFilteredItems(filtered)
-        setIsSearching(false)
-      } else {
-        // Global search - search through all folders
-        performGlobalSearch(fileManagementSearch)
-      }
+      // Global search - search through all subfolders
+      performGlobalSearch(fileManagementSearch)
     }
-  }, [fileSystemItems, fileManagementSearch, searchScope])
+  }, [fileManagementSearch])
+
+  // Update filtered items when file system items change and no search is active
+  useEffect(() => {
+    if (fileManagementSearch.trim() === '') {
+      setFilteredItems(fileSystemItems)
+    }
+  }, [fileSystemItems])
 
   // Cleanup timer on unmount
   useEffect(() => {
@@ -135,7 +110,24 @@ const FileManagement = ({ clearMessages, error, success, setError, setSuccess })
     setIsSearching(true)
     clearMessages()
     try {
-      const response = await fetch(`${API_BASE}/api/file-system/search?query=${encodeURIComponent(searchQuery)}&path=${encodeURIComponent(currentPath)}`)
+      const url = `${API_BASE}/api/file-system/search?query=${encodeURIComponent(searchQuery)}&path=${encodeURIComponent(currentPath)}`
+      console.log('Search URL:', url)
+
+      const response = await fetch(url)
+
+      // Check if response is JSON
+      const contentType = response.headers.get('content-type')
+      if (!contentType || !contentType.includes('application/json')) {
+        console.warn('Search endpoint not available, falling back to local search')
+        // Fallback to local filtering
+        const filtered = fileSystemItems.filter(item =>
+          item.displayName.toLowerCase().includes(searchQuery.toLowerCase())
+        )
+        setFilteredItems(filtered)
+        setIsSearching(false)
+        return
+      }
+
       const data = await response.json()
       if (data.success) {
         setFilteredItems(data.results)
@@ -144,8 +136,13 @@ const FileManagement = ({ clearMessages, error, success, setError, setSuccess })
       }
     } catch (error) {
       console.error('Error performing global search:', error)
-      setError(error.message || 'Failed to search')
-      setFilteredItems([])
+      console.log('Falling back to local search')
+
+      // Fallback to local filtering instead of showing error
+      const filtered = fileSystemItems.filter(item =>
+        item.displayName.toLowerCase().includes(searchQuery.toLowerCase())
+      )
+      setFilteredItems(filtered)
     } finally {
       setIsSearching(false)
     }
@@ -189,23 +186,72 @@ const FileManagement = ({ clearMessages, error, success, setError, setSuccess })
     }
   }
 
-  const handleItemOpen = (item) => {
+  const handleItemOpen = async (item) => {
     if (item.type === 'folder') {
       // Open folder
       navigateToPath(item.path)
     } else {
-      // Open file - construct the file URL and open it in new tab
-      // Use the file viewer endpoint for proper inline display
-      const relativePath = item.path.replace(/^\\/, '').replace(/\\/g, '/');
-      const fileUrl = `${API_BASE}/api/file-viewer/view/${encodeURIComponent(relativePath)}`
-      
-      // Open all files in new tab
-      window.open(fileUrl, '_blank')
-      setSuccess(`Opening ${item.displayName}`)
-      
-      console.log('Opening file:', item)
+      // Open file - prioritize desktop app, fallback to browser
+      setIsComponentLoading(true);
+      setSuccess(`Opening ${item.displayName}...`)
+
+      try {
+        // Small delay for UI feedback
+        await new Promise(resolve => setTimeout(resolve, 300));
+
+        // Check if running in Electron
+        const isElectron = window.electron && window.electron.openFileInApp;
+        
+        if (isElectron) {
+          console.log('💻 Running in Electron - using Windows default application');
+          
+          // Get full file path from server
+          const pathResponse = await fetch(
+            `${API_BASE}/api/file-system/filepath?path=${encodeURIComponent(item.path)}`
+          );
+          const pathData = await pathResponse.json();
+          
+          if (!pathData.success) {
+            throw new Error(pathData.message || 'Failed to get file path');
+          }
+          
+          console.log('📂 Full path:', pathData.fullPath);
+          console.log('📄 File type:', pathData.fileType);
+          
+          // Open with Electron using Windows default file association
+          // This will use whatever app is set as default in Windows for this file type
+          const result = await window.electron.openFileInApp(pathData.fullPath);
+          
+          if (result.success) {
+            console.log('✅ Opened with Windows default application');
+            setSuccess(`Opened ${item.displayName}`);
+          } else {
+            throw new Error(result.error || 'Failed to open file');
+          }
+        } else {
+          console.log('🌐 Running in browser - opening in new tab');
+          
+          // Fallback to browser viewing
+          const fileUrl = `${API_BASE}/api/file-system/file?path=${encodeURIComponent(item.path)}`;
+          const newWindow = window.open(fileUrl, '_blank');
+          
+          if (!newWindow) {
+            throw new Error('Pop-up blocked. Please allow pop-ups for this site.');
+          }
+          
+          newWindow.focus();
+          console.log('✅ Opened in browser tab');
+          setSuccess(`Opened ${item.displayName} in browser`);
+        }
+
+      } catch (error) {
+        console.error('❌ Error opening file:', error);
+        setError(`Error opening file: ${error.message || 'Failed to open file'}`);
+      } finally {
+        setIsComponentLoading(false);
+      }
     }
-  }
+  };
 
   const getBreadcrumbs = () => {
     if (currentPath === '/') return [{ name: 'PROJECTS', path: '/' }]
@@ -225,9 +271,6 @@ const FileManagement = ({ clearMessages, error, success, setError, setSuccess })
 
   return (
     <div className="file-management-section">
-      <div className="page-header">
-        <h1>File Management</h1>
-        <p>Browse and manage files in the network projects directory</p>
         {networkInfo && (
           <div className={`network-status ${networkInfo.accessible ? 'accessible' : 'not-accessible'}`}>
             <span className="status-text">
@@ -236,7 +279,6 @@ const FileManagement = ({ clearMessages, error, success, setError, setSuccess })
             <span className="network-path">{networkInfo.path || '\\\\KMTI-NAS\\Shared\\Public\\PROJECTS'}</span>
           </div>
         )}
-      </div>
 
       <div className="file-nav-controls">
         <div className="breadcrumb-container">
@@ -258,33 +300,16 @@ const FileManagement = ({ clearMessages, error, success, setError, setSuccess })
         </div>
 
         <div className="file-controls-right">
-          <div className="search-scope-toggle">
-            <button
-              className={`scope-btn ${searchScope === 'folder' ? 'active' : ''}`}
-              onClick={() => setSearchScope('folder')}
-              title="Search in current folder only"
-            >
-              Current Folder
-            </button>
-            <button
-              className={`scope-btn ${searchScope === 'global' ? 'active' : ''}`}
-              onClick={() => setSearchScope('global')}
-              title="Search all folders recursively"
-            >
-              Global Search
-            </button>
-          </div>
-          
           <div className="file-search">
             <input
               type="text"
-              placeholder={searchScope === 'folder' ? 'Search in current folder...' : 'Search all folders...'}
+              placeholder="Search files and folders..."
               value={fileManagementSearch}
               onChange={(e) => setFileManagementSearch(e.target.value)}
               className="search-input"
             />
             {fileManagementSearch && (
-              <button 
+              <button
                 className="search-clear-btn"
                 onClick={() => setFileManagementSearch('')}
                 title="Clear search"
@@ -296,93 +321,106 @@ const FileManagement = ({ clearMessages, error, success, setError, setSuccess })
         </div>
       </div>
 
+      {/* Messages */}
       {error && (
-        <div className="alert alert-error">
-          <span className="alert-message">{error}</span>
-          <button onClick={clearMessages} className="alert-close">×</button>
-        </div>
+        <AlertMessage 
+          type="error" 
+          message={error} 
+          onClose={clearMessages}
+        />
       )}
-      
+
       {success && (
-        <div className="alert alert-success">
-          <span className="alert-message">{success}</span>
-          <button onClick={clearMessages} className="alert-close">×</button>
-        </div>
+        <AlertMessage 
+          type="success" 
+          message={success} 
+          onClose={clearMessages}
+        />
       )}
 
       <div className="file-system-container">
         {isLoading || isSearching ? (
           <div className="loading-state">
-            <div className="spinner"></div>
-            <p>{isSearching ? 'Searching files...' : 'Loading files from network directory...'}</p>
+            {/* Use the global LoadingSpinner component for initial load/search */}
+            <LoadingSpinner size="large" message={isSearching ? 'Searching through all folders...' : 'Loading files from network directory...'} />
           </div>
         ) : (
           <>
-            {viewMode === 'grid' ? (
-              <div className="files-grid">
-                {filteredItems.map((item) => (
-                  <div
-                    key={item.id}
-                    className={`file-item ${item.type} ${selectedItem === item.id ? 'selected' : ''}`}
-                    onClick={() => handleItemClick(item)}
-                    title={`${item.name}\n1st click: Select\n2nd click: Open`}
-                  >
-                    <div className="file-icon">
-                      <img 
-                        src={getIconForFile(item)} 
-                        alt={item.type} 
-                        className="file-icon-img"
-                      />
-                    </div>
-                    <div className="file-info">
-                      <div className="file-name" title={item.name}>
-                        {item.displayName}
-                      </div>
-                      {searchScope === 'global' && item.parentPath && (
-                        <div className="file-location" title={item.parentPath}>
-                          {item.parentPath}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="files-list">
-                <table className="files-table">
-                  <thead>
-                    <tr>
-                      <th>Name</th>
-                      <th>Type</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredItems.map((item) => (
-                      <tr
-                        key={item.id}
-                        className={`file-row ${item.type} ${selectedItem === item.id ? 'selected' : ''}`}
-                        onClick={() => handleItemClick(item)}
-                        title={`1st click: Select | 2nd click: Open`}
-                      >
-                        <td className="file-name-cell">
-                          <div className="file-name-container">
-                            <img 
-                              src={getIconForFile(item)} 
-                              alt={item.type} 
-                              className="file-icon-img-small"
-                            />
-                            <span className="file-name">{item.displayName}</span>
-                          </div>
-                        </td>
-                        <td className="file-type-cell">
-                          {item.type === 'folder' ? 'Folder' : (item.fileType?.toUpperCase() || 'File')}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+            {/* Show component loading overlay when opening a file */}
+            {isComponentLoading && (
+              <div className="component-loading-overlay">
+                <LoadingSpinner size="large" message="Opening file..." />
               </div>
             )}
+            <div className={`files-content ${isComponentLoading ? 'loading' : ''}`}>
+              {viewMode === 'grid' ? (
+                <div className="files-grid">
+                  {filteredItems.map((item) => (
+                    <div
+                      key={item.id}
+                      className={`file-item ${item.type} ${selectedItem === item.id ? 'selected' : ''}`}
+                      onClick={() => handleItemClick(item)}
+                      title={`${item.name}\n1st click: Select\n2nd click: Open`}
+                    >
+                      <div className="file-icon">
+                        <FileIcon
+                          fileType={item.fileType} // Pass fileType
+                          isFolder={item.type === 'folder'} // Pass type
+                          altText={item.type}
+                          className="file-icon-img" // Pass the existing class if needed
+                        />
+                      </div>
+                      <div className="file-info">
+                        <div className="file-name" title={item.name}>
+                          {item.displayName}
+                        </div>
+                        {item.parentPath && fileManagementSearch && (
+                          <div className="file-location" title={item.parentPath}>
+                            {item.parentPath}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="files-list">
+                  <table className="files-table">
+                    <thead>
+                      <tr>
+                        <th>Name</th>
+                        <th>Type</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredItems.map((item) => (
+                        <tr
+                          key={item.id}
+                          className={`file-row ${item.type} ${selectedItem === item.id ? 'selected' : ''}`}
+                          onClick={() => handleItemClick(item)}
+                          title={`1st click: Select | 2nd click: Open`}
+                        >
+                          <td className="file-name-cell">
+                            <div className="file-name-container">
+                               <FileIcon
+                                fileType={item.fileType} // Pass fileType
+                                isFolder={item.type === 'folder'} // Pass type
+                                altText={item.type}
+                                className="file-icon-img-small" // Pass the existing class if needed
+                              />
+                              <span className="file-name">{item.displayName}</span>
+                            </div>
+                          </td>
+                          <td className="file-type-cell">
+                            {item.type === 'folder' ? 'Folder' : (item.fileType?.toUpperCase() || 'File')}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
           </>
         )}
       </div>

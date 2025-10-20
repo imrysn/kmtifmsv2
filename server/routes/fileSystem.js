@@ -260,33 +260,69 @@ router.get('/file', async (req, res) => {
     // Get file extension and set appropriate content type
     const ext = path.extname(fullPath).toLowerCase();
     const contentTypes = {
+      // Documents
       '.pdf': 'application/pdf',
+      '.doc': 'application/msword',
+      '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      '.xls': 'application/vnd.ms-excel',
+      '.xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      '.ppt': 'application/vnd.ms-powerpoint',
+      '.pptx': 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+      '.txt': 'text/plain',
+      '.rtf': 'application/rtf',
+      '.csv': 'text/csv',
+      
+      // Images
       '.jpg': 'image/jpeg',
       '.jpeg': 'image/jpeg',
       '.png': 'image/png',
       '.gif': 'image/gif',
-      '.txt': 'text/plain',
+      '.bmp': 'image/bmp',
+      '.webp': 'image/webp',
+      '.svg': 'image/svg+xml',
+      '.ico': 'image/x-icon',
+      
+      // Videos
+      '.mp4': 'video/mp4',
+      '.webm': 'video/webm',
+      '.avi': 'video/x-msvideo',
+      '.mov': 'video/quicktime',
+      '.wmv': 'video/x-ms-wmv',
+      '.flv': 'video/x-flv',
+      '.mkv': 'video/x-matroska',
+      
+      // Audio
+      '.mp3': 'audio/mpeg',
+      '.wav': 'audio/wav',
+      '.ogg': 'audio/ogg',
+      '.m4a': 'audio/mp4',
+      '.flac': 'audio/flac',
+      
+      // Web
       '.html': 'text/html',
+      '.htm': 'text/html',
       '.css': 'text/css',
       '.js': 'application/javascript',
       '.json': 'application/json',
-      '.mp4': 'video/mp4',
-      '.mp3': 'audio/mpeg',
+      '.xml': 'application/xml',
+      
+      // Archives
       '.zip': 'application/zip',
       '.rar': 'application/x-rar-compressed',
-      '.doc': 'application/msword',
-      '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-      '.xls': 'application/vnd.ms-excel',
-      '.xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+      '.7z': 'application/x-7z-compressed',
+      '.tar': 'application/x-tar',
+      '.gz': 'application/gzip'
     };
 
     const contentType = contentTypes[ext] || 'application/octet-stream';
     const fileName = path.basename(fullPath);
 
-    // Set headers
+    // Set headers for inline display (not download)
     res.setHeader('Content-Type', contentType);
     res.setHeader('Content-Disposition', `inline; filename="${encodeURIComponent(fileName)}"`);
     res.setHeader('Content-Length', stats.size);
+    res.setHeader('Cache-Control', 'public, max-age=3600'); // Cache for 1 hour
+    res.setHeader('X-Content-Type-Options', 'nosniff'); // Security header
 
     // Stream the file
     const fileStream = require('fs').createReadStream(fullPath);
@@ -411,6 +447,50 @@ router.get('/search', async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Failed to perform search',
+      error: error.message
+    });
+  }
+});
+
+// Get full system path for a file (for Electron to open)
+router.get('/filepath', async (req, res) => {
+  const requestPath = req.query.path;
+
+  if (!requestPath) {
+    return res.status(400).json({
+      success: false,
+      message: 'File path is required'
+    });
+  }
+
+  try {
+    const rootDirectory = await getRootDirectory();
+    const relativePath = requestPath.startsWith('/') ? requestPath.slice(1) : requestPath;
+    const fullPath = path.join(rootDirectory, relativePath);
+    
+    // Check if file exists
+    const exists = await fs.access(fullPath).then(() => true).catch(() => false);
+    if (!exists) {
+      return res.status(404).json({
+        success: false,
+        message: 'File not found'
+      });
+    }
+
+    // Get file extension
+    const ext = path.extname(fullPath).toLowerCase().slice(1);
+    
+    res.json({
+      success: true,
+      fullPath: fullPath,
+      fileName: path.basename(fullPath),
+      fileType: ext || 'unknown'
+    });
+  } catch (error) {
+    console.error('❌ Error getting file path:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to get file path',
       error: error.message
     });
   }

@@ -2,6 +2,7 @@ const fs = require('fs').promises;
 const path = require('path');
 const { db, USE_MYSQL } = require('../config/database');
 const { uploadsDir } = require('../config/middleware');
+const fileIndexer = require('../services/fileIndexer');
 
 // Async function to verify network uploads directory access
 async function verifyUploadsDirectory() {
@@ -62,6 +63,9 @@ async function initializeDatabase() {
       
       console.log('📁 File approval system ready (MySQL)');
       console.log('✅ Database initialized successfully');
+      
+      // Initialize file index table
+      await fileIndexer.initializeIndexTable();
       
     } catch (error) {
       console.error('❌ MySQL initialization error:', error.message);
@@ -228,6 +232,13 @@ async function initializeDatabase() {
 
                   // Add database indexes
                   addDatabaseIndexes();
+
+                  // Initialize file index table (async)
+                  fileIndexer.initializeIndexTable().then(() => {
+                    console.log('✅ File index table initialized');
+                  }).catch(err => {
+                    console.error('⚠️  Error initializing file index table:', err);
+                  });
 
                   // Handle user table migration
                   handleUserTableMigration(resolve, reject);

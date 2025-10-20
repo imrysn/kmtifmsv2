@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import './Settings.css'
+import { AlertMessage, ConfirmationModal } from './modals'
 
 const Settings = ({ clearMessages, error, success, setError, setSuccess, users, user }) => {
   const [isLoading, setIsLoading] = useState(false)
@@ -252,23 +253,21 @@ const Settings = ({ clearMessages, error, success, setError, setSuccess, users, 
 
   return (
     <div className="settings-section">
-      <div className="page-header">
-        <h1>System Settings</h1>
-        <p>Configure file management, teams, and system information</p>
-      </div>
       
       {error && (
-        <div className="alert alert-error">
-          <span className="alert-message">{error}</span>
-          <button onClick={clearMessages} className="alert-close">×</button>
-        </div>
+        <AlertMessage 
+          type="error" 
+          message={error} 
+          onClose={clearMessages}
+        />
       )}
       
       {success && (
-        <div className="alert alert-success">
-          <span className="alert-message">{success}</span>
-          <button onClick={clearMessages} className="alert-close">×</button>
-        </div>
+        <AlertMessage 
+          type="success" 
+          message={success} 
+          onClose={clearMessages}
+        />
       )}
       
       <div className="settings-grid">
@@ -305,7 +304,7 @@ const Settings = ({ clearMessages, error, success, setError, setSuccess, users, 
                   {isLoading ? 'Saving...' : 'Save'}
                 </button>
               </div>
-              <p className="help-text">Base directory for file management system</p>
+              <p className="help-text">Base directory for files</p>
             </div>
           </div>
         </div>

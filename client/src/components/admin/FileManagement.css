@@ -1,24 +1,8 @@
-/* File Management Styles */
 .file-management-section {
   padding: 0;
+  margin-top: 30px;
 }
 
-.file-management-section .page-header {
-  margin-bottom: 2rem;
-}
-
-.file-management-section .page-header h1 {
-  font-size: 2rem;
-  font-weight: 600;
-  color: var(--text-primary);
-  margin: 0 0 0.5rem 0;
-}
-
-.file-management-section .page-header p {
-  font-size: 1rem;
-  color: var(--text-secondary);
-  margin: 0 0 1rem 0;
-}
 
 /* Network Status */
 .file-management-section .network-status {
@@ -29,10 +13,11 @@
   border-radius: 8px;
   font-size: 0.9rem;
   margin-top: 0.75rem;
+  margin-bottom: 1rem;
 }
 
 .file-management-section .network-status.accessible {
-  background: rgba(16, 185, 129, 0.1);
+  background: rgba(24, 248, 174, 0.1);
   border: 1px solid rgba(16, 185, 129, 0.3);
   color: #059669;
 }
@@ -102,41 +87,6 @@
   flex-wrap: wrap;
 }
 
-.file-management-section .search-scope-toggle {
-  display: flex;
-  gap: 0;
-  background: var(--surface-color);
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
-  overflow: hidden;
-}
-
-.file-management-section .scope-btn {
-  padding: 0.75rem 1rem;
-  border: none;
-  background: none;
-  color: var(--text-secondary);
-  font-size: 0.85rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  white-space: nowrap;
-}
-
-.file-management-section .scope-btn:first-child {
-  border-right: 1px solid var(--border-color);
-}
-
-.file-management-section .scope-btn:hover:not(.active) {
-  background: var(--background-hover);
-  color: var(--text-primary);
-}
-
-.file-management-section .scope-btn.active {
-  background: var(--primary-color);
-  color: white;
-}
-
 .file-management-section .file-search {
   position: relative;
   min-width: 250px;
@@ -177,9 +127,41 @@
   background: var(--surface-color);
   border: 1px solid var(--border-color);
   border-radius: 12px;
-  overflow: hidden;
+  overflow: hidden; 
   min-height: 400px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  position: relative;
+}
+
+.file-management-section .component-loading-lottie {
+  width: 100px;
+  height: 100px;
+}
+
+/* --- UPDATED: Overlay for component loading --- */
+.file-management-section .component-loading-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(255, 255, 255, 0.8);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem; 
+  z-index: 9999; 
+}
+
+.file-management-section .component-loading-text {
+  font-size: 1.2rem;
+  font-weight: 500;
+  color: var(--text-primary); 
+}
+
+.file-management-section .files-content.loading {
+  opacity: 0.5; 
+  pointer-events: none; 
 }
 
 /* Grid View */
@@ -199,6 +181,7 @@
   cursor: pointer;
   transition: all 0.2s ease;
   border: 1px solid transparent;
+  /* Removed position: relative and .opening styles for grid items */
 }
 
 .file-management-section .file-item:hover {
@@ -222,9 +205,12 @@
   background: none;
   border: none;
   box-shadow: none;
+  /* Removed position: relative */
 }
 
 .file-management-section .file-icon-img {
+  width: 44px;  /* Bigger size for grid view */
+  height: 44px; /* Bigger size for grid view */
   max-width: 100%;
   max-height: 100%;
   object-fit: contain;
@@ -285,6 +271,7 @@
   border-left: 3px solid #000000;
 }
 
+/* Removed .file-row.opening styles */
 .file-management-section .file-name-container {
   display: flex;
   align-items: center;
@@ -292,22 +279,57 @@
 }
 
 .file-management-section .file-icon-img-small {
-  width: 24px;
-  height: 24px;
+  width: 28px;  /* Bigger size for list view */
+  height: 28px; /* Bigger size for list view */
   object-fit: contain;
   background: none;
   border: none;
   box-shadow: none;
 }
 
+/* Removed .file-row-spinner-container styles */
 /* Alerts */
 .file-management-section .alert {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 10000; /* High z-index to ensure it appears above other elements */
   padding: 1rem;
   border-radius: 8px;
-  margin-bottom: 1rem;
   display: flex;
   align-items: center;
   justify-content: space-between;
+  max-width: 400px;
+  min-width: 300px; /* Optional: ensure a minimum width */
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15); /* Optional: add shadow for better visibility */
+  /* Animation */
+  opacity: 0;
+  transform: translateX(100%);
+  animation: slideInAndOut 3.5s ease-in-out forwards; /* 3s display + 0.5s animation */
+}
+
+.alert.show {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+@keyframes slideInAndOut {
+  0% {
+    opacity: 0;
+    transform: translateX(100%); /* Start off-screen to the right */
+  }
+  10% { /* Or a small % like 5% if you want a quicker initial pop */
+    opacity: 1;
+    transform: translateX(0); /* Slide in to position */
+  }
+  90% { /* Start fading out slightly before 3 seconds (e.g., at 2.5s if total is 3.5s) */
+    opacity: 1;
+    transform: translateX(0); /* Stay in position */
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(100%); /* Slide back out to the right */
+  }
 }
 
 .file-management-section .alert-error {
@@ -322,24 +344,24 @@
   color: #059669;
 }
 
+.file-management-section .alert-message {
+  flex: 1;
+  word-wrap: break-word; /* Handle long messages */
+}
+
 .file-management-section .alert-close {
   background: none;
   border: none;
-  font-size: 1.5rem;
+  font-size: 1.2rem;
   cursor: pointer;
   color: inherit;
-  opacity: 0.6;
-  transition: opacity 0.2s ease;
   padding: 0;
-  width: 24px;
-  height: 24px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  margin-left: 0.5rem;
+  align-self: flex-start; /* Align close button to the top */
 }
 
 .file-management-section .alert-close:hover {
-  opacity: 1;
+  opacity: 0.8;
 }
 
 /* Selection Info Bar */
@@ -396,7 +418,7 @@
   transform: translateY(-1px);
 }
 
-/* Loading State */
+/* Loading State (for initial load/search) */
 .file-management-section .loading-state {
   display: flex;
   flex-direction: column;
@@ -406,23 +428,20 @@
   text-align: center;
 }
 
-.file-management-section .spinner {
-  width: 48px;
-  height: 48px;
-  border: 4px solid rgba(0, 122, 255, 0.1);
-  border-top-color: var(--primary-color);
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
-  margin-bottom: 1rem;
+/* --- NEW: Lottie for initial load/search --- */
+.file-management-section .initial-loading-lottie {
+  width: 60px; /* Adjust size as needed */
+  height: 60px; /* Adjust size as needed */
+  /* Add any other desired styling for the animation */
+  margin-bottom: 1rem; /* Space between animation and text */
 }
 
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
+/* Responsive adjustments for alerts */
+@media (max-width: 768px) {
+  .file-management-section .alert {
+    right: 10px;
+    left: 10px; /* Use left/right to center on small screens or just right */
+    max-width: none; /* Remove max-width constraint */
+    min-width: auto; /* Remove min-width constraint */
   }
-}
-
-.file-management-section .loading-state p {
-  color: var(--text-secondary);
-  font-size: 0.9rem;
 }

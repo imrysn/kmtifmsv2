@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import '../css/TeamLeaderDashboard.css'
+import SkeletonLoader from '../components/common/SkeletonLoader'
 import overviewIcon from '../assets/Icon-7.svg'
 import fileReviewIcon from '../assets/Icon-6.svg'
 import analyticsIcon from '../assets/Icon-5.svg'
@@ -254,7 +255,8 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
   }
 
   return (
-    <div className="tl-dashboard">
+    <Suspense fallback={<SkeletonLoader type="teamleader" />}>
+      <div className="tl-dashboard">
       {/* Sidebar */}
       <aside className={`tl-sidebar ${sidebarOpen ? 'open' : ''}`}>
         {/* Brand */}
@@ -698,7 +700,8 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
           </div>
         </div>
       )}
-    </div>
+      </div>
+    </Suspense>
   )
 }
 

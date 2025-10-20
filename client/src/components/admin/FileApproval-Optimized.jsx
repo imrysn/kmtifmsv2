@@ -6,6 +6,10 @@ import { ConfirmationModal, AlertMessage } from './modals'
 const API_BASE = 'http://localhost:3001/api'
 const SERVER_BASE = API_BASE.replace(/\/api$/, '')
 
+// ============================================================================
+// MEMOIZED CHILD COMPONENTS FOR PERFORMANCE
+// ============================================================================
+
 const StatusCard = memo(({ icon, label, count, className }) => (
   <div className={`file-status-card ${className}`}>
     <div className={`status-icon ${className}-icon`}>{icon}</div>
@@ -93,40 +97,35 @@ const FileRow = memo(({
   )
 })
 
-const CommentItem = memo(({ comment }) => {
-  // Handle different possible field names in the comment object
-  const username = comment.reviewer_username || comment.username || comment.admin_username || 'Unknown User'
-  const role = comment.reviewer_role || comment.role || comment.admin_role || 'USER'
-  const timestamp = comment.reviewed_at || comment.created_at || comment.timestamp || new Date().toISOString()
-  const commentText = comment.comments || comment.comment || comment.text || ''
-  const action = comment.action || ''
-
-  return (
-    <div className="comment-item">
-      <div className="comment-header">
-        <span className="comment-author">{username}</span>
-        <span className="comment-role">{role}</span>
-        <span className="comment-date">
-          {new Date(timestamp).toLocaleDateString('en-US', {
-            month: 'short',
-            day: 'numeric',
-            year: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit'
-          })}
-        </span>
-      </div>
-      <div className="comment-body">
-        {action && (
-          <span className={`comment-action ${action.toLowerCase()}`}>
-            {action.toUpperCase()}
-          </span>
-        )}
-        {commentText && <p className="comment-text">{commentText}</p>}
-      </div>
+const CommentItem = memo(({ comment }) => (
+  <div className="comment-item">
+    <div className="comment-header">
+      <span className="comment-author">{comment.reviewer_username || comment.username}</span>
+      <span className="comment-role">{comment.reviewer_role || comment.role || 'USER'}</span>
+      <span className="comment-date">
+        {new Date(comment.reviewed_at || comment.created_at).toLocaleDateString('en-US', {
+          month: 'short',
+          day: 'numeric',
+          year: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit'
+        })}
+      </span>
     </div>
-  )
-})
+    <div className="comment-body">
+      {comment.action && (
+        <span className={`comment-action ${comment.action.toLowerCase()}`}>
+          {comment.action.toUpperCase()}
+        </span>
+      )}
+      {comment.comments && <p className="comment-text">{comment.comments}</p>}
+    </div>
+  </div>
+))
+
+// ============================================================================
+// MAIN COMPONENT WITH OPTIMIZATIONS
+// ============================================================================
 
 const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) => {
   // State management
@@ -142,7 +141,7 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
   const [fileComment, setFileComment] = useState('')
   const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [fileToDelete, setFileToDelete] = useState(null)
-  const [isLoading, setIsLoading] = useState(true) 
+  const [isLoading, setIsLoading] = useState(true) // Start with true for initial load
   const [fileComments, setFileComments] = useState([])
   const [isLoadingComments, setIsLoadingComments] = useState(false)
   
@@ -182,6 +181,10 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
   useEffect(() => {
     setCurrentPage(1)
   }, [fileSearchQuery, fileFilter, fileSortBy])
+
+  // ============================================================================
+  // MEMOIZED CALCULATIONS
+  // ============================================================================
 
   // Calculate status counts efficiently
   const statusCounts = useMemo(() => {
@@ -258,6 +261,10 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
     return Math.ceil(filteredFiles.length / filesPerPage)
   }, [filteredFiles.length, filesPerPage])
 
+  // ============================================================================
+  // API CALLS WITH ABORT CONTROLLER
+  // ============================================================================
+
   const fetchFiles = useCallback(async () => {
     // Cancel previous request if still pending
     if (fetchAbortController.current) {
@@ -295,15 +302,8 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
       const data = await response.json()
       
       if (data.success) {
-        // Sort comments by date (newest first)
-        const sortedComments = (data.comments || []).sort((a, b) => {
-          const dateA = new Date(a.reviewed_at || a.created_at)
-          const dateB = new Date(b.reviewed_at || b.created_at)
-          return dateB - dateA // Newest first
-        })
-        setFileComments(sortedComments)
+        setFileComments(data.comments || [])
       } else {
-        console.error('Failed to fetch comments:', data.message)
         setFileComments([])
       }
     } catch (error) {
@@ -313,6 +313,10 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
       setIsLoadingComments(false)
     }
   }, [])
+
+  // ============================================================================
+  // MEMOIZED UTILITY FUNCTIONS
+  // ============================================================================
 
   const mapFileStatus = useCallback((dbStatus) => {
     switch (dbStatus) {
@@ -332,17 +336,17 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
   const getStatusDisplayName = useCallback((dbStatus) => {
     switch (dbStatus) {
       case 'uploaded':
-        return 'PENDING TEAM LEADER'
+        return 'Pending Team Leader'
       case 'team_leader_approved':
-        return 'PENDING ADMIN'
+        return 'Pending Admin'
       case 'final_approved':
-        return 'APPROVED'
+        return 'Final Approved'
       case 'rejected_by_team_leader':
-        return 'REJECTED BY TL'
+        return 'Rejected by Team Leader'
       case 'rejected_by_admin':
-        return 'REJECTED BY ADMIN'
+        return 'Rejected by Admin'
       default:
-        return dbStatus.toUpperCase()
+        return dbStatus.charAt(0).toUpperCase() + dbStatus.slice(1)
     }
   }, [])
 
@@ -354,6 +358,10 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
   }, [])
 
+  // ============================================================================
+  // MODAL HANDLERS
+  // ============================================================================
+
   const openDeleteModal = useCallback((file) => {
     setFileToDelete(file)
     setShowDeleteModal(true)
@@ -364,15 +372,8 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
     setFileComment('')
     setShowFileModal(true)
     setFileComments([]) // Clear previous comments immediately
-    
-    // Immediately fetch comments when modal opens
-    try {
-      await fetchFileComments(file.id)
-    } catch (err) {
-      console.error('Failed to fetch comments on modal open:', err)
-      setError('Could not load file comments. Please try again.')
-    }
-  }, [fetchFileComments, setError])
+    await fetchFileComments(file.id)
+  }, [fetchFileComments])
 
   const closeFileModal = useCallback(() => {
     setShowFileModal(false)
@@ -380,6 +381,10 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
     setFileComment('')
     setFileComments([])
   }, [])
+
+  // ============================================================================
+  // FILE ACTIONS
+  // ============================================================================
 
   const deleteFile = useCallback(async () => {
     if (!fileToDelete) return
@@ -449,19 +454,6 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
       if (data.success) {
         setFileComment('')
         setSuccess('Comment added successfully')
-        
-        // Optimistic update - add the new comment to the UI immediately
-        const newComment = {
-          id: data.commentId || Date.now(), // Use server-provided ID or fallback
-          username: 'admin',
-          role: 'ADMIN',
-          created_at: new Date().toISOString(),
-          comments: fileComment.trim()
-        }
-        
-        setFileComments(prevComments => [newComment, ...prevComments])
-        
-        // Then refresh from server to ensure consistency
         await fetchFileComments(selectedFile.id)
         return true
       } else {
@@ -497,7 +489,6 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
     try {
       let approvedOnServer = false
 
-      // Check if Electron API is available
       if (window.electron && typeof window.electron.openDirectoryDialog === 'function') {
         const options = {}
         try {
@@ -548,25 +539,7 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
         if (!approveData.success) throw new Error(approveData.message || 'Failed to approve file')
         approvedOnServer = true
       } else {
-        // Web browser fallback - approve without moving file
-        setError('This feature requires the desktop application. Approving without moving file...')
-        
-        // Just approve the file without moving
-        const approveResp = await fetch(`${API_BASE}/files/${selectedFile.id}/admin-review`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            action: 'approve',
-            comments: commentToSend || null,
-            adminId: 1,
-            adminUsername: 'admin',
-            adminRole: 'ADMIN',
-            team: 'IT Administration'
-          })
-        })
-        const approveData = await approveResp.json()
-        if (!approveData.success) throw new Error(approveData.message || 'Failed to approve file')
-        approvedOnServer = true
+        throw new Error('File system access not available')
       }
 
       if (approvedOnServer) {
@@ -578,7 +551,7 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
         )
         
         closeFileModal()
-        setSuccess('File approved successfully')
+        setSuccess('File approved and moved successfully')
         
         // Refresh in background
         fetchFiles()
@@ -641,6 +614,10 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
       setIsLoading(false)
     }
   }, [selectedFile, fileComment, addComment, setError, setSuccess, closeFileModal, fetchFiles])
+
+  // ============================================================================
+  // PAGINATION
+  // ============================================================================
 
   const renderPaginationNumbers = useMemo(() => {
     const pageNumbers = []
@@ -709,6 +686,10 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
 
     return pageNumbers
   }, [totalPages, currentPage])
+
+  // ============================================================================
+  // RENDER
+  // ============================================================================
 
   return (
     <div className="file-approval-section">
@@ -882,6 +863,7 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
               <button onClick={closeFileModal} className="modal-close">×</button>
             </div>
             <div className="modal-body">
+              {/* File Details Section */}
               <div className="file-details-section">
                 <h4 className="section-title">File Details</h4>
                 <div className="file-details-grid">
@@ -920,11 +902,13 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
                 </div>
               </div>
               
+              {/* Description Section */}
               <div className="description-section">
                 <h4 className="section-title">Description</h4>
                 <p className="description-text">{selectedFile.description || 'No description provided'}</p>
               </div>
               
+              {/* Comments Section */}
               <div className="comments-section">
                 <h4 className="section-title">Comments & History</h4>
                 {isLoadingComments ? (
@@ -935,7 +919,7 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
                 ) : fileComments && fileComments.length > 0 ? (
                   <div className="comments-list">
                     {fileComments.map((comment, index) => (
-                      <CommentItem key={comment.id || index} comment={comment} />
+                      <CommentItem key={index} comment={comment} />
                     ))}
                   </div>
                 ) : (
@@ -943,12 +927,14 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
                 )}
               </div>
               
+              {/* Add Comment Section */}
               <div className="add-comment-section">
                 <h4 className="section-title">Add Comment</h4>
                 <div className="comment-input-container">
                   <textarea
                     value={fileComment}
                     onChange={(e) => setFileComment(e.target.value)}
+                    onKeyPress={handleCommentKeyPress}
                     placeholder="Add a comment for the user..."
                     className="comment-textarea"
                     rows="3"
@@ -970,7 +956,7 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
                   <button 
                     type="button" 
                     onClick={approveFile}
-                    className="btn btn-success" 
+                    className="btn btn-success-large" 
                     disabled={isLoading}
                   >
                     <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
@@ -981,7 +967,7 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
                   <button 
                     type="button" 
                     onClick={rejectFile}
-                    className="btn btn-danger" 
+                    className="btn btn-danger-large" 
                     disabled={isLoading}
                   >
                     <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
@@ -990,10 +976,10 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
                     Reject
                   </button>
                   <a 
-                    href={`http://localhost:3001/api/file-viewer/view/${selectedFile.file_path.replace('/uploads/', '')}`} 
+                    href={`http://localhost:3001${selectedFile.file_path}`} 
                     target="_blank" 
                     rel="noopener noreferrer" 
-                    className="btn btn-secondary"
+                    className="btn btn-secondary-large"
                   >
                     <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
                       <path d="M15 10.8333V15.8333C15 16.2754 14.8244 16.6993 14.5118 17.0118C14.1993 17.3244 13.7754 17.5 13.3333 17.5H4.16667C3.72464 17.5 3.30072 17.3244 2.98816 17.0118C2.67559 16.6993 2.5 16.2754 2.5 15.8333V6.66667C2.5 6.22464 2.67559 5.80072 2.98816 5.48816C3.30072 5.17559 3.72464 5 4.16667 5H9.16667M12.5 2.5H17.5M17.5 2.5V7.5M17.5 2.5L8.33333 11.6667" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
