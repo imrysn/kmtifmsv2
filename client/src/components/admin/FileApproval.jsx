@@ -332,17 +332,17 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
   const getStatusDisplayName = useCallback((dbStatus) => {
     switch (dbStatus) {
       case 'uploaded':
-        return 'Pending Team Leader'
+        return 'PENDING TEAM LEADER'
       case 'team_leader_approved':
-        return 'Pending Admin'
+        return 'PENDING ADMIN'
       case 'final_approved':
-        return 'Final Approved'
+        return 'APPROVED'
       case 'rejected_by_team_leader':
-        return 'Rejected by Team Leader'
+        return 'REJECTED BY TL'
       case 'rejected_by_admin':
-        return 'Rejected by Admin'
+        return 'REJECTED BY ADMIN'
       default:
-        return dbStatus.charAt(0).toUpperCase() + dbStatus.slice(1)
+        return dbStatus.toUpperCase()
     }
   }, [])
 
@@ -882,7 +882,6 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
               <button onClick={closeFileModal} className="modal-close">×</button>
             </div>
             <div className="modal-body">
-              {/* File Details Section */}
               <div className="file-details-section">
                 <h4 className="section-title">File Details</h4>
                 <div className="file-details-grid">
@@ -921,13 +920,11 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
                 </div>
               </div>
               
-              {/* Description Section */}
               <div className="description-section">
                 <h4 className="section-title">Description</h4>
                 <p className="description-text">{selectedFile.description || 'No description provided'}</p>
               </div>
               
-              {/* Comments Section */}
               <div className="comments-section">
                 <h4 className="section-title">Comments & History</h4>
                 {isLoadingComments ? (
@@ -946,14 +943,12 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
                 )}
               </div>
               
-              {/* Add Comment Section */}
               <div className="add-comment-section">
                 <h4 className="section-title">Add Comment</h4>
                 <div className="comment-input-container">
                   <textarea
                     value={fileComment}
                     onChange={(e) => setFileComment(e.target.value)}
-                    onKeyPress={handleCommentKeyPress}
                     placeholder="Add a comment for the user..."
                     className="comment-textarea"
                     rows="3"
@@ -975,7 +970,7 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
                   <button 
                     type="button" 
                     onClick={approveFile}
-                    className="btn btn-success-large" 
+                    className="btn btn-success" 
                     disabled={isLoading}
                   >
                     <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
@@ -986,7 +981,7 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
                   <button 
                     type="button" 
                     onClick={rejectFile}
-                    className="btn btn-danger-large" 
+                    className="btn btn-danger" 
                     disabled={isLoading}
                   >
                     <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
@@ -995,10 +990,10 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
                     Reject
                   </button>
                   <a 
-                    href={`http://localhost:3001${selectedFile.file_path}`} 
+                    href={`http://localhost:3001/api/file-viewer/view/${selectedFile.file_path.replace('/uploads/', '')}`} 
                     target="_blank" 
                     rel="noopener noreferrer" 
-                    className="btn btn-secondary-large"
+                    className="btn btn-secondary"
                   >
                     <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
                       <path d="M15 10.8333V15.8333C15 16.2754 14.8244 16.6993 14.5118 17.0118C14.1993 17.3244 13.7754 17.5 13.3333 17.5H4.16667C3.72464 17.5 3.30072 17.3244 2.98816 17.0118C2.67559 16.6993 2.5 16.2754 2.5 15.8333V6.66667C2.5 6.22464 2.67559 5.80072 2.98816 5.48816C3.30072 5.17559 3.72464 5 4.16667 5H9.16667M12.5 2.5H17.5M17.5 2.5V7.5M17.5 2.5L8.33333 11.6667" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>

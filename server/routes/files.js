@@ -2,9 +2,10 @@ const express = require('express');
 const fs = require('fs').promises;
 const path = require('path');
 const { db } = require('../config/database');
-const { upload, uploadsDir } = require('../config/middleware');
+const { upload, uploadsDir, moveToUserFolder } = require('../config/middleware');
 const { logActivity, logFileStatusChange } = require('../utils/logger');
 const { getFileTypeDescription } = require('../utils/fileHelpers');
+const { createNotification } = require('./notifications');
 
 const router = express.Router();
 
@@ -40,7 +41,47 @@ router.post('/upload', upload.single('file'), async (req, res) => {
       });
     }
 
-    console.log(`📁 File upload by ${username} from ${userTeam} team:`, req.file.originalname);
+    // Get the original filename and ensure proper UTF-8 encoding
+    let originalFilename = req.file.originalname;
+    
+    // Fix common UTF-8 encoding issues (garbled Japanese/Chinese characters)
+    try {
+      // Check if the filename contains typical garbled UTF-8 patterns
+      if (/[Ã¢â¬â¢Ã¤Â¸â‚¬Ã¦â€"‡Ã¨Â±Â¡]/.test(originalFilename)) {
+        // The filename was decoded as latin1/binary instead of utf8
+        // Re-encode as binary bytes, then decode as utf8
+        const buffer = Buffer.from(originalFilename, 'binary');
+        originalFilename = buffer.toString('utf8');
+        console.log('📝 Fixed UTF-8 encoding for filename:', originalFilename);
+      }
+    } catch (e) {
+      console.warn('⚠️ Could not decode filename, using original:', originalFilename);
+    }
+    
+    console.log(`📁 File upload by ${username} from ${userTeam} team:`, originalFilename);
+    
+    // Move file from temp location to user folder
+    try {
+      const finalPath = moveToUserFolder(req.file.path, username, originalFilename);
+      req.file.path = finalPath;
+      req.file.filename = originalFilename; // Use decoded original filename
+      req.file.originalname = originalFilename; // Update originalname with decoded version
+      console.log(`✅ File organized successfully to: ${finalPath}`);
+    } catch (moveError) {
+      console.error('❌ Error organizing file details:', {
+        error: moveError.message,
+        tempPath: req.file.path,
+        username: username,
+        originalFilename: originalFilename,
+        stack: moveError.stack
+      });
+      await fs.unlink(req.file.path).catch(() => {});
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to organize uploaded file: ' + moveError.message,
+        debug: moveError.message
+      });
+    }
 
     // Check for duplicate file if replaceExisting is not explicitly set
     if (replaceExisting !== 'true') {
@@ -105,6 +146,9 @@ router.post('/upload', upload.single('file'), async (req, res) => {
     }
 
     function insertFileRecord() {
+      // Get the relative path from the uploadsDir
+      const relativePath = path.relative(uploadsDir, req.file.path).replace(/\\/g, '/');
+      
       // Insert file record into database
       db.run(`INSERT INTO files (
         filename, original_name, file_path, file_size, file_type, mime_type, description,
@@ -113,7 +157,7 @@ router.post('/upload', upload.single('file'), async (req, res) => {
       [
         req.file.filename,
         req.file.originalname,
-        `/uploads/${req.file.filename}`,
+        `/uploads/${relativePath}`,
         req.file.size,
         getFileTypeDescription(req.file.mimetype),
         req.file.mimetype,
@@ -522,14 +566,35 @@ router.post('/:fileId/team-leader-review', (req, res) => {
         });
       }
 
-      // Add comment if provided
+      // Add comment if provided AND create notification for it
       if (comments) {
+        const commentType = action === 'approve' ? 'approval' : 'rejection';
         db.run(
           'INSERT INTO file_comments (file_id, user_id, username, user_role, comment, comment_type) VALUES (?, ?, ?, ?, ?, ?)',
-          [fileId, teamLeaderId, teamLeaderUsername, teamLeaderRole, comments, action],
+          [fileId, teamLeaderId, teamLeaderUsername, teamLeaderRole, comments, commentType],
           (err) => {
             if (err) {
-              console.error('❌ Error adding comment:', err);
+              console.error('❌ Error adding team leader comment:', err);
+              console.error('Comment details:', { fileId, teamLeaderId, teamLeaderUsername, teamLeaderRole, comments, commentType });
+            } else {
+              console.log('✅ Team leader comment added successfully');
+              
+              // Create a separate notification for the comment itself
+              const commentNotifTitle = `Team Leader ${action === 'approve' ? 'Approved' : 'Rejected'} with Comments`;
+              const commentNotifMessage = `${teamLeaderUsername} left ${commentType} comments on your file: "${comments.substring(0, 150)}${comments.length > 150 ? '...' : ''}"`.replace(/\\"/g, '"');
+              
+              createNotification(
+                file.user_id,
+                fileId,
+                'comment',
+                commentNotifTitle,
+                commentNotifMessage,
+                teamLeaderId,
+                teamLeaderUsername,
+                teamLeaderRole
+              ).catch(err => {
+                console.error('❌ Failed to create comment notification:', err);
+              });
             }
           }
         );
@@ -558,6 +623,28 @@ router.post('/:fileId/team-leader-review', (req, res) => {
         teamLeaderRole,
         `Team leader ${action}: ${comments || 'No comments'}`
       );
+
+      // Create notification for the file owner
+      const notificationType = action === 'approve' ? 'approval' : 'rejection';
+      const notificationTitle = action === 'approve' 
+        ? 'File Approved by Team Leader'
+        : 'File Rejected by Team Leader';
+      const notificationMessage = action === 'approve'
+        ? `Your file "${file.original_name}" has been approved by ${teamLeaderUsername} and is now pending admin review.`
+        : `Your file "${file.original_name}" has been rejected by ${teamLeaderUsername}. ${comments ? 'Reason: ' + comments : 'Please review and resubmit.'}`;
+      
+      createNotification(
+        file.user_id,
+        fileId,
+        notificationType,
+        notificationTitle,
+        notificationMessage,
+        teamLeaderId,
+        teamLeaderUsername,
+        teamLeaderRole
+      ).catch(err => {
+        console.error('Failed to create notification:', err);
+      });
 
       console.log(`✅ File ${action}d by team leader: ${file.filename}`);
       res.json({
@@ -751,12 +838,33 @@ router.post('/:fileId/admin-review', (req, res) => {
 
       // Add comment if provided
       if (comments) {
+        const commentType = action === 'approve' ? 'approval' : 'rejection';
         db.run(
           'INSERT INTO file_comments (file_id, user_id, username, user_role, comment, comment_type) VALUES (?, ?, ?, ?, ?, ?)',
-          [fileId, adminId, adminUsername, adminRole, comments, action === 'approve' ? 'final_approval' : 'final_rejection'],
+          [fileId, adminId, adminUsername, adminRole, comments, commentType],
           (err) => {
             if (err) {
-              console.error('❌ Error adding comment:', err);
+              console.error('❌ Error adding admin comment:', err);
+              console.error('Comment details:', { fileId, adminId, adminUsername, adminRole, comments, commentType });
+            } else {
+              console.log('✅ Admin comment added successfully');
+              
+              // Create a separate notification for the admin comment
+              const commentNotifTitle = `Admin ${action === 'approve' ? 'Approved' : 'Rejected'} with Comments`;
+              const commentNotifMessage = `${adminUsername} (Admin) left ${commentType} comments on your file: "${comments.substring(0, 150)}${comments.length > 150 ? '...' : ''}"`;
+              
+              createNotification(
+                file.user_id,
+                fileId,
+                'comment',
+                commentNotifTitle,
+                commentNotifMessage,
+                adminId,
+                adminUsername,
+                adminRole
+              ).catch(err => {
+                console.error('❌ Failed to create admin comment notification:', err);
+              });
             }
           }
         );
@@ -785,6 +893,28 @@ router.post('/:fileId/admin-review', (req, res) => {
         adminRole,
         `Admin ${action}: ${comments || 'No comments'}${action === 'approve' ? ' - Published to Public Network' : ''}`
       );
+
+      // Create notification for the file owner
+      const notificationType = action === 'approve' ? 'final_approval' : 'final_rejection';
+      const notificationTitle = action === 'approve'
+        ? 'File Final Approved'
+        : 'File Rejected by Admin';
+      const notificationMessage = action === 'approve'
+        ? `Your file "${file.original_name}" has been final approved by ${adminUsername} and published to the public network!`
+        : `Your file "${file.original_name}" has been rejected by ${adminUsername}. ${comments ? 'Reason: ' + comments : 'Please review and resubmit.'}`;
+      
+      createNotification(
+        file.user_id,
+        fileId,
+        notificationType,
+        notificationTitle,
+        notificationMessage,
+        adminId,
+        adminUsername,
+        adminRole
+      ).catch(err => {
+        console.error('Failed to create notification:', err);
+      });
 
       console.log(`✅ File ${action}d by admin: ${file.filename}${action === 'approve' ? ' - Published to Public Network' : ''}`);
       res.json({
@@ -835,32 +965,63 @@ router.post('/:fileId/comments', (req, res) => {
       message: 'Comment cannot be empty'
     });
   }
-  db.run(
-    'INSERT INTO file_comments (file_id, user_id, username, user_role, comment) VALUES (?, ?, ?, ?, ?)',
-    [fileId, userId, username, userRole, comment.trim()],
-    function(err) {
-      if (err) {
-        console.error('❌ Error adding comment:', err);
-        return res.status(500).json({
-          success: false,
-          message: 'Failed to add comment'
-        });
-      }
-      res.json({
-        success: true,
-        message: 'Comment added successfully',
-        comment: {
-          id: this.lastID,
-          file_id: fileId,
-          user_id: userId,
-          username: username,
-          user_role: userRole,
-          comment: comment.trim(),
-          created_at: new Date()
-        }
+  
+  // Get file info to send notification to owner
+  db.get('SELECT * FROM files WHERE id = ?', [fileId], (err, file) => {
+    if (err || !file) {
+      return res.status(404).json({
+        success: false,
+        message: 'File not found'
       });
     }
-  );
+    
+    db.run(
+      'INSERT INTO file_comments (file_id, user_id, username, user_role, comment) VALUES (?, ?, ?, ?, ?)',
+      [fileId, userId, username, userRole, comment.trim()],
+      function(err) {
+        if (err) {
+          console.error('❌ Error adding comment:', err);
+          return res.status(500).json({
+            success: false,
+            message: 'Failed to add comment'
+          });
+        }
+        
+        // Create notification for the file owner (if comment is not by the owner)
+        if (userId !== file.user_id) {
+          const notificationTitle = 'New Comment on Your File';
+          const notificationMessage = `${username} commented on your file "${file.original_name}": ${comment.trim().substring(0, 100)}${comment.trim().length > 100 ? '...' : ''}`;
+          
+          createNotification(
+            file.user_id,
+            fileId,
+            'comment',
+            notificationTitle,
+            notificationMessage,
+            userId,
+            username,
+            userRole
+          ).catch(err => {
+            console.error('Failed to create notification for comment:', err);
+          });
+        }
+        
+        res.json({
+          success: true,
+          message: 'Comment added successfully',
+          comment: {
+            id: this.lastID,
+            file_id: fileId,
+            user_id: userId,
+            username: username,
+            user_role: userRole,
+            comment: comment.trim(),
+            created_at: new Date()
+          }
+        });
+      }
+    );
+  });
 });
 
 // Get file status history

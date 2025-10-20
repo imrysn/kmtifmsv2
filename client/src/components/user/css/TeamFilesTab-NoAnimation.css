@@ -1,0 +1,92 @@
+/* Team Files Tab Component Styles - No Animation Override */
+@import './variables.css';
+
+.team-no-animation {
+  /* Override animations for team files grid */
+}
+
+.team-no-animation .dashboard-grid {
+  max-width: 1200px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--spacing-xl);
+}
+
+/* Team Files Card - No Animation */
+.team-no-animation .team-files-card {
+  background: var(--macos-card-bg);
+  backdrop-filter: var(--macos-blur);
+  -webkit-backdrop-filter: var(--macos-blur);
+  border: var(--macos-border);
+  border-radius: var(--radius-xl);
+  padding: var(--spacing-xl);
+  box-shadow: var(--macos-shadow);
+  position: relative;
+  overflow: hidden;
+  opacity: 1 !important;
+  transform: none !important;
+  transition: none !important;
+}
+
+.team-no-animation .placeholder-content {
+  text-align: center;
+  padding: var(--spacing-xl);
+  color: #1D1D1F;
+}
+
+.team-no-animation .placeholder-content p {
+  margin-bottom: var(--spacing-md);
+}
+
+/* Buttons - No Animation */
+.team-no-animation .btn {
+  padding: var(--spacing-md) var(--spacing-lg);
+  border-radius: var(--radius-md);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: none !important;
+  border: none;
+}
+
+.team-no-animation .btn-primary {
+  background: var(--user-accent);
+  color: white;
+  box-shadow: 0 2px 8px rgba(0, 122, 255, 0.3);
+}
+
+.team-no-animation .btn-primary:hover {
+  transform: none !important;
+  box-shadow: 0 2px 8px rgba(0, 122, 255, 0.3) !important;
+}
+
+/* Card Headers */
+.team-no-animation .card-header {
+  margin-bottom: var(--spacing-lg);
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+}
+
+.team-no-animation .card-header h2 {
+  color: #1D1D1F;
+  font-size: 24px;
+  font-weight: 700;
+  margin: 0;
+  letter-spacing: -0.2px;
+}
+
+.team-no-animation .card-header h3 {
+  color: #1D1D1F;
+  font-size: 20px;
+  font-weight: 600;
+  margin: 0;
+}
+
+.team-no-animation .card-subtitle {
+  color: var(--macos-gray);
+  font-size: 14px;
+  font-weight: 400;
+  margin: 0;
+}

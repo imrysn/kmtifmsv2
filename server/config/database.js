@@ -87,18 +87,38 @@ function setupSQLite() {
   
   const sqlite3 = require('sqlite3').verbose();
   
-  // Network Database Configuration
-  networkDataPath = '\\\\KMTI-NAS\\Shared\\data';
-  networkProjectsPath = '\\\\KMTI-NAS\\Shared\\Public\\PROJECTS';
-  dbPath = path.join(networkDataPath, 'filemanagement.db');
-  
+  // Check if we should use local storage (for testing/development)
+  if (process.env.USE_LOCAL_STORAGE === 'true') {
+    // Local Storage Configuration
+    const projectRoot = path.join(__dirname, '..', '..');
+    networkDataPath = path.join(projectRoot, 'uploads');
+    networkProjectsPath = path.join(projectRoot, 'projects');
+    dbPath = path.join(projectRoot, 'database.sqlite');
+    
+    // Create directories if they don't exist
+    [networkDataPath, networkProjectsPath, path.join(networkDataPath, 'uploads')].forEach(dir => {
+      if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true });
+        console.log(`✅ Created directory: ${dir}`);
+      }
+    });
+    
+    console.log('🏠 Using LOCAL storage for uploads');
+    console.log(`📁 Uploads directory: ${networkDataPath}`);
+  }
   // Check if we're in local test mode
-  const localTestPath = path.join(__dirname, '..', '..', 'local-test', 'data');
-  if (fs.existsSync(localTestPath)) {
+  else if (fs.existsSync(path.join(__dirname, '..', '..', 'local-test', 'data'))) {
+    const localTestPath = path.join(__dirname, '..', '..', 'local-test', 'data');
     networkDataPath = localTestPath;
     networkProjectsPath = path.join(__dirname, '..', '..', 'local-test', 'PROJECTS');
     dbPath = path.join(networkDataPath, 'filemanagement.db');
     console.log('🏠 Using local test database');
+  }
+  // Default: Network Database Configuration
+  else {
+    networkDataPath = '\\\\KMTI-NAS\\Shared\\data';
+    networkProjectsPath = '\\\\KMTI-NAS\\Shared\\Public\\PROJECTS';
+    dbPath = path.join(networkDataPath, 'filemanagement.db');
   }
   
   // Database setup with WAL mode for better write performance

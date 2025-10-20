@@ -9,9 +9,9 @@ import AlertMessage from '../components/user/AlertMessage'
 import DashboardTab from '../components/user/DashboardTab'
 import TeamFilesTab from '../components/user/TeamFilesTab'
 import MyFilesTab from '../components/user/MyFilesTab'
-import NotificationTab from '../components/user/NotificationTab'
+import NotificationTab from '../components/user/NotificationTab-RealTime'
 import FileModal from '../components/user/FileModal'
-import FileApprovalTabEnhanced from '../components/user/FileApprovalTab-Enhanced'
+import FileApprovalTabTable from '../components/user/FileApprovalTab-Table'
 
 const UserDashboard = ({ user, onLogout }) => {
   const [activeTab, setActiveTab] = useState('dashboard')
@@ -24,33 +24,12 @@ const UserDashboard = ({ user, onLogout }) => {
   const [showFileModal, setShowFileModal] = useState(false)
   const [fileComments, setFileComments] = useState([])
   const [filterStatus, setFilterStatus] = useState('all')
-  const [searchQuery, setSearchQuery] = useState('')
   
   const dashboardRef = useRef(null)
   const headerRef = useRef(null)
 
   useEffect(() => {
-    // Simple entrance animation
-    if (headerRef.current) {
-      anime({
-        targets: headerRef.current,
-        opacity: [0, 1],
-        duration: 400,
-        easing: 'easeOutCubic'
-      })
-    }
-
-    // Animate dashboard cards when they appear
-    setTimeout(() => {
-      anime({
-        targets: '.dashboard-card',
-        opacity: [0, 1],
-        translateY: [20, 0],
-        duration: 400,
-        delay: anime.stagger(50, {start: 100}),
-        easing: 'easeOutCubic'
-      })
-    }, 100)
+    // Animations removed for better UX
   }, [activeTab]) // Re-run animation when tab changes
 
   useEffect(() => {
@@ -61,7 +40,7 @@ const UserDashboard = ({ user, onLogout }) => {
 
   useEffect(() => {
     applyFilters()
-  }, [files, filterStatus, searchQuery])
+  }, [files, filterStatus])
 
   const applyFilters = () => {
     let filtered = files
@@ -82,14 +61,7 @@ const UserDashboard = ({ user, onLogout }) => {
       })
     }
 
-    // Apply search filter
-    if (searchQuery.trim()) {
-      filtered = filtered.filter(file => 
-        file.original_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        file.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        file.file_type.toLowerCase().includes(searchQuery.toLowerCase())
-      )
-    }
+    // Apply search filter - REMOVED since search bar is removed
 
     setFilteredFiles(filtered)
   }
@@ -127,6 +99,29 @@ const UserDashboard = ({ user, onLogout }) => {
     } catch (error) {
       console.error('Error fetching comments:', error)
       setFileComments([])
+    }
+  }
+
+  const openFileByIdFromNotification = async (fileId) => {
+    try {
+      // Fetch the specific file
+      const response = await fetch(`http://localhost:3001/api/files/user/${user.id}`)
+      const data = await response.json()
+      
+      if (data.success && data.files) {
+        const file = data.files.find(f => f.id === fileId)
+        if (file) {
+          // Switch to file approvals tab
+          setActiveTab('file-approvals')
+          // Open the file modal
+          await openFileModal(file)
+        } else {
+          alert('File not found')
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching file:', error)
+      alert('Failed to open file details')
     }
   }
 
@@ -181,8 +176,6 @@ const UserDashboard = ({ user, onLogout }) => {
             isLoading={isLoading}
             filterStatus={filterStatus}
             setFilterStatus={setFilterStatus}
-            searchQuery={searchQuery}
-            setSearchQuery={setSearchQuery}
             setActiveTab={setActiveTab}
             fetchUserFiles={fetchUserFiles}
             formatFileSize={formatFileSize}
@@ -194,17 +187,16 @@ const UserDashboard = ({ user, onLogout }) => {
         );
       case 'file-approvals':
         return (
-          <FileApprovalTabEnhanced
+          <FileApprovalTabTable
             user={user}
             files={files}
             isLoading={isLoading}
             formatFileSize={formatFileSize}
-            openFileModal={openFileModal}
             onWithdrawFile={onWithdrawFile}
           />
         );
       case 'notification':
-        return <NotificationTab user={user} />;
+        return <NotificationTab user={user} onOpenFile={openFileByIdFromNotification} />;
       default:
         return (
           <DashboardTab 
@@ -222,7 +214,7 @@ const UserDashboard = ({ user, onLogout }) => {
       <Sidebar 
         activeTab={activeTab}
         setActiveTab={handleTabChange}
-        filesCount={files.length}
+        filesCount={files.filter(f => f.status === 'uploaded' || f.status === 'team_leader_approved' || f.status === 'final_approved').length}
         onLogout={handleLogout}
         user={user}
       />

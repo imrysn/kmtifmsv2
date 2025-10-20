@@ -20,9 +20,8 @@
   box-shadow: var(--macos-shadow);
   position: relative;
   overflow: hidden;
-  opacity: 0;
-  transform: translateY(20px);
-  transition: all 0.2s ease;
+  opacity: 1;
+  transform: none;
 }
 
 .dashboard-card::before {
@@ -35,10 +34,7 @@
   background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.6), transparent);
 }
 
-.dashboard-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.12);
-}
+
 
 /* Card Headers */
 .card-header {
@@ -205,7 +201,6 @@
   font-size: 14px;
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.2s ease;
   border: none;
 }
 
@@ -215,10 +210,7 @@
   box-shadow: 0 2px 8px rgba(0, 122, 255, 0.3);
 }
 
-.action-btn.primary:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(0, 122, 255, 0.4);
-}
+
 
 .action-btn.secondary {
   background: rgba(255, 255, 255, 0.5);
@@ -226,10 +218,7 @@
   border: 1px solid rgba(255, 255, 255, 0.3);
 }
 
-.action-btn.secondary:hover {
-  background: rgba(255, 255, 255, 0.7);
-  transform: translateY(-1px);
-}
+
 
 /* Workflow Info */
 .workflow-info-card {

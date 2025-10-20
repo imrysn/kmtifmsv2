@@ -50,6 +50,40 @@ const FileModal = ({
     }
   };
 
+  // Parse tags from JSON string - show ALL tags in modal
+  const getTags = () => {
+    if (!selectedFile.tags) return [];
+    try {
+      const tags = JSON.parse(selectedFile.tags);
+      return Array.isArray(tags) ? tags : [];
+    } catch (e) {
+      return [];
+    }
+  };
+
+  // Format category for display - "Projects : Arm Plate" format
+  const formatCategory = (category) => {
+    if (!category) return '';
+    
+    // Split on capital letters and spaces
+    const words = category
+      .replace(/([A-Z])/g, ' $1') // Add space before capitals
+      .trim()
+      .split(/\s+/)
+      .filter(word => word.length > 0);
+    
+    if (words.length === 0) return category;
+    if (words.length === 1) return words[0];
+    
+    // First word : rest of words
+    const firstWord = words[0];
+    const restWords = words.slice(1).join(' ');
+    
+    return `${firstWord} : ${restWords}`;
+  };
+
+  const tags = getTags();
+
   return (
     <div className="modal-overlay" onClick={() => setShowFileModal(false)}>
       <div className="modal file-modal" onClick={e => e.stopPropagation()}>
@@ -75,6 +109,36 @@ const FileModal = ({
               <span className="detail-label">Uploaded:</span>
               <span className="detail-value">{new Date(selectedFile.uploaded_at).toLocaleString()}</span>
             </div>
+            
+            {selectedFile.description && (
+              <div className="file-detail-row">
+                <span className="detail-label">Description:</span>
+                <span className="detail-value description-text">{selectedFile.description}</span>
+              </div>
+            )}
+            
+            {selectedFile.category && (
+              <div className="file-detail-row">
+                <span className="detail-label">Category:</span>
+                <span className="detail-value">
+                  <span className="category-badge">{formatCategory(selectedFile.category)}</span>
+                </span>
+              </div>
+            )}
+            
+            {tags.length > 0 && (
+              <div className="file-detail-row">
+                <span className="detail-label">Tags:</span>
+                <div className="detail-value">
+                  <div className="tags-display">
+                    {tags.map((tag, index) => (
+                      <span key={index} className="tag-badge">{tag}</span>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+            
             <div className="file-detail-row">
               <span className="detail-label">Current Status:</span>
               <div className="status-container">
@@ -84,12 +148,6 @@ const FileModal = ({
                 <div className="stage-text">{getCurrentStageText(selectedFile.current_stage)}</div>
               </div>
             </div>
-            {selectedFile.description && (
-              <div className="file-detail-row">
-                <span className="detail-label">Description:</span>
-                <span className="detail-value">{selectedFile.description}</span>
-              </div>
-            )}
             
             {/* Review Details */}
             {selectedFile.team_leader_reviewed_at && (
@@ -181,9 +239,9 @@ const FileModal = ({
           </div>
           
           {/* Comments Section */}
-          {fileComments.length > 0 && (
-            <div className="comments-section">
-              <h4>Review Comments</h4>
+          <div className="comments-section">
+            <h4>Review Comments</h4>
+            {fileComments && fileComments.length > 0 ? (
               <div className="comments-list">
                 {fileComments.map((comment, index) => (
                   <div key={index} className="comment-item">
@@ -196,8 +254,12 @@ const FileModal = ({
                   </div>
                 ))}
               </div>
-            </div>
-          )}
+            ) : (
+              <div className="no-comments">
+                <p style={{ fontStyle: 'italic', color: '#9ca3af', textAlign: 'center', padding: '20px' }}>No comments yet.</p>
+              </div>
+            )}
+          </div>
         </div>
         <div className="modal-footer">
           <button 
