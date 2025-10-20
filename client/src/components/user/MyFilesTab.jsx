@@ -1,5 +1,5 @@
 import './css/MyFilesTab.css';
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import SingleSelectTags from './SingleSelectTags';
 
 const MyFilesTab = ({ 
@@ -26,7 +26,20 @@ const MyFilesTab = ({
   const [selectedFile, setSelectedFile] = useState(null);
   const [fileComments, setFileComments] = useState([]);
   const [loadingComments, setLoadingComments] = useState(false);
+  const [openMenuId, setOpenMenuId] = useState(null);
   const fileInputRef = useRef(null);
+  const menuRef = useRef(null);
+
+  // Close menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (menuRef.current && !menuRef.current.contains(e.target)) {
+        setOpenMenuId(null);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const handleFileSelect = (e) => {
     const file = e.target.files[0];
@@ -154,6 +167,38 @@ const MyFilesTab = ({
     window.open(fileUrl, '_blank');
   };
 
+  const deleteFile = async (file) => {
+    if (window.confirm(`Are you sure you want to delete "${file.original_name}"? This action cannot be undone.`)) {
+      try {
+        const response = await fetch(`http://localhost:3001/api/files/${file.id}`, {
+          method: 'DELETE',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            userId: user.id,
+            username: user.username,
+            userRole: 'USER',
+            team: user.team
+          })
+        });
+
+        const data = await response.json();
+        
+        if (data.success) {
+          // Remove file from local state
+          fetchUserFiles();
+          alert('File deleted successfully');
+        } else {
+          alert(data.message || 'Failed to delete file');
+        }
+      } catch (error) {
+        console.error('Error deleting file:', error);
+        alert('Failed to delete file. Please try again.');
+      }
+    }
+  };
+
   const openFileDetails = async (file) => {
     setSelectedFile(file);
     setShowFileDetailsModal(true);
@@ -165,9 +210,26 @@ const MyFilesTab = ({
       const data = await response.json();
       console.log('Comments response:', data);
       
-      if (data.success) {
-        setFileComments(data.comments || []);
-        console.log('Comments loaded:', data.comments?.length || 0);
+      if (data.success && data.comments) {
+        // Map comments to include action based on comment_type
+        const mappedComments = data.comments.map(comment => {
+          let action = null;
+          if (comment.comment_type === 'approval') {
+            action = 'approve';
+          } else if (comment.comment_type === 'rejection') {
+            action = 'reject';
+          }
+          
+          return {
+            ...comment,
+            action: action,
+            comments: comment.comment, // Map 'comment' field to 'comments' for consistency
+            reviewer_username: comment.username,
+            reviewer_role: comment.user_role
+          };
+        });
+        setFileComments(mappedComments);
+        console.log('Comments loaded:', mappedComments.length, mappedComments);
       } else {
         console.error('Failed to fetch comments:', data.message);
         setFileComments([]);
@@ -242,11 +304,12 @@ const MyFilesTab = ({
   };
 
   const submittedFiles = filteredFiles.filter(f => 
-    f.status === 'final_approved' || f.status === 'uploaded' || f.status === 'team_leader_approved'
+    f.status === 'final_approved' || f.status === 'uploaded' || f.status === 'team_leader_approved' || f.status === 'rejected_by_team_leader' || f.status === 'rejected_by_admin'
   );
 
   const pendingFiles = submittedFiles.filter(f => f.status === 'uploaded' || f.status === 'team_leader_approved');
   const approvedFiles = submittedFiles.filter(f => f.status === 'final_approved');
+  const rejectedFiles = submittedFiles.filter(f => f.status === 'rejected_by_team_leader' || f.status === 'rejected_by_admin');
 
   return (
     <div className="my-files-wrapper">
@@ -281,6 +344,14 @@ const MyFilesTab = ({
               <div className="stat-name">Approved</div>
             </div>
           </div>
+          
+          <div className="stat-box rejected-box">
+            <div className="stat-icon rejected-icon">×</div>
+            <div className="stat-text">
+              <div className="stat-number">{rejectedFiles.length}</div>
+              <div className="stat-name">Rejected</div>
+            </div>
+          </div>
       </div>
 
       {/* Files Table */}
@@ -302,7 +373,7 @@ const MyFilesTab = ({
             {submittedFiles.map((file) => {
               const { date, time } = formatDateTime(file.uploaded_at);
               return (
-                <div key={file.id} className="file-row-new">
+                <div key={file.id} className="file-row-new" onClick={() => openFileDetails(file)}>
                   <div className="col-filename">
                     <div className={`file-icon-box ${getFileTypeClass(file.original_name)}`}>{file.file_type.substring(0, 3).toUpperCase()}</div>
                     <div className="file-text">
@@ -327,12 +398,42 @@ const MyFilesTab = ({
                     </span>
                   </div>
                   <div className="col-actions">
-                    <button 
-                      className="open-file-btn"
-                      onClick={() => openFile(file)}
-                    >
-                      OPEN
-                    </button>
+                    <div className="actions-menu-container" ref={menuRef}>
+                      <button 
+                        className="menu-btn"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setOpenMenuId(openMenuId === file.id ? null : file.id);
+                        }}
+                        title="More options"
+                      >
+                        ⋮
+                      </button>
+                      {openMenuId === file.id && (
+                        <div className="actions-dropdown">
+                          <button
+                            className="dropdown-item delete-item"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              deleteFile(file);
+                              setOpenMenuId(null);
+                            }}
+                          >
+                            Delete
+                          </button>
+                          <button
+                            className="dropdown-item open-item"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              openFile(file);
+                              setOpenMenuId(null);
+                            }}
+                          >
+                            Open
+                          </button>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
               );
@@ -469,10 +570,28 @@ const MyFilesTab = ({
                     {getStatusDisplayName(selectedFile.status)}
                   </span>
                 </div>
+                {selectedFile.description && (
+                  <div className="detail-row">
+                    <span className="detail-key">Description:</span>
+                    <span className="detail-val description-text">{selectedFile.description}</span>
+                  </div>
+                )}
+                {selectedFile.tags && selectedFile.tags.length > 0 && (
+                  <div className="detail-row">
+                    <span className="detail-key">Tags:</span>
+                    <span className="detail-val">
+                      <div className="tags-container">
+                        {(typeof selectedFile.tags === 'string' ? JSON.parse(selectedFile.tags) : selectedFile.tags).map((tag, idx) => (
+                          <span key={idx} className="tag-badge">{tag}</span>
+                        ))}
+                      </div>
+                    </span>
+                  </div>
+                )}
               </div>
 
               <div className="comments-section">
-                <h4>Review Comments</h4>
+                <h4>Review Comments & History</h4>
                 {loadingComments ? (
                   <div className="loading-comments">Loading comments...</div>
                 ) : fileComments && fileComments.length > 0 ? (
@@ -480,22 +599,25 @@ const MyFilesTab = ({
                     {fileComments.map((comment, index) => (
                       <div key={comment.id || index} className="comment-item">
                         <div className="comment-header">
-                          <span className="comment-author">{comment.username}</span>
-                          <span className="comment-role">({comment.user_role})</span>
+                          <span className="comment-author">{comment.reviewer_username || comment.username}</span>
+                          <span className="comment-role">({comment.reviewer_role || comment.user_role || 'USER'})</span>
+                          {comment.action && (
+                            <span className={`comment-action ${comment.action.toLowerCase()}`}>
+                              {comment.action.toUpperCase()}
+                            </span>
+                          )}
                           <span className="comment-date">{new Date(comment.created_at).toLocaleString()}</span>
                         </div>
-                        <div className="comment-text">{comment.comment}</div>
+                        {(comment.comments || comment.comment) && <div className="comment-text">{comment.comments || comment.comment}</div>}
                       </div>
                     ))}
                   </div>
                 ) : (
-                  <p className="no-comments">No comments yet.</p>
+                  <p className="no-comments">No review comments yet. This file has not been reviewed by admin or team leader.</p>
                 )}
               </div>
             </div>
             <div className="modal-footer">
-              <button onClick={() => setShowFileDetailsModal(false)} className="btn btn-cancel">Close</button>
-              <button onClick={() => { setShowFileDetailsModal(false); openFile(selectedFile); }} className="btn btn-submit">Open File</button>
             </div>
           </div>
         </div>

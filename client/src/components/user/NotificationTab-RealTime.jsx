@@ -114,6 +114,23 @@ const NotificationTab = ({ user, onOpenFile }) => {
     }
   };
 
+  const getStatusDisplayName = (dbStatus) => {
+    switch (dbStatus) {
+      case 'uploaded':
+        return 'PENDING TEAM LEADER';
+      case 'team_leader_approved':
+        return 'PENDING ADMIN';
+      case 'final_approved':
+        return 'FINAL APPROVED';
+      case 'rejected_by_team_leader':
+        return 'REJECTED BY TEAM LEADER';
+      case 'rejected_by_admin':
+        return 'REJECTED BY ADMIN';
+      default:
+        return dbStatus ? dbStatus.replace(/_/g, ' ').toUpperCase() : 'UNKNOWN';
+    }
+  };
+
   const getNotificationColor = (type) => {
     switch (type) {
       case 'approval':
@@ -202,7 +219,7 @@ const NotificationTab = ({ user, onOpenFile }) => {
                     )}
                     {notification.file_status && (
                       <span className="notification-status">
-                        Status: {notification.file_status}
+                        Status: {getStatusDisplayName(notification.file_status)}
                       </span>
                     )}
                   </div>
