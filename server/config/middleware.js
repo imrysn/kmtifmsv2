@@ -8,10 +8,35 @@ const { networkDataPath } = require('./database');
 // Network Uploads Configuration
 const uploadsDir = path.join(networkDataPath, 'uploads');
 
-// Ensure uploads directory exists
+// Ensure uploads directory exists with detailed error logging
 if (!fs.existsSync(uploadsDir)) {
-  fs.mkdirSync(uploadsDir, { recursive: true });
-  console.log(`✅ Created uploads directory: ${uploadsDir}`);
+  try {
+    fs.mkdirSync(uploadsDir, { recursive: true });
+    console.log(`✅ Created uploads directory: ${uploadsDir}`);
+  } catch (mkdirError) {
+    console.error('❌ CRITICAL: Cannot create uploads directory!');
+    console.error('   Path:', uploadsDir);
+    console.error('   Error:', mkdirError.message);
+    console.error('   💡 Solution:');
+    console.error('      1. Check network connection to NAS');
+    console.error('      2. Verify folder permissions');
+    console.error('      3. Or enable local storage: USE_LOCAL_STORAGE=true in .env');
+    console.error('   ⚠️  File uploads will FAIL until this is resolved!');
+  }
+} else {
+  console.log(`✅ Uploads directory ready: ${uploadsDir}`);
+  
+  // Test write permission
+  const testFile = path.join(uploadsDir, '.test-write-' + Date.now());
+  try {
+    fs.writeFileSync(testFile, 'test');
+    fs.unlinkSync(testFile);
+    console.log('✅ Uploads directory is writable');
+  } catch (writeError) {
+    console.error('❌ WARNING: Uploads directory exists but is NOT writable!');
+    console.error('   Error:', writeError.message);
+    console.error('   💡 Check folder permissions on the NAS');
+  }
 }
 
 // Configure multer storage with optimizations for large files
@@ -34,7 +59,7 @@ const upload = multer({
   storage: storage,
   // Optimized limits for better performance
   limits: {
-    fileSize: 0, // No limit
+    // No file size limit - set to undefined
     files: 1 // Only one file at a time
   }
 });

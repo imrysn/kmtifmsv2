@@ -66,13 +66,20 @@ router.post('/upload', upload.single('file'), async (req, res) => {
       req.file.path = finalPath;
       req.file.filename = originalFilename; // Use decoded original filename
       req.file.originalname = originalFilename; // Update originalname with decoded version
-      console.log(`✅ File organized successfully`);
+      console.log(`✅ File organized successfully to: ${finalPath}`);
     } catch (moveError) {
-      console.error('❌ Error organizing file:', moveError);
+      console.error('❌ Error organizing file details:', {
+        error: moveError.message,
+        tempPath: req.file.path,
+        username: username,
+        originalFilename: originalFilename,
+        stack: moveError.stack
+      });
       await fs.unlink(req.file.path).catch(() => {});
       return res.status(500).json({
         success: false,
-        message: 'Failed to organize uploaded file'
+        message: 'Failed to organize uploaded file: ' + moveError.message,
+        debug: moveError.message
       });
     }
 

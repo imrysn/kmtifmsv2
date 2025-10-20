@@ -17,9 +17,6 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
   const [isLoading, setIsLoading] = useState(false)
   const [fileComments, setFileComments] = useState([])
   const [isLoadingComments, setIsLoadingComments] = useState(false)
-  const statusCardsRef = useRef(null)
-  const searchInputRef = useRef(null)
-  const filterSelectRef = useRef(null)
 
   // Auto-clear messages after 3 seconds
   useEffect(() => {
@@ -130,17 +127,17 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
   const getStatusDisplayName = (dbStatus) => {
     switch (dbStatus) {
       case 'uploaded':
-        return 'Pending Team Leader'
+        return 'PENDING TEAM LEADER'
       case 'team_leader_approved':
-        return 'Pending Admin'
+        return 'PENDING ADMIN'
       case 'final_approved':
-        return 'Final Approved'
+        return 'APPROVED'
       case 'rejected_by_team_leader':
-        return 'Rejected by Team Leader'
+        return 'REJECTED BY TL'
       case 'rejected_by_admin':
-        return 'Rejected by Admin'
+        return 'REJECTED BY ADMIN'
       default:
-        return dbStatus.charAt(0).toUpperCase() + dbStatus.slice(1)
+        return dbStatus.toUpperCase()
     }
   }
 
@@ -150,6 +147,11 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
     const sizes = ['Bytes', 'KB', 'MB', 'GB']
     const i = Math.floor(Math.log(bytes) / Math.log(k))
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
+  }
+
+  const getFileIcon = (filename) => {
+    const ext = filename.split('.').pop().toUpperCase()
+    return ext.substring(0, 3)
   }
 
   const deleteFile = async () => {
@@ -163,7 +165,7 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          adminId: 1, // Should come from logged in admin user
+          adminId: 1,
           adminUsername: 'admin',
           adminRole: 'ADMIN',
           team: 'IT Administration'
@@ -196,12 +198,11 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
   const openFileModal = async (file) => {
     setSelectedFile({
       ...file,
-      comments: [] // Initialize comments array for UI compatibility
+      comments: []
     })
     setFileComment('')
     setShowFileModal(true)
     
-    // Fetch comments for this file
     await fetchFileComments(file.id)
   }
 
@@ -223,52 +224,9 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
     }
   }
 
-  const addComment = async () => {
-    if (!selectedFile || !fileComment.trim()) return
-    
-    setIsLoading(true)
-    try {
-      const response = await fetch(`http://localhost:3001/api/files/${selectedFile.id}/comments`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          comment: fileComment.trim(),
-          userId: 1, // Should come from logged in admin user
-          username: 'admin',
-          userRole: 'ADMIN'
-        })
-      })
-      
-      const data = await response.json()
-      if (data.success) {
-        setFileComment('')
-        setSuccess('Comment added successfully')
-        // Refresh comments to show the new one
-        await fetchFileComments(selectedFile.id)
-      } else {
-        setError(data.message || 'Failed to add comment')
-      }
-    } catch (error) {
-      console.error('Error adding comment:', error)
-      setError('Failed to add comment')
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
-  const handleCommentKeyPress = (e) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault()
-      addComment()
-    }
-  }
-
   const approveFile = async () => {
     if (!selectedFile) return
     
-    // Add comment first if provided
     if (fileComment.trim()) {
       await addComment()
     }
@@ -283,7 +241,7 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
         body: JSON.stringify({
           action: 'approve',
           comments: fileComment.trim(),
-          adminId: 1, // Should come from logged in admin user
+          adminId: 1,
           adminUsername: 'admin',
           adminRole: 'ADMIN',
           team: 'IT Administration'
@@ -292,7 +250,6 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
       
       const data = await response.json()
       if (data.success) {
-        // Refresh files list
         fetchFiles()
         setShowFileModal(false)
         setSelectedFile(null)
@@ -318,7 +275,6 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
       return
     }
     
-    // Add comment first
     await addComment()
     
     setIsLoading(true)
@@ -331,7 +287,7 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
         body: JSON.stringify({
           action: 'reject',
           comments: fileComment.trim(),
-          adminId: 1, // Should come from logged in admin user
+          adminId: 1,
           adminUsername: 'admin',
           adminRole: 'ADMIN',
           team: 'IT Administration'
@@ -340,7 +296,6 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
       
       const data = await response.json()
       if (data.success) {
-        // Refresh files list
         fetchFiles()
         setShowFileModal(false)
         setSelectedFile(null)
@@ -358,7 +313,40 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
     }
   }
 
-  // Pagination helper functions
+  const addComment = async () => {
+    if (!selectedFile || !fileComment.trim()) return
+    
+    setIsLoading(true)
+    try {
+      const response = await fetch(`http://localhost:3001/api/files/${selectedFile.id}/comments`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          comment: fileComment.trim(),
+          userId: 1,
+          username: 'admin',
+          userRole: 'ADMIN'
+        })
+      })
+      
+      const data = await response.json()
+      if (data.success) {
+        setFileComment('')
+        setSuccess('Comment added successfully')
+        await fetchFileComments(selectedFile.id)
+      } else {
+        setError(data.message || 'Failed to add comment')
+      }
+    } catch (error) {
+      console.error('Error adding comment:', error)
+      setError('Failed to add comment')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
   const getCurrentPageFiles = () => {
     const startIndex = (currentPage - 1) * filesPerPage
     const endIndex = startIndex + filesPerPage
@@ -369,90 +357,22 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
     return Math.ceil(filteredFiles.length / filesPerPage)
   }
 
-  const renderPaginationNumbers = () => {
-    const totalPages = getTotalPages()
-    const pageNumbers = []
-    const maxVisiblePages = 5
-
-    if (totalPages <= maxVisiblePages) {
-      // Show all pages if total pages is less than or equal to maxVisiblePages
-      for (let i = 1; i <= totalPages; i++) {
-        pageNumbers.push(
-          <button
-            key={i}
-            className={`pagination-btn ${i === currentPage ? 'active' : ''}`}
-            onClick={() => setCurrentPage(i)}
-          >
-            {i}
-          </button>
-        )
-      }
-    } else {
-      // Always show first page
-      pageNumbers.push(
-        <button
-          key={1}
-          className={`pagination-btn ${1 === currentPage ? 'active' : ''}`}
-          onClick={() => setCurrentPage(1)}
-        >
-          1
-        </button>
-      )
-
-      // Show ellipsis if there's a gap
-      if (currentPage > 3) {
-        pageNumbers.push(
-          <span key="ellipsis1" className="pagination-ellipsis">...</span>
-        )
-      }
-
-      // Show pages around current page
-      const startPage = Math.max(2, currentPage - 1)
-      const endPage = Math.min(totalPages - 1, currentPage + 1)
-
-      for (let i = startPage; i <= endPage; i++) {
-        if (i !== 1 && i !== totalPages) {
-          pageNumbers.push(
-            <button
-              key={i}
-              className={`pagination-btn ${i === currentPage ? 'active' : ''}`}
-              onClick={() => setCurrentPage(i)}
-            >
-              {i}
-            </button>
-          )
-        }
-      }
-
-      // Show ellipsis if there's a gap
-      if (currentPage < totalPages - 2) {
-        pageNumbers.push(
-          <span key="ellipsis2" className="pagination-ellipsis">...</span>
-        )
-      }
-
-      // Always show last page if more than 1 page
-      if (totalPages > 1) {
-        pageNumbers.push(
-          <button
-            key={totalPages}
-            className={`pagination-btn ${totalPages === currentPage ? 'active' : ''}`}
-            onClick={() => setCurrentPage(totalPages)}
-          >
-            {totalPages}
-          </button>
-        )
-      }
-    }
-
-    return pageNumbers
+  const getTotalFileSize = () => {
+    return files.reduce((total, file) => total + file.file_size, 0)
   }
+
+  const getPendingCount = () => files.filter(f => f.status === 'uploaded' || f.status === 'team_leader_approved').length
+  const getApprovedCount = () => files.filter(f => f.status === 'final_approved').length
+  const getRejectedCount = () => files.filter(f => f.status === 'rejected_by_team_leader' || f.status === 'rejected_by_admin').length
 
   return (
     <div className="file-approval-section">
-      <div className="page-header">
-        <h1>File Approval</h1>
-        <p>Review and manage submitted files requiring approval</p>
+      {/* Header */}
+      <div className="approval-header">
+        <div className="header-top">
+          <h1>File Approvals</h1>
+          <p className="header-subtitle">{files.length} files • {formatFileSize(getTotalFileSize())} total</p>
+        </div>
       </div>
       
       {/* Messages */}
@@ -463,215 +383,112 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
         </div>
       )}
       
-      {/* Status Cards */}
-      <div className="file-status-cards" ref={statusCardsRef}>
-        <div className="file-status-card pending">
-          <div className="status-icon pending-icon">TL</div>
-          <div className="status-info">
-            <div className="status-number">{files.filter(f => f.status === 'uploaded').length}</div>
-            <div className="status-label">Pending Team Leader</div>
+      {/* Status Summary */}
+      <div className="status-summary">
+        <div className="summary-item pending">
+          <span className="summary-icon">⏱</span>
+          <div className="summary-content">
+            <span className="summary-number">{getPendingCount()}</span>
+            <span className="summary-label">Pending</span>
           </div>
         </div>
         
-        <div className="file-status-card pending-admin">
-          <div className="status-icon pending-admin-icon">AD</div>
-          <div className="status-info">
-            <div className="status-number">{files.filter(f => f.status === 'team_leader_approved').length}</div>
-            <div className="status-label">Pending Admin</div>
+        <div className="summary-item approved">
+          <span className="summary-icon">✓</span>
+          <div className="summary-content">
+            <span className="summary-number">{getApprovedCount()}</span>
+            <span className="summary-label">Approved</span>
           </div>
         </div>
         
-        <div className="file-status-card approved">
-          <div className="status-icon approved-icon">AP</div>
-          <div className="status-info">
-            <div className="status-number">{files.filter(f => f.status === 'final_approved').length}</div>
-            <div className="status-label">Approved Files</div>
+        <div className="summary-item rejected">
+          <span className="summary-icon">×</span>
+          <div className="summary-content">
+            <span className="summary-number">{getRejectedCount()}</span>
+            <span className="summary-label">Rejected</span>
           </div>
-        </div>
-        
-        <div className="file-status-card rejected">
-          <div className="status-icon rejected-icon">RE</div>
-          <div className="status-info">
-            <div className="status-number">{files.filter(f => f.status === 'rejected_by_team_leader' || f.status === 'rejected_by_admin').length}</div>
-            <div className="status-label">Rejected Files</div>
-          </div>
-        </div>
-      </div>
-      
-      {/* Filter and Search Controls */}
-      <div className="file-controls">
-        <div className="file-search">
-          <input
-            type="text"
-            placeholder="Search files by name, user, or team..."
-            value={fileSearchQuery}
-            onChange={(e) => setFileSearchQuery(e.target.value)}
-            className="search-input"
-            ref={searchInputRef}
-          />
-          {fileSearchQuery && (
-            <button 
-              className="search-clear-btn"
-              onClick={() => setFileSearchQuery('')}
-              title="Clear search"
-            >
-              ×
-            </button>
-          )}
-        </div>
-        
-        <div className="file-filters">
-          <select
-            value={fileFilter}
-            onChange={(e) => setFileFilter(e.target.value)}
-            className="form-select"
-            ref={filterSelectRef}
-          >
-            <option value="all">All Files</option>
-            <option value="pending-team-leader">Pending Team Leader</option>
-            <option value="pending-admin">Pending Admin</option>
-            <option value="approved">Approved</option>
-            <option value="rejected">Rejected</option>
-          </select>
-          
-          <select
-            value={fileSortBy}
-            onChange={(e) => setFileSortBy(e.target.value)}
-            className="form-select"
-          >
-            <option value="date-desc">Latest First</option>
-            <option value="date-asc">Oldest First</option>
-            <option value="filename-asc">Filename A-Z</option>
-            <option value="filename-desc">Filename Z-A</option>
-            <option value="user-asc">User A-Z</option>
-            <option value="user-desc">User Z-A</option>
-          </select>
         </div>
       </div>
       
       {/* Files Table */}
-      <div className="table-section">
+      <div className="files-table-wrapper">
+        <div className="table-header-row">
+          <div className="col-filename">FILENAME</div>
+          <div className="col-submitted-by">SUBMITTED BY</div>
+          <div className="col-datetime">DATE & TIME</div>
+          <div className="col-team">TEAM</div>
+          <div className="col-status">STATUS</div>
+          <div className="col-actions">ACTIONS</div>
+        </div>
+        
         {isLoading ? (
           <div className="loading-state">
             <div className="spinner"></div>
             <p>Loading files...</p>
           </div>
-        ) : (
-          <div className="files-table-container">
-            <table className="files-table">
-              <thead>
-                <tr>
-                  <th>Filename</th>
-                  <th>Submitted By</th>
-                  <th>Date & Time</th>
-                  <th>Team</th>
-                  <th>Status</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {getCurrentPageFiles().map((file) => (
-                  <tr 
-                    key={file.id} 
-                    className="file-row"
-                    onClick={() => openFileModal(file)}
+        ) : getCurrentPageFiles().length > 0 ? (
+          <div className="table-body">
+            {getCurrentPageFiles().map((file) => (
+              <div key={file.id} className="table-row" onClick={() => openFileModal(file)}>
+                <div className="col-filename">
+                  <div className="file-icon">{getFileIcon(file.original_name)}</div>
+                  <div className="file-details">
+                    <div className="filename">{file.original_name}</div>
+                    <div className="filesize">{formatFileSize(file.file_size)}</div>
+                  </div>
+                </div>
+                
+                <div className="col-submitted-by">
+                  <div className="user-avatar">{file.username.charAt(0).toUpperCase()}</div>
+                  <div className="user-name">{file.username}</div>
+                </div>
+                
+                <div className="col-datetime">
+                  <div className="date">{new Date(file.uploaded_at).toLocaleDateString('en-US', {month: '2-digit', day: '2-digit', year: 'numeric'})}</div>
+                  <div className="time">{new Date(file.uploaded_at).toLocaleTimeString('en-US', {hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true})}</div>
+                </div>
+                
+                <div className="col-team">
+                  <span className="team-badge">{file.user_team}</span>
+                </div>
+                
+                <div className="col-status">
+                  <span className={`status-badge status-${mapFileStatus(file.status)}`}>
+                    {getStatusDisplayName(file.status)}
+                  </span>
+                </div>
+                
+                <div className="col-actions">
+                  <button 
+                    className="delete-btn"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      openDeleteModal(file)
+                    }}
                   >
-                    <td>
-                      <div className="file-cell">
-                        <div className="file-icon">{file.file_type.charAt(0)}</div>
-                        <div className="file-details">
-                          <span className="file-name">{file.original_name}</span>
-                          <span className="file-size">{formatFileSize(file.file_size)}</span>
-                        </div>
-                      </div>
-                    </td>
-                    <td>
-                      <div className="user-cell">
-                        <div className="user-avatar">{file.username.charAt(0).toUpperCase()}</div>
-                        <span className="user-name">{file.username}</span>
-                      </div>
-                    </td>
-                    <td>
-                      <div className="datetime-cell">
-                        <div className="date">{new Date(file.uploaded_at).toLocaleDateString()}</div>
-                        <div className="time">{new Date(file.uploaded_at).toLocaleTimeString()}</div>
-                      </div>
-                    </td>
-                    <td>
-                      <span className="team-badge">
-                        {file.user_team}
-                      </span>
-                    </td>
-                    <td>
-                      <span className={`status-badge status-${mapFileStatus(file.status)}`}>
-                        {getStatusDisplayName(file.status)}
-                      </span>
-                    </td>
-                    <td>
-                      <button 
-                        className="action-btn delete-btn"
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          openDeleteModal(file)
-                        }}
-                        title="Delete File"
-                      >
-                        Delete
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                    DELETE
+                  </button>
+                </div>
+              </div>
+            ))}
           </div>
-        )}
-        
-        {!isLoading && filteredFiles.length === 0 && (
+        ) : (
           <div className="empty-state">
             <h3>No files found</h3>
             <p>No files match your current search and filter criteria.</p>
-          </div>
-        )}
-        
-        {/* Pagination */}
-        {!isLoading && filteredFiles.length > 0 && (
-          <div className="pagination-section">
-            <div className="pagination-info">
-              Showing {((currentPage - 1) * filesPerPage) + 1} to {Math.min(currentPage * filesPerPage, filteredFiles.length)} of {filteredFiles.length} files
-            </div>
-            {getTotalPages() > 1 && (
-              <div className="pagination-controls">
-                <button 
-                  className="pagination-btn" 
-                  onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-                  disabled={currentPage === 1}
-                >
-                  ‹
-                </button>
-                {renderPaginationNumbers()}
-                <button 
-                  className="pagination-btn" 
-                  onClick={() => setCurrentPage(prev => Math.min(prev + 1, getTotalPages()))}
-                  disabled={currentPage === getTotalPages()}
-                >
-                  ›
-                </button>
-              </div>
-            )}
           </div>
         )}
       </div>
 
       {/* File Details Modal */}
       {showFileModal && selectedFile && (
-        <div className="modal-overlay">
+        <div className="modal-overlay" onClick={() => setShowFileModal(false)}>
           <div className="modal file-modal" onClick={e => e.stopPropagation()}>
             <div className="modal-header">
               <h3>File Details</h3>
               <button onClick={() => setShowFileModal(false)} className="modal-close">×</button>
             </div>
             <div className="modal-body">
-              {/* File Details Section */}
               <div className="file-details-section">
                 <h4 className="section-title">File Details</h4>
                 <div className="file-details-grid">
@@ -710,13 +527,11 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
                 </div>
               </div>
               
-              {/* Description Section */}
               <div className="description-section">
                 <h4 className="section-title">Description</h4>
                 <p className="description-text">{selectedFile.description || 'No description provided'}</p>
               </div>
               
-              {/* Comments Section */}
               <div className="comments-section">
                 <h4 className="section-title">Comments & History</h4>
                 {isLoadingComments ? (
@@ -757,14 +572,12 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
                 )}
               </div>
               
-              {/* Add Comment Section */}
               <div className="add-comment-section">
                 <h4 className="section-title">Add Comment</h4>
                 <div className="comment-input-container">
                   <textarea
                     value={fileComment}
                     onChange={(e) => setFileComment(e.target.value)}
-                    onKeyPress={handleCommentKeyPress}
                     placeholder="Add a comment for the user..."
                     className="comment-textarea"
                     rows="3"
@@ -777,44 +590,33 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
                     {isLoading ? 'Adding...' : 'Add Comment'}
                   </button>
                 </div>
-                <p className="help-text">This comment will be sent to the user. Press Enter to submit or Shift+Enter for new line.</p>
               </div>
               
-              {/* Actions Section - Moved to Last */}
               <div className="actions-section">
                 <h4 className="section-title">Actions</h4>
-                <div className="action-buttons-large">
+                <div className="action-buttons">
                   <button 
                     type="button" 
                     onClick={approveFile}
-                    className="btn btn-success-large" 
+                    className="btn btn-success" 
                     disabled={isLoading}
                   >
-                    <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-                      <path d="M16.875 5L7.5 14.375L3.125 10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                    </svg>
                     Approve File
                   </button>
                   <button 
                     type="button" 
                     onClick={rejectFile}
-                    className="btn btn-danger-large" 
+                    className="btn btn-danger" 
                     disabled={isLoading}
                   >
-                    <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-                      <path d="M15 5L5 15M5 5L15 15" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                    </svg>
                     Reject File
                   </button>
                   <a 
                     href={`http://localhost:3001/api/file-viewer/view/${selectedFile.file_path.replace('/uploads/', '')}`} 
                     target="_blank" 
                     rel="noopener noreferrer" 
-                    className="btn btn-secondary-large"
+                    className="btn btn-secondary"
                   >
-                    <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-                      <path d="M15 10.8333V15.8333C15 16.2754 14.8244 16.6993 14.5118 17.0118C14.1993 17.3244 13.7754 17.5 13.3333 17.5H4.16667C3.72464 17.5 3.30072 17.3244 2.98816 17.0118C2.67559 16.6993 2.5 16.2754 2.5 15.8333V6.66667C2.5 6.22464 2.67559 5.80072 2.98816 5.48816C3.30072 5.17559 3.72464 5 4.16667 5H9.16667M12.5 2.5H17.5M17.5 2.5V7.5M17.5 2.5L8.33333 11.6667" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                    </svg>
                     Open File
                   </a>
                 </div>
@@ -826,7 +628,7 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
 
       {/* Delete Confirmation Modal */}
       {showDeleteModal && fileToDelete && (
-        <div className="modal-overlay">
+        <div className="modal-overlay" onClick={() => setShowDeleteModal(false)}>
           <div className="modal delete-modal" onClick={e => e.stopPropagation()}>
             <div className="modal-header">
               <h3>Delete File</h3>

@@ -1,8 +1,9 @@
 import './css/DashboardTab.css';
+import './css/DashboardTab-NoAnimation.css';
 
 const DashboardTab = ({ user, files, setActiveTab }) => {
   return (
-    <div className="dashboard-grid">
+    <div className="dashboard-grid dashboard-no-animation">
       {/* Welcome Card */}
       <div className="dashboard-card welcome-card">
         <div className="card-header">

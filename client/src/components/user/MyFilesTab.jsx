@@ -228,6 +228,19 @@ const MyFilesTab = ({
     return { date: dateStr, time: timeStr };
   };
 
+  const getFileTypeClass = (fileName) => {
+    const ext = fileName.split('.').pop().toLowerCase();
+    
+    if (['pdf'].includes(ext)) return 'pdf-type';
+    if (['doc', 'docx', 'txt'].includes(ext)) return 'doc-type';
+    if (['xls', 'xlsx', 'csv'].includes(ext)) return 'xls-type';
+    if (['ppt', 'pptx'].includes(ext)) return 'ppt-type';
+    if (['zip', 'rar', 'tar', '7z'].includes(ext)) return 'zip-type';
+    if (['png', 'jpg', 'jpeg', 'gif', 'bmp'].includes(ext)) return 'img-type';
+    
+    return 'default-type';
+  };
+
   const submittedFiles = filteredFiles.filter(f => 
     f.status === 'final_approved' || f.status === 'uploaded' || f.status === 'team_leader_approved'
   );
@@ -236,155 +249,115 @@ const MyFilesTab = ({
   const approvedFiles = submittedFiles.filter(f => f.status === 'final_approved');
 
   return (
-    <div className="my-files-section">
-      {/* Header */}
-      <div className="files-header">
+    <div className="my-files-wrapper">
+      {/* Header - LEFT TOP */}
+      <div className="my-files-header-top">
         <div className="header-left">
-          <h2>My Files</h2>
-          <p>{submittedFiles.length} files • {formatFileSize(submittedFiles.reduce((total, file) => total + file.file_size, 0))} total</p>
+          <h1>My Files</h1>
+          <p className="header-subtitle">{submittedFiles.length} files • {formatFileSize(submittedFiles.reduce((total, file) => total + file.file_size, 0))} total</p>
         </div>
-        <div className="header-right">
-          <button 
-            className="upload-btn"
-            onClick={() => setShowUploadModal(true)}
-          >
-            <svg viewBox="0 0 24 24" fill="currentColor">
-              <path d="M9,16V10H5L12,3L19,10H15V16H9M5,20V18H19V20H5Z"/>
-            </svg>
-            Upload Files
-          </button>
-        </div>
+        <button 
+          className="upload-btn-new"
+          onClick={() => setShowUploadModal(true)}
+        >
+          ↓ Upload Files
+        </button>
       </div>
 
-      {/* Statistics Cards */}
-      <div className="approval-stats-grid">
-        <div className="stat-card pending">
-          <div className="status-icon pending-icon">⏱</div>
-          <div className="status-info">
-            <div className="status-number">{pendingFiles.length}</div>
-            <div className="status-label">Pending</div>
+      {/* Statistics Cards - BELOW */}
+      <div className="stats-row">
+          <div className="stat-box pending-box">
+            <div className="stat-icon pending-icon">⏱</div>
+            <div className="stat-text">
+              <div className="stat-number">{pendingFiles.length}</div>
+              <div className="stat-name">Pending</div>
+            </div>
           </div>
-        </div>
-        
-        <div className="stat-card approved">
-          <div className="status-icon approved-icon">✓</div>
-          <div className="status-info">
-            <div className="status-number">{approvedFiles.length}</div>
-            <div className="status-label">Approved</div>
+          
+          <div className="stat-box approved-box">
+            <div className="stat-icon approved-icon">✓</div>
+            <div className="stat-text">
+              <div className="stat-number">{approvedFiles.length}</div>
+              <div className="stat-name">Approved</div>
+            </div>
           </div>
-        </div>
       </div>
 
       {/* Files Table */}
-      <div className="table-container">
+      <div className="files-table-wrapper">
         {isLoading ? (
           <div className="loading-state">
             <div className="spinner"></div>
             <p>Loading your files...</p>
           </div>
         ) : submittedFiles.length > 0 ? (
-          <>
-            <table className="files-table">
-              <thead>
-                <tr>
-                  <th>Filename</th>
-                  <th>Submitted By</th>
-                  <th>Date & Time</th>
-                  <th>Team</th>
-                  <th>Status</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {submittedFiles.map((file) => {
-                  const { date, time } = formatDateTime(file.uploaded_at);
-                  return (
-                    <tr 
-                      key={file.id} 
-                      className="file-row" 
-                      onClick={() => openFileDetails(file)}
-                      title="Click to view details and comments"
-                    >
-                      <td>
-                        <div className="file-cell">
-                          <div className="file-icon">
-                            {file.file_type.substring(0, 3).toUpperCase()}
-                          </div>
-                          <div className="file-info">
-                            <div className="file-name">{file.original_name}</div>
-                            <div className="file-size">{formatFileSize(file.file_size)}</div>
-                          </div>
-                        </div>
-                      </td>
-                      <td>
-                        <div className="user-cell">
-                          <div className="user-avatar">
-                            {file.username.charAt(0).toUpperCase()}
-                          </div>
-                          <span className="user-name">{file.username}</span>
-                        </div>
-                      </td>
-                      <td>
-                        <div className="datetime-cell">
-                          <div className="date">{date}</div>
-                          <div className="time">{time}</div>
-                        </div>
-                      </td>
-                      <td>
-                        <span className="team-badge">{file.user_team}</span>
-                      </td>
-                      <td>
-                        <span className={`status-badge ${getStatusClass(file.status)}`}>
-                          {getStatusDisplayName(file.status)}
-                        </span>
-                      </td>
-                      <td>
-                        <button 
-                          className="action-btn open-btn"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            openFile(file);
-                          }}
-                        >
-                          OPEN
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-
-            <div className="table-footer">
-              <p>Showing 1 to {submittedFiles.length} of {submittedFiles.length} files</p>
+          <div className="files-list">
+            <div className="table-header">
+              <div className="col-filename">FILENAME</div>
+              <div className="col-datetime">DATE & TIME</div>
+              <div className="col-team">TEAM</div>
+              <div className="col-status">STATUS</div>
+              <div className="col-actions">ACTIONS</div>
             </div>
-          </>
+            {submittedFiles.map((file) => {
+              const { date, time } = formatDateTime(file.uploaded_at);
+              return (
+                <div key={file.id} className="file-row-new">
+                  <div className="col-filename">
+                    <div className={`file-icon-box ${getFileTypeClass(file.original_name)}`}>{file.file_type.substring(0, 3).toUpperCase()}</div>
+                    <div className="file-text">
+                      <div className="filename">{file.original_name}</div>
+                      <div className="filesize">{formatFileSize(file.file_size)}</div>
+                      <div className="datetime-mobile">
+                        <div className="date-label">{date}</div>
+                        <div className="time-label">{time}</div>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="col-datetime">
+                    <div className="date-label">{date}</div>
+                    <div className="time-label">{time}</div>
+                  </div>
+                  <div className="col-team">
+                    <span className="team-text">{file.user_team}</span>
+                  </div>
+                  <div className="col-status">
+                    <span className={`status-tag ${getStatusClass(file.status)}`}>
+                      {getStatusDisplayName(file.status)}
+                    </span>
+                  </div>
+                  <div className="col-actions">
+                    <button 
+                      className="open-file-btn"
+                      onClick={() => openFile(file)}
+                    >
+                      OPEN
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         ) : (
           <div className="empty-state">
-            <div className="empty-content">
-              <div className="empty-icon">📋</div>
-              <h3>No files found</h3>
-              <p>
-                {files.length === 0 
-                  ? "Ready to upload your first file? Click the button above to get started." 
-                  : "No files match your current search criteria."}
-              </p>
-            </div>
+            <div className="empty-icon">📋</div>
+            <h3>No files found</h3>
+            <p>
+              {files.length === 0 
+                ? "Ready to upload your first file? Click the button above to get started." 
+                : "No files match your current search criteria."}
+            </p>
           </div>
         )}
       </div>
 
       {/* Upload Modal */}
       {showUploadModal && (
-        <div className="upload-modal-overlay" onClick={closeUploadModal}>
-          <div className="upload-modal" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-overlay" onClick={closeUploadModal}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h3>Upload File for Approval</h3>
-              <button className="modal-close" onClick={closeUploadModal}>
-                <svg viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M19,6.41L17.59,5L12,10.59L6.41,5L5,6.41L10.59,12L5,17.59L6.41,19L12,13.41L17.59,19L19,17.59L13.41,12L19,6.41Z"/>
-                </svg>
-              </button>
+              <button className="modal-close" onClick={closeUploadModal}>×</button>
             </div>
             
             <form onSubmit={handleFileUpload} className="upload-form">
@@ -436,21 +409,13 @@ const MyFilesTab = ({
                   onChange={setSelectedTag}
                   disabled={isUploading}
                 />
-                {selectedTag && (
-                  <div className="tags-info">
-                    <svg viewBox="0 0 24 24" fill="currentColor" className="info-icon">
-                      <path d="M13,9H11V7H13M13,17H11V11H13M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2Z"/>
-                    </svg>
-                    <span>1 tag selected</span>
-                  </div>
-                )}
               </div>
 
               <div className="modal-actions">
                 <button
                   type="button"
                   onClick={closeUploadModal}
-                  className="btn secondary"
+                  className="btn btn-cancel"
                   disabled={isUploading}
                 >
                   Cancel
@@ -458,7 +423,7 @@ const MyFilesTab = ({
                 <button
                   type="submit"
                   disabled={!uploadedFile || isUploading}
-                  className={`btn primary ${isUploading ? 'loading' : ''}`}
+                  className="btn btn-submit"
                 >
                   {isUploading ? 'Uploading...' : 'Submit for Approval'}
                 </button>
@@ -468,185 +433,48 @@ const MyFilesTab = ({
         </div>
       )}
 
-      {/* Duplicate File Modal */}
-      {showDuplicateModal && duplicateFileInfo && (
-        <div className="upload-modal-overlay" onClick={() => setShowDuplicateModal(false)}>
-          <div className="duplicate-modal" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
-              <h3>File Already Exists</h3>
-              <button className="modal-close" onClick={() => setShowDuplicateModal(false)}>
-                <svg viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M19,6.41L17.59,5L12,10.59L6.41,5L5,6.41L10.59,12L5,17.59L6.41,19L12,13.41L17.59,19L19,17.59L13.41,12L19,6.41Z"/>
-                </svg>
-              </button>
-            </div>
-            
-            <div className="duplicate-content">
-              <div className="warning-section">
-                <div className="warning-icon">⚠️</div>
-                <p className="warning-text">
-                  A file with this name already exists in your account. What would you like to do?
-                </p>
-              </div>
-              
-              <div className="file-comparison">
-                <div className="file-info existing">
-                  <div className="file-header">
-                    <div className="file-icon existing-icon">
-                      {duplicateFileInfo.existingFile.original_name.split('.').pop().toUpperCase()}
-                    </div>
-                    <div>
-                      <h4>Existing File</h4>
-                      <p className="file-name">{duplicateFileInfo.existingFile.original_name}</p>
-                    </div>
-                  </div>
-                  <div className="file-details">
-                    <p><strong>Uploaded:</strong> {new Date(duplicateFileInfo.existingFile.uploaded_at).toLocaleDateString()}</p>
-                    <p><strong>Status:</strong> {duplicateFileInfo.existingFile.status}</p>
-                  </div>
-                </div>
-                
-                <div className="file-info new">
-                  <div className="file-header">
-                    <div className="file-icon new-icon">
-                      {duplicateFileInfo.newFile.name.split('.').pop().toUpperCase()}
-                    </div>
-                    <div>
-                      <h4>New File</h4>
-                      <p className="file-name">{duplicateFileInfo.newFile.name}</p>
-                    </div>
-                  </div>
-                  <div className="file-details">
-                    <p><strong>Size:</strong> {formatFileSize(duplicateFileInfo.newFile.size)}</p>
-                    <p><strong>Type:</strong> {duplicateFileInfo.newFile.type}</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-            
-            <div className="modal-actions duplicate-actions">
-              <button
-                type="button"
-                onClick={() => setShowDuplicateModal(false)}
-                className="btn secondary"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={handleKeepBoth}
-                className="btn secondary"
-              >
-                Keep Both (Rename)
-              </button>
-              <button
-                type="button"
-                onClick={handleReplaceFile}
-                className="btn danger"
-                disabled={isUploading}
-              >
-                {isUploading ? 'Replacing...' : 'Replace Existing File'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* File Details Modal */}
       {showFileDetailsModal && selectedFile && (
         <div className="modal-overlay" onClick={() => setShowFileDetailsModal(false)}>
-          <div className="modal file-details-modal" onClick={e => e.stopPropagation()}>
+          <div className="modal modal-large" onClick={e => e.stopPropagation()}>
             <div className="modal-header">
               <h3>File Details</h3>
               <button onClick={() => setShowFileDetailsModal(false)} className="modal-close">×</button>
             </div>
             <div className="modal-body">
-              <div className="file-details-section">
-                <div className="file-detail-row">
-                  <span className="detail-label">Filename:</span>
-                  <span className="detail-value">{selectedFile.original_name}</span>
+              <div className="details-section">
+                <div className="detail-row">
+                  <span className="detail-key">Filename:</span>
+                  <span className="detail-val">{selectedFile.original_name}</span>
                 </div>
-                <div className="file-detail-row">
-                  <span className="detail-label">File Type:</span>
-                  <span className="detail-value">{selectedFile.file_type}</span>
+                <div className="detail-row">
+                  <span className="detail-key">File Type:</span>
+                  <span className="detail-val">{selectedFile.file_type}</span>
                 </div>
-                <div className="file-detail-row">
-                  <span className="detail-label">File Size:</span>
-                  <span className="detail-value">{formatFileSize(selectedFile.file_size)}</span>
+                <div className="detail-row">
+                  <span className="detail-key">File Size:</span>
+                  <span className="detail-val">{formatFileSize(selectedFile.file_size)}</span>
                 </div>
-                <div className="file-detail-row">
-                  <span className="detail-label">Uploaded:</span>
-                  <span className="detail-value">{new Date(selectedFile.uploaded_at).toLocaleString()}</span>
+                <div className="detail-row">
+                  <span className="detail-key">Uploaded:</span>
+                  <span className="detail-val">{new Date(selectedFile.uploaded_at).toLocaleString()}</span>
                 </div>
-                <div className="file-detail-row">
-                  <span className="detail-label">Team:</span>
-                  <span className="detail-value team-badge">{selectedFile.user_team}</span>
+                <div className="detail-row">
+                  <span className="detail-key">Team:</span>
+                  <span className="detail-val">{selectedFile.user_team}</span>
                 </div>
-                <div className="file-detail-row">
-                  <span className="detail-label">Current Status:</span>
-                  <span className={`detail-value status-badge ${getStatusClass(selectedFile.status)}`}>
+                <div className="detail-row">
+                  <span className="detail-key">Status:</span>
+                  <span className={`detail-val status-tag ${getStatusClass(selectedFile.status)}`}>
                     {getStatusDisplayName(selectedFile.status)}
                   </span>
                 </div>
-                {selectedFile.description && (
-                  <div className="file-detail-row">
-                    <span className="detail-label">Description:</span>
-                    <span className="detail-value description-text">{selectedFile.description}</span>
-                  </div>
-                )}
               </div>
-              
-              {selectedFile.team_leader_reviewed_at && (
-                <div className="review-section">
-                  <h4>Team Leader Review</h4>
-                  <div className="review-info">
-                    <div className="review-detail">
-                      <span className="review-label">Reviewed by:</span>
-                      <span className="review-value">{selectedFile.team_leader_username}</span>
-                    </div>
-                    <div className="review-detail">
-                      <span className="review-label">Review Date:</span>
-                      <span className="review-value">{new Date(selectedFile.team_leader_reviewed_at).toLocaleString()}</span>
-                    </div>
-                    {selectedFile.team_leader_comments && (
-                      <div className="review-detail">
-                        <span className="review-label">Comments:</span>
-                        <span className="review-value">{selectedFile.team_leader_comments}</span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
-              
-              {selectedFile.admin_reviewed_at && (
-                <div className="review-section">
-                  <h4>Admin Review</h4>
-                  <div className="review-info">
-                    <div className="review-detail">
-                      <span className="review-label">Reviewed by:</span>
-                      <span className="review-value">{selectedFile.admin_username}</span>
-                    </div>
-                    <div className="review-detail">
-                      <span className="review-label">Review Date:</span>
-                      <span className="review-value">{new Date(selectedFile.admin_reviewed_at).toLocaleString()}</span>
-                    </div>
-                    {selectedFile.admin_comments && (
-                      <div className="review-detail">
-                        <span className="review-label">Comments:</span>
-                        <span className="review-value">{selectedFile.admin_comments}</span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
-              
+
               <div className="comments-section">
                 <h4>Review Comments</h4>
                 {loadingComments ? (
-                  <div style={{ textAlign: 'center', padding: '20px', color: '#6b7280' }}>
-                    <div className="spinner" style={{ margin: '0 auto' }}></div>
-                    <p>Loading comments...</p>
-                  </div>
+                  <div className="loading-comments">Loading comments...</div>
                 ) : fileComments && fileComments.length > 0 ? (
                   <div className="comments-list">
                     {fileComments.map((comment, index) => (
@@ -654,42 +482,20 @@ const MyFilesTab = ({
                         <div className="comment-header">
                           <span className="comment-author">{comment.username}</span>
                           <span className="comment-role">({comment.user_role})</span>
-                          <span className="comment-date">
-                            {new Date(comment.created_at).toLocaleString()}
-                          </span>
+                          <span className="comment-date">{new Date(comment.created_at).toLocaleString()}</span>
                         </div>
                         <div className="comment-text">{comment.comment}</div>
-                        {comment.comment_type && (
-                          <div className="comment-type-badge">{comment.comment_type}</div>
-                        )}
                       </div>
                     ))}
                   </div>
                 ) : (
-                  <p className="no-comments" style={{ fontStyle: 'italic', color: '#9ca3af', textAlign: 'center', padding: '20px' }}>
-                    No comments yet.
-                  </p>
+                  <p className="no-comments">No comments yet.</p>
                 )}
               </div>
             </div>
             <div className="modal-footer">
-              <button 
-                type="button" 
-                onClick={() => setShowFileDetailsModal(false)} 
-                className="btn btn-secondary"
-              >
-                Close
-              </button>
-              <button 
-                type="button" 
-                onClick={() => {
-                  setShowFileDetailsModal(false);
-                  openFile(selectedFile);
-                }}
-                className="btn btn-primary"
-              >
-                Open File
-              </button>
+              <button onClick={() => setShowFileDetailsModal(false)} className="btn btn-cancel">Close</button>
+              <button onClick={() => { setShowFileDetailsModal(false); openFile(selectedFile); }} className="btn btn-submit">Open File</button>
             </div>
           </div>
         </div>
