@@ -1,20 +1,8 @@
-/* ============================================================================
-   FILE APPROVAL - OPTIMIZED STYLES
-   - Reduced animation complexity
-   - Removed expensive backdrop-filter effects
-   - Simplified selectors for better performance
-   - Added loading skeletons
-   ============================================================================ */
-
 .file-approval-section {
   padding: 0;
   position: relative;
   margin-top: 30px;
 }
-
-/* ============================================================================
-   LOADING SKELETONS
-   ============================================================================ */
 
 @keyframes skeleton-loading {
   0% { background-position: -200px 0; }
@@ -56,10 +44,6 @@
   padding: 1rem;
   border-bottom: 1px solid var(--border-light);
 }
-
-/* ============================================================================
-   MESSAGES - Simplified animations
-   ============================================================================ */
 
 .file-approval-section .alert {
   position: fixed;
@@ -106,10 +90,6 @@
   padding: 0;
   margin-left: 0.5rem;
 }
-
-/* ============================================================================
-   STATUS CARDS - Simplified, no hover effects
-   ============================================================================ */
 
 .file-approval-section .file-status-cards {
   display: flex;
@@ -172,10 +152,6 @@
   font-size: 0.85rem;
   color: var(--text-secondary);
 }
-
-/* ============================================================================
-   FILE CONTROLS
-   ============================================================================ */
 
 .file-approval-section .file-controls {
   display: flex;
@@ -247,10 +223,6 @@
   cursor: pointer;
 }
 
-/* ============================================================================
-   TABLE SECTION - Optimized for performance
-   ============================================================================ */
-
 .file-approval-section .table-section {
   background: var(--background-secondary);
   border: 1px solid var(--border-color);
@@ -283,7 +255,6 @@
   vertical-align: middle;
 }
 
-/* Optimized hover effect - uses will-change for better performance */
 .file-approval-section .file-row {
   cursor: pointer;
   will-change: background-color;
@@ -408,10 +379,6 @@
   background: #dc2626;
 }
 
-/* ============================================================================
-   LOADING AND EMPTY STATES
-   ============================================================================ */
-
 .file-approval-section .loading-state, 
 .file-approval-section .empty-state {
   padding: 3rem;
@@ -437,10 +404,6 @@
   color: var(--text-primary);
   margin-bottom: 0.5rem;
 }
-
-/* ============================================================================
-   BUTTONS - Simplified transitions
-   ============================================================================ */
 
 .file-approval-section .btn {
   padding: 0.75rem 1.5rem;
@@ -488,10 +451,6 @@
 .file-approval-section .btn-danger:hover:not(:disabled) {
   background: #dc2626;
 }
-
-/* ============================================================================
-   MODAL STYLES - Removed backdrop-filter for performance
-   ============================================================================ */
 
 .file-approval-section .modal-overlay {
   position: fixed;
@@ -574,10 +533,6 @@
   -ms-overflow-style: none;
 }
 
-/* ============================================================================
-   FILE DETAILS SECTION
-   ============================================================================ */
-
 .file-approval-section .file-details-section {
   background: #F9FAFB;
   border-radius: 12px;
@@ -635,10 +590,6 @@
   text-align: center;
 }
 
-/* ============================================================================
-   DESCRIPTION SECTION
-   ============================================================================ */
-
 .file-approval-section .description-section {
   background: #F9FAFB;
   border-radius: 12px;
@@ -654,10 +605,6 @@
   margin: 0;
   white-space: pre-wrap;
 }
-
-/* ============================================================================
-   COMMENTS SECTION
-   ============================================================================ */
 
 .file-approval-section .comments-section {
   background: #F9FAFB;
@@ -766,10 +713,6 @@
   animation: spin 0.8s linear infinite;
 }
 
-/* ============================================================================
-   ADD COMMENT SECTION
-   ============================================================================ */
-
 .file-approval-section .add-comment-section {
   background: #F9FAFB;
   border-radius: 12px;
@@ -830,10 +773,6 @@
   margin: 0;
 }
 
-/* ============================================================================
-   ACTIONS SECTION
-   ============================================================================ */
-
 .file-approval-section .actions-section {
   background: #F9FAFB;
   border-radius: 12px;
@@ -892,10 +831,6 @@
   background: #E5E7EB;
 }
 
-/* ============================================================================
-   PAGINATION - Optimized
-   ============================================================================ */
-
 .file-approval-section .pagination-section {
   padding: 1.5rem;
   border-top: 1px solid var(--border-color);
@@ -936,12 +871,13 @@
 .file-approval-section .pagination-btn:hover:not(:disabled) {
   background: var(--background-hover);
   border-color: var(--primary-color);
+  color: #3b82f6;
 }
 
 .file-approval-section .pagination-btn.active {
-  background: var(--primary-color);
+  background: #3b82f6;
   color: white;
-  border-color: var(--primary-color);
+  border-color: #3b82f6;
 }
 
 .file-approval-section .pagination-btn:disabled {
@@ -954,10 +890,6 @@
   color: var(--text-secondary);
   font-size: 0.9rem;
 }
-
-/* ============================================================================
-   RESPONSIVE DESIGN
-   ============================================================================ */
 
 @media (max-width: 768px) {
   .file-approval-section .file-controls {
@@ -1043,10 +975,6 @@
     font-size: 0.85rem;
   }
 }
-
-/* ============================================================================
-   ERROR BOUNDARY
-   ============================================================================ */
 
 .file-approval-section.error-boundary {
   padding: 2rem;

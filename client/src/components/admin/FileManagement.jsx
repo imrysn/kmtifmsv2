@@ -186,30 +186,69 @@ const FileManagement = ({ clearMessages, error, success, setError, setSuccess })
     }
   }
 
-  const handleItemOpen = async (item) => { // Make the function async
+  const handleItemOpen = async (item) => {
     if (item.type === 'folder') {
       // Open folder
       navigateToPath(item.path)
     } else {
-      // Open file
-      const fileUrl = `${API_BASE}/api/file-system/file?path=${encodeURIComponent(item.path)}`
-
-      setIsComponentLoading(true); // Set component-wide loading state
-      setSuccess(`Opening ${item.displayName}`) // Show initial message
+      // Open file - prioritize desktop app, fallback to browser
+      setIsComponentLoading(true);
+      setSuccess(`Opening ${item.displayName}...`)
 
       try {
-        // Wait for 1.5 seconds before proceeding
-        await new Promise(resolve => setTimeout(resolve, 1500));
+        // Small delay for UI feedback
+        await new Promise(resolve => setTimeout(resolve, 300));
 
-        // After delay, open the file in a new tab
-        window.open(fileUrl, '_blank');
-        console.log('Successfully opened file:', item);
+        // Check if running in Electron
+        const isElectron = window.electron && window.electron.openFileInApp;
+        
+        if (isElectron) {
+          console.log('💻 Running in Electron - using Windows default application');
+          
+          // Get full file path from server
+          const pathResponse = await fetch(
+            `${API_BASE}/api/file-system/filepath?path=${encodeURIComponent(item.path)}`
+          );
+          const pathData = await pathResponse.json();
+          
+          if (!pathData.success) {
+            throw new Error(pathData.message || 'Failed to get file path');
+          }
+          
+          console.log('📂 Full path:', pathData.fullPath);
+          console.log('📄 File type:', pathData.fileType);
+          
+          // Open with Electron using Windows default file association
+          // This will use whatever app is set as default in Windows for this file type
+          const result = await window.electron.openFileInApp(pathData.fullPath);
+          
+          if (result.success) {
+            console.log('✅ Opened with Windows default application');
+            setSuccess(`Opened ${item.displayName}`);
+          } else {
+            throw new Error(result.error || 'Failed to open file');
+          }
+        } else {
+          console.log('🌐 Running in browser - opening in new tab');
+          
+          // Fallback to browser viewing
+          const fileUrl = `${API_BASE}/api/file-system/file?path=${encodeURIComponent(item.path)}`;
+          const newWindow = window.open(fileUrl, '_blank');
+          
+          if (!newWindow) {
+            throw new Error('Pop-up blocked. Please allow pop-ups for this site.');
+          }
+          
+          newWindow.focus();
+          console.log('✅ Opened in browser tab');
+          setSuccess(`Opened ${item.displayName} in browser`);
+        }
 
-      } catch (fetchError) {
-        console.error('Error opening file:', fetchError);
-        setError(`Error opening file: ${fetchError.message || 'An unexpected error occurred'}`);
+      } catch (error) {
+        console.error('❌ Error opening file:', error);
+        setError(`Error opening file: ${error.message || 'Failed to open file'}`);
       } finally {
-        setIsComponentLoading(false); // Clear loading state regardless of success or failure
+        setIsComponentLoading(false);
       }
     }
   };

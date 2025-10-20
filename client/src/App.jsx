@@ -8,40 +8,109 @@ const UserDashboard = lazy(() => import('./pages/UserDashboard-Enhanced'))
 const TeamLeaderDashboard = lazy(() => import('./pages/TeamLeaderDashboard-Enhanced'))
 const AdminDashboard = lazy(() => import('./pages/AdminDashboard'))
 
-// Loading component
+// Skeleton Loading component (Facebook-style)
 const LoadingFallback = () => (
   <div style={{ 
-    display: 'flex', 
-    justifyContent: 'center', 
-    alignItems: 'center', 
-    height: '100vh',
-    fontSize: '18px',
-    color: '#666'
+    padding: '20px',
+    maxWidth: '1200px',
+    margin: '0 auto'
   }}>
-    <div>
-      <div style={{ marginBottom: '16px', textAlign: 'center' }}>⚡</div>
-      <div>Loading...</div>
+    {/* Header Skeleton */}
+    <div style={{
+      height: '60px',
+      background: 'linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%)',
+      backgroundSize: '200% 100%',
+      animation: 'loading 1.5s ease-in-out infinite',
+      borderRadius: '8px',
+      marginBottom: '20px'
+    }} />
+    
+    {/* Content Area Skeleton */}
+    <div style={{ display: 'flex', gap: '20px' }}>
+      {/* Sidebar Skeleton */}
+      <div style={{ flex: '0 0 250px' }}>
+        {[1, 2, 3, 4, 5].map(i => (
+          <div key={i} style={{
+            height: '40px',
+            background: 'linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%)',
+            backgroundSize: '200% 100%',
+            animation: 'loading 1.5s ease-in-out infinite',
+            borderRadius: '8px',
+            marginBottom: '10px'
+          }} />
+        ))}
+      </div>
+      
+      {/* Main Content Skeleton */}
+      <div style={{ flex: '1' }}>
+        {[1, 2, 3].map(i => (
+          <div key={i} style={{
+            background: '#fff',
+            borderRadius: '12px',
+            padding: '20px',
+            marginBottom: '20px',
+            border: '1px solid #e0e0e0'
+          }}>
+            {/* Title */}
+            <div style={{
+              height: '24px',
+              width: '60%',
+              background: 'linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%)',
+              backgroundSize: '200% 100%',
+              animation: 'loading 1.5s ease-in-out infinite',
+              borderRadius: '4px',
+              marginBottom: '12px'
+            }} />
+            {/* Content lines */}
+            <div style={{
+              height: '16px',
+              width: '100%',
+              background: 'linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%)',
+              backgroundSize: '200% 100%',
+              animation: 'loading 1.5s ease-in-out infinite',
+              borderRadius: '4px',
+              marginBottom: '8px'
+            }} />
+            <div style={{
+              height: '16px',
+              width: '80%',
+              background: 'linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%)',
+              backgroundSize: '200% 100%',
+              animation: 'loading 1.5s ease-in-out infinite',
+              borderRadius: '4px'
+            }} />
+          </div>
+        ))}
+      </div>
     </div>
+    
+    <style>{`
+      @keyframes loading {
+        0% {
+          background-position: 200% 0;
+        }
+        100% {
+          background-position: -200% 0;
+        }
+      }
+    `}</style>
   </div>
 )
 
 function App() {
-  const [user, setUser] = useState(null)
-  const [isLoading, setIsLoading] = useState(true)
-
-  // Check authentication status on app load
-  useEffect(() => {
+  const [user, setUser] = useState(() => {
     const savedUser = localStorage.getItem('user')
     if (savedUser) {
       try {
-        setUser(JSON.parse(savedUser))
+        return JSON.parse(savedUser)
       } catch (error) {
         console.error('Error parsing saved user:', error)
         localStorage.removeItem('user')
+        return null
       }
     }
-    setIsLoading(false)
-  }, [])
+    return null
+  })
 
   // Handle login
   const handleLogin = (userData) => {
@@ -75,22 +144,6 @@ function App() {
         console.error('Unknown panel type:', user.panelType)
         return <UserDashboard user={user} onLogout={handleLogout} />
     }
-  }
-
-  if (isLoading) {
-    return (
-      <div className="app">
-        <div style={{ 
-          display: 'flex', 
-          justifyContent: 'center', 
-          alignItems: 'center', 
-          height: '100vh',
-          fontSize: '18px'
-        }}>
-          Loading...
-        </div>
-      </div>
-    )
   }
 
   return (

@@ -1,6 +1,7 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, Suspense } from 'react'
 import anime from 'animejs'
 import '../css/AdminDashboard.css'
+import SkeletonLoader from '../components/common/SkeletonLoader'
 
 // Import admin tab components
 import {
@@ -103,7 +104,8 @@ const AdminDashboard = ({ user, onLogout }) => {
   }
 
   return (
-    <div className="minimal-admin-dashboard">
+    <Suspense fallback={<SkeletonLoader type="admin" />}>
+      <div className="minimal-admin-dashboard">
       {/* Sidebar */}
       <div className="admin-sidebar" ref={sidebarRef}>
         <div className="sidebar-header">
@@ -167,7 +169,8 @@ const AdminDashboard = ({ user, onLogout }) => {
           {renderActiveTab()}
         </div>
       </div>
-    </div>
+      </div>
+    </Suspense>
   )
 }
 
