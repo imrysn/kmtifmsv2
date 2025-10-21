@@ -1003,7 +1003,7 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
         isOpen={showDeleteModal && fileToDelete}
         onClose={() => setShowDeleteModal(false)}
         onConfirm={deleteFile}
-        title="Delete File"
+        title="Deleting File"
         message="Are you sure you want to delete this file?"
         confirmText="Delete File"
         variant="danger"
