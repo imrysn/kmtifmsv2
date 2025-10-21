@@ -1,7 +1,7 @@
-/* File Modal Component Styles */
+/* File Modal Component Styles - Scoped */
 @import './variables.css';
 
-.modal-overlay {
+.user-file-modal-component.modal-overlay {
   position: fixed;
   top: 0;
   left: 0;
@@ -17,7 +17,7 @@
   padding: var(--spacing-lg);
 }
 
-.modal {
+.user-file-modal-component .modal {
   background: var(--macos-card-bg);
   backdrop-filter: var(--macos-blur);
   -webkit-backdrop-filter: var(--macos-blur);
@@ -30,7 +30,7 @@
   border: var(--macos-border);
 }
 
-.modal-header {
+.user-file-modal-component .modal-header {
   padding: var(--spacing-lg) var(--spacing-xl);
   border-bottom: 1px solid var(--macos-gray5);
   display: flex;
@@ -38,14 +38,14 @@
   align-items: center;
 }
 
-.modal-header h3 {
+.user-file-modal-component .modal-header h3 {
   color: #1D1D1F;
   font-size: 18px;
   font-weight: 600;
   margin: 0;
 }
 
-.modal-close {
+.user-file-modal-component .modal-close {
   background: none;
   border: none;
   font-size: 20px;
@@ -56,15 +56,15 @@
   transition: all 0.2s ease;
 }
 
-.modal-close:hover {
+.user-file-modal-component .modal-close:hover {
   background: var(--macos-gray5);
 }
 
-.modal-body {
+.user-file-modal-component .modal-body {
   padding: var(--spacing-xl);
 }
 
-.modal-footer {
+.user-file-modal-component .modal-footer {
   padding: var(--spacing-lg) var(--spacing-xl);
   border-top: 1px solid var(--macos-gray5);
   display: flex;
@@ -72,13 +72,13 @@
 }
 
 /* File Details */
-.file-details-section {
+.user-file-modal-component .file-details-section {
   display: flex;
   flex-direction: column;
   gap: var(--spacing-md);
 }
 
-.file-detail-row {
+.user-file-modal-component .file-detail-row {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
@@ -86,11 +86,11 @@
   border-bottom: 1px solid var(--macos-gray6);
 }
 
-.file-detail-row:last-child {
+.user-file-modal-component .file-detail-row:last-child {
   border-bottom: none;
 }
 
-.detail-label {
+.user-file-modal-component .detail-label {
   color: var(--macos-gray);
   font-size: 12px;
   font-weight: 500;
@@ -100,7 +100,7 @@
   width: 120px;
 }
 
-.detail-value {
+.user-file-modal-component .detail-value {
   color: #1D1D1F;
   font-size: 14px;
   font-weight: 500;
@@ -108,13 +108,13 @@
   text-align: right;
 }
 
-.description-text {
+.user-file-modal-component .description-text {
   text-align: right;
   line-height: 1.5;
   word-break: break-word;
 }
 
-.category-badge {
+.user-file-modal-component .category-badge {
   display: inline-block;
   padding: 4px 12px;
   background: rgba(0, 122, 255, 0.1);
@@ -125,14 +125,14 @@
   font-weight: 500;
 }
 
-.tags-display {
+.user-file-modal-component .tags-display {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
   justify-content: flex-end;
 }
 
-.tag-badge {
+.user-file-modal-component .tag-badge {
   display: inline-block;
   padding: 4px 10px;
   background: rgba(52, 199, 89, 0.1);
@@ -143,19 +143,19 @@
   font-weight: 500;
 }
 
-.status-container {
+.user-file-modal-component .status-container {
   display: flex;
   flex-direction: column;
   align-items: flex-end;
   gap: var(--spacing-xs);
 }
 
-.stage-text {
+.user-file-modal-component .stage-text {
   font-size: 12px;
   color: var(--macos-gray);
 }
 
-.status-badge {
+.user-file-modal-component .status-badge {
   font-size: 11px;
   font-weight: 600;
   padding: 4px 8px;
@@ -166,30 +166,30 @@
   max-width: fit-content;
 }
 
-.status-uploaded {
+.user-file-modal-component .status-uploaded {
   background: rgba(142, 142, 147, 0.1);
   color: var(--macos-gray);
 }
 
-.status-pending {
+.user-file-modal-component .status-pending {
   background: rgba(255, 149, 0, 0.1);
   color: var(--macos-orange);
 }
 
-.status-approved {
+.user-file-modal-component .status-approved {
   background: rgba(52, 199, 89, 0.1);
   color: var(--macos-green);
 }
 
-.status-rejected {
+.user-file-modal-component .status-rejected {
   background: rgba(255, 59, 48, 0.1);
   color: var(--macos-red);
 }
 
 /* Review Sections */
-.review-section,
-.public-network-section,
-.rejection-section {
+.user-file-modal-component .review-section,
+.user-file-modal-component .public-network-section,
+.user-file-modal-component .rejection-section {
   margin-top: var(--spacing-lg);
   padding: var(--spacing-lg);
   background: rgba(255, 255, 255, 0.3);
@@ -197,60 +197,60 @@
   border: 1px solid rgba(255, 255, 255, 0.2);
 }
 
-.review-section h4,
-.public-network-section h4,
-.rejection-section h4 {
+.user-file-modal-component .review-section h4,
+.user-file-modal-component .public-network-section h4,
+.user-file-modal-component .rejection-section h4 {
   color: #1D1D1F;
   font-size: 16px;
   font-weight: 600;
   margin: 0 0 var(--spacing-md) 0;
 }
 
-.review-info,
-.public-info,
-.rejection-info {
+.user-file-modal-component .review-info,
+.user-file-modal-component .public-info,
+.user-file-modal-component .rejection-info {
   display: flex;
   flex-direction: column;
   gap: var(--spacing-sm);
 }
 
-.review-detail,
-.public-detail,
-.rejection-detail {
+.user-file-modal-component .review-detail,
+.user-file-modal-component .public-detail,
+.user-file-modal-component .rejection-detail {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
   font-size: 13px;
 }
 
-.review-label,
-.public-label,
-.rejection-label {
+.user-file-modal-component .review-label,
+.user-file-modal-component .public-label,
+.user-file-modal-component .rejection-label {
   color: var(--macos-gray);
   font-weight: 500;
   flex-shrink: 0;
   width: 100px;
 }
 
-.review-value,
-.public-value,
-.rejection-value {
+.user-file-modal-component .review-value,
+.user-file-modal-component .public-value,
+.user-file-modal-component .rejection-value {
   color: #1D1D1F;
   font-weight: 500;
   flex: 1;
   text-align: right;
 }
 
-.public-link {
+.user-file-modal-component .public-link {
   color: var(--user-accent);
   text-decoration: none;
 }
 
-.public-link:hover {
+.user-file-modal-component .public-link:hover {
   text-decoration: underline;
 }
 
-.rejection-reason {
+.user-file-modal-component .rejection-reason {
   background: rgba(255, 59, 48, 0.1);
   padding: var(--spacing-sm);
   border-radius: var(--radius-sm);
@@ -259,7 +259,7 @@
 }
 
 /* Comments Section */
-.comments-section {
+.user-file-modal-component .comments-section {
   margin-top: var(--spacing-lg);
   padding: var(--spacing-lg);
   background: rgba(255, 255, 255, 0.3);
@@ -267,27 +267,27 @@
   border: 1px solid rgba(255, 255, 255, 0.2);
 }
 
-.comments-section h4 {
+.user-file-modal-component .comments-section h4 {
   color: #1D1D1F;
   font-size: 16px;
   font-weight: 600;
   margin: 0 0 var(--spacing-md) 0;
 }
 
-.comments-list {
+.user-file-modal-component .comments-list {
   display: flex;
   flex-direction: column;
   gap: var(--spacing-md);
 }
 
-.comment-item {
+.user-file-modal-component .comment-item {
   background: rgba(255, 255, 255, 0.4);
   padding: var(--spacing-md);
   border-radius: var(--radius-sm);
   border: 1px solid rgba(255, 255, 255, 0.2);
 }
 
-.comment-header {
+.user-file-modal-component .comment-header {
   display: flex;
   align-items: center;
   gap: var(--spacing-sm);
@@ -295,29 +295,29 @@
   font-size: 12px;
 }
 
-.comment-author {
+.user-file-modal-component .comment-author {
   color: #1D1D1F;
   font-weight: 600;
 }
 
-.comment-role {
+.user-file-modal-component .comment-role {
   color: var(--macos-gray);
   font-weight: 500;
 }
 
-.comment-date {
+.user-file-modal-component .comment-date {
   color: var(--macos-gray);
   font-weight: 400;
   margin-left: auto;
 }
 
-.comment-text {
+.user-file-modal-component .comment-text {
   color: #1D1D1F;
   font-size: 14px;
   line-height: 1.4;
 }
 
-.btn {
+.user-file-modal-component .btn {
   padding: var(--spacing-md) var(--spacing-lg);
   border-radius: var(--radius-md);
   font-size: 14px;
@@ -327,20 +327,20 @@
   border: none;
 }
 
-.btn-primary {
+.user-file-modal-component .btn-primary {
   background: var(--user-accent);
   color: white;
   box-shadow: 0 2px 8px rgba(0, 122, 255, 0.3);
 }
 
-.btn-primary:hover {
+.user-file-modal-component .btn-primary:hover {
   transform: translateY(-1px);
   box-shadow: 0 4px 12px rgba(0, 122, 255, 0.4);
 }
 
 /* Responsive Design */
 @media (max-width: 480px) {
-  .modal {
+  .user-file-modal-component .modal {
     margin: var(--spacing-md);
     max-width: none;
   }

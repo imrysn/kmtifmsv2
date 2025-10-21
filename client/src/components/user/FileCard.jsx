@@ -86,7 +86,7 @@ const FileCard = ({ file, formatFileSize, onFileClick }) => {
 
   return (
     <div 
-      className="file-card"
+      className="user-file-card-component file-card"
       onClick={() => onFileClick(file)}
     >
       <div className="file-card-horizontal">

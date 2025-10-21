@@ -20,6 +20,7 @@ const MyFilesTabTableView = ({
   const [uploadedFile, setUploadedFile] = useState(null);
   const [description, setDescription] = useState('');
   const [isUploading, setIsUploading] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(null);
   const fileInputRef = useRef(null);
 
   const handleFileSelect = (e) => {
@@ -95,6 +96,93 @@ const MyFilesTabTableView = ({
   const closeUploadModal = () => {
     setShowUploadModal(false);
     clearUploadForm();
+  };
+
+  // Handle file open
+  const handleOpenFile = async (file, e) => {
+    e.stopPropagation();
+    try {
+      // Construct the file URL
+      const fileUrl = `http://localhost:3001${file.file_path}`;
+      
+      // Open file in new tab
+      window.open(fileUrl, '_blank');
+      
+      console.log('✅ File opened:', file.original_name);
+    } catch (error) {
+      console.error('❌ Error opening file:', error);
+      alert('Failed to open file. Please try again.');
+    }
+  };
+
+  // Handle file delete
+  const handleDeleteFile = async (file, e) => {
+    e.stopPropagation();
+    
+    // Confirm deletion
+    const confirmDelete = window.confirm(
+      `Are you sure you want to delete "${file.original_name}"?\n\nThis action cannot be undone and will remove the file from both the database and the file system.`
+    );
+    
+    if (!confirmDelete) return;
+
+    setIsDeleting(file.id);
+    
+    try {
+      // First, delete the physical file from the server
+      const deleteFileResponse = await fetch(`http://localhost:3001/api/files/${file.id}/delete-file`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          adminId: user.id,
+          adminUsername: user.username,
+          adminRole: user.role,
+          team: user.team
+        })
+      });
+
+      const deleteFileData = await deleteFileResponse.json();
+
+      if (!deleteFileData.success) {
+        throw new Error(deleteFileData.message || 'Failed to delete physical file');
+      }
+
+      console.log('✅ Physical file deleted:', deleteFileData.message);
+
+      // Then, delete the database record
+      const deleteRecordResponse = await fetch(`http://localhost:3001/api/files/${file.id}`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          adminId: user.id,
+          adminUsername: user.username,
+          adminRole: user.role,
+          team: user.team
+        })
+      });
+
+      const deleteRecordData = await deleteRecordResponse.json();
+
+      if (deleteRecordData.success) {
+        alert(`File "${file.original_name}" deleted successfully!`);
+        
+        // Refresh the file list
+        fetchUserFiles();
+        
+        console.log('✅ File record deleted from database');
+      } else {
+        throw new Error(deleteRecordData.message || 'Failed to delete file record');
+      }
+    } catch (error) {
+      console.error('❌ Error deleting file:', error);
+      alert(`Failed to delete file: ${error.message}`);
+    } finally {
+      setIsDeleting(null);
+    }
   };
 
   // Helper functions
@@ -264,6 +352,15 @@ const MyFilesTabTableView = ({
                   <td className="col-actions">
                     <div className="action-buttons">
                       <button 
+                        className="action-btn open"
+                        onClick={(e) => handleOpenFile(file, e)}
+                        title="Open file"
+                      >
+                        <svg viewBox="0 0 24 24" fill="currentColor">
+                          <path d="M14,3V5H17.59L7.76,14.83L9.17,16.24L19,6.41V10H21V3M19,19H5V5H12V3H5C3.89,3 3,3.9 3,5V19A2,2 0 0,0 5,21H19A2,2 0 0,0 21,19V12H19V19Z"/>
+                        </svg>
+                      </button>
+                      <button 
                         className="action-btn view"
                         onClick={(e) => {
                           e.stopPropagation();
@@ -276,34 +373,22 @@ const MyFilesTabTableView = ({
                         </svg>
                       </button>
                       {(!file.status || (file.status !== 'final_approved' && !file.current_stage.includes('pending'))) && (
-                        <>
-                          <button 
-                            className="action-btn submit"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              console.log('Submit file:', file.id);
-                            }}
-                            title="Submit for approval"
-                          >
-                            <svg viewBox="0 0 24 24" fill="currentColor">
-                              <path d="M9,16V10H5L12,3L19,10H15V16H9M5,20V18H19V20H5Z"/>
+                        <button 
+                          className="action-btn delete"
+                          onClick={(e) => handleDeleteFile(file, e)}
+                          disabled={isDeleting === file.id}
+                          title="Delete file"
+                        >
+                          {isDeleting === file.id ? (
+                            <svg viewBox="0 0 24 24" fill="currentColor" className="spinning">
+                              <path d="M12,4V2A10,10 0 0,0 2,12H4A8,8 0 0,1 12,4Z"/>
                             </svg>
-                          </button>
-                          <button 
-                            className="action-btn delete"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              if (confirm(`Are you sure you want to delete "${file.original_name}"?`)) {
-                                console.log('Delete file:', file.id);
-                              }
-                            }}
-                            title="Delete file"
-                          >
+                          ) : (
                             <svg viewBox="0 0 24 24" fill="currentColor">
                               <path d="M19,4H15.5L14.5,3H9.5L8.5,4H5V6H19M6,19A2,2 0 0,0 8,21H16A2,2 0 0,0 18,19V7H6V19Z"/>
                             </svg>
-                          </button>
-                        </>
+                          )}
+                        </button>
                       )}
                     </div>
                   </td>

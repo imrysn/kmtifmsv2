@@ -140,7 +140,7 @@ const FileApprovalTabTable = ({
 
   if (isLoading) {
     return (
-      <div className="file-approvals-table-section">
+      <div className="user-file-approval-table-component file-approvals-table-section">
         <div className="loading-state">
           <div className="spinner"></div>
           <p>Loading your file approvals...</p>
@@ -150,7 +150,7 @@ const FileApprovalTabTable = ({
   }
 
   return (
-    <div className="file-approvals-table-section">
+    <div className="user-file-approval-table-component file-approvals-table-section">
       {/* Header */}
       <div className="files-header">
         <div className="header-left">

@@ -87,6 +87,11 @@
   color: #0f7f52;
 }
 
+.stat-icon.rejected-icon {
+  background: #f8d7da;
+  color: #721c24;
+}
+
 .stat-text {
   display: flex;
   flex-direction: column;
@@ -317,6 +322,37 @@
   border: 1px solid #f1aeb5;
 }
 
+/* Make file rows clickable */
+.file-row-new {
+  cursor: pointer;
+}
+
+.file-row-new:hover {
+  background: #f9f9fb;
+}
+
+/* Comment action badge */
+.comment-action {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 4px 8px;
+  border-radius: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  margin-left: 8px;
+}
+
+.comment-action.approve {
+  background: #c7f3e8;
+  color: #0f7f52;
+}
+
+.comment-action.reject {
+  background: #f8d7da;
+  color: #721c24;
+}
+
 /* File Type Icon Colors */
 .file-icon-box.pdf-type {
   background: linear-gradient(135deg, #ff3b30 0%, #ff453a 100%);
@@ -361,6 +397,76 @@
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+.actions-menu-container {
+  position: relative;
+}
+
+.menu-btn {
+  background: none;
+  border: none;
+  font-size: 20px;
+  cursor: pointer;
+  padding: 8px;
+  border-radius: 6px;
+  transition: all 0.2s;
+  color: #86868b;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+}
+
+.menu-btn:hover {
+  background: #f5f5f7;
+  color: #1d1d1f;
+}
+
+.actions-dropdown {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  background: white;
+  border: 1px solid #e5e5ea;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+  min-width: 120px;
+  z-index: 1000;
+  margin-top: 4px;
+  overflow: hidden;
+}
+
+.dropdown-item {
+  display: block;
+  width: 100%;
+  padding: 10px 16px;
+  border: none;
+  background: none;
+  text-align: left;
+  cursor: pointer;
+  font-size: 14px;
+  color: #1d1d1f;
+  transition: background 0.15s;
+}
+
+.dropdown-item:first-child {
+  border-top: none;
+}
+
+.dropdown-item:hover {
+  background: #f5f5f7;
+}
+
+.dropdown-item.delete-item:hover {
+  background: #fee2e2;
+  color: #dc2626;
+}
+
+.dropdown-item.open-item:hover {
+  background: #dbeafe;
+  color: #1e40af;
 }
 
 .open-file-btn {
@@ -436,6 +542,12 @@
   max-height: 90vh;
   overflow-y: auto;
   animation: modalFadeIn 0.3s ease-out;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.modal::-webkit-scrollbar {
+  display: none;
 }
 
 .modal-large {
@@ -486,6 +598,12 @@
   padding: 24px;
   max-height: calc(90vh - 140px);
   overflow-y: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.modal-body::-webkit-scrollbar {
+  display: none;
 }
 
 .upload-form {
@@ -688,6 +806,30 @@
   flex: 1;
 }
 
+.description-text {
+  white-space: pre-wrap;
+  word-break: break-word;
+  line-height: 1.5;
+  text-align: left;
+}
+
+.tags-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.tag-badge {
+  display: inline-block;
+  background: #5856d6;
+  color: white;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
 /* Comments Section */
 .comments-section {
   margin-top: 24px;
@@ -729,6 +871,7 @@
   margin-bottom: 8px;
   font-size: 13px;
   flex-wrap: wrap;
+  align-items: flex-start;
 }
 
 .comment-author {

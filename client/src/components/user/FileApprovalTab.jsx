@@ -125,7 +125,7 @@ const FileApprovalTab = ({
 
   if (isLoading) {
     return (
-      <div className="file-approvals-section">
+      <div className="user-file-approval-component file-approvals-section">
         <div className="loading-state">
           <div className="spinner"></div>
           <p>Loading your file approvals...</p>
@@ -135,7 +135,7 @@ const FileApprovalTab = ({
   }
 
   return (
-    <div className="file-approvals-section">
+    <div className="user-file-approval-component file-approvals-section">
       {/* Header */}
       <div className="files-header">
         <div className="header-left">

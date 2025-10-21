@@ -24,13 +24,53 @@ const UserDashboard = ({ user, onLogout }) => {
   const [showFileModal, setShowFileModal] = useState(false)
   const [fileComments, setFileComments] = useState([])
   const [filterStatus, setFilterStatus] = useState('all')
+  const [notificationCount, setNotificationCount] = useState(0)
   
   const dashboardRef = useRef(null)
   const headerRef = useRef(null)
 
+  const fetchUserFiles = async () => {
+    setIsLoading(true)
+    try {
+      const response = await fetch(`http://localhost:3001/api/files/user/${user.id}`)
+      const data = await response.json()
+      
+      if (data.success) {
+        setFiles(data.files || [])
+      } else {
+        setError('Failed to fetch your files')
+      }
+    } catch (error) {
+      console.error('Error fetching user files:', error)
+      setError('Failed to connect to server')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
   useEffect(() => {
-    // Animations removed for better UX
-  }, [activeTab]) // Re-run animation when tab changes
+    // Fetch notification count
+    const fetchNotificationCount = async () => {
+      try {
+        const response = await fetch(`http://localhost:3001/api/notifications/user/${user.id}`)
+        const data = await response.json()
+        if (data.success) {
+          setNotificationCount(data.unreadCount || 0)
+        }
+      } catch (error) {
+        console.error('Error fetching notification count:', error)
+      }
+    }
+
+    fetchNotificationCount()
+    const interval = setInterval(fetchNotificationCount, 5000)
+    return () => clearInterval(interval)
+  }, [user.id])
+
+  useEffect(() => {
+    // Fetch files on component mount
+    fetchUserFiles()
+  }, [user.id])
 
   useEffect(() => {
     if (activeTab === 'my-files' || activeTab === 'file-approvals') {
@@ -66,25 +106,6 @@ const UserDashboard = ({ user, onLogout }) => {
     setFilteredFiles(filtered)
   }
 
-  const fetchUserFiles = async () => {
-    setIsLoading(true)
-    try {
-      const response = await fetch(`http://localhost:3001/api/files/user/${user.id}`)
-      const data = await response.json()
-      
-      if (data.success) {
-        setFiles(data.files || [])
-      } else {
-        setError('Failed to fetch your files')
-      }
-    } catch (error) {
-      console.error('Error fetching user files:', error)
-      setError('Failed to connect to server')
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
   const openFileModal = async (file) => {
     setSelectedFile(file)
     setShowFileModal(true)
@@ -111,8 +132,8 @@ const UserDashboard = ({ user, onLogout }) => {
       if (data.success && data.files) {
         const file = data.files.find(f => f.id === fileId)
         if (file) {
-          // Switch to file approvals tab
-          setActiveTab('file-approvals')
+          // Switch to My Files tab instead of file-approvals
+          setActiveTab('my-files')
           // Open the file modal
           await openFileModal(file)
         } else {
@@ -215,6 +236,7 @@ const UserDashboard = ({ user, onLogout }) => {
         activeTab={activeTab}
         setActiveTab={handleTabChange}
         filesCount={files.filter(f => f.status === 'uploaded' || f.status === 'team_leader_approved' || f.status === 'final_approved').length}
+        notificationCount={notificationCount}
         onLogout={handleLogout}
         user={user}
       />

@@ -54,9 +54,12 @@ const NotificationTab = ({ user }) => {
   };
 
   return (
-    <div className="notification-section">
+    <div className="user-notification-component notification-section">
       <div className="page-header">
-        <h2>Notifications</h2>
+        <div className="page-header-title">
+          <span className="bell-icon">🔔</span>
+          <h2>Notifications</h2>
+        </div>
         <p>Stay updated with your file approvals and system messages</p>
       </div>
 

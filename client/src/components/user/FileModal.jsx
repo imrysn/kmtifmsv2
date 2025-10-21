@@ -85,7 +85,7 @@ const FileModal = ({
   const tags = getTags();
 
   return (
-    <div className="modal-overlay" onClick={() => setShowFileModal(false)}>
+    <div className="user-file-modal-component modal-overlay" onClick={() => setShowFileModal(false)}>
       <div className="modal file-modal" onClick={e => e.stopPropagation()}>
         <div className="modal-header">
           <h3>File Details</h3>
