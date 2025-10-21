@@ -162,7 +162,7 @@ const NotificationTab = ({ user, onOpenFile }) => {
 
   if (isLoading) {
     return (
-      <div className="notification-section">
+      <div className="user-notification-component notification-section">
         <div className="loading-state">
           <div className="spinner"></div>
           <p>Loading notifications...</p>
@@ -172,7 +172,7 @@ const NotificationTab = ({ user, onOpenFile }) => {
   }
 
   return (
-    <div className="notification-section">
+    <div className="user-notification-component notification-section">
       <div className="page-header">
         <div>
           <h2>Notifications</h2>

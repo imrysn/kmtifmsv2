@@ -27,8 +27,10 @@ const MyFilesTab = ({
   const [fileComments, setFileComments] = useState([]);
   const [loadingComments, setLoadingComments] = useState(false);
   const [openMenuId, setOpenMenuId] = useState(null);
+  const [menuPosition, setMenuPosition] = useState({ top: 0, left: 0 });
   const fileInputRef = useRef(null);
   const menuRef = useRef(null);
+  const buttonRef = useRef(null);
 
   // Close menu when clicking outside
   useEffect(() => {
@@ -312,7 +314,7 @@ const MyFilesTab = ({
   const rejectedFiles = submittedFiles.filter(f => f.status === 'rejected_by_team_leader' || f.status === 'rejected_by_admin');
 
   return (
-    <div className="my-files-wrapper">
+    <div className="user-my-files-component my-files-wrapper">
       {/* Header - LEFT TOP */}
       <div className="my-files-header-top">
         <div className="header-left">
@@ -323,7 +325,7 @@ const MyFilesTab = ({
           className="upload-btn-new"
           onClick={() => setShowUploadModal(true)}
         >
-          ↓ Upload Files
+          ↑ Upload Files
         </button>
       </div>
 
@@ -400,17 +402,34 @@ const MyFilesTab = ({
                   <div className="col-actions">
                     <div className="actions-menu-container" ref={menuRef}>
                       <button 
+                        ref={buttonRef}
                         className="menu-btn"
                         onClick={(e) => {
                           e.stopPropagation();
-                          setOpenMenuId(openMenuId === file.id ? null : file.id);
+                          if (openMenuId === file.id) {
+                            setOpenMenuId(null);
+                          } else {
+                            const rect = e.currentTarget.getBoundingClientRect();
+                            setMenuPosition({
+                              top: rect.bottom + window.scrollY + 4,
+                              left: rect.right + window.scrollX - 120
+                            });
+                            setOpenMenuId(file.id);
+                          }
                         }}
                         title="More options"
                       >
                         ⋮
                       </button>
                       {openMenuId === file.id && (
-                        <div className="actions-dropdown">
+                        <div 
+                          className="actions-dropdown"
+                          style={{
+                            position: 'fixed',
+                            top: `${menuPosition.top}px`,
+                            left: `${menuPosition.left}px`
+                          }}
+                        >
                           <button
                             className="dropdown-item delete-item"
                             onClick={(e) => {

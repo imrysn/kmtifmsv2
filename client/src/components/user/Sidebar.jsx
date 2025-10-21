@@ -1,6 +1,6 @@
 const Sidebar = ({ activeTab, setActiveTab, filesCount, notificationCount, onLogout, user }) => {
   return (
-    <div className="sidebar">
+    <div className="user-sidebar-component sidebar">
       {/* User Profile Section */}
       <div className="sidebar-profile">
         <div className="profile-avatar">

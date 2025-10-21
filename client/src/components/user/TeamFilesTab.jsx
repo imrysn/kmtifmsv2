@@ -3,7 +3,7 @@ import './css/TeamFilesTab-NoAnimation.css';
 
 const TeamFilesTab = ({ setActiveTab }) => {
   return (
-    <div className="dashboard-grid team-no-animation">
+    <div className="user-team-files-component dashboard-grid team-no-animation">
       <div className="dashboard-card team-files-card">
         <div className="card-header">
           <h2>Team Files</h2>

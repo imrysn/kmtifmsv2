@@ -3,7 +3,7 @@ import './css/DashboardTab-NoAnimation.css';
 
 const DashboardTab = ({ user, files, setActiveTab }) => {
   return (
-    <div className="dashboard-grid dashboard-no-animation">
+    <div className="user-dashboard-component dashboard-grid dashboard-no-animation">
       {/* Welcome Card */}
       <div className="dashboard-card welcome-card">
         <div className="card-header">

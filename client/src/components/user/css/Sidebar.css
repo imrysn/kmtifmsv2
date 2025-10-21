@@ -1,7 +1,7 @@
-/* Sidebar Component Styles */
+/* Sidebar Component Styles - Scoped */
 @import './variables.css';
 
-.sidebar {
+.user-sidebar-component.sidebar {
   width: 260px;
   background: white;
   border-right: 1px solid rgba(0, 0, 0, 0.08);
@@ -16,7 +16,7 @@
   box-shadow: 2px 0 8px rgba(0, 0, 0, 0.05);
 }
 
-.sidebar-profile {
+.user-sidebar-component .sidebar-profile {
   padding: 24px;
   border-bottom: 1px solid rgba(0, 0, 0, 0.08);
   display: flex;
@@ -24,7 +24,7 @@
   gap: 12px;
 }
 
-.profile-avatar {
+.user-sidebar-component .profile-avatar {
   width: 48px;
   height: 48px;
   border-radius: 12px;
@@ -38,12 +38,12 @@
   flex-shrink: 0;
 }
 
-.profile-info {
+.user-sidebar-component .profile-info {
   flex: 1;
   overflow: hidden;
 }
 
-.profile-name {
+.user-sidebar-component .profile-name {
   color: #1a1a1a;
   font-size: 16px;
   font-weight: 600;
@@ -53,7 +53,7 @@
   text-overflow: ellipsis;
 }
 
-.profile-team {
+.user-sidebar-component .profile-team {
   color: #666;
   font-size: 13px;
   font-weight: 400;
@@ -63,7 +63,7 @@
   text-overflow: ellipsis;
 }
 
-.sidebar-nav {
+.user-sidebar-component .sidebar-nav {
   flex: 1;
   display: flex;
   flex-direction: column;
@@ -72,7 +72,7 @@
   padding: 16px 0;
 }
 
-.sidebar-item {
+.user-sidebar-component .sidebar-item {
   display: flex;
   align-items: center;
   width: 100%;
@@ -90,7 +90,7 @@
   gap: 12px;
 }
 
-.sidebar-item .nav-icon {
+.user-sidebar-component .sidebar-item .nav-icon {
   width: 18px;
   height: 18px;
   flex-shrink: 0;
@@ -101,11 +101,11 @@
   stroke-linejoin: round;
 }
 
-.sidebar-item .nav-text {
+.user-sidebar-component .sidebar-item .nav-text {
   flex: 1;
 }
 
-.sidebar-item .file-count {
+.user-sidebar-component .sidebar-item .file-count {
   background: #f0f0f0;
   color: #666;
   padding: 2px 10px;
@@ -114,31 +114,31 @@
   font-weight: 500;
 }
 
-.sidebar-item:hover {
+.user-sidebar-component .sidebar-item:hover {
   background: #f8f8f8;
 }
 
-.sidebar-item:hover .nav-icon {
+.user-sidebar-component .sidebar-item:hover .nav-icon {
   stroke: #1a1a1a;
 }
 
-.sidebar-item.active {
+.user-sidebar-component .sidebar-item.active {
   color: #5b4cfd;
   background: transparent;
   font-weight: 500;
   border-left: 3px solid #5b4cfd;
 }
 
-.sidebar-item.active .nav-icon {
+.user-sidebar-component .sidebar-item.active .nav-icon {
   stroke: #5b4cfd;
 }
 
-.sidebar-item.active .file-count {
+.user-sidebar-component .sidebar-item.active .file-count {
   background: #5b4cfd;
   color: white;
 }
 
-.sidebar-logout {
+.user-sidebar-component .sidebar-logout {
   padding: 14px 24px;
   margin: 16px;
   background: #ffe5e5;
@@ -151,47 +151,47 @@
   transition: all 0.2s ease;
 }
 
-.sidebar-logout:hover {
+.user-sidebar-component .sidebar-logout:hover {
   background: #ffcccc;
   border-color: #ffb3b3;
 }
 
 /* Responsive Sidebar */
 @media (max-width: 1024px) {
-  .sidebar {
+  .user-sidebar-component.sidebar {
     width: 72px;
   }
   
-  .sidebar-profile {
+  .user-sidebar-component .sidebar-profile {
     padding: 16px 12px;
     flex-direction: column;
     gap: 8px;
   }
   
-  .profile-avatar {
+  .user-sidebar-component .profile-avatar {
     width: 40px;
     height: 40px;
     font-size: 18px;
   }
   
-  .profile-info {
+  .user-sidebar-component .profile-info {
     display: none;
   }
   
-  .sidebar-nav {
+  .user-sidebar-component .sidebar-nav {
     padding: 12px 0;
   }
   
-  .sidebar-item {
+  .user-sidebar-component .sidebar-item {
     padding: 14px 12px;
     justify-content: center;
   }
   
-  .sidebar-item .nav-text {
+  .user-sidebar-component .sidebar-item .nav-text {
     display: none;
   }
   
-  .sidebar-item .file-count {
+  .user-sidebar-component .sidebar-item .file-count {
     position: absolute;
     top: 8px;
     right: 8px;
@@ -199,38 +199,38 @@
     font-size: 11px;
   }
   
-  .sidebar-logout {
+  .user-sidebar-component .sidebar-logout {
     margin: 12px;
     padding: 12px;
     font-size: 0;
   }
   
-  .sidebar-logout::before {
+  .user-sidebar-component .sidebar-logout::before {
     content: "↪";
     font-size: 16px;
   }
 }
 
 @media (max-width: 768px) {
-  .sidebar {
+  .user-sidebar-component.sidebar {
     width: 60px;
   }
   
-  .sidebar-profile {
+  .user-sidebar-component .sidebar-profile {
     padding: 12px 8px;
   }
   
-  .profile-avatar {
+  .user-sidebar-component .profile-avatar {
     width: 36px;
     height: 36px;
     font-size: 16px;
   }
   
-  .sidebar-item {
+  .user-sidebar-component .sidebar-item {
     padding: 12px 8px;
   }
   
-  .sidebar-item .nav-icon {
+  .user-sidebar-component .sidebar-item .nav-icon {
     width: 18px;
     height: 18px;
   }

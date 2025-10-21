@@ -1,8 +1,10 @@
-.notification-section {
+/* NotificationTab Component Styles - Scoped */
+
+.user-notification-component.notification-section {
   padding: 24px;
 }
 
-.page-header {
+.user-notification-component .page-header {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -10,31 +12,31 @@
   margin-bottom: 32px;
 }
 
-.page-header-title {
+.user-notification-component .page-header-title {
   display: flex;
   align-items: center;
   gap: 12px;
   margin-bottom: 8px;
 }
 
-.bell-icon {
+.user-notification-component .bell-icon {
   font-size: 28px;
 }
 
-.page-header h2 {
+.user-notification-component .page-header h2 {
   font-size: 28px;
   font-weight: 600;
   color: #111827;
   margin: 0;
 }
 
-.page-header p {
+.user-notification-component .page-header p {
   font-size: 14px;
   color: #6b7280;
   margin: 0;
 }
 
-.mark-all-read-btn {
+.user-notification-component .mark-all-read-btn {
   padding: 8px 16px;
   background-color: #3b82f6;
   color: white;
@@ -46,11 +48,11 @@
   transition: background-color 0.2s;
 }
 
-.mark-all-read-btn:hover {
+.user-notification-component .mark-all-read-btn:hover {
   background-color: #2563eb;
 }
 
-.notifications-container {
+.user-notification-component .notifications-container {
   max-width: 100%;
   width: 100%;
   margin: 0 auto;
@@ -58,14 +60,14 @@
   justify-content: center;
 }
 
-.notifications-list {
+.user-notification-component .notifications-list {
   display: flex;
   flex-direction: column;
   gap: 12px;
   width: 100%;
 }
 
-.notification-card {
+.user-notification-component .notification-card {
   display: flex;
   gap: 16px;
   padding: 16px;
@@ -76,42 +78,42 @@
   position: relative;
 }
 
-.notification-card:hover {
+.user-notification-component .notification-card:hover {
   transform: translateY(-2px);
   box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
   border-color: #d1d5db;
 }
 
-.notification-card.unread {
+.user-notification-component .notification-card.unread {
   background-color: #eff6ff;
   border-left: 4px solid #3b82f6;
 }
 
-.notification-card.notification-success {
+.user-notification-component .notification-card.notification-success {
   border-left-color: #10b981;
 }
 
-.notification-card.unread.notification-success {
+.user-notification-component .notification-card.unread.notification-success {
   background-color: #f0fdf4;
 }
 
-.notification-card.notification-error {
+.user-notification-component .notification-card.notification-error {
   border-left-color: #ef4444;
 }
 
-.notification-card.unread.notification-error {
+.user-notification-component .notification-card.unread.notification-error {
   background-color: #fef2f2;
 }
 
-.notification-card.notification-info {
+.user-notification-component .notification-card.notification-info {
   border-left-color: #6366f1;
 }
 
-.notification-card.unread.notification-info {
+.user-notification-component .notification-card.unread.notification-info {
   background-color: #eef2ff;
 }
 
-.notification-icon {
+.user-notification-component .notification-icon {
   font-size: 24px;
   flex-shrink: 0;
   width: 40px;
@@ -123,12 +125,12 @@
   border-radius: 8px;
 }
 
-.notification-content {
+.user-notification-component .notification-content {
   flex: 1;
   min-width: 0;
 }
 
-.notification-header {
+.user-notification-component .notification-header {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
@@ -136,13 +138,13 @@
   margin-bottom: 8px;
 }
 
-.notification-time-actions {
+.user-notification-component .notification-time-actions {
   display: flex;
   align-items: center;
   gap: 16px;
 }
 
-.delete-notification-btn {
+.user-notification-component .delete-notification-btn {
   background: #fee2e2;
   border: none;
   color: #ef4444;
@@ -154,48 +156,48 @@
   border-radius: 4px;
 }
 
-.delete-notification-btn:hover {
+.user-notification-component .delete-notification-btn:hover {
   background-color: #fecaca;
   transform: scale(1.1);
 }
 
-.notification-title {
+.user-notification-component .notification-title {
   font-size: 16px;
   font-weight: 600;
   color: #111827;
   margin: 0;
 }
 
-.notification-time {
+.user-notification-component .notification-time {
   font-size: 13px;
   color: #9ca3af;
   white-space: nowrap;
   flex-shrink: 0;
 }
 
-.notification-message {
+.user-notification-component .notification-message {
   font-size: 14px;
   color: #4b5563;
   line-height: 1.5;
   margin: 0 0 12px 0;
 }
 
-.notification-footer {
+.user-notification-component .notification-footer {
   display: flex;
   gap: 16px;
   font-size: 13px;
   color: #6b7280;
 }
 
-.notification-action-by {
+.user-notification-component .notification-action-by {
   font-weight: 500;
 }
 
-.notification-file {
+.user-notification-component .notification-file {
   color: #3b82f6;
 }
 
-.unread-indicator {
+.user-notification-component .unread-indicator {
   position: absolute;
   top: 16px;
   right: 16px;
@@ -205,7 +207,7 @@
   border-radius: 50%;
 }
 
-.empty-notifications {
+.user-notification-component .empty-notifications {
   text-align: center;
   padding: 60px 20px;
   display: flex;
@@ -214,20 +216,20 @@
   justify-content: center;
 }
 
-.empty-icon {
+.user-notification-component .empty-icon {
   font-size: 64px;
   margin-bottom: 16px;
   opacity: 0.5;
 }
 
-.empty-notifications h3 {
+.user-notification-component .empty-notifications h3 {
   font-size: 20px;
   font-weight: 600;
   color: #111827;
   margin: 0 0 8px 0;
 }
 
-.empty-notifications p {
+.user-notification-component .empty-notifications p {
   font-size: 14px;
   color: #6b7280;
   margin: 0;
@@ -236,23 +238,23 @@
   margin-right: auto;
 }
 
-.loading-state {
+.user-notification-component .loading-state {
   text-align: center;
   padding: 60px 20px;
   color: #6b7280;
 }
 
-.spinner {
+.user-notification-component .spinner {
   width: 40px;
   height: 40px;
   margin: 0 auto 16px;
   border: 4px solid #f3f4f6;
   border-top: 4px solid #3b82f6;
   border-radius: 50%;
-  animation: spin 1s linear infinite;
+  animation: user-notification-spin 1s linear infinite;
 }
 
-@keyframes spin {
+@keyframes user-notification-spin {
   0% { transform: rotate(0deg); }
   100% { transform: rotate(360deg); }
 }

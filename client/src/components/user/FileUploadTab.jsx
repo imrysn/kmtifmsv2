@@ -29,7 +29,7 @@ const FileUploadTab = ({
   };
 
   return (
-    <div className="upload-section">
+    <div className="user-file-upload-component upload-section">
       <div className="page-header">
         <h2>Submit File for Approval</h2>
         <p>Upload your file to begin the approval workflow. Your team leader will review it first, followed by an administrator.</p>

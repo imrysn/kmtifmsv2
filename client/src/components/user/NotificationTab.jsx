@@ -54,7 +54,7 @@ const NotificationTab = ({ user }) => {
   };
 
   return (
-    <div className="notification-section">
+    <div className="user-notification-component notification-section">
       <div className="page-header">
         <div className="page-header-title">
           <span className="bell-icon">🔔</span>
