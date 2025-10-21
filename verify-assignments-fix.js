@@ -7,12 +7,7 @@ async function verifyAssignments() {
   try {
     // 1. Check if assignments table exists and get column names
     console.log('\n1. Checking assignments table structure...');
-    const columns = await new Promise((resolve, reject) => {
-      db.all("DESCRIBE assignments", [], (err, columns) => {
-        if (err) reject(err);
-        else resolve(columns);
-      });
-    });
+    const columns = await db.query("DESCRIBE assignments");
 
     console.log('Assignments table columns:');
     columns.forEach(col => {

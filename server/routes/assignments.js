@@ -15,7 +15,7 @@ router.get('/team-leader/:team', (req, res) => {
       LEFT JOIN assignment_submissions asub ON a.id = asub.assignment_id
       WHERE a.team = ?
       GROUP BY a.id
-      ORDER BY a.createdat DESC
+      ORDER BY a.created_at DESC
     `, [team], (err, assignments) => {
       if (err) {
         console.error('Error fetching assignments:', err);
@@ -137,15 +137,16 @@ router.post('/create', async (req, res) => {
         INSERT INTO assignments (
           title,
           description,
-          duedate,
-          filetyperequired,
-          assignedto,
-          maxfilesize,
-          teamleaderid,
-          teamleaderusername,
+          due_date,
+          file_type_required,
+          assigned_to,
+          max_file_size,
+          team_leader_id,
+          team_leader_username,
           team,
-          createdat
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+          created_at,
+          status
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), 'active')
       `, [
         title,
         description || null,
