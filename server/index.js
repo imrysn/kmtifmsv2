@@ -12,12 +12,9 @@ const fileSystemRoutes = require('./routes/fileSystem');
 const filesRoutes = require('./routes/files');
 const dashboardRoutes = require('./routes/dashboard');
 const settingsRoutes = require('./routes/settings');
-<<<<<<< Updated upstream
 const fileViewerRoutes = require('./routes/fileViewer');
 const { router: notificationsRoutes } = require('./routes/notifications');
-=======
 const assignmentsRoutes = require('./routes/assignments');
->>>>>>> Stashed changes
 
 const app = express();
 const PORT = process.env.SERVER_PORT || 3001;
@@ -35,12 +32,9 @@ app.use('/api/file-system', fileSystemRoutes);
 app.use('/api/files', filesRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/settings', settingsRoutes);
-<<<<<<< Updated upstream
 app.use('/api/file-viewer', fileViewerRoutes);
 app.use('/api/notifications', notificationsRoutes);
-=======
 app.use('/api/assignments', assignmentsRoutes);
->>>>>>> Stashed changes
 
 // Start server
 async function startServer() {

@@ -3,8 +3,6 @@ import '../css/TeamLeaderDashboard.css'
 import SkeletonLoader from '../components/common/SkeletonLoader'
 import overviewIcon from '../assets/Icon-7.svg'
 import fileReviewIcon from '../assets/Icon-6.svg'
-import analyticsIcon from '../assets/Icon-5.svg'
-import approvedIcon from '../assets/Icon-4.svg'
 import teamManagementIcon from '../assets/Icon-2.svg'
 import assignmentIcon from '../assets/Icon-3.svg'
 import logoutIcon from '../assets/Icon.svg'
@@ -63,9 +61,9 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
   const [isLoadingTeam, setIsLoadingTeam] = useState(false)
   const [showMemberFilesModal, setShowMemberFilesModal] = useState(false)
   
-  // Analytics states
+  // Analytics data for cards
   const [analyticsData, setAnalyticsData] = useState(null)
-  const [isLoadingAnalytics, setIsLoadingAnalytics] = useState(false)
+  const [selectedStatusFilter, setSelectedStatusFilter] = useState(null)
 
   // Assignment states
   const [assignments, setAssignments] = useState([])
@@ -83,17 +81,12 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
     maxFileSize: 10485760,
     assignedMembers: []
   })
-  const [showAnalyticsModal, setShowAnalyticsModal] = useState(false)
-  const [selectedAnalyticsType, setSelectedAnalyticsType] = useState(null)
-  const [analyticsModalFiles, setAnalyticsModalFiles] = useState([])
 
   useEffect(() => {
     fetchPendingFiles()
     fetchTeamMembers()
     fetchNotifications()
-    if (activeTab === 'analytics') {
-      fetchAnalytics()
-    }
+    fetchAnalytics() // Fetch analytics data for cards
     if (activeTab === 'assignments') {
       fetchAssignments()
     }
@@ -117,9 +110,11 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
 
   useEffect(() => {
     if (searchQuery.trim() === '') {
-      setFilteredFiles(pendingFiles)
+      // Don't set filteredFiles here as it's already set in fetchPendingFiles
+      return
     } else {
-      const filtered = pendingFiles.filter(file => 
+      // Filter from the current fetched files; assume pendingFiles has the current set
+      const filtered = pendingFiles.filter(file =>
         file.original_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
         file.username?.toLowerCase().includes(searchQuery.toLowerCase()) ||
         file.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -127,22 +122,36 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
       )
       setFilteredFiles(filtered)
     }
-  }, [pendingFiles, searchQuery])
+  }, [pendingFiles, searchQuery, selectedStatusFilter])
 
-  const fetchPendingFiles = async () => {
+  const fetchPendingFiles = async (status = null) => {
     setIsLoading(true)
     try {
-      const response = await fetch(`http://localhost:3001/api/files/team-leader/${user.team}`)
+      let url = `http://localhost:3001/api/files/team-leader/${user.team}?limit=1000`
+
+      if (status && status !== 'total' && status !== 'pending') {
+        // For status-specific requests, use the analytics endpoint
+        let statusParam = status
+        url = `http://localhost:3001/api/files/team/${user.team}/status/${statusParam}?limit=1000`
+      }
+
+      const response = await fetch(url)
       const data = await response.json()
-      
+
       if (data.success) {
-        setPendingFiles(data.files || [])
+        setFilteredFiles(data.files || []) // Update filtered files directly for status filtering
+        setSelectedStatusFilter(status || null)
       }
     } catch (error) {
-      console.error('Error fetching pending files:', error)
+      console.error('Error fetching files:', error)
     } finally {
       setIsLoading(false)
     }
+  }
+
+  const handleStatusFilter = (status) => {
+    setSelectedStatusFilter(status)
+    fetchPendingFiles(status)
   }
 
   const fetchTeamMembers = async () => {
@@ -196,21 +205,15 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
   }
 
   const fetchAnalytics = async () => {
-    setIsLoadingAnalytics(true)
     try {
       const response = await fetch(`http://localhost:3001/api/dashboard/team/${user.team}`)
       const data = await response.json()
       
       if (data.success) {
         setAnalyticsData(data.analytics || {})
-      } else {
-        setError('Failed to fetch analytics')
       }
     } catch (error) {
       console.error('Error fetching analytics:', error)
-      setError('Failed to connect to server')
-    } finally {
-      setIsLoadingAnalytics(false)
     }
   }
 
@@ -638,36 +641,6 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
     return 94 // Placeholder
   }
 
-  const openAnalyticsModal = async (type) => {
-    setSelectedAnalyticsType(type)
-    setIsLoading(true)
-    try {
-      let status = ''
-      if (type === 'approved') {
-        status = 'approved'
-      } else if (type === 'pending') {
-        status = 'pending'
-      } else if (type === 'rejected') {
-        status = 'rejected'
-      }
-      
-      const response = await fetch(`http://localhost:3001/api/files/team/${user.team}/status/${status}`)
-      const data = await response.json()
-      
-      if (data.success) {
-        setAnalyticsModalFiles(data.files || [])
-        setShowAnalyticsModal(true)
-      } else {
-        setError(`Failed to fetch ${type} files`)
-      }
-    } catch (error) {
-      console.error(`Error fetching ${type} files:`, error)
-      setError('Failed to connect to server')
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
   return (
     <Suspense fallback={<SkeletonLoader type="teamleader" />}>
       <div className="tl-dashboard">
@@ -695,14 +668,6 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
           >
             <img src={fileReviewIcon} alt="" className="tl-nav-icon" width="20" height="20" />
             <span>File Review</span>
-          </button>
-          
-          <button 
-            className={`tl-nav-item ${activeTab === 'analytics' ? 'active' : ''}`}
-            onClick={() => { setActiveTab('analytics'); clearMessages(); setSidebarOpen(false); }}
-          >
-            <img src={analyticsIcon} alt="" className="tl-nav-icon" width="20" height="20" />
-            <span>Analytics</span>
           </button>
           
           <button 
@@ -891,7 +856,7 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
 
         {/* File Review Content */}
         {activeTab === 'file-review' && (
-          <div className="tl-content">
+          <div className="tl-content" style={{position: 'relative'}}>
             <div className="tl-page-header">
               <div className="tl-page-icon">
                 <img src={fileReviewIcon} alt="" width="20" height="20" />
@@ -901,6 +866,49 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
 
             {error && <div className="tl-alert error">{error}<button onClick={clearMessages}>×</button></div>}
             {success && <div className="tl-alert success">{success}<button onClick={clearMessages}>×</button></div>}
+
+            {/* Analytics Cards */}
+            <div className="tl-stats file-review-analytics">
+              <div className={`tl-stat-card blue clickable ${selectedStatusFilter === 'total' ? 'active' : ''}`} onClick={() => handleStatusFilter('total')}>
+                <div className="tl-stat-info">
+                  <p className="tl-stat-label">Total Files</p>
+                  <h2 className="tl-stat-value">{(analyticsData?.approvedFiles || 0) + (analyticsData?.rejectedFiles || 0) + (analyticsData?.pendingTeamLeaderReview || 0) + (analyticsData?.pendingAdminReview || 0)}</h2>
+                </div>
+                <div className="tl-stat-icon-box blue">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M9 5H7C6.46957 5 5.96086 5.21071 5.58579 5.58579C5.21071 5.96086 5 6.46957 5 7V19C5 19.5304 5.21071 20.0391 5.58579 20.4142C5.96086 20.7893 6.46957 21 7 21H17C17.5304 21 18.0391 20.7893 18.4142 20.4142C18.7893 20.0391 19 19.5304 19 19V7C19 6.46957 18.7893 5.96086 18.4142 5.58579C18.0391 5.21071 17.5304 5 17 5H15M9 5C9 5.53043 9.21071 6.03914 9.58579 6.41421C9.96086 6.78929 10.4696 7 11 7H13C13.5304 7 14.0391 6.78929 14.4142 6.41421C14.7893 6.03914 15 5.53043 15 5M9 5C9 4.46957 9.21071 3.96086 9.58579 3.58579C9.96086 3.21071 10.4696 3 11 3H13C13.5304 3 14.0391 3.21071 14.4142 3.58579C14.7893 3.96086 15 4.46957 15 5M12 12H15M12 16H15M9 12H9.01M9 16H9.01" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                </div>
+              </div>
+
+              <div className={`tl-stat-card green clickable ${selectedStatusFilter === 'approved' ? 'active' : ''}`} onClick={() => handleStatusFilter('approved')}>
+                <div className="tl-stat-info">
+                  <p className="tl-stat-label">Approved</p>
+                  <h2 className="tl-stat-value">{analyticsData?.approvedFiles || 0}</h2>
+                </div>
+                <div className="tl-stat-icon-box green">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M9 12L11 14L15 10M21 12C21 16.97 16.97 21 12 21C7.03 21 3 16.97 3 12C3 7.03 7.03 3 12 3C16.97 3 21 7.03 21 12Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                </div>
+              </div>
+
+              <div className={`tl-stat-card yellow clickable ${selectedStatusFilter === 'pending' ? 'active' : ''}`} onClick={() => handleStatusFilter('pending')}>
+                <div className="tl-stat-info">
+                  <p className="tl-stat-label">Pending</p>
+                  <h2 className="tl-stat-value">{(analyticsData?.pendingTeamLeaderReview || 0) + (analyticsData?.pendingAdminReview || 0)}</h2>
+                </div>
+                <div className="tl-stat-icon-box yellow">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M12 22C17.52 22 22 17.52 22 12C22 6.48 17.52 2 12 2C6.48 2 2 6.48 2 12C2 17.52 6.48 22 12 22Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/><path d="M12 6V12L16 14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                </div>
+              </div>
+
+              <div className={`tl-stat-card red clickable ${selectedStatusFilter === 'rejected' ? 'active' : ''}`} onClick={() => handleStatusFilter('rejected')}>
+                <div className="tl-stat-info">
+                  <p className="tl-stat-label">Rejected</p>
+                  <h2 className="tl-stat-value">{analyticsData?.rejectedFiles || 0}</h2>
+                </div>
+                <div className="tl-stat-icon-box red">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M12 2C6.48 2 2 6.48 2 12C2 17.52 6.48 22 12 22C17.52 22 22 17.52 22 12C22 6.48 17.52 2 12 2ZM13 17H11V15H13V17ZM13 13H11V7H13V13Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                </div>
+              </div>
+            </div>
 
             {/* Toolbar */}
             <div className="tl-toolbar">
@@ -1254,226 +1262,6 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
           </div>
         )}
 
-        {/* Analytics Tab */}
-        {activeTab === 'analytics' && (
-          <div className="tl-content">
-            <div className="tl-page-header">
-              <div className="tl-page-icon">
-                <img src={analyticsIcon} alt="" width="20" height="20" />
-              </div>
-              <h1>Analytics</h1>
-            </div>
-
-            {error && <div className="tl-alert error">{error}<button onClick={clearMessages}>×</button></div>}
-
-            {isLoadingAnalytics ? (
-              <div className="tl-loading">
-                <div className="tl-spinner"></div>
-                <p>Loading analytics...</p>
-              </div>
-            ) : analyticsData ? (
-              <div className="tl-analytics-container">
-                {/* Key Metrics Cards - Top Row: Clickable Cards */}
-                <div className="tl-stats">
-                  <div 
-                    className="tl-stat-card green clickable" 
-                    onClick={() => openAnalyticsModal('approved')}
-                    style={{cursor: 'pointer', transition: 'transform 0.2s, box-shadow 0.2s'}}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.transform = 'translateY(-4px)'
-                      e.currentTarget.style.boxShadow = '0 8px 16px rgba(0,0,0,0.15)'
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.transform = 'translateY(0)'
-                      e.currentTarget.style.boxShadow = ''
-                    }}
-                    title="Click to view approved files"
-                  >
-                    <div className="tl-stat-info">
-                      <p className="tl-stat-label">Approved</p>
-                      <h2 className="tl-stat-value">{analyticsData.approvedFiles || 0}</h2>
-                    </div>
-                    <div className="tl-stat-icon-box green">
-                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M9 12L11 14L15 10M21 12C21 16.97 16.97 21 12 21C7.03 21 3 16.97 3 12C3 7.03 7.03 3 12 3C16.97 3 21 7.03 21 12Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                    </div>
-                  </div>
-
-                  <div 
-                    className="tl-stat-card yellow clickable" 
-                    onClick={() => openAnalyticsModal('pending')}
-                    style={{cursor: 'pointer', transition: 'transform 0.2s, box-shadow 0.2s'}}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.transform = 'translateY(-4px)'
-                      e.currentTarget.style.boxShadow = '0 8px 16px rgba(0,0,0,0.15)'
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.transform = 'translateY(0)'
-                      e.currentTarget.style.boxShadow = ''
-                    }}
-                    title="Click to view pending files"
-                  >
-                    <div className="tl-stat-info">
-                      <p className="tl-stat-label">Pending</p>
-                      <h2 className="tl-stat-value">{(analyticsData.pendingTeamLeaderReview || 0) + (analyticsData.pendingAdminReview || 0)}</h2>
-                    </div>
-                    <div className="tl-stat-icon-box yellow">
-                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M12 22C17.52 22 22 17.52 22 12C22 6.48 17.52 2 12 2C6.48 2 2 6.48 2 12C2 17.52 6.48 22 12 22Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/><path d="M12 6V12L16 14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                    </div>
-                  </div>
-
-                  <div 
-                    className="tl-stat-card red clickable" 
-                    onClick={() => openAnalyticsModal('rejected')}
-                    style={{cursor: 'pointer', transition: 'transform 0.2s, box-shadow 0.2s'}}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.transform = 'translateY(-4px)'
-                      e.currentTarget.style.boxShadow = '0 8px 16px rgba(0,0,0,0.15)'
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.transform = 'translateY(0)'
-                      e.currentTarget.style.boxShadow = ''
-                    }}
-                    title="Click to view rejected files"
-                  >
-                    <div className="tl-stat-info">
-                      <p className="tl-stat-label">Rejected</p>
-                      <h2 className="tl-stat-value">{analyticsData.rejectedFiles || 0}</h2>
-                    </div>
-                    <div className="tl-stat-icon-box red">
-                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M12 2C6.48 2 2 6.48 2 12C2 17.52 6.48 22 12 22C17.52 22 22 17.52 22 12C22 6.48 17.52 2 12 2ZM13 17H11V15H13V17ZM13 13H11V7H13V13Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Second Row: Non-clickable Info Cards */}
-                <div className="tl-stats" style={{marginTop: '20px'}}>
-                  <div className="tl-stat-card blue">
-                    <div className="tl-stat-info">
-                      <p className="tl-stat-label">Total Files</p>
-                      <h2 className="tl-stat-value">{analyticsData.totalFiles || 0}</h2>
-                    </div>
-                    <div className="tl-stat-icon-box blue">
-                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M9 5H7C6.47 5 6 5.47 6 6V19C6 19.53 6.47 20 7 20H17C17.53 20 18 19.53 18 19V6C18 5.47 17.53 5 17 5H15M9 5C9 5.53 9.47 6 10 6H14C14.53 6 15 5.53 15 5M9 5C9 4.47 9.47 4 10 4H14C14.53 4 15 4.47 15 5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                    </div>
-                  </div>
-
-                  <div className="tl-stat-card purple">
-                    <div className="tl-stat-info">
-                      <p className="tl-stat-label">Approval Rate</p>
-                      <h2 className="tl-stat-value">{analyticsData.approvalRate || 0}%</h2>
-                    </div>
-                    <div className="tl-stat-icon-box purple">
-                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M3 12L9 18L21 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                    </div>
-                  </div>
-
-                  <div className="tl-stat-card cyan">
-                    <div className="tl-stat-info">
-                      <p className="tl-stat-label">Avg Review Time</p>
-                      <h2 className="tl-stat-value">{analyticsData.avgReviewTime || 0}d</h2>
-                    </div>
-                    <div className="tl-stat-icon-box cyan">
-                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M8 7V3M16 7V3M3 11H21M5 21H19C20.1 21 21 20.1 21 19V7C21 5.9 20.1 5 19 5H5C3.9 5 3 5.9 3 7V19C3 20.1 3.9 21 5 21Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Status Breakdown */}
-                <div className="tl-table-container" style={{marginTop: '30px'}}>
-                  <div className="tl-table-header">
-                    <h2>File Status Breakdown</h2>
-                  </div>
-                  {analyticsData.stageBreakdown && analyticsData.stageBreakdown.length > 0 ? (
-                    <div style={{padding: '20px'}}>
-                      {analyticsData.stageBreakdown.map((item, idx) => {
-                        const total = analyticsData.totalFiles || 1
-                        const percentage = ((item.count / total) * 100).toFixed(1)
-                        return (
-                          <div key={idx} style={{marginBottom: '20px'}}>
-                            <div style={{display: 'flex', justifyContent: 'space-between', marginBottom: '8px'}}>
-                              <span style={{fontWeight: '600'}}>{item.current_stage?.replace(/_/g, ' ').toUpperCase()}</span>
-                              <span>{item.count} ({percentage}%)</span>
-                            </div>
-                            <div style={{width: '100%', height: '8px', backgroundColor: '#e5e7eb', borderRadius: '4px', overflow: 'hidden'}}>
-                              <div style={{
-                                width: `${percentage}%`,
-                                height: '100%',
-                                backgroundColor: percentage > 50 ? '#ef4444' : percentage > 25 ? '#f59e0b' : '#10b981',
-                                transition: 'width 0.3s ease'
-                              }}></div>
-                            </div>
-                          </div>
-                        )
-                      })}
-                    </div>
-                  ) : (
-                    <div style={{padding: '20px', textAlign: 'center', color: '#9ca3af'}}>No file status data</div>
-                  )}
-                </div>
-
-                {/* Top Contributors */}
-                <div className="tl-table-container" style={{marginTop: '30px'}}>
-                  <div className="tl-table-header">
-                    <h2>Top Contributors</h2>
-                  </div>
-                  {analyticsData.topContributors && analyticsData.topContributors.length > 0 ? (
-                    <table className="tl-table">
-                      <thead>
-                        <tr>
-                          <th>Rank</th>
-                          <th>Name</th>
-                          <th>Username</th>
-                          <th>Files</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {analyticsData.topContributors.map((contributor, idx) => (
-                          <tr key={idx}>
-                            <td style={{fontWeight: 'bold', color: '#3b82f6'}}>{idx + 1}</td>
-                            <td>{contributor.fullName}</td>
-                            <td>@{contributor.username}</td>
-                            <td><span style={{backgroundColor: '#dbeafe', color: '#1e40af', padding: '4px 12px', borderRadius: '12px', fontWeight: '600'}}>{contributor.fileCount}</span></td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  ) : (
-                    <div style={{padding: '20px', textAlign: 'center', color: '#9ca3af'}}>No contributors yet</div>
-                  )}
-                </div>
-
-                {/* Team Summary */}
-                <div className="tl-table-container" style={{marginTop: '30px'}}>
-                  <div className="tl-table-header">
-                    <h2>Team Summary</h2>
-                  </div>
-                  <div style={{padding: '20px'}}>
-                    <div style={{display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '20px'}}>
-                      <div style={{padding: '15px', backgroundColor: '#f3f4f6', borderRadius: '8px'}}>
-                        <p style={{margin: '0 0 8px 0', color: '#6b7280', fontSize: '14px'}}>Team Members</p>
-                        <p style={{margin: 0, fontSize: '28px', fontWeight: 'bold', color: '#1f2937'}}>{analyticsData.teamMembers || 0}</p>
-                      </div>
-                      <div style={{padding: '15px', backgroundColor: '#fef3c7', borderRadius: '8px'}}>
-                        <p style={{margin: '0 0 8px 0', color: '#92400e', fontSize: '14px'}}>Pending TL Review</p>
-                        <p style={{margin: 0, fontSize: '28px', fontWeight: 'bold', color: '#78350f'}}>{analyticsData.pendingTeamLeaderReview || 0}</p>
-                      </div>
-                      <div style={{padding: '15px', backgroundColor: '#fecaca', borderRadius: '8px'}}>
-                        <p style={{margin: '0 0 8px 0', color: '#7f1d1d', fontSize: '14px'}}>Pending Admin Review</p>
-                        <p style={{margin: 0, fontSize: '28px', fontWeight: 'bold', color: '#450a0a'}}>{analyticsData.pendingAdminReview || 0}</p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <div className="tl-empty">
-                <div className="tl-empty-icon">📊</div>
-                <h3>No data available</h3>
-                <p>Start uploading files to see analytics.</p>
-              </div>
-            )}
-          </div>
-        )}
       </main>
 
       {/* Member Files Modal */}
@@ -1697,6 +1485,272 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
               <button className="tl-btn success" onClick={submitPriority} disabled={isProcessing}>
                 {isProcessing ? 'Saving...' : 'Save'}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+
+
+      {/* Create Assignment Modal */}
+      {showCreateAssignmentModal && (
+        <div className="tl-modal-overlay" onClick={() => setShowCreateAssignmentModal(false)}>
+          <div className="tl-modal-large" onClick={e => e.stopPropagation()}>
+            <div className="tl-modal-header">
+              <h3>Create New Assignment</h3>
+              <button onClick={() => setShowCreateAssignmentModal(false)}>×</button>
+            </div>
+            <div className="tl-modal-body-large">
+              <form>
+                <div className="tl-form-group">
+                  <label>Assignment Title *</label>
+                  <input
+                    type="text"
+                    value={assignmentForm.title}
+                    onChange={(e) => setAssignmentForm({...assignmentForm, title: e.target.value})}
+                    placeholder="Enter assignment title..."
+                    required
+                  />
+                </div>
+
+                <div className="tl-form-group">
+                  <label>Description</label>
+                  <textarea
+                    value={assignmentForm.description}
+                    onChange={(e) => setAssignmentForm({...assignmentForm, description: e.target.value})}
+                    placeholder="Enter assignment description..."
+                    rows="4"
+                  />
+                </div>
+
+                <div className="tl-form-row">
+                  <div className="tl-form-group">
+                    <label>Due Date</label>
+                    <input
+                      type="date"
+                      value={assignmentForm.dueDate}
+                      onChange={(e) => setAssignmentForm({...assignmentForm, dueDate: e.target.value})}
+                    />
+                  </div>
+
+                  <div className="tl-form-group">
+                    <label>File Type Required</label>
+                    <select
+                      value={assignmentForm.fileTypeRequired}
+                      onChange={(e) => setAssignmentForm({...assignmentForm, fileTypeRequired: e.target.value})}
+                    >
+                      <option value="">Any file type</option>
+                      <option value="PDF">PDF</option>
+                      <option value="Word">Word Document</option>
+                      <option value="Excel">Excel Spreadsheet</option>
+                      <option value="PowerPoint">PowerPoint Presentation</option>
+                      <option value="Image">Image Files</option>
+                      <option value="Video">Video Files</option>
+                      <option value="Audio">Audio Files</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="tl-form-row">
+                  <div className="tl-form-group">
+                    <label>Max File Size (MB)</label>
+                    <input
+                      type="number"
+                      value={assignmentForm.maxFileSize / (1024*1024)}
+                      onChange={(e) => setAssignmentForm({...assignmentForm, maxFileSize: e.target.value * 1024 * 1024})}
+                      placeholder="10"
+                      min="1"
+                      max="100"
+                    />
+                  </div>
+
+                  <div className="tl-form-group">
+                    <label>Assign To</label>
+                    <select
+                      value={assignmentForm.assignedTo}
+                      onChange={(e) => setAssignmentForm({...assignmentForm, assignedTo: e.target.value})}
+                    >
+                      <option value="all">All Team Members</option>
+                      <option value="specific">Specific Members</option>
+                    </select>
+                  </div>
+                </div>
+
+                {assignmentForm.assignedTo === 'specific' && teamMembers.length > 0 && (
+                  <div className="tl-form-group">
+                    <label>Select Members</label>
+                    <div className="tl-member-selector">
+                      {teamMembers.map(member => (
+                        <label key={member.id} className="tl-member-checkbox">
+                          <input
+                            type="checkbox"
+                            checked={assignmentForm.assignedMembers.includes(member.id)}
+                            onChange={(e) => {
+                              const updatedMembers = e.target.checked
+                                ? [...assignmentForm.assignedMembers, member.id]
+                                : assignmentForm.assignedMembers.filter(id => id !== member.id);
+                              setAssignmentForm({...assignmentForm, assignedMembers: updatedMembers});
+                            }}
+                          />
+                          <span className="tl-checkbox-mark"></span>
+                          {member.name}
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <div className="tl-modal-footer">
+                  <button
+                    type="button"
+                    className="tl-btn secondary"
+                    onClick={() => {
+                      setShowCreateAssignmentModal(false);
+                      setAssignmentForm({
+                        title: '',
+                        description: '',
+                        dueDate: '',
+                        fileTypeRequired: '',
+                        assignedTo: 'all',
+                        maxFileSize: 10485760,
+                        assignedMembers: []
+                      });
+                    }}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    className="tl-btn success"
+                    onClick={createAssignment}
+                    disabled={isProcessing || !assignmentForm.title.trim()}
+                  >
+                    {isProcessing ? 'Creating...' : 'Create Assignment'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Assignment Details Modal */}
+      {showAssignmentDetailsModal && selectedAssignment && (
+        <div className="tl-modal-overlay" onClick={() => { setShowAssignmentDetailsModal(false); setSelectedAssignment(null); setAssignmentSubmissions([]); }}>
+          <div className="tl-modal-large" onClick={e => e.stopPropagation()}>
+            <div className="tl-modal-header">
+              <h3>Assignment: {selectedAssignment.title}</h3>
+              <button onClick={() => { setShowAssignmentDetailsModal(false); setSelectedAssignment(null); setAssignmentSubmissions([]); }}>×</button>
+            </div>
+
+            <div className="tl-modal-body-large">
+              {/* Assignment Details */}
+              <div className="tl-modal-section">
+                <h4 className="tl-section-title">Assignment Details</h4>
+                <div className="tl-assignment-details">
+                  <div className="tl-detail-grid">
+                    <div className="tl-detail-item">
+                      <span className="tl-detail-label">Title:</span>
+                      <span className="tl-detail-value">{selectedAssignment.title}</span>
+                    </div>
+                    <div className="tl-detail-item">
+                      <span className="tl-detail-label">Due Date:</span>
+                      <span className="tl-detail-value">
+                        {selectedAssignment.dueDate ? new Date(selectedAssignment.dueDate).toLocaleDateString() : 'No due date'}
+                      </span>
+                    </div>
+                    <div className="tl-detail-item">
+                      <span className="tl-detail-label">File Type Required:</span>
+                      <span className="tl-detail-value">{selectedAssignment.fileTypeRequired || 'Any'}</span>
+                    </div>
+                    <div className="tl-detail-item">
+                      <span className="tl-detail-label">Max File Size:</span>
+                      <span className="tl-detail-value">{(selectedAssignment.maxFileSize / (1024*1024)).toFixed(0)} MB</span>
+                    </div>
+                    <div className="tl-detail-item">
+                      <span className="tl-detail-label">Created:</span>
+                      <span className="tl-detail-value">{new Date(selectedAssignment.createdAt).toLocaleDateString()}</span>
+                    </div>
+                    <div className="tl-detail-item">
+                      <span className="tl-detail-label">Assigned To:</span>
+                      <span className="tl-detail-value">{selectedAssignment.assignedTo === 'all' ? 'All Members' : 'Specific Members'}</span>
+                    </div>
+                  </div>
+
+                  {selectedAssignment.description && (
+                    <div className="tl-detail-item-full">
+                      <span className="tl-detail-label">Description:</span>
+                      <p className="tl-description-text">{selectedAssignment.description}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Submissions */}
+              <div className="tl-modal-section">
+                <h4 className="tl-section-title">Submissions ({assignmentSubmissions.length})</h4>
+
+                {assignmentSubmissions.length > 0 ? (
+                  <div className="tl-submissions-list">
+                    <table className="tl-submissions-table">
+                      <thead>
+                        <tr>
+                          <th>SUBMITTED BY</th>
+                          <th>FILE NAME</th>
+                          <th>FILE TYPE</th>
+                          <th>SIZE</th>
+                          <th>SUBMITTED</th>
+                          <th>STATUS</th>
+                          <th>ACTION</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {assignmentSubmissions.map((submission) => (
+                          <tr key={submission.id}>
+                            <td>
+                              <strong>{submission.fullName || submission.username}</strong>
+                            </td>
+                            <td>
+                              <div className="tl-file-name-cell">
+                                <strong>{submission.original_name}</strong>
+                              </div>
+                            </td>
+                            <td>
+                              <div className="tl-file-type-badge">
+                                {submission.file_type?.split(' ')[0]?.slice(0, 3).toUpperCase() || 'FILE'}
+                              </div>
+                            </td>
+                            <td>{formatFileSize(submission.file_size)}</td>
+                            <td>{new Date(submission.submitted_at).toLocaleDateString()}</td>
+                            <td>
+                              <span className="tl-status-badge pending-approved">
+                                {submission.status?.toUpperCase() || 'SUBMITTED'}
+                              </span>
+                            </td>
+                            <td>
+                              <button
+                                className="tl-btn-view-file"
+                                onClick={() => window.open(`http://localhost:3001${submission.file_path}`, '_blank')}
+                                title="Open file"
+                              >
+                                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                                  <path d="M14.5 8C14.5 11.5899 11.5899 14.5 8 14.5C4.41015 14.5 1.5 11.5899 1.5 8C1.5 4.41015 4.41015 1.5 8 1.5C11.5899 1.5 14.5 4.41015 14.5 8Z" stroke="currentColor" strokeWidth="1.5"/>
+                                  <path d="M6.5 4.5L11.5 8L6.5 11.5V4.5Z" fill="currentColor"/>
+                                </svg>
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <div className="tl-no-submissions">
+                    <div className="tl-empty-icon">📄</div>
+                    <p>No submissions yet</p>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>

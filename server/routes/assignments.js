@@ -8,14 +8,14 @@ router.get('/team-leader/:team', (req, res) => {
     const { team } = req.params;
 
     db.all(`
-      SELECT 
+      SELECT
         a.*,
         COUNT(DISTINCT asub.id) as submissionCount
       FROM assignments a
       LEFT JOIN assignment_submissions asub ON a.id = asub.assignment_id
       WHERE a.team = ?
       GROUP BY a.id
-      ORDER BY a.createdAt DESC
+      ORDER BY a.createdat DESC
     `, [team], (err, assignments) => {
       if (err) {
         console.error('Error fetching assignments:', err);
@@ -108,7 +108,7 @@ router.get('/:assignmentId/details', (req, res) => {
 });
 
 // Create new assignment
-router.post('/create', (req, res) => {
+router.post('/create', async (req, res) => {
   try {
     const {
       title,
@@ -132,131 +132,135 @@ router.post('/create', (req, res) => {
     }
 
     // Insert assignment
-    db.run(`
-      INSERT INTO assignments (
+    const assignmentResult = await new Promise((resolve, reject) => {
+      db.run(`
+        INSERT INTO assignments (
+          title,
+          description,
+          duedate,
+          filetyperequired,
+          assignedto,
+          maxfilesize,
+          teamleaderid,
+          teamleaderusername,
+          team,
+          createdat
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+      `, [
         title,
-        description,
-        dueDate,
-        fileTypeRequired,
+        description || null,
+        dueDate || null,
+        fileTypeRequired || null,
         assignedTo,
-        maxFileSize,
+        maxFileSize || 10485760,
         teamLeaderId,
         teamLeaderUsername,
-        team,
-        createdAt
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
-    `, [
-      title,
-      description || null,
-      dueDate || null,
-      fileTypeRequired || null,
-      assignedTo,
-      maxFileSize || 10485760,
-      teamLeaderId,
-      teamLeaderUsername,
-      team
-    ], function(err) {
-      if (err) {
-        console.error('Error creating assignment:', err);
-        return res.status(500).json({
-          success: false,
-          message: 'Failed to create assignment',
-          error: err.message
+        team
+      ], function(err) {
+        if (err) {
+          reject(err);
+        } else {
+          resolve({
+            insertId: this.lastID
+          });
+        }
+      });
+    });
+
+    const assignmentId = assignmentResult.insertId;
+    let membersAssigned = 0;
+
+    try {
+      // Assign members
+      if (assignedTo === 'specific' && assignedMembers && assignedMembers.length > 0) {
+        // Insert specific members using batch insert
+        const memberValues = assignedMembers.map(userId => [assignmentId, userId]);
+        if (memberValues.length > 0) {
+          const placeholders = memberValues.map(() => '(?, ?)').join(', ');
+          const flattenedValues = memberValues.flat();
+
+          await new Promise((resolve, reject) => {
+            db.run(
+              `INSERT INTO assignment_members (assignment_id, user_id) VALUES ${placeholders}`,
+              flattenedValues,
+              (err) => err ? reject(err) : resolve()
+            );
+          });
+          membersAssigned = assignedMembers.length;
+        }
+      } else if (assignedTo === 'all') {
+        // Get all team members and assign
+        const teamMembers = await new Promise((resolve, reject) => {
+          db.all(
+            'SELECT id FROM users WHERE team = ? AND role = ?',
+            [team, 'user'],
+            (err, rows) => err ? reject(err) : resolve(rows || [])
+          );
         });
+
+        if (teamMembers && teamMembers.length > 0) {
+          const memberValues = teamMembers.map(member => [assignmentId, member.id]);
+          const placeholders = memberValues.map(() => '(?, ?)').join(', ');
+          const flattenedValues = memberValues.flat();
+
+          await new Promise((resolve, reject) => {
+            db.run(
+              `INSERT INTO assignment_members (assignment_id, user_id) VALUES ${placeholders}`,
+              flattenedValues,
+              (err) => err ? reject(err) : resolve()
+            );
+          });
+          membersAssigned = teamMembers.length;
+        }
       }
 
-      const assignmentId = this.lastID;
-      let membersAssigned = 0;
-      let membersProcessed = 0;
-
-      // Function to insert assignment members
-      const insertMember = (userId, callback) => {
-        db.run(
-          'INSERT INTO assignment_members (assignment_id, user_id) VALUES (?, ?)',
-          [assignmentId, userId],
-          callback
-        );
-      };
-
-      // If assigned to specific members
-      if (assignedTo === 'specific' && assignedMembers && assignedMembers.length > 0) {
-        membersAssigned = assignedMembers.length;
-        
-        assignedMembers.forEach((memberId, index) => {
-          insertMember(memberId, (err) => {
-            if (err) console.error('Error assigning member:', err);
-            membersProcessed++;
-            
-            if (membersProcessed === assignedMembers.length) {
-              finishCreation();
-            }
+      // Note: Activity log insertion will fail silently if there's an error to avoid breaking assignment creation
+      try {
+        await new Promise((resolve) => {
+          db.run(`
+            INSERT INTO activity_logs (
+              user_id,
+              username,
+              role,
+              team,
+              activity
+            ) VALUES (?, ?, ?, ?, ?)
+          `, [
+            teamLeaderId,
+            teamLeaderUsername,
+            'TEAM_LEADER',
+            team,
+            `Created assignment: ${title}`
+          ], (err) => {
+            if (err) console.warn('Activity log insertion failed:', err.message);
+            resolve();
           });
         });
-      } else {
-        // Get all team members for 'all' assignment
-        db.all(
-          'SELECT id FROM users WHERE team = ? AND role = ?',
-          [team, 'user'],
-          (err, teamMembers) => {
-            if (err) {
-              console.error('Error fetching team members:', err);
-              return finishCreation();
-            }
-
-            if (!teamMembers || teamMembers.length === 0) {
-              return finishCreation();
-            }
-
-            membersAssigned = teamMembers.length;
-            
-            teamMembers.forEach((member) => {
-              insertMember(member.id, (err) => {
-                if (err) console.error('Error assigning member:', err);
-                membersProcessed++;
-                
-                if (membersProcessed === teamMembers.length) {
-                  finishCreation();
-                }
-              });
-            });
-          }
-        );
+      } catch (logError) {
+        console.warn('Activity log insertion failed:', logError.message);
       }
 
-      function finishCreation() {
-        // Log activity
-        db.run(`
-          INSERT INTO activity_logs (
-            user_id,
-            username,
-            action,
-            details,
-            ip_address,
-            created_at
-          ) VALUES (?, ?, ?, ?, ?, datetime('now'))
-        `, [
-          teamLeaderId,
-          teamLeaderUsername,
-          'assignment_created',
-          `Created assignment: ${title}`,
-          req.ip
-        ]);
+      res.json({
+        success: true,
+        message: 'Assignment created successfully',
+        assignmentId,
+        membersAssigned
+      });
 
-        res.json({
-          success: true,
-          message: 'Assignment created successfully',
-          assignmentId,
-          membersAssigned
-        });
-      }
+    } catch (memberError) {
+      // If member assignment fails, we should still return success since the assignment was created
+      console.error('Error assigning members:', memberError);
+      res.json({
+        success: true,
+        message: 'Assignment created successfully',
+        assignmentId,
+        membersAssigned: 0,
+        warning: 'Assignment created but member assignment failed'
+      });
+    }
 
-      // If no members to assign, finish immediately
-      if (assignedTo === 'specific' && (!assignedMembers || assignedMembers.length === 0)) {
-        finishCreation();
-      }
-    });
   } catch (error) {
-    console.error('Error in create assignment route:', error);
+    console.error('Error creating assignment:', error);
     res.status(500).json({
       success: false,
       message: 'Failed to create assignment',
