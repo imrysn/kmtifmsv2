@@ -29,7 +29,7 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess, u
     email: '',
     password: '',
     role: 'USER',
-    team: 'General'
+    team: '' // Removed "General" default
   })
 
   // Fetch users on component mount
@@ -48,7 +48,7 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess, u
         u.username.toLowerCase().includes(searchQuery.toLowerCase()) ||
         u.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
         u.role.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        u.team.toLowerCase().includes(searchQuery.toLowerCase())
+        (u.team && u.team.toLowerCase().includes(searchQuery.toLowerCase()))
       )
       setFilteredUsers(filtered)
     }
@@ -118,7 +118,7 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess, u
           email: '', 
           password: '', 
           role: 'USER', 
-          team: 'General' 
+          team: '' 
         })
         fetchUsers()
       } else {
@@ -245,7 +245,7 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess, u
       email: user.email || '',
       password: '',
       role: user.role || 'USER',
-      team: user.team || 'General'
+      team: user.team || '' // No "General"
     })
     setShowEditModal(true)
   }
@@ -267,11 +267,9 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess, u
     setUserDetails(prev => ({ ...prev, isLoadingDetails: true }))
     
     try {
-      // Fetch user files
       const filesResponse = await fetch(`http://localhost:3001/api/files/user/${userId}`)
       const filesData = await filesResponse.json()
       
-      // Fetch pending files (files with status != 'APPROVED')
       const pendingResponse = await fetch(`http://localhost:3001/api/files/user/${userId}/pending`)
       const pendingData = await pendingResponse.json()
       
@@ -303,7 +301,6 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess, u
     })
     setShowUserDetailsModal(true)
     
-    // Fetch user details
     await fetchUserDetails(user.id)
   }
 
@@ -337,7 +334,7 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess, u
                 email: '', 
                 password: '', 
                 role: 'USER', 
-                team: 'General' 
+                team: '' 
               })
               setShowAddModal(true)
             }}
@@ -420,7 +417,7 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess, u
                     </td>
                     <td>
                       <span className="team-badge">
-                        {user.team}
+                        {user.team || '—'} {/* Show placeholder if no team */}
                       </span>
                     </td>
                     <td>
@@ -466,79 +463,79 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess, u
         isLoading={isLoading}
         size="medium"
       >
-                <div className="form-grid">
-                  <div className="form-group">
-                    <label>Full Name *</label>
-                    <input
-                      type="text"
-                      value={formData.fullName}
-                      onChange={e => setFormData({...formData, fullName: e.target.value})}
-                      required
-                      className="form-input"
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label>Username *</label>
-                    <input
-                      type="text"
-                      value={formData.username}
-                      onChange={e => setFormData({...formData, username: e.target.value})}
-                      required
-                      className="form-input"
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label>Email *</label>
-                    <input
-                      type="email"
-                      value={formData.email}
-                      onChange={e => setFormData({...formData, email: e.target.value})}
-                      required
-                      className="form-input"
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label>Password *</label>
-                    <input
-                      type="password"
-                      value={formData.password}
-                      onChange={e => setFormData({...formData, password: e.target.value})}
-                      required
-                      minLength="6"
-                      className="form-input"
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label>Role *</label>
-                    <select
-                      value={formData.role}
-                      onChange={e => setFormData({...formData, role: e.target.value})}
-                      className="form-select"
-                    >
-                      <option value="USER">User</option>
-                      <option value="TEAM LEADER">Team Leader</option>
-                      <option value="ADMIN">Admin</option>
-                    </select>
-                  </div>
-                  <div className="form-group">
-                    <label>Team</label>
-                    <select
-                      value={formData.team}
-                      onChange={e => setFormData({...formData, team: e.target.value})}
-                      className="form-select"
-                      disabled={teamsLoading}
-                    >
-                      <option value="General">General</option>
-                      {teams.filter(team => team.is_active).map(team => (
-                        <option key={team.id} value={team.name}>
-                          {team.name}
-                          {team.leader_username && ` (Led by ${team.leader_username})`}
-                        </option>
-                      ))}
-                    </select>
-                    {teamsLoading && <p className="help-text">Loading teams...</p>}
-                  </div>
-                </div>
+        <div className="form-grid">
+          <div className="form-group">
+            <label>Full Name *</label>
+            <input
+              type="text"
+              value={formData.fullName}
+              onChange={e => setFormData({...formData, fullName: e.target.value})}
+              required
+              className="form-input"
+            />
+          </div>
+          <div className="form-group">
+            <label>Username *</label>
+            <input
+              type="text"
+              value={formData.username}
+              onChange={e => setFormData({...formData, username: e.target.value})}
+              required
+              className="form-input"
+            />
+          </div>
+          <div className="form-group">
+            <label>Email *</label>
+            <input
+              type="email"
+              value={formData.email}
+              onChange={e => setFormData({...formData, email: e.target.value})}
+              required
+              className="form-input"
+            />
+          </div>
+          <div className="form-group">
+            <label>Password *</label>
+            <input
+              type="password"
+              value={formData.password}
+              onChange={e => setFormData({...formData, password: e.target.value})}
+              required
+              minLength="6"
+              className="form-input"
+            />
+          </div>
+          <div className="form-group">
+            <label>Role *</label>
+            <select
+              value={formData.role}
+              onChange={e => setFormData({...formData, role: e.target.value})}
+              className="form-select"
+            >
+              <option value="USER">User</option>
+              <option value="TEAM LEADER">Team Leader</option>
+              <option value="ADMIN">Admin</option>
+            </select>
+          </div>
+          <div className="form-group">
+            <label>Team</label>
+            <select
+              value={formData.team}
+              onChange={e => setFormData({...formData, team: e.target.value})}
+              className="form-select"
+              disabled={teamsLoading}
+            >
+              {/* "General" option REMOVED */}
+              {teams.filter(team => team.is_active).map(team => (
+                <option key={team.id} value={team.name}>
+                  {team.name}
+                  {team.leader_username && ` (Led by ${team.leader_username})`}
+                </option>
+              ))}
+            </select>
+            {teamsLoading && <p className="help-text">Loading teams...</p>}
+          </div>
+        </div>
       </FormModal>
 
       {/* Edit User Modal */}
@@ -551,68 +548,68 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess, u
         isLoading={isLoading}
         size="medium"
       >
-                <div className="form-grid">
-                  <div className="form-group">
-                    <label>Full Name *</label>
-                    <input
-                      type="text"
-                      value={formData.fullName}
-                      onChange={e => setFormData({...formData, fullName: e.target.value})}
-                      required
-                      className="form-input"
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label>Username *</label>
-                    <input
-                      type="text"
-                      value={formData.username}
-                      onChange={e => setFormData({...formData, username: e.target.value})}
-                      required
-                      className="form-input"
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label>Email *</label>
-                    <input
-                      type="email"
-                      value={formData.email}
-                      onChange={e => setFormData({...formData, email: e.target.value})}
-                      required
-                      className="form-input"
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label>Role *</label>
-                    <select
-                      value={formData.role}
-                      onChange={e => setFormData({...formData, role: e.target.value})}
-                      className="form-select"
-                    >
-                      <option value="USER">User</option>
-                      <option value="TEAM LEADER">Team Leader</option>
-                      <option value="ADMIN">Admin</option>
-                    </select>
-                  </div>
-                  <div className="form-group">
-                    <label>Team</label>
-                    <select
-                      value={formData.team}
-                      onChange={e => setFormData({...formData, team: e.target.value})}
-                      className="form-select"
-                      disabled={teamsLoading}
-                    >
-                      <option value="General">General</option>
-                      {teams.filter(team => team.is_active).map(team => (
-                        <option key={team.id} value={team.name}>
-                          {team.name}
-                          {team.leader_username && ` (Led by ${team.leader_username})`}
-                        </option>
-                      ))}
-                    </select>
-                    {teamsLoading && <p className="help-text">Loading teams...</p>}
-                  </div>
-                </div>
+        <div className="form-grid">
+          <div className="form-group">
+            <label>Full Name *</label>
+            <input
+              type="text"
+              value={formData.fullName}
+              onChange={e => setFormData({...formData, fullName: e.target.value})}
+              required
+              className="form-input"
+            />
+          </div>
+          <div className="form-group">
+            <label>Username *</label>
+            <input
+              type="text"
+              value={formData.username}
+              onChange={e => setFormData({...formData, username: e.target.value})}
+              required
+              className="form-input"
+            />
+          </div>
+          <div className="form-group">
+            <label>Email *</label>
+            <input
+              type="email"
+              value={formData.email}
+              onChange={e => setFormData({...formData, email: e.target.value})}
+              required
+              className="form-input"
+            />
+          </div>
+          <div className="form-group">
+            <label>Role *</label>
+            <select
+              value={formData.role}
+              onChange={e => setFormData({...formData, role: e.target.value})}
+              className="form-select"
+            >
+              <option value="USER">User</option>
+              <option value="TEAM LEADER">Team Leader</option>
+              <option value="ADMIN">Admin</option>
+            </select>
+          </div>
+          <div className="form-group">
+            <label>Team</label>
+            <select
+              value={formData.team}
+              onChange={e => setFormData({...formData, team: e.target.value})}
+              className="form-select"
+              disabled={teamsLoading}
+            >
+              {/* "General" option REMOVED */}
+              {teams.filter(team => team.is_active).map(team => (
+                <option key={team.id} value={team.name}>
+                  {team.name}
+                  {team.leader_username && ` (Led by ${team.leader_username})`}
+                </option>
+              ))}
+            </select>
+            {teamsLoading && <p className="help-text">Loading teams...</p>}
+          </div>
+        </div>
       </FormModal>
 
       {/* Reset Password Modal */}
@@ -627,21 +624,21 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess, u
       >
         {selectedUser && (
           <>
-                <div className="form-group">
-                  <label>User: <strong>{selectedUser.fullName} ({selectedUser.username})</strong></label>
-                </div>
-                <div className="form-group">
-                  <label>New Password *</label>
-                  <input
-                    type="password"
-                    value={formData.password}
-                    onChange={e => setFormData({...formData, password: e.target.value})}
-                    required
-                    minLength="6"
-                    placeholder="Enter new password"
-                    className="form-input"
-                  />
-                </div>
+            <div className="form-group">
+              <label>User: <strong>{selectedUser.fullName} ({selectedUser.username})</strong></label>
+            </div>
+            <div className="form-group">
+              <label>New Password *</label>
+              <input
+                type="password"
+                value={formData.password}
+                onChange={e => setFormData({...formData, password: e.target.value})}
+                required
+                minLength="6"
+                placeholder="Enter new password"
+                className="form-input"
+              />
+            </div>
           </>
         )}
       </FormModal>
@@ -702,7 +699,7 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess, u
                     <div className="detail-item">
                       <label>Team</label>
                       <span className="team-badge">
-                        {userDetails.user.team}
+                        {userDetails.user.team || '—'}
                       </span>
                     </div>
                     <div className="detail-item">
