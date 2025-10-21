@@ -6,9 +6,6 @@ import { ConfirmationModal, AlertMessage } from './modals'
 const API_BASE = 'http://localhost:3001/api'
 const SERVER_BASE = API_BASE.replace(/\/api$/, '')
 
-// ============================================================================
-// MEMOIZED CHILD COMPONENTS FOR PERFORMANCE
-// ============================================================================
 
 const StatusCard = memo(({ icon, label, count, className }) => (
   <div className={`file-status-card ${className}`}>
@@ -48,13 +45,29 @@ const FileRow = memo(({
     onDelete(file)
   }, [file, onDelete])
 
+  // Extract file extension from filename or file_type
+  const getFileExtension = useCallback((filename, fileType) => {
+    if (filename) {
+      const parts = filename.split('.')
+      if (parts.length > 1) {
+        return parts[parts.length - 1].toLowerCase()
+      }
+    }
+    if (fileType) {
+      return fileType.replace(/^\./, '').toLowerCase()
+    }
+    return ''
+  }, [])
+
+  const fileExtension = getFileExtension(file.original_name, file.file_type)
+
   return (
     <tr className="file-row" onClick={handleRowClick}>
       <td>
         <div className="file-cell">
           <div className="file-icon">
             <FileIcon
-              fileType={file.file_type} 
+              fileType={fileExtension} 
               isFolder={false}
               altText={`Icon for ${file.original_name}`}
             />
@@ -97,35 +110,40 @@ const FileRow = memo(({
   )
 })
 
-const CommentItem = memo(({ comment }) => (
-  <div className="comment-item">
-    <div className="comment-header">
-      <span className="comment-author">{comment.reviewer_username || comment.username}</span>
-      <span className="comment-role">{comment.reviewer_role || comment.role || 'USER'}</span>
-      <span className="comment-date">
-        {new Date(comment.reviewed_at || comment.created_at).toLocaleDateString('en-US', {
-          month: 'short',
-          day: 'numeric',
-          year: 'numeric',
-          hour: '2-digit',
-          minute: '2-digit'
-        })}
-      </span>
-    </div>
-    <div className="comment-body">
-      {comment.action && (
-        <span className={`comment-action ${comment.action.toLowerCase()}`}>
-          {comment.action.toUpperCase()}
-        </span>
-      )}
-      {comment.comments && <p className="comment-text">{comment.comments}</p>}
-    </div>
-  </div>
-))
+const CommentItem = memo(({ comment }) => {
+  // Handle different possible field names in the comment object
+  const username = comment.reviewer_username || comment.username || comment.admin_username || 'Unknown User'
+  const role = comment.reviewer_role || comment.role || comment.admin_role || 'USER'
+  const timestamp = comment.reviewed_at || comment.created_at || comment.timestamp || new Date().toISOString()
+  const commentText = comment.comments || comment.comment || comment.text || ''
+  const action = comment.action || ''
 
-// ============================================================================
-// MAIN COMPONENT WITH OPTIMIZATIONS
-// ============================================================================
+  return (
+    <div className="comment-item">
+      <div className="comment-header">
+        <span className="comment-author">{username}</span>
+        <span className="comment-role">{role}</span>
+        <span className="comment-date">
+          {new Date(timestamp).toLocaleDateString('en-US', {
+            month: 'short',
+            day: 'numeric',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+          })}
+        </span>
+      </div>
+      <div className="comment-body">
+        {action && (
+          <span className={`comment-action ${action.toLowerCase()}`}>
+            {action.toUpperCase()}
+          </span>
+        )}
+        {commentText && <p className="comment-text">{commentText}</p>}
+      </div>
+    </div>
+  )
+})
 
 const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) => {
   // State management
@@ -141,7 +159,7 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
   const [fileComment, setFileComment] = useState('')
   const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [fileToDelete, setFileToDelete] = useState(null)
-  const [isLoading, setIsLoading] = useState(true) // Start with true for initial load
+  const [isLoading, setIsLoading] = useState(true)
   const [fileComments, setFileComments] = useState([])
   const [isLoadingComments, setIsLoadingComments] = useState(false)
   
@@ -181,10 +199,6 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
   useEffect(() => {
     setCurrentPage(1)
   }, [fileSearchQuery, fileFilter, fileSortBy])
-
-  // ============================================================================
-  // MEMOIZED CALCULATIONS
-  // ============================================================================
 
   // Calculate status counts efficiently
   const statusCounts = useMemo(() => {
@@ -261,10 +275,6 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
     return Math.ceil(filteredFiles.length / filesPerPage)
   }, [filteredFiles.length, filesPerPage])
 
-  // ============================================================================
-  // API CALLS WITH ABORT CONTROLLER
-  // ============================================================================
-
   const fetchFiles = useCallback(async () => {
     // Cancel previous request if still pending
     if (fetchAbortController.current) {
@@ -297,13 +307,28 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
 
   const fetchFileComments = useCallback(async (fileId) => {
     setIsLoadingComments(true)
+    console.log('Fetching comments for file ID:', fileId)
+    
     try {
       const response = await fetch(`${API_BASE}/files/${fileId}/comments`)
       const data = await response.json()
       
+      console.log('Comments API response:', data)
+      
       if (data.success) {
-        setFileComments(data.comments || [])
+        const comments = data.comments || []
+        console.log('Comments received:', comments.length)
+        
+        // Sort comments by date (newest first)
+        const sortedComments = comments.sort((a, b) => {
+          const dateA = new Date(a.reviewed_at || a.created_at || a.timestamp)
+          const dateB = new Date(b.reviewed_at || b.created_at || b.timestamp)
+          return dateB - dateA // Newest first
+        })
+        
+        setFileComments(sortedComments)
       } else {
+        console.warn('Failed to fetch comments:', data.message)
         setFileComments([])
       }
     } catch (error) {
@@ -313,10 +338,6 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
       setIsLoadingComments(false)
     }
   }, [])
-
-  // ============================================================================
-  // MEMOIZED UTILITY FUNCTIONS
-  // ============================================================================
 
   const mapFileStatus = useCallback((dbStatus) => {
     switch (dbStatus) {
@@ -340,7 +361,7 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
       case 'team_leader_approved':
         return 'Pending Admin'
       case 'final_approved':
-        return 'Final Approved'
+        return 'Approved'
       case 'rejected_by_team_leader':
         return 'Rejected by Team Leader'
       case 'rejected_by_admin':
@@ -357,10 +378,6 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
     const i = Math.floor(Math.log(bytes) / Math.log(k))
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
   }, [])
-
-  // ============================================================================
-  // MODAL HANDLERS
-  // ============================================================================
 
   const openDeleteModal = useCallback((file) => {
     setFileToDelete(file)
@@ -381,10 +398,6 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
     setFileComment('')
     setFileComments([])
   }, [])
-
-  // ============================================================================
-  // FILE ACTIONS
-  // ============================================================================
 
   const deleteFile = useCallback(async () => {
     if (!fileToDelete) return
@@ -615,10 +628,6 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
     }
   }, [selectedFile, fileComment, addComment, setError, setSuccess, closeFileModal, fetchFiles])
 
-  // ============================================================================
-  // PAGINATION
-  // ============================================================================
-
   const renderPaginationNumbers = useMemo(() => {
     const pageNumbers = []
     const maxVisiblePages = 5
@@ -686,10 +695,6 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
 
     return pageNumbers
   }, [totalPages, currentPage])
-
-  // ============================================================================
-  // RENDER
-  // ============================================================================
 
   return (
     <div className="file-approval-section">
@@ -919,7 +924,7 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
                 ) : fileComments && fileComments.length > 0 ? (
                   <div className="comments-list">
                     {fileComments.map((comment, index) => (
-                      <CommentItem key={index} comment={comment} />
+                      <CommentItem key={comment.id || comment.comment_id || `comment-${index}`} comment={comment} />
                     ))}
                   </div>
                 ) : (
