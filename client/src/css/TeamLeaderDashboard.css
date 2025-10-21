@@ -397,25 +397,48 @@ body {
   display: inline-block;
   margin-left: 4px;
   margin-top: -8px;
+  background: transparent;
 }
 
 .tl-stats.file-review-analytics .tl-stat-label {
   font-size: 14px;
-  font-weight: 500;
+  font-weight: 600;
+  font-family: 'Inter';
   color: rgba(255, 255, 255, 0.9);
   margin-bottom: 0;
 }
 
 .tl-stats.file-review-analytics .tl-stat-value {
-  font-size: 28px;
-  font-weight: 700;
+  font-size: 24px;
+  font-weight: 800;
+  font-family: 'Inter';
   margin-bottom: 0;
 }
 
 .tl-stats.file-review-analytics .tl-stat-icon-box {
-  width: 40px;
-  height: 40px;
-  border-radius: 8px;
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+}
+
+.tl-stats.file-review-analytics .tl-stat-icon-box.blue {
+  background: transparent;
+  color: #155dfc;
+}
+
+.tl-stats.file-review-analytics .tl-stat-icon-box.green {
+  background: transparent;
+  color: #10B981;
+}
+
+.tl-stats.file-review-analytics .tl-stat-icon-box.yellow {
+  background: transparent;
+  color: #d08700;
+}
+
+.tl-stats.file-review-analytics .tl-stat-icon-box.red {
+  background: transparent;
+  color: #EF4444;
 }
 
 .tl-stat-card:hover {
