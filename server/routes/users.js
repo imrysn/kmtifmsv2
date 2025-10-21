@@ -338,6 +338,52 @@ router.delete('/:id', (req, res) => {
   });
 });
 
+// Get team members (Team Leader only)
+router.get('/team/:teamName', (req, res) => {
+  const { teamName } = req.params;
+  console.log(`👥 Getting team members for team: ${teamName}`);
+
+  db.all(
+    'SELECT id, fullName, username, email, role, team, created_at FROM users WHERE team = ? AND role != ? ORDER BY fullName',
+    [teamName, 'TEAM LEADER'],
+    (err, members) => {
+      if (err) {
+        console.error('❌ Error getting team members:', err);
+        return res.status(500).json({
+          success: false,
+          message: 'Failed to fetch team members'
+        });
+      }
+      console.log(`✅ Retrieved ${members.length} members for team ${teamName}`);
+      
+      // Get file counts for each member
+      const memberPromises = members.map(member => {
+        return new Promise((resolve) => {
+          db.get(
+            'SELECT COUNT(*) as totalFiles FROM files WHERE user_id = ?',
+            [member.id],
+            (err, result) => {
+              if (!err && result) {
+                member.totalFiles = result.totalFiles || 0;
+              } else {
+                member.totalFiles = 0;
+              }
+              resolve(member);
+            }
+          );
+        });
+      });
+      
+      Promise.all(memberPromises).then(membersWithFiles => {
+        res.json({
+          success: true,
+          members: membersWithFiles
+        });
+      });
+    }
+  );
+});
+
 // Search users (Admin only)
 router.get('/search', (req, res) => {
   const { q } = req.query;
@@ -367,6 +413,53 @@ router.get('/search', (req, res) => {
       res.json({
         success: true,
         users
+      });
+    }
+  );
+});
+
+// Get team members - Direct route (supports /api/team-members/:teamName)
+// IMPORTANT: This must be LAST to avoid conflicts with other routes
+router.get('/:teamName', (req, res) => {
+  const { teamName } = req.params;
+  console.log(`👥 Getting team members for team: ${teamName}`);
+
+  db.all(
+    'SELECT id, fullName, username, email, role, team, created_at FROM users WHERE team = ? AND role != ? ORDER BY fullName',
+    [teamName, 'TEAM LEADER'],
+    (err, members) => {
+      if (err) {
+        console.error('❌ Error getting team members:', err);
+        return res.status(500).json({
+          success: false,
+          message: 'Failed to fetch team members'
+        });
+      }
+      console.log(`✅ Retrieved ${members.length} members for team ${teamName}`);
+      
+      // Get file counts for each member
+      const memberPromises = members.map(member => {
+        return new Promise((resolve) => {
+          db.get(
+            'SELECT COUNT(*) as totalFiles FROM files WHERE user_id = ?',
+            [member.id],
+            (err, result) => {
+              if (!err && result) {
+                member.totalFiles = result.totalFiles || 0;
+              } else {
+                member.totalFiles = 0;
+              }
+              resolve(member);
+            }
+          );
+        });
+      });
+      
+      Promise.all(memberPromises).then(membersWithFiles => {
+        res.json({
+          success: true,
+          members: membersWithFiles
+        });
       });
     }
   );
