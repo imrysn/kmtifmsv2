@@ -302,6 +302,21 @@
   flex-shrink: 0;
 }
 
+/* Icon container styling */
+.file-approval-section .file-icon {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.file-approval-section .file-icon svg {
+  width: 100%;
+  height: 100%;
+}
+
 .file-approval-section .user-cell {
   display: flex;
   align-items: center;

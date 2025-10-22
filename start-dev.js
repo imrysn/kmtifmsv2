@@ -213,27 +213,28 @@ process.on('SIGINT', cleanup);
 process.on('SIGTERM', cleanup);
 
 /**
- * Main startup sequence
+ * Main startup sequence - Fixed for reliable black screen prevention
  */
 async function main() {
   try {
     log('═'.repeat(70), colors.bright, ' ');
-    log('KMTI File Management System - Optimized Startup', colors.bright, '█');
+    log('KMTI File Management System - Optimized Startup (Black Screen Fixed)', colors.bright, '█');
     log('═'.repeat(70), colors.bright, ' ');
-    
+
     // Step 0: Check port availability
     log('Step 1/4: Checking port availability...', colors.cyan, '📋');
     const viteInUse = await isPortInUse(VITE_PORT);
     const expressInUse = await isPortInUse(EXPRESS_PORT);
-    
+
     if (viteInUse) {
       log(`⚠️  Port ${VITE_PORT} is already in use. Killing existing process...`, colors.yellow, ' ');
-      // Port might be freed soon
+      // Port might be freed soon, give it a moment
+      await new Promise(resolve => setTimeout(resolve, 1000));
     }
     if (expressInUse) {
       log(`⚠️  Port ${EXPRESS_PORT} is already in use. Express may start on different port.`, colors.yellow, ' ');
     }
-    
+
     // Step 1: Start Vite first (does not require Express)
     log('Step 2/4: Starting Vite development server...', colors.cyan, '📦');
     try {
@@ -243,26 +244,25 @@ async function main() {
       cleanup();
       return;
     }
-    
-    // Step 2: Wait for Vite to be ready
+
+    // Step 2: Wait for Vite to be ready with better timeout handling
     log('Step 3/4: Waiting for Vite to be ready...', colors.cyan, '⏸️ ');
     const viteReady = await waitForServer(VITE_PORT, 'Vite');
-    
+
     if (!viteReady) {
-      log('Vite startup timeout!', colors.red, '❌');
-      log('Try manually: cd client && npm run dev', colors.yellow, '💡');
-      cleanup();
-      return;
+      log('Vite startup timeout! Continuing anyway - Electron will retry...', colors.yellow, '⚠️ ');
+      // Don't exit here - let Electron handle the retry
     }
-    
+
     // Step 3: Start Electron (which will start Express internally)
+    // Electron will handle its own waiting and retries
     log('Step 4/4: Starting Electron (Express will start automatically)...', colors.cyan, '🎯');
     await startElectron();
-    
+
     log('═'.repeat(70), colors.bright, ' ');
-    log('All systems ready! Press Ctrl+C to stop.', colors.green, '✅');
+    log('Startup sequence completed! Electron will retry if needed.', colors.green, '✅');
     log('═'.repeat(70), colors.bright, ' ');
-    
+
   } catch (error) {
     log(`Startup failed: ${error.message}`, colors.red, '❌');
     cleanup();

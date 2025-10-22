@@ -120,7 +120,8 @@ router.post('/upload', upload.single('file'), async (req, res) => {
       db.get('SELECT * FROM files WHERE original_name = ? AND user_id = ?', [req.file.originalname, userId], async (err, existingFile) => {
         if (existingFile) {
           // Delete old physical file
-          const oldFilePath = path.join(uploadsDir, path.basename(existingFile.file_path));
+          const oldRelativePath = existingFile.file_path.startsWith('/uploads/') ? existingFile.file_path.substring(8) : existingFile.file_path;
+          const oldFilePath = path.join(uploadsDir, oldRelativePath);
           await safeDeleteFile(oldFilePath);
           
           // Delete old database record
@@ -677,7 +678,8 @@ router.post('/:fileId/move-to-projects', async (req, res) => {
     }
 
     // Get source file path
-    const sourcePath = path.join(uploadsDir, path.basename(file.file_path));
+    const relativePath = file.file_path.startsWith('/uploads/') ? file.file_path.substring(8) : file.file_path;
+    const sourcePath = path.join(uploadsDir, relativePath);
     
     // Check if source file exists
     const sourceExists = await fs.access(sourcePath).then(() => true).catch(() => false);

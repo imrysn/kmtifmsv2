@@ -5,6 +5,9 @@ const http = require('http');
 
 let mainWindow;
 let serverProcess;
+let loadRetryCount = 0;
+let viteRetryInterval = null;
+let isConnectedToVite = false;
 
 const isDev = process.env.NODE_ENV === 'development';
 const SERVER_PORT = process.env.EXPRESS_PORT || 3001;
@@ -12,14 +15,155 @@ const VITE_URL = 'http://localhost:5173';
 const EXPRESS_CHECK_INTERVAL = 500;
 const MAX_EXPRESS_WAIT = 30000; // 30 seconds
 const MAX_VITE_WAIT = 60000; // 60 seconds for Vite startup
+const MAX_LOAD_RETRIES = 10; // Maximum retries for page loading
+
+/**
+ * Show a loading/error page as fallback when Vite isn't responding
+ */
+function showFallbackPage() {
+  if (mainWindow && mainWindow.webContents) {
+    const html = `
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>KMTI File Management System - Connecting...</title>
+      <style>
+        body {
+          margin: 0;
+          padding: 20px;
+          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+          color: white;
+          height: 100vh;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          overflow: hidden;
+        }
+        .container {
+          text-align: center;
+          animation: fadeIn 1s ease-in-out;
+        }
+        .spinner {
+          border: 4px solid rgba(255, 255, 255, 0.3);
+          border-top: 4px solid white;
+          border-radius: 50%;
+          width: 50px;
+          height: 50px;
+          animation: spin 1s linear infinite;
+          margin: 0 auto 30px;
+        }
+        .title {
+          font-size: 24px;
+          margin-bottom: 10px;
+        }
+        .message {
+          font-size: 16px;
+          opacity: 0.9;
+          line-height: 1.5;
+        }
+        .retry-btn {
+          margin-top: 30px;
+          padding: 12px 24px;
+          background: rgba(255, 255, 255, 0.2);
+          color: white;
+          border: 2px solid white;
+          border-radius: 6px;
+          cursor: pointer;
+          font-size: 16px;
+          transition: all 0.2s;
+        }
+        .retry-btn:hover {
+          background: white;
+          color: #667eea;
+        }
+        @keyframes spin {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
+        }
+        @keyframes fadeIn {
+          from { opacity: 0; transform: translateY(20px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="spinner"></div>
+        <div class="title">Loading KMTI File Management System</div>
+        <div class="message">
+          Connecting to development server...<br>
+          This might take a few seconds.
+        </div>
+        <button class="retry-btn" onclick="window.location.reload()">Retry Connection</button>
+      </div>
+      <script>
+        // Auto-retry every 10 seconds
+        let retryCount = 0;
+        const maxRetries = 30; // 5 minutes max
+
+        function checkConnection() {
+          retryCount++;
+          if (retryCount > maxRetries) {
+            document.querySelector('.message').innerHTML = 'Connection timeout.<br>Please restart the application.';
+            document.querySelector('.spinner').style.display = 'none';
+            return;
+          }
+
+          fetch('${VITE_URL}', { mode: 'no-cors' })
+            .then(() => {
+              // If we get here, connection succeeded
+              window.location.href = '${VITE_URL}';
+            })
+            .catch(() => {
+              setTimeout(checkConnection, 10000);
+            });
+        }
+
+        setTimeout(checkConnection, 3000);
+      </script>
+    </body>
+    </html>`;
+
+    mainWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
+    mainWindow.show();
+    console.log('🛑 Showing fallback loading page while waiting for Vite server...');
+  }
+}
+
+/**
+ * Check Vite connection and retry if needed
+ */
+function checkViteConnection() {
+  if (!isDev || !mainWindow) return;
+
+  checkViteServer().then((isReady) => {
+    if (isReady && !isConnectedToVite) {
+      // Vite is now available, load the actual app
+      console.log('🔄 Vite server detected! Loading React app...');
+      isConnectedToVite = true;
+      loadRetryCount = 0; // Reset retry count
+      mainWindow.loadURL(VITE_URL);
+
+      if (viteRetryInterval) {
+        clearInterval(viteRetryInterval);
+        viteRetryInterval = null;
+      }
+    }
+  }).catch(() => {
+    // Continue checking
+  });
+}
 
 function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1200,
     height: 800,
     // icon: path.join(__dirname, 'assets/kmti_logo.png'),
-    backgroundColor: '#1a1a1a',
-    show: false, // Don't show until ready
+    backgroundColor: '#ffffff',
+    show: true, // Show immediately to prevent black screen
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,
@@ -30,7 +174,10 @@ function createWindow() {
       spellcheck: false,
       sandbox: true,
       enableBlinkFeatures: '',
-      disableBlinkFeatures: 'AutoplayPolicy' // Prevent autoplay issues
+      disableBlinkFeatures: 'AutoplayPolicy', // Prevent autoplay issues
+      // Security: Content Security Policy
+      webSecurity: true,
+      allowRunningInsecureContent: false
     },
   });
 
@@ -40,36 +187,51 @@ function createWindow() {
   });
 
   if (isDev) {
-    console.log(`🔗 Loading React app from ${VITE_URL}`);
-    
-    // Better error handling for load failures
+    console.log(`🔗 Attempting to load React app from ${VITE_URL}`);
+
+    // Enhanced error handling for load failures
     mainWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription) => {
-      console.error(`❌ Failed to load: ${errorCode} - ${errorDescription}`);
-      // Retry after a delay
+      loadRetryCount++;
+      console.error(`❌ Failed to load (attempt ${loadRetryCount}/${MAX_LOAD_RETRIES}): ${errorCode} - ${errorDescription}`);
+
+      if (loadRetryCount >= MAX_LOAD_RETRIES) {
+        console.error('❌ Max retries reached. Showing fallback page.');
+        showFallbackPage();
+        return;
+      }
+
+      // Retry after a delay with exponential backoff
+      const retryDelay = Math.min(2000 * Math.pow(2, loadRetryCount - 1), 10000);
       setTimeout(() => {
-        console.log('🔄 Retrying connection to Vite...');
+        console.log(`🔄 Retrying connection to Vite (attempt ${loadRetryCount + 1})...`);
         mainWindow.loadURL(VITE_URL);
-      }, 2000);
+      }, retryDelay);
     });
-    
+
     mainWindow.webContents.on('did-finish-load', () => {
+      loadRetryCount = 0; // Reset on success
+      isConnectedToVite = true;
       console.log('✅ Page loaded successfully');
       // Open DevTools AFTER page loads
       setTimeout(() => {
         mainWindow.webContents.openDevTools();
       }, 500);
     });
-    
+
     mainWindow.webContents.on('crashed', () => {
       console.error('❌ Renderer process crashed!');
-      mainWindow.reload();
+      showFallbackPage();
     });
-    
+
     // Enable remote debugging for troubleshooting
     mainWindow.webContents.on('console-message', (level, message, line, sourceId) => {
       console.log(`🖼️  [Renderer]: ${message}`);
     });
-    
+
+    // Start periodic checking if Vite isn't responding
+    checkViteConnection();
+    viteRetryInterval = setInterval(checkViteConnection, 5000); // Check every 5 seconds
+
     mainWindow.loadURL(VITE_URL);
   } else {
     // Production: load from built files
@@ -79,6 +241,11 @@ function createWindow() {
 
   mainWindow.on('closed', () => {
     mainWindow = null;
+    isConnectedToVite = false;
+    if (viteRetryInterval) {
+      clearInterval(viteRetryInterval);
+      viteRetryInterval = null;
+    }
   });
 }
 
@@ -186,7 +353,7 @@ function startServer() {
 }
 
 /**
- * Wait for Vite server to be ready
+ * Wait for Vite server to be ready with improved black screen prevention
  */
 function waitForViteServer() {
   return new Promise((resolve) => {
@@ -194,27 +361,30 @@ function waitForViteServer() {
       resolve();
       return;
     }
-    
+
     console.log('⏳ Waiting for Vite dev server...');
     let attempts = 0;
     const maxAttempts = Math.ceil(MAX_VITE_WAIT / 500); // Check every 500ms
-    
+
     const checkServer = async () => {
       attempts++;
-      
-      if (attempts > maxAttempts) {
-        console.error(`❌ Vite server did not start within ${MAX_VITE_WAIT / 1000}s`);
-        console.error('💡 Troubleshooting:');
-        console.error('   1. Check if port 5173 is in use: netstat -ano | findstr :5173');
-        console.error('   2. Try: cd client && npm install && npm run dev');
-        console.error('   3. Restart the application');
-        resolve(); // Continue to show error in Electron
-        return;
-      }
-      
+
+        if (attempts > maxAttempts) {
+          console.error(`❌ Vite server did not start within ${MAX_VITE_WAIT / 1000}s`);
+          console.error('💡 Troubleshooting:');
+          console.error('   1. Check if port 5173 is in use: netstat -ano | findstr :5173');
+          console.error('   2. Try: cd client && npm install && npm run dev');
+          console.error('   3. Restart the application');
+          console.warn('⚠️  Showing fallback loading page since Vite failed to start...');
+          // Show fallback page immediately when Vite fails to start
+          showFallbackPage();
+          resolve();
+          return;
+        }
+
       try {
         const isReady = await checkViteServer();
-        
+
         if (isReady) {
           console.log('✅ Vite dev server is ready!');
           resolve();
@@ -223,15 +393,15 @@ function waitForViteServer() {
       } catch (error) {
         // Continue trying
       }
-      
+
       if (attempts % 20 === 0) {
         const elapsed = Math.floor(attempts * 0.5);
         console.log(`⏳ Still waiting for Vite... (${elapsed}s/${MAX_VITE_WAIT / 1000}s)`);
       }
-      
+
       setTimeout(checkServer, 500);
     };
-    
+
     checkServer();
   });
 }
@@ -253,8 +423,41 @@ function shutdownServer() {
   }
 }
 
+// Disable GPU hardware acceleration to prevent GPU process crashes
+// This fixes the "GPU process exited unexpectedly" error
+app.disableHardwareAcceleration();
+console.log('⚙️  Hardware acceleration disabled for stability');
+
+// Handle child process errors more gracefully
+app.on('child-process-gone', (event, details) => {
+  console.error('❌ Child process error:', details.type, details.reason);
+  if (details.type === 'GPU') {
+    console.error('💡 GPU process crashed. Hardware acceleration is disabled, but the error may persist.');
+    console.error('   Possible causes: outdated GPU drivers, incompatible graphics card, or Windows graphics settings.');
+  }
+});
+
 app.whenReady().then(async () => {
   console.log('⚡ Electron app is ready!');
+  
+  // Configure session for better security
+  const { session } = require('electron');
+  
+  // Set Content Security Policy via session
+  session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
+    callback({
+      responseHeaders: {
+        ...details.responseHeaders,
+        'Content-Security-Policy': [
+          isDev 
+            ? "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' http://localhost:* ws://localhost:* wss://localhost:*; media-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none';"
+            : "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none';"
+        ]
+      }
+    });
+  });
+  
+  console.log('🔒 Content Security Policy configured');
   
   try {
     // Start Express server

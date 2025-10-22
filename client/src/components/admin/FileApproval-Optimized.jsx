@@ -70,6 +70,7 @@ const FileRow = memo(({
               fileType={fileExtension} 
               isFolder={false}
               altText={`Icon for ${file.original_name}`}
+              size="medium"
             />
           </div>
           <div className="file-details">
