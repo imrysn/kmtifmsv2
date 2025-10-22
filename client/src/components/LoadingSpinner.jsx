@@ -1,10 +1,6 @@
 import React from 'react';
 import '../css/LoadingSpinner.css';
 
-/**
- * Optimized Loading Spinner Component
- * Uses CSS animations instead of JS for better performance
- */
 const LoadingSpinner = ({ size = 'medium', color = '#4CAF50', fullScreen = false }) => {
   const sizeClasses = {
     small: 'spinner-small',

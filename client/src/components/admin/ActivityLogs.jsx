@@ -1,44 +1,75 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo, useRef, memo, useCallback } from 'react'
 import './ActivityLogs.css'
 import { ConfirmationModal, AlertMessage } from './modals'
+import { memoize } from '../../utils/performance'
+
+// Memoize expensive date formatting functions to avoid creating Date objects repeatedly
+const formatDate = memoize((timestamp) => {
+  return new Date(timestamp).toLocaleDateString()
+})
+
+const formatTime = memoize((timestamp) => {
+  return new Date(timestamp).toLocaleTimeString()
+})
+
+const LogRow = memo(({ log }) => (
+  <tr>
+    <td>{log.username}</td>
+    <td>{log.role}</td>
+    <td>{log.team}</td>
+    <td>
+      {formatDate(log.timestamp)} {formatTime(log.timestamp)}
+    </td>
+    <td>{log.activity}</td>
+  </tr>
+))
 
 const ActivityLogs = ({ clearMessages, error, success, setError, setSuccess }) => {
   const [activityLogs, setActivityLogs] = useState([])
-  const [filteredLogs, setFilteredLogs] = useState([])
   const [logsSearchQuery, setLogsSearchQuery] = useState('')
+  const [searchedQuery, setSearchedQuery] = useState('')
   const [dateFilter, setDateFilter] = useState('all')
   const [currentPage, setCurrentPage] = useState(1)
   const [isLoading, setIsLoading] = useState(false)
   const [showDeleteLogsModal, setShowDeleteLogsModal] = useState(false)
-  const itemsPerPage = 9
+  const [paginationInfo, setPaginationInfo] = useState(null)
+  const [hasActiveFilters, setHasActiveFilters] = useState(false)
+  const itemsPerPage = 50 // Match server default
 
   // Fetch activity logs on component mount
   useEffect(() => {
     fetchActivityLogs()
   }, [])
 
-  // Filter logs when search query, date filter, or logs change
+  // Debounced search
   useEffect(() => {
+    const timer = setTimeout(() => setSearchedQuery(logsSearchQuery), 300)
+    return () => clearTimeout(timer)
+  }, [logsSearchQuery])
+
+  // Memoized filtered logs
+  const filteredLogs = useMemo(() => {
     let filtered = [...activityLogs]
-    
+
     // Apply search filter
-    if (logsSearchQuery.trim() !== '') {
-      filtered = filtered.filter(log => 
-        log.username.toLowerCase().includes(logsSearchQuery.toLowerCase()) ||
-        log.role.toLowerCase().includes(logsSearchQuery.toLowerCase()) ||
-        log.team.toLowerCase().includes(logsSearchQuery.toLowerCase()) ||
-        log.activity.toLowerCase().includes(logsSearchQuery.toLowerCase())
+    if (searchedQuery.trim() !== '') {
+      const query = searchedQuery.toLowerCase()
+      filtered = filtered.filter(log =>
+        log.username.toLowerCase().includes(query) ||
+        log.role.toLowerCase().includes(query) ||
+        log.team.toLowerCase().includes(query) ||
+        log.activity.toLowerCase().includes(query)
       )
     }
-    
+
     // Apply date filter
     if (dateFilter !== 'all') {
       const now = new Date()
       const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
-      
+
       filtered = filtered.filter(log => {
         const logDate = new Date(log.timestamp)
-        
+
         switch (dateFilter) {
           case 'today':
             return logDate >= today
@@ -55,10 +86,32 @@ const ActivityLogs = ({ clearMessages, error, success, setError, setSuccess }) =
         }
       })
     }
-    
-    setFilteredLogs(filtered)
-    setCurrentPage(1) // Reset to first page when filters change
-  }, [logsSearchQuery, dateFilter, activityLogs])
+
+    return filtered
+  }, [activityLogs, searchedQuery, dateFilter])
+
+  // Memoized pagination data
+  const paginationData = useMemo(() => {
+    const totalPages = Math.ceil(filteredLogs.length / itemsPerPage)
+    const startIndex = (currentPage - 1) * itemsPerPage
+    const endIndex = startIndex + itemsPerPage
+    const currentLogs = filteredLogs.slice(startIndex, endIndex)
+
+    return {
+      totalPages,
+      startIndex,
+      endIndex,
+      currentLogs
+    }
+  }, [filteredLogs, currentPage, itemsPerPage])
+
+  // Extract from memoized data
+  const { totalPages, startIndex, endIndex, currentLogs } = paginationData
+
+  // Reset page when filters change
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [filteredLogs])
 
   const fetchActivityLogs = async () => {
     setIsLoading(true)
@@ -67,7 +120,6 @@ const ActivityLogs = ({ clearMessages, error, success, setError, setSuccess }) =
       const data = await response.json()
       if (data.success) {
         setActivityLogs(data.logs)
-        setFilteredLogs(data.logs)
       } else {
         setError('Failed to fetch activity logs')
       }
@@ -107,31 +159,24 @@ const ActivityLogs = ({ clearMessages, error, success, setError, setSuccess }) =
     setLogsSearchQuery('')
     setDateFilter('all')
     setCurrentPage(1)
-    setFilteredLogs(activityLogs)
     setSuccess('All filters cleared')
   }
 
-  const clearLogsSearch = () => {
+  const clearLogsSearch = useCallback(() => {
     setLogsSearchQuery('')
-  }
-  
-  // Pagination calculations
-  const totalPages = Math.ceil(filteredLogs.length / itemsPerPage)
-  const startIndex = (currentPage - 1) * itemsPerPage
-  const endIndex = startIndex + itemsPerPage
-  const currentLogs = filteredLogs.slice(startIndex, endIndex)
-  
-  const goToPage = (page) => {
+  }, [])
+
+  const goToPage = useCallback((page) => {
     setCurrentPage(page)
-  }
-  
-  const goToPreviousPage = () => {
+  }, [])
+
+  const goToPreviousPage = useCallback(() => {
     setCurrentPage(prev => Math.max(prev - 1, 1))
-  }
-  
-  const goToNextPage = () => {
+  }, [])
+
+  const goToNextPage = useCallback(() => {
     setCurrentPage(prev => Math.min(prev + 1, totalPages))
-  }
+  }, [totalPages])
   
   // Helper function to get current filter description
   const getFilterDescription = () => {
@@ -234,46 +279,7 @@ const ActivityLogs = ({ clearMessages, error, success, setError, setSuccess }) =
       
       // Set the new activity logs
       setActivityLogs(updatedActivityLogs)
-      
-      // Re-apply filters to the updated logs
-      let newFilteredLogs = [...updatedActivityLogs]
-      
-      // Apply search filter
-      if (logsSearchQuery.trim() !== '') {
-        newFilteredLogs = newFilteredLogs.filter(log => 
-          log.username.toLowerCase().includes(logsSearchQuery.toLowerCase()) ||
-          log.role.toLowerCase().includes(logsSearchQuery.toLowerCase()) ||
-          log.team.toLowerCase().includes(logsSearchQuery.toLowerCase()) ||
-          log.activity.toLowerCase().includes(logsSearchQuery.toLowerCase())
-        )
-      }
-      
-      // Apply date filter
-      if (dateFilter !== 'all') {
-        const now = new Date()
-        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
-        
-        newFilteredLogs = newFilteredLogs.filter(log => {
-          const logDate = new Date(log.timestamp)
-          
-          switch (dateFilter) {
-            case 'today':
-              return logDate >= today
-            case 'week':
-              const weekAgo = new Date(today)
-              weekAgo.setDate(today.getDate() - 7)
-              return logDate >= weekAgo
-            case 'month':
-              const monthAgo = new Date(today)
-              monthAgo.setMonth(today.getMonth() - 1)
-              return logDate >= monthAgo
-            default:
-              return true
-          }
-        })
-      }
-      
-      setFilteredLogs(newFilteredLogs)
+
       setCurrentPage(1) // Reset to first page
       setShowDeleteLogsModal(false)
       
@@ -401,33 +407,7 @@ const ActivityLogs = ({ clearMessages, error, success, setError, setSuccess }) =
               </thead>
               <tbody>
                 {currentLogs.map((log) => (
-                  <tr key={log.id} className="log-row">
-                    <td>
-                      <div className="user-cell">
-                        <div className="user-avatar">{log.username.charAt(0).toUpperCase()}</div>
-                        <span className="user-name">{log.username}</span>
-                      </div>
-                    </td>
-                    <td>
-                      <span className={`role-badge ${log.role.toLowerCase().replace(' ', '-')}`}>
-                        {log.role}
-                      </span>
-                    </td>
-                    <td>
-                      <span className="team-badge">
-                        {log.team}
-                      </span>
-                    </td>
-                    <td>
-                      <div className="datetime-cell">
-                        <div className="date">{new Date(log.timestamp).toLocaleDateString()}</div>
-                        <div className="time">{new Date(log.timestamp).toLocaleTimeString()}</div>
-                      </div>
-                    </td>
-                    <td>
-                      <div className="activity-cell">{log.activity}</div>
-                    </td>
-                  </tr>
+                  <LogRow key={log.id} log={log} />
                 ))}
               </tbody>
             </table>
@@ -515,4 +495,4 @@ const ActivityLogs = ({ clearMessages, error, success, setError, setSuccess }) =
   )
 }
 
-export default ActivityLogs
+export default memo(ActivityLogs)

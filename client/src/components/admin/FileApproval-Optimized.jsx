@@ -70,6 +70,7 @@ const FileRow = memo(({
               fileType={fileExtension} 
               isFolder={false}
               altText={`Icon for ${file.original_name}`}
+              size="medium"
             />
           </div>
           <div className="file-details">
@@ -1003,7 +1004,7 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
         isOpen={showDeleteModal && fileToDelete}
         onClose={() => setShowDeleteModal(false)}
         onConfirm={deleteFile}
-        title="Delete File"
+        title="Deleting File"
         message="Are you sure you want to delete this file?"
         confirmText="Delete File"
         variant="danger"

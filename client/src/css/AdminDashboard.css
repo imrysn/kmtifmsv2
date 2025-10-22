@@ -1,5 +1,5 @@
 /* Modern FileFlow Style Admin Dashboard */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+/* Using system fonts for better performance and CSP compliance */
 
 :root {
   /* Color System */
@@ -65,7 +65,7 @@
   display: flex;
   min-height: 100vh;
   background: var(--background-primary);
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Helvetica Neue', sans-serif;
 }
 
 /* Sidebar Styles */
@@ -213,11 +213,18 @@
 .nav-icon {
   width: 20px;
   height: 20px;
+  min-width: 20px;
+  min-height: 20px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 18px;
-  object-fit: contain;
+  flex-shrink: 0;
+}
+
+.nav-icon svg {
+  width: 100%;
+  height: 100%;
+  display: block;
 }
 
 .nav-label {
@@ -396,6 +403,19 @@
 
 .admin-main-content::-webkit-scrollbar-thumb:hover {
   background: var(--text-tertiary);
+}
+
+/* File Icon Styles */
+.file-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.file-icon-svg {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
 }
 
 /* Content Animations */
