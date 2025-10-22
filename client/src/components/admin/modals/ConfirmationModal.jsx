@@ -14,6 +14,8 @@ import './ConfirmationModal.css'
  * @param {string} cancelText - Text for cancel button (default: "Cancel")
  * @param {string} variant - Visual variant: 'danger', 'warning', 'info' (default: 'danger')
  * @param {boolean} isLoading - Shows loading state on confirm button
+ * @param {object} fileInfo - Optional file info object with name and size
+ * @param {string} warningText - Optional warning message text
  */
 const ConfirmationModal = ({
   isOpen,
@@ -26,6 +28,8 @@ const ConfirmationModal = ({
   cancelText = 'Cancel',
   variant = 'danger',
   isLoading = false,
+  fileInfo,
+  warningText,
   children
 }) => {
   if (!isOpen) return null
@@ -74,6 +78,14 @@ const ConfirmationModal = ({
     }
   }
 
+  const formatFileSize = (bytes) => {
+    if (bytes === 0) return '0 Bytes'
+    const k = 1024
+    const sizes = ['Bytes', 'KB', 'MB', 'GB']
+    const i = Math.floor(Math.log(bytes) / Math.log(k))
+    return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + ' ' + sizes[i]
+  }
+
   return (
     <div 
       className="modal-overlay" 
@@ -101,9 +113,30 @@ const ConfirmationModal = ({
             </div>
             <div className="confirmation-text">
               <h4>{message}</h4>
+              
+              {/* File info section */}
+              {fileInfo && (
+                <div className="file-info">
+                  <div className="file-name">{fileInfo.name}</div>
+                  <div className="file-size">
+                    {typeof fileInfo.size === 'number' 
+                      ? formatFileSize(fileInfo.size)
+                      : fileInfo.size}
+                  </div>
+                </div>
+              )}
+              
               {description && (
                 <p className="confirmation-description">{description}</p>
               )}
+              
+              {/* Warning message box */}
+              {warningText && (
+                <div className="warning-message">
+                  <p>{warningText}</p>
+                </div>
+              )}
+              
               {children}
             </div>
           </div>
