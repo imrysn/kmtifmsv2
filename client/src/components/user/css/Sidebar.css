@@ -139,21 +139,64 @@
 }
 
 .user-sidebar-component .sidebar-logout {
-  padding: 14px 24px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 20px;
   margin: 16px;
-  background: #ffe5e5;
-  border: 1px solid #ffcccc;
-  color: #d32f2f;
-  font-size: 15px;
+  background: linear-gradient(135deg, #ff6b6b 0%, #ee5a6f 100%);
+  border: none;
+  color: white;
+  font-size: 14px;
   font-weight: 500;
-  border-radius: 8px;
+  border-radius: 12px;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 8px rgba(238, 90, 111, 0.3);
+  position: relative;
+  overflow: hidden;
+}
+
+.user-sidebar-component .sidebar-logout::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+  transition: left 0.5s ease;
+}
+
+.user-sidebar-component .sidebar-logout:hover::before {
+  left: 100%;
 }
 
 .user-sidebar-component .sidebar-logout:hover {
-  background: #ffcccc;
-  border-color: #ffb3b3;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(238, 90, 111, 0.4);
+}
+
+.user-sidebar-component .sidebar-logout:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 6px rgba(238, 90, 111, 0.3);
+}
+
+.user-sidebar-component .sidebar-logout .logout-icon {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  stroke: white;
+  transition: transform 0.3s ease;
+  z-index: 1;
+}
+
+.user-sidebar-component .sidebar-logout:hover .logout-icon {
+  transform: translateX(4px);
+}
+
+.user-sidebar-component .sidebar-logout .nav-text {
+  z-index: 1;
 }
 
 /* Responsive Sidebar */
@@ -202,12 +245,16 @@
   .user-sidebar-component .sidebar-logout {
     margin: 12px;
     padding: 12px;
-    font-size: 0;
+    justify-content: center;
   }
   
-  .user-sidebar-component .sidebar-logout::before {
-    content: "↪";
-    font-size: 16px;
+  .user-sidebar-component .sidebar-logout .nav-text {
+    display: none;
+  }
+  
+  .user-sidebar-component .sidebar-logout .logout-icon {
+    width: 20px;
+    height: 20px;
   }
 }
 

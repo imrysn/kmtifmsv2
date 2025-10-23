@@ -77,17 +77,31 @@
 }
 
 .confirmation-icon {
-  font-size: 2.75rem;
+  font-size: 2.5rem;
   flex-shrink: 0;
   line-height: 1;
-  color: #f59e0b;
-  background: #fef3c7;
   width: 56px;
   height: 56px;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
+  text-align: center;
+}
+
+.confirmation-modal.danger .confirmation-icon {
+  color: #f59e0b;
+  background: #fef3c7;
+}
+
+.confirmation-modal.warning .confirmation-icon {
+  color: #f59e0b;
+  background: #fef3c7;
+}
+
+.confirmation-modal.info .confirmation-icon {
+  color: #3b82f6;
+  background: #dbeafe;
 }
 
 .confirmation-text {

@@ -55,13 +55,13 @@ const ConfirmationModal = ({
   const getVariantIcon = () => {
     switch (variant) {
       case 'danger':
-        return ''
+        return '⚠'
       case 'warning':
-        return ''
+        return '⚠'
       case 'info':
         return 'ℹ'
       default:
-        return ''
+        return '⚠'
     }
   }
 
