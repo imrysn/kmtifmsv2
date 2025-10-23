@@ -26,6 +26,7 @@
     "db:reset-admin": "node database/reset-admin-password.js",
     "db:check-roles": "node database/check-roles.js",
     "db:migrate": "node database/migrate-from-sqlite.js",
+    "db:migrate:assignments": "node server/scripts/migrate-assignments.js",
     "db:test": "node database/test-connection.js",
     "db:backup": "node database/backup-mysql.js",
     "db:switch": "node database/switch-database-mode.js",

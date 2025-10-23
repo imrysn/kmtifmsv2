@@ -31,7 +31,14 @@ if (USE_MYSQL) {
       run: async (sql, params, callback) => {
         try {
           const result = await mysqlConfig.query(sql, Array.isArray(params) ? params : []);
-          if (callback) callback(null, result);
+          if (callback) {
+            // Call callback with this context having lastID for INSERT operations
+            const context = {};
+            if (result && typeof result.insertId !== 'undefined') {
+              context.lastID = result.insertId;
+            }
+            callback.call(context, null, result);
+          }
           return result;
         } catch (error) {
           if (callback) callback(error);
