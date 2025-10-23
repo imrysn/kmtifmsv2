@@ -721,8 +721,8 @@ router.post('/:fileId/move-to-projects', async (req, res) => {
     // Update database with new path
     await new Promise((resolve, reject) => {
       db.run(
-        'UPDATE files SET public_network_url = ?, projects_path = ? WHERE id = ?',
-        [destinationFilePath, fullDestinationPath, fileId],
+        'UPDATE files SET public_network_url = ? WHERE id = ?',
+        [destinationFilePath, fileId],
         (err) => {
           if (err) reject(err);
           else resolve();
