@@ -505,6 +505,9 @@
   overflow: hidden;
   display: flex;
   flex-direction: column;
+  animation: none;
+  transform: none;
+  transition: none;
 }
 
 .file-approval-section .file-modal {

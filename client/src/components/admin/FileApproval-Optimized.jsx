@@ -28,13 +28,13 @@ const FileRowSkeleton = memo(() => (
   </tr>
 ))
 
-const FileRow = memo(({ 
-  file, 
-  formatFileSize, 
-  mapFileStatus, 
-  getStatusDisplayName, 
-  onOpenModal, 
-  onDelete 
+const FileRow = memo(({
+  file,
+  formatFileSize,
+  mapFileStatus,
+  getStatusDisplayName,
+  onOpenModal,
+  onDelete
 }) => {
   const handleRowClick = useCallback(() => {
     onOpenModal(file)
@@ -61,13 +61,18 @@ const FileRow = memo(({
 
   const fileExtension = getFileExtension(file.original_name, file.file_type)
 
+  // Memoize formatted dates to avoid recalculating on every render
+  const formattedDate = useMemo(() => new Date(file.uploaded_at).toLocaleDateString(), [file.uploaded_at])
+  const formattedTime = useMemo(() => new Date(file.uploaded_at).toLocaleTimeString(), [file.uploaded_at])
+  const formattedFileSize = useMemo(() => formatFileSize(file.file_size), [file.file_size, formatFileSize])
+
   return (
     <tr className="file-row" onClick={handleRowClick}>
       <td>
         <div className="file-cell">
           <div className="file-icon">
             <FileIcon
-              fileType={fileExtension} 
+              fileType={fileExtension}
               isFolder={false}
               altText={`Icon for ${file.original_name}`}
               size="medium"
@@ -75,7 +80,7 @@ const FileRow = memo(({
           </div>
           <div className="file-details">
             <span className="file-name">{file.original_name}</span>
-            <span className="file-size">{formatFileSize(file.file_size)}</span>
+            <span className="file-size">{formattedFileSize}</span>
           </div>
         </div>
       </td>
@@ -86,8 +91,8 @@ const FileRow = memo(({
       </td>
       <td>
         <div className="datetime-cell">
-          <div className="date">{new Date(file.uploaded_at).toLocaleDateString()}</div>
-          <div className="time">{new Date(file.uploaded_at).toLocaleTimeString()}</div>
+          <div className="date">{formattedDate}</div>
+          <div className="time">{formattedTime}</div>
         </div>
       </td>
       <td>
@@ -99,7 +104,7 @@ const FileRow = memo(({
         </span>
       </td>
       <td>
-        <button 
+        <button
           className="action-btn delete-btn"
           onClick={handleDeleteClick}
           title="Delete File"
@@ -119,20 +124,23 @@ const CommentItem = memo(({ comment }) => {
   const commentText = comment.comments || comment.comment || comment.text || ''
   const action = comment.action || ''
 
+  // Memoize formatted date to prevent recalculation on every render
+  const formattedDate = useMemo(() => {
+    return new Date(timestamp).toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    })
+  }, [timestamp])
+
   return (
     <div className="comment-item">
       <div className="comment-header">
         <span className="comment-author">{username}</span>
         <span className="comment-role">{role}</span>
-        <span className="comment-date">
-          {new Date(timestamp).toLocaleDateString('en-US', {
-            month: 'short',
-            day: 'numeric',
-            year: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit'
-          })}
-        </span>
+        <span className="comment-date">{formattedDate}</span>
       </div>
       <div className="comment-body">
         {action && (
@@ -276,6 +284,23 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
     return Math.ceil(filteredFiles.length / filesPerPage)
   }, [filteredFiles.length, filesPerPage])
 
+  const formatFileSize = useCallback((bytes) => {
+    if (bytes === 0) return '0 Bytes'
+    const k = 1024
+    const sizes = ['Bytes', 'KB', 'MB', 'GB']
+    const i = Math.floor(Math.log(bytes) / Math.log(k))
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
+  }, [])
+
+  // Memoize formatted values for selected file (for modal)
+  const selectedFileFormattedSize = useMemo(() => {
+    return selectedFile ? formatFileSize(selectedFile.file_size) : ''
+  }, [selectedFile, formatFileSize])
+
+  const selectedFileFormattedDate = useMemo(() => {
+    return selectedFile ? new Date(selectedFile.uploaded_at).toLocaleString() : ''
+  }, [selectedFile])
+
   const fetchFiles = useCallback(async () => {
     // Cancel previous request if still pending
     if (fetchAbortController.current) {
@@ -370,14 +395,6 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
       default:
         return dbStatus.charAt(0).toUpperCase() + dbStatus.slice(1)
     }
-  }, [])
-
-  const formatFileSize = useCallback((bytes) => {
-    if (bytes === 0) return '0 Bytes'
-    const k = 1024
-    const sizes = ['Bytes', 'KB', 'MB', 'GB']
-    const i = Math.floor(Math.log(bytes) / Math.log(k))
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
   }, [])
 
   const openDeleteModal = useCallback((file) => {
@@ -521,7 +538,7 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
         }
         const selectedPath = result.filePaths[0]
 
-        // Move file
+        // Move file and delete from uploads folder
         const moveResp = await fetch(`${API_BASE}/files/${selectedFile.id}/move-to-projects`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -530,7 +547,8 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
             adminId: 1,
             adminUsername: 'admin',
             adminRole: 'ADMIN',
-            team: 'IT Administration'
+            team: 'IT Administration',
+            deleteFromUploads: true
           })
         })
         const moveData = await moveResp.json()
@@ -580,14 +598,14 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
 
   const rejectFile = useCallback(async () => {
     if (!selectedFile) return
-    
+
     if (!fileComment.trim()) {
       setError('Please provide a reason for rejection')
       return
     }
-    
+
     await addComment()
-    
+
     setIsLoading(true)
     try {
       const response = await fetch(`${API_BASE}/files/${selectedFile.id}/admin-review`, {
@@ -602,20 +620,31 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
           team: 'IT Administration'
         })
       })
-      
+
       const data = await response.json()
-      
+
       if (data.success) {
+        // Delete the uploaded file from uploads folder
+        await fetch(`${API_BASE}/files/${selectedFile.id}/delete-file`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            adminId: 1,
+            adminUsername: 'admin',
+            adminRole: 'ADMIN'
+          })
+        }).catch(() => {}) // Ignore errors for physical file deletion
+
         // Optimistic update
-        setFiles(prevFiles => 
-          prevFiles.map(f => 
+        setFiles(prevFiles =>
+          prevFiles.map(f =>
             f.id === selectedFile.id ? { ...f, status: 'rejected_by_admin' } : f
           )
         )
-        
+
         closeFileModal()
         setSuccess('File rejected successfully')
-        
+
         // Refresh in background
         fetchFiles()
       } else {
@@ -883,7 +912,7 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
                   </div>
                   <div className="detail-item">
                     <span className="detail-label">FILE SIZE:</span>
-                    <span className="detail-value">{formatFileSize(selectedFile.file_size)}</span>
+                    <span className="detail-value">{selectedFileFormattedSize}</span>
                   </div>
                   <div className="detail-item">
                     <span className="detail-label">SUBMITTED BY:</span>
@@ -897,7 +926,7 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
                   </div>
                   <div className="detail-item">
                     <span className="detail-label">UPLOAD DATE:</span>
-                    <span className="detail-value">{new Date(selectedFile.uploaded_at).toLocaleString()}</span>
+                    <span className="detail-value">{selectedFileFormattedDate}</span>
                   </div>
                   <div className="detail-item">
                     <span className="detail-label">STATUS:</span>
@@ -959,22 +988,22 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
               {/* Actions Section */}
               <div className="actions-section">
                 <div className="action-buttons-large">
-                  <button 
-                    type="button" 
+                  <button
+                    type="button"
                     onClick={approveFile}
-                    className="btn btn-success-large" 
-                    disabled={isLoading}
+                    className="btn btn-success-large"
+                    disabled={isLoading || selectedFile.status === 'final_approved' || selectedFile.status === 'rejected_by_team_leader' || selectedFile.status === 'rejected_by_admin'}
                   >
                     <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
                       <path d="M16.875 5L7.5 14.375L3.125 10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                     </svg>
                     Approve
                   </button>
-                  <button 
-                    type="button" 
+                  <button
+                    type="button"
                     onClick={rejectFile}
-                    className="btn btn-danger-large" 
-                    disabled={isLoading}
+                    className="btn btn-danger-large"
+                    disabled={isLoading || selectedFile.status === 'final_approved' || selectedFile.status === 'rejected_by_team_leader' || selectedFile.status === 'rejected_by_admin'}
                   >
                     <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
                       <path d="M15 5L5 15M5 5L15 15" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>

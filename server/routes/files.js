@@ -689,7 +689,7 @@ router.post('/:fileId/team-leader-review', (req, res) => {
 // Move approved file to network projects path
 router.post('/:fileId/move-to-projects', async (req, res) => {
   const { fileId } = req.params;
-  const { destinationPath, adminId, adminUsername, adminRole, team } = req.body;
+  const { destinationPath, adminId, adminUsername, adminRole, team, deleteFromUploads } = req.body;
   console.log(`📦 Moving file ${fileId} to destination: ${destinationPath}`);
 
   try {
@@ -749,6 +749,16 @@ router.post('/:fileId/move-to-projects', async (req, res) => {
     await fs.copyFile(sourcePath, destinationFilePath);
     console.log('✅ File copied to:', destinationFilePath);
 
+    // Delete file from uploads folder if requested
+    if (deleteFromUploads) {
+      const deleteResult = await safeDeleteFile(sourcePath);
+      if (deleteResult.success) {
+        console.log('✅ File deleted from uploads folder:', sourcePath);
+      } else {
+        console.warn('⚠️ Could not delete file from uploads folder:', deleteResult.message);
+      }
+    }
+
     // Update database with new path
     await new Promise((resolve, reject) => {
       db.run(
@@ -768,7 +778,7 @@ router.post('/:fileId/move-to-projects', async (req, res) => {
       adminUsername,
       adminRole,
       team,
-      `File moved to projects: ${file.original_name} -> ${fullDestinationPath}`
+      `File moved to projects: ${file.original_name} -> ${fullDestinationPath}${deleteFromUploads ? ' (deleted from uploads)' : ''}`
     );
 
     console.log(`✅ File moved successfully: ${file.original_name}`);
@@ -808,9 +818,15 @@ router.post('/:fileId/admin-review', (req, res) => {
         message: 'File not found'
       });
     }
-    // Allow approval from any stage (pending_admin, pending_team_leader, etc.)
-    // This fixes the issue where Team Leader approved files can't be approved by Admin
-    console.log(`Current stage: ${file.current_stage}, Status: ${file.status}`);
+    // Admin can approve files in both 'uploaded' (Pending Team Leader) and 'team_leader_approved' (Pending Admin) status
+    const canApprove = file.status === 'uploaded' || file.status === 'team_leader_approved';
+    if (!canApprove && action === 'approve') {
+      return res.status(400).json({
+        success: false,
+        message: 'File is not in a state that can be approved by admin'
+      });
+    }
+    console.log(`Current stage: ${file.current_stage}, Status: ${file.status}, Can approve: ${canApprove}`);
 
   // Use MySQL-friendly DATETIME format
   const now = new Date();
