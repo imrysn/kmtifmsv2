@@ -367,58 +367,73 @@ body {
 }
 
 .tl-stats.file-review-analytics .tl-stat-card {
-  width: 120px;
-  height: 100px;
-  padding: 12px;
+  width: 135px;
+  height: 105px;
+  padding: 15px;
   border-radius: 12px;
   border: 1px solid rgba(0, 0, 0, 0.1);
-  display: block;
-  text-align: center;
+  display: flex;
+  flex-direction: column;
   transition: all 0.2s ease;
 }
 
-.tl-stats.file-review-analytics .tl-stat-info {
-  display: contents;
-}
-
 .tl-stats.file-review-analytics .tl-stat-label {
-  display: block;
-  text-align: center;
-  margin-bottom: 12px;
-}
-
-.tl-stats.file-review-analytics .tl-stat-value {
-  display: inline-block;
-  text-align: left;
-  margin-top: 8px;
-}
-
-.tl-stats.file-review-analytics .tl-stat-icon-box {
-  display: inline-block;
-  margin-left: 4px;
-  margin-top: -8px;
-  background: transparent;
-}
-
-.tl-stats.file-review-analytics .tl-stat-label {
-  font-size: 14px;
+  font-size: 17px;
   font-weight: 600;
-  font-family: 'Inter';
-  color: rgba(255, 255, 255, 0.9);
-  margin-bottom: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+  color: rgba(0, 0, 0, 0.6);
+  margin-bottom: 12px;
+  text-align: left;
+}
+
+.tl-stats.file-review-analytics .tl-stat-bottom {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: auto;
 }
 
 .tl-stats.file-review-analytics .tl-stat-value {
-  font-size: 24px;
+  font-size: 36px;
   font-weight: 800;
-  font-family: 'Inter';
-  margin-bottom: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+  margin: 0;
+  line-height: 1;
 }
 
 .tl-stats.file-review-analytics .tl-stat-icon-box {
   width: 32px;
   height: 32px;
   border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.tl-stats.file-review-analytics .tl-stat-icon-box svg {
+  width: 32px;
+  height: 32px;
+}
+
+.tl-stats.file-review-analytics .tl-stat-card.blue .tl-stat-label,
+.tl-stats.file-review-analytics .tl-stat-card.blue .tl-stat-value {
+  color: #155dfc;
+}
+
+.tl-stats.file-review-analytics .tl-stat-card.green .tl-stat-label,
+.tl-stats.file-review-analytics .tl-stat-card.green .tl-stat-value {
+  color: #10B981;
+}
+
+.tl-stats.file-review-analytics .tl-stat-card.yellow .tl-stat-label,
+.tl-stats.file-review-analytics .tl-stat-card.yellow .tl-stat-value {
+  color: #d08700;
+}
+
+.tl-stats.file-review-analytics .tl-stat-card.red .tl-stat-label,
+.tl-stats.file-review-analytics .tl-stat-card.red .tl-stat-value {
+  color: #EF4444;
 }
 
 .tl-stats.file-review-analytics .tl-stat-icon-box.blue {

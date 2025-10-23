@@ -124,13 +124,18 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
     }
   }, [pendingFiles, searchQuery, selectedStatusFilter])
 
+
   const fetchPendingFiles = async (status = null) => {
     setIsLoading(true)
     try {
       let url = `http://localhost:3001/api/files/team-leader/${user.team}?limit=1000`
 
-      if (status && status !== 'total' && status !== 'pending') {
-        // For status-specific requests, use the analytics endpoint
+      // For 'total' status, fetch all files from the general team endpoint
+      if (status === 'total') {
+        url = `http://localhost:3001/api/files/team/${user.team}?limit=1000`
+      }
+      // For specific status requests, use the analytics endpoint
+      else if (status && status !== 'pending') {
         let statusParam = status
         url = `http://localhost:3001/api/files/team/${user.team}/status/${statusParam}?limit=1000`
       }
@@ -670,12 +675,12 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
             <span>File Review</span>
           </button>
           
-          <button 
+          <button
             className={`tl-nav-item ${activeTab === 'assignments' ? 'active' : ''}`}
             onClick={() => { setActiveTab('assignments'); clearMessages(); setSidebarOpen(false); }}
           >
             <img src={assignmentIcon} alt="" className="tl-nav-icon" width="20" height="20" />
-            <span>Assignments</span>
+            <span>Tasks</span>
           </button>
           
           <button 
@@ -870,42 +875,42 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
             {/* Analytics Cards */}
             <div className="tl-stats file-review-analytics">
               <div className={`tl-stat-card blue clickable ${selectedStatusFilter === 'total' ? 'active' : ''}`} onClick={() => handleStatusFilter('total')}>
-                <div className="tl-stat-info">
-                  <p className="tl-stat-label">Total Files</p>
+                <p className="tl-stat-label">All Files</p>
+                <div className="tl-stat-bottom">
                   <h2 className="tl-stat-value">{(analyticsData?.approvedFiles || 0) + (analyticsData?.rejectedFiles || 0) + (analyticsData?.pendingTeamLeaderReview || 0) + (analyticsData?.pendingAdminReview || 0)}</h2>
-                </div>
-                <div className="tl-stat-icon-box blue">
-                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M9 5H7C6.46957 5 5.96086 5.21071 5.58579 5.58579C5.21071 5.96086 5 6.46957 5 7V19C5 19.5304 5.21071 20.0391 5.58579 20.4142C5.96086 20.7893 6.46957 21 7 21H17C17.5304 21 18.0391 20.7893 18.4142 20.4142C18.7893 20.0391 19 19.5304 19 19V7C19 6.46957 18.7893 5.96086 18.4142 5.58579C18.0391 5.21071 17.5304 5 17 5H15M9 5C9 5.53043 9.21071 6.03914 9.58579 6.41421C9.96086 6.78929 10.4696 7 11 7H13C13.5304 7 14.0391 6.78929 14.4142 6.41421C14.7893 6.03914 15 5.53043 15 5M9 5C9 4.46957 9.21071 3.96086 9.58579 3.58579C9.96086 3.21071 10.4696 3 11 3H13C13.5304 3 14.0391 3.21071 14.4142 3.58579C14.7893 3.96086 15 4.46957 15 5M12 12H15M12 16H15M9 12H9.01M9 16H9.01" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                  <div className="tl-stat-icon-box blue">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M9 5H7C6.46957 5 5.96086 5.21071 5.58579 5.58579C5.21071 5.96086 5 6.46957 5 7V19C5 19.5304 5.21071 20.0391 5.58579 20.4142C5.96086 20.7893 6.46957 21 7 21H17C17.5304 21 18.0391 20.7893 18.4142 20.4142C18.7893 20.0391 19 19.5304 19 19V7C19 6.46957 18.7893 5.96086 18.4142 5.58579C18.0391 5.21071 17.5304 5 17 5H15M9 5C9 5.53043 9.21071 6.03914 9.58579 6.41421C9.96086 6.78929 10.4696 7 11 7H13C13.5304 7 14.0391 6.78929 14.4142 6.41421C14.7893 6.03914 15 5.53043 15 5M9 5C9 4.46957 9.21071 3.96086 9.58579 3.58579C9.96086 3.21071 10.4696 3 11 3H13C13.5304 3 14.0391 3.21071 14.4142 3.58579C14.7893 3.96086 15 4.46957 15 5M12 12H15M12 16H15M9 12H9.01M9 16H9.01" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                  </div>
                 </div>
               </div>
 
               <div className={`tl-stat-card green clickable ${selectedStatusFilter === 'approved' ? 'active' : ''}`} onClick={() => handleStatusFilter('approved')}>
-                <div className="tl-stat-info">
-                  <p className="tl-stat-label">Approved</p>
+                <p className="tl-stat-label">Approved</p>
+                <div className="tl-stat-bottom">
                   <h2 className="tl-stat-value">{analyticsData?.approvedFiles || 0}</h2>
-                </div>
-                <div className="tl-stat-icon-box green">
-                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M9 12L11 14L15 10M21 12C21 16.97 16.97 21 12 21C7.03 21 3 16.97 3 12C3 7.03 7.03 3 12 3C16.97 3 21 7.03 21 12Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                  <div className="tl-stat-icon-box green">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M9 12L11 14L15 10M21 12C21 16.97 16.97 21 12 21C7.03 21 3 16.97 3 12C3 7.03 7.03 3 12 3C16.97 3 21 7.03 21 12Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                  </div>
                 </div>
               </div>
 
               <div className={`tl-stat-card yellow clickable ${selectedStatusFilter === 'pending' ? 'active' : ''}`} onClick={() => handleStatusFilter('pending')}>
-                <div className="tl-stat-info">
-                  <p className="tl-stat-label">Pending</p>
+                <p className="tl-stat-label">Pending</p>
+                <div className="tl-stat-bottom">
                   <h2 className="tl-stat-value">{(analyticsData?.pendingTeamLeaderReview || 0) + (analyticsData?.pendingAdminReview || 0)}</h2>
-                </div>
-                <div className="tl-stat-icon-box yellow">
-                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M12 22C17.52 22 22 17.52 22 12C22 6.48 17.52 2 12 2C6.48 2 2 6.48 2 12C2 17.52 6.48 22 12 22Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/><path d="M12 6V12L16 14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                  <div className="tl-stat-icon-box yellow">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M12 22C17.52 22 22 17.52 22 12C22 6.48 17.52 2 12 2C6.48 2 2 6.48 2 12C2 17.52 6.48 22 12 22Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/><path d="M12 6V12L16 14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                  </div>
                 </div>
               </div>
 
               <div className={`tl-stat-card red clickable ${selectedStatusFilter === 'rejected' ? 'active' : ''}`} onClick={() => handleStatusFilter('rejected')}>
-                <div className="tl-stat-info">
-                  <p className="tl-stat-label">Rejected</p>
+                <p className="tl-stat-label">Rejected</p>
+                <div className="tl-stat-bottom">
                   <h2 className="tl-stat-value">{analyticsData?.rejectedFiles || 0}</h2>
-                </div>
-                <div className="tl-stat-icon-box red">
-                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M12 2C6.48 2 2 6.48 2 12C2 17.52 6.48 22 12 22C17.52 22 22 17.52 22 12C22 6.48 17.52 2 12 2ZM13 17H11V15H13V17ZM13 13H11V7H13V13Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                  <div className="tl-stat-icon-box red">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M12 2C6.48 2 2 6.48 2 12C2 17.52 6.48 22 12 22C17.52 22 22 17.52 22 12C22 6.48 17.52 2 12 2ZM13 17H11V15H13V17ZM13 13H11V7H13V13Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                  </div>
                 </div>
               </div>
             </div>
@@ -1036,8 +1041,8 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
                           </div>
                         </td>
                         <td>
-                          <span className={`tl-status-badge ${file.current_stage?.includes('pending_team_leader') ? 'pending-tl' : file.current_stage?.includes('pending_admin') ? 'pending-admin' : 'pending'}`}>
-                            {file.current_stage?.includes('pending_team_leader') ? 'PENDING TEAM LEADER' : file.current_stage?.includes('pending_admin') ? 'PENDING ADMIN' : file.status?.toUpperCase() || 'PENDING'}
+                          <span className={`tl-status-badge ${file.status === 'approved' ? 'approved' : file.status === 'rejected' ? 'rejected' : 'pending'}`}>
+                            {file.status === 'approved' ? 'APPROVED' : file.status === 'rejected' ? 'REJECTED' : file.current_stage?.includes('pending_team_leader') ? 'PENDING TEAM LEADER' : file.current_stage?.includes('pending_admin') ? 'PENDING ADMIN' : file.status?.toUpperCase() || 'PENDING'}
                           </span>
                         </td>
                         <td>
@@ -1172,7 +1177,7 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
               <div className="tl-page-icon">
                 <img src={assignmentIcon} alt="" width="20" height="20" />
               </div>
-              <h1>Assignments</h1>
+              <h1>Tasks</h1>
               <button className="tl-btn success" onClick={() => setShowCreateAssignmentModal(true)} style={{marginLeft: 'auto'}}>
                 <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
                   <path d="M10 4V16M4 10H16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
