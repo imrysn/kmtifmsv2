@@ -194,28 +194,7 @@ const FileModal = ({
               </div>
             )}
             
-            {selectedFile.public_network_url && (
-              <div className="public-network-section">
-                <h4>Public Network</h4>
-                <div className="public-info">
-                  <div className="public-detail">
-                    <span className="public-label">Published URL:</span>
-                    <a 
-                      href={selectedFile.public_network_url} 
-                      target="_blank" 
-                      rel="noopener noreferrer"
-                      className="public-link"
-                    >
-                      {selectedFile.public_network_url}
-                    </a>
-                  </div>
-                  <div className="public-detail">
-                    <span className="public-label">Published Date:</span>
-                    <span className="public-value">{new Date(selectedFile.final_approved_at).toLocaleString()}</span>
-                  </div>
-                </div>
-              </div>
-            )}
+
             
             {selectedFile.rejection_reason && (
               <div className="rejection-section">
@@ -260,14 +239,6 @@ const FileModal = ({
               </div>
             )}
           </div>
-        </div>
-        <div className="modal-footer">
-          <button 
-            onClick={() => setShowFileModal(false)} 
-            className="btn btn-primary"
-          >
-            Close
-          </button>
         </div>
       </div>
     </div>

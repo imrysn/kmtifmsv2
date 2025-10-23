@@ -1,6 +1,8 @@
 import './css/MyFilesTab.css';
 import { useState, useRef, useEffect } from 'react';
 import SingleSelectTags from './SingleSelectTags';
+import ConfirmationModal from '../admin/modals/ConfirmationModal';
+import SuccessModal from './SuccessModal';
 
 const MyFilesTab = ({ 
   filteredFiles,
@@ -28,19 +30,36 @@ const MyFilesTab = ({
   const [loadingComments, setLoadingComments] = useState(false);
   const [openMenuId, setOpenMenuId] = useState(null);
   const [menuPosition, setMenuPosition] = useState({ top: 0, left: 0 });
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [fileToDelete, setFileToDelete] = useState(null);
+  const [successModal, setSuccessModal] = useState({ isOpen: false, title: '', message: '', type: 'success' });
   const fileInputRef = useRef(null);
-  const menuRef = useRef(null);
-  const buttonRef = useRef(null);
+  const menuRefs = useRef({});
 
-  // Close menu when clicking outside
+  // Close menu when clicking outside or scrolling
   useEffect(() => {
     const handleClickOutside = (e) => {
-      if (menuRef.current && !menuRef.current.contains(e.target)) {
+      // Check if click is outside all menu buttons and dropdowns
+      const clickedInsideAnyMenu = Object.values(menuRefs.current).some(
+        ref => ref && ref.contains(e.target)
+      );
+      
+      if (!clickedInsideAnyMenu) {
         setOpenMenuId(null);
       }
     };
+    
+    const handleScroll = () => {
+      setOpenMenuId(null);
+    };
+    
     document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    window.addEventListener('scroll', handleScroll, true);
+    
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      window.removeEventListener('scroll', handleScroll, true);
+    };
   }, []);
 
   const handleFileSelect = (e) => {
@@ -54,7 +73,12 @@ const MyFilesTab = ({
     e.preventDefault();
     
     if (!uploadedFile) {
-      alert('Please select a file to upload');
+      setSuccessModal({
+        isOpen: true,
+        title: 'No File Selected',
+        message: 'Please select a file to upload',
+        type: 'warning'
+      });
       return;
     }
 
@@ -106,7 +130,12 @@ const MyFilesTab = ({
 
       if (data.success) {
         const action = data.replaced ? 'replaced' : 'uploaded';
-        alert(`File ${action} successfully! It has been submitted for team leader review.`);
+        setSuccessModal({
+          isOpen: true,
+          title: 'Success!',
+          message: `File ${action} successfully! It has been submitted for team leader review.`,
+          type: 'success'
+        });
         setUploadedFile(null);
         setDescription('');
         setSelectedTag('');
@@ -118,9 +147,6 @@ const MyFilesTab = ({
         }
         
         fetchUserFiles();
-        if (onUploadSuccess) {
-          onUploadSuccess(`File ${action} successfully! It has been submitted for team leader review.`);
-        }
       } else {
         if (data.isDuplicate) {
           setDuplicateFileInfo({
@@ -129,12 +155,22 @@ const MyFilesTab = ({
           });
           setShowDuplicateModal(true);
         } else {
-          alert(data.message || 'Failed to upload file');
+          setSuccessModal({
+            isOpen: true,
+            title: 'Upload Failed',
+            message: data.message || 'Failed to upload file',
+            type: 'error'
+          });
         }
       }
     } catch (error) {
       console.error('Error uploading file:', error);
-      alert('Failed to upload file. Please try again.');
+      setSuccessModal({
+        isOpen: true,
+        title: 'Upload Error',
+        message: 'Failed to upload file. Please try again.',
+        type: 'error'
+      });
     } finally {
       setIsUploading(false);
     }
@@ -147,7 +183,12 @@ const MyFilesTab = ({
   const handleKeepBoth = () => {
     setShowDuplicateModal(false);
     setDuplicateFileInfo(null);
-    alert('Please rename your file and try uploading again.');
+    setSuccessModal({
+      isOpen: true,
+      title: 'Rename Required',
+      message: 'Please rename your file and try uploading again.',
+      type: 'info'
+    });
   };
 
   const clearUploadForm = () => {
@@ -164,40 +205,101 @@ const MyFilesTab = ({
     clearUploadForm();
   };
 
-  const openFile = (file) => {
-    const fileUrl = `http://localhost:3001${file.file_path}`;
-    window.open(fileUrl, '_blank');
-  };
+  const openFile = async (file) => {
+    try {
 
-  const deleteFile = async (file) => {
-    if (window.confirm(`Are you sure you want to delete "${file.original_name}"? This action cannot be undone.`)) {
-      try {
-        const response = await fetch(`http://localhost:3001/api/files/${file.id}`, {
-          method: 'DELETE',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            userId: user.id,
-            username: user.username,
-            userRole: 'USER',
-            team: user.team
-          })
-        });
-
+      // Check if running in Electron
+      if (window.electron && window.electron.openFileInApp) {
+        // In Electron - open file directly from network location
+        // Convert URL path to actual file system path
+        // Format: /uploads/username/filename -> actual network path
+        
+        // Get the actual file path from server
+        const response = await fetch(`http://localhost:3001/api/files/${file.id}/path`);
         const data = await response.json();
         
-        if (data.success) {
-          // Remove file from local state
-          fetchUserFiles();
-          alert('File deleted successfully');
+        if (data.success && data.filePath) {
+          // Open file with system default application
+          const result = await window.electron.openFileInApp(data.filePath);
+          
+          if (!result.success) {
+            setSuccessModal({
+              isOpen: true,
+              title: 'Error',
+              message: result.error || 'Failed to open file with system application',
+              type: 'error'
+            });
+          }
         } else {
-          alert(data.message || 'Failed to delete file');
+          throw new Error('Could not get file path');
         }
-      } catch (error) {
-        console.error('Error deleting file:', error);
-        alert('Failed to delete file. Please try again.');
+      } else {
+        // In browser - just open in new tab
+        const fileUrl = `http://localhost:3001${file.file_path}`;
+        window.open(fileUrl, '_blank', 'noopener,noreferrer');
       }
+    } catch (error) {
+      console.error('Error opening file:', error);
+      setSuccessModal({
+        isOpen: true,
+        title: 'Error',
+        message: 'Failed to open file. Please try again.',
+        type: 'error'
+      });
+    }
+  };
+
+  const openDeleteModal = (file) => {
+    setFileToDelete(file);
+    setShowDeleteModal(true);
+  };
+
+  const deleteFile = async () => {
+    if (!fileToDelete) return;
+
+    try {
+      const response = await fetch(`http://localhost:3001/api/files/${fileToDelete.id}`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          userId: user.id,
+          username: user.username,
+          userRole: 'USER',
+          team: user.team
+        })
+      });
+
+      const data = await response.json();
+      
+      if (data.success) {
+        // Remove file from local state
+        fetchUserFiles();
+        setSuccessModal({
+          isOpen: true,
+          title: 'File Deleted',
+          message: 'File deleted successfully',
+          type: 'error'
+        });
+        setShowDeleteModal(false);
+        setFileToDelete(null);
+      } else {
+        setSuccessModal({
+          isOpen: true,
+          title: 'Delete Failed',
+          message: data.message || 'Failed to delete file',
+          type: 'error'
+        });
+      }
+    } catch (error) {
+      console.error('Error deleting file:', error);
+      setSuccessModal({
+        isOpen: true,
+        title: 'Delete Error',
+        message: 'Failed to delete file. Please try again.',
+        type: 'error'
+      });
     }
   };
 
@@ -323,7 +425,11 @@ const MyFilesTab = ({
         </div>
         <button 
           className="upload-btn-new"
-          onClick={() => setShowUploadModal(true)}
+          onClick={(e) => {
+            e.preventDefault();
+            setShowUploadModal(true);
+          }}
+          type="button"
         >
           ↑ Upload Files
         </button>
@@ -399,20 +505,23 @@ const MyFilesTab = ({
                       {getStatusDisplayName(file.status)}
                     </span>
                   </div>
-                  <div className="col-actions">
-                    <div className="actions-menu-container" ref={menuRef}>
+                  <div className="col-actions" onClick={(e) => e.stopPropagation()}>
+                    <div 
+                      className="actions-menu-container" 
+                      ref={el => menuRefs.current[file.id] = el}
+                    >
                       <button 
-                        ref={buttonRef}
                         className="menu-btn"
                         onClick={(e) => {
+                          e.preventDefault();
                           e.stopPropagation();
                           if (openMenuId === file.id) {
                             setOpenMenuId(null);
                           } else {
                             const rect = e.currentTarget.getBoundingClientRect();
                             setMenuPosition({
-                              top: rect.bottom + window.scrollY + 4,
-                              left: rect.right + window.scrollX - 120
+                              top: rect.bottom + 4,
+                              left: rect.right - 120
                             });
                             setOpenMenuId(file.id);
                           }
@@ -424,6 +533,7 @@ const MyFilesTab = ({
                       {openMenuId === file.id && (
                         <div 
                           className="actions-dropdown"
+                          onClick={(e) => e.stopPropagation()}
                           style={{
                             position: 'fixed',
                             top: `${menuPosition.top}px`,
@@ -433,8 +543,9 @@ const MyFilesTab = ({
                           <button
                             className="dropdown-item delete-item"
                             onClick={(e) => {
+                              e.preventDefault();
                               e.stopPropagation();
-                              deleteFile(file);
+                              openDeleteModal(file);
                               setOpenMenuId(null);
                             }}
                           >
@@ -443,6 +554,7 @@ const MyFilesTab = ({
                           <button
                             className="dropdown-item open-item"
                             onClick={(e) => {
+                              e.preventDefault();
                               e.stopPropagation();
                               openFile(file);
                               setOpenMenuId(null);
@@ -477,7 +589,14 @@ const MyFilesTab = ({
           <div className="modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h3>Upload File for Approval</h3>
-              <button className="modal-close" onClick={closeUploadModal}>×</button>
+              <button 
+                className="modal-close" 
+                onClick={(e) => {
+                  e.preventDefault();
+                  closeUploadModal();
+                }}
+                type="button"
+              >×</button>
             </div>
             
             <form onSubmit={handleFileUpload} className="upload-form">
@@ -534,7 +653,10 @@ const MyFilesTab = ({
               <div className="modal-actions">
                 <button
                   type="button"
-                  onClick={closeUploadModal}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    closeUploadModal();
+                  }}
                   className="btn btn-cancel"
                   disabled={isUploading}
                 >
@@ -553,13 +675,40 @@ const MyFilesTab = ({
         </div>
       )}
 
+      {/* Delete Confirmation Modal */}
+      <ConfirmationModal
+        isOpen={showDeleteModal}
+        onClose={() => {
+          setShowDeleteModal(false);
+          setFileToDelete(null);
+        }}
+        onConfirm={deleteFile}
+        title="Delete File"
+        message="Are you sure you want to delete this file?"
+        fileInfo={{
+          name: fileToDelete?.original_name || '',
+          size: fileToDelete?.file_size || 0
+        }}
+        warningText="This action cannot be undone. The file and all its associated data will be permanently removed."
+        confirmText="Delete File"
+        cancelText="Cancel"
+        variant="danger"
+      />
+
       {/* File Details Modal */}
       {showFileDetailsModal && selectedFile && (
         <div className="modal-overlay" onClick={() => setShowFileDetailsModal(false)}>
           <div className="modal modal-large" onClick={e => e.stopPropagation()}>
             <div className="modal-header">
               <h3>File Details</h3>
-              <button onClick={() => setShowFileDetailsModal(false)} className="modal-close">×</button>
+              <button 
+                onClick={(e) => {
+                  e.preventDefault();
+                  setShowFileDetailsModal(false);
+                }} 
+                className="modal-close"
+                type="button"
+              >×</button>
             </div>
             <div className="modal-body">
               <div className="details-section">
@@ -641,6 +790,15 @@ const MyFilesTab = ({
           </div>
         </div>
       )}
+
+      {/* Success/Error Modal */}
+      <SuccessModal
+        isOpen={successModal.isOpen}
+        onClose={() => setSuccessModal({ ...successModal, isOpen: false })}
+        title={successModal.title}
+        message={successModal.message}
+        type={successModal.type}
+      />
     </div>
   );
 };

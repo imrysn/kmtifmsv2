@@ -124,12 +124,20 @@
   align-items: center;
   gap: 6px;
   box-shadow: 0 2px 8px rgba(88, 86, 214, 0.3);
-  transition: none;
+  transition: all 0.2s ease;
+  pointer-events: auto;
+  user-select: none;
 }
 
 .upload-btn-new:hover {
   background: #5e5ce6;
   box-shadow: 0 4px 12px rgba(88, 86, 214, 0.4);
+  transform: translateY(-1px);
+}
+
+.upload-btn-new:active {
+  transform: translateY(0);
+  box-shadow: 0 1px 4px rgba(88, 86, 214, 0.3);
 }
 
 /* Files Table Wrapper */
@@ -199,7 +207,8 @@
   padding: 16px 20px;
   border-bottom: 1px solid #e5e5ea;
   align-items: center;
-  transition: none;
+  transition: background 0.15s ease;
+  cursor: pointer;
 }
 
 .file-row-new:last-child {
@@ -207,7 +216,7 @@
 }
 
 .file-row-new:hover {
-  background: transparent;
+  background: #f9f9fb;
 }
 
 /* Column - Filename */
@@ -322,14 +331,7 @@
   border: 1px solid #f1aeb5;
 }
 
-/* Make file rows clickable */
-.file-row-new {
-  cursor: pointer;
-}
 
-.file-row-new:hover {
-  background: #f9f9fb;
-}
 
 /* Comment action badge */
 .comment-action {
@@ -410,13 +412,20 @@
   cursor: pointer;
   padding: 8px;
   border-radius: 6px;
-  transition: all 0.2s;
+  transition: all 0.2s ease;
   color: #86868b;
   display: flex;
   align-items: center;
   justify-content: center;
   width: 36px;
   height: 36px;
+  pointer-events: auto;
+  user-select: none;
+  z-index: 10;
+}
+
+.menu-btn:active {
+  transform: scale(0.95);
 }
 
 .menu-btn:hover {
@@ -425,16 +434,13 @@
 }
 
 .actions-dropdown {
-  position: absolute;
-  top: 100%;
-  right: 0;
+  position: fixed;
   background: white;
   border: 1px solid #e5e5ea;
   border-radius: 8px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
   min-width: 120px;
-  z-index: 1000;
-  margin-top: 4px;
+  z-index: 9999;
   overflow: hidden;
 }
 
@@ -448,7 +454,13 @@
   cursor: pointer;
   font-size: 14px;
   color: #1d1d1f;
-  transition: background 0.15s;
+  transition: background 0.15s ease;
+  pointer-events: auto;
+  user-select: none;
+}
+
+.dropdown-item:active {
+  transform: scale(0.98);
 }
 
 .dropdown-item:first-child {
@@ -480,7 +492,13 @@
   text-transform: uppercase;
   letter-spacing: 0.3px;
   cursor: pointer;
-  transition: none;
+  transition: all 0.2s ease;
+  pointer-events: auto;
+  user-select: none;
+}
+
+.open-file-btn:active {
+  transform: translateY(1px);
 }
 
 .open-file-btn:hover {
@@ -735,9 +753,15 @@
   font-size: 14px;
   font-weight: 600;
   cursor: pointer;
-  transition: none;
+  transition: all 0.2s ease;
   border: none;
   white-space: nowrap;
+  pointer-events: auto;
+  user-select: none;
+}
+
+.btn:active:not(:disabled) {
+  transform: scale(0.98);
 }
 
 .btn-submit {

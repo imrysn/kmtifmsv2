@@ -927,6 +927,39 @@ router.post('/:fileId/admin-review', (req, res) => {
   });
 });
 
+// Get file system path for Electron to open with default app
+router.get('/:fileId/path', (req, res) => {
+  const { fileId } = req.params;
+  
+  db.get('SELECT * FROM files WHERE id = ?', [fileId], (err, file) => {
+    if (err || !file) {
+      return res.status(404).json({
+        success: false,
+        message: 'File not found'
+      });
+    }
+    
+    // Convert URL path to actual file system path
+    let filePath;
+    if (file.file_path.startsWith('/uploads/')) {
+      const relativePath = file.file_path.substring('/uploads/'.length);
+      filePath = path.join(uploadsDir, relativePath);
+    } else {
+      filePath = path.join(uploadsDir, path.basename(file.file_path));
+    }
+    
+    // Normalize path for Windows
+    filePath = path.normalize(filePath);
+    
+    console.log(`📂 Resolved file path for ID ${fileId}: ${filePath}`);
+    
+    res.json({
+      success: true,
+      filePath: filePath
+    });
+  });
+});
+
 // Get file comments
 router.get('/:fileId/comments', (req, res) => {
   const { fileId } = req.params;
