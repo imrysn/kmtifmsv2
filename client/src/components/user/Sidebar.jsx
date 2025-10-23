@@ -59,20 +59,15 @@ const Sidebar = ({ activeTab, setActiveTab, filesCount, notificationCount, onLog
           <span className="nav-text">My Files</span>
           <span className="file-count">{filesCount}</span>
         </button>
-        <button
-          className={`sidebar-item ${activeTab === 'file-approvals' ? 'active' : ''}`}
-          onClick={() => setActiveTab('file-approvals')}
-        >
-          <svg className="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="20" height="20">
-            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
-            <polyline points="22 4 12 14.01 9 11.01" />
-          </svg>
-          <span className="nav-text">File Approvals</span>
-        </button>
       </nav>
 
       {/* Logout Button */}
       <button className="sidebar-logout" onClick={onLogout}>
+        <svg className="logout-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="20" height="20">
+          <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+          <polyline points="16 17 21 12 16 7" />
+          <line x1="21" y1="12" x2="9" y2="12" />
+        </svg>
         <span className="nav-text">Logout</span>
       </button>
     </div>

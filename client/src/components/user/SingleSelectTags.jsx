@@ -55,7 +55,7 @@ const SingleSelectTags = ({ selectedTag, onChange, disabled }) => {
 
   return (
     <>
-      <div className="multi-select-container" ref={dropdownRef}>
+      <div className="user-multi-select-tags-component multi-select-container" ref={dropdownRef}>
         <div 
           className={`multi-select-input ${isOpen ? 'open' : ''} ${disabled ? 'disabled' : ''}`}
           onClick={() => !disabled && setIsOpen(!isOpen)}

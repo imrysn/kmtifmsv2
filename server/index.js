@@ -14,6 +14,7 @@ const dashboardRoutes = require('./routes/dashboard');
 const settingsRoutes = require('./routes/settings');
 const fileViewerRoutes = require('./routes/fileViewer');
 const { router: notificationsRoutes } = require('./routes/notifications');
+const assignmentsRoutes = require('./routes/assignments');
 
 const app = express();
 const PORT = process.env.SERVER_PORT || 3001;
@@ -24,6 +25,7 @@ setupMiddleware(app);
 // Register routes
 app.use('/api/auth', authRoutes);
 app.use('/api/users', usersRoutes);
+app.use('/api/team-members', usersRoutes); // Alias for team members endpoint
 app.use('/api/teams', teamsRoutes);
 app.use('/api/activity-logs', activityLogsRoutes);
 app.use('/api/file-system', fileSystemRoutes);
@@ -32,6 +34,7 @@ app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/settings', settingsRoutes);
 app.use('/api/file-viewer', fileViewerRoutes);
 app.use('/api/notifications', notificationsRoutes);
+app.use('/api/assignments', assignmentsRoutes);
 
 // Start server
 async function startServer() {

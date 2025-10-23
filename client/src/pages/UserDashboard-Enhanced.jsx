@@ -11,7 +11,6 @@ import TeamFilesTab from '../components/user/TeamFilesTab'
 import MyFilesTab from '../components/user/MyFilesTab'
 import NotificationTab from '../components/user/NotificationTab-RealTime'
 import FileModal from '../components/user/FileModal'
-import FileApprovalTabTable from '../components/user/FileApprovalTab-Table'
 
 const UserDashboard = ({ user, onLogout }) => {
   const [activeTab, setActiveTab] = useState('dashboard')
@@ -73,7 +72,7 @@ const UserDashboard = ({ user, onLogout }) => {
   }, [user.id])
 
   useEffect(() => {
-    if (activeTab === 'my-files' || activeTab === 'file-approvals') {
+    if (activeTab === 'my-files') {
       fetchUserFiles()
     }
   }, [activeTab, user.id])
@@ -172,12 +171,6 @@ const UserDashboard = ({ user, onLogout }) => {
     setSuccess(message)
   }
 
-  const onWithdrawFile = (fileId) => {
-    // Remove the file from the files state
-    setFiles(prevFiles => prevFiles.filter(file => file.id !== fileId))
-    setSuccess('File withdrawn successfully')
-  }
-
   const renderActiveTab = () => {
     switch (activeTab) {
       case 'dashboard':
@@ -204,16 +197,6 @@ const UserDashboard = ({ user, onLogout }) => {
             files={files}
             user={user}
             onUploadSuccess={onUploadSuccess}
-          />
-        );
-      case 'file-approvals':
-        return (
-          <FileApprovalTabTable
-            user={user}
-            files={files}
-            isLoading={isLoading}
-            formatFileSize={formatFileSize}
-            onWithdrawFile={onWithdrawFile}
           />
         );
       case 'notification':

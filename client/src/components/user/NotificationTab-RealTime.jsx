@@ -5,6 +5,7 @@ const NotificationTab = ({ user, onOpenFile }) => {
   const [notifications, setNotifications] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
 
   useEffect(() => {
     fetchNotifications();
@@ -97,6 +98,35 @@ const NotificationTab = ({ user, onOpenFile }) => {
     }
   };
 
+  const handleDeleteAll = () => {
+    setShowDeleteModal(true);
+  };
+
+  const confirmDeleteAll = async () => {
+    try {
+      console.log('Deleting all notifications for user:', user.id);
+      const response = await fetch(`http://localhost:3001/api/notifications/user/${user.id}/delete-all`, {
+        method: 'DELETE'
+      });
+      
+      const data = await response.json();
+      console.log('Delete response:', data);
+      
+      if (data.success) {
+        setNotifications([]);
+        setUnreadCount(0);
+        setShowDeleteModal(false);
+        console.log('✅ All notifications deleted successfully');
+      } else {
+        console.error('❌ Delete failed:', data.message);
+        alert('Failed to delete notifications. Please try again.');
+      }
+    } catch (error) {
+      console.error('❌ Error deleting all notifications:', error);
+      alert('An error occurred while deleting notifications.');
+    }
+  };
+
   const getNotificationIcon = (type) => {
     switch (type) {
       case 'approval':
@@ -172,11 +202,37 @@ const NotificationTab = ({ user, onOpenFile }) => {
   }
 
   return (
+    <>
     <div className="user-notification-component notification-section">
       <div className="page-header">
-        <div>
-          <h2>Notifications</h2>
-          <p>Stay updated with your file approvals and system messages</p>
+        <div className="page-header-content">
+          <div>
+            <h2>Notifications</h2>
+            <p>Stay updated with your file approvals and system messages</p>
+          </div>
+          {notifications.length > 0 && (
+            <div className="notification-actions">
+              <button 
+                className="mark-all-read-btn"
+                onClick={handleMarkAllAsRead}
+                title="Mark all as read"
+                disabled={unreadCount === 0}
+                style={{
+                  opacity: unreadCount === 0 ? 0.5 : 1,
+                  cursor: unreadCount === 0 ? 'not-allowed' : 'pointer'
+                }}
+              >
+                ✓ Mark All as Read
+              </button>
+              <button 
+                className="delete-all-btn"
+                onClick={handleDeleteAll}
+                title="Delete all notifications"
+              >
+                🗑️ Delete All
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
@@ -212,11 +268,6 @@ const NotificationTab = ({ user, onOpenFile }) => {
                     <span className="notification-action-by">
                       👤 {notification.action_by_username} ({notification.action_by_role})
                     </span>
-                    {notification.file_name && (
-                      <span className="notification-file">
-                        📄 {notification.file_name}
-                      </span>
-                    )}
                     {notification.file_status && (
                       <span className="notification-status">
                         Status: {getStatusDisplayName(notification.file_status)}
@@ -239,6 +290,36 @@ const NotificationTab = ({ user, onOpenFile }) => {
         )}
       </div>
     </div>
+
+    {/* Custom Delete Confirmation Modal */}
+    {showDeleteModal && (
+      <div className="custom-modal-overlay" onClick={() => setShowDeleteModal(false)}>
+        <div className="custom-modal" onClick={(e) => e.stopPropagation()}>
+          <div className="modal-icon">
+            <span className="warning-icon">⚠️</span>
+          </div>
+          <h3 className="modal-title">Delete All Notifications?</h3>
+          <p className="modal-message">
+            Are you sure you want to delete all notifications? This action cannot be undone.
+          </p>
+          <div className="modal-actions">
+            <button 
+              className="modal-cancel-btn"
+              onClick={() => setShowDeleteModal(false)}
+            >
+              Cancel
+            </button>
+            <button 
+              className="modal-confirm-btn"
+              onClick={confirmDeleteAll}
+            >
+              Delete All
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+    </>
   );
 };
 

@@ -220,6 +220,37 @@ router.post('/upload', upload.single('file'), async (req, res) => {
   }
 });
 
+// Get files for a specific team member (Team Leader only)
+router.get('/member/:memberId', (req, res) => {
+  const { memberId } = req.params;
+  console.log(`📄 Getting files for team member ${memberId}`);
+
+  db.all(
+    `SELECT f.*, fc.comment as latest_comment
+     FROM files f
+     LEFT JOIN file_comments fc ON f.id = fc.file_id AND fc.id = (
+       SELECT MAX(id) FROM file_comments WHERE file_id = f.id
+     )
+     WHERE f.user_id = ?
+     ORDER BY f.uploaded_at DESC`,
+    [memberId],
+    (err, files) => {
+      if (err) {
+        console.error('❌ Error getting member files:', err);
+        return res.status(500).json({
+          success: false,
+          message: 'Failed to fetch member files'
+        });
+      }
+      console.log(`✅ Retrieved ${files.length} files for member ${memberId}`);
+      res.json({
+        success: true,
+        files
+      });
+    }
+  );
+});
+
 // Get files for user (User only - their own files) with pagination
 router.get('/user/:userId', (req, res) => {
   const { userId } = req.params;
@@ -927,6 +958,39 @@ router.post('/:fileId/admin-review', (req, res) => {
   });
 });
 
+// Get file system path for Electron to open with default app
+router.get('/:fileId/path', (req, res) => {
+  const { fileId } = req.params;
+  
+  db.get('SELECT * FROM files WHERE id = ?', [fileId], (err, file) => {
+    if (err || !file) {
+      return res.status(404).json({
+        success: false,
+        message: 'File not found'
+      });
+    }
+    
+    // Convert URL path to actual file system path
+    let filePath;
+    if (file.file_path.startsWith('/uploads/')) {
+      const relativePath = file.file_path.substring('/uploads/'.length);
+      filePath = path.join(uploadsDir, relativePath);
+    } else {
+      filePath = path.join(uploadsDir, path.basename(file.file_path));
+    }
+    
+    // Normalize path for Windows
+    filePath = path.normalize(filePath);
+    
+    console.log(`📂 Resolved file path for ID ${fileId}: ${filePath}`);
+    
+    res.json({
+      success: true,
+      filePath: filePath
+    });
+  });
+});
+
 // Get file comments
 router.get('/:fileId/comments', (req, res) => {
   const { fileId } = req.params;
@@ -1338,6 +1402,390 @@ router.post('/:id/admin-review', async (req, res) => {
     console.error('admin-review error:', err);
     return res.status(500).json({ success: false, message: 'Failed to update file review status', detail: err.message });
   }
+});
+
+// HIGH PRIORITY FEATURE: Bulk Actions - Approve/Reject multiple files
+router.post('/bulk-action', (req, res) => {
+  const { fileIds, action, comments, reviewerId, reviewerUsername, reviewerRole, team } = req.body;
+  
+  if (!fileIds || !Array.isArray(fileIds) || fileIds.length === 0) {
+    return res.status(400).json({
+      success: false,
+      message: 'File IDs array is required'
+    });
+  }
+  
+  if (!['approve', 'reject'].includes(action)) {
+    return res.status(400).json({
+      success: false,
+      message: 'Invalid action. Must be approve or reject'
+    });
+  }
+  
+  console.log(`📋 Bulk ${action} for ${fileIds.length} files by ${reviewerUsername}`);
+  
+  const now = new Date();
+  const nowSql = now.toISOString().slice(0,19).replace('T', ' ');
+  const results = { success: [], failed: [] };
+  let processed = 0;
+  
+  fileIds.forEach(fileId => {
+    db.get('SELECT * FROM files WHERE id = ?', [fileId], (err, file) => {
+      if (err || !file) {
+        results.failed.push({ fileId, reason: 'File not found' });
+        processed++;
+        checkComplete();
+        return;
+      }
+      
+      const isTeamLeader = reviewerRole === 'team_leader';
+      const isAdmin = reviewerRole === 'admin';
+      const correctStage = (isTeamLeader && file.current_stage === 'pending_team_leader') || 
+                          (isAdmin && file.current_stage === 'pending_admin');
+      
+      if (!correctStage) {
+        results.failed.push({ fileId, reason: 'Incorrect review stage', fileName: file.original_name });
+        processed++;
+        checkComplete();
+        return;
+      }
+      
+      let newStatus, newStage;
+      if (isTeamLeader) {
+        newStatus = action === 'approve' ? 'team_leader_approved' : 'rejected_by_team_leader';
+        newStage = action === 'approve' ? 'pending_admin' : 'rejected_by_team_leader';
+      } else {
+        newStatus = action === 'approve' ? 'final_approved' : 'rejected_by_admin';
+        newStage = action === 'approve' ? 'published_to_public' : 'rejected_by_admin';
+      }
+      
+      const updateSql = isTeamLeader ? 
+        `UPDATE files SET status = ?, current_stage = ?, team_leader_id = ?, team_leader_username = ?, 
+         team_leader_reviewed_at = ?, team_leader_comments = ?${action === 'reject' ? ', rejection_reason = ?, rejected_by = ?, rejected_at = ?' : ''} 
+         WHERE id = ?` :
+        `UPDATE files SET status = ?, current_stage = ?, admin_id = ?, admin_username = ?, 
+         admin_reviewed_at = ?, admin_comments = ?${action === 'approve' ? ', public_network_url = ?, final_approved_at = ?' : ''}${action === 'reject' ? ', rejection_reason = ?, rejected_by = ?, rejected_at = ?' : ''} 
+         WHERE id = ?`;
+      
+      const publicNetworkUrl = (isAdmin && action === 'approve') ? `https://public-network.example.com/files/${file.filename}` : null;
+      
+      const updateParams = isTeamLeader ? 
+        (action === 'reject' ? 
+          [newStatus, newStage, reviewerId, reviewerUsername, nowSql, comments, comments, reviewerUsername, nowSql, fileId] :
+          [newStatus, newStage, reviewerId, reviewerUsername, nowSql, comments, fileId]) :
+        (action === 'approve' ? 
+          [newStatus, newStage, reviewerId, reviewerUsername, nowSql, comments, publicNetworkUrl, nowSql, fileId] :
+          action === 'reject' ? 
+            [newStatus, newStage, reviewerId, reviewerUsername, nowSql, comments, comments, reviewerUsername, nowSql, fileId] :
+            [newStatus, newStage, reviewerId, reviewerUsername, nowSql, comments, fileId]);
+      
+      db.run(updateSql, updateParams, function(err) {
+        if (err) {
+          console.error(`❌ Error updating file ${fileId}:`, err);
+          results.failed.push({ fileId, reason: err.message, fileName: file.original_name });
+          processed++;
+          checkComplete();
+          return;
+        }
+        
+        // Add comment
+        if (comments) {
+          db.run(
+            'INSERT INTO file_comments (file_id, user_id, username, user_role, comment, comment_type) VALUES (?, ?, ?, ?, ?, ?)',
+            [fileId, reviewerId, reviewerUsername, reviewerRole, comments, action],
+            () => {}
+          );
+        }
+        
+        // Log status change
+        logFileStatusChange(
+          db, fileId, file.status, newStatus, file.current_stage, newStage,
+          reviewerId, reviewerUsername, reviewerRole, `Bulk ${action}: ${comments || 'No comments'}`
+        );
+        
+        results.success.push({ fileId, fileName: file.original_name, newStatus, newStage });
+        processed++;
+        checkComplete();
+      });
+    });
+  });
+  
+  function checkComplete() {
+    if (processed === fileIds.length) {
+      // Log activity
+      logActivity(
+        db, reviewerId, reviewerUsername, reviewerRole, team,
+        `Bulk ${action}: ${results.success.length} files ${action}d, ${results.failed.length} failed`
+      );
+      
+      console.log(`✅ Bulk action complete: ${results.success.length} succeeded, ${results.failed.length} failed`);
+      res.json({
+        success: true,
+        message: `Bulk action completed: ${results.success.length} files ${action}d, ${results.failed.length} failed`,
+        results
+      });
+    }
+  }
+});
+
+// HIGH PRIORITY FEATURE: Advanced Filtering & Sorting
+router.post('/team-leader/:team/filter', (req, res) => {
+  const { team } = req.params;
+  const { filters, sort, page = 1, limit = 50 } = req.body;
+  const offset = (page - 1) * limit;
+  
+  console.log(`🔍 Filtering files for team ${team}:`, filters);
+  
+  let whereClauses = ['user_team = ?', 'current_stage = ?'];
+  let params = [team, 'pending_team_leader'];
+  
+  // Build WHERE clauses based on filters
+  if (filters) {
+    if (filters.fileType && filters.fileType.length > 0) {
+      const placeholders = filters.fileType.map(() => '?').join(',');
+      whereClauses.push(`file_type IN (${placeholders})`);
+      params.push(...filters.fileType);
+    }
+    
+    if (filters.submittedBy && filters.submittedBy.length > 0) {
+      const placeholders = filters.submittedBy.map(() => '?').join(',');
+      whereClauses.push(`user_id IN (${placeholders})`);
+      params.push(...filters.submittedBy);
+    }
+    
+    if (filters.dateFrom) {
+      whereClauses.push('uploaded_at >= ?');
+      params.push(filters.dateFrom);
+    }
+    
+    if (filters.dateTo) {
+      whereClauses.push('uploaded_at <= ?');
+      params.push(filters.dateTo);
+    }
+    
+    if (filters.priority) {
+      whereClauses.push('priority = ?');
+      params.push(filters.priority);
+    }
+    
+    if (filters.hasDeadline) {
+      whereClauses.push('due_date IS NOT NULL');
+    }
+    
+    if (filters.isOverdue) {
+      whereClauses.push('due_date < ?');
+      params.push(new Date().toISOString());
+    }
+  }
+  
+  // Build ORDER BY clause
+  let orderBy = 'uploaded_at DESC';
+  if (sort) {
+    const sortField = sort.field || 'uploaded_at';
+    const sortDir = sort.direction || 'DESC';
+    const allowedFields = ['uploaded_at', 'original_name', 'file_size', 'priority', 'due_date'];
+    if (allowedFields.includes(sortField)) {
+      orderBy = `${sortField} ${sortDir}`;
+    }
+  }
+  
+  const whereClause = whereClauses.join(' AND ');
+  const countSql = `SELECT COUNT(*) as total FROM files WHERE ${whereClause}`;
+  const dataSql = `SELECT f.*, fc.comment as latest_comment FROM files f 
+                   LEFT JOIN file_comments fc ON f.id = fc.file_id AND fc.id = (SELECT MAX(id) FROM file_comments WHERE file_id = f.id) 
+                   WHERE ${whereClause} ORDER BY ${orderBy} LIMIT ? OFFSET ?`;
+  
+  db.get(countSql, params, (err, countResult) => {
+    if (err) {
+      console.error('❌ Error counting filtered files:', err);
+      return res.status(500).json({ success: false, message: 'Failed to filter files' });
+    }
+    
+    db.all(dataSql, [...params, limit, offset], (err, files) => {
+      if (err) {
+        console.error('❌ Error getting filtered files:', err);
+        return res.status(500).json({ success: false, message: 'Failed to filter files' });
+      }
+      
+      console.log(`✅ Retrieved ${files.length} filtered files`);
+      res.json({
+        success: true,
+        files,
+        pagination: {
+          page,
+          limit,
+          total: countResult.total,
+          pages: Math.ceil(countResult.total / limit)
+        }
+      });
+    });
+  });
+});
+
+// HIGH PRIORITY FEATURE: Set file priority and due date
+router.patch('/:fileId/priority', (req, res) => {
+  const { fileId } = req.params;
+  const { priority, dueDate, reviewerId, reviewerUsername } = req.body;
+  
+  console.log(`🎯 Setting priority for file ${fileId}: ${priority}, due: ${dueDate}`);
+  
+  const updates = [];
+  const params = [];
+  
+  if (priority !== undefined) {
+    updates.push('priority = ?');
+    params.push(priority);
+  }
+  
+  if (dueDate !== undefined) {
+    updates.push('due_date = ?');
+    params.push(dueDate);
+  }
+  
+  if (updates.length === 0) {
+    return res.status(400).json({ success: false, message: 'No updates provided' });
+  }
+  
+  params.push(fileId);
+  const sql = `UPDATE files SET ${updates.join(', ')} WHERE id = ?`;
+  
+  db.run(sql, params, function(err) {
+    if (err) {
+      console.error('❌ Error updating file priority:', err);
+      return res.status(500).json({ success: false, message: 'Failed to update priority' });
+    }
+    
+    // Log activity
+    const changes = [];
+    if (priority !== undefined) changes.push(`priority: ${priority}`);
+    if (dueDate !== undefined) changes.push(`due date: ${dueDate}`);
+    
+    db.get('SELECT * FROM files WHERE id = ?', [fileId], (err, file) => {
+      if (file) {
+        logActivity(
+          db, reviewerId, reviewerUsername, 'team_leader', file.user_team,
+          `Updated file ${file.original_name} - ${changes.join(', ')}`
+        );
+      }
+    });
+    
+    console.log(`✅ File priority updated`);
+    res.json({ success: true, message: 'Priority updated successfully' });
+  });
+});
+
+// HIGH PRIORITY FEATURE: Get notification/alert data
+router.get('/notifications/:team', (req, res) => {
+  const { team } = req.params;
+  console.log(`🔔 Getting notifications for team ${team}`);
+  
+  const now = new Date().toISOString();
+  
+  db.all(
+    `SELECT id, original_name, uploaded_at, priority, due_date, username 
+     FROM files 
+     WHERE user_team = ? AND current_stage = 'pending_team_leader' 
+     ORDER BY 
+       CASE 
+         WHEN due_date IS NOT NULL AND due_date < ? THEN 1
+         WHEN priority = 'urgent' THEN 2
+         WHEN priority = 'high' THEN 3
+         ELSE 4
+       END,
+       uploaded_at ASC 
+     LIMIT 10`,
+    [team, now],
+    (err, files) => {
+      if (err) {
+        console.error('❌ Error getting notifications:', err);
+        return res.status(500).json({ success: false, message: 'Failed to get notifications' });
+      }
+      
+      const notifications = files.map(file => {
+        const isOverdue = file.due_date && new Date(file.due_date) < new Date();
+        const isUrgent = file.priority === 'urgent' || file.priority === 'high';
+        
+        return {
+          id: file.id,
+          fileName: file.original_name,
+          submitter: file.username,
+          uploadedAt: file.uploaded_at,
+          priority: file.priority || 'normal',
+          dueDate: file.due_date,
+          isOverdue,
+          isUrgent,
+          type: isOverdue ? 'overdue' : isUrgent ? 'urgent' : 'pending',
+          message: isOverdue ? 
+            `Overdue: ${file.original_name} was due ${new Date(file.due_date).toLocaleDateString()}` :
+            isUrgent ? 
+              `${file.priority.toUpperCase()}: ${file.original_name} needs review` :
+              `New file: ${file.original_name} awaiting review`
+        };
+      });
+      
+      console.log(`✅ Retrieved ${notifications.length} notifications`);
+      res.json({
+        success: true,
+        notifications,
+        counts: {
+          overdue: notifications.filter(n => n.isOverdue).length,
+          urgent: notifications.filter(n => n.isUrgent && !n.isOverdue).length,
+          pending: notifications.filter(n => !n.isOverdue && !n.isUrgent).length
+        }
+      });
+    }
+  );
+});
+
+// Get files by status for a team (for analytics modal)
+router.get('/team/:team/status/:status', (req, res) => {
+  const { team, status } = req.params;
+  console.log(`📊 Getting ${status} files for team ${team}`);
+
+  let whereClause = 'user_team = ?';
+  const params = [team];
+
+  // Map status to database values
+  if (status === 'approved') {
+    whereClause += ' AND (status = ? OR status = ?)';
+    params.push('team_leader_approved', 'final_approved');
+  } else if (status === 'pending') {
+    whereClause += ' AND (current_stage = ? OR current_stage = ?)';
+    params.push('pending_team_leader', 'pending_admin');
+  } else if (status === 'rejected') {
+    whereClause += ' AND (status = ? OR status = ?)';
+    params.push('rejected_by_team_leader', 'rejected_by_admin');
+  } else {
+    return res.status(400).json({
+      success: false,
+      message: 'Invalid status. Must be approved, pending, or rejected'
+    });
+  }
+
+  db.all(
+    `SELECT f.*, fc.comment as latest_comment
+     FROM files f
+     LEFT JOIN file_comments fc ON f.id = fc.file_id AND fc.id = (
+       SELECT MAX(id) FROM file_comments WHERE file_id = f.id
+     )
+     WHERE ${whereClause}
+     ORDER BY f.uploaded_at DESC`,
+    params,
+    (err, files) => {
+      if (err) {
+        console.error(`❌ Error getting ${status} files:`, err);
+        return res.status(500).json({
+          success: false,
+          message: `Failed to fetch ${status} files`
+        });
+      }
+      console.log(`✅ Retrieved ${files.length} ${status} files for team ${team}`);
+      res.json({
+        success: true,
+        files
+      });
+    }
+  );
 });
 
 module.exports = router;

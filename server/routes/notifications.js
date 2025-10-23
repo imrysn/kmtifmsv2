@@ -157,6 +157,31 @@ router.delete('/:notificationId', (req, res) => {
   );
 });
 
+// Delete all notifications for a user
+router.delete('/user/:userId/delete-all', (req, res) => {
+  const { userId } = req.params;
+
+  db.run(
+    'DELETE FROM notifications WHERE user_id = ?',
+    [userId],
+    function(err) {
+      if (err) {
+        console.error('❌ Error deleting all notifications:', err);
+        return res.status(500).json({
+          success: false,
+          message: 'Failed to delete all notifications'
+        });
+      }
+
+      res.json({
+        success: true,
+        message: 'All notifications deleted',
+        count: this.changes
+      });
+    }
+  );
+});
+
 // Export both the router and the helper function
 module.exports = {
   router,
