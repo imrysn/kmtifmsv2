@@ -1,8 +1,22 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
+import path from 'path'
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [
+    react({
+      jsxRuntime: 'automatic',
+      jsxImportSource: 'react',
+      babel: {
+        plugins: [],
+      },
+    })
+  ],
+  resolve: {
+    alias: {
+      '@': path.resolve(__dirname, './src'),
+    },
+  },
   server: {
     port: 5173,
     open: false,
@@ -29,6 +43,10 @@ export default defineConfig({
     // File system watcher settings
     fs: {
       strict: false
+    },
+    // Ensure warm up
+    warmup: {
+      clientFiles: ['./src/main.jsx', './src/App.jsx'],
     }
   },
   build: {
@@ -64,15 +82,20 @@ export default defineConfig({
     lib: false
   },
   
-  // Pre-bundle dependencies
+  // Pre-bundle dependencies - CRITICAL FOR REACT
   optimizeDeps: {
-    include: ['react', 'react-dom', 'react-router-dom', 'animejs'],
+    include: ['react', 'react-dom', 'react/jsx-runtime', 'react-router-dom', 'animejs'],
     exclude: ['node_modules/.vite'],
     esbuildOptions: {
       define: {
         global: 'globalThis'
-      }
-    }
+      },
+      // Ensure JSX is transformed correctly
+      jsx: 'automatic',
+      jsxDev: true,
+    },
+    // Force pre-bundling on server start
+    force: false
   },
   
   // CSS optimization
@@ -90,6 +113,15 @@ export default defineConfig({
   // Environmental variables
   define: {
     '__DEV__': true,
-    '__VITE_API_URL__': JSON.stringify('http://localhost:3001')
+    '__VITE_API_URL__': JSON.stringify('http://localhost:3001'),
+    'process.env': {}
+  },
+
+  // Ensure proper module resolution
+  esbuild: {
+    jsx: 'automatic',
+    jsxInject: undefined, // Don't inject React import
+    jsxFactory: undefined,
+    jsxFragment: undefined
   }
 })

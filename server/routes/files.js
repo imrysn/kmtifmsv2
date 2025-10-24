@@ -835,8 +835,9 @@ router.post('/:fileId/admin-review', (req, res) => {
     if (action === 'approve') {
       newStatus = 'final_approved';
       newStage = 'published_to_public';
-      // Simulate public network URL
-      publicNetworkUrl = `https://public-network.example.com/files/${file.filename}`;
+      // Only set public network URL if not already set by move-to-projects
+      // (e.g., if files were approved without moving, but in practice they are moved first)
+      publicNetworkUrl = file.public_network_url || `https://public-network.example.com/files/${file.filename}`;
     } else {
       newStatus = 'rejected_by_admin';
       newStage = 'rejected_by_admin';
@@ -849,12 +850,12 @@ router.post('/:fileId/admin-review', (req, res) => {
       admin_id = ?,
       admin_username = ?,
       admin_reviewed_at = ?,
-      admin_comments = ?${action === 'approve' ? ', public_network_url = ?, final_approved_at = ?' : ''}${action === 'reject' ? ', rejection_reason = ?, rejected_by = ?, rejected_at = ?' : ''}
+      admin_comments = ?${action === 'approve' ? ', final_approved_at = ?' : ''}${action === 'reject' ? ', rejection_reason = ?, rejected_by = ?, rejected_at = ?' : ''}
     WHERE id = ?`;
 
     const adminParams = action === 'approve' ? [
       newStatus, newStage, adminId, adminUsername, nowSql, comments,
-      publicNetworkUrl, nowSql, fileId
+      nowSql, fileId
     ] : action === 'reject' ? [
       newStatus, newStage, adminId, adminUsername, nowSql, comments,
       comments, adminUsername, nowSql, fileId
@@ -1270,6 +1271,8 @@ async function resolveFilePath(storedPath, username = null) {
 
 // POST /api/files/:id/delete-file
 // Attempt to delete the physical file from disk/network.
+// For approved files that have been moved, delete from the public_network_url location
+// For pending/rejected files, delete from uploads
 // Body optionally contains admin info for audit (adminId, adminUsername, ...)
 router.post('/:id/delete-file', async (req, res) => {
   const id = req.params.id;
@@ -1280,34 +1283,43 @@ router.post('/:id/delete-file', async (req, res) => {
         return res.status(404).json({ success: false, message: 'File record not found' });
       }
 
-      const storedPath = file.file_path || file.storage_path || file.filepath || file.path;
       let resolved;
-      
-      // Try to properly resolve the file path using stored information
-      if (storedPath) {
-        if (storedPath.startsWith('/uploads/')) {
-          // Handle paths stored as relative URLs with /uploads/ prefix
-          const relativePath = storedPath.substring('/uploads/'.length);
-          
-          if (relativePath.includes('/')) {
-            // Already has subdirectory - use as is
-            resolved = path.join(uploadsDir, relativePath);
-          } else {
-            // Try to find in user's directory
-            const userPath = path.join(uploadsDir, file.username, path.basename(storedPath));
-            
-            // Check if file exists in user folder
-            try {
-              await fs.access(userPath);
-              resolved = userPath;
-            } catch (e) {
-              // Not found in user directory, fallback to direct location
-              resolved = path.join(uploadsDir, path.basename(storedPath));
+
+      // Check if file has been moved to projects (approved files)
+      if (file.public_network_url) {
+        resolved = file.public_network_url;
+        console.log(`🗑️ File has been moved to projects, deleting from: ${resolved}`);
+      }
+      // For non-approved files or old records, try to resolve from uploads
+      else {
+        const storedPath = file.file_path || file.storage_path || file.filepath || file.path;
+
+        // Try to properly resolve the file path using stored information
+        if (storedPath) {
+          if (storedPath.startsWith('/uploads/')) {
+            // Handle paths stored as relative URLs with /uploads/ prefix
+            const relativePath = storedPath.substring('/uploads/'.length);
+
+            if (relativePath.includes('/')) {
+              // Already has subdirectory - use as is
+              resolved = path.join(uploadsDir, relativePath);
+            } else {
+              // Try to find in user's directory
+              const userPath = path.join(uploadsDir, file.username, path.basename(storedPath));
+
+              // Check if file exists in user folder
+              try {
+                await fs.access(userPath);
+                resolved = userPath;
+              } catch (e) {
+                // Not found in user directory, fallback to direct location
+                resolved = path.join(uploadsDir, path.basename(storedPath));
+              }
             }
+          } else {
+            // Direct path or already absolute
+            resolved = await resolveFilePath(storedPath, file.username);
           }
-        } else {
-          // Direct path or already absolute
-          resolved = await resolveFilePath(storedPath, file.username);
         }
       }
 
@@ -1318,21 +1330,21 @@ router.post('/:id/delete-file', async (req, res) => {
       console.log(`🗑️ Attempting to delete physical file: ${resolved}`);
 
       const deleteResult = await safeDeleteFile(resolved);
-      
+
       if (deleteResult.success) {
         if (deleteResult.notFound) {
           console.log(`ℹ️ Physical file not found (already removed): ${resolved}`);
           return res.json({ success: true, message: 'Physical file not found (already removed)' });
         }
-        
+
         console.log(`✅ Physical file deleted successfully: ${resolved}`);
         return res.json({ success: true, message: 'Physical file deleted' });
       } else {
         console.error('❌ Error deleting physical file:', resolved, deleteResult.error);
-        return res.status(500).json({ 
-          success: false, 
-          message: 'Failed to delete physical file', 
-          detail: deleteResult.message 
+        return res.status(500).json({
+          success: false,
+          message: 'Failed to delete physical file',
+          detail: deleteResult.message
         });
       }
     });
