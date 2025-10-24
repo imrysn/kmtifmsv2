@@ -1,9 +1,10 @@
-const { app, BrowserWindow, ipcMain, dialog } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, shell } = require('electron');
 const path = require('path');
 const { spawn } = require('child_process');
 const http = require('http');
 
 let mainWindow;
+let splashWindow;
 let serverProcess;
 let loadRetryCount = 0;
 let viteRetryInterval = null;
@@ -157,6 +158,107 @@ function checkViteConnection() {
   });
 }
 
+/**
+ * Create and show splash window
+ */
+function createSplashWindow() {
+  splashWindow = new BrowserWindow({
+    width: 400,
+    height: 300,
+    frame: false,
+    alwaysOnTop: true,
+    center: true,
+    resizable: false,
+    show: false,
+    backgroundColor: '#667eea',
+    webPreferences: {
+      nodeIntegration: false,
+      contextIsolation: true,
+      enableRemoteModule: false
+    }
+  });
+
+  const splashHtml = `
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>KMTI File Management System - Loading...</title>
+      <style>
+        body {
+          margin: 0;
+          padding: 0;
+          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+          color: white;
+          height: 100vh;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          overflow: hidden;
+        }
+        .container {
+          text-align: center;
+          animation: fadeIn 0.5s ease-in-out;
+        }
+        .spinner {
+          border: 4px solid rgba(255, 255, 255, 0.3);
+          border-top: 4px solid white;
+          border-radius: 50%;
+          width: 50px;
+          height: 50px;
+          animation: spin 1s linear infinite;
+          margin: 0 auto 30px;
+        }
+        .logo {
+          font-size: 28px;
+          font-weight: bold;
+          margin-bottom: 20px;
+          text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+        .title {
+          font-size: 18px;
+          margin-bottom: 10px;
+          opacity: 0.9;
+        }
+        .message {
+          font-size: 14px;
+          opacity: 0.8;
+          line-height: 1.5;
+        }
+        @keyframes spin {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
+        }
+        @keyframes fadeIn {
+          from { opacity: 0; transform: translateY(20px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="logo">KMTI</div>
+        <div class="spinner"></div>
+        <div class="title">File Management System</div>
+        <div class="message">
+          ${isDev ? 'Loading application...' : 'Initializing...'}
+        </div>
+      </div>
+    </body>
+    </html>`;
+
+  splashWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(splashHtml)}`);
+
+  splashWindow.once('ready-to-show', () => {
+    splashWindow.show();
+    console.log('🚀 Splash window shown');
+  });
+
+  return splashWindow;
+}
+
 function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1200,
@@ -182,8 +284,13 @@ function createWindow() {
   });
 
   mainWindow.once('ready-to-show', () => {
+    // Close splash window and show main window
+    if (splashWindow && !splashWindow.isDestroyed()) {
+      splashWindow.destroy();
+      console.log('🏁 Splash window closed');
+    }
     mainWindow.show();
-    console.log('✅ Electron window opened!');
+    console.log('✅ Main Electron window opened!');
   });
 
   if (isDev) {
@@ -423,108 +530,127 @@ function shutdownServer() {
   }
 }
 
-// Disable GPU hardware acceleration to prevent GPU process crashes
-// This fixes the "GPU process exited unexpectedly" error
-app.disableHardwareAcceleration();
-console.log('⚙️  Hardware acceleration disabled for stability');
+// Only set up app event handlers if app is available
+if (app) {
+  app.on('ready', async () => {
+    console.log('⚡ Electron app is ready!');
 
-// Handle child process errors more gracefully
-app.on('child-process-gone', (event, details) => {
-  console.error('❌ Child process error:', details.type, details.reason);
-  if (details.type === 'GPU') {
-    console.error('💡 GPU process crashed. Hardware acceleration is disabled, but the error may persist.');
-    console.error('   Possible causes: outdated GPU drivers, incompatible graphics card, or Windows graphics settings.');
-  }
-});
-
-app.whenReady().then(async () => {
-  console.log('⚡ Electron app is ready!');
-  
-  // Configure session for better security
-  const { session } = require('electron');
-  
-  // Set Content Security Policy via session
-  session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
-    callback({
-      responseHeaders: {
-        ...details.responseHeaders,
-        'Content-Security-Policy': [
-          isDev 
-            ? "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' http://localhost:* ws://localhost:* wss://localhost:*; media-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none';"
-            : "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none';"
-        ]
+    // Handle child process errors more gracefully
+    app.on('child-process-gone', (event, details) => {
+      console.error('❌ Child process error:', details.type, details.reason);
+      if (details.type === 'GPU') {
+        console.error('💡 GPU process crashed. Hardware acceleration is disabled, but the error may persist.');
+        console.error('   Possible causes: outdated GPU drivers, incompatible graphics card, or Windows graphics settings.');
       }
     });
+
+    // Configure session for better security
+    const { session } = require('electron');
+
+    // Set Content Security Policy via session
+    session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
+      callback({
+        responseHeaders: {
+          ...details.responseHeaders,
+          'Content-Security-Policy': [
+            isDev
+              ? "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' http://localhost:* ws://localhost:* wss://localhost:*; media-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none';"
+              : "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none';"
+          ]
+        }
+      });
+    });
+
+    console.log('🔒 Content Security Policy configured');
+
+    try {
+      // Create splash window immediately
+      createSplashWindow();
+
+      // Start Express server
+      await startServer();
+
+      // Wait for Vite in development
+      await waitForViteServer();
+
+      // Create the main window (splash will close when main window shows)
+      createWindow();
+    } catch (error) {
+      console.error('❌ Failed to start application:', error.message);
+      if (splashWindow) splashWindow.destroy();
+      app.quit();
+    }
   });
-  
-  console.log('🔒 Content Security Policy configured');
-  
-  try {
-    // Start Express server
-    await startServer();
-    
-    // Wait for Vite in development
-    await waitForViteServer();
-    
-    // Create the window
-    createWindow();
-  } catch (error) {
-    console.error('❌ Failed to start application:', error.message);
-    app.quit();
-  }
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
+      createSplashWindow();
       createWindow();
     }
   });
-});
 
-app.on('window-all-closed', () => {
-  shutdownServer();
-  
-  if (process.platform !== 'darwin') {
-    app.quit();
-  }
-});
+  app.on('window-all-closed', () => {
+    // Clean up splash window if still open
+    if (splashWindow && !splashWindow.isDestroyed()) {
+      splashWindow.destroy();
+    }
 
-app.on('before-quit', shutdownServer);
+    shutdownServer();
 
-// IPC Handlers
-ipcMain.handle('dialog:openDirectory', async () => {
-  const result = await dialog.showOpenDialog(mainWindow, {
-    properties: ['openDirectory']
+    if (process.platform !== 'darwin') {
+      app.quit();
+    }
   });
-  
-  return {
-    canceled: result.canceled,
-    filePaths: result.filePaths || []
-  };
-});
 
-ipcMain.handle('file:openInApp', async (event, filePath) => {
-  try {
-    const { shell } = require('electron');
-    const fs = require('fs');
-    
-    console.log(`📂 Opening file: ${filePath}`);
-    
-    if (!fs.existsSync(filePath)) {
-      return { success: false, error: 'File not found' };
+  app.on('before-quit', () => {
+    // Clean up splash window before quitting
+    if (splashWindow && !splashWindow.isDestroyed()) {
+      splashWindow.destroy();
     }
-    
-    const result = await shell.openPath(filePath);
-    
-    if (result) {
-      console.error('❌ Error opening file:', result);
-      return { success: false, error: result };
+    shutdownServer();
+  });
+} else {
+  console.log('⚠️  WARNING: Electron app object not available. This may be running in a non-Electron context.');
+}
+
+// Only set up IPC handlers if ipcMain is available
+if (ipcMain) {
+  ipcMain.handle('dialog:openDirectory', async () => {
+    const result = await dialog.showOpenDialog(mainWindow, {
+      properties: ['openDirectory']
+    });
+
+    return {
+      canceled: result.canceled,
+      filePaths: result.filePaths || []
+    };
+  });
+
+  ipcMain.handle('file:openInApp', async (event, filePath) => {
+    try {
+      const fs = require('fs');
+
+      console.log(`📂 Opening file: ${filePath}`);
+
+      if (!fs.existsSync(filePath)) {
+        return { success: false, error: 'File not found' };
+      }
+
+      const result = await shell.openPath(filePath);
+
+      if (result) {
+        console.error('❌ Error opening file:', result);
+        return { success: false, error: result };
+      }
+
+      console.log('✅ File opened successfully');
+      return { success: true, method: 'system-default' };
+
+    } catch (error) {
+      console.error('❌ Error:', error.message);
+      return { success: false, error: error.message };
     }
-    
-    console.log('✅ File opened successfully');
-    return { success: true, method: 'system-default' };
-    
-  } catch (error) {
-    console.error('❌ Error:', error.message);
-    return { success: false, error: error.message };
-  }
-});
+  });
+} else {
+  console.log('⚠️  WARNING: Electron IPC object not available. This may be running in a non-Electron context.');
+}
