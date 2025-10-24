@@ -97,3 +97,9 @@ Thumbs.db
 
 # Electron build output
 out/
+
+# Ignore all Markdown files
+*.md
+
+# But keep README.md tracked
+!README.md
