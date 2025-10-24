@@ -70,7 +70,9 @@ const MyFilesTab = ({
   };
 
   const handleFileUpload = async (e, replaceExisting = false) => {
-    e.preventDefault();
+    if (e && e.preventDefault) {
+      e.preventDefault();
+    }
     
     if (!uploadedFile) {
       setSuccessModal({
@@ -85,6 +87,7 @@ const MyFilesTab = ({
     setIsUploading(true);
 
     try {
+      // Only check for duplicates if not explicitly replacing
       if (!replaceExisting) {
         const duplicateResponse = await fetch('http://localhost:3001/api/files/check-duplicate', {
           method: 'POST',
@@ -177,7 +180,8 @@ const MyFilesTab = ({
   };
 
   const handleReplaceFile = async () => {
-    await handleFileUpload({ preventDefault: () => {} }, true);
+    // Call handleFileUpload with replaceExisting flag set to true
+    await handleFileUpload(null, true);
   };
   
   const handleKeepBoth = () => {
@@ -786,6 +790,71 @@ const MyFilesTab = ({
               </div>
             </div>
             <div className="modal-footer">
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Duplicate File Modal */}
+      {showDuplicateModal && duplicateFileInfo && (
+        <div className="modal-overlay" onClick={() => setShowDuplicateModal(false)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>⚠️ Duplicate File Detected</h3>
+              <button 
+                className="modal-close" 
+                onClick={(e) => {
+                  e.preventDefault();
+                  setShowDuplicateModal(false);
+                  setDuplicateFileInfo(null);
+                }}
+                type="button"
+              >×</button>
+            </div>
+            
+            <div className="modal-body">
+              <p className="duplicate-warning">
+                A file with this name already exists in your files.
+              </p>
+              
+              <div className="file-comparison">
+                <div className="file-info-box">
+                  <h4>📁 Existing File</h4>
+                  <p><strong>Name:</strong> {duplicateFileInfo.existingFile?.original_name}</p>
+                  <p><strong>Size:</strong> {formatFileSize(duplicateFileInfo.existingFile?.file_size)}</p>
+                  <p><strong>Uploaded:</strong> {new Date(duplicateFileInfo.existingFile?.uploaded_at).toLocaleString()}</p>
+                  <p><strong>Status:</strong> {getStatusDisplayName(duplicateFileInfo.existingFile?.status)}</p>
+                </div>
+                
+                <div className="file-info-box">
+                  <h4>📄 New File</h4>
+                  <p><strong>Name:</strong> {duplicateFileInfo.newFile?.name}</p>
+                  <p><strong>Size:</strong> {formatFileSize(duplicateFileInfo.newFile?.size)}</p>
+                </div>
+              </div>
+              
+              <p className="duplicate-question">
+                What would you like to do?
+              </p>
+            </div>
+            
+            <div className="modal-actions">
+              <button
+                type="button"
+                onClick={handleKeepBoth}
+                className="btn btn-secondary"
+                disabled={isUploading}
+              >
+                Keep Both (Rename)
+              </button>
+              <button
+                type="button"
+                onClick={handleReplaceFile}
+                className="btn btn-danger"
+                disabled={isUploading}
+              >
+                {isUploading ? 'Replacing...' : 'Replace Existing'}
+              </button>
             </div>
           </div>
         </div>
