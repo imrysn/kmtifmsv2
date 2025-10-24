@@ -1,7 +1,7 @@
 /**
- * ⚡ Optimized Electron-Vite Startup Script
- * Smart sequential startup with intelligent error recovery
- * Ensures all services are ready before rendering
+ * ⚡ OPTIMIZED Electron-Vite Startup Script
+ * Parallel startup for maximum speed - NO MORE WHITE SCREEN
+ * All services start simultaneously for fastest possible loading
  */
 
 const { spawn } = require('child_process');
@@ -11,7 +11,7 @@ const net = require('net');
 
 const VITE_PORT = 5173;
 const EXPRESS_PORT = 3001;
-const MAX_STARTUP_TIME = 90000; // 90 seconds max
+const MAX_VITE_WAIT = 20000; // Reduced to 20 seconds
 
 let viteProcess = null;
 let electronProcess = null;
@@ -66,9 +66,9 @@ function checkServer(port, timeout = 2000) {
 }
 
 /**
- * Wait for server with exponential backoff
+ * Wait for server with smart polling
  */
-async function waitForServer(port, name, maxWait = 45000) {
+async function waitForServer(port, name, maxWait = 20000) {
   const startTime = Date.now();
   log(`Waiting for ${name} on port ${port}...`, colors.cyan, '⏳');
   
@@ -77,11 +77,12 @@ async function waitForServer(port, name, maxWait = 45000) {
     attempt++;
     
     if (await checkServer(port)) {
-      log(`${name} is ready!`, colors.green, '✅');
+      const elapsed = Math.floor((Date.now() - startTime) / 1000);
+      log(`${name} is ready! (${elapsed}s)`, colors.green, '✅');
       return true;
     }
     
-    if (attempt % 10 === 0) {
+    if (attempt % 8 === 0) {
       const elapsed = Math.floor((Date.now() - startTime) / 1000);
       log(`Still waiting... ${elapsed}s elapsed`, colors.yellow, '⏳');
     }
@@ -89,7 +90,7 @@ async function waitForServer(port, name, maxWait = 45000) {
     await new Promise(resolve => setTimeout(resolve, 500));
   }
   
-  log(`${name} failed to start within ${maxWait / 1000}s`, colors.red, '❌');
+  log(`${name} startup timeout (${maxWait / 1000}s) - Electron will retry`, colors.yellow, '⚠️');
   return false;
 }
 
@@ -97,7 +98,7 @@ async function waitForServer(port, name, maxWait = 45000) {
  * Start Vite dev server
  */
 function startVite() {
-  return new Promise((resolve, reject) => {
+  return new Promise((resolve) => {
     log('Starting Vite dev server...', colors.magenta, '🚀');
     
     const isWindows = process.platform === 'win32';
@@ -107,13 +108,9 @@ function startVite() {
       shell: true
     });
     
-    let viteOutput = '';
-    
     viteProcess.stdout.on('data', (data) => {
       const output = data.toString();
-      viteOutput += output;
       
-      // Show important Vite messages
       if (output.includes('Local:') || output.includes('ready in')) {
         const lines = output.split('\n').filter(l => l.trim());
         lines.forEach(line => {
@@ -126,18 +123,20 @@ function startVite() {
     
     viteProcess.stderr.on('data', (data) => {
       const error = data.toString();
-      if (!error.includes('esbuild')) {
-        log(`Vite: ${error.trim()}`, colors.yellow, '⚠️ ');
+      if (!error.includes('esbuild') && !error.includes('DeprecationWarning')) {
+        // Only show actual errors
+        if (error.includes('Error') || error.includes('EADDRINUSE')) {
+          log(`Vite: ${error.trim()}`, colors.yellow, '⚠️');
+        }
       }
     });
     
     viteProcess.on('error', (error) => {
       log(`Failed to start Vite: ${error.message}`, colors.red, '❌');
-      reject(error);
     });
     
-    // Resolve after spawn
-    setTimeout(resolve, 1000);
+    // Resolve immediately - don't wait for Vite to be ready
+    setTimeout(resolve, 500);
   });
 }
 
@@ -146,7 +145,7 @@ function startVite() {
  */
 function startElectron() {
   return new Promise((resolve) => {
-    log('Starting Electron app...', colors.magenta, '🖥️ ');
+    log('Starting Electron app...', colors.magenta, '🖥️');
     
     const isWindows = process.platform === 'win32';
     electronProcess = spawn(
@@ -163,7 +162,9 @@ function startElectron() {
       const output = data.toString();
       const lines = output.split('\n').filter(l => l.trim());
       lines.forEach(line => {
-        if (line.includes('✅') || line.includes('❌') || line.includes('🖥️')) {
+        // Only show important messages
+        if (line.includes('✅') || line.includes('❌') || line.includes('🖥️') || 
+            line.includes('Electron') || line.includes('ready')) {
           console.log(line);
         }
       });
@@ -171,8 +172,12 @@ function startElectron() {
     
     electronProcess.stderr.on('data', (data) => {
       const error = data.toString().trim();
-      if (error && !error.includes('ExperimentalWarning')) {
-        log(error, colors.yellow, '⚠️ ');
+      // Filter out noise
+      if (error && 
+          !error.includes('ExperimentalWarning') &&
+          !error.includes('DeprecationWarning') &&
+          !error.includes('Debugger listening')) {
+        log(error, colors.yellow, '⚠️');
       }
     });
     
@@ -211,57 +216,58 @@ function cleanup() {
 // Handle process termination
 process.on('SIGINT', cleanup);
 process.on('SIGTERM', cleanup);
+process.on('exit', cleanup);
 
 /**
- * Main startup sequence - Fixed for reliable black screen prevention
+ * OPTIMIZED: Start everything in parallel
  */
 async function main() {
   try {
-    log('═'.repeat(70), colors.bright, ' ');
-    log('KMTI File Management System - Optimized Startup (Black Screen Fixed)', colors.bright, '█');
-    log('═'.repeat(70), colors.bright, ' ');
+    log('═'.repeat(70), colors.bright, '');
+    log('KMTI File Management System - OPTIMIZED STARTUP', colors.bright, '█');
+    log('No more white screen! Parallel startup enabled.', colors.green, '█');
+    log('═'.repeat(70), colors.bright, '');
 
-    // Step 0: Check port availability
-    log('Step 1/4: Checking port availability...', colors.cyan, '📋');
+    // Step 1: Check port availability
+    log('Step 1/3: Checking port availability...', colors.cyan, '📋');
     const viteInUse = await isPortInUse(VITE_PORT);
     const expressInUse = await isPortInUse(EXPRESS_PORT);
 
     if (viteInUse) {
-      log(`⚠️  Port ${VITE_PORT} is already in use. Killing existing process...`, colors.yellow, ' ');
-      // Port might be freed soon, give it a moment
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      log(`⚠️  Port ${VITE_PORT} is in use. Vite may fail to start.`, colors.yellow, '');
     }
     if (expressInUse) {
-      log(`⚠️  Port ${EXPRESS_PORT} is already in use. Express may start on different port.`, colors.yellow, ' ');
+      log(`⚠️  Port ${EXPRESS_PORT} is in use. Express may use alternate port.`, colors.yellow, '');
     }
 
-    // Step 1: Start Vite first (does not require Express)
-    log('Step 2/4: Starting Vite development server...', colors.cyan, '📦');
-    try {
-      await startVite();
-    } catch (error) {
-      log(`Failed to start Vite: ${error.message}`, colors.red, '❌');
-      cleanup();
-      return;
-    }
+    // Step 2: Start Vite and Electron IN PARALLEL (fastest approach)
+    log('Step 2/3: Starting Vite and Electron in parallel...', colors.cyan, '⚡');
+    
+    // Start both simultaneously
+    const vitePromise = startVite();
+    await vitePromise; // Wait just 500ms for Vite to spawn
+    
+    // Start Electron immediately after Vite spawns
+    // Electron will show splash screen while waiting for Vite
+    const electronPromise = startElectron();
+    
+    // Wait for Electron to spawn (very quick)
+    await electronPromise;
 
-    // Step 2: Wait for Vite to be ready with better timeout handling
-    log('Step 3/4: Waiting for Vite to be ready...', colors.cyan, '⏸️ ');
-    const viteReady = await waitForServer(VITE_PORT, 'Vite');
+    // Step 3: Optional - wait for Vite in background
+    // This doesn't block Electron from starting
+    log('Step 3/3: Monitoring Vite startup...', colors.cyan, '👀');
+    waitForServer(VITE_PORT, 'Vite', MAX_VITE_WAIT).then(ready => {
+      if (ready) {
+        log('Vite is fully ready!', colors.green, '✨');
+      } else {
+        log('Vite took longer than expected, but Electron is handling it.', colors.yellow, '⚠️');
+      }
+    });
 
-    if (!viteReady) {
-      log('Vite startup timeout! Continuing anyway - Electron will retry...', colors.yellow, '⚠️ ');
-      // Don't exit here - let Electron handle the retry
-    }
-
-    // Step 3: Start Electron (which will start Express internally)
-    // Electron will handle its own waiting and retries
-    log('Step 4/4: Starting Electron (Express will start automatically)...', colors.cyan, '🎯');
-    await startElectron();
-
-    log('═'.repeat(70), colors.bright, ' ');
-    log('Startup sequence completed! Electron will retry if needed.', colors.green, '✅');
-    log('═'.repeat(70), colors.bright, ' ');
+    log('═'.repeat(70), colors.bright, '');
+    log('Startup sequence completed! Application is launching...', colors.green, '✅');
+    log('═'.repeat(70), colors.bright, '');
 
   } catch (error) {
     log(`Startup failed: ${error.message}`, colors.red, '❌');
