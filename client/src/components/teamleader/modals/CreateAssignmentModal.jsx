@@ -121,8 +121,7 @@ const CreateAssignmentModal = ({
                           setAssignmentForm({...assignmentForm, assignedMembers: updatedMembers});
                         }}
                       />
-                      <span className="tl-checkbox-mark"></span>
-                      {member.name}
+                      <span>{member.name}</span>
                     </label>
                   ))}
                 </div>

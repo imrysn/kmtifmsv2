@@ -76,7 +76,7 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
   
   // Analytics data for cards
   const [analyticsData, setAnalyticsData] = useState(null)
-  const [selectedStatusFilter, setSelectedStatusFilter] = useState(null)
+  const [selectedStatusFilter, setSelectedStatusFilter] = useState('total')
 
   // Assignment states
   const [assignments, setAssignments] = useState([])
@@ -96,7 +96,7 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
   })
 
   useEffect(() => {
-    fetchPendingFiles()
+    fetchPendingFiles('total')
     fetchTeamMembers()
     fetchNotifications()
     fetchAnalytics()
@@ -122,7 +122,7 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
 
   useEffect(() => {
     if (searchQuery.trim() === '') {
-      return
+      setFilteredFiles(pendingFiles)
     } else {
       const filtered = pendingFiles.filter(file =>
         file.original_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -151,9 +151,10 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
       const data = await response.json()
 
       if (data.success) {
-        setFilteredFiles(data.files || [])
+      setPendingFiles(data.files || [])
+      setFilteredFiles(data.files || [])
         setSelectedStatusFilter(status || null)
-      }
+    }
     } catch (error) {
       console.error('Error fetching files:', error)
     } finally {
