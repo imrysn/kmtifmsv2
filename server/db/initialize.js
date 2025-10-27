@@ -230,18 +230,81 @@ async function initializeDatabase() {
                   }
                   console.log('✅ Teams table created/verified');
 
-                  // Add database indexes
-                  addDatabaseIndexes();
+                  // Create assignments tables for Google Classroom-style functionality
+                  db.run(`CREATE TABLE IF NOT EXISTS assignments (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    title TEXT NOT NULL,
+                    description TEXT,
+                    due_date DATETIME,
+                    file_type_required TEXT,
+                    assigned_to TEXT DEFAULT 'all',
+                    max_file_size INTEGER DEFAULT 10485760,
+                    team_leader_id INTEGER NOT NULL,
+                    team_leader_username TEXT NOT NULL,
+                    team TEXT NOT NULL,
+                    status TEXT DEFAULT 'active',
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (team_leader_id) REFERENCES users (id)
+                  )`, (err) => {
+                    if (err) {
+                      console.error('Error creating assignments table:', err);
+                      reject(err);
+                      return;
+                    }
+                    console.log('✅ Assignments table created/verified');
 
-                  // Initialize file index table (async)
-                  fileIndexer.initializeIndexTable().then(() => {
-                    console.log('✅ File index table initialized');
-                  }).catch(err => {
-                    console.error('⚠️  Error initializing file index table:', err);
+                    // Create assignment_members table
+                    db.run(`CREATE TABLE IF NOT EXISTS assignment_members (
+                      id INTEGER PRIMARY KEY AUTOINCREMENT,
+                      assignment_id INTEGER NOT NULL,
+                      user_id INTEGER NOT NULL,
+                      status TEXT DEFAULT 'pending',
+                      submitted_at DATETIME,
+                      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                      FOREIGN KEY (assignment_id) REFERENCES assignments (id) ON DELETE CASCADE,
+                      FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+                    )`, (err) => {
+                      if (err) {
+                        console.error('Error creating assignment_members table:', err);
+                        reject(err);
+                        return;
+                      }
+                      console.log('✅ Assignment members table created/verified');
+
+                      // Create assignment_submissions table
+                      db.run(`CREATE TABLE IF NOT EXISTS assignment_submissions (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        assignment_id INTEGER NOT NULL,
+                        file_id INTEGER NOT NULL,
+                        user_id INTEGER NOT NULL,
+                        submitted_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                        FOREIGN KEY (assignment_id) REFERENCES assignments (id) ON DELETE CASCADE,
+                        FOREIGN KEY (file_id) REFERENCES files (id) ON DELETE CASCADE,
+                        FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+                      )`, (err) => {
+                        if (err) {
+                          console.error('Error creating assignment_submissions table:', err);
+                          reject(err);
+                          return;
+                        }
+                        console.log('✅ Assignment submissions table created/verified');
+
+                        // Add database indexes
+                        addDatabaseIndexes();
+
+                        // Initialize file index table (async)
+                        fileIndexer.initializeIndexTable().then(() => {
+                          console.log('✅ File index table initialized');
+                        }).catch(err => {
+                          console.error('⚠️  Error initializing file index table:', err);
+                        });
+
+                        // Handle user table migration
+                        handleUserTableMigration(resolve, reject);
+                      });
+                    });
                   });
-
-                  // Handle user table migration
-                  handleUserTableMigration(resolve, reject);
                 });
               });
             });

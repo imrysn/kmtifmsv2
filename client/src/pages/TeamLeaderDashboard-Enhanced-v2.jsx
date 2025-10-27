@@ -282,9 +282,15 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          ...assignmentForm,
-          teamLeaderId: user.id,
-          teamLeaderUsername: user.username,
+          title: assignmentForm.title,
+          description: assignmentForm.description,
+          due_date: assignmentForm.dueDate,
+          file_type_required: assignmentForm.fileTypeRequired,
+          assigned_to: assignmentForm.assignedTo,
+          max_file_size: assignmentForm.maxFileSize,
+          assigned_members: assignmentForm.assignedMembers,
+          team_leader_id: user.id,
+          team_leader_username: user.username,
           team: user.team
         })
       })
@@ -410,7 +416,7 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
   }
 
   const formatFileSize = (bytes) => {
-    if (bytes === 0) return '0 Bytes'
+    if (!bytes || bytes === 0 || isNaN(bytes)) return '0 Bytes'
     const k = 1024
     const sizes = ['Bytes', 'KB', 'MB', 'GB']
     const i = Math.floor(Math.log(bytes) / Math.log(k))
@@ -418,7 +424,7 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
   }
 
   const formatDate = (dateString) => {
-    if (!dateString) return 'No date'
+    if (!dateString) return 'Invalid Date'
     const date = new Date(dateString)
     if (isNaN(date.getTime())) return 'Invalid Date'
     
@@ -1250,22 +1256,22 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
                         <td><strong>{assignment.title}</strong></td>
                         <td>{assignment.description ? (assignment.description.length > 50 ? assignment.description.substring(0, 50) + '...' : assignment.description) : 'No description'}</td>
                         <td>
-                          {assignment.dueDate ? (
-                            <span className={`tl-due-date ${new Date(assignment.dueDate) < new Date() ? 'overdue' : ''}`}>
-                              {formatDate(assignment.dueDate)}
+                          {(assignment.due_date || assignment.dueDate) ? (
+                            <span className={`tl-due-date ${new Date(assignment.due_date || assignment.dueDate) < new Date() ? 'overdue' : ''}`}>
+                              {formatDate(assignment.due_date || assignment.dueDate)}
                             </span>
-                          ) : 'No due date'}
+                          ) : '-'}
                         </td>
-                        <td>{assignment.fileTypeRequired || 'Any'}</td>
+                        <td>{assignment.file_type_required || assignment.fileTypeRequired || 'Any'}</td>
                         <td>
-                          <span className="tl-badge">{assignment.assignedTo === 'all' ? 'All Members' : `${assignment.assignedMembers?.length || 0} Members`}</span>
+                          <span className="tl-badge">{(assignment.assigned_to || assignment.assignedTo) === 'all' ? 'All Members' : `${(assignment.assigned_members || assignment.assignedMembers)?.length || 0} Members`}</span>
                         </td>
                         <td>
                           <span style={{backgroundColor: '#dbeafe', color: '#1e40af', padding: '4px 12px', borderRadius: '12px', fontWeight: '600'}}>
-                            {assignment.submissionCount || 0}
+                            {assignment.submission_count || assignment.submissionCount || 0}
                           </span>
                         </td>
-                        <td className="date">{formatDate(assignment.createdAt)}</td>
+                        <td className="date">{formatDate(assignment.created_at || assignment.createdAt)}</td>
                         <td onClick={(e) => e.stopPropagation()}>
                           <button 
                             className="tl-btn danger" 
@@ -1665,7 +1671,7 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
         </div>
       )}
 
-      {/* Assignment Details Modal */}
+      {/* Assignment Details Modal - ENHANCED */}
       {showAssignmentDetailsModal && selectedAssignment && (
         <div className="tl-modal-overlay" onClick={() => { setShowAssignmentDetailsModal(false); setSelectedAssignment(null); setAssignmentSubmissions([]); }}>
           <div className="tl-modal-large" onClick={e => e.stopPropagation()}>
@@ -1675,7 +1681,7 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
             </div>
 
             <div className="tl-modal-body-large">
-              {/* Assignment Details */}
+              {/* Assignment Details Section */}
               <div className="tl-modal-section">
                 <h4 className="tl-section-title">Assignment Details</h4>
                 <div className="tl-assignment-details-container">
@@ -1689,30 +1695,32 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
                     <div className="tl-detail-card">
                       <div className="tl-detail-label">DUE DATE</div>
                       <div className="tl-detail-value">
-                        {selectedAssignment.dueDate ? formatDate(selectedAssignment.dueDate) : 'No due date'}
+                        {(selectedAssignment.due_date || selectedAssignment.dueDate) ? formatDate(selectedAssignment.due_date || selectedAssignment.dueDate) : 'No due date'}
                       </div>
                     </div>
                     
                     <div className="tl-detail-card">
                       <div className="tl-detail-label">FILE TYPE REQUIRED</div>
-                      <div className="tl-detail-value">{selectedAssignment.fileTypeRequired || 'Any'}</div>
+                      <div className="tl-detail-value">{selectedAssignment.file_type_required || selectedAssignment.fileTypeRequired || 'Any'}</div>
                     </div>
                     
                     <div className="tl-detail-card">
                       <div className="tl-detail-label">MAX FILE SIZE</div>
                       <div className="tl-detail-value">
-                        {formatFileSize(selectedAssignment.maxFileSize || 10485760)}
+                        {(selectedAssignment.max_file_size || selectedAssignment.maxFileSize) ? formatFileSize(selectedAssignment.max_file_size || selectedAssignment.maxFileSize) : '10 MB'}
                       </div>
                     </div>
                     
                     <div className="tl-detail-card">
                       <div className="tl-detail-label">CREATED</div>
-                      <div className="tl-detail-value">{formatDate(selectedAssignment.createdAt)}</div>
+                      <div className="tl-detail-value">{formatDate(selectedAssignment.created_at || selectedAssignment.createdAt)}</div>
                     </div>
                     
                     <div className="tl-detail-card">
                       <div className="tl-detail-label">ASSIGNED TO</div>
-                      <div className="tl-detail-value">{selectedAssignment.assignedTo === 'all' ? 'All Members' : 'Specific Members'}</div>
+                      <div className="tl-detail-value">
+                        {(selectedAssignment.assigned_to || selectedAssignment.assignedTo) === 'all' ? 'All Members' : 'Specific Members'}
+                      </div>
                     </div>
                   </div>
 
@@ -1726,7 +1734,7 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
                 </div>
               </div>
 
-              {/* Submissions */}
+              {/* Submissions Section */}
               <div className="tl-modal-section">
                 <h4 className="tl-section-title">Submissions ({assignmentSubmissions.length})</h4>
 
