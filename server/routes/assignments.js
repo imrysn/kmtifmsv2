@@ -18,49 +18,11 @@ router.get('/team-leader/:team', async (req, res) => {
       WHERE a.team = ?
       GROUP BY a.id
       ORDER BY a.created_at DESC
-<<<<<<< Updated upstream
-    `, [team], async (err, assignments) => {
-      if (err) {
-        console.error('Error fetching assignments:', err);
-        return res.status(500).json({
-          success: false,
-          message: 'Failed to fetch assignments',
-          error: err.message
-        });
-      }
-
-      // Fetch assigned members for each assignment
-      const assignmentsWithMembers = await Promise.all(
-        (assignments || []).map(async (assignment) => {
-          if (assignment.assigned_to === 'specific') {
-            const members = await new Promise((resolve, reject) => {
-              db.all(`
-                SELECT u.id, u.username, u.fullName
-                FROM assignment_members am
-                JOIN users u ON am.user_id = u.id
-                WHERE am.assignment_id = ?
-              `, [assignment.id], (err, rows) => {
-                if (err) reject(err);
-                else resolve(rows || []);
-              });
-            });
-            return { ...assignment, assigned_member_details: members };
-          }
-          return assignment;
-        })
-      );
-
-      res.json({
-        success: true,
-        assignments: assignmentsWithMembers
-      });
-=======
     `, [team]);
 
     res.json({
       success: true,
       assignments: assignments || []
->>>>>>> Stashed changes
     });
   } catch (error) {
     console.error('Error in fetchAssignments route:', error);
@@ -78,20 +40,10 @@ router.get('/:assignmentId/details', async (req, res) => {
     const { assignmentId } = req.params;
 
     // Get assignment details
-<<<<<<< Updated upstream
-    const assignment = await new Promise((resolve, reject) => {
-      db.get(
-        'SELECT * FROM assignments WHERE id = ?',
-        [assignmentId],
-        (err, row) => err ? reject(err) : resolve(row)
-      );
-    });
-=======
     const assignment = await queryOne(
       'SELECT * FROM assignments WHERE id = ?',
       [assignmentId]
     );
->>>>>>> Stashed changes
 
     if (!assignment) {
       return res.status(404).json({
@@ -100,48 +52,6 @@ router.get('/:assignmentId/details', async (req, res) => {
       });
     }
 
-<<<<<<< Updated upstream
-    // Get assigned members if specific
-    let assignmentWithMembers = assignment;
-    if (assignment.assigned_to === 'specific') {
-      const members = await new Promise((resolve, reject) => {
-        db.all(`
-          SELECT u.id, u.username, u.fullName
-          FROM assignment_members am
-          JOIN users u ON am.user_id = u.id
-          WHERE am.assignment_id = ?
-        `, [assignmentId], (err, rows) => {
-          if (err) reject(err);
-          else resolve(rows || []);
-        });
-      });
-      assignmentWithMembers = { ...assignment, assigned_member_details: members };
-    }
-
-    // Get submissions
-    const submissions = await new Promise((resolve, reject) => {
-      db.all(`
-        SELECT 
-          f.*,
-          u.username,
-          u.fullName,
-          asub.submitted_at
-        FROM assignment_submissions asub
-        JOIN files f ON asub.file_id = f.id
-        JOIN users u ON f.user_id = u.id
-        WHERE asub.assignment_id = ?
-        ORDER BY asub.submitted_at DESC
-      `, [assignmentId], (err, rows) => {
-        if (err) reject(err);
-        else resolve(rows || []);
-      });
-    });
-
-    res.json({
-      success: true,
-      assignment: assignmentWithMembers,
-      submissions: submissions
-=======
     // Get submissions
     const submissions = await query(`
       SELECT 
@@ -160,7 +70,6 @@ router.get('/:assignmentId/details', async (req, res) => {
       success: true,
       assignment,
       submissions: submissions || []
->>>>>>> Stashed changes
     });
   } catch (error) {
     console.error('Error in assignment details route:', error);
@@ -216,26 +125,6 @@ router.post('/create', async (req, res) => {
     const assignmentResult = await query(`
       INSERT INTO assignments (
         title,
-<<<<<<< Updated upstream
-        description || null,
-        finalDueDate || null,
-        finalFileType || null,
-        finalAssignedTo,
-        finalMaxSize,
-        finalTeamLeaderId,
-        finalTeamLeaderUsername,
-        team
-      ], function(err) {
-        if (err) {
-          reject(err);
-        } else {
-          resolve({
-            insertId: this.lastID
-          });
-        }
-      });
-    });
-=======
         description,
         due_date,
         file_type_required,
@@ -250,15 +139,14 @@ router.post('/create', async (req, res) => {
     `, [
       title,
       description || null,
-      due_date || null,
-      file_type_required || null,
-      assigned_to,
-      max_file_size || 10485760,
-      team_leader_id,
-      team_leader_username,
+      finalDueDate || null,
+      finalFileType || null,
+      finalAssignedTo,
+      finalMaxSize,
+      finalTeamLeaderId,
+      finalTeamLeaderUsername,
       team
     ]);
->>>>>>> Stashed changes
 
     const assignmentId = assignmentResult.insertId;
     let membersAssigned = 0;
@@ -272,22 +160,11 @@ router.post('/create', async (req, res) => {
           const placeholders = memberValues.map(() => '(?, ?)').join(', ');
           const flattenedValues = memberValues.flat();
 
-<<<<<<< Updated upstream
-          await new Promise((resolve, reject) => {
-            db.run(
-              `INSERT INTO assignment_members (assignment_id, user_id) VALUES ${placeholders}`,
-              flattenedValues,
-              (err) => err ? reject(err) : resolve()
-            );
-          });
-          membersAssigned = finalMembers.length;
-=======
           await query(
             `INSERT INTO assignment_members (assignment_id, user_id) VALUES ${placeholders}`,
             flattenedValues
           );
-          membersAssigned = assigned_members.length;
->>>>>>> Stashed changes
+          membersAssigned = finalMembers.length;
         }
       } else if (finalAssignedTo === 'all') {
         // Get all team members and assign
@@ -311,33 +188,17 @@ router.post('/create', async (req, res) => {
 
       // Log activity
       try {
-<<<<<<< Updated upstream
-        await new Promise((resolve) => {
-          db.run(`
-            INSERT INTO activity_logs (
-              user_id,
-              username,
-              role,
-              team,
-              activity
-            ) VALUES (?, ?, ?, ?, ?)
-          `, [
-            finalTeamLeaderId,
-            finalTeamLeaderUsername,
-            'TEAM_LEADER',
-=======
         await query(`
           INSERT INTO activity_logs (
             user_id,
             username,
             role,
->>>>>>> Stashed changes
             team,
             activity
           ) VALUES (?, ?, ?, ?, ?)
         `, [
-          team_leader_id,
-          team_leader_username,
+          finalTeamLeaderId,
+          finalTeamLeaderUsername,
           'TEAM_LEADER',
           team,
           `Created assignment: ${title}`
