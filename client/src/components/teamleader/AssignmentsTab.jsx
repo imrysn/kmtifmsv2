@@ -1,4 +1,5 @@
 import assignmentIcon from '../../assets/Icon-3.svg'
+import { useState } from 'react'
 
 const AssignmentsTab = ({
   isLoadingAssignments,
@@ -8,6 +9,42 @@ const AssignmentsTab = ({
   deleteAssignment,
   setShowCreateAssignmentModal
 }) => {
+  const [showMembersModal, setShowMembersModal] = useState(false)
+  const [selectedMembers, setSelectedMembers] = useState([])
+
+  const handleShowMembers = (members, e) => {
+    e.stopPropagation()
+    setSelectedMembers(members)
+    setShowMembersModal(true)
+  }
+
+  const renderAssignedTo = (assignment) => {
+    const assignedTo = assignment.assigned_to || assignment.assignedTo
+    
+    if (assignedTo === 'all') {
+      return <span className="tl-badge">All Members</span>
+    }
+    
+    const members = assignment.assigned_member_details || []
+    const memberCount = members.length
+    
+    if (memberCount === 0) {
+      return <span className="tl-badge">0 Members</span>
+    } else if (memberCount === 1) {
+      return <span className="tl-badge">{members[0].fullName || members[0].username}</span>
+    } else {
+      return (
+        <span 
+          className="tl-badge clickable" 
+          onClick={(e) => handleShowMembers(members, e)}
+          style={{ cursor: 'pointer' }}
+        >
+          {memberCount} Members
+        </span>
+      )
+    }
+  }
+
   return (
     <div className="tl-content">
       <div className="tl-page-header">
@@ -66,12 +103,10 @@ const AssignmentsTab = ({
                   </td>
                   <td>{assignment.file_type_required || assignment.fileTypeRequired || 'Any'}</td>
                   <td>
-                    <span className="tl-badge">{(assignment.assigned_to || assignment.assignedTo) === 'all' ? 'All Members' : `${(assignment.assigned_members || assignment.assignedMembers)?.length || 0} Members`}</span>
+                    {renderAssignedTo(assignment)}
                   </td>
                   <td>
-                    <span style={{backgroundColor: '#dbeafe', color: '#1e40af', padding: '4px 12px', borderRadius: '12px', fontWeight: '600'}}>
-                      {assignment.submission_count || assignment.submissionCount || 0}
-                    </span>
+                    {assignment.submission_count || assignment.submissionCount || 0}
                   </td>
                   <td className="date">{formatDate(assignment.created_at || assignment.createdAt)}</td>
                   <td onClick={(e) => e.stopPropagation()}>
@@ -96,6 +131,58 @@ const AssignmentsTab = ({
           <button className="tl-btn success" onClick={() => setShowCreateAssignmentModal(true)} style={{marginTop: '20px'}}>
             Create Your First Assignment
           </button>
+        </div>
+      )}
+
+      {/* Members Modal */}
+      {showMembersModal && (
+        <div className="tl-modal-overlay" onClick={() => setShowMembersModal(false)}>
+          <div className="tl-modal" onClick={e => e.stopPropagation()}>
+            <div className="tl-modal-header">
+              <h3>Assigned Members ({selectedMembers.length})</h3>
+              <button onClick={() => setShowMembersModal(false)}>×</button>
+            </div>
+            <div className="tl-modal-body">
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                {selectedMembers.map((member) => (
+                  <div key={member.id} style={{
+                    padding: '12px',
+                    background: '#F9FAFB',
+                    borderRadius: '8px',
+                    border: '1px solid #E5E7EB',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '12px'
+                  }}>
+                    <div style={{
+                      width: '32px',
+                      height: '32px',
+                      borderRadius: '50%',
+                      background: '#4f39f6',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      color: 'white',
+                      fontWeight: '600',
+                      fontSize: '14px'
+                    }}>
+                      {(member.fullName || member.username).charAt(0).toUpperCase()}
+                    </div>
+                    <div>
+                      <div style={{ fontWeight: '500', color: '#101828' }}>
+                        {member.fullName || member.username}
+                      </div>
+                      {member.fullName && (
+                        <div style={{ fontSize: '12px', color: '#6a7282' }}>
+                          @{member.username}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </div>
