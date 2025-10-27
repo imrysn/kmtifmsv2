@@ -1,9 +1,10 @@
-const { app, BrowserWindow, ipcMain, dialog } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, shell } = require('electron');
 const path = require('path');
 const { spawn } = require('child_process');
 const http = require('http');
 
 let mainWindow;
+let splashWindow;
 let serverProcess;
 let loadRetryCount = 0;
 let viteRetryInterval = null;
@@ -14,8 +15,8 @@ const SERVER_PORT = process.env.EXPRESS_PORT || 3001;
 const VITE_URL = 'http://localhost:5173';
 const EXPRESS_CHECK_INTERVAL = 500;
 const MAX_EXPRESS_WAIT = 30000; // 30 seconds
-const MAX_VITE_WAIT = 60000; // 60 seconds for Vite startup
-const MAX_LOAD_RETRIES = 10; // Maximum retries for page loading
+const MAX_VITE_WAIT = 20000; // Reduced to 20 seconds for faster feedback
+const MAX_LOAD_RETRIES = 10;
 
 /**
  * Show a loading/error page as fallback when Vite isn't responding
@@ -44,7 +45,7 @@ function showFallbackPage() {
         }
         .container {
           text-align: center;
-          animation: fadeIn 1s ease-in-out;
+          animation: fadeIn 0.5s ease-in-out;
         }
         .spinner {
           border: 4px solid rgba(255, 255, 255, 0.3);
@@ -100,9 +101,8 @@ function showFallbackPage() {
         <button class="retry-btn" onclick="window.location.reload()">Retry Connection</button>
       </div>
       <script>
-        // Auto-retry every 10 seconds
         let retryCount = 0;
-        const maxRetries = 30; // 5 minutes max
+        const maxRetries = 30;
 
         function checkConnection() {
           retryCount++;
@@ -114,15 +114,14 @@ function showFallbackPage() {
 
           fetch('${VITE_URL}', { mode: 'no-cors' })
             .then(() => {
-              // If we get here, connection succeeded
               window.location.href = '${VITE_URL}';
             })
             .catch(() => {
-              setTimeout(checkConnection, 10000);
+              setTimeout(checkConnection, 5000);
             });
         }
 
-        setTimeout(checkConnection, 3000);
+        setTimeout(checkConnection, 2000);
       </script>
     </body>
     </html>`;
@@ -141,10 +140,9 @@ function checkViteConnection() {
 
   checkViteServer().then((isReady) => {
     if (isReady && !isConnectedToVite) {
-      // Vite is now available, load the actual app
       console.log('🔄 Vite server detected! Loading React app...');
       isConnectedToVite = true;
-      loadRetryCount = 0; // Reset retry count
+      loadRetryCount = 0;
       mainWindow.loadURL(VITE_URL);
 
       if (viteRetryInterval) {
@@ -157,39 +155,147 @@ function checkViteConnection() {
   });
 }
 
+/**
+ * Create and show splash window - NOW SHOWS IMMEDIATELY
+ */
+function createSplashWindow() {
+  splashWindow = new BrowserWindow({
+    width: 400,
+    height: 300,
+    frame: false,
+    alwaysOnTop: true,
+    center: true,
+    resizable: false,
+    show: false, // Will show after ready-to-show
+    backgroundColor: '#667eea',
+    webPreferences: {
+      nodeIntegration: false,
+      contextIsolation: true,
+      enableRemoteModule: false
+    }
+  });
+
+  const splashHtml = `
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>KMTI File Management System - Loading...</title>
+      <style>
+        body {
+          margin: 0;
+          padding: 0;
+          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+          color: white;
+          height: 100vh;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          overflow: hidden;
+        }
+        .container {
+          text-align: center;
+          animation: fadeIn 0.3s ease-in-out;
+        }
+        .spinner {
+          border: 4px solid rgba(255, 255, 255, 0.3);
+          border-top: 4px solid white;
+          border-radius: 50%;
+          width: 50px;
+          height: 50px;
+          animation: spin 1s linear infinite;
+          margin: 0 auto 30px;
+        }
+        .logo {
+          font-size: 28px;
+          font-weight: bold;
+          margin-bottom: 20px;
+          text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+        .title {
+          font-size: 18px;
+          margin-bottom: 10px;
+          opacity: 0.9;
+        }
+        .message {
+          font-size: 14px;
+          opacity: 0.8;
+          line-height: 1.5;
+        }
+        @keyframes spin {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
+        }
+        @keyframes fadeIn {
+          from { opacity: 0; transform: scale(0.95); }
+          to { opacity: 1; transform: scale(1); }
+        }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="logo">KMTI</div>
+        <div class="spinner"></div>
+        <div class="title">File Management System</div>
+        <div class="message">
+          ${isDev ? 'Starting development server...' : 'Initializing...'}
+        </div>
+      </div>
+    </body>
+    </html>`;
+
+  splashWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(splashHtml)}`);
+
+  splashWindow.once('ready-to-show', () => {
+    splashWindow.show();
+    console.log('🚀 Splash window shown');
+  });
+
+  return splashWindow;
+}
+
 function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1200,
     height: 800,
-    // icon: path.join(__dirname, 'assets/kmti_logo.png'),
-    backgroundColor: '#ffffff',
-    show: true, // Show immediately to prevent black screen
+    backgroundColor: '#667eea', // Match splash background to prevent flash
+    show: false, // CHANGED: Don't show immediately, wait for content
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,
       enableRemoteModule: false,
       preload: path.join(__dirname, 'preload.js'),
-      // Performance optimizations
       backgroundThrottling: false,
       spellcheck: false,
       sandbox: true,
       enableBlinkFeatures: '',
-      disableBlinkFeatures: 'AutoplayPolicy', // Prevent autoplay issues
-      // Security: Content Security Policy
+      disableBlinkFeatures: 'AutoplayPolicy',
       webSecurity: true,
       allowRunningInsecureContent: false
     },
   });
 
   mainWindow.once('ready-to-show', () => {
+    // Close splash window FIRST
+    if (splashWindow && !splashWindow.isDestroyed()) {
+      splashWindow.destroy();
+      console.log('🏁 Splash window closed');
+    }
+    // Then show main window
     mainWindow.show();
-    console.log('✅ Electron window opened!');
+    console.log('✅ Main Electron window opened!');
   });
 
   if (isDev) {
     console.log(`🔗 Attempting to load React app from ${VITE_URL}`);
 
-    // Enhanced error handling for load failures
+    // IMPROVED: Show content faster
+    mainWindow.webContents.on('did-start-loading', () => {
+      console.log('🔄 Page started loading...');
+    });
+
     mainWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription) => {
       loadRetryCount++;
       console.error(`❌ Failed to load (attempt ${loadRetryCount}/${MAX_LOAD_RETRIES}): ${errorCode} - ${errorDescription}`);
@@ -197,11 +303,15 @@ function createWindow() {
       if (loadRetryCount >= MAX_LOAD_RETRIES) {
         console.error('❌ Max retries reached. Showing fallback page.');
         showFallbackPage();
+        // Close splash and show main window with fallback
+        if (splashWindow && !splashWindow.isDestroyed()) {
+          splashWindow.destroy();
+        }
+        mainWindow.show();
         return;
       }
 
-      // Retry after a delay with exponential backoff
-      const retryDelay = Math.min(2000 * Math.pow(2, loadRetryCount - 1), 10000);
+      const retryDelay = Math.min(1000 * Math.pow(1.5, loadRetryCount - 1), 5000);
       setTimeout(() => {
         console.log(`🔄 Retrying connection to Vite (attempt ${loadRetryCount + 1})...`);
         mainWindow.loadURL(VITE_URL);
@@ -209,10 +319,11 @@ function createWindow() {
     });
 
     mainWindow.webContents.on('did-finish-load', () => {
-      loadRetryCount = 0; // Reset on success
+      loadRetryCount = 0;
       isConnectedToVite = true;
       console.log('✅ Page loaded successfully');
-      // Open DevTools AFTER page loads
+      
+      // Open DevTools after a short delay
       setTimeout(() => {
         mainWindow.webContents.openDevTools();
       }, 500);
@@ -221,20 +332,19 @@ function createWindow() {
     mainWindow.webContents.on('crashed', () => {
       console.error('❌ Renderer process crashed!');
       showFallbackPage();
+      mainWindow.show();
     });
 
-    // Enable remote debugging for troubleshooting
     mainWindow.webContents.on('console-message', (level, message, line, sourceId) => {
       console.log(`🖼️  [Renderer]: ${message}`);
     });
 
-    // Start periodic checking if Vite isn't responding
+    // Start checking immediately
     checkViteConnection();
-    viteRetryInterval = setInterval(checkViteConnection, 5000); // Check every 5 seconds
+    viteRetryInterval = setInterval(checkViteConnection, 3000);
 
     mainWindow.loadURL(VITE_URL);
   } else {
-    // Production: load from built files
     const indexPath = path.join(__dirname, 'client/dist/index.html');
     mainWindow.loadFile(indexPath);
   }
@@ -250,12 +360,11 @@ function createWindow() {
 }
 
 /**
- * Check if Vite is fully ready (not just responding, but ready to render)
+ * Check if Vite is fully ready
  */
 function checkViteServer() {
   return new Promise((resolve) => {
     const req = http.get(VITE_URL, { timeout: 2000 }, (res) => {
-      // Check if we get a successful response
       if (res.statusCode === 200 || res.statusCode === 304) {
         resolve(true);
       } else {
@@ -289,7 +398,7 @@ function checkExpressServer() {
 }
 
 /**
- * Start Express server with better error handling
+ * Start Express server
  */
 function startServer() {
   return new Promise((resolve, reject) => {
@@ -313,7 +422,6 @@ function startServer() {
       if (output) {
         console.log(`📡 ${output}`);
         
-        // Check for success indicators
         if ((output.includes('running') || output.includes('listening')) && !serverReady) {
           serverReady = true;
           clearTimeout(startTimeout);
@@ -342,18 +450,17 @@ function startServer() {
       }
     });
 
-    // Timeout: if server doesn't respond within 30 seconds, continue anyway
     startTimeout = setTimeout(() => {
       if (!serverReady) {
         console.warn('⚠️  Server startup timeout, proceeding anyway...');
-        resolve(); // Continue despite timeout
+        resolve();
       }
     }, MAX_EXPRESS_WAIT);
   });
 }
 
 /**
- * Wait for Vite server to be ready with improved black screen prevention
+ * Wait for Vite server - FASTER with early bailout
  */
 function waitForViteServer() {
   return new Promise((resolve) => {
@@ -364,23 +471,21 @@ function waitForViteServer() {
 
     console.log('⏳ Waiting for Vite dev server...');
     let attempts = 0;
-    const maxAttempts = Math.ceil(MAX_VITE_WAIT / 500); // Check every 500ms
+    const maxAttempts = Math.ceil(MAX_VITE_WAIT / 500);
 
     const checkServer = async () => {
       attempts++;
 
-        if (attempts > maxAttempts) {
-          console.error(`❌ Vite server did not start within ${MAX_VITE_WAIT / 1000}s`);
-          console.error('💡 Troubleshooting:');
-          console.error('   1. Check if port 5173 is in use: netstat -ano | findstr :5173');
-          console.error('   2. Try: cd client && npm install && npm run dev');
-          console.error('   3. Restart the application');
-          console.warn('⚠️  Showing fallback loading page since Vite failed to start...');
-          // Show fallback page immediately when Vite fails to start
-          showFallbackPage();
-          resolve();
-          return;
-        }
+      if (attempts > maxAttempts) {
+        console.error(`❌ Vite server did not start within ${MAX_VITE_WAIT / 1000}s`);
+        console.error('💡 Troubleshooting:');
+        console.error('   1. Check if port 5173 is in use: netstat -ano | findstr :5173');
+        console.error('   2. Try: cd client && npm install && npm run dev');
+        console.error('   3. Restart the application');
+        console.warn('⚠️  Proceeding anyway - fallback page will be shown...');
+        resolve(); // Resolve anyway to not block
+        return;
+      }
 
       try {
         const isReady = await checkViteServer();
@@ -394,7 +499,7 @@ function waitForViteServer() {
         // Continue trying
       }
 
-      if (attempts % 20 === 0) {
+      if (attempts % 10 === 0) {
         const elapsed = Math.floor(attempts * 0.5);
         console.log(`⏳ Still waiting for Vite... (${elapsed}s/${MAX_VITE_WAIT / 1000}s)`);
       }
@@ -414,7 +519,6 @@ function shutdownServer() {
     console.log('🛑 Stopping Express server...');
     serverProcess.kill('SIGTERM');
     
-    // Force kill after 3 seconds if still running
     setTimeout(() => {
       if (serverProcess && !serverProcess.killed) {
         serverProcess.kill('SIGKILL');
@@ -423,108 +527,123 @@ function shutdownServer() {
   }
 }
 
-// Disable GPU hardware acceleration to prevent GPU process crashes
-// This fixes the "GPU process exited unexpectedly" error
-app.disableHardwareAcceleration();
-console.log('⚙️  Hardware acceleration disabled for stability');
+if (app) {
+  // CRITICAL: Disable hardware acceleration to prevent GPU crashes
+  app.disableHardwareAcceleration();
+  console.log('🔧 Hardware acceleration disabled (prevents GPU crashes)');
 
-// Handle child process errors more gracefully
-app.on('child-process-gone', (event, details) => {
-  console.error('❌ Child process error:', details.type, details.reason);
-  if (details.type === 'GPU') {
-    console.error('💡 GPU process crashed. Hardware acceleration is disabled, but the error may persist.');
-    console.error('   Possible causes: outdated GPU drivers, incompatible graphics card, or Windows graphics settings.');
-  }
-});
+  app.on('ready', async () => {
+    console.log('⚡ Electron app is ready!');
 
-app.whenReady().then(async () => {
-  console.log('⚡ Electron app is ready!');
-  
-  // Configure session for better security
-  const { session } = require('electron');
-  
-  // Set Content Security Policy via session
-  session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
-    callback({
-      responseHeaders: {
-        ...details.responseHeaders,
-        'Content-Security-Policy': [
-          isDev 
-            ? "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' http://localhost:* ws://localhost:* wss://localhost:*; media-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none';"
-            : "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none';"
-        ]
+    app.on('child-process-gone', (event, details) => {
+      console.error('❌ Child process error:', details.type, details.reason);
+      if (details.type === 'GPU') {
+        console.error('💡 GPU process crashed. Hardware acceleration issue detected.');
       }
     });
+
+    const { session } = require('electron');
+
+    session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
+      callback({
+        responseHeaders: {
+          ...details.responseHeaders,
+          'Content-Security-Policy': [
+            isDev
+              ? "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: blob:; font-src 'self' data: https://fonts.gstatic.com; connect-src 'self' http://localhost:* ws://localhost:* wss://localhost:* https://fonts.googleapis.com https://fonts.gstatic.com; media-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none';"
+              : "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data:; font-src 'self' data: https://fonts.gstatic.com; connect-src 'self' https://fonts.googleapis.com https://fonts.gstatic.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none';"
+          ]
+        }
+      });
+    });
+
+    console.log('🔒 Content Security Policy configured');
+
+    try {
+      // Create splash window FIRST - shows immediately
+      createSplashWindow();
+
+      // Start Express server in parallel
+      const serverPromise = startServer();
+
+      // Create main window immediately (hidden)
+      createWindow();
+
+      // Wait for server (but don't block window creation)
+      await serverPromise;
+
+      // Wait briefly for Vite (but proceed even if not ready)
+      await waitForViteServer();
+
+    } catch (error) {
+      console.error('❌ Failed to start application:', error.message);
+      if (splashWindow) splashWindow.destroy();
+      app.quit();
+    }
   });
-  
-  console.log('🔒 Content Security Policy configured');
-  
-  try {
-    // Start Express server
-    await startServer();
-    
-    // Wait for Vite in development
-    await waitForViteServer();
-    
-    // Create the window
-    createWindow();
-  } catch (error) {
-    console.error('❌ Failed to start application:', error.message);
-    app.quit();
-  }
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
+      createSplashWindow();
       createWindow();
     }
   });
-});
 
-app.on('window-all-closed', () => {
-  shutdownServer();
-  
-  if (process.platform !== 'darwin') {
-    app.quit();
-  }
-});
+  app.on('window-all-closed', () => {
+    if (splashWindow && !splashWindow.isDestroyed()) {
+      splashWindow.destroy();
+    }
 
-app.on('before-quit', shutdownServer);
+    shutdownServer();
 
-// IPC Handlers
-ipcMain.handle('dialog:openDirectory', async () => {
-  const result = await dialog.showOpenDialog(mainWindow, {
-    properties: ['openDirectory']
+    if (process.platform !== 'darwin') {
+      app.quit();
+    }
   });
-  
-  return {
-    canceled: result.canceled,
-    filePaths: result.filePaths || []
-  };
-});
 
-ipcMain.handle('file:openInApp', async (event, filePath) => {
-  try {
-    const { shell } = require('electron');
-    const fs = require('fs');
-    
-    console.log(`📂 Opening file: ${filePath}`);
-    
-    if (!fs.existsSync(filePath)) {
-      return { success: false, error: 'File not found' };
+  app.on('before-quit', () => {
+    if (splashWindow && !splashWindow.isDestroyed()) {
+      splashWindow.destroy();
     }
-    
-    const result = await shell.openPath(filePath);
-    
-    if (result) {
-      console.error('❌ Error opening file:', result);
-      return { success: false, error: result };
+    shutdownServer();
+  });
+}
+
+if (ipcMain) {
+  ipcMain.handle('dialog:openDirectory', async () => {
+    const result = await dialog.showOpenDialog(mainWindow, {
+      properties: ['openDirectory']
+    });
+
+    return {
+      canceled: result.canceled,
+      filePaths: result.filePaths || []
+    };
+  });
+
+  ipcMain.handle('file:openInApp', async (event, filePath) => {
+    try {
+      const fs = require('fs');
+
+      console.log(`📂 Opening file: ${filePath}`);
+
+      if (!fs.existsSync(filePath)) {
+        return { success: false, error: 'File not found' };
+      }
+
+      const result = await shell.openPath(filePath);
+
+      if (result) {
+        console.error('❌ Error opening file:', result);
+        return { success: false, error: result };
+      }
+
+      console.log('✅ File opened successfully');
+      return { success: true, method: 'system-default' };
+
+    } catch (error) {
+      console.error('❌ Error:', error.message);
+      return { success: false, error: error.message };
     }
-    
-    console.log('✅ File opened successfully');
-    return { success: true, method: 'system-default' };
-    
-  } catch (error) {
-    console.error('❌ Error:', error.message);
-    return { success: false, error: error.message };
-  }
-});
+  });
+}

@@ -16,22 +16,20 @@ const FileManagement = ({ clearMessages, error, success, setError, setSuccess })
   const [isSearching, setIsSearching] = useState(false)
   const [selectedItem, setSelectedItem] = useState(null)
   const [viewMode, setViewMode] = useState('grid')
-  const [isLoading, setIsLoading] = useState(false) // For initial load and search
-  const [isComponentLoading, setIsComponentLoading] = useState(false); // For file opening delay
+  const [isLoading, setIsLoading] = useState(false) 
+  const [isComponentLoading, setIsComponentLoading] = useState(false); 
   const [networkInfo, setNetworkInfo] = useState(null)
 
-  // For tracking double-clicks
   const clickTimerRef = useRef(null)
   const lastClickedItemRef = useRef(null)
-  const CLICK_DELAY = 300 // milliseconds
+  const CLICK_DELAY = 300 
 
-  // Auto-clear messages after 3 seconds
   useEffect(() => {
     if (error || success) {
       const timer = setTimeout(() => {
-        clearMessages() // Assumes clearMessages clears both error and success
+        clearMessages() 
       }, 3000);
-      return () => clearTimeout(timer) // Cleanup on unmount or if error/success changes
+      return () => clearTimeout(timer) 
     }
   }, [error, success, clearMessages])
 
@@ -48,19 +46,17 @@ const FileManagement = ({ clearMessages, error, success, setError, setSuccess })
       setFilteredItems(fileSystemItems)
       setIsSearching(false)
     } else {
-      // Global search - search through all subfolders
       performGlobalSearch(fileManagementSearch)
     }
   }, [fileManagementSearch])
 
-  // Update filtered items when file system items change and no search is active
+ 
   useEffect(() => {
     if (fileManagementSearch.trim() === '') {
       setFilteredItems(fileSystemItems)
     }
   }, [fileSystemItems])
 
-  // Cleanup timer on unmount
   useEffect(() => {
     return () => {
       if (clickTimerRef.current) {
@@ -218,8 +214,6 @@ const FileManagement = ({ clearMessages, error, success, setError, setSuccess })
           console.log('📂 Full path:', pathData.fullPath);
           console.log('📄 File type:', pathData.fileType);
           
-          // Open with Electron using Windows default file association
-          // This will use whatever app is set as default in Windows for this file type
           const result = await window.electron.openFileInApp(pathData.fullPath);
           
           if (result.success) {

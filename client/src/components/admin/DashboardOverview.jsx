@@ -1,5 +1,5 @@
+import React, { useEffect, useState, useMemo } from 'react'
 import './DashboardOverview.css'
-import { useEffect, useState } from 'react'
 
 const DashboardOverview = ({ user, users }) => {
   const [loading, setLoading] = useState(true)
@@ -43,10 +43,36 @@ const DashboardOverview = ({ user, users }) => {
     return () => { mounted = false; clearInterval(interval) }
   }, [])
 
+  // Memoize summary values to prevent unnecessary re-renders
   const pendingCount = summary.pending
   const approvedCount = summary.approved
   const rejectedCount = summary.rejected
   const totalCount = summary.totalFiles
+
+  // Memoize filtered activity counts to avoid repeated filtering
+  const awaitingTeamLeaderCount = useMemo(() => {
+    return summary.recentActivity.filter(a => a.activity && a.activity.toLowerCase().includes('team leader')).length
+  }, [summary.recentActivity])
+
+  const awaitingAdminCount = useMemo(() => {
+    return summary.recentActivity.filter(a => a.activity && a.activity.toLowerCase().includes('admin')).length
+  }, [summary.recentActivity])
+
+  // Memoize activity items to prevent re-rendering on every update
+  const activityItems = useMemo(() => {
+    return summary.recentActivity.map(act => (
+      <div className="activity-item" key={act.id}>
+        <div className="activity-content">
+          <div className="activity-header">
+            <span className="activity-user">{act.username || act.role || 'System'}</span>
+            <span className={"activity-badge " + (act.activity && act.activity.toLowerCase().includes('approved') ? 'approved' : act.activity && act.activity.toLowerCase().includes('rejected') ? 'rejected' : 'upload')}>{(act.activity || '').split(' ')[0]}</span>
+          </div>
+          <div className="activity-description">{act.activity}</div>
+          <div className="activity-meta">{new Date(act.timestamp).toLocaleString()}</div>
+        </div>
+      </div>
+    ))
+  }, [summary.recentActivity])
   return (
     <div className="dashboard-overview">
       
@@ -91,13 +117,13 @@ const DashboardOverview = ({ user, users }) => {
       <div className="workflow-grid">
         <div className="workflow-card blue">
           <div className="workflow-title">Awaiting Team Leader</div>
-          <div className="workflow-number">{loading ? '—' : summary.recentActivity.filter(a => a.activity && a.activity.toLowerCase().includes('team leader')).length}</div>
+          <div className="workflow-number">{loading ? '—' : awaitingTeamLeaderCount}</div>
           <div className="workflow-subtitle">Files under review</div>
         </div>
-        
+
         <div className="workflow-card yellow">
           <div className="workflow-title">Awaiting Admin</div>
-          <div className="workflow-number">{loading ? '—' : summary.recentActivity.filter(a => a.activity && a.activity.toLowerCase().includes('admin')).length}</div>
+          <div className="workflow-number">{loading ? '—' : awaitingAdminCount}</div>
           <div className="workflow-subtitle">Ready for final approval</div>
         </div>
         
@@ -176,18 +202,7 @@ const DashboardOverview = ({ user, users }) => {
           <div className="activity-list">
             {loading && <div style={{ padding: '1rem' }}>Loading recent activity…</div>}
             {!loading && summary.recentActivity.length === 0 && <div style={{ padding: '1rem' }}>No recent activity</div>}
-            {!loading && summary.recentActivity.map(act => (
-              <div className="activity-item" key={act.id}>
-                <div className="activity-content">
-                  <div className="activity-header">
-                    <span className="activity-user">{act.username || act.role || 'System'}</span>
-                    <span className={"activity-badge " + (act.activity && act.activity.toLowerCase().includes('approved') ? 'approved' : act.activity && act.activity.toLowerCase().includes('rejected') ? 'rejected' : 'upload')}>{(act.activity || '').split(' ')[0]}</span>
-                  </div>
-                  <div className="activity-description">{act.activity}</div>
-                  <div className="activity-meta">{new Date(act.timestamp).toLocaleString()}</div>
-                </div>
-              </div>
-            ))}
+            {!loading && activityItems}
           </div>
         </div>
         
@@ -219,4 +234,4 @@ const DashboardOverview = ({ user, users }) => {
   )
 }
 
-export default DashboardOverview
+export default React.memo(DashboardOverview)

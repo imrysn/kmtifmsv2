@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback, memo } from 'react'
 import FileIcon from './FileIcon'
+import LoadingSpinner from '../LoadingSpinner'
 import './FileApproval-Optimized.css'
 import { ConfirmationModal, AlertMessage } from './modals'
 
@@ -28,13 +29,13 @@ const FileRowSkeleton = memo(() => (
   </tr>
 ))
 
-const FileRow = memo(({ 
-  file, 
-  formatFileSize, 
-  mapFileStatus, 
-  getStatusDisplayName, 
-  onOpenModal, 
-  onDelete 
+const FileRow = memo(({
+  file,
+  formatFileSize,
+  mapFileStatus,
+  getStatusDisplayName,
+  onOpenModal,
+  onDelete
 }) => {
   const handleRowClick = useCallback(() => {
     onOpenModal(file)
@@ -61,13 +62,18 @@ const FileRow = memo(({
 
   const fileExtension = getFileExtension(file.original_name, file.file_type)
 
+  // Memoize formatted dates to avoid recalculating on every render
+  const formattedDate = useMemo(() => new Date(file.uploaded_at).toLocaleDateString(), [file.uploaded_at])
+  const formattedTime = useMemo(() => new Date(file.uploaded_at).toLocaleTimeString(), [file.uploaded_at])
+  const formattedFileSize = useMemo(() => formatFileSize(file.file_size), [file.file_size, formatFileSize])
+
   return (
     <tr className="file-row" onClick={handleRowClick}>
       <td>
         <div className="file-cell">
           <div className="file-icon">
             <FileIcon
-              fileType={fileExtension} 
+              fileType={fileExtension}
               isFolder={false}
               altText={`Icon for ${file.original_name}`}
               size="medium"
@@ -75,7 +81,7 @@ const FileRow = memo(({
           </div>
           <div className="file-details">
             <span className="file-name">{file.original_name}</span>
-            <span className="file-size">{formatFileSize(file.file_size)}</span>
+            <span className="file-size">{formattedFileSize}</span>
           </div>
         </div>
       </td>
@@ -86,8 +92,8 @@ const FileRow = memo(({
       </td>
       <td>
         <div className="datetime-cell">
-          <div className="date">{new Date(file.uploaded_at).toLocaleDateString()}</div>
-          <div className="time">{new Date(file.uploaded_at).toLocaleTimeString()}</div>
+          <div className="date">{formattedDate}</div>
+          <div className="time">{formattedTime}</div>
         </div>
       </td>
       <td>
@@ -99,7 +105,7 @@ const FileRow = memo(({
         </span>
       </td>
       <td>
-        <button 
+        <button
           className="action-btn delete-btn"
           onClick={handleDeleteClick}
           title="Delete File"
@@ -119,20 +125,23 @@ const CommentItem = memo(({ comment }) => {
   const commentText = comment.comments || comment.comment || comment.text || ''
   const action = comment.action || ''
 
+  // Memoize formatted date to prevent recalculation on every render
+  const formattedDate = useMemo(() => {
+    return new Date(timestamp).toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    })
+  }, [timestamp])
+
   return (
     <div className="comment-item">
       <div className="comment-header">
         <span className="comment-author">{username}</span>
         <span className="comment-role">{role}</span>
-        <span className="comment-date">
-          {new Date(timestamp).toLocaleDateString('en-US', {
-            month: 'short',
-            day: 'numeric',
-            year: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit'
-          })}
-        </span>
+        <span className="comment-date">{formattedDate}</span>
       </div>
       <div className="comment-body">
         {action && (
@@ -163,6 +172,7 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
   const [isLoading, setIsLoading] = useState(true)
   const [fileComments, setFileComments] = useState([])
   const [isLoadingComments, setIsLoadingComments] = useState(false)
+  const [isOpeningFile, setIsOpeningFile] = useState(false)
   
   // Refs
   const statusCardsRef = useRef(null)
@@ -276,6 +286,23 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
     return Math.ceil(filteredFiles.length / filesPerPage)
   }, [filteredFiles.length, filesPerPage])
 
+  const formatFileSize = useCallback((bytes) => {
+    if (bytes === 0) return '0 Bytes'
+    const k = 1024
+    const sizes = ['Bytes', 'KB', 'MB', 'GB']
+    const i = Math.floor(Math.log(bytes) / Math.log(k))
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
+  }, [])
+
+  // Memoize formatted values for selected file (for modal)
+  const selectedFileFormattedSize = useMemo(() => {
+    return selectedFile ? formatFileSize(selectedFile.file_size) : ''
+  }, [selectedFile, formatFileSize])
+
+  const selectedFileFormattedDate = useMemo(() => {
+    return selectedFile ? new Date(selectedFile.uploaded_at).toLocaleString() : ''
+  }, [selectedFile])
+
   const fetchFiles = useCallback(async () => {
     // Cancel previous request if still pending
     if (fetchAbortController.current) {
@@ -372,14 +399,6 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
     }
   }, [])
 
-  const formatFileSize = useCallback((bytes) => {
-    if (bytes === 0) return '0 Bytes'
-    const k = 1024
-    const sizes = ['Bytes', 'KB', 'MB', 'GB']
-    const i = Math.floor(Math.log(bytes) / Math.log(k))
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
-  }, [])
-
   const openDeleteModal = useCallback((file) => {
     setFileToDelete(file)
     setShowDeleteModal(true)
@@ -398,6 +417,7 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
     setSelectedFile(null)
     setFileComment('')
     setFileComments([])
+    setIsOpeningFile(false)
   }, [])
 
   const deleteFile = useCallback(async () => {
@@ -490,6 +510,42 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
     }
   }, [addComment])
 
+  // Function to open file using electron
+  const openFile = useCallback(async (file) => {
+    if (!file) return
+
+    setIsOpeningFile(true)
+    try {
+      let filePath
+
+      if (file.status === 'final_approved' && file.public_network_url) {
+        // For approved files, use the moved location
+        filePath = file.public_network_url
+      } else {
+        // For non-approved files, get the path from server
+        const pathResp = await fetch(`${API_BASE}/files/${file.id}/path`)
+        const pathData = await pathResp.json()
+        if (!pathData.success) throw new Error('Failed to get file path')
+        filePath = pathData.filePath
+      }
+
+      // Open the file using electron
+      if (window.electron && typeof window.electron.openFileInApp === 'function') {
+        const result = await window.electron.openFileInApp(filePath)
+        if (!result.success) {
+          throw new Error(result.error || 'Failed to open file')
+        }
+      } else {
+        setError('File opening not available')
+      }
+    } catch (err) {
+      console.error('Error opening file:', err)
+      setError(err.message || 'Failed to open file')
+    } finally {
+      setIsOpeningFile(false)
+    }
+  }, [setError])
+
   const approveFile = useCallback(async () => {
     if (!selectedFile) return
 
@@ -521,7 +577,7 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
         }
         const selectedPath = result.filePaths[0]
 
-        // Move file
+        // Move file and delete from uploads folder
         const moveResp = await fetch(`${API_BASE}/files/${selectedFile.id}/move-to-projects`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -530,7 +586,8 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
             adminId: 1,
             adminUsername: 'admin',
             adminRole: 'ADMIN',
-            team: 'IT Administration'
+            team: 'IT Administration',
+            deleteFromUploads: true
           })
         })
         const moveData = await moveResp.json()
@@ -558,16 +615,16 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
 
       if (approvedOnServer) {
         // Optimistic update
-        setFiles(prevFiles => 
-          prevFiles.map(f => 
+        setFiles(prevFiles =>
+          prevFiles.map(f =>
             f.id === selectedFile.id ? { ...f, status: 'final_approved' } : f
           )
         )
-        
+
         closeFileModal()
         setSuccess('File approved and moved successfully')
-        
-        // Refresh in background
+
+        // Refresh in background to get updated public_network_url
         fetchFiles()
       }
     } catch (err) {
@@ -580,14 +637,14 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
 
   const rejectFile = useCallback(async () => {
     if (!selectedFile) return
-    
+
     if (!fileComment.trim()) {
       setError('Please provide a reason for rejection')
       return
     }
-    
+
     await addComment()
-    
+
     setIsLoading(true)
     try {
       const response = await fetch(`${API_BASE}/files/${selectedFile.id}/admin-review`, {
@@ -602,20 +659,31 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
           team: 'IT Administration'
         })
       })
-      
+
       const data = await response.json()
-      
+
       if (data.success) {
+        // Delete the uploaded file from uploads folder
+        await fetch(`${API_BASE}/files/${selectedFile.id}/delete-file`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            adminId: 1,
+            adminUsername: 'admin',
+            adminRole: 'ADMIN'
+          })
+        }).catch(() => {}) // Ignore errors for physical file deletion
+
         // Optimistic update
-        setFiles(prevFiles => 
-          prevFiles.map(f => 
+        setFiles(prevFiles =>
+          prevFiles.map(f =>
             f.id === selectedFile.id ? { ...f, status: 'rejected_by_admin' } : f
           )
         )
-        
+
         closeFileModal()
         setSuccess('File rejected successfully')
-        
+
         // Refresh in background
         fetchFiles()
       } else {
@@ -883,7 +951,7 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
                   </div>
                   <div className="detail-item">
                     <span className="detail-label">FILE SIZE:</span>
-                    <span className="detail-value">{formatFileSize(selectedFile.file_size)}</span>
+                    <span className="detail-value">{selectedFileFormattedSize}</span>
                   </div>
                   <div className="detail-item">
                     <span className="detail-label">SUBMITTED BY:</span>
@@ -897,7 +965,7 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
                   </div>
                   <div className="detail-item">
                     <span className="detail-label">UPLOAD DATE:</span>
-                    <span className="detail-value">{new Date(selectedFile.uploaded_at).toLocaleString()}</span>
+                    <span className="detail-value">{selectedFileFormattedDate}</span>
                   </div>
                   <div className="detail-item">
                     <span className="detail-label">STATUS:</span>
@@ -959,39 +1027,47 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
               {/* Actions Section */}
               <div className="actions-section">
                 <div className="action-buttons-large">
-                  <button 
-                    type="button" 
+                  <button
+                    type="button"
                     onClick={approveFile}
-                    className="btn btn-success-large" 
-                    disabled={isLoading}
+                    className="btn btn-success-large"
+                    disabled={isLoading || selectedFile.status === 'final_approved' || selectedFile.status === 'rejected_by_team_leader' || selectedFile.status === 'rejected_by_admin'}
                   >
                     <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
                       <path d="M16.875 5L7.5 14.375L3.125 10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                     </svg>
                     Approve
                   </button>
-                  <button 
-                    type="button" 
+                  <button
+                    type="button"
                     onClick={rejectFile}
-                    className="btn btn-danger-large" 
-                    disabled={isLoading}
+                    className="btn btn-danger-large"
+                    disabled={isLoading || selectedFile.status === 'final_approved' || selectedFile.status === 'rejected_by_team_leader' || selectedFile.status === 'rejected_by_admin'}
                   >
                     <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
                       <path d="M15 5L5 15M5 5L15 15" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                     </svg>
                     Reject
                   </button>
-                  <a 
-                    href={`http://localhost:3001${selectedFile.file_path}`} 
-                    target="_blank" 
-                    rel="noopener noreferrer" 
+                  <button
+                    onClick={() => openFile(selectedFile)}
                     className="btn btn-secondary-large"
+                    disabled={isLoading || isOpeningFile}
                   >
-                    <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-                      <path d="M15 10.8333V15.8333C15 16.2754 14.8244 16.6993 14.5118 17.0118C14.1993 17.3244 13.7754 17.5 13.3333 17.5H4.16667C3.72464 17.5 3.30072 17.3244 2.98816 17.0118C2.67559 16.6993 2.5 16.2754 2.5 15.8333V6.66667C2.5 6.22464 2.67559 5.80072 2.98816 5.48816C3.30072 5.17559 3.72464 5 4.16667 5H9.16667M12.5 2.5H17.5M17.5 2.5V7.5M17.5 2.5L8.33333 11.6667" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                    </svg>
-                    Open
-                  </a>
+                    {isOpeningFile ? (
+                      <>
+                        <LoadingSpinner size="small" color="#6B7280" />
+                        Opening...
+                      </>
+                    ) : (
+                      <>
+                        <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                          <path d="M15 10.8333V15.8333C15 16.2754 14.8244 16.6993 14.5118 17.0118C14.1993 17.3244 13.7754 17.5 13.3333 17.5H4.16667C3.72464 17.5 3.30072 17.3244 2.98816 17.0118C2.67559 16.6993 2.5 16.2754 2.5 15.8333V6.66667C2.5 6.22464 2.67559 5.80072 2.98816 5.48816C3.30072 5.17559 3.72464 5 4.16667 5H9.16667M12.5 2.5H17.5M17.5 2.5V7.5M17.5 2.5L8.33333 11.6667" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                        </svg>
+                        Open
+                      </>
+                    )}
+                  </button>
                 </div>
               </div>
             </div>
