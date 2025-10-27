@@ -165,13 +165,6 @@ const TasksTab = ({ user }) => {
           <h1>My Tasks</h1>
           <p className="header-subtitle">{assignments.length} assignments</p>
         </div>
-        <button
-          className="refresh-btn"
-          onClick={fetchAssignments}
-          disabled={isLoading}
-        >
-          {isLoading ? 'Loading...' : 'Refresh'}
-        </button>
       </div>
 
       {/* Error Message */}

@@ -1,10 +1,10 @@
-/* Tasks Tab - Enhanced Clean UI */
+/* Tasks Tab - Enhanced Facebook-Style UI */
 
 .tasks-container {
   padding: 32px;
   max-width: 1400px;
   margin: 0 auto;
-  background: #fafafa;
+  background: transparent;
   min-height: 100vh;
 }
 
@@ -27,28 +27,6 @@
   font-size: 14px;
   color: #666;
   margin: 0;
-}
-
-.tasks-refresh-btn {
-  padding: 10px 20px;
-  background: #ffffff;
-  border: 1px solid #e0e0e0;
-  border-radius: 8px;
-  font-size: 14px;
-  font-weight: 500;
-  color: #333;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.tasks-refresh-btn:hover:not(:disabled) {
-  background: #f5f5f5;
-  border-color: #d0d0d0;
-}
-
-.tasks-refresh-btn:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
 }
 
 /* Alerts */
@@ -96,12 +74,13 @@
   background: rgba(0, 0, 0, 0.05);
 }
 
-/* Statistics Cards - Square Layout */
+/* Statistics Cards */
 .tasks-stats {
   display: grid;
-  grid-template-columns: repeat(2, 200px);
+  grid-template-columns: repeat(2, 1fr);
   gap: 20px;
   margin-bottom: 40px;
+  max-width: 600px;
 }
 
 .tasks-stat-card {
@@ -113,7 +92,6 @@
   gap: 16px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
   transition: transform 0.2s, box-shadow 0.2s;
-  height: 110px;
 }
 
 .tasks-stat-card:hover {
@@ -134,12 +112,10 @@
 
 .tasks-stat-pending .tasks-stat-icon {
   background: #fff3e0;
-  color: #cc8833;
 }
 
 .tasks-stat-submitted .tasks-stat-icon {
   background: #e8f5e9;
-  color: #0f7f52;
 }
 
 .tasks-stat-info {
@@ -153,7 +129,6 @@
   font-weight: 700;
   color: #007aff;
   line-height: 1;
-  margin-bottom: 4px;
 }
 
 .tasks-stat-label {
@@ -217,7 +192,7 @@
 .tasks-content {
   display: flex;
   flex-direction: column;
-  gap: 40px;
+  gap: 32px;
 }
 
 .tasks-section-title {
@@ -232,47 +207,80 @@
 /* Tasks List */
 .tasks-list {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(450px, 1fr));
   gap: 20px;
 }
 
-/* Task Cards */
-.tasks-card {
+/* ============================================
+   FACEBOOK-STYLE POST CARDS
+   ============================================ */
+
+.tasks-post-card {
   background: #ffffff;
   border-radius: 12px;
-  padding: 24px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
-  transition: transform 0.2s, box-shadow 0.2s;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  transition: box-shadow 0.2s;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
-  gap: 16px;
 }
 
-.tasks-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+.tasks-post-card:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 
-.tasks-card-submitted {
-  background: #f9fafb;
-  border: 1px solid #e5e7eb;
+.tasks-post-card.submitted-post {
+  background: #f8f9fa;
 }
 
-.tasks-card-header {
+/* Post Header */
+.post-header {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  gap: 16px;
+  padding: 16px 20px;
+  border-bottom: 1px solid #e4e6eb;
 }
 
-.tasks-card-title {
-  font-size: 18px;
-  font-weight: 600;
-  color: #1a1a1a;
-  margin: 0;
+.post-author {
+  display: flex;
+  gap: 12px;
+  align-items: center;
   flex: 1;
 }
 
+.author-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.author-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.author-name {
+  font-size: 15px;
+  font-weight: 600;
+  color: #1a1a1a;
+}
+
+.post-timestamp {
+  font-size: 13px;
+  color: #65676b;
+}
+
+/* Status Badges */
 .tasks-status-badge {
   padding: 6px 12px;
   border-radius: 20px;
@@ -286,118 +294,303 @@
   gap: 4px;
 }
 
-.tasks-status-badge.status-pending {
+.status-pending {
   background: #fff3e0;
-  color: #cc8833;
+  color: #e65100;
 }
 
-.tasks-status-badge.status-pending-review {
+.status-pending-review {
   background: #e3f2fd;
   color: #1565c0;
 }
 
-.tasks-status-badge.status-due-soon {
+.status-due-soon {
   background: #fff3e0;
-  color: #cc8833;
+  color: #f57c00;
 }
 
-.tasks-status-badge.status-overdue {
+.status-overdue {
   background: #ffebee;
   color: #c62828;
 }
 
-.tasks-status-badge.status-submitted {
+.status-submitted {
   background: #e8f5e9;
-  color: #0f7f52;
+  color: #2e7d32;
 }
 
-.tasks-card-description {
-  font-size: 14px;
-  color: #555;
-  line-height: 1.6;
-  margin: 0;
-}
-
-.tasks-card-details {
+/* Post Content */
+.post-content {
+  padding: 16px 20px;
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  padding: 16px;
-  background: #f9fafb;
-  border-radius: 8px;
-}
-
-.tasks-detail-row {
-  display: flex;
-  gap: 12px;
-  font-size: 14px;
-}
-
-.tasks-detail-label {
-  color: #666;
-  min-width: 110px;
-  font-weight: 500;
-}
-
-.tasks-detail-value {
-  color: #1a1a1a;
   flex: 1;
 }
 
-.tasks-days-left {
-  font-size: 13px;
+.post-title {
+  font-size: 18px;
   font-weight: 600;
-  margin-left: 4px;
+  color: #1a1a1a;
+  margin: 0 0 8px 0;
+  min-height: 27px;
 }
 
-.tasks-days-left.overdue {
+.post-description {
+  font-size: 15px;
+  color: #555;
+  line-height: 1.5;
+  margin: 0 0 16px 0;
+  min-height: 22.5px;
+  /* Empty descriptions will still take up one line of space */
+}
+
+.post-details {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  background: #f7f8fa;
+  border-radius: 8px;
+  margin-bottom: 16px;
+}
+
+.detail-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: #1a1a1a;
+}
+
+.detail-icon {
+  font-size: 16px;
+  flex-shrink: 0;
+}
+
+.detail-text {
+  flex: 1;
+}
+
+.days-indicator {
+  font-weight: 600;
+}
+
+.days-indicator.overdue {
   color: #c62828;
 }
 
-.tasks-days-left.urgent {
-  color: #cc8833;
+.days-indicator.urgent {
+  color: #f57c00;
 }
 
-.tasks-file-name {
-  font-family: 'Consolas', 'Monaco', monospace;
-  background: #f0f0f0;
-  padding: 2px 8px;
-  border-radius: 4px;
-  font-size: 13px;
-}
-
-.tasks-card-footer {
+.post-action {
   margin-top: auto;
-  padding-top: 8px;
 }
 
-.tasks-submit-btn {
+.submit-assignment-btn {
   width: 100%;
-  padding: 12px 24px;
-  background: #5b8def;
-  color: #ffffff;
+  padding: 12px;
+  background: #1877f2;
+  color: white;
   border: none;
-  border-radius: 8px;
-  font-size: 14px;
+  border-radius: 6px;
+  font-size: 15px;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: background 0.2s;
 }
 
-.tasks-submit-btn:hover:not(:disabled) {
-  background: #4a7de0;
-  transform: translateY(-1px);
-  box-shadow: 0 4px 8px rgba(91, 141, 239, 0.3);
+.submit-assignment-btn:hover:not(:disabled) {
+  background: #166fe5;
 }
 
-.tasks-submit-btn:disabled {
-  background: #e0e0e0;
-  color: #999;
+.submit-assignment-btn:disabled {
+  background: #e4e6eb;
+  color: #bcc0c4;
   cursor: not-allowed;
-  transform: none;
 }
 
-/* Modal */
+.submitted-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px;
+  background: #e8f5e9;
+  border-radius: 8px;
+  font-size: 14px;
+  color: #2e7d32;
+}
+
+/* Post Footer - Comment Button */
+.post-footer {
+  padding: 8px 20px;
+  border-top: 1px solid #e4e6eb;
+}
+
+.comment-toggle-btn {
+  width: 100%;
+  padding: 8px;
+  background: none;
+  border: none;
+  color: #65676b;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  border-radius: 6px;
+  transition: background 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.comment-toggle-btn:hover {
+  background: #f2f3f5;
+}
+
+/* ============================================
+   COMMENTS SECTION
+   ============================================ */
+
+.comments-section {
+  border-top: 1px solid #e4e6eb;
+  background: #f7f8fa;
+  padding: 16px 20px;
+}
+
+.comments-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 16px;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.comment-item {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+
+.comment-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  font-size: 12px;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.comment-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.comment-bubble {
+  background: #ffffff;
+  padding: 10px 14px;
+  border-radius: 18px;
+  max-width: 100%;
+  word-wrap: break-word;
+}
+
+.comment-author {
+  font-size: 13px;
+  font-weight: 600;
+  color: #1a1a1a;
+  margin-bottom: 2px;
+}
+
+.comment-text {
+  font-size: 15px;
+  color: #1a1a1a;
+  line-height: 1.4;
+  white-space: pre-wrap;
+}
+
+.comment-timestamp {
+  font-size: 12px;
+  color: #65676b;
+  padding-left: 14px;
+}
+
+/* Add Comment Input */
+.add-comment {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+
+.comment-input-wrapper {
+  flex: 1;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  background: #ffffff;
+  border-radius: 20px;
+  padding: 8px 12px;
+  border: 1px solid #e4e6eb;
+  transition: border-color 0.2s;
+}
+
+.comment-input-wrapper:focus-within {
+  border-color: #1877f2;
+}
+
+.comment-input {
+  flex: 1;
+  border: none;
+  outline: none;
+  font-size: 15px;
+  color: #1a1a1a;
+  background: transparent;
+  padding: 0;
+}
+
+.comment-input::placeholder {
+  color: #8a8d91;
+}
+
+.comment-submit-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: #1877f2;
+  color: white;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 16px;
+  transition: all 0.2s;
+  flex-shrink: 0;
+}
+
+.comment-submit-btn:hover:not(:disabled) {
+  background: #166fe5;
+  transform: scale(1.05);
+}
+
+.comment-submit-btn:disabled {
+  background: #e4e6eb;
+  color: #bcc0c4;
+  cursor: not-allowed;
+}
+
+/* ============================================
+   MODAL STYLES
+   ============================================ */
+
 .tasks-modal-overlay {
   position: fixed;
   top: 0;
@@ -414,7 +607,7 @@
 
 .tasks-modal {
   background: #ffffff;
-  border-radius: 16px;
+  border-radius: 12px;
   width: 100%;
   max-width: 600px;
   max-height: 90vh;
@@ -437,8 +630,8 @@
 }
 
 .tasks-modal-header {
-  padding: 24px;
-  border-bottom: 1px solid #e0e0e0;
+  padding: 20px 24px;
+  border-bottom: 1px solid #e4e6eb;
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -452,23 +645,23 @@
 }
 
 .tasks-modal-close {
-  width: 32px;
-  height: 32px;
+  width: 36px;
+  height: 36px;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: none;
+  background: #f2f3f5;
   border: none;
-  color: #666;
-  font-size: 28px;
+  color: #65676b;
+  font-size: 24px;
   cursor: pointer;
-  border-radius: 6px;
+  border-radius: 50%;
   transition: all 0.2s;
 }
 
 .tasks-modal-close:hover {
-  background: #f5f5f5;
-  color: #333;
+  background: #e4e6eb;
+  color: #1a1a1a;
 }
 
 .tasks-modal-body {
@@ -480,16 +673,15 @@
   gap: 24px;
 }
 
-/* Assignment Info */
 .tasks-assignment-info {
-  padding: 20px;
+  padding: 16px;
   background: #f0f7ff;
-  border-left: 4px solid #5b8def;
+  border-left: 4px solid #1877f2;
   border-radius: 8px;
 }
 
 .tasks-assignment-title {
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 600;
   color: #1a1a1a;
   margin: 0 0 8px 0;
@@ -498,19 +690,18 @@
 .tasks-assignment-description {
   font-size: 14px;
   color: #555;
-  line-height: 1.6;
+  line-height: 1.5;
   margin: 0;
 }
 
-/* File Selection */
 .tasks-file-selection {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 12px;
 }
 
 .tasks-selection-title {
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 600;
   color: #1a1a1a;
   margin: 0;
@@ -519,33 +710,32 @@
 .tasks-file-list {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 8px;
   max-height: 320px;
   overflow-y: auto;
-  padding: 2px;
 }
 
 .tasks-file-item {
-  padding: 16px;
-  background: #fafafa;
-  border: 2px solid #e0e0e0;
-  border-radius: 10px;
+  padding: 12px 16px;
+  background: #f7f8fa;
+  border: 2px solid #e4e6eb;
+  border-radius: 8px;
   cursor: pointer;
   transition: all 0.2s;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 16px;
+  gap: 12px;
 }
 
 .tasks-file-item:hover {
-  border-color: #c0c0c0;
-  background: #f5f5f5;
+  border-color: #1877f2;
+  background: #f0f7ff;
 }
 
 .tasks-file-item.selected {
-  border-color: #5b8def;
-  background: #f0f7ff;
+  border-color: #1877f2;
+  background: #e7f3ff;
 }
 
 .tasks-file-details {
@@ -565,13 +755,13 @@
 
 .tasks-file-meta {
   font-size: 13px;
-  color: #666;
+  color: #65676b;
 }
 
 .tasks-radio {
-  width: 22px;
-  height: 22px;
-  border: 2px solid #d0d0d0;
+  width: 20px;
+  height: 20px;
+  border: 2px solid #bcc0c4;
   border-radius: 50%;
   display: flex;
   align-items: center;
@@ -581,20 +771,20 @@
 }
 
 .tasks-file-item.selected .tasks-radio {
-  border-color: #5b8def;
+  border-color: #1877f2;
 }
 
 .tasks-radio-dot {
-  width: 12px;
-  height: 12px;
-  background: #5b8def;
+  width: 10px;
+  height: 10px;
+  background: #1877f2;
   border-radius: 50%;
 }
 
 .tasks-no-files {
-  padding: 32px 24px;
+  padding: 24px;
   background: #fff8e1;
-  border-radius: 10px;
+  border-radius: 8px;
   text-align: center;
 }
 
@@ -607,21 +797,21 @@
 
 .tasks-no-files p:last-child {
   margin: 0;
-  font-weight: 500;
 }
 
 .tasks-modal-footer {
-  padding: 20px 24px;
-  border-top: 1px solid #e0e0e0;
+  padding: 16px 24px;
+  border-top: 1px solid #e4e6eb;
   display: flex;
   justify-content: flex-end;
   gap: 12px;
+  background: #f7f8fa;
 }
 
 .tasks-btn {
-  padding: 10px 24px;
-  border-radius: 8px;
-  font-size: 14px;
+  padding: 10px 20px;
+  border-radius: 6px;
+  font-size: 15px;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s;
@@ -629,34 +819,36 @@
 }
 
 .tasks-btn-cancel {
-  background: #f5f5f5;
-  color: #333;
+  background: #e4e6eb;
+  color: #1a1a1a;
 }
 
 .tasks-btn-cancel:hover {
-  background: #e0e0e0;
+  background: #d8dadf;
 }
 
 .tasks-btn-submit {
-  background: #5b8def;
+  background: #1877f2;
   color: #ffffff;
 }
 
 .tasks-btn-submit:hover:not(:disabled) {
-  background: #4a7de0;
-  box-shadow: 0 4px 8px rgba(91, 141, 239, 0.3);
+  background: #166fe5;
 }
 
 .tasks-btn-submit:disabled {
-  background: #d0d0d0;
-  color: #999;
+  background: #e4e6eb;
+  color: #bcc0c4;
   cursor: not-allowed;
 }
 
-/* Responsive Design */
+/* ============================================
+   RESPONSIVE DESIGN
+   ============================================ */
+
 @media (max-width: 1024px) {
   .tasks-list {
-    grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
   }
 }
 
@@ -665,41 +857,17 @@
     padding: 20px;
   }
 
-  .tasks-header {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 16px;
-  }
-
-  .tasks-refresh-btn {
-    width: 100%;
-  }
-
   .tasks-stats {
-    grid-template-columns: repeat(2, 1fr);
-  }
-
-  .tasks-stat-card {
-    min-width: 0;
+    grid-template-columns: 1fr;
   }
 
   .tasks-list {
     grid-template-columns: 1fr;
   }
 
-  .tasks-card-header {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-
-  .tasks-detail-row {
-    flex-direction: column;
-    gap: 4px;
-  }
-
-  .tasks-detail-label {
-    min-width: auto;
-    font-weight: 600;
+  .post-header {
+    flex-wrap: wrap;
+    gap: 12px;
   }
 
   .tasks-modal {
@@ -727,34 +895,19 @@
     font-size: 24px;
   }
 
-  .tasks-stats {
-    grid-template-columns: 1fr;
+  .author-avatar {
+    width: 36px;
+    height: 36px;
+    font-size: 13px;
   }
 
-  .tasks-stat-card {
-    padding: 20px;
-    height: auto;
-  }
-
-  .tasks-stat-icon {
-    font-size: 28px;
-    width: 44px;
-    height: 44px;
-  }
-
-  .tasks-stat-number {
-    font-size: 24px;
-  }
-
-  .tasks-card {
-    padding: 20px;
-  }
-
-  .tasks-card-title {
+  .post-title {
     font-size: 16px;
   }
 
-  .tasks-modal-body {
-    padding: 20px;
+  .comment-avatar {
+    width: 28px;
+    height: 28px;
+    font-size: 11px;
   }
 }

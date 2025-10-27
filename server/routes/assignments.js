@@ -1,13 +1,13 @@
 const express = require('express');
 const router = express.Router();
-const { db } = require('../config/database');
+const { query, queryOne } = require('../../database/config');
 
 // Get all assignments for a team leader
-router.get('/team-leader/:team', (req, res) => {
+router.get('/team-leader/:team', async (req, res) => {
   try {
     const { team } = req.params;
 
-    db.all(`
+    const assignments = await query(`
       SELECT
         a.*,
         COUNT(DISTINCT asub.id) as submission_count,
@@ -18,6 +18,7 @@ router.get('/team-leader/:team', (req, res) => {
       WHERE a.team = ?
       GROUP BY a.id
       ORDER BY a.created_at DESC
+<<<<<<< Updated upstream
     `, [team], async (err, assignments) => {
       if (err) {
         console.error('Error fetching assignments:', err);
@@ -53,6 +54,13 @@ router.get('/team-leader/:team', (req, res) => {
         success: true,
         assignments: assignmentsWithMembers
       });
+=======
+    `, [team]);
+
+    res.json({
+      success: true,
+      assignments: assignments || []
+>>>>>>> Stashed changes
     });
   } catch (error) {
     console.error('Error in fetchAssignments route:', error);
@@ -70,6 +78,7 @@ router.get('/:assignmentId/details', async (req, res) => {
     const { assignmentId } = req.params;
 
     // Get assignment details
+<<<<<<< Updated upstream
     const assignment = await new Promise((resolve, reject) => {
       db.get(
         'SELECT * FROM assignments WHERE id = ?',
@@ -77,6 +86,12 @@ router.get('/:assignmentId/details', async (req, res) => {
         (err, row) => err ? reject(err) : resolve(row)
       );
     });
+=======
+    const assignment = await queryOne(
+      'SELECT * FROM assignments WHERE id = ?',
+      [assignmentId]
+    );
+>>>>>>> Stashed changes
 
     if (!assignment) {
       return res.status(404).json({
@@ -85,6 +100,7 @@ router.get('/:assignmentId/details', async (req, res) => {
       });
     }
 
+<<<<<<< Updated upstream
     // Get assigned members if specific
     let assignmentWithMembers = assignment;
     if (assignment.assigned_to === 'specific') {
@@ -125,6 +141,26 @@ router.get('/:assignmentId/details', async (req, res) => {
       success: true,
       assignment: assignmentWithMembers,
       submissions: submissions
+=======
+    // Get submissions
+    const submissions = await query(`
+      SELECT 
+        f.*,
+        u.username,
+        u.fullName,
+        asub.submitted_at
+      FROM assignment_submissions asub
+      JOIN files f ON asub.file_id = f.id
+      JOIN users u ON f.user_id = u.id
+      WHERE asub.assignment_id = ?
+      ORDER BY asub.submitted_at DESC
+    `, [assignmentId]);
+
+    res.json({
+      success: true,
+      assignment,
+      submissions: submissions || []
+>>>>>>> Stashed changes
     });
   } catch (error) {
     console.error('Error in assignment details route:', error);
@@ -177,23 +213,10 @@ router.post('/create', async (req, res) => {
     }
 
     // Insert assignment
-    const assignmentResult = await new Promise((resolve, reject) => {
-      db.run(`
-        INSERT INTO assignments (
-          title,
-          description,
-          due_date,
-          file_type_required,
-          assigned_to,
-          max_file_size,
-          team_leader_id,
-          team_leader_username,
-          team,
-          created_at,
-          status
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), 'active')
-      `, [
+    const assignmentResult = await query(`
+      INSERT INTO assignments (
         title,
+<<<<<<< Updated upstream
         description || null,
         finalDueDate || null,
         finalFileType || null,
@@ -212,6 +235,30 @@ router.post('/create', async (req, res) => {
         }
       });
     });
+=======
+        description,
+        due_date,
+        file_type_required,
+        assigned_to,
+        max_file_size,
+        team_leader_id,
+        team_leader_username,
+        team,
+        created_at,
+        status
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), 'active')
+    `, [
+      title,
+      description || null,
+      due_date || null,
+      file_type_required || null,
+      assigned_to,
+      max_file_size || 10485760,
+      team_leader_id,
+      team_leader_username,
+      team
+    ]);
+>>>>>>> Stashed changes
 
     const assignmentId = assignmentResult.insertId;
     let membersAssigned = 0;
@@ -225,6 +272,7 @@ router.post('/create', async (req, res) => {
           const placeholders = memberValues.map(() => '(?, ?)').join(', ');
           const flattenedValues = memberValues.flat();
 
+<<<<<<< Updated upstream
           await new Promise((resolve, reject) => {
             db.run(
               `INSERT INTO assignment_members (assignment_id, user_id) VALUES ${placeholders}`,
@@ -233,35 +281,37 @@ router.post('/create', async (req, res) => {
             );
           });
           membersAssigned = finalMembers.length;
+=======
+          await query(
+            `INSERT INTO assignment_members (assignment_id, user_id) VALUES ${placeholders}`,
+            flattenedValues
+          );
+          membersAssigned = assigned_members.length;
+>>>>>>> Stashed changes
         }
       } else if (finalAssignedTo === 'all') {
         // Get all team members and assign
-        const teamMembers = await new Promise((resolve, reject) => {
-          db.all(
-            'SELECT id FROM users WHERE team = ? AND role = ?',
-            [team, 'user'],
-            (err, rows) => err ? reject(err) : resolve(rows || [])
-          );
-        });
+        const teamMembers = await query(
+          'SELECT id FROM users WHERE team = ? AND role = ?',
+          [team, 'USER']
+        );
 
         if (teamMembers && teamMembers.length > 0) {
           const memberValues = teamMembers.map(member => [assignmentId, member.id]);
           const placeholders = memberValues.map(() => '(?, ?)').join(', ');
           const flattenedValues = memberValues.flat();
 
-          await new Promise((resolve, reject) => {
-            db.run(
-              `INSERT INTO assignment_members (assignment_id, user_id) VALUES ${placeholders}`,
-              flattenedValues,
-              (err) => err ? reject(err) : resolve()
-            );
-          });
+          await query(
+            `INSERT INTO assignment_members (assignment_id, user_id) VALUES ${placeholders}`,
+            flattenedValues
+          );
           membersAssigned = teamMembers.length;
         }
       }
 
-      // Note: Activity log insertion will fail silently if there's an error to avoid breaking assignment creation
+      // Log activity
       try {
+<<<<<<< Updated upstream
         await new Promise((resolve) => {
           db.run(`
             INSERT INTO activity_logs (
@@ -275,13 +325,23 @@ router.post('/create', async (req, res) => {
             finalTeamLeaderId,
             finalTeamLeaderUsername,
             'TEAM_LEADER',
+=======
+        await query(`
+          INSERT INTO activity_logs (
+            user_id,
+            username,
+            role,
+>>>>>>> Stashed changes
             team,
-            `Created assignment: ${title}`
-          ], (err) => {
-            if (err) console.warn('Activity log insertion failed:', err.message);
-            resolve();
-          });
-        });
+            activity
+          ) VALUES (?, ?, ?, ?, ?)
+        `, [
+          team_leader_id,
+          team_leader_username,
+          'TEAM_LEADER',
+          team,
+          `Created assignment: ${title}`
+        ]);
       } catch (logError) {
         console.warn('Activity log insertion failed:', logError.message);
       }
@@ -316,11 +376,11 @@ router.post('/create', async (req, res) => {
 });
 
 // Get assignments for a specific user
-router.get('/user/:userId', (req, res) => {
+router.get('/user/:userId', async (req, res) => {
   try {
     const { userId } = req.params;
 
-    db.all(`
+    const assignments = await query(`
       SELECT
         a.*,
         am.status as user_status,
@@ -336,20 +396,11 @@ router.get('/user/:userId', (req, res) => {
         OR
         (a.assigned_to = 'specific' AND am.user_id = ?)
       ORDER BY a.created_at DESC
-    `, [userId, userId, userId, userId], (err, assignments) => {
-      if (err) {
-        console.error('Error fetching user assignments:', err);
-        return res.status(500).json({
-          success: false,
-          message: 'Failed to fetch assignments',
-          error: err.message
-        });
-      }
+    `, [userId, userId, userId, userId]);
 
-      res.json({
-        success: true,
-        assignments: assignments || []
-      });
+    res.json({
+      success: true,
+      assignments: assignments || []
     });
   } catch (error) {
     console.error('Error in user assignments route:', error);
@@ -375,17 +426,12 @@ router.post('/submit', async (req, res) => {
     }
 
     // Check if assignment exists and user is assigned
-    const assignment = await new Promise((resolve, reject) => {
-      db.get(`
-        SELECT a.*, am.user_id as assigned_user
-        FROM assignments a
-        LEFT JOIN assignment_members am ON a.id = am.assignment_id AND am.user_id = ?
-        WHERE a.id = ?
-      `, [userId, assignmentId], (err, row) => {
-        if (err) reject(err);
-        else resolve(row);
-      });
-    });
+    const assignment = await queryOne(`
+      SELECT a.*, am.user_id as assigned_user
+      FROM assignments a
+      LEFT JOIN assignment_members am ON a.id = am.assignment_id AND am.user_id = ?
+      WHERE a.id = ?
+    `, [userId, assignmentId]);
 
     if (!assignment) {
       return res.status(404).json({
@@ -403,13 +449,10 @@ router.post('/submit', async (req, res) => {
     }
 
     // Check if already submitted
-    const existingSubmission = await new Promise((resolve, reject) => {
-      db.get(
-        'SELECT * FROM assignment_submissions WHERE assignment_id = ? AND user_id = ?',
-        [assignmentId, userId],
-        (err, row) => err ? reject(err) : resolve(row)
-      );
-    });
+    const existingSubmission = await queryOne(
+      'SELECT * FROM assignment_submissions WHERE assignment_id = ? AND user_id = ?',
+      [assignmentId, userId]
+    );
 
     if (existingSubmission) {
       return res.status(400).json({
@@ -419,28 +462,16 @@ router.post('/submit', async (req, res) => {
     }
 
     // Insert submission
-    await new Promise((resolve, reject) => {
-      db.run(
-        'INSERT INTO assignment_submissions (assignment_id, user_id, file_id, submitted_at) VALUES (?, ?, ?, NOW())',
-        [assignmentId, userId, fileId],
-        function(err) {
-          if (err) reject(err);
-          else resolve();
-        }
-      );
-    });
+    await query(
+      'INSERT INTO assignment_submissions (assignment_id, user_id, file_id, submitted_at) VALUES (?, ?, ?, NOW())',
+      [assignmentId, userId, fileId]
+    );
 
     // Update assignment_members status
-    await new Promise((resolve, reject) => {
-      db.run(
-        'UPDATE assignment_members SET status = ?, submitted_at = NOW() WHERE assignment_id = ? AND user_id = ?',
-        ['submitted', assignmentId, userId],
-        function(err) {
-          // Ignore errors as this might not exist for 'all' assignments
-          resolve();
-        }
-      );
-    });
+    await query(
+      'UPDATE assignment_members SET status = ?, submitted_at = NOW() WHERE assignment_id = ? AND user_id = ?',
+      ['submitted', assignmentId, userId]
+    );
 
     res.json({
       success: true,
@@ -457,60 +488,130 @@ router.post('/submit', async (req, res) => {
   }
 });
 
+// Get comments for an assignment
+router.get('/:assignmentId/comments', async (req, res) => {
+  try {
+    const { assignmentId } = req.params;
+
+    const comments = await query(`
+      SELECT 
+        ac.*,
+        u.fullName as user_fullname,
+        u.role as user_role
+      FROM assignment_comments ac
+      JOIN users u ON ac.user_id = u.id
+      WHERE ac.assignment_id = ?
+      ORDER BY ac.created_at ASC
+    `, [assignmentId]);
+
+    res.json({
+      success: true,
+      comments: comments || []
+    });
+  } catch (error) {
+    console.error('Error in get comments route:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch comments',
+      error: error.message
+    });
+  }
+});
+
+// Post a comment on an assignment
+router.post('/:assignmentId/comments', async (req, res) => {
+  try {
+    const { assignmentId } = req.params;
+    const { userId, username, comment } = req.body;
+
+    if (!userId || !username || !comment) {
+      return res.status(400).json({
+        success: false,
+        message: 'Missing required fields'
+      });
+    }
+
+    // Get user's full name and role
+    const user = await queryOne(
+      'SELECT fullName, role FROM users WHERE id = ?',
+      [userId]
+    );
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    const result = await query(`
+      INSERT INTO assignment_comments (
+        assignment_id,
+        user_id,
+        username,
+        user_fullname,
+        user_role,
+        comment
+      ) VALUES (?, ?, ?, ?, ?, ?)
+    `, [assignmentId, userId, username, user.fullName, user.role, comment]);
+
+    // Fetch the newly created comment with full details
+    const newComment = await queryOne(`
+      SELECT 
+        ac.*,
+        u.fullName as user_fullname,
+        u.role as user_role
+      FROM assignment_comments ac
+      JOIN users u ON ac.user_id = u.id
+      WHERE ac.id = ?
+    `, [result.insertId]);
+
+    res.json({
+      success: true,
+      message: 'Comment posted successfully',
+      comment: newComment
+    });
+  } catch (error) {
+    console.error('Error in post comment route:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to post comment',
+      error: error.message
+    });
+  }
+});
+
 // Delete assignment
-router.delete('/:assignmentId', (req, res) => {
+router.delete('/:assignmentId', async (req, res) => {
   try {
     const { assignmentId } = req.params;
     const { teamLeaderUsername, team } = req.body;
 
     // Verify assignment exists and belongs to the team
-    db.get(
+    const assignment = await queryOne(
       'SELECT * FROM assignments WHERE id = ? AND team = ?',
-      [assignmentId, team],
-      (err, assignment) => {
-        if (err) {
-          console.error('Error finding assignment:', err);
-          return res.status(500).json({
-            success: false,
-            message: 'Failed to delete assignment',
-            error: err.message
-          });
-        }
-
-        if (!assignment) {
-          return res.status(404).json({
-            success: false,
-            message: 'Assignment not found or access denied'
-          });
-        }
-
-        // Delete related records first
-        db.run('DELETE FROM assignment_submissions WHERE assignment_id = ?', [assignmentId], (err) => {
-          if (err) console.error('Error deleting submissions:', err);
-
-          db.run('DELETE FROM assignment_members WHERE assignment_id = ?', [assignmentId], (err) => {
-            if (err) console.error('Error deleting members:', err);
-
-            // Delete the assignment
-            db.run('DELETE FROM assignments WHERE id = ?', [assignmentId], (err) => {
-              if (err) {
-                console.error('Error deleting assignment:', err);
-                return res.status(500).json({
-                  success: false,
-                  message: 'Failed to delete assignment',
-                  error: err.message
-                });
-              }
-
-              res.json({
-                success: true,
-                message: 'Assignment deleted successfully'
-              });
-            });
-          });
-        });
-      }
+      [assignmentId, team]
     );
+
+    if (!assignment) {
+      return res.status(404).json({
+        success: false,
+        message: 'Assignment not found or access denied'
+      });
+    }
+
+    // Delete related records first
+    await query('DELETE FROM assignment_submissions WHERE assignment_id = ?', [assignmentId]);
+    await query('DELETE FROM assignment_members WHERE assignment_id = ?', [assignmentId]);
+    await query('DELETE FROM assignment_comments WHERE assignment_id = ?', [assignmentId]);
+    
+    // Delete the assignment
+    await query('DELETE FROM assignments WHERE id = ?', [assignmentId]);
+
+    res.json({
+      success: true,
+      message: 'Assignment deleted successfully'
+    });
   } catch (error) {
     console.error('Error in delete assignment route:', error);
     res.status(500).json({

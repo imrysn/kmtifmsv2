@@ -42,15 +42,7 @@
 .minimal-dashboard.user-dashboard {
   min-height: 100vh;
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
-  background: #f2f2f7;
-  background-image: 
-    radial-gradient(circle at 25px 25px, rgba(255,255,255,0.3) 2%, transparent 0%), 
-    radial-gradient(circle at 75px 75px, rgba(255,255,255,0.2) 1%, transparent 0%),
-    radial-gradient(circle at 90px 40px, rgba(0,0,0,0.05) 1%, transparent 0%),
-    radial-gradient(circle at 10px 80px, rgba(0,0,0,0.03) 2%, transparent 0%),
-    radial-gradient(circle at 50px 30px, rgba(255,255,255,0.2) 1.5%, transparent 0%),
-    radial-gradient(circle at 35px 70px, rgba(0,0,0,0.04) 1%, transparent 0%);
-  background-size: 100px 100px;
+  background: #ffffff;
   position: relative;
   overflow-x: hidden;
   display: flex;
