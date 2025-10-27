@@ -6,7 +6,7 @@ import { createLogger } from './utils/secureLogger'
 // Direct imports for faster initial load - NO lazy loading
 import Login from './components/Login'
 import UserDashboard from './pages/UserDashboard-Enhanced'
-import TeamLeaderDashboard from './pages/TeamLeaderDashboard-Enhanced'
+import TeamLeaderDashboard from './pages/TeamLeaderDashboard-Refactored'
 import AdminDashboard from './pages/AdminDashboard'
 
 const logger = createLogger('App')
