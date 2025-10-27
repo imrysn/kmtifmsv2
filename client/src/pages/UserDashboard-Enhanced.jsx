@@ -10,6 +10,7 @@ import DashboardTab from '../components/user/DashboardTab'
 import TeamFilesTab from '../components/user/TeamFilesTab'
 import MyFilesTab from '../components/user/MyFilesTab'
 import NotificationTab from '../components/user/NotificationTab-RealTime'
+import TasksTab from '../components/user/TasksTab-Enhanced'
 import FileModal from '../components/user/FileModal'
 
 const UserDashboard = ({ user, onLogout }) => {
@@ -201,9 +202,11 @@ const UserDashboard = ({ user, onLogout }) => {
         );
       case 'notification':
         return <NotificationTab user={user} onOpenFile={openFileByIdFromNotification} />;
+      case 'tasks':
+        return <TasksTab user={user} />;
       default:
         return (
-          <DashboardTab 
+          <DashboardTab
             user={user}
             files={files}
             setActiveTab={setActiveTab}

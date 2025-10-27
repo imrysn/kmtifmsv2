@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import './UserManagement.css'
 import { AlertMessage, ConfirmationModal, FormModal } from './modals'
 import ErrorBoundary from '../ErrorBoundary'
@@ -8,7 +8,6 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess, u
   const [teams, setTeams] = useState([])
   const [teamsLoading, setTeamsLoading] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
-  const [filteredUsers, setFilteredUsers] = useState([])
   const [isLoading, setIsLoading] = useState(false)
   const [selectedUser, setSelectedUser] = useState(null)
   const [showAddModal, setShowAddModal] = useState(false)
@@ -29,8 +28,29 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess, u
     email: '',
     password: '',
     role: 'USER',
-    team: '' // Removed "General" default
+    team: ''
   })
+
+  // Memoized filtered users for better performance
+  const filteredUsers = useMemo(() => {
+    if (searchQuery.trim() === '') {
+      return users
+    }
+    const query = searchQuery.toLowerCase()
+    return users.filter(u => 
+      u.fullName.toLowerCase().includes(query) ||
+      u.username.toLowerCase().includes(query) ||
+      u.email.toLowerCase().includes(query) ||
+      u.role.toLowerCase().includes(query) ||
+      (u.team && u.team.toLowerCase().includes(query))
+    )
+  }, [searchQuery, users])
+
+  // Memoized active teams
+  const activeTeams = useMemo(() => 
+    teams.filter(team => team.is_active),
+    [teams]
+  )
 
   // Fetch users on component mount
   useEffect(() => {
@@ -38,30 +58,13 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess, u
     fetchTeams()
   }, [])
 
-  // Filter users when search query or users change
-  useEffect(() => {
-    if (searchQuery.trim() === '') {
-      setFilteredUsers(users)
-    } else {
-      const filtered = users.filter(u => 
-        u.fullName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        u.username.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        u.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        u.role.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (u.team && u.team.toLowerCase().includes(searchQuery.toLowerCase()))
-      )
-      setFilteredUsers(filtered)
-    }
-  }, [searchQuery, users])
-
-  const fetchUsers = async () => {
+  const fetchUsers = useCallback(async () => {
     setIsLoading(true)
     try {
       const response = await fetch('http://localhost:3001/api/users')
       const data = await response.json()
       if (data.success) {
         setUsers(data.users)
-        setFilteredUsers(data.users)
       } else {
         setError('Failed to fetch users')
       }
@@ -71,26 +74,24 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess, u
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [setError])
 
-  const fetchTeams = async () => {
+  const fetchTeams = useCallback(async () => {
     setTeamsLoading(true)
     try {
       const response = await fetch('http://localhost:3001/api/teams')
       const data = await response.json()
       if (data.success) {
         setTeams(data.teams || [])
-      } else {
-        console.error('Failed to fetch teams')
       }
     } catch (error) {
       console.error('Error fetching teams:', error)
     } finally {
       setTeamsLoading(false)
     }
-  }
+  }, [])
 
-  const handleAddUser = async (e) => {
+  const handleAddUser = useCallback(async (e) => {
     e.preventDefault()
     setIsLoading(true)
     setError('')
@@ -129,9 +130,9 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess, u
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [formData, user, setError, setSuccess, fetchUsers])
 
-  const handleEditUser = async (e) => {
+  const handleEditUser = useCallback(async (e) => {
     e.preventDefault()
     setIsLoading(true)
     setError('')
@@ -167,9 +168,9 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess, u
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [formData, selectedUser, user, setError, setSuccess, fetchUsers])
 
-  const handleResetPassword = async (e) => {
+  const handleResetPassword = useCallback(async (e) => {
     e.preventDefault()
     setIsLoading(true)
     setError('')
@@ -192,7 +193,7 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess, u
         setSuccess('Password reset successfully')
         setShowPasswordModal(false)
         setSelectedUser(null)
-        setFormData({ ...formData, password: '' })
+        setFormData(prev => ({ ...prev, password: '' }))
       } else {
         setError(data.message)
       }
@@ -201,9 +202,9 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess, u
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [formData.password, selectedUser, user, setError, setSuccess])
 
-  const handleDeleteUser = async () => {
+  const handleDeleteUser = useCallback(async () => {
     if (!userToDelete) return
     
     setIsLoading(true)
@@ -233,9 +234,9 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess, u
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [userToDelete, user, setError, setSuccess, fetchUsers])
 
-  const openEditModal = (user) => {
+  const openEditModal = useCallback((user) => {
     setError('')
     setSuccess('')
     setSelectedUser(user)
@@ -245,32 +246,34 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess, u
       email: user.email || '',
       password: '',
       role: user.role || 'USER',
-      team: user.team || '' // No "General"
+      team: user.team || ''
     })
     setShowEditModal(true)
-  }
+  }, [setError, setSuccess])
 
-  const openPasswordModal = (user) => {
+  const openPasswordModal = useCallback((user) => {
     setError('')
     setSuccess('')
     setSelectedUser(user)
-    setFormData({ ...formData, password: '' })
+    setFormData(prev => ({ ...prev, password: '' }))
     setShowPasswordModal(true)
-  }
+  }, [setError, setSuccess])
 
-  const openUserDeleteModal = (user) => {
+  const openUserDeleteModal = useCallback((user) => {
     setUserToDelete(user)
     setShowUserDeleteModal(true)
-  }
+  }, [])
 
-  const fetchUserDetails = async (userId) => {
+  const fetchUserDetails = useCallback(async (userId) => {
     setUserDetails(prev => ({ ...prev, isLoadingDetails: true }))
     
     try {
-      const filesResponse = await fetch(`http://localhost:3001/api/files/user/${userId}`)
-      const filesData = await filesResponse.json()
+      const [filesResponse, pendingResponse] = await Promise.all([
+        fetch(`http://localhost:3001/api/files/user/${userId}`),
+        fetch(`http://localhost:3001/api/files/user/${userId}/pending`)
+      ])
       
-      const pendingResponse = await fetch(`http://localhost:3001/api/files/user/${userId}/pending`)
+      const filesData = await filesResponse.json()
       const pendingData = await pendingResponse.json()
       
       setUserDetails(prev => ({
@@ -288,9 +291,9 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess, u
         isLoadingDetails: false
       }))
     }
-  }
+  }, [])
 
-  const openUserDetailsModal = async (user) => {
+  const openUserDetailsModal = useCallback(async (user) => {
     setError('')
     setSuccess('')
     setUserDetails({
@@ -302,7 +305,26 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess, u
     setShowUserDetailsModal(true)
     
     await fetchUserDetails(user.id)
-  }
+  }, [setError, setSuccess, fetchUserDetails])
+
+  const openAddModal = useCallback(() => {
+    setError('')
+    setSuccess('')
+    setSelectedUser(null)
+    setFormData({ 
+      fullName: '', 
+      username: '', 
+      email: '', 
+      password: '', 
+      role: 'USER', 
+      team: '' 
+    })
+    setShowAddModal(true)
+  }, [setError, setSuccess])
+
+  const handleFormChange = useCallback((field, value) => {
+    setFormData(prev => ({ ...prev, [field]: value }))
+  }, [])
 
   return (
     <div className="users-management">
@@ -324,20 +346,7 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess, u
         <div className="action-buttons">
           <button 
             className="btn btn-primary"
-            onClick={() => {
-              setError('')
-              setSuccess('')
-              setSelectedUser(null)
-              setFormData({ 
-                fullName: '', 
-                username: '', 
-                email: '', 
-                password: '', 
-                role: 'USER', 
-                team: '' 
-              })
-              setShowAddModal(true)
-            }}
+            onClick={openAddModal}
           >
             Add User
           </button>
@@ -417,7 +426,7 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess, u
                     </td>
                     <td>
                       <span className="team-badge">
-                        {user.team || '—'} {/* Show placeholder if no team */}
+                        {user.team || '—'}
                       </span>
                     </td>
                     <td>
@@ -469,7 +478,7 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess, u
             <input
               type="text"
               value={formData.fullName}
-              onChange={e => setFormData({...formData, fullName: e.target.value})}
+              onChange={e => handleFormChange('fullName', e.target.value)}
               required
               className="form-input"
             />
@@ -479,7 +488,7 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess, u
             <input
               type="text"
               value={formData.username}
-              onChange={e => setFormData({...formData, username: e.target.value})}
+              onChange={e => handleFormChange('username', e.target.value)}
               required
               className="form-input"
             />
@@ -489,7 +498,7 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess, u
             <input
               type="email"
               value={formData.email}
-              onChange={e => setFormData({...formData, email: e.target.value})}
+              onChange={e => handleFormChange('email', e.target.value)}
               required
               className="form-input"
             />
@@ -499,7 +508,7 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess, u
             <input
               type="password"
               value={formData.password}
-              onChange={e => setFormData({...formData, password: e.target.value})}
+              onChange={e => handleFormChange('password', e.target.value)}
               required
               minLength="6"
               className="form-input"
@@ -509,7 +518,7 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess, u
             <label>Role *</label>
             <select
               value={formData.role}
-              onChange={e => setFormData({...formData, role: e.target.value})}
+              onChange={e => handleFormChange('role', e.target.value)}
               className="form-select"
             >
               <option value="USER">User</option>
@@ -521,12 +530,12 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess, u
             <label>Team</label>
             <select
               value={formData.team}
-              onChange={e => setFormData({...formData, team: e.target.value})}
+              onChange={e => handleFormChange('team', e.target.value)}
               className="form-select"
               disabled={teamsLoading}
             >
-              {/* "General" option REMOVED */}
-              {teams.filter(team => team.is_active).map(team => (
+              <option value="">Select Team</option>
+              {activeTeams.map(team => (
                 <option key={team.id} value={team.name}>
                   {team.name}
                   {team.leader_username && ` (Led by ${team.leader_username})`}
@@ -554,7 +563,7 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess, u
             <input
               type="text"
               value={formData.fullName}
-              onChange={e => setFormData({...formData, fullName: e.target.value})}
+              onChange={e => handleFormChange('fullName', e.target.value)}
               required
               className="form-input"
             />
@@ -564,7 +573,7 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess, u
             <input
               type="text"
               value={formData.username}
-              onChange={e => setFormData({...formData, username: e.target.value})}
+              onChange={e => handleFormChange('username', e.target.value)}
               required
               className="form-input"
             />
@@ -574,7 +583,7 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess, u
             <input
               type="email"
               value={formData.email}
-              onChange={e => setFormData({...formData, email: e.target.value})}
+              onChange={e => handleFormChange('email', e.target.value)}
               required
               className="form-input"
             />
@@ -583,7 +592,7 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess, u
             <label>Role *</label>
             <select
               value={formData.role}
-              onChange={e => setFormData({...formData, role: e.target.value})}
+              onChange={e => handleFormChange('role', e.target.value)}
               className="form-select"
             >
               <option value="USER">User</option>
@@ -595,12 +604,12 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess, u
             <label>Team</label>
             <select
               value={formData.team}
-              onChange={e => setFormData({...formData, team: e.target.value})}
+              onChange={e => handleFormChange('team', e.target.value)}
               className="form-select"
               disabled={teamsLoading}
             >
-              {/* "General" option REMOVED */}
-              {teams.filter(team => team.is_active).map(team => (
+              <option value="">Select Team</option>
+              {activeTeams.map(team => (
                 <option key={team.id} value={team.name}>
                   {team.name}
                   {team.leader_username && ` (Led by ${team.leader_username})`}
@@ -632,7 +641,7 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess, u
               <input
                 type="password"
                 value={formData.password}
-                onChange={e => setFormData({...formData, password: e.target.value})}
+                onChange={e => handleFormChange('password', e.target.value)}
                 required
                 minLength="6"
                 placeholder="Enter new password"
@@ -668,7 +677,7 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess, u
 
       {/* User Details Modal */}
       {showUserDetailsModal && userDetails.user && (
-        <div className="modal-overlay">
+        <div className="modal-overlay" onClick={() => setShowUserDetailsModal(false)}>
           <div className="modal user-details-modal" onClick={e => e.stopPropagation()}>
             <div className="modal-header">
               <h3>User Details</h3>

@@ -6,6 +6,7 @@
   "scripts": {
     "start": "node start-dev.js",
     "dev": "node start-dev.js",
+    "diagnose:vite": "node diagnose-vite.js",
     "verify:security": "node verify-security-fixes.js",
     "dev:fast": "concurrently --kill-others \"cd client && npm run dev\" \"wait-on http://localhost:5173 && cross-env NODE_ENV=development electron .\"",
     "dev:debug": "cross-env NODE_ENV=development ELECTRON_OPEN_DEVTOOLS=true electron .",

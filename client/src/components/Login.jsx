@@ -1,6 +1,9 @@
 import { useState } from 'react'
 import '../css/Login.css'
 import Logo from '../assets/kmti_logo.png'
+import { createLogger } from '../utils/secureLogger'
+
+const logger = createLogger('Login')
 
 const Login = ({ onLogin }) => {
   const [loginType, setLoginType] = useState('user') // 'user' or 'admin'
@@ -105,7 +108,7 @@ const Login = ({ onLogin }) => {
         setApiError(data.message || 'Login failed')
       }
     } catch (error) {
-      console.error('Login error:', error)
+      logger.error('Login failed', error)
       setApiError('Unable to connect to server. Please try again.')
     } finally {
       setIsLoading(false)
