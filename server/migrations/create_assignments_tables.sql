@@ -21,6 +21,9 @@ CREATE TABLE IF NOT EXISTS assignment_members (
   id INT PRIMARY KEY AUTO_INCREMENT,
   assignment_id INT NOT NULL,
   user_id INT NOT NULL,
+  status ENUM('pending', 'submitted') DEFAULT 'pending',
+  submitted_at DATETIME,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (assignment_id) REFERENCES assignments(id) ON DELETE CASCADE,
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
   UNIQUE KEY unique_assignment_member (assignment_id, user_id)

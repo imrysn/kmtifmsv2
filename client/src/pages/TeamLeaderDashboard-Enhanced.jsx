@@ -417,6 +417,32 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
   }
 
+  const formatDate = (dateString) => {
+    if (!dateString) return 'No date'
+    const date = new Date(dateString)
+    if (isNaN(date.getTime())) return 'Invalid Date'
+    
+    return date.toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    })
+  }
+
+  const formatDateTime = (dateString) => {
+    if (!dateString) return 'Invalid Date'
+    const date = new Date(dateString)
+    if (isNaN(date.getTime())) return 'Invalid Date'
+    
+    return date.toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    })
+  }
+
   // Bulk Action Functions
   const selectAllFiles = () => {
     if (selectedFileIds.length === filteredFiles.length) {
@@ -1226,9 +1252,9 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
                         <td>
                           {assignment.dueDate ? (
                             <span className={`tl-due-date ${new Date(assignment.dueDate) < new Date() ? 'overdue' : ''}`}>
-                              {new Date(assignment.dueDate).toLocaleDateString()}
+                              {formatDate(assignment.dueDate)}
                             </span>
-                          ) : '-'}
+                          ) : 'No due date'}
                         </td>
                         <td>{assignment.fileTypeRequired || 'Any'}</td>
                         <td>
@@ -1239,7 +1265,7 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
                             {assignment.submissionCount || 0}
                           </span>
                         </td>
-                        <td className="date">{new Date(assignment.createdAt).toLocaleDateString()}</td>
+                        <td className="date">{formatDate(assignment.createdAt)}</td>
                         <td onClick={(e) => e.stopPropagation()}>
                           <button 
                             className="tl-btn danger" 
@@ -1652,42 +1678,51 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
               {/* Assignment Details */}
               <div className="tl-modal-section">
                 <h4 className="tl-section-title">Assignment Details</h4>
-                <div className="tl-assignment-details">
-                  <div className="tl-detail-grid">
-                    <div className="tl-detail-item">
-                      <span className="tl-detail-label">Title:</span>
-                      <span className="tl-detail-value">{selectedAssignment.title}</span>
+                <div className="tl-assignment-details-container">
+                  {/* Left Column - Basic Details */}
+                  <div className="tl-assignment-details-left">
+                    <div className="tl-detail-card">
+                      <div className="tl-detail-label">TITLE</div>
+                      <div className="tl-detail-value">{selectedAssignment.title}</div>
                     </div>
-                    <div className="tl-detail-item">
-                      <span className="tl-detail-label">Due Date:</span>
-                      <span className="tl-detail-value">
-                        {selectedAssignment.dueDate ? new Date(selectedAssignment.dueDate).toLocaleDateString() : 'No due date'}
-                      </span>
+                    
+                    <div className="tl-detail-card">
+                      <div className="tl-detail-label">DUE DATE</div>
+                      <div className="tl-detail-value">
+                        {selectedAssignment.dueDate ? formatDate(selectedAssignment.dueDate) : 'No due date'}
+                      </div>
                     </div>
-                    <div className="tl-detail-item">
-                      <span className="tl-detail-label">File Type Required:</span>
-                      <span className="tl-detail-value">{selectedAssignment.fileTypeRequired || 'Any'}</span>
+                    
+                    <div className="tl-detail-card">
+                      <div className="tl-detail-label">FILE TYPE REQUIRED</div>
+                      <div className="tl-detail-value">{selectedAssignment.fileTypeRequired || 'Any'}</div>
                     </div>
-                    <div className="tl-detail-item">
-                      <span className="tl-detail-label">Max File Size:</span>
-                      <span className="tl-detail-value">{(selectedAssignment.maxFileSize / (1024*1024)).toFixed(0)} MB</span>
+                    
+                    <div className="tl-detail-card">
+                      <div className="tl-detail-label">MAX FILE SIZE</div>
+                      <div className="tl-detail-value">
+                        {formatFileSize(selectedAssignment.maxFileSize || 10485760)}
+                      </div>
                     </div>
-                    <div className="tl-detail-item">
-                      <span className="tl-detail-label">Created:</span>
-                      <span className="tl-detail-value">{new Date(selectedAssignment.createdAt).toLocaleDateString()}</span>
+                    
+                    <div className="tl-detail-card">
+                      <div className="tl-detail-label">CREATED</div>
+                      <div className="tl-detail-value">{formatDate(selectedAssignment.createdAt)}</div>
                     </div>
-                    <div className="tl-detail-item">
-                      <span className="tl-detail-label">Assigned To:</span>
-                      <span className="tl-detail-value">{selectedAssignment.assignedTo === 'all' ? 'All Members' : 'Specific Members'}</span>
+                    
+                    <div className="tl-detail-card">
+                      <div className="tl-detail-label">ASSIGNED TO</div>
+                      <div className="tl-detail-value">{selectedAssignment.assignedTo === 'all' ? 'All Members' : 'Specific Members'}</div>
                     </div>
                   </div>
 
-                  {selectedAssignment.description && (
-                    <div className="tl-detail-item-full">
-                      <span className="tl-detail-label">Description:</span>
-                      <p className="tl-description-text">{selectedAssignment.description}</p>
+                  {/* Right Column - Description */}
+                  <div className="tl-assignment-details-right">
+                    <div className="tl-detail-card tl-detail-card-full">
+                      <div className="tl-detail-label">DESCRIPTION</div>
+                      <p className="tl-description-text">{selectedAssignment.description || 'No description provided'}</p>
                     </div>
-                  )}
+                  </div>
                 </div>
               </div>
 
@@ -1726,7 +1761,7 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
                               </div>
                             </td>
                             <td>{formatFileSize(submission.file_size)}</td>
-                            <td>{new Date(submission.submitted_at).toLocaleDateString()}</td>
+                            <td>{formatDateTime(submission.submitted_at)}</td>
                             <td>
                               <span className="tl-status-badge pending-approved">
                                 {submission.status?.toUpperCase() || 'SUBMITTED'}
