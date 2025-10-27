@@ -10,13 +10,15 @@ router.get('/team-leader/:team', (req, res) => {
     db.all(`
       SELECT
         a.*,
-        COUNT(DISTINCT asub.id) as submission_count
+        COUNT(DISTINCT asub.id) as submission_count,
+        COUNT(DISTINCT am.user_id) as assigned_members_count
       FROM assignments a
       LEFT JOIN assignment_submissions asub ON a.id = asub.assignment_id
+      LEFT JOIN assignment_members am ON a.id = am.assignment_id
       WHERE a.team = ?
       GROUP BY a.id
       ORDER BY a.created_at DESC
-    `, [team], (err, assignments) => {
+    `, [team], async (err, assignments) => {
       if (err) {
         console.error('Error fetching assignments:', err);
         return res.status(500).json({
@@ -26,9 +28,30 @@ router.get('/team-leader/:team', (req, res) => {
         });
       }
 
+      // Fetch assigned members for each assignment
+      const assignmentsWithMembers = await Promise.all(
+        (assignments || []).map(async (assignment) => {
+          if (assignment.assigned_to === 'specific') {
+            const members = await new Promise((resolve, reject) => {
+              db.all(`
+                SELECT u.id, u.username, u.fullName
+                FROM assignment_members am
+                JOIN users u ON am.user_id = u.id
+                WHERE am.assignment_id = ?
+              `, [assignment.id], (err, rows) => {
+                if (err) reject(err);
+                else resolve(rows || []);
+              });
+            });
+            return { ...assignment, assigned_member_details: members };
+          }
+          return assignment;
+        })
+      );
+
       res.json({
         success: true,
-        assignments: assignments || []
+        assignments: assignmentsWithMembers
       });
     });
   } catch (error) {
@@ -42,61 +65,67 @@ router.get('/team-leader/:team', (req, res) => {
 });
 
 // Get assignment details with submissions
-router.get('/:assignmentId/details', (req, res) => {
+router.get('/:assignmentId/details', async (req, res) => {
   try {
     const { assignmentId } = req.params;
 
     // Get assignment details
-    db.get(
-      'SELECT * FROM assignments WHERE id = ?',
-      [assignmentId],
-      (err, assignment) => {
-        if (err) {
-          console.error('Error fetching assignment:', err);
-          return res.status(500).json({
-            success: false,
-            message: 'Failed to fetch assignment details',
-            error: err.message
-          });
-        }
+    const assignment = await new Promise((resolve, reject) => {
+      db.get(
+        'SELECT * FROM assignments WHERE id = ?',
+        [assignmentId],
+        (err, row) => err ? reject(err) : resolve(row)
+      );
+    });
 
-        if (!assignment) {
-          return res.status(404).json({
-            success: false,
-            message: 'Assignment not found'
-          });
-        }
+    if (!assignment) {
+      return res.status(404).json({
+        success: false,
+        message: 'Assignment not found'
+      });
+    }
 
-        // Get submissions
+    // Get assigned members if specific
+    let assignmentWithMembers = assignment;
+    if (assignment.assigned_to === 'specific') {
+      const members = await new Promise((resolve, reject) => {
         db.all(`
-          SELECT 
-            f.*,
-            u.username,
-            u.fullName,
-            asub.submitted_at
-          FROM assignment_submissions asub
-          JOIN files f ON asub.file_id = f.id
-          JOIN users u ON f.user_id = u.id
-          WHERE asub.assignment_id = ?
-          ORDER BY asub.submitted_at DESC
-        `, [assignmentId], (err, submissions) => {
-          if (err) {
-            console.error('Error fetching submissions:', err);
-            return res.status(500).json({
-              success: false,
-              message: 'Failed to fetch submissions',
-              error: err.message
-            });
-          }
-
-          res.json({
-            success: true,
-            assignment,
-            submissions: submissions || []
-          });
+          SELECT u.id, u.username, u.fullName
+          FROM assignment_members am
+          JOIN users u ON am.user_id = u.id
+          WHERE am.assignment_id = ?
+        `, [assignmentId], (err, rows) => {
+          if (err) reject(err);
+          else resolve(rows || []);
         });
-      }
-    );
+      });
+      assignmentWithMembers = { ...assignment, assigned_member_details: members };
+    }
+
+    // Get submissions
+    const submissions = await new Promise((resolve, reject) => {
+      db.all(`
+        SELECT 
+          f.*,
+          u.username,
+          u.fullName,
+          asub.submitted_at
+        FROM assignment_submissions asub
+        JOIN files f ON asub.file_id = f.id
+        JOIN users u ON f.user_id = u.id
+        WHERE asub.assignment_id = ?
+        ORDER BY asub.submitted_at DESC
+      `, [assignmentId], (err, rows) => {
+        if (err) reject(err);
+        else resolve(rows || []);
+      });
+    });
+
+    res.json({
+      success: true,
+      assignment: assignmentWithMembers,
+      submissions: submissions
+    });
   } catch (error) {
     console.error('Error in assignment details route:', error);
     res.status(500).json({
@@ -113,18 +142,34 @@ router.post('/create', async (req, res) => {
     const {
       title,
       description,
+      dueDate,
       due_date,
+      fileTypeRequired,
       file_type_required,
+      assignedTo,
       assigned_to,
+      maxFileSize,
       max_file_size,
+      assignedMembers,
       assigned_members,
+      teamLeaderId,
       team_leader_id,
+      teamLeaderUsername,
       team_leader_username,
       team
     } = req.body;
 
+    // Support both camelCase and snake_case
+    const finalDueDate = dueDate || due_date;
+    const finalFileType = fileTypeRequired || file_type_required;
+    const finalAssignedTo = assignedTo || assigned_to;
+    const finalMaxSize = maxFileSize || max_file_size || 10485760;
+    const finalMembers = assignedMembers || assigned_members;
+    const finalTeamLeaderId = teamLeaderId || team_leader_id;
+    const finalTeamLeaderUsername = teamLeaderUsername || team_leader_username;
+
     // Validate required fields
-    if (!title || !team || !team_leader_id) {
+    if (!title || !team || !finalTeamLeaderId) {
       return res.status(400).json({
         success: false,
         message: 'Missing required fields'
@@ -150,12 +195,12 @@ router.post('/create', async (req, res) => {
       `, [
         title,
         description || null,
-        due_date || null,
-        file_type_required || null,
-        assigned_to,
-        max_file_size || 10485760,
-        team_leader_id,
-        team_leader_username,
+        finalDueDate || null,
+        finalFileType || null,
+        finalAssignedTo,
+        finalMaxSize,
+        finalTeamLeaderId,
+        finalTeamLeaderUsername,
         team
       ], function(err) {
         if (err) {
@@ -173,9 +218,9 @@ router.post('/create', async (req, res) => {
 
     try {
       // Assign members
-      if (assigned_to === 'specific' && assigned_members && assigned_members.length > 0) {
+      if (finalAssignedTo === 'specific' && finalMembers && finalMembers.length > 0) {
         // Insert specific members using batch insert
-        const memberValues = assigned_members.map(userId => [assignmentId, userId]);
+        const memberValues = finalMembers.map(userId => [assignmentId, userId]);
         if (memberValues.length > 0) {
           const placeholders = memberValues.map(() => '(?, ?)').join(', ');
           const flattenedValues = memberValues.flat();
@@ -187,9 +232,9 @@ router.post('/create', async (req, res) => {
               (err) => err ? reject(err) : resolve()
             );
           });
-          membersAssigned = assigned_members.length;
+          membersAssigned = finalMembers.length;
         }
-      } else if (assigned_to === 'all') {
+      } else if (finalAssignedTo === 'all') {
         // Get all team members and assign
         const teamMembers = await new Promise((resolve, reject) => {
           db.all(
@@ -227,8 +272,8 @@ router.post('/create', async (req, res) => {
               activity
             ) VALUES (?, ?, ?, ?, ?)
           `, [
-            team_leader_id,
-            team_leader_username,
+            finalTeamLeaderId,
+            finalTeamLeaderUsername,
             'TEAM_LEADER',
             team,
             `Created assignment: ${title}`
