@@ -1250,22 +1250,22 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
                         <td><strong>{assignment.title}</strong></td>
                         <td>{assignment.description ? (assignment.description.length > 50 ? assignment.description.substring(0, 50) + '...' : assignment.description) : 'No description'}</td>
                         <td>
-                          {assignment.dueDate ? (
-                            <span className={`tl-due-date ${new Date(assignment.dueDate) < new Date() ? 'overdue' : ''}`}>
-                              {formatDate(assignment.dueDate)}
+                          {(assignment.due_date || assignment.dueDate) ? (
+                            <span className={`tl-due-date ${new Date(assignment.due_date || assignment.dueDate) < new Date() ? 'overdue' : ''}`}>
+                              {formatDate(assignment.due_date || assignment.dueDate)}
                             </span>
                           ) : 'No due date'}
                         </td>
-                        <td>{assignment.fileTypeRequired || 'Any'}</td>
+                        <td>{assignment.file_type_required || assignment.fileTypeRequired || 'Any'}</td>
                         <td>
-                          <span className="tl-badge">{assignment.assignedTo === 'all' ? 'All Members' : `${assignment.assignedMembers?.length || 0} Members`}</span>
+                          <span className="tl-badge">{(assignment.assigned_to || assignment.assignedTo) === 'all' ? 'All Members' : `${(assignment.assigned_members || assignment.assignedMembers)?.length || 0} Members`}</span>
                         </td>
                         <td>
                           <span style={{backgroundColor: '#dbeafe', color: '#1e40af', padding: '4px 12px', borderRadius: '12px', fontWeight: '600'}}>
-                            {assignment.submissionCount || 0}
+                            {assignment.submission_count || assignment.submissionCount || 0}
                           </span>
                         </td>
-                        <td className="date">{formatDate(assignment.createdAt)}</td>
+                        <td className="date">{formatDate(assignment.created_at || assignment.createdAt)}</td>
                         <td onClick={(e) => e.stopPropagation()}>
                           <button 
                             className="tl-btn danger" 
@@ -1689,30 +1689,30 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
                     <div className="tl-detail-card">
                       <div className="tl-detail-label">DUE DATE</div>
                       <div className="tl-detail-value">
-                        {selectedAssignment.dueDate ? formatDate(selectedAssignment.dueDate) : 'No due date'}
+                        {(selectedAssignment.due_date || selectedAssignment.dueDate) ? formatDate(selectedAssignment.due_date || selectedAssignment.dueDate) : 'No due date'}
                       </div>
                     </div>
                     
                     <div className="tl-detail-card">
                       <div className="tl-detail-label">FILE TYPE REQUIRED</div>
-                      <div className="tl-detail-value">{selectedAssignment.fileTypeRequired || 'Any'}</div>
+                      <div className="tl-detail-value">{selectedAssignment.file_type_required || selectedAssignment.fileTypeRequired || 'Any'}</div>
                     </div>
                     
                     <div className="tl-detail-card">
                       <div className="tl-detail-label">MAX FILE SIZE</div>
                       <div className="tl-detail-value">
-                        {formatFileSize(selectedAssignment.maxFileSize || 10485760)}
+                        {formatFileSize(selectedAssignment.max_file_size || selectedAssignment.maxFileSize || 10485760)}
                       </div>
                     </div>
                     
                     <div className="tl-detail-card">
                       <div className="tl-detail-label">CREATED</div>
-                      <div className="tl-detail-value">{formatDate(selectedAssignment.createdAt)}</div>
+                      <div className="tl-detail-value">{formatDate(selectedAssignment.created_at || selectedAssignment.createdAt)}</div>
                     </div>
                     
                     <div className="tl-detail-card">
                       <div className="tl-detail-label">ASSIGNED TO</div>
-                      <div className="tl-detail-value">{selectedAssignment.assignedTo === 'all' ? 'All Members' : 'Specific Members'}</div>
+                      <div className="tl-detail-value">{(selectedAssignment.assigned_to || selectedAssignment.assignedTo) === 'all' ? 'All Members' : 'Specific Members'}</div>
                     </div>
                   </div>
 
