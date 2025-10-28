@@ -15,6 +15,9 @@ const TasksTab = ({ user }) => {
   const [comments, setComments] = useState({});
   const [newComment, setNewComment] = useState({});
   const [isPostingComment, setIsPostingComment] = useState({});
+  const [replyingTo, setReplyingTo] = useState({});
+  const [replyText, setReplyText] = useState({});
+  const [isPostingReply, setIsPostingReply] = useState({});
 
   useEffect(() => {
     fetchAssignments();
@@ -83,9 +86,7 @@ const TasksTab = ({ user }) => {
       const data = await response.json();
       
       if (data.success) {
-        // Clear input
         setNewComment(prev => ({ ...prev, [assignmentId]: '' }));
-        // Refresh comments
         fetchComments(assignmentId);
       } else {
         setError('Failed to post comment');
@@ -102,6 +103,49 @@ const TasksTab = ({ user }) => {
     setExpandedComments(prev => ({
       ...prev,
       [assignmentId]: !prev[assignmentId]
+    }));
+  };
+
+  const postReply = async (assignmentId, commentId) => {
+    const replyTextValue = replyText[commentId]?.trim();
+    if (!replyTextValue) return;
+
+    setIsPostingReply(prev => ({ ...prev, [commentId]: true }));
+    
+    try {
+      const response = await fetch(`http://localhost:3001/api/assignments/${assignmentId}/comments/${commentId}/replies`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          userId: user.id,
+          username: user.username || user.fullName,
+          reply: replyTextValue
+        })
+      });
+
+      const data = await response.json();
+      
+      if (data.success) {
+        setReplyText(prev => ({ ...prev, [commentId]: '' }));
+        setReplyingTo(prev => ({ ...prev, [commentId]: false }));
+        fetchComments(assignmentId);
+      } else {
+        setError('Failed to post reply');
+      }
+    } catch (error) {
+      console.error('Error posting reply:', error);
+      setError('Failed to post reply');
+    } finally {
+      setIsPostingReply(prev => ({ ...prev, [commentId]: false }));
+    }
+  };
+
+  const toggleReplyBox = (commentId) => {
+    setReplyingTo(prev => ({
+      ...prev,
+      [commentId]: !prev[commentId]
     }));
   };
 
@@ -142,8 +186,28 @@ const TasksTab = ({ user }) => {
     });
   };
 
+  const formatRelativeTime = (dateString) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffInSeconds = Math.floor((now - date) / 1000);
+    
+    if (diffInSeconds < 60) return 'Just now';
+    if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)}m ago`;
+    if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)}h ago`;
+    if (diffInSeconds < 604800) return `${Math.floor(diffInSeconds / 86400)}d ago`;
+    if (diffInSeconds < 2592000) return `${Math.floor(diffInSeconds / 604800)}w ago`;
+    
+    return formatDate(dateString);
+  };
+
   const getInitials = (name) => {
     if (!name) return '?';
+    if (name.includes('.')) {
+      const parts = name.split('.');
+      if (parts.length >= 2) {
+        return (parts[0][0] + parts[1][0]).toUpperCase();
+      }
+    }
     const parts = name.split(' ');
     if (parts.length >= 2) {
       return (parts[0][0] + parts[1][0]).toUpperCase();
@@ -165,19 +229,76 @@ const TasksTab = ({ user }) => {
     return diffDays;
   };
 
-  const getStatusInfo = (assignment) => {
+  const getStatusBadge = (assignment) => {
+    const dueDate = new Date(assignment.due_date)
+    const now = new Date()
+    const daysUntilDue = Math.ceil((dueDate - now) / (1000 * 60 * 60 * 24))
+
     if (assignment.user_status === 'submitted') {
-      return { text: 'PENDING', icon: '⏳', class: 'status-pending-review' };
-    } else if (isOverdue(assignment.due_date)) {
-      return { text: 'OVERDUE', icon: '⚠️', class: 'status-overdue' };
-    } else {
-      const days = getDaysUntilDue(assignment.due_date);
-      if (days !== null && days <= 2) {
-        return { text: 'DUE SOON', icon: '🔔', class: 'status-due-soon' };
-      }
-      return { text: 'PENDING', icon: '⏳', class: 'status-pending' };
+      return (
+        <span style={{
+          backgroundColor: '#F0FDF4',
+          color: '#15803D',
+          padding: '4px 12px',
+          borderRadius: '20px',
+          fontSize: '12px',
+          fontWeight: '600',
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: '4px'
+        }}>
+          ✓ SUBMITTED
+        </span>
+      )
+    } else if (daysUntilDue < 0) {
+      return (
+        <span style={{
+          backgroundColor: '#FEF2F2',
+          color: '#DC2626',
+          padding: '4px 12px',
+          borderRadius: '20px',
+          fontSize: '12px',
+          fontWeight: '600',
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: '4px'
+        }}>
+          ⚠️ OVERDUE
+        </span>
+      )
+    } else if (daysUntilDue <= 4) {
+      return (
+        <span style={{
+          backgroundColor: '#FFF7ED',
+          color: '#EA580C',
+          padding: '4px 12px',
+          borderRadius: '20px',
+          fontSize: '12px',
+          fontWeight: '600',
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: '4px'
+        }}>
+          ⏰ PENDING
+        </span>
+      )
     }
-  };
+    return null
+  }
+
+  const getDaysText = (assignment) => {
+    const dueDate = new Date(assignment.due_date)
+    const now = new Date()
+    const daysUntilDue = Math.ceil((dueDate - now) / (1000 * 60 * 60 * 24))
+
+    if (daysUntilDue < 0) {
+      return `(${Math.abs(daysUntilDue)} days overdue)`
+    } else if (daysUntilDue === 0) {
+      return '(Due today)'
+    } else {
+      return `(${daysUntilDue} days left)`
+    }
+  }
 
   const handleSubmit = (assignment) => {
     setCurrentAssignment(assignment);
@@ -240,6 +361,13 @@ const TasksTab = ({ user }) => {
   const pendingAssignments = assignments.filter(assignment => assignment.user_status !== 'submitted');
   const submittedAssignments = assignments.filter(assignment => assignment.user_status === 'submitted');
 
+  // Sort assignments by created date (newest first)
+  const sortedAssignments = [...assignments].sort((a, b) => {
+    const dateA = new Date(a.created_at)
+    const dateB = new Date(b.created_at)
+    return dateB - dateA
+  })
+
   return (
     <div className="tasks-container">
       {/* Header */}
@@ -290,263 +418,309 @@ const TasksTab = ({ user }) => {
           <p>Loading assignments...</p>
         </div>
       ) : assignments.length > 0 ? (
-        <div className="tasks-content">
-          {/* Pending Assignments */}
-          {pendingAssignments.length > 0 && (
-            <div className="tasks-section">
-              <h2 className="tasks-section-title">Pending Assignments</h2>
-              <div className="tasks-list">
-                {pendingAssignments.map((assignment) => {
-                  const status = getStatusInfo(assignment);
-                  const daysLeft = getDaysUntilDue(assignment.due_date);
-                  const assignmentComments = comments[assignment.id] || [];
-                  const isCommentsExpanded = expandedComments[assignment.id];
+        <div style={{ maxWidth: '1400px', margin: '0 auto', padding: '0 20px' }}>
+          {sortedAssignments.map((assignment) => {
+            const daysLeft = getDaysUntilDue(assignment.due_date);
+            const assignmentComments = comments[assignment.id] || [];
+            const isCommentsExpanded = expandedComments[assignment.id];
 
-                  return (
-                    <div key={assignment.id} className="tasks-post-card">
-                      {/* Post Header - Facebook Style */}
-                      <div className="post-header">
-                        <div className="post-author">
-                          <div className="author-avatar">
-                            {getInitials(assignment.team_leader_username)}
-                          </div>
-                          <div className="author-info">
-                            <div className="author-name">{assignment.team_leader_username}</div>
-                            <div className="post-timestamp">{formatDateTime(assignment.created_at)}</div>
-                          </div>
-                        </div>
-                        <span className={`tasks-status-badge ${status.class}`}>
-                          {status.icon} {status.text}
-                        </span>
+            return (
+              <div 
+                key={assignment.id}
+                style={{
+                  backgroundColor: 'white',
+                  borderRadius: '12px',
+                  boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
+                  padding: '20px',
+                  marginBottom: '16px',
+                  border: '1px solid #E5E7EB'
+                }}
+              >
+                {/* Header with user info and status */}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <div style={{
+                      width: '48px',
+                      height: '48px',
+                      borderRadius: '50%',
+                      background: '#4f39f6',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      color: 'white',
+                      fontWeight: '600',
+                      fontSize: '18px'
+                    }}>
+                      {getInitials(assignment.team_leader_username)}
+                    </div>
+                    <div>
+                      <div style={{ fontWeight: '600', fontSize: '15px', color: '#101828' }}>
+                        {assignment.team_leader_username}
                       </div>
+                      <div style={{ fontSize: '13px', color: '#6B7280' }}>
+                        {formatDateTime(assignment.created_at)}
+                      </div>
+                    </div>
+                  </div>
+                  {getStatusBadge(assignment)}
+                </div>
 
-                      {/* Post Content */}
-                      <div className="post-content">
-                        <h3 className="post-title">{assignment.title}</h3>
-                        <p className="post-description">
-                          {assignment.description || ''}
-                        </p>
+                {/* Assignment ID */}
+                <div style={{ fontSize: '24px', fontWeight: '700', color: '#101828', marginBottom: '8px' }}>
+                  {assignment.id}
+                </div>
 
-                        <div className="post-details">
-                          <div className="detail-item">
-                            <span className="detail-icon">📅</span>
-                            <span className="detail-text">
-                              Due: {assignment.due_date ? formatDate(assignment.due_date) : 'No due date'}
-                              {daysLeft !== null && (
-                                <span className={`days-indicator ${daysLeft < 0 ? 'overdue' : daysLeft <= 2 ? 'urgent' : ''}`}>
-                                  {daysLeft < 0 ? ` (${Math.abs(daysLeft)} days overdue)` : daysLeft === 0 ? ' (Due today!)' : daysLeft === 1 ? ' (Due tomorrow)' : ` (${daysLeft} days left)`}
-                                </span>
+                {/* Title */}
+                <div style={{ fontSize: '14px', color: '#4B5563', marginBottom: '16px', letterSpacing: '0.5px' }}>
+                  {assignment.title}
+                </div>
+
+                {/* Submitted File Display */}
+                {assignment.user_status === 'submitted' && assignment.submitted_file_name && (
+                  <div style={{
+                    backgroundColor: '#F9FAFB',
+                    border: '1px solid #E5E7EB',
+                    borderRadius: '8px',
+                    padding: '12px',
+                    marginBottom: '16px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '12px'
+                  }}>
+                    <div style={{
+                      width: '40px',
+                      height: '40px',
+                      borderRadius: '8px',
+                      backgroundColor: '#EEF2FF',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: '20px'
+                    }}>
+                      📎
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontWeight: '600', fontSize: '14px', color: '#101828', marginBottom: '2px' }}>
+                        {assignment.submitted_file_name}
+                      </div>
+                      <div style={{ fontSize: '12px', color: '#6B7280' }}>
+                        Submitted on {assignment.user_submitted_at ? formatDate(assignment.user_submitted_at) : 'N/A'}
+                      </div>
+                    </div>
+                    <div style={{
+                      padding: '4px 8px',
+                      backgroundColor: '#DBEAFE',
+                      color: '#1E40AF',
+                      borderRadius: '6px',
+                      fontSize: '12px',
+                      fontWeight: '600'
+                    }}>
+                      Attached
+                    </div>
+                  </div>
+                )}
+
+                {/* Due date and max size */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '16px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ fontSize: '14px' }}>📅</span>
+                    <span style={{ fontSize: '14px', color: '#374151' }}>
+                      Due: {assignment.due_date ? formatDate(assignment.due_date) : 'No due date'}
+                      {daysLeft !== null && (
+                        <span style={{ 
+                          color: daysLeft < 0 ? '#DC2626' : daysLeft <= 2 ? '#EA580C' : '#059669',
+                          fontWeight: '600',
+                          marginLeft: '4px'
+                        }}>
+                          {getDaysText(assignment)}
+                        </span>
+                      )}
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ fontSize: '14px' }}>💾</span>
+                    <span style={{ fontSize: '14px', color: '#374151' }}>
+                      Max: {assignment.max_file_size ? formatFileSize(assignment.max_file_size) : '10 MB'}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Submit button */}
+                {assignment.user_status !== 'submitted' && (
+                  <div style={{ paddingTop: '16px', borderTop: '1px solid #E5E7EB' }}>
+                    <button 
+                      onClick={() => handleSubmit(assignment)}
+                      disabled={userFiles.filter(f => f.status === 'final_approved').length === 0}
+                      style={{
+                        backgroundColor: '#2563EB',
+                        color: 'white',
+                        padding: '10px 24px',
+                        borderRadius: '8px',
+                        border: 'none',
+                        fontWeight: '600',
+                        fontSize: '14px',
+                        cursor: 'pointer',
+                        width: '100%',
+                        transition: 'background-color 0.2s',
+                        opacity: userFiles.filter(f => f.status === 'final_approved').length === 0 ? 0.5 : 1
+                      }}
+                      onMouseEnter={(e) => {
+                        if (userFiles.filter(f => f.status === 'final_approved').length > 0) {
+                          e.target.style.backgroundColor = '#1D4ED8'
+                        }
+                      }}
+                      onMouseLeave={(e) => e.target.style.backgroundColor = '#2563EB'}
+                    >
+                      Submit Assignment
+                    </button>
+                  </div>
+                )}
+
+                {/* Comment toggle */}
+                <div style={{ marginTop: '12px' }}>
+                  <button 
+                    onClick={() => toggleComments(assignment.id)}
+                    style={{
+                      background: 'transparent',
+                      border: 'none',
+                      color: '#6B7280',
+                      fontSize: '14px',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      padding: '8px 0'
+                    }}
+                  >
+                    💬 Comment ({assignmentComments.length})
+                  </button>
+                </div>
+
+                {/* Comments Section */}
+                {isCommentsExpanded && (
+                  <div className="comments-section">
+                    {assignmentComments.length > 0 && (
+                      <div className="comments-list">
+                        {assignmentComments.map((comment) => (
+                          <div key={comment.id} className="comment-item">
+                            <div className="comment-avatar">
+                              {getInitials(comment.username)}
+                            </div>
+                            <div className="comment-content">
+                              <div className="comment-bubble">
+                                <div className="comment-author">{comment.username}</div>
+                                <div className="comment-text">{comment.comment}</div>
+                              </div>
+                              <div className="comment-actions">
+                                <span className="comment-timestamp">{formatRelativeTime(comment.created_at)}</span>
+                                <button 
+                                  className="comment-action-btn"
+                                  onClick={() => toggleReplyBox(comment.id)}
+                                >
+                                  Reply
+                                </button>
+                              </div>
+
+                              {/* Replies */}
+                              {comment.replies && comment.replies.length > 0 && (
+                                <div className="replies-list">
+                                  {comment.replies.map((reply) => (
+                                    <div key={reply.id} className="reply-item">
+                                      <div className="comment-avatar reply-avatar">
+                                        {getInitials(reply.username)}
+                                      </div>
+                                      <div className="comment-content">
+                                        <div className="comment-bubble">
+                                          <div className="comment-author">{reply.username}</div>
+                                          <div className="comment-text">{reply.reply}</div>
+                                        </div>
+                                        <div className="comment-timestamp">
+                                          {formatRelativeTime(reply.created_at)}
+                                        </div>
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
                               )}
-                            </span>
-                          </div>
-                          <div className="detail-item">
-                            <span className="detail-icon">💾</span>
-                            <span className="detail-text">Max: {assignment.max_file_size ? formatFileSize(assignment.max_file_size) : '10 MB'}</span>
-                          </div>
-                        </div>
 
-                        <div className="post-action">
-                          <button
-                            className="submit-assignment-btn"
-                            onClick={() => handleSubmit(assignment)}
-                            disabled={userFiles.filter(f => f.status === 'final_approved').length === 0}
-                          >
-                            Submit Assignment
-                          </button>
-                        </div>
-                      </div>
-
-                      {/* Comments Section */}
-                      <div className="post-footer">
-                        <button 
-                          className="comment-toggle-btn"
-                          onClick={() => toggleComments(assignment.id)}
-                        >
-                          💬 Comment ({assignmentComments.length})
-                        </button>
-                      </div>
-
-                      {/* Comments List */}
-                      {isCommentsExpanded && (
-                        <div className="comments-section">
-                          {assignmentComments.length > 0 && (
-                            <div className="comments-list">
-                              {assignmentComments.map((comment) => (
-                                <div key={comment.id} className="comment-item">
-                                  <div className="comment-avatar">
-                                    {getInitials(comment.username)}
+                              {/* Reply Input Box */}
+                              {replyingTo[comment.id] && (
+                                <div className="reply-input-box">
+                                  <div className="comment-avatar reply-avatar">
+                                    {getInitials(user.username || user.fullName)}
                                   </div>
-                                  <div className="comment-content">
-                                    <div className="comment-bubble">
-                                      <div className="comment-author">{comment.username}</div>
-                                      <div className="comment-text">{comment.comment}</div>
-                                    </div>
-                                    <div className="comment-timestamp">
-                                      {formatDateTime(comment.created_at)}
-                                    </div>
+                                  <div className="comment-input-wrapper">
+                                    <input
+                                      type="text"
+                                      className="comment-input"
+                                      placeholder="Write a reply..."
+                                      value={replyText[comment.id] || ''}
+                                      onChange={(e) => setReplyText(prev => ({ 
+                                        ...prev, 
+                                        [comment.id]: e.target.value 
+                                      }))}
+                                      onKeyPress={(e) => {
+                                        if (e.key === 'Enter' && !e.shiftKey) {
+                                          e.preventDefault();
+                                          postReply(assignment.id, comment.id);
+                                        }
+                                      }}
+                                      disabled={isPostingReply[comment.id]}
+                                      autoFocus
+                                    />
+                                    <button
+                                      className="comment-submit-btn"
+                                      onClick={() => postReply(assignment.id, comment.id)}
+                                      disabled={!replyText[comment.id]?.trim() || isPostingReply[comment.id]}
+                                    >
+                                      {isPostingReply[comment.id] ? '...' : '➤'}
+                                    </button>
                                   </div>
                                 </div>
-                              ))}
-                            </div>
-                          )}
-
-                          {/* Add Comment */}
-                          <div className="add-comment">
-                            <div className="comment-avatar">
-                              {getInitials(user.username || user.fullName)}
-                            </div>
-                            <div className="comment-input-wrapper">
-                              <input
-                                type="text"
-                                className="comment-input"
-                                placeholder="Write a comment..."
-                                value={newComment[assignment.id] || ''}
-                                onChange={(e) => setNewComment(prev => ({ 
-                                  ...prev, 
-                                  [assignment.id]: e.target.value 
-                                }))}
-                                onKeyPress={(e) => {
-                                  if (e.key === 'Enter' && !e.shiftKey) {
-                                    e.preventDefault();
-                                    postComment(assignment.id);
-                                  }
-                                }}
-                                disabled={isPostingComment[assignment.id]}
-                              />
-                              <button
-                                className="comment-submit-btn"
-                                onClick={() => postComment(assignment.id)}
-                                disabled={!newComment[assignment.id]?.trim() || isPostingComment[assignment.id]}
-                              >
-                                {isPostingComment[assignment.id] ? '...' : '➤'}
-                              </button>
+                              )}
                             </div>
                           </div>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
-          {/* Submitted Assignments */}
-          {submittedAssignments.length > 0 && (
-            <div className="tasks-section">
-              <h2 className="tasks-section-title">Submitted Assignments</h2>
-              <div className="tasks-list">
-                {submittedAssignments.map((assignment) => {
-                  const assignmentComments = comments[assignment.id] || [];
-                  const isCommentsExpanded = expandedComments[assignment.id];
-
-                  return (
-                    <div key={assignment.id} className="tasks-post-card submitted-post">
-                      {/* Post Header */}
-                      <div className="post-header">
-                        <div className="post-author">
-                          <div className="author-avatar">
-                            {getInitials(assignment.team_leader_username)}
-                          </div>
-                          <div className="author-info">
-                            <div className="author-name">{assignment.team_leader_username}</div>
-                            <div className="post-timestamp">{formatDateTime(assignment.created_at)}</div>
-                          </div>
-                        </div>
-                        <span className="tasks-status-badge status-submitted">
-                          ✓ Submitted
-                        </span>
+                        ))}
                       </div>
+                    )}
 
-                      {/* Post Content */}
-                      <div className="post-content">
-                        <h3 className="post-title">{assignment.title}</h3>
-                        <p className="post-description">
-                          {assignment.description || ''}
-                        </p>
-
-                        {assignment.user_submitted_at && (
-                          <div className="submitted-info">
-                            <span className="detail-icon">✅</span>
-                            <span>Submitted on {formatDate(assignment.user_submitted_at)}</span>
-                          </div>
-                        )}
+                    {/* Add Comment */}
+                    <div className="add-comment">
+                      <div className="comment-avatar">
+                        {getInitials(user.username || user.fullName)}
                       </div>
-
-                      {/* Comments Section */}
-                      <div className="post-footer">
-                        <button 
-                          className="comment-toggle-btn"
-                          onClick={() => toggleComments(assignment.id)}
+                      <div className="comment-input-wrapper">
+                        <input
+                          type="text"
+                          className="comment-input"
+                          placeholder="Write a comment..."
+                          value={newComment[assignment.id] || ''}
+                          onChange={(e) => setNewComment(prev => ({ 
+                            ...prev, 
+                            [assignment.id]: e.target.value 
+                          }))}
+                          onKeyPress={(e) => {
+                            if (e.key === 'Enter' && !e.shiftKey) {
+                              e.preventDefault();
+                              postComment(assignment.id);
+                            }
+                          }}
+                          disabled={isPostingComment[assignment.id]}
+                        />
+                        <button
+                          className="comment-submit-btn"
+                          onClick={() => postComment(assignment.id)}
+                          disabled={!newComment[assignment.id]?.trim() || isPostingComment[assignment.id]}
                         >
-                          💬 Comment ({assignmentComments.length})
+                          {isPostingComment[assignment.id] ? '...' : '➤'}
                         </button>
                       </div>
-
-                      {/* Comments List */}
-                      {isCommentsExpanded && (
-                        <div className="comments-section">
-                          {assignmentComments.length > 0 && (
-                            <div className="comments-list">
-                              {assignmentComments.map((comment) => (
-                                <div key={comment.id} className="comment-item">
-                                  <div className="comment-avatar">
-                                    {getInitials(comment.username)}
-                                  </div>
-                                  <div className="comment-content">
-                                    <div className="comment-bubble">
-                                      <div className="comment-author">{comment.username}</div>
-                                      <div className="comment-text">{comment.comment}</div>
-                                    </div>
-                                    <div className="comment-timestamp">
-                                      {formatDateTime(comment.created_at)}
-                                    </div>
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          )}
-
-                          {/* Add Comment */}
-                          <div className="add-comment">
-                            <div className="comment-avatar">
-                              {getInitials(user.username || user.fullName)}
-                            </div>
-                            <div className="comment-input-wrapper">
-                              <input
-                                type="text"
-                                className="comment-input"
-                                placeholder="Write a comment..."
-                                value={newComment[assignment.id] || ''}
-                                onChange={(e) => setNewComment(prev => ({ 
-                                  ...prev, 
-                                  [assignment.id]: e.target.value 
-                                }))}
-                                onKeyPress={(e) => {
-                                  if (e.key === 'Enter' && !e.shiftKey) {
-                                    e.preventDefault();
-                                    postComment(assignment.id);
-                                  }
-                                }}
-                                disabled={isPostingComment[assignment.id]}
-                              />
-                              <button
-                                className="comment-submit-btn"
-                                onClick={() => postComment(assignment.id)}
-                                disabled={!newComment[assignment.id]?.trim() || isPostingComment[assignment.id]}
-                              >
-                                {isPostingComment[assignment.id] ? '...' : '➤'}
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-                      )}
                     </div>
-                  );
-                })}
+                  </div>
+                )}
               </div>
-            </div>
-          )}
+            );
+          })}
         </div>
       ) : (
         <div className="tasks-empty">

@@ -349,7 +349,7 @@ router.post('/submit', async (req, res) => {
   }
 });
 
-// Get comments for an assignment
+// Get comments for an assignment with replies
 router.get('/:assignmentId/comments', async (req, res) => {
   try {
     const { assignmentId } = req.params;
@@ -364,6 +364,22 @@ router.get('/:assignmentId/comments', async (req, res) => {
       WHERE ac.assignment_id = ?
       ORDER BY ac.created_at ASC
     `, [assignmentId]);
+
+    // Fetch replies for each comment
+    for (let comment of comments) {
+      const replies = await query(`
+        SELECT 
+          cr.*,
+          u.fullName as user_fullname,
+          u.role as user_role
+        FROM comment_replies cr
+        JOIN users u ON cr.user_id = u.id
+        WHERE cr.comment_id = ?
+        ORDER BY cr.created_at ASC
+      `, [comment.id]);
+      
+      comment.replies = replies || [];
+    }
 
     res.json({
       success: true,
@@ -442,6 +458,82 @@ router.post('/:assignmentId/comments', async (req, res) => {
   }
 });
 
+// Post a reply to a comment
+router.post('/:assignmentId/comments/:commentId/replies', async (req, res) => {
+  try {
+    const { assignmentId, commentId } = req.params;
+    const { userId, username, reply } = req.body;
+
+    if (!userId || !username || !reply) {
+      return res.status(400).json({
+        success: false,
+        message: 'Missing required fields'
+      });
+    }
+
+    // Verify comment exists and belongs to the assignment
+    const comment = await queryOne(
+      'SELECT * FROM assignment_comments WHERE id = ? AND assignment_id = ?',
+      [commentId, assignmentId]
+    );
+
+    if (!comment) {
+      return res.status(404).json({
+        success: false,
+        message: 'Comment not found'
+      });
+    }
+
+    // Get user's full name and role
+    const user = await queryOne(
+      'SELECT fullName, role FROM users WHERE id = ?',
+      [userId]
+    );
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    const result = await query(`
+      INSERT INTO comment_replies (
+        comment_id,
+        user_id,
+        username,
+        user_fullname,
+        user_role,
+        reply
+      ) VALUES (?, ?, ?, ?, ?, ?)
+    `, [commentId, userId, username, user.fullName, user.role, reply]);
+
+    // Fetch the newly created reply with full details
+    const newReply = await queryOne(`
+      SELECT 
+        cr.*,
+        u.fullName as user_fullname,
+        u.role as user_role
+      FROM comment_replies cr
+      JOIN users u ON cr.user_id = u.id
+      WHERE cr.id = ?
+    `, [result.insertId]);
+
+    res.json({
+      success: true,
+      message: 'Reply posted successfully',
+      reply: newReply
+    });
+  } catch (error) {
+    console.error('Error in post reply route:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to post reply',
+      error: error.message
+    });
+  }
+});
+
 // Delete assignment
 router.delete('/:assignmentId', async (req, res) => {
   try {
@@ -461,7 +553,7 @@ router.delete('/:assignmentId', async (req, res) => {
       });
     }
 
-    // Delete related records first
+    // Delete related records first (replies will cascade delete when comments are deleted)
     await query('DELETE FROM assignment_submissions WHERE assignment_id = ?', [assignmentId]);
     await query('DELETE FROM assignment_members WHERE assignment_id = ?', [assignmentId]);
     await query('DELETE FROM assignment_comments WHERE assignment_id = ?', [assignmentId]);

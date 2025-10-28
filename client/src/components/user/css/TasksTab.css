@@ -2,7 +2,7 @@
 
 .tasks-wrapper {
   padding: 20px;
-  max-width: 1200px;
+  max-width: 1600px;
   margin: 0 auto;
 }
 
@@ -155,10 +155,11 @@
 .assignment-card {
   background: white;
   border: 1px solid #e5e7eb;
-  border-radius: 8px;
+  border-radius: 12px;
   overflow: hidden;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
   transition: box-shadow 0.2s;
+  max-width: 100%;
 }
 
 .assignment-card:hover {
@@ -168,7 +169,7 @@
 .assignment-header {
   background: #f9fafb;
   border-bottom: 1px solid #e5e7eb;
-  padding: 16px 20px;
+  padding: 20px 28px;
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -212,7 +213,7 @@
 }
 
 .assignment-content {
-  padding: 20px;
+  padding: 24px 28px;
 }
 
 .assignment-description {
@@ -265,7 +266,7 @@
 }
 
 .assignment-actions {
-  padding: 16px 20px;
+  padding: 20px 28px;
   background: #f9fafb;
   border-top: 1px solid #e5e7eb;
 }

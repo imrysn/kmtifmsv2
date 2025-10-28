@@ -74,7 +74,7 @@ const TopBar = ({
         </div>
       )}
 
-      <div className="tl-user-avatar"></div>
+      <div className="tl-user-avatar">TL</div>
     </header>
   )
 }
