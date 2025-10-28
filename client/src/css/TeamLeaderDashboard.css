@@ -999,7 +999,7 @@ body {
   border-radius: 16px;
   box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
   width: 100%;
-  max-width: 1100px;
+  max-width: 1400px;
   max-height: 85vh;
   overflow: hidden;
   display: flex;
@@ -1066,21 +1066,21 @@ body {
 .tl-modal-section {
   background: #F9FAFB;
   border-radius: 12px;
-  padding: 20px;
+  padding: 28px;
 }
 
 .tl-section-title {
-  font-size: 16px;
+  font-size: 18px;
   font-weight: 600;
   color: #101828;
-  margin-bottom: 16px;
+  margin-bottom: 20px;
   font-family: Arial, sans-serif;
 }
 
 .tl-description-text {
-  font-size: 14px;
+  font-size: 15px;
   color: #101828;
-  line-height: 1.6;
+  line-height: 1.7;
   margin: 0;
   font-family: Arial, sans-serif;
   white-space: pre-wrap;
@@ -2216,14 +2216,14 @@ input[type="checkbox"] {
 /* Assignment Details Modal - Enhanced */
 .tl-assignment-details-container {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 16px;
+  grid-template-columns: 1fr 1.2fr;
+  gap: 24px;
 }
 
 .tl-assignment-details-left {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  gap: 16px;
+  gap: 20px;
   align-content: start;
 }
 
@@ -2234,8 +2234,8 @@ input[type="checkbox"] {
 
 .tl-detail-card {
   background: white;
-  padding: 16px;
-  border-radius: 8px;
+  padding: 20px;
+  border-radius: 10px;
   border: 1px solid #E5E7EB;
   transition: all 0.2s ease;
 }
@@ -2246,21 +2246,21 @@ input[type="checkbox"] {
 }
 
 .tl-detail-card .tl-detail-label {
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
   color: #6a7282;
   text-transform: uppercase;
   letter-spacing: 0.5px;
   font-family: Arial, sans-serif;
-  margin-bottom: 8px;
+  margin-bottom: 10px;
 }
 
 .tl-detail-card .tl-detail-value {
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 500;
   color: #101828;
   font-family: Arial, sans-serif;
-  line-height: 1.5;
+  line-height: 1.6;
 }
 
 .tl-detail-card-full {

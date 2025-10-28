@@ -1,5 +1,104 @@
 import { useState } from 'react'
 
+// File icon component based on file type
+const FileIcon = ({ fileName, fileType }) => {
+  const getFileIcon = () => {
+    const ext = fileName?.split('.').pop()?.toLowerCase() || ''
+    const type = fileType?.toLowerCase() || ''
+    
+    // Document files
+    if (ext === 'pdf' || type.includes('pdf')) {
+      return (
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+          <path d="M14 2H6C5.46957 2 4.96086 2.21071 4.58579 2.58579C4.21071 2.96086 4 3.46957 4 4V20C4 20.5304 4.21071 21.0391 4.58579 21.4142C4.96086 21.7893 5.46957 22 6 22H18C18.5304 22 19.0391 21.7893 19.4142 21.4142C19.7893 21.0391 20 20.5304 20 20V8L14 2Z" stroke="#DC2626" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+          <path d="M14 2V8H20" stroke="#DC2626" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+          <path d="M10 13H14" stroke="#DC2626" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+          <path d="M10 17H14" stroke="#DC2626" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
+      )
+    }
+    
+    // Word documents
+    if (ext === 'doc' || ext === 'docx' || type.includes('word')) {
+      return (
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+          <path d="M14 2H6C5.46957 2 4.96086 2.21071 4.58579 2.58579C4.21071 2.96086 4 3.46957 4 4V20C4 20.5304 4.21071 21.0391 4.58579 21.4142C4.96086 21.7893 5.46957 22 6 22H18C18.5304 22 19.0391 21.7893 19.4142 21.4142C19.7893 21.0391 20 20.5304 20 20V8L14 2Z" stroke="#2563EB" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+          <path d="M14 2V8H20" stroke="#2563EB" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+          <path d="M16 13H8" stroke="#2563EB" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+          <path d="M16 17H8" stroke="#2563EB" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+          <path d="M10 9H8" stroke="#2563EB" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
+      )
+    }
+    
+    // Excel files
+    if (ext === 'xls' || ext === 'xlsx' || type.includes('excel') || type.includes('spreadsheet')) {
+      return (
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+          <path d="M14 2H6C5.46957 2 4.96086 2.21071 4.58579 2.58579C4.21071 2.96086 4 3.46957 4 4V20C4 20.5304 4.21071 21.0391 4.58579 21.4142C4.96086 21.7893 5.46957 22 6 22H18C18.5304 22 19.0391 21.7893 19.4142 21.4142C19.7893 21.0391 20 20.5304 20 20V8L14 2Z" stroke="#16A34A" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+          <path d="M14 2V8H20" stroke="#16A34A" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+          <path d="M8 13H16" stroke="#16A34A" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+          <path d="M8 17H16" stroke="#16A34A" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+          <path d="M12 13V17" stroke="#16A34A" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
+      )
+    }
+    
+    // PowerPoint files
+    if (ext === 'ppt' || ext === 'pptx' || type.includes('powerpoint') || type.includes('presentation')) {
+      return (
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+          <path d="M14 2H6C5.46957 2 4.96086 2.21071 4.58579 2.58579C4.21071 2.96086 4 3.46957 4 4V20C4 20.5304 4.21071 21.0391 4.58579 21.4142C4.96086 21.7893 5.46957 22 6 22H18C18.5304 22 19.0391 21.7893 19.4142 21.4142C19.7893 21.0391 20 20.5304 20 20V8L14 2Z" stroke="#EA580C" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+          <path d="M14 2V8H20" stroke="#EA580C" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+          <rect x="8" y="11" width="8" height="6" stroke="#EA580C" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
+      )
+    }
+    
+    // Image files
+    if (ext === 'jpg' || ext === 'jpeg' || ext === 'png' || ext === 'gif' || ext === 'svg' || type.includes('image')) {
+      return (
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+          <rect x="3" y="3" width="18" height="18" rx="2" stroke="#8B5CF6" strokeWidth="2"/>
+          <circle cx="8.5" cy="8.5" r="1.5" fill="#8B5CF6"/>
+          <path d="M21 15L16 10L5 21" stroke="#8B5CF6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
+      )
+    }
+    
+    // Video files
+    if (ext === 'mp4' || ext === 'avi' || ext === 'mov' || ext === 'wmv' || type.includes('video')) {
+      return (
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+          <path d="M22.54 6.42L18 9.42V14.58L22.54 17.58C22.78 17.72 23.04 17.62 23.18 17.38C23.22 17.3 23.24 17.22 23.24 17.14V6.86C23.24 6.58 23.02 6.36 22.74 6.36C22.66 6.36 22.58 6.38 22.5 6.42H22.54Z" stroke="#EC4899" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+          <path d="M16 7H3C1.89543 7 1 7.89543 1 9V15C1 16.1046 1.89543 17 3 17H16C17.1046 17 18 16.1046 18 15V9C18 7.89543 17.1046 7 16 7Z" stroke="#EC4899" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
+      )
+    }
+    
+    // Archive files
+    if (ext === 'zip' || ext === 'rar' || ext === '7z' || type.includes('zip') || type.includes('archive')) {
+      return (
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+          <path d="M14 2H6C5.46957 2 4.96086 2.21071 4.58579 2.58579C4.21071 2.96086 4 3.46957 4 4V20C4 20.5304 4.21071 21.0391 4.58579 21.4142C4.96086 21.7893 5.46957 22 6 22H18C18.5304 22 19.0391 21.7893 19.4142 21.4142C19.7893 21.0391 20 20.5304 20 20V8L14 2Z" stroke="#F59E0B" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+          <path d="M14 2V8H20" stroke="#F59E0B" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+          <path d="M12 11V17M10 13H14" stroke="#F59E0B" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
+      )
+    }
+    
+    // Default file icon
+    return (
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+        <path d="M14 2H6C5.46957 2 4.96086 2.21071 4.58579 2.58579C4.21071 2.96086 4 3.46957 4 4V20C4 20.5304 4.21071 21.0391 4.58579 21.4142C4.96086 21.7893 5.46957 22 6 22H18C18.5304 22 19.0391 21.7893 19.4142 21.4142C19.7893 21.0391 20 20.5304 20 20V8L14 2Z" stroke="#6B7280" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+        <path d="M14 2V8H20" stroke="#6B7280" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+      </svg>
+    )
+  }
+  
+  return <div style={{ display: 'flex', alignItems: 'center' }}>{getFileIcon()}</div>
+}
+
 const AssignmentDetailsModal = ({
   showAssignmentDetailsModal,
   setShowAssignmentDetailsModal,
@@ -131,7 +230,6 @@ const AssignmentDetailsModal = ({
                       <th>SIZE</th>
                       <th>SUBMITTED</th>
                       <th>STATUS</th>
-                      <th>ACTION</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -141,8 +239,15 @@ const AssignmentDetailsModal = ({
                           <strong>{submission.fullName || submission.username}</strong>
                         </td>
                         <td>
-                          <div className="tl-file-name-cell">
-                            <strong>{submission.original_name}</strong>
+                          <div className="tl-file-name-cell" style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              window.open(`http://localhost:3001${submission.file_path}`, '_blank')
+                            }}
+                            title="Click to open file"
+                          >
+                            <FileIcon fileName={submission.original_name} fileType={submission.file_type} />
+                            <strong style={{ textDecoration: 'underline', color: '#4f39f6' }}>{submission.original_name}</strong>
                           </div>
                         </td>
                         <td>
@@ -156,17 +261,6 @@ const AssignmentDetailsModal = ({
                           <span className="tl-status-badge pending-approved">
                             {submission.status?.toUpperCase() || 'SUBMITTED'}
                           </span>
-                        </td>
-                        <td>
-                          <button
-                            className="tl-btn-view-file"
-                            onClick={() => window.open(`http://localhost:3001${submission.file_path}`, '_blank')}
-                            title="Open file"
-                          >
-                            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                              <path d="M12 8.66667V12.6667C12 13.0203 11.8595 13.3594 11.6095 13.6095C11.3594 13.8595 11.0203 14 10.6667 14H3.33333C2.97971 14 2.64057 13.8595 2.39052 13.6095C2.14048 13.3594 2 13.0203 2 12.6667V5.33333C2 4.97971 2.14048 4.64057 2.39052 4.39052C2.64057 4.14048 2.97971 4 3.33333 4H7.33333M10 2H14M14 2V6M14 2L6.66667 9.33333" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                            </svg>
-                          </button>
                         </td>
                       </tr>
                     ))}
