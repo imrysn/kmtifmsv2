@@ -1,0 +1,324 @@
+/* Tasks Tab - Enhanced Facebook-Style UI - Team Leader Version */
+
+.tl-assignments-container {
+  padding: 0;
+  max-width: 1400px;
+  margin: 0 auto;
+  background: transparent;
+}
+
+/* Section Header */
+.tl-section-header {
+  margin-bottom: 1.5rem;
+  padding-left: 0.75rem;
+  border-left: 4px solid var(--primary-color);
+}
+
+.tl-section-header h2 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+/* Tasks List - Single Column Vertical Feed */
+.tl-assignments-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  max-width: 100%;
+}
+
+/* ============================================
+   FACEBOOK-STYLE POST CARDS
+   ============================================ */
+
+.tl-assignment-card {
+  background: var(--surface-color);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  transition: box-shadow 0.2s;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.tl-assignment-card:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+/* Post Header */
+.tl-post-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.25rem 1.5rem;
+  border-bottom: 1px solid var(--border-color);
+  gap: 1rem;
+}
+
+.tl-post-author {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  flex: 1;
+}
+
+.tl-author-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.tl-author-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.tl-author-name {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.tl-post-timestamp {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+/* Post Content */
+.tl-post-content {
+  padding: 1.25rem 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  flex: 1;
+}
+
+.tl-post-title {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0;
+  line-height: 1.4;
+}
+
+.tl-post-description {
+  font-size: 0.9375rem;
+  color: var(--text-secondary);
+  line-height: 1.6;
+  margin: 0;
+}
+
+.tl-post-details {
+  display: flex;
+  flex-direction: row;
+  gap: 1.5rem;
+  padding: 1rem;
+  background: var(--background-secondary);
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+  position: relative;
+}
+
+/* Left Column - Assignment Info */
+.tl-assignment-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.875rem;
+  padding-right: 1.5rem;
+  border-right: 1px solid var(--border-color);
+}
+
+/* Right Column - Submitted Files */
+.tl-submitted-files {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.tl-files-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 0.25rem;
+}
+
+.tl-submission-item {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  padding: 0.5rem 0.75rem;
+  background: var(--surface-color);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  transition: all 0.2s;
+  cursor: pointer;
+}
+
+.tl-submission-item:hover {
+  border-color: var(--primary-color);
+  transform: translateX(2px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  cursor: pointer;
+}
+
+.tl-submission-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.tl-submission-name {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tl-submission-meta {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+}
+
+.tl-submission-status {
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.tl-more-submissions {
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
+  font-weight: 500;
+  text-align: center;
+  padding: 0.5rem;
+  background: var(--background-primary);
+  border-radius: 6px;
+  border: 1px dashed var(--border-color);
+}
+
+.tl-no-submissions {
+  font-size: 0.8125rem;
+  color: var(--text-tertiary);
+  font-style: italic;
+  text-align: center;
+  padding: 1rem;
+  background: var(--background-primary);
+  border-radius: 6px;
+  border: 1px dashed var(--border-color);
+}
+
+.tl-detail-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 0.875rem;
+  color: var(--text-primary);
+}
+
+.tl-detail-icon {
+  flex-shrink: 0;
+  color: var(--text-secondary);
+}
+
+.tl-detail-text {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+}
+
+/* Post Footer */
+.tl-post-footer {
+  padding: 1rem 1.5rem;
+  border-top: 1px solid var(--border-color);
+  display: flex;
+  justify-content: flex-end;
+  background: var(--background-secondary);
+}
+
+.tl-delete-btn {
+  padding: 0.625rem 1.25rem;
+  background: var(--status-rejected);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.tl-delete-btn:hover {
+  background: #c62828;
+  transform: translateY(-1px);
+}
+
+/* ============================================
+   RESPONSIVE DESIGN
+   ============================================ */
+
+@media (max-width: 768px) {
+  .tl-post-header {
+    flex-wrap: wrap;
+    gap: 0.75rem;
+  }
+
+  .tl-author-avatar {
+    width: 36px;
+    height: 36px;
+    font-size: 13px;
+  }
+
+  .tl-post-title {
+    font-size: 16px;
+  }
+
+  /* Stack layout on tablets and smaller */
+  .tl-post-details {
+    flex-direction: column;
+    gap: 1.25rem;
+  }
+
+  .tl-assignment-info {
+    padding-right: 0;
+    border-right: none;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid var(--border-color);
+  }
+}
+
+@media (max-width: 480px) {
+  .tl-post-content {
+    padding: 0.875rem 1rem;
+  }
+
+  .tl-post-header {
+    padding: 0.875rem 1rem;
+  }
+
+  .tl-post-footer {
+    padding: 0.625rem 1rem;
+  }
+}
