@@ -5,7 +5,7 @@ export { default as AlertMessage } from './AlertMessage'
 
 // Tab Components
 export { default as OverviewTab } from './OverviewTab'
-export { default as FileReviewTab } from './FileReviewTab'
+export { default as FileCollectionTab } from './FileCollectionTab'
 export { default as TeamManagementTab } from './TeamManagementTab'
 export { default as AssignmentsTab } from './AssignmentsTab'
 
@@ -17,3 +17,4 @@ export { default as MemberFilesModal } from './modals/MemberFilesModal'
 export { default as CreateAssignmentModal } from './modals/CreateAssignmentModal'
 export { default as AssignmentDetailsModal } from './modals/AssignmentDetailsModal'
 export { default as ReviewModal } from './modals/ReviewModal'
+export { default as FileViewModal } from './modals/FileViewModal'

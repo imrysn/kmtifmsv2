@@ -1,5 +1,5 @@
-import assignmentIcon from '../../assets/Icon-3.svg'
 import { useState } from 'react'
+import './css/AssignmentsTab.css'
 
 const AssignmentsTab = ({
   isLoadingAssignments,
@@ -7,7 +7,8 @@ const AssignmentsTab = ({
   formatDate,
   fetchAssignmentDetails,
   deleteAssignment,
-  setShowCreateAssignmentModal
+  setShowCreateAssignmentModal,
+  openReviewModal
 }) => {
   const [showMembersModal, setShowMembersModal] = useState(false)
   const [selectedMembers, setSelectedMembers] = useState([])
@@ -32,7 +33,12 @@ const AssignmentsTab = ({
       return <span className="tl-badge">0 Members</span>
     } else if (memberCount === 1) {
       return <span className="tl-badge">{members[0].fullName || members[0].username}</span>
+    } else if (memberCount <= 3) {
+      // Show names inline for 2-3 members
+      const names = members.map(m => m.fullName || m.username).join(', ')
+      return <span className="tl-badge">{names}</span>
     } else {
+      // Show count and make it clickable for 4+ members
       return (
         <span 
           className="tl-badge clickable" 
@@ -47,12 +53,13 @@ const AssignmentsTab = ({
 
   return (
     <div className="tl-content">
-      <div className="tl-page-header">
-        <div className="tl-page-icon">
-          <img src={assignmentIcon} alt="" width="20" height="20" />
+      {/* Page Header - EXACT Admin Match */}
+      <div className="tl-page-header" style={{display: 'flex', alignItems: 'center', justifyContent: 'space-between'}}>
+        <div>
+          <h1>Assignments ({assignments.length})</h1>
+          <p>Manage team assignments and submissions</p>
         </div>
-        <h1>Tasks</h1>
-        <button className="tl-btn success" onClick={() => setShowCreateAssignmentModal(true)} style={{marginLeft: 'auto'}}>
+        <button className="tl-btn success" onClick={() => setShowCreateAssignmentModal(true)}>
           <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
             <path d="M10 4V16M4 10H16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
           </svg>
@@ -66,66 +73,204 @@ const AssignmentsTab = ({
           <p>Loading assignments...</p>
         </div>
       ) : assignments.length > 0 ? (
-        <div className="tl-table-container">
-          <div className="tl-table-header">
-            <div className="tl-table-icon">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-                <path d="M9 5H7C6.46957 5 5.96086 5.21071 5.58579 5.58579C5.21071 5.96086 5 6.46957 5 7V19C5 19.5304 5.21071 20.0391 5.58579 20.4142C5.96086 20.7893 6.46957 21 7 21H17C17.5304 21 18.0391 20.7893 18.4142 20.4142C18.7893 20.0391 19 19.5304 19 19V7C19 6.46957 18.7893 5.96086 18.4142 5.58579C18.0391 5.21071 17.5304 5 17 5H15M9 5C9 5.53043 9.21071 6.03914 9.58579 6.41421C9.96086 6.78929 10.4696 7 11 7H13C13.5304 7 14.0391 6.78929 14.4142 6.41421C14.7893 6.03914 15 5.53043 15 5M9 5C9 4.46957 9.21071 3.96086 9.58579 3.58579C9.96086 3.21071 10.4696 3 11 3H13C13.5304 3 14.0391 3.21071 14.4142 3.58579C14.7893 3.96086 15 4.46957 15 5M12 12H15M12 16H15M9 12H9.01M9 16H9.01" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-              </svg>
-            </div>
-            <h2>All Assignments ({assignments.length})</h2>
-          </div>
+        <div className="tl-assignments-container">
+          <div className="tl-assignments-grid">
+            {assignments.map((assignment) => {
+              const getInitials = (name) => {
+                if (!name) return 'TL';
+                if (name.includes('.')) {
+                  const parts = name.split('.');
+                  if (parts.length >= 2) {
+                    return (parts[0][0] + parts[1][0]).toUpperCase();
+                  }
+                }
+                const parts = name.split(' ');
+                if (parts.length >= 2) {
+                  return (parts[0][0] + parts[1][0]).toUpperCase();
+                }
+                return name.substring(0, 2).toUpperCase();
+              };
 
-          <table className="tl-table">
-            <thead>
-              <tr>
-                <th>TITLE</th>
-                <th>DESCRIPTION</th>
-                <th>DUE DATE</th>
-                <th>FILE TYPE</th>
-                <th>ASSIGNED TO</th>
-                <th>SUBMISSIONS</th>
-                <th>CREATED</th>
-                <th>ACTIONS</th>
-              </tr>
-            </thead>
-            <tbody>
-              {assignments.map((assignment) => (
-                <tr key={assignment.id} onClick={() => fetchAssignmentDetails(assignment.id)} style={{cursor: 'pointer'}}>
-                  <td><strong>{assignment.title}</strong></td>
-                  <td>{assignment.description ? (assignment.description.length > 50 ? assignment.description.substring(0, 50) + '...' : assignment.description) : 'No description'}</td>
-                  <td>
-                    {(assignment.due_date || assignment.dueDate) ? (
-                      <span className={`tl-due-date ${new Date(assignment.due_date || assignment.dueDate) < new Date() ? 'overdue' : ''}`}>
-                        {formatDate(assignment.due_date || assignment.dueDate)}
-                      </span>
-                    ) : 'No due date'}
-                  </td>
-                  <td>{assignment.file_type_required || assignment.fileTypeRequired || 'Any'}</td>
-                  <td>
-                    {renderAssignedTo(assignment)}
-                  </td>
-                  <td>
-                    {assignment.submission_count || assignment.submissionCount || 0}
-                  </td>
-                  <td className="date">{formatDate(assignment.created_at || assignment.createdAt)}</td>
-                  <td onClick={(e) => e.stopPropagation()}>
+              const formatDateTime = (dateString) => {
+                const date = new Date(dateString);
+                return date.toLocaleDateString('en-US', {
+                  month: 'long',
+                  day: 'numeric',
+                  year: 'numeric'
+                }) + ' at ' + date.toLocaleTimeString('en-US', {
+                  hour: 'numeric',
+                  minute: '2-digit',
+                  hour12: true
+                });
+              };
+
+              const isOverdue = new Date(assignment.due_date || assignment.dueDate) < new Date();
+
+              return (
+                <div 
+                  key={assignment.id} 
+                  className="tl-assignment-card"
+                  onClick={() => fetchAssignmentDetails(assignment.id)}
+                >
+                  {/* Post Header */}
+                  <div className="tl-post-header">
+                    <div className="tl-post-author">
+                      <div className="tl-author-avatar">
+                        {getInitials(assignment.team_leader_username || 'Team Leader')}
+                      </div>
+                      <div className="tl-author-info">
+                        <div className="tl-author-name">{assignment.team_leader_username || 'Team Leader'}</div>
+                        <div className="tl-post-timestamp">{formatDateTime(assignment.created_at || assignment.createdAt)}</div>
+                      </div>
+                    </div>
+                    <span className="tl-badge" style={{
+                      background: 'var(--status-approved)', 
+                      color: 'var(--status-approved-text)',
+                      padding: '6px 12px',
+                      borderRadius: '20px',
+                      fontSize: '11px',
+                      fontWeight: '600'
+                    }}>
+                      {assignment.submission_count || assignment.submissionCount || 0} Submissions
+                    </span>
+                  </div>
+
+                  {/* Post Content */}
+                  <div className="tl-post-content">
+                    <h3 className="tl-post-title">{assignment.title}</h3>
+                    {assignment.description ? (
+                      <p className="tl-post-description">{assignment.description}</p>
+                    ) : (
+                      <p className="tl-post-description" style={{color: 'var(--text-tertiary)', fontStyle: 'italic'}}>
+                        No description
+                      </p>
+                    )}
+
+                    <div className="tl-post-details">
+                      {/* Left Side - Assignment Info */}
+                      <div className="tl-assignment-info">
+                        <div className="tl-detail-item">
+                          <svg className="tl-detail-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                            <line x1="16" y1="2" x2="16" y2="6"></line>
+                            <line x1="8" y1="2" x2="8" y2="6"></line>
+                            <line x1="3" y1="10" x2="21" y2="10"></line>
+                          </svg>
+                          <span className="tl-detail-text">
+                            Due: {(assignment.due_date || assignment.dueDate) ? (
+                              <>
+                                {formatDate(assignment.due_date || assignment.dueDate)}
+                                {isOverdue && <span style={{color: 'var(--status-rejected)', fontWeight: '600'}}> (Overdue)</span>}
+                              </>
+                            ) : (
+                              'No due date'
+                            )}
+                          </span>
+                        </div>
+                        <div className="tl-detail-item">
+                          <svg className="tl-detail-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                            <polyline points="14 2 14 8 20 8"></polyline>
+                          </svg>
+                          <span className="tl-detail-text">
+                            File Type: <span className="tl-badge" style={{background: '#E0E7FF', color: 'var(--primary-color)', marginLeft: '4px'}}>
+                              {assignment.file_type_required || assignment.fileTypeRequired || 'Any'}
+                            </span>
+                          </span>
+                        </div>
+                        <div className="tl-detail-item">
+                          <svg className="tl-detail-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                            <circle cx="9" cy="7" r="4"></circle>
+                            <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                            <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                          </svg>
+                          <span className="tl-detail-text">
+                            Assigned To: {renderAssignedTo(assignment)}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Right Side - Submitted Files */}
+                      <div className="tl-submitted-files">
+                        <div className="tl-files-header">
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                            <polyline points="14 2 14 8 20 8"></polyline>
+                          </svg>
+                          <span>Submitted Files</span>
+                        </div>
+                        {assignment.recent_submissions && assignment.recent_submissions.length > 0 ? (
+                          <>
+                            {assignment.recent_submissions.slice(0, 2).map((submission) => (
+                              <div 
+                                key={submission.id}
+                                className="tl-submission-item"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  if (openReviewModal && submission.id) {
+                                    // Open file detail modal for review
+                                    openReviewModal(submission, null);
+                                  }
+                                }}
+                              >
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{color: 'var(--primary-color)', flexShrink: '0'}}>
+                                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                                  <polyline points="14 2 14 8 20 8"></polyline>
+                                </svg>
+                                <div className="tl-submission-info">
+                                  <div className="tl-submission-name">
+                                    {submission.original_name || submission.file_name}
+                                  </div>
+                                  <div className="tl-submission-meta">
+                                    by {submission.username || 'Unknown'}
+                                  </div>
+                                </div>
+                                <span className="tl-submission-status" style={{
+                                  background: submission.status === 'approved' ? 'var(--status-approved)' : 
+                                             submission.status === 'rejected' ? 'var(--status-rejected)' :
+                                             submission.status === 'pending_tl' ? '#FEF3C7' : '#E0E7FF',
+                                  color: submission.status === 'approved' ? 'var(--status-approved-text)' : 
+                                         submission.status === 'rejected' ? 'var(--status-rejected-text)' :
+                                         submission.status === 'pending_tl' ? '#92400E' : 'var(--primary-color)'
+                                }}>
+                                  {submission.status === 'pending_tl' ? 'PENDING' :
+                                   submission.status === 'approved' ? '✓' :
+                                   submission.status === 'rejected' ? '✗' : 'NEW'}
+                                </span>
+                              </div>
+                            ))}
+                            {(assignment.submission_count || 0) > 2 && (
+                              <div className="tl-more-submissions">
+                                +{(assignment.submission_count || 0) - 2} more
+                              </div>
+                            )}
+                          </>
+                        ) : (
+                          <div className="tl-no-submissions">
+                            No submissions yet
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Post Footer */}
+                  <div className="tl-post-footer" onClick={(e) => e.stopPropagation()}>
                     <button 
-                      className="tl-btn danger" 
+                      className="tl-btn danger tl-delete-btn" 
                       onClick={() => deleteAssignment(assignment.id, assignment.title)}
-                      style={{padding: '4px 8px', fontSize: '12px'}}
                     >
                       Delete
                     </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </div>
       ) : (
         <div className="tl-empty">
-          <div className="tl-empty-icon">📋</div>
           <h3>No assignments yet</h3>
           <p>Create an assignment to get started.</p>
           <button className="tl-btn success" onClick={() => setShowCreateAssignmentModal(true)} style={{marginTop: '20px'}}>
@@ -147,9 +292,9 @@ const AssignmentsTab = ({
                 {selectedMembers.map((member) => (
                   <div key={member.id} style={{
                     padding: '12px',
-                    background: '#F9FAFB',
-                    borderRadius: '8px',
-                    border: '1px solid #E5E7EB',
+                    background: 'var(--background-primary)',
+                    borderRadius: 'var(--radius-md)',
+                    border: '1px solid var(--border-color)',
                     display: 'flex',
                     alignItems: 'center',
                     gap: '12px'
@@ -158,7 +303,7 @@ const AssignmentsTab = ({
                       width: '32px',
                       height: '32px',
                       borderRadius: '50%',
-                      background: '#4f39f6',
+                      background: 'var(--primary-color)',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
@@ -169,11 +314,11 @@ const AssignmentsTab = ({
                       {(member.fullName || member.username).charAt(0).toUpperCase()}
                     </div>
                     <div>
-                      <div style={{ fontWeight: '500', color: '#101828' }}>
+                      <div style={{ fontWeight: '500', color: 'var(--text-primary)' }}>
                         {member.fullName || member.username}
                       </div>
                       {member.fullName && (
-                        <div style={{ fontSize: '12px', color: '#6a7282' }}>
+                        <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
                           @{member.username}
                         </div>
                       )}

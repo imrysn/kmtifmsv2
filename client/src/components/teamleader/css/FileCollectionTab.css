@@ -1,0 +1,379 @@
+/* File Collection Tab - Matching Admin File Approval Style */
+
+/* Page Header with Stats - Aligned Layout */
+.tl-page-header-with-stats {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 1.5rem;
+  gap: 2rem;
+}
+
+.tl-page-header-with-stats .tl-page-header {
+  margin-bottom: 0;
+}
+
+/* File Icon SVG Styling */
+.file-icon-svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+/* Admin-Style Status Cards */
+.file-status-cards {
+  display: flex;
+  justify-content: flex-end;
+  gap: 1rem;
+  flex-wrap: wrap;
+  flex-shrink: 0;
+}
+
+.file-status-card {
+  border-right: 1px solid var(--border-color);
+  padding: 1.5rem;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  min-width: 200px;
+}
+
+.file-status-card:last-child {
+  border-right: none;
+}
+
+.status-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+  font-size: 0.8rem;
+  flex-shrink: 0;
+}
+
+.total-icon {
+  border: 1px solid #000;
+  color: #000;
+  background: transparent;
+}
+
+.pending-icon {
+  border: 1px solid #000;
+  color: #000;
+  background: transparent;
+}
+
+.approved-icon {
+  border: 1px solid #000;
+  color: #000;
+  background: transparent;
+}
+
+.rejected-icon {
+  border: 1px solid #000;
+  color: #000;
+  background: transparent;
+}
+
+.pending-admin-icon {
+  border: 1px solid #000;
+  color: #000;
+  background: transparent;
+}
+
+.status-info {
+  flex: 1;
+}
+
+.status-number {
+  font-size: 1.5rem;
+  font-weight: bold;
+  color: var(--text-primary);
+  margin-bottom: 0.25rem;
+}
+
+.status-label {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+/* File Collection Section Background */
+.tl-content .tl-files-list {
+  margin-top: 0;
+}
+
+/* Clickable Rows */
+.tl-clickable-row {
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.tl-clickable-row:hover {
+  background: rgba(0, 0, 0, 0.03);
+}
+
+/* Toolbar Styling */
+.tl-toolbar {
+  background: var(--background-secondary);
+  border: 1px solid var(--border-color);
+  border-bottom: none;
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  margin-bottom: 0;
+}
+
+.tl-files-list {
+  border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+  margin-top: 0;
+}
+
+/* Ensure toolbar and table connect seamlessly */
+.tl-toolbar + .tl-files-list {
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+}
+
+/* Collection Info in Toolbar */
+.collection-info {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.collection-info svg {
+  color: var(--text-secondary);
+}
+
+/* Action Buttons in Toolbar */
+.tl-toolbar-section .tl-btn {
+  font-size: 14px;
+  padding: 0.625rem 1rem;
+}
+
+/* Filter Badge */
+.tl-toolbar .tl-badge.active {
+  background: var(--primary-color);
+  color: white;
+  border: none;
+}
+
+/* File Cell Styling - Matching Admin */
+.file-cell {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.file-icon {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.file-icon svg {
+  width: 100%;
+  height: 100%;
+}
+
+.file-details {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-width: 0;
+}
+
+.file-name {
+  font-weight: 500;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.file-size {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+
+/* Assignment Cell */
+.assignment-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.assignment-title {
+  font-weight: 500;
+  color: var(--text-primary);
+  font-size: 0.9rem;
+}
+
+.assignment-due-date {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+}
+
+/* User Cell */
+.user-cell {
+  display: flex;
+  flex-direction: column;
+}
+
+.user-name {
+  font-weight: 500;
+  color: var(--text-primary);
+  font-size: 0.9rem;
+}
+
+/* Date Time Cell - Matching Admin */
+.datetime-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.date {
+  font-weight: 500;
+  color: var(--text-primary);
+  font-size: 0.9rem;
+}
+
+.time {
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+}
+
+/* Status Badges - Matching Admin Exactly */
+.status-badge {
+  padding: 0.375rem 0.875rem;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  display: inline-block;
+  text-align: center;
+  min-width: 176px;
+  border: 1px solid transparent;
+}
+
+.status-badge.status-pending {
+  border: 1px solid #f88d00;
+  color: #f88d00;
+  background: transparent;
+}
+
+.status-badge.status-approved {
+  border: 1px solid #10b981;
+  color: #10b981;
+  background: transparent;
+}
+
+.status-badge.status-rejected {
+  border: 1px solid #ef4444;
+  color: #ef4444;
+  background: transparent;
+}
+
+/* Team Badge - Matching Admin */
+.team-badge {
+  padding: 0.375rem 0.875rem;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  background: transparent;
+  color: #000000;
+  border: 1px solid #000000;
+  width: 130px;
+  text-align: center;
+  display: inline-block;
+}
+
+/* Loading and Empty States */
+.tl-loading,
+.tl-empty {
+  background: var(--background-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  padding: 3rem;
+  text-align: center;
+  color: var(--text-secondary);
+}
+
+.tl-empty h3 {
+  color: var(--text-primary);
+  margin-bottom: 0.5rem;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.tl-empty p {
+  font-size: 14px;
+}
+
+/* Responsive */
+@media (max-width: 1200px) {
+  .tl-page-header-with-stats {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1rem;
+  }
+  
+  .file-status-cards {
+    width: 100%;
+    justify-content: flex-start;
+  }
+}
+
+@media (max-width: 768px) {
+  .tl-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .tl-toolbar-section {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+  
+  .file-status-cards {
+    justify-content: center;
+    flex-direction: column;
+  }
+  
+  .file-status-card {
+    border-right: none;
+    border-bottom: 1px solid var(--border-color);
+  }
+  
+  .file-status-card:last-child {
+    border-bottom: none;
+  }
+  
+  .file-cell {
+    gap: 0.5rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .file-status-card {
+    min-width: auto;
+    width: 100%;
+  }
+  
+  .status-badge {
+    min-width: auto;
+    padding: 0.25rem 0.625rem;
+  }
+  
+  .team-badge {
+    width: auto;
+    min-width: 100px;
+  }
+}

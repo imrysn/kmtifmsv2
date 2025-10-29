@@ -3,6 +3,50 @@ const router = express.Router();
 const { query, queryOne } = require('../../database/config');
 const { createNotification } = require('./notifications');
 
+// Get all submitted files for file collection (Team Leader view)
+router.get('/team-leader/:team/all-submissions', async (req, res) => {
+  try {
+    const { team } = req.params;
+
+    const allSubmissions = await query(`
+      SELECT 
+        f.id,
+        f.original_name,
+        f.filename,
+        f.file_type,
+        f.file_path,
+        f.file_size,
+        f.uploaded_at,
+        f.status,
+        u.username,
+        u.fullName,
+        am.submitted_at,
+        am.created_at,
+        a.id as assignment_id,
+        a.title as assignment_title,
+        a.due_date as assignment_due_date
+      FROM assignment_members am
+      JOIN files f ON am.file_id = f.id
+      JOIN users u ON am.user_id = u.id
+      JOIN assignments a ON am.assignment_id = a.id
+      WHERE a.team = ? AND am.status = 'submitted'
+      ORDER BY am.submitted_at DESC
+    `, [team]);
+
+    res.json({
+      success: true,
+      submissions: allSubmissions || []
+    });
+  } catch (error) {
+    console.error('Error fetching all submissions:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch submissions',
+      error: error.message
+    });
+  }
+});
+
 // Get all assignments for a team leader
 router.get('/team-leader/:team', async (req, res) => {
   try {
@@ -11,26 +55,60 @@ router.get('/team-leader/:team', async (req, res) => {
     const assignments = await query(`
       SELECT
         a.*,
-        COUNT(DISTINCT asub.id) as submission_count,
-        COUNT(DISTINCT am.user_id) as assigned_members_count
+        COUNT(DISTINCT CASE WHEN am.status = 'submitted' AND am.file_id IS NOT NULL THEN am.id END) as submission_count,
+        COUNT(DISTINCT am.id) as assigned_members_count
       FROM assignments a
-      LEFT JOIN assignment_submissions asub ON a.id = asub.assignment_id
       LEFT JOIN assignment_members am ON a.id = am.assignment_id
       WHERE a.team = ?
       GROUP BY a.id
       ORDER BY a.created_at DESC
     `, [team]);
 
-    // Fetch assigned member details for each assignment
+    // Get recent submissions for each assignment
     for (let assignment of assignments) {
-      const memberDetails = await query(`
+      // Get assigned member details
+      const assignedMembers = await query(`
         SELECT u.id, u.username, u.fullName
         FROM assignment_members am
         JOIN users u ON am.user_id = u.id
         WHERE am.assignment_id = ?
       `, [assignment.id]);
       
-      assignment.assigned_member_details = memberDetails || [];
+      assignment.assigned_member_details = assignedMembers || [];
+      
+      const recentSubmissions = await query(`
+        SELECT 
+          f.id,
+          f.original_name,
+          f.filename,
+          f.file_type,
+          f.uploaded_at,
+          f.status,
+          u.username,
+          u.fullName,
+          am.submitted_at,
+          am.created_at,
+          am.status as submission_status
+        FROM assignment_members am
+        JOIN files f ON am.file_id = f.id
+        JOIN users u ON am.user_id = u.id
+        WHERE am.assignment_id = ? AND am.status = 'submitted' AND am.file_id IS NOT NULL
+        ORDER BY am.submitted_at DESC
+        LIMIT 3
+      `, [assignment.id]);
+
+      assignment.recent_submissions = recentSubmissions || [];
+      
+      // Debug log
+      if (assignment.submission_count > 0 && (!recentSubmissions || recentSubmissions.length === 0)) {
+        console.log(`WARNING: Assignment ${assignment.id} has submission_count ${assignment.submission_count} but no recent_submissions`);
+        // Try to debug what's in assignment_members
+        const debugData = await query(
+          'SELECT * FROM assignment_members WHERE assignment_id = ?',
+          [assignment.id]
+        );
+        console.log(`Debug assignment_members for assignment ${assignment.id}:`, debugData);
+      }
     }
 
     res.json({
@@ -81,13 +159,22 @@ router.get('/:assignmentId/details', async (req, res) => {
         f.*,
         u.username,
         u.fullName,
-        asub.submitted_at
-      FROM assignment_submissions asub
-      JOIN files f ON asub.file_id = f.id
-      JOIN users u ON f.user_id = u.id
-      WHERE asub.assignment_id = ?
-      ORDER BY asub.submitted_at DESC
+        am.submitted_at,
+        am.status as review_status,
+        am.id as submission_id
+      FROM assignment_members am
+      JOIN files f ON am.file_id = f.id
+      JOIN users u ON am.user_id = u.id
+      WHERE am.assignment_id = ? AND am.file_id IS NOT NULL AND am.status = 'submitted'
+      ORDER BY am.submitted_at DESC
     `, [assignmentId]);
+
+    console.log(`Assignment ${assignmentId} details:`, {
+      assignmentId,
+      assignedMembersCount: memberDetails?.length || 0,
+      submissionsCount: submissions?.length || 0,
+      submissions: submissions
+    });
 
     res.json({
       success: true,
@@ -414,14 +501,13 @@ router.get('/user/:userId', async (req, res) => {
         ? as assigned_user_username
       FROM assignments a
       LEFT JOIN assignment_members am ON a.id = am.assignment_id AND am.user_id = ?
-      LEFT JOIN assignment_submissions asub ON a.id = asub.assignment_id AND asub.user_id = ?
-      LEFT JOIN files fs ON asub.file_id = fs.id
+      LEFT JOIN files fs ON am.file_id = fs.id
       WHERE
         (a.assigned_to = 'all' AND a.team = ?)
         OR
         (a.assigned_to = 'specific' AND am.user_id = ?)
       ORDER BY a.created_at DESC
-    `, [currentUser.fullName, currentUser.username, userId, userId, currentUser.team, userId]);
+    `, [currentUser.fullName, currentUser.username, userId, currentUser.team, userId]);
 
     console.log('Assignments found:', assignments.length);
     if (assignments.length > 0) {
@@ -492,7 +578,7 @@ router.post('/submit', async (req, res) => {
 
     // Check if already submitted
     const existingSubmission = await queryOne(
-      'SELECT * FROM assignment_submissions WHERE assignment_id = ? AND user_id = ?',
+      'SELECT * FROM assignment_members WHERE assignment_id = ? AND user_id = ? AND status = "submitted"',
       [assignmentId, userId]
     );
 
@@ -503,16 +589,10 @@ router.post('/submit', async (req, res) => {
       });
     }
 
-    // Insert submission
+    // Update assignment_members with file and set status to submitted
     await query(
-      'INSERT INTO assignment_submissions (assignment_id, user_id, file_id, submitted_at) VALUES (?, ?, ?, NOW())',
-      [assignmentId, userId, fileId]
-    );
-
-    // Update assignment_members status
-    await query(
-      'UPDATE assignment_members SET status = ?, submitted_at = NOW() WHERE assignment_id = ? AND user_id = ?',
-      ['submitted', assignmentId, userId]
+      'UPDATE assignment_members SET file_id = ?, status = ?, submitted_at = NOW() WHERE assignment_id = ? AND user_id = ?',
+      [fileId, 'submitted', assignmentId, userId]
     );
 
     res.json({
@@ -735,7 +815,6 @@ router.delete('/:assignmentId', async (req, res) => {
     }
 
     // Delete related records first (replies will cascade delete when comments are deleted)
-    await query('DELETE FROM assignment_submissions WHERE assignment_id = ?', [assignmentId]);
     await query('DELETE FROM assignment_members WHERE assignment_id = ?', [assignmentId]);
     await query('DELETE FROM assignment_comments WHERE assignment_id = ?', [assignmentId]);
     
@@ -751,6 +830,37 @@ router.delete('/:assignmentId', async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Failed to delete assignment',
+      error: error.message
+    });
+  }
+});
+
+// Debug endpoint - Get raw assignment_members data
+router.get('/debug/:assignmentId/members', async (req, res) => {
+  try {
+    const { assignmentId } = req.params;
+
+    const members = await query(
+      'SELECT * FROM assignment_members WHERE assignment_id = ?',
+      [assignmentId]
+    );
+
+    const assignment = await queryOne(
+      'SELECT * FROM assignments WHERE id = ?',
+      [assignmentId]
+    );
+
+    res.json({
+      success: true,
+      assignment,
+      members,
+      membersCount: members?.length || 0
+    });
+  } catch (error) {
+    console.error('Error in debug endpoint:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch debug data',
       error: error.message
     });
   }
