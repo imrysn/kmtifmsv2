@@ -30,13 +30,6 @@ const TasksTab = ({ user }) => {
   useEffect(() => {
     fetchAssignments();
     fetchUserFiles();
-
-    // Poll for new assignments every 10 seconds
-    const pollInterval = setInterval(() => {
-      fetchAssignments();
-    }, 10000);
-
-    return () => clearInterval(pollInterval);
   }, [user.id]);
 
   const fetchAssignments = async () => {
@@ -587,16 +580,33 @@ const TasksTab = ({ user }) => {
 
                 {/* Submitted File Display */}
                 {assignment.user_status === 'submitted' && assignment.submitted_file_name && (
-                  <div style={{
-                    backgroundColor: '#F9FAFB',
-                    border: '1px solid #E5E7EB',
-                    borderRadius: '8px',
-                    padding: '12px',
-                    marginBottom: '16px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '12px'
-                  }}>
+                  <div 
+                    onClick={() => {
+                      if (assignment.submitted_file_path) {
+                        window.open(`http://localhost:3001${assignment.submitted_file_path}`, '_blank');
+                      }
+                    }}
+                    style={{
+                      backgroundColor: '#F9FAFB',
+                      border: '1px solid #E5E7EB',
+                      borderRadius: '8px',
+                      padding: '12px',
+                      marginBottom: '16px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '12px',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s',
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.backgroundColor = '#F3F4F6';
+                      e.currentTarget.style.borderColor = '#2563EB';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.backgroundColor = '#F9FAFB';
+                      e.currentTarget.style.borderColor = '#E5E7EB';
+                    }}
+                  >
                     <FileIcon 
                       fileType={assignment.submitted_file_name.split('.').pop().toLowerCase()} 
                       isFolder={false}
@@ -1021,18 +1031,11 @@ const TasksTab = ({ user }) => {
                       Description (optional):
                     </label>
                     <textarea
+                      className="file-description-textarea"
                       value={fileDescription}
                       onChange={(e) => setFileDescription(e.target.value)}
                       placeholder="Provide a brief description of this file..."
                       rows="3"
-                      style={{
-                        width: '100%',
-                        padding: '10px',
-                        border: '1px solid #d1d5db',
-                        borderRadius: '6px',
-                        fontSize: '14px',
-                        resize: 'vertical'
-                      }}
                       disabled={isUploading}
                     />
                   </div>

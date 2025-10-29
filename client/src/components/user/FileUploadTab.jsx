@@ -77,6 +77,7 @@ const FileUploadTab = ({
                 placeholder="Provide a brief description of this file and its purpose..."
                 rows="4"
                 className="form-textarea"
+                style={{ color: 'white' }}
                 disabled={isUploading}
               />
             </div>
