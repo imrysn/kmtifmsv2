@@ -201,7 +201,7 @@ const FileIcon = ({ fileType, isFolder = false, altText = "File Icon", className
 
   return (
     <div 
-      className={`file-icon ${className}`.trim()}
+      className={`file-icon-wrapper ${className}`.trim()}
       style={{
         width: sizeStyle.width,
         height: sizeStyle.height,
@@ -211,6 +211,7 @@ const FileIcon = ({ fileType, isFolder = false, altText = "File Icon", className
         alignItems: 'center',
         justifyContent: 'center',
         flexShrink: 0,
+        background: 'transparent',
         ...style
       }}
       role="img"

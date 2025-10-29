@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import './css/TasksTab-Enhanced.css';
+import FileIcon from '../admin/FileIcon';
 
 const TasksTab = ({ user }) => {
   const [assignments, setAssignments] = useState([]);
@@ -18,11 +19,25 @@ const TasksTab = ({ user }) => {
   const [replyingTo, setReplyingTo] = useState({});
   const [replyText, setReplyText] = useState({});
   const [isPostingReply, setIsPostingReply] = useState({});
+  const [showCommentsModal, setShowCommentsModal] = useState(false);
+  const [currentCommentsAssignment, setCurrentCommentsAssignment] = useState(null);
+  const [uploadedFile, setUploadedFile] = useState(null);
+  const [fileDescription, setFileDescription] = useState('');
+  const [isUploading, setIsUploading] = useState(false);
+  const [showUploadSection, setShowUploadSection] = useState(false);
+  const fileInputRef = useRef(null);
 
   useEffect(() => {
     fetchAssignments();
     fetchUserFiles();
-  }, []);
+
+    // Poll for new assignments every 10 seconds
+    const pollInterval = setInterval(() => {
+      fetchAssignments();
+    }, 10000);
+
+    return () => clearInterval(pollInterval);
+  }, [user.id]);
 
   const fetchAssignments = async () => {
     setIsLoading(true);
@@ -32,6 +47,11 @@ const TasksTab = ({ user }) => {
       const data = await response.json();
 
       if (data.success) {
+        console.log('Fetched assignments:', data.assignments);
+        if (data.assignments.length > 0) {
+          console.log('First assignment data:', data.assignments[0]);
+          console.log('assigned_member_details:', data.assignments[0].assigned_member_details);
+        }
         setAssignments(data.assignments || []);
         // Fetch comments for each assignment
         data.assignments.forEach(assignment => {
@@ -99,11 +119,9 @@ const TasksTab = ({ user }) => {
     }
   };
 
-  const toggleComments = (assignmentId) => {
-    setExpandedComments(prev => ({
-      ...prev,
-      [assignmentId]: !prev[assignmentId]
-    }));
+  const toggleComments = (assignment) => {
+    setCurrentCommentsAssignment(assignment);
+    setShowCommentsModal(true);
   };
 
   const postReply = async (assignmentId, commentId) => {
@@ -303,7 +321,75 @@ const TasksTab = ({ user }) => {
   const handleSubmit = (assignment) => {
     setCurrentAssignment(assignment);
     setSelectedFile(null);
+    setUploadedFile(null);
+    setFileDescription('');
+    setShowUploadSection(false);
     setShowSubmitModal(true);
+  };
+
+  const handleFileUpload = async () => {
+    if (!uploadedFile || !currentAssignment) return;
+
+    setIsUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', uploadedFile);
+      formData.append('userId', user.id);
+      formData.append('username', user.username);
+      formData.append('fullName', user.fullName);
+      formData.append('userTeam', user.team);
+      formData.append('description', fileDescription);
+
+      const uploadResponse = await fetch('http://localhost:3001/api/files/upload', {
+        method: 'POST',
+        body: formData
+      });
+
+      const uploadData = await uploadResponse.json();
+
+      if (uploadData.success) {
+        // Now submit the assignment with the newly uploaded file
+        const submitResponse = await fetch('http://localhost:3001/api/assignments/submit', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            assignmentId: currentAssignment.id,
+            userId: user.id,
+            fileId: uploadData.file.id
+          })
+        });
+
+        const submitData = await submitResponse.json();
+
+        if (submitData.success) {
+          setSuccess('File uploaded and assignment submitted successfully!');
+          setShowSubmitModal(false);
+          setUploadedFile(null);
+          setFileDescription('');
+          setSelectedFile(null);
+          setCurrentAssignment(null);
+          setShowUploadSection(false);
+          if (fileInputRef.current) {
+            fileInputRef.current.value = '';
+          }
+          fetchAssignments();
+          fetchUserFiles();
+          
+          setTimeout(() => setSuccess(''), 5000);
+        } else {
+          setError(submitData.message || 'Failed to submit assignment');
+        }
+      } else {
+        setError(uploadData.message || 'Failed to upload file');
+      }
+    } catch (error) {
+      console.error('Error uploading file:', error);
+      setError('Failed to upload file');
+    } finally {
+      setIsUploading(false);
+    }
   };
 
   const submitAssignment = async () => {
@@ -437,7 +523,7 @@ const TasksTab = ({ user }) => {
                 }}
               >
                 {/* Header with user info and status */}
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>  
                   <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                     <div style={{
                       width: '48px',
@@ -454,8 +540,30 @@ const TasksTab = ({ user }) => {
                       {getInitials(assignment.team_leader_username)}
                     </div>
                     <div>
-                      <div style={{ fontWeight: '600', fontSize: '15px', color: '#101828' }}>
-                        {assignment.team_leader_username}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '4px' }}>
+                        <span style={{ fontWeight: '600', fontSize: '15px', color: '#050505' }}>
+                          {assignment.team_leader_username}
+                        </span>
+                        {assignment.assigned_to === 'all' ? (
+                          <span style={{ fontSize: '15px', color: '#050505' }}>
+                            Assigned to: <span style={{ fontWeight: '600' }}>all team members</span>
+                          </span>
+                        ) : assignment.assigned_member_details && assignment.assigned_member_details.length > 0 ? (
+                          <span style={{ fontSize: '15px', color: '#050505' }}>
+                            Assigned to: <span style={{ fontWeight: '600' }}>
+                              {assignment.assigned_member_details.map((member, idx) => (
+                                <span key={member.id}>
+                                  {member.fullName || member.username}
+                                  {idx < assignment.assigned_member_details.length - 1 && ', '}
+                                </span>
+                              ))}
+                            </span>
+                          </span>
+                        ) : assignment.assigned_user_fullname && (
+                          <span style={{ fontSize: '15px', color: '#050505' }}>
+                            Assigned to: <span style={{ fontWeight: '600' }}>{assignment.assigned_user_fullname}</span>
+                          </span>
+                        )}
                       </div>
                       <div style={{ fontSize: '13px', color: '#6B7280' }}>
                         {formatDateTime(assignment.created_at)}
@@ -465,15 +573,17 @@ const TasksTab = ({ user }) => {
                   {getStatusBadge(assignment)}
                 </div>
 
-                {/* Assignment ID */}
-                <div style={{ fontSize: '24px', fontWeight: '700', color: '#101828', marginBottom: '8px' }}>
-                  {assignment.id}
-                </div>
-
                 {/* Title */}
-                <div style={{ fontSize: '14px', color: '#4B5563', marginBottom: '16px', letterSpacing: '0.5px' }}>
+                <div style={{ fontSize: '18px', fontWeight: '600', color: '#101828', marginBottom: '8px' }}>
                   {assignment.title}
                 </div>
+
+                {/* Description */}
+                {assignment.description && (
+                  <div style={{ fontSize: '14px', color: '#4B5563', marginBottom: '16px', lineHeight: '1.5' }}>
+                    {assignment.description}
+                  </div>
+                )}
 
                 {/* Submitted File Display */}
                 {assignment.user_status === 'submitted' && assignment.submitted_file_name && (
@@ -487,18 +597,15 @@ const TasksTab = ({ user }) => {
                     alignItems: 'center',
                     gap: '12px'
                   }}>
-                    <div style={{
-                      width: '40px',
-                      height: '40px',
-                      borderRadius: '8px',
-                      backgroundColor: '#EEF2FF',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      fontSize: '20px'
-                    }}>
-                      📎
-                    </div>
+                    <FileIcon 
+                      fileType={assignment.submitted_file_name.split('.').pop().toLowerCase()} 
+                      isFolder={false}
+                      size="default"
+                      style={{
+                        width: '40px',
+                        height: '40px'
+                      }}
+                    />
                     <div style={{ flex: 1 }}>
                       <div style={{ fontWeight: '600', fontSize: '14px', color: '#101828', marginBottom: '2px' }}>
                         {assignment.submitted_file_name}
@@ -547,7 +654,7 @@ const TasksTab = ({ user }) => {
 
                 {/* Submit button */}
                 {assignment.user_status !== 'submitted' && (
-                  <div style={{ paddingTop: '16px', borderTop: '1px solid #E5E7EB' }}>
+                  <div style={{ paddingTop: '16px', borderTop: '1px solid #E5E7EB', display: 'flex', justifyContent: 'flex-end' }}>
                     <button 
                       onClick={() => handleSubmit(assignment)}
                       disabled={userFiles.filter(f => f.status === 'final_approved').length === 0}
@@ -560,7 +667,7 @@ const TasksTab = ({ user }) => {
                         fontWeight: '600',
                         fontSize: '14px',
                         cursor: 'pointer',
-                        width: '100%',
+                        maxWidth: '200px',
                         transition: 'background-color 0.2s',
                         opacity: userFiles.filter(f => f.status === 'final_approved').length === 0 ? 0.5 : 1
                       }}
@@ -571,7 +678,7 @@ const TasksTab = ({ user }) => {
                       }}
                       onMouseLeave={(e) => e.target.style.backgroundColor = '#2563EB'}
                     >
-                      Submit Assignment
+                      Submit Task
                     </button>
                   </div>
                 )}
@@ -579,7 +686,7 @@ const TasksTab = ({ user }) => {
                 {/* Comment toggle */}
                 <div style={{ marginTop: '12px' }}>
                   <button 
-                    onClick={() => toggleComments(assignment.id)}
+                    onClick={() => toggleComments(assignment)}
                     style={{
                       background: 'transparent',
                       border: 'none',
@@ -595,129 +702,6 @@ const TasksTab = ({ user }) => {
                     💬 Comment ({assignmentComments.length})
                   </button>
                 </div>
-
-                {/* Comments Section */}
-                {isCommentsExpanded && (
-                  <div className="comments-section">
-                    {assignmentComments.length > 0 && (
-                      <div className="comments-list">
-                        {assignmentComments.map((comment) => (
-                          <div key={comment.id} className="comment-item">
-                            <div className="comment-avatar">
-                              {getInitials(comment.username)}
-                            </div>
-                            <div className="comment-content">
-                              <div className="comment-bubble">
-                                <div className="comment-author">{comment.username}</div>
-                                <div className="comment-text">{comment.comment}</div>
-                              </div>
-                              <div className="comment-actions">
-                                <span className="comment-timestamp">{formatRelativeTime(comment.created_at)}</span>
-                                <button 
-                                  className="comment-action-btn"
-                                  onClick={() => toggleReplyBox(comment.id)}
-                                >
-                                  Reply
-                                </button>
-                              </div>
-
-                              {/* Replies */}
-                              {comment.replies && comment.replies.length > 0 && (
-                                <div className="replies-list">
-                                  {comment.replies.map((reply) => (
-                                    <div key={reply.id} className="reply-item">
-                                      <div className="comment-avatar reply-avatar">
-                                        {getInitials(reply.username)}
-                                      </div>
-                                      <div className="comment-content">
-                                        <div className="comment-bubble">
-                                          <div className="comment-author">{reply.username}</div>
-                                          <div className="comment-text">{reply.reply}</div>
-                                        </div>
-                                        <div className="comment-timestamp">
-                                          {formatRelativeTime(reply.created_at)}
-                                        </div>
-                                      </div>
-                                    </div>
-                                  ))}
-                                </div>
-                              )}
-
-                              {/* Reply Input Box */}
-                              {replyingTo[comment.id] && (
-                                <div className="reply-input-box">
-                                  <div className="comment-avatar reply-avatar">
-                                    {getInitials(user.username || user.fullName)}
-                                  </div>
-                                  <div className="comment-input-wrapper">
-                                    <input
-                                      type="text"
-                                      className="comment-input"
-                                      placeholder="Write a reply..."
-                                      value={replyText[comment.id] || ''}
-                                      onChange={(e) => setReplyText(prev => ({ 
-                                        ...prev, 
-                                        [comment.id]: e.target.value 
-                                      }))}
-                                      onKeyPress={(e) => {
-                                        if (e.key === 'Enter' && !e.shiftKey) {
-                                          e.preventDefault();
-                                          postReply(assignment.id, comment.id);
-                                        }
-                                      }}
-                                      disabled={isPostingReply[comment.id]}
-                                      autoFocus
-                                    />
-                                    <button
-                                      className="comment-submit-btn"
-                                      onClick={() => postReply(assignment.id, comment.id)}
-                                      disabled={!replyText[comment.id]?.trim() || isPostingReply[comment.id]}
-                                    >
-                                      {isPostingReply[comment.id] ? '...' : '➤'}
-                                    </button>
-                                  </div>
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-
-                    {/* Add Comment */}
-                    <div className="add-comment">
-                      <div className="comment-avatar">
-                        {getInitials(user.username || user.fullName)}
-                      </div>
-                      <div className="comment-input-wrapper">
-                        <input
-                          type="text"
-                          className="comment-input"
-                          placeholder="Write a comment..."
-                          value={newComment[assignment.id] || ''}
-                          onChange={(e) => setNewComment(prev => ({ 
-                            ...prev, 
-                            [assignment.id]: e.target.value 
-                          }))}
-                          onKeyPress={(e) => {
-                            if (e.key === 'Enter' && !e.shiftKey) {
-                              e.preventDefault();
-                              postComment(assignment.id);
-                            }
-                          }}
-                          disabled={isPostingComment[assignment.id]}
-                        />
-                        <button
-                          className="comment-submit-btn"
-                          onClick={() => postComment(assignment.id)}
-                          disabled={!newComment[assignment.id]?.trim() || isPostingComment[assignment.id]}
-                        >
-                          {isPostingComment[assignment.id] ? '...' : '➤'}
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                )}
               </div>
             );
           })}
@@ -730,12 +714,153 @@ const TasksTab = ({ user }) => {
         </div>
       )}
 
+      {/* Comments Modal */}
+      {showCommentsModal && currentCommentsAssignment && (
+        <div className="tasks-modal-overlay" onClick={() => setShowCommentsModal(false)}>
+          <div className="tasks-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '700px' }}>
+            <div className="tasks-modal-header">
+              <h3>Comments - {currentCommentsAssignment.title}</h3>
+              <button className="tasks-modal-close" onClick={() => setShowCommentsModal(false)}>×</button>
+            </div>
+
+            <div className="tasks-modal-body" style={{ maxHeight: '600px', overflowY: 'auto' }}>
+              {/* Comments Section */}
+              <div className="comments-section">
+                {comments[currentCommentsAssignment.id]?.length > 0 ? (
+                  <div className="comments-list">
+                    {comments[currentCommentsAssignment.id].map((comment) => (
+                      <div key={comment.id} className="comment-item">
+                        <div className="comment-avatar">
+                          {getInitials(comment.username)}
+                        </div>
+                        <div className="comment-content">
+                          <div className="comment-bubble">
+                            <div className="comment-author">{comment.username}</div>
+                            <div className="comment-text">{comment.comment}</div>
+                          </div>
+                          <div className="comment-actions">
+                            <span className="comment-timestamp">{formatRelativeTime(comment.created_at)}</span>
+                            <button 
+                              className="comment-action-btn"
+                              onClick={() => toggleReplyBox(comment.id)}
+                            >
+                              Reply
+                            </button>
+                          </div>
+
+                          {/* Replies */}
+                          {comment.replies && comment.replies.length > 0 && (
+                            <div className="replies-list">
+                              {comment.replies.map((reply) => (
+                                <div key={reply.id} className="reply-item">
+                                  <div className="comment-avatar reply-avatar">
+                                    {getInitials(reply.username)}
+                                  </div>
+                                  <div className="comment-content">
+                                    <div className="comment-bubble">
+                                      <div className="comment-author">{reply.username}</div>
+                                      <div className="comment-text">{reply.reply}</div>
+                                    </div>
+                                    <div className="comment-timestamp">
+                                      {formatRelativeTime(reply.created_at)}
+                                    </div>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+
+                          {/* Reply Input Box */}
+                          {replyingTo[comment.id] && (
+                            <div className="reply-input-box">
+                              <div className="comment-avatar reply-avatar">
+                                {getInitials(user.username || user.fullName)}
+                              </div>
+                              <div className="comment-input-wrapper">
+                                <input
+                                  type="text"
+                                  className="comment-input"
+                                  placeholder="Write a reply..."
+                                  value={replyText[comment.id] || ''}
+                                  onChange={(e) => setReplyText(prev => ({ 
+                                    ...prev, 
+                                    [comment.id]: e.target.value 
+                                  }))}
+                                  onKeyPress={(e) => {
+                                    if (e.key === 'Enter' && !e.shiftKey) {
+                                      e.preventDefault();
+                                      postReply(currentCommentsAssignment.id, comment.id);
+                                    }
+                                  }}
+                                  disabled={isPostingReply[comment.id]}
+                                  autoFocus
+                                />
+                                <button
+                                  className="comment-submit-btn"
+                                  onClick={() => postReply(currentCommentsAssignment.id, comment.id)}
+                                  disabled={!replyText[comment.id]?.trim() || isPostingReply[comment.id]}
+                                >
+                                  {isPostingReply[comment.id] ? '...' : '➤'}
+                                </button>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div style={{ textAlign: 'center', padding: '40px 20px', color: '#6B7280' }}>
+                    <div style={{ fontSize: '48px', marginBottom: '16px' }}>💬</div>
+                    <p style={{ fontSize: '16px', fontWeight: '600', marginBottom: '8px' }}>No comments yet</p>
+                    <p style={{ fontSize: '14px' }}>Be the first to comment on this task</p>
+                  </div>
+                )}
+
+                {/* Add Comment */}
+                <div className="add-comment" style={{ marginTop: '20px', borderTop: '1px solid #E5E7EB', paddingTop: '20px' }}>
+                  <div className="comment-avatar">
+                    {getInitials(user.username || user.fullName)}
+                  </div>
+                  <div className="comment-input-wrapper">
+                    <input
+                      type="text"
+                      className="comment-input"
+                      placeholder="Write a comment..."
+                      value={newComment[currentCommentsAssignment.id] || ''}
+                      onChange={(e) => setNewComment(prev => ({ 
+                        ...prev, 
+                        [currentCommentsAssignment.id]: e.target.value 
+                      }))}
+                      onKeyPress={(e) => {
+                        if (e.key === 'Enter' && !e.shiftKey) {
+                          e.preventDefault();
+                          postComment(currentCommentsAssignment.id);
+                        }
+                      }}
+                      disabled={isPostingComment[currentCommentsAssignment.id]}
+                    />
+                    <button
+                      className="comment-submit-btn"
+                      onClick={() => postComment(currentCommentsAssignment.id)}
+                      disabled={!newComment[currentCommentsAssignment.id]?.trim() || isPostingComment[currentCommentsAssignment.id]}
+                    >
+                      {isPostingComment[currentCommentsAssignment.id] ? '...' : '➤'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Submit Modal */}
       {showSubmitModal && currentAssignment && (
         <div className="tasks-modal-overlay" onClick={() => setShowSubmitModal(false)}>
           <div className="tasks-modal" onClick={(e) => e.stopPropagation()}>
             <div className="tasks-modal-header">
-              <h3>Submit Assignment</h3>
+              <h3>Submit Task</h3>
               <button className="tasks-modal-close" onClick={() => setShowSubmitModal(false)}>×</button>
             </div>
 
@@ -747,53 +872,203 @@ const TasksTab = ({ user }) => {
                 )}
               </div>
 
-              <div className="tasks-file-selection">
-                <h4 className="tasks-selection-title">Select a file to submit:</h4>
-                {userFiles.filter(f => f.status === 'final_approved').length > 0 ? (
-                  <div className="tasks-file-list">
-                    {userFiles
-                      .filter(f => f.status === 'final_approved')
-                      .map((file) => (
-                        <div
-                          key={file.id}
-                          className={`tasks-file-item ${selectedFile?.id === file.id ? 'selected' : ''}`}
-                          onClick={() => setSelectedFile(file)}
-                        >
-                          <div className="tasks-file-details">
-                            <div className="tasks-file-name">{file.original_name}</div>
-                            <div className="tasks-file-meta">
-                              {formatFileSize(file.file_size)} • {formatDate(file.uploaded_at)}
+              {/* Toggle between Upload and Select existing file */}
+              <div style={{ marginBottom: '20px', display: 'flex', gap: '12px', borderBottom: '2px solid #e4e6eb' }}>
+                <button
+                  onClick={() => setShowUploadSection(false)}
+                  style={{
+                    flex: 1,
+                    padding: '12px',
+                    background: !showUploadSection ? '#fff' : 'transparent',
+                    border: 'none',
+                    borderBottom: !showUploadSection ? '2px solid #2563EB' : '2px solid transparent',
+                    marginBottom: '-2px',
+                    color: !showUploadSection ? '#2563EB' : '#6B7280',
+                    fontWeight: '600',
+                    cursor: 'pointer',
+                    fontSize: '14px'
+                  }}
+                >
+                  Select Existing File
+                </button>
+                <button
+                  onClick={() => setShowUploadSection(true)}
+                  style={{
+                    flex: 1,
+                    padding: '12px',
+                    background: showUploadSection ? '#fff' : 'transparent',
+                    border: 'none',
+                    borderBottom: showUploadSection ? '2px solid #2563EB' : '2px solid transparent',
+                    marginBottom: '-2px',
+                    color: showUploadSection ? '#2563EB' : '#6B7280',
+                    fontWeight: '600',
+                    cursor: 'pointer',
+                    fontSize: '14px'
+                  }}
+                >
+                  Upload New File
+                </button>
+              </div>
+
+              {!showUploadSection ? (
+                <div className="tasks-file-selection">
+                  <h4 className="tasks-selection-title">Select a file to submit:</h4>
+                  {userFiles.filter(f => f.status === 'final_approved').length > 0 ? (
+                    <div className="tasks-file-list">
+                      {userFiles
+                        .filter(f => f.status === 'final_approved')
+                        .map((file) => (
+                          <div
+                            key={file.id}
+                            className={`tasks-file-item ${selectedFile?.id === file.id ? 'selected' : ''}`}
+                            onClick={() => setSelectedFile(file)}
+                          >
+                            <FileIcon 
+                              fileType={file.original_name.split('.').pop().toLowerCase()} 
+                              isFolder={false}
+                              size="default"
+                              style={{
+                                width: '40px',
+                                height: '40px',
+                                flexShrink: 0
+                              }}
+                            />
+                            <div className="tasks-file-details">
+                              <div className="tasks-file-name">{file.original_name}</div>
+                              <div className="tasks-file-meta">
+                                {formatFileSize(file.file_size)} • {formatDate(file.uploaded_at)}
+                              </div>
+                            </div>
+                            <div className="tasks-radio">
+                              {selectedFile?.id === file.id && <div className="tasks-radio-dot"></div>}
                             </div>
                           </div>
-                          <div className="tasks-radio">
-                            {selectedFile?.id === file.id && <div className="tasks-radio-dot"></div>}
-                          </div>
+                        ))}
+                    </div>
+                  ) : (
+                    <div className="tasks-no-files">
+                      <p>You don't have any approved files yet.</p>
+                      <p>Upload a new file using the "Upload New File" tab above.</p>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="tasks-file-selection">
+                  <h4 className="tasks-selection-title">Upload a new file:</h4>
+                  <div style={{ marginBottom: '16px' }}>
+                    <label style={{ display: 'block', marginBottom: '8px', fontWeight: '600', fontSize: '14px', color: '#101828' }}>
+                      Select File:
+                    </label>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      onChange={(e) => {
+                        const file = e.target.files[0];
+                        if (file) {
+                          setUploadedFile(file);
+                        }
+                      }}
+                      style={{
+                        width: '100%',
+                        padding: '12px',
+                        border: '2px dashed #d1d5db',
+                        borderRadius: '8px',
+                        cursor: 'pointer',
+                        fontSize: '14px',
+                        backgroundColor: '#f9fafb'
+                      }}
+                      disabled={isUploading}
+                    />
+                    <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '8px' }}>
+                      <p style={{ margin: '4px 0' }}>All file types are supported</p>
+                      <p style={{ margin: '4px 0' }}>No file size limit</p>
+                    </div>
+                  </div>
+
+                  {uploadedFile && (
+                    <div style={{
+                      padding: '12px',
+                      background: '#f9fafb',
+                      borderRadius: '8px',
+                      marginBottom: '16px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '12px'
+                    }}>
+                      <FileIcon 
+                        fileType={uploadedFile.name.split('.').pop().toLowerCase()} 
+                        isFolder={false}
+                        size="default"
+                        style={{
+                          width: '40px',
+                          height: '40px',
+                          flexShrink: 0
+                        }}
+                      />
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontWeight: '600', fontSize: '14px', color: '#101828' }}>
+                          {uploadedFile.name}
                         </div>
-                      ))}
+                        <div style={{ fontSize: '12px', color: '#6B7280' }}>
+                          {formatFileSize(uploadedFile.size)}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  <div>
+                    <label style={{ display: 'block', marginBottom: '8px', fontWeight: '600', fontSize: '14px', color: '#101828' }}>
+                      Description (optional):
+                    </label>
+                    <textarea
+                      value={fileDescription}
+                      onChange={(e) => setFileDescription(e.target.value)}
+                      placeholder="Provide a brief description of this file..."
+                      rows="3"
+                      style={{
+                        width: '100%',
+                        padding: '10px',
+                        border: '1px solid #d1d5db',
+                        borderRadius: '6px',
+                        fontSize: '14px',
+                        resize: 'vertical'
+                      }}
+                      disabled={isUploading}
+                    />
                   </div>
-                ) : (
-                  <div className="tasks-no-files">
-                    <p>You need to have approved files to submit assignments.</p>
-                    <p>Please upload files and wait for approval first.</p>
-                  </div>
-                )}
-              </div>
+                </div>
+              )}
             </div>
 
             <div className="tasks-modal-footer">
               <button
                 className="tasks-btn tasks-btn-cancel"
-                onClick={() => setShowSubmitModal(false)}
+                onClick={() => {
+                  setShowSubmitModal(false);
+                  setUploadedFile(null);
+                  setFileDescription('');
+                  setShowUploadSection(false);
+                }}
               >
                 Cancel
               </button>
-              <button
-                className="tasks-btn tasks-btn-submit"
-                onClick={submitAssignment}
-                disabled={!selectedFile || isSubmitting}
-              >
-                {isSubmitting ? 'Submitting...' : 'Submit Assignment'}
-              </button>
+              {showUploadSection ? (
+                <button
+                  className="tasks-btn tasks-btn-submit"
+                  onClick={handleFileUpload}
+                  disabled={!uploadedFile || isUploading}
+                >
+                  {isUploading ? 'Uploading & Submitting...' : 'Upload & Submit'}
+                </button>
+              ) : (
+                <button
+                  className="tasks-btn tasks-btn-submit"
+                  onClick={submitAssignment}
+                  disabled={!selectedFile || isSubmitting}
+                >
+                  {isSubmitting ? 'Submitting...' : 'Submit'}
+                </button>
+              )}
             </div>
           </div>
         </div>

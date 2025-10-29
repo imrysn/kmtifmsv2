@@ -280,6 +280,7 @@
   font-weight: 500;
   cursor: pointer;
   transition: background 0.2s;
+  max-width: 200px;
 }
 
 .btn-submit:hover:not(:disabled) {

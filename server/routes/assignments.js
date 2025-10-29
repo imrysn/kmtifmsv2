@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { query, queryOne } = require('../../database/config');
+const { createNotification } = require('./notifications');
 
 // Get all submitted files for file collection (Team Leader view)
 router.get('/team-leader/:team/all-submissions', async (req, res) => {
@@ -142,17 +143,17 @@ router.get('/:assignmentId/details', async (req, res) => {
       });
     }
 
-    // Get assigned members details
-    const assignedMembers = await query(`
+    // Get assigned member details
+    const memberDetails = await query(`
       SELECT u.id, u.username, u.fullName
       FROM assignment_members am
       JOIN users u ON am.user_id = u.id
       WHERE am.assignment_id = ?
     `, [assignmentId]);
+    
+    assignment.assigned_member_details = memberDetails || [];
 
-    assignment.assigned_member_details = assignedMembers || [];
-
-    // Get submissions - with better error handling
+    // Get submissions
     const submissions = await query(`
       SELECT 
         f.*,
@@ -170,7 +171,7 @@ router.get('/:assignmentId/details', async (req, res) => {
 
     console.log(`Assignment ${assignmentId} details:`, {
       assignmentId,
-      assignedMembersCount: assignedMembers?.length || 0,
+      assignedMembersCount: memberDetails?.length || 0,
       submissionsCount: submissions?.length || 0,
       submissions: submissions
     });
@@ -316,6 +317,130 @@ router.post('/create', async (req, res) => {
         console.warn('Activity log insertion failed:', logError.message);
       }
 
+      // Create notifications for assigned members
+      try {
+        console.log('🔔 Creating notifications for assignment:', assignmentId);
+        console.log('Assigned to:', finalAssignedTo);
+        console.log('Members:', finalMembers);
+        console.log('Team:', team);
+        console.log('Team Leader:', finalTeamLeaderUsername, '(ID:', finalTeamLeaderId, ')');
+        
+        if (finalAssignedTo === 'specific' && finalMembers && finalMembers.length > 0) {
+          // Notify specific members
+          console.log('Creating notifications for specific members:', finalMembers);
+          for (const userId of finalMembers) {
+            try {
+              const notificationData = {
+                user_id: userId,
+                assignment_id: assignmentId,
+                file_id: null,
+                type: 'assignment',
+                title: 'New Assignment',
+                message: `${finalTeamLeaderUsername} assigned you a new task: "${title}"${finalDueDate ? ` - Due: ${new Date(finalDueDate).toLocaleDateString()}` : ''}`,
+                action_by_id: finalTeamLeaderId,
+                action_by_username: finalTeamLeaderUsername,
+                action_by_role: 'TEAM_LEADER'
+              };
+              
+              console.log('Inserting notification:', notificationData);
+              
+              await query(`
+                INSERT INTO notifications (
+                  user_id,
+                  assignment_id,
+                  file_id,
+                  type,
+                  title,
+                  message,
+                  action_by_id,
+                  action_by_username,
+                  action_by_role
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+              `, [
+                notificationData.user_id,
+                notificationData.assignment_id,
+                notificationData.file_id,
+                notificationData.type,
+                notificationData.title,
+                notificationData.message,
+                notificationData.action_by_id,
+                notificationData.action_by_username,
+                notificationData.action_by_role
+              ]);
+              console.log(`✅ Notification created successfully for user ${userId}`);
+            } catch (err) {
+              console.error(`❌ Failed to create notification for user ${userId}:`, err);
+              console.error('Error details:', err.message);
+              console.error('SQL State:', err.sqlState);
+              console.error('SQL Message:', err.sqlMessage);
+            }
+          }
+          console.log(`✅ Completed creating ${finalMembers.length} notification(s) for specific members`);
+        } else if (finalAssignedTo === 'all') {
+          // Notify all team members
+          console.log('Creating notifications for all team members in team:', team);
+          const teamMembers = await query(
+            'SELECT id FROM users WHERE team = ? AND role = ?',
+            [team, 'USER']
+          );
+          
+          console.log(`Found ${teamMembers.length} team members to notify`);
+          for (const member of teamMembers) {
+            try {
+              const notificationData = {
+                user_id: member.id,
+                assignment_id: assignmentId,
+                file_id: null,
+                type: 'assignment',
+                title: 'New Assignment',
+                message: `${finalTeamLeaderUsername} assigned a new task to all team members: "${title}"${finalDueDate ? ` - Due: ${new Date(finalDueDate).toLocaleDateString()}` : ''}`,
+                action_by_id: finalTeamLeaderId,
+                action_by_username: finalTeamLeaderUsername,
+                action_by_role: 'TEAM_LEADER'
+              };
+              
+              console.log('Inserting notification for member:', member.id, notificationData);
+              
+              await query(`
+                INSERT INTO notifications (
+                  user_id,
+                  assignment_id,
+                  file_id,
+                  type,
+                  title,
+                  message,
+                  action_by_id,
+                  action_by_username,
+                  action_by_role
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+              `, [
+                notificationData.user_id,
+                notificationData.assignment_id,
+                notificationData.file_id,
+                notificationData.type,
+                notificationData.title,
+                notificationData.message,
+                notificationData.action_by_id,
+                notificationData.action_by_username,
+                notificationData.action_by_role
+              ]);
+              console.log(`✅ Notification created successfully for user ${member.id}`);
+            } catch (err) {
+              console.error(`❌ Failed to create notification for user ${member.id}:`, err);
+              console.error('Error details:', err.message);
+              console.error('SQL State:', err.sqlState);
+              console.error('SQL Message:', err.sqlMessage);
+            }
+          }
+          console.log(`✅ Completed creating ${teamMembers.length} notification(s) for all team members`);
+        }
+      } catch (notificationError) {
+        console.error('⚠️ Failed to create notifications:', notificationError.message);
+        console.error('Full error:', notificationError);
+        console.error('Stack:', notificationError.stack);
+        // Don't fail the request if notifications fail
+      }
+
       res.json({
         success: true,
         message: 'Assignment created successfully',
@@ -350,22 +475,56 @@ router.get('/user/:userId', async (req, res) => {
   try {
     const { userId } = req.params;
 
+    // First get the current user's info
+    const currentUser = await queryOne(
+      'SELECT username, fullName, team FROM users WHERE id = ?',
+      [userId]
+    );
+
+    if (!currentUser) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    console.log('Current user:', currentUser);
+
     const assignments = await query(`
       SELECT
         a.*,
         am.status as user_status,
         am.submitted_at as user_submitted_at,
         fs.original_name as submitted_file_name,
-        fs.id as submitted_file_id
+        fs.id as submitted_file_id,
+        ? as assigned_user_fullname,
+        ? as assigned_user_username
       FROM assignments a
       LEFT JOIN assignment_members am ON a.id = am.assignment_id AND am.user_id = ?
       LEFT JOIN files fs ON am.file_id = fs.id
       WHERE
-        (a.assigned_to = 'all' AND a.team = (SELECT team FROM users WHERE id = ?))
+        (a.assigned_to = 'all' AND a.team = ?)
         OR
         (a.assigned_to = 'specific' AND am.user_id = ?)
       ORDER BY a.created_at DESC
-    `, [userId, userId, userId]);
+    `, [currentUser.fullName, currentUser.username, userId, currentUser.team, userId]);
+
+    console.log('Assignments found:', assignments.length);
+    if (assignments.length > 0) {
+      console.log('First assignment:', assignments[0]);
+    }
+
+    // Fetch assigned member details for each assignment
+    for (let assignment of assignments) {
+      const memberDetails = await query(`
+        SELECT u.id, u.username, u.fullName
+        FROM assignment_members am
+        JOIN users u ON am.user_id = u.id
+        WHERE am.assignment_id = ?
+      `, [assignment.id]);
+      
+      assignment.assigned_member_details = memberDetails || [];
+    }
 
     res.json({
       success: true,

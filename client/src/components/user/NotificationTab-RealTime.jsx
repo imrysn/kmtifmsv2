@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import './css/NotificationTab.css';
 
-const NotificationTab = ({ user, onOpenFile }) => {
+const NotificationTab = ({ user, onOpenFile, onNavigateToTasks }) => {
   const [notifications, setNotifications] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -55,9 +55,17 @@ const NotificationTab = ({ user, onOpenFile }) => {
       }
     }
 
-    // Open the file details if onOpenFile callback is provided
-    if (onOpenFile && notification.file_id) {
-      onOpenFile(notification.file_id);
+    // Handle navigation based on notification type
+    if (notification.type === 'assignment') {
+      // Navigate to tasks tab for assignment notifications
+      if (onNavigateToTasks) {
+        onNavigateToTasks();
+      }
+    } else if (notification.file_id) {
+      // Open the file details for file-related notifications
+      if (onOpenFile) {
+        onOpenFile(notification.file_id);
+      }
     }
   };
 
@@ -139,6 +147,8 @@ const NotificationTab = ({ user, onOpenFile }) => {
         return '⛔';
       case 'comment':
         return '💬';
+      case 'assignment':
+        return '📋';
       default:
         return '📄';
     }
@@ -171,6 +181,8 @@ const NotificationTab = ({ user, onOpenFile }) => {
         return 'notification-error';
       case 'comment':
         return 'notification-info';
+      case 'assignment':
+        return 'notification-assignment';
       default:
         return 'notification-default';
     }
@@ -271,6 +283,16 @@ const NotificationTab = ({ user, onOpenFile }) => {
                     {notification.file_status && (
                       <span className="notification-status">
                         Status: {getStatusDisplayName(notification.file_status)}
+                      </span>
+                    )}
+                    {notification.assignment_title && (
+                      <span className="notification-assignment-title">
+                        📋 Assignment: {notification.assignment_title}
+                      </span>
+                    )}
+                    {notification.assignment_due_date && (
+                      <span className="notification-due-date">
+                        📅 Due: {new Date(notification.assignment_due_date).toLocaleDateString()}
                       </span>
                     )}
                   </div>
