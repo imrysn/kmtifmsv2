@@ -8,7 +8,7 @@ import {
   TopBar,
   AlertMessage,
   OverviewTab,
-  FileReviewTab,
+  FileCollectionTab,
   TeamManagementTab,
   AssignmentsTab,
   BulkActionModal,
@@ -17,7 +17,8 @@ import {
   MemberFilesModal,
   CreateAssignmentModal,
   AssignmentDetailsModal,
-  ReviewModal
+  ReviewModal,
+  FileViewModal
 } from '../components/teamleader'
 
 const TeamLeaderDashboard = ({ user, onLogout }) => {
@@ -25,11 +26,13 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [pendingFiles, setPendingFiles] = useState([])
   const [filteredFiles, setFilteredFiles] = useState([])
+  const [submittedFiles, setSubmittedFiles] = useState([])
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
   const [selectedFile, setSelectedFile] = useState(null)
   const [showReviewModal, setShowReviewModal] = useState(false)
+  const [showFileViewModal, setShowFileViewModal] = useState(false)
   const [reviewComments, setReviewComments] = useState('')
   const [reviewAction, setReviewAction] = useState('')
   const [isProcessing, setIsProcessing] = useState(false)
@@ -96,10 +99,19 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
   })
 
   useEffect(() => {
-    fetchPendingFiles('total')
+    // Only fetch files for tabs that need them
+    if (activeTab === 'overview') {
+      fetchPendingFiles('total')
+    }
+    
+    if (activeTab === 'file-collection') {
+      fetchAllSubmissions()
+    }
+    
     fetchTeamMembers()
     fetchNotifications()
     fetchAnalytics()
+    
     if (activeTab === 'assignments') {
       fetchAssignments()
     }
@@ -133,6 +145,23 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
       setFilteredFiles(filtered)
     }
   }, [pendingFiles, searchQuery, selectedStatusFilter])
+
+  const fetchAllSubmissions = async () => {
+    setIsLoading(true)
+    try {
+      const response = await fetch(`http://localhost:3001/api/assignments/team-leader/${user.team}/all-submissions`)
+      const data = await response.json()
+
+      if (data.success) {
+        setSubmittedFiles(data.submissions || [])
+      }
+    } catch (error) {
+      console.error('Error fetching all submissions:', error)
+      setSubmittedFiles([])
+    } finally {
+      setIsLoading(false)
+    }
+  }
 
   const fetchPendingFiles = async (status = null) => {
     setIsLoading(true)
@@ -359,6 +388,11 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
       console.error('Error fetching comments:', error)
       setFileComments([])
     }
+  }
+
+  const openFileViewModal = (file) => {
+    setSelectedFile(file)
+    setShowFileViewModal(true)
   }
 
   const handleReviewSubmit = async (e) => {
@@ -678,27 +712,14 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
             calculateApprovalRate={calculateApprovalRate}
           />
         )
-      case 'file-review':
+      case 'file-collection':
         return (
-          <FileReviewTab
-            analyticsData={analyticsData}
-            selectedStatusFilter={selectedStatusFilter}
-            handleStatusFilter={handleStatusFilter}
-            selectedFileIds={selectedFileIds}
-            filteredFiles={filteredFiles}
-            selectAllFiles={selectAllFiles}
-            handleBulkAction={handleBulkAction}
-            hasActiveFilters={hasActiveFilters}
-            setShowFilterModal={setShowFilterModal}
-            sortConfig={sortConfig}
-            setSortConfig={setSortConfig}
-            applyFilters={applyFilters}
+          <FileCollectionTab
+            submittedFiles={submittedFiles}
             isLoading={isLoading}
-            toggleFileSelection={toggleFileSelection}
-            openReviewModal={openReviewModal}
+            openFileViewModal={openFileViewModal}
             formatFileSize={formatFileSize}
             user={user}
-            openPriorityModal={openPriorityModal}
             openMenuId={openMenuId}
             toggleMenu={toggleMenu}
             handleOpenInExplorer={handleOpenInExplorer}
@@ -721,6 +742,7 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
             fetchAssignmentDetails={fetchAssignmentDetails}
             deleteAssignment={deleteAssignment}
             setShowCreateAssignmentModal={setShowCreateAssignmentModal}
+            openReviewModal={openReviewModal}
           />
         )
       default:
@@ -830,6 +852,8 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
           formatDate={formatDate}
           formatDateTime={formatDateTime}
           formatFileSize={formatFileSize}
+          teamLeaderId={user.id}
+          teamLeaderUsername={user.username}
         />
 
         <ReviewModal
@@ -843,6 +867,14 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
           setReviewComments={setReviewComments}
           isProcessing={isProcessing}
           handleReviewSubmit={handleReviewSubmit}
+          formatFileSize={formatFileSize}
+          user={user}
+        />
+
+        <FileViewModal
+          showModal={showFileViewModal}
+          setShowModal={setShowFileViewModal}
+          selectedFile={selectedFile}
           formatFileSize={formatFileSize}
           user={user}
         />
