@@ -95,12 +95,17 @@
   resize: vertical;
   font-family: inherit;
   font-size: 14px;
+  color: white !important;
 }
 
 .user-file-upload-component .form-textarea:focus {
   outline: none;
   border-color: var(--user-accent);
   box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.1);
+}
+
+.user-file-upload-component .form-textarea::placeholder {
+  color: rgba(255, 255, 255, 0.6) !important;
 }
 
 /* Selected File Info */

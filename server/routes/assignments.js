@@ -496,6 +496,7 @@ router.get('/user/:userId', async (req, res) => {
         am.status as user_status,
         am.submitted_at as user_submitted_at,
         fs.original_name as submitted_file_name,
+        fs.file_path as submitted_file_path,
         fs.id as submitted_file_id,
         ? as assigned_user_fullname,
         ? as assigned_user_username
