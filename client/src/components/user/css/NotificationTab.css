@@ -176,6 +176,14 @@
   background-color: #eef2ff;
 }
 
+.user-notification-component .notification-card.notification-assignment {
+  border-left-color: #8b5cf6;
+}
+
+.user-notification-component .notification-card.unread.notification-assignment {
+  background-color: #faf5ff;
+}
+
 .user-notification-component .notification-icon {
   font-size: 24px;
   flex-shrink: 0;
@@ -247,6 +255,7 @@
 
 .user-notification-component .notification-footer {
   display: flex;
+  flex-wrap: wrap;
   gap: 16px;
   font-size: 13px;
   color: #6b7280;
@@ -258,6 +267,23 @@
 
 .user-notification-component .notification-file {
   color: #3b82f6;
+}
+
+.user-notification-component .notification-assignment-title {
+  font-weight: 600;
+  color: #8b5cf6;
+}
+
+.user-notification-component .notification-due-date {
+  font-weight: 500;
+  color: #f59e0b;
+}
+
+.user-notification-component .notification-status {
+  padding: 2px 8px;
+  background-color: #f3f4f6;
+  border-radius: 4px;
+  font-weight: 500;
 }
 
 .user-notification-component .unread-indicator {

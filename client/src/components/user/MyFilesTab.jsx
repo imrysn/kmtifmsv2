@@ -3,6 +3,7 @@ import { useState, useRef, useEffect } from 'react';
 import SingleSelectTags from './SingleSelectTags';
 import ConfirmationModal from '../admin/modals/ConfirmationModal';
 import SuccessModal from './SuccessModal';
+import FileIcon from '../admin/FileIcon';
 
 const MyFilesTab = ({ 
   filteredFiles,
@@ -398,19 +399,6 @@ const MyFilesTab = ({
     return { date: dateStr, time: timeStr };
   };
 
-  const getFileTypeClass = (fileName) => {
-    const ext = fileName.split('.').pop().toLowerCase();
-    
-    if (['pdf'].includes(ext)) return 'pdf-type';
-    if (['doc', 'docx', 'txt'].includes(ext)) return 'doc-type';
-    if (['xls', 'xlsx', 'csv'].includes(ext)) return 'xls-type';
-    if (['ppt', 'pptx'].includes(ext)) return 'ppt-type';
-    if (['zip', 'rar', 'tar', '7z'].includes(ext)) return 'zip-type';
-    if (['png', 'jpg', 'jpeg', 'gif', 'bmp'].includes(ext)) return 'img-type';
-    
-    return 'default-type';
-  };
-
   const submittedFiles = filteredFiles.filter(f => 
     f.status === 'final_approved' || f.status === 'uploaded' || f.status === 'team_leader_approved' || f.status === 'rejected_by_team_leader' || f.status === 'rejected_by_admin'
   );
@@ -487,7 +475,16 @@ const MyFilesTab = ({
               return (
                 <div key={file.id} className="file-row-new" onClick={() => openFileDetails(file)}>
                   <div className="col-filename">
-                    <div className={`file-icon-box ${getFileTypeClass(file.original_name)}`}>{file.file_type.substring(0, 3).toUpperCase()}</div>
+                    <FileIcon 
+                      fileType={file.original_name.split('.').pop().toLowerCase()} 
+                      isFolder={false}
+                      size="default"
+                      altText={`${file.file_type} file`}
+                      style={{
+                        width: '44px',
+                        height: '44px'
+                      }}
+                    />
                     <div className="file-text">
                       <div className="filename">{file.original_name}</div>
                       <div className="filesize">{formatFileSize(file.file_size)}</div>
@@ -622,9 +619,16 @@ const MyFilesTab = ({
               {uploadedFile && (
                 <div className="selected-file-info">
                   <div className="file-preview">
-                    <div className="file-icon-preview">
-                      {uploadedFile.name.split('.').pop().toUpperCase()}
-                    </div>
+                    <FileIcon 
+                      fileType={uploadedFile.name.split('.').pop().toLowerCase()} 
+                      isFolder={false}
+                      size="default"
+                      altText={`${uploadedFile.name} file`}
+                      style={{
+                        width: '36px',
+                        height: '36px'
+                      }}
+                    />
                     <div className="file-details">
                       <div className="file-name">{uploadedFile.name}</div>
                       <div className="file-size">{formatFileSize(uploadedFile.size)}</div>

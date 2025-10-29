@@ -146,6 +146,10 @@ const UserDashboard = ({ user, onLogout }) => {
     }
   }
 
+  const navigateToTasks = () => {
+    setActiveTab('tasks')
+  }
+
   const formatFileSize = (bytes) => {
     if (bytes === 0) return '0 Bytes'
     const k = 1024
@@ -201,7 +205,13 @@ const UserDashboard = ({ user, onLogout }) => {
           />
         );
       case 'notification':
-        return <NotificationTab user={user} onOpenFile={openFileByIdFromNotification} />;
+        return (
+          <NotificationTab 
+            user={user} 
+            onOpenFile={openFileByIdFromNotification}
+            onNavigateToTasks={navigateToTasks}
+          />
+        );
       case 'tasks':
         return <TasksTab user={user} />;
       default:
