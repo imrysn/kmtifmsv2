@@ -1,3 +1,4 @@
+import FileIcon from '../admin/FileIcon';
 import './css/FileCard.css';
 
 const FileCard = ({ file, formatFileSize, onFileClick }) => {
@@ -39,6 +40,15 @@ const FileCard = ({ file, formatFileSize, onFileClick }) => {
     const restWords = words.slice(1).join(' ');
     
     return `${firstWord} : ${restWords}`;
+  };
+
+  // Get file extension from filename or file type
+  const getFileExtension = () => {
+    if (file.original_name) {
+      const ext = file.original_name.split('.').pop().toLowerCase();
+      return ext;
+    }
+    return file.file_type.toLowerCase();
   };
 
   const tags = getTags();
@@ -92,7 +102,12 @@ const FileCard = ({ file, formatFileSize, onFileClick }) => {
       <div className="file-card-horizontal">
         {/* Left: File Icon */}
         <div className="file-icon-large">
-          {file.file_type.split(' ')[0].slice(0, 3).toUpperCase()}
+          <FileIcon 
+            fileType={getFileExtension()} 
+            isFolder={false}
+            size="large"
+            altText={`${file.file_type} file`}
+          />
         </div>
         
         {/* Center: All File Details */}

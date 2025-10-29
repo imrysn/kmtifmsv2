@@ -241,23 +241,45 @@ router.get('/user/:userId', async (req, res) => {
   try {
     const { userId } = req.params;
 
+    // First get the current user's info
+    const currentUser = await queryOne(
+      'SELECT username, fullName, team FROM users WHERE id = ?',
+      [userId]
+    );
+
+    if (!currentUser) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    console.log('Current user:', currentUser);
+
     const assignments = await query(`
       SELECT
         a.*,
         am.status as user_status,
         am.submitted_at as user_submitted_at,
         fs.original_name as submitted_file_name,
-        fs.id as submitted_file_id
+        fs.id as submitted_file_id,
+        ? as assigned_user_fullname,
+        ? as assigned_user_username
       FROM assignments a
       LEFT JOIN assignment_members am ON a.id = am.assignment_id AND am.user_id = ?
       LEFT JOIN assignment_submissions asub ON a.id = asub.assignment_id AND asub.user_id = ?
       LEFT JOIN files fs ON asub.file_id = fs.id
       WHERE
-        (a.assigned_to = 'all' AND a.team = (SELECT team FROM users WHERE id = ?))
+        (a.assigned_to = 'all' AND a.team = ?)
         OR
         (a.assigned_to = 'specific' AND am.user_id = ?)
       ORDER BY a.created_at DESC
-    `, [userId, userId, userId, userId]);
+    `, [currentUser.fullName, currentUser.username, userId, userId, currentUser.team, userId]);
+
+    console.log('Assignments found:', assignments.length);
+    if (assignments.length > 0) {
+      console.log('First assignment:', assignments[0]);
+    }
 
     res.json({
       success: true,

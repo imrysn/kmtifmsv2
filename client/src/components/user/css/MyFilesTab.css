@@ -233,8 +233,6 @@
 .file-icon-box {
   width: 44px;
   height: 44px;
-  background: #5856d6;
-  color: white;
   border-radius: 8px;
   display: flex;
   align-items: center;
@@ -242,6 +240,7 @@
   font-size: 9px;
   font-weight: 700;
   flex-shrink: 0;
+  /* Removed background - icons have their own colors */
 }
 
 .file-text {
@@ -358,44 +357,8 @@
   color: #721c24;
 }
 
-/* File Type Icon Colors */
-.file-icon-box.pdf-type {
-  background: linear-gradient(135deg, #ff3b30 0%, #ff453a 100%);
-}
-
-.file-icon-box.doc-type {
-  background: linear-gradient(135deg, #007aff 0%, #0051d0 100%);
-}
-
-.file-icon-box.xls-type {
-  background: linear-gradient(135deg, #34c759 0%, #30b340 100%);
-}
-
-.file-icon-box.ppt-type {
-  background: linear-gradient(135deg, #ff9500 0%, #ff7500 100%);
-}
-
-.file-icon-box.zip-type,
-.file-icon-box.rar-type,
-.file-icon-box.tar-type {
-  background: linear-gradient(135deg, #a2845d 0%, #8b7355 100%);
-}
-
-.file-icon-box.img-type,
-.file-icon-box.png-type,
-.file-icon-box.jpg-type,
-.file-icon-box.jpeg-type {
-  background: linear-gradient(135deg, #ff2d55 0%, #ff1744 100%);
-}
-
-.file-icon-box.txt-type,
-.file-icon-box.csv-type {
-  background: linear-gradient(135deg, #5ac8fa 0%, #007aff 100%);
-}
-
-.file-icon-box.default-type {
-  background: linear-gradient(135deg, #5856d6 0%, #5e5ce6 100%);
-}
+/* File Type Icon Colors - REMOVED since FileIcon component handles colors */
+/* The SVG icons from FileIcon.jsx already have proper colors */
 
 /* Column - Actions */
 .col-actions {
@@ -688,8 +651,6 @@
 .file-icon-preview {
   width: 36px;
   height: 36px;
-  background: #5856d6;
-  color: white;
   border-radius: 6px;
   display: flex;
   align-items: center;
@@ -697,6 +658,7 @@
   font-size: 10px;
   font-weight: 600;
   flex-shrink: 0;
+  /* Removed background - icons have their own colors */
 }
 
 .file-details {

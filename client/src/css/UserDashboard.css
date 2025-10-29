@@ -48,164 +48,15 @@
   display: flex;
 }
 
-/* ========== SIDEBAR STYLES ========== */
-.user-dashboard .sidebar {
-  width: 260px;
-  background: white;
-  border-right: 1px solid #E5E5EA;
-  padding: 24px 16px;
-  display: flex;
-  flex-direction: column;
-  position: fixed;
-  top: 0;
-  left: 0;
-  bottom: 0;
-  z-index: 10;
-  box-shadow: none;
-}
-
-/* Sidebar Profile Section - UPDATED SPACING */
-.user-dashboard .sidebar-profile {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 16px;
-  background: #F8F9FA;
-  border-radius: 16px;
-  margin-bottom: 48px; /* CHANGED: Increased from 32px to 48px for more space */
-  border: 1px solid #E5E5EA;
-}
-
-.user-dashboard .profile-avatar {
-  width: 48px;
-  height: 48px;
-  background: linear-gradient(135deg, var(--user-accent), var(--macos-purple));
-  border-radius: 12px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 18px;
-  font-weight: 700;
-  color: white;
-  flex-shrink: 0;
-  box-shadow: none;
-}
-
-.user-dashboard .profile-info {
-  flex: 1;
-  min-width: 0;
-}
-
-.user-dashboard .profile-name {
-  color: #1D1D1F;
-  font-size: 16px;
-  font-weight: 600;
-  margin: 0 0 4px 0;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.user-dashboard .profile-team {
-  color: #8E8E93;
-  font-size: 12px;
-  font-weight: 500;
-  margin: 0;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-.user-dashboard .sidebar-header h2 {
-  color: white;
-  font-size: 20px;
-  font-weight: 700;
-  text-align: center;
-  margin-bottom: 32px;
-  letter-spacing: -0.5px;
-}
-
-.user-dashboard .sidebar-nav {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.user-dashboard .sidebar-item {
-  display: flex;
-  align-items: center;
-  width: 100%;
-  padding: 14px 20px;
-  background: transparent;
-  border: none;
-  color: #6B7280;
-  font-size: 15px;
-  font-weight: 500;
-  text-align: left;
-  cursor: pointer;
-  border-radius: 12px;
-  transition: all 0.2s ease;
-  gap: 12px;
-  position: relative;
-}
-
-.user-dashboard .sidebar-item:hover {
-  color: #1D1D1F;
-  background: #F3F4F6;
-}
-
-.user-dashboard .notification-badge {
-  background: var(--macos-red);
-  color: white;
-  border-radius: 50%;
-  width: 20px;
-  height: 20px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 11px;
-  font-weight: 700;
-  margin-left: auto;
-  flex-shrink: 0;
-}
-
-.user-dashboard .sidebar-item.active {
-  color: var(--user-accent);
-  background: rgba(0, 122, 255, 0.1);
-  box-shadow: inset 4px 0 0 var(--user-accent);
-  font-weight: 600;
-}
-
-.user-dashboard .nav-text {
-  flex: 1;
-}
-
-.user-dashboard .sidebar-logout {
-  display: flex;
-  align-items: center;
-  padding: 14px 20px;
-  background: #FEF2F2;
-  border: 1px solid #FECACA;
-  color: #DC2626;
-  font-size: 15px;
-  font-weight: 500;
-  border-radius: 12px;
-  cursor: pointer;
-  margin-top: 16px;
-  transition: all 0.2s ease;
-}
-
-.user-dashboard .sidebar-logout:hover {
-  background: #FEE2E2;
-  border-color: #FCA5A5;
-  transform: translateY(-1px);
-}
-
-/* Main Content Area */
+/* Main Content Area - Works with new sidebar */
 .user-dashboard .main-content {
   flex: 1;
-  margin-left: 260px;
-  padding: 0;
+  margin-left: 75px; /* Matches sidebar collapsed width */
+  width: calc(100% - 75px);
+  height: 100vh;
+  overflow-y: auto;
+  position: relative;
+  transition: margin-left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 /* User Dashboard Header */
@@ -1612,64 +1463,9 @@
 
 /* Responsive Sidebar */
 @media (max-width: 1024px) {
-  .user-dashboard .sidebar {
-    width: 80px;
-    padding: 24px 8px;
-    background: white;
-    border-right: 1px solid #E5E5EA;
-    box-shadow: 2px 0 10px rgba(0, 0, 0, 0.1);
-  }
-  
-  .user-dashboard .sidebar-profile {
-    flex-direction: column;
-    padding: 12px;
-    gap: 8px;
-    text-align: center;
-    background: #F8F9FA;
-    border: 1px solid #E5E5EA;
-    margin-bottom: 36px; /* RESPONSIVE: Reduced spacing for tablet screens */
-  }
-  
-  .user-dashboard .profile-avatar {
-    width: 40px;
-    height: 40px;
-    font-size: 16px;
-  }
-  
-  .user-dashboard .profile-name {
-    font-size: 12px;
-    color: #1D1D1F;
-  }
-  
-  .user-dashboard .profile-team {
-    font-size: 10px;
-    color: #8E8E93;
-  }
-  
-  .user-dashboard .sidebar-item {
-    flex-direction: column;
-    padding: 12px 8px;
-    gap: 4px;
-    text-align: center;
-  }
-  
-  .user-dashboard .nav-icon {
-    font-size: 18px;
-  }
-  
-  .user-dashboard .nav-text {
-    font-size: 10px;
-    line-height: 1.2;
-  }
-  
-  .user-dashboard .sidebar-logout {
-    flex-direction: column;
-    gap: 4px;
-    padding: 12px 8px;
-  }
-  
   .user-dashboard .main-content {
-    margin-left: 80px;
+    margin-left: 75px;
+    width: calc(100% - 75px);
   }
 
   .user-dashboard .user-details {
@@ -1687,46 +1483,9 @@
 }
 
 @media (max-width: 768px) {
-  .user-dashboard .sidebar {
-    width: 60px;
-    padding: 16px 6px;
-    background: white;
-    border-right: 1px solid #E5E5EA;
-    box-shadow: 2px 0 10px rgba(0, 0, 0, 0.1);
-  }
-  
-  .user-dashboard .sidebar-profile {
-    padding: 8px;
-    background: #F8F9FA;
-    border: 1px solid #E5E5EA;
-    margin-bottom: 24px; /* RESPONSIVE: Further reduced spacing for mobile screens */
-  }
-  
-  .user-dashboard .profile-avatar {
-    width: 36px;
-    height: 36px;
-    font-size: 14px;
-  }
-  
-  .user-dashboard .profile-name,
-  .user-dashboard .profile-team {
-    display: none;
-  }
-  
-  .user-dashboard .sidebar-item {
-    padding: 10px 6px;
-  }
-  
-  .user-dashboard .nav-text {
-    display: none;
-  }
-  
-  .user-dashboard .nav-icon {
-    font-size: 14px;
-  }
-  
   .user-dashboard .main-content {
-    margin-left: 60px;
+    margin-left: 75px;
+    width: calc(100% - 75px);
   }
 
   .user-dashboard .dashboard-content {
@@ -1813,21 +1572,10 @@
     margin: var(--spacing-md);
     max-width: none;
   }
-
-  .user-dashboard .sidebar {
-    transform: translateX(-100%);
-    transition: transform 0.3s ease;
-    background: white;
-    border-right: 1px solid #E5E5EA;
-    box-shadow: 2px 0 10px rgba(0, 0, 0, 0.1);
-  }
-  
-  .user-dashboard .sidebar.show {
-    transform: translateX(0);
-  }
   
   .user-dashboard .main-content {
     margin-left: 0;
+    width: 100%;
   }
 }
 

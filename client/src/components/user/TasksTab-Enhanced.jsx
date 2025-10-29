@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import './css/TasksTab-Enhanced.css';
+import FileIcon from '../admin/FileIcon';
 
 const TasksTab = ({ user }) => {
   const [assignments, setAssignments] = useState([]);
@@ -437,7 +438,7 @@ const TasksTab = ({ user }) => {
                 }}
               >
                 {/* Header with user info and status */}
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>  
                   <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                     <div style={{
                       width: '48px',
@@ -454,8 +455,19 @@ const TasksTab = ({ user }) => {
                       {getInitials(assignment.team_leader_username)}
                     </div>
                     <div>
-                      <div style={{ fontWeight: '600', fontSize: '15px', color: '#101828' }}>
-                        {assignment.team_leader_username}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '4px' }}>
+                        <span style={{ fontWeight: '600', fontSize: '15px', color: '#050505' }}>
+                          {assignment.team_leader_username}
+                        </span>
+                        {assignment.assigned_to === 'all' ? (
+                          <span style={{ fontSize: '15px', color: '#050505' }}>
+                            Assigned to: <span style={{ fontWeight: '600' }}>all team members</span>
+                          </span>
+                        ) : assignment.assigned_user_fullname && (
+                          <span style={{ fontSize: '15px', color: '#050505' }}>
+                            Assigned to: <span style={{ fontWeight: '600' }}>{assignment.assigned_user_fullname}</span>
+                          </span>
+                        )}
                       </div>
                       <div style={{ fontSize: '13px', color: '#6B7280' }}>
                         {formatDateTime(assignment.created_at)}
@@ -465,15 +477,17 @@ const TasksTab = ({ user }) => {
                   {getStatusBadge(assignment)}
                 </div>
 
-                {/* Assignment ID */}
-                <div style={{ fontSize: '24px', fontWeight: '700', color: '#101828', marginBottom: '8px' }}>
-                  {assignment.id}
-                </div>
-
                 {/* Title */}
-                <div style={{ fontSize: '14px', color: '#4B5563', marginBottom: '16px', letterSpacing: '0.5px' }}>
+                <div style={{ fontSize: '18px', fontWeight: '600', color: '#101828', marginBottom: '8px' }}>
                   {assignment.title}
                 </div>
+
+                {/* Description */}
+                {assignment.description && (
+                  <div style={{ fontSize: '14px', color: '#4B5563', marginBottom: '16px', lineHeight: '1.5' }}>
+                    {assignment.description}
+                  </div>
+                )}
 
                 {/* Submitted File Display */}
                 {assignment.user_status === 'submitted' && assignment.submitted_file_name && (
@@ -487,18 +501,15 @@ const TasksTab = ({ user }) => {
                     alignItems: 'center',
                     gap: '12px'
                   }}>
-                    <div style={{
-                      width: '40px',
-                      height: '40px',
-                      borderRadius: '8px',
-                      backgroundColor: '#EEF2FF',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      fontSize: '20px'
-                    }}>
-                      📎
-                    </div>
+                    <FileIcon 
+                      fileType={assignment.submitted_file_name.split('.').pop().toLowerCase()} 
+                      isFolder={false}
+                      size="default"
+                      style={{
+                        width: '40px',
+                        height: '40px'
+                      }}
+                    />
                     <div style={{ flex: 1 }}>
                       <div style={{ fontWeight: '600', fontSize: '14px', color: '#101828', marginBottom: '2px' }}>
                         {assignment.submitted_file_name}
@@ -547,7 +558,7 @@ const TasksTab = ({ user }) => {
 
                 {/* Submit button */}
                 {assignment.user_status !== 'submitted' && (
-                  <div style={{ paddingTop: '16px', borderTop: '1px solid #E5E7EB' }}>
+                  <div style={{ paddingTop: '16px', borderTop: '1px solid #E5E7EB', display: 'flex', justifyContent: 'flex-end' }}>
                     <button 
                       onClick={() => handleSubmit(assignment)}
                       disabled={userFiles.filter(f => f.status === 'final_approved').length === 0}
@@ -560,7 +571,7 @@ const TasksTab = ({ user }) => {
                         fontWeight: '600',
                         fontSize: '14px',
                         cursor: 'pointer',
-                        width: '100%',
+                        maxWidth: '200px',
                         transition: 'background-color 0.2s',
                         opacity: userFiles.filter(f => f.status === 'final_approved').length === 0 ? 0.5 : 1
                       }}
@@ -571,7 +582,7 @@ const TasksTab = ({ user }) => {
                       }}
                       onMouseLeave={(e) => e.target.style.backgroundColor = '#2563EB'}
                     >
-                      Submit Assignment
+                      Submit Task
                     </button>
                   </div>
                 )}
@@ -735,7 +746,7 @@ const TasksTab = ({ user }) => {
         <div className="tasks-modal-overlay" onClick={() => setShowSubmitModal(false)}>
           <div className="tasks-modal" onClick={(e) => e.stopPropagation()}>
             <div className="tasks-modal-header">
-              <h3>Submit Assignment</h3>
+              <h3>Submit Task</h3>
               <button className="tasks-modal-close" onClick={() => setShowSubmitModal(false)}>×</button>
             </div>
 
@@ -759,6 +770,16 @@ const TasksTab = ({ user }) => {
                           className={`tasks-file-item ${selectedFile?.id === file.id ? 'selected' : ''}`}
                           onClick={() => setSelectedFile(file)}
                         >
+                          <FileIcon 
+                            fileType={file.original_name.split('.').pop().toLowerCase()} 
+                            isFolder={false}
+                            size="default"
+                            style={{
+                              width: '40px',
+                              height: '40px',
+                              flexShrink: 0
+                            }}
+                          />
                           <div className="tasks-file-details">
                             <div className="tasks-file-name">{file.original_name}</div>
                             <div className="tasks-file-meta">
@@ -792,7 +813,7 @@ const TasksTab = ({ user }) => {
                 onClick={submitAssignment}
                 disabled={!selectedFile || isSubmitting}
               >
-                {isSubmitting ? 'Submitting...' : 'Submit Assignment'}
+                {isSubmitting ? 'Submitting...' : 'Submit'}
               </button>
             </div>
           </div>
