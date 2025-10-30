@@ -154,6 +154,36 @@ const TasksTab = ({ user }) => {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
 
+  const openFile = async (fileId, filePath) => {
+    try {
+      // Check if running in Electron
+      if (window.electron && window.electron.openFileInApp) {
+        // In Electron - open file directly from network location
+        // Get the actual file path from server
+        const response = await fetch(`http://localhost:3001/api/files/${fileId}/path`);
+        const data = await response.json();
+        
+        if (data.success && data.filePath) {
+          // Open file with system default application
+          const result = await window.electron.openFileInApp(data.filePath);
+          
+          if (!result.success) {
+            alert(result.error || 'Failed to open file with system application');
+          }
+        } else {
+          throw new Error('Could not get file path');
+        }
+      } else {
+        // In browser - just open in new tab
+        const fileUrl = `http://localhost:3001${filePath}`;
+        window.open(fileUrl, '_blank', 'noopener,noreferrer');
+      }
+    } catch (error) {
+      console.error('Error opening file:', error);
+      alert('Failed to open file. Please try again.');
+    }
+  };
+
   const pendingAssignments = assignments.filter(assignment => assignment.user_status !== 'submitted');
   const submittedAssignments = assignments.filter(assignment => assignment.user_status === 'submitted');
 
@@ -308,10 +338,20 @@ const TasksTab = ({ user }) => {
                             </div>
                           )}
 
-                          {assignment.submitted_file_name && (
+                          {assignment.submitted_file_name && assignment.submitted_file_id && (
                             <div className="meta-item">
                               <span className="meta-label">File:</span>
-                              <span className="meta-value file-name">{assignment.submitted_file_name}</span>
+                              <span 
+                                className="meta-value file-name clickable-file" 
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  openFile(assignment.submitted_file_id, assignment.submitted_file_path);
+                                }}
+                                style={{ cursor: 'pointer', color: '#4F46E5', textDecoration: 'underline' }}
+                                title="Click to open file"
+                              >
+                                {assignment.submitted_file_name}
+                              </span>
                             </div>
                           )}
                         </div>

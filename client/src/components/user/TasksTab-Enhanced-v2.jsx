@@ -494,6 +494,56 @@ const TasksTab = ({ user }) => {
                             <span>Submitted on {formatDate(assignment.user_submitted_at)}</span>
                           </div>
                         )}
+
+                        {assignment.submitted_file_id && assignment.submitted_file_name && (
+                          <div className="attached-file-section">
+                            <div className="attached-file-label">📎 Attached File:</div>
+                            <div className="attached-file-info">
+                              <span className="file-name">{assignment.submitted_file_name}</span>
+                              <button
+                                className="open-file-btn"
+                                onClick={async (e) => {
+                                  e.stopPropagation();
+                                  try {
+                                    // Check if running in Electron
+                                    if (window.electron && window.electron.openFileInApp) {
+                                      // Get the actual file path from server
+                                      const response = await fetch(`http://localhost:3001/api/files/${assignment.submitted_file_id}/path`);
+                                      const data = await response.json();
+                                      
+                                      if (data.success && data.filePath) {
+                                        // Open file with system default application
+                                        const result = await window.electron.openFileInApp(data.filePath);
+                                        
+                                        if (!result.success) {
+                                          setError(result.error || 'Failed to open file with system application');
+                                        }
+                                      } else {
+                                        throw new Error('Could not get file path');
+                                      }
+                                    } else {
+                                      // In browser - get file path and open in new tab
+                                      const response = await fetch(`http://localhost:3001/api/files/${assignment.submitted_file_id}`);
+                                      const fileData = await response.json();
+                                      
+                                      if (fileData.success && fileData.file) {
+                                        const fileUrl = `http://localhost:3001${fileData.file.file_path}`;
+                                        window.open(fileUrl, '_blank', 'noopener,noreferrer');
+                                      } else {
+                                        throw new Error('Could not get file information');
+                                      }
+                                    }
+                                  } catch (error) {
+                                    console.error('Error opening file:', error);
+                                    setError('Failed to open file. Please try again.');
+                                  }
+                                }}
+                              >
+                                Open
+                              </button>
+                            </div>
+                          </div>
+                        )}
                       </div>
 
                       {/* Comments Section */}

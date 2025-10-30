@@ -67,7 +67,7 @@ const MyFilesTab = ({
     const file = e.target.files[0];
     if (file) {
       setUploadedFile(file);
-    }
+    }open 
   };
 
   const handleFileUpload = async (e, replaceExisting = false) => {
