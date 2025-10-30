@@ -11,7 +11,8 @@ const DashboardOverview = ({ user, users }) => {
     rejected: 0,
     fileTypes: [],
     recentActivity: [],
-    approvalRate: 0
+    approvalRate: 0,
+    approvalTrends: []
   })
 
   useEffect(() => {
@@ -76,126 +77,254 @@ const DashboardOverview = ({ user, users }) => {
   return (
     <div className="dashboard-overview">
       
-      {/* Stats Grid */}
-      <div className="stats-section">
-        <div className="stats-grid">
-          <div className="stat-card">
-            <div className="stat-header">
-              <span className="stat-label">Pending Files</span>
-            </div>
-            <div className="stat-number">{loading ? '—' : pendingCount}</div>
-            <div className="stat-change positive">↑ +8.2% from last month</div>
-          </div>
-          
-          <div className="stat-card">
-            <div className="stat-header">
-              <span className="stat-label">Approved Files</span>
-            </div>
-            <div className="stat-number">{loading ? '—' : approvedCount.toLocaleString()}</div>
-            <div className="stat-change positive">↑ +12.5% from last month</div>
-          </div>
-          
-          <div className="stat-card">
-            <div className="stat-header">
-              <span className="stat-label">Rejected Files</span>
-            </div>
-            <div className="stat-number">{loading ? '—' : rejectedCount}</div>
-            <div className="stat-change negative">↓ -15.1% from last month</div>
-          </div>
-          
-          <div className="stat-card">
-            <div className="stat-header">
-              <span className="stat-label">Total Files</span>
-            </div>
-            <div className="stat-number">{loading ? '—' : totalCount.toLocaleString()}</div>
-            <div className="stat-change positive">↑ +6.8% from last month</div>
-          </div>
-        </div>
-      </div>
-
-      {/* Workflow Status Cards */}
-      <div className="workflow-grid">
-        <div className="workflow-card blue">
-          <div className="workflow-title">Awaiting Team Leader</div>
-          <div className="workflow-number">{loading ? '—' : awaitingTeamLeaderCount}</div>
-          <div className="workflow-subtitle">Files under review</div>
-        </div>
-
-        <div className="workflow-card yellow">
-          <div className="workflow-title">Awaiting Admin</div>
-          <div className="workflow-number">{loading ? '—' : awaitingAdminCount}</div>
-          <div className="workflow-subtitle">Ready for final approval</div>
-        </div>
-        
-        <div className="workflow-card green">
-          <div className="workflow-title">Ready for NAS</div>
-          <div className="workflow-number">{loading ? '—' : approvedCount}</div>
-          <div className="workflow-subtitle">Approved files to upload</div>
-        </div>
-      </div>
-
-      {/* Charts and Stats */}
-      <div className="charts-section">
-        <div className="chart-card">
-          <div className="chart-header">
-            <h3>File Approval Trends</h3>
-          </div>
-          <div className="chart-content">
-            <svg width="100%" height="300" style={{ background: 'transparent' }}>
-              {/* Simple line chart placeholder */}
-              <line x1="50" y1="200" x2="150" y2="150" stroke="#10B981" strokeWidth="2" />
-              <line x1="150" y1="150" x2="250" y2="120" stroke="#10B981" strokeWidth="2" />
-              <line x1="250" y1="120" x2="350" y2="140" stroke="#10B981" strokeWidth="2" />
-              <line x1="350" y1="140" x2="450" y2="100" stroke="#10B981" strokeWidth="2" />
-              <line x1="450" y1="100" x2="550" y2="80" stroke="#10B981" strokeWidth="2" />
-              <line x1="550" y1="80" x2="650" y2="60" stroke="#10B981" strokeWidth="2" />
-              
-              <line x1="50" y1="220" x2="150" y2="210" stroke="#EF4444" strokeWidth="2" />
-              <line x1="150" y1="210" x2="250" y2="215" stroke="#EF4444" strokeWidth="2" />
-              <line x1="250" y1="215" x2="350" y2="210" stroke="#EF4444" strokeWidth="2" />
-              <line x1="350" y1="210" x2="450" y2="220" stroke="#EF4444" strokeWidth="2" />
-              <line x1="450" y1="220" x2="550" y2="215" stroke="#EF4444" strokeWidth="2" />
-              <line x1="550" y1="215" x2="650" y2="220" stroke="#EF4444" strokeWidth="2" />
-              
-              <text x="100" y="280" fontSize="12" fill="#6B7280">Jan</text>
-              <text x="200" y="280" fontSize="12" fill="#6B7280">Feb</text>
-              <text x="300" y="280" fontSize="12" fill="#6B7280">Mar</text>
-              <text x="400" y="280" fontSize="12" fill="#6B7280">Apr</text>
-              <text x="500" y="280" fontSize="12" fill="#6B7280">May</text>
-              <text x="600" y="280" fontSize="12" fill="#6B7280">Jun</text>
-            </svg>
-          </div>
-        </div>
-        
-        <div className="chart-card">
-          <div className="chart-header">
-            <h3>File Types</h3>
-          </div>
-          <div className="chart-content">
-            {/* Simple donut chart placeholder */}
-            <svg width="100%" height="300" viewBox="0 0 200 200">
-              <circle cx="100" cy="100" r="70" fill="none" stroke="#6366F1" strokeWidth="30" strokeDasharray="220 440" />
-              <circle cx="100" cy="100" r="70" fill="none" stroke="#10B981" strokeWidth="30" strokeDasharray="110 440" strokeDashoffset="-220" />
-              <circle cx="100" cy="100" r="70" fill="none" stroke="#F59E0B" strokeWidth="30" strokeDasharray="66 440" strokeDashoffset="-330" />
-              <circle cx="100" cy="100" r="70" fill="none" stroke="#EF4444" strokeWidth="30" strokeDasharray="44 440" strokeDashoffset="-396" />
-            </svg>
-            <div style={{ textAlign: 'center', marginTop: '1rem' }}>
-              <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
-                {summary.fileTypes.slice(0,4).map((t, i) => (
-                  <span key={t.file_type}>
-                    <span style={{ color: ['#6366F1','#10B981','#F59E0B','#EF4444'][i] || '#999' }}>■</span>
-                    &nbsp;{t.file_type || 'Unknown'} ({t.count}) &nbsp;
-                  </span>
-                ))}
+      {/* Top Row: Stats Grid (Upper Right) */}
+      <div className="top-row">
+        <div className="stats-section">
+          <div className="stats-grid">
+            <div className="stat-card">
+              <div className="stat-header">
+                <span className="stat-label">Pending Files</span>
               </div>
+              <div className="stat-number">{loading ? '—' : pendingCount}</div>
+              <div className="stat-change positive">↑ +8.2% from last month</div>
+            </div>
+            
+            <div className="stat-card">
+              <div className="stat-header">
+                <span className="stat-label">Approved Files</span>
+              </div>
+              <div className="stat-number">{loading ? '—' : approvedCount.toLocaleString()}</div>
+              <div className="stat-change positive">↑ +12.5% from last month</div>
+            </div>
+            
+            <div className="stat-card">
+              <div className="stat-header">
+                <span className="stat-label">Rejected Files</span>
+              </div>
+              <div className="stat-number">{loading ? '—' : rejectedCount}</div>
+              <div className="stat-change negative">↓ -15.1% from last month</div>
+            </div>
+            
+            <div className="stat-card">
+              <div className="stat-header">
+                <span className="stat-label">Total Files</span>
+              </div>
+              <div className="stat-number">{loading ? '—' : totalCount.toLocaleString()}</div>
+              <div className="stat-change positive">↑ +6.8% from last month</div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Bottom Section */}
-      <div className="bottom-section">
-        <div className="section-card">
+      {/* Bottom Row: Charts (Left) and Recent Activity (Right) */}
+      <div className="bottom-row">
+        <div className="charts-section">
+          <div className="chart-card">
+            <div className="chart-header">
+              <h3>File Approval Trends</h3>
+            </div>
+            <div className="chart-content">
+              {loading && <div style={{ padding: '1rem', textAlign: 'center' }}>Loading trends...</div>}
+              {!loading && (!summary.approvalTrends || summary.approvalTrends.length === 0) && (
+                <div style={{ padding: '1rem', textAlign: 'center' }}>No trend data available</div>
+              )}
+              {!loading && summary.approvalTrends && summary.approvalTrends.length > 0 && (
+                <svg width="100%" height="300" viewBox="0 0 700 300" preserveAspectRatio="xMidYMid meet" style={{ background: 'transparent' }}>
+                  {(() => {
+                    const trends = summary.approvalTrends.slice(-30) // Last 30 days
+                    const maxValue = Math.max(
+                      ...trends.map(t => Math.max(t.approved || 0, t.rejected || 0)),
+                      1
+                    )
+                    const padding = { left: 50, right: 50, top: 30, bottom: 50 }
+                    const chartWidth = 700 - padding.left - padding.right
+                    const chartHeight = 300 - padding.top - padding.bottom
+                    const stepX = chartWidth / Math.max(trends.length - 1, 1)
+                    
+                    // Calculate points for approved and rejected lines
+                    const approvedPoints = trends.map((t, i) => ({
+                      x: padding.left + i * stepX,
+                      y: padding.top + chartHeight - ((t.approved || 0) / maxValue) * chartHeight
+                    }))
+                    
+                    const rejectedPoints = trends.map((t, i) => ({
+                      x: padding.left + i * stepX,
+                      y: padding.top + chartHeight - ((t.rejected || 0) / maxValue) * chartHeight
+                    }))
+                    
+                    return (
+                      <>
+                        {/* Grid lines */}
+                        {[0, 0.25, 0.5, 0.75, 1].map((ratio) => {
+                          const y = padding.top + chartHeight - ratio * chartHeight
+                          return (
+                            <line
+                              key={ratio}
+                              x1={padding.left}
+                              y1={y}
+                              x2={padding.left + chartWidth}
+                              y2={y}
+                              stroke="#E5E7EB"
+                              strokeWidth="1"
+                              strokeDasharray="4 4"
+                            />
+                          )
+                        })}
+                        
+                        {/* Approved line */}
+                        {approvedPoints.map((point, i) => {
+                          if (i === 0) return null
+                          const prevPoint = approvedPoints[i - 1]
+                          return (
+                            <line
+                              key={`approved-${i}`}
+                              x1={prevPoint.x}
+                              y1={prevPoint.y}
+                              x2={point.x}
+                              y2={point.y}
+                              stroke="#10B981"
+                              strokeWidth="3"
+                            />
+                          )
+                        })}
+                        
+                        {/* Rejected line */}
+                        {rejectedPoints.map((point, i) => {
+                          if (i === 0) return null
+                          const prevPoint = rejectedPoints[i - 1]
+                          return (
+                            <line
+                              key={`rejected-${i}`}
+                              x1={prevPoint.x}
+                              y1={prevPoint.y}
+                              x2={point.x}
+                              y2={point.y}
+                              stroke="#EF4444"
+                              strokeWidth="3"
+                            />
+                          )
+                        })}
+                        
+                        {/* Approved points */}
+                        {approvedPoints.map((point, i) => (
+                          <circle
+                            key={`approved-point-${i}`}
+                            cx={point.x}
+                            cy={point.y}
+                            r="4"
+                            fill="#10B981"
+                          />
+                        ))}
+                        
+                        {/* Rejected points */}
+                        {rejectedPoints.map((point, i) => (
+                          <circle
+                            key={`rejected-point-${i}`}
+                            cx={point.x}
+                            cy={point.y}
+                            r="4"
+                            fill="#EF4444"
+                          />
+                        ))}
+                        
+                        {/* X-axis labels - Show every 5th day to avoid crowding */}
+                        {trends.map((t, i) => {
+                          if (i % 5 !== 0 && i !== trends.length - 1) return null
+                          const x = padding.left + i * stepX
+                          const label = t.day || t.date || `D${i + 1}`
+                          return (
+                            <text
+                              key={`label-${i}`}
+                              x={x}
+                              y={padding.top + chartHeight + 30}
+                              fontSize="11"
+                              fill="#6B7280"
+                              textAnchor="middle"
+                            >
+                              {label}
+                            </text>
+                          )
+                        })}
+                        
+                        {/* Legend */}
+                        <g transform={`translate(${padding.left}, 10)`}>
+                          <circle cx="0" cy="0" r="4" fill="#10B981" />
+                          <text x="10" y="4" fontSize="12" fill="#6B7280">Approved</text>
+                          <circle cx="80" cy="0" r="4" fill="#EF4444" />
+                          <text x="90" y="4" fontSize="12" fill="#6B7280">Rejected</text>
+                        </g>
+                      </>
+                    )
+                  })()}
+                </svg>
+              )}
+            </div>
+          </div>
+          
+          <div className="chart-card">
+            <div className="chart-header">
+              <h3>File Types Distribution</h3>
+              <span style={{ fontSize: '12px', color: 'var(--text-tertiary)' }}>All file types tracked</span>
+            </div>
+            <div className="chart-content">
+              {loading && <div style={{ padding: '1rem', textAlign: 'center' }}>Loading file types...</div>}
+              {!loading && summary.fileTypes.length === 0 && <div style={{ padding: '1rem', textAlign: 'center' }}>No file type data available</div>}
+              {!loading && summary.fileTypes.length > 0 && (
+                <>
+                  <svg width="100%" height="300" viewBox="0 0 200 200">
+                    {(() => {
+                      const total = summary.fileTypes.reduce((sum, t) => sum + t.count, 0)
+                      const colors = [
+                        '#6366F1', '#10B981', '#F59E0B', '#EF4444', 
+                        '#8B5CF6', '#EC4899', '#06B6D4', '#84CC16',
+                        '#F97316', '#14B8A6', '#A855F7', '#F43F5E'
+                      ]
+                      let offset = 0
+                      return summary.fileTypes.map((fileType, i) => {
+                        const percentage = (fileType.count / total) * 100
+                        const dashArray = `${(percentage / 100) * 440} 440`
+                        const circle = (
+                          <circle
+                            key={fileType.file_type}
+                            cx="100"
+                            cy="100"
+                            r="70"
+                            fill="none"
+                            stroke={colors[i % colors.length] || '#999'}
+                            strokeWidth="30"
+                            strokeDasharray={dashArray}
+                            strokeDashoffset={-offset}
+                          />
+                        )
+                        offset += (percentage / 100) * 440
+                        return circle
+                      })
+                    })()}
+                  </svg>
+                  <div style={{ textAlign: 'center', marginTop: '1rem' }}>
+                    <div style={{ fontSize: '11px', color: 'var(--text-secondary)', display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: '8px' }}>
+                      {summary.fileTypes.map((t, i) => {
+                        const colors = [
+                          '#6366F1', '#10B981', '#F59E0B', '#EF4444', 
+                          '#8B5CF6', '#EC4899', '#06B6D4', '#84CC16',
+                          '#F97316', '#14B8A6', '#A855F7', '#F43F5E'
+                        ]
+                        return (
+                          <span key={t.file_type} style={{ whiteSpace: 'nowrap' }}>
+                            <span style={{ color: colors[i % colors.length] || '#999' }}>■</span>
+                            &nbsp;{t.file_type || 'Unknown'} ({t.count})
+                          </span>
+                        )
+                      })}
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+        
+        <div className="section-card activity-section">
           <div className="section-header">
             <h3>Recent Activity</h3>
           </div>
@@ -203,30 +332,6 @@ const DashboardOverview = ({ user, users }) => {
             {loading && <div style={{ padding: '1rem' }}>Loading recent activity…</div>}
             {!loading && summary.recentActivity.length === 0 && <div style={{ padding: '1rem' }}>No recent activity</div>}
             {!loading && activityItems}
-          </div>
-        </div>
-        
-        <div className="section-card">
-          <div className="section-header">
-            <h3>System Stats</h3>
-          </div>
-          <div className="stats-list">
-            <div className="stats-item">
-              <span className="stats-label">Approval Rate</span>
-                <span className="stats-value success">{loading ? '—' : `${summary.approvalRate}%`}</span>
-            </div>
-            <div className="stats-item">
-              <span className="stats-label">Avg. Processing Time</span>
-              <span className="stats-value">2.1 days</span>
-            </div>
-            <div className="stats-item">
-              <span className="stats-label">Storage Used</span>
-              <span className="stats-value">67.8%</span>
-            </div>
-            <div className="stats-item">
-              <span className="stats-label">Active Users</span>
-              <span className="stats-value">{users.length}</span>
-            </div>
           </div>
         </div>
       </div>

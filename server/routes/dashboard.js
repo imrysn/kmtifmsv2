@@ -46,7 +46,38 @@ router.get('/summary', (req, res) => {
               const approvalRate = summary.totalFiles > 0 ? (summary.approved / summary.totalFiles) * 100 : 0;
               summary.approvalRate = Math.round(approvalRate * 10) / 10; // 1 decimal
 
-              res.json({ success: true, summary });
+              // Approval trends - Last 30 days of daily approval/rejection activity
+              db.all(
+                `SELECT 
+                  DATE(uploaded_at) as date,
+                  SUM(CASE WHEN status = 'final_approved' OR current_stage = 'published_to_public' THEN 1 ELSE 0 END) as approved,
+                  SUM(CASE WHEN status LIKE 'rejected%' OR current_stage LIKE 'rejected%' THEN 1 ELSE 0 END) as rejected
+                FROM files
+                WHERE uploaded_at >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
+                GROUP BY DATE(uploaded_at)
+                ORDER BY date ASC`,
+                [],
+                (err, trends) => {
+                  if (err) {
+                    console.error('Error fetching approval trends:', err);
+                    summary.approvalTrends = [];
+                  } else {
+                    // Format dates for display (e.g., "Oct 1", "Oct 2")
+                    summary.approvalTrends = (trends || []).map(t => {
+                      const d = new Date(t.date);
+                      const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+                      return {
+                        day: `${monthNames[d.getMonth()]} ${d.getDate()}`,
+                        date: t.date,
+                        approved: t.approved || 0,
+                        rejected: t.rejected || 0
+                      };
+                    });
+                  }
+
+                  res.json({ success: true, summary });
+                }
+              );
             });
           });
         });
