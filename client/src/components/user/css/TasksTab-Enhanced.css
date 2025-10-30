@@ -419,6 +419,56 @@
   border-radius: 8px;
   font-size: 14px;
   color: #2e7d32;
+  margin-bottom: 12px;
+}
+
+/* Attached File Section */
+.attached-file-section {
+  padding: 12px;
+  background: #f0f7ff;
+  border-radius: 8px;
+  border: 1px solid #e3f2fd;
+}
+
+.attached-file-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #1565c0;
+  margin-bottom: 8px;
+}
+
+.attached-file-info {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.attached-file-info .file-name {
+  font-size: 14px;
+  color: #1a1a1a;
+  font-weight: 500;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.open-file-btn {
+  padding: 6px 16px;
+  background: #1877f2;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+  flex-shrink: 0;
+}
+
+.open-file-btn:hover {
+  background: #166fe5;
 }
 
 /* Post Footer - Comment Button */

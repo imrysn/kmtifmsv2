@@ -581,58 +581,97 @@ const TasksTab = ({ user }) => {
                 {/* Submitted File Display */}
                 {assignment.user_status === 'submitted' && assignment.submitted_file_name && (
                   <div 
-                    onClick={() => {
-                      if (assignment.submitted_file_path) {
-                        window.open(`http://localhost:3001${assignment.submitted_file_path}`, '_blank');
+                    onClick={async () => {
+                      try {
+                        // Check if running in Electron
+                        if (window.electron && window.electron.openFileInApp) {
+                          // Get the actual file path from server
+                          const response = await fetch(`http://localhost:3001/api/files/${assignment.submitted_file_id}/path`);
+                          const data = await response.json();
+                          
+                          if (data.success && data.filePath) {
+                            // Open file with system default application
+                            const result = await window.electron.openFileInApp(data.filePath);
+                            
+                            if (!result.success) {
+                              setError(result.error || 'Failed to open file with system application');
+                            }
+                          } else {
+                            throw new Error('Could not get file path');
+                          }
+                        } else {
+                          // In browser - get file path and open in new tab
+                          const response = await fetch(`http://localhost:3001/api/files/${assignment.submitted_file_id}`);
+                          const fileData = await response.json();
+                          
+                          if (fileData.success && fileData.file) {
+                            const fileUrl = `http://localhost:3001${fileData.file.file_path}`;
+                            window.open(fileUrl, '_blank', 'noopener,noreferrer');
+                          } else {
+                            throw new Error('Could not get file information');
+                          }
+                        }
+                      } catch (error) {
+                        console.error('Error opening file:', error);
+                        setError('Failed to open file. Please try again.');
                       }
                     }}
                     style={{
-                      backgroundColor: '#F9FAFB',
-                      border: '1px solid #E5E7EB',
+                      backgroundColor: '#f0f7ff',
+                      border: '1px solid #e3f2fd',
                       borderRadius: '8px',
                       padding: '12px',
                       marginBottom: '16px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '12px',
                       cursor: 'pointer',
                       transition: 'all 0.2s',
                     }}
                     onMouseEnter={(e) => {
-                      e.currentTarget.style.backgroundColor = '#F3F4F6';
-                      e.currentTarget.style.borderColor = '#2563EB';
+                      e.currentTarget.style.backgroundColor = '#e3f2fd';
+                      e.currentTarget.style.borderColor = '#2196F3';
                     }}
                     onMouseLeave={(e) => {
-                      e.currentTarget.style.backgroundColor = '#F9FAFB';
-                      e.currentTarget.style.borderColor = '#E5E7EB';
+                      e.currentTarget.style.backgroundColor = '#f0f7ff';
+                      e.currentTarget.style.borderColor = '#e3f2fd';
                     }}
                   >
-                    <FileIcon 
-                      fileType={assignment.submitted_file_name.split('.').pop().toLowerCase()} 
-                      isFolder={false}
-                      size="default"
-                      style={{
-                        width: '40px',
-                        height: '40px'
-                      }}
-                    />
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontWeight: '600', fontSize: '14px', color: '#101828', marginBottom: '2px' }}>
-                        {assignment.submitted_file_name}
-                      </div>
-                      <div style={{ fontSize: '12px', color: '#6B7280' }}>
-                        Submitted on {assignment.user_submitted_at ? formatDate(assignment.user_submitted_at) : 'N/A'}
-                      </div>
+                    <div style={{ 
+                      fontSize: '13px',
+                      fontWeight: '600',
+                      color: '#1565c0',
+                      marginBottom: '8px'
+                    }}>
+                      📎 Attached File:
                     </div>
                     <div style={{
-                      padding: '4px 8px',
-                      backgroundColor: '#DBEAFE',
-                      color: '#1E40AF',
-                      borderRadius: '6px',
-                      fontSize: '12px',
-                      fontWeight: '600'
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '12px',
                     }}>
-                      Attached
+                      <FileIcon 
+                        fileType={assignment.submitted_file_name.split('.').pop().toLowerCase()} 
+                        isFolder={false}
+                        size="default"
+                        style={{
+                          width: '40px',
+                          height: '40px',
+                          flexShrink: 0
+                        }}
+                      />
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ 
+                          fontWeight: '500', 
+                          fontSize: '14px', 
+                          color: '#1a1a1a',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap'
+                        }}>
+                          {assignment.submitted_file_name}
+                        </div>
+                        <div style={{ fontSize: '12px', color: '#6B7280' }}>
+                          Submitted on {assignment.user_submitted_at ? formatDate(assignment.user_submitted_at) : 'N/A'}
+                        </div>
+                      </div>
                     </div>
                   </div>
                 )}

@@ -975,6 +975,32 @@ router.post('/:fileId/admin-review', (req, res) => {
   });
 });
 
+// Get single file details
+router.get('/:fileId', (req, res) => {
+  const { fileId } = req.params;
+  
+  db.get('SELECT * FROM files WHERE id = ?', [fileId], (err, file) => {
+    if (err) {
+      console.error('❌ Error getting file:', err);
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to fetch file'
+      });
+    }
+    if (!file) {
+      return res.status(404).json({
+        success: false,
+        message: 'File not found'
+      });
+    }
+    
+    res.json({
+      success: true,
+      file
+    });
+  });
+});
+
 // Get file system path for Electron to open with default app
 router.get('/:fileId/path', (req, res) => {
   const { fileId } = req.params;
