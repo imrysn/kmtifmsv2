@@ -11,7 +11,8 @@ import {
   ActivityLogs,
   FileApproval,
   FileManagement,
-  Settings
+  Settings,
+  TaskManagement
 } from '../components/admin'
 
 const AdminDashboard = ({ user, onLogout }) => {
@@ -92,6 +93,8 @@ const AdminDashboard = ({ user, onLogout }) => {
         return <FileApproval {...commonProps} />
       case 'file-management':
         return <FileManagement {...commonProps} />
+      case 'tasks':
+        return <TaskManagement {...commonProps} />
       case 'settings':
         return <Settings {...commonProps} users={users} user={user} />
       default:
@@ -151,6 +154,13 @@ const AdminDashboard = ({ user, onLogout }) => {
           >
             <span className="nav-icon">{getSidebarIcon('fileApproval')}</span>
             <span className="nav-label">File Approval</span>
+          </button>
+          <button 
+            className={`nav-item ${activeTab === 'tasks' ? 'active' : ''}`}
+            onClick={() => handleTabChange('tasks')}
+          >
+            <span className="nav-icon">{getSidebarIcon('tasks')}</span>
+            <span className="nav-label">Tasks</span>
           </button>
           <button 
             className={`nav-item ${activeTab === 'settings' ? 'active' : ''}`}
