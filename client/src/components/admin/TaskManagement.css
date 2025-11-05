@@ -124,19 +124,12 @@
   border: 1px solid #e5e7eb;
   border-radius: 8px;
   overflow: hidden;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-  transition: box-shadow 0.2s;
-}
-
-.admin-assignment-card:hover {
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
 }
 
 /* Card Header */
 .admin-card-header {
-  background: #f9fafb;
+  background: white;
   padding: 16px 20px;
-  border-bottom: 1px solid #e5e7eb;
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -389,8 +382,7 @@
   justify-content: space-between;
   align-items: center;
   padding: 12px 20px;
-  background: #f9fafb;
-  border-top: 1px solid #e5e7eb;
+  background: white;
 }
 
 .admin-footer-left {
@@ -513,7 +505,6 @@
 
 .comments-modal-header {
   padding: 20px;
-  border-bottom: 1px solid #e4e6eb;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -640,7 +631,7 @@
 }
 
 .comment-text {
-  background: #f0f2f5;
+  background: #f7f7f7;
   padding: 12px;
   border-radius: 12px;
   font-size: 14px;
@@ -659,7 +650,7 @@
   font-weight: 600;
   cursor: pointer;
   padding: 0;
-  margin-bottom: 8px;
+  margin-right: 90%;
 }
 
 .reply-button:hover {
@@ -729,7 +720,7 @@
 }
 
 .reply-text {
-  background: #f0f2f5;
+  background: #f7f7f7;
   padding: 10px;
   border-radius: 10px;
   font-size: 13px;
@@ -746,9 +737,10 @@
 
 .reply-form textarea {
   width: 100%;
-  padding: 10px;
+  height: 45px;
+  padding: 12px;
   border: 1px solid #ccd0d5;
-  border-radius: 8px;
+  border-radius: 18px;
   font-size: 13px;
   font-family: inherit;
   resize: vertical;
@@ -771,7 +763,7 @@
   color: #1c1e21;
   border: none;
   padding: 6px 16px;
-  border-radius: 6px;
+  border-radius: 12px;
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
@@ -787,7 +779,7 @@
   color: white;
   border: none;
   padding: 6px 16px;
-  border-radius: 6px;
+  border-radius: 12px;
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
@@ -801,20 +793,20 @@
 /* Comment Form */
 .comments-modal-footer {
   padding: 16px 20px;
-  border-top: 1px solid #e4e6eb;
 }
 
 .comment-form {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 5px;
 }
 
 .comment-form textarea {
-  width: 100%;
+  width: 115%;
+  height: 45px;
   padding: 12px;
   border: 1px solid #ccd0d5;
-  border-radius: 8px;
+  border-radius: 18px;
   font-size: 14px;
   font-family: inherit;
   resize: vertical;
@@ -830,7 +822,10 @@
   color: white;
   border: none;
   padding: 10px 20px;
-  border-radius: 6px;
+  border-radius: 16px;
+  margin-left: 70px;
+  width: 60%;
+  height: 45px;
   font-size: 14px;
   font-weight: 600;
   cursor: pointer;

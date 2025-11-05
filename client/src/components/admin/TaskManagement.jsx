@@ -428,7 +428,7 @@ const TaskManagement = ({ error, success, setError, setSuccess, clearMessages, u
                       className="admin-view-comments-btn"
                       onClick={() => openCommentsModal(assignment)}
                     >
-                      💬 View Comments
+                      View Comments
                     </button>
                     <div className={`admin-status-badge ${assignment.status === 'active' ? 'active' : 'closed'}`}>
                       {assignment.status === 'active' ? 'ACTIVE' : 'CLOSED'}
@@ -525,7 +525,7 @@ const TaskManagement = ({ error, success, setError, setSuccess, clearMessages, u
                                 Cancel
                               </button>
                               <button type="submit" className="post-reply-btn">
-                                Post Reply
+                                Comment
                               </button>
                             </div>
                           </form>
@@ -547,7 +547,7 @@ const TaskManagement = ({ error, success, setError, setSuccess, clearMessages, u
                   rows="3"
                 />
                 <button type="submit" className="post-comment-btn">
-                  Post Comment
+                  Comment
                 </button>
               </form>
             </div>
