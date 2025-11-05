@@ -4,14 +4,21 @@
   margin-top: 30px;
 }
 
+/* Top Row Layout */
+.top-row {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 2rem;
+}
+
 /* Stats Section */
 .stats-section {
-  margin-bottom: 2rem;
+  width: 100%;
 }
 
 .stats-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  grid-template-columns: repeat(4, 1fr);
   gap: 1.5rem;
 }
 
@@ -95,97 +102,18 @@
   color: var(--text-tertiary);
 }
 
-/* Workflow Cards */
-.workflow-grid {
+/* Bottom Row Layout */
+.bottom-row {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  grid-template-columns: 2fr 1fr;
   gap: 1.5rem;
-  margin-bottom: 2rem;
-}
-
-.workflow-card {
-  background: var(--background-secondary);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-lg);
-  padding: 1.5rem;
-}
-
-.workflow-card.blue {
-  background: #EFF6FF;
-  border-color: #BFDBFE;
-}
-
-.workflow-card.yellow {
-  background: #FFFBEB;
-  border-color: #FDE68A;
-}
-
-.workflow-card.green {
-  background: #F0FDF4;
-  border-color: #BBF7D0;
-}
-
-.workflow-title {
-  font-size: 14px;
-  font-weight: 600;
-  margin-bottom: 0.75rem;
-}
-
-.workflow-card.blue .workflow-title {
-  color: #1E40AF;
-}
-
-.workflow-card.yellow .workflow-title {
-  color: #92400E;
-}
-
-.workflow-card.green .workflow-title {
-  color: #065F46;
-}
-
-.workflow-number {
-  font-size: 32px;
-  font-weight: 700;
-  margin-bottom: 0.25rem;
-  letter-spacing: -0.02em;
-  line-height: 1;
-}
-
-.workflow-card.blue .workflow-number {
-  color: #1E40AF;
-}
-
-.workflow-card.yellow .workflow-number {
-  color: #92400E;
-}
-
-.workflow-card.green .workflow-number {
-  color: #065F46;
-}
-
-.workflow-subtitle {
-  font-size: 13px;
-  font-weight: 500;
-}
-
-.workflow-card.blue .workflow-subtitle {
-  color: #3B82F6;
-}
-
-.workflow-card.yellow .workflow-subtitle {
-  color: #F59E0B;
-}
-
-.workflow-card.green .workflow-subtitle {
-  color: #10B981;
 }
 
 /* Charts Section */
 .charts-section {
   display: grid;
-  grid-template-columns: 2fr 1fr;
+  grid-template-columns: 1fr;
   gap: 1.5rem;
-  margin-bottom: 2rem;
 }
 
 .chart-card {
@@ -197,6 +125,9 @@
 
 .chart-header {
   margin-bottom: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
 }
 
 .chart-header h3 {
@@ -213,18 +144,16 @@
   justify-content: center;
 }
 
-/* Bottom Section */
-.bottom-section {
-  display: grid;
-  grid-template-columns: 2fr 1fr;
-  gap: 1.5rem;
-}
-
+/* Activity Section */
 .section-card {
   background: var(--background-secondary);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-lg);
   padding: 1.5rem;
+}
+
+.activity-section {
+  height: fit-content;
 }
 
 .section-header {
@@ -311,50 +240,14 @@
   color: var(--text-tertiary);
 }
 
-/* System Stats List */
-.stats-list {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-}
-
-.stats-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 0.75rem 0;
-  border-bottom: 1px solid var(--border-light);
-}
-
-.stats-item:last-child {
-  border-bottom: none;
-}
-
-.stats-label {
-  font-size: 14px;
-  color: var(--text-secondary);
-  font-weight: 500;
-}
-
-.stats-value {
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--text-primary);
-}
-
-.stats-value.success {
-  color: var(--success-color);
-}
-
 /* Responsive Design */
 @media (max-width: 1200px) {
-  .charts-section,
-  .bottom-section {
+  .bottom-row {
     grid-template-columns: 1fr;
   }
   
-  .workflow-grid {
-    grid-template-columns: 1fr;
+  .stats-grid {
+    grid-template-columns: repeat(2, 1fr);
   }
 }
 
@@ -363,32 +256,15 @@
     grid-template-columns: 1fr;
   }
   
-  .page-header h1 {
-    font-size: 24px;
-  }
-  
-  .workflow-grid {
-    grid-template-columns: 1fr;
-  }
-  
   .stat-number {
-    font-size: 28px;
-  }
-  
-  .workflow-number {
     font-size: 28px;
   }
 }
 
 @media (max-width: 480px) {
   .stat-card,
-  .workflow-card,
   .chart-card,
   .section-card {
     padding: 1rem;
-  }
-  
-  .page-header h1 {
-    font-size: 20px;
   }
 }

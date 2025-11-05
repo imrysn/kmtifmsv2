@@ -3,6 +3,89 @@ const router = express.Router();
 const { query, queryOne } = require('../../database/config');
 const { createNotification } = require('./notifications');
 
+// Get ALL assignments for admin (no team filter)
+router.get('/admin/all', async (req, res) => {
+  try {
+    console.log('Admin fetching all assignments...');
+
+    const assignments = await query(`
+      SELECT
+        a.*,
+        COUNT(DISTINCT CASE WHEN am.status = 'submitted' AND am.file_id IS NOT NULL THEN am.id END) as submission_count,
+        COUNT(DISTINCT am.id) as assigned_members_count
+      FROM assignments a
+      LEFT JOIN assignment_members am ON a.id = am.assignment_id
+      GROUP BY a.id
+      ORDER BY a.created_at DESC
+    `);
+
+    console.log(`Found ${assignments.length} total assignments`);
+
+    // Get additional details for each assignment
+    for (let assignment of assignments) {
+      // Get assigned member details
+      const assignedMembers = await query(`
+        SELECT u.id, u.username, u.fullName
+        FROM assignment_members am
+        JOIN users u ON am.user_id = u.id
+        WHERE am.assignment_id = ?
+      `, [assignment.id]);
+      
+      assignment.assigned_member_details = assignedMembers || [];
+      
+      // Get recent submissions
+      const recentSubmissions = await query(`
+        SELECT 
+          f.id,
+          f.original_name,
+          f.filename,
+          f.file_type,
+          f.uploaded_at,
+          f.status,
+          u.username,
+          u.fullName,
+          am.submitted_at,
+          am.created_at,
+          am.status as submission_status
+        FROM assignment_members am
+        JOIN files f ON am.file_id = f.id
+        JOIN users u ON am.user_id = u.id
+        WHERE am.assignment_id = ? AND am.status = 'submitted' AND am.file_id IS NOT NULL
+        ORDER BY am.submitted_at DESC
+        LIMIT 3
+      `, [assignment.id]);
+
+      assignment.recent_submissions = recentSubmissions || [];
+      
+      // Get team leader info
+      const teamLeader = await queryOne(
+        'SELECT fullName, username, email FROM users WHERE id = ?',
+        [assignment.team_leader_id || assignment.teamLeaderId]
+      );
+      
+      if (teamLeader) {
+        assignment.team_leader_fullname = teamLeader.fullName;
+        assignment.team_leader_username = teamLeader.username;
+        assignment.team_leader_email = teamLeader.email;
+      }
+    }
+
+    console.log(`Returning ${assignments.length} assignments to admin`);
+
+    res.json({
+      success: true,
+      assignments: assignments || []
+    });
+  } catch (error) {
+    console.error('Error in admin all assignments route:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch assignments',
+      error: error.message
+    });
+  }
+});
+
 // Get all submitted files for file collection (Team Leader view)
 router.get('/team-leader/:team/all-submissions', async (req, res) => {
   try {
