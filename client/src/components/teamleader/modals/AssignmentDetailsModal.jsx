@@ -21,6 +21,14 @@ const AssignmentDetailsModal = ({
   const [isProcessing, setIsProcessing] = useState(false)
   const [submissionComments, setSubmissionComments] = useState([])
   const [isLoadingComments, setIsLoadingComments] = useState(false)
+  
+  // Assignment comments state
+  const [assignmentComments, setAssignmentComments] = useState([])
+  const [newAssignmentComment, setNewAssignmentComment] = useState('')
+  const [isPostingComment, setIsPostingComment] = useState(false)
+  const [replyingTo, setReplyingTo] = useState(null)
+  const [replyText, setReplyText] = useState('')
+  const [isPostingReply, setIsPostingReply] = useState(false)
 
   // Extract file extension helper
   const getFileExtension = (filename, fileType) => {
@@ -45,6 +53,13 @@ const AssignmentDetailsModal = ({
     }
   }, [selectedSubmission])
 
+  // Fetch assignment comments when modal opens
+  useEffect(() => {
+    if (showAssignmentDetailsModal && selectedAssignment) {
+      fetchAssignmentComments()
+    }
+  }, [showAssignmentDetailsModal, selectedAssignment])
+
   const fetchSubmissionComments = async (fileId) => {
     setIsLoadingComments(true)
     try {
@@ -62,6 +77,122 @@ const AssignmentDetailsModal = ({
     } finally {
       setIsLoadingComments(false)
     }
+  }
+
+  const fetchAssignmentComments = async () => {
+    if (!selectedAssignment) return
+    
+    try {
+      const response = await fetch(`http://localhost:3001/api/assignments/${selectedAssignment.id}/comments`)
+      const data = await response.json()
+      
+      if (data.success) {
+        setAssignmentComments(data.comments || [])
+      }
+    } catch (error) {
+      console.error('Error fetching assignment comments:', error)
+      setAssignmentComments([])
+    }
+  }
+
+  const postAssignmentComment = async () => {
+    const commentText = newAssignmentComment.trim()
+    if (!commentText || !selectedAssignment) return
+
+    setIsPostingComment(true)
+    
+    try {
+      const response = await fetch(`http://localhost:3001/api/assignments/${selectedAssignment.id}/comments`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          userId: teamLeaderId,
+          username: teamLeaderUsername,
+          comment: commentText
+        })
+      })
+
+      const data = await response.json()
+      
+      if (data.success) {
+        setNewAssignmentComment('')
+        fetchAssignmentComments()
+      } else {
+        alert('Failed to post comment')
+      }
+    } catch (error) {
+      console.error('Error posting comment:', error)
+      alert('Failed to post comment')
+    } finally {
+      setIsPostingComment(false)
+    }
+  }
+
+  const postReply = async (commentId) => {
+    const replyTextValue = replyText.trim()
+    if (!replyTextValue || !selectedAssignment) return
+
+    setIsPostingReply(true)
+    
+    try {
+      const response = await fetch(`http://localhost:3001/api/assignments/${selectedAssignment.id}/comments/${commentId}/replies`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          userId: teamLeaderId,
+          username: teamLeaderUsername,
+          reply: replyTextValue
+        })
+      })
+
+      const data = await response.json()
+      
+      if (data.success) {
+        setReplyText('')
+        setReplyingTo(null)
+        fetchAssignmentComments()
+      } else {
+        alert('Failed to post reply')
+      }
+    } catch (error) {
+      console.error('Error posting reply:', error)
+      alert('Failed to post reply')
+    } finally {
+      setIsPostingReply(false)
+    }
+  }
+
+  const formatRelativeTime = (dateString) => {
+    const date = new Date(dateString)
+    const now = new Date()
+    const diffInSeconds = Math.floor((now - date) / 1000)
+    
+    if (diffInSeconds < 60) return 'Just now'
+    if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)}m ago`
+    if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)}h ago`
+    if (diffInSeconds < 604800) return `${Math.floor(diffInSeconds / 86400)}d ago`
+    if (diffInSeconds < 2592000) return `${Math.floor(diffInSeconds / 604800)}w ago`
+    
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+  }
+
+  const getInitials = (name) => {
+    if (!name) return '?'
+    if (name.includes('.')) {
+      const parts = name.split('.')
+      if (parts.length >= 2) {
+        return (parts[0][0] + parts[1][0]).toUpperCase()
+      }
+    }
+    const parts = name.split(' ')
+    if (parts.length >= 2) {
+      return (parts[0][0] + parts[1][0]).toUpperCase()
+    }
+    return name.substring(0, 2).toUpperCase()
   }
 
   if (!showAssignmentDetailsModal || !selectedAssignment) return null
@@ -502,6 +633,244 @@ const AssignmentDetailsModal = ({
               <h4 className="section-title">Description</h4>
               <div className="description-box">
                 <p className="description-text">{selectedAssignment.description || 'No description provided'}</p>
+              </div>
+            </div>
+
+            {/* Assignment Comments Section */}
+            <div className="comments-section">
+              <h4 className="section-title">Task Comments ({assignmentComments.length})</h4>
+              {assignmentComments.length > 0 ? (
+                <div className="comments-list" style={{ marginBottom: '20px' }}>
+                  {assignmentComments.map((comment) => (
+                    <div key={comment.id} style={{
+                      marginBottom: '16px',
+                      borderLeft: '3px solid var(--primary-color)',
+                      paddingLeft: '12px'
+                    }}>
+                      <div style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        marginBottom: '8px'
+                      }}>
+                        <div style={{
+                          width: '32px',
+                          height: '32px',
+                          borderRadius: '50%',
+                          background: 'var(--primary-color)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          color: 'white',
+                          fontWeight: '600',
+                          fontSize: '14px',
+                          flexShrink: 0
+                        }}>
+                          {getInitials(comment.username)}
+                        </div>
+                        <div>
+                          <div style={{ fontWeight: '600', fontSize: '14px', color: 'var(--text-primary)' }}>
+                            {comment.username}
+                          </div>
+                          <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
+                            {formatRelativeTime(comment.created_at)}
+                          </div>
+                        </div>
+                      </div>
+                      <div style={{
+                        backgroundColor: 'var(--background-primary)',
+                        padding: '12px',
+                        borderRadius: '8px',
+                        marginBottom: '8px'
+                      }}>
+                        {comment.comment}
+                      </div>
+                      
+                      {/* Replies */}
+                      {comment.replies && comment.replies.length > 0 && (
+                        <div style={{ marginLeft: '40px', marginTop: '12px' }}>
+                          {comment.replies.map((reply) => (
+                            <div key={reply.id} style={{
+                              marginBottom: '12px',
+                              paddingLeft: '12px',
+                              borderLeft: '2px solid var(--border-color)'
+                            }}>
+                              <div style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '8px',
+                                marginBottom: '6px'
+                              }}>
+                                <div style={{
+                                  width: '24px',
+                                  height: '24px',
+                                  borderRadius: '50%',
+                                  background: 'var(--primary-color)',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  color: 'white',
+                                  fontWeight: '600',
+                                  fontSize: '11px',
+                                  flexShrink: 0
+                                }}>
+                                  {getInitials(reply.username)}
+                                </div>
+                                <div>
+                                  <div style={{ fontWeight: '600', fontSize: '13px', color: 'var(--text-primary)' }}>
+                                    {reply.username}
+                                  </div>
+                                  <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
+                                    {formatRelativeTime(reply.created_at)}
+                                  </div>
+                                </div>
+                              </div>
+                              <div style={{
+                                backgroundColor: 'var(--background-primary)',
+                                padding: '8px 10px',
+                                borderRadius: '6px',
+                                fontSize: '13px'
+                              }}>
+                                {reply.reply}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Reply Button and Input */}
+                      <div style={{ marginTop: '8px', marginLeft: '40px' }}>
+                        {replyingTo === comment.id ? (
+                          <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
+                            <input
+                              type="text"
+                              placeholder="Write a reply..."
+                              value={replyText}
+                              onChange={(e) => setReplyText(e.target.value)}
+                              onKeyPress={(e) => {
+                                if (e.key === 'Enter' && !e.shiftKey) {
+                                  e.preventDefault()
+                                  postReply(comment.id)
+                                }
+                              }}
+                              style={{
+                                flex: 1,
+                                padding: '8px 12px',
+                                border: '1px solid var(--border-color)',
+                                borderRadius: '6px',
+                                fontSize: '13px'
+                              }}
+                              disabled={isPostingReply}
+                              autoFocus
+                            />
+                            <button
+                              onClick={() => postReply(comment.id)}
+                              disabled={!replyText.trim() || isPostingReply}
+                              style={{
+                                padding: '8px 16px',
+                                backgroundColor: 'var(--primary-color)',
+                                color: 'white',
+                                border: 'none',
+                                borderRadius: '6px',
+                                cursor: 'pointer',
+                                fontSize: '13px',
+                                fontWeight: '600'
+                              }}
+                            >
+                              {isPostingReply ? 'Posting...' : 'Send'}
+                            </button>
+                            <button
+                              onClick={() => {
+                                setReplyingTo(null)
+                                setReplyText('')
+                              }}
+                              style={{
+                                padding: '8px 16px',
+                                backgroundColor: 'var(--background-primary)',
+                                color: 'var(--text-secondary)',
+                                border: '1px solid var(--border-color)',
+                                borderRadius: '6px',
+                                cursor: 'pointer',
+                                fontSize: '13px'
+                              }}
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => setReplyingTo(comment.id)}
+                            style={{
+                              padding: '4px 12px',
+                              backgroundColor: 'transparent',
+                              color: 'var(--primary-color)',
+                              border: 'none',
+                              cursor: 'pointer',
+                              fontSize: '12px',
+                              fontWeight: '600'
+                            }}
+                          >
+                            Reply
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div style={{
+                  textAlign: 'center',
+                  padding: '20px',
+                  color: 'var(--text-secondary)',
+                  fontSize: '14px'
+                }}>
+                  No comments yet
+                </div>
+              )}
+
+              {/* Add Comment Input */}
+              <div style={{
+                display: 'flex',
+                gap: '8px',
+                paddingTop: '16px',
+                borderTop: '1px solid var(--border-color)'
+              }}>
+                <input
+                  type="text"
+                  placeholder="Add a comment..."
+                  value={newAssignmentComment}
+                  onChange={(e) => setNewAssignmentComment(e.target.value)}
+                  onKeyPress={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault()
+                      postAssignmentComment()
+                    }
+                  }}
+                  style={{
+                    flex: 1,
+                    padding: '10px 14px',
+                    border: '1px solid var(--border-color)',
+                    borderRadius: '8px',
+                    fontSize: '14px'
+                  }}
+                  disabled={isPostingComment}
+                />
+                <button
+                  onClick={postAssignmentComment}
+                  disabled={!newAssignmentComment.trim() || isPostingComment}
+                  style={{
+                    padding: '10px 20px',
+                    backgroundColor: 'var(--primary-color)',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '8px',
+                    cursor: 'pointer',
+                    fontSize: '14px',
+                    fontWeight: '600'
+                  }}
+                >
+                  {isPostingComment ? 'Posting...' : 'Post'}
+                </button>
               </div>
             </div>
 

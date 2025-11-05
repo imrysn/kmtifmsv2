@@ -147,10 +147,12 @@ const UserDashboard = ({ user, onLogout }) => {
   }
 
   const navigateToTasks = (assignmentId = null) => {
+    console.log('🟢 navigateToTasks called with assignmentId:', assignmentId);
     setActiveTab('tasks')
     // Store the assignment ID to scroll to after tab switch
     if (assignmentId) {
       sessionStorage.setItem('scrollToAssignment', assignmentId)
+      console.log('✅ Stored scrollToAssignment in sessionStorage:', assignmentId);
     }
   }
 

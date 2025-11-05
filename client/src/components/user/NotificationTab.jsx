@@ -86,6 +86,8 @@ const NotificationTab = ({ user, onNavigateToTask }) => {
   };
 
   const handleNotificationClick = async (notification) => {
+    console.log('🔔 Notification clicked:', notification);
+    
     // Mark as read
     if (!notification.is_read) {
       await markAsRead(notification.id);
@@ -93,9 +95,21 @@ const NotificationTab = ({ user, onNavigateToTask }) => {
 
     // Handle navigation based on notification type
     if (notification.type === 'comment' && notification.assignment_id) {
+      console.log('💬 Comment notification - assignment_id:', notification.assignment_id);
+      console.log('👤 action_by_username:', notification.action_by_username);
+      
+      // Store the username of who commented/replied for highlighting
+      if (notification.action_by_username) {
+        sessionStorage.setItem('highlightCommentBy', notification.action_by_username);
+        console.log('✅ Stored highlightCommentBy:', notification.action_by_username);
+      }
+      
       // Navigate to tasks tab and scroll to comments section
       if (onNavigateToTask) {
+        console.log('➡️ Calling onNavigateToTask...');
         onNavigateToTask(notification.assignment_id);
+      } else {
+        console.log('❌ onNavigateToTask is not defined!');
       }
     } else if (notification.type === 'assignment' && notification.assignment_id) {
       // Navigate to tasks tab

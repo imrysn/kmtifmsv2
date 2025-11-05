@@ -15,6 +15,10 @@ const TasksTab = ({ user }) => {
   const [comments, setComments] = useState({});
   const [newComment, setNewComment] = useState({});
   const [isPostingComment, setIsPostingComment] = useState({});
+  const [expandedReplies, setExpandedReplies] = useState({});
+  const [replies, setReplies] = useState({});
+  const [newReply, setNewReply] = useState({});
+  const [isPostingReply, setIsPostingReply] = useState({});
 
   useEffect(() => {
     fetchAssignments();
@@ -51,9 +55,11 @@ const TasksTab = ({ user }) => {
       const data = await response.json();
       
       if (data.success) {
+        const commentsWithReplyCounts = data.comments || [];
+        
         setComments(prev => ({
           ...prev,
-          [assignmentId]: data.comments || []
+          [assignmentId]: commentsWithReplyCounts
         }));
       }
     } catch (error) {
@@ -103,6 +109,73 @@ const TasksTab = ({ user }) => {
       ...prev,
       [assignmentId]: !prev[assignmentId]
     }));
+  };
+
+  const toggleReplies = (commentId) => {
+    const currentlyExpanded = expandedReplies[commentId];
+    
+    setExpandedReplies(prev => ({
+      ...prev,
+      [commentId]: !prev[commentId]
+    }));
+    
+    // Only fetch replies when expanding for the first time
+    if (!currentlyExpanded && !replies[commentId]) {
+      fetchReplies(commentId);
+    }
+  };
+
+  const fetchReplies = async (commentId) => {
+    try {
+      const response = await fetch(`http://localhost:3001/api/comments/${commentId}/replies`);
+      const data = await response.json();
+      
+      if (data.success) {
+        setReplies(prev => ({
+          ...prev,
+          [commentId]: data.replies || []
+        }));
+      }
+    } catch (error) {
+      console.error('Error fetching replies:', error);
+    }
+  };
+
+  const postReply = async (commentId) => {
+    const replyText = newReply[commentId]?.trim();
+    if (!replyText) return;
+
+    setIsPostingReply(prev => ({ ...prev, [commentId]: true }));
+    
+    try {
+      const response = await fetch(`http://localhost:3001/api/comments/${commentId}/replies`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          userId: user.id,
+          username: user.username || user.fullName,
+          reply: replyText
+        })
+      });
+
+      const data = await response.json();
+      
+      if (data.success) {
+        // Clear input
+        setNewReply(prev => ({ ...prev, [commentId]: '' }));
+        // Refresh replies
+        fetchReplies(commentId);
+      } else {
+        setError('Failed to post reply');
+      }
+    } catch (error) {
+      console.error('Error posting reply:', error);
+      setError('Failed to post reply');
+    } finally {
+      setIsPostingReply(prev => ({ ...prev, [commentId]: false }));
+    }
   };
 
   const fetchUserFiles = async () => {
@@ -393,23 +466,108 @@ const TasksTab = ({ user }) => {
                         <div className="comments-section">
                           {assignmentComments.length > 0 && (
                             <div className="comments-list">
-                              {assignmentComments.map((comment) => (
-                                <div key={comment.id} className="comment-item">
-                                  <div className="comment-avatar">
-                                    {getInitials(comment.username)}
-                                  </div>
-                                  <div className="comment-content">
-                                    <div className="comment-bubble">
-                                      <div className="comment-author">{comment.username}</div>
-                                      <div className="comment-text">{comment.comment}</div>
+                              {assignmentComments.map((comment) => {
+                                const commentReplies = replies[comment.id] || [];
+                                const isRepliesExpanded = expandedReplies[comment.id];
+                                // Use reply_count from comment if available, otherwise use loaded replies length
+                                const replyCount = comment.reply_count || commentReplies.length;
+
+                                return (
+                                  <div key={comment.id} className={`comment-item ${replyCount > 0 ? 'has-replies' : ''}`}>
+                                    <div className="comment-avatar">
+                                      {getInitials(comment.username)}
                                     </div>
-                                    <div className="comment-actions">
-                                      <span className="comment-timestamp">{formatRelativeTime(comment.created_at)}</span>
-                                      <button className="comment-action-btn">Reply</button>
+                                    <div className="comment-content">
+                                      <div className="comment-bubble">
+                                        <div className="comment-author">{comment.username}</div>
+                                        <div className="comment-text">{comment.comment}</div>
+                                      </div>
+                                      <div className="comment-actions">
+                                        <span className="comment-timestamp">{formatRelativeTime(comment.created_at)}</span>
+                                        <button 
+                                          className="comment-action-btn"
+                                          onClick={() => {
+                                            if (!isRepliesExpanded) {
+                                              toggleReplies(comment.id);
+                                            } else {
+                                              // Show reply input even if replies are visible
+                                              document.getElementById(`reply-input-${comment.id}`)?.focus();
+                                            }
+                                          }}
+                                        >
+                                          Reply
+                                        </button>
+                                        {replyCount > 0 && (
+                                          <button 
+                                            className="comment-action-btn view-replies-btn"
+                                            onClick={() => toggleReplies(comment.id)}
+                                          >
+                                            {isRepliesExpanded ? 'Hide replies' : `View ${replyCount} ${replyCount === 1 ? 'reply' : 'replies'}`}
+                                          </button>
+                                        )}
+                                      </div>
+
+                                      {/* Replies Section */}
+                                      {isRepliesExpanded && replyCount > 0 && (
+                                        <div className="replies-list">
+                                          {commentReplies.map((reply) => (
+                                            <div key={reply.id} className="reply-item">
+                                              <div className="comment-avatar reply-avatar">
+                                                {getInitials(reply.username)}
+                                              </div>
+                                              <div className="comment-content">
+                                                <div className="comment-bubble">
+                                                  <div className="comment-author">{reply.username}</div>
+                                                  <div className="comment-text">{reply.reply}</div>
+                                                </div>
+                                                <div className="comment-actions">
+                                                  <span className="comment-timestamp">{formatRelativeTime(reply.created_at)}</span>
+                                                </div>
+                                              </div>
+                                            </div>
+                                          ))}
+                                        </div>
+                                      )}
+
+                                      {/* Reply Input */}
+                                      {isRepliesExpanded && (
+                                        <div className="reply-input-box">
+                                          <div className="comment-avatar reply-avatar">
+                                            {getInitials(user.username || user.fullName)}
+                                          </div>
+                                          <div className="comment-input-wrapper">
+                                            <input
+                                              id={`reply-input-${comment.id}`}
+                                              type="text"
+                                              className="comment-input"
+                                              placeholder="Write a reply..."
+                                              value={newReply[comment.id] || ''}
+                                              onChange={(e) => setNewReply(prev => ({ 
+                                                ...prev, 
+                                                [comment.id]: e.target.value 
+                                              }))}
+                                              onKeyPress={(e) => {
+                                                if (e.key === 'Enter' && !e.shiftKey) {
+                                                  e.preventDefault();
+                                                  postReply(comment.id);
+                                                }
+                                              }}
+                                              disabled={isPostingReply[comment.id]}
+                                            />
+                                            <button
+                                              className="comment-submit-btn"
+                                              onClick={() => postReply(comment.id)}
+                                              disabled={!newReply[comment.id]?.trim() || isPostingReply[comment.id]}
+                                            >
+                                              {isPostingReply[comment.id] ? '...' : '➤'}
+                                            </button>
+                                          </div>
+                                        </div>
+                                      )}
                                     </div>
                                   </div>
-                                </div>
-                              ))}
+                                );
+                              })}
                             </div>
                           )}
 
@@ -561,23 +719,108 @@ const TasksTab = ({ user }) => {
                         <div className="comments-section">
                           {assignmentComments.length > 0 && (
                             <div className="comments-list">
-                              {assignmentComments.map((comment) => (
-                                <div key={comment.id} className="comment-item">
-                                  <div className="comment-avatar">
-                                    {getInitials(comment.username)}
-                                  </div>
-                                  <div className="comment-content">
-                                    <div className="comment-bubble">
-                                      <div className="comment-author">{comment.username}</div>
-                                      <div className="comment-text">{comment.comment}</div>
+                              {assignmentComments.map((comment) => {
+                                const commentReplies = replies[comment.id] || [];
+                                const isRepliesExpanded = expandedReplies[comment.id];
+                                // Use reply_count from comment if available, otherwise use loaded replies length
+                                const replyCount = comment.reply_count || commentReplies.length;
+
+                                return (
+                                  <div key={comment.id} className={`comment-item ${replyCount > 0 ? 'has-replies' : ''}`}>
+                                    <div className="comment-avatar">
+                                      {getInitials(comment.username)}
                                     </div>
-                                    <div className="comment-actions">
-                                      <span className="comment-timestamp">{formatRelativeTime(comment.created_at)}</span>
-                                      <button className="comment-action-btn">Reply</button>
+                                    <div className="comment-content">
+                                      <div className="comment-bubble">
+                                        <div className="comment-author">{comment.username}</div>
+                                        <div className="comment-text">{comment.comment}</div>
+                                      </div>
+                                      <div className="comment-actions">
+                                        <span className="comment-timestamp">{formatRelativeTime(comment.created_at)}</span>
+                                        <button 
+                                          className="comment-action-btn"
+                                          onClick={() => {
+                                            if (!isRepliesExpanded) {
+                                              toggleReplies(comment.id);
+                                            } else {
+                                              // Show reply input even if replies are visible
+                                              document.getElementById(`reply-input-sub-${comment.id}`)?.focus();
+                                            }
+                                          }}
+                                        >
+                                          Reply
+                                        </button>
+                                        {replyCount > 0 && (
+                                          <button 
+                                            className="comment-action-btn view-replies-btn"
+                                            onClick={() => toggleReplies(comment.id)}
+                                          >
+                                            {isRepliesExpanded ? 'Hide replies' : `View ${replyCount} ${replyCount === 1 ? 'reply' : 'replies'}`}
+                                          </button>
+                                        )}
+                                      </div>
+
+                                      {/* Replies Section */}
+                                      {isRepliesExpanded && replyCount > 0 && (
+                                        <div className="replies-list">
+                                          {commentReplies.map((reply) => (
+                                            <div key={reply.id} className="reply-item">
+                                              <div className="comment-avatar reply-avatar">
+                                                {getInitials(reply.username)}
+                                              </div>
+                                              <div className="comment-content">
+                                                <div className="comment-bubble">
+                                                  <div className="comment-author">{reply.username}</div>
+                                                  <div className="comment-text">{reply.reply}</div>
+                                                </div>
+                                                <div className="comment-actions">
+                                                  <span className="comment-timestamp">{formatRelativeTime(reply.created_at)}</span>
+                                                </div>
+                                              </div>
+                                            </div>
+                                          ))}
+                                        </div>
+                                      )}
+
+                                      {/* Reply Input */}
+                                      {isRepliesExpanded && (
+                                        <div className="reply-input-box">
+                                          <div className="comment-avatar reply-avatar">
+                                            {getInitials(user.username || user.fullName)}
+                                          </div>
+                                          <div className="comment-input-wrapper">
+                                            <input
+                                              id={`reply-input-sub-${comment.id}`}
+                                              type="text"
+                                              className="comment-input"
+                                              placeholder="Write a reply..."
+                                              value={newReply[comment.id] || ''}
+                                              onChange={(e) => setNewReply(prev => ({ 
+                                                ...prev, 
+                                                [comment.id]: e.target.value 
+                                              }))}
+                                              onKeyPress={(e) => {
+                                                if (e.key === 'Enter' && !e.shiftKey) {
+                                                  e.preventDefault();
+                                                  postReply(comment.id);
+                                                }
+                                              }}
+                                              disabled={isPostingReply[comment.id]}
+                                            />
+                                            <button
+                                              className="comment-submit-btn"
+                                              onClick={() => postReply(comment.id)}
+                                              disabled={!newReply[comment.id]?.trim() || isPostingReply[comment.id]}
+                                            >
+                                              {isPostingReply[comment.id] ? '...' : '➤'}
+                                            </button>
+                                          </div>
+                                        </div>
+                                      )}
                                     </div>
                                   </div>
-                                </div>
-                              ))}
+                                );
+                              })}
                             </div>
                           )}
 

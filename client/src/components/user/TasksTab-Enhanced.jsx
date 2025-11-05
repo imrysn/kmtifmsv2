@@ -21,34 +21,70 @@ const TasksTab = ({ user }) => {
   const [isPostingReply, setIsPostingReply] = useState({});
   const [showCommentsModal, setShowCommentsModal] = useState(false);
   const [currentCommentsAssignment, setCurrentCommentsAssignment] = useState(null);
+  const [highlightCommentBy, setHighlightCommentBy] = useState(null); // Track who to highlight
   const [uploadedFile, setUploadedFile] = useState(null);
   const [fileDescription, setFileDescription] = useState('');
   const [isUploading, setIsUploading] = useState(false);
   const [showUploadSection, setShowUploadSection] = useState(false);
   const fileInputRef = useRef(null);
 
+  // Check for sessionStorage when component mounts or becomes visible
+  useEffect(() => {
+    const checkAndOpenComments = () => {
+      const assignmentId = sessionStorage.getItem('scrollToAssignment');
+      const highlightUser = sessionStorage.getItem('highlightCommentBy');
+      
+      if (assignmentId && assignments.length > 0) {
+        console.log('📍 Found assignment to open:', assignmentId);
+        console.log('📍 Found user to highlight:', highlightUser);
+        
+        // Clear the session storage immediately
+        sessionStorage.removeItem('scrollToAssignment');
+        sessionStorage.removeItem('highlightCommentBy');
+        
+        // Find the assignment
+        const assignment = assignments.find(a => a.id === parseInt(assignmentId));
+        if (assignment) {
+          console.log('✅ Assignment found, opening comments...');
+          
+          // Set highlight user if provided
+          if (highlightUser) {
+            setHighlightCommentBy(highlightUser);
+          }
+          
+          // Open the comments modal for this assignment after a delay
+          setTimeout(() => {
+            toggleComments(assignment);
+            
+            // Scroll to the comments modal after it opens
+            setTimeout(() => {
+              const modalBody = document.querySelector('.tasks-modal-body');
+              if (modalBody) {
+                modalBody.scrollTop = 0; // Scroll to top to see comments
+              }
+              
+              // Clear highlight after 3 seconds
+              setTimeout(() => {
+                setHighlightCommentBy(null);
+              }, 3000);
+            }, 100);
+          }, 500);
+        } else {
+          console.log('❌ Assignment not found in list');
+        }
+      }
+    };
+
+    // Check immediately when assignments are loaded
+    if (assignments.length > 0) {
+      checkAndOpenComments();
+    }
+  }, [assignments]);
+
   useEffect(() => {
     fetchAssignments();
     fetchUserFiles();
   }, [user.id]);
-
-  useEffect(() => {
-    // Check if there's an assignment ID to scroll to
-    const assignmentId = sessionStorage.getItem('scrollToAssignment');
-    if (assignmentId && assignments.length > 0) {
-      // Clear the session storage
-      sessionStorage.removeItem('scrollToAssignment');
-      
-      // Find the assignment
-      const assignment = assignments.find(a => a.id === parseInt(assignmentId));
-      if (assignment) {
-        // Open the comments modal for this assignment
-        setTimeout(() => {
-          toggleComments(assignment);
-        }, 500);
-      }
-    }
-  }, [assignments]);
 
   const fetchAssignments = async () => {
     setIsLoading(true);
@@ -131,6 +167,7 @@ const TasksTab = ({ user }) => {
   };
 
   const toggleComments = (assignment) => {
+    console.log('🔵 toggleComments called for:', assignment.title);
     setCurrentCommentsAssignment(assignment);
     setShowCommentsModal(true);
   };
@@ -795,8 +832,22 @@ const TasksTab = ({ user }) => {
               <div className="comments-section">
                 {comments[currentCommentsAssignment.id]?.length > 0 ? (
                   <div className="comments-list">
-                    {comments[currentCommentsAssignment.id].map((comment) => (
-                      <div key={comment.id} className="comment-item">
+                    {comments[currentCommentsAssignment.id].map((comment) => {
+                      // Check if this comment should be highlighted
+                      const shouldHighlight = highlightCommentBy && comment.username === highlightCommentBy;
+                      
+                      return (
+                      <div 
+                        key={comment.id} 
+                        className="comment-item"
+                        style={shouldHighlight ? {
+                          animation: 'highlight-pulse 2s ease-in-out',
+                          backgroundColor: '#FEF3C7',
+                          borderRadius: '8px',
+                          padding: '8px',
+                          marginBottom: '12px'
+                        } : {}}
+                      >
                         <div className="comment-avatar">
                           {getInitials(comment.username)}
                         </div>
@@ -818,8 +869,22 @@ const TasksTab = ({ user }) => {
                           {/* Replies */}
                           {comment.replies && comment.replies.length > 0 && (
                             <div className="replies-list">
-                              {comment.replies.map((reply) => (
-                                <div key={reply.id} className="reply-item">
+                              {comment.replies.map((reply) => {
+                                // Check if this reply should be highlighted
+                                const shouldHighlightReply = highlightCommentBy && reply.username === highlightCommentBy;
+                                
+                                return (
+                                <div 
+                                  key={reply.id} 
+                                  className="reply-item"
+                                  style={shouldHighlightReply ? {
+                                    animation: 'highlight-pulse 2s ease-in-out',
+                                    backgroundColor: '#FEF3C7',
+                                    borderRadius: '6px',
+                                    padding: '6px',
+                                    marginBottom: '8px'
+                                  } : {}}
+                                >
                                   <div className="comment-avatar reply-avatar">
                                     {getInitials(reply.username)}
                                   </div>
@@ -833,7 +898,7 @@ const TasksTab = ({ user }) => {
                                     </div>
                                   </div>
                                 </div>
-                              ))}
+                              )})}
                             </div>
                           )}
 
@@ -874,7 +939,7 @@ const TasksTab = ({ user }) => {
                           )}
                         </div>
                       </div>
-                    ))}
+                    )})}  
                   </div>
                 ) : (
                   <div style={{ textAlign: 'center', padding: '40px 20px', color: '#6B7280' }}>

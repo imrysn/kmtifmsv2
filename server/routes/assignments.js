@@ -788,28 +788,29 @@ router.post('/:assignmentId/comments', async (req, res) => {
       WHERE ac.id = ?
     `, [result.insertId]);
 
-    // Create notifications for assigned members if commenter is admin or team leader
-    if (user.role === 'ADMIN' || user.role === 'TEAM_LEADER') {
-      try {
-        console.log(`🔔 Comment posted by ${user.role}: ${user.fullName} (ID: ${userId})`);
-        console.log(`📋 Assignment ID: ${assignmentId}`);
-        
-        // Get assignment details
-        const assignment = await queryOne(
-          'SELECT title FROM assignments WHERE id = ?',
-          [assignmentId]
-        );
-        console.log(`📋 Assignment title: ${assignment?.title}`);
+    // Create notifications for assigned members
+    try {
+      console.log(`🔔 Comment posted by ${user.role}: ${user.fullName} (ID: ${userId})`);
+      console.log(`📋 Assignment ID: ${assignmentId}`);
+      
+      // Get assignment details
+      const assignment = await queryOne(
+        'SELECT title, team_leader_id FROM assignments WHERE id = ?',
+        [assignmentId]
+      );
+      console.log(`📋 Assignment title: ${assignment?.title}`);
 
-        // Get all members assigned to this task (except the commenter)
-        const assignedMembers = await query(
-          'SELECT user_id FROM assignment_members WHERE assignment_id = ? AND user_id != ?',
-          [assignmentId, userId]
-        );
+      // Get all members assigned to this task (except the commenter)
+      const assignedMembers = await query(
+        'SELECT user_id FROM assignment_members WHERE assignment_id = ? AND user_id != ?',
+        [assignmentId, userId]
+      );
 
-        console.log(`👥 Found ${assignedMembers.length} assigned members (excluding commenter):`);
-        console.log(assignedMembers);
+      console.log(`👥 Found ${assignedMembers.length} assigned members (excluding commenter):`);
+      console.log(assignedMembers);
 
+      // If admin or team leader commented, notify assigned members
+      if (user.role === 'ADMIN' || user.role === 'TEAM_LEADER') {
         if (assignedMembers.length === 0) {
           console.log('⚠️ No members to notify (either no one assigned or only commenter is assigned)');
         }
@@ -846,13 +847,43 @@ router.post('/:assignmentId/comments', async (req, res) => {
         }
 
         console.log(`✅ Successfully created ${assignedMembers.length} comment notification(s)`);
-      } catch (notifError) {
-        console.error('⚠️ Failed to create comment notifications:', notifError);
-        console.error('Error stack:', notifError.stack);
-        // Don't fail the request if notifications fail
       }
-    } else {
-      console.log(`ℹ️ User ${user.fullName} (${user.role}) posted comment - not creating notifications (only ADMIN/TEAM_LEADER comments trigger notifications)`);
+      // If regular user commented, notify team leader
+      else if (user.role === 'USER' && assignment.team_leader_id && assignment.team_leader_id !== userId) {
+        console.log(`📤 Creating notification for team leader ID: ${assignment.team_leader_id}`);
+        
+        const notificationResult = await query(`
+          INSERT INTO notifications (
+            user_id,
+            assignment_id,
+            file_id,
+            type,
+            title,
+            message,
+            action_by_id,
+            action_by_username,
+            action_by_role
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `, [
+          assignment.team_leader_id,
+          assignmentId,
+          null,
+          'comment',
+          'New Comment on Assignment',
+          `${user.fullName} commented on "${assignment.title}": ${comment.substring(0, 100)}${comment.length > 100 ? '...' : ''}`,
+          userId,
+          username,
+          user.role
+        ]);
+        
+        console.log(`✅ Notification created for team leader with ID: ${notificationResult.insertId}`);
+      } else {
+        console.log(`ℹ️ User ${user.fullName} (${user.role}) posted comment - no additional notifications needed`);
+      }
+    } catch (notifError) {
+      console.error('⚠️ Failed to create comment notifications:', notifError);
+      console.error('Error stack:', notifError.stack);
+      // Don't fail the request if notifications fail
     }
 
     res.json({
@@ -931,8 +962,8 @@ router.post('/:assignmentId/comments/:commentId/replies', async (req, res) => {
       WHERE cr.id = ?
     `, [result.insertId]);
 
-    // Create notification for the original comment author if reply is from admin or team leader
-    if ((user.role === 'ADMIN' || user.role === 'TEAM_LEADER') && comment.user_id !== userId) {
+    // Create notification for the original comment author if different from replier
+    if (comment.user_id !== userId) {
       try {
         // Get assignment details
         const assignment = await queryOne(
