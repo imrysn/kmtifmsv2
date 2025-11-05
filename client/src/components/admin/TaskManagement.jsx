@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import './TaskManagement.css'
 
-const TaskManagement = ({ error, success, setError, setSuccess, clearMessages }) => {
+const TaskManagement = ({ error, success, setError, setSuccess, clearMessages, user }) => {
   const [assignments, setAssignments] = useState([])
   const [loading, setLoading] = useState(true)
   const [expandedAssignments, setExpandedAssignments] = useState({})
@@ -28,47 +28,24 @@ const TaskManagement = ({ error, success, setError, setSuccess, clearMessages })
       setLoading(true)
       clearMessages()
       
-      const usersResponse = await fetch('http://localhost:3001/api/users')
-      const usersData = await usersResponse.json()
+      console.log('Fetching all assignments for admin...')
       
-      if (!usersData.success) {
-        setError('Failed to fetch users')
+      // Use the new admin endpoint to get ALL assignments
+      const response = await fetch('http://localhost:3001/api/assignments/admin/all')
+      const data = await response.json()
+      
+      console.log('Admin assignments response:', data)
+      
+      if (!data.success) {
+        setError(data.message || 'Failed to fetch assignments')
         setLoading(false)
         return
       }
 
-      const teamLeaders = usersData.users.filter(user => user.role === 'TEAM_LEADER')
+      const allAssignments = data.assignments || []
+      console.log(`Fetched ${allAssignments.length} assignments`)
       
-      if (teamLeaders.length === 0) {
-        setAssignments([])
-        setLoading(false)
-        return
-      }
-      
-      const allAssignments = []
-      
-      for (const leader of teamLeaders) {
-        try {
-          const response = await fetch(`http://localhost:3001/api/assignments/team-leader/${leader.team}`)
-          const data = await response.json()
-          
-          if (data.success && data.assignments && data.assignments.length > 0) {
-            const assignmentsWithLeader = data.assignments.map(assignment => ({
-              ...assignment,
-              team_leader_fullname: leader.fullName,
-              team_leader_username: leader.username || assignment.team_leader_username,
-              team_leader_team: leader.team,
-              team_leader_email: leader.email
-            }))
-            allAssignments.push(...assignmentsWithLeader)
-          }
-        } catch (err) {
-          console.error(`Error fetching assignments for ${leader.username}:`, err)
-        }
-      }
-
-      allAssignments.sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
-      
+      // Calculate statistics
       const now = new Date()
       const statsData = {
         total: allAssignments.length,
@@ -78,6 +55,8 @@ const TaskManagement = ({ error, success, setError, setSuccess, clearMessages })
           a.due_date && new Date(a.due_date) < now && a.status === 'active'
         ).length
       }
+      
+      console.log('Statistics:', statsData)
       
       setStats(statsData)
       setAssignments(allAssignments)
@@ -129,13 +108,13 @@ const TaskManagement = ({ error, success, setError, setSuccess, clearMessages })
     if (!newComment.trim()) return
 
     try {
-      // Get current admin user from session storage
-      const currentUser = JSON.parse(sessionStorage.getItem('user'))
-      
-      if (!currentUser) {
+      // Use the user prop passed from AdminDashboard
+      if (!user || !user.id) {
         setError('User session not found. Please log in again.')
         return
       }
+      
+      const currentUser = user
 
       const response = await fetch(`http://localhost:3001/api/assignments/${selectedAssignment.id}/comments`, {
         method: 'POST',
@@ -171,12 +150,13 @@ const TaskManagement = ({ error, success, setError, setSuccess, clearMessages })
     if (!replyText.trim()) return
 
     try {
-      const currentUser = JSON.parse(sessionStorage.getItem('user'))
-      
-      if (!currentUser) {
+      // Use the user prop passed from AdminDashboard
+      if (!user || !user.id) {
         setError('User session not found. Please log in again.')
         return
       }
+      
+      const currentUser = user
 
       const response = await fetch(
         `http://localhost:3001/api/assignments/${selectedAssignment.id}/comments/${commentId}/replies`,
@@ -225,20 +205,28 @@ const TaskManagement = ({ error, success, setError, setSuccess, clearMessages })
   const formatDate = (dateString) => {
     if (!dateString) return 'No due date'
     const date = new Date(dateString)
+    return date.toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric'
+    })
+  }
+
+  const formatDaysLeft = (dateString) => {
+    if (!dateString) return ''
+    const date = new Date(dateString)
     const now = new Date()
     const diffTime = date - now
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
     
     if (diffDays < 0) {
-      return `Overdue by ${Math.abs(diffDays)} day${Math.abs(diffDays) !== 1 ? 's' : ''}`
+      return `${Math.abs(diffDays)} days overdue`
     } else if (diffDays === 0) {
       return 'Due today'
     } else if (diffDays === 1) {
-      return 'Due tomorrow'
-    } else if (diffDays <= 7) {
-      return `Due in ${diffDays} days`
+      return '1 day left'
     } else {
-      return `Due ${date.toLocaleDateString()}`
+      return `${diffDays} days left`
     }
   }
 
@@ -287,10 +275,10 @@ const TaskManagement = ({ error, success, setError, setSuccess, clearMessages })
   if (loading) {
     return (
       <div className="task-feed">
-        <div className="feed-header">
-          <h2>📋 Team Tasks Feed</h2>
-          <p className="feed-subtitle">All assignments from team leaders</p>
+        <div className="feed-header-simple">
+          <h2>Global Tasks</h2>
         </div>
+        <div className="task-count">Loading...</div>
         <div className="loading-skeleton">
           {[1, 2, 3].map(i => (
             <div key={i} className="skeleton-card">
@@ -315,48 +303,16 @@ const TaskManagement = ({ error, success, setError, setSuccess, clearMessages })
 
   return (
     <div className="task-feed">
-      <div className="feed-header">
-        <h2>📋 Team Tasks Feed</h2>
-        <p className="feed-subtitle">
-          All assignments from team leaders across the organization
-        </p>
-      </div>
-
-      {/* Statistics Cards */}
-      <div className="stats-cards">
-        <div className="stat-card-feed">
-          <div className="stat-icon-feed">📊</div>
-          <div className="stat-details">
-            <div className="stat-number-feed">{stats.total}</div>
-            <div className="stat-label-feed">Total Assignments</div>
-          </div>
-        </div>
-        <div className="stat-card-feed">
-          <div className="stat-icon-feed">✅</div>
-          <div className="stat-details">
-            <div className="stat-number-feed">{stats.active}</div>
-            <div className="stat-label-feed">Active</div>
-          </div>
-        </div>
-        <div className="stat-card-feed">
-          <div className="stat-icon-feed">🎯</div>
-          <div className="stat-details">
-            <div className="stat-number-feed">{stats.completed}</div>
-            <div className="stat-label-feed">Completed</div>
-          </div>
-        </div>
-        <div className="stat-card-feed">
-          <div className="stat-icon-feed">⚠️</div>
-          <div className="stat-details">
-            <div className="stat-number-feed">{stats.overdue}</div>
-            <div className="stat-label-feed">Overdue</div>
-          </div>
-        </div>
+      <div className="feed-header-simple">
+        <h2>Global Tasks</h2>
       </div>
 
       {/* Messages */}
       {error && <div className="feed-message error-message">{error}</div>}
       {success && <div className="feed-message success-message">{success}</div>}
+      
+      {/* Task Count */}
+      <div className="task-count">{assignments.length} assignments</div>
 
       {/* Feed */}
       <div className="feed-container">
@@ -368,178 +324,118 @@ const TaskManagement = ({ error, success, setError, setSuccess, clearMessages })
           </div>
         ) : (
           assignments.map(assignment => (
-            <div key={assignment.id} className="feed-card">
-              {/* Card Header */}
-              <div className="card-header">
-                <div className="author-info">
-                  <div className="author-avatar">
-                    {getInitials(assignment.team_leader_fullname || assignment.team_leader_username)}
-                  </div>
-                  <div className="author-details">
-                    <div className="author-name">
-                      {assignment.team_leader_fullname || assignment.team_leader_username}
+              <div key={assignment.id} className="admin-assignment-card">
+                {/* Card Header */}
+                <div className="admin-card-header">
+                  <div className="admin-author-section">
+                    <div className="admin-author-avatar">
+                      {getInitials(assignment.team_leader_fullname || assignment.team_leader_username)}
                     </div>
-                    <div className="author-meta">
-                      <span className="team-badge">{assignment.team_leader_team || assignment.team}</span>
-                      <span className="dot-separator">•</span>
-                      <span className="post-time">
-                        {formatDateTime(assignment.created_at)}
-                      </span>
+                    <div className="admin-author-info">
+                      <div className="admin-author-name">
+                        {assignment.team_leader_fullname || assignment.team_leader_username}
+                      </div>
+                      <div className="admin-team-badge">{assignment.team}</div>
+                    </div>
+                    <div className="admin-post-time">
+                      {formatDateTime(assignment.created_at)}
                     </div>
                   </div>
-                </div>
-              </div>
-
-              {/* Card Body */}
-              <div className="card-body">
-                <h3 className="assignment-title">{assignment.title}</h3>
-                
-                {assignment.description && (
-                  <p className="assignment-description">
-                    {expandedAssignments[assignment.id] 
-                      ? assignment.description 
-                      : assignment.description.length > 200 
-                        ? `${assignment.description.substring(0, 200)}...` 
-                        : assignment.description}
-                    {assignment.description.length > 200 && (
-                      <button 
-                        className="expand-btn"
-                        onClick={() => toggleExpand(assignment.id)}
-                      >
-                        {expandedAssignments[assignment.id] ? 'Show less' : 'Show more'}
-                      </button>
-                    )}
-                  </p>
-                )}
-
-                <div className="assignment-meta">
-                  {assignment.due_date && (
-                    <div className="meta-item">
-                      <span className="meta-icon">📅</span>
-                      <span 
-                        className="meta-text"
-                        style={{ 
-                          color: getStatusColor(assignment.due_date),
-                          fontWeight: 600
-                        }}
-                      >
-                        {formatDate(assignment.due_date)}
-                      </span>
+                  {assignment.user_status === 'submitted' && (
+                    <div className="admin-submitted-badge">
+                      ✓ SUBMITTED
                     </div>
                   )}
+                </div>
+
+                {/* Card Content */}
+                <div className="admin-card-content">
+                  <h3 className="admin-assignment-title">{assignment.title}</h3>
                   
-                  {assignment.file_type_required && (
-                    <div className="meta-item">
-                      <span className="meta-icon">📎</span>
-                      <span className="meta-text">
-                        Required: {assignment.file_type_required.toUpperCase()}
-                      </span>
-                    </div>
-                  )}
-
-                  {assignment.max_file_size && (
-                    <div className="meta-item">
-                      <span className="meta-icon">💾</span>
-                      <span className="meta-text">
-                        Max: {formatFileSize(assignment.max_file_size)}
-                      </span>
-                    </div>
-                  )}
-                </div>
-
-                {/* Assignment Stats */}
-                <div className="assignment-stats">
-                  <div className="stat-item">
-                    <span className="stat-icon">👥</span>
-                    <span className="stat-value">{assignment.assigned_members_count || 0}</span>
-                    <span className="stat-label">Assigned</span>
-                  </div>
-                  <div className="stat-divider"></div>
-                  <div className="stat-item">
-                    <span className="stat-icon">✅</span>
-                    <span className="stat-value">{assignment.submission_count || 0}</span>
-                    <span className="stat-label">Submitted</span>
-                  </div>
-                  <div className="stat-divider"></div>
-                  <div className="stat-item">
-                    <span className="stat-icon">⏳</span>
-                    <span className="stat-value">
-                      {(assignment.assigned_members_count || 0) - (assignment.submission_count || 0)}
-                    </span>
-                    <span className="stat-label">Pending</span>
-                  </div>
-                </div>
-
-                {/* Assigned Members */}
-                {assignment.assigned_member_details && assignment.assigned_member_details.length > 0 && (
-                  <div className="assigned-members">
-                    <div className="members-label">Assigned to:</div>
-                    <div className="members-avatars">
-                      {assignment.assigned_member_details.slice(0, 5).map((member, index) => (
-                        <div 
-                          key={member.id} 
-                          className="member-avatar"
-                          title={member.fullName || member.username}
-                          style={{ zIndex: assignment.assigned_member_details.length - index }}
+                  {assignment.description && (
+                    <p className="admin-assignment-description">
+                      {expandedAssignments[assignment.id] 
+                        ? assignment.description 
+                        : assignment.description.length > 200 
+                          ? `${assignment.description.substring(0, 200)}...` 
+                          : assignment.description}
+                      {assignment.description.length > 200 && (
+                        <button 
+                          className="admin-expand-btn"
+                          onClick={() => toggleExpand(assignment.id)}
                         >
-                          {getInitials(member.fullName || member.username)}
-                        </div>
-                      ))}
-                      {assignment.assigned_member_details.length > 5 && (
-                        <div className="member-avatar more-members">
-                          +{assignment.assigned_member_details.length - 5}
-                        </div>
+                          {expandedAssignments[assignment.id] ? 'Show less' : 'Show more'}
+                        </button>
                       )}
-                    </div>
-                  </div>
-                )}
+                    </p>
+                  )}
 
-                {/* Recent Submissions */}
-                {assignment.recent_submissions && assignment.recent_submissions.length > 0 && (
-                  <div className="recent-submissions">
-                    <div className="submissions-label">📄 Recent submissions:</div>
-                    {assignment.recent_submissions.map((submission, index) => (
-                      <div key={index} className="submission-item">
-                        <span className="submission-icon">📄</span>
-                        <span className="submission-user">
-                          {submission.fullName || submission.username}
-                        </span>
-                        <span className="submission-file">{submission.original_name}</span>
-                        <span className="submission-time">
-                          {new Date(submission.submitted_at).toLocaleDateString()}
+                  {/* Attached File */}
+                  {assignment.recent_submissions && assignment.recent_submissions.length > 0 && (
+                    <div className="admin-attached-file">
+                      <div className="admin-file-label">📎 Attached File:</div>
+                      <div className="admin-file-item">
+                        <div className="admin-file-icon">📄</div>
+                        <div className="admin-file-details">
+                          <div className="admin-file-name">{assignment.recent_submissions[0].original_name}</div>
+                          <div className="admin-file-meta">Submitted on {formatDate(assignment.recent_submissions[0].submitted_at)}</div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Meta Info */}
+                  <div className="admin-meta-section">
+                    {assignment.due_date && (
+                      <div className="admin-meta-item">
+                        <span className="admin-meta-text">
+                          Due: {formatDate(assignment.due_date)}
+                          <span 
+                            className="admin-days-left"
+                            style={{ color: getStatusColor(assignment.due_date) }}
+                          >
+                            {' '}({formatDaysLeft(assignment.due_date)})
+                          </span>
                         </span>
                       </div>
-                    ))}
+                    )}
                   </div>
-                )}
-              </div>
 
-              {/* Card Footer */}
-              <div className="card-footer">
-                <div className="assignment-type">
-                  {assignment.assigned_to === 'all' ? (
-                    <span className="type-badge type-all">🌐 All Team Members</span>
-                  ) : (
-                    <span className="type-badge type-specific">
-                      👤 {assignment.assigned_members_count || 0} Specific Members
-                    </span>
+                  {/* Assigned Members */}
+                  {assignment.assigned_member_details && assignment.assigned_member_details.length > 0 && (
+                    <div className="admin-assigned-to">
+                      <span className="admin-assigned-label">Assigned to:</span>
+                      <div className="admin-member-avatar-small">
+                        {getInitials(assignment.assigned_member_details[0].fullName || assignment.assigned_member_details[0].username)}
+                      </div>
+                      {assignment.assigned_member_details.length > 1 && (
+                        <span className="admin-more-members">+{assignment.assigned_member_details.length - 1} more</span>
+                      )}
+                    </div>
                   )}
                 </div>
-                <button 
-                  className="comments-button"
-                  onClick={() => openCommentsModal(assignment)}
-                >
-                  💬 View Comments
-                </button>
-                <div className="assignment-status">
-                  {assignment.status === 'active' ? (
-                    <span className="status-badge status-active">Active</span>
-                  ) : (
-                    <span className="status-badge status-closed">Closed</span>
-                  )}
+
+                {/* Card Footer */}
+                <div className="admin-card-footer">
+                  <div className="admin-footer-left">
+                    <button className="admin-assigned-count">
+                      <span className="admin-icon">👥</span>
+                      {assignment.assigned_to === 'all' ? 'All Team Members' : `${assignment.assigned_members_count || 0} Specific Members`}
+                    </button>
+                  </div>
+                  <div className="admin-footer-right">
+                    <button 
+                      className="admin-view-comments-btn"
+                      onClick={() => openCommentsModal(assignment)}
+                    >
+                      💬 View Comments
+                    </button>
+                    <div className={`admin-status-badge ${assignment.status === 'active' ? 'active' : 'closed'}`}>
+                      {assignment.status === 'active' ? 'ACTIVE' : 'CLOSED'}
+                    </div>
+                  </div>
                 </div>
               </div>
-            </div>
           ))
         )}
       </div>

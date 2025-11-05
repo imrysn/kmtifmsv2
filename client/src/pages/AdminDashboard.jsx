@@ -94,7 +94,7 @@ const AdminDashboard = ({ user, onLogout }) => {
       case 'file-management':
         return <FileManagement {...commonProps} />
       case 'tasks':
-        return <TaskManagement {...commonProps} />
+        return <TaskManagement {...commonProps} user={user} />
       case 'settings':
         return <Settings {...commonProps} users={users} user={user} />
       default:
