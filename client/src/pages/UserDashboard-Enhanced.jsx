@@ -146,8 +146,12 @@ const UserDashboard = ({ user, onLogout }) => {
     }
   }
 
-  const navigateToTasks = () => {
+  const navigateToTasks = (assignmentId = null) => {
     setActiveTab('tasks')
+    // Store the assignment ID to scroll to after tab switch
+    if (assignmentId) {
+      sessionStorage.setItem('scrollToAssignment', assignmentId)
+    }
   }
 
   const formatFileSize = (bytes) => {

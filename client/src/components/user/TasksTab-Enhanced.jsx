@@ -32,6 +32,24 @@ const TasksTab = ({ user }) => {
     fetchUserFiles();
   }, [user.id]);
 
+  useEffect(() => {
+    // Check if there's an assignment ID to scroll to
+    const assignmentId = sessionStorage.getItem('scrollToAssignment');
+    if (assignmentId && assignments.length > 0) {
+      // Clear the session storage
+      sessionStorage.removeItem('scrollToAssignment');
+      
+      // Find the assignment
+      const assignment = assignments.find(a => a.id === parseInt(assignmentId));
+      if (assignment) {
+        // Open the comments modal for this assignment
+        setTimeout(() => {
+          toggleComments(assignment);
+        }, 500);
+      }
+    }
+  }, [assignments]);
+
   const fetchAssignments = async () => {
     setIsLoading(true);
     setError('');

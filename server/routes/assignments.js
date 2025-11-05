@@ -705,6 +705,73 @@ router.post('/:assignmentId/comments', async (req, res) => {
       WHERE ac.id = ?
     `, [result.insertId]);
 
+    // Create notifications for assigned members if commenter is admin or team leader
+    if (user.role === 'ADMIN' || user.role === 'TEAM_LEADER') {
+      try {
+        console.log(`🔔 Comment posted by ${user.role}: ${user.fullName} (ID: ${userId})`);
+        console.log(`📋 Assignment ID: ${assignmentId}`);
+        
+        // Get assignment details
+        const assignment = await queryOne(
+          'SELECT title FROM assignments WHERE id = ?',
+          [assignmentId]
+        );
+        console.log(`📋 Assignment title: ${assignment?.title}`);
+
+        // Get all members assigned to this task (except the commenter)
+        const assignedMembers = await query(
+          'SELECT user_id FROM assignment_members WHERE assignment_id = ? AND user_id != ?',
+          [assignmentId, userId]
+        );
+
+        console.log(`👥 Found ${assignedMembers.length} assigned members (excluding commenter):`);
+        console.log(assignedMembers);
+
+        if (assignedMembers.length === 0) {
+          console.log('⚠️ No members to notify (either no one assigned or only commenter is assigned)');
+        }
+
+        // Create notification for each assigned member
+        for (const member of assignedMembers) {
+          console.log(`📤 Creating notification for user ID: ${member.user_id}`);
+          
+          const notificationResult = await query(`
+            INSERT INTO notifications (
+              user_id,
+              assignment_id,
+              file_id,
+              type,
+              title,
+              message,
+              action_by_id,
+              action_by_username,
+              action_by_role
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+          `, [
+            member.user_id,
+            assignmentId,
+            null,
+            'comment',
+            'New Comment on Assignment',
+            `${user.fullName} commented on "${assignment.title}": ${comment.substring(0, 100)}${comment.length > 100 ? '...' : ''}`,
+            userId,
+            username,
+            user.role
+          ]);
+          
+          console.log(`✅ Notification created with ID: ${notificationResult.insertId}`);
+        }
+
+        console.log(`✅ Successfully created ${assignedMembers.length} comment notification(s)`);
+      } catch (notifError) {
+        console.error('⚠️ Failed to create comment notifications:', notifError);
+        console.error('Error stack:', notifError.stack);
+        // Don't fail the request if notifications fail
+      }
+    } else {
+      console.log(`ℹ️ User ${user.fullName} (${user.role}) posted comment - not creating notifications (only ADMIN/TEAM_LEADER comments trigger notifications)`);
+    }
+
     res.json({
       success: true,
       message: 'Comment posted successfully',
@@ -780,6 +847,46 @@ router.post('/:assignmentId/comments/:commentId/replies', async (req, res) => {
       JOIN users u ON cr.user_id = u.id
       WHERE cr.id = ?
     `, [result.insertId]);
+
+    // Create notification for the original comment author if reply is from admin or team leader
+    if ((user.role === 'ADMIN' || user.role === 'TEAM_LEADER') && comment.user_id !== userId) {
+      try {
+        // Get assignment details
+        const assignment = await queryOne(
+          'SELECT title FROM assignments WHERE id = ?',
+          [assignmentId]
+        );
+
+        await query(`
+          INSERT INTO notifications (
+            user_id,
+            assignment_id,
+            file_id,
+            type,
+            title,
+            message,
+            action_by_id,
+            action_by_username,
+            action_by_role
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `, [
+          comment.user_id,
+          assignmentId,
+          null,
+          'comment',
+          'New Reply on Assignment',
+          `${user.fullName} replied to your comment on "${assignment.title}": ${reply.substring(0, 100)}${reply.length > 100 ? '...' : ''}`,
+          userId,
+          username,
+          user.role
+        ]);
+
+        console.log(`✅ Created reply notification for user ${comment.user_id}`);
+      } catch (notifError) {
+        console.error('⚠️ Failed to create reply notification:', notifError);
+        // Don't fail the request if notifications fail
+      }
+    }
 
     res.json({
       success: true,

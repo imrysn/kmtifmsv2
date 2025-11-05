@@ -15,7 +15,7 @@ const SERVER_PORT = process.env.EXPRESS_PORT || 3001;
 const VITE_URL = 'http://localhost:5173';
 const EXPRESS_CHECK_INTERVAL = 500;
 const MAX_EXPRESS_WAIT = 30000; // 30 seconds
-const MAX_VITE_WAIT = 20000; // Reduced to 20 seconds for faster feedback
+const MAX_VITE_WAIT = 60000; // 60 seconds - enough time for Vite to start
 const MAX_LOAD_RETRIES = 10;
 
 /**

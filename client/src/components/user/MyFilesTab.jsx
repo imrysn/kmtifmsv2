@@ -25,43 +25,12 @@ const MyFilesTab = ({
   const [isUploading, setIsUploading] = useState(false);
   const [showDuplicateModal, setShowDuplicateModal] = useState(false);
   const [duplicateFileInfo, setDuplicateFileInfo] = useState(null);
-  const [showFileDetailsModal, setShowFileDetailsModal] = useState(false);
-  const [selectedFile, setSelectedFile] = useState(null);
-  const [fileComments, setFileComments] = useState([]);
-  const [loadingComments, setLoadingComments] = useState(false);
-  const [openMenuId, setOpenMenuId] = useState(null);
-  const [menuPosition, setMenuPosition] = useState({ top: 0, left: 0 });
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [fileToDelete, setFileToDelete] = useState(null);
   const [successModal, setSuccessModal] = useState({ isOpen: false, title: '', message: '', type: 'success' });
   const fileInputRef = useRef(null);
-  const menuRefs = useRef({});
 
-  // Close menu when clicking outside or scrolling
-  useEffect(() => {
-    const handleClickOutside = (e) => {
-      // Check if click is outside all menu buttons and dropdowns
-      const clickedInsideAnyMenu = Object.values(menuRefs.current).some(
-        ref => ref && ref.contains(e.target)
-      );
-      
-      if (!clickedInsideAnyMenu) {
-        setOpenMenuId(null);
-      }
-    };
-    
-    const handleScroll = () => {
-      setOpenMenuId(null);
-    };
-    
-    document.addEventListener('mousedown', handleClickOutside);
-    window.addEventListener('scroll', handleScroll, true);
-    
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-      window.removeEventListener('scroll', handleScroll, true);
-    };
-  }, []);
+
 
   const handleFileSelect = (e) => {
     const file = e.target.files[0];
@@ -254,7 +223,11 @@ const MyFilesTab = ({
     }
   };
 
-  const openDeleteModal = (file) => {
+  const openDeleteModal = (file, e) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
     setFileToDelete(file);
     setShowDeleteModal(true);
   };
@@ -308,48 +281,7 @@ const MyFilesTab = ({
     }
   };
 
-  const openFileDetails = async (file) => {
-    setSelectedFile(file);
-    setShowFileDetailsModal(true);
-    setLoadingComments(true);
-    
-    try {
-      console.log('Fetching comments for file:', file.id);
-      const response = await fetch(`http://localhost:3001/api/files/${file.id}/comments`);
-      const data = await response.json();
-      console.log('Comments response:', data);
-      
-      if (data.success && data.comments) {
-        // Map comments to include action based on comment_type
-        const mappedComments = data.comments.map(comment => {
-          let action = null;
-          if (comment.comment_type === 'approval') {
-            action = 'approve';
-          } else if (comment.comment_type === 'rejection') {
-            action = 'reject';
-          }
-          
-          return {
-            ...comment,
-            action: action,
-            comments: comment.comment, // Map 'comment' field to 'comments' for consistency
-            reviewer_username: comment.username,
-            reviewer_role: comment.user_role
-          };
-        });
-        setFileComments(mappedComments);
-        console.log('Comments loaded:', mappedComments.length, mappedComments);
-      } else {
-        console.error('Failed to fetch comments:', data.message);
-        setFileComments([]);
-      }
-    } catch (error) {
-      console.error('Error fetching comments:', error);
-      setFileComments([]);
-    } finally {
-      setLoadingComments(false);
-    }
-  };
+
 
   const getStatusDisplayName = (dbStatus) => {
     switch (dbStatus) {
@@ -473,7 +405,7 @@ const MyFilesTab = ({
             {submittedFiles.map((file) => {
               const { date, time } = formatDateTime(file.uploaded_at);
               return (
-                <div key={file.id} className="file-row-new" onClick={() => openFileDetails(file)}>
+                <div key={file.id} className="file-row-new" onClick={() => openFile(file)}>
                   <div className="col-filename">
                     <FileIcon 
                       fileType={file.original_name.split('.').pop().toLowerCase()} 
@@ -506,66 +438,14 @@ const MyFilesTab = ({
                       {getStatusDisplayName(file.status)}
                     </span>
                   </div>
-                  <div className="col-actions" onClick={(e) => e.stopPropagation()}>
-                    <div 
-                      className="actions-menu-container" 
-                      ref={el => menuRefs.current[file.id] = el}
+                  <div className="col-actions">
+                    <button
+                      className="delete-btn"
+                      onClick={(e) => openDeleteModal(file, e)}
+                      title="Delete file"
                     >
-                      <button 
-                        className="menu-btn"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          if (openMenuId === file.id) {
-                            setOpenMenuId(null);
-                          } else {
-                            const rect = e.currentTarget.getBoundingClientRect();
-                            setMenuPosition({
-                              top: rect.bottom + 4,
-                              left: rect.right - 120
-                            });
-                            setOpenMenuId(file.id);
-                          }
-                        }}
-                        title="More options"
-                      >
-                        ⋮
-                      </button>
-                      {openMenuId === file.id && (
-                        <div 
-                          className="actions-dropdown"
-                          onClick={(e) => e.stopPropagation()}
-                          style={{
-                            position: 'fixed',
-                            top: `${menuPosition.top}px`,
-                            left: `${menuPosition.left}px`
-                          }}
-                        >
-                          <button
-                            className="dropdown-item delete-item"
-                            onClick={(e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              openDeleteModal(file);
-                              setOpenMenuId(null);
-                            }}
-                          >
-                            Delete
-                          </button>
-                          <button
-                            className="dropdown-item open-item"
-                            onClick={(e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              openFile(file);
-                              setOpenMenuId(null);
-                            }}
-                          >
-                            Open
-                          </button>
-                        </div>
-                      )}
-                    </div>
+                      Delete
+                    </button>
                   </div>
                 </div>
               );
@@ -703,101 +583,7 @@ const MyFilesTab = ({
         variant="danger"
       />
 
-      {/* File Details Modal */}
-      {showFileDetailsModal && selectedFile && (
-        <div className="modal-overlay" onClick={() => setShowFileDetailsModal(false)}>
-          <div className="modal modal-large" onClick={e => e.stopPropagation()}>
-            <div className="modal-header">
-              <h3>File Details</h3>
-              <button 
-                onClick={(e) => {
-                  e.preventDefault();
-                  setShowFileDetailsModal(false);
-                }} 
-                className="modal-close"
-                type="button"
-              >×</button>
-            </div>
-            <div className="modal-body">
-              <div className="details-section">
-                <div className="detail-row">
-                  <span className="detail-key">Filename:</span>
-                  <span className="detail-val">{selectedFile.original_name}</span>
-                </div>
-                <div className="detail-row">
-                  <span className="detail-key">File Type:</span>
-                  <span className="detail-val">{selectedFile.file_type}</span>
-                </div>
-                <div className="detail-row">
-                  <span className="detail-key">File Size:</span>
-                  <span className="detail-val">{formatFileSize(selectedFile.file_size)}</span>
-                </div>
-                <div className="detail-row">
-                  <span className="detail-key">Uploaded:</span>
-                  <span className="detail-val">{new Date(selectedFile.uploaded_at).toLocaleString()}</span>
-                </div>
-                <div className="detail-row">
-                  <span className="detail-key">Team:</span>
-                  <span className="detail-val">{selectedFile.user_team}</span>
-                </div>
-                <div className="detail-row">
-                  <span className="detail-key">Status:</span>
-                  <span className={`detail-val status-tag ${getStatusClass(selectedFile.status)}`}>
-                    {getStatusDisplayName(selectedFile.status)}
-                  </span>
-                </div>
-                {selectedFile.description && (
-                  <div className="detail-row">
-                    <span className="detail-key">Description:</span>
-                    <span className="detail-val description-text">{selectedFile.description}</span>
-                  </div>
-                )}
-                {selectedFile.tags && selectedFile.tags.length > 0 && (
-                  <div className="detail-row">
-                    <span className="detail-key">Tags:</span>
-                    <span className="detail-val">
-                      <div className="tags-container">
-                        {(typeof selectedFile.tags === 'string' ? JSON.parse(selectedFile.tags) : selectedFile.tags).map((tag, idx) => (
-                          <span key={idx} className="tag-badge">{tag}</span>
-                        ))}
-                      </div>
-                    </span>
-                  </div>
-                )}
-              </div>
 
-              <div className="comments-section">
-                <h4>Review Comments & History</h4>
-                {loadingComments ? (
-                  <div className="loading-comments">Loading comments...</div>
-                ) : fileComments && fileComments.length > 0 ? (
-                  <div className="comments-list">
-                    {fileComments.map((comment, index) => (
-                      <div key={comment.id || index} className="comment-item">
-                        <div className="comment-header">
-                          <span className="comment-author">{comment.reviewer_username || comment.username}</span>
-                          <span className="comment-role">({comment.reviewer_role || comment.user_role || 'USER'})</span>
-                          {comment.action && (
-                            <span className={`comment-action ${comment.action.toLowerCase()}`}>
-                              {comment.action.toUpperCase()}
-                            </span>
-                          )}
-                          <span className="comment-date">{new Date(comment.created_at).toLocaleString()}</span>
-                        </div>
-                        {(comment.comments || comment.comment) && <div className="comment-text">{comment.comments || comment.comment}</div>}
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="no-comments">No review comments yet. This file has not been reviewed by admin or team leader.</p>
-                )}
-              </div>
-            </div>
-            <div className="modal-footer">
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Duplicate File Modal */}
       {showDuplicateModal && duplicateFileInfo && (
