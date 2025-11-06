@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import './css/TasksTab-Enhanced.css';
 import FileIcon from '../admin/FileIcon';
+import SingleSelectTags from './SingleSelectTags';
 
 const TasksTab = ({ user }) => {
   const [assignments, setAssignments] = useState([]);
@@ -24,6 +25,7 @@ const TasksTab = ({ user }) => {
   const [highlightCommentBy, setHighlightCommentBy] = useState(null); // Track who to highlight
   const [uploadedFile, setUploadedFile] = useState(null);
   const [fileDescription, setFileDescription] = useState('');
+  const [fileTag, setFileTag] = useState(''); // Add tag state
   const [isUploading, setIsUploading] = useState(false);
   const [showUploadSection, setShowUploadSection] = useState(false);
   const fileInputRef = useRef(null);
@@ -398,6 +400,7 @@ const TasksTab = ({ user }) => {
     setSelectedFile(null);
     setUploadedFile(null);
     setFileDescription('');
+    setFileTag(''); // Reset tag
     setShowUploadSection(false);
     setShowSubmitModal(true);
   };
@@ -414,6 +417,7 @@ const TasksTab = ({ user }) => {
       formData.append('fullName', user.fullName);
       formData.append('userTeam', user.team);
       formData.append('description', fileDescription);
+      formData.append('tag', fileTag); // Add tag
 
       const uploadResponse = await fetch('http://localhost:3001/api/files/upload', {
         method: 'POST',
@@ -443,6 +447,7 @@ const TasksTab = ({ user }) => {
           setShowSubmitModal(false);
           setUploadedFile(null);
           setFileDescription('');
+          setFileTag(''); // Reset tag
           setSelectedFile(null);
           setCurrentAssignment(null);
           setShowUploadSection(false);
@@ -771,8 +776,20 @@ const TasksTab = ({ user }) => {
                         }}>
                           {assignment.submitted_file_name || 'Submitted File'}
                         </div>
-                        <div style={{ fontSize: '12px', color: '#6B7280' }}>
-                          Submitted on {assignment.user_submitted_at ? formatDate(assignment.user_submitted_at) : 'N/A'}
+                        <div style={{ fontSize: '12px', color: '#6B7280', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                          <span>Submitted on {assignment.user_submitted_at ? formatDate(assignment.user_submitted_at) : 'N/A'}</span>
+                          {assignment.submitted_file_tag && (
+                            <span style={{
+                              backgroundColor: '#e0f2fe',
+                              color: '#0369a1',
+                              padding: '2px 8px',
+                              borderRadius: '4px',
+                              fontSize: '11px',
+                              fontWeight: '600'
+                            }}>
+                              🏷️ {assignment.submitted_file_tag}
+                            </span>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -1212,6 +1229,17 @@ const TasksTab = ({ user }) => {
                     </div>
                   )}
 
+                  <div style={{ marginBottom: '16px' }}>
+                    <label style={{ display: 'block', marginBottom: '8px', fontWeight: '600', fontSize: '14px', color: '#101828' }}>
+                      Tag:
+                    </label>
+                    <SingleSelectTags 
+                      selectedTag={fileTag}
+                      onChange={setFileTag}
+                      disabled={isUploading}
+                    />
+                  </div>
+
                   <div>
                     <label style={{ display: 'block', marginBottom: '8px', fontWeight: '600', fontSize: '14px', color: '#101828' }}>
                       Description (optional):
@@ -1236,6 +1264,7 @@ const TasksTab = ({ user }) => {
                   setShowSubmitModal(false);
                   setUploadedFile(null);
                   setFileDescription('');
+                  setFileTag(''); // Reset tag
                   setShowUploadSection(false);
                 }}
               >
