@@ -1,4 +1,8 @@
 .alert {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 10000;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -6,6 +10,9 @@
   border-radius: 8px;
   margin-bottom: 1rem;
   font-size: 0.875rem;
+  max-width: 400px;
+  min-width: 300px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 
 .alert-content {
@@ -120,4 +127,12 @@
   background-color: #bfdbfe;
 }
 
-
+/* Responsive adjustments for alerts */
+@media (max-width: 768px) {
+  .alert {
+    right: 10px;
+    left: 10px;
+    max-width: none;
+    min-width: auto;
+  }
+}
