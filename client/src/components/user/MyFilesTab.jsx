@@ -347,16 +347,6 @@ const MyFilesTab = ({
           <h1>My Files</h1>
           <p className="header-subtitle">{submittedFiles.length} files • {formatFileSize(submittedFiles.reduce((total, file) => total + file.file_size, 0))} total</p>
         </div>
-        <button 
-          className="upload-btn-new"
-          onClick={(e) => {
-            e.preventDefault();
-            setShowUploadModal(true);
-          }}
-          type="button"
-        >
-          ↑ Upload Files
-        </button>
       </div>
 
       {/* Statistics Cards - BELOW */}

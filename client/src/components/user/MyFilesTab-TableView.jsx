@@ -1,5 +1,6 @@
 import './css/MyFilesTab-TableView.css';
 import { useState, useRef } from 'react';
+import SingleSelectTags from './SingleSelectTags';
 
 const MyFilesTabTableView = ({ 
   filteredFiles,
@@ -19,6 +20,7 @@ const MyFilesTabTableView = ({
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [uploadedFile, setUploadedFile] = useState(null);
   const [description, setDescription] = useState('');
+  const [tag, setTag] = useState('');
   const [isUploading, setIsUploading] = useState(false);
   const [isDeleting, setIsDeleting] = useState(null);
   const fileInputRef = useRef(null);
@@ -49,6 +51,7 @@ const MyFilesTabTableView = ({
       const formData = new FormData();
       formData.append('file', uploadedFile);
       formData.append('description', description);
+      formData.append('tag', tag);
       formData.append('userId', user.id);
       formData.append('username', user.username);
       formData.append('userTeam', user.team);
@@ -64,6 +67,7 @@ const MyFilesTabTableView = ({
         alert('File uploaded successfully! It has been submitted for team leader review.');
         setUploadedFile(null);
         setDescription('');
+        setTag('');
         setShowUploadModal(false);
         if (fileInputRef.current) {
           fileInputRef.current.value = '';
@@ -88,6 +92,7 @@ const MyFilesTabTableView = ({
   const clearUploadForm = () => {
     setUploadedFile(null);
     setDescription('');
+    setTag('');
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
@@ -315,6 +320,7 @@ const MyFilesTabTableView = ({
               <tr>
                 <th className="col-file">File</th>
                 <th className="col-size">Size</th>
+                <th className="col-tag">Tag</th>
                 <th className="col-uploaded">Uploaded</th>
                 <th className="col-status">Status</th>
                 <th className="col-actions">Actions</th>
@@ -342,6 +348,23 @@ const MyFilesTabTableView = ({
                   </td>
                   <td className="col-size">
                     <span className="file-size">{formatFileSize(file.file_size)}</span>
+                  </td>
+                  <td className="col-tag">
+                    {file.tag && (
+                      <span style={{
+                        backgroundColor: '#e0f2fe',
+                        color: '#0369a1',
+                        padding: '4px 8px',
+                        borderRadius: '4px',
+                        fontSize: '11px',
+                        fontWeight: '600',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '4px'
+                      }}>
+                        🏷️ {file.tag}
+                      </span>
+                    )}
                   </td>
                   <td className="col-uploaded">
                     <span className="upload-date">{formatDate(file.uploaded_at)}</span>
@@ -441,6 +464,15 @@ const MyFilesTabTableView = ({
                   </div>
                 </div>
               )}
+
+              <div className="form-group">
+                <label className="form-label">Tag</label>
+                <SingleSelectTags 
+                  selectedTag={tag}
+                  onChange={setTag}
+                  disabled={isUploading}
+                />
+              </div>
 
               <div className="form-group">
                 <label className="form-label">Description</label>

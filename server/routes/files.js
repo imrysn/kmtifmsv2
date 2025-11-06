@@ -34,7 +34,7 @@ router.post('/check-duplicate', (req, res) => {
 // Upload file (User only)
 router.post('/upload', upload.single('file'), async (req, res) => {
   try {
-    const { description, userId, username, userTeam, replaceExisting } = req.body;
+    const { description, userId, username, userTeam, tag, replaceExisting } = req.body;
     if (!req.file) {
       return res.status(400).json({
         success: false,

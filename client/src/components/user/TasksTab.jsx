@@ -278,18 +278,6 @@ const TasksTab = ({ user }) => {
                               <span className="meta-value">{assignment.team_leader_username}</span>
                             </div>
 
-                            {assignment.due_date && (
-                              <div className="meta-item">
-                                <span className="meta-label">Due:</span>
-                                <span className={`meta-value due-date ${isOverdue(assignment.due_date) ? 'overdue' : daysUntilDue <= 2 ? 'due-soon' : ''}`}>
-                                  {formatDate(assignment.due_date)}
-                                  {daysUntilDue !== null && daysUntilDue > 0 && (
-                                    <span className="days-left">({daysUntilDue} days left)</span>
-                                  )}
-                                </span>
-                              </div>
-                            )}
-
                             {assignment.file_type_required && (
                               <div className="meta-item">
                                 <span className="meta-label">Required type:</span>
