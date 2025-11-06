@@ -95,9 +95,19 @@ const TasksTab = ({ user }) => {
 
       if (data.success) {
         console.log('Fetched assignments:', data.assignments);
+        console.log('Current user ID:', user.id);
         if (data.assignments.length > 0) {
           console.log('First assignment data:', data.assignments[0]);
           console.log('assigned_member_details:', data.assignments[0].assigned_member_details);
+          console.log('assigned_member_details IDs:', data.assignments[0].assigned_member_details?.map(m => m.id));
+          console.log('assigned_to:', data.assignments[0].assigned_to);
+          // Check if user should see submit button
+          const firstAssignment = data.assignments[0];
+          const canSubmit = firstAssignment.assigned_to === 'all' || 
+            (firstAssignment.assigned_member_details && firstAssignment.assigned_member_details.some(member => member.id === user.id));
+          console.log('Can submit first assignment?', canSubmit);
+          console.log('User status:', firstAssignment.user_status);
+          console.log('Submitted file ID:', firstAssignment.submitted_file_id);
           // Log submitted assignments to check file data
           const submittedOnes = data.assignments.filter(a => a.user_status === 'submitted');
           if (submittedOnes.length > 0) {
@@ -234,9 +244,13 @@ const TasksTab = ({ user }) => {
       const data = await response.json();
 
       if (data.success) {
+        console.log('📁 All user files:', data.files);
+        const approvedFiles = data.files.filter(f => f.status === 'final_approved');
+        console.log('✅ Final approved files:', approvedFiles);
         const unsubmittedFiles = data.files.filter(file =>
           !assignments.some(assignment => assignment.submitted_file_id === file.id)
         );
+        console.log('📂 Unsubmitted files:', unsubmittedFiles);
         setUserFiles(unsubmittedFiles || []);
       }
     } catch (error) {
@@ -805,12 +819,14 @@ const TasksTab = ({ user }) => {
                   </div>
                 </div>
 
-                {/* Submit button - Show for pending assignments OR submitted assignments where file was deleted */}
-                {(assignment.user_status !== 'submitted' || (assignment.user_status === 'submitted' && !assignment.submitted_file_id)) && (
+                {/* Submit button - Show only if user is assigned AND (pending OR file was deleted) */}
+                {(assignment.assigned_to === 'all' || 
+                 (assignment.assigned_member_details && assignment.assigned_member_details.some(member => member.id === user.id))) && 
+                 (assignment.user_status !== 'submitted' || (assignment.user_status === 'submitted' && !assignment.submitted_file_id)) && (
                   <div style={{ paddingTop: '16px', borderTop: '1px solid #E5E7EB', display: 'flex', justifyContent: 'flex-end' }}>
                     <button 
                       onClick={() => handleSubmit(assignment)}
-                      disabled={userFiles.filter(f => f.status === 'final_approved').length === 0}
+                      disabled={userFiles.length === 0}
                       style={{
                         backgroundColor: '#2563EB',
                         color: 'white',
@@ -822,10 +838,10 @@ const TasksTab = ({ user }) => {
                         cursor: 'pointer',
                         maxWidth: '200px',
                         transition: 'background-color 0.2s',
-                        opacity: userFiles.filter(f => f.status === 'final_approved').length === 0 ? 0.5 : 1
+                        opacity: userFiles.length === 0 ? 0.5 : 1
                       }}
                       onMouseEnter={(e) => {
-                        if (userFiles.filter(f => f.status === 'final_approved').length > 0) {
+                        if (userFiles.length > 0) {
                           e.target.style.backgroundColor = '#1D4ED8'
                         }
                       }}
@@ -1094,10 +1110,9 @@ const TasksTab = ({ user }) => {
               {!showUploadSection ? (
                 <div className="tasks-file-selection">
                   <h4 className="tasks-selection-title">Select a file to submit:</h4>
-                  {userFiles.filter(f => f.status === 'final_approved').length > 0 ? (
+                  {userFiles.length > 0 ? (
                     <div className="tasks-file-list">
                       {userFiles
-                        .filter(f => f.status === 'final_approved')
                         .map((file) => (
                           <div
                             key={file.id}
@@ -1128,7 +1143,7 @@ const TasksTab = ({ user }) => {
                     </div>
                   ) : (
                     <div className="tasks-no-files">
-                      <p>You don't have any approved files yet.</p>
+                      <p>You don't have any files yet.</p>
                       <p>Upload a new file using the "Upload New File" tab above.</p>
                     </div>
                   )}
