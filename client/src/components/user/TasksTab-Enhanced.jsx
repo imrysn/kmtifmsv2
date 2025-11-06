@@ -98,6 +98,19 @@ const TasksTab = ({ user }) => {
         if (data.assignments.length > 0) {
           console.log('First assignment data:', data.assignments[0]);
           console.log('assigned_member_details:', data.assignments[0].assigned_member_details);
+          // Log submitted assignments to check file data
+          const submittedOnes = data.assignments.filter(a => a.user_status === 'submitted');
+          if (submittedOnes.length > 0) {
+            console.log('🔍 Submitted assignments:', submittedOnes);
+            submittedOnes.forEach(a => {
+              console.log(`Assignment "${a.title}":`, {
+                submitted_file_id: a.submitted_file_id,
+                submitted_file_name: a.submitted_file_name,
+                submitted_file_path: a.submitted_file_path,
+                user_submitted_at: a.user_submitted_at
+              });
+            });
+          }
         }
         setAssignments(data.assignments || []);
         // Fetch comments for each assignment
@@ -492,8 +505,14 @@ const TasksTab = ({ user }) => {
     setSuccess('');
   };
 
-  const pendingAssignments = assignments.filter(assignment => assignment.user_status !== 'submitted');
-  const submittedAssignments = assignments.filter(assignment => assignment.user_status === 'submitted');
+  // Treat assignments with deleted files as pending (allow resubmission)
+  const pendingAssignments = assignments.filter(assignment => 
+    assignment.user_status !== 'submitted' || 
+    (assignment.user_status === 'submitted' && !assignment.submitted_file_id)
+  );
+  const submittedAssignments = assignments.filter(assignment => 
+    assignment.user_status === 'submitted' && assignment.submitted_file_id
+  );
 
   // Sort assignments by created date (newest first)
   const sortedAssignments = [...assignments].sort((a, b) => {
@@ -618,7 +637,22 @@ const TasksTab = ({ user }) => {
                       </div>
                     </div>
                   </div>
-                  {getStatusBadge(assignment)}
+                  {/* Show warning if file was deleted */}
+                {assignment.user_status === 'submitted' && !assignment.submitted_file_id ? (
+                  <span style={{
+                    backgroundColor: '#FEF2F2',
+                    color: '#DC2626',
+                    padding: '4px 12px',
+                    borderRadius: '20px',
+                    fontSize: '12px',
+                    fontWeight: '600',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '4px'
+                  }}>
+                    ⚠️ FILE DELETED
+                  </span>
+                ) : getStatusBadge(assignment)}
                 </div>
 
                 {/* Title */}
@@ -633,8 +667,8 @@ const TasksTab = ({ user }) => {
                   </div>
                 )}
 
-                {/* Submitted File Display */}
-                {assignment.user_status === 'submitted' && assignment.submitted_file_name && (
+                {/* Submitted File Display - Only show if file still exists */}
+                {assignment.user_status === 'submitted' && assignment.submitted_file_id && (assignment.submitted_file_name || assignment.submitted_file_id) && (
                   <div 
                     onClick={async () => {
                       try {
@@ -703,7 +737,7 @@ const TasksTab = ({ user }) => {
                       gap: '12px',
                     }}>
                       <FileIcon 
-                        fileType={assignment.submitted_file_name.split('.').pop().toLowerCase()} 
+                        fileType={(assignment.submitted_file_name || 'file').split('.').pop().toLowerCase()} 
                         isFolder={false}
                         size="default"
                         style={{
@@ -721,12 +755,33 @@ const TasksTab = ({ user }) => {
                           textOverflow: 'ellipsis',
                           whiteSpace: 'nowrap'
                         }}>
-                          {assignment.submitted_file_name}
+                          {assignment.submitted_file_name || 'Submitted File'}
                         </div>
                         <div style={{ fontSize: '12px', color: '#6B7280' }}>
                           Submitted on {assignment.user_submitted_at ? formatDate(assignment.user_submitted_at) : 'N/A'}
                         </div>
                       </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Message when submitted file was deleted */}
+                {assignment.user_status === 'submitted' && !assignment.submitted_file_id && (
+                  <div style={{
+                    backgroundColor: '#FEF3C7',
+                    border: '1px solid #F59E0B',
+                    borderRadius: '8px',
+                    padding: '12px',
+                    marginBottom: '16px',
+                    display: 'flex',
+                    alignItems: 'flex-start',
+                    gap: '10px'
+                  }}>
+                    <span style={{ fontSize: '20px', flexShrink: 0 }}>⚠️</span>
+                    <div style={{ fontSize: '14px', color: '#92400E', lineHeight: '1.5' }}>
+                      <strong>Your submitted file was deleted.</strong>
+                      <br />
+                      Please upload a new file to resubmit this assignment.
                     </div>
                   </div>
                 )}
@@ -748,16 +803,10 @@ const TasksTab = ({ user }) => {
                       )}
                     </span>
                   </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <span style={{ fontSize: '14px' }}>💾</span>
-                    <span style={{ fontSize: '14px', color: '#374151' }}>
-                      Max: {assignment.max_file_size ? formatFileSize(assignment.max_file_size) : '10 MB'}
-                    </span>
-                  </div>
                 </div>
 
-                {/* Submit button */}
-                {assignment.user_status !== 'submitted' && (
+                {/* Submit button - Show for pending assignments OR submitted assignments where file was deleted */}
+                {(assignment.user_status !== 'submitted' || (assignment.user_status === 'submitted' && !assignment.submitted_file_id)) && (
                   <div style={{ paddingTop: '16px', borderTop: '1px solid #E5E7EB', display: 'flex', justifyContent: 'flex-end' }}>
                     <button 
                       onClick={() => handleSubmit(assignment)}
@@ -782,7 +831,7 @@ const TasksTab = ({ user }) => {
                       }}
                       onMouseLeave={(e) => e.target.style.backgroundColor = '#2563EB'}
                     >
-                      Submit Task
+                      {assignment.user_status === 'submitted' && !assignment.submitted_file_id ? 'Re-submit Task' : 'Submit Task'}
                     </button>
                   </div>
                 )}

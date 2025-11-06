@@ -639,7 +639,7 @@ router.post('/submit', async (req, res) => {
 
     // Check if assignment exists and user is assigned
     const assignment = await queryOne(`
-      SELECT a.*, am.user_id as assigned_user
+      SELECT a.*, am.user_id as assigned_user, am.file_id as current_file_id
       FROM assignments a
       LEFT JOIN assignment_members am ON a.id = am.assignment_id AND am.user_id = ?
       WHERE a.id = ?
@@ -660,28 +660,40 @@ router.post('/submit', async (req, res) => {
       });
     }
 
-    // Check if already submitted
+    // Check if already submitted with a valid file
     const existingSubmission = await queryOne(
-      'SELECT * FROM assignment_members WHERE assignment_id = ? AND user_id = ? AND status = "submitted"',
+      'SELECT * FROM assignment_members WHERE assignment_id = ? AND user_id = ? AND status = "submitted" AND file_id IS NOT NULL',
       [assignmentId, userId]
     );
 
     if (existingSubmission) {
-      return res.status(400).json({
-        success: false,
-        message: 'You have already submitted this assignment'
-      });
+      // Check if the file actually exists
+      const fileExists = await queryOne(
+        'SELECT id FROM files WHERE id = ?',
+        [existingSubmission.file_id]
+      );
+
+      if (fileExists) {
+        return res.status(400).json({
+          success: false,
+          message: 'You have already submitted this assignment'
+        });
+      }
+      // If file doesn't exist, allow resubmission by falling through
+      console.log(`\u26a0\ufe0f File ${existingSubmission.file_id} was deleted, allowing resubmission`);
     }
 
-    // Update assignment_members with file and set status to submitted
+    // Update or create assignment_members with file and set status to submitted
     await query(
       'UPDATE assignment_members SET file_id = ?, status = ?, submitted_at = NOW() WHERE assignment_id = ? AND user_id = ?',
       [fileId, 'submitted', assignmentId, userId]
     );
 
+    console.log(`\u2705 Assignment ${assignmentId} ${existingSubmission ? 'resubmitted' : 'submitted'} by user ${userId}`);
+
     res.json({
       success: true,
-      message: 'Assignment submitted successfully'
+      message: `Assignment ${existingSubmission ? 'resubmitted' : 'submitted'} successfully`
     });
 
   } catch (error) {
