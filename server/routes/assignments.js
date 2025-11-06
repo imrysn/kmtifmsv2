@@ -3,16 +3,13 @@ const router = express.Router();
 const { query, queryOne } = require('../../database/config');
 const { createNotification } = require('./notifications');
 
-// Get ALL assignments for admin (no team filter) with pagination
 router.get('/admin/all', async (req, res) => {
   try {
-    const { cursor, limit = 20, archived = 'false' } = req.query;
-    const showArchived = archived === 'true';
+    const { cursor, limit = 20 } = req.query;
     const parsedLimit = parseInt(limit, 10);
     
     console.log('Admin fetching assignments with pagination:', { cursor, limit: parsedLimit });
 
-    // Build query with cursor-based pagination
     let queryStr = `
       SELECT
         a.*,
@@ -24,13 +21,6 @@ router.get('/admin/all', async (req, res) => {
     
     let queryParams = [];
     let conditions = [];
-    
-    // Add archived condition
-    if (showArchived) {
-      conditions.push('a.archived = 1');
-    } else {
-      conditions.push('(a.archived = 0 OR a.archived IS NULL)');
-    }
     
     // Add cursor condition if provided
     if (cursor) {
@@ -56,11 +46,7 @@ router.get('/admin/all', async (req, res) => {
     
     // Check if there are more results
     const hasMore = assignments.length > parsedLimit;
-    
-    // Remove the extra item if we have more results
     const assignmentsToReturn = hasMore ? assignments.slice(0, parsedLimit) : assignments;
-    
-    // Get the next cursor (ID of the last item in the current batch)
     const nextCursor = hasMore && assignmentsToReturn.length > 0 
       ? assignmentsToReturn[assignmentsToReturn.length - 1].id 
       : null;
