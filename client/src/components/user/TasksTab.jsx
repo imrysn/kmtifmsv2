@@ -76,6 +76,16 @@ const TasksTab = ({ user }) => {
   };
 
   const getStatusInfo = (assignment) => {
+    // Check if file was deleted - assignment shows submitted but file doesn't exist
+    if (assignment.user_status === 'submitted' && !assignment.submitted_file_id) {
+      return {
+        text: 'File Deleted - Resubmit',
+        class: 'status-file-deleted',
+        icon: '⚠',
+        needsResubmit: true
+      };
+    }
+    
     if (assignment.user_status === 'submitted') {
       return {
         text: 'Submitted',
@@ -184,8 +194,14 @@ const TasksTab = ({ user }) => {
     }
   };
 
-  const pendingAssignments = assignments.filter(assignment => assignment.user_status !== 'submitted');
-  const submittedAssignments = assignments.filter(assignment => assignment.user_status === 'submitted');
+  // Separate assignments - treat file-deleted as pending
+  const pendingAssignments = assignments.filter(assignment => 
+    assignment.user_status !== 'submitted' || 
+    (assignment.user_status === 'submitted' && !assignment.submitted_file_id)
+  );
+  const submittedAssignments = assignments.filter(assignment => 
+    assignment.user_status === 'submitted' && assignment.submitted_file_id
+  );
 
   return (
     <div className="user-tasks-component tasks-wrapper">
@@ -291,12 +307,25 @@ const TasksTab = ({ user }) => {
                         </div>
 
                         <div className="assignment-actions">
+                          {status.needsResubmit && (
+                            <div className="warning-banner" style={{
+                              backgroundColor: '#FEF3C7',
+                              padding: '12px',
+                              borderRadius: '6px',
+                              marginBottom: '12px',
+                              border: '1px solid #F59E0B'
+                            }}>
+                              <p style={{ margin: 0, color: '#92400E', fontSize: '14px' }}>
+                                ⚠️ Your submitted file was deleted. Please upload a new file to resubmit this assignment.
+                              </p>
+                            </div>
+                          )}
                           <button
                             className="btn btn-submit"
                             onClick={() => handleSubmit(assignment)}
                             disabled={userFiles.length === 0}
                           >
-                            Submit Assignment
+                            {status.needsResubmit ? 'Re-submit Assignment' : 'Submit Assignment'}
                           </button>
                         </div>
                       </div>

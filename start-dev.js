@@ -11,7 +11,7 @@ const net = require('net');
 
 const VITE_PORT = 5173;
 const EXPRESS_PORT = 3001;
-const MAX_VITE_WAIT = 20000; // Reduced to 20 seconds
+const MAX_VITE_WAIT = 60000; // 60 seconds - enough time for Vite to start
 
 let viteProcess = null;
 let electronProcess = null;

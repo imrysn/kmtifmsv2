@@ -21,11 +21,65 @@ const TasksTab = ({ user }) => {
   const [isPostingReply, setIsPostingReply] = useState({});
   const [showCommentsModal, setShowCommentsModal] = useState(false);
   const [currentCommentsAssignment, setCurrentCommentsAssignment] = useState(null);
+  const [highlightCommentBy, setHighlightCommentBy] = useState(null); // Track who to highlight
   const [uploadedFile, setUploadedFile] = useState(null);
   const [fileDescription, setFileDescription] = useState('');
   const [isUploading, setIsUploading] = useState(false);
   const [showUploadSection, setShowUploadSection] = useState(false);
   const fileInputRef = useRef(null);
+
+  // Check for sessionStorage when component mounts or becomes visible
+  useEffect(() => {
+    const checkAndOpenComments = () => {
+      const assignmentId = sessionStorage.getItem('scrollToAssignment');
+      const highlightUser = sessionStorage.getItem('highlightCommentBy');
+      
+      if (assignmentId && assignments.length > 0) {
+        console.log('📍 Found assignment to open:', assignmentId);
+        console.log('📍 Found user to highlight:', highlightUser);
+        
+        // Clear the session storage immediately
+        sessionStorage.removeItem('scrollToAssignment');
+        sessionStorage.removeItem('highlightCommentBy');
+        
+        // Find the assignment
+        const assignment = assignments.find(a => a.id === parseInt(assignmentId));
+        if (assignment) {
+          console.log('✅ Assignment found, opening comments...');
+          
+          // Set highlight user if provided
+          if (highlightUser) {
+            setHighlightCommentBy(highlightUser);
+          }
+          
+          // Open the comments modal for this assignment after a delay
+          setTimeout(() => {
+            toggleComments(assignment);
+            
+            // Scroll to the comments modal after it opens
+            setTimeout(() => {
+              const modalBody = document.querySelector('.tasks-modal-body');
+              if (modalBody) {
+                modalBody.scrollTop = 0; // Scroll to top to see comments
+              }
+              
+              // Clear highlight after 3 seconds
+              setTimeout(() => {
+                setHighlightCommentBy(null);
+              }, 3000);
+            }, 100);
+          }, 500);
+        } else {
+          console.log('❌ Assignment not found in list');
+        }
+      }
+    };
+
+    // Check immediately when assignments are loaded
+    if (assignments.length > 0) {
+      checkAndOpenComments();
+    }
+  }, [assignments]);
 
   useEffect(() => {
     fetchAssignments();
@@ -41,9 +95,32 @@ const TasksTab = ({ user }) => {
 
       if (data.success) {
         console.log('Fetched assignments:', data.assignments);
+        console.log('Current user ID:', user.id);
         if (data.assignments.length > 0) {
           console.log('First assignment data:', data.assignments[0]);
           console.log('assigned_member_details:', data.assignments[0].assigned_member_details);
+          console.log('assigned_member_details IDs:', data.assignments[0].assigned_member_details?.map(m => m.id));
+          console.log('assigned_to:', data.assignments[0].assigned_to);
+          // Check if user should see submit button
+          const firstAssignment = data.assignments[0];
+          const canSubmit = firstAssignment.assigned_to === 'all' || 
+            (firstAssignment.assigned_member_details && firstAssignment.assigned_member_details.some(member => member.id === user.id));
+          console.log('Can submit first assignment?', canSubmit);
+          console.log('User status:', firstAssignment.user_status);
+          console.log('Submitted file ID:', firstAssignment.submitted_file_id);
+          // Log submitted assignments to check file data
+          const submittedOnes = data.assignments.filter(a => a.user_status === 'submitted');
+          if (submittedOnes.length > 0) {
+            console.log('🔍 Submitted assignments:', submittedOnes);
+            submittedOnes.forEach(a => {
+              console.log(`Assignment "${a.title}":`, {
+                submitted_file_id: a.submitted_file_id,
+                submitted_file_name: a.submitted_file_name,
+                submitted_file_path: a.submitted_file_path,
+                user_submitted_at: a.user_submitted_at
+              });
+            });
+          }
         }
         setAssignments(data.assignments || []);
         // Fetch comments for each assignment
@@ -113,6 +190,7 @@ const TasksTab = ({ user }) => {
   };
 
   const toggleComments = (assignment) => {
+    console.log('🔵 toggleComments called for:', assignment.title);
     setCurrentCommentsAssignment(assignment);
     setShowCommentsModal(true);
   };
@@ -166,9 +244,13 @@ const TasksTab = ({ user }) => {
       const data = await response.json();
 
       if (data.success) {
+        console.log('📁 All user files:', data.files);
+        const approvedFiles = data.files.filter(f => f.status === 'final_approved');
+        console.log('✅ Final approved files:', approvedFiles);
         const unsubmittedFiles = data.files.filter(file =>
           !assignments.some(assignment => assignment.submitted_file_id === file.id)
         );
+        console.log('📂 Unsubmitted files:', unsubmittedFiles);
         setUserFiles(unsubmittedFiles || []);
       }
     } catch (error) {
@@ -437,8 +519,14 @@ const TasksTab = ({ user }) => {
     setSuccess('');
   };
 
-  const pendingAssignments = assignments.filter(assignment => assignment.user_status !== 'submitted');
-  const submittedAssignments = assignments.filter(assignment => assignment.user_status === 'submitted');
+  // Treat assignments with deleted files as pending (allow resubmission)
+  const pendingAssignments = assignments.filter(assignment => 
+    assignment.user_status !== 'submitted' || 
+    (assignment.user_status === 'submitted' && !assignment.submitted_file_id)
+  );
+  const submittedAssignments = assignments.filter(assignment => 
+    assignment.user_status === 'submitted' && assignment.submitted_file_id
+  );
 
   // Sort assignments by created date (newest first)
   const sortedAssignments = [...assignments].sort((a, b) => {
@@ -563,7 +651,22 @@ const TasksTab = ({ user }) => {
                       </div>
                     </div>
                   </div>
-                  {getStatusBadge(assignment)}
+                  {/* Show warning if file was deleted */}
+                {assignment.user_status === 'submitted' && !assignment.submitted_file_id ? (
+                  <span style={{
+                    backgroundColor: '#FEF2F2',
+                    color: '#DC2626',
+                    padding: '4px 12px',
+                    borderRadius: '20px',
+                    fontSize: '12px',
+                    fontWeight: '600',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '4px'
+                  }}>
+                    ⚠️ FILE DELETED
+                  </span>
+                ) : getStatusBadge(assignment)}
                 </div>
 
                 {/* Title */}
@@ -578,8 +681,8 @@ const TasksTab = ({ user }) => {
                   </div>
                 )}
 
-                {/* Submitted File Display */}
-                {assignment.user_status === 'submitted' && assignment.submitted_file_name && (
+                {/* Submitted File Display - Only show if file still exists */}
+                {assignment.user_status === 'submitted' && assignment.submitted_file_id && (assignment.submitted_file_name || assignment.submitted_file_id) && (
                   <div 
                     onClick={async () => {
                       try {
@@ -648,7 +751,7 @@ const TasksTab = ({ user }) => {
                       gap: '12px',
                     }}>
                       <FileIcon 
-                        fileType={assignment.submitted_file_name.split('.').pop().toLowerCase()} 
+                        fileType={(assignment.submitted_file_name || 'file').split('.').pop().toLowerCase()} 
                         isFolder={false}
                         size="default"
                         style={{
@@ -666,12 +769,33 @@ const TasksTab = ({ user }) => {
                           textOverflow: 'ellipsis',
                           whiteSpace: 'nowrap'
                         }}>
-                          {assignment.submitted_file_name}
+                          {assignment.submitted_file_name || 'Submitted File'}
                         </div>
                         <div style={{ fontSize: '12px', color: '#6B7280' }}>
                           Submitted on {assignment.user_submitted_at ? formatDate(assignment.user_submitted_at) : 'N/A'}
                         </div>
                       </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Message when submitted file was deleted */}
+                {assignment.user_status === 'submitted' && !assignment.submitted_file_id && (
+                  <div style={{
+                    backgroundColor: '#FEF3C7',
+                    border: '1px solid #F59E0B',
+                    borderRadius: '8px',
+                    padding: '12px',
+                    marginBottom: '16px',
+                    display: 'flex',
+                    alignItems: 'flex-start',
+                    gap: '10px'
+                  }}>
+                    <span style={{ fontSize: '20px', flexShrink: 0 }}>⚠️</span>
+                    <div style={{ fontSize: '14px', color: '#92400E', lineHeight: '1.5' }}>
+                      <strong>Your submitted file was deleted.</strong>
+                      <br />
+                      Please upload a new file to resubmit this assignment.
                     </div>
                   </div>
                 )}
@@ -693,20 +817,16 @@ const TasksTab = ({ user }) => {
                       )}
                     </span>
                   </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <span style={{ fontSize: '14px' }}>💾</span>
-                    <span style={{ fontSize: '14px', color: '#374151' }}>
-                      Max: {assignment.max_file_size ? formatFileSize(assignment.max_file_size) : '10 MB'}
-                    </span>
-                  </div>
                 </div>
 
-                {/* Submit button */}
-                {assignment.user_status !== 'submitted' && (
+                {/* Submit button - Show only if user is assigned AND (pending OR file was deleted) */}
+                {(assignment.assigned_to === 'all' || 
+                 (assignment.assigned_member_details && assignment.assigned_member_details.some(member => member.id === user.id))) && 
+                 (assignment.user_status !== 'submitted' || (assignment.user_status === 'submitted' && !assignment.submitted_file_id)) && (
                   <div style={{ paddingTop: '16px', borderTop: '1px solid #E5E7EB', display: 'flex', justifyContent: 'flex-end' }}>
                     <button 
                       onClick={() => handleSubmit(assignment)}
-                      disabled={userFiles.filter(f => f.status === 'final_approved').length === 0}
+                      disabled={userFiles.length === 0}
                       style={{
                         backgroundColor: '#2563EB',
                         color: 'white',
@@ -718,16 +838,16 @@ const TasksTab = ({ user }) => {
                         cursor: 'pointer',
                         maxWidth: '200px',
                         transition: 'background-color 0.2s',
-                        opacity: userFiles.filter(f => f.status === 'final_approved').length === 0 ? 0.5 : 1
+                        opacity: userFiles.length === 0 ? 0.5 : 1
                       }}
                       onMouseEnter={(e) => {
-                        if (userFiles.filter(f => f.status === 'final_approved').length > 0) {
+                        if (userFiles.length > 0) {
                           e.target.style.backgroundColor = '#1D4ED8'
                         }
                       }}
                       onMouseLeave={(e) => e.target.style.backgroundColor = '#2563EB'}
                     >
-                      Submit Task
+                      {assignment.user_status === 'submitted' && !assignment.submitted_file_id ? 'Re-submit Task' : 'Submit Task'}
                     </button>
                   </div>
                 )}
@@ -777,8 +897,22 @@ const TasksTab = ({ user }) => {
               <div className="comments-section">
                 {comments[currentCommentsAssignment.id]?.length > 0 ? (
                   <div className="comments-list">
-                    {comments[currentCommentsAssignment.id].map((comment) => (
-                      <div key={comment.id} className="comment-item">
+                    {comments[currentCommentsAssignment.id].map((comment) => {
+                      // Check if this comment should be highlighted
+                      const shouldHighlight = highlightCommentBy && comment.username === highlightCommentBy;
+                      
+                      return (
+                      <div 
+                        key={comment.id} 
+                        className="comment-item"
+                        style={shouldHighlight ? {
+                          animation: 'highlight-pulse 2s ease-in-out',
+                          backgroundColor: '#FEF3C7',
+                          borderRadius: '8px',
+                          padding: '8px',
+                          marginBottom: '12px'
+                        } : {}}
+                      >
                         <div className="comment-avatar">
                           {getInitials(comment.username)}
                         </div>
@@ -800,8 +934,22 @@ const TasksTab = ({ user }) => {
                           {/* Replies */}
                           {comment.replies && comment.replies.length > 0 && (
                             <div className="replies-list">
-                              {comment.replies.map((reply) => (
-                                <div key={reply.id} className="reply-item">
+                              {comment.replies.map((reply) => {
+                                // Check if this reply should be highlighted
+                                const shouldHighlightReply = highlightCommentBy && reply.username === highlightCommentBy;
+                                
+                                return (
+                                <div 
+                                  key={reply.id} 
+                                  className="reply-item"
+                                  style={shouldHighlightReply ? {
+                                    animation: 'highlight-pulse 2s ease-in-out',
+                                    backgroundColor: '#FEF3C7',
+                                    borderRadius: '6px',
+                                    padding: '6px',
+                                    marginBottom: '8px'
+                                  } : {}}
+                                >
                                   <div className="comment-avatar reply-avatar">
                                     {getInitials(reply.username)}
                                   </div>
@@ -815,7 +963,7 @@ const TasksTab = ({ user }) => {
                                     </div>
                                   </div>
                                 </div>
-                              ))}
+                              )})}
                             </div>
                           )}
 
@@ -856,7 +1004,7 @@ const TasksTab = ({ user }) => {
                           )}
                         </div>
                       </div>
-                    ))}
+                    )})}  
                   </div>
                 ) : (
                   <div style={{ textAlign: 'center', padding: '40px 20px', color: '#6B7280' }}>
@@ -962,10 +1110,9 @@ const TasksTab = ({ user }) => {
               {!showUploadSection ? (
                 <div className="tasks-file-selection">
                   <h4 className="tasks-selection-title">Select a file to submit:</h4>
-                  {userFiles.filter(f => f.status === 'final_approved').length > 0 ? (
+                  {userFiles.length > 0 ? (
                     <div className="tasks-file-list">
                       {userFiles
-                        .filter(f => f.status === 'final_approved')
                         .map((file) => (
                           <div
                             key={file.id}
@@ -996,7 +1143,7 @@ const TasksTab = ({ user }) => {
                     </div>
                   ) : (
                     <div className="tasks-no-files">
-                      <p>You don't have any approved files yet.</p>
+                      <p>You don't have any files yet.</p>
                       <p>Upload a new file using the "Upload New File" tab above.</p>
                     </div>
                   )}

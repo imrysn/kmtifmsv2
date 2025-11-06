@@ -1169,6 +1169,37 @@ router.delete('/:fileId', async (req, res) => {
       });
     }
 
+    // IMPORTANT: Clear assignment submissions that reference this file
+    // This allows users to resubmit the task
+    try {
+      await new Promise((resolve, reject) => {
+        db.run(
+          'UPDATE assignment_members SET file_id = NULL, status = NULL, submitted_at = NULL WHERE file_id = ?',
+          [fileId],
+          function(err) {
+            if (err) {
+              console.error('❌ Error clearing assignment submissions:', err);
+              reject(err);
+            } else {
+              if (this.changes > 0) {
+                console.log(`✅ Cleared ${this.changes} assignment submission(s) for file ${fileId}`);
+                console.log('   User can now resubmit the assignment');
+              }
+              resolve();
+            }
+          }
+        );
+      });
+    } catch (clearError) {
+      console.error('⚠️ CRITICAL: Failed to clear assignment submissions:', clearError.message);
+      // This is critical - return error instead of continuing
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to clear assignment references. File cannot be deleted.',
+        error: clearError.message
+      });
+    }
+
     // Delete file from filesystem
     // First, properly resolve the file path using stored information
     let filePath;
@@ -1224,13 +1255,13 @@ router.delete('/:fileId', async (req, res) => {
       adminUsername,
       adminRole,
       team,
-      `File deleted: ${file.filename} (Admin Action)`
+      `File deleted: ${file.filename} (Admin Action) - Assignment submissions cleared`
     );
     
     console.log(`✅ File deleted: ${file.filename}`);
     res.json({
       success: true,
-      message: 'File deleted successfully'
+      message: 'File deleted successfully. Assignment submissions have been cleared and can be resubmitted.'
     });
   } catch (error) {
     console.error('❌ Error deleting file:', error);

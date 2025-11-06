@@ -104,7 +104,7 @@ export default defineConfig({
       target: 'esnext'
     },
     // CRITICAL: Force pre-bundling on first start
-    force: false,
+    force: false, // Force rebuild of dependencies to fix slow startup
     // Faster dependency scanning
     entries: ['./src/main.jsx']
   },

@@ -48,11 +48,29 @@
   font-size: 28px;
 }
 
+.user-notification-component .page-header-title {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+}
+
 .user-notification-component .page-header h2 {
   font-size: 28px;
   font-weight: 600;
   color: #111827;
   margin: 0;
+}
+
+.user-notification-component .unread-badge {
+  background: #ef4444;
+  color: white;
+  font-size: 14px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 12px;
+  min-width: 24px;
+  text-align: center;
 }
 
 .user-notification-component .page-header p {
@@ -62,10 +80,8 @@
 }
 
 .user-notification-component .notification-actions {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  align-items: flex-end;
+  margin-bottom: 20px;
+  text-align: center;
 }
 
 .user-notification-component .mark-all-read-btn {
@@ -184,6 +200,14 @@
   background-color: #faf5ff;
 }
 
+.user-notification-component .notification-card.notification-comment {
+  border-left-color: #14b8a6;
+}
+
+.user-notification-component .notification-card.unread.notification-comment {
+  background-color: #f0fdfa;
+}
+
 .user-notification-component .notification-icon {
   font-size: 24px;
   flex-shrink: 0;
@@ -256,9 +280,15 @@
 .user-notification-component .notification-footer {
   display: flex;
   flex-wrap: wrap;
-  gap: 16px;
+  align-items: center;
+  gap: 12px;
   font-size: 13px;
   color: #6b7280;
+}
+
+.user-notification-component .notification-author {
+  font-weight: 500;
+  color: #4b5563;
 }
 
 .user-notification-component .notification-action-by {

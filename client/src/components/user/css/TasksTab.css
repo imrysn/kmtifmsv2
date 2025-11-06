@@ -212,6 +212,12 @@
   color: #059669;
 }
 
+.status-file-deleted {
+  background: #fee2e2;
+  color: #dc2626;
+  border: 1px solid #fca5a5;
+}
+
 .assignment-content {
   padding: 24px 28px;
 }
