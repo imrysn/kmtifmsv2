@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useRef, memo, useCallback } from 'react'
 import './ActivityLogs.css'
 import { ConfirmationModal, AlertMessage } from './modals'
+import { SkeletonLoader } from '../common/SkeletonLoader'
 import { memoize } from '../../utils/performance'
 
 // Memoize expensive date formatting functions to avoid creating Date objects repeatedly
@@ -34,14 +35,31 @@ const ActivityLogs = ({ clearMessages, error, success, setError, setSuccess }) =
   const [showDeleteLogsModal, setShowDeleteLogsModal] = useState(false)
   const [paginationInfo, setPaginationInfo] = useState(null)
   const [hasActiveFilters, setHasActiveFilters] = useState(false)
+  const [networkAvailable, setNetworkAvailable] = useState(true)
   const itemsPerPage = 12 // Set to 12 logs per page as requested
+
+  // Check network availability on mount and periodically
+  useEffect(() => {
+    const checkNetwork = async () => {
+      try {
+        await fetch('http://localhost:3001/api/health')
+        setNetworkAvailable(true)
+      } catch {
+        setNetworkAvailable(false)
+      }
+    }
+
+    checkNetwork()
+    const interval = setInterval(checkNetwork, 30000) // Check every 30 seconds
+    return () => clearInterval(interval)
+  }, [])
 
   // Fetch activity logs on component mount and when date filter changes to 'all'
   useEffect(() => {
-    if (dateFilter === 'all') {
+    if (dateFilter === 'all' && networkAvailable) {
       fetchActivityLogs()
     }
-  }, [dateFilter])
+  }, [dateFilter, networkAvailable])
 
   // Debounced search
   useEffect(() => {
@@ -367,6 +385,11 @@ const ActivityLogs = ({ clearMessages, error, success, setError, setSuccess }) =
     } finally {
       setIsLoading(false)
     }
+  }
+
+  // Show skeleton loader when network is not available
+  if (!networkAvailable) {
+    return <SkeletonLoader type="table" />
   }
 
   return (

@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react'
 import './Settings.css'
 import { AlertMessage, ConfirmationModal } from './modals'
+import { SkeletonLoader } from '../common/SkeletonLoader'
 
 const Settings = ({ clearMessages, error, success, setError, setSuccess, users, user }) => {
   const [isLoading, setIsLoading] = useState(false)
   const [teams, setTeams] = useState([])
   const [teamsLoading, setTeamsLoading] = useState(false)
+  const [networkAvailable, setNetworkAvailable] = useState(true)
   const [newTeam, setNewTeam] = useState({
     name: '',
     leaderId: '',
@@ -135,10 +137,28 @@ const Settings = ({ clearMessages, error, success, setError, setSuccess, users, 
     }
   }
 
+  // Check network availability on mount and periodically
   useEffect(() => {
-    fetchTeams()
-    fetchSettings()
+    const checkNetwork = async () => {
+      try {
+        await fetch('http://localhost:3001/api/health')
+        setNetworkAvailable(true)
+      } catch {
+        setNetworkAvailable(false)
+      }
+    }
+
+    checkNetwork()
+    const interval = setInterval(checkNetwork, 30000) // Check every 30 seconds
+    return () => clearInterval(interval)
   }, [])
+
+  useEffect(() => {
+    if (networkAvailable) {
+      fetchTeams()
+      fetchSettings()
+    }
+  }, [networkAvailable])
 
   const fetchTeams = async () => {
     setTeamsLoading(true)
@@ -249,6 +269,11 @@ const Settings = ({ clearMessages, error, success, setError, setSuccess, users, 
 
   const getTeamLeaderOptions = () => {
     return users?.filter(user => user.role === 'TEAM LEADER' || user.role === 'ADMIN') || []
+  }
+
+  // Show skeleton loader when network is not available
+  if (!networkAvailable) {
+    return <SkeletonLoader type="admin" />
   }
 
   return (

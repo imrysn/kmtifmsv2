@@ -463,7 +463,7 @@ const TaskManagement = ({ error, success, setError, setSuccess, clearMessages, u
         
         {/* Task Count */}
         <div className="task-count">
-          {assignments.length} assignment{assignments.length !== 1 ? 's' : ''} loaded
+          {assignments.length} task{assignments.length !== 1 ? 's' : ''}
           {hasMore && ' • Scroll for more'}
         </div>
 
