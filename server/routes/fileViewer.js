@@ -9,7 +9,15 @@ const router = express.Router();
 router.get('/view/*', (req, res) => {
   try {
     // Get the file path from the URL
-    const filePath = req.params[0]; // Everything after /view/
+    let filePath = req.params[0]; // Everything after /view/
+
+    // Remove leading /uploads/ or uploads/ prefix if present to avoid double uploads path
+    if (filePath.startsWith('/uploads/')) {
+      filePath = filePath.substring('/uploads/'.length);
+    } else if (filePath.startsWith('uploads/')) {
+      filePath = filePath.substring('uploads/'.length);
+    }
+
     const fullPath = path.join(uploadsDir, filePath);
     
     console.log('📂 File view request:', filePath);
@@ -96,7 +104,15 @@ router.get('/view/*', (req, res) => {
 // Download file (forces download with original filename)
 router.get('/download/*', (req, res) => {
   try {
-    const filePath = req.params[0];
+    let filePath = req.params[0];
+
+    // Remove leading /uploads/ or uploads/ prefix if present to avoid double uploads path
+    if (filePath.startsWith('/uploads/')) {
+      filePath = filePath.substring('/uploads/'.length);
+    } else if (filePath.startsWith('uploads/')) {
+      filePath = filePath.substring('uploads/'.length);
+    }
+
     const fullPath = path.join(uploadsDir, filePath);
     
     console.log('💾 File download request:', filePath);

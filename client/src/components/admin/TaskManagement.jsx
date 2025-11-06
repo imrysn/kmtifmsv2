@@ -133,7 +133,7 @@ const TaskManagement = ({ error, success, setError, setSuccess, clearMessages, u
       if (data.success) {
         setComments(data.comments || [])
       } else {
-        setError('Failed to load comments')
+        setError(data.message || 'Failed to load comments. Please try again.')
       }
     } catch (error) {
       console.error('Error fetching comments:', error)
@@ -341,18 +341,69 @@ const TaskManagement = ({ error, success, setError, setSuccess, clearMessages, u
     }
   }
 
-  const handleOpenFile = (filePath) => {
+  const handleOpenFile = async (filePath, fileId) => {
     if (!filePath) {
       setError('File path not available')
       return
     }
 
     try {
-      const fileUrl = `http://localhost:3001/api/file/view/${filePath}`
-      window.open(fileUrl, '_blank', 'noopener,noreferrer')
+      // Clear any previous messages
+      clearMessages()
+
+      // Show loading message
+      setSuccess('Opening file...')
+
+      // Small delay for UI feedback
+      await new Promise(resolve => setTimeout(resolve, 300));
+
+      // Check if running in Electron
+      const isElectron = window.electron && window.electron.openFileInApp;
+
+      if (isElectron) {
+        console.log('💻 Running in Electron - using Windows default application');
+
+        // For uploaded files, get the full system path from server
+        const pathResponse = await fetch(
+          `http://localhost:3001/api/files/${fileId}/path`
+        );
+        const pathData = await pathResponse.json();
+
+        if (!pathData.success) {
+          throw new Error(pathData.message || 'Failed to get file path');
+        }
+
+        console.log('📂 Full path:', pathData.filePath);
+        console.log('📄 File name:', pathData.fileName);
+
+        const result = await window.electron.openFileInApp(pathData.filePath);
+
+        if (result.success) {
+          console.log('✅ Opened with Windows default application');
+          setSuccess('File opened successfully');
+        } else {
+          throw new Error(result.error || 'Failed to open file');
+        }
+      } else {
+        console.log('🌐 Running in browser - opening in new tab');
+
+        // For browser, open the file directly using the static file serving
+        const fileUrl = `http://localhost:3001${filePath}`;
+        const newWindow = window.open(fileUrl, '_blank');
+
+        if (!newWindow) {
+          throw new Error('Pop-up blocked. Please allow pop-ups for this site.');
+        }
+
+        newWindow.focus();
+        console.log('✅ Opened in browser tab');
+        setSuccess('File opened in browser');
+      }
+
     } catch (error) {
-      console.error('Error opening file:', error)
-      setError('Failed to open file')
+      console.error('❌ Error opening file:', error);
+      setSuccess('') // Clear loading message
+      setError(`Error opening file: ${error.message || 'Failed to open file'}`);
     }
   }
 
@@ -498,7 +549,7 @@ const TaskManagement = ({ error, success, setError, setSuccess, clearMessages, u
                         <div className="admin-file-label">📎 Attachment:</div>
                         <div
                           className="admin-file-item"
-                          onClick={() => handleOpenFile(assignment.recent_submissions[0].file_path)}
+                          onClick={() => handleOpenFile(assignment.recent_submissions[0].file_path, assignment.recent_submissions[0].id)}
                           style={{ cursor: 'pointer' }}
                         >
                           <FileIcon
