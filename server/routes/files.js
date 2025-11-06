@@ -1004,7 +1004,7 @@ router.get('/:fileId', (req, res) => {
 // Get file system path for Electron to open with default app
 router.get('/:fileId/path', (req, res) => {
   const { fileId } = req.params;
-  
+
   db.get('SELECT * FROM files WHERE id = ?', [fileId], (err, file) => {
     if (err || !file) {
       return res.status(404).json({
@@ -1012,21 +1012,28 @@ router.get('/:fileId/path', (req, res) => {
         message: 'File not found'
       });
     }
-    
-    // Convert URL path to actual file system path
+
+    // For approved files that have been moved to projects, use the public_network_url
+    // For pending/rejected files, use the original file_path
     let filePath;
-    if (file.file_path.startsWith('/uploads/')) {
-      const relativePath = file.file_path.substring('/uploads/'.length);
-      filePath = path.join(uploadsDir, relativePath);
+    if (file.status === 'final_approved' && file.public_network_url) {
+      // File has been moved to projects directory
+      filePath = file.public_network_url;
+      console.log(`📂 Using moved file path for approved file ${fileId}: ${filePath}`);
     } else {
-      filePath = path.join(uploadsDir, path.basename(file.file_path));
+      // File is still in uploads directory
+      if (file.file_path.startsWith('/uploads/')) {
+        const relativePath = file.file_path.substring('/uploads/'.length);
+        filePath = path.join(uploadsDir, relativePath);
+      } else {
+        filePath = path.join(uploadsDir, path.basename(file.file_path));
+      }
+      console.log(`📂 Using uploads file path for ${fileId}: ${filePath}`);
     }
-    
+
     // Normalize path for Windows
     filePath = path.normalize(filePath);
-    
-    console.log(`📂 Resolved file path for ID ${fileId}: ${filePath}`);
-    
+
     res.json({
       success: true,
       filePath: filePath
@@ -1428,66 +1435,7 @@ router.delete('/:id', async (req, res) => {
   }
 });
 
-// POST /api/files/:id/admin-review
-// Body: { action: 'approve'|'reject', comments, adminId, adminUsername, adminRole, team }
-// This will mark the file status and insert a comment/history row if table exists.
-router.post('/:id/admin-review', async (req, res) => {
-  const id = req.params.id;
-  const { action, comments, adminId, adminUsername, adminRole, team } = req.body || {};
-
-  if (!action) {
-    return res.status(400).json({ success: false, message: 'Action required (approve|reject)' });
-  }
-
-  // map action to DB status
-  let newStatus = null;
-  if (action === 'approve') newStatus = 'final_approved';
-  else if (action === 'reject') newStatus = 'rejected_by_admin';
-  else {
-    return res.status(400).json({ success: false, message: 'Unknown action' });
-  }
-
-  try {
-    // Use transaction to update status + optional insert comment/history
-    await db.transaction(async (conn) => {
-      // Update files table status and reviewed fields if present
-      const updateSql = `
-        UPDATE files
-        SET status = ?, reviewed_by = ?, reviewed_role = ?, reviewed_at = NOW()
-        WHERE id = ?
-      `;
-      await conn.execute(updateSql, [newStatus, adminUsername || null, adminRole || null, id]);
-
-      // If a comments/history table exists, attempt to insert a record.
-      // Try common table names: file_comments, comments, file_history
-      if (comments && comments.trim()) {
-        // Try insert into file_comments if exists
-        try {
-          await conn.execute(
-            `INSERT INTO file_comments (file_id, comments, reviewer_id, reviewer_username, reviewer_role, created_at) VALUES (?, ?, ?, ?, ?, NOW())`,
-            [id, comments, adminId || null, adminUsername || null, adminRole || null]
-          );
-        } catch (e) {
-          // If file_comments doesn't exist, try generic comments table, otherwise ignore
-          try {
-            await conn.execute(
-              `INSERT INTO comments (file_id, comment_text, user_id, username, role, created_at) VALUES (?, ?, ?, ?, ?, NOW())`,
-              [id, comments, adminId || null, adminUsername || null, adminRole || null]
-            );
-          } catch (e2) {
-            // Not fatal: log and continue
-            console.warn('Could not insert comment into file_comments/comments table:', e.message || e2.message);
-          }
-        }
-      }
-    });
-
-    return res.json({ success: true, message: `File ${action}d successfully` });
-  } catch (err) {
-    console.error('admin-review error:', err);
-    return res.status(500).json({ success: false, message: 'Failed to update file review status', detail: err.message });
-  }
-});
+// REMOVED: Duplicate admin-review endpoint that was conflicting with the main one above
 
 // HIGH PRIORITY FEATURE: Bulk Actions - Approve/Reject multiple files
 router.post('/bulk-action', (req, res) => {

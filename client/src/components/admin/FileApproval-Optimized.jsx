@@ -419,18 +419,12 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
 
     setIsOpeningFile(true)
     try {
-      let filePath
+      // Always get the file path from server - it handles both approved and non-approved files correctly
+      const pathResp = await fetch(`${API_BASE}/files/${file.id}/path`)
+      const pathData = await pathResp.json()
+      if (!pathData.success) throw new Error('Failed to get file path')
 
-      if (file.status === 'final_approved' && file.public_network_url) {
-        // For approved files, use the moved location
-        filePath = file.public_network_url
-      } else {
-        // For non-approved files, get the path from server
-        const pathResp = await fetch(`${API_BASE}/files/${file.id}/path`)
-        const pathData = await pathResp.json()
-        if (!pathData.success) throw new Error('Failed to get file path')
-        filePath = pathData.filePath
-      }
+      const filePath = pathData.filePath
 
       // Open the file using electron
       if (window.electron && typeof window.electron.openFileInApp === 'function') {
