@@ -1,8 +1,9 @@
 import { useState, useEffect, useRef } from 'react'
 import FileIcon from './FileIcon'
 import LoadingSpinner from '../LoadingSpinner'
+import { SkeletonLoader } from '../common/SkeletonLoader'
 import './FileManagement.css'
-import { AlertMessage } from './modals' 
+import { AlertMessage } from './modals'
 
 const API_BASE = process.env.NODE_ENV === 'development'
   ? 'http://localhost:3001'
@@ -16,9 +17,10 @@ const FileManagement = ({ clearMessages, error, success, setError, setSuccess })
   const [isSearching, setIsSearching] = useState(false)
   const [selectedItem, setSelectedItem] = useState(null)
   const [viewMode, setViewMode] = useState('grid')
-  const [isLoading, setIsLoading] = useState(false) 
-  const [isComponentLoading, setIsComponentLoading] = useState(false); 
+  const [isLoading, setIsLoading] = useState(false)
+  const [isComponentLoading, setIsComponentLoading] = useState(false);
   const [networkInfo, setNetworkInfo] = useState(null)
+  const [networkAvailable, setNetworkAvailable] = useState(true)
 
   const clickTimerRef = useRef(null)
   const lastClickedItemRef = useRef(null)
@@ -33,13 +35,31 @@ const FileManagement = ({ clearMessages, error, success, setError, setSuccess })
     }
   }, [error, success, clearMessages])
 
+  // Check network availability on mount and periodically
+  useEffect(() => {
+    const checkNetwork = async () => {
+      try {
+        await fetch(`${API_BASE}/api/health`)
+        setNetworkAvailable(true)
+      } catch {
+        setNetworkAvailable(false)
+      }
+    }
+
+    checkNetwork()
+    const interval = setInterval(checkNetwork, 30000) // Check every 30 seconds
+    return () => clearInterval(interval)
+  }, [])
+
   useEffect(() => {
     checkNetworkAccess()
   }, [])
 
   useEffect(() => {
-    fetchFileSystemItems()
-  }, [currentPath])
+    if (networkAvailable) {
+      fetchFileSystemItems()
+    }
+  }, [currentPath, networkAvailable])
 
   useEffect(() => {
     if (fileManagementSearch.trim() === '') {
@@ -67,14 +87,23 @@ const FileManagement = ({ clearMessages, error, success, setError, setSuccess })
 
   const checkNetworkAccess = async () => {
     try {
-      const response = await fetch(`${API_BASE}/api/file-system/info`)
-      const data = await response.json()
+      const response = await fetch(`${API_BASE}/api/health`)
+      if (response.ok) {
+        setNetworkAvailable(true)
+      } else {
+        setNetworkAvailable(false)
+      }
+
+      // Also check file system info
+      const infoResponse = await fetch(`${API_BASE}/api/file-system/info`)
+      const data = await infoResponse.json()
       setNetworkInfo(data)
       if (!data.accessible) {
         setError('Network projects directory is not accessible.')
       }
     } catch (error) {
       console.error('Error checking network access:', error)
+      setNetworkAvailable(false)
       setError('Failed to check network directory access: ' + error.message)
       setNetworkInfo({ accessible: false, message: 'Connection failed' })
     }
@@ -261,6 +290,11 @@ const FileManagement = ({ clearMessages, error, success, setError, setSuccess })
       })
     })
     return breadcrumbs
+  }
+
+  // Show skeleton loader when network is not available
+  if (!networkAvailable) {
+    return <SkeletonLoader type="table" />
   }
 
   return (

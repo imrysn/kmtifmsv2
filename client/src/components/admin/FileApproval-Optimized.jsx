@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback, memo } from 'react'
 import FileIcon from './FileIcon'
 import LoadingSpinner from '../LoadingSpinner'
+import { SkeletonLoader } from '../common/SkeletonLoader'
 import './FileApproval-Optimized.css'
 import { ConfirmationModal, AlertMessage } from './modals'
 
@@ -134,12 +135,29 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
   const [fileToDelete, setFileToDelete] = useState(null)
   const [isLoading, setIsLoading] = useState(true)
   const [isOpeningFile, setIsOpeningFile] = useState(false)
+  const [networkAvailable, setNetworkAvailable] = useState(true)
   
   // Refs
   const statusCardsRef = useRef(null)
   const searchInputRef = useRef(null)
   const filterSelectRef = useRef(null)
   const fetchAbortController = useRef(null)
+
+  // Check network availability on mount and periodically
+  useEffect(() => {
+    const checkNetwork = async () => {
+      try {
+        await fetch(`${API_BASE}/health`)
+        setNetworkAvailable(true)
+      } catch {
+        setNetworkAvailable(false)
+      }
+    }
+
+    checkNetwork()
+    const interval = setInterval(checkNetwork, 30000) // Check every 30 seconds
+    return () => clearInterval(interval)
+  }, [])
 
   // Auto-clear messages
   useEffect(() => {
@@ -153,13 +171,15 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
 
   // Initial fetch
   useEffect(() => {
-    fetchFiles()
+    if (networkAvailable) {
+      fetchFiles()
+    }
     return () => {
       if (fetchAbortController.current) {
         fetchAbortController.current.abort()
       }
     }
-  }, [])
+  }, [networkAvailable])
 
   // Debounced search
   useEffect(() => {
@@ -634,6 +654,11 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
 
     return pageNumbers
   }, [totalPages, currentPage])
+
+  // Show skeleton loader when network is not available
+  if (!networkAvailable) {
+    return <SkeletonLoader type="table" />
+  }
 
   return (
     <div className="file-approval-section">

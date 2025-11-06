@@ -1,9 +1,11 @@
 import React, { useEffect, useState, useMemo } from 'react'
 import './DashboardOverview.css'
+import { SkeletonLoader } from '../common/SkeletonLoader'
 
 const DashboardOverview = ({ user, users }) => {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [networkAvailable, setNetworkAvailable] = useState(true)
   const [summary, setSummary] = useState({
     totalFiles: 0,
     approved: 0,
@@ -15,9 +17,27 @@ const DashboardOverview = ({ user, users }) => {
     approvalTrends: []
   })
 
+  // Check network availability on mount and periodically
+  useEffect(() => {
+    const checkNetwork = async () => {
+      try {
+        await fetch('http://localhost:3001/api/health')
+        setNetworkAvailable(true)
+      } catch {
+        setNetworkAvailable(false)
+      }
+    }
+
+    checkNetwork()
+    const interval = setInterval(checkNetwork, 30000) // Check every 30 seconds
+    return () => clearInterval(interval)
+  }, [])
+
   useEffect(() => {
     let mounted = true
     const fetchSummary = async () => {
+      if (!networkAvailable) return
+
       setLoading(true)
       setError('')
       try {
@@ -38,11 +58,13 @@ const DashboardOverview = ({ user, users }) => {
       }
     }
 
-    fetchSummary()
-    // optionally refresh every minute
-    const interval = setInterval(fetchSummary, 60 * 1000)
-    return () => { mounted = false; clearInterval(interval) }
-  }, [])
+    if (networkAvailable) {
+      fetchSummary()
+      // optionally refresh every minute
+      const interval = setInterval(fetchSummary, 60 * 1000)
+      return () => { mounted = false; clearInterval(interval) }
+    }
+  }, [networkAvailable])
 
   // Memoize summary values to prevent unnecessary re-renders
   const pendingCount = summary.pending
@@ -74,6 +96,12 @@ const DashboardOverview = ({ user, users }) => {
       </div>
     ))
   }, [summary.recentActivity])
+
+  // Show skeleton loader when network is not available
+  if (!networkAvailable) {
+    return <SkeletonLoader type="admin" />
+  }
+
   return (
     <div className="dashboard-overview">
       

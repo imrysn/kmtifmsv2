@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import './UserManagement.css'
 import { AlertMessage, ConfirmationModal, FormModal } from './modals'
+import { SkeletonLoader } from '../common/SkeletonLoader'
 import ErrorBoundary from '../ErrorBoundary'
 
 const UserManagement = ({ clearMessages, error, success, setError, setSuccess, user }) => {
@@ -9,6 +10,7 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess, u
   const [teamsLoading, setTeamsLoading] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [isLoading, setIsLoading] = useState(false)
+  const [networkAvailable, setNetworkAvailable] = useState(true)
   const [selectedUser, setSelectedUser] = useState(null)
   const [showAddModal, setShowAddModal] = useState(false)
   const [showEditModal, setShowEditModal] = useState(false)
@@ -52,11 +54,29 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess, u
     [teams]
   )
 
+  // Check network availability on mount and periodically
+  useEffect(() => {
+    const checkNetwork = async () => {
+      try {
+        await fetch('http://localhost:3001/api/health')
+        setNetworkAvailable(true)
+      } catch {
+        setNetworkAvailable(false)
+      }
+    }
+
+    checkNetwork()
+    const interval = setInterval(checkNetwork, 30000) // Check every 30 seconds
+    return () => clearInterval(interval)
+  }, [])
+
   // Fetch users on component mount
   useEffect(() => {
-    fetchUsers()
-    fetchTeams()
-  }, [])
+    if (networkAvailable) {
+      fetchUsers()
+      fetchTeams()
+    }
+  }, [networkAvailable])
 
   const fetchUsers = useCallback(async () => {
     setIsLoading(true)
@@ -325,6 +345,11 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess, u
   const handleFormChange = useCallback((field, value) => {
     setFormData(prev => ({ ...prev, [field]: value }))
   }, [])
+
+  // Show skeleton loader when network is not available
+  if (!networkAvailable) {
+    return <SkeletonLoader type="table" />
+  }
 
   return (
     <div className="users-management">
