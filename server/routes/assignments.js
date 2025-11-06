@@ -614,7 +614,6 @@ router.get('/user/:userId', async (req, res) => {
         fs.original_name as submitted_file_name,
         fs.file_path as submitted_file_path,
         fs.id as submitted_file_id,
-        fs.tag as submitted_file_tag,
         ? as assigned_user_fullname,
         ? as assigned_user_username
       FROM assignments a

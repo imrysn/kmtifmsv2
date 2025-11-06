@@ -8,11 +8,9 @@ const TasksTab = ({ user }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
-  const [selectedFile, setSelectedFile] = useState(null);
   const [showSubmitModal, setShowSubmitModal] = useState(false);
   const [currentAssignment, setCurrentAssignment] = useState(null);
   const [userFiles, setUserFiles] = useState([]);
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const [expandedComments, setExpandedComments] = useState({});
   const [comments, setComments] = useState({});
   const [newComment, setNewComment] = useState({});
@@ -27,7 +25,6 @@ const TasksTab = ({ user }) => {
   const [fileDescription, setFileDescription] = useState('');
   const [fileTag, setFileTag] = useState(''); // Add tag state
   const [isUploading, setIsUploading] = useState(false);
-  const [showUploadSection, setShowUploadSection] = useState(false);
   const fileInputRef = useRef(null);
 
   // Check for sessionStorage when component mounts or becomes visible
@@ -397,11 +394,12 @@ const TasksTab = ({ user }) => {
 
   const handleSubmit = (assignment) => {
     setCurrentAssignment(assignment);
-    setSelectedFile(null);
     setUploadedFile(null);
     setFileDescription('');
     setFileTag(''); // Reset tag
-    setShowUploadSection(false);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
     setShowSubmitModal(true);
   };
 
@@ -448,9 +446,7 @@ const TasksTab = ({ user }) => {
           setUploadedFile(null);
           setFileDescription('');
           setFileTag(''); // Reset tag
-          setSelectedFile(null);
           setCurrentAssignment(null);
-          setShowUploadSection(false);
           if (fileInputRef.current) {
             fileInputRef.current.value = '';
           }
@@ -469,45 +465,6 @@ const TasksTab = ({ user }) => {
       setError('Failed to upload file');
     } finally {
       setIsUploading(false);
-    }
-  };
-
-  const submitAssignment = async () => {
-    if (!currentAssignment || !selectedFile) return;
-
-    setIsSubmitting(true);
-    try {
-      const response = await fetch('http://localhost:3001/api/assignments/submit', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          assignmentId: currentAssignment.id,
-          userId: user.id,
-          fileId: selectedFile.id
-        })
-      });
-
-      const data = await response.json();
-
-      if (data.success) {
-        setSuccess('Assignment submitted successfully!');
-        setShowSubmitModal(false);
-        setSelectedFile(null);
-        setCurrentAssignment(null);
-        fetchAssignments();
-        fetchUserFiles();
-        
-        setTimeout(() => setSuccess(''), 5000);
-      } else {
-        setError(data.message || 'Failed to submit assignment');
-      }
-    } catch (error) {
-      console.error('Error submitting assignment:', error);
-      setError('Failed to submit assignment');
-    } finally {
-      setIsSubmitting(false);
     }
   };
 
@@ -656,22 +613,24 @@ const TasksTab = ({ user }) => {
                       </div>
                     </div>
                   </div>
-                  {/* Show warning if file was deleted */}
-                {assignment.user_status === 'submitted' && !assignment.submitted_file_id ? (
-                  <span style={{
-                    backgroundColor: '#FEF2F2',
-                    color: '#DC2626',
-                    padding: '4px 12px',
-                    borderRadius: '20px',
-                    fontSize: '12px',
-                    fontWeight: '600',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '4px'
-                  }}>
-                    ⚠️ FILE DELETED
-                  </span>
-                ) : getStatusBadge(assignment)}
+                  {/* Show due date at top right */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span style={{ fontSize: '14px' }}>📅</span>
+                      <span style={{ fontSize: '14px', color: '#374151' }}>
+                        Due: {assignment.due_date ? formatDate(assignment.due_date) : 'No due date'}
+                        {daysLeft !== null && (
+                          <span style={{ 
+                            color: daysLeft < 0 ? '#DC2626' : daysLeft <= 2 ? '#EA580C' : '#059669',
+                            fontWeight: '600',
+                            marginLeft: '4px'
+                          }}>
+                            {getDaysText(assignment)}
+                          </span>
+                        )}
+                      </span>
+                    </div>
+                  </div>
                 </div>
 
                 {/* Title */}
@@ -685,6 +644,26 @@ const TasksTab = ({ user }) => {
                     {assignment.description}
                   </div>
                 )}
+
+                {/* Status badge and warning */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
+                  {getStatusBadge(assignment)}
+                  {assignment.user_status === 'submitted' && !assignment.submitted_file_id && (
+                    <span style={{
+                      backgroundColor: '#FEF2F2',
+                      color: '#DC2626',
+                      padding: '4px 12px',
+                      borderRadius: '20px',
+                      fontSize: '12px',
+                      fontWeight: '600',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '4px'
+                    }}>
+                      ⚠️ FILE DELETED
+                    </span>
+                  )}
+                </div>
 
                 {/* Submitted File Display - Only show if file still exists */}
                 {assignment.user_status === 'submitted' && assignment.submitted_file_id && (assignment.submitted_file_name || assignment.submitted_file_id) && (
@@ -748,7 +727,7 @@ const TasksTab = ({ user }) => {
                       color: '#1565c0',
                       marginBottom: '8px'
                     }}>
-                      📎 Attached File:
+                      📎 Submit File:
                     </div>
                     <div style={{
                       display: 'flex',
@@ -817,54 +796,49 @@ const TasksTab = ({ user }) => {
                   </div>
                 )}
 
-                {/* Due date and max size */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '16px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <span style={{ fontSize: '14px' }}>📅</span>
-                    <span style={{ fontSize: '14px', color: '#374151' }}>
-                      Due: {assignment.due_date ? formatDate(assignment.due_date) : 'No due date'}
-                      {daysLeft !== null && (
-                        <span style={{ 
-                          color: daysLeft < 0 ? '#DC2626' : daysLeft <= 2 ? '#EA580C' : '#059669',
-                          fontWeight: '600',
-                          marginLeft: '4px'
-                        }}>
-                          {getDaysText(assignment)}
-                        </span>
-                      )}
-                    </span>
-                  </div>
-                </div>
-
                 {/* Submit button - Show only if user is assigned AND (pending OR file was deleted) */}
                 {(assignment.assigned_to === 'all' || 
                  (assignment.assigned_member_details && assignment.assigned_member_details.some(member => member.id === user.id))) && 
                  (assignment.user_status !== 'submitted' || (assignment.user_status === 'submitted' && !assignment.submitted_file_id)) && (
-                  <div style={{ paddingTop: '16px', borderTop: '1px solid #E5E7EB', display: 'flex', justifyContent: 'flex-end' }}>
+                  <div style={{ paddingTop: '16px', borderTop: '1px solid #E5E7EB' }}>
+                    {/* Attached Files button */}
                     <button 
                       onClick={() => handleSubmit(assignment)}
-                      disabled={userFiles.length === 0}
                       style={{
-                        backgroundColor: '#2563EB',
-                        color: 'white',
-                        padding: '10px 24px',
-                        borderRadius: '8px',
-                        border: 'none',
-                        fontWeight: '600',
-                        fontSize: '14px',
+                        backgroundColor: '#f3f4f6',
+                        border: '1px solid #d1d5db',
+                        borderRadius: '6px',
+                        padding: '10px 12px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'flex-start',
+                        width: '100%',
                         cursor: 'pointer',
-                        maxWidth: '200px',
-                        transition: 'background-color 0.2s',
-                        opacity: userFiles.length === 0 ? 0.5 : 1
+                        transition: 'all 0.2s',
+                        outline: 'none',
+                        gap: '12px'
                       }}
                       onMouseEnter={(e) => {
-                        if (userFiles.length > 0) {
-                          e.target.style.backgroundColor = '#1D4ED8'
-                        }
+                        e.currentTarget.style.backgroundColor = '#e5e7eb';
                       }}
-                      onMouseLeave={(e) => e.target.style.backgroundColor = '#2563EB'}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.backgroundColor = '#f3f4f6';
+                      }}
                     >
-                      {assignment.user_status === 'submitted' && !assignment.submitted_file_id ? 'Re-submit Task' : 'Submit Task'}
+                      <span style={{
+                        backgroundColor: '#000000',
+                        color: '#ffffff',
+                        padding: '6px 16px',
+                        borderRadius: '4px',
+                        fontSize: '14px',
+                        fontWeight: '500',
+                        whiteSpace: 'nowrap'
+                      }}>
+                        Submit file
+                      </span>
+                      <span style={{ fontSize: '14px', color: '#6b7280' }}>
+                        No file attached
+                      </span>
                     </button>
                   </div>
                 )}
@@ -1086,87 +1060,8 @@ const TasksTab = ({ user }) => {
                 )}
               </div>
 
-              {/* Toggle between Upload and Select existing file */}
-              <div style={{ marginBottom: '20px', display: 'flex', gap: '12px', borderBottom: '2px solid #e4e6eb' }}>
-                <button
-                  onClick={() => setShowUploadSection(false)}
-                  style={{
-                    flex: 1,
-                    padding: '12px',
-                    background: !showUploadSection ? '#fff' : 'transparent',
-                    border: 'none',
-                    borderBottom: !showUploadSection ? '2px solid #2563EB' : '2px solid transparent',
-                    marginBottom: '-2px',
-                    color: !showUploadSection ? '#2563EB' : '#6B7280',
-                    fontWeight: '600',
-                    cursor: 'pointer',
-                    fontSize: '14px'
-                  }}
-                >
-                  Select Existing File
-                </button>
-                <button
-                  onClick={() => setShowUploadSection(true)}
-                  style={{
-                    flex: 1,
-                    padding: '12px',
-                    background: showUploadSection ? '#fff' : 'transparent',
-                    border: 'none',
-                    borderBottom: showUploadSection ? '2px solid #2563EB' : '2px solid transparent',
-                    marginBottom: '-2px',
-                    color: showUploadSection ? '#2563EB' : '#6B7280',
-                    fontWeight: '600',
-                    cursor: 'pointer',
-                    fontSize: '14px'
-                  }}
-                >
-                  Upload New File
-                </button>
-              </div>
-
-              {!showUploadSection ? (
-                <div className="tasks-file-selection">
-                  <h4 className="tasks-selection-title">Select a file to submit:</h4>
-                  {userFiles.length > 0 ? (
-                    <div className="tasks-file-list">
-                      {userFiles
-                        .map((file) => (
-                          <div
-                            key={file.id}
-                            className={`tasks-file-item ${selectedFile?.id === file.id ? 'selected' : ''}`}
-                            onClick={() => setSelectedFile(file)}
-                          >
-                            <FileIcon 
-                              fileType={file.original_name.split('.').pop().toLowerCase()} 
-                              isFolder={false}
-                              size="default"
-                              style={{
-                                width: '40px',
-                                height: '40px',
-                                flexShrink: 0
-                              }}
-                            />
-                            <div className="tasks-file-details">
-                              <div className="tasks-file-name">{file.original_name}</div>
-                              <div className="tasks-file-meta">
-                                {formatFileSize(file.file_size)} • {formatDate(file.uploaded_at)}
-                              </div>
-                            </div>
-                            <div className="tasks-radio">
-                              {selectedFile?.id === file.id && <div className="tasks-radio-dot"></div>}
-                            </div>
-                          </div>
-                        ))}
-                    </div>
-                  ) : (
-                    <div className="tasks-no-files">
-                      <p>You don't have any files yet.</p>
-                      <p>Upload a new file using the "Upload New File" tab above.</p>
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <div className="tasks-file-selection">
+              {/* Upload file section */}
+              <div className="tasks-file-selection">
                   <h4 className="tasks-selection-title">Upload a new file:</h4>
                   <div style={{ marginBottom: '16px' }}>
                     <label style={{ display: 'block', marginBottom: '8px', fontWeight: '600', fontSize: '14px', color: '#101828' }}>
@@ -1254,7 +1149,6 @@ const TasksTab = ({ user }) => {
                     />
                   </div>
                 </div>
-              )}
             </div>
 
             <div className="tasks-modal-footer">
@@ -1265,28 +1159,20 @@ const TasksTab = ({ user }) => {
                   setUploadedFile(null);
                   setFileDescription('');
                   setFileTag(''); // Reset tag
-                  setShowUploadSection(false);
+                  if (fileInputRef.current) {
+                    fileInputRef.current.value = '';
+                  }
                 }}
               >
                 Cancel
               </button>
-              {showUploadSection ? (
-                <button
-                  className="tasks-btn tasks-btn-submit"
-                  onClick={handleFileUpload}
-                  disabled={!uploadedFile || isUploading}
-                >
-                  {isUploading ? 'Uploading & Submitting...' : 'Upload & Submit'}
-                </button>
-              ) : (
-                <button
-                  className="tasks-btn tasks-btn-submit"
-                  onClick={submitAssignment}
-                  disabled={!selectedFile || isSubmitting}
-                >
-                  {isSubmitting ? 'Submitting...' : 'Submit'}
-                </button>
-              )}
+              <button
+                className="tasks-btn tasks-btn-submit"
+                onClick={handleFileUpload}
+                disabled={!uploadedFile || isUploading}
+              >
+                {isUploading ? 'Uploading & Submitting...' : 'Upload & Submit'}
+              </button>
             </div>
           </div>
         </div>

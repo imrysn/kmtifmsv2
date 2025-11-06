@@ -147,8 +147,8 @@ router.post('/upload', upload.single('file'), async (req, res) => {
       // Insert file record into database
       db.run(`INSERT INTO files (
         filename, original_name, file_path, file_size, file_type, mime_type, description,
-        user_id, username, user_team, status, current_stage, tag
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        user_id, username, user_team, status, current_stage
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         req.file.filename,
         req.file.originalname,
@@ -161,8 +161,7 @@ router.post('/upload', upload.single('file'), async (req, res) => {
         username,
         userTeam,
         'uploaded',
-        'pending_team_leader',
-        tag || ''
+        'pending_team_leader'
       ], async function(err) {
         if (err) {
           console.error('❌ Error saving file to database:', err);
