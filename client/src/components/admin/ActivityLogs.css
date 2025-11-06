@@ -474,18 +474,19 @@
 }
 
 /* Pagination Styles */
-.activity-logs-section .pagination-container {
+.activity-logs-section .pagination-section {
+  padding: 1.5rem;
+  border-top: 1px solid var(--border-color);
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 1rem 1.5rem;
-  border-top: 1px solid var(--border-color);
-  background: var(--background-secondary);
+  flex-wrap: wrap;
+  gap: 1rem;
 }
 
 .activity-logs-section .pagination-info {
-  font-size: 0.9rem;
   color: var(--text-secondary);
+  font-size: 0.9rem;
 }
 
 .activity-logs-section .pagination-controls {
@@ -495,25 +496,30 @@
 }
 
 .activity-logs-section .pagination-btn {
+  min-width: 40px;
+  height: 40px;
+  border: 1px solid var(--border-color);
+  background: var(--surface-color);
+  color: var(--text-primary);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+  font-size: 0.9rem;
+  font-weight: 500;
   display: flex;
   align-items: center;
   justify-content: center;
-  min-width: 36px;
-  height: 36px;
-  padding: 0.5rem;
-  border: 1px solid var(--border-color);
-  border-radius: 6px;
-  background: var(--surface-color);
-  color: var(--text-secondary);
-  font-size: 0.9rem;
-  cursor: pointer;
-  transition: all 0.2s ease;
 }
 
 .activity-logs-section .pagination-btn:hover:not(:disabled) {
   background: var(--background-hover);
-  border-color: var(--border-hover);
-  color: var(--text-primary);
+  border-color: var(--primary-color);
+}
+
+.activity-logs-section .pagination-btn.active {
+  background: var(--primary-color);
+  color: white;
+  border-color: var(--primary-color);
 }
 
 .activity-logs-section .pagination-btn:disabled {
@@ -521,20 +527,8 @@
   cursor: not-allowed;
 }
 
-.activity-logs-section .pagination-btn.active {
-  background: var(--primary-color);
-  border-color: var(--primary-color);
-  color: white;
-  font-weight: 600;
-}
-
-.activity-logs-section .pagination-btn.active:hover {
-  background: var(--primary-hover);
-  border-color: var(--primary-hover);
-}
-
 .activity-logs-section .pagination-ellipsis {
-  padding: 0.5rem;
+  padding: 0 0.5rem;
   color: var(--text-secondary);
   font-size: 0.9rem;
 }
@@ -560,10 +554,11 @@
     min-width: auto;
   }
   
-  .activity-logs-section .pagination-container {
+  .activity-logs-section .pagination-section {
     flex-direction: column;
-    gap: 1rem;
+    align-items: center;
     text-align: center;
+    gap: 1rem;
   }
   
   .activity-logs-section .pagination-controls {

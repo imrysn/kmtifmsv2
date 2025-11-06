@@ -34,12 +34,14 @@ const ActivityLogs = ({ clearMessages, error, success, setError, setSuccess }) =
   const [showDeleteLogsModal, setShowDeleteLogsModal] = useState(false)
   const [paginationInfo, setPaginationInfo] = useState(null)
   const [hasActiveFilters, setHasActiveFilters] = useState(false)
-  const itemsPerPage = 50 // Match server default
+  const itemsPerPage = 12 // Set to 12 logs per page as requested
 
-  // Fetch activity logs on component mount
+  // Fetch activity logs on component mount and when date filter changes to 'all'
   useEffect(() => {
-    fetchActivityLogs()
-  }, [])
+    if (dateFilter === 'all') {
+      fetchActivityLogs()
+    }
+  }, [dateFilter])
 
   // Debounced search
   useEffect(() => {
@@ -113,10 +115,11 @@ const ActivityLogs = ({ clearMessages, error, success, setError, setSuccess }) =
     setCurrentPage(1)
   }, [filteredLogs])
 
-  const fetchActivityLogs = async () => {
+  const fetchActivityLogs = async (limit = 10000) => {
     setIsLoading(true)
     try {
-      const response = await fetch('http://localhost:3001/api/activity-logs')
+      const url = `http://localhost:3001/api/activity-logs?limit=${limit}`
+      const response = await fetch(url)
       const data = await response.json()
       if (data.success) {
         setActivityLogs(data.logs)
@@ -177,7 +180,75 @@ const ActivityLogs = ({ clearMessages, error, success, setError, setSuccess }) =
   const goToNextPage = useCallback(() => {
     setCurrentPage(prev => Math.min(prev + 1, totalPages))
   }, [totalPages])
-  
+
+  const renderPaginationNumbers = useMemo(() => {
+    const pageNumbers = []
+    const maxVisiblePages = 5
+
+    if (totalPages <= maxVisiblePages) {
+      for (let i = 1; i <= totalPages; i++) {
+        pageNumbers.push(
+          <button
+            key={i}
+            className={`pagination-btn ${i === currentPage ? 'active' : ''}`}
+            onClick={() => setCurrentPage(i)}
+          >
+            {i}
+          </button>
+        )
+      }
+    } else {
+      pageNumbers.push(
+        <button
+          key={1}
+          className={`pagination-btn ${1 === currentPage ? 'active' : ''}`}
+          onClick={() => setCurrentPage(1)}
+        >
+          1
+        </button>
+      )
+
+      if (currentPage > 3) {
+        pageNumbers.push(<span key="ellipsis1" className="pagination-ellipsis">...</span>)
+      }
+
+      const startPage = Math.max(2, currentPage - 1)
+      const endPage = Math.min(totalPages - 1, currentPage + 1)
+
+      for (let i = startPage; i <= endPage; i++) {
+        if (i !== 1 && i !== totalPages) {
+          pageNumbers.push(
+            <button
+              key={i}
+              className={`pagination-btn ${i === currentPage ? 'active' : ''}`}
+              onClick={() => setCurrentPage(i)}
+            >
+              {i}
+            </button>
+          )
+        }
+      }
+
+      if (currentPage < totalPages - 2) {
+        pageNumbers.push(<span key="ellipsis2" className="pagination-ellipsis">...</span>)
+      }
+
+      if (totalPages > 1) {
+        pageNumbers.push(
+          <button
+            key={totalPages}
+            className={`pagination-btn ${totalPages === currentPage ? 'active' : ''}`}
+            onClick={() => setCurrentPage(totalPages)}
+          >
+            {totalPages}
+          </button>
+        )
+      }
+    }
+
+    return pageNumbers
+  }, [totalPages, currentPage])
+
   // Helper function to get current filter description
   const getFilterDescription = () => {
     const hasSearchFilter = logsSearchQuery.trim() !== ''
@@ -423,52 +494,29 @@ const ActivityLogs = ({ clearMessages, error, success, setError, setSuccess }) =
         
         {/* Pagination */}
         {!isLoading && filteredLogs.length > 0 && totalPages > 1 && (
-          <div className="pagination-container">
+          <div className="pagination-section">
             <div className="pagination-info">
-              Showing {startIndex + 1}-{Math.min(endIndex, filteredLogs.length)} of {filteredLogs.length} logs
+              Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, filteredLogs.length)} of {filteredLogs.length} logs
             </div>
-            <div className="pagination-controls">
-              <button 
-                className="pagination-btn"
-                onClick={goToPreviousPage}
-                disabled={currentPage === 1}
-                title="Previous page"
-              >
-                ‹
-              </button>
-              
-              {Array.from({ length: totalPages }, (_, i) => i + 1)
-                .filter(page => {
-                  // Show first page, last page, current page, and pages around current
-                  return page === 1 || 
-                         page === totalPages || 
-                         Math.abs(page - currentPage) <= 1
-                })
-                .map((page, index, array) => {
-                  // Add ellipsis if there's a gap
-                  const showEllipsis = index > 0 && page - array[index - 1] > 1
-                  return (
-                    <div key={page}>
-                      {showEllipsis && <span className="pagination-ellipsis">...</span>}
-                      <button
-                        className={`pagination-btn ${currentPage === page ? 'active' : ''}`}
-                        onClick={() => goToPage(page)}
-                      >
-                        {page}
-                      </button>
-                    </div>
-                  )
-                })}
-              
-              <button 
-                className="pagination-btn"
-                onClick={goToNextPage}
-                disabled={currentPage === totalPages}
-                title="Next page"
-              >
-                ›
-              </button>
-            </div>
+            {totalPages > 1 && (
+              <div className="pagination-controls">
+                <button
+                  className="pagination-btn"
+                  onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                  disabled={currentPage === 1}
+                >
+                  ‹
+                </button>
+                {renderPaginationNumbers}
+                <button
+                  className="pagination-btn"
+                  onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                  disabled={currentPage === totalPages}
+                >
+                  ›
+                </button>
+              </div>
+            )}
           </div>
         )}
       </div>

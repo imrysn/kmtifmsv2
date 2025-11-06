@@ -1,5 +1,5 @@
 /* TaskManagement.css - Admin Tasks Page */
-.task-feed {
+.task-management-container .task-feed {
   max-width: 900px;
   margin: 0 auto;
   padding: 20px;
@@ -132,17 +132,17 @@
   padding: 16px 20px;
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-start;
 }
 
-.admin-author-section {
+.admin-header-left {
   display: flex;
-  align-items: center;
   gap: 12px;
+  align-items: flex-start;
   flex: 1;
 }
 
-.admin-author-avatar {
+.admin-avatar {
   width: 40px;
   height: 40px;
   border-radius: 50%;
@@ -151,72 +151,105 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  font-weight: 600;
   font-size: 14px;
+  font-weight: 600;
   flex-shrink: 0;
 }
 
-.admin-author-info {
+.admin-header-info {
   flex: 1;
+  min-width: 0;
 }
 
-.admin-author-name {
+.admin-assignment-assigned {
   font-size: 15px;
-  font-weight: 600;
   color: #1c1e21;
   line-height: 1.3;
+  margin-bottom: 4px;
 }
 
-.admin-team-badge {
-  display: inline-block;
-  background: #e5e7eb;
-  color: #374151;
+.admin-team-leader-name {
+  font-weight: 700;
+  color: #1c1e21;
+}
+
+.admin-role-badge {
+  background: #e4e6eb;
+  color: #65676b;
   padding: 2px 8px;
   border-radius: 4px;
-  font-size: 12px;
-  font-weight: 500;
-  margin-top: 2px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  margin: 0 6px;
 }
 
-.admin-post-time {
+.admin-assigned-user {
+  font-weight: 700;
+  color: #1c1e21;
+}
+
+.admin-assignment-created {
   font-size: 13px;
   color: #65676b;
-  margin-left: auto;
 }
 
-.admin-submitted-badge {
-  background: #d1fae5;
-  color: #059669;
-  padding: 4px 12px;
-  border-radius: 20px;
+.admin-due-date {
+  font-size: 14px;
+  color: #374151;
+  font-weight: 500;
+  text-align: right;
+  flex-shrink: 0;
+}
+
+.admin-days-left {
   font-size: 13px;
   font-weight: 600;
-  display: flex;
-  align-items: center;
-  gap: 4px;
 }
 
-/* Card Content */
-.admin-card-content {
-  padding: 20px;
+/* Task Title Section */
+.admin-task-title-section {
+  padding: 16px 20px;
 }
 
 .admin-assignment-title {
+  font-weight: 700;
   font-size: 18px;
-  font-weight: 600;
   color: #1c1e21;
-  margin: 0 0 12px 0;
+  margin: 0;
   line-height: 1.3;
 }
 
-.admin-assignment-description {
-  color: #374151;
-  font-size: 14px;
-  line-height: 1.6;
-  margin: 0 0 16px 0;
-  white-space: pre-wrap;
-  word-wrap: break-word;
+/* Task Description Section */
+.admin-task-description-section {
+  padding: 16px 20px;
 }
+
+/* Attachment Section */
+.admin-attachment-section {
+  padding: 16px 20px;
+}
+
+/* Comments Section */
+.admin-comments-section {
+  padding: 16px 20px;
+}
+
+.admin-comments-text {
+  color: #65676b;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.admin-comments-text:hover {
+  color: #1877f2;
+}
+
+
 
 .admin-expand-btn {
   background: none;
@@ -253,6 +286,12 @@
   display: flex;
   align-items: center;
   gap: 10px;
+  transition: background-color 0.2s ease;
+}
+
+.admin-file-item:hover {
+  background-color: rgba(59, 130, 246, 0.1);
+  border-radius: 6px;
 }
 
 .admin-file-icon {
@@ -273,6 +312,29 @@
 .admin-file-meta {
   font-size: 12px;
   color: #65676b;
+}
+
+/* No Attachment Message */
+.admin-no-attachment {
+  background: #fef3c7;
+  border-left: 3px solid #f59e0b;
+  padding: 12px;
+  border-radius: 6px;
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.admin-no-attachment-icon {
+  font-size: 16px;
+  color: #d97706;
+}
+
+.admin-no-attachment-text {
+  font-size: 14px;
+  color: #92400e;
+  font-weight: 500;
 }
 
 /* Meta Section */
@@ -577,6 +639,23 @@
   gap: 16px;
 }
 
+/* Comment Thread */
+.comment-thread {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* Replies Thread */
+.replies-thread {
+  margin-left: 48px;
+  padding-left: 16px;
+  border-left: 2px solid #e4e6eb;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
 .comment-item {
   display: flex;
   gap: 12px;
@@ -642,6 +721,13 @@
   word-wrap: break-word;
 }
 
+/* Comment Actions */
+.comment-actions {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 8px;
+}
+
 .reply-button {
   background: none;
   border: none;
@@ -650,10 +736,24 @@
   font-weight: 600;
   cursor: pointer;
   padding: 0;
-  margin-right: 90%;
 }
 
 .reply-button:hover {
+  text-decoration: underline;
+  color: #1877f2;
+}
+
+.view-replies-button {
+  background: none;
+  border: none;
+  color: #65676b;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0;
+}
+
+.view-replies-button:hover {
   text-decoration: underline;
   color: #1877f2;
 }
@@ -839,7 +939,7 @@
 
 /* Responsive Design */
 @media (max-width: 768px) {
-  .task-feed {
+  .task-management-container .task-feed {
     padding: 12px;
   }
 
@@ -879,24 +979,32 @@
   }
 }
 
+/* Inline Skeleton Loader (for loading more) */
+.inline-skeleton-container {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-top: 16px;
+}
+
 /* Dark scrollbar for consistency */
-.task-feed::-webkit-scrollbar,
+.task-management-container .task-feed::-webkit-scrollbar,
 .comments-modal-body::-webkit-scrollbar {
   width: 8px;
 }
 
-.task-feed::-webkit-scrollbar-track,
+.task-management-container .task-feed::-webkit-scrollbar-track,
 .comments-modal-body::-webkit-scrollbar-track {
   background: #f0f2f5;
 }
 
-.task-feed::-webkit-scrollbar-thumb,
+.task-management-container .task-feed::-webkit-scrollbar-thumb,
 .comments-modal-body::-webkit-scrollbar-thumb {
   background: #bcc0c4;
   border-radius: 4px;
 }
 
-.task-feed::-webkit-scrollbar-thumb:hover,
+.task-management-container .task-feed::-webkit-scrollbar-thumb:hover,
 .comments-modal-body::-webkit-scrollbar-thumb:hover {
   background: #8e9296;
 }

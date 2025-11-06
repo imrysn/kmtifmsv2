@@ -117,43 +117,7 @@ const FileRow = memo(({
   )
 })
 
-const CommentItem = memo(({ comment }) => {
-  // Handle different possible field names in the comment object
-  const username = comment.reviewer_username || comment.username || comment.admin_username || 'Unknown User'
-  const role = comment.reviewer_role || comment.role || comment.admin_role || 'USER'
-  const timestamp = comment.reviewed_at || comment.created_at || comment.timestamp || new Date().toISOString()
-  const commentText = comment.comments || comment.comment || comment.text || ''
-  const action = comment.action || ''
 
-  // Memoize formatted date to prevent recalculation on every render
-  const formattedDate = useMemo(() => {
-    return new Date(timestamp).toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    })
-  }, [timestamp])
-
-  return (
-    <div className="comment-item">
-      <div className="comment-header">
-        <span className="comment-author">{username}</span>
-        <span className="comment-role">{role}</span>
-        <span className="comment-date">{formattedDate}</span>
-      </div>
-      <div className="comment-body">
-        {action && (
-          <span className={`comment-action ${action.toLowerCase()}`}>
-            {action.toUpperCase()}
-          </span>
-        )}
-        {commentText && <p className="comment-text">{commentText}</p>}
-      </div>
-    </div>
-  )
-})
 
 const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) => {
   // State management
@@ -166,12 +130,9 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
   const [filesPerPage] = useState(7)
   const [selectedFile, setSelectedFile] = useState(null)
   const [showFileModal, setShowFileModal] = useState(false)
-  const [fileComment, setFileComment] = useState('')
   const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [fileToDelete, setFileToDelete] = useState(null)
   const [isLoading, setIsLoading] = useState(true)
-  const [fileComments, setFileComments] = useState([])
-  const [isLoadingComments, setIsLoadingComments] = useState(false)
   const [isOpeningFile, setIsOpeningFile] = useState(false)
   
   // Refs
@@ -333,39 +294,7 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
     }
   }, [setError])
 
-  const fetchFileComments = useCallback(async (fileId) => {
-    setIsLoadingComments(true)
-    console.log('Fetching comments for file ID:', fileId)
-    
-    try {
-      const response = await fetch(`${API_BASE}/files/${fileId}/comments`)
-      const data = await response.json()
-      
-      console.log('Comments API response:', data)
-      
-      if (data.success) {
-        const comments = data.comments || []
-        console.log('Comments received:', comments.length)
-        
-        // Sort comments by date (newest first)
-        const sortedComments = comments.sort((a, b) => {
-          const dateA = new Date(a.reviewed_at || a.created_at || a.timestamp)
-          const dateB = new Date(b.reviewed_at || b.created_at || b.timestamp)
-          return dateB - dateA // Newest first
-        })
-        
-        setFileComments(sortedComments)
-      } else {
-        console.warn('Failed to fetch comments:', data.message)
-        setFileComments([])
-      }
-    } catch (error) {
-      console.error('Error fetching comments:', error)
-      setFileComments([])
-    } finally {
-      setIsLoadingComments(false)
-    }
-  }, [])
+
 
   const mapFileStatus = useCallback((dbStatus) => {
     switch (dbStatus) {
@@ -404,19 +333,14 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
     setShowDeleteModal(true)
   }, [])
 
-  const openFileModal = useCallback(async (file) => {
+  const openFileModal = useCallback((file) => {
     setSelectedFile(file)
-    setFileComment('')
     setShowFileModal(true)
-    setFileComments([]) // Clear previous comments immediately
-    await fetchFileComments(file.id)
-  }, [fetchFileComments])
+  }, [])
 
   const closeFileModal = useCallback(() => {
     setShowFileModal(false)
     setSelectedFile(null)
-    setFileComment('')
-    setFileComments([])
     setIsOpeningFile(false)
   }, [])
 
@@ -467,48 +391,7 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
     }
   }, [fileToDelete, setError, setSuccess])
 
-  const addComment = useCallback(async () => {
-    if (!selectedFile || !fileComment.trim()) return false
-    
-    setIsLoading(true)
-    try {
-      const response = await fetch(`${API_BASE}/files/${selectedFile.id}/comments`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          comment: fileComment.trim(),
-          userId: 1,
-          username: 'admin',
-          userRole: 'ADMIN'
-        })
-      })
-      
-      const data = await response.json()
-      
-      if (data.success) {
-        setFileComment('')
-        setSuccess('Comment added successfully')
-        await fetchFileComments(selectedFile.id)
-        return true
-      } else {
-        setError(data.message || 'Failed to add comment')
-        return false
-      }
-    } catch (error) {
-      console.error('Error adding comment:', error)
-      setError('Failed to add comment')
-      return false
-    } finally {
-      setIsLoading(false)
-    }
-  }, [selectedFile, fileComment, setError, setSuccess, fetchFileComments])
 
-  const handleCommentKeyPress = useCallback((e) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault()
-      addComment()
-    }
-  }, [addComment])
 
   // Function to open file using electron
   const openFile = useCallback(async (file) => {
@@ -548,12 +431,6 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
 
   const approveFile = useCallback(async () => {
     if (!selectedFile) return
-
-    const commentToSend = fileComment.trim()
-
-    if (commentToSend) {
-      await addComment()
-    }
 
     setIsLoading(true)
     try {
@@ -599,7 +476,7 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             action: 'approve',
-            comments: commentToSend || null,
+            comments: null,
             adminId: 1,
             adminUsername: 'admin',
             adminRole: 'ADMIN',
@@ -633,17 +510,10 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
     } finally {
       setIsLoading(false)
     }
-  }, [selectedFile, fileComment, addComment, setError, setSuccess, closeFileModal, fetchFiles])
+  }, [selectedFile, setError, setSuccess, closeFileModal, fetchFiles])
 
   const rejectFile = useCallback(async () => {
     if (!selectedFile) return
-
-    if (!fileComment.trim()) {
-      setError('Please provide a reason for rejection')
-      return
-    }
-
-    await addComment()
 
     setIsLoading(true)
     try {
@@ -652,7 +522,7 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action: 'reject',
-          comments: fileComment.trim(),
+          comments: null,
           adminId: 1,
           adminUsername: 'admin',
           adminRole: 'ADMIN',
@@ -695,7 +565,7 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
     } finally {
       setIsLoading(false)
     }
-  }, [selectedFile, fileComment, addComment, setError, setSuccess, closeFileModal, fetchFiles])
+  }, [selectedFile, setError, setSuccess, closeFileModal, fetchFiles])
 
   const renderPaginationNumbers = useMemo(() => {
     const pageNumbers = []
@@ -981,49 +851,7 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
                 <h4 className="section-title">Description</h4>
                 <p className="description-text">{selectedFile.description || 'No description provided'}</p>
               </div>
-              
-              {/* Comments Section */}
-              <div className="comments-section">
-                <h4 className="section-title">Comments & History</h4>
-                {isLoadingComments ? (
-                  <div className="loading-comments">
-                    <div className="spinner-small"></div>
-                    <span>Loading comments...</span>
-                  </div>
-                ) : fileComments && fileComments.length > 0 ? (
-                  <div className="comments-list">
-                    {fileComments.map((comment, index) => (
-                      <CommentItem key={comment.id || comment.comment_id || `comment-${index}`} comment={comment} />
-                    ))}
-                  </div>
-                ) : (
-                  <div className="no-comments">No comments yet</div>
-                )}
-              </div>
-              
-              {/* Add Comment Section */}
-              <div className="add-comment-section">
-                <h4 className="section-title">Add Comment</h4>
-                <div className="comment-input-container">
-                  <textarea
-                    value={fileComment}
-                    onChange={(e) => setFileComment(e.target.value)}
-                    onKeyPress={handleCommentKeyPress}
-                    placeholder="Add a comment for the user..."
-                    className="comment-textarea"
-                    rows="3"
-                  />
-                  <button
-                    className="btn btn-primary comment-btn"
-                    onClick={addComment}
-                    disabled={isLoading || !fileComment.trim()}
-                  >
-                    {isLoading ? 'Adding...' : 'Add Comment'}
-                  </button>
-                </div>
-                <p className="help-text">Press Enter to submit or Shift+Enter for new line.</p>
-              </div>
-              
+
               {/* Actions Section */}
               <div className="actions-section">
                 <div className="action-buttons-large">

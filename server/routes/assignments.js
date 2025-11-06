@@ -3,26 +3,70 @@ const router = express.Router();
 const { query, queryOne } = require('../../database/config');
 const { createNotification } = require('./notifications');
 
-// Get ALL assignments for admin (no team filter)
+// Get ALL assignments for admin (no team filter) with pagination
 router.get('/admin/all', async (req, res) => {
   try {
-    console.log('Admin fetching all assignments...');
+    const { cursor, limit = 20, archived = 'false' } = req.query;
+    const showArchived = archived === 'true';
+    const parsedLimit = parseInt(limit, 10);
+    
+    console.log('Admin fetching assignments with pagination:', { cursor, limit: parsedLimit });
 
-    const assignments = await query(`
+    // Build query with cursor-based pagination
+    let queryStr = `
       SELECT
         a.*,
         COUNT(DISTINCT CASE WHEN am.status = 'submitted' AND am.file_id IS NOT NULL THEN am.id END) as submission_count,
         COUNT(DISTINCT am.id) as assigned_members_count
       FROM assignments a
       LEFT JOIN assignment_members am ON a.id = am.assignment_id
+    `;
+    
+    let queryParams = [];
+    let conditions = [];
+    
+    // Add archived condition
+    if (showArchived) {
+      conditions.push('a.archived = 1');
+    } else {
+      conditions.push('(a.archived = 0 OR a.archived IS NULL)');
+    }
+    
+    // Add cursor condition if provided
+    if (cursor) {
+      conditions.push('a.id < ?');
+      queryParams.push(cursor);
+    }
+    
+    // Add WHERE clause if there are conditions
+    if (conditions.length > 0) {
+      queryStr += ' WHERE ' + conditions.join(' AND ');
+    }
+    
+    queryStr += `
       GROUP BY a.id
-      ORDER BY a.created_at DESC
-    `);
+      ORDER BY a.created_at DESC, a.id DESC
+      LIMIT ?
+    `;
+    queryParams.push(parsedLimit + 1); // Fetch one extra to check if there are more
 
-    console.log(`Found ${assignments.length} total assignments`);
+    const assignments = await query(queryStr, queryParams);
+
+    console.log(`Found ${assignments.length} assignments for this batch`);
+    
+    // Check if there are more results
+    const hasMore = assignments.length > parsedLimit;
+    
+    // Remove the extra item if we have more results
+    const assignmentsToReturn = hasMore ? assignments.slice(0, parsedLimit) : assignments;
+    
+    // Get the next cursor (ID of the last item in the current batch)
+    const nextCursor = hasMore && assignmentsToReturn.length > 0 
+      ? assignmentsToReturn[assignmentsToReturn.length - 1].id 
+      : null;
 
     // Get additional details for each assignment
-    for (let assignment of assignments) {
+    for (let assignment of assignmentsToReturn) {
       // Get assigned member details
       const assignedMembers = await query(`
         SELECT u.id, u.username, u.fullName
@@ -35,11 +79,12 @@ router.get('/admin/all', async (req, res) => {
       
       // Get recent submissions
       const recentSubmissions = await query(`
-        SELECT 
+        SELECT
           f.id,
           f.original_name,
           f.filename,
           f.file_type,
+          f.file_path,
           f.uploaded_at,
           f.status,
           u.username,
@@ -70,11 +115,13 @@ router.get('/admin/all', async (req, res) => {
       }
     }
 
-    console.log(`Returning ${assignments.length} assignments to admin`);
+    console.log(`Returning ${assignmentsToReturn.length} assignments to admin, hasMore: ${hasMore}`);
 
     res.json({
       success: true,
-      assignments: assignments || []
+      assignments: assignmentsToReturn || [],
+      nextCursor,
+      hasMore
     });
   } catch (error) {
     console.error('Error in admin all assignments route:', error);
@@ -879,22 +926,61 @@ router.post('/:assignmentId/comments/:commentId/replies', async (req, res) => {
   }
 });
 
-// Delete assignment
-router.delete('/:assignmentId', async (req, res) => {
+// Archive assignment (Admin only)
+router.patch('/:assignmentId/archive', async (req, res) => {
   try {
     const { assignmentId } = req.params;
-    const { teamLeaderUsername, team } = req.body;
 
-    // Verify assignment exists and belongs to the team
+    // Verify assignment exists
     const assignment = await queryOne(
-      'SELECT * FROM assignments WHERE id = ? AND team = ?',
-      [assignmentId, team]
+      'SELECT * FROM assignments WHERE id = ?',
+      [assignmentId]
     );
 
     if (!assignment) {
       return res.status(404).json({
         success: false,
-        message: 'Assignment not found or access denied'
+        message: 'Assignment not found'
+      });
+    }
+
+    // Toggle archive status
+    const newArchiveStatus = assignment.archived ? 0 : 1;
+    await query(
+      'UPDATE assignments SET archived = ?, archived_at = ? WHERE id = ?',
+      [newArchiveStatus, newArchiveStatus === 1 ? new Date() : null, assignmentId]
+    );
+
+    res.json({
+      success: true,
+      message: newArchiveStatus === 1 ? 'Assignment archived successfully' : 'Assignment unarchived successfully',
+      archived: newArchiveStatus === 1
+    });
+  } catch (error) {
+    console.error('Error in archive assignment route:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to archive assignment',
+      error: error.message
+    });
+  }
+});
+
+// Delete assignment (Admin only - permanent delete)
+router.delete('/:assignmentId', async (req, res) => {
+  try {
+    const { assignmentId } = req.params;
+
+    // Verify assignment exists
+    const assignment = await queryOne(
+      'SELECT * FROM assignments WHERE id = ?',
+      [assignmentId]
+    );
+
+    if (!assignment) {
+      return res.status(404).json({
+        success: false,
+        message: 'Assignment not found'
       });
     }
 
@@ -907,7 +993,7 @@ router.delete('/:assignmentId', async (req, res) => {
 
     res.json({
       success: true,
-      message: 'Assignment deleted successfully'
+      message: 'Assignment deleted permanently'
     });
   } catch (error) {
     console.error('Error in delete assignment route:', error);
