@@ -249,7 +249,7 @@
 
 /* Task Title Section */
 .admin-task-title-section {
-  padding: 16px 20px;
+  padding: 12px 18px;
 }
 
 .admin-assignment-title {
@@ -262,17 +262,17 @@
 
 /* Task Description Section */
 .admin-task-description-section {
-  padding: 16px 20px;
+  padding: 12px 18px;
 }
 
 /* Attachment Section */
 .admin-attachment-section {
-  padding: 16px 20px;
+  padding: 12px 18px;
 }
 
 /* Comments Section */
 .admin-comments-section {
-  padding: 16px 20px;
+  padding: 12px 18px;
 }
 
 .admin-comments-text {
