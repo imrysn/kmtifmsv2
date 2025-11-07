@@ -1,4 +1,4 @@
-/* User Management Styles - Scoped to .users-management */
+/* User Management Styles - Optimized for Performance */
 .users-management {
   padding: 0;
   margin-top: 30px;
@@ -31,17 +31,11 @@
   background: #ffffff;
   color: var(--text-primary);
   font-size: 0.9rem;
-  transition: all 0.2s ease;
-}
-
-.users-management .search-input:hover {
-  border-color: var(--border-hover);
-  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.1), 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
 .users-management .search-input:focus {
   outline: none;
-  border-color: var(--border-hover);
+  border-color: var(--primary-color);
   background: #ffffff;
 }
 
@@ -102,18 +96,6 @@
   color: var(--text-primary);
 }
 
-.users-management .user-name.clickable {
-  cursor: pointer;
-  transition: all 0.2s ease;
-  border-radius: 4px;
-  padding: 0.25rem 0.5rem;
-  margin: -0.25rem -0.5rem;
-}
-
-.users-management .user-name.clickable:hover {
-  text-decoration: underline;
-}
-
 .users-management .email-cell {
   color: var(--text-secondary);
   font-size: 0.9rem;
@@ -138,7 +120,6 @@
   padding: 0.25rem 0.5rem;
   font-size: 0.75rem;
   cursor: pointer;
-  transition: background-color 0.2s ease;
 }
 
 .users-management .password-reset-btn:hover {
@@ -162,17 +143,17 @@
 }
 
 .users-management .role-badge.user {
-  border: 1px solid linear-gradient(135deg, #10b981 0%, #059669 100%);
+  border: 1px solid #059669;
   color: #059669;
 }
 
 .users-management .role-badge.team-leader {
-  border: 1px solid linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+  border: 1px solid #1d4ed8;
   color: #1d4ed8;
 }
 
 .users-management .role-badge.admin {
-  border: 1px solid linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+  border: 1px solid #dc2626;
   color: #dc2626;
 }
 
@@ -180,8 +161,6 @@
   background: transparent;
   color: #000000;
   border: 1px solid #000000;
-  transition: all 0.2s ease;
-  backdrop-filter: blur(4px);
 }
 
 .users-management .action-buttons {
@@ -195,7 +174,6 @@
   border-radius: 6px;
   font-size: 0.8rem;
   cursor: pointer;
-  transition: all 0.2s ease;
   font-weight: 500;
 }
 
@@ -206,7 +184,6 @@
 
 .users-management .edit-btn:hover {
   background: var(--primary-hover);
-  transform: translateY(-1px);
 }
 
 .users-management .delete-btn {
@@ -216,7 +193,6 @@
 
 .users-management .delete-btn:hover {
   background: #dc2626;
-  transform: translateY(-1px);
 }
 
 /* Loading and Empty States */
@@ -255,7 +231,6 @@
   font-size: 0.9rem;
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.2s ease;
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
@@ -264,7 +239,6 @@
 .users-management .btn:disabled {
   opacity: 0.6;
   cursor: not-allowed;
-  transform: none !important;
 }
 
 .users-management .btn-primary {
@@ -274,7 +248,6 @@
 
 .users-management .btn-primary:hover:not(:disabled) {
   background: var(--primary-hover);
-  transform: translateY(-1px);
 }
 
 .users-management .btn-secondary {
@@ -295,7 +268,6 @@
 
 .users-management .btn-danger:hover:not(:disabled) {
   background: #dc2626;
-  transform: translateY(-1px);
 }
 
 /* Alerts */
@@ -334,7 +306,7 @@
   margin-left: 0.5rem;
 }
 
-/* Modal Styles */
+/* Modal Styles - NO ANIMATIONS */
 .users-management .modal-overlay {
   position: fixed;
   top: 0;
@@ -347,13 +319,12 @@
   justify-content: center;
   z-index: 1000;
   padding: 1rem;
-  pointer-events: all;
 }
 
 .users-management .modal {
   background: white;
   border-radius: 12px;
-  box-shadow: 0 20px 32px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
   max-width: 600px;
   width: 100%;
   max-height: 90vh;
@@ -361,18 +332,10 @@
   display: flex;
   flex-direction: column;
   border: 1px solid var(--border-color);
-  pointer-events: all;
 }
 
-/* Compact modals for user forms */
 .users-management .modal.compact {
   max-width: 520px;
-}
-
-@media (max-width: 480px) {
-  .users-management .modal.compact {
-    max-width: calc(100vw - 1rem);
-  }
 }
 
 .users-management .modal-header {
@@ -382,7 +345,6 @@
   align-items: center;
   justify-content: space-between;
   background: white;
-  opacity: 1;
 }
 
 .users-management .modal-header h3 {
@@ -403,7 +365,6 @@
   align-items: center;
   justify-content: center;
   border-radius: 6px;
-  transition: all 0.2s ease;
 }
 
 .users-management .modal-close:hover {
@@ -416,7 +377,6 @@
   flex: 1;
   overflow-y: auto;
   background: white;
-  opacity: 1;
 }
 
 .users-management .modal-footer {
@@ -426,10 +386,9 @@
   gap: 0.75rem;
   justify-content: flex-end;
   background: white;
-  opacity: 1;
 }
 
-/* Form Styles */
+/* Form Styles - SIMPLIFIED */
 .users-management .form-grid {
   display: grid;
   grid-template-columns: 1fr;
@@ -457,22 +416,12 @@
   background: white;
   color: var(--text-primary);
   font-size: 0.9rem;
-  transition: all 0.2s ease;
-  opacity: 1;
-  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.1);
-}
-
-.users-management .form-input:hover:not(:disabled), 
-.users-management .form-select:hover:not(:disabled) {
-  border-color: var(--border-hover);
-  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.1), 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
 .users-management .form-input:focus, 
 .users-management .form-select:focus {
   outline: none;
   border-color: var(--primary-color);
-  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1), inset 0 1px 3px rgba(0, 0, 0, 0.1);
   background: white;
 }
 
@@ -496,46 +445,18 @@
   opacity: 0.7;
 }
 
-.users-management .form-input:disabled::placeholder {
-  color: #9ca3af;
-  opacity: 0.5;
+.users-management .help-text {
+  margin-top: 0.25rem;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
 }
 
 /* Delete Modal Styles */
-.users-management .delete-modal .modal-body {
-  padding: 1.5rem;
-}
-
-.users-management .delete-warning {
-  display: flex;
-  gap: 1rem;
-  align-items: flex-start;
-}
-
-.users-management .warning-content h4 {
-  color: var(--text-primary);
-  margin: 0 0 1rem 0;
-  font-size: 1.1rem;
-}
-
-.users-management .file-info {
-  background: var(--background-secondary);
-  padding: 1rem;
-  border-radius: 8px;
-  margin: 0 0 1rem 0;
-}
-
-.users-management .warning-text {
+.users-management .confirmation-description {
   color: var(--text-secondary);
   margin: 0;
   font-size: 0.9rem;
   line-height: 1.5;
-}
-
-.users-management .delete-actions {
-  display: flex;
-  gap: 0.75rem;
-  justify-content: flex-end;
 }
 
 /* Responsive Design */
@@ -566,242 +487,8 @@
   }
 }
 
-/* User Details Modal Styles */
-.users-management .user-details-modal {
-  max-width: 800px;
-  max-height: 85vh;
-  background: white;
-  border: 2px solid var(--border-color);
-}
-
-.users-management .user-details-content {
-  display: flex;
-  flex-direction: column;
-  gap: 1.5rem;
-}
-
-.users-management .user-full-name {
-  margin: 0;
-  color: var(--text-primary);
-  font-size: 1.25rem;
-  font-weight: 600;
-}
-
-.users-management .user-subtitle {
-  margin: 0.25rem 0 0 0;
-  color: var(--text-secondary);
-  font-size: 0.9rem;
-}
-
-.users-management .user-details-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 1rem;
-}
-
-.users-management .detail-item {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
-.users-management .detail-item label {
-  font-size: 0.8rem;
-  color: var(--text-secondary);
-  font-weight: 500;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-.users-management .status-badge {
-  padding: 0.25rem 0.75rem;
-  border-radius: 12px;
-  font-size: 0.75rem;
-  font-weight: 500;
-  width: fit-content;
-}
-
-.users-management .status-badge.active {
-  background: #d1fae5;
-  color: #065f46;
-  border: 1px solid #a7f3d0;
-}
-
-.users-management .status-badge.approved {
-  background: #d1fae5;
-  color: #065f46;
-  border: 1px solid #a7f3d0;
-}
-
-.users-management .status-badge.pending {
-  background: #fef3c7;
-  color: #92400e;
-  border: 1px solid #fde68a;
-}
-
-.users-management .status-badge.rejected {
-  background: #fee2e2;
-  color: #991b1b;
-  border: 1px solid #fecaca;
-}
-
-.users-management .files-section, 
-.users-management .pending-files-section {
-  padding-bottom: 0.5rem;
-  background: white;
-  opacity: 1;
-}
-
-.users-management .section-header {
-  margin-bottom: 1rem;
-}
-
-.users-management .section-header h5 {
-  margin: 0;
-  color: var(--text-primary);
-  font-size: 1rem;
-  font-weight: 600;
-}
-
-.users-management .files-list {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-  max-height: 200px;
-  overflow-y: auto;
-  padding-right: 0.5rem;
-}
-
-.users-management .files-list::-webkit-scrollbar {
-  width: 4px;
-}
-
-.users-management .files-list::-webkit-scrollbar-track {
-  background: var(--background-secondary);
-  border-radius: 2px;
-}
-
-.users-management .files-list::-webkit-scrollbar-thumb {
-  background: var(--border-color);
-  border-radius: 2px;
-}
-
-.users-management .files-list::-webkit-scrollbar-thumb:hover {
-  background: var(--text-secondary);
-}
-
-.users-management .file-item {
-  padding: 0.75rem;
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
-  background: white;
-  opacity: 1;
-}
-
-.users-management .file-item.pending {
-  border-left: 4px solid #fbbf24;
-}
-
-.users-management .file-info {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
-.users-management .file-name {
-  font-weight: 500;
-  color: var(--text-primary);
-  font-size: 0.9rem;
-}
-
-.users-management .file-meta {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  font-size: 0.8rem;
-  color: var(--text-secondary);
-}
-
-.users-management .file-size, 
-.users-management .file-date {
-  color: var(--text-secondary);
-}
-
-.users-management .file-comments {
-  margin-top: 0.5rem;
-  padding: 0.5rem;
-  background: #f8f9fa;
-  border-radius: 6px;
-  border-left: 3px solid var(--primary-color);
-  opacity: 1;
-}
-
-.users-management .comments-label {
-  font-size: 0.75rem;
-  color: var(--text-secondary);
-  font-weight: 500;
-  margin-bottom: 0.25rem;
-}
-
-.users-management .comment-text {
-  font-size: 0.8rem;
-  color: var(--text-primary);
-  line-height: 1.4;
-}
-
-.users-management .loading-files {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  padding: 2rem;
-  color: var(--text-secondary);
-}
-
-.users-management .spinner-small {
-  width: 16px;
-  height: 16px;
-  border: 2px solid var(--border-color);
-  border-top: 2px solid var(--primary-color);
-  border-radius: 50%;
-  animation: userManagementSpin 1s linear infinite;
-}
-
-.users-management .empty-files {
-  text-align: center;
-  padding: 2rem;
-  color: var(--text-secondary);
-}
-
-.users-management .empty-files p {
-  margin: 0;
-  font-style: italic;
-}
-
-/* Responsive adjustments for user details modal */
-@media (max-width: 768px) {
-  .users-management .user-details-modal {
-    max-width: calc(100vw - 2rem);
-  }
-  
-  .users-management .user-header {
-    flex-direction: column;
-    align-items: center;
-    text-align: center;
-    gap: 0.75rem;
-  }
-  
-  .users-management .user-details-grid {
-    grid-template-columns: 1fr;
-    gap: 0.75rem;
-  }
-  
-  .users-management .files-list {
-    max-height: 150px;
-  }
-  
-  .users-management .file-meta {
-    flex-wrap: wrap;
-    gap: 0.5rem;
+@media (max-width: 480px) {
+  .users-management .modal.compact {
+    max-width: calc(100vw - 1rem);
   }
 }

@@ -47,30 +47,7 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess, u
     [teams]
   )
 
-  // Check network availability on mount and periodically
-  useEffect(() => {
-    const checkNetwork = async () => {
-      try {
-        await fetch('http://localhost:3001/api/health')
-        setNetworkAvailable(true)
-      } catch {
-        setNetworkAvailable(false)
-      }
-    }
-
-    checkNetwork()
-    const interval = setInterval(checkNetwork, 30000) // Check every 30 seconds
-    return () => clearInterval(interval)
-  }, [])
-
-  // Fetch users on component mount
-  useEffect(() => {
-    if (networkAvailable) {
-      fetchUsers()
-      fetchTeams()
-    }
-  }, [networkAvailable])
-
+  // Fetch functions with proper dependencies
   const fetchUsers = useCallback(async () => {
     setIsLoading(true)
     try {
@@ -103,6 +80,28 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess, u
       setTeamsLoading(false)
     }
   }, [])
+
+  // Check network availability on mount only
+  useEffect(() => {
+    const checkNetwork = async () => {
+      try {
+        await fetch('http://localhost:3001/api/health')
+        setNetworkAvailable(true)
+      } catch {
+        setNetworkAvailable(false)
+      }
+    }
+
+    checkNetwork()
+    const interval = setInterval(checkNetwork, 30000)
+    return () => clearInterval(interval)
+  }, [])
+
+  // Fetch users and teams ONCE on mount
+  useEffect(() => {
+    fetchUsers()
+    fetchTeams()
+  }, [fetchUsers, fetchTeams])
 
   const handleAddUser = useCallback(async (e) => {
     e.preventDefault()
@@ -277,8 +276,6 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess, u
     setShowUserDeleteModal(true)
   }, [])
 
-
-
   const openAddModal = useCallback(() => {
     setError('')
     setSuccess('')
@@ -298,6 +295,10 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess, u
     setFormData(prev => ({ ...prev, [field]: value }))
   }, [])
 
+  const handleSearchChange = useCallback((e) => {
+    setSearchQuery(e.target.value)
+  }, [])
+
   // Show skeleton loader when network is not available
   if (!networkAvailable) {
     return <SkeletonLoader type="table" />
@@ -314,7 +315,7 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess, u
               type="text"
               placeholder="Search users by name, email, role, or team..."
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={handleSearchChange}
               className="search-input"
             />
           </div>
@@ -369,59 +370,62 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess, u
                 </tr>
               </thead>
               <tbody>
-                {filteredUsers.map((user) => (
-                  <tr key={user.id} className="user-row">
-                    <td>
-                      <div className="user-cell">
-                        <span className="user-name">
-                          {user.fullName}
+                {filteredUsers.map((userData) => {
+                  const roleClass = userData.role.toLowerCase().replace(' ', '-')
+                  return (
+                    <tr key={userData.id} className="user-row">
+                      <td>
+                        <div className="user-cell">
+                          <span className="user-name">
+                            {userData.fullName}
+                          </span>
+                        </div>
+                      </td>
+                      <td>{userData.username}</td>
+                      <td className="email-cell">{userData.email}</td>
+                      <td>
+                        <div className="password-cell">
+                          <span className="password-hidden">••••••••</span>
+                          <button 
+                            className="password-reset-btn"
+                            onClick={() => openPasswordModal(userData)}
+                            title="Reset Password"
+                          >
+                            Reset
+                          </button>
+                        </div>
+                      </td>
+                      <td>
+                        <span className={`role-badge ${roleClass}`}>
+                          {userData.role}
                         </span>
-                      </div>
-                    </td>
-                    <td>{user.username}</td>
-                    <td className="email-cell">{user.email}</td>
-                    <td>
-                      <div className="password-cell">
-                        <span className="password-hidden">••••••••</span>
-                        <button 
-                          className="password-reset-btn"
-                          onClick={() => openPasswordModal(user)}
-                          title="Reset Password"
-                        >
-                          Reset
-                        </button>
-                      </div>
-                    </td>
-                    <td>
-                      <span className={`role-badge ${user.role.toLowerCase().replace(' ', '-')}`}>
-                        {user.role}
-                      </span>
-                    </td>
-                    <td>
-                      <span className="team-badge">
-                        {user.team || '—'}
-                      </span>
-                    </td>
-                    <td>
-                      <div className="action-buttons">
-                        <button 
-                          className="action-btn edit-btn"
-                          onClick={() => openEditModal(user)}
-                          title="Edit User"
-                        >
-                          Edit
-                        </button>
-                        <button 
-                          className="action-btn delete-btn"
-                          onClick={() => openUserDeleteModal(user)}
-                          title="Delete User"
-                        >
-                          Delete
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                      </td>
+                      <td>
+                        <span className="team-badge">
+                          {userData.team || '—'}
+                        </span>
+                      </td>
+                      <td>
+                        <div className="action-buttons">
+                          <button 
+                            className="action-btn edit-btn"
+                            onClick={() => openEditModal(userData)}
+                            title="Edit User"
+                          >
+                            Edit
+                          </button>
+                          <button 
+                            className="action-btn delete-btn"
+                            onClick={() => openUserDeleteModal(userData)}
+                            title="Delete User"
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  )
+                })}
               </tbody>
             </table>
           </div>
@@ -648,29 +652,8 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess, u
         </ConfirmationModal>
       )}
 
-
     </div>
   )
-}
-
-// Utility functions for formatting
-const formatFileSize = (bytes) => {
-  if (bytes === 0) return '0 Bytes'
-  const k = 1024
-  const sizes = ['Bytes', 'KB', 'MB', 'GB']
-  const i = Math.floor(Math.log(bytes) / Math.log(k))
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
-}
-
-const formatDate = (dateString) => {
-  const date = new Date(dateString)
-  return date.toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit'
-  })
 }
 
 // Wrap component with ErrorBoundary

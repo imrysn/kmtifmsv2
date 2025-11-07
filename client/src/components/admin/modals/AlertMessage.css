@@ -1,3 +1,4 @@
+/* Optimized Alert Styles - NO ANIMATIONS for Performance */
 .alert {
   position: fixed;
   top: 20px;
@@ -46,7 +47,6 @@
   align-items: center;
   justify-content: center;
   border-radius: 4px;
-  transition: all 0.2s;
   margin-left: 0.5rem;
   flex-shrink: 0;
 }
