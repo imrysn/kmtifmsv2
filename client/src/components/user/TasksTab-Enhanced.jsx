@@ -529,25 +529,6 @@ const TasksTab = ({ user }) => {
         </div>
       )}
 
-      {/* Statistics Cards */}
-      <div className="tasks-stats">
-        <div className="tasks-stat-card tasks-stat-pending">
-          <div className="tasks-stat-icon">⏱</div>
-          <div className="tasks-stat-info">
-            <div className="tasks-stat-number">{pendingAssignments.length}</div>
-            <div className="tasks-stat-label">Pending</div>
-          </div>
-        </div>
-
-        <div className="tasks-stat-card tasks-stat-submitted">
-          <div className="tasks-stat-icon">✓</div>
-          <div className="tasks-stat-info">
-            <div className="tasks-stat-number">{submittedAssignments.length}</div>
-            <div className="tasks-stat-label">Submitted</div>
-          </div>
-        </div>
-      </div>
-
       {/* Content */}
       {isLoading ? (
         <div className="tasks-loading">
