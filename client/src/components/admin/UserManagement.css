@@ -87,13 +87,13 @@
 }
 
 .users-management .user-cell {
-  display: flex;
-  align-items: center;
+  display: block;
 }
 
 .users-management .user-name {
   font-weight: 500;
   color: var(--text-primary);
+  display: block;
 }
 
 .users-management .email-cell {
