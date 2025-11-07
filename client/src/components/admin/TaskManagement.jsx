@@ -3,7 +3,7 @@ import './TaskManagement.css'
 import FileIcon from './FileIcon.jsx'
 import { AlertMessage } from './modals'
 
-const TaskManagement = ({ error, success, setError, setSuccess, clearMessages, user }) => {
+const TaskManagement = ({ error, success, setError, setSuccess, clearMessages, user, contextAssignmentId }) => {
   const [assignments, setAssignments] = useState([])
   const [loading, setLoading] = useState(true)
   const [loadingMore, setLoadingMore] = useState(false)
@@ -28,6 +28,36 @@ const TaskManagement = ({ error, success, setError, setSuccess, clearMessages, u
   useEffect(() => {
     fetchInitialAssignments()
   }, [])
+
+  // Handle context from notifications (open assignment and highlight comment)
+  useEffect(() => {
+    if (contextAssignmentId && typeof contextAssignmentId === 'object') {
+      const { assignmentId, commentId, shouldOpenComments } = contextAssignmentId
+      
+      if (assignmentId && shouldOpenComments) {
+        // Find the assignment
+        const assignment = assignments.find(a => a.id === assignmentId)
+        if (assignment) {
+          // Open comments modal
+          openCommentsModal(assignment)
+          
+          // Highlight the comment after modal opens
+          if (commentId) {
+            setTimeout(() => {
+              const commentElement = document.querySelector(`[data-comment-id="${commentId}"]`)
+              if (commentElement) {
+                commentElement.scrollIntoView({ behavior: 'smooth', block: 'center' })
+                commentElement.classList.add('highlight-comment')
+                setTimeout(() => {
+                  commentElement.classList.remove('highlight-comment')
+                }, 2000)
+              }
+            }, 500)
+          }
+        }
+      }
+    }
+  }, [contextAssignmentId, assignments])
 
   // Set up intersection observer for infinite scroll
   useEffect(() => {
@@ -581,7 +611,7 @@ const TaskManagement = ({ error, success, setError, setSuccess, clearMessages, u
                   {/* Comments */}
                   <div className="admin-comments-section">
                     <div className="admin-comments-text" onClick={() => openCommentsModal(assignment)}>
-                      Comments
+                      Comments ({assignment.comment_count || 0})
                     </div>
                   </div>
                 </div>
@@ -641,7 +671,7 @@ const TaskManagement = ({ error, success, setError, setSuccess, clearMessages, u
                 ) : (
                   <div className="comments-list">
                     {comments.map(comment => (
-                      <div key={comment.id} className="comment-thread">
+                      <div key={comment.id} className="comment-thread" data-comment-id={comment.id}>
                         {/* Main Comment */}
                         <div className="comment-item">
                           <div className="comment-avatar">

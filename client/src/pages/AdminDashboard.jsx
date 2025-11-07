@@ -14,7 +14,6 @@ import {
   Settings,
   TaskManagement,
   Notifications,
-  NotificationBell,
   ToastNotification
 } from '../components/admin'
 
@@ -24,6 +23,7 @@ const AdminDashboard = ({ user, onLogout }) => {
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
   const [notifications, setNotifications] = useState([])
+  const [unreadCount, setUnreadCount] = useState(0)
   const [contextData, setContextData] = useState(null)
 
   const sidebarRef = useRef(null)
@@ -52,7 +52,7 @@ const AdminDashboard = ({ user, onLogout }) => {
     fetchUsers()
     fetchNotifications()
     // Poll for notifications every 30 seconds
-    const interval = setInterval(fetchNotifications, 30000)
+    const interval = setInterval(fetchNotifications, 10000)
     return () => clearInterval(interval)
   }, [])
 
@@ -74,6 +74,7 @@ const AdminDashboard = ({ user, onLogout }) => {
       const data = await response.json()
       if (data.success) {
         setNotifications(data.notifications || [])
+        setUnreadCount(data.unreadCount || 0)
       }
     } catch (error) {
       console.error('Error fetching notifications:', error)
@@ -95,8 +96,8 @@ const AdminDashboard = ({ user, onLogout }) => {
     clearMessages()
   }
 
-  const handleNotificationNavigation = (tabName, contextId) => {
-    handleTabChange(tabName, contextId)
+  const handleNotificationNavigation = (tabName, contextData) => {
+    handleTabChange(tabName, contextData)
   }
 
   const renderActiveTab = () => {
@@ -145,10 +146,6 @@ const AdminDashboard = ({ user, onLogout }) => {
             <div className="admin-name">{user.fullName || 'Admin User'}</div>
             <div className="admin-role">{user.role || 'Administrator'}</div>
           </div>
-          <NotificationBell 
-            userId={user.id} 
-            onNotificationClick={() => handleTabChange('notifications')}
-          />
         </div>
         
         <nav className="sidebar-nav">
@@ -163,7 +160,14 @@ const AdminDashboard = ({ user, onLogout }) => {
             className={`nav-item ${activeTab === 'notifications' ? 'active' : ''}`}
             onClick={() => handleTabChange('notifications')}
           >
-            <span className="nav-icon">{getSidebarIcon('notifications')}</span>
+            <span className="nav-icon nav-icon-with-badge">
+              {getSidebarIcon('notifications')}
+              {unreadCount > 0 && (
+                <span className="sidebar-notification-badge">
+                  {unreadCount > 99 ? '99+' : unreadCount}
+                </span>
+              )}
+            </span>
             <span className="nav-label">Notifications</span>
           </button>
           <button 

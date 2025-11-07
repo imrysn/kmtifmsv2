@@ -987,6 +987,40 @@
   margin-top: 16px;
 }
 
+/* Highlight Comment Animation */
+.comment-thread.highlight-comment {
+  animation: highlightPulse 2s ease-in-out;
+}
+
+.comment-thread.highlight-comment .comment-item .comment-text {
+  background: #fef3c7;
+  border: 2px solid #f59e0b;
+  animation: highlightFade 2s ease-in-out;
+}
+
+@keyframes highlightPulse {
+  0%, 100% {
+    transform: scale(1);
+  }
+  25%, 75% {
+    transform: scale(1.02);
+  }
+  50% {
+    transform: scale(1.04);
+  }
+}
+
+@keyframes highlightFade {
+  0% {
+    background: #fef3c7;
+    border-color: #f59e0b;
+  }
+  100% {
+    background: #f7f7f7;
+    border-color: transparent;
+  }
+}
+
 /* Dark scrollbar for consistency */
 .task-management-container .task-feed::-webkit-scrollbar,
 .comments-modal-body::-webkit-scrollbar {

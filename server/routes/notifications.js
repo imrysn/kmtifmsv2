@@ -26,24 +26,42 @@ const createNotification = async (userId, fileId, type, title, message, actionBy
   }
 };
 
-// Get all notifications for a user
+// Get all notifications for a user with pagination
 router.get('/user/:userId', async (req, res) => {
   try {
     const { userId } = req.params;
-    const { unreadOnly } = req.query;
+    const { unreadOnly, page = 1, limit = 20 } = req.query;
 
-    console.log(`📬 Fetching notifications for user ${userId}, unreadOnly: ${unreadOnly}`);
+    const pageNum = parseInt(page);
+    const limitNum = parseInt(limit);
+    const offset = (pageNum - 1) * limitNum;
 
+    console.log(`📬 Fetching notifications for user ${userId}, page: ${pageNum}, limit: ${limitNum}`);
+
+    // Get total count
+    let countQuery = 'SELECT COUNT(*) as total FROM notifications WHERE user_id = ?';
+    if (unreadOnly === 'true') {
+      countQuery += ' AND is_read = 0';
+    }
+    const countResult = await queryOne(countQuery, [userId]);
+    const totalCount = countResult?.total || 0;
+
+    // Get paginated notifications
     let queryStr = `
       SELECT 
         n.*, 
         f.original_name as file_name, 
         f.status as file_status,
         a.title as assignment_title,
-        a.due_date as assignment_due_date
+        a.due_date as assignment_due_date,
+        ac.id as comment_id
       FROM notifications n
       LEFT JOIN files f ON n.file_id = f.id
       LEFT JOIN assignments a ON n.assignment_id = a.id
+      LEFT JOIN assignment_comments ac ON n.assignment_id = ac.assignment_id 
+        AND n.type = 'comment' 
+        AND n.created_at <= DATE_ADD(ac.created_at, INTERVAL 1 SECOND)
+        AND n.created_at >= DATE_SUB(ac.created_at, INTERVAL 1 SECOND)
       WHERE n.user_id = ?
     `;
 
@@ -51,19 +69,30 @@ router.get('/user/:userId', async (req, res) => {
       queryStr += ' AND n.is_read = 0';
     }
 
-    queryStr += ' ORDER BY n.created_at DESC LIMIT 100';
+    queryStr += ` ORDER BY n.created_at DESC LIMIT ${limitNum} OFFSET ${offset}`;
 
     const notifications = await query(queryStr, [userId]);
     
-    console.log(`✅ Found ${notifications.length} notifications for user ${userId}`);
+    console.log(`✅ Found ${notifications.length} notifications for user ${userId} (page ${pageNum})`);
     
-    // Count unread notifications
-    const unreadCount = notifications.filter(n => n.is_read === 0 || n.is_read === false).length;
+    // Count unread notifications (total, not just in this page)
+    const unreadCountResult = await queryOne(
+      'SELECT COUNT(*) as count FROM notifications WHERE user_id = ? AND is_read = 0',
+      [userId]
+    );
+    const unreadCount = unreadCountResult?.count || 0;
+
+    // Calculate if there are more pages
+    const hasMore = offset + notifications.length < totalCount;
 
     res.json({
       success: true,
       notifications: notifications || [],
-      unreadCount: unreadCount
+      unreadCount: unreadCount,
+      totalCount: totalCount,
+      page: pageNum,
+      limit: limitNum,
+      hasMore: hasMore
     });
   } catch (error) {
     console.error('❌ Error fetching notifications:', error);

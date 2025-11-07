@@ -233,6 +233,138 @@
   transform: scale(1.1);
 }
 
+/* Notification Stats */
+.notifications-stats {
+  font-size: 14px;
+  color: #6b7280;
+  margin-bottom: 20px;
+  padding: 12px 16px;
+  background: #f9fafb;
+  border-radius: 8px;
+  border: 1px solid #e5e7eb;
+}
+
+/* Skeleton Loader Styles */
+.notification-skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 20px 0;
+}
+
+.notification-skeleton-item {
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 16px;
+  display: flex;
+  gap: 16px;
+}
+
+.skeleton-icon {
+  width: 40px;
+  height: 40px;
+  background: linear-gradient(90deg, #f3f4f6 25%, #e5e7eb 50%, #f3f4f6 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: 8px;
+  flex-shrink: 0;
+}
+
+.skeleton-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.skeleton-line {
+  height: 14px;
+  background: linear-gradient(90deg, #f3f4f6 25%, #e5e7eb 50%, #f3f4f6 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: 4px;
+}
+
+.skeleton-line-title {
+  width: 60%;
+  height: 16px;
+}
+
+.skeleton-line-message {
+  width: 90%;
+}
+
+.skeleton-line-meta {
+  width: 40%;
+  height: 12px;
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+/* Loading More Skeleton */
+.notifications-loading-more {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+/* Load More Trigger */
+.load-more-trigger {
+  height: 20px;
+  margin: 20px 0;
+}
+
+/* End of List */
+.end-of-list {
+  text-align: center;
+  padding: 30px 20px;
+  color: #9ca3af;
+  font-size: 14px;
+}
+
+.end-of-list p {
+  margin: 0;
+}
+
+/* Optimized Animations - Only on hover */
+.notification-item {
+  will-change: transform;
+}
+
+.notification-item:hover {
+  will-change: transform, box-shadow;
+}
+
+/* Disable animations on low-end devices */
+@media (prefers-reduced-motion: reduce) {
+  .notification-item,
+  .notification-delete,
+  .btn-mark-all-read,
+  .btn-delete-all {
+    transition: none !important;
+    animation: none !important;
+  }
+  
+  .notification-item:hover {
+    transform: none !important;
+  }
+  
+  .skeleton-icon,
+  .skeleton-line {
+    animation: none !important;
+    background: #f3f4f6 !important;
+  }
+}
+
 /* Responsive Design */
 @media (max-width: 768px) {
   .notifications-header {
