@@ -5,18 +5,21 @@ const { createNotification } = require('./notifications');
 
 router.get('/admin/all', async (req, res) => {
   try {
+    console.log('🔍 Admin assignments route called');
     const { cursor, limit = 20 } = req.query;
     const parsedLimit = parseInt(limit, 10);
-    
+
     console.log('Admin fetching assignments with pagination:', { cursor, limit: parsedLimit });
 
     let queryStr = `
       SELECT
         a.*,
         COUNT(DISTINCT CASE WHEN am.status = 'submitted' AND am.file_id IS NOT NULL THEN am.id END) as submission_count,
-        COUNT(DISTINCT am.id) as assigned_members_count
+        COUNT(DISTINCT am.id) as assigned_members_count,
+        COUNT(DISTINCT ac.id) as comment_count
       FROM assignments a
       LEFT JOIN assignment_members am ON a.id = am.assignment_id
+      LEFT JOIN assignment_comments ac ON a.id = ac.assignment_id
     `;
     
     let queryParams = [];
@@ -102,6 +105,12 @@ router.get('/admin/all', async (req, res) => {
     }
 
     console.log(`Returning ${assignmentsToReturn.length} assignments to admin, hasMore: ${hasMore}`);
+
+    // Debug: Check comment_count in assignments
+    if (assignmentsToReturn.length > 0) {
+      console.log('First assignment comment_count:', assignmentsToReturn[0].comment_count, 'type:', typeof assignmentsToReturn[0].comment_count);
+      console.log('First assignment keys:', Object.keys(assignmentsToReturn[0]));
+    }
 
     res.json({
       success: true,

@@ -277,7 +277,7 @@ const Settings = ({ clearMessages, error, success, setError, setSuccess, users, 
   }
 
   return (
-    <div className="settings-section">
+    <div className={`settings-section ${isLoading ? 'loading-cursor' : ''}`}>
       
       {error && (
         <AlertMessage 

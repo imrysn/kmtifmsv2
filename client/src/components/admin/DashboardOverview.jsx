@@ -103,7 +103,7 @@ const DashboardOverview = ({ user, users }) => {
   }
 
   return (
-    <div className="dashboard-overview">
+    <div className={`dashboard-overview ${loading ? 'loading-cursor' : ''}`}>
       
       {/* Top Row: Stats Grid (Upper Right) */}
       <div className="top-row">

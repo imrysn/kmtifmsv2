@@ -305,7 +305,7 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess, u
   }
 
   return (
-    <div className="users-management">
+    <div className={`users-management ${isLoading ? 'loading-cursor' : ''}`}>
       
       {/* Action Bar */}
       <div className="action-bar">

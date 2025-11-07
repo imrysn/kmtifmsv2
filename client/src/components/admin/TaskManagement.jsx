@@ -3,7 +3,7 @@ import './TaskManagement.css'
 import FileIcon from './FileIcon.jsx'
 import { AlertMessage } from './modals'
 
-const TaskManagement = ({ error, success, setError, setSuccess, clearMessages, user }) => {
+const TaskManagement = ({ error, success, setError, setSuccess, clearMessages, user, contextAssignmentId }) => {
   const [assignments, setAssignments] = useState([])
   const [loading, setLoading] = useState(true)
   const [loadingMore, setLoadingMore] = useState(false)
@@ -16,6 +16,7 @@ const TaskManagement = ({ error, success, setError, setSuccess, clearMessages, u
   const [replyingTo, setReplyingTo] = useState(null)
   const [replyText, setReplyText] = useState('')
   const [visibleReplies, setVisibleReplies] = useState({})
+  const [isOpeningFile, setIsOpeningFile] = useState(false)
   
   // Pagination state
   const [nextCursor, setNextCursor] = useState(null)
@@ -28,6 +29,36 @@ const TaskManagement = ({ error, success, setError, setSuccess, clearMessages, u
   useEffect(() => {
     fetchInitialAssignments()
   }, [])
+
+  // Handle context from notifications (open assignment and highlight comment)
+  useEffect(() => {
+    if (contextAssignmentId && typeof contextAssignmentId === 'object') {
+      const { assignmentId, commentId, shouldOpenComments } = contextAssignmentId
+      
+      if (assignmentId && shouldOpenComments) {
+        // Find the assignment
+        const assignment = assignments.find(a => a.id === assignmentId)
+        if (assignment) {
+          // Open comments modal
+          openCommentsModal(assignment)
+          
+          // Highlight the comment after modal opens
+          if (commentId) {
+            setTimeout(() => {
+              const commentElement = document.querySelector(`[data-comment-id="${commentId}"]`)
+              if (commentElement) {
+                commentElement.scrollIntoView({ behavior: 'smooth', block: 'center' })
+                commentElement.classList.add('highlight-comment')
+                setTimeout(() => {
+                  commentElement.classList.remove('highlight-comment')
+                }, 2000)
+              }
+            }, 500)
+          }
+        }
+      }
+    }
+  }, [contextAssignmentId, assignments])
 
   // Set up intersection observer for infinite scroll
   useEffect(() => {
@@ -348,6 +379,7 @@ const TaskManagement = ({ error, success, setError, setSuccess, clearMessages, u
     }
 
     try {
+      setIsOpeningFile(true)
       // Clear any previous messages
       clearMessages()
 
@@ -404,6 +436,8 @@ const TaskManagement = ({ error, success, setError, setSuccess, clearMessages, u
       console.error('❌ Error opening file:', error);
       setSuccess('') // Clear loading message
       setError(`Error opening file: ${error.message || 'Failed to open file'}`);
+    } finally {
+      setIsOpeningFile(false)
     }
   }
 
@@ -438,7 +472,7 @@ const TaskManagement = ({ error, success, setError, setSuccess, clearMessages, u
   }
 
   return (
-    <div className="task-management-container">
+    <div className={`task-management-container ${isOpeningFile ? 'file-opening-cursor' : ''}`}>
       {/* Messages */}
       {error && (
         <AlertMessage
@@ -490,7 +524,7 @@ const TaskManagement = ({ error, success, setError, setSuccess, clearMessages, u
                           <span className="admin-team-leader-name">
                             {assignment.team_leader_fullname || assignment.team_leader_username}
                           </span>
-                          <span className="admin-role-badge">Team Leader</span>
+                          <span className="role-badge team-leader">TEAM LEADER</span>
                           assigned to{' '}
                           <span className="admin-assigned-user">
                             {assignment.assigned_member_details && assignment.assigned_member_details.length > 0
@@ -581,7 +615,7 @@ const TaskManagement = ({ error, success, setError, setSuccess, clearMessages, u
                   {/* Comments */}
                   <div className="admin-comments-section">
                     <div className="admin-comments-text" onClick={() => openCommentsModal(assignment)}>
-                      Comments
+                      Comments ({assignment.comment_count || 0})
                     </div>
                   </div>
                 </div>
@@ -641,7 +675,7 @@ const TaskManagement = ({ error, success, setError, setSuccess, clearMessages, u
                 ) : (
                   <div className="comments-list">
                     {comments.map(comment => (
-                      <div key={comment.id} className="comment-thread">
+                      <div key={comment.id} className="comment-thread" data-comment-id={comment.id}>
                         {/* Main Comment */}
                         <div className="comment-item">
                           <div className="comment-avatar">
@@ -650,7 +684,9 @@ const TaskManagement = ({ error, success, setError, setSuccess, clearMessages, u
                           <div className="comment-content">
                             <div className="comment-header">
                               <span className="comment-author">{comment.user_fullname || comment.username}</span>
-                              <span className="comment-role">{comment.user_role}</span>
+                              <span className={`role-badge ${comment.user_role ? comment.user_role.toLowerCase().replace(' ', '-') : 'user'}`}>
+                                {comment.user_role || 'USER'}
+                              </span>
                               <span className="comment-time">{formatTimeAgo(comment.created_at)}</span>
                             </div>
                             <div className="comment-text">{comment.comment}</div>
@@ -675,35 +711,6 @@ const TaskManagement = ({ error, success, setError, setSuccess, clearMessages, u
                                 </button>
                               )}
                             </div>
-
-                            {/* Reply Form */}
-                            {replyingTo === comment.id && (
-                              <form className="reply-form" onSubmit={(e) => handlePostReply(e, comment.id)}>
-                                <textarea
-                                  value={replyText}
-                                  onChange={(e) => setReplyText(e.target.value)}
-                                  onKeyDown={(e) => handleReplyKeyDown(e, comment.id)}
-                                  placeholder="Write a reply..."
-                                  rows="2"
-                                  autoFocus
-                                />
-                                <div className="reply-form-actions">
-                                  <button
-                                    type="button"
-                                    className="cancel-reply-btn"
-                                    onClick={() => {
-                                      setReplyingTo(null)
-                                      setReplyText('')
-                                    }}
-                                  >
-                                    Cancel
-                                  </button>
-                                  <button type="submit" className="post-reply-btn">
-                                    Reply
-                                  </button>
-                                </div>
-                              </form>
-                            )}
                           </div>
                         </div>
 
@@ -718,13 +725,48 @@ const TaskManagement = ({ error, success, setError, setSuccess, clearMessages, u
                                 <div className="reply-content">
                                   <div className="reply-header">
                                     <span className="reply-author">{reply.user_fullname || reply.username}</span>
-                                    <span className="reply-role">{reply.user_role}</span>
+                                    <span className={`role-badge ${reply.user_role ? reply.user_role.toLowerCase().replace(' ', '-') : 'user'}`}>
+                                      {reply.user_role || 'USER'}
+                                    </span>
                                     <span className="reply-time">{formatTimeAgo(reply.created_at)}</span>
                                   </div>
                                   <div className="reply-text">{reply.reply}</div>
                                 </div>
                               </div>
                             ))}
+                          </div>
+                        )}
+
+                        {/* Reply Input Box */}
+                        {replyingTo === comment.id && (
+                          <div className="reply-input-box">
+                            <div className="comment-avatar reply-avatar">
+                              {getInitials(user.username || user.fullName)}
+                            </div>
+                            <div className="comment-input-wrapper">
+                              <input
+                                type="text"
+                                className="comment-input"
+                                placeholder="Write a reply..."
+                                value={replyText}
+                                onChange={(e) => setReplyText(e.target.value)}
+                                onKeyPress={(e) => {
+                                  if (e.key === 'Enter' && !e.shiftKey) {
+                                    e.preventDefault();
+                                    handlePostReply(e, comment.id);
+                                  }
+                                }}
+                                disabled={false}
+                                autoFocus
+                              />
+                              <button
+                                className="comment-submit-btn"
+                                onClick={(e) => handlePostReply(e, comment.id)}
+                                disabled={!replyText.trim()}
+                              >
+                                ➤
+                              </button>
+                            </div>
                           </div>
                         )}
                       </div>
@@ -735,18 +777,33 @@ const TaskManagement = ({ error, success, setError, setSuccess, clearMessages, u
 
               {/* Comment Form */}
               <div className="comments-modal-footer">
-                <form className="comment-form" onSubmit={handlePostComment}>
-                  <textarea
-                    value={newComment}
-                    onChange={(e) => setNewComment(e.target.value)}
-                    onKeyDown={handleCommentKeyDown}
-                    placeholder="Write a comment..."
-                    rows="3"
-                  />
-                  <button type="submit" className="post-comment-btn">
-                    Comment
-                  </button>
-                </form>
+                <div className="add-comment">
+                  <div className="comment-avatar">
+                    {getInitials(user.username || user.fullName)}
+                  </div>
+                  <div className="comment-input-wrapper">
+                    <input
+                      type="text"
+                      className="comment-input"
+                      placeholder="Write a comment..."
+                      value={newComment}
+                      onChange={(e) => setNewComment(e.target.value)}
+                      onKeyPress={(e) => {
+                        if (e.key === 'Enter' && !e.shiftKey) {
+                          e.preventDefault();
+                          handlePostComment(e);
+                        }
+                      }}
+                    />
+                    <button
+                      className="comment-submit-btn"
+                      onClick={handlePostComment}
+                      disabled={!newComment.trim()}
+                    >
+                      ➤
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
           </div>

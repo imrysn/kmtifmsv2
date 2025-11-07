@@ -655,7 +655,7 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
   }
 
   return (
-    <div className="file-approval-section">
+    <div className={`file-approval-section ${isOpeningFile ? 'file-opening-cursor' : ''}`}>
       {/* Messages */}
       {error && <AlertMessage type="error" message={error} onClose={clearMessages} />}
       {success && <AlertMessage type="success" message={success} onClose={clearMessages} />}

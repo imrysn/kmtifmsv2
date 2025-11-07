@@ -184,6 +184,46 @@
   margin: 0 6px;
 }
 
+/* Role Badge Styles - Similar to UserManagement */
+.task-management-container .role-badge,
+.task-management-container .team-badge {
+  padding: 2px;
+  border: 1px solid;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  width: 16%;
+  text-align: center;
+  display: inline-block;
+  margin-left: 5px;
+  margin-right: 10px;
+}
+
+.task-management-container .role-badge {
+  color: white;
+}
+
+.task-management-container .role-badge.user {
+  border: 1px solid #059669;
+  color: #059669;
+}
+
+.task-management-container .role-badge.team-leader {
+  border: 1px solid #1d4ed8;
+  color: #1d4ed8;
+}
+
+.task-management-container .role-badge.admin {
+  border: 1px solid #dc2626;
+  color: #dc2626;
+}
+
+.task-management-container .team-badge {
+  background: transparent;
+  color: #000000;
+  border: 1px solid #000000;
+}
+
 .admin-assigned-user {
   font-weight: 700;
   color: #1c1e21;
@@ -209,7 +249,7 @@
 
 /* Task Title Section */
 .admin-task-title-section {
-  padding: 16px 20px;
+  padding: 12px 18px;
 }
 
 .admin-assignment-title {
@@ -222,17 +262,17 @@
 
 /* Task Description Section */
 .admin-task-description-section {
-  padding: 16px 20px;
+  padding: 12px 18px;
 }
 
 /* Attachment Section */
 .admin-attachment-section {
-  padding: 16px 20px;
+  padding: 12px 18px;
 }
 
 /* Comments Section */
 .admin-comments-section {
-  padding: 16px 20px;
+  padding: 12px 18px;
 }
 
 .admin-comments-text {
@@ -269,7 +309,6 @@
 /* Attached File */
 .admin-attached-file {
   background: #f0f9ff;
-  border-left: 3px solid #3b82f6;
   padding: 12px;
   border-radius: 6px;
   margin-bottom: 16px;
@@ -695,13 +734,7 @@
 }
 
 .comment-role {
-  background: #e4e6eb;
-  color: #65676b;
-  padding: 2px 8px;
-  border-radius: 4px;
-  font-size: 11px;
-  font-weight: 600;
-  text-transform: uppercase;
+  /* Use role-badge styles instead */
 }
 
 .comment-time {
@@ -805,13 +838,7 @@
 }
 
 .reply-role {
-  background: #e4e6eb;
-  color: #65676b;
-  padding: 1px 6px;
-  border-radius: 3px;
-  font-size: 10px;
-  font-weight: 600;
-  text-transform: uppercase;
+  /* Use role-badge styles instead */
 }
 
 .reply-time {
@@ -830,114 +857,275 @@
   word-wrap: break-word;
 }
 
-/* Reply Form */
-.reply-form {
+/* Reply Input Box */
+.reply-input-box {
   margin-top: 8px;
-}
-
-.reply-form textarea {
-  width: 100%;
-  height: 45px;
-  padding: 12px;
-  border: 1px solid #ccd0d5;
-  border-radius: 18px;
-  font-size: 13px;
-  font-family: inherit;
-  resize: vertical;
-  margin-bottom: 8px;
-}
-
-.reply-form textarea:focus {
-  outline: none;
-  border-color: #1877f2;
-}
-
-.reply-form-actions {
+  margin-left: 48px;
+  padding-left: 20px;
   display: flex;
-  gap: 8px;
-  justify-content: flex-end;
+  gap: 10px;
+  align-items: flex-start;
+  position: relative;
 }
 
-.cancel-reply-btn {
-  background: #f0f2f5;
-  color: #1c1e21;
-  border: none;
-  padding: 6px 16px;
-  border-radius: 12px;
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background 0.2s ease;
-}
-
-.cancel-reply-btn:hover {
+.reply-input-box::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: -12px;
+  width: 2px;
+  height: calc(100% + 12px);
   background: #e4e6eb;
-}
-
-.post-reply-btn {
-  background: #1877f2;
-  color: white;
-  border: none;
-  padding: 6px 16px;
-  border-radius: 12px;
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background 0.2s ease;
-}
-
-.post-reply-btn:hover {
-  background: #166fe5;
 }
 
 /* Comment Form */
 .comments-modal-footer {
-  padding: 16px 20px;
+  padding: 20px;
+  border-top: 1px solid #e4e6eb;
 }
 
-.comment-form {
-  display: grid;
-  grid-template-columns: 2fr 1fr;
-  gap: 5px;
+.add-comment {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
 }
 
-.comment-form textarea {
-  width: 115%;
-  height: 45px;
-  padding: 12px;
-  border: 1px solid #ccd0d5;
-  border-radius: 18px;
-  font-size: 14px;
-  font-family: inherit;
-  resize: vertical;
+.comment-input-wrapper {
+  flex: 1;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  background: #ffffff;
+  border-radius: 20px;
+  padding: 8px 12px;
+  border: 1px solid #e4e6eb;
+  transition: border-color 0.2s;
 }
 
-.comment-form textarea:focus {
-  outline: none;
+.comment-input-wrapper:focus-within {
   border-color: #1877f2;
 }
 
-.post-comment-btn {
+.comment-input {
+  flex: 1;
+  border: none;
+  outline: none;
+  font-size: 15px;
+  color: #1a1a1a;
+  background: transparent;
+  padding: 0;
+}
+
+.comment-input::placeholder {
+  color: #8a8d91;
+}
+
+.comment-submit-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
   background: #1877f2;
   color: white;
   border: none;
-  padding: 10px 20px;
-  border-radius: 16px;
-  margin-left: 70px;
-  width: 60%;
-  height: 45px;
-  font-size: 14px;
-  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   cursor: pointer;
-  transition: background 0.2s ease;
-  align-self: flex-end;
+  font-size: 16px;
+  transition: all 0.2s;
+  flex-shrink: 0;
 }
 
-.post-comment-btn:hover {
+.comment-submit-btn:hover:not(:disabled) {
   background: #166fe5;
+  transform: scale(1.05);
+}
+
+.comment-submit-btn:disabled {
+  background: #e4e6eb;
+  color: #bcc0c4;
+  cursor: not-allowed;
 }
 
 /* Responsive Design */
+@media (max-width: 844px) {
+  /* Make task cards smaller */
+  .task-management-container .task-feed {
+    padding: 16px;
+    max-width: 100%;
+  }
+
+  .task-management-container .feed-header-simple h2 {
+    font-size: 28px;
+  }
+
+  .task-management-container .task-count {
+    font-size: 14px;
+    margin-bottom: 20px;
+  }
+
+  .admin-assignment-card {
+    border-radius: 6px;
+  }
+
+  .admin-card-header {
+    padding: 14px 16px;
+  }
+
+  .admin-avatar {
+    width: 36px;
+    height: 36px;
+    font-size: 12px;
+  }
+
+  .admin-assignment-assigned {
+    font-size: 14px;
+  }
+
+  .admin-role-badge {
+    font-size: 10px;
+    padding: 1px 6px;
+  }
+
+  .admin-assignment-created {
+    font-size: 12px;
+  }
+
+  .admin-due-date {
+    font-size: 13px;
+  }
+
+  .admin-days-left {
+    font-size: 12px;
+  }
+
+  .admin-task-title-section {
+    padding: 14px 16px;
+  }
+
+  .admin-assignment-title {
+    font-size: 16px;
+  }
+
+  .admin-task-description-section {
+    padding: 14px 16px;
+  }
+
+  .admin-attachment-section {
+    padding: 14px 16px;
+  }
+
+  .admin-attached-file {
+    padding: 10px;
+  }
+
+  .admin-file-label {
+    font-size: 12px;
+  }
+
+  .admin-file-name {
+    font-size: 13px;
+  }
+
+  .admin-file-meta {
+    font-size: 11px;
+  }
+
+  .admin-no-attachment {
+    padding: 10px;
+  }
+
+  .admin-no-attachment-text {
+    font-size: 13px;
+  }
+
+  .admin-comments-section {
+    padding: 14px 16px;
+  }
+
+  .admin-comments-text {
+    font-size: 13px;
+  }
+
+  /* Comments modal smaller */
+  .comments-modal {
+    max-width: 95%;
+  }
+
+  .comments-modal-header {
+    padding: 16px;
+  }
+
+  .comments-modal-header h3 {
+    font-size: 16px;
+  }
+
+  .comments-modal-body {
+    padding: 16px;
+  }
+
+  .comments-modal-footer {
+    padding: 16px;
+  }
+
+  .comment-item {
+    gap: 10px;
+  }
+
+  .comment-avatar {
+    width: 32px;
+    height: 32px;
+    font-size: 11px;
+  }
+
+  .comment-author {
+    font-size: 13px;
+  }
+
+  .role-badge {
+    font-size: 0.7rem;
+    padding: 0.25rem 0.5rem;
+    width: 100px;
+  }
+
+  .comment-time {
+    font-size: 11px;
+  }
+
+  .comment-text {
+    font-size: 13px;
+    padding: 10px;
+  }
+
+  .reply-item {
+    gap: 8px;
+  }
+
+  .reply-avatar {
+    width: 24px;
+    height: 24px;
+    font-size: 9px;
+  }
+
+  .reply-author {
+    font-size: 12px;
+  }
+
+  .reply-role {
+    font-size: 9px;
+    padding: 1px 4px;
+  }
+
+  .reply-time {
+    font-size: 10px;
+  }
+
+  .reply-text {
+    font-size: 12px;
+    padding: 8px;
+  }
+}
+
 @media (max-width: 768px) {
   .task-management-container .task-feed {
     padding: 12px;
@@ -985,6 +1173,40 @@
   flex-direction: column;
   gap: 16px;
   margin-top: 16px;
+}
+
+/* Highlight Comment Animation */
+.comment-thread.highlight-comment {
+  animation: highlightPulse 2s ease-in-out;
+}
+
+.comment-thread.highlight-comment .comment-item .comment-text {
+  background: #fef3c7;
+  border: 2px solid #f59e0b;
+  animation: highlightFade 2s ease-in-out;
+}
+
+@keyframes highlightPulse {
+  0%, 100% {
+    transform: scale(1);
+  }
+  25%, 75% {
+    transform: scale(1.02);
+  }
+  50% {
+    transform: scale(1.04);
+  }
+}
+
+@keyframes highlightFade {
+  0% {
+    background: #fef3c7;
+    border-color: #f59e0b;
+  }
+  100% {
+    background: #f7f7f7;
+    border-color: transparent;
+  }
 }
 
 /* Dark scrollbar for consistency */

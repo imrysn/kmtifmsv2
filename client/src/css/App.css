@@ -33,3 +33,36 @@ body {
 ::-webkit-scrollbar-thumb:hover {
   background: #a8a8a8;
 }
+
+/* Loading cursor styles for enhanced UX */
+.loading-cursor {
+  cursor: wait !important;
+}
+
+.loading-cursor * {
+  cursor: wait !important;
+}
+
+.file-opening-cursor {
+  cursor: progress !important;
+}
+
+.file-opening-cursor * {
+  cursor: progress !important;
+}
+
+/* Button loading states */
+.btn-loading {
+  cursor: wait !important;
+  pointer-events: none;
+  opacity: 0.7;
+}
+
+/* Specific loading cursors for different operations */
+.cursor-wait {
+  cursor: wait;
+}
+
+.cursor-progress {
+  cursor: progress;
+}
