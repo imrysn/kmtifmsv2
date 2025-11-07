@@ -184,6 +184,46 @@
   margin: 0 6px;
 }
 
+/* Role Badge Styles - Similar to UserManagement */
+.task-management-container .role-badge,
+.task-management-container .team-badge {
+  padding: 2px;
+  border: 1px solid;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  width: 16%;
+  text-align: center;
+  display: inline-block;
+  margin-left: 5px;
+  margin-right: 10px;
+}
+
+.task-management-container .role-badge {
+  color: white;
+}
+
+.task-management-container .role-badge.user {
+  border: 1px solid #059669;
+  color: #059669;
+}
+
+.task-management-container .role-badge.team-leader {
+  border: 1px solid #1d4ed8;
+  color: #1d4ed8;
+}
+
+.task-management-container .role-badge.admin {
+  border: 1px solid #dc2626;
+  color: #dc2626;
+}
+
+.task-management-container .team-badge {
+  background: transparent;
+  color: #000000;
+  border: 1px solid #000000;
+}
+
 .admin-assigned-user {
   font-weight: 700;
   color: #1c1e21;
@@ -269,7 +309,6 @@
 /* Attached File */
 .admin-attached-file {
   background: #f0f9ff;
-  border-left: 3px solid #3b82f6;
   padding: 12px;
   border-radius: 6px;
   margin-bottom: 16px;
@@ -695,13 +734,7 @@
 }
 
 .comment-role {
-  background: #e4e6eb;
-  color: #65676b;
-  padding: 2px 8px;
-  border-radius: 4px;
-  font-size: 11px;
-  font-weight: 600;
-  text-transform: uppercase;
+  /* Use role-badge styles instead */
 }
 
 .comment-time {
@@ -805,13 +838,7 @@
 }
 
 .reply-role {
-  background: #e4e6eb;
-  color: #65676b;
-  padding: 1px 6px;
-  border-radius: 3px;
-  font-size: 10px;
-  font-weight: 600;
-  text-transform: uppercase;
+  /* Use role-badge styles instead */
 }
 
 .reply-time {
@@ -1055,9 +1082,10 @@
     font-size: 13px;
   }
 
-  .comment-role {
-    font-size: 10px;
-    padding: 1px 6px;
+  .role-badge {
+    font-size: 0.7rem;
+    padding: 0.25rem 0.5rem;
+    width: 100px;
   }
 
   .comment-time {

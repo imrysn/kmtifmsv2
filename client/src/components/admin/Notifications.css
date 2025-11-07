@@ -121,8 +121,8 @@
 }
 
 .notification-item:hover {
-  border-color: #3b82f6;
-  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.1);
+  border-color: #000000;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
   transform: translateY(-2px);
 }
 
@@ -153,7 +153,7 @@
 }
 
 .unread-badge {
-  background: #3b82f6;
+  background: #595a5a;
   color: white;
   font-size: 11px;
   font-weight: 600;
@@ -235,13 +235,11 @@
 
 /* Notification Stats */
 .notifications-stats {
-  font-size: 14px;
+  font-size: 16px;
   color: #6b7280;
-  margin-bottom: 20px;
   padding: 12px 16px;
   background: #f9fafb;
   border-radius: 8px;
-  border: 1px solid #e5e7eb;
 }
 
 /* Skeleton Loader Styles */

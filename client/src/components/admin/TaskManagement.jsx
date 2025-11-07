@@ -524,7 +524,7 @@ const TaskManagement = ({ error, success, setError, setSuccess, clearMessages, u
                           <span className="admin-team-leader-name">
                             {assignment.team_leader_fullname || assignment.team_leader_username}
                           </span>
-                          <span className="admin-role-badge">Team Leader</span>
+                          <span className="role-badge team-leader">TEAM LEADER</span>
                           assigned to{' '}
                           <span className="admin-assigned-user">
                             {assignment.assigned_member_details && assignment.assigned_member_details.length > 0
@@ -684,7 +684,9 @@ const TaskManagement = ({ error, success, setError, setSuccess, clearMessages, u
                           <div className="comment-content">
                             <div className="comment-header">
                               <span className="comment-author">{comment.user_fullname || comment.username}</span>
-                              <span className="comment-role">{comment.user_role}</span>
+                              <span className={`role-badge ${comment.user_role ? comment.user_role.toLowerCase().replace(' ', '-') : 'user'}`}>
+                                {comment.user_role || 'USER'}
+                              </span>
                               <span className="comment-time">{formatTimeAgo(comment.created_at)}</span>
                             </div>
                             <div className="comment-text">{comment.comment}</div>
@@ -723,7 +725,9 @@ const TaskManagement = ({ error, success, setError, setSuccess, clearMessages, u
                                 <div className="reply-content">
                                   <div className="reply-header">
                                     <span className="reply-author">{reply.user_fullname || reply.username}</span>
-                                    <span className="reply-role">{reply.user_role}</span>
+                                    <span className={`role-badge ${reply.user_role ? reply.user_role.toLowerCase().replace(' ', '-') : 'user'}`}>
+                                      {reply.user_role || 'USER'}
+                                    </span>
                                     <span className="reply-time">{formatTimeAgo(reply.created_at)}</span>
                                   </div>
                                   <div className="reply-text">{reply.reply}</div>
