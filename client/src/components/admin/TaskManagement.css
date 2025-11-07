@@ -247,6 +247,108 @@
   font-weight: 600;
 }
 
+.admin-header-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.admin-card-menu {
+  position: relative;
+}
+
+.admin-menu-btn {
+  background: none;
+  border: none;
+  font-size: 18px;
+  color: #65676b;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+  transition: background-color 0.2s;
+  line-height: 1;
+}
+
+.admin-menu-btn:hover {
+  background-color: #f0f2f5;
+}
+
+.admin-menu-dropdown {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 1000;
+  min-width: 120px;
+  margin-top: 4px;
+}
+
+.admin-menu-item {
+  display: block;
+  width: 100%;
+  background: none;
+  border: none;
+  padding: 10px 16px;
+  text-align: left;
+  font-size: 14px;
+  color: #1c1e21;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  border-radius: 0;
+}
+
+.admin-menu-item:first-child {
+  border-radius: 8px 8px 0 0;
+}
+
+.admin-menu-item:last-child {
+  border-radius: 0 0 8px 8px;
+}
+
+.admin-menu-item:only-child {
+  border-radius: 8px;
+}
+
+.admin-menu-item:hover {
+  background-color: #f0f2f5;
+}
+
+.admin-delete-menu-item {
+  color: #dc2626;
+}
+
+.admin-delete-menu-item:hover {
+  background-color: #fef2f2;
+}
+
+.admin-delete-btn {
+  background: #dc2626;
+  color: white;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.admin-delete-btn:hover {
+  background: #b91c1c;
+}
+
+.admin-delete-btn:active {
+  background: #991b1b;
+}
+
 /* Task Title Section */
 .admin-task-title-section {
   padding: 12px 18px;

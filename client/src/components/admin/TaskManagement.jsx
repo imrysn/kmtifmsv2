@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import './TaskManagement.css'
 import FileIcon from './FileIcon.jsx'
-import { AlertMessage } from './modals'
+import { AlertMessage, ConfirmationModal } from './modals'
 
 const TaskManagement = ({ error, success, setError, setSuccess, clearMessages, user, contextAssignmentId }) => {
   const [assignments, setAssignments] = useState([])
@@ -17,7 +17,11 @@ const TaskManagement = ({ error, success, setError, setSuccess, clearMessages, u
   const [replyText, setReplyText] = useState('')
   const [visibleReplies, setVisibleReplies] = useState({})
   const [isOpeningFile, setIsOpeningFile] = useState(false)
-  
+  const [showDeleteModal, setShowDeleteModal] = useState(false)
+  const [assignmentToDelete, setAssignmentToDelete] = useState(null)
+  const [isDeleting, setIsDeleting] = useState(false)
+  const [showMenuForAssignment, setShowMenuForAssignment] = useState(null)
+
   // Pagination state
   const [nextCursor, setNextCursor] = useState(null)
   const [hasMore, setHasMore] = useState(true)
@@ -87,6 +91,20 @@ const TaskManagement = ({ error, success, setError, setSuccess, clearMessages, u
       }
     }
   }, [loading, loadingMore, hasMore, nextCursor])
+
+  // Handle clicking outside to close menu
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (showMenuForAssignment && !event.target.closest('.admin-card-menu')) {
+        setShowMenuForAssignment(null)
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [showMenuForAssignment])
 
   const fetchInitialAssignments = async () => {
     try {
@@ -441,6 +459,43 @@ const TaskManagement = ({ error, success, setError, setSuccess, clearMessages, u
     }
   }
 
+  const handleDeleteAssignment = async () => {
+    if (!assignmentToDelete) return
+
+    try {
+      setIsDeleting(true)
+      clearMessages()
+      setSuccess('Deleting assignment...')
+
+      const response = await fetch(`http://localhost:3001/api/assignments/${assignmentToDelete.id}`, {
+        method: 'DELETE'
+      })
+
+      const data = await response.json()
+
+      if (data.success) {
+        // Remove the assignment from the local state
+        setAssignments(prev => prev.filter(assignment => assignment.id !== assignmentToDelete.id))
+        setSuccess('Assignment deleted successfully')
+        setTimeout(() => setSuccess(''), 3000)
+        setShowDeleteModal(false)
+        setAssignmentToDelete(null)
+      } else {
+        setError(data.message || 'Failed to delete assignment')
+      }
+    } catch (error) {
+      console.error('Error deleting assignment:', error)
+      setError('Failed to delete assignment')
+    } finally {
+      setIsDeleting(false)
+    }
+  }
+
+  const handleCloseDeleteModal = () => {
+    setShowDeleteModal(false)
+    setAssignmentToDelete(null)
+  }
+
   // Skeleton loader for initial load
   if (loading) {
     return (
@@ -537,17 +592,42 @@ const TaskManagement = ({ error, success, setError, setSuccess, clearMessages, u
                         </div>
                       </div>
                     </div>
-                    {assignment.due_date && (
-                      <div className="admin-due-date">
-                        Due: {formatDate(assignment.due_date)}
-                        <span
-                          className="admin-days-left"
-                          style={{ color: getStatusColor(assignment.due_date) }}
+                    <div className="admin-header-right">
+                      <div className="admin-card-menu">
+                        <button
+                          className="admin-menu-btn"
+                          onClick={() => setShowMenuForAssignment(showMenuForAssignment === assignment.id ? null : assignment.id)}
+                          title="More options"
                         >
-                          {' '}({formatDaysLeft(assignment.due_date)})
-                        </span>
+                          ⋮
+                        </button>
+                        {showMenuForAssignment === assignment.id && (
+                          <div className="admin-menu-dropdown">
+                            <button
+                              className="admin-menu-item admin-delete-menu-item"
+                              onClick={() => {
+                                setAssignmentToDelete(assignment)
+                                setShowDeleteModal(true)
+                                setShowMenuForAssignment(null)
+                              }}
+                            >
+                              Delete
+                            </button>
+                          </div>
+                        )}
                       </div>
-                    )}
+                      {assignment.due_date && (
+                        <div className="admin-due-date">
+                          Due: {formatDate(assignment.due_date)}
+                          <span
+                            className="admin-days-left"
+                            style={{ color: getStatusColor(assignment.due_date) }}
+                          >
+                            {' '}({formatDaysLeft(assignment.due_date)})
+                          </span>
+                        </div>
+                      )}
+                    </div>
                   </div>
 
                   {/* Task Title */}
@@ -808,6 +888,21 @@ const TaskManagement = ({ error, success, setError, setSuccess, clearMessages, u
             </div>
           </div>
         )}
+
+        {/* Delete Confirmation Modal */}
+        <ConfirmationModal
+          isOpen={showDeleteModal}
+          onClose={handleCloseDeleteModal}
+          onConfirm={handleDeleteAssignment}
+          title="Delete Task"
+          message={`Are you sure you want to delete "${assignmentToDelete?.title}" task?`}
+          description="This action cannot be undone. The task and all associated comments will be permanently removed from the system."
+          confirmText="Delete"
+          cancelText="Cancel"
+          variant="danger"
+          isLoading={isDeleting}
+          warningText="This will permanently delete the task and cannot be recovered."
+        />
       </div>
     </div>
   )
