@@ -709,35 +709,6 @@ const TaskManagement = ({ error, success, setError, setSuccess, clearMessages, u
                                 </button>
                               )}
                             </div>
-
-                            {/* Reply Form */}
-                            {replyingTo === comment.id && (
-                              <form className="reply-form" onSubmit={(e) => handlePostReply(e, comment.id)}>
-                                <textarea
-                                  value={replyText}
-                                  onChange={(e) => setReplyText(e.target.value)}
-                                  onKeyDown={(e) => handleReplyKeyDown(e, comment.id)}
-                                  placeholder="Write a reply..."
-                                  rows="2"
-                                  autoFocus
-                                />
-                                <div className="reply-form-actions">
-                                  <button
-                                    type="button"
-                                    className="cancel-reply-btn"
-                                    onClick={() => {
-                                      setReplyingTo(null)
-                                      setReplyText('')
-                                    }}
-                                  >
-                                    Cancel
-                                  </button>
-                                  <button type="submit" className="post-reply-btn">
-                                    Reply
-                                  </button>
-                                </div>
-                              </form>
-                            )}
                           </div>
                         </div>
 
@@ -761,6 +732,39 @@ const TaskManagement = ({ error, success, setError, setSuccess, clearMessages, u
                             ))}
                           </div>
                         )}
+
+                        {/* Reply Input Box */}
+                        {replyingTo === comment.id && (
+                          <div className="reply-input-box">
+                            <div className="comment-avatar reply-avatar">
+                              {getInitials(user.username || user.fullName)}
+                            </div>
+                            <div className="comment-input-wrapper">
+                              <input
+                                type="text"
+                                className="comment-input"
+                                placeholder="Write a reply..."
+                                value={replyText}
+                                onChange={(e) => setReplyText(e.target.value)}
+                                onKeyPress={(e) => {
+                                  if (e.key === 'Enter' && !e.shiftKey) {
+                                    e.preventDefault();
+                                    handlePostReply(e, comment.id);
+                                  }
+                                }}
+                                disabled={false}
+                                autoFocus
+                              />
+                              <button
+                                className="comment-submit-btn"
+                                onClick={(e) => handlePostReply(e, comment.id)}
+                                disabled={!replyText.trim()}
+                              >
+                                ➤
+                              </button>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>
@@ -769,18 +773,33 @@ const TaskManagement = ({ error, success, setError, setSuccess, clearMessages, u
 
               {/* Comment Form */}
               <div className="comments-modal-footer">
-                <form className="comment-form" onSubmit={handlePostComment}>
-                  <textarea
-                    value={newComment}
-                    onChange={(e) => setNewComment(e.target.value)}
-                    onKeyDown={handleCommentKeyDown}
-                    placeholder="Write a comment..."
-                    rows="3"
-                  />
-                  <button type="submit" className="post-comment-btn">
-                    Comment
-                  </button>
-                </form>
+                <div className="add-comment">
+                  <div className="comment-avatar">
+                    {getInitials(user.username || user.fullName)}
+                  </div>
+                  <div className="comment-input-wrapper">
+                    <input
+                      type="text"
+                      className="comment-input"
+                      placeholder="Write a comment..."
+                      value={newComment}
+                      onChange={(e) => setNewComment(e.target.value)}
+                      onKeyPress={(e) => {
+                        if (e.key === 'Enter' && !e.shiftKey) {
+                          e.preventDefault();
+                          handlePostComment(e);
+                        }
+                      }}
+                    />
+                    <button
+                      className="comment-submit-btn"
+                      onClick={handlePostComment}
+                      disabled={!newComment.trim()}
+                    >
+                      ➤
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
