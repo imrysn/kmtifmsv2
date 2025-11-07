@@ -25,6 +25,7 @@ const AdminDashboard = ({ user, onLogout }) => {
   const [notifications, setNotifications] = useState([])
   const [unreadCount, setUnreadCount] = useState(0)
   const [contextData, setContextData] = useState(null)
+  const [sidebarOpen, setSidebarOpen] = useState(false)
 
   const sidebarRef = useRef(null)
   const mainContentRef = useRef(null)
@@ -100,6 +101,14 @@ const AdminDashboard = ({ user, onLogout }) => {
     handleTabChange(tabName, contextData)
   }
 
+  const toggleSidebar = () => {
+    setSidebarOpen(!sidebarOpen)
+  }
+
+  const closeSidebar = () => {
+    setSidebarOpen(false)
+  }
+
   const renderActiveTab = () => {
     const commonProps = {
       clearMessages,
@@ -139,8 +148,27 @@ const AdminDashboard = ({ user, onLogout }) => {
   return (
     <Suspense fallback={<SkeletonLoader type="admin" />}>
       <div className="minimal-admin-dashboard">
+      {/* Burger Menu Button */}
+      <button
+        className={`burger-menu-btn ${sidebarOpen ? 'active' : ''}`}
+        onClick={toggleSidebar}
+        aria-label="Toggle sidebar menu"
+      >
+        <div className="burger-menu-icon">
+          <span></span>
+          <span></span>
+          <span></span>
+        </div>
+      </button>
+
+      {/* Sidebar Overlay */}
+      <div
+        className={`sidebar-overlay ${sidebarOpen ? 'active' : ''}`}
+        onClick={closeSidebar}
+      ></div>
+
       {/* Sidebar */}
-      <div className="admin-sidebar" ref={sidebarRef}>
+      <div className={`admin-sidebar ${sidebarOpen ? 'open' : ''}`} ref={sidebarRef}>
         <div className="sidebar-header">
           <div className="admin-info">
             <div className="admin-name">{user.fullName || 'Admin User'}</div>
@@ -149,16 +177,22 @@ const AdminDashboard = ({ user, onLogout }) => {
         </div>
         
         <nav className="sidebar-nav">
-          <button 
+          <button
             className={`nav-item ${activeTab === 'dashboard' ? 'active' : ''}`}
-            onClick={() => handleTabChange('dashboard')}
+            onClick={() => {
+              handleTabChange('dashboard')
+              closeSidebar()
+            }}
           >
             <span className="nav-icon">{getSidebarIcon('dashboard')}</span>
             <span className="nav-label">Dashboard</span>
           </button>
-          <button 
+          <button
             className={`nav-item ${activeTab === 'notifications' ? 'active' : ''}`}
-            onClick={() => handleTabChange('notifications')}
+            onClick={() => {
+              handleTabChange('notifications')
+              closeSidebar()
+            }}
           >
             <span className="nav-icon nav-icon-with-badge">
               {getSidebarIcon('notifications')}
@@ -170,44 +204,62 @@ const AdminDashboard = ({ user, onLogout }) => {
             </span>
             <span className="nav-label">Notifications</span>
           </button>
-          <button 
+          <button
             className={`nav-item ${activeTab === 'file-management' ? 'active' : ''}`}
-            onClick={() => handleTabChange('file-management')}
+            onClick={() => {
+              handleTabChange('file-management')
+              closeSidebar()
+            }}
           >
             <span className="nav-icon">{getSidebarIcon('files')}</span>
             <span className="nav-label">Files</span>
           </button>
-          <button 
+          <button
             className={`nav-item ${activeTab === 'users' ? 'active' : ''}`}
-            onClick={() => handleTabChange('users')}
+            onClick={() => {
+              handleTabChange('users')
+              closeSidebar()
+            }}
           >
             <span className="nav-icon">{getSidebarIcon('users')}</span>
             <span className="nav-label">Users</span>
           </button>
-          <button 
+          <button
             className={`nav-item ${activeTab === 'activity-logs' ? 'active' : ''}`}
-            onClick={() => handleTabChange('activity-logs')}
+            onClick={() => {
+              handleTabChange('activity-logs')
+              closeSidebar()
+            }}
           >
             <span className="nav-icon">{getSidebarIcon('activityLogs')}</span>
             <span className="nav-label">Activity Logs</span>
           </button>
-          <button 
+          <button
             className={`nav-item ${activeTab === 'file-approval' ? 'active' : ''}`}
-            onClick={() => handleTabChange('file-approval')}
+            onClick={() => {
+              handleTabChange('file-approval')
+              closeSidebar()
+            }}
           >
             <span className="nav-icon">{getSidebarIcon('fileApproval')}</span>
             <span className="nav-label">File Approval</span>
           </button>
-          <button 
+          <button
             className={`nav-item ${activeTab === 'tasks' ? 'active' : ''}`}
-            onClick={() => handleTabChange('tasks')}
+            onClick={() => {
+              handleTabChange('tasks')
+              closeSidebar()
+            }}
           >
             <span className="nav-icon">{getSidebarIcon('tasks')}</span>
             <span className="nav-label">Tasks</span>
           </button>
-          <button 
+          <button
             className={`nav-item ${activeTab === 'settings' ? 'active' : ''}`}
-            onClick={() => handleTabChange('settings')}
+            onClick={() => {
+              handleTabChange('settings')
+              closeSidebar()
+            }}
           >
             <span className="nav-icon">{getSidebarIcon('settings')}</span>
             <span className="nav-label">Settings</span>

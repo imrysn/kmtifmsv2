@@ -245,7 +245,13 @@
   .bottom-row {
     grid-template-columns: 1fr;
   }
-  
+
+  .stats-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (max-width: 900px) {
   .stats-grid {
     grid-template-columns: repeat(2, 1fr);
   }
@@ -261,10 +267,103 @@
   }
 }
 
+@media (max-width: 844px) {
+  /* Make all components smaller */
+  .dashboard-overview {
+    margin-top: 20px;
+  }
+
+  .top-row {
+    margin-bottom: 1.5rem;
+  }
+
+  .stats-grid {
+    gap: 1rem;
+  }
+
+  .stat-card {
+    padding: 1rem;
+  }
+
+  .stat-header {
+    margin-bottom: 0.75rem;
+  }
+
+  .stat-label {
+    font-size: 13px;
+  }
+
+  .stat-number {
+    font-size: 32px;
+    margin-bottom: 0.25rem;
+  }
+
+  .stat-change {
+    font-size: 12px;
+  }
+
+  /* Make stats cards display in row style (horizontal) */
+  .stat-card {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-direction: row;
+    text-align: left;
+  }
+
+  .stat-header {
+    flex: 0 0 auto;
+    margin-bottom: 0;
+    margin-right: 1rem;
+  }
+
+  .stat-number,
+  .stat-change {
+    margin-bottom: 0;
+    text-align: right;
+  }
+
+  .stat-number {
+    margin-bottom: 0.25rem;
+  }
+
+  .chart-card {
+    padding: 1rem;
+  }
+
+  .chart-header h3 {
+    font-size: 14px;
+  }
+
+  .section-card {
+    padding: 1rem;
+  }
+
+  .section-header h3 {
+    font-size: 14px;
+  }
+
+  .activity-item {
+    padding-bottom: 0.75rem;
+  }
+
+  .activity-user {
+    font-size: 13px;
+  }
+
+  .activity-description {
+    font-size: 12px;
+  }
+
+  .activity-meta {
+    font-size: 11px;
+  }
+}
+
 @media (max-width: 480px) {
   .stat-card,
   .chart-card,
   .section-card {
-    padding: 1rem;
+    padding: 0.75rem;
   }
 }

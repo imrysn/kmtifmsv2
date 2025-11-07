@@ -1,15 +1,16 @@
 import { useState, useEffect, useRef, useCallback, memo } from 'react';
 import './Notifications.css';
+import FileIcon from './FileIcon';
 
 // Memoized notification item to prevent unnecessary re-renders
-const NotificationItem = memo(({ notification, onNotificationClick, onDeleteNotification, getNotificationIcon, formatTimeAgo }) => {
+const NotificationItem = memo(({ notification, onNotificationClick, onDeleteNotification, NotificationIcon, formatTimeAgo }) => {
   return (
     <div
       className={`notification-item ${!notification.is_read ? 'unread' : ''}`}
       onClick={() => onNotificationClick(notification)}
     >
       <div className="notification-icon">
-        {getNotificationIcon(notification.type)}
+        <NotificationIcon type={notification.type} />
       </div>
       
       <div className="notification-content">
@@ -25,17 +26,17 @@ const NotificationItem = memo(({ notification, onNotificationClick, onDeleteNoti
           </span>
           {notification.assignment_title && (
             <span className="notification-assignment">
-              📋 Assignment: {notification.assignment_title}
+              Assignment: {notification.assignment_title}
             </span>
           )}
           {notification.file_name && (
             <span className="notification-file">
-              📄 {notification.file_name}
+              {notification.file_name}
             </span>
           )}
           {notification.assignment_due_date && (
             <span className="notification-due-date">
-              📅 Due: {new Date(notification.assignment_due_date).toLocaleDateString()}
+              Due: {new Date(notification.assignment_due_date).toLocaleDateString()}
             </span>
           )}
         </div>
@@ -289,24 +290,17 @@ const Notifications = ({ user, onNavigate }) => {
     }
   };
 
-  const getNotificationIcon = useCallback((type) => {
-    switch (type) {
-      case 'comment':
-        return '💬';
-      case 'assignment':
-        return '📋';
-      case 'approval':
-        return '✅';
-      case 'rejection':
-        return '❌';
-      case 'final_approval':
-        return '🎉';
-      case 'final_rejection':
-        return '🚫';
-      default:
-        return '🔔';
-    }
-  }, []);
+  // Notification icon component using FileIcon
+  const NotificationIcon = ({ type }) => {
+    return (
+      <FileIcon
+        fileType={type}
+        size="medium"
+        altText={`${type} notification icon`}
+        className="notification-type-icon"
+      />
+    );
+  };
 
   const formatTimeAgo = useCallback((timestamp) => {
     const now = new Date();
@@ -360,12 +354,12 @@ const Notifications = ({ user, onNavigate }) => {
         <div className="notifications-actions">
           {unreadCount > 0 && (
             <button className="btn-mark-all-read" onClick={markAllAsRead}>
-              ✓ Mark All as Read
+              Mark All as Read
             </button>
           )}
           {notifications.length > 0 && (
             <button className="btn-delete-all" onClick={deleteAll}>
-              🗑️ Delete All
+              Delete All
             </button>
           )}
         </div>
@@ -392,7 +386,7 @@ const Notifications = ({ user, onNavigate }) => {
                 notification={notification}
                 onNotificationClick={handleNotificationClick}
                 onDeleteNotification={deleteNotification}
-                getNotificationIcon={getNotificationIcon}
+                NotificationIcon={NotificationIcon}
                 formatTimeAgo={formatTimeAgo}
               />
             ))}

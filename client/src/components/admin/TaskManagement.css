@@ -921,6 +921,183 @@
 }
 
 /* Responsive Design */
+@media (max-width: 844px) {
+  /* Make task cards smaller */
+  .task-management-container .task-feed {
+    padding: 16px;
+    max-width: 100%;
+  }
+
+  .task-management-container .feed-header-simple h2 {
+    font-size: 28px;
+  }
+
+  .task-management-container .task-count {
+    font-size: 14px;
+    margin-bottom: 20px;
+  }
+
+  .admin-assignment-card {
+    border-radius: 6px;
+  }
+
+  .admin-card-header {
+    padding: 14px 16px;
+  }
+
+  .admin-avatar {
+    width: 36px;
+    height: 36px;
+    font-size: 12px;
+  }
+
+  .admin-assignment-assigned {
+    font-size: 14px;
+  }
+
+  .admin-role-badge {
+    font-size: 10px;
+    padding: 1px 6px;
+  }
+
+  .admin-assignment-created {
+    font-size: 12px;
+  }
+
+  .admin-due-date {
+    font-size: 13px;
+  }
+
+  .admin-days-left {
+    font-size: 12px;
+  }
+
+  .admin-task-title-section {
+    padding: 14px 16px;
+  }
+
+  .admin-assignment-title {
+    font-size: 16px;
+  }
+
+  .admin-task-description-section {
+    padding: 14px 16px;
+  }
+
+  .admin-attachment-section {
+    padding: 14px 16px;
+  }
+
+  .admin-attached-file {
+    padding: 10px;
+  }
+
+  .admin-file-label {
+    font-size: 12px;
+  }
+
+  .admin-file-name {
+    font-size: 13px;
+  }
+
+  .admin-file-meta {
+    font-size: 11px;
+  }
+
+  .admin-no-attachment {
+    padding: 10px;
+  }
+
+  .admin-no-attachment-text {
+    font-size: 13px;
+  }
+
+  .admin-comments-section {
+    padding: 14px 16px;
+  }
+
+  .admin-comments-text {
+    font-size: 13px;
+  }
+
+  /* Comments modal smaller */
+  .comments-modal {
+    max-width: 95%;
+  }
+
+  .comments-modal-header {
+    padding: 16px;
+  }
+
+  .comments-modal-header h3 {
+    font-size: 16px;
+  }
+
+  .comments-modal-body {
+    padding: 16px;
+  }
+
+  .comments-modal-footer {
+    padding: 16px;
+  }
+
+  .comment-item {
+    gap: 10px;
+  }
+
+  .comment-avatar {
+    width: 32px;
+    height: 32px;
+    font-size: 11px;
+  }
+
+  .comment-author {
+    font-size: 13px;
+  }
+
+  .comment-role {
+    font-size: 10px;
+    padding: 1px 6px;
+  }
+
+  .comment-time {
+    font-size: 11px;
+  }
+
+  .comment-text {
+    font-size: 13px;
+    padding: 10px;
+  }
+
+  .reply-item {
+    gap: 8px;
+  }
+
+  .reply-avatar {
+    width: 24px;
+    height: 24px;
+    font-size: 9px;
+  }
+
+  .reply-author {
+    font-size: 12px;
+  }
+
+  .reply-role {
+    font-size: 9px;
+    padding: 1px 4px;
+  }
+
+  .reply-time {
+    font-size: 10px;
+  }
+
+  .reply-text {
+    font-size: 12px;
+    padding: 8px;
+  }
+}
+
 @media (max-width: 768px) {
   .task-management-container .task-feed {
     padding: 12px;

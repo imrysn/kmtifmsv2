@@ -366,6 +366,78 @@
 }
 
 /* Responsive Design */
+@media (max-width: 844px) {
+  /* Make notifications smaller */
+  .notifications-page {
+    padding: 16px;
+  }
+
+  .notifications-header {
+    margin-bottom: 20px;
+  }
+
+  .notifications-header h2 {
+    font-size: 24px;
+  }
+
+  .notifications-subtitle {
+    font-size: 13px;
+  }
+
+  .notifications-list {
+    gap: 10px;
+  }
+
+  .notification-item {
+    padding: 14px;
+    gap: 14px;
+  }
+
+  .notification-icon {
+    font-size: 28px;
+  }
+
+  .notification-title {
+    font-size: 15px;
+  }
+
+  .notification-message {
+    font-size: 13px;
+    margin-bottom: 10px;
+  }
+
+  .notification-meta {
+    gap: 14px;
+    margin-bottom: 6px;
+  }
+
+  .notification-time {
+    font-size: 11px;
+  }
+
+  .notifications-stats {
+    font-size: 13px;
+    padding: 10px 14px;
+    margin-bottom: 16px;
+  }
+
+  .no-notifications {
+    padding: 60px 16px;
+  }
+
+  .no-notifications-icon {
+    font-size: 56px;
+  }
+
+  .no-notifications h3 {
+    font-size: 18px;
+  }
+
+  .no-notifications p {
+    font-size: 13px;
+  }
+}
+
 @media (max-width: 768px) {
   .notifications-header {
     flex-direction: column;
