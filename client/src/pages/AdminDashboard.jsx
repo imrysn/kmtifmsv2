@@ -12,7 +12,10 @@ import {
   FileApproval,
   FileManagement,
   Settings,
-  TaskManagement
+  TaskManagement,
+  Notifications,
+  NotificationBell,
+  ToastNotification
 } from '../components/admin'
 
 const AdminDashboard = ({ user, onLogout }) => {
@@ -20,6 +23,8 @@ const AdminDashboard = ({ user, onLogout }) => {
   const [users, setUsers] = useState([])
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
+  const [notifications, setNotifications] = useState([])
+  const [contextData, setContextData] = useState(null)
 
   const sidebarRef = useRef(null)
   const mainContentRef = useRef(null)
@@ -45,6 +50,10 @@ const AdminDashboard = ({ user, onLogout }) => {
   // Fetch users for dashboard overview and settings
   useEffect(() => {
     fetchUsers()
+    fetchNotifications()
+    // Poll for notifications every 30 seconds
+    const interval = setInterval(fetchNotifications, 30000)
+    return () => clearInterval(interval)
   }, [])
 
   const fetchUsers = async () => {
@@ -59,6 +68,18 @@ const AdminDashboard = ({ user, onLogout }) => {
     }
   }
 
+  const fetchNotifications = async () => {
+    try {
+      const response = await fetch(`http://localhost:3001/api/notifications/user/${user.id}`)
+      const data = await response.json()
+      if (data.success) {
+        setNotifications(data.notifications || [])
+      }
+    } catch (error) {
+      console.error('Error fetching notifications:', error)
+    }
+  }
+
   const handleLogout = () => {
     onLogout()
   }
@@ -68,9 +89,14 @@ const AdminDashboard = ({ user, onLogout }) => {
     setSuccess('')
   }
 
-  const handleTabChange = (tabName) => {
+  const handleTabChange = (tabName, data = null) => {
     setActiveTab(tabName)
+    setContextData(data)
     clearMessages()
+  }
+
+  const handleNotificationNavigation = (tabName, contextId) => {
+    handleTabChange(tabName, contextId)
   }
 
   const renderActiveTab = () => {
@@ -90,11 +116,13 @@ const AdminDashboard = ({ user, onLogout }) => {
       case 'activity-logs':
         return <ActivityLogs {...commonProps} />
       case 'file-approval':
-        return <FileApproval {...commonProps} />
+        return <FileApproval {...commonProps} contextFileId={contextData} />
       case 'file-management':
-        return <FileManagement {...commonProps} />
+        return <FileManagement {...commonProps} contextFileId={contextData} />
       case 'tasks':
-        return <TaskManagement {...commonProps} user={user} />
+        return <TaskManagement {...commonProps} user={user} contextAssignmentId={contextData} />
+      case 'notifications':
+        return <Notifications user={user} onNavigate={handleNotificationNavigation} />
       case 'settings':
         return <Settings {...commonProps} users={users} user={user} />
       default:
@@ -117,6 +145,10 @@ const AdminDashboard = ({ user, onLogout }) => {
             <div className="admin-name">{user.fullName || 'Admin User'}</div>
             <div className="admin-role">{user.role || 'Administrator'}</div>
           </div>
+          <NotificationBell 
+            userId={user.id} 
+            onNotificationClick={() => handleTabChange('notifications')}
+          />
         </div>
         
         <nav className="sidebar-nav">
@@ -126,6 +158,13 @@ const AdminDashboard = ({ user, onLogout }) => {
           >
             <span className="nav-icon">{getSidebarIcon('dashboard')}</span>
             <span className="nav-label">Dashboard</span>
+          </button>
+          <button 
+            className={`nav-item ${activeTab === 'notifications' ? 'active' : ''}`}
+            onClick={() => handleTabChange('notifications')}
+          >
+            <span className="nav-icon">{getSidebarIcon('notifications')}</span>
+            <span className="nav-label">Notifications</span>
           </button>
           <button 
             className={`nav-item ${activeTab === 'file-management' ? 'active' : ''}`}
@@ -187,6 +226,12 @@ const AdminDashboard = ({ user, onLogout }) => {
           {renderActiveTab()}
         </div>
       </div>
+
+      {/* Toast Notifications */}
+      <ToastNotification 
+        notifications={notifications}
+        onNavigate={handleNotificationNavigation}
+      />
       </div>
     </Suspense>
   )
