@@ -454,24 +454,22 @@
   object-fit: contain;
 }
 
-/* Content Animations */
+/* Content Animations - Removed zoom effect */
 .dashboard-overview,
 .users-management,
 .activity-logs-section,
 .file-approval-section,
 .file-management-section,
 .settings-section {
-  animation: fadeIn 0.3s ease;
+  animation: fadeInOnly 0.2s ease;
 }
 
-@keyframes fadeIn {
+@keyframes fadeInOnly {
   from {
     opacity: 0;
-    transform: translateY(10px);
   }
   to {
     opacity: 1;
-    transform: translateY(0);
   }
 }
 

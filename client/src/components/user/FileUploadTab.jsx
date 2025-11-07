@@ -40,18 +40,21 @@ const FileUploadTab = ({
           <form onSubmit={handleFileUpload} className="upload-form">
             <div className="form-group">
               <label className="form-label">Select File</label>
-              <div className="file-input-container">
+              <div className="file-input-wrapper">
                 <input
                   ref={fileInputRef}
                   type="file"
                   onChange={handleFileSelect}
-                  className="file-input"
+                  className="file-input-hidden"
+                  id="file-input"
                   disabled={isUploading}
                 />
-                <div className="file-input-info">
-                  <p>All file types are supported</p>
-                  <p>No file size limit</p>
-                </div>
+                <label htmlFor="file-input" className="file-input-button">
+                  Choose File
+                </label>
+                <span className="file-input-label">
+                  {uploadedFile ? uploadedFile.name : 'No file chosen'}
+                </span>
               </div>
             </div>
 
