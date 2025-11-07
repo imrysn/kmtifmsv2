@@ -789,7 +789,7 @@ const TasksTab = ({ user }) => {
                 {(assignment.assigned_to === 'all' || 
                  (assignment.assigned_member_details && assignment.assigned_member_details.some(member => member.id === user.id))) && 
                  (assignment.user_status !== 'submitted' || (assignment.user_status === 'submitted' && !assignment.submitted_file_id)) && (
-                  <div style={{ paddingTop: '16px', borderTop: '1px solid #E5E7EB' }}>
+                  <div style={{ paddingTop: '16px' }}>
                     {/* Attached Files button */}
                     <button 
                       onClick={() => handleSubmit(assignment)}
@@ -992,7 +992,7 @@ const TasksTab = ({ user }) => {
                 )}
 
                 {/* Add Comment */}
-                <div className="add-comment" style={{ marginTop: '20px', borderTop: '1px solid #E5E7EB', paddingTop: '20px' }}>
+                <div className="add-comment" style={{ marginTop: '20px' }}>
                   <div className="comment-avatar">
                     {getInitials(user.username || user.fullName)}
                   </div>
