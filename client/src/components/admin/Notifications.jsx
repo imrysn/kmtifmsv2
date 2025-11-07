@@ -351,7 +351,7 @@ const Notifications = ({ user, onNavigate }) => {
   }
 
   return (
-    <div className="notifications-page">
+    <div className={`notifications-page ${loading ? 'loading-cursor' : ''}`}>
       <div className="notifications-header">
         <div>
           <h2>Notifications</h2>

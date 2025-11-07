@@ -298,7 +298,7 @@ const FileManagement = ({ clearMessages, error, success, setError, setSuccess })
   }
 
   return (
-    <div className="file-management-section">
+    <div className={`file-management-section ${isComponentLoading ? 'file-opening-cursor' : ''}`}>
         {networkInfo && (
           <div className={`network-status ${networkInfo.accessible ? 'accessible' : 'not-accessible'}`}>
             <span className="status-text">

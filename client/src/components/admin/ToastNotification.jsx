@@ -84,7 +84,7 @@ const ToastNotification = ({ notifications, onClose, onNavigate }) => {
   if (visible.length === 0) return null;
 
   return (
-    <div className="toast-container">
+    <div className="toast-container cursor-pointer">
       {visible.map((notification, index) => (
         <div
           key={notification.id}

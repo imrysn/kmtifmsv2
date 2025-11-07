@@ -393,7 +393,7 @@ const ActivityLogs = ({ clearMessages, error, success, setError, setSuccess }) =
   }
 
   return (
-    <div className="activity-logs-section">
+    <div className={`activity-logs-section ${isLoading ? 'loading-cursor' : ''}`}>
       
       {/* Action Bar */}
       <div className="action-bar">

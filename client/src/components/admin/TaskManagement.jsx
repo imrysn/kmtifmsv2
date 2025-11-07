@@ -16,6 +16,7 @@ const TaskManagement = ({ error, success, setError, setSuccess, clearMessages, u
   const [replyingTo, setReplyingTo] = useState(null)
   const [replyText, setReplyText] = useState('')
   const [visibleReplies, setVisibleReplies] = useState({})
+  const [isOpeningFile, setIsOpeningFile] = useState(false)
   
   // Pagination state
   const [nextCursor, setNextCursor] = useState(null)
@@ -378,6 +379,7 @@ const TaskManagement = ({ error, success, setError, setSuccess, clearMessages, u
     }
 
     try {
+      setIsOpeningFile(true)
       // Clear any previous messages
       clearMessages()
 
@@ -434,6 +436,8 @@ const TaskManagement = ({ error, success, setError, setSuccess, clearMessages, u
       console.error('❌ Error opening file:', error);
       setSuccess('') // Clear loading message
       setError(`Error opening file: ${error.message || 'Failed to open file'}`);
+    } finally {
+      setIsOpeningFile(false)
     }
   }
 
@@ -468,7 +472,7 @@ const TaskManagement = ({ error, success, setError, setSuccess, clearMessages, u
   }
 
   return (
-    <div className="task-management-container">
+    <div className={`task-management-container ${isOpeningFile ? 'file-opening-cursor' : ''}`}>
       {/* Messages */}
       {error && (
         <AlertMessage
