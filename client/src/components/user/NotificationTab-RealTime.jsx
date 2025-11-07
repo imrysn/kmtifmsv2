@@ -56,7 +56,19 @@ const NotificationTab = ({ user, onOpenFile, onNavigateToTasks }) => {
     }
 
     // Handle navigation based on notification type
-    if (notification.type === 'assignment') {
+    if (notification.type === 'comment' && notification.assignment_id) {
+      // For comment notifications, navigate to tasks and store assignment ID + commenter name
+      if (onNavigateToTasks) {
+        // Store both assignment ID and the username who made the comment
+        sessionStorage.setItem('scrollToAssignment', notification.assignment_id);
+        sessionStorage.setItem('highlightCommentBy', notification.action_by_username);
+        console.log('📍 Stored comment navigation:', {
+          assignmentId: notification.assignment_id,
+          highlightUser: notification.action_by_username
+        });
+        onNavigateToTasks(notification.assignment_id);
+      }
+    } else if (notification.type === 'assignment') {
       // Navigate to tasks tab for assignment notifications
       if (onNavigateToTasks) {
         onNavigateToTasks();

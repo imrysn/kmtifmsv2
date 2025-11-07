@@ -26,6 +26,7 @@ const TasksTab = ({ user }) => {
   const [fileTag, setFileTag] = useState(''); // Add tag state
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef(null);
+  const [showReplies, setShowReplies] = useState({}); // Track which comments have visible replies
 
   // Check for sessionStorage when component mounts or becomes visible
   useEffect(() => {
@@ -232,6 +233,13 @@ const TasksTab = ({ user }) => {
 
   const toggleReplyBox = (commentId) => {
     setReplyingTo(prev => ({
+      ...prev,
+      [commentId]: !prev[commentId]
+    }));
+  };
+
+  const toggleShowReplies = (commentId) => {
+    setShowReplies(prev => ({
       ...prev,
       [commentId]: !prev[commentId]
     }));
@@ -520,25 +528,6 @@ const TasksTab = ({ user }) => {
           <button onClick={clearMessages} className="tasks-alert-close">×</button>
         </div>
       )}
-
-      {/* Statistics Cards */}
-      <div className="tasks-stats">
-        <div className="tasks-stat-card tasks-stat-pending">
-          <div className="tasks-stat-icon">⏱</div>
-          <div className="tasks-stat-info">
-            <div className="tasks-stat-number">{pendingAssignments.length}</div>
-            <div className="tasks-stat-label">Pending</div>
-          </div>
-        </div>
-
-        <div className="tasks-stat-card tasks-stat-submitted">
-          <div className="tasks-stat-icon">✓</div>
-          <div className="tasks-stat-info">
-            <div className="tasks-stat-number">{submittedAssignments.length}</div>
-            <div className="tasks-stat-label">Submitted</div>
-          </div>
-        </div>
-      </div>
 
       {/* Content */}
       {isLoading ? (
@@ -896,13 +885,6 @@ const TasksTab = ({ user }) => {
                       <div 
                         key={comment.id} 
                         className="comment-item"
-                        style={shouldHighlight ? {
-                          animation: 'highlight-pulse 2s ease-in-out',
-                          backgroundColor: '#FEF3C7',
-                          borderRadius: '8px',
-                          padding: '8px',
-                          marginBottom: '12px'
-                        } : {}}
                       >
                         <div className="comment-avatar">
                           {getInitials(comment.username)}
@@ -920,10 +902,21 @@ const TasksTab = ({ user }) => {
                             >
                               Reply
                             </button>
+                            {comment.replies && comment.replies.length > 0 && (
+                              <button 
+                                className="comment-action-btn view-replies-btn"
+                                onClick={() => toggleShowReplies(comment.id)}
+                              >
+                                {showReplies[comment.id] 
+                                  ? 'Hide replies' 
+                                  : `View ${comment.replies.length} ${comment.replies.length === 1 ? 'reply' : 'replies'}`
+                                }
+                              </button>
+                            )}
                           </div>
 
                           {/* Replies */}
-                          {comment.replies && comment.replies.length > 0 && (
+                          {showReplies[comment.id] && comment.replies && comment.replies.length > 0 && (
                             <div className="replies-list">
                               {comment.replies.map((reply) => {
                                 // Check if this reply should be highlighted
@@ -933,13 +926,6 @@ const TasksTab = ({ user }) => {
                                 <div 
                                   key={reply.id} 
                                   className="reply-item"
-                                  style={shouldHighlightReply ? {
-                                    animation: 'highlight-pulse 2s ease-in-out',
-                                    backgroundColor: '#FEF3C7',
-                                    borderRadius: '6px',
-                                    padding: '6px',
-                                    marginBottom: '8px'
-                                  } : {}}
                                 >
                                   <div className="comment-avatar reply-avatar">
                                     {getInitials(reply.username)}

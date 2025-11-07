@@ -6,7 +6,6 @@
 
 .user-notification-component .page-header {
   margin-bottom: 32px;
-  text-align: center;
 }
 
 .user-notification-component .page-header-content {
@@ -21,14 +20,18 @@
 /* Center the text content */
 .user-notification-component .page-header-content > div:first-child {
   text-align: center;
+  flex: 1;
 }
 
 /* Position action buttons to the right when they exist */
 .user-notification-component .notification-actions {
   position: absolute;
   right: 0;
-  top: 50%;
-  transform: translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  align-items: stretch;
+  flex-shrink: 0;
 }
 
 /* Responsive layout for smaller screens */
@@ -79,30 +82,27 @@
   margin: 0;
 }
 
-.user-notification-component .notification-actions {
-  margin-bottom: 20px;
-  text-align: center;
-}
-
 .user-notification-component .mark-all-read-btn {
-  padding: 10px 18px;
-  background-color: #3b82f6;
+  padding: 10px 20px;
+  background-color: #60a5fa;
   color: white;
   border: none;
   border-radius: 8px;
   font-size: 14px;
-  font-weight: 500;
+  font-weight: 600;
   cursor: pointer;
   transition: all 0.2s;
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 6px;
+  justify-content: center;
+  gap: 8px;
+  white-space: nowrap;
 }
 
 .user-notification-component .mark-all-read-btn:hover:not(:disabled) {
-  background-color: #2563eb;
+  background-color: #3b82f6;
   transform: translateY(-1px);
-  box-shadow: 0 2px 4px rgba(59, 130, 246, 0.4);
+  box-shadow: 0 4px 6px -1px rgba(59, 130, 246, 0.4);
 }
 
 .user-notification-component .mark-all-read-btn:disabled {
@@ -111,24 +111,26 @@
 }
 
 .user-notification-component .delete-all-btn {
-  padding: 10px 18px;
+  padding: 10px 20px;
   background-color: #ef4444;
   color: white;
   border: none;
   border-radius: 8px;
   font-size: 14px;
-  font-weight: 500;
+  font-weight: 600;
   cursor: pointer;
   transition: all 0.2s;
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 6px;
+  justify-content: center;
+  gap: 8px;
+  white-space: nowrap;
 }
 
 .user-notification-component .delete-all-btn:hover {
   background-color: #dc2626;
   transform: translateY(-1px);
-  box-shadow: 0 2px 4px rgba(239, 68, 68, 0.4);
+  box-shadow: 0 4px 6px -1px rgba(239, 68, 68, 0.4);
 }
 
 .user-notification-component .notifications-container {
