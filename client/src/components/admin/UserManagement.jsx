@@ -17,13 +17,6 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess, u
   const [showPasswordModal, setShowPasswordModal] = useState(false)
   const [showUserDeleteModal, setShowUserDeleteModal] = useState(false)
   const [userToDelete, setUserToDelete] = useState(null)
-  const [showUserDetailsModal, setShowUserDetailsModal] = useState(false)
-  const [userDetails, setUserDetails] = useState({
-    user: null,
-    files: [],
-    pendingFiles: [],
-    isLoadingDetails: false
-  })
   const [formData, setFormData] = useState({
     fullName: '',
     username: '',
@@ -284,48 +277,7 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess, u
     setShowUserDeleteModal(true)
   }, [])
 
-  const fetchUserDetails = useCallback(async (userId) => {
-    setUserDetails(prev => ({ ...prev, isLoadingDetails: true }))
-    
-    try {
-      const [filesResponse, pendingResponse] = await Promise.all([
-        fetch(`http://localhost:3001/api/files/user/${userId}`),
-        fetch(`http://localhost:3001/api/files/user/${userId}/pending`)
-      ])
-      
-      const filesData = await filesResponse.json()
-      const pendingData = await pendingResponse.json()
-      
-      setUserDetails(prev => ({
-        ...prev,
-        files: filesData.success ? filesData.files : [],
-        pendingFiles: pendingData.success ? pendingData.files : [],
-        isLoadingDetails: false
-      }))
-    } catch (error) {
-      console.error('Error fetching user details:', error)
-      setUserDetails(prev => ({
-        ...prev,
-        files: [],
-        pendingFiles: [],
-        isLoadingDetails: false
-      }))
-    }
-  }, [])
 
-  const openUserDetailsModal = useCallback(async (user) => {
-    setError('')
-    setSuccess('')
-    setUserDetails({
-      user: user,
-      files: [],
-      pendingFiles: [],
-      isLoadingDetails: true
-    })
-    setShowUserDetailsModal(true)
-    
-    await fetchUserDetails(user.id)
-  }, [setError, setSuccess, fetchUserDetails])
 
   const openAddModal = useCallback(() => {
     setError('')
@@ -421,11 +373,7 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess, u
                   <tr key={user.id} className="user-row">
                     <td>
                       <div className="user-cell">
-                        <span 
-                          className="user-name clickable" 
-                          onClick={() => openUserDetailsModal(user)}
-                          title="View user details, files, and pending files"
-                        >
+                        <span className="user-name">
                           {user.fullName}
                         </span>
                       </div>
@@ -488,358 +436,219 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess, u
       </div>
 
       {/* Add User Modal */}
-      <FormModal
-        isOpen={showAddModal}
-        onClose={() => setShowAddModal(false)}
-        onSubmit={handleAddUser}
-        title="Add New User"
-        submitText="Create User"
-        isLoading={isLoading}
-        size="medium"
-      >
-        <div className="form-grid">
-          <div className="form-group">
-            <label>Full Name *</label>
-            <input
-              type="text"
-              value={formData.fullName}
-              onChange={e => handleFormChange('fullName', e.target.value)}
-              required
-              className="form-input"
-            />
-          </div>
-          <div className="form-group">
-            <label>Username *</label>
-            <input
-              type="text"
-              value={formData.username}
-              onChange={e => handleFormChange('username', e.target.value)}
-              required
-              className="form-input"
-            />
-          </div>
-          <div className="form-group">
-            <label>Email *</label>
-            <input
-              type="email"
-              value={formData.email}
-              onChange={e => handleFormChange('email', e.target.value)}
-              required
-              className="form-input"
-            />
-          </div>
-          <div className="form-group">
-            <label>Password *</label>
-            <input
-              type="password"
-              value={formData.password}
-              onChange={e => handleFormChange('password', e.target.value)}
-              required
-              minLength="6"
-              className="form-input"
-            />
-          </div>
-          <div className="form-group">
-            <label>Role *</label>
-            <select
-              value={formData.role}
-              onChange={e => handleFormChange('role', e.target.value)}
-              className="form-select"
-            >
-              <option value="USER">User</option>
-              <option value="TEAM LEADER">Team Leader</option>
-              <option value="ADMIN">Admin</option>
-            </select>
-          </div>
-          <div className="form-group">
-            <label>Team</label>
-            <select
-              value={formData.team}
-              onChange={e => handleFormChange('team', e.target.value)}
-              className="form-select"
-              disabled={teamsLoading}
-            >
-              <option value="">Select Team</option>
-              {activeTeams.map(team => (
-                <option key={team.id} value={team.name}>
-                  {team.name}
-                  {team.leader_username && ` (Led by ${team.leader_username})`}
-                </option>
-              ))}
-            </select>
-            {teamsLoading && <p className="help-text">Loading teams...</p>}
-          </div>
-        </div>
-      </FormModal>
-
-      {/* Edit User Modal */}
-      <FormModal
-        isOpen={showEditModal && selectedUser}
-        onClose={() => setShowEditModal(false)}
-        onSubmit={handleEditUser}
-        title="Edit User"
-        submitText="Update User"
-        isLoading={isLoading}
-        size="medium"
-      >
-        <div className="form-grid">
-          <div className="form-group">
-            <label>Full Name *</label>
-            <input
-              type="text"
-              value={formData.fullName}
-              onChange={e => handleFormChange('fullName', e.target.value)}
-              required
-              className="form-input"
-            />
-          </div>
-          <div className="form-group">
-            <label>Username *</label>
-            <input
-              type="text"
-              value={formData.username}
-              onChange={e => handleFormChange('username', e.target.value)}
-              required
-              className="form-input"
-            />
-          </div>
-          <div className="form-group">
-            <label>Email *</label>
-            <input
-              type="email"
-              value={formData.email}
-              onChange={e => handleFormChange('email', e.target.value)}
-              required
-              className="form-input"
-            />
-          </div>
-          <div className="form-group">
-            <label>Role *</label>
-            <select
-              value={formData.role}
-              onChange={e => handleFormChange('role', e.target.value)}
-              className="form-select"
-            >
-              <option value="USER">User</option>
-              <option value="TEAM LEADER">Team Leader</option>
-              <option value="ADMIN">Admin</option>
-            </select>
-          </div>
-          <div className="form-group">
-            <label>Team</label>
-            <select
-              value={formData.team}
-              onChange={e => handleFormChange('team', e.target.value)}
-              className="form-select"
-              disabled={teamsLoading}
-            >
-              <option value="">Select Team</option>
-              {activeTeams.map(team => (
-                <option key={team.id} value={team.name}>
-                  {team.name}
-                  {team.leader_username && ` (Led by ${team.leader_username})`}
-                </option>
-              ))}
-            </select>
-            {teamsLoading && <p className="help-text">Loading teams...</p>}
-          </div>
-        </div>
-      </FormModal>
-
-      {/* Reset Password Modal */}
-      <FormModal
-        isOpen={showPasswordModal && selectedUser}
-        onClose={() => setShowPasswordModal(false)}
-        onSubmit={handleResetPassword}
-        title="Reset Password"
-        submitText="Reset Password"
-        isLoading={isLoading}
-        size="small"
-      >
-        {selectedUser && (
-          <>
+      {showAddModal && (
+        <FormModal
+          isOpen={showAddModal}
+          onClose={() => setShowAddModal(false)}
+          onSubmit={handleAddUser}
+          title="Add New User"
+          submitText="Create User"
+          isLoading={isLoading}
+          size="medium"
+        >
+          <div className="form-grid">
             <div className="form-group">
-              <label>User: <strong>{selectedUser.fullName} ({selectedUser.username})</strong></label>
+              <label>Full Name *</label>
+              <input
+                type="text"
+                value={formData.fullName}
+                onChange={e => handleFormChange('fullName', e.target.value)}
+                required
+                className="form-input"
+              />
             </div>
             <div className="form-group">
-              <label>New Password *</label>
+              <label>Username *</label>
+              <input
+                type="text"
+                value={formData.username}
+                onChange={e => handleFormChange('username', e.target.value)}
+                required
+                className="form-input"
+              />
+            </div>
+            <div className="form-group">
+              <label>Email *</label>
+              <input
+                type="email"
+                value={formData.email}
+                onChange={e => handleFormChange('email', e.target.value)}
+                required
+                className="form-input"
+              />
+            </div>
+            <div className="form-group">
+              <label>Password *</label>
               <input
                 type="password"
                 value={formData.password}
                 onChange={e => handleFormChange('password', e.target.value)}
                 required
                 minLength="6"
-                placeholder="Enter new password"
                 className="form-input"
               />
             </div>
-          </>
-        )}
-      </FormModal>
-
-      {/* User Delete Confirmation Modal */}
-      <ConfirmationModal
-        isOpen={showUserDeleteModal && userToDelete}
-        onClose={() => setShowUserDeleteModal(false)}
-        onConfirm={handleDeleteUser}
-        title="Delete User"
-        message="Are you sure you want to delete this user?"
-        confirmText="Delete User"
-        variant="danger"
-        isLoading={isLoading}
-      >
-        {userToDelete && (
-          <>
-            <p className="confirmation-description">
-              <strong>{userToDelete.fullName}</strong>
-            </p>
-            <p className="confirmation-description" style={{ marginTop: '0.5rem' }}>
-              This action cannot be undone. The user account and all associated data will be permanently removed from the system.
-            </p>
-          </>
-        )}
-      </ConfirmationModal>
-
-      {/* User Details Modal */}
-      {showUserDetailsModal && userDetails.user && (
-        <div className="modal-overlay" onClick={() => setShowUserDetailsModal(false)}>
-          <div className="modal user-details-modal" onClick={e => e.stopPropagation()}>
-            <div className="modal-header">
-              <h3>User Details</h3>
-              <button onClick={() => setShowUserDetailsModal(false)} className="modal-close">×</button>
-            </div>
-            <div className="modal-body">
-              <div className="user-details-content">
-                {/* User Information */}
-                <div className="user-info-section">
-                  <div className="section-header">
-                    <div className="user-header">
-                      <div className="user-avatar-large">
-                        {userDetails.user.fullName.charAt(0).toUpperCase()}
-                      </div>
-                      <div className="user-info">
-                        <h4 className="user-full-name">{userDetails.user.fullName}</h4>
-                        <p className="user-subtitle">{userDetails.user.username} • {userDetails.user.email}</p>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="user-details-grid">
-                    <div className="detail-item">
-                      <label>Role</label>
-                      <span className={`role-badge ${userDetails.user.role.toLowerCase().replace(' ', '-')}`}>
-                        {userDetails.user.role}
-                      </span>
-                    </div>
-                    <div className="detail-item">
-                      <label>Team</label>
-                      <span className="team-badge">
-                        {userDetails.user.team || '—'}
-                      </span>
-                    </div>
-                    <div className="detail-item">
-                      <label>Account Status</label>
-                      <span className="status-badge active">Active</span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Files Section */}
-                <div className="files-section">
-                  <div className="section-header">
-                    <h5>All Files ({userDetails.isLoadingDetails ? '...' : userDetails.files.length})</h5>
-                  </div>
-                  <div className="files-list">
-                    {userDetails.isLoadingDetails ? (
-                      <div className="loading-files">
-                        <div className="spinner-small"></div>
-                        <span>Loading files...</span>
-                      </div>
-                    ) : userDetails.files.length > 0 ? (
-                      userDetails.files.map((file) => (
-                        <div key={file.id} className="file-item">
-                          <div className="file-info">
-                            <div className="file-name">{file.filename}</div>
-                            <div className="file-meta">
-                              <span className="file-size">{formatFileSize(file.size)}</span>
-                              <span className="file-date">{formatDate(file.uploadedAt)}</span>
-                              <span className={`status-badge ${file.status.toLowerCase()}`}>
-                                {file.status}
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-                      ))
-                    ) : (
-                      <div className="empty-files">
-                        <p>No files uploaded yet</p>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Pending Files Section */}
-                <div className="pending-files-section">
-                  <div className="section-header">
-                    <h5>Pending Files ({userDetails.isLoadingDetails ? '...' : userDetails.pendingFiles.length})</h5>
-                  </div>
-                  <div className="files-list">
-                    {userDetails.isLoadingDetails ? (
-                      <div className="loading-files">
-                        <div className="spinner-small"></div>
-                        <span>Loading pending files...</span>
-                      </div>
-                    ) : userDetails.pendingFiles.length > 0 ? (
-                      userDetails.pendingFiles.map((file) => (
-                        <div key={file.id} className="file-item pending">
-                          <div className="file-info">
-                            <div className="file-name">{file.filename}</div>
-                            <div className="file-meta">
-                              <span className="file-size">{formatFileSize(file.size)}</span>
-                              <span className="file-date">{formatDate(file.uploadedAt)}</span>
-                              <span className={`status-badge ${file.status.toLowerCase()}`}>
-                                {file.status}
-                              </span>
-                            </div>
-                          </div>
-                          {file.comments && file.comments.length > 0 && (
-                            <div className="file-comments">
-                              <div className="comments-label">Latest Comment:</div>
-                              <div className="comment-text">{file.comments[file.comments.length - 1].comment}</div>
-                            </div>
-                          )}
-                        </div>
-                      ))
-                    ) : (
-                      <div className="empty-files">
-                        <p>No pending files</p>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </div>
-            <div className="modal-footer">
-              <button 
-                type="button" 
-                onClick={() => setShowUserDetailsModal(false)} 
-                className="btn btn-secondary"
+            <div className="form-group">
+              <label>Role *</label>
+              <select
+                value={formData.role}
+                onChange={e => handleFormChange('role', e.target.value)}
+                className="form-select"
               >
-                Close
-              </button>
-              <button 
-                type="button" 
-                onClick={() => {
-                  setShowUserDetailsModal(false)
-                  openEditModal(userDetails.user)
-                }}
-                className="btn btn-primary"
+                <option value="USER">User</option>
+                <option value="TEAM LEADER">Team Leader</option>
+                <option value="ADMIN">Admin</option>
+              </select>
+            </div>
+            <div className="form-group">
+              <label>Team</label>
+              <select
+                value={formData.team}
+                onChange={e => handleFormChange('team', e.target.value)}
+                className="form-select"
+                disabled={teamsLoading}
               >
-                Edit User
-              </button>
+                <option value="">Select Team</option>
+                {activeTeams.map(team => (
+                  <option key={team.id} value={team.name}>
+                    {team.name}
+                    {team.leader_username && ` (Led by ${team.leader_username})`}
+                  </option>
+                ))}
+              </select>
+              {teamsLoading && <p className="help-text">Loading teams...</p>}
             </div>
           </div>
-        </div>
+        </FormModal>
       )}
+
+      {/* Edit User Modal */}
+      {showEditModal && selectedUser && (
+        <FormModal
+          isOpen={showEditModal}
+          onClose={() => setShowEditModal(false)}
+          onSubmit={handleEditUser}
+          title="Edit User"
+          submitText="Update User"
+          isLoading={isLoading}
+          size="medium"
+        >
+          <div className="form-grid">
+            <div className="form-group">
+              <label>Full Name *</label>
+              <input
+                type="text"
+                value={formData.fullName}
+                onChange={e => handleFormChange('fullName', e.target.value)}
+                required
+                className="form-input"
+              />
+            </div>
+            <div className="form-group">
+              <label>Username *</label>
+              <input
+                type="text"
+                value={formData.username}
+                onChange={e => handleFormChange('username', e.target.value)}
+                required
+                className="form-input"
+              />
+            </div>
+            <div className="form-group">
+              <label>Email *</label>
+              <input
+                type="email"
+                value={formData.email}
+                onChange={e => handleFormChange('email', e.target.value)}
+                required
+                className="form-input"
+              />
+            </div>
+            <div className="form-group">
+              <label>Role *</label>
+              <select
+                value={formData.role}
+                onChange={e => handleFormChange('role', e.target.value)}
+                className="form-select"
+              >
+                <option value="USER">User</option>
+                <option value="TEAM LEADER">Team Leader</option>
+                <option value="ADMIN">Admin</option>
+              </select>
+            </div>
+            <div className="form-group">
+              <label>Team</label>
+              <select
+                value={formData.team}
+                onChange={e => handleFormChange('team', e.target.value)}
+                className="form-select"
+                disabled={teamsLoading}
+              >
+                <option value="">Select Team</option>
+                {activeTeams.map(team => (
+                  <option key={team.id} value={team.name}>
+                    {team.name}
+                    {team.leader_username && ` (Led by ${team.leader_username})`}
+                  </option>
+                ))}
+              </select>
+              {teamsLoading && <p className="help-text">Loading teams...</p>}
+            </div>
+          </div>
+        </FormModal>
+      )}
+
+      {/* Reset Password Modal */}
+      {showPasswordModal && selectedUser && (
+        <FormModal
+          isOpen={showPasswordModal}
+          onClose={() => setShowPasswordModal(false)}
+          onSubmit={handleResetPassword}
+          title="Reset Password"
+          submitText="Reset Password"
+          isLoading={isLoading}
+          size="small"
+        >
+          <div className="form-group">
+            <label>User: <strong>{selectedUser.fullName} ({selectedUser.username})</strong></label>
+          </div>
+          <div className="form-group">
+            <label>New Password *</label>
+            <input
+              type="password"
+              value={formData.password}
+              onChange={e => handleFormChange('password', e.target.value)}
+              required
+              minLength="6"
+              placeholder="Enter new password"
+              className="form-input"
+            />
+          </div>
+        </FormModal>
+      )}
+
+      {/* User Delete Confirmation Modal */}
+      {showUserDeleteModal && userToDelete && (
+        <ConfirmationModal
+          isOpen={showUserDeleteModal}
+          onClose={() => setShowUserDeleteModal(false)}
+          onConfirm={handleDeleteUser}
+          title="Delete User"
+          message="Are you sure you want to delete this user?"
+          confirmText="Delete User"
+          variant="danger"
+          isLoading={isLoading}
+        >
+          <p className="confirmation-description">
+            <strong>{userToDelete.fullName}</strong>
+          </p>
+          <p className="confirmation-description" style={{ marginTop: '0.5rem' }}>
+            This action cannot be undone. The user account and all associated data will be permanently removed from the system.
+          </p>
+        </ConfirmationModal>
+      )}
+
+
     </div>
   )
 }
