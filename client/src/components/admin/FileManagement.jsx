@@ -16,7 +16,6 @@ const FileManagement = ({ clearMessages, error, success, setError, setSuccess })
   const [fileManagementSearch, setFileManagementSearch] = useState('')
   const [isSearching, setIsSearching] = useState(false)
   const [selectedItem, setSelectedItem] = useState(null)
-  const [viewMode, setViewMode] = useState('grid')
   const [isLoading, setIsLoading] = useState(false)
   const [isComponentLoading, setIsComponentLoading] = useState(false);
   const [networkInfo, setNetworkInfo] = useState(null)
@@ -381,73 +380,35 @@ const FileManagement = ({ clearMessages, error, success, setError, setSuccess })
               </div>
             )}
             <div className={`files-content ${isComponentLoading ? 'loading' : ''}`}>
-              {viewMode === 'grid' ? (
-                <div className="files-grid">
-                  {filteredItems.map((item) => (
-                    <div
-                      key={item.id}
-                      className={`file-item ${item.type} ${selectedItem === item.id ? 'selected' : ''}`}
-                      onClick={() => handleItemClick(item)}
-                      title={`${item.name}\n1st click: Select\n2nd click: Open`}
-                    >
-                      <div className="file-icon">
-                        <FileIcon
-                          fileType={item.fileType} // Pass fileType
-                          isFolder={item.type === 'folder'} // Pass type
-                          altText={item.type}
-                          className="file-icon-img" // Pass the existing class if needed
-                        />
-                      </div>
-                      <div className="file-info">
-                        <div className="file-name" title={item.name}>
-                          {item.displayName}
-                        </div>
-                        {item.parentPath && fileManagementSearch && (
-                          <div className="file-location" title={item.parentPath}>
-                            {item.parentPath}
-                          </div>
-                        )}
-                      </div>
+              <div className="files-grid">
+                {filteredItems.map((item) => (
+                  <div
+                    key={item.id}
+                    className={`file-item ${item.type} ${selectedItem === item.id ? 'selected' : ''}`}
+                    onClick={() => handleItemClick(item)}
+                    title={`${item.name}\n1st click: Select\n2nd click: Open`}
+                  >
+                    <div className="file-icon">
+                      <FileIcon
+                        fileType={item.fileType} // Pass fileType
+                        isFolder={item.type === 'folder'} // Pass type
+                        altText={item.type}
+                        className="file-icon-img" // Pass the existing class if needed
+                      />
                     </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="files-list">
-                  <table className="files-table">
-                    <thead>
-                      <tr>
-                        <th>Name</th>
-                        <th>Type</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {filteredItems.map((item) => (
-                        <tr
-                          key={item.id}
-                          className={`file-row ${item.type} ${selectedItem === item.id ? 'selected' : ''}`}
-                          onClick={() => handleItemClick(item)}
-                          title={`1st click: Select | 2nd click: Open`}
-                        >
-                          <td className="file-name-cell">
-                            <div className="file-name-container">
-                               <FileIcon
-                                fileType={item.fileType} // Pass fileType
-                                isFolder={item.type === 'folder'} // Pass type
-                                altText={item.type}
-                                className="file-icon-img-small" // Pass the existing class if needed
-                              />
-                              <span className="file-name">{item.displayName}</span>
-                            </div>
-                          </td>
-                          <td className="file-type-cell">
-                            {item.type === 'folder' ? 'Folder' : (item.fileType?.toUpperCase() || 'File')}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
+                    <div className="file-info">
+                      <div className="file-name" title={item.name}>
+                        {item.displayName}
+                      </div>
+                      {item.parentPath && fileManagementSearch && (
+                        <div className="file-location" title={item.parentPath}>
+                          {item.parentPath}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           </>
         )}

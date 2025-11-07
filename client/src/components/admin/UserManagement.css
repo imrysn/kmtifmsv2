@@ -250,142 +250,9 @@
   background: var(--primary-hover);
 }
 
-.users-management .btn-secondary {
-  background: var(--background-secondary);
-  color: var(--text-secondary);
-  border: 1px solid var(--border-color);
-}
-
-.users-management .btn-secondary:hover:not(:disabled) {
-  background: var(--background-hover);
-  border-color: var(--border-hover);
-}
-
-.users-management .btn-danger {
-  background: #ef4444;
-  color: white;
-}
-
-.users-management .btn-danger:hover:not(:disabled) {
-  background: #dc2626;
-}
-
-/* Alerts */
-.users-management .alert {
-  padding: 1rem;
-  border-radius: 8px;
-  margin-bottom: 1rem;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.users-management .alert-error {
-  background: #fef2f2;
-  border: 1px solid #fecaca;
-  color: #dc2626;
-}
-
-.users-management .alert-success {
-  background: #f0fdf4;
-  border: 1px solid #bbf7d0;
-  color: #059669;
-}
-
-.users-management .alert-message {
-  flex: 1;
-}
-
-.users-management .alert-close {
-  background: none;
-  border: none;
-  font-size: 1.2rem;
-  cursor: pointer;
-  color: inherit;
-  padding: 0;
-  margin-left: 0.5rem;
-}
-
-/* Modal Styles - NO ANIMATIONS */
-.users-management .modal-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-  padding: 1rem;
-}
-
-.users-management .modal {
-  background: white;
-  border-radius: 12px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
-  max-width: 600px;
-  width: 100%;
-  max-height: 90vh;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  border: 1px solid var(--border-color);
-}
-
-.users-management .modal.compact {
-  max-width: 520px;
-}
-
-.users-management .modal-header {
-  padding: 1.5rem;
-  border-bottom: 1px solid var(--border-color);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  background: white;
-}
-
-.users-management .modal-header h3 {
-  margin: 0;
-  color: var(--text-primary);
-  font-size: 1.25rem;
-}
-
-.users-management .modal-close {
-  background: none;
-  border: none;
-  font-size: 1.5rem;
-  cursor: pointer;
-  color: var(--text-secondary);
-  width: 32px;
-  height: 32px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 6px;
-}
-
-.users-management .modal-close:hover {
-  background: var(--background-hover);
-  color: var(--text-primary);
-}
-
-.users-management .modal-body {
-  padding: 1.5rem;
-  flex: 1;
-  overflow-y: auto;
-  background: white;
-}
-
-.users-management .modal-footer {
-  padding: 1.5rem;
-  border-top: 1px solid var(--border-color);
-  display: flex;
-  gap: 0.75rem;
-  justify-content: flex-end;
-  background: white;
+/* Loading Cursor */
+.users-management.loading-cursor {
+  cursor: wait;
 }
 
 /* Form Styles - SIMPLIFIED */
@@ -465,30 +332,19 @@
     flex-direction: column;
     align-items: stretch;
   }
-  
+
   .users-management .search-section {
     max-width: none;
   }
-  
+
   .users-management .users-table th,
   .users-management .users-table td {
     padding: 0.75rem 0.5rem;
     font-size: 0.85rem;
   }
-  
+
   .users-management .form-grid {
     grid-template-columns: 1fr;
     gap: 0.5rem;
-  }
-  
-  .users-management .modal {
-    margin: 1rem;
-    max-height: calc(100vh - 2rem);
-  }
-}
-
-@media (max-width: 480px) {
-  .users-management .modal.compact {
-    max-width: calc(100vw - 1rem);
   }
 }
