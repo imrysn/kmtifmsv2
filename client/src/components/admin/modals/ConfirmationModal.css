@@ -1,5 +1,5 @@
 /* Optimized Confirmation Modal - NO ANIMATIONS for Performance */
-.modal-overlay {
+.confirmation-modal .modal-overlay {
   position: fixed;
   top: 0;
   left: 0;
@@ -12,7 +12,7 @@
   z-index: 1000;
 }
 
-.modal {
+.confirmation-modal .modal {
   background: #ffffff;
   border-radius: 16px;
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
@@ -26,7 +26,7 @@
   max-width: 600px;
 }
 
-.modal-header {
+.confirmation-modal .modal-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -34,7 +34,7 @@
   border-bottom: none;
 }
 
-.modal-header h3 {
+.confirmation-modal .modal-header h3 {
   margin: 0;
   font-size: 1.375rem;
   font-weight: 600;
@@ -42,7 +42,7 @@
   letter-spacing: -0.01em;
 }
 
-.modal-close {
+.confirmation-modal .modal-close {
   background: none;
   border: none;
   font-size: 1.75rem;
@@ -58,22 +58,22 @@
   line-height: 1;
 }
 
-.modal-close:hover {
+.confirmation-modal .modal-close:hover {
   background-color: #f3f4f6;
   color: #1f2937;
 }
 
-.modal-body {
+.confirmation-modal .modal-body {
   padding: 0 1.75rem 1.5rem 1.75rem;
 }
 
-.confirmation-content {
+.confirmation-modal .confirmation-content {
   display: flex;
   gap: 1.25rem;
   align-items: flex-start;
 }
 
-.confirmation-icon {
+.confirmation-modal .confirmation-icon {
   font-size: 2.5rem;
   flex-shrink: 0;
   line-height: 1;
@@ -101,11 +101,11 @@
   background: #dbeafe;
 }
 
-.confirmation-text {
+.confirmation-modal .confirmation-text {
   flex: 1;
 }
 
-.confirmation-text h4 {
+.confirmation-modal .confirmation-text h4 {
   margin: 0.5rem 0 1rem 0;
   font-size: 1.0625rem;
   font-weight: 500;
@@ -113,7 +113,7 @@
   line-height: 1.5;
 }
 
-.confirmation-description {
+.confirmation-modal .confirmation-description {
   margin: 0.75rem 0 0 0;
   font-size: 0.875rem;
   color: #6b7280;
@@ -121,28 +121,25 @@
 }
 
 /* File info styling */
-.file-info {
-  background: #f9fafb;
-  border: 1px solid #e5e7eb;
+.confirmation-modal .modal-body .file-info {
   border-radius: 8px;
   padding: 1rem;
   margin: 1rem 0;
 }
 
-.file-info .file-name {
+.confirmation-modal .modal-body .file-info .file-name {
   font-weight: 500;
   color: #1f2937;
   font-size: 0.9375rem;
-  margin-bottom: 0.25rem;
 }
 
-.file-info .file-size {
+.confirmation-modal .modal-body .file-info .file-size {
   font-size: 0.8125rem;
   color: #9ca3af;
 }
 
 /* Warning message box */
-.warning-message {
+.confirmation-modal .modal-body .warning-message {
   background: #fef2f2;
   border: 1px solid #fecaca;
   border-radius: 8px;
@@ -150,14 +147,14 @@
   margin-top: 1.25rem;
 }
 
-.warning-message p {
+.confirmation-modal .modal-body .warning-message p {
   margin: 0;
   font-size: 0.875rem;
   color: #991b1b;
   line-height: 1.5;
 }
 
-.modal-footer {
+.confirmation-modal .modal-footer {
   padding: 1.25rem 1.75rem 1.75rem 1.75rem;
   border-top: 1px solid #f3f4f6;
   display: flex;
@@ -165,14 +162,14 @@
   gap: 0.75rem;
 }
 
-.modal-actions {
+.confirmation-modal .modal-actions {
   display: flex;
   gap: 0.75rem;
   width: 100%;
   justify-content: flex-end;
 }
 
-.btn {
+.confirmation-modal .btn {
   padding: 0.6875rem 1.5rem;
   border: none;
   border-radius: 8px;
@@ -186,47 +183,47 @@
   min-width: 110px;
 }
 
-.btn:disabled {
+.confirmation-modal .btn:disabled {
   opacity: 0.6;
   cursor: not-allowed;
 }
 
-.btn-secondary {
+.confirmation-modal .btn-secondary {
   background-color: #ffffff;
   color: #374151;
   border: 1px solid #d1d5db;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
 }
 
-.btn-secondary:hover:not(:disabled) {
+.confirmation-modal .btn-secondary:hover:not(:disabled) {
   background-color: #f9fafb;
   border-color: #9ca3af;
 }
 
-.btn-primary {
+.confirmation-modal .btn-primary {
   background-color: var(--primary-color, #3b82f6);
   color: white;
 }
 
-.btn-primary:hover:not(:disabled) {
+.confirmation-modal .btn-primary:hover:not(:disabled) {
   background-color: var(--primary-hover, #2563eb);
 }
 
-.btn-danger {
+.confirmation-modal .btn-danger {
   background-color: #ef4444;
   color: white;
   box-shadow: 0 1px 3px rgba(239, 68, 68, 0.3);
 }
 
-.btn-danger:hover:not(:disabled) {
+.confirmation-modal .btn-danger:hover:not(:disabled) {
   background-color: #dc2626;
 }
 
-.btn-warning {
+.confirmation-modal .btn-warning {
   background-color: #f59e0b;
   color: white;
 }
 
-.btn-warning:hover:not(:disabled) {
+.confirmation-modal .btn-warning:hover:not(:disabled) {
   background-color: #d97706;
 }

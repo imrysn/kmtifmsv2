@@ -573,13 +573,6 @@
   border: 1px solid var(--border-color);
 }
 
-.file-approval-section .section-title {
-  font-size: 18px;
-  font-weight: 600;
-  color: #101828;
-  margin-bottom: 16px;
-}
-
 .file-approval-section .file-details-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
@@ -621,24 +614,6 @@
   color: #101828;
   text-align: center;
 }
-
-.file-approval-section .description-section {
-  background: #F9FAFB;
-  border-radius: 12px;
-  padding: 20px;
-  margin-bottom: 24px;
-  border: 1px solid var(--border-color);
-}
-
-.file-approval-section .description-text {
-  font-size: 14px;
-  color: #101828;
-  line-height: 1.6;
-  margin: 0;
-  white-space: pre-wrap;
-}
-
-
 
 .file-approval-section .actions-section {
   background: #F9FAFB;

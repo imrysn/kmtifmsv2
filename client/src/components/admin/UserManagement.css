@@ -77,8 +77,9 @@
 }
 
 .users-management .users-table td {
-  padding: 1rem;
+  padding: 1.3rem;
   border-bottom: 1px solid var(--border-light);
+  background: var(--background-secondary);
   vertical-align: middle;
 }
 
@@ -326,6 +327,88 @@
   line-height: 1.5;
 }
 
+/* Pagination Styles */
+.users-management .pagination-container {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 1.5rem;
+  padding: 1rem;
+  background: var(--surface-color);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.users-management .pagination-info {
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.users-management .pagination-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.users-management .pagination-btn {
+  padding: 0.5rem 1rem;
+  border: 1px solid var(--border-color);
+  background: var(--background-secondary);
+  color: var(--text-primary);
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.users-management .pagination-btn:hover:not(:disabled) {
+  background: var(--background-hover);
+  border-color: var(--primary-color);
+}
+
+.users-management .pagination-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background: var(--border-light);
+}
+
+.users-management .pagination-numbers {
+  display: flex;
+  gap: 0.25rem;
+}
+
+.users-management .pagination-number {
+  min-width: 2.5rem;
+  height: 2.5rem;
+  border: 1px solid var(--border-color);
+  background: var(--background-secondary);
+  color: var(--text-primary);
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.users-management .pagination-number:hover {
+  background: var(--background-hover);
+  border-color: var(--primary-color);
+}
+
+.users-management .pagination-number.active {
+  background: var(--primary-color);
+  color: white;
+  border-color: var(--primary-color);
+  font-weight: 600;
+}
+
 /* Responsive Design */
 @media (max-width: 768px) {
   .users-management .action-bar {
@@ -346,5 +429,19 @@
   .users-management .form-grid {
     grid-template-columns: 1fr;
     gap: 0.5rem;
+  }
+
+  .users-management .pagination-container {
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+  }
+
+  .users-management .pagination-controls {
+    order: -1;
+  }
+
+  .users-management .pagination-info {
+    margin-top: 0.5rem;
   }
 }

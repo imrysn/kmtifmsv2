@@ -124,7 +124,7 @@
 
 /* File System Container */
 .file-management-section .file-system-container {
-  background: var(--surface-color);
+  background: var(--background-secondary);
   border: 1px solid var(--border-color);
   border-radius: 12px;
   overflow: hidden; 
@@ -215,7 +215,6 @@
 }
 
 .file-management-section .file-name {
-  font-weight: 500;
   color: var(--text-primary);
   font-size: 0.85rem;
   line-height: 1.3;
