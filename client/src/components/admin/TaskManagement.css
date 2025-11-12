@@ -411,7 +411,7 @@
 /* Attached File */
 .admin-attached-file {
   background: #f0f9ff;
-  padding: 12px;
+  padding: 32px 20px 32px;
   border-radius: 6px;
   margin-bottom: 16px;
 }
@@ -426,8 +426,11 @@
 .admin-file-item {
   display: flex;
   align-items: center;
+  padding: 20px;
   gap: 10px;
   transition: background-color 0.2s ease;
+  border: 1px solid #dbeafe;
+  border-radius: 8px;
 }
 
 .admin-file-item:hover {
@@ -457,11 +460,9 @@
 
 /* No Attachment Message */
 .admin-no-attachment {
-  background: #fef3c7;
-  border-left: 3px solid #f59e0b;
-  padding: 12px;
+  background: #b8b8b883;
+  padding: 32px 20px 32px;
   border-radius: 6px;
-  margin-bottom: 16px;
   display: flex;
   align-items: center;
   gap: 10px;
@@ -474,7 +475,7 @@
 
 .admin-no-attachment-text {
   font-size: 14px;
-  color: #92400e;
+  color: #000000;
   font-weight: 500;
 }
 

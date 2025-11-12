@@ -512,7 +512,6 @@
 }
 
 .activity-logs-section .pagination-btn:hover:not(:disabled) {
-  background: var(--background-hover);
   border-color: var(--primary-color);
 }
 

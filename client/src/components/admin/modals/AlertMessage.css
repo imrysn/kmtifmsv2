@@ -16,26 +16,26 @@
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 
-.alert-content {
+.alert .alert-content {
   display: flex;
   align-items: center;
   gap: 0.75rem;
   flex: 1;
 }
 
-.alert-icon {
+.alert .alert-icon {
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
 }
 
-.alert-message {
+.alert .alert-message {
   flex: 1;
   line-height: 1.5;
 }
 
-.alert-close {
+.alert .alert-close {
   background: none;
   border: none;
   font-size: 1.5rem;
@@ -52,78 +52,78 @@
 }
 
 /* Success Alert */
-.alert-success {
+.alert.alert-success {
   background-color: #d1fae5;
   color: #065f46;
   border: 1px solid #a7f3d0;
 }
 
-.alert-success .alert-icon {
+.alert.alert-success .alert-icon {
   color: #059669;
 }
 
-.alert-success .alert-close {
+.alert.alert-success .alert-close {
   color: #065f46;
 }
 
-.alert-success .alert-close:hover {
+.alert.alert-success .alert-close:hover {
   background-color: #a7f3d0;
 }
 
 /* Error Alert */
-.alert-error {
+.alert.alert-error {
   background-color: #fee2e2;
   color: #991b1b;
   border: 1px solid #fecaca;
 }
 
-.alert-error .alert-icon {
+.alert.alert-error .alert-icon {
   color: #dc2626;
 }
 
-.alert-error .alert-close {
+.alert.alert-error .alert-close {
   color: #991b1b;
 }
 
-.alert-error .alert-close:hover {
+.alert.alert-error .alert-close:hover {
   background-color: #fecaca;
 }
 
 /* Warning Alert */
-.alert-warning {
+.alert.alert-warning {
   background-color: #fef3c7;
   color: #92400e;
   border: 1px solid #fde68a;
 }
 
-.alert-warning .alert-icon {
+.alert.alert-warning .alert-icon {
   color: #f59e0b;
 }
 
-.alert-warning .alert-close {
+.alert.alert-warning .alert-close {
   color: #92400e;
 }
 
-.alert-warning .alert-close:hover {
+.alert.alert-warning .alert-close:hover {
   background-color: #fde68a;
 }
 
 /* Info Alert */
-.alert-info {
+.alert.alert-info {
   background-color: #dbeafe;
   color: #1e40af;
   border: 1px solid #bfdbfe;
 }
 
-.alert-info .alert-icon {
+.alert.alert-info .alert-icon {
   color: #3b82f6;
 }
 
-.alert-info .alert-close {
+.alert.alert-info .alert-close {
   color: #1e40af;
 }
 
-.alert-info .alert-close:hover {
+.alert.alert-info .alert-close:hover {
   background-color: #bfdbfe;
 }
 

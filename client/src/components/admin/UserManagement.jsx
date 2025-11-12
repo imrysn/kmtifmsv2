@@ -26,13 +26,17 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess, u
     team: ''
   })
 
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1)
+  const itemsPerPage = 9
+
   // Memoized filtered users for better performance
   const filteredUsers = useMemo(() => {
     if (searchQuery.trim() === '') {
       return users
     }
     const query = searchQuery.toLowerCase()
-    return users.filter(u => 
+    return users.filter(u =>
       u.fullName.toLowerCase().includes(query) ||
       u.username.toLowerCase().includes(query) ||
       u.email.toLowerCase().includes(query) ||
@@ -40,6 +44,14 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess, u
       (u.team && u.team.toLowerCase().includes(query))
     )
   }, [searchQuery, users])
+
+  // Pagination calculations
+  const totalPages = Math.ceil(filteredUsers.length / itemsPerPage)
+  const paginatedUsers = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage
+    const endIndex = startIndex + itemsPerPage
+    return filteredUsers.slice(startIndex, endIndex)
+  }, [filteredUsers, currentPage, itemsPerPage])
 
   // Memoized active teams
   const activeTeams = useMemo(() => 
@@ -55,6 +67,7 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess, u
       const data = await response.json()
       if (data.success) {
         setUsers(data.users)
+        setCurrentPage(1) // Reset to first page when users are refetched
       } else {
         setError('Failed to fetch users')
       }
@@ -297,6 +310,20 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess, u
 
   const handleSearchChange = useCallback((e) => {
     setSearchQuery(e.target.value)
+    setCurrentPage(1) // Reset to first page when search changes
+  }, [])
+
+  // Pagination handlers
+  const handlePageChange = useCallback((page) => {
+    setCurrentPage(page)
+  }, [])
+
+  const handlePrevPage = useCallback(() => {
+    setCurrentPage(prev => Math.max(1, prev - 1))
+  }, [])
+
+  const handleNextPage = useCallback(() => {
+    setCurrentPage(prev => Math.min(totalPages, prev + 1))
   }, [])
 
   // Show skeleton loader when network is not available
@@ -370,7 +397,7 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess, u
                 </tr>
               </thead>
               <tbody>
-                {filteredUsers.map((userData) => {
+                {paginatedUsers.map((userData) => {
                   const roleClass = userData.role.toLowerCase().replace(' ', '-')
                   return (
                     <tr key={userData.id} className="user-row">
@@ -386,7 +413,7 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess, u
                       <td>
                         <div className="password-cell">
                           <span className="password-hidden">••••••••</span>
-                          <button 
+                          <button
                             className="password-reset-btn"
                             onClick={() => openPasswordModal(userData)}
                             title="Reset Password"
@@ -407,14 +434,14 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess, u
                       </td>
                       <td>
                         <div className="action-buttons">
-                          <button 
+                          <button
                             className="action-btn edit-btn"
                             onClick={() => openEditModal(userData)}
                             title="Edit User"
                           >
                             Edit
                           </button>
-                          <button 
+                          <button
                             className="action-btn delete-btn"
                             onClick={() => openUserDeleteModal(userData)}
                             title="Delete User"
@@ -435,6 +462,59 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess, u
           <div className="empty-state">
             <h3>No users found</h3>
             <p>No users match your current search criteria.</p>
+          </div>
+        )}
+
+        {/* Pagination Controls */}
+        {!isLoading && totalPages > 1 && (
+          <div className="pagination-container">
+            <div className="pagination-info">
+              Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, filteredUsers.length)} of {filteredUsers.length} users
+            </div>
+            <div className="pagination-controls">
+              <button
+                className="pagination-btn"
+                onClick={handlePrevPage}
+                disabled={currentPage === 1}
+                title="Previous Page"
+              >
+                ‹
+              </button>
+
+              <div className="pagination-numbers">
+                {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                  let pageNum
+                  if (totalPages <= 5) {
+                    pageNum = i + 1
+                  } else if (currentPage <= 3) {
+                    pageNum = i + 1
+                  } else if (currentPage >= totalPages - 2) {
+                    pageNum = totalPages - 4 + i
+                  } else {
+                    pageNum = currentPage - 2 + i
+                  }
+
+                  return (
+                    <button
+                      key={pageNum}
+                      className={`pagination-number ${currentPage === pageNum ? 'active' : ''}`}
+                      onClick={() => handlePageChange(pageNum)}
+                    >
+                      {pageNum}
+                    </button>
+                  )
+                })}
+              </div>
+
+              <button
+                className="pagination-btn"
+                onClick={handleNextPage}
+                disabled={currentPage === totalPages}
+                title="Next Page"
+              >
+                ›
+              </button>
+            </div>
           </div>
         )}
       </div>

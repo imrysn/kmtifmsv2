@@ -864,12 +864,6 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
                   </div>
                 </div>
               </div>
-              
-              {/* Description Section */}
-              <div className="description-section">
-                <h4 className="section-title">Description</h4>
-                <p className="description-text">{selectedFile.description || 'No description provided'}</p>
-              </div>
 
               {/* Actions Section */}
               <div className="actions-section">
