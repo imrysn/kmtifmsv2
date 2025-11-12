@@ -14,6 +14,8 @@ export const SkeletonLoader = ({ type = 'dashboard' }) => {
       return <TableSkeleton />
     case 'card':
       return <CardSkeleton />
+    case 'grid':
+      return <GridSkeleton />
     default:
       return <DashboardSkeleton />
   }
@@ -189,6 +191,42 @@ const CardSkeleton = () => (
     <div className="skeleton-box" style={{ height: '24px', width: '60%', marginBottom: '12px' }} />
     <div className="skeleton-box" style={{ height: '20px', width: '80%', marginBottom: '8px' }} />
     <div className="skeleton-box" style={{ height: '20px', width: '70%' }} />
+  </div>
+)
+
+// Grid Skeleton (for File Management)
+const GridSkeleton = () => (
+  <div style={{ 
+    display: 'grid', 
+    gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', 
+    gap: '1rem', 
+    padding: '1.5rem' 
+  }}>
+    {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map(i => (
+      <div key={i} style={{
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        padding: '1rem',
+        borderRadius: '8px'
+      }}>
+        <div className="skeleton-box" style={{ 
+          height: '48px', 
+          width: '48px', 
+          marginBottom: '0.75rem',
+          borderRadius: '8px'
+        }} />
+        <div className="skeleton-box" style={{ 
+          height: '16px', 
+          width: '100%',
+          marginBottom: '4px'
+        }} />
+        <div className="skeleton-box" style={{ 
+          height: '16px', 
+          width: '80%'
+        }} />
+      </div>
+    ))}
   </div>
 )
 
