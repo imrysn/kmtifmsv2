@@ -21,7 +21,7 @@ const TasksTab = ({ user }) => {
   const [showCommentsModal, setShowCommentsModal] = useState(false);
   const [currentCommentsAssignment, setCurrentCommentsAssignment] = useState(null);
   const [highlightCommentBy, setHighlightCommentBy] = useState(null); // Track who to highlight
-  const [uploadedFile, setUploadedFile] = useState(null);
+  const [uploadedFiles, setUploadedFiles] = useState([]);
   const [fileDescription, setFileDescription] = useState('');
   const [fileTag, setFileTag] = useState(''); // Add tag state
   const [isUploading, setIsUploading] = useState(false);
@@ -98,29 +98,15 @@ const TasksTab = ({ user }) => {
         console.log('Current user ID:', user.id);
         if (data.assignments.length > 0) {
           console.log('First assignment data:', data.assignments[0]);
-          console.log('assigned_member_details:', data.assignments[0].assigned_member_details);
-          console.log('assigned_member_details IDs:', data.assignments[0].assigned_member_details?.map(m => m.id));
-          console.log('assigned_to:', data.assignments[0].assigned_to);
-          // Check if user should see submit button
-          const firstAssignment = data.assignments[0];
-          const canSubmit = firstAssignment.assigned_to === 'all' || 
-            (firstAssignment.assigned_member_details && firstAssignment.assigned_member_details.some(member => member.id === user.id));
-          console.log('Can submit first assignment?', canSubmit);
-          console.log('User status:', firstAssignment.user_status);
-          console.log('Submitted file ID:', firstAssignment.submitted_file_id);
-          // Log submitted assignments to check file data
-          const submittedOnes = data.assignments.filter(a => a.user_status === 'submitted');
-          if (submittedOnes.length > 0) {
-            console.log('🔍 Submitted assignments:', submittedOnes);
-            submittedOnes.forEach(a => {
-              console.log(`Assignment "${a.title}":`, {
-                submitted_file_id: a.submitted_file_id,
-                submitted_file_name: a.submitted_file_name,
-                submitted_file_path: a.submitted_file_path,
-                user_submitted_at: a.user_submitted_at
-              });
-            });
-          }
+          console.log('First assignment submitted_files:', data.assignments[0].submitted_files);
+          // Check each assignment for submitted files
+          data.assignments.forEach(a => {
+            if (a.submitted_files && a.submitted_files.length > 0) {
+              console.log(`📁 Assignment "${a.title}" has ${a.submitted_files.length} submitted file(s):`, a.submitted_files);
+            } else {
+              console.log(`ℹ️ Assignment "${a.title}" has no submitted files`);
+            }
+          });
         }
         setAssignments(data.assignments || []);
         // Fetch comments for each assignment
@@ -402,7 +388,7 @@ const TasksTab = ({ user }) => {
 
   const handleSubmit = (assignment) => {
     setCurrentAssignment(assignment);
-    setUploadedFile(null);
+    setUploadedFiles([]);
     setFileDescription('');
     setFileTag(''); // Reset tag
     if (fileInputRef.current) {
@@ -411,29 +397,53 @@ const TasksTab = ({ user }) => {
     setShowSubmitModal(true);
   };
 
+  const handleRemoveFile = (index) => {
+    setUploadedFiles(prev => prev.filter((_, i) => i !== index));
+  };
+
   const handleFileUpload = async () => {
-    if (!uploadedFile || !currentAssignment) return;
+    if (uploadedFiles.length === 0 || !currentAssignment) return;
 
     setIsUploading(true);
     try {
-      const formData = new FormData();
-      formData.append('file', uploadedFile);
-      formData.append('userId', user.id);
-      formData.append('username', user.username);
-      formData.append('fullName', user.fullName);
-      formData.append('userTeam', user.team);
-      formData.append('description', fileDescription);
-      formData.append('tag', fileTag); // Add tag
+      const uploadedFileIds = [];
+      let uploadErrors = [];
 
-      const uploadResponse = await fetch('http://localhost:3001/api/files/upload', {
-        method: 'POST',
-        body: formData
-      });
+      // Upload each file
+      for (const fileObj of uploadedFiles) {
+        const formData = new FormData();
+        formData.append('file', fileObj.file);
+        formData.append('userId', user.id);
+        formData.append('username', user.username);
+        formData.append('fullName', user.fullName);
+        formData.append('userTeam', user.team);
+        formData.append('description', fileDescription || '');
+        formData.append('tag', fileTag || '');
 
-      const uploadData = await uploadResponse.json();
+        const uploadResponse = await fetch('http://localhost:3001/api/files/upload', {
+          method: 'POST',
+          body: formData
+        });
 
-      if (uploadData.success) {
-        // Now submit the assignment with the newly uploaded file
+        const uploadData = await uploadResponse.json();
+
+        if (uploadData.success) {
+          uploadedFileIds.push(uploadData.file.id);
+          console.log(`✅ Uploaded file: ${fileObj.file.name} with ID: ${uploadData.file.id}`);
+        } else {
+          uploadErrors.push(`${fileObj.file.name}: ${uploadData.message}`);
+          console.error(`❌ Failed to upload ${fileObj.file.name}:`, uploadData.message);
+        }
+      }
+
+      // If no files were uploaded successfully, show error
+      if (uploadedFileIds.length === 0) {
+        throw new Error('No files were uploaded successfully. ' + uploadErrors.join(', '));
+      }
+
+      // Submit ALL uploaded files to the assignment
+      let submissionErrors = [];
+      for (const fileId of uploadedFileIds) {
         const submitResponse = await fetch('http://localhost:3001/api/assignments/submit', {
           method: 'POST',
           headers: {
@@ -442,35 +452,45 @@ const TasksTab = ({ user }) => {
           body: JSON.stringify({
             assignmentId: currentAssignment.id,
             userId: user.id,
-            fileId: uploadData.file.id
+            fileId: fileId
           })
         });
 
         const submitData = await submitResponse.json();
 
         if (submitData.success) {
-          setSuccess('File uploaded and assignment submitted successfully!');
-          setShowSubmitModal(false);
-          setUploadedFile(null);
-          setFileDescription('');
-          setFileTag(''); // Reset tag
-          setCurrentAssignment(null);
-          if (fileInputRef.current) {
-            fileInputRef.current.value = '';
-          }
-          fetchAssignments();
-          fetchUserFiles();
-          
-          setTimeout(() => setSuccess(''), 5000);
+          console.log(`✅ Submitted file ID ${fileId} to assignment ${currentAssignment.id}`);
         } else {
-          setError(submitData.message || 'Failed to submit assignment');
+          submissionErrors.push(`File ID ${fileId}: ${submitData.message}`);
+          console.error(`❌ Failed to submit file ID ${fileId}:`, submitData.message);
         }
-      } else {
-        setError(uploadData.message || 'Failed to upload file');
       }
+
+      // Show success message
+      if (submissionErrors.length === 0) {
+        setSuccess(`${uploadedFileIds.length} file(s) uploaded and submitted successfully!`);
+      } else if (submissionErrors.length < uploadedFileIds.length) {
+        setSuccess(`${uploadedFileIds.length - submissionErrors.length} file(s) submitted successfully. Some files had errors.`);
+      } else {
+        throw new Error('Failed to submit files: ' + submissionErrors.join(', '));
+      }
+
+      setShowSubmitModal(false);
+      setUploadedFiles([]);
+      setFileDescription('');
+      setFileTag('');
+      setCurrentAssignment(null);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+      fetchAssignments();
+      fetchUserFiles();
+      
+      setTimeout(() => setSuccess(''), 5000);
     } catch (error) {
-      console.error('Error uploading file:', error);
-      setError('Failed to upload file');
+      console.error('Error uploading files:', error);
+      setError(error.message || 'Failed to upload files');
+      setTimeout(() => setError(''), 5000);
     } finally {
       setIsUploading(false);
     }
@@ -646,138 +666,137 @@ const TasksTab = ({ user }) => {
                   </div>
                 )}
 
-                {/* Status badge and warning */}
+                {/* Status badge */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
                   {getStatusBadge(assignment)}
-                  {assignment.user_status === 'submitted' && !assignment.submitted_file_id && (
-                    <span style={{
-                      backgroundColor: '#FEF2F2',
-                      color: '#DC2626',
-                      padding: '4px 12px',
-                      borderRadius: '20px',
-                      fontSize: '12px',
-                      fontWeight: '600',
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '4px'
-                    }}>
-                      ⚠️ FILE DELETED
-                    </span>
-                  )}
                 </div>
 
-                {/* Submitted File Display - Only show if file still exists */}
-                {assignment.user_status === 'submitted' && assignment.submitted_file_id && (assignment.submitted_file_name || assignment.submitted_file_id) && (
-                  <div 
-                    onClick={async () => {
-                      try {
-                        // Check if running in Electron
-                        if (window.electron && window.electron.openFileInApp) {
-                          // Get the actual file path from server
-                          const response = await fetch(`http://localhost:3001/api/files/${assignment.submitted_file_id}/path`);
-                          const data = await response.json();
-                          
-                          if (data.success && data.filePath) {
-                            // Open file with system default application
-                            const result = await window.electron.openFileInApp(data.filePath);
-                            
-                            if (!result.success) {
-                              setError(result.error || 'Failed to open file with system application');
-                            }
-                          } else {
-                            throw new Error('Could not get file path');
-                          }
-                        } else {
-                          // In browser - get file path and open in new tab
-                          const response = await fetch(`http://localhost:3001/api/files/${assignment.submitted_file_id}`);
-                          const fileData = await response.json();
-                          
-                          if (fileData.success && fileData.file) {
-                            const fileUrl = `http://localhost:3001${fileData.file.file_path}`;
-                            window.open(fileUrl, '_blank', 'noopener,noreferrer');
-                          } else {
-                            throw new Error('Could not get file information');
-                          }
-                        }
-                      } catch (error) {
-                        console.error('Error opening file:', error);
-                        setError('Failed to open file. Please try again.');
-                      }
-                    }}
-                    style={{
-                      backgroundColor: '#f0f7ff',
-                      border: '1px solid #e3f2fd',
-                      borderRadius: '8px',
-                      padding: '12px',
-                      marginBottom: '16px',
-                      cursor: 'pointer',
-                      transition: 'all 0.2s',
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.backgroundColor = '#e3f2fd';
-                      e.currentTarget.style.borderColor = '#2196F3';
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.backgroundColor = '#f0f7ff';
-                      e.currentTarget.style.borderColor = '#e3f2fd';
-                    }}
-                  >
+                {/* Submitted Files Display - Show all submitted files */}
+                {assignment.submitted_files && assignment.submitted_files.length > 0 && (
+                  <div style={{ marginBottom: '16px' }}>
                     <div style={{ 
                       fontSize: '13px',
                       fontWeight: '600',
                       color: '#1565c0',
-                      marginBottom: '8px'
+                      marginBottom: '12px'
                     }}>
-                      📎 Submit File:
+                      📎 Submitted Files ({assignment.submitted_files.length}):
                     </div>
-                    <div style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '12px',
-                    }}>
-                      <FileIcon 
-                        fileType={(assignment.submitted_file_name || 'file').split('.').pop().toLowerCase()} 
-                        isFolder={false}
-                        size="default"
-                        style={{
-                          width: '40px',
-                          height: '40px',
-                          flexShrink: 0
+                    {assignment.submitted_files.map((file, index) => (
+                      <div 
+                        key={file.id}
+                        onClick={async () => {
+                          try {
+                            // Check if running in Electron
+                            if (window.electron && window.electron.openFileInApp) {
+                              // Get the actual file path from server
+                              const response = await fetch(`http://localhost:3001/api/files/${file.id}/path`);
+                              const data = await response.json();
+                              
+                              if (data.success && data.filePath) {
+                                // Open file with system default application
+                                const result = await window.electron.openFileInApp(data.filePath);
+                                
+                                if (!result.success) {
+                                  setError(result.error || 'Failed to open file with system application');
+                                }
+                              } else {
+                                throw new Error('Could not get file path');
+                              }
+                            } else {
+                              // In browser - get file path and open in new tab
+                              const response = await fetch(`http://localhost:3001/api/files/${file.id}`);
+                              const fileData = await response.json();
+                              
+                              if (fileData.success && fileData.file) {
+                                const fileUrl = `http://localhost:3001${fileData.file.file_path}`;
+                                window.open(fileUrl, '_blank', 'noopener,noreferrer');
+                              } else {
+                                throw new Error('Could not get file information');
+                              }
+                            }
+                          } catch (error) {
+                            console.error('Error opening file:', error);
+                            setError('Failed to open file. Please try again.');
+                          }
                         }}
-                      />
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ 
-                          fontWeight: '500', 
-                          fontSize: '14px', 
-                          color: '#1a1a1a',
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                          whiteSpace: 'nowrap'
+                        style={{
+                          backgroundColor: '#f0f7ff',
+                          border: '1px solid #e3f2fd',
+                          borderRadius: '8px',
+                          padding: '12px',
+                          marginBottom: index < assignment.submitted_files.length - 1 ? '8px' : '0',
+                          cursor: 'pointer',
+                          transition: 'all 0.2s',
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.backgroundColor = '#e3f2fd';
+                          e.currentTarget.style.borderColor = '#2196F3';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.backgroundColor = '#f0f7ff';
+                          e.currentTarget.style.borderColor = '#e3f2fd';
+                        }}
+                      >
+                        <div style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '12px',
                         }}>
-                          {assignment.submitted_file_name || 'Submitted File'}
-                        </div>
-                        <div style={{ fontSize: '12px', color: '#6B7280', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                          <span>Submitted on {assignment.user_submitted_at ? formatDate(assignment.user_submitted_at) : 'N/A'}</span>
-                          {assignment.submitted_file_tag && (
-                            <span style={{
-                              backgroundColor: '#e0f2fe',
-                              color: '#0369a1',
-                              padding: '2px 8px',
-                              borderRadius: '4px',
-                              fontSize: '11px',
-                              fontWeight: '600'
+                          <FileIcon 
+                            fileType={(file.original_name || file.filename || 'file').split('.').pop().toLowerCase()} 
+                            isFolder={false}
+                            size="default"
+                            style={{
+                              width: '40px',
+                              height: '40px',
+                              flexShrink: 0
+                            }}
+                          />
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ 
+                              fontWeight: '500', 
+                              fontSize: '14px', 
+                              color: '#1a1a1a',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              whiteSpace: 'nowrap'
                             }}>
-                              🏷️ {assignment.submitted_file_tag}
-                            </span>
-                          )}
+                              {file.original_name || file.filename}
+                            </div>
+                            <div style={{ fontSize: '12px', color: '#6B7280', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                              <span>Submitted on {file.submitted_at ? formatDate(file.submitted_at) : 'N/A'}</span>
+                              {file.tag && (
+                                <span style={{
+                                  backgroundColor: '#e0f2fe',
+                                  color: '#0369a1',
+                                  padding: '2px 8px',
+                                  borderRadius: '4px',
+                                  fontSize: '11px',
+                                  fontWeight: '600'
+                                }}>
+                                  🏷️ {file.tag}
+                                </span>
+                              )}
+                              {file.description && (
+                                <span style={{
+                                  color: '#6B7280',
+                                  fontSize: '11px',
+                                  fontStyle: 'italic'
+                                }}>
+                                  {file.description}
+                                </span>
+                              )}
+                            </div>
+                          </div>
                         </div>
                       </div>
-                    </div>
+                    ))}
                   </div>
                 )}
 
-                {/* Message when submitted file was deleted */}
-                {assignment.user_status === 'submitted' && !assignment.submitted_file_id && (
+                {/* Message when no files submitted yet but marked as submitted */}
+                {assignment.user_status === 'submitted' && (!assignment.submitted_files || assignment.submitted_files.length === 0) && (
                   <div style={{
                     backgroundColor: '#FEF3C7',
                     border: '1px solid #F59E0B',
@@ -788,21 +807,20 @@ const TasksTab = ({ user }) => {
                     alignItems: 'flex-start',
                     gap: '10px'
                   }}>
-                    <span style={{ fontSize: '20px', flexShrink: 0 }}>⚠️</span>
+                    <span style={{ fontSize: '20px', flexShrink: 0 }}>ℹ️</span>
                     <div style={{ fontSize: '14px', color: '#92400E', lineHeight: '1.5' }}>
-                      <strong>Your submitted file was deleted.</strong>
+                      <strong>No files found.</strong>
                       <br />
-                      Please upload a new file to resubmit this assignment.
+                      Please upload files for this assignment.
                     </div>
                   </div>
                 )}
 
-                {/* Submit button - Show only if user is assigned AND (pending OR file was deleted) */}
+                {/* Submit button - Show for assigned users */}
                 {(assignment.assigned_to === 'all' || 
-                 (assignment.assigned_member_details && assignment.assigned_member_details.some(member => member.id === user.id))) && 
-                 (assignment.user_status !== 'submitted' || (assignment.user_status === 'submitted' && !assignment.submitted_file_id)) && (
+                 (assignment.assigned_member_details && assignment.assigned_member_details.some(member => member.id === user.id))) && (
                   <div style={{ paddingTop: '16px' }}>
-                    {/* Attached Files button */}
+                    {/* Show different button text based on submission status */}
                     <button 
                       onClick={() => handleSubmit(assignment)}
                       style={{
@@ -827,7 +845,7 @@ const TasksTab = ({ user }) => {
                       }}
                     >
                       <span style={{
-                        backgroundColor: '#000000',
+                        backgroundColor: assignment.user_status === 'submitted' && assignment.submitted_file_id ? '#059669' : '#000000',
                         color: '#ffffff',
                         padding: '6px 16px',
                         borderRadius: '4px',
@@ -835,10 +853,14 @@ const TasksTab = ({ user }) => {
                         fontWeight: '500',
                         whiteSpace: 'nowrap'
                       }}>
-                        Submit file
+                        {assignment.user_status === 'submitted' && assignment.submitted_file_id ? 'Add more files' : 'Submit file'}
                       </span>
                       <span style={{ fontSize: '14px', color: '#6b7280' }}>
-                        No file attached
+                        {assignment.user_status === 'submitted' && assignment.submitted_file_id 
+                          ? 'Upload additional files' 
+                          : (assignment.user_status === 'submitted' && !assignment.submitted_file_id 
+                            ? 'File was deleted - resubmit' 
+                            : 'No file attached')}
                       </span>
                     </button>
                   </div>
@@ -1044,111 +1066,239 @@ const TasksTab = ({ user }) => {
       {/* Submit Modal */}
       {showSubmitModal && currentAssignment && (
         <div className="tasks-modal-overlay" onClick={() => setShowSubmitModal(false)}>
-          <div className="tasks-modal" onClick={(e) => e.stopPropagation()}>
-            <div className="tasks-modal-header">
-              <h3>Submit Task</h3>
+          <div className="tasks-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '600px' }}>
+            <div className="tasks-modal-header" style={{ borderBottom: '1px solid #e5e7eb', paddingBottom: '16px' }}>
+              <div>
+                <h3 style={{ fontSize: '20px', fontWeight: '600', color: '#111827', marginBottom: '4px' }}>Submit Task</h3>
+                <p style={{ fontSize: '14px', color: '#6b7280', margin: 0 }}>{currentAssignment.title}</p>
+              </div>
               <button className="tasks-modal-close" onClick={() => setShowSubmitModal(false)}>×</button>
             </div>
 
             <div className="tasks-modal-body">
-              <div className="tasks-assignment-info">
-                <h4 className="tasks-assignment-title">{currentAssignment.title}</h4>
-                {currentAssignment.description && (
-                  <p className="tasks-assignment-description">{currentAssignment.description}</p>
-                )}
-              </div>
 
               {/* Upload file section */}
               <div className="tasks-file-selection">
                   <div className="upload-section">
-                    <label className="upload-label">
-                      Upload a file
-                    </label>
                     <div className="file-upload-wrapper">
                       <input
                         ref={fileInputRef}
                         type="file"
+                        multiple
                         onChange={(e) => {
-                          const file = e.target.files[0];
-                          if (file) {
-                            setUploadedFile(file);
+                          const files = Array.from(e.target.files);
+                          if (files.length > 0) {
+                            const newFiles = files.map(file => ({
+                              file: file
+                            }));
+                            setUploadedFiles(prev => [...prev, ...newFiles]);
                           }
+                          // Clear input so same files can be added again if needed
+                          e.target.value = '';
                         }}
                         className="file-input"
                         id="file-upload-input"
                         disabled={isUploading}
                       />
-                      <label htmlFor="file-upload-input" className="file-upload-label">
-                        <div className="file-upload-content">
-                          <div className="folder-icon">📁</div>
+                      <label htmlFor="file-upload-input" className="file-upload-label" style={{
+                        border: '2px dashed #d1d5db',
+                        borderRadius: '12px',
+                        padding: '32px',
+                        textAlign: 'center',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s',
+                        backgroundColor: '#fafafa'
+                      }}>
+                        <div className="file-upload-content" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>
+                          <div style={{ fontSize: '48px' }}>📁</div>
                           <div className="upload-text">
-                            <p className="upload-main-text">Click to browse or drag and drop</p>
-                            <p className="upload-sub-text">All file types supported • No size limit</p>
+                            <p style={{ fontSize: '15px', fontWeight: '500', color: '#111827', margin: '0 0 4px 0' }}>Click to browse or drag and drop</p>
+                            <p style={{ fontSize: '13px', color: '#6b7280', margin: 0 }}>All file types • No size limit • Multiple files</p>
                           </div>
                         </div>
                       </label>
                     </div>
                   </div>
 
-                  {uploadedFile && (
-                    <div className="uploaded-file-preview">
-                      <FileIcon 
-                        fileType={uploadedFile.name.split('.').pop().toLowerCase()} 
-                        isFolder={false}
-                        size="default"
-                        className="file-icon"
-                      />
-                      <div className="file-details">
-                        <div className="file-name">{uploadedFile.name}</div>
-                        <div className="file-size">{formatFileSize(uploadedFile.size)}</div>
+                  {uploadedFiles.length > 0 && (
+                    <div style={{ marginTop: '24px' }}>
+                      <div style={{ 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        justifyContent: 'space-between',
+                        marginBottom: '12px'
+                      }}>
+                        <label style={{ fontSize: '14px', fontWeight: '600', color: '#111827' }}>
+                          📎 Selected Files ({uploadedFiles.length})
+                        </label>
+                      </div>
+                      {uploadedFiles.map((fileObj, index) => (
+                        <div key={index} style={{
+                          border: '1px solid #e5e7eb',
+                          borderRadius: '10px',
+                          padding: '12px 16px',
+                          marginBottom: '8px',
+                          backgroundColor: '#ffffff',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '12px',
+                          transition: 'all 0.2s'
+                        }}>
+                          <FileIcon 
+                            fileType={fileObj.file.name.split('.').pop().toLowerCase()} 
+                            isFolder={false}
+                            size="default"
+                            style={{ width: '40px', height: '40px', flexShrink: 0 }}
+                          />
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ 
+                              fontWeight: '500', 
+                              fontSize: '14px', 
+                              color: '#1a1a1a',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              whiteSpace: 'nowrap'
+                            }}>
+                              {fileObj.file.name}
+                            </div>
+                            <div style={{ fontSize: '12px', color: '#6B7280' }}>
+                              {formatFileSize(fileObj.file.size)}
+                            </div>
+                          </div>
+                          <button
+                            onClick={() => handleRemoveFile(index)}
+                            style={{
+                              background: 'transparent',
+                              color: '#9ca3af',
+                              border: 'none',
+                              borderRadius: '6px',
+                              padding: '6px',
+                              fontSize: '18px',
+                              cursor: 'pointer',
+                              flexShrink: 0,
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              transition: 'all 0.2s'
+                            }}
+                            onMouseEnter={(e) => {
+                              e.currentTarget.style.backgroundColor = '#fee2e2';
+                              e.currentTarget.style.color = '#dc2626';
+                            }}
+                            onMouseLeave={(e) => {
+                              e.currentTarget.style.backgroundColor = 'transparent';
+                              e.currentTarget.style.color = '#9ca3af';
+                            }}
+                            disabled={isUploading}
+                            title="Remove file"
+                          >
+                            ×
+                          </button>
+                        </div>
+                      ))}
+
+                      {/* Single Tag field for all files */}
+                      <div style={{ marginTop: '24px', marginBottom: '16px', padding: '16px', backgroundColor: '#f9fafb', borderRadius: '10px', border: '1px solid #e5e7eb' }}>
+                        <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', marginBottom: '8px', color: '#111827' }}>
+                          🏷️ Tag
+                        </label>
+                        <SingleSelectTags 
+                          selectedTag={fileTag}
+                          onChange={(newTag) => setFileTag(newTag)}
+                          disabled={isUploading}
+                        />
+
+                        <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', marginBottom: '8px', color: '#111827', marginTop: '16px' }}>
+                          📝 Description (optional)
+                        </label>
+                        <textarea
+                          value={fileDescription}
+                          onChange={(e) => setFileDescription(e.target.value)}
+                          placeholder="Add a brief description..."
+                          rows="2"
+                          disabled={isUploading}
+                          style={{
+                            width: '100%',
+                            padding: '10px 12px',
+                            border: '1px solid #d1d5db',
+                            borderRadius: '8px',
+                            fontSize: '14px',
+                            fontFamily: 'inherit',
+                            resize: 'vertical',
+                            backgroundColor: '#ffffff'
+                          }}
+                        />
                       </div>
                     </div>
                   )}
-
-                  <div className="form-field">
-                    <label className="field-label">Tag</label>
-                    <SingleSelectTags 
-                      selectedTag={fileTag}
-                      onChange={setFileTag}
-                      disabled={isUploading}
-                    />
-                  </div>
-
-                  <div className="form-field">
-                    <label className="field-label">Description (optional)</label>
-                    <textarea
-                      className="file-description-textarea"
-                      value={fileDescription}
-                      onChange={(e) => setFileDescription(e.target.value)}
-                      placeholder="Add a brief description..."
-                      rows="3"
-                      disabled={isUploading}
-                    />
-                  </div>
                 </div>
             </div>
 
-            <div className="tasks-modal-footer">
+            <div className="tasks-modal-footer" style={{ borderTop: '1px solid #e5e7eb', paddingTop: '16px', display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
               <button
-                className="tasks-btn tasks-btn-cancel"
                 onClick={() => {
                   setShowSubmitModal(false);
-                  setUploadedFile(null);
+                  setUploadedFiles([]);
                   setFileDescription('');
-                  setFileTag(''); // Reset tag
+                  setFileTag('');
                   if (fileInputRef.current) {
                     fileInputRef.current.value = '';
                   }
                 }}
+                style={{
+                  padding: '10px 20px',
+                  borderRadius: '8px',
+                  border: '1px solid #d1d5db',
+                  backgroundColor: '#ffffff',
+                  color: '#374151',
+                  fontSize: '14px',
+                  fontWeight: '500',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s'
+                }}
+                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f9fafb'}
+                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#ffffff'}
               >
                 Cancel
               </button>
               <button
-                className="tasks-btn tasks-btn-submit"
                 onClick={handleFileUpload}
-                disabled={!uploadedFile || isUploading}
+                disabled={uploadedFiles.length === 0 || isUploading}
+                style={{
+                  padding: '10px 20px',
+                  borderRadius: '8px',
+                  border: 'none',
+                  backgroundColor: uploadedFiles.length === 0 || isUploading ? '#d1d5db' : '#4f46e5',
+                  color: '#ffffff',
+                  fontSize: '14px',
+                  fontWeight: '500',
+                  cursor: uploadedFiles.length === 0 || isUploading ? 'not-allowed' : 'pointer',
+                  transition: 'all 0.2s',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px'
+                }}
+                onMouseEnter={(e) => {
+                  if (uploadedFiles.length > 0 && !isUploading) {
+                    e.currentTarget.style.backgroundColor = '#4338ca';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (uploadedFiles.length > 0 && !isUploading) {
+                    e.currentTarget.style.backgroundColor = '#4f46e5';
+                  }
+                }}
               >
-                {isUploading ? 'Uploading & Submitting...' : 'Upload & Submit'}
+                {isUploading ? (
+                  <>
+                    <span style={{ display: 'inline-block', animation: 'spin 1s linear infinite' }}>⏳</span>
+                    Uploading...
+                  </>
+                ) : (
+                  <>
+                    ✓ Upload {uploadedFiles.length > 0 ? `${uploadedFiles.length} ` : ''}File{uploadedFiles.length !== 1 ? 's' : ''} & Submit
+                  </>
+                )}
               </button>
             </div>
           </div>

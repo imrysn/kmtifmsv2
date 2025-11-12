@@ -595,7 +595,7 @@ router.post('/create', async (req, res) => {
   }
 });
 
-// Get assignments for a specific user
+// Get assignments for a specific user with all submitted files
 router.get('/user/:userId', async (req, res) => {
   try {
     const { userId } = req.params;
@@ -645,7 +645,7 @@ router.get('/user/:userId', async (req, res) => {
       console.log('First assignment:', assignments[0]);
     }
 
-    // Fetch assigned member details for each assignment
+    // Fetch assigned member details and all submitted files for each assignment
     for (let assignment of assignments) {
       const memberDetails = await query(`
         SELECT u.id, u.username, u.fullName
@@ -655,6 +655,27 @@ router.get('/user/:userId', async (req, res) => {
       `, [assignment.id]);
       
       assignment.assigned_member_details = memberDetails || [];
+
+      // Fetch ALL submitted files for this assignment by this user
+      const submittedFiles = await query(`
+        SELECT 
+          f.id,
+          f.original_name,
+          f.filename,
+          f.file_path,
+          f.file_type,
+          f.file_size,
+          f.tag,
+          f.description,
+          asub.submitted_at
+        FROM assignment_submissions asub
+        JOIN files f ON asub.file_id = f.id
+        WHERE asub.assignment_id = ? AND asub.user_id = ?
+        ORDER BY asub.submitted_at DESC
+      `, [assignment.id, userId]);
+
+      assignment.submitted_files = submittedFiles || [];
+      console.log(`Assignment ${assignment.id} has ${submittedFiles ? submittedFiles.length : 0} submitted file(s)`);
     }
 
     res.json({
@@ -671,7 +692,7 @@ router.get('/user/:userId', async (req, res) => {
   }
 });
 
-// Submit assignment
+// Submit assignment (supports multiple file submissions)
 router.post('/submit', async (req, res) => {
   try {
     const { assignmentId, userId, fileId } = req.body;
@@ -686,7 +707,7 @@ router.post('/submit', async (req, res) => {
 
     // Check if assignment exists and user is assigned
     const assignment = await queryOne(`
-      SELECT a.*, am.user_id as assigned_user, am.file_id as current_file_id
+      SELECT a.*, am.user_id as assigned_user
       FROM assignments a
       LEFT JOIN assignment_members am ON a.id = am.assignment_id AND am.user_id = ?
       WHERE a.id = ?
@@ -707,40 +728,52 @@ router.post('/submit', async (req, res) => {
       });
     }
 
-    // Check if already submitted with a valid file
-    const existingSubmission = await queryOne(
-      'SELECT * FROM assignment_members WHERE assignment_id = ? AND user_id = ? AND status = "submitted" AND file_id IS NOT NULL',
+    // Check if this specific file has already been submitted for this assignment
+    const existingFileSubmission = await queryOne(
+      'SELECT * FROM assignment_submissions WHERE assignment_id = ? AND file_id = ?',
+      [assignmentId, fileId]
+    );
+
+    if (existingFileSubmission) {
+      return res.status(400).json({
+        success: false,
+        message: 'This file has already been submitted for this assignment'
+      });
+    }
+
+    // Add submission to assignment_submissions table
+    await query(
+      'INSERT INTO assignment_submissions (assignment_id, file_id, user_id, submitted_at) VALUES (?, ?, ?, NOW())',
+      [assignmentId, fileId, userId]
+    );
+
+    // Check if user has submitted before
+    const hasSubmittedBefore = await queryOne(
+      'SELECT * FROM assignment_members WHERE assignment_id = ? AND user_id = ?',
       [assignmentId, userId]
     );
 
-    if (existingSubmission) {
-      // Check if the file actually exists
-      const fileExists = await queryOne(
-        'SELECT id FROM files WHERE id = ?',
-        [existingSubmission.file_id]
+    // Update assignment_members to mark as submitted (first submission)
+    if (hasSubmittedBefore && hasSubmittedBefore.status !== 'submitted') {
+      await query(
+        'UPDATE assignment_members SET status = ?, submitted_at = NOW(), file_id = ? WHERE assignment_id = ? AND user_id = ?',
+        ['submitted', fileId, assignmentId, userId]
       );
-
-      if (fileExists) {
-        return res.status(400).json({
-          success: false,
-          message: 'You have already submitted this assignment'
-        });
-      }
-      // If file doesn't exist, allow resubmission by falling through
-      console.log(`\u26a0\ufe0f File ${existingSubmission.file_id} was deleted, allowing resubmission`);
+      console.log(`✅ Assignment ${assignmentId} first submission by user ${userId} with file ${fileId}`);
+    } else if (!hasSubmittedBefore) {
+      // For 'all' assignments, create the assignment_members entry on first submission
+      await query(
+        'INSERT INTO assignment_members (assignment_id, user_id, status, submitted_at, file_id) VALUES (?, ?, ?, NOW(), ?)',
+        [assignmentId, userId, 'submitted', fileId]
+      );
+      console.log(`✅ Assignment ${assignmentId} first submission by user ${userId} (auto-created member entry)`);
+    } else {
+      console.log(`✅ Assignment ${assignmentId} additional file submitted by user ${userId} with file ${fileId}`);
     }
-
-    // Update or create assignment_members with file and set status to submitted
-    await query(
-      'UPDATE assignment_members SET file_id = ?, status = ?, submitted_at = NOW() WHERE assignment_id = ? AND user_id = ?',
-      [fileId, 'submitted', assignmentId, userId]
-    );
-
-    console.log(`\u2705 Assignment ${assignmentId} ${existingSubmission ? 'resubmitted' : 'submitted'} by user ${userId}`);
 
     res.json({
       success: true,
-      message: `Assignment ${existingSubmission ? 'resubmitted' : 'submitted'} successfully`
+      message: 'File submitted successfully'
     });
 
   } catch (error) {
