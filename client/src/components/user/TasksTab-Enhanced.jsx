@@ -1068,16 +1068,42 @@ const TasksTab = ({ user }) => {
         <div className="tasks-modal-overlay" onClick={() => setShowSubmitModal(false)}>
           <div className="tasks-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '600px' }}>
             <div className="tasks-modal-header" style={{ borderBottom: '1px solid #e5e7eb', paddingBottom: '16px' }}>
-              <div>
-                <h3 style={{ fontSize: '20px', fontWeight: '600', color: '#111827', marginBottom: '4px' }}>Submit Task</h3>
-                <p style={{ fontSize: '14px', color: '#6b7280', margin: 0 }}>{currentAssignment.title}</p>
+              <div style={{ flex: 1, marginRight: '40px' }}>
+                <h3 style={{ fontSize: '20px', fontWeight: '600', color: '#111827', marginBottom: '12px' }}>Submit Task</h3>
+                <div style={{
+                  marginTop: '8px',
+                  backgroundColor: '#f3f4f6',
+                  border: '1px solid #d1d5db',
+                  borderLeft: '4px solid #6b7280',
+                  borderRadius: '8px',
+                  padding: '12px 16px'
+                }}>
+                  <h4 style={{
+                    fontSize: '15px',
+                    fontWeight: '600',
+                    color: '#374151',
+                    marginBottom: '4px',
+                    margin: 0
+                  }}>
+                    {currentAssignment.title}
+                  </h4>
+                  {currentAssignment.description && (
+                    <p style={{
+                      fontSize: '13px',
+                      color: '#6b7280',
+                      marginTop: '6px',
+                      marginBottom: 0,
+                      lineHeight: '1.5'
+                    }}>
+                      {currentAssignment.description}
+                    </p>
+                  )}
+                </div>
               </div>
               <button className="tasks-modal-close" onClick={() => setShowSubmitModal(false)}>×</button>
             </div>
 
             <div className="tasks-modal-body">
-
-              {/* Upload file section */}
               <div className="tasks-file-selection">
                   <div className="upload-section">
                     <div className="file-upload-wrapper">
