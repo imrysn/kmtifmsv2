@@ -2,6 +2,7 @@ const express = require('express');
 const { db, dbPath, networkDataPath, USE_MYSQL, closeDatabase } = require('./config/database');
 const { setupMiddleware } = require('./config/middleware');
 const { initializeDatabase, verifyUploadsDirectory } = require('./db/initialize');
+const runMigrations = require('./migrations/runMigrations');
 
 // Import routes
 const authRoutes = require('./routes/auth');
@@ -50,6 +51,9 @@ async function startServer() {
   try {
     await verifyUploadsDirectory();
     await initializeDatabase();
+    
+    // Run database migrations
+    await runMigrations();
     
     app.listen(PORT, () => {
       console.log('\n' + '='.repeat(70));
