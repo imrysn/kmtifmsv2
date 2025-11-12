@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import './css/TasksTab-Enhanced.css';
 import FileIcon from '../admin/FileIcon';
 import SingleSelectTags from './SingleSelectTags';
+import { LoadingTable, LoadingCards } from '../common/InlineSkeletonLoader';
 
 const TasksTab = ({ user }) => {
   const [assignments, setAssignments] = useState([]);
@@ -551,9 +552,11 @@ const TasksTab = ({ user }) => {
 
       {/* Content */}
       {isLoading ? (
-        <div className="tasks-loading">
-          <div className="tasks-spinner"></div>
-          <p>Loading assignments...</p>
+        <div style={{ padding: '0 20px', maxWidth: '1400px', margin: '0 auto' }}>
+          <LoadingCards count={3} />
+          <div style={{ marginTop: '24px' }}>
+            <LoadingTable rows={5} columns={4} />
+          </div>
         </div>
       ) : assignments.length > 0 ? (
         <div style={{ maxWidth: '1400px', margin: '0 auto', padding: '0 20px' }}>

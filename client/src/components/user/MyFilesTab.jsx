@@ -4,6 +4,7 @@ import SingleSelectTags from './SingleSelectTags';
 import ConfirmationModal from '../admin/modals/ConfirmationModal';
 import SuccessModal from './SuccessModal';
 import FileIcon from '../admin/FileIcon';
+import { LoadingTable, LoadingCards } from '../common/InlineSkeletonLoader';
 
 const MyFilesTab = ({ 
   filteredFiles,
@@ -379,9 +380,11 @@ const MyFilesTab = ({
       {/* Files Table */}
       <div className="files-table-wrapper">
         {isLoading ? (
-          <div className="loading-state">
-            <div className="spinner"></div>
-            <p>Loading your files...</p>
+          <div>
+            <LoadingCards count={3} />
+            <div style={{ marginTop: '24px' }}>
+              <LoadingTable rows={8} columns={5} />
+            </div>
           </div>
         ) : submittedFiles.length > 0 ? (
           <div className="files-list">
