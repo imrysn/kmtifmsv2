@@ -503,9 +503,8 @@
    ============================================ */
 
 .comments-section {
-  border-top: 1px solid #e4e6eb;
-  background: #f7f8fa;
-  padding: 16px 20px;
+  background: #ffffff;
+  padding: 20px;
 }
 
 .comments-list {
@@ -786,7 +785,6 @@
 
 .tasks-modal-header {
   padding: 20px 24px;
-  border-bottom: 1px solid #e4e6eb;
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -825,12 +823,23 @@
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: 20px;
+}
+
+/* Hide scrollbar but keep functionality */
+.tasks-modal-body::-webkit-scrollbar {
+  width: 0;
+  background: transparent;
+}
+
+.tasks-modal-body {
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE and Edge */
 }
 
 .tasks-assignment-info {
-  padding: 16px;
-  background: #f0f7ff;
+  padding: 16px 20px;
+  background: #f8f9fa;
   border-left: 4px solid #1877f2;
   border-radius: 8px;
 }
@@ -852,7 +861,7 @@
 .tasks-file-selection {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 20px;
 }
 
 .tasks-selection-title {
@@ -860,6 +869,127 @@
   font-weight: 600;
   color: #1a1a1a;
   margin: 0;
+}
+
+/* Upload Section Styles */
+.upload-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.upload-label {
+  font-size: 15px;
+  font-weight: 600;
+  color: #1a1a1a;
+  margin: 0;
+}
+
+.file-upload-wrapper {
+  position: relative;
+}
+
+.file-input {
+  position: absolute;
+  width: 0.1px;
+  height: 0.1px;
+  opacity: 0;
+  overflow: hidden;
+  z-index: -1;
+}
+
+.file-upload-label {
+  display: block;
+  cursor: pointer;
+  border: 2px dashed #d1d5db;
+  border-radius: 12px;
+  padding: 32px 20px;
+  background: #f9fafb;
+  transition: all 0.3s ease;
+}
+
+.file-upload-label:hover {
+  border-color: #1877f2;
+  background: #f0f7ff;
+}
+
+.file-upload-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.folder-icon {
+  font-size: 48px;
+  opacity: 0.7;
+}
+
+.upload-text {
+  text-align: center;
+}
+
+.upload-main-text {
+  font-size: 15px;
+  font-weight: 600;
+  color: #1a1a1a;
+  margin: 0 0 4px 0;
+}
+
+.upload-sub-text {
+  font-size: 13px;
+  color: #6b7280;
+  margin: 0;
+}
+
+/* Uploaded File Preview */
+.uploaded-file-preview {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  background: #f0f7ff;
+  border: 1px solid #bfdbfe;
+  border-radius: 10px;
+}
+
+.uploaded-file-preview .file-icon {
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+}
+
+.uploaded-file-preview .file-details {
+  flex: 1;
+  min-width: 0;
+}
+
+.uploaded-file-preview .file-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: #1a1a1a;
+  margin-bottom: 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.uploaded-file-preview .file-size {
+  font-size: 13px;
+  color: #6b7280;
+}
+
+/* Form Field Styles */
+.form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.field-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: #1a1a1a;
 }
 
 .tasks-file-list {
@@ -997,37 +1127,34 @@
 
 /* File Description Textarea */
 .file-description-textarea {
-  width: 100% !important;
-  padding: 10px !important;
-  border: 1px solid #d1d5db !important;
-  border-radius: 6px !important;
-  font-size: 14px !important;
-  resize: vertical !important;
-  color: #ffffff !important;
-  background-color: #1f2937 !important;
+  width: 100%;
+  padding: 12px 14px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  font-size: 14px;
+  font-family: inherit;
+  line-height: 1.5;
+  resize: vertical;
+  min-height: 80px;
+  color: #1a1a1a;
+  background-color: #ffffff;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.file-description-textarea:focus {
+  outline: none;
+  border-color: #1877f2;
+  box-shadow: 0 0 0 3px rgba(24, 119, 242, 0.1);
 }
 
 .file-description-textarea::placeholder {
-  color: #9ca3af !important;
-  opacity: 1 !important;
+  color: #9ca3af;
 }
 
-.file-description-textarea::-webkit-input-placeholder {
-  color: #9ca3af !important;
-}
-
-.file-description-textarea::-moz-placeholder {
-  color: #9ca3af !important;
-  opacity: 1 !important;
-}
-
-.file-description-textarea:-ms-input-placeholder {
-  color: #9ca3af !important;
-}
-
-.file-description-textarea:-moz-placeholder {
-  color: #9ca3af !important;
-  opacity: 1 !important;
+.file-description-textarea:disabled {
+  background-color: #f3f4f6;
+  cursor: not-allowed;
+  opacity: 0.6;
 }
 
 /* ============================================

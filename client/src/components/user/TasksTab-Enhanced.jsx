@@ -789,7 +789,7 @@ const TasksTab = ({ user }) => {
                 {(assignment.assigned_to === 'all' || 
                  (assignment.assigned_member_details && assignment.assigned_member_details.some(member => member.id === user.id))) && 
                  (assignment.user_status !== 'submitted' || (assignment.user_status === 'submitted' && !assignment.submitted_file_id)) && (
-                  <div style={{ paddingTop: '16px', borderTop: '1px solid #E5E7EB' }}>
+                  <div style={{ paddingTop: '16px' }}>
                     {/* Attached Files button */}
                     <button 
                       onClick={() => handleSubmit(assignment)}
@@ -992,7 +992,7 @@ const TasksTab = ({ user }) => {
                 )}
 
                 {/* Add Comment */}
-                <div className="add-comment" style={{ marginTop: '20px', borderTop: '1px solid #E5E7EB', paddingTop: '20px' }}>
+                <div className="add-comment" style={{ marginTop: '20px' }}>
                   <div className="comment-avatar">
                     {getInitials(user.username || user.fullName)}
                   </div>
@@ -1048,72 +1048,53 @@ const TasksTab = ({ user }) => {
 
               {/* Upload file section */}
               <div className="tasks-file-selection">
-                  <h4 className="tasks-selection-title">Upload a new file:</h4>
-                  <div style={{ marginBottom: '16px' }}>
-                    <label style={{ display: 'block', marginBottom: '8px', fontWeight: '600', fontSize: '14px', color: '#101828' }}>
-                      Select File:
+                  <div className="upload-section">
+                    <label className="upload-label">
+                      Upload a file
                     </label>
-                    <input
-                      ref={fileInputRef}
-                      type="file"
-                      onChange={(e) => {
-                        const file = e.target.files[0];
-                        if (file) {
-                          setUploadedFile(file);
-                        }
-                      }}
-                      style={{
-                        width: '100%',
-                        padding: '12px',
-                        border: '2px dashed #d1d5db',
-                        borderRadius: '8px',
-                        cursor: 'pointer',
-                        fontSize: '14px',
-                        backgroundColor: '#f9fafb'
-                      }}
-                      disabled={isUploading}
-                    />
-                    <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '8px' }}>
-                      <p style={{ margin: '4px 0' }}>All file types are supported</p>
-                      <p style={{ margin: '4px 0' }}>No file size limit</p>
+                    <div className="file-upload-wrapper">
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        onChange={(e) => {
+                          const file = e.target.files[0];
+                          if (file) {
+                            setUploadedFile(file);
+                          }
+                        }}
+                        className="file-input"
+                        id="file-upload-input"
+                        disabled={isUploading}
+                      />
+                      <label htmlFor="file-upload-input" className="file-upload-label">
+                        <div className="file-upload-content">
+                          <div className="folder-icon">📁</div>
+                          <div className="upload-text">
+                            <p className="upload-main-text">Click to browse or drag and drop</p>
+                            <p className="upload-sub-text">All file types supported • No size limit</p>
+                          </div>
+                        </div>
+                      </label>
                     </div>
                   </div>
 
                   {uploadedFile && (
-                    <div style={{
-                      padding: '12px',
-                      background: '#f9fafb',
-                      borderRadius: '8px',
-                      marginBottom: '16px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '12px'
-                    }}>
+                    <div className="uploaded-file-preview">
                       <FileIcon 
                         fileType={uploadedFile.name.split('.').pop().toLowerCase()} 
                         isFolder={false}
                         size="default"
-                        style={{
-                          width: '40px',
-                          height: '40px',
-                          flexShrink: 0
-                        }}
+                        className="file-icon"
                       />
-                      <div style={{ flex: 1 }}>
-                        <div style={{ fontWeight: '600', fontSize: '14px', color: '#101828' }}>
-                          {uploadedFile.name}
-                        </div>
-                        <div style={{ fontSize: '12px', color: '#6B7280' }}>
-                          {formatFileSize(uploadedFile.size)}
-                        </div>
+                      <div className="file-details">
+                        <div className="file-name">{uploadedFile.name}</div>
+                        <div className="file-size">{formatFileSize(uploadedFile.size)}</div>
                       </div>
                     </div>
                   )}
 
-                  <div style={{ marginBottom: '16px' }}>
-                    <label style={{ display: 'block', marginBottom: '8px', fontWeight: '600', fontSize: '14px', color: '#101828' }}>
-                      Tag:
-                    </label>
+                  <div className="form-field">
+                    <label className="field-label">Tag</label>
                     <SingleSelectTags 
                       selectedTag={fileTag}
                       onChange={setFileTag}
@@ -1121,15 +1102,13 @@ const TasksTab = ({ user }) => {
                     />
                   </div>
 
-                  <div>
-                    <label style={{ display: 'block', marginBottom: '8px', fontWeight: '600', fontSize: '14px', color: '#101828' }}>
-                      Description (optional):
-                    </label>
+                  <div className="form-field">
+                    <label className="field-label">Description (optional)</label>
                     <textarea
                       className="file-description-textarea"
                       value={fileDescription}
                       onChange={(e) => setFileDescription(e.target.value)}
-                      placeholder="Provide a brief description of this file..."
+                      placeholder="Add a brief description..."
                       rows="3"
                       disabled={isUploading}
                     />

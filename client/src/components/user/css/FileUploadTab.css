@@ -62,29 +62,42 @@
   color: #1D1D1F;
 }
 
-.user-file-upload-component .file-input-container {
+.user-file-upload-component .file-input-wrapper {
   display: flex;
-  flex-direction: column;
+  align-items: center;
   gap: var(--spacing-sm);
 }
 
-.user-file-upload-component .file-input {
-  padding: var(--spacing-md);
-  border: 2px dashed var(--macos-gray3);
-  border-radius: var(--radius-md);
-  background: rgba(255, 255, 255, 0.5);
-  cursor: pointer;
-  transition: all 0.2s ease;
+.user-file-upload-component .file-input-hidden {
+  display: none;
 }
 
-.user-file-upload-component .file-input:hover {
-  border-color: var(--user-accent);
+.user-file-upload-component .file-input-button {
+  padding: 8px 16px;
   background: rgba(255, 255, 255, 0.7);
+  border: 1px solid rgba(0, 0, 0, 0.2);
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  color: #1D1D1F;
+  transition: all 0.2s ease;
+  white-space: nowrap;
 }
 
-.user-file-upload-component .file-input-info {
-  color: var(--macos-gray);
-  font-size: 12px;
+.user-file-upload-component .file-input-button:hover {
+  background: rgba(255, 255, 255, 0.9);
+  border-color: rgba(0, 0, 0, 0.3);
+}
+
+.user-file-upload-component .file-input-label {
+  color: #1D1D1F;
+  font-size: 13px;
+  opacity: 0.7;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .user-file-upload-component .form-textarea {
