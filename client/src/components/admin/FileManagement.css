@@ -88,6 +88,7 @@
 }
 
 .file-management-section .file-search {
+  background: var(--background-secondary);
   position: relative;
   min-width: 250px;
 }
