@@ -623,11 +623,16 @@ router.get('/user/:userId', async (req, res) => {
         fs.original_name as submitted_file_name,
         fs.file_path as submitted_file_path,
         fs.id as submitted_file_id,
+        fs.tag as submitted_file_tag,
+        tl.fullName as team_leader_fullname,
+        tl.username as team_leader_username,
+        tl.role as team_leader_role,
         ? as assigned_user_fullname,
         ? as assigned_user_username
       FROM assignments a
       LEFT JOIN assignment_members am ON a.id = am.assignment_id AND am.user_id = ?
       LEFT JOIN files fs ON am.file_id = fs.id
+      LEFT JOIN users tl ON a.team_leader_id = tl.id
       WHERE
         (a.assigned_to = 'all' AND a.team = ?)
         OR
