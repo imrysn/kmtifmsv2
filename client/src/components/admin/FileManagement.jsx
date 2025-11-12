@@ -3,6 +3,7 @@ import FileIcon from './FileIcon'
 import { SkeletonLoader } from '../common/SkeletonLoader'
 import './FileManagement.css'
 import { AlertMessage } from './modals'
+import { FastSearchEngine } from '../../services/FastSearchEngine'
 
 const API_BASE = process.env.NODE_ENV === 'development'
   ? 'http://localhost:3001'
@@ -16,19 +17,37 @@ const FileManagement = ({ clearMessages, error, success, setError, setSuccess })
   const [isSearching, setIsSearching] = useState(false)
   const [selectedItem, setSelectedItem] = useState(null)
   const [isLoading, setIsLoading] = useState(false)
-  const [isComponentLoading, setIsComponentLoading] = useState(false);
+  const [isComponentLoading, setIsComponentLoading] = useState(false)
   const [networkInfo, setNetworkInfo] = useState(null)
   const [networkAvailable, setNetworkAvailable] = useState(true)
+  
+  // NEW: Search engine and performance tracking
+  const [searchEngine] = useState(() => new FastSearchEngine(API_BASE))
+  const [searchPerformance, setSearchPerformance] = useState(null)
+  const [engineStats, setEngineStats] = useState(null)
 
   const clickTimerRef = useRef(null)
   const lastClickedItemRef = useRef(null)
-  const CLICK_DELAY = 300 
+  const CLICK_DELAY = 300
+  const searchDebounceRef = useRef(null)
+
+  // Initialize search engine
+  useEffect(() => {
+    searchEngine.initialize()
+    
+    // Update stats periodically
+    const statsInterval = setInterval(() => {
+      setEngineStats(searchEngine.getStats())
+    }, 5000)
+    
+    return () => clearInterval(statsInterval)
+  }, [searchEngine])
 
   useEffect(() => {
     if (error || success) {
       const timer = setTimeout(() => {
         clearMessages() 
-      }, 3000);
+      }, 3000)
       return () => clearTimeout(timer) 
     }
   }, [error, success, clearMessages])
@@ -45,7 +64,7 @@ const FileManagement = ({ clearMessages, error, success, setError, setSuccess })
     }
 
     checkNetwork()
-    const interval = setInterval(checkNetwork, 30000) // Check every 30 seconds
+    const interval = setInterval(checkNetwork, 30000)
     return () => clearInterval(interval)
   }, [])
 
@@ -59,16 +78,30 @@ const FileManagement = ({ clearMessages, error, success, setError, setSuccess })
     }
   }, [currentPath, networkAvailable])
 
+  // NEW: Enhanced search with debouncing
   useEffect(() => {
+    if (searchDebounceRef.current) {
+      clearTimeout(searchDebounceRef.current)
+    }
+
     if (fileManagementSearch.trim() === '') {
       setFilteredItems(fileSystemItems)
       setIsSearching(false)
+      setSearchPerformance(null)
     } else {
-      performGlobalSearch(fileManagementSearch)
+      setIsSearching(true)
+      searchDebounceRef.current = setTimeout(() => {
+        handleFastSearch(fileManagementSearch)
+      }, 900) // Debounce search by 300ms
+    }
+
+    return () => {
+      if (searchDebounceRef.current) {
+        clearTimeout(searchDebounceRef.current)
+      }
     }
   }, [fileManagementSearch])
 
- 
   useEffect(() => {
     if (fileManagementSearch.trim() === '') {
       setFilteredItems(fileSystemItems)
@@ -92,7 +125,6 @@ const FileManagement = ({ clearMessages, error, success, setError, setSuccess })
         setNetworkAvailable(false)
       }
 
-      // Also check file system info
       const infoResponse = await fetch(`${API_BASE}/api/file-system/info`)
       const data = await infoResponse.json()
       setNetworkInfo(data)
@@ -107,17 +139,18 @@ const FileManagement = ({ clearMessages, error, success, setError, setSuccess })
     }
   }
 
+  // NEW: Enhanced fetch using search engine's cached listing
   const fetchFileSystemItems = async () => {
     setIsLoading(true)
     clearMessages()
     try {
-      const response = await fetch(`${API_BASE}/api/file-system/browse?path=${encodeURIComponent(currentPath)}`)
-      const data = await response.json()
-      if (data.success) {
-        setFileSystemItems(data.items)
-        setFilteredItems(data.items)
+      const result = await searchEngine.listDirectory(currentPath)
+      
+      if (result.success) {
+        setFileSystemItems(result.items)
+        setFilteredItems(result.items)
       } else {
-        throw new Error(data.message || 'Failed to load directory')
+        throw new Error('Failed to load directory')
       }
     } catch (error) {
       console.error('Error fetching file system items:', error)
@@ -129,43 +162,56 @@ const FileManagement = ({ clearMessages, error, success, setError, setSuccess })
     }
   }
 
-  const performGlobalSearch = async (searchQuery) => {
+  // NEW: Ultra-fast search using the search engine
+  const handleFastSearch = async (query) => {
+    if (!query || query.trim() === '') {
+      setFilteredItems(fileSystemItems)
+      setIsSearching(false)
+      return
+    }
+
     setIsSearching(true)
     clearMessages()
+    
     try {
-      const url = `${API_BASE}/api/file-system/search?query=${encodeURIComponent(searchQuery)}&path=${encodeURIComponent(currentPath)}`
-      console.log('Search URL:', url)
-
-      const response = await fetch(url)
-
-      // Check if response is JSON
-      const contentType = response.headers.get('content-type')
-      if (!contentType || !contentType.includes('application/json')) {
-        console.warn('Search endpoint not available, falling back to local search')
-        // Fallback to local filtering
-        const filtered = fileSystemItems.filter(item =>
-          item.displayName.toLowerCase().includes(searchQuery.toLowerCase())
-        )
-        setFilteredItems(filtered)
-        setIsSearching(false)
-        return
-      }
-
-      const data = await response.json()
-      if (data.success) {
-        setFilteredItems(data.results)
-      } else {
-        throw new Error(data.message || 'Search failed')
+      const startTime = performance.now()
+      
+      const results = await searchEngine.searchFiles(query, {
+        directory: currentPath,
+        recursive: true,
+        checkPermissions: true,
+        limit: 500 // Limit results for performance
+      })
+      
+      const searchTime = performance.now() - startTime
+      
+      setSearchPerformance({
+        time: searchTime,
+        indexed: results.indexed,
+        cached: results.cached,
+        resultCount: results.files.length,
+        query: query
+      })
+      
+      setFilteredItems(results.files)
+      
+      // Show performance message if search was very fast
+      if (searchTime < 100 && results.files.length > 0) {
+        setSuccess(`⚡ Found ${results.files.length} results in ${searchTime.toFixed(0)}ms ${results.cached ? '(cached)' : results.indexed ? '(indexed)' : ''}`)
       }
     } catch (error) {
-      console.error('Error performing global search:', error)
-      console.log('Falling back to local search')
-
-      // Fallback to local filtering instead of showing error
-      const filtered = fileSystemItems.filter(item =>
-        item.displayName.toLowerCase().includes(searchQuery.toLowerCase())
-      )
-      setFilteredItems(filtered)
+      console.error('Search error:', error)
+      
+      if (error.message.includes('permission denied') || error.message.includes('access denied')) {
+        setError(`Access denied: ${error.message}`)
+      } else {
+        // Fallback to local search
+        console.log('Falling back to local search')
+        const filtered = fileSystemItems.filter(item =>
+          item.displayName.toLowerCase().includes(query.toLowerCase())
+        )
+        setFilteredItems(filtered)
+      }
     } finally {
       setIsSearching(false)
     }
@@ -175,25 +221,21 @@ const FileManagement = ({ clearMessages, error, success, setError, setSuccess })
     setCurrentPath(newPath)
     setFileManagementSearch('')
     setSelectedItem(null)
+    setSearchPerformance(null)
   }
 
   const handleItemClick = (item) => {
-    // Clear any existing timer
     if (clickTimerRef.current) {
       clearTimeout(clickTimerRef.current)
     }
 
-    // Check if this is the second click on the same item
     if (lastClickedItemRef.current === item.id) {
-      // Second click - open the item
       lastClickedItemRef.current = null
       handleItemOpen(item)
     } else {
-      // First click - select the item
       lastClickedItemRef.current = item.id
       handleItemSelect(item)
 
-      // Reset after delay
       clickTimerRef.current = setTimeout(() => {
         lastClickedItemRef.current = null
       }, CLICK_DELAY)
@@ -201,9 +243,8 @@ const FileManagement = ({ clearMessages, error, success, setError, setSuccess })
   }
 
   const handleItemSelect = (item) => {
-    // Set single selection
     if (selectedItem === item.id) {
-      setSelectedItem(null) // Deselect if clicking the same item
+      setSelectedItem(null)
     } else {
       setSelectedItem(item.id)
     }
@@ -211,68 +252,62 @@ const FileManagement = ({ clearMessages, error, success, setError, setSuccess })
 
   const handleItemOpen = async (item) => {
     if (item.type === 'folder') {
-      // Open folder
       navigateToPath(item.path)
     } else {
-      // Open file - prioritize desktop app, fallback to browser
-      setIsComponentLoading(true);
+      setIsComponentLoading(true)
       setSuccess(`Opening ${item.displayName}...`)
 
       try {
-        // Small delay for UI feedback
-        await new Promise(resolve => setTimeout(resolve, 300));
+        await new Promise(resolve => setTimeout(resolve, 300))
 
-        // Check if running in Electron
-        const isElectron = window.electron && window.electron.openFileInApp;
+        const isElectron = window.electron && window.electron.openFileInApp
         
         if (isElectron) {
-          console.log('💻 Running in Electron - using Windows default application');
+          console.log('💻 Running in Electron - using Windows default application')
           
-          // Get full file path from server
           const pathResponse = await fetch(
             `${API_BASE}/api/file-system/filepath?path=${encodeURIComponent(item.path)}`
-          );
-          const pathData = await pathResponse.json();
+          )
+          const pathData = await pathResponse.json()
           
           if (!pathData.success) {
-            throw new Error(pathData.message || 'Failed to get file path');
+            throw new Error(pathData.message || 'Failed to get file path')
           }
           
-          console.log('📂 Full path:', pathData.fullPath);
-          console.log('📄 File type:', pathData.fileType);
+          console.log('📂 Full path:', pathData.fullPath)
+          console.log('📄 File type:', pathData.fileType)
           
-          const result = await window.electron.openFileInApp(pathData.fullPath);
+          const result = await window.electron.openFileInApp(pathData.fullPath)
           
           if (result.success) {
-            console.log('✅ Opened with Windows default application');
-            setSuccess(`Opened ${item.displayName}`);
+            console.log('✅ Opened with Windows default application')
+            setSuccess(`Opened ${item.displayName}`)
           } else {
-            throw new Error(result.error || 'Failed to open file');
+            throw new Error(result.error || 'Failed to open file')
           }
         } else {
-          console.log('🌐 Running in browser - opening in new tab');
+          console.log('🌐 Running in browser - opening in new tab')
           
-          // Fallback to browser viewing
-          const fileUrl = `${API_BASE}/api/file-system/file?path=${encodeURIComponent(item.path)}`;
-          const newWindow = window.open(fileUrl, '_blank');
+          const fileUrl = `${API_BASE}/api/file-system/file?path=${encodeURIComponent(item.path)}`
+          const newWindow = window.open(fileUrl, '_blank')
           
           if (!newWindow) {
-            throw new Error('Pop-up blocked. Please allow pop-ups for this site.');
+            throw new Error('Pop-up blocked. Please allow pop-ups for this site.')
           }
           
-          newWindow.focus();
-          console.log('✅ Opened in browser tab');
-          setSuccess(`Opened ${item.displayName} in browser`);
+          newWindow.focus()
+          console.log('✅ Opened in browser tab')
+          setSuccess(`Opened ${item.displayName} in browser`)
         }
 
       } catch (error) {
-        console.error('❌ Error opening file:', error);
-        setError(`Error opening file: ${error.message || 'Failed to open file'}`);
+        console.error('❌ Error opening file:', error)
+        setError(`Error opening file: ${error.message || 'Failed to open file'}`)
       } finally {
-        setIsComponentLoading(false);
+        setIsComponentLoading(false)
       }
     }
-  };
+  }
 
   const getBreadcrumbs = () => {
     if (currentPath === '/') return [{ name: 'PROJECTS', path: '/' }]
@@ -290,21 +325,20 @@ const FileManagement = ({ clearMessages, error, success, setError, setSuccess })
     return breadcrumbs
   }
 
-  // Show skeleton loader when network is not available
   if (!networkAvailable) {
     return <SkeletonLoader type="table" />
   }
 
   return (
     <div className={`file-management-section ${isComponentLoading ? 'file-opening-cursor' : ''}`}>
-        {networkInfo && (
-          <div className={`network-status ${networkInfo.accessible ? 'accessible' : 'not-accessible'}`}>
-            <span className="status-text">
-              {networkInfo.accessible ? 'Network directory accessible' : 'Network directory not accessible'}
-            </span>
-            <span className="network-path">{networkInfo.path || '\\\\KMTI-NAS\\Shared\\Public\\PROJECTS'}</span>
-          </div>
-        )}
+      {networkInfo && (
+        <div className={`network-status ${networkInfo.accessible ? 'accessible' : 'not-accessible'}`}>
+          <span className="status-text">
+            {networkInfo.accessible ? 'Network directory accessible' : 'Network directory not accessible'}
+          </span>
+          <span className="network-path">{networkInfo.path || '\\\\KMTI-NAS\\Shared\\Public\\PROJECTS'}</span>
+        </div>
+      )}
 
       <div className="file-nav-controls">
         <div className="breadcrumb-container">
@@ -329,7 +363,7 @@ const FileManagement = ({ clearMessages, error, success, setError, setSuccess })
           <div className="file-search">
             <input
               type="text"
-              placeholder="Search files and folders..."
+              placeholder="⚡ Ultra-fast search..."
               value={fileManagementSearch}
               onChange={(e) => setFileManagementSearch(e.target.value)}
               className="search-input"
@@ -346,6 +380,26 @@ const FileManagement = ({ clearMessages, error, success, setError, setSuccess })
           </div>
         </div>
       </div>
+
+      {/* NEW: Search performance indicator */}
+      {searchPerformance && (
+        <div className="search-performance-bar">
+          <span className="perf-badge">
+            ⚡ {searchPerformance.time.toFixed(0)}ms
+          </span>
+          <span className="perf-badge">
+            {searchPerformance.cached ? '💾 Cached' : searchPerformance.indexed ? '📇 Indexed' : '🌐 API'}
+          </span>
+          <span className="perf-badge">
+            📊 {searchPerformance.resultCount} results
+          </span>
+          {engineStats && (
+            <span className="perf-badge" title="Cache statistics">
+              💿 {engineStats.cache.cacheSize} dirs cached ({engineStats.cache.hitRate} hit rate)
+            </span>
+          )}
+        </div>
+      )}
 
       {/* Messages */}
       {error && (
@@ -369,7 +423,6 @@ const FileManagement = ({ clearMessages, error, success, setError, setSuccess })
           <SkeletonLoader type="grid" />
         ) : (
           <>
-            {/* Show component loading overlay when opening a file */}
             {isComponentLoading && (
               <div className="component-loading-overlay">
                 <SkeletonLoader type="grid" />
@@ -377,33 +430,40 @@ const FileManagement = ({ clearMessages, error, success, setError, setSuccess })
             )}
             <div className={`files-content ${isComponentLoading ? 'loading' : ''}`}>
               <div className="files-grid">
-                {filteredItems.map((item) => (
-                  <div
-                    key={item.id}
-                    className={`file-item ${item.type} ${selectedItem === item.id ? 'selected' : ''}`}
-                    onClick={() => handleItemClick(item)}
-                    title={`${item.name}\n1st click: Select\n2nd click: Open`}
-                  >
-                    <div className="file-icon">
-                      <FileIcon
-                        fileType={item.fileType} // Pass fileType
-                        isFolder={item.type === 'folder'} // Pass type
-                        altText={item.type}
-                        className="file-icon-img" // Pass the existing class if needed
-                      />
-                    </div>
-                    <div className="file-info">
-                      <div className="file-name" title={item.name}>
-                        {item.displayName}
-                      </div>
-                      {item.parentPath && fileManagementSearch && (
-                        <div className="file-location" title={item.parentPath}>
-                          {item.parentPath}
-                        </div>
-                      )}
-                    </div>
+                {filteredItems.length === 0 && fileManagementSearch ? (
+                  <div className="no-results">
+                    <p>No files found for "{fileManagementSearch}"</p>
+                    <p className="no-results-hint">Try a different search term or check your spelling</p>
                   </div>
-                ))}
+                ) : (
+                  filteredItems.map((item) => (
+                    <div
+                      key={item.id}
+                      className={`file-item ${item.type} ${selectedItem === item.id ? 'selected' : ''}`}
+                      onClick={() => handleItemClick(item)}
+                      title={`${item.name}\n1st click: Select\n2nd click: Open`}
+                    >
+                      <div className="file-icon">
+                        <FileIcon
+                          fileType={item.fileType}
+                          isFolder={item.type === 'folder'}
+                          altText={item.type}
+                          className="file-icon-img"
+                        />
+                      </div>
+                      <div className="file-info">
+                        <div className="file-name" title={item.name}>
+                          {item.displayName}
+                        </div>
+                        {item.parentPath && fileManagementSearch && (
+                          <div className="file-location" title={item.parentPath}>
+                            📁 {item.parentPath}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))
+                )}
               </div>
             </div>
           </>
