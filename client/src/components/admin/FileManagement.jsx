@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
 import FileIcon from './FileIcon'
-import LoadingSpinner from '../LoadingSpinner'
 import { SkeletonLoader } from '../common/SkeletonLoader'
 import './FileManagement.css'
 import { AlertMessage } from './modals'
@@ -367,16 +366,13 @@ const FileManagement = ({ clearMessages, error, success, setError, setSuccess })
 
       <div className="file-system-container">
         {isLoading || isSearching ? (
-          <div className="loading-state">
-            {/* Use the global LoadingSpinner component for initial load/search */}
-            <LoadingSpinner size="large" message={isSearching ? 'Searching through all folders...' : 'Loading files from network directory...'} />
-          </div>
+          <SkeletonLoader type="grid" />
         ) : (
           <>
             {/* Show component loading overlay when opening a file */}
             {isComponentLoading && (
               <div className="component-loading-overlay">
-                <LoadingSpinner size="large" message="Opening file..." />
+                <SkeletonLoader type="grid" />
               </div>
             )}
             <div className={`files-content ${isComponentLoading ? 'loading' : ''}`}>

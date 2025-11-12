@@ -844,15 +844,15 @@ router.post('/:assignmentId/comments', async (req, res) => {
 
     // Create notifications for assigned members
     try {
-      console.log(`🔔 Comment posted by ${user.role}: ${user.fullName} (ID: ${userId})`);
-      console.log(`📋 Assignment ID: ${assignmentId}`);
+      console.log(` Comment posted by ${user.role}: ${user.fullName} (ID: ${userId})`);
+      console.log(` Assignment ID: ${assignmentId}`);
       
       // Get assignment details
       const assignment = await queryOne(
         'SELECT title, team_leader_id FROM assignments WHERE id = ?',
         [assignmentId]
       );
-      console.log(`📋 Assignment title: ${assignment?.title}`);
+      console.log(` Assignment title: ${assignment?.title}`);
 
       // Get all members assigned to this task (except the commenter)
       const assignedMembers = await query(
@@ -860,18 +860,18 @@ router.post('/:assignmentId/comments', async (req, res) => {
         [assignmentId, userId]
       );
 
-      console.log(`👥 Found ${assignedMembers.length} assigned members (excluding commenter):`);
+      console.log(` Found ${assignedMembers.length} assigned members (excluding commenter):`);
       console.log(assignedMembers);
 
       // If admin or team leader commented, notify assigned members
       if (user.role === 'ADMIN' || user.role === 'TEAM_LEADER') {
         if (assignedMembers.length === 0) {
-          console.log('⚠️ No members to notify (either no one assigned or only commenter is assigned)');
+          console.log(' No members to notify (either no one assigned or only commenter is assigned)');
         }
 
         // Create notification for each assigned member
         for (const member of assignedMembers) {
-          console.log(`📤 Creating notification for user ID: ${member.user_id}`);
+          console.log(` Creating notification for user ID: ${member.user_id}`);
           
           const notificationResult = await query(`
             INSERT INTO notifications (
@@ -897,10 +897,10 @@ router.post('/:assignmentId/comments', async (req, res) => {
             user.role
           ]);
           
-          console.log(`✅ Notification created with ID: ${notificationResult.insertId}`);
+          console.log(` Notification created with ID: ${notificationResult.insertId}`);
         }
 
-        console.log(`✅ Successfully created ${assignedMembers.length} comment notification(s)`);
+        console.log(` Successfully created ${assignedMembers.length} comment notification(s)`);
       }
       // If regular user commented, notify team leader
       else if (user.role === 'USER' && assignment.team_leader_id && assignment.team_leader_id !== userId) {
@@ -930,9 +930,9 @@ router.post('/:assignmentId/comments', async (req, res) => {
           user.role
         ]);
         
-        console.log(`✅ Notification created for team leader with ID: ${notificationResult.insertId}`);
+        console.log(` Notification created for team leader with ID: ${notificationResult.insertId}`);
       } else {
-        console.log(`ℹ️ User ${user.fullName} (${user.role}) posted comment - no additional notifications needed`);
+        console.log(`ℹ User ${user.fullName} (${user.role}) posted comment - no additional notifications needed`);
       }
     } catch (notifError) {
       console.error('⚠️ Failed to create comment notifications:', notifError);
@@ -1049,9 +1049,9 @@ router.post('/:assignmentId/comments/:commentId/replies', async (req, res) => {
           user.role
         ]);
 
-        console.log(`✅ Created reply notification for user ${comment.user_id}`);
+        console.log(` Created reply notification for user ${comment.user_id}`);
       } catch (notifError) {
-        console.error('⚠️ Failed to create reply notification:', notifError);
+        console.error(' Failed to create reply notification:', notifError);
         // Don't fail the request if notifications fail
       }
     }
@@ -1129,16 +1129,44 @@ router.delete('/:assignmentId', async (req, res) => {
       });
     }
 
-    // Delete related records first (replies will cascade delete when comments are deleted)
+    // Get all file IDs associated with this assignment before deleting
+    const submittedFiles = await query(
+      'SELECT file_id FROM assignment_members WHERE assignment_id = ? AND file_id IS NOT NULL',
+      [assignmentId]
+    );
+
+    console.log(` Assignment ${assignmentId} has ${submittedFiles ? submittedFiles.length : 0} submitted file(s)`);
+
+    // Delete files from the files table if they exist
+    if (submittedFiles && submittedFiles.length > 0) {
+      console.log(` Deleting ${submittedFiles.length} file(s) from files table...`);
+      for (const submission of submittedFiles) {
+        try {
+          await query('DELETE FROM files WHERE id = ?', [submission.file_id]);
+          console.log(` Deleted file ID ${submission.file_id} from files table (associated with assignment ${assignmentId})`);
+        } catch (fileDeleteError) {
+          console.error(` Error deleting file ${submission.file_id}:`, fileDeleteError);
+          // Continue deleting other files even if one fails
+        }
+      }
+      console.log(` Completed file deletion for assignment ${assignmentId}`);
+    } else {
+      console.log(`ℹ No files to delete for assignment ${assignmentId}`);
+    }
+
+    // Delete related records (replies will cascade delete when comments are deleted)
     await query('DELETE FROM assignment_members WHERE assignment_id = ?', [assignmentId]);
     await query('DELETE FROM assignment_comments WHERE assignment_id = ?', [assignmentId]);
     
     // Delete the assignment
     await query('DELETE FROM assignments WHERE id = ?', [assignmentId]);
 
+    console.log(` Assignment ${assignmentId} deleted successfully with all related data`);
+
     res.json({
       success: true,
-      message: 'Assignment deleted permanently'
+      message: 'Assignment and associated files deleted permanently',
+      deletedFiles: submittedFiles ? submittedFiles.length : 0
     });
   } catch (error) {
     console.error('Error in delete assignment route:', error);
