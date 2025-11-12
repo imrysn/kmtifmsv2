@@ -569,20 +569,32 @@ const TasksTab = ({ user }) => {
                       fontWeight: '600',
                       fontSize: '18px'
                     }}>
-                      {getInitials(assignment.team_leader_username)}
+                      {getInitials(assignment.team_leader_fullname || assignment.team_leader_username)}
                     </div>
                     <div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '4px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px', flexWrap: 'wrap' }}>
                         <span style={{ fontWeight: '600', fontSize: '15px', color: '#050505' }}>
-                          {assignment.team_leader_username}
+                          {assignment.team_leader_fullname || assignment.team_leader_username}
+                        </span>
+                        <span style={{
+                          backgroundColor: '#EFF6FF',
+                          color: '#1D4ED8',
+                          padding: '2px 10px',
+                          borderRadius: '12px',
+                          fontSize: '11px',
+                          fontWeight: '600',
+                          textTransform: 'uppercase',
+                          border: '1px solid #BFDBFE'
+                        }}>
+                          {assignment.team_leader_role === 'TEAM_LEADER' ? 'TEAM LEADER' : assignment.team_leader_role || 'TEAM LEADER'}
                         </span>
                         {assignment.assigned_to === 'all' ? (
-                          <span style={{ fontSize: '15px', color: '#050505' }}>
-                            Assigned to: <span style={{ fontWeight: '600' }}>all team members</span>
+                          <span style={{ fontSize: '14px', color: '#6B7280' }}>
+                            assigned to <span style={{ fontWeight: '600', color: '#050505' }}>all team members</span>
                           </span>
                         ) : assignment.assigned_member_details && assignment.assigned_member_details.length > 0 ? (
-                          <span style={{ fontSize: '15px', color: '#050505' }}>
-                            Assigned to: <span style={{ fontWeight: '600' }}>
+                          <span style={{ fontSize: '14px', color: '#6B7280' }}>
+                            assigned to <span style={{ fontWeight: '600', color: '#050505' }}>
                               {assignment.assigned_member_details.map((member, idx) => (
                                 <span key={member.id}>
                                   {member.fullName || member.username}
@@ -592,8 +604,8 @@ const TasksTab = ({ user }) => {
                             </span>
                           </span>
                         ) : assignment.assigned_user_fullname && (
-                          <span style={{ fontSize: '15px', color: '#050505' }}>
-                            Assigned to: <span style={{ fontWeight: '600' }}>{assignment.assigned_user_fullname}</span>
+                          <span style={{ fontSize: '14px', color: '#6B7280' }}>
+                            assigned to <span style={{ fontWeight: '600', color: '#050505' }}>{assignment.assigned_user_fullname}</span>
                           </span>
                         )}
                       </div>
