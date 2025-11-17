@@ -227,16 +227,23 @@ const AssignmentsTab = ({
                                   </div>
                                 </div>
                                 <span className="tl-submission-status" style={{
-                                  background: submission.status === 'approved' ? 'var(--status-approved)' : 
-                                             submission.status === 'rejected' ? 'var(--status-rejected)' :
-                                             submission.status === 'pending_tl' ? '#FEF3C7' : '#E0E7FF',
-                                  color: submission.status === 'approved' ? 'var(--status-approved-text)' : 
-                                         submission.status === 'rejected' ? 'var(--status-rejected-text)' :
-                                         submission.status === 'pending_tl' ? '#92400E' : 'var(--primary-color)'
+                                  background: submission.status === 'uploaded' ? '#E0E7FF' :
+                                             submission.status === 'team_leader_approved' ? '#FEF3C7' :
+                                             submission.status === 'final_approved' ? 'var(--status-approved)' : 
+                                             submission.status === 'rejected_by_team_leader' || submission.status === 'rejected_by_admin' ? 'var(--status-rejected)' :
+                                             '#E0E7FF',
+                                  color: submission.status === 'uploaded' ? 'var(--primary-color)' :
+                                         submission.status === 'team_leader_approved' ? '#92400E' :
+                                         submission.status === 'final_approved' ? 'var(--status-approved-text)' : 
+                                         submission.status === 'rejected_by_team_leader' || submission.status === 'rejected_by_admin' ? 'var(--status-rejected-text)' :
+                                         'var(--primary-color)'
                                 }}>
-                                  {submission.status === 'pending_tl' ? 'PENDING' :
-                                   submission.status === 'approved' ? '✓' :
-                                   submission.status === 'rejected' ? '✗' : 'NEW'}
+                                  {submission.status === 'uploaded' ? 'NEW' :
+                                   submission.status === 'team_leader_approved' ? 'PENDING ADMIN' :
+                                   submission.status === 'final_approved' ? '✓ APPROVED' :
+                                   submission.status === 'rejected_by_team_leader' ? '✗ REJECTED' :
+                                   submission.status === 'rejected_by_admin' ? '✗ REJECTED' :
+                                   'PENDING'}
                                 </span>
                               </div>
                             ))}
