@@ -321,7 +321,7 @@ router.get('/team-leader/:team', async (req, res) => {
       
       // Get all submissions from assignment_submissions table (includes ALL submitted files)
       const recentSubmissions = await query(`
-        SELECT 
+        SELECT
           f.id,
           f.original_name,
           f.filename,
