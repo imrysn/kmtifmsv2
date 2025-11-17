@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import './css/FileCollectionTab.css'
 import FileIcon from '../admin/FileIcon'
 
@@ -9,8 +10,13 @@ const FileCollectionTab = ({
   user,
   openMenuId,
   toggleMenu,
-  handleOpenInExplorer
+  handleOpenInExplorer,
+  fileCollectionFilter,
+  setFileCollectionFilter,
+  fileCollectionSort,
+  setFileCollectionSort
 }) => {
+  const [searchQuery, setSearchQuery] = useState('')
   // Extract file extension helper
   const getFileExtension = (filename, fileType) => {
     if (filename) {
@@ -42,6 +48,63 @@ const FileCollectionTab = ({
   }
 
   const stats = calculateStats()
+
+  // Filter and sort submissions
+  const filteredAndSortedFiles = () => {
+    let filtered = submittedFiles
+
+    // Apply search query
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase()
+      filtered = filtered.filter(file => 
+        file.original_name?.toLowerCase().includes(query) ||
+        file.username?.toLowerCase().includes(query) ||
+        file.fullName?.toLowerCase().includes(query) ||
+        file.team?.toLowerCase().includes(query) ||
+        file.assignment_title?.toLowerCase().includes(query)
+      )
+    }
+
+    // Apply filter
+    if (fileCollectionFilter !== 'all') {
+      filtered = filtered.filter(file => {
+        switch (fileCollectionFilter) {
+          case 'pending':
+            return file.status === 'uploaded' || file.status === 'team_leader_approved'
+          case 'approved':
+            return file.status === 'final_approved' || file.status === 'approved'
+          case 'rejected':
+            return file.status === 'rejected_by_team_leader' || file.status === 'rejected_by_admin' || file.status === 'rejected'
+          default:
+            return true
+        }
+      })
+    }
+
+    // Apply sort
+    const sorted = [...filtered].sort((a, b) => {
+      switch (fileCollectionSort) {
+        case 'date-desc':
+          return new Date(b.submitted_at || b.uploaded_at) - new Date(a.submitted_at || a.uploaded_at)
+        case 'date-asc':
+          return new Date(a.submitted_at || a.uploaded_at) - new Date(b.submitted_at || b.uploaded_at)
+        case 'filename-asc':
+          return a.original_name.localeCompare(b.original_name)
+        case 'filename-desc':
+          return b.original_name.localeCompare(a.original_name)
+        case 'user-asc':
+          return (a.username || '').localeCompare(b.username || '')
+        case 'user-desc':
+          return (b.username || '').localeCompare(a.username || '')
+        default:
+          return 0
+      }
+    })
+
+    return sorted
+  }
+
+  const displayedFiles = filteredAndSortedFiles()
 
   return (
     <div className="tl-content">
@@ -104,15 +167,42 @@ const FileCollectionTab = ({
         </div>
       </div>
 
-      {/* Info Bar */}
-      <div className="tl-toolbar">
-        <div className="tl-toolbar-section">
-          <div className="collection-info">
-            <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-              <path d="M2.5 6.66667H17.5M2.5 10H17.5M2.5 13.3333H17.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
-            <span>{submittedFiles.length} {submittedFiles.length === 1 ? 'submission' : 'submissions'} in collection</span>
-          </div>
+      {/* Search Bar and Filters - Exact Copy from Admin */}
+      <div className="file-controls">
+        <div className="file-search">
+          <input
+            type="text"
+            placeholder="Search files by name, user, or team..."
+            className="search-input"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
+        </div>
+        
+        <div className="file-filters">
+          <select
+            value={fileCollectionFilter}
+            onChange={(e) => setFileCollectionFilter(e.target.value)}
+            className="form-select"
+          >
+            <option value="all">All Files</option>
+            <option value="pending">Pending Review</option>
+            <option value="approved">Approved</option>
+            <option value="rejected">Rejected</option>
+          </select>
+          
+          <select
+            value={fileCollectionSort}
+            onChange={(e) => setFileCollectionSort(e.target.value)}
+            className="form-select"
+          >
+            <option value="date-desc">Latest First</option>
+            <option value="date-asc">Oldest First</option>
+            <option value="filename-asc">Filename A-Z</option>
+            <option value="filename-desc">Filename Z-A</option>
+            <option value="user-asc">User A-Z</option>
+            <option value="user-desc">User Z-A</option>
+          </select>
         </div>
       </div>
 
@@ -122,7 +212,7 @@ const FileCollectionTab = ({
           <div className="tl-spinner"></div>
           <p>Loading submissions...</p>
         </div>
-      ) : submittedFiles.length > 0 ? (
+      ) : displayedFiles.length > 0 ? (
         <div className="tl-files-list">
           <table className="tl-files-table">
             <thead>
@@ -136,7 +226,7 @@ const FileCollectionTab = ({
               </tr>
             </thead>
             <tbody>
-              {submittedFiles.map((submission) => {
+              {displayedFiles.map((submission) => {
                 const fileExtension = getFileExtension(submission.original_name, submission.file_type)
                 
                 return (

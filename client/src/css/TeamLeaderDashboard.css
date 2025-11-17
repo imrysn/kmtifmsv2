@@ -681,40 +681,95 @@ body {
 .tl-form-group select,
 .tl-form-group textarea {
   width: 100%;
-  padding: 0.75rem 1rem;
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-md);
+  padding: 0.65rem 0.875rem;
+  border: 1px solid #E5E7EB;
+  border-radius: 8px;
   background: white;
-  color: var(--text-primary);
-  font-size: 0.9rem;
-  transition: border-color 0.15s ease;
+  color: #374151;
+  font-size: 14px;
+  font-weight: 400;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  transition: all 0.15s ease;
+}
+
+.tl-form-group input:hover,
+.tl-form-group select:hover,
+.tl-form-group textarea:hover {
+  border-color: #D1D5DB;
+  background: #FAFAFA;
 }
 
 .tl-form-group input:focus,
 .tl-form-group select:focus,
 .tl-form-group textarea:focus {
   outline: none;
-  border-color: var(--primary-color);
+  border-color: #6366F1;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.08);
+  background: white;
+}
+
+/* Date input styling to ensure calendar icon shows */
+.tl-form-group input[type="date"] {
+  padding-right: 3rem;
+  -webkit-appearance: textfield;
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
+/* Make the browser's native calendar picker indicator invisible but functional */
+.tl-form-group input[type="date"]::-webkit-calendar-picker-indicator {
+  opacity: 0;
+  appearance: none;
+  -webkit-appearance: none;
+  cursor: pointer;
+  width: 100%;
+  height: 100%;
+  position: absolute;
+  left: 0;
+  top: 0;
+}
+
+.tl-form-group input[type="date"] {
+  position: relative;
+  cursor: pointer;
+}
+
+/* Add custom calendar icon positioned near the date text */
+.tl-form-group input[type="date"] {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%23374151' stroke-width='2'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: calc(100% - 32px) center;
+  background-size: 16px 16px;
+}
+
+/* Firefox specific styling for date input */
+.tl-form-group input[type="date"]::-moz-focus-inner {
+  border: 0;
 }
 
 .tl-form-select {
-  padding: 0.75rem 1rem;
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-md);
+  padding: 0.65rem 0.875rem;
+  border: 1px solid #E5E7EB;
+  border-radius: 8px;
   background: white;
-  color: var(--text-primary);
-  font-size: 0.9rem;
+  color: #374151;
+  font-size: 14px;
+  font-weight: 400;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   cursor: pointer;
-  transition: border-color 0.15s ease;
+  transition: all 0.15s ease;
+}
+
+.tl-form-select:hover {
+  border-color: #D1D5DB;
+  background: #FAFAFA;
 }
 
 .tl-form-select:focus {
   outline: none;
-  border-color: var(--primary-color);
-}
-
-.tl-form-select:hover {
-  border-color: var(--border-color);
+  border-color: #6366F1;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.08);
+  background: white;
 }
 
 /* Mini Buttons */
@@ -1928,6 +1983,227 @@ input[type="checkbox"] {
 .tl-member-checkbox span {
   vertical-align: middle;
   white-space: nowrap;
+}
+
+/* Member Dropdown */
+.tl-member-dropdown-wrapper {
+  position: relative;
+}
+
+.tl-member-dropdown-button {
+  width: 100%;
+  padding: 0.65rem 0.875rem;
+  border: 1px solid #E5E7EB;
+  border-radius: 8px;
+  background: white;
+  color: var(--text-primary);
+  font-size: 14px;
+  font-weight: 400;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  transition: all 0.15s ease;
+  text-align: left;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+.tl-member-dropdown-button:hover {
+  border-color: #D1D5DB;
+  background: #FAFAFA;
+}
+
+.tl-member-dropdown-button:focus {
+  outline: none;
+  border-color: #6366F1;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.08);
+}
+
+.tl-member-dropdown-button span {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #374151;
+}
+
+.tl-member-dropdown-button svg {
+  flex-shrink: 0;
+  transition: transform 0.2s ease;
+  color: #9CA3AF;
+  width: 14px;
+  height: 14px;
+}
+
+.tl-member-dropdown-button svg.rotated {
+  transform: rotate(180deg);
+}
+
+.tl-member-dropdown-menu {
+  position: fixed;
+  background: white;
+  border: 1px solid #E5E7EB;
+  border-radius: 8px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  max-height: 240px;
+  overflow-y: auto;
+  z-index: 1100;
+  padding: 6px;
+  animation: dropdownSlide 0.15s ease;
+}
+
+@keyframes dropdownSlide {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.tl-member-dropdown-item {
+  display: flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+  padding: 8px 12px !important;
+  cursor: pointer;
+  border-radius: 5px;
+  transition: background 0.15s ease;
+  font-size: 14px;
+  color: #374151;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  user-select: none;
+  line-height: normal !important;
+}
+
+.tl-member-dropdown-item:hover {
+  background: #F3F4F6;
+}
+
+.tl-member-dropdown-item input[type="checkbox"] {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  width: 14px !important;
+  height: 14px !important;
+  min-width: 14px !important;
+  min-height: 14px !important;
+  max-width: 14px !important;
+  max-height: 14px !important;
+  border: 1.5px solid #D1D5DB;
+  border-radius: 2.5px;
+  cursor: pointer;
+  margin: 0 !important;
+  padding: 0 !important;
+  flex-shrink: 0;
+  position: relative;
+  transition: all 0.15s ease;
+  background: white;
+  vertical-align: middle;
+}
+
+.tl-member-dropdown-item input[type="checkbox"]:hover {
+  border-color: #9CA3AF;
+}
+
+.tl-member-dropdown-item input[type="checkbox"]:checked {
+  background: #6366F1;
+  border-color: #6366F1;
+}
+
+.tl-member-dropdown-item input[type="checkbox"]:checked::after {
+  content: '';
+  position: absolute;
+  left: 3.5px;
+  top: 0.5px;
+  width: 4px;
+  height: 7px;
+  border: solid white;
+  border-width: 0 1.5px 1.5px 0;
+  transform: rotate(45deg);
+}
+
+.tl-member-dropdown-item span {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 400;
+  line-height: normal !important;
+}
+
+/* File Type Dropdown Item (without checkbox) */
+.tl-file-type-dropdown-item {
+  display: flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+  padding: 8px 12px !important;
+  cursor: pointer;
+  border-radius: 5px;
+  transition: background 0.15s ease;
+  font-size: 14px;
+  color: #374151;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  user-select: none;
+  line-height: normal !important;
+}
+
+.tl-file-type-dropdown-item:hover {
+  background: #F3F4F6;
+}
+
+.tl-file-type-dropdown-item span {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 400;
+  line-height: normal !important;
+}
+
+.tl-member-dropdown-empty {
+  padding: 24px 16px;
+  text-align: center;
+  color: #9CA3AF;
+  font-size: 13px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+.tl-member-dropdown-menu::-webkit-scrollbar {
+  width: 6px;
+}
+
+.tl-member-dropdown-menu::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.tl-member-dropdown-menu::-webkit-scrollbar-thumb {
+  background: #E5E7EB;
+  border-radius: 3px;
+}
+
+.tl-member-dropdown-menu::-webkit-scrollbar-thumb:hover {
+  background: #D1D5DB;
+}
+
+.tl-no-members-message {
+  text-align: center;
+  padding: 24px;
+  color: var(--text-secondary);
+  font-size: 14px;
+  background: #F9FAFB;
+  border-radius: 8px;
+  border: 1px solid #E5E7EB;
+}
+
+.tl-selected-count {
+  margin-top: 12px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  font-weight: 500;
 }
 
 /* Responsive adjustments for assignment details */

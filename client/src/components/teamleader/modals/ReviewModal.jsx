@@ -174,6 +174,39 @@ const ReviewModal = ({
             <p className="help-text">Comments will be saved when you approve or reject the file.</p>
           </div>
 
+          {/* Already Reviewed Notice */}
+          {(selectedFile.status === 'team_leader_approved' || selectedFile.status === 'final_approved' || 
+            selectedFile.status === 'rejected_by_team_leader' || selectedFile.status === 'rejected_by_admin') && (
+            <div className="review-notice" style={{
+              padding: '12px 16px',
+              background: selectedFile.status === 'team_leader_approved' ? '#FEF3C7' :
+                        selectedFile.status === 'final_approved' ? '#D1FAE5' : '#FEE2E2',
+              border: '1px solid ' + (selectedFile.status === 'team_leader_approved' ? '#FCD34D' :
+                      selectedFile.status === 'final_approved' ? '#34D399' : '#FCA5A5'),
+              borderRadius: '8px',
+              marginBottom: '16px'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" style={{
+                  color: selectedFile.status === 'team_leader_approved' ? '#92400E' :
+                        selectedFile.status === 'final_approved' ? '#065F46' : '#991B1B'
+                }}>
+                  <path d="M10 18C14.4183 18 18 14.4183 18 10C18 5.58172 14.4183 2 10 2C5.58172 2 2 5.58172 2 10C2 14.4183 5.58172 18 10 18Z" stroke="currentColor" strokeWidth="2"/>
+                  <path d="M10 6V10M10 14H10.01" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                </svg>
+                <span style={{ 
+                  fontWeight: '500', 
+                  color: selectedFile.status === 'team_leader_approved' ? '#92400E' :
+                        selectedFile.status === 'final_approved' ? '#065F46' : '#991B1B'
+                }}>
+                  {selectedFile.status === 'team_leader_approved' ? 'This file has been approved by you and is now pending admin review.' :
+                   selectedFile.status === 'final_approved' ? 'This file has been fully approved and published.' :
+                   'This file has been rejected and cannot be re-reviewed.'}
+                </span>
+              </div>
+            </div>
+          )}
+
           {/* Actions Section */}
           <div className="actions-section">
             <div className="action-buttons-large">
@@ -186,7 +219,7 @@ const ReviewModal = ({
                   handleReviewSubmit({ preventDefault: () => {} })
                 }}
                 className="btn btn-success-large"
-                disabled={isProcessing || selectedFile.status === 'final_approved' || selectedFile.status === 'rejected_by_team_leader' || selectedFile.status === 'rejected_by_admin'}
+                disabled={isProcessing || selectedFile.status === 'team_leader_approved' || selectedFile.status === 'final_approved' || selectedFile.status === 'rejected_by_team_leader' || selectedFile.status === 'rejected_by_admin'}
               >
                 <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
                   <path d="M16.875 5L7.5 14.375L3.125 10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
@@ -206,7 +239,7 @@ const ReviewModal = ({
                   handleReviewSubmit({ preventDefault: () => {} })
                 }}
                 className="btn btn-danger-large"
-                disabled={isProcessing || selectedFile.status === 'final_approved' || selectedFile.status === 'rejected_by_team_leader' || selectedFile.status === 'rejected_by_admin'}
+                disabled={isProcessing || selectedFile.status === 'team_leader_approved' || selectedFile.status === 'final_approved' || selectedFile.status === 'rejected_by_team_leader' || selectedFile.status === 'rejected_by_admin'}
               >
                 <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
                   <path d="M15 5L5 15M5 5L15 15" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>

@@ -1,3 +1,5 @@
+import React from 'react'
+
 const CreateAssignmentModal = ({
   showCreateAssignmentModal,
   setShowCreateAssignmentModal,
@@ -7,19 +9,90 @@ const CreateAssignmentModal = ({
   isProcessing,
   createAssignment
 }) => {
+  const [showMemberDropdown, setShowMemberDropdown] = React.useState(false)
+  const [showFileTypeDropdown, setShowFileTypeDropdown] = React.useState(false)
+  const [dropdownPosition, setDropdownPosition] = React.useState({ top: 0, left: 0, width: 0 })
+  const [fileTypeDropdownPosition, setFileTypeDropdownPosition] = React.useState({ top: 0, left: 0, width: 0 })
+  const buttonRef = React.useRef(null)
+  const fileTypeButtonRef = React.useRef(null)
+
+  const fileTypeOptions = [
+    { value: '', label: 'Any file type' },
+    { value: 'PDF', label: 'PDF' },
+    { value: 'Word', label: 'Word Document' },
+    { value: 'Excel', label: 'Excel Spreadsheet' },
+    { value: 'PowerPoint', label: 'PowerPoint Presentation' },
+    { value: 'Image', label: 'Image Files' },
+    { value: 'Video', label: 'Video Files' },
+    { value: 'Audio', label: 'Audio Files' }
+  ]
+
   if (!showCreateAssignmentModal) return null
 
   const handleClose = () => {
     setShowCreateAssignmentModal(false)
+    setShowMemberDropdown(false)
+    setShowFileTypeDropdown(false)
     setAssignmentForm({
       title: '',
       description: '',
       dueDate: '',
       fileTypeRequired: '',
-      assignedTo: 'all',
       maxFileSize: 10485760,
       assignedMembers: []
     })
+  }
+
+  const toggleMemberSelection = (memberId) => {
+    const updatedMembers = assignmentForm.assignedMembers.includes(memberId)
+      ? assignmentForm.assignedMembers.filter(id => id !== memberId)
+      : [...assignmentForm.assignedMembers, memberId]
+    setAssignmentForm({...assignmentForm, assignedMembers: updatedMembers})
+  }
+
+  const getSelectedMembersText = () => {
+    if (assignmentForm.assignedMembers.length === 0) {
+      return 'Select members...'
+    }
+    if (assignmentForm.assignedMembers.length === 1) {
+      const member = teamMembers.find(m => m.id === assignmentForm.assignedMembers[0])
+      return member ? member.name : '1 member selected'
+    }
+    return `${assignmentForm.assignedMembers.length} members selected`
+  }
+
+  const handleDropdownToggle = () => {
+    if (!showMemberDropdown && buttonRef.current) {
+      const rect = buttonRef.current.getBoundingClientRect()
+      setDropdownPosition({
+        top: rect.bottom + 6,
+        left: rect.left,
+        width: rect.width
+      })
+    }
+    setShowMemberDropdown(!showMemberDropdown)
+  }
+
+  const handleFileTypeDropdownToggle = () => {
+    if (!showFileTypeDropdown && fileTypeButtonRef.current) {
+      const rect = fileTypeButtonRef.current.getBoundingClientRect()
+      setFileTypeDropdownPosition({
+        top: rect.bottom + 6,
+        left: rect.left,
+        width: rect.width
+      })
+    }
+    setShowFileTypeDropdown(!showFileTypeDropdown)
+  }
+
+  const handleFileTypeSelect = (value) => {
+    setAssignmentForm({...assignmentForm, fileTypeRequired: value})
+    setShowFileTypeDropdown(false)
+  }
+
+  const getFileTypeLabel = () => {
+    const option = fileTypeOptions.find(opt => opt.value === assignmentForm.fileTypeRequired)
+    return option ? option.label : 'Any file type'
   }
 
   return (
@@ -63,20 +136,46 @@ const CreateAssignmentModal = ({
               </div>
 
               <div className="tl-form-group">
-                <label>File Type Required</label>
-                <select
-                  value={assignmentForm.fileTypeRequired}
-                  onChange={(e) => setAssignmentForm({...assignmentForm, fileTypeRequired: e.target.value})}
-                >
-                  <option value="">Any file type</option>
-                  <option value="PDF">PDF</option>
-                  <option value="Word">Word Document</option>
-                  <option value="Excel">Excel Spreadsheet</option>
-                  <option value="PowerPoint">PowerPoint Presentation</option>
-                  <option value="Image">Image Files</option>
-                  <option value="Video">Video Files</option>
-                  <option value="Audio">Audio Files</option>
-                </select>
+                <label>Assign To Members *</label>
+                <div className="tl-member-dropdown-wrapper">
+                  <button
+                    ref={buttonRef}
+                    type="button"
+                    className="tl-member-dropdown-button"
+                    onClick={handleDropdownToggle}
+                  >
+                    <span>{getSelectedMembersText()}</span>
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className={showMemberDropdown ? 'rotated' : ''}>
+                      <path d="M4 6L8 10L12 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                  </button>
+                  
+                  {showMemberDropdown && (
+                    <div 
+                      className="tl-member-dropdown-menu"
+                      style={{
+                        top: `${dropdownPosition.top}px`,
+                        left: `${dropdownPosition.left}px`,
+                        width: `${dropdownPosition.width}px`
+                      }}
+                    >
+                      {teamMembers.length > 0 ? (
+                        teamMembers.map(member => (
+                          <label key={member.id} className="tl-member-dropdown-item">
+                            <input
+                              type="checkbox"
+                              checked={assignmentForm.assignedMembers.includes(member.id)}
+                              onChange={() => toggleMemberSelection(member.id)}
+                            />
+                            <span>{member.name}</span>
+                          </label>
+                        ))
+                      ) : (
+                        <div className="tl-member-dropdown-empty">No team members available</div>
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
 
@@ -94,39 +193,43 @@ const CreateAssignmentModal = ({
               </div>
 
               <div className="tl-form-group">
-                <label>Assign To</label>
-                <select
-                  value={assignmentForm.assignedTo}
-                  onChange={(e) => setAssignmentForm({...assignmentForm, assignedTo: e.target.value})}
-                >
-                  <option value="all">All Team Members</option>
-                  <option value="specific">Specific Members</option>
-                </select>
-              </div>
-            </div>
-
-            {assignmentForm.assignedTo === 'specific' && teamMembers.length > 0 && (
-              <div className="tl-form-group">
-                <label>Select Members</label>
-                <div className="tl-member-selector">
-                  {teamMembers.map(member => (
-                    <label key={member.id} className="tl-member-checkbox">
-                      <input
-                        type="checkbox"
-                        checked={assignmentForm.assignedMembers.includes(member.id)}
-                        onChange={(e) => {
-                          const updatedMembers = e.target.checked
-                            ? [...assignmentForm.assignedMembers, member.id]
-                            : assignmentForm.assignedMembers.filter(id => id !== member.id);
-                          setAssignmentForm({...assignmentForm, assignedMembers: updatedMembers});
-                        }}
-                      />
-                      <span>{member.name}</span>
-                    </label>
-                  ))}
+                <label>File Type Required</label>
+                <div className="tl-member-dropdown-wrapper">
+                  <button
+                    ref={fileTypeButtonRef}
+                    type="button"
+                    className="tl-member-dropdown-button"
+                    onClick={handleFileTypeDropdownToggle}
+                  >
+                    <span>{getFileTypeLabel()}</span>
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className={showFileTypeDropdown ? 'rotated' : ''}>
+                      <path d="M4 6L8 10L12 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                  </button>
+                  
+                  {showFileTypeDropdown && (
+                    <div 
+                      className="tl-member-dropdown-menu"
+                      style={{
+                        top: `${fileTypeDropdownPosition.top}px`,
+                        left: `${fileTypeDropdownPosition.left}px`,
+                        width: `${fileTypeDropdownPosition.width}px`
+                      }}
+                    >
+                      {fileTypeOptions.map(option => (
+                        <div 
+                          key={option.value} 
+                          className="tl-file-type-dropdown-item"
+                          onClick={() => handleFileTypeSelect(option.value)}
+                        >
+                          <span>{option.label}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
-            )}
+            </div>
 
             <div className="tl-modal-footer">
               <button
@@ -140,7 +243,7 @@ const CreateAssignmentModal = ({
                 type="button"
                 className="tl-btn success"
                 onClick={createAssignment}
-                disabled={isProcessing || !assignmentForm.title.trim()}
+                disabled={isProcessing || !assignmentForm.title.trim() || assignmentForm.assignedMembers.length === 0}
               >
                 {isProcessing ? 'Creating...' : 'Create Assignment'}
               </button>
