@@ -7,7 +7,7 @@
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
+  background-color: rgba(255, 255, 255, 0.1);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
   display: flex;
@@ -15,7 +15,6 @@
   justify-content: center;
   z-index: 1000;
   padding: var(--spacing-lg);
-  animation: fadeIn 0.2s ease-out;
 }
 
 .user-file-modal-component .modal {
@@ -29,7 +28,6 @@
   max-height: 80vh;
   overflow-y: auto;
   border: var(--macos-border);
-  animation: slideUp 0.3s ease-out;
   transform-origin: center center;
 }
 
@@ -339,27 +337,6 @@
 .user-file-modal-component .btn-primary:hover {
   transform: translateY(-1px);
   box-shadow: 0 4px 12px rgba(0, 122, 255, 0.4);
-}
-
-/* Animations */
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
-}
-
-@keyframes slideUp {
-  from {
-    opacity: 0;
-    transform: translateY(20px) scale(0.95);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
 }
 
 /* Responsive Design */
