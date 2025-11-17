@@ -458,6 +458,16 @@
   color: #65676b;
 }
 
+.admin-file-submitter {
+  font-weight: 600;
+  color: #1877f2;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  font-size: 13px;
+}
+
 /* No Attachment Message */
 .admin-no-attachment {
   background: #b8b8b883;

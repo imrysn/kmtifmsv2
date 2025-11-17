@@ -66,7 +66,7 @@ router.get('/admin/all', async (req, res) => {
       
       assignment.assigned_member_details = assignedMembers || [];
       
-      // Get recent submissions
+      // Get recent submissions from assignment_submissions table (includes ALL submitted files)
       const recentSubmissions = await query(`
         SELECT
           f.id,
@@ -78,15 +78,13 @@ router.get('/admin/all', async (req, res) => {
           f.status,
           u.username,
           u.fullName,
-          am.submitted_at,
-          am.created_at,
-          am.status as submission_status
-        FROM assignment_members am
-        JOIN files f ON am.file_id = f.id
-        JOIN users u ON am.user_id = u.id
-        WHERE am.assignment_id = ? AND am.status = 'submitted' AND am.file_id IS NOT NULL
-        ORDER BY am.submitted_at DESC
-        LIMIT 3
+          asub.submitted_at,
+          asub.submitted_at as created_at
+        FROM assignment_submissions asub
+        JOIN files f ON asub.file_id = f.id
+        JOIN users u ON asub.user_id = u.id
+        WHERE asub.assignment_id = ?
+        ORDER BY asub.submitted_at DESC
       `, [assignment.id]);
 
       assignment.recent_submissions = recentSubmissions || [];
@@ -201,6 +199,7 @@ router.get('/team-leader/:team', async (req, res) => {
       
       assignment.assigned_member_details = assignedMembers || [];
       
+      // Get all submissions from assignment_submissions table (includes ALL submitted files)
       const recentSubmissions = await query(`
         SELECT 
           f.id,
@@ -211,15 +210,13 @@ router.get('/team-leader/:team', async (req, res) => {
           f.status,
           u.username,
           u.fullName,
-          am.submitted_at,
-          am.created_at,
-          am.status as submission_status
-        FROM assignment_members am
-        JOIN files f ON am.file_id = f.id
-        JOIN users u ON am.user_id = u.id
-        WHERE am.assignment_id = ? AND am.status = 'submitted' AND am.file_id IS NOT NULL
-        ORDER BY am.submitted_at DESC
-        LIMIT 3
+          asub.submitted_at,
+          asub.submitted_at as created_at
+        FROM assignment_submissions asub
+        JOIN files f ON asub.file_id = f.id
+        JOIN users u ON asub.user_id = u.id
+        WHERE asub.assignment_id = ?
+        ORDER BY asub.submitted_at DESC
       `, [assignment.id]);
 
       assignment.recent_submissions = recentSubmissions || [];
