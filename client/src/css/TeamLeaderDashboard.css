@@ -1173,10 +1173,10 @@ body {
   background: var(--text-tertiary);
 }
 
-/* Content Animations */
-.tl-content > * {
+/* Content Animations - Disabled for tab switching */
+/* .tl-content > * {
   animation: fadeIn 0.3s ease;
-}
+} */
 
 @keyframes fadeIn {
   from {

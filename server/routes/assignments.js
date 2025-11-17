@@ -14,11 +14,12 @@ router.get('/admin/all', async (req, res) => {
     let queryStr = `
       SELECT
         a.*,
-        COUNT(DISTINCT CASE WHEN am.status = 'submitted' AND am.file_id IS NOT NULL THEN am.id END) as submission_count,
+        COUNT(DISTINCT asub.id) as submission_count,
         COUNT(DISTINCT am.id) as assigned_members_count,
         COUNT(DISTINCT ac.id) as comment_count
       FROM assignments a
       LEFT JOIN assignment_members am ON a.id = am.assignment_id
+      LEFT JOIN assignment_submissions asub ON a.id = asub.assignment_id
       LEFT JOIN assignment_comments ac ON a.id = ac.assignment_id
     `;
     
@@ -74,12 +75,16 @@ router.get('/admin/all', async (req, res) => {
           f.filename,
           f.file_type,
           f.file_path,
+          f.file_size,
+          f.tag,
+          f.description,
           f.uploaded_at,
           f.status,
           u.username,
           u.fullName,
           asub.submitted_at,
           asub.submitted_at as created_at
+          asub.user_id
         FROM assignment_submissions asub
         JOIN files f ON asub.file_id = f.id
         JOIN users u ON asub.user_id = u.id
@@ -292,10 +297,11 @@ router.get('/team-leader/:team', async (req, res) => {
     const assignments = await query(`
       SELECT
         a.*,
-        COUNT(DISTINCT CASE WHEN am.status = 'submitted' AND am.file_id IS NOT NULL THEN am.id END) as submission_count,
+        COUNT(DISTINCT asub.id) as submission_count,
         COUNT(DISTINCT am.id) as assigned_members_count
       FROM assignments a
       LEFT JOIN assignment_members am ON a.id = am.assignment_id
+      LEFT JOIN assignment_submissions asub ON a.id = asub.assignment_id
       WHERE a.team = ?
       GROUP BY a.id
       ORDER BY a.created_at DESC
@@ -320,12 +326,17 @@ router.get('/team-leader/:team', async (req, res) => {
           f.original_name,
           f.filename,
           f.file_type,
+          f.file_path,
+          f.file_size,
+          f.tag,
+          f.description,
           f.uploaded_at,
           f.status,
           u.username,
           u.fullName,
           asub.submitted_at,
           asub.submitted_at as created_at
+          asub.user_id
         FROM assignment_submissions asub
         JOIN files f ON asub.file_id = f.id
         JOIN users u ON asub.user_id = u.id

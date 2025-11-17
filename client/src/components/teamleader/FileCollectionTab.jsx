@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import './css/FileCollectionTab.css'
 import FileIcon from '../admin/FileIcon'
+import { LoadingTable, LoadingCards } from '../common/InlineSkeletonLoader'
 
 const FileCollectionTab = ({
   submittedFiles,
@@ -208,9 +209,8 @@ const FileCollectionTab = ({
 
       {/* Files Table */}
       {isLoading ? (
-        <div className="tl-loading">
-          <div className="tl-spinner"></div>
-          <p>Loading submissions...</p>
+        <div className="tl-files-list">
+          <LoadingTable rows={8} columns={6} />
         </div>
       ) : displayedFiles.length > 0 ? (
         <div className="tl-files-list">

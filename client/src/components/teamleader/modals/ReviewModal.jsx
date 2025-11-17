@@ -115,64 +115,7 @@ const ReviewModal = ({
             </div>
           )}
 
-          {/* Comments Section */}
-          <div className="comments-section">
-            <h4 className="section-title">Comments & History</h4>
-            {fileComments && fileComments.length > 0 ? (
-              <div className="comments-list">
-                {fileComments.map((comment, index) => {
-                  const username = comment.reviewer_username || comment.username || 'Unknown User'
-                  const role = comment.reviewer_role || comment.role || 'USER'
-                  const timestamp = comment.reviewed_at || comment.created_at || new Date().toISOString()
-                  const commentText = comment.comments || comment.comment || ''
-                  const action = comment.action || ''
 
-                  return (
-                    <div key={comment.id || index} className="comment-item">
-                      <div className="comment-header">
-                        <span className="comment-author">{username}</span>
-                        <span className="comment-role">{role}</span>
-                        <span className="comment-date">
-                          {new Date(timestamp).toLocaleDateString('en-US', {
-                            month: 'short',
-                            day: 'numeric',
-                            year: 'numeric',
-                            hour: '2-digit',
-                            minute: '2-digit'
-                          })}
-                        </span>
-                      </div>
-                      <div className="comment-body">
-                        {action && (
-                          <span className={`comment-action ${action.toLowerCase()}`}>
-                            {action.toUpperCase()}
-                          </span>
-                        )}
-                        {commentText && <p className="comment-text">{commentText}</p>}
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-            ) : (
-              <div className="no-comments">No comments yet</div>
-            )}
-          </div>
-
-          {/* Add Comment Section */}
-          <div className="add-comment-section">
-            <h4 className="section-title">Add Comment</h4>
-            <div className="comment-input-container">
-              <textarea
-                value={reviewComments}
-                onChange={(e) => setReviewComments(e.target.value)}
-                placeholder="Add a comment (required for rejection, optional for approval)..."
-                className="comment-textarea"
-                rows="3"
-              />
-            </div>
-            <p className="help-text">Comments will be saved when you approve or reject the file.</p>
-          </div>
 
           {/* Already Reviewed Notice */}
           {(selectedFile.status === 'team_leader_approved' || selectedFile.status === 'final_approved' || 

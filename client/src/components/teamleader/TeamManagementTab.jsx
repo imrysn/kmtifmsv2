@@ -1,3 +1,5 @@
+import { LoadingTable } from '../common/InlineSkeletonLoader'
+
 const TeamManagementTab = ({
   isLoadingTeam,
   teamMembers,
@@ -12,9 +14,11 @@ const TeamManagementTab = ({
       </div>
 
       {isLoadingTeam ? (
-        <div className="tl-loading">
-          <div className="tl-spinner"></div>
-          <p>Loading team members...</p>
+        <div className="tl-table-container">
+          <div className="tl-table-header">
+            <h2>Team Members</h2>
+          </div>
+          <LoadingTable rows={6} columns={6} />
         </div>
       ) : teamMembers.length > 0 ? (
         <div className="tl-table-container">
