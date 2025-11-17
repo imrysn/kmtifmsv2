@@ -11,6 +11,7 @@ import {
   FileCollectionTab,
   TeamManagementTab,
   AssignmentsTab,
+  NotificationTab,
   BulkActionModal,
   FilterModal,
   PriorityModal,
@@ -98,6 +99,7 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
     maxFileSize: 10485760,
     assignedMembers: []
   })
+  const [notificationCommentContext, setNotificationCommentContext] = useState(null)
 
   useEffect(() => {
     // Only fetch files for tabs that need them
@@ -753,6 +755,45 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
             deleteAssignment={deleteAssignment}
             setShowCreateAssignmentModal={setShowCreateAssignmentModal}
             openReviewModal={openReviewModal}
+            user={user}
+            notificationCommentContext={notificationCommentContext}
+            onClearNotificationContext={() => setNotificationCommentContext(null)}
+          />
+        )
+      case 'notifications':
+        return (
+          <NotificationTab
+            user={user}
+            onNavigate={async (tab, data) => {
+              if (tab === 'assignments') {
+                setActiveTab('assignments')
+                // Handle both object and primitive data formats
+                const assignmentId = typeof data === 'object' ? data.assignmentId : data
+                const shouldOpenComments = typeof data === 'object' ? data.shouldOpenComments : false
+
+                if (assignmentId) {
+                  if (shouldOpenComments) {
+                    // For comment notifications, ensure assignments are loaded first
+                    if (assignments.length === 0) {
+                      await fetchAssignments()
+                    }
+                    // For comment notifications, set context to open comments modal
+                    setNotificationCommentContext({
+                      assignmentId: assignmentId,
+                      commentId: data.commentId
+                    })
+                  } else {
+                    // For regular assignment notifications, open assignment details modal
+                    fetchAssignmentDetails(assignmentId)
+                  }
+                  console.log('Navigate to assignment:', assignmentId, shouldOpenComments ? '(comments)' : '(details)')
+                }
+              } else if (tab === 'file-review' || tab === 'file-collection') {
+                setActiveTab('file-collection')
+                // For file navigation, we could highlight the specific file
+                console.log('Navigate to file:', data)
+              }
+            }}
           />
         )
       default:

@@ -1,10 +1,37 @@
 import overviewIcon from '../../assets/Icon-7.svg'
+import { LoadingTable, LoadingCards } from '../common/InlineSkeletonLoader'
 
-const OverviewTab = ({ 
-  pendingFiles, 
-  teamMembers, 
-  calculateApprovalRate 
+const OverviewTab = ({
+  pendingFiles,
+  teamMembers,
+  calculateApprovalRate,
+  isLoading = false
 }) => {
+  // Show skeleton loading if data is loading
+  if (isLoading) {
+    return (
+      <div className="tl-content">
+        {/* Page Header Skeleton */}
+        <div className="tl-page-header">
+          <h1>Overview</h1>
+          <p>Team performance and activity summary</p>
+        </div>
+
+        {/* Stats Grid Skeleton */}
+        <div className="tl-stats">
+          <LoadingCards count={3} />
+        </div>
+
+        {/* Team Activity Table Skeleton */}
+        <div className="tl-table-container">
+          <div className="tl-table-header">
+            <h2>Team Activity</h2>
+          </div>
+          <LoadingTable rows={5} columns={5} />
+        </div>
+      </div>
+    )
+  }
   return (
     <div className="tl-content">
       {/* Page Header */}

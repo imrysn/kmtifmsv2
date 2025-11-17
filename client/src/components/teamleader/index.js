@@ -2,12 +2,14 @@
 export { default as Sidebar } from './Sidebar'
 export { default as TopBar } from './TopBar'
 export { default as AlertMessage } from './AlertMessage'
+export { default as NotificationBell } from './NotificationBell'
 
 // Tab Components
 export { default as OverviewTab } from './OverviewTab'
 export { default as FileCollectionTab } from './FileCollectionTab'
 export { default as TeamManagementTab } from './TeamManagementTab'
 export { default as AssignmentsTab } from './AssignmentsTab'
+export { default as NotificationTab } from './NotificationTab'
 
 // Modals
 export { default as BulkActionModal } from './modals/BulkActionModal'
