@@ -83,7 +83,7 @@ router.get('/admin/all', async (req, res) => {
           u.username,
           u.fullName,
           asub.submitted_at,
-          asub.submitted_at as created_at
+          asub.submitted_at as created_at,
           asub.user_id
         FROM assignment_submissions asub
         JOIN files f ON asub.file_id = f.id
@@ -335,7 +335,7 @@ router.get('/team-leader/:team', async (req, res) => {
           u.username,
           u.fullName,
           asub.submitted_at,
-          asub.submitted_at as created_at
+          asub.submitted_at as created_at,
           asub.user_id
         FROM assignment_submissions asub
         JOIN files f ON asub.file_id = f.id
