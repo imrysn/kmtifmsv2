@@ -511,8 +511,8 @@ const TeamTasksTab = ({ user }) => {
                         <span className="assigned-user">
                           {assignment.assigned_member_details && assignment.assigned_member_details.length > 0
                             ? assignment.assigned_member_details.length === 1
-                              ? (assignment.assigned_member_details[0].fullName || assignment.assigned_member_details[0].username)
-                              : `${assignment.assigned_member_details.length} members (${assignment.assigned_member_details.map(m => m.fullName || m.username).join(', ')})`
+                              ? assignment.assigned_member_details[0].fullName
+                              : `${assignment.assigned_member_details.length} members (${assignment.assigned_member_details.map(m => m.fullName).join(', ')})`
                             : assignment.assigned_to === 'all'
                               ? 'All team members'
                               : 'Unknown User'}

@@ -323,7 +323,24 @@ const TasksTab = ({ user }) => {
     const now = new Date()
     const daysUntilDue = Math.ceil((dueDate - now) / (1000 * 60 * 60 * 24))
 
-    if (assignment.user_status === 'submitted') {
+    // Check if submitted but no files - show MISSING
+    if (assignment.user_status === 'submitted' && (!assignment.submitted_files || assignment.submitted_files.length === 0)) {
+      return (
+        <span style={{
+          backgroundColor: '#FEF3C7',
+          color: '#92400E',
+          padding: '4px 12px',
+          borderRadius: '20px',
+          fontSize: '12px',
+          fontWeight: '600',
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: '4px'
+        }}>
+          ⚠️ MISSING
+        </span>
+      )
+    } else if (assignment.user_status === 'submitted') {
       return (
         <span style={{
           backgroundColor: '#F0FDF4',
@@ -661,7 +678,7 @@ const TasksTab = ({ user }) => {
                             assigned to <span style={{ fontWeight: '600', color: '#050505' }}>
                               {assignment.assigned_member_details.map((member, idx) => (
                                 <span key={member.id}>
-                                  {member.fullName || member.username}
+                                  {member.fullName}
                                   {idx < assignment.assigned_member_details.length - 1 && ', '}
                                 </span>
                               ))}
