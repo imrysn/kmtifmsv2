@@ -175,6 +175,120 @@ router.get('/team-leader/:team/all-submissions', async (req, res) => {
   }
 });
 
+// Get all tasks for team members view (similar to admin view but filtered by team)
+router.get('/team/:team/all-tasks', async (req, res) => {
+  try {
+    console.log('🔍 Team tasks route called for team:', req.params.team);
+    const { team } = req.params;
+    const { cursor, limit = 20 } = req.query;
+    const parsedLimit = parseInt(limit, 10);
+
+    console.log('Fetching team tasks with pagination:', { team, cursor, limit: parsedLimit });
+
+    let queryStr = `
+      SELECT
+        a.*,
+        COUNT(DISTINCT CASE WHEN am.status = 'submitted' AND am.file_id IS NOT NULL THEN am.id END) as submission_count,
+        COUNT(DISTINCT am.id) as assigned_members_count,
+        COUNT(DISTINCT ac.id) as comment_count
+      FROM assignments a
+      LEFT JOIN assignment_members am ON a.id = am.assignment_id
+      LEFT JOIN assignment_comments ac ON a.id = ac.assignment_id
+      WHERE a.team = ?
+    `;
+    
+    let queryParams = [team];
+    
+    // Add cursor condition if provided
+    if (cursor) {
+      queryStr += ' AND a.id < ?';
+      queryParams.push(cursor);
+    }
+    
+    queryStr += `
+      GROUP BY a.id
+      ORDER BY a.created_at DESC, a.id DESC
+      LIMIT ?
+    `;
+    queryParams.push(parsedLimit + 1); // Fetch one extra to check if there are more
+
+    const assignments = await query(queryStr, queryParams);
+
+    console.log(`Found ${assignments.length} assignments for team ${team}`);
+    
+    // Check if there are more results
+    const hasMore = assignments.length > parsedLimit;
+    const assignmentsToReturn = hasMore ? assignments.slice(0, parsedLimit) : assignments;
+    const nextCursor = hasMore && assignmentsToReturn.length > 0 
+      ? assignmentsToReturn[assignmentsToReturn.length - 1].id 
+      : null;
+
+    // Get additional details for each assignment
+    for (let assignment of assignmentsToReturn) {
+      // Get assigned member details
+      const assignedMembers = await query(`
+        SELECT u.id, u.username, u.fullName
+        FROM assignment_members am
+        JOIN users u ON am.user_id = u.id
+        WHERE am.assignment_id = ?
+      `, [assignment.id]);
+      
+      assignment.assigned_member_details = assignedMembers || [];
+      
+      // Get recent submissions from assignment_submissions table (includes ALL submitted files)
+      const recentSubmissions = await query(`
+        SELECT
+          f.id,
+          f.original_name,
+          f.filename,
+          f.file_type,
+          f.file_path,
+          f.uploaded_at,
+          f.status,
+          u.username,
+          u.fullName,
+          asub.submitted_at,
+          asub.submitted_at as created_at
+        FROM assignment_submissions asub
+        JOIN files f ON asub.file_id = f.id
+        JOIN users u ON asub.user_id = u.id
+        WHERE asub.assignment_id = ?
+        ORDER BY asub.submitted_at DESC
+      `, [assignment.id]);
+
+      assignment.recent_submissions = recentSubmissions || [];
+      
+      // Get team leader info
+      const teamLeader = await queryOne(
+        'SELECT fullName, username, email FROM users WHERE id = ?',
+        [assignment.team_leader_id || assignment.teamLeaderId]
+      );
+      
+      if (teamLeader) {
+        assignment.team_leader_fullname = teamLeader.fullName;
+        assignment.team_leader_username = teamLeader.username;
+        assignment.team_leader_email = teamLeader.email;
+      }
+    }
+
+    console.log(`Returning ${assignmentsToReturn.length} assignments to team view, hasMore: ${hasMore}`);
+
+    res.json({
+      success: true,
+      assignments: assignmentsToReturn || [],
+      nextCursor,
+      hasMore
+    });
+  } catch (error) {
+    console.error('Error in team all tasks route:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch team tasks',
+      error: error.message
+    });
+  }
+});
+
 // Get all assignments for a team leader
 router.get('/team-leader/:team', async (req, res) => {
   try {
@@ -1002,7 +1116,7 @@ router.post('/:assignmentId/comments', async (req, res) => {
 });
 
 // Post a reply to a comment
-router.post('/:assignmentId/comments/:commentId/replies', async (req, res) => {
+router.post('/:assignmentId/comments/:commentId/reply', async (req, res) => {
   try {
     const { assignmentId, commentId } = req.params;
     const { userId, username, reply } = req.body;
@@ -1219,6 +1333,77 @@ router.delete('/:assignmentId', async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Failed to delete assignment',
+      error: error.message
+    });
+  }
+});
+
+// Remove a submitted file from an assignment
+router.delete('/:assignmentId/files/:fileId', async (req, res) => {
+  try {
+    const { assignmentId, fileId } = req.params;
+    const { userId } = req.body;
+
+    console.log(`🗑️ Removing file ${fileId} from assignment ${assignmentId} for user ${userId}`);
+
+    // Verify the file belongs to this user and assignment
+    const submission = await queryOne(
+      'SELECT * FROM assignment_submissions WHERE assignment_id = ? AND file_id = ? AND user_id = ?',
+      [assignmentId, fileId, userId]
+    );
+
+    if (!submission) {
+      console.log('❌ Submission not found or user not authorized');
+      return res.status(404).json({
+        success: false,
+        message: 'File not found or you are not authorized to remove it'
+      });
+    }
+
+    // Delete from assignment_submissions table
+    await query(
+      'DELETE FROM assignment_submissions WHERE assignment_id = ? AND file_id = ? AND user_id = ?',
+      [assignmentId, fileId, userId]
+    );
+    console.log('✅ Removed from assignment_submissions');
+
+    // Check if there are any remaining submissions for this assignment by this user
+    const remainingSubmissions = await query(
+      'SELECT * FROM assignment_submissions WHERE assignment_id = ? AND user_id = ?',
+      [assignmentId, userId]
+    );
+
+    // If no more submissions, update assignment_members status to pending
+    if (!remainingSubmissions || remainingSubmissions.length === 0) {
+      await query(
+        'UPDATE assignment_members SET status = ?, submitted_at = NULL, file_id = NULL WHERE assignment_id = ? AND user_id = ?',
+        ['pending', assignmentId, userId]
+      );
+      console.log('✅ Updated assignment_members status to pending (no more submissions)');
+    } else {
+      // If there are remaining submissions, update the file_id to the most recent one
+      const mostRecentFile = remainingSubmissions[0];
+      await query(
+        'UPDATE assignment_members SET file_id = ?, submitted_at = ? WHERE assignment_id = ? AND user_id = ?',
+        [mostRecentFile.file_id, mostRecentFile.submitted_at, assignmentId, userId]
+      );
+      console.log('✅ Updated assignment_members to point to most recent submission');
+    }
+
+    // Delete the file from the files table
+    await query('DELETE FROM files WHERE id = ?', [fileId]);
+    console.log('✅ Deleted file from files table');
+
+    res.json({
+      success: true,
+      message: 'File removed successfully'
+    });
+
+  } catch (error) {
+    console.error('❌ Error removing submitted file:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to remove file',
       error: error.message
     });
   }

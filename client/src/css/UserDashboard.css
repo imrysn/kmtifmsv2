@@ -14,10 +14,10 @@
   --macos-gray5: #E5E5EA;
   --macos-gray6: #F2F2F7;
   
-  /* User Dashboard specific colors */
-  --user-primary: #667eea;
-  --user-secondary: #764ba2;
-  --user-accent: #007AFF;
+  /* Background Colors */
+  --background-primary: #F9FAFB;
+  --background-secondary: #FFFFFF;
+  --sidebar-bg: #FFFFFF;
   
   --macos-bg: #F2F2F7;
   --macos-card-bg: rgba(255, 255, 255, 0.95);
@@ -42,7 +42,7 @@
 .minimal-dashboard.user-dashboard {
   min-height: 100vh;
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
-  background: #ffffff;
+  background: var(--background-primary);
   position: relative;
   overflow-x: hidden;
   display: flex;

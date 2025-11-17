@@ -353,26 +353,26 @@ const MyFilesTab = ({
       {/* Statistics Cards - BELOW */}
       <div className="stats-row">
           <div className="stat-box pending-box">
-            <div className="stat-icon pending-icon">⏱</div>
+            <div className="stat-icon pending-icon"></div>
             <div className="stat-text">
               <div className="stat-number">{pendingFiles.length}</div>
-              <div className="stat-name">Pending</div>
+              <div className="stat-name">Pending Team Leader</div>
             </div>
           </div>
           
           <div className="stat-box approved-box">
-            <div className="stat-icon approved-icon">✓</div>
+            <div className="stat-icon approved-icon"></div>
             <div className="stat-text">
               <div className="stat-number">{approvedFiles.length}</div>
-              <div className="stat-name">Approved</div>
+              <div className="stat-name">Approved Files</div>
             </div>
           </div>
           
           <div className="stat-box rejected-box">
-            <div className="stat-icon rejected-icon">×</div>
+            <div className="stat-icon rejected-icon"></div>
             <div className="stat-text">
               <div className="stat-number">{rejectedFiles.length}</div>
-              <div className="stat-name">Rejected</div>
+              <div className="stat-name">Rejected Files</div>
             </div>
           </div>
       </div>

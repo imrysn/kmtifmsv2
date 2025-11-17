@@ -60,7 +60,7 @@
   align-items: center;
   gap: 12px;
   padding: 16px 20px;
-  background: white;
+  background: transparent;
   border: none;
   border-radius: 10px;
   min-width: 180px;
@@ -69,30 +69,32 @@
 .stat-icon {
   width: 48px;
   height: 48px;
-  border-radius: 50%;
+  border-radius: 8px;
+  border: 1px solid #e5e7eb;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 22px;
+  font-size: 14px;
+  font-weight: 700;
   flex-shrink: 0;
   flex-basis: 48px;
   min-width: 48px;
   min-height: 48px;
+  background: #f9fafb;
+  color: #1f2937;
+  letter-spacing: -0.5px;
 }
 
-.stat-icon.pending-icon {
-  background: #fef1d0;
-  color: #cc8833;
+.stat-icon.pending-icon::before {
+  content: 'TL';
 }
 
-.stat-icon.approved-icon {
-  background: #c7f3e8;
-  color: #0f7f52;
+.stat-icon.approved-icon::before {
+  content: 'AP';
 }
 
-.stat-icon.rejected-icon {
-  background: #f8d7da;
-  color: #721c24;
+.stat-icon.rejected-icon::before {
+  content: 'RE';
 }
 
 .stat-text {
@@ -104,7 +106,7 @@
 .stat-number {
   font-size: 24px;
   font-weight: 700;
-  color: #1d1d1f;
+  color: #000000 !important;
 }
 
 .header-subtitle {
