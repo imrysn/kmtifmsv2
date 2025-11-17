@@ -583,8 +583,12 @@ const TaskManagement = ({ error, success, setError, setSuccess, clearMessages, u
                           assigned to{' '}
                           <span className="admin-assigned-user">
                             {assignment.assigned_member_details && assignment.assigned_member_details.length > 0
-                              ? (assignment.assigned_member_details[0].fullName || assignment.assigned_member_details[0].username)
-                              : 'Unknown User'}
+                              ? assignment.assigned_member_details.length === 1
+                                ? (assignment.assigned_member_details[0].fullName || assignment.assigned_member_details[0].username)
+                                : `${assignment.assigned_member_details.length} members (${assignment.assigned_member_details.map(m => m.fullName || m.username).join(', ')})`
+                              : assignment.assigned_to === 'all'
+                                ? 'All team members'
+                                : 'Unknown User'}
                           </span>
                         </div>
                         <div className="admin-assignment-created">
@@ -660,33 +664,36 @@ const TaskManagement = ({ error, success, setError, setSuccess, clearMessages, u
                   <div className="admin-attachment-section">
                     {assignment.recent_submissions && assignment.recent_submissions.length > 0 ? (
                       <div className="admin-attached-file">
-                        <div className="admin-file-label">📎 Attachment:</div>
-                        <div
-                          className="admin-file-item"
-                          onClick={() => handleOpenFile(assignment.recent_submissions[0].file_path, assignment.recent_submissions[0].id)}
-                          style={{ cursor: 'pointer' }}
-                        >
-                          <FileIcon
-                            fileType={assignment.recent_submissions[0].original_name.split('.').pop()}
-                            size="small"
-                            className="admin-file-icon"
-                          />
-                          <div className="admin-file-details">
-                            <div className="admin-file-name">{assignment.recent_submissions[0].original_name}</div>
-                            <div className="admin-file-meta">
-                              Submitted on {formatDate(assignment.recent_submissions[0].submitted_at)}
+                        <div className="admin-file-label">📎 Attachment{assignment.recent_submissions.length > 1 ? 's' : ''} ({assignment.recent_submissions.length}):</div>
+                        {assignment.recent_submissions.map((file, index) => (
+                          <div
+                            key={file.id}
+                            className="admin-file-item"
+                            onClick={() => handleOpenFile(file.file_path, file.id)}
+                            style={{ 
+                              cursor: 'pointer',
+                              marginBottom: index < assignment.recent_submissions.length - 1 ? '8px' : '0'
+                            }}
+                          >
+                            <FileIcon
+                              fileType={file.original_name.split('.').pop()}
+                              size="small"
+                              className="admin-file-icon"
+                            />
+                            <div className="admin-file-details">
+                              <div className="admin-file-name">{file.original_name}</div>
+                              <div className="admin-file-meta">
+                                Submitted by <span className="admin-file-submitter">{file.fullName || file.username}</span> on {formatDate(file.submitted_at)}
+                              </div>
                             </div>
                           </div>
-                        </div>
+                        ))}
                       </div>
                     ) : (
                       <div className="admin-no-attachment">
                         <span className="admin-no-attachment-icon">📄</span>
                         <span className="admin-no-attachment-text">
-                          No attachment from{' '}
-                          {assignment.assigned_member_details && assignment.assigned_member_details.length > 0
-                            ? (assignment.assigned_member_details[0].fullName || assignment.assigned_member_details[0].username)
-                            : 'user'}
+                          No attachments yet
                         </span>
                       </div>
                     )}

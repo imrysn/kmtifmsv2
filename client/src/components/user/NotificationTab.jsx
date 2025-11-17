@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import './css/NotificationTab.css';
+import { LoadingCards } from '../common/InlineSkeletonLoader';
 
 const NotificationTab = ({ user, onNavigateToTask }) => {
   const [notifications, setNotifications] = useState([]);
@@ -197,9 +198,8 @@ const NotificationTab = ({ user, onNavigateToTask }) => {
 
       <div className="notifications-container">
         {isLoading ? (
-          <div className="loading-state">
-            <div className="spinner"></div>
-            <p>Loading notifications...</p>
+          <div>
+            <LoadingCards count={6} />
           </div>
         ) : notifications.length > 0 ? (
           <div className="notifications-list">

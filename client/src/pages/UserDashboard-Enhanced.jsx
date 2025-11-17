@@ -12,6 +12,7 @@ import MyFilesTab from '../components/user/MyFilesTab'
 import NotificationTab from '../components/user/NotificationTab-RealTime'
 import TasksTab from '../components/user/TasksTab-Enhanced'
 import FileModal from '../components/user/FileModal'
+import ToastNotification from '../components/user/ToastNotification'
 
 const UserDashboard = ({ user, onLogout }) => {
   const [activeTab, setActiveTab] = useState('dashboard')
@@ -25,6 +26,7 @@ const UserDashboard = ({ user, onLogout }) => {
   const [fileComments, setFileComments] = useState([])
   const [filterStatus, setFilterStatus] = useState('all')
   const [notificationCount, setNotificationCount] = useState(0)
+  const [notifications, setNotifications] = useState([])
   
   const dashboardRef = useRef(null)
   const headerRef = useRef(null)
@@ -49,21 +51,22 @@ const UserDashboard = ({ user, onLogout }) => {
   }
 
   useEffect(() => {
-    // Fetch notification count
-    const fetchNotificationCount = async () => {
+    // Fetch notifications
+    const fetchNotifications = async () => {
       try {
         const response = await fetch(`http://localhost:3001/api/notifications/user/${user.id}`)
         const data = await response.json()
         if (data.success) {
           setNotificationCount(data.unreadCount || 0)
+          setNotifications(data.notifications || [])
         }
       } catch (error) {
-        console.error('Error fetching notification count:', error)
+        console.error('Error fetching notifications:', error)
       }
     }
 
-    fetchNotificationCount()
-    const interval = setInterval(fetchNotificationCount, 5000)
+    fetchNotifications()
+    const interval = setInterval(fetchNotifications, 5000)
     return () => clearInterval(interval)
   }, [user.id])
 
@@ -153,6 +156,15 @@ const UserDashboard = ({ user, onLogout }) => {
     if (assignmentId) {
       sessionStorage.setItem('scrollToAssignment', assignmentId)
       console.log('✅ Stored scrollToAssignment in sessionStorage:', assignmentId);
+    }
+  }
+
+  const handleToastNavigation = (tabName, contextData) => {
+    setActiveTab(tabName)
+    if (contextData) {
+      if (tabName === 'tasks') {
+        sessionStorage.setItem('scrollToAssignment', contextData)
+      }
     }
   }
 
@@ -270,6 +282,12 @@ const UserDashboard = ({ user, onLogout }) => {
         selectedFile={selectedFile}
         fileComments={fileComments}
         formatFileSize={formatFileSize}
+      />
+
+      {/* Toast Notifications */}
+      <ToastNotification 
+        notifications={notifications}
+        onNavigate={handleToastNavigation}
       />
       </div>
     </Suspense>
