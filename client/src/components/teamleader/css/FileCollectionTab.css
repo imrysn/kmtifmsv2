@@ -105,62 +105,124 @@
   margin-top: 0;
 }
 
-/* Clickable Rows */
+/* Clickable Rows - Exact Copy from Admin */
 .tl-clickable-row {
   cursor: pointer;
-  transition: background-color 0.15s ease;
+  will-change: background-color;
 }
 
 .tl-clickable-row:hover {
   background: rgba(0, 0, 0, 0.03);
 }
 
-/* Toolbar Styling */
-.tl-toolbar {
+/* File Controls - Exact Copy from Admin */
+.file-controls {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.file-filters {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.file-search {
+  position: relative;
+  max-width: 300px;
+  flex: 1;
+}
+
+/* Files Table Section - Exact Copy from Admin */
+.tl-files-list {
   background: var(--background-secondary);
   border: 1px solid var(--border-color);
-  border-bottom: none;
-  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
-  margin-bottom: 0;
+  border-radius: 12px;
+  overflow: hidden;
 }
 
-.tl-files-list {
-  border-radius: 0 0 var(--radius-lg) var(--radius-lg);
-  margin-top: 0;
+.tl-files-table-container {
+  overflow-x: auto;
 }
 
-/* Ensure toolbar and table connect seamlessly */
-.tl-toolbar + .tl-files-list {
-  border-top-left-radius: 0;
-  border-top-right-radius: 0;
+.tl-files-table {
+  width: 100%;
+  border-collapse: collapse;
 }
 
-/* Collection Info in Toolbar */
-.collection-info {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-size: 14px;
-  font-weight: 500;
+.tl-files-table th {
+  background: var(--background-secondary);
   color: var(--text-primary);
-}
-
-.collection-info svg {
-  color: var(--text-secondary);
-}
-
-/* Action Buttons in Toolbar */
-.tl-toolbar-section .tl-btn {
+  font-weight: 600;
+  padding: 1rem;
+  text-align: left;
+  border-bottom: 1px solid var(--border-color);
   font-size: 14px;
-  padding: 0.625rem 1rem;
 }
 
-/* Filter Badge */
-.tl-toolbar .tl-badge.active {
-  background: var(--primary-color);
-  color: white;
-  border: none;
+.tl-files-table td {
+  padding: 1rem;
+  border-bottom: 1px solid var(--border-light);
+  vertical-align: middle;
 }
+
+/* Clickable Rows - Exact Copy from Admin */
+.tl-clickable-row {
+  cursor: pointer;
+  will-change: background-color;
+}
+
+.tl-clickable-row:hover {
+  background: rgba(0, 0, 0, 0.03);
+}
+
+/* Search Input - Exact Copy from Admin */
+.search-input {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background: white;
+  color: var(--text-primary);
+  font-size: 0.9rem;
+  transition: border-color 0.15s ease;
+}
+
+.search-input:focus {
+  outline: none;
+  border-color: #000000;
+}
+
+.search-input::placeholder {
+  color: var(--text-tertiary);
+}
+
+/* Form Select Dropdowns - Exact Copy from Admin */
+.form-select {
+  padding: 0.75rem;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background: var(--surface-color);
+  color: var(--text-primary);
+  font-size: 0.9rem;
+  cursor: pointer;
+  font-weight: 500;
+}
+
+.form-select:focus {
+  outline: none;
+  border-color: #000000;
+}
+
+.form-select option {
+  font-weight: 500;
+}
+
+
 
 /* File Cell Styling - Matching Admin */
 .file-cell {
@@ -295,12 +357,9 @@
   display: inline-block;
 }
 
-/* Loading and Empty States */
+/* Loading and Empty States - Exact Copy from Admin */
 .tl-loading,
 .tl-empty {
-  background: var(--background-secondary);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-lg);
   padding: 3rem;
   text-align: center;
   color: var(--text-secondary);
@@ -332,14 +391,24 @@
 }
 
 @media (max-width: 768px) {
-  .tl-toolbar {
+  .file-controls {
     flex-direction: column;
     align-items: stretch;
   }
-
-  .tl-toolbar-section {
-    width: 100%;
+  
+  .file-filters {
     flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+  
+  .file-search {
+    max-width: none;
+  }
+  
+  .tl-files-table thead th,
+  .tl-files-table tbody td {
+    padding: 0.75rem 0.5rem;
+    font-size: 0.85rem;
   }
   
   .file-status-cards {

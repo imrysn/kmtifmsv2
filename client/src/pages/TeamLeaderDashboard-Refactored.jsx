@@ -27,6 +27,8 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
   const [pendingFiles, setPendingFiles] = useState([])
   const [filteredFiles, setFilteredFiles] = useState([])
   const [submittedFiles, setSubmittedFiles] = useState([])
+  const [fileCollectionFilter, setFileCollectionFilter] = useState('all')
+  const [fileCollectionSort, setFileCollectionSort] = useState('date-desc')
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
@@ -93,7 +95,6 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
     description: '',
     dueDate: '',
     fileTypeRequired: '',
-    assignedTo: 'all',
     maxFileSize: 10485760,
     assignedMembers: []
   })
@@ -308,6 +309,11 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
       return
     }
 
+    if (assignmentForm.assignedMembers.length === 0) {
+      setError('Please select at least one team member')
+      return
+    }
+
     setIsProcessing(true)
     try {
       const response = await fetch('http://localhost:3001/api/assignments/create', {
@@ -315,6 +321,7 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...assignmentForm,
+          assignedTo: assignmentForm.assignedMembers.length > 0 ? 'specific' : 'all',
           teamLeaderId: user.id,
           teamLeaderUsername: user.username,
           team: user.team
@@ -330,7 +337,6 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
           description: '',
           dueDate: '',
           fileTypeRequired: '',
-          assignedTo: 'all',
           maxFileSize: 10485760,
           assignedMembers: []
         })
@@ -723,6 +729,10 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
             openMenuId={openMenuId}
             toggleMenu={toggleMenu}
             handleOpenInExplorer={handleOpenInExplorer}
+            fileCollectionFilter={fileCollectionFilter}
+            setFileCollectionFilter={setFileCollectionFilter}
+            fileCollectionSort={fileCollectionSort}
+            setFileCollectionSort={setFileCollectionSort}
           />
         )
       case 'team-management':

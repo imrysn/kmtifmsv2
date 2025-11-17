@@ -92,7 +92,7 @@ const FileManagement = ({ clearMessages, error, success, setError, setSuccess })
       setIsSearching(true)
       searchDebounceRef.current = setTimeout(() => {
         handleFastSearch(fileManagementSearch)
-      }, 900) // Debounce search by 300ms
+      }, 300) // Debounce search by 300ms
     }
 
     return () => {
@@ -363,7 +363,7 @@ const FileManagement = ({ clearMessages, error, success, setError, setSuccess })
           <div className="file-search">
             <input
               type="text"
-              placeholder="⚡ Ultra-fast search..."
+              placeholder="Search..."
               value={fileManagementSearch}
               onChange={(e) => setFileManagementSearch(e.target.value)}
               className="search-input"
