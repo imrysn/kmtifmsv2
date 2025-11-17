@@ -7,7 +7,7 @@ import SkeletonLoader from '../components/common/SkeletonLoader'
 import Sidebar from '../components/user/Sidebar'
 import AlertMessage from '../components/user/AlertMessage'
 import DashboardTab from '../components/user/DashboardTab'
-import TeamFilesTab from '../components/user/TeamFilesTab'
+import TeamTasksTab from '../components/user/TeamTasksTab'
 import MyFilesTab from '../components/user/MyFilesTab'
 import NotificationTab from '../components/user/NotificationTab-RealTime'
 import TasksTab from '../components/user/TasksTab-Enhanced'
@@ -205,7 +205,7 @@ const UserDashboard = ({ user, onLogout }) => {
           />
         );
       case 'team-files':
-        return <TeamFilesTab setActiveTab={setActiveTab} />;
+        return <TeamTasksTab user={user} />;
       case 'my-files':
         return (
           <MyFilesTab 

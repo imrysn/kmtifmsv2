@@ -167,11 +167,11 @@
 
 .user-notification-component .notification-card.unread {
   background-color: #eff6ff;
-  border-left: 4px solid #3b82f6;
+  border-left: none;
 }
 
 .user-notification-component .notification-card.notification-success {
-  border-left-color: #10b981;
+  border-left: none;
 }
 
 .user-notification-component .notification-card.unread.notification-success {
@@ -179,7 +179,7 @@
 }
 
 .user-notification-component .notification-card.notification-error {
-  border-left-color: #ef4444;
+  border-left: none;
 }
 
 .user-notification-component .notification-card.unread.notification-error {
@@ -187,7 +187,7 @@
 }
 
 .user-notification-component .notification-card.notification-info {
-  border-left-color: #6366f1;
+  border-left: none;
 }
 
 .user-notification-component .notification-card.unread.notification-info {
@@ -195,7 +195,7 @@
 }
 
 .user-notification-component .notification-card.notification-assignment {
-  border-left-color: #8b5cf6;
+  border-left: none;
 }
 
 .user-notification-component .notification-card.unread.notification-assignment {
@@ -203,7 +203,7 @@
 }
 
 .user-notification-component .notification-card.notification-comment {
-  border-left-color: #14b8a6;
+  border-left: none;
 }
 
 .user-notification-component .notification-card.unread.notification-comment {

@@ -43,7 +43,7 @@ const Sidebar = ({ activeTab, setActiveTab, filesCount, notificationCount, onLog
           onClick={() => setActiveTab('team-files')}
         >
           <span className="nav-icon">{getSidebarIcon('users')}</span>
-          <span className="nav-label">Team Files</span>
+          <span className="nav-label">Team Tasks</span>
         </button>
         <button
           className={`nav-item ${activeTab === 'my-files' ? 'active' : ''}`}

@@ -28,6 +28,8 @@ const TasksTab = ({ user }) => {
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef(null);
   const [showReplies, setShowReplies] = useState({}); // Track which comments have visible replies
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [fileToDelete, setFileToDelete] = useState(null);
 
   // Check for sessionStorage when component mounts or becomes visible
   useEffect(() => {
@@ -321,7 +323,24 @@ const TasksTab = ({ user }) => {
     const now = new Date()
     const daysUntilDue = Math.ceil((dueDate - now) / (1000 * 60 * 60 * 24))
 
-    if (assignment.user_status === 'submitted') {
+    // Check if submitted but no files - show MISSING
+    if (assignment.user_status === 'submitted' && (!assignment.submitted_files || assignment.submitted_files.length === 0)) {
+      return (
+        <span style={{
+          backgroundColor: '#FEF3C7',
+          color: '#92400E',
+          padding: '4px 12px',
+          borderRadius: '20px',
+          fontSize: '12px',
+          fontWeight: '600',
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: '4px'
+        }}>
+          ⚠️ MISSING
+        </span>
+      )
+    } else if (assignment.user_status === 'submitted') {
       return (
         <span style={{
           backgroundColor: '#F0FDF4',
@@ -400,6 +419,45 @@ const TasksTab = ({ user }) => {
 
   const handleRemoveFile = (index) => {
     setUploadedFiles(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const handleRemoveSubmittedFile = async (assignmentId, fileId) => {
+    // Close the modal first
+    setShowDeleteModal(false);
+    setFileToDelete(null);
+
+    try {
+      const response = await fetch(`http://localhost:3001/api/assignments/${assignmentId}/files/${fileId}`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          userId: user.id
+        })
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        setSuccess('File removed successfully');
+        // Refresh assignments to update the UI
+        await fetchAssignments();
+        setTimeout(() => setSuccess(''), 3000);
+      } else {
+        setError(data.message || 'Failed to remove file');
+        setTimeout(() => setError(''), 5000);
+      }
+    } catch (error) {
+      console.error('Error removing file:', error);
+      setError('Failed to remove file. Please try again.');
+      setTimeout(() => setError(''), 5000);
+    }
+  };
+
+  const confirmDeleteFile = (assignmentId, fileId, fileName) => {
+    setFileToDelete({ assignmentId, fileId, fileName });
+    setShowDeleteModal(true);
   };
 
   const handleFileUpload = async () => {
@@ -620,7 +678,7 @@ const TasksTab = ({ user }) => {
                             assigned to <span style={{ fontWeight: '600', color: '#050505' }}>
                               {assignment.assigned_member_details.map((member, idx) => (
                                 <span key={member.id}>
-                                  {member.fullName || member.username}
+                                  {member.fullName}
                                   {idx < assignment.assigned_member_details.length - 1 && ', '}
                                 </span>
                               ))}
@@ -688,57 +746,13 @@ const TasksTab = ({ user }) => {
                     {assignment.submitted_files.map((file, index) => (
                       <div 
                         key={file.id}
-                        onClick={async () => {
-                          try {
-                            // Check if running in Electron
-                            if (window.electron && window.electron.openFileInApp) {
-                              // Get the actual file path from server
-                              const response = await fetch(`http://localhost:3001/api/files/${file.id}/path`);
-                              const data = await response.json();
-                              
-                              if (data.success && data.filePath) {
-                                // Open file with system default application
-                                const result = await window.electron.openFileInApp(data.filePath);
-                                
-                                if (!result.success) {
-                                  setError(result.error || 'Failed to open file with system application');
-                                }
-                              } else {
-                                throw new Error('Could not get file path');
-                              }
-                            } else {
-                              // In browser - get file path and open in new tab
-                              const response = await fetch(`http://localhost:3001/api/files/${file.id}`);
-                              const fileData = await response.json();
-                              
-                              if (fileData.success && fileData.file) {
-                                const fileUrl = `http://localhost:3001${fileData.file.file_path}`;
-                                window.open(fileUrl, '_blank', 'noopener,noreferrer');
-                              } else {
-                                throw new Error('Could not get file information');
-                              }
-                            }
-                          } catch (error) {
-                            console.error('Error opening file:', error);
-                            setError('Failed to open file. Please try again.');
-                          }
-                        }}
                         style={{
                           backgroundColor: '#f0f7ff',
                           border: '1px solid #e3f2fd',
                           borderRadius: '8px',
                           padding: '12px',
                           marginBottom: index < assignment.submitted_files.length - 1 ? '8px' : '0',
-                          cursor: 'pointer',
                           transition: 'all 0.2s',
-                        }}
-                        onMouseEnter={(e) => {
-                          e.currentTarget.style.backgroundColor = '#e3f2fd';
-                          e.currentTarget.style.borderColor = '#2196F3';
-                        }}
-                        onMouseLeave={(e) => {
-                          e.currentTarget.style.backgroundColor = '#f0f7ff';
-                          e.currentTarget.style.borderColor = '#e3f2fd';
                         }}
                       >
                         <div style={{
@@ -746,52 +760,137 @@ const TasksTab = ({ user }) => {
                           alignItems: 'center',
                           gap: '12px',
                         }}>
-                          <FileIcon 
-                            fileType={(file.original_name || file.filename || 'file').split('.').pop().toLowerCase()} 
-                            isFolder={false}
-                            size="default"
-                            style={{
-                              width: '40px',
-                              height: '40px',
-                              flexShrink: 0
+                          <div
+                            onClick={async () => {
+                              try {
+                                // Check if running in Electron
+                                if (window.electron && window.electron.openFileInApp) {
+                                  // Get the actual file path from server
+                                  const response = await fetch(`http://localhost:3001/api/files/${file.id}/path`);
+                                  const data = await response.json();
+                                  
+                                  if (data.success && data.filePath) {
+                                    // Open file with system default application
+                                    const result = await window.electron.openFileInApp(data.filePath);
+                                    
+                                    if (!result.success) {
+                                      setError(result.error || 'Failed to open file with system application');
+                                    }
+                                  } else {
+                                    throw new Error('Could not get file path');
+                                  }
+                                } else {
+                                  // In browser - get file path and open in new tab
+                                  const response = await fetch(`http://localhost:3001/api/files/${file.id}`);
+                                  const fileData = await response.json();
+                                  
+                                  if (fileData.success && fileData.file) {
+                                    const fileUrl = `http://localhost:3001${fileData.file.file_path}`;
+                                    window.open(fileUrl, '_blank', 'noopener,noreferrer');
+                                  } else {
+                                    throw new Error('Could not get file information');
+                                  }
+                                }
+                              } catch (error) {
+                                console.error('Error opening file:', error);
+                                setError('Failed to open file. Please try again.');
+                              }
                             }}
-                          />
-                          <div style={{ flex: 1, minWidth: 0 }}>
-                            <div style={{ 
-                              fontWeight: '500', 
-                              fontSize: '14px', 
-                              color: '#1a1a1a',
-                              overflow: 'hidden',
-                              textOverflow: 'ellipsis',
-                              whiteSpace: 'nowrap'
-                            }}>
-                              {file.original_name || file.filename}
-                            </div>
-                            <div style={{ fontSize: '12px', color: '#6B7280', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                              <span>Submitted on {file.submitted_at ? formatDate(file.submitted_at) : 'N/A'}</span>
-                              {file.tag && (
-                                <span style={{
-                                  backgroundColor: '#e0f2fe',
-                                  color: '#0369a1',
-                                  padding: '2px 8px',
-                                  borderRadius: '4px',
-                                  fontSize: '11px',
-                                  fontWeight: '600'
-                                }}>
-                                  🏷️ {file.tag}
-                                </span>
-                              )}
-                              {file.description && (
-                                <span style={{
-                                  color: '#6B7280',
-                                  fontSize: '11px',
-                                  fontStyle: 'italic'
-                                }}>
-                                  {file.description}
-                                </span>
-                              )}
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '12px',
+                              flex: 1,
+                              cursor: 'pointer',
+                              minWidth: 0
+                            }}
+                            onMouseEnter={(e) => {
+                              e.currentTarget.parentElement.parentElement.style.backgroundColor = '#e3f2fd';
+                              e.currentTarget.parentElement.parentElement.style.borderColor = '#2196F3';
+                            }}
+                            onMouseLeave={(e) => {
+                              e.currentTarget.parentElement.parentElement.style.backgroundColor = '#f0f7ff';
+                              e.currentTarget.parentElement.parentElement.style.borderColor = '#e3f2fd';
+                            }}
+                          >
+                            <FileIcon 
+                              fileType={(file.original_name || file.filename || 'file').split('.').pop().toLowerCase()} 
+                              isFolder={false}
+                              size="default"
+                              style={{
+                                width: '40px',
+                                height: '40px',
+                                flexShrink: 0
+                              }}
+                            />
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{ 
+                                fontWeight: '500', 
+                                fontSize: '14px', 
+                                color: '#1a1a1a',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap'
+                              }}>
+                                {file.original_name || file.filename}
+                              </div>
+                              <div style={{ fontSize: '12px', color: '#6B7280', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                                <span>Submitted on {file.submitted_at ? formatDate(file.submitted_at) : 'N/A'}</span>
+                                {file.tag && (
+                                  <span style={{
+                                    backgroundColor: '#e0f2fe',
+                                    color: '#0369a1',
+                                    padding: '2px 8px',
+                                    borderRadius: '4px',
+                                    fontSize: '11px',
+                                    fontWeight: '600'
+                                  }}>
+                                    🏷️ {file.tag}
+                                  </span>
+                                )}
+                                {file.description && (
+                                  <span style={{
+                                    color: '#6B7280',
+                                    fontSize: '11px',
+                                    fontStyle: 'italic'
+                                  }}>
+                                    {file.description}
+                                  </span>
+                                )}
+                              </div>
                             </div>
                           </div>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              confirmDeleteFile(assignment.id, file.id, file.original_name || file.filename);
+                            }}
+                            style={{
+                              background: 'transparent',
+                              color: '#9ca3af',
+                              border: 'none',
+                              borderRadius: '6px',
+                              padding: '6px',
+                              fontSize: '18px',
+                              cursor: 'pointer',
+                              flexShrink: 0,
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              transition: 'all 0.2s'
+                            }}
+                            onMouseEnter={(e) => {
+                              e.currentTarget.style.backgroundColor = '#fee2e2';
+                              e.currentTarget.style.color = '#dc2626';
+                            }}
+                            onMouseLeave={(e) => {
+                              e.currentTarget.style.backgroundColor = 'transparent';
+                              e.currentTarget.style.color = '#9ca3af';
+                            }}
+                            title="Remove file"
+                          >
+                            ×
+                          </button>
                         </div>
                       </div>
                     ))}
@@ -1061,6 +1160,89 @@ const TasksTab = ({ user }) => {
                   </div>
                 </div>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteModal && fileToDelete && (
+        <div className="tasks-modal-overlay" onClick={() => setShowDeleteModal(false)}>
+          <div className="tasks-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '500px' }}>
+            <div className="tasks-modal-header">
+              <h3 style={{ color: '#dc2626', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '24px' }}>⚠️</span>
+                Remove File
+              </h3>
+              <button className="tasks-modal-close" onClick={() => setShowDeleteModal(false)}>×</button>
+            </div>
+
+            <div className="tasks-modal-body">
+              <div style={{ padding: '20px 0' }}>
+                <p style={{ fontSize: '15px', color: '#374151', marginBottom: '16px', lineHeight: '1.6' }}>
+                  Are you sure you want to remove this file from the submission?
+                </p>
+                <div style={{
+                  backgroundColor: '#fee2e2',
+                  border: '1px solid #fecaca',
+                  borderRadius: '8px',
+                  padding: '12px 16px',
+                  marginBottom: '16px'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ fontSize: '16px' }}>📄</span>
+                    <span style={{ fontSize: '14px', fontWeight: '500', color: '#991b1b' }}>
+                      {fileToDelete.fileName}
+                    </span>
+                  </div>
+                </div>
+                <p style={{ fontSize: '13px', color: '#6b7280', margin: 0 }}>
+                  This action cannot be undone.
+                </p>
+              </div>
+            </div>
+
+            <div className="tasks-modal-footer" style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
+              <button
+                onClick={() => setShowDeleteModal(false)}
+                style={{
+                  padding: '10px 20px',
+                  borderRadius: '8px',
+                  border: '1px solid #d1d5db',
+                  backgroundColor: '#ffffff',
+                  color: '#374151',
+                  fontSize: '14px',
+                  fontWeight: '500',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s'
+                }}
+                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f9fafb'}
+                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#ffffff'}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => handleRemoveSubmittedFile(fileToDelete.assignmentId, fileToDelete.fileId)}
+                style={{
+                  padding: '10px 20px',
+                  borderRadius: '8px',
+                  border: 'none',
+                  backgroundColor: '#dc2626',
+                  color: '#ffffff',
+                  fontSize: '14px',
+                  fontWeight: '500',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px'
+                }}
+                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#b91c1c'}
+                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#dc2626'}
+              >
+                <span>🗑️</span>
+                Remove File
+              </button>
             </div>
           </div>
         </div>
