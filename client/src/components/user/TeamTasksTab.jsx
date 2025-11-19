@@ -362,7 +362,7 @@ const TeamTasksTab = ({ user }) => {
     try {
       setIsPostingReply(prev => ({ ...prev, [commentId]: true }))
       
-      const response = await fetch(`http://localhost:3001/api/assignments/${assignmentId}/comments/${commentId}/replies`, {
+      const response = await fetch(`http://localhost:3001/api/assignments/${assignmentId}/comments/${commentId}/reply`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'

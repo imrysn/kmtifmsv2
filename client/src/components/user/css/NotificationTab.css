@@ -222,6 +222,43 @@
   border-radius: 8px;
 }
 
+.user-notification-component .notification-icon svg {
+  width: 20px;
+  height: 20px;
+  stroke-width: 2;
+}
+
+.user-notification-component .notification-card.notification-comment .notification-icon {
+  background-color: #ccfbf1;
+  color: #0f766e;
+}
+
+.user-notification-component .notification-card.notification-assignment .notification-icon {
+  background-color: #e9d5ff;
+  color: #7c3aed;
+}
+
+.user-notification-component .notification-card.notification-success .notification-icon {
+  background-color: #d1fae5;
+  color: #047857;
+}
+
+.user-notification-component .notification-card.notification-error .notification-icon {
+  background-color: #fee2e2;
+  color: #dc2626;
+}
+
+.user-notification-component .bell-icon svg {
+  display: block;
+  color: #3b82f6;
+}
+
+.user-notification-component .empty-icon svg {
+  display: block;
+  color: #9ca3af;
+  opacity: 0.5;
+}
+
 .user-notification-component .notification-content {
   flex: 1;
   min-width: 0;

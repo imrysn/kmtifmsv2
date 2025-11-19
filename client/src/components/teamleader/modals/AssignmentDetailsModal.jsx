@@ -137,7 +137,7 @@ const AssignmentDetailsModal = ({
     setIsPostingReply(true)
     
     try {
-      const response = await fetch(`http://localhost:3001/api/assignments/${selectedAssignment.id}/comments/${commentId}/replies`, {
+      const response = await fetch(`http://localhost:3001/api/assignments/${selectedAssignment.id}/comments/${commentId}/reply`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

@@ -13,12 +13,12 @@ const ToastNotification = ({ notifications, onClose, onNavigate }) => {
 
     setVisible(newNotifications);
 
-    // Auto-dismiss after 8 seconds
+    // Auto-dismiss after 5 seconds
     if (newNotifications.length > 0) {
       const timers = newNotifications.map(notification => 
         setTimeout(() => {
           handleDismiss(notification.id);
-        }, 8000)
+        }, 5000)
       );
 
       return () => timers.forEach(timer => clearTimeout(timer));
@@ -31,21 +31,42 @@ const ToastNotification = ({ notifications, onClose, onNavigate }) => {
   };
 
   const handleClick = (notification) => {
+    console.log('👆 Notification clicked:', notification);
+    
     if (onNavigate) {
+      // Handle different notification types
       if (notification.type === 'comment' && notification.assignment_id) {
-        // For comment notifications, navigate to tasks and store commenter name
+        // For comment notifications, navigate to tasks and highlight the comment
         if (notification.action_by_username) {
           sessionStorage.setItem('highlightCommentBy', notification.action_by_username);
         }
         onNavigate('tasks', notification.assignment_id);
-      } else if (notification.type === 'assignment' && notification.assignment_id) {
+      } 
+      else if (notification.type === 'assignment' && notification.assignment_id) {
         // Navigate to tasks tab for assignment notifications
         onNavigate('tasks', notification.assignment_id);
-      } else if (notification.file_id) {
-        // Navigate to my files for file-related notifications
+      } 
+      else if (
+        (notification.type === 'approval' || 
+         notification.type === 'rejection' || 
+         notification.type === 'final_approval' || 
+         notification.type === 'final_rejection') && 
+        notification.file_id
+      ) {
+        // For file approval/rejection notifications, navigate to my-files and open the file
+        console.log('📂 Opening file:', notification.file_id);
         onNavigate('my-files', notification.file_id);
       }
+      else if (notification.file_id) {
+        // Generic file notification fallback
+        console.log('📂 Opening file (fallback):', notification.file_id);
+        onNavigate('my-files', notification.file_id);
+      }
+      else {
+        console.log('⚠️ No specific navigation target found for notification');
+      }
     }
+    
     handleDismiss(notification.id);
   };
 

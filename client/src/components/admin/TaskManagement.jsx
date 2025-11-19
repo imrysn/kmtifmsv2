@@ -262,7 +262,7 @@ const TaskManagement = ({ error, success, setError, setSuccess, clearMessages, u
       const currentUser = user
 
       const response = await fetch(
-        `http://localhost:3001/api/assignments/${selectedAssignment.id}/comments/${commentId}/replies`,
+        `http://localhost:3001/api/assignments/${selectedAssignment.id}/comments/${commentId}/reply`,
         {
           method: 'POST',
           headers: {
