@@ -573,30 +573,10 @@ const TeamTasksTab = ({ user }) => {
                         Attachment{assignment.recent_submissions.length > 1 ? 's' : ''} ({assignment.recent_submissions.length}):
                       </div>
                       {(() => {
-                        // Group files by user
-                        const filesByUser = assignment.recent_submissions.reduce((acc, file) => {
-                          const userName = file.fullName || file.username;
-                          if (!acc[userName]) {
-                            acc[userName] = [];
-                          }
-                          acc[userName].push(file);
-                          return acc;
-                        }, {});
-
-                        // Sort each user's files by submitted_at (newest first)
-                        Object.keys(filesByUser).forEach(userName => {
-                          filesByUser[userName].sort((a, b) => new Date(b.submitted_at) - new Date(a.submitted_at));
-                        });
-
-                        // Sort users by their most recent submission
-                        const sortedUsers = Object.keys(filesByUser).sort((userA, userB) => {
-                          const mostRecentA = new Date(filesByUser[userA][0].submitted_at);
-                          const mostRecentB = new Date(filesByUser[userB][0].submitted_at);
-                          return mostRecentB - mostRecentA;
-                        });
-
-                        // Flatten the sorted groups
-                        const sortedFiles = sortedUsers.flatMap(userName => filesByUser[userName]);
+                        // Simply sort all files by submitted_at (newest first)
+                        const sortedFiles = [...assignment.recent_submissions].sort((a, b) => 
+                          new Date(b.submitted_at) - new Date(a.submitted_at)
+                        );
 
                         return sortedFiles.map((file, index) => (
                         <div
