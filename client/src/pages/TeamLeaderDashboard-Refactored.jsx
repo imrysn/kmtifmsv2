@@ -5,7 +5,6 @@ import SkeletonLoader from '../components/common/SkeletonLoader'
 // Import refactored components
 import {
   Sidebar,
-  TopBar,
   AlertMessage,
   OverviewTab,
   FileCollectionTab,
@@ -100,6 +99,7 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
     assignedMembers: []
   })
   const [notificationCommentContext, setNotificationCommentContext] = useState(null)
+  const [highlightedAssignmentId, setHighlightedAssignmentId] = useState(null)
 
   useEffect(() => {
     // Only fetch files for tabs that need them
@@ -735,6 +735,10 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
             setFileCollectionFilter={setFileCollectionFilter}
             fileCollectionSort={fileCollectionSort}
             setFileCollectionSort={setFileCollectionSort}
+            onNavigateToTask={(assignmentId) => {
+              setActiveTab('assignments')
+              setHighlightedAssignmentId(assignmentId)
+            }}
           />
         )
       case 'team-management':
@@ -758,6 +762,8 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
             user={user}
             notificationCommentContext={notificationCommentContext}
             onClearNotificationContext={() => setNotificationCommentContext(null)}
+            highlightedAssignmentId={highlightedAssignmentId}
+            onClearHighlight={() => setHighlightedAssignmentId(null)}
           />
         )
       case 'notifications':
@@ -820,17 +826,6 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
         />
 
         <main className="tl-main">
-          <TopBar
-            toggleSidebar={toggleSidebar}
-            searchQuery={searchQuery}
-            setSearchQuery={setSearchQuery}
-            showNotifications={showNotifications}
-            setShowNotifications={setShowNotifications}
-            notificationCounts={notificationCounts}
-            notifications={notifications}
-            openReviewModal={openReviewModal}
-          />
-
           <AlertMessage
             error={error}
             success={success}

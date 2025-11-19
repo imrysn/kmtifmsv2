@@ -13,7 +13,9 @@ const AssignmentsTab = ({
   openReviewModal,
   user,
   notificationCommentContext,
-  onClearNotificationContext
+  onClearNotificationContext,
+  highlightedAssignmentId,
+  onClearHighlight
 }) => {
   const [showMembersModal, setShowMembersModal] = useState(false)
   const [selectedMembers, setSelectedMembers] = useState([])
@@ -63,6 +65,31 @@ const AssignmentsTab = ({
       document.removeEventListener('mousedown', handleClickOutside)
     }
   }, [showMenuForAssignment])
+
+  // Handle highlighting and scrolling to specific assignment
+  useEffect(() => {
+    if (highlightedAssignmentId && assignments.length > 0) {
+      // Small delay to ensure DOM is ready
+      setTimeout(() => {
+        const element = document.getElementById(`assignment-card-${highlightedAssignmentId}`)
+        if (element) {
+          // Scroll to element with smooth behavior
+          element.scrollIntoView({ behavior: 'smooth', block: 'center' })
+          
+          // Add highlight effect
+          element.classList.add('tl-assignment-highlighted')
+          
+          // Remove highlight after animation
+          setTimeout(() => {
+            element.classList.remove('tl-assignment-highlighted')
+            if (onClearHighlight) {
+              onClearHighlight()
+            }
+          }, 1500)
+        }
+      }, 300)
+    }
+  }, [highlightedAssignmentId, assignments])
 
   const fetchComments = async (assignmentId) => {
     try {
@@ -392,7 +419,7 @@ const AssignmentsTab = ({
               const assignmentComments = comments[assignment.id] || []
 
               return (
-                <div key={assignment.id} className="tl-assignment-card">
+                <div key={assignment.id} id={`assignment-card-${assignment.id}`} className="tl-assignment-card">
                   {/* Card Header */}
                   <div className="tl-assignment-card-header">
                     <div className="tl-assignment-header-left">
