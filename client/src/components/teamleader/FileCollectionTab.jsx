@@ -15,7 +15,8 @@ const FileCollectionTab = ({
   fileCollectionFilter,
   setFileCollectionFilter,
   fileCollectionSort,
-  setFileCollectionSort
+  setFileCollectionSort,
+  onNavigateToTask
 }) => {
   const [searchQuery, setSearchQuery] = useState('')
   // Extract file extension helper
@@ -138,7 +139,7 @@ const FileCollectionTab = ({
             </div>
             <div className="status-info">
               <div className="status-number">{stats.pending}</div>
-              <div className="status-label">Pending Review</div>
+              <div className="status-label">Pending Team Leader</div>
             </div>
           </div>
 
@@ -187,7 +188,7 @@ const FileCollectionTab = ({
             className="form-select"
           >
             <option value="all">All Files</option>
-            <option value="pending">Pending Review</option>
+            <option value="pending">Pending Team Leader</option>
             <option value="approved">Approved</option>
             <option value="rejected">Rejected</option>
           </select>
@@ -275,10 +276,10 @@ const FileCollectionTab = ({
                       'pending'
                     }`}>
                       {
-                        submission.status === 'approved' || submission.status === 'final_approved' ? 'Approved' : 
-                        submission.status === 'rejected' || submission.status === 'rejected_by_team_leader' || submission.status === 'rejected_by_admin' ? 'Rejected' : 
-                        submission.status === 'team_leader_approved' ? 'Pending Admin' : 
-                        'Pending Review'
+                        submission.status === 'approved' || submission.status === 'final_approved' ? 'Approved' :
+                        submission.status === 'rejected' || submission.status === 'rejected_by_team_leader' || submission.status === 'rejected_by_admin' ? 'Rejected' :
+                        submission.status === 'team_leader_approved' ? 'Pending Admin' :
+                        'Pending Team Leader'
                       }
                     </span>
                   </td>
@@ -297,6 +298,21 @@ const FileCollectionTab = ({
                       </button>
                       {openMenuId === submission.id && (
                         <div className="tl-dropdown-menu">
+                          {submission.assignment_id && onNavigateToTask && (
+                            <button 
+                              className="tl-dropdown-item"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                onNavigateToTask(submission.assignment_id)
+                              }}
+                            >
+                              <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                                <path d="M5.33333 2.66667H2.66667C2.29848 2.66667 2 2.96514 2 3.33333V13.3333C2 13.7015 2.29848 14 2.66667 14H12.6667C13.0349 14 13.3333 13.7015 13.3333 13.3333V10.6667" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                                <path d="M12 2L14 4L8.66667 9.33333L6.66667 9.66667L7 7.66667L12 2Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                              </svg>
+                              Go to Task
+                            </button>
+                          )}
                           <button 
                             className="tl-dropdown-item"
                             onClick={(e) => handleOpenInExplorer(submission.file_path, e)}
