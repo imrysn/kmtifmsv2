@@ -75,10 +75,10 @@ const AssignmentsTab = ({
         if (element) {
           // Scroll to element with smooth behavior
           element.scrollIntoView({ behavior: 'smooth', block: 'center' })
-          
+
           // Add highlight effect
           element.classList.add('tl-assignment-highlighted')
-          
+
           // Remove highlight after animation
           setTimeout(() => {
             element.classList.remove('tl-assignment-highlighted')
@@ -93,14 +93,20 @@ const AssignmentsTab = ({
 
   const fetchComments = async (assignmentId) => {
     try {
+      console.log(`🔍 Fetching comments for assignment ${assignmentId}`)
       const response = await fetch(`http://localhost:3001/api/assignments/${assignmentId}/comments`)
       const data = await response.json()
-      
+
+      console.log(`💬 Comments response for ${assignmentId}:`, data)
+
       if (data.success) {
+        console.log(`✅ Setting ${data.comments?.length || 0} comments for assignment ${assignmentId}`)
         setComments(prev => ({
           ...prev,
           [assignmentId]: data.comments || []
         }))
+      } else {
+        console.log(`❌ Failed to fetch comments for assignment ${assignmentId}`)
       }
     } catch (error) {
       console.error('Error fetching comments:', error)
@@ -112,7 +118,7 @@ const AssignmentsTab = ({
     if (!commentText) return
 
     setIsPostingComment(prev => ({ ...prev, [assignmentId]: true }))
-    
+
     try {
       const response = await fetch(`http://localhost:3001/api/assignments/${assignmentId}/comments`, {
         method: 'POST',
@@ -127,7 +133,7 @@ const AssignmentsTab = ({
       })
 
       const data = await response.json()
-      
+
       if (data.success) {
         setNewComment(prev => ({ ...prev, [assignmentId]: '' }))
         fetchComments(assignmentId)
@@ -146,7 +152,7 @@ const AssignmentsTab = ({
     setIsPostingReply(prev => ({ ...prev, [commentId]: true }))
     
     try {
-      const response = await fetch(`http://localhost:3001/api/assignments/${assignmentId}/comments/${commentId}/replies`, {
+      const response = await fetch(`http://localhost:3001/api/assignments/${assignmentId}/comments/${commentId}/reply`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -272,10 +278,26 @@ const AssignmentsTab = ({
           {members[0].fullName || members[0].username}
         </span>
       )
-    } else {
+    } else if (memberCount <= 4) {
+      // Show all names if 4 or fewer
       const names = members.map(m => m.fullName || m.username).join(', ')
       return (
         <span className="tl-assignment-assigned-user">{names}</span>
+      )
+    } else {
+      // Show first 4 names and +X more with tooltip
+      const displayedMembers = members.slice(0, 4)
+      const remainingMembers = members.slice(4)
+      const displayedNames = displayedMembers.map(m => m.fullName || m.username).join(', ')
+      const remainingNames = remainingMembers.map(m => m.fullName || m.username).join(', ')
+      
+      return (
+        <span className="tl-assignment-assigned-user">
+          {displayedNames}
+          <span className="tl-assignment-more-members" data-tooltip={remainingNames}>
+            {' '}+{remainingMembers.length} more
+          </span>
+        </span>
       )
     }
   }

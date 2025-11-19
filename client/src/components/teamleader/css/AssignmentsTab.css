@@ -154,6 +154,47 @@
   color: #1c1e21;
 }
 
+/* More Members Indicator with Tooltip */
+.tl-assignment-more-members {
+  color: #1877f2;
+  font-weight: 600;
+  cursor: help;
+  position: relative;
+  display: inline-block;
+}
+
+.tl-assignment-more-members:hover::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  margin-top: 8px;
+  padding: 8px 12px;
+  background: #1c1e21;
+  color: white;
+  font-size: 13px;
+  font-weight: 500;
+  border-radius: 6px;
+  white-space: nowrap;
+  z-index: 1000;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  pointer-events: none;
+}
+
+.tl-assignment-more-members:hover::before {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  margin-top: 2px;
+  border: 6px solid transparent;
+  border-bottom-color: #1c1e21;
+  z-index: 1000;
+  pointer-events: none;
+}
+
 .tl-assignment-created {
   font-size: 13px;
   color: #65676b;

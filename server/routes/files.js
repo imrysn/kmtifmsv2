@@ -535,12 +535,21 @@ router.post('/:fileId/team-leader-review', (req, res) => {
 
   // Get current file status
   db.get('SELECT * FROM files WHERE id = ?', [fileId], (err, file) => {
-    if (err || !file) {
+    if (err) {
+      console.error('❌ Error getting file:', err);
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to fetch file'
+      });
+    }
+
+    if (!file) {
       return res.status(404).json({
         success: false,
         message: 'File not found'
       });
     }
+
     if (file.current_stage !== 'pending_team_leader') {
       return res.status(400).json({
         success: false,
@@ -799,7 +808,7 @@ router.post('/:fileId/move-to-projects', async (req, res) => {
 });
 
 // Admin approve/reject file (Final approval)
-router.post('/:fileId/admin-review', (req, res) => {
+router.post('/:fileId/admin-review', async (req, res) => {
   const { fileId } = req.params;
   const { action, comments, adminId, adminUsername, adminRole, team } = req.body;
   console.log(`📋 Admin ${action} for file ${fileId} by ${adminUsername}`);
@@ -958,6 +967,65 @@ router.post('/:fileId/admin-review', (req, res) => {
       ).catch(err => {
         console.error('Failed to create notification:', err);
       });
+
+      // Create notification for team leader about admin action
+      function sendTeamLeaderNotification(teamLeaderId) {
+        if (teamLeaderId && teamLeaderId !== adminId) {
+          const tlNotificationTitle = action === 'approve'
+            ? 'File Approved by Admin'
+            : 'File Rejected by Admin';
+          const tlNotificationMessage = action === 'approve'
+            ? `Admin ${adminUsername} has approved file "${file.original_name}" submitted by ${file.username}`
+            : `Admin ${adminUsername} has rejected file "${file.original_name}" submitted by ${file.username}. ${comments ? 'Reason: ' + comments : ''}`;
+
+          createNotification(
+            teamLeaderId,
+            fileId,
+            notificationType,
+            tlNotificationTitle,
+            tlNotificationMessage,
+            adminId,
+            adminUsername,
+            adminRole
+          ).catch(err => {
+            console.error('Failed to create team leader notification:', err);
+          });
+          console.log(`📧 Created admin ${action} notification for team leader ID: ${teamLeaderId}`);
+        }
+      }
+
+      let teamLeaderId = file.team_leader_id;
+
+      // If team_leader_id is not set, try to get it from assignment submissions or team
+      if (!teamLeaderId) {
+        // Check if file is from an assignment submission
+        db.get(
+          `SELECT a.team_leader_id FROM assignment_submissions asub
+           JOIN assignments a ON asub.assignment_id = a.id
+           WHERE asub.file_id = ? LIMIT 1`,
+          [fileId],
+          (err, assignmentSubmission) => {
+            if (!err && assignmentSubmission && assignmentSubmission.team_leader_id) {
+              teamLeaderId = assignmentSubmission.team_leader_id;
+              sendTeamLeaderNotification(teamLeaderId);
+            } else {
+              // Get team leader from user's team
+              db.get(
+                'SELECT id FROM users WHERE team = ? AND role = ? LIMIT 1',
+                [file.user_team, 'TEAM_LEADER'],
+                (err, teamLeader) => {
+                  if (!err && teamLeader) {
+                    teamLeaderId = teamLeader.id;
+                  }
+                  sendTeamLeaderNotification(teamLeaderId);
+                }
+              );
+            }
+          }
+        );
+      } else {
+        sendTeamLeaderNotification(teamLeaderId);
+      }
 
       console.log(`✅ File ${action}d by admin: ${file.filename}${action === 'approve' ? ' - Published to Public Network' : ''}`);
       res.json({
