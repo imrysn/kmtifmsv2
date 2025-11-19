@@ -568,52 +568,79 @@ const TeamTasksTab = ({ user }) => {
                 <div className="team-task-attachment-section">
                   {assignment.recent_submissions && assignment.recent_submissions.length > 0 ? (
                     <div className="team-task-attached-file">
-                      <div className="file-label">📎 Attachment{assignment.recent_submissions.length > 1 ? 's' : ''} ({assignment.recent_submissions.length}):</div>
+                      <div className="file-label">
+                        <span style={{ fontSize: '16px' }}>📎</span>
+                        Attachment{assignment.recent_submissions.length > 1 ? 's' : ''} ({assignment.recent_submissions.length}):
+                      </div>
                       {(() => {
-                        // Group files by user
-                        const filesByUser = assignment.recent_submissions.reduce((acc, file) => {
-                          const userName = file.fullName || file.username;
-                          if (!acc[userName]) {
-                            acc[userName] = [];
-                          }
-                          acc[userName].push(file);
-                          return acc;
-                        }, {});
-
-                        // Sort each user's files by submitted_at (newest first)
-                        Object.keys(filesByUser).forEach(userName => {
-                          filesByUser[userName].sort((a, b) => new Date(b.submitted_at) - new Date(a.submitted_at));
-                        });
-
-                        // Sort users by their most recent submission
-                        const sortedUsers = Object.keys(filesByUser).sort((userA, userB) => {
-                          const mostRecentA = new Date(filesByUser[userA][0].submitted_at);
-                          const mostRecentB = new Date(filesByUser[userB][0].submitted_at);
-                          return mostRecentB - mostRecentA;
-                        });
-
-                        // Flatten the sorted groups
-                        const sortedFiles = sortedUsers.flatMap(userName => filesByUser[userName]);
+                        // Simply sort all files by submitted_at (newest first)
+                        const sortedFiles = [...assignment.recent_submissions].sort((a, b) => 
+                          new Date(b.submitted_at) - new Date(a.submitted_at)
+                        );
 
                         return sortedFiles.map((file, index) => (
                         <div
                           key={file.id}
                           className="file-item"
                           onClick={() => handleOpenFile(file.file_path, file.id)}
-                          style={{ 
-                            cursor: 'pointer',
-                            marginBottom: index < sortedFiles.length - 1 ? '8px' : '0'
-                          }}
                         >
-                          <FileIcon
-                            fileType={file.original_name.split('.').pop()}
-                            size="small"
-                            className="file-icon"
-                          />
-                          <div className="file-details">
-                            <div className="file-name">{file.original_name}</div>
-                            <div className="file-meta">
-                              Submitted by <span className="file-submitter">{file.fullName || file.username}</span> on {formatDate(file.submitted_at)}
+                          <div style={{
+                            display: 'flex',
+                            alignItems: 'flex-start',
+                            gap: '12px'
+                          }}>
+                            <FileIcon
+                              fileType={file.original_name.split('.').pop()}
+                              size="small"
+                              style={{
+                                width: '48px',
+                                height: '48px',
+                                flexShrink: 0
+                              }}
+                            />
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{ 
+                                fontWeight: '500', 
+                                fontSize: '15px', 
+                                color: '#111827',
+                                marginBottom: '6px',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap'
+                              }}>
+                                {file.original_name}
+                              </div>
+                              <div style={{ 
+                                fontSize: '13px', 
+                                color: '#6b7280',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '8px',
+                                flexWrap: 'wrap'
+                              }}>
+                                <span>Submitted by <span style={{ fontWeight: '500', color: '#374151' }}>{file.fullName || file.username}</span></span>
+                                <span style={{ color: '#d1d5db' }}>•</span>
+                                <span>on {formatDate(file.submitted_at)}</span>
+                                {file.tag && (
+                                  <>
+                                    <span style={{ color: '#d1d5db' }}>•</span>
+                                    <span style={{
+                                      backgroundColor: '#eff6ff',
+                                      color: '#1e40af',
+                                      padding: '2px 10px',
+                                      borderRadius: '12px',
+                                      fontSize: '11px',
+                                      fontWeight: '600',
+                                      border: '1px solid #bfdbfe',
+                                      display: 'inline-flex',
+                                      alignItems: 'center',
+                                      gap: '4px'
+                                    }}>
+                                      <span>🏷️</span> {file.tag}
+                                    </span>
+                                  </>
+                                )}
+                              </div>
                             </div>
                           </div>
                         </div>
@@ -636,7 +663,6 @@ const TeamTasksTab = ({ user }) => {
                     className="toggle-comments-btn"
                     onClick={() => toggleComments(assignment.id)}
                   >
-                    <span className="comment-icon">💬</span>
                     <span>Comments</span>
                     {comments[assignment.id] && comments[assignment.id].length > 0 && (
                       <span className="comment-count">({comments[assignment.id].length})</span>
@@ -681,7 +707,7 @@ const TeamTasksTab = ({ user }) => {
         <div className="comments-modal-overlay" onClick={() => setShowCommentsModal(null)}>
           <div className="comments-modal" onClick={(e) => e.stopPropagation()}>
             <div className="comments-modal-header">
-              <h3>💬 Comments</h3>
+              <h3>Comments</h3>
               <button className="close-modal-btn" onClick={() => setShowCommentsModal(null)}>
                 ×
               </button>

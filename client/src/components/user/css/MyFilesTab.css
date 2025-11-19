@@ -612,6 +612,7 @@
   overflow-y: auto;
   scrollbar-width: none;
   -ms-overflow-style: none;
+  background-color: #ffffff;
 }
 
 .modal-body::-webkit-scrollbar {

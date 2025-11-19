@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import './css/DashboardTab.css';
 import './css/DashboardTab-NoAnimation.css';
+import './css/DashboardTab-Analytics.css';
 
 const DashboardTab = ({ user, files, setActiveTab }) => {
   const [assignments, setAssignments] = useState([]);
@@ -75,6 +76,62 @@ const DashboardTab = ({ user, files, setActiveTab }) => {
     unread: notifications.filter(n => !n.is_read).length,
     recent: notifications.slice(0, 5)
   };
+
+  // Calculate performance analytics
+  const performanceAnalytics = {
+    // Task completion rate
+    taskCompletionRate: myTasksStats.total > 0 
+      ? Math.round((myTasksStats.submitted / myTasksStats.total) * 100)
+      : 0,
+    
+    // File approval rate
+    fileApprovalRate: filesStats.total > 0
+      ? Math.round((filesStats.approved / filesStats.total) * 100)
+      : 0,
+    
+    // On-time submission rate
+    onTimeRate: myTasksStats.total > 0
+      ? Math.round(((myTasksStats.total - myTasksStats.overdue) / myTasksStats.total) * 100)
+      : 100,
+    
+    // Overall productivity score (weighted average)
+    productivityScore: (() => {
+      const taskWeight = 0.4;
+      const fileWeight = 0.3;
+      const timeWeight = 0.3;
+      
+      const taskScore = myTasksStats.total > 0 
+        ? (myTasksStats.submitted / myTasksStats.total) * 100
+        : 0;
+      const fileScore = filesStats.total > 0
+        ? (filesStats.approved / filesStats.total) * 100
+        : 0;
+      const timeScore = myTasksStats.total > 0
+        ? ((myTasksStats.total - myTasksStats.overdue) / myTasksStats.total) * 100
+        : 100;
+      
+      return Math.round((taskScore * taskWeight) + (fileScore * fileWeight) + (timeScore * timeWeight));
+    })(),
+    
+    // Activity metrics
+    totalActivities: myTasksStats.submitted + filesStats.total,
+    recentActivity: assignments.filter(a => {
+      const submittedDate = new Date(a.updated_at);
+      const weekAgo = new Date();
+      weekAgo.setDate(weekAgo.getDate() - 7);
+      return submittedDate >= weekAgo;
+    }).length
+  };
+
+  // Get performance rating
+  const getPerformanceRating = (score) => {
+    if (score >= 90) return { label: 'Excellent', color: '#10b981', emoji: '🌟' };
+    if (score >= 75) return { label: 'Good', color: '#3b82f6', emoji: '👍' };
+    if (score >= 60) return { label: 'Average', color: '#f59e0b', emoji: '📊' };
+    return { label: 'Needs Improvement', color: '#ef4444', emoji: '📈' };
+  };
+
+  const performanceRating = getPerformanceRating(performanceAnalytics.productivityScore);
 
   if (loading) {
     return (
@@ -482,44 +539,113 @@ const DashboardTab = ({ user, files, setActiveTab }) => {
         )}
       </div>
 
-      {/* File Approval Workflow Info */}
-      <div className="dashboard-card workflow-info-card">
+      {/* Performance Analytics */}
+      <div className="dashboard-card analytics-card">
         <div className="card-header">
-          <h3>📋 File Approval Process</h3>
-          <p className="card-subtitle">How your files get reviewed</p>
+          <h3>📊 Performance Analytics</h3>
+          <p className="card-subtitle">Track your productivity and performance</p>
         </div>
-        
-        <div className="workflow-steps">
-          <div className="workflow-step">
-            <div className="step-number">1</div>
-            <div className="step-content">
-              <h4>Upload File</h4>
-              <p>Submit your file with description for review</p>
+
+        <div className="analytics-content">
+          {/* Overall Performance Score */}
+          <div className="performance-score-section">
+            <div className="score-circle-container">
+              <div className="score-circle" style={{ background: `conic-gradient(${performanceRating.color} ${performanceAnalytics.productivityScore * 3.6}deg, #e5e7eb ${performanceAnalytics.productivityScore * 3.6}deg)` }}>
+                <div className="score-inner">
+                  <div className="score-value">{performanceAnalytics.productivityScore}</div>
+                  <div className="score-label">Score</div>
+                </div>
+              </div>
+            </div>
+            <div className="score-details">
+              <div className="performance-rating" style={{ color: performanceRating.color }}>
+                <span className="rating-emoji">{performanceRating.emoji}</span>
+                <span className="rating-label">{performanceRating.label}</span>
+              </div>
+              <div className="score-description">
+                Your overall productivity based on task completion, file approvals, and timeliness
+              </div>
             </div>
           </div>
-          <div className="workflow-step">
-            <div className="step-number">2</div>
-            <div className="step-content">
-              <h4>Team Leader Review</h4>
-              <p>Your team leader reviews and approves/rejects</p>
+
+          {/* Performance Metrics Grid */}
+          <div className="performance-metrics-grid">
+            <div className="metric-card">
+              <div className="metric-header">
+                <span className="metric-icon">✓</span>
+                <span className="metric-title">Task Completion</span>
+              </div>
+              <div className="metric-value-bar">
+                <div className="metric-bar">
+                  <div className="metric-fill" style={{ width: `${performanceAnalytics.taskCompletionRate}%`, backgroundColor: '#3b82f6' }}></div>
+                </div>
+                <span className="metric-percentage">{performanceAnalytics.taskCompletionRate}%</span>
+              </div>
+              <div className="metric-details">
+                {myTasksStats.submitted} of {myTasksStats.total} tasks completed
+              </div>
+            </div>
+
+            <div className="metric-card">
+              <div className="metric-header">
+                <span className="metric-icon">📄</span>
+                <span className="metric-title">File Approval Rate</span>
+              </div>
+              <div className="metric-value-bar">
+                <div className="metric-bar">
+                  <div className="metric-fill" style={{ width: `${performanceAnalytics.fileApprovalRate}%`, backgroundColor: '#10b981' }}></div>
+                </div>
+                <span className="metric-percentage">{performanceAnalytics.fileApprovalRate}%</span>
+              </div>
+              <div className="metric-details">
+                {filesStats.approved} of {filesStats.total} files approved
+              </div>
+            </div>
+
+            <div className="metric-card">
+              <div className="metric-header">
+                <span className="metric-icon">⏱️</span>
+                <span className="metric-title">On-Time Delivery</span>
+              </div>
+              <div className="metric-value-bar">
+                <div className="metric-bar">
+                  <div className="metric-fill" style={{ width: `${performanceAnalytics.onTimeRate}%`, backgroundColor: '#f59e0b' }}></div>
+                </div>
+                <span className="metric-percentage">{performanceAnalytics.onTimeRate}%</span>
+              </div>
+              <div className="metric-details">
+                {myTasksStats.total - myTasksStats.overdue} of {myTasksStats.total} on time
+              </div>
             </div>
           </div>
-          <div className="workflow-step">
-            <div className="step-number">3</div>
-            <div className="step-content">
-              <h4>Admin Review</h4>
-              <p>Final approval by system administrator</p>
+
+          {/* Activity Summary */}
+          <div className="activity-summary">
+            <div className="summary-card">
+              <div className="summary-icon">📈</div>
+              <div className="summary-content">
+                <div className="summary-value">{performanceAnalytics.totalActivities}</div>
+                <div className="summary-label">Total Activities</div>
+              </div>
             </div>
-          </div>
-          <div className="workflow-step">
-            <div className="step-number">4</div>
-            <div className="step-content">
-              <h4>Public Network</h4>
-              <p>Approved files are published to public network</p>
+            <div className="summary-card">
+              <div className="summary-icon">🔥</div>
+              <div className="summary-content">
+                <div className="summary-value">{performanceAnalytics.recentActivity}</div>
+                <div className="summary-label">This Week</div>
+              </div>
+            </div>
+            <div className="summary-card">
+              <div className="summary-icon">⚠️</div>
+              <div className="summary-content">
+                <div className="summary-value">{myTasksStats.overdue}</div>
+                <div className="summary-label">Overdue Tasks</div>
+              </div>
             </div>
           </div>
         </div>
       </div>
+
     </div>
   );
 };

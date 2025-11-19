@@ -1157,6 +1157,50 @@
   opacity: 0.6;
 }
 
+/* File Description Text */
+.file-description-text {
+  color: #1F2937 !important;
+}
+
+/* Submitted Files Section with Blue Background */
+.submitted-files-section {
+  background: #EFF6FF;
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 16px;
+  border: 1px solid #BFDBFE;
+}
+
+.submitted-files-header {
+  font-size: 14px;
+  font-weight: 600;
+  color: #1e40af;
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.submitted-file-card {
+  background: #EFF6FF;
+  border: 1px solid #BFDBFE;
+  border-radius: 10px;
+  padding: 16px;
+  margin-bottom: 12px;
+  transition: all 0.2s;
+  box-shadow: 0 1px 2px rgba(59, 130, 246, 0.1);
+}
+
+.submitted-file-card:last-child {
+  margin-bottom: 0;
+}
+
+.submitted-file-card:hover {
+  background: #DBEAFE;
+  border-color: #93c5fd;
+  box-shadow: 0 2px 4px rgba(59, 130, 246, 0.15);
+}
+
 /* ============================================
    RESPONSIVE DESIGN
    ============================================ */

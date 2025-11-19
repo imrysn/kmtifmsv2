@@ -146,9 +146,9 @@ router.post('/upload', upload.single('file'), async (req, res) => {
       
       // Insert file record into database
       db.run(`INSERT INTO files (
-        filename, original_name, file_path, file_size, file_type, mime_type, description,
+        filename, original_name, file_path, file_size, file_type, mime_type, description, tag,
         user_id, username, user_team, status, current_stage
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         req.file.filename,
         req.file.originalname,
@@ -157,6 +157,7 @@ router.post('/upload', upload.single('file'), async (req, res) => {
         getFileTypeDescription(req.file.mimetype),
         req.file.mimetype,
         description || '',
+        tag || '',
         userId,
         username,
         userTeam,

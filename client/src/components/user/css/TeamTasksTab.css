@@ -303,32 +303,44 @@
 }
 
 .team-task-attached-file {
-  background: #f0f9ff;
+  background: #EFF6FF;
   padding: 20px;
-  border-radius: 6px;
+  border-radius: 12px;
+  border: 1px solid #BFDBFE;
 }
 
 .file-label {
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 600;
   color: #1e40af;
-  margin-bottom: 8px;
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .file-item {
   display: flex;
   align-items: center;
-  padding: 12px;
-  gap: 10px;
-  transition: background-color 0.2s ease;
-  border: 1px solid #dbeafe;
-  border-radius: 8px;
-  background: white;
+  padding: 16px;
+  gap: 12px;
+  transition: all 0.2s ease;
+  border: 1px solid #BFDBFE;
+  border-radius: 10px;
+  background: #EFF6FF;
+  box-shadow: 0 1px 2px rgba(59, 130, 246, 0.1);
+  margin-bottom: 12px;
+  cursor: pointer;
+}
+
+.file-item:last-child {
+  margin-bottom: 0;
 }
 
 .file-item:hover {
-  background-color: rgba(59, 130, 246, 0.1);
-  border-color: #3b82f6;
+  background: #DBEAFE;
+  border-color: #93c5fd;
+  box-shadow: 0 2px 4px rgba(59, 130, 246, 0.15);
 }
 
 .file-icon {
@@ -359,6 +371,10 @@
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   font-size: 13px;
+}
+
+.file-description-text {
+  color: #1F2937 !important;
 }
 
 /* No Attachment Message */

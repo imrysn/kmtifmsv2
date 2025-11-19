@@ -684,6 +684,23 @@ const TaskManagement = ({ error, success, setError, setSuccess, clearMessages, u
                               <div className="admin-file-name">{file.original_name}</div>
                               <div className="admin-file-meta">
                                 Submitted by <span className="admin-file-submitter">{file.fullName || file.username}</span> on {formatDate(file.submitted_at)}
+                                {file.tag && (
+                                  <span style={{
+                                    backgroundColor: '#dbeafe',
+                                    color: '#1e40af',
+                                    padding: '4px 10px',
+                                    borderRadius: '12px',
+                                    fontSize: '11px',
+                                    fontWeight: '600',
+                                    border: '1px solid #93c5fd',
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '4px',
+                                    marginLeft: '8px'
+                                  }}>
+                                    🏷️ {file.tag}
+                                  </span>
+                                )}
                               </div>
                             </div>
                           </div>
