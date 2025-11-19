@@ -124,17 +124,43 @@ const NotificationTab = ({ user, onNavigateToTask }) => {
   const getNotificationIcon = (type) => {
     switch (type) {
       case 'comment':
-        return '💬';
+        return (
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+          </svg>
+        );
       case 'assignment':
-        return '📋';
+        return (
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+            <polyline points="14 2 14 8 20 8"></polyline>
+            <line x1="16" y1="13" x2="8" y2="13"></line>
+            <line x1="16" y1="17" x2="8" y2="17"></line>
+            <polyline points="10 9 9 9 8 9"></polyline>
+          </svg>
+        );
       case 'approval':
       case 'final_approval':
-        return '✅';
+        return (
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <polyline points="20 6 9 17 4 12"></polyline>
+          </svg>
+        );
       case 'rejection':
       case 'final_rejection':
-        return '❌';
+        return (
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        );
       default:
-        return '🔔';
+        return (
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+            <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+          </svg>
+        );
     }
   };
 
@@ -179,7 +205,12 @@ const NotificationTab = ({ user, onNavigateToTask }) => {
     <div className="user-notification-component notification-section">
       <div className="page-header">
         <div className="page-header-title">
-          <span className="bell-icon">🔔</span>
+          <span className="bell-icon">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+              <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+            </svg>
+          </span>
           <h2>Notifications</h2>
           {unreadCount > 0 && (
             <span className="unread-badge">{unreadCount}</span>
@@ -242,7 +273,12 @@ const NotificationTab = ({ user, onNavigateToTask }) => {
           </div>
         ) : (
           <div className="empty-notifications">
-            <div className="empty-icon">🔔</div>
+            <div className="empty-icon">
+              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+                <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+              </svg>
+            </div>
             <h3>No notifications yet</h3>
             <p>We'll notify you when there are updates on your assignments or important messages.</p>
           </div>

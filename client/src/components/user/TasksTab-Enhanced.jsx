@@ -191,7 +191,8 @@ const TasksTab = ({ user }) => {
     setIsPostingReply(prev => ({ ...prev, [commentId]: true }));
     
     try {
-      const response = await fetch(`http://localhost:3001/api/assignments/${assignmentId}/comments/${commentId}/replies`, {
+      console.log('Posting reply:', { assignmentId, commentId, replyTextValue });
+      const response = await fetch(`http://localhost:3001/api/assignments/${assignmentId}/comments/${commentId}/reply`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -204,17 +205,22 @@ const TasksTab = ({ user }) => {
       });
 
       const data = await response.json();
+      console.log('Reply response:', data);
       
       if (data.success) {
         setReplyText(prev => ({ ...prev, [commentId]: '' }));
         setReplyingTo(prev => ({ ...prev, [commentId]: false }));
         fetchComments(assignmentId);
+        setSuccess('Reply posted successfully');
+        setTimeout(() => setSuccess(''), 3000);
       } else {
-        setError('Failed to post reply');
+        setError(data.message || 'Failed to post reply');
+        setTimeout(() => setError(''), 5000);
       }
     } catch (error) {
       console.error('Error posting reply:', error);
-      setError('Failed to post reply');
+      setError('Failed to post reply: ' + error.message);
+      setTimeout(() => setError(''), 5000);
     } finally {
       setIsPostingReply(prev => ({ ...prev, [commentId]: false }));
     }
@@ -1045,12 +1051,12 @@ const TasksTab = ({ user }) => {
                           {getInitials(comment.username)}
                         </div>
                         <div className="comment-content">
-                          <div className="comment-bubble">
-                            <div className="comment-author">{comment.username}</div>
-                            <div className="comment-text">{comment.comment}</div>
+                          <div className="comment-header">
+                            <span className="comment-author">{comment.username}</span>
+                            <span className="comment-time">{formatRelativeTime(comment.created_at)}</span>
                           </div>
+                          <div className="comment-text">{comment.comment}</div>
                           <div className="comment-actions">
-                            <span className="comment-timestamp">{formatRelativeTime(comment.created_at)}</span>
                             <button 
                               className="comment-action-btn"
                               onClick={() => toggleReplyBox(comment.id)}
@@ -1086,13 +1092,11 @@ const TasksTab = ({ user }) => {
                                     {getInitials(reply.username)}
                                   </div>
                                   <div className="comment-content">
-                                    <div className="comment-bubble">
-                                      <div className="comment-author">{reply.username}</div>
-                                      <div className="comment-text">{reply.reply}</div>
+                                    <div className="reply-header">
+                                      <span className="reply-author">{reply.username}</span>
+                                      <span className="reply-time">{formatRelativeTime(reply.created_at)}</span>
                                     </div>
-                                    <div className="comment-timestamp">
-                                      {formatRelativeTime(reply.created_at)}
-                                    </div>
+                                    <div className="reply-text">{reply.reply}</div>
                                   </div>
                                 </div>
                               )})}

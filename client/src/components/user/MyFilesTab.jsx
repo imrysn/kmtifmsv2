@@ -301,17 +301,17 @@ const MyFilesTab = ({
   const getStatusDisplayName = (dbStatus) => {
     switch (dbStatus) {
       case 'uploaded':
-        return 'PENDING TEAM LEADER';
+        return 'Pending Team Leader';
       case 'team_leader_approved':
-        return 'PENDING ADMIN';
+        return 'Pending Admin';
       case 'final_approved':
-        return 'FINAL APPROVED';
+        return 'Approved';
       case 'rejected_by_team_leader':
-        return 'REJECTED BY TEAM LEADER';
+        return 'Rejected by Team Leader';
       case 'rejected_by_admin':
-        return 'REJECTED BY ADMIN';
+        return 'Rejected by Admin';
       default:
-        return dbStatus.toUpperCase();
+        return dbStatus;
     }
   };
 

@@ -22,7 +22,6 @@
   pointer-events: auto;
   animation: slideIn 0.3s ease-out;
   transition: all 0.2s;
-  border-left: 4px solid;
   max-width: 100%;
 }
 
@@ -42,49 +41,24 @@
   box-shadow: 0 12px 48px rgba(0, 0, 0, 0.2);
 }
 
-/* Color variants */
-.toast-blue {
-  border-left-color: #3b82f6;
-}
-
+/* Color variants - backgrounds removed */
 .toast-blue .toast-icon {
-  background: #eff6ff;
   color: #3b82f6;
 }
 
-.toast-purple {
-  border-left-color: #8b5cf6;
-}
-
 .toast-purple .toast-icon {
-  background: #f5f3ff;
   color: #8b5cf6;
 }
 
-.toast-green {
-  border-left-color: #10b981;
-}
-
 .toast-green .toast-icon {
-  background: #ecfdf5;
   color: #10b981;
 }
 
-.toast-red {
-  border-left-color: #ef4444;
-}
-
 .toast-red .toast-icon {
-  background: #fef2f2;
   color: #ef4444;
 }
 
-.toast-gray {
-  border-left-color: #6b7280;
-}
-
 .toast-gray .toast-icon {
-  background: #f3f4f6;
   color: #6b7280;
 }
 

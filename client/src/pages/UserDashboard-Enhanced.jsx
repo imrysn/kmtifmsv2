@@ -127,25 +127,37 @@ const UserDashboard = ({ user, onLogout }) => {
   }
 
   const openFileByIdFromNotification = async (fileId) => {
+    console.log('📂 Opening file from notification, fileId:', fileId);
     try {
       // Fetch the specific file
       const response = await fetch(`http://localhost:3001/api/files/user/${user.id}`)
       const data = await response.json()
       
+      console.log('📊 Fetched files:', data.files?.length, 'files');
+      
       if (data.success && data.files) {
-        const file = data.files.find(f => f.id === fileId)
+        const file = data.files.find(f => f.id === parseInt(fileId))
+        console.log('🔍 Looking for file with ID:', fileId, 'Found:', file ? '✅' : '❌');
+        
         if (file) {
-          // Switch to My Files tab instead of file-approvals
+          console.log('✅ File found! Opening modal for:', file.original_name);
+          // Switch to My Files tab
           setActiveTab('my-files')
-          // Open the file modal
-          await openFileModal(file)
+          // Small delay to ensure tab switches before opening modal
+          setTimeout(async () => {
+            await openFileModal(file)
+          }, 100);
         } else {
-          alert('File not found')
+          console.error('❌ File not found in user files. Available file IDs:', data.files.map(f => f.id));
+          setError('File not found in your files')
         }
+      } else {
+        console.error('❌ Failed to fetch files:', data);
+        setError('Failed to fetch file details')
       }
     } catch (error) {
-      console.error('Error fetching file:', error)
-      alert('Failed to open file details')
+      console.error('❌ Error fetching file:', error)
+      setError('Failed to connect to server')
     }
   }
 
@@ -159,12 +171,20 @@ const UserDashboard = ({ user, onLogout }) => {
     }
   }
 
-  const handleToastNavigation = (tabName, contextData) => {
-    setActiveTab(tabName)
-    if (contextData) {
-      if (tabName === 'tasks') {
-        sessionStorage.setItem('scrollToAssignment', contextData)
-      }
+  const handleToastNavigation = async (tabName, contextData) => {
+    console.log('🔔 Toast Navigation:', tabName, contextData);
+    
+    if (tabName === 'my-files' && contextData) {
+      // For file notifications, open the file modal directly
+      await openFileByIdFromNotification(contextData);
+    } else if (tabName === 'tasks' && contextData) {
+      // For task/assignment notifications
+      setActiveTab('tasks');
+      sessionStorage.setItem('scrollToAssignment', contextData);
+      console.log('✅ Stored scrollToAssignment:', contextData);
+    } else {
+      // Default tab navigation
+      setActiveTab(tabName);
     }
   }
 

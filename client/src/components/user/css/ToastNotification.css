@@ -41,29 +41,24 @@
   box-shadow: 0 12px 48px rgba(0, 0, 0, 0.2);
 }
 
-/* Color variants */
+/* Color variants - backgrounds removed */
 .toast-blue .toast-icon {
-  background: #eff6ff;
   color: #3b82f6;
 }
 
 .toast-purple .toast-icon {
-  background: #f5f3ff;
   color: #8b5cf6;
 }
 
 .toast-green .toast-icon {
-  background: #ecfdf5;
   color: #10b981;
 }
 
 .toast-red .toast-icon {
-  background: #fef2f2;
   color: #ef4444;
 }
 
 .toast-gray .toast-icon {
-  background: #f3f4f6;
   color: #6b7280;
 }
 
