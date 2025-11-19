@@ -1,3 +1,5 @@
+import '../css/FileCollectionTab.css'
+
 const MemberFilesModal = ({
   showMemberFilesModal,
   setShowMemberFilesModal,
@@ -63,8 +65,18 @@ const MemberFilesModal = ({
                       </td>
                       <td>{formatFileSize(file.file_size)}</td>
                       <td>
-                        <span className={`tl-status-badge ${file.current_stage?.includes('pending_team_leader') ? 'pending-tl' : file.current_stage?.includes('pending_admin') ? 'pending-admin' : 'pending'}`}>
-                          {file.current_stage?.includes('pending_team_leader') ? 'PENDING TL' : file.current_stage?.includes('pending_admin') ? 'PENDING ADMIN' : file.status?.toUpperCase() || 'PENDING'}
+                        <span className={`status-badge status-${
+                          file.status === 'approved' || file.status === 'final_approved' ? 'approved' : 
+                          file.status === 'rejected' || file.status === 'rejected_by_team_leader' || file.status === 'rejected_by_admin' ? 'rejected' :
+                          file.current_stage?.includes('pending_admin') || file.status === 'team_leader_approved' ? 'pending' :
+                          'pending'
+                        }`}>
+                          {
+                            file.status === 'approved' || file.status === 'final_approved' ? 'Approved' :
+                            file.status === 'rejected' || file.status === 'rejected_by_team_leader' || file.status === 'rejected_by_admin' ? 'Rejected' :
+                            file.current_stage?.includes('pending_admin') || file.status === 'team_leader_approved' ? 'Pending Admin' :
+                            'Pending Team Leader'
+                          }
                         </span>
                       </td>
                     </tr>

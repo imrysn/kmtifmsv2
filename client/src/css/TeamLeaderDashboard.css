@@ -1019,48 +1019,21 @@ body {
   margin: 0;
 }
 
-.tl-notifications-header span {
-  font-size: 12px;
-  color: var(--text-secondary);
-}
-
-.tl-notifications-list {
-  max-height: 400px;
-  overflow-y: auto;
-}
-
-.tl-notification-item {
-  padding: var(--spacing-md) var(--spacing-lg);
-  display: flex;
-  gap: 12px;
-  border-bottom: 1px solid var(--border-light);
-  cursor: pointer;
-  transition: background 0.2s;
-}
-
-.tl-notification-item:hover {
-  background: var(--background-primary);
-}
-
-/* Custom Scrollbar */
-.tl-main::-webkit-scrollbar,
-.tl-notifications-list::-webkit-scrollbar {
+/* Custom Scrollbar - Main content only */
+.tl-main::-webkit-scrollbar {
   width: 6px;
 }
 
-.tl-main::-webkit-scrollbar-track,
-.tl-notifications-list::-webkit-scrollbar-track {
+.tl-main::-webkit-scrollbar-track {
   background: transparent;
 }
 
-.tl-main::-webkit-scrollbar-thumb,
-.tl-notifications-list::-webkit-scrollbar-thumb {
+.tl-main::-webkit-scrollbar-thumb {
   background: var(--border-color);
   border-radius: 3px;
 }
 
-.tl-main::-webkit-scrollbar-thumb:hover,
-.tl-notifications-list::-webkit-scrollbar-thumb:hover {
+.tl-main::-webkit-scrollbar-thumb:hover {
   background: var(--text-tertiary);
 }
 
@@ -1555,92 +1528,7 @@ body {
   font-family: Arial, sans-serif;
 }
 
-/* NEW: Notifications Dropdown */
-.tl-notifications-dropdown {
-  position: absolute;
-  top: 100%;
-  right: 60px;
-  margin-top: 8px;
-  width: 360px;
-  max-height: 480px;
-  background: white;
-  border: 1px solid #E5E7EB;
-  border-radius: 12px;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
-  overflow: hidden;
-  z-index: 1000;
-}
-
-.tl-notifications-header {
-  padding: 16px 20px;
-  border-bottom: 1px solid #E5E7EB;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.tl-notifications-header h4 {
-  font-size: 16px;
-  font-weight: 600;
-  color: #101828;
-  margin: 0;
-  font-family: Arial, sans-serif;
-}
-
-.tl-notifications-header span {
-  font-size: 12px;
-  color: #6a7282;
-  font-family: Arial, sans-serif;
-}
-
-.tl-notifications-list {
-  max-height: 400px;
-  overflow-y: auto;
-}
-
-.tl-notification-item {
-  padding: 16px 20px;
-  display: flex;
-  gap: 12px;
-  border-bottom: 1px solid #F3F4F6;
-  cursor: pointer;
-  transition: background 0.2s;
-}
-
-.tl-notification-item:hover {
-  background: #F9FAFB;
-}
-
-.tl-notification-item.overdue {
-  background: #FEF2F2;
-}
-
-.tl-notification-item.urgent {
-  background: #FEF3C7;
-}
-
-.tl-notification-icon {
-  font-size: 20px;
-  flex-shrink: 0;
-}
-
-.tl-notification-content {
-  flex: 1;
-}
-
-.tl-notification-message {
-  font-size: 14px;
-  color: #101828;
-  margin: 0 0 4px 0;
-  font-weight: 500;
-  font-family: Arial, sans-serif;
-}
-
-.tl-notification-time {
-  font-size: 12px;
-  color: #6a7282;
-  font-family: Arial, sans-serif;
-}
+/* Notifications Dropdown - Removed, now in NotificationBell.css */
 
 /* NEW: Priority Cell */
 .tl-priority-cell {
