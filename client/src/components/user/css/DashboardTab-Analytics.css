@@ -1,0 +1,341 @@
+/* Performance Analytics Card Styles */
+.user-dashboard-component .analytics-card {
+  grid-column: 1 / -1;
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.05) 0%, rgba(147, 51, 234, 0.05) 100%);
+  border: 1px solid rgba(59, 130, 246, 0.2);
+}
+
+.user-dashboard-component .analytics-content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xl);
+}
+
+/* Performance Score Section */
+.user-dashboard-component .performance-score-section {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: var(--spacing-xl);
+  align-items: center;
+  padding: var(--spacing-lg);
+  background: #ffffff;
+  border-radius: var(--radius-lg);
+  border: 1px solid #e5e7eb;
+}
+
+.user-dashboard-component .score-circle-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.user-dashboard-component .score-circle {
+  width: 140px;
+  height: 140px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  transition: all 0.3s ease;
+}
+
+.user-dashboard-component .score-inner {
+  width: 110px;
+  height: 110px;
+  background: white;
+  border-radius: 50%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.user-dashboard-component .score-value {
+  font-size: 36px;
+  font-weight: 800;
+  color: #1f2937;
+  line-height: 1;
+}
+
+.user-dashboard-component .score-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #9ca3af;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-top: 4px;
+}
+
+.user-dashboard-component .score-details {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+}
+
+.user-dashboard-component .performance-rating {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+.user-dashboard-component .rating-emoji {
+  font-size: 28px;
+}
+
+.user-dashboard-component .rating-label {
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: -0.3px;
+}
+
+.user-dashboard-component .score-description {
+  font-size: 14px;
+  color: #6b7280;
+  line-height: 1.6;
+}
+
+/* Performance Metrics Grid */
+.user-dashboard-component .performance-metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: var(--spacing-lg);
+}
+
+.user-dashboard-component .metric-card {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-lg);
+  transition: all 0.3s ease;
+}
+
+.user-dashboard-component .metric-card:hover {
+  border-color: #d1d5db;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  transform: translateY(-2px);
+}
+
+.user-dashboard-component .metric-header {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  margin-bottom: var(--spacing-md);
+}
+
+.user-dashboard-component .metric-icon {
+  font-size: 20px;
+}
+
+.user-dashboard-component .metric-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #374151;
+}
+
+.user-dashboard-component .metric-value-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+  margin-bottom: var(--spacing-sm);
+}
+
+.user-dashboard-component .metric-bar {
+  flex: 1;
+  height: 12px;
+  background: #f3f4f6;
+  border-radius: 6px;
+  overflow: hidden;
+  position: relative;
+}
+
+.user-dashboard-component .metric-fill {
+  height: 100%;
+  border-radius: 6px;
+  transition: width 0.5s ease;
+  position: relative;
+}
+
+.user-dashboard-component .metric-fill::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+  animation: shimmer 2s infinite;
+}
+
+.user-dashboard-component .metric-percentage {
+  font-size: 18px;
+  font-weight: 700;
+  color: #1f2937;
+  min-width: 50px;
+  text-align: right;
+}
+
+.user-dashboard-component .metric-details {
+  font-size: 12px;
+  color: #9ca3af;
+  font-weight: 500;
+}
+
+/* Activity Summary */
+.user-dashboard-component .activity-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: var(--spacing-md);
+}
+
+.user-dashboard-component .summary-card {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-lg);
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+  transition: all 0.3s ease;
+}
+
+.user-dashboard-component .summary-card:hover {
+  border-color: #d1d5db;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  transform: translateY(-2px);
+}
+
+.user-dashboard-component .summary-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  flex-shrink: 0;
+  background: #f9fafb;
+}
+
+.user-dashboard-component .summary-content {
+  flex: 1;
+}
+
+.user-dashboard-component .summary-value {
+  font-size: 28px;
+  font-weight: 800;
+  color: #1f2937;
+  line-height: 1;
+  margin-bottom: 4px;
+}
+
+.user-dashboard-component .summary-label {
+  font-size: 12px;
+  color: #9ca3af;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+/* Performance Tips */
+.user-dashboard-component .performance-tips {
+  background: linear-gradient(135deg, rgba(251, 191, 36, 0.1) 0%, rgba(245, 158, 11, 0.1) 100%);
+  border: 1px solid rgba(251, 191, 36, 0.3);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-lg);
+}
+
+.user-dashboard-component .tips-header {
+  font-size: 16px;
+  font-weight: 700;
+  color: #d97706;
+  margin-bottom: var(--spacing-md);
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+.user-dashboard-component .tips-list {
+  margin: 0;
+  padding-left: 24px;
+  list-style: none;
+}
+
+.user-dashboard-component .tips-list li {
+  font-size: 14px;
+  color: #374151;
+  line-height: 1.6;
+  margin-bottom: var(--spacing-sm);
+  position: relative;
+}
+
+.user-dashboard-component .tips-list li::before {
+  content: '→';
+  position: absolute;
+  left: -20px;
+  color: #f59e0b;
+  font-weight: 700;
+}
+
+.user-dashboard-component .tips-list li:last-child {
+  margin-bottom: 0;
+}
+
+/* Responsive Design for Analytics */
+@media (max-width: 1024px) {
+  .user-dashboard-component .performance-score-section {
+    grid-template-columns: 1fr;
+    text-align: center;
+  }
+
+  .user-dashboard-component .score-details {
+    align-items: center;
+  }
+
+  .user-dashboard-component .score-description {
+    text-align: center;
+  }
+
+  .user-dashboard-component .performance-metrics-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 768px) {
+  .user-dashboard-component .score-circle {
+    width: 120px;
+    height: 120px;
+  }
+
+  .user-dashboard-component .score-inner {
+    width: 95px;
+    height: 95px;
+  }
+
+  .user-dashboard-component .score-value {
+    font-size: 28px;
+  }
+
+  .user-dashboard-component .rating-label {
+    font-size: 20px;
+  }
+
+  .user-dashboard-component .activity-summary {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 480px) {
+  .user-dashboard-component .performance-score-section {
+    padding: var(--spacing-md);
+  }
+
+  .user-dashboard-component .metric-card {
+    padding: var(--spacing-md);
+  }
+
+  .user-dashboard-component .summary-card {
+    padding: var(--spacing-md);
+  }
+}

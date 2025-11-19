@@ -734,30 +734,19 @@ const TasksTab = ({ user }) => {
 
                 {/* Submitted Files Display - Show all submitted files */}
                 {assignment.submitted_files && assignment.submitted_files.length > 0 && (
-                  <div style={{ marginBottom: '16px' }}>
-                    <div style={{ 
-                      fontSize: '13px',
-                      fontWeight: '600',
-                      color: '#1565c0',
-                      marginBottom: '12px'
-                    }}>
-                      📎 Submitted Files ({assignment.submitted_files.length}):
+                  <div className="submitted-files-section">
+                    <div className="submitted-files-header">
+                      <span style={{ fontSize: '16px' }}>📎</span>
+                      Submitted Files ({assignment.submitted_files.length}):
                     </div>
                     {assignment.submitted_files.map((file, index) => (
                       <div 
                         key={file.id}
-                        style={{
-                          backgroundColor: '#f0f7ff',
-                          border: '1px solid #e3f2fd',
-                          borderRadius: '8px',
-                          padding: '12px',
-                          marginBottom: index < assignment.submitted_files.length - 1 ? '8px' : '0',
-                          transition: 'all 0.2s',
-                        }}
+                        className="submitted-file-card"
                       >
                         <div style={{
                           display: 'flex',
-                          alignItems: 'center',
+                          alignItems: 'flex-start',
                           gap: '12px',
                         }}>
                           <div
@@ -797,20 +786,8 @@ const TasksTab = ({ user }) => {
                               }
                             }}
                             style={{
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: '12px',
-                              flex: 1,
                               cursor: 'pointer',
-                              minWidth: 0
-                            }}
-                            onMouseEnter={(e) => {
-                              e.currentTarget.parentElement.parentElement.style.backgroundColor = '#e3f2fd';
-                              e.currentTarget.parentElement.parentElement.style.borderColor = '#2196F3';
-                            }}
-                            onMouseLeave={(e) => {
-                              e.currentTarget.parentElement.parentElement.style.backgroundColor = '#f0f7ff';
-                              e.currentTarget.parentElement.parentElement.style.borderColor = '#e3f2fd';
+                              flexShrink: 0
                             }}
                           >
                             <FileIcon 
@@ -818,46 +795,87 @@ const TasksTab = ({ user }) => {
                               isFolder={false}
                               size="default"
                               style={{
-                                width: '40px',
-                                height: '40px',
-                                flexShrink: 0
+                                width: '48px',
+                                height: '48px'
                               }}
                             />
-                            <div style={{ flex: 1, minWidth: 0 }}>
-                              <div style={{ 
+                          </div>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div 
+                              onClick={async () => {
+                                try {
+                                  if (window.electron && window.electron.openFileInApp) {
+                                    const response = await fetch(`http://localhost:3001/api/files/${file.id}/path`);
+                                    const data = await response.json();
+                                    
+                                    if (data.success && data.filePath) {
+                                      const result = await window.electron.openFileInApp(data.filePath);
+                                      
+                                      if (!result.success) {
+                                        setError(result.error || 'Failed to open file with system application');
+                                      }
+                                    } else {
+                                      throw new Error('Could not get file path');
+                                    }
+                                  } else {
+                                    const response = await fetch(`http://localhost:3001/api/files/${file.id}`);
+                                    const fileData = await response.json();
+                                    
+                                    if (fileData.success && fileData.file) {
+                                      const fileUrl = `http://localhost:3001${fileData.file.file_path}`;
+                                      window.open(fileUrl, '_blank', 'noopener,noreferrer');
+                                    } else {
+                                      throw new Error('Could not get file information');
+                                    }
+                                  }
+                                } catch (error) {
+                                  console.error('Error opening file:', error);
+                                  setError('Failed to open file. Please try again.');
+                                }
+                              }}
+                              style={{ 
                                 fontWeight: '500', 
-                                fontSize: '14px', 
-                                color: '#1a1a1a',
+                                fontSize: '15px', 
+                                color: '#111827',
+                                marginBottom: '6px',
+                                cursor: 'pointer',
                                 overflow: 'hidden',
                                 textOverflow: 'ellipsis',
                                 whiteSpace: 'nowrap'
-                              }}>
-                                {file.original_name || file.filename}
-                              </div>
-                              <div style={{ fontSize: '12px', color: '#6B7280', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                                <span>Submitted on {file.submitted_at ? formatDate(file.submitted_at) : 'N/A'}</span>
-                                {file.tag && (
+                              }}
+                            >
+                              {file.original_name || file.filename}
+                            </div>
+                            <div style={{ 
+                              fontSize: '13px', 
+                              color: '#6b7280',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '8px',
+                              flexWrap: 'wrap'
+                            }}>
+                              <span>Submitted by <span style={{ fontWeight: '500', color: '#374151' }}>{file.submitter_name || user.fullName || user.username}</span></span>
+                              <span style={{ color: '#d1d5db' }}>•</span>
+                              <span>on {file.submitted_at ? formatDate(file.submitted_at) : formatDate(file.uploaded_at)}</span>
+                              {file.tag && (
+                                <>
+                                  <span style={{ color: '#d1d5db' }}>•</span>
                                   <span style={{
-                                    backgroundColor: '#e0f2fe',
-                                    color: '#0369a1',
-                                    padding: '2px 8px',
-                                    borderRadius: '4px',
+                                    backgroundColor: '#eff6ff',
+                                    color: '#1e40af',
+                                    padding: '2px 10px',
+                                    borderRadius: '12px',
                                     fontSize: '11px',
-                                    fontWeight: '600'
+                                    fontWeight: '600',
+                                    border: '1px solid #bfdbfe',
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '4px'
                                   }}>
-                                    🏷️ {file.tag}
+                                    <span>🏷️</span> {file.tag}
                                   </span>
-                                )}
-                                {file.description && (
-                                  <span style={{
-                                    color: '#6B7280',
-                                    fontSize: '11px',
-                                    fontStyle: 'italic'
-                                  }}>
-                                    {file.description}
-                                  </span>
-                                )}
-                              </div>
+                                </>
+                              )}
                             </div>
                           </div>
                           <button
@@ -871,13 +889,14 @@ const TasksTab = ({ user }) => {
                               border: 'none',
                               borderRadius: '6px',
                               padding: '6px',
-                              fontSize: '18px',
+                              fontSize: '20px',
                               cursor: 'pointer',
                               flexShrink: 0,
                               display: 'flex',
                               alignItems: 'center',
                               justifyContent: 'center',
-                              transition: 'all 0.2s'
+                              transition: 'all 0.2s',
+                              lineHeight: 1
                             }}
                             onMouseEnter={(e) => {
                               e.currentTarget.style.backgroundColor = '#fee2e2';
@@ -984,7 +1003,7 @@ const TasksTab = ({ user }) => {
                       padding: '8px 0'
                     }}
                   >
-                    💬 Comment ({assignmentComments.length})
+                    Comment ({assignmentComments.length})
                   </button>
                 </div>
               </div>

@@ -29,6 +29,8 @@ const MyFilesTab = ({
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [fileToDelete, setFileToDelete] = useState(null);
   const [successModal, setSuccessModal] = useState({ isOpen: false, title: '', message: '', type: 'success' });
+  const [showFileDetailsModal, setShowFileDetailsModal] = useState(false);
+  const [selectedFile, setSelectedFile] = useState(null);
   const fileInputRef = useRef(null);
 
 
@@ -224,6 +226,18 @@ const MyFilesTab = ({
     }
   };
 
+  const handleFileClick = (file, e) => {
+    e.stopPropagation();
+    setSelectedFile(file);
+    setShowFileDetailsModal(true);
+  };
+
+  const handleOpenFileFromModal = () => {
+    if (selectedFile) {
+      openFile(selectedFile);
+    }
+  };
+
   const openDeleteModal = (file, e) => {
     if (e) {
       e.preventDefault();
@@ -398,7 +412,7 @@ const MyFilesTab = ({
             {submittedFiles.map((file) => {
               const { date, time } = formatDateTime(file.uploaded_at);
               return (
-                <div key={file.id} className="file-row-new" onClick={() => openFile(file)}>
+                <div key={file.id} className="file-row-new" onClick={(e) => handleFileClick(file, e)}>
                   <div className="col-filename">
                     <FileIcon 
                       fileType={file.original_name.split('.').pop().toLowerCase()} 
@@ -651,6 +665,206 @@ const MyFilesTab = ({
         message={successModal.message}
         type={successModal.type}
       />
+
+      {/* File Details Modal */}
+      {showFileDetailsModal && selectedFile && (
+        <div className="modal-overlay" onClick={() => setShowFileDetailsModal(false)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '600px', backgroundColor: '#ffffff' }}>
+            <div className="modal-header">
+              <h3>File Details</h3>
+              <button 
+                className="modal-close" 
+                onClick={() => setShowFileDetailsModal(false)}
+                type="button"
+              >×</button>
+            </div>
+            
+            <div className="modal-body" style={{ padding: '24px', backgroundColor: '#ffffff' }}>
+              {/* File Preview */}
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '16px',
+                padding: '20px',
+                backgroundColor: '#ffffff',
+                borderRadius: '12px',
+                marginBottom: '24px',
+                border: '1px solid #e5e7eb'
+              }}>
+                <FileIcon 
+                  fileType={selectedFile.original_name.split('.').pop().toLowerCase()} 
+                  isFolder={false}
+                  size="default"
+                  style={{
+                    width: '64px',
+                    height: '64px',
+                    flexShrink: 0
+                  }}
+                />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{
+                    fontSize: '16px',
+                    fontWeight: '600',
+                    color: '#111827',
+                    marginBottom: '4px',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap'
+                  }}>
+                    {selectedFile.original_name}
+                  </div>
+                  <div style={{
+                    fontSize: '14px',
+                    color: '#6b7280'
+                  }}>
+                    {formatFileSize(selectedFile.file_size)}
+                  </div>
+                </div>
+              </div>
+
+              {/* File Information */}
+              <div style={{ marginBottom: '24px' }}>
+                <h4 style={{
+                  fontSize: '14px',
+                  fontWeight: '600',
+                  color: '#374151',
+                  marginBottom: '12px',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.5px'
+                }}>
+                  Information
+                </h4>
+                
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  {/* Upload Date */}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: '14px', color: '#6b7280' }}>Uploaded</span>
+                    <span style={{ fontSize: '14px', fontWeight: '500', color: '#111827' }}>
+                      {(() => {
+                        const { date, time } = formatDateTime(selectedFile.uploaded_at);
+                        return `${date} at ${time}`;
+                      })()}
+                    </span>
+                  </div>
+
+                  {/* Team */}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: '14px', color: '#6b7280' }}>Team</span>
+                    <span style={{ fontSize: '14px', fontWeight: '500', color: '#111827' }}>
+                      {selectedFile.user_team}
+                    </span>
+                  </div>
+
+                  {/* Status */}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: '14px', color: '#6b7280' }}>Status</span>
+                    <span className={`status-tag ${getStatusClass(selectedFile.status)}`}>
+                      {getStatusDisplayName(selectedFile.status)}
+                    </span>
+                  </div>
+
+                  {/* Tag */}
+                  {selectedFile.tag && (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ fontSize: '14px', color: '#6b7280' }}>Tag</span>
+                      <span style={{
+                        backgroundColor: '#dbeafe',
+                        color: '#1e40af',
+                        padding: '4px 12px',
+                        borderRadius: '12px',
+                        fontSize: '12px',
+                        fontWeight: '600',
+                        border: '1px solid #93c5fd',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '4px'
+                      }}>
+                        🏷️ {selectedFile.tag}
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Description */}
+                  {selectedFile.description && (
+                    <div style={{ 
+                      paddingTop: '12px',
+                      borderTop: '1px solid #e5e7eb'
+                    }}>
+                      <span style={{ 
+                        fontSize: '14px', 
+                        color: '#6b7280',
+                        display: 'block',
+                        marginBottom: '8px'
+                      }}>Description</span>
+                      <p style={{
+                        fontSize: '14px',
+                        color: '#111827',
+                        lineHeight: '1.6',
+                        margin: 0,
+                        fontStyle: 'italic',
+                        backgroundColor: '#f9fafb',
+                        padding: '12px',
+                        borderRadius: '8px',
+                        border: '1px solid #e5e7eb'
+                      }}>
+                        📝 {selectedFile.description}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="modal-actions" style={{ 
+              borderTop: '1px solid #e5e7eb',
+              padding: '16px 24px',
+              display: 'flex',
+              gap: '12px',
+              justifyContent: 'flex-end'
+            }}>
+              <button
+                type="button"
+                onClick={() => setShowFileDetailsModal(false)}
+                className="btn btn-cancel"
+                style={{
+                  padding: '10px 20px',
+                  borderRadius: '8px',
+                  border: '1px solid #d1d5db',
+                  backgroundColor: '#ffffff',
+                  color: '#374151',
+                  fontSize: '14px',
+                  fontWeight: '500',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s'
+                }}
+              >
+                Close
+              </button>
+              <button
+                type="button"
+                onClick={handleOpenFileFromModal}
+                className="btn btn-primary"
+                style={{
+                  padding: '10px 20px',
+                  borderRadius: '8px',
+                  border: 'none',
+                  backgroundColor: '#4f46e5',
+                  color: '#ffffff',
+                  fontSize: '14px',
+                  fontWeight: '500',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px'
+                }}
+              >
+                📂 Open File
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
