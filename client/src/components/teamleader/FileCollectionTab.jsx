@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import './css/FileCollectionTab.css'
 import FileIcon from '../admin/FileIcon'
 import { LoadingTable, LoadingCards } from '../common/InlineSkeletonLoader'
@@ -16,9 +16,37 @@ const FileCollectionTab = ({
   setFileCollectionFilter,
   fileCollectionSort,
   setFileCollectionSort,
-  onNavigateToTask
+  onNavigateToTask,
+  highlightedFileId,
+  onClearFileHighlight
 }) => {
   const [searchQuery, setSearchQuery] = useState('')
+  
+  // Handle file highlighting from notifications
+  useEffect(() => {
+    if (highlightedFileId && submittedFiles.length > 0) {
+      // Small delay to ensure DOM is ready
+      setTimeout(() => {
+        const fileRow = document.querySelector(`tr[data-file-id="${highlightedFileId}"]`)
+        if (fileRow) {
+          // Scroll to file with smooth behavior
+          fileRow.scrollIntoView({ behavior: 'smooth', block: 'center' })
+
+          // Add highlight effect
+          fileRow.classList.add('tl-file-highlighted')
+
+          // Remove highlight after animation
+          setTimeout(() => {
+            fileRow.classList.remove('tl-file-highlighted')
+            if (onClearFileHighlight) {
+              onClearFileHighlight()
+            }
+          }, 1500)
+        }
+      }, 300)
+    }
+  }, [highlightedFileId, submittedFiles])
+  
   // Extract file extension helper
   const getFileExtension = (filename, fileType) => {
     if (filename) {
@@ -231,7 +259,7 @@ const FileCollectionTab = ({
                 const fileExtension = getFileExtension(submission.original_name, submission.file_type)
                 
                 return (
-                <tr key={submission.id} className="tl-clickable-row" onClick={() => openFileViewModal(submission)}>
+                <tr key={submission.id} data-file-id={submission.id} className="tl-clickable-row" onClick={() => openFileViewModal(submission)}>
                   <td>
                     <div className="file-cell">
                       <div className="file-icon">
@@ -303,7 +331,7 @@ const FileCollectionTab = ({
                               className="tl-dropdown-item"
                               onClick={(e) => {
                                 e.stopPropagation()
-                                onNavigateToTask(submission.assignment_id)
+                                onNavigateToTask(submission.assignment_id, submission.id)
                               }}
                             >
                               <svg width="16" height="16" viewBox="0 0 16 16" fill="none">

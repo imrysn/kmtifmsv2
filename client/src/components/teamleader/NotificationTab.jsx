@@ -78,9 +78,6 @@ const NotificationTab = ({ user, onNavigate }) => {
   const observerRef = useRef(null);
   const loadMoreRef = useRef(null);
 
-  // Highlighted comment ref
-  const [highlightedCommentId, setHighlightedCommentId] = useState(null);
-
   useEffect(() => {
     fetchNotifications(1, true);
     // Poll for new notifications every 30 seconds (only first page)
@@ -248,45 +245,106 @@ const NotificationTab = ({ user, onNavigate }) => {
   };
 
   const handleNotificationClick = (notification) => {
+    console.log('🔔 Notification clicked:', notification);
+    console.log('   Type:', notification.type);
+    console.log('   Title:', notification.title);
+    console.log('   Assignment ID:', notification.assignment_id);
+    
     // Mark as read
     if (!notification.is_read) {
       markAsRead(notification.id);
     }
 
+    // Detect if this is a reply notification by title
+    const isReplyNotification = notification.title === 'New Reply on Assignment';
+    console.log('   Is Reply Notification:', isReplyNotification);
+
     // Navigate based on notification type
-    if (notification.type === 'comment') {
-      // For comments, open the task modal with the comment highlighted
+    if (notification.type === 'comment' || isReplyNotification) {
+      // For comment/reply notifications, navigate to assignments with comment context
+      console.log('   → Navigating to assignments with comment context');
       if (notification.assignment_id) {
-        // Store the comment ID to highlight
-        if (notification.comment_id) {
-          setHighlightedCommentId(notification.comment_id);
-        }
+        const navigationData = {
+          assignmentId: notification.assignment_id,
+          shouldOpenComments: true,
+          expandAllReplies: isReplyNotification  // Auto-expand replies for reply notifications
+        };
+        console.log('   📤 Sending navigation data:', navigationData);
         
-        // Navigate to assignments tab with assignment context
+        if (onNavigate) {
+          onNavigate('assignments', navigationData);
+        } else {
+          console.error('   ❌ onNavigate function not provided!');
+        }
+      } else {
+        console.error('   ❌ No assignment_id found in notification!');
+      }
+    } else if (notification.type === 'submission' || notification.type === 'file_uploaded' || notification.type === 'assignment') {
+      // For submitted file notifications - use "Go to Task" behavior
+      console.log('   → Navigating to assignments (Go to Task behavior)');
+      if (notification.assignment_id) {
         if (onNavigate) {
           onNavigate('assignments', {
             assignmentId: notification.assignment_id,
-            commentId: notification.comment_id,
-            shouldOpenComments: true
+            fileId: notification.file_id || null,  // Pass file_id if available
+            shouldOpenComments: false,
+            fromFileSubmission: true
           });
-        }
-      }
-    } else if (notification.assignment_id) {
-      // For other assignment-related notifications
-      if (onNavigate) {
-        onNavigate('assignments', notification.assignment_id);
-      }
-    } else if (notification.file_id) {
-      // Navigate to file review
-      if (notification.type === 'approval' || notification.type === 'rejection') {
-        if (onNavigate) {
-          onNavigate('file-review', notification.file_id);
+        } else {
+          console.error('   ❌ onNavigate function not provided!');
         }
       } else {
-        if (onNavigate) {
-          onNavigate('file-collection', notification.file_id);
-        }
+        console.error('   ❌ No assignment_id found in notification!');
       }
+    } else if (notification.type === 'approval' || notification.type === 'rejection' || notification.type === 'final_approval' || notification.type === 'final_rejection') {
+      // For file approval/rejection notifications, navigate to file collection
+      console.log('   → Navigating to file collection');
+      if (notification.file_id) {
+        if (onNavigate) {
+          onNavigate('file-collection', {
+            fileId: notification.file_id
+          });
+        }
+      } else {
+        console.error('   ❌ No file_id found in notification!');
+      }
+    } else if (!notification.type || notification.type === '') {
+      // Handle case where type is empty or missing
+      // If we have both file_id and assignment_id, it's likely a file submission
+      console.log('   ⚠️ Empty notification type, checking IDs...');
+      if (notification.file_id && notification.assignment_id) {
+        console.log('   → Has both file_id and assignment_id, treating as file submission');
+        console.log('   → Navigating to assignments (Go to Task behavior)');
+        if (onNavigate) {
+          onNavigate('assignments', {
+            assignmentId: notification.assignment_id,
+            fileId: notification.file_id,  // Pass file_id to highlight specific file
+            shouldOpenComments: false,
+            fromFileSubmission: true
+          });
+        }
+      } else if (notification.assignment_id) {
+        // Just assignment_id, navigate to assignment
+        console.log('   → Has assignment_id only, navigating to assignments');
+        if (onNavigate) {
+          onNavigate('assignments', {
+            assignmentId: notification.assignment_id,
+            shouldOpenComments: false
+          });
+        }
+      } else if (notification.file_id) {
+        // Just file_id, navigate to file collection
+        console.log('   → Has file_id only, navigating to file collection');
+        if (onNavigate) {
+          onNavigate('file-collection', {
+            fileId: notification.file_id
+          });
+        }
+      } else {
+        console.error('   ❌ Empty type and no valid IDs found!');
+      }
+    } else {
+      console.warn('   ⚠️ Unknown notification type:', notification.type);
     }
   };
 

@@ -446,3 +446,22 @@
     min-width: 100px;
   }
 }
+
+/* Highlight Animation for Navigation from Notifications */
+.tl-file-highlighted {
+  animation: fileHighlightPulse 1.5s ease-in-out;
+  background: rgba(156, 163, 175, 0.15) !important;
+}
+
+.tl-file-highlighted td {
+  border-color: #9ca3af !important;
+}
+
+@keyframes fileHighlightPulse {
+  0%, 100% {
+    background: rgba(156, 163, 175, 0.15);
+  }
+  50% {
+    background: rgba(156, 163, 175, 0.25);
+  }
+}
