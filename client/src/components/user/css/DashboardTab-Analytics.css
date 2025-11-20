@@ -6,21 +6,37 @@
 }
 
 .user-dashboard-component .analytics-content {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--spacing-xl);
+}
+
+/* Performance Score and Metrics Row */
+.user-dashboard-component .performance-main-row {
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  gap: var(--spacing-xl);
+  align-items: start;
+}
+
+/* Left Column: Score and Overdue */
+.user-dashboard-component .performance-left-column {
   display: flex;
   flex-direction: column;
-  gap: var(--spacing-xl);
+  gap: var(--spacing-md);
 }
 
 /* Performance Score Section */
 .user-dashboard-component .performance-score-section {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  gap: var(--spacing-xl);
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
   align-items: center;
   padding: var(--spacing-lg);
   background: #ffffff;
   border-radius: var(--radius-lg);
   border: 1px solid #e5e7eb;
+  min-width: 280px;
 }
 
 .user-dashboard-component .score-circle-container {
@@ -72,6 +88,7 @@
   display: flex;
   flex-direction: column;
   gap: var(--spacing-md);
+  text-align: center;
 }
 
 .user-dashboard-component .performance-rating {
@@ -91,16 +108,17 @@
 }
 
 .user-dashboard-component .score-description {
-  font-size: 14px;
+  font-size: 13px;
   color: #6b7280;
   line-height: 1.6;
+  text-align: center;
 }
 
 /* Performance Metrics Grid */
 .user-dashboard-component .performance-metrics-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: var(--spacing-lg);
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
 }
 
 .user-dashboard-component .metric-card {
@@ -184,8 +202,8 @@
 
 /* Activity Summary */
 .user-dashboard-component .activity-summary {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  display: flex;
+  flex-direction: column;
   gap: var(--spacing-md);
 }
 
