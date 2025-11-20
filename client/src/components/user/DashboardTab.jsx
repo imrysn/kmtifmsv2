@@ -547,99 +547,91 @@ const DashboardTab = ({ user, files, setActiveTab }) => {
         </div>
 
         <div className="analytics-content">
-          {/* Overall Performance Score */}
-          <div className="performance-score-section">
-            <div className="score-circle-container">
-              <div className="score-circle" style={{ background: `conic-gradient(${performanceRating.color} ${performanceAnalytics.productivityScore * 3.6}deg, #e5e7eb ${performanceAnalytics.productivityScore * 3.6}deg)` }}>
-                <div className="score-inner">
-                  <div className="score-value">{performanceAnalytics.productivityScore}</div>
-                  <div className="score-label">Score</div>
+          {/* Performance Score and Metrics Row */}
+          <div className="performance-main-row">
+            {/* Left Column: Score and Overdue Tasks */}
+            <div className="performance-left-column">
+              {/* Overall Performance Score */}
+              <div className="performance-score-section">
+                <div className="score-circle-container">
+                  <div className="score-circle" style={{ background: `conic-gradient(${performanceRating.color} ${performanceAnalytics.productivityScore * 3.6}deg, #e5e7eb ${performanceAnalytics.productivityScore * 3.6}deg)` }}>
+                    <div className="score-inner">
+                      <div className="score-value">{performanceAnalytics.productivityScore}</div>
+                      <div className="score-label">Score</div>
+                    </div>
+                  </div>
+                </div>
+                <div className="score-details">
+                  <div className="performance-rating" style={{ color: performanceRating.color }}>
+                    <span className="rating-emoji">{performanceRating.emoji}</span>
+                    <span className="rating-label">{performanceRating.label}</span>
+                  </div>
+                  <div className="score-description">
+                    Your overall productivity based on task completion, file approvals, and timeliness
+                  </div>
+                </div>
+              </div>
+
+              {/* Overdue Tasks */}
+              <div className="activity-summary">
+                <div className="summary-card">
+                  <div className="summary-icon">⚠️</div>
+                  <div className="summary-content">
+                    <div className="summary-value">{myTasksStats.overdue}</div>
+                    <div className="summary-label">Overdue Tasks</div>
+                  </div>
                 </div>
               </div>
             </div>
-            <div className="score-details">
-              <div className="performance-rating" style={{ color: performanceRating.color }}>
-                <span className="rating-emoji">{performanceRating.emoji}</span>
-                <span className="rating-label">{performanceRating.label}</span>
-              </div>
-              <div className="score-description">
-                Your overall productivity based on task completion, file approvals, and timeliness
-              </div>
-            </div>
-          </div>
 
-          {/* Performance Metrics Grid */}
-          <div className="performance-metrics-grid">
-            <div className="metric-card">
-              <div className="metric-header">
-                <span className="metric-icon">✓</span>
-                <span className="metric-title">Task Completion</span>
-              </div>
-              <div className="metric-value-bar">
-                <div className="metric-bar">
-                  <div className="metric-fill" style={{ width: `${performanceAnalytics.taskCompletionRate}%`, backgroundColor: '#3b82f6' }}></div>
+            {/* Performance Metrics Grid */}
+            <div className="performance-metrics-grid">
+              <div className="metric-card">
+                <div className="metric-header">
+                  <span className="metric-icon">✓</span>
+                  <span className="metric-title">Task Completion</span>
                 </div>
-                <span className="metric-percentage">{performanceAnalytics.taskCompletionRate}%</span>
-              </div>
-              <div className="metric-details">
-                {myTasksStats.submitted} of {myTasksStats.total} tasks completed
-              </div>
-            </div>
-
-            <div className="metric-card">
-              <div className="metric-header">
-                <span className="metric-icon">📄</span>
-                <span className="metric-title">File Approval Rate</span>
-              </div>
-              <div className="metric-value-bar">
-                <div className="metric-bar">
-                  <div className="metric-fill" style={{ width: `${performanceAnalytics.fileApprovalRate}%`, backgroundColor: '#10b981' }}></div>
+                <div className="metric-value-bar">
+                  <div className="metric-bar">
+                    <div className="metric-fill" style={{ width: `${performanceAnalytics.taskCompletionRate}%`, backgroundColor: '#3b82f6' }}></div>
+                  </div>
+                  <span className="metric-percentage">{performanceAnalytics.taskCompletionRate}%</span>
                 </div>
-                <span className="metric-percentage">{performanceAnalytics.fileApprovalRate}%</span>
-              </div>
-              <div className="metric-details">
-                {filesStats.approved} of {filesStats.total} files approved
-              </div>
-            </div>
-
-            <div className="metric-card">
-              <div className="metric-header">
-                <span className="metric-icon">⏱️</span>
-                <span className="metric-title">On-Time Delivery</span>
-              </div>
-              <div className="metric-value-bar">
-                <div className="metric-bar">
-                  <div className="metric-fill" style={{ width: `${performanceAnalytics.onTimeRate}%`, backgroundColor: '#f59e0b' }}></div>
+                <div className="metric-details">
+                  {myTasksStats.submitted} of {myTasksStats.total} tasks completed
                 </div>
-                <span className="metric-percentage">{performanceAnalytics.onTimeRate}%</span>
               </div>
-              <div className="metric-details">
-                {myTasksStats.total - myTasksStats.overdue} of {myTasksStats.total} on time
-              </div>
-            </div>
-          </div>
 
-          {/* Activity Summary */}
-          <div className="activity-summary">
-            <div className="summary-card">
-              <div className="summary-icon">📈</div>
-              <div className="summary-content">
-                <div className="summary-value">{performanceAnalytics.totalActivities}</div>
-                <div className="summary-label">Total Activities</div>
+              <div className="metric-card">
+                <div className="metric-header">
+                  <span className="metric-icon">📄</span>
+                  <span className="metric-title">File Approval Rate</span>
+                </div>
+                <div className="metric-value-bar">
+                  <div className="metric-bar">
+                    <div className="metric-fill" style={{ width: `${performanceAnalytics.fileApprovalRate}%`, backgroundColor: '#10b981' }}></div>
+                  </div>
+                  <span className="metric-percentage">{performanceAnalytics.fileApprovalRate}%</span>
+                </div>
+                <div className="metric-details">
+                  {filesStats.approved} of {filesStats.total} files approved
+                </div>
               </div>
-            </div>
-            <div className="summary-card">
-              <div className="summary-icon">🔥</div>
-              <div className="summary-content">
-                <div className="summary-value">{performanceAnalytics.recentActivity}</div>
-                <div className="summary-label">This Week</div>
-              </div>
-            </div>
-            <div className="summary-card">
-              <div className="summary-icon">⚠️</div>
-              <div className="summary-content">
-                <div className="summary-value">{myTasksStats.overdue}</div>
-                <div className="summary-label">Overdue Tasks</div>
+
+              <div className="metric-card">
+                <div className="metric-header">
+                  <span className="metric-icon">⏱️</span>
+                  <span className="metric-title">On-Time Delivery</span>
+                </div>
+                <div className="metric-value-bar">
+                  <div className="metric-bar">
+                    <div className="metric-fill" style={{ width: `${performanceAnalytics.onTimeRate}%`, backgroundColor: '#f59e0b' }}></div>
+                  </div>
+                  <span className="metric-percentage">{performanceAnalytics.onTimeRate}%</span>
+                </div>
+                <div className="metric-details">
+                  {myTasksStats.total - myTasksStats.overdue} of {myTasksStats.total} on time
+                </div>
               </div>
             </div>
           </div>

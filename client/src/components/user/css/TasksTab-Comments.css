@@ -44,17 +44,30 @@
   opacity: 0 !important;
 }
 
+/* Comment Thread - Contains main comment and all its replies in one card */
+.comment-thread {
+  background: #ffffff;
+  border-radius: 12px;
+  border: 1px solid #e5e7eb;
+  margin-bottom: 12px;
+  transition: none;
+  overflow: hidden;
+}
+
+.comment-thread:hover {
+  /* Hover animation removed */
+}
+
 /* Comment Item - Card Style */
 .comment-item {
   display: flex;
   gap: 16px;
   padding: 20px;
   background: #ffffff;
-  border-radius: 12px;
-  border: 1px solid #e5e7eb !important;
-  border-left: 1px solid #e5e7eb !important;
-  margin-bottom: 12px;
-  transition: all 0.2s ease;
+  border-radius: 0;
+  border: none !important;
+  margin-bottom: 0;
+  transition: none;
 }
 
 .comment-item::before,
@@ -63,8 +76,8 @@
 }
 
 .comment-item:hover {
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-  border-color: #d1d5db;
+  box-shadow: none;
+  border-color: transparent;
 }
 
 /* Comment Avatar */
@@ -162,14 +175,17 @@
 
 /* Replies Thread - NO BORDER LINE */
 .replies-thread {
-  margin-left: 60px;
-  margin-top: 12px;
+  margin-left: 76px;
+  margin-right: 20px;
+  margin-bottom: 20px;
+  padding-top: 12px;
   display: flex;
   flex-direction: column;
   gap: 12px;
   border: none !important;
   border-left: none !important;
   padding-left: 0 !important;
+  border-top: 1px solid #f3f4f6 !important;
 }
 
 .replies-thread::before,
@@ -185,12 +201,12 @@
 .reply-item {
   display: flex;
   gap: 12px;
-  padding: 16px;
+  padding: 12px;
   background: #f9fafb;
-  border-radius: 10px;
+  border-radius: 8px;
   border: 1px solid #e5e7eb !important;
   border-left: 1px solid #e5e7eb !important;
-  transition: all 0.2s ease;
+  transition: none;
 }
 
 .reply-item::before,
@@ -199,8 +215,7 @@
 }
 
 .reply-item:hover {
-  background: #f3f4f6;
-  border-color: #d1d5db;
+  /* Hover animation removed */
 }
 
 .reply-avatar {
@@ -255,7 +270,9 @@
 /* Reply Input Box - NO LINES */
 .reply-input-box {
   margin-top: 12px;
-  margin-left: 60px;
+  margin-left: 76px;
+  margin-right: 20px;
+  margin-bottom: 20px;
   display: flex;
   gap: 12px;
   align-items: flex-start;
