@@ -135,9 +135,10 @@ router.get('/admin/all', async (req, res) => {
 router.get('/team-leader/:team/all-submissions', async (req, res) => {
   try {
     const { team } = req.params;
+    console.log(`🔍 DASHBOARD API: Fetching all submissions for team: ${team}`);
 
     const allSubmissions = await query(`
-      SELECT 
+      SELECT
         f.id,
         f.original_name,
         f.filename,
@@ -161,12 +162,14 @@ router.get('/team-leader/:team/all-submissions', async (req, res) => {
       ORDER BY am.submitted_at DESC
     `, [team]);
 
+    console.log(`✅ DASHBOARD API: Found ${allSubmissions?.length || 0} submissions for team ${team}`);
+
     res.json({
       success: true,
       submissions: allSubmissions || []
     });
   } catch (error) {
-    console.error('Error fetching all submissions:', error);
+    console.error('❌ DASHBOARD API: Error fetching all submissions:', error);
     res.status(500).json({
       success: false,
       message: 'Failed to fetch submissions',

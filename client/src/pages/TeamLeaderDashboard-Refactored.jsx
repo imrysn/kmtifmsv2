@@ -21,7 +21,7 @@ import {
 } from '../components/teamleader'
 
 const TeamLeaderDashboard = ({ user, onLogout }) => {
-  const [activeTab, setActiveTab] = useState('overview')
+  const [activeTab, setActiveTab] = useState('dashboard')
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [pendingFiles, setPendingFiles] = useState([])
   const [filteredFiles, setFilteredFiles] = useState([])
@@ -104,16 +104,23 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
     if (activeTab === 'overview') {
       fetchPendingFiles('total')
     }
-    
+
     if (activeTab === 'file-collection') {
       fetchAllSubmissions()
     }
-    
+
     fetchTeamMembers()
     fetchNotifications()
     fetchAnalytics()
-    
+
     if (activeTab === 'assignments') {
+      fetchAssignments()
+    }
+
+    // For dashboard, fetch all necessary data
+    if (activeTab === 'dashboard') {
+      console.log('🔄 DASHBOARD TAB: Loading data...', { activeTab, team: user.team })
+      fetchAllSubmissions()
       fetchAssignments()
     }
   }, [user.team, activeTab])
@@ -698,6 +705,28 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
             pendingFiles={pendingFiles}
             teamMembers={teamMembers}
             calculateApprovalRate={calculateApprovalRate}
+          />
+        )
+      case 'dashboard':
+        return (
+          <OverviewTab
+            pendingFiles={pendingFiles}
+            teamMembers={teamMembers}
+            calculateApprovalRate={calculateApprovalRate}
+            submittedFiles={submittedFiles}
+            assignments={assignments}
+            notifications={notifications}
+            notificationCounts={notificationCounts}
+            analyticsData={analyticsData}
+            activeTab={activeTab}
+            setActiveTab={setActiveTab}
+            onNavigateToTask={(assignmentId, fileId) => {
+              setActiveTab('assignments')
+              setHighlightedAssignmentId(assignmentId)
+              if (fileId) {
+                setHighlightedSubmissionFileId(fileId)
+              }
+            }}
           />
         )
       case 'file-collection':
