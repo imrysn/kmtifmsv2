@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import './css/AssignmentsTab.css'
 import FileIcon from '../admin/FileIcon.jsx'
 import { CardSkeleton } from '../common/InlineSkeletonLoader'
@@ -7,7 +7,6 @@ const AssignmentsTab = ({
   isLoadingAssignments,
   assignments,
   formatDate,
-  fetchAssignmentDetails,
   deleteAssignment,
   setShowCreateAssignmentModal,
   openReviewModal,
@@ -15,7 +14,9 @@ const AssignmentsTab = ({
   notificationCommentContext,
   onClearNotificationContext,
   highlightedAssignmentId,
-  onClearHighlight
+  onClearHighlight,
+  highlightedFileId,
+  onClearFileHighlight
 }) => {
   const [showMembersModal, setShowMembersModal] = useState(false)
   const [selectedMembers, setSelectedMembers] = useState([])
@@ -29,6 +30,9 @@ const AssignmentsTab = ({
   const [isPostingReply, setIsPostingReply] = useState({})
   const [showReplies, setShowReplies] = useState({})
   const [showMenuForAssignment, setShowMenuForAssignment] = useState(null)
+  
+  // Ref to track if we should expand replies (persists between renders)
+  const shouldExpandRepliesRef = useRef(false)
 
   useEffect(() => {
     // Fetch comments for all assignments when they load
@@ -39,18 +43,100 @@ const AssignmentsTab = ({
 
   // Handle notification comment context - automatically open comments modal
   useEffect(() => {
+    console.log('💬 AssignmentsTab: notificationCommentContext changed:', notificationCommentContext);
+    console.log('   Assignments length:', assignments.length);
+    
     if (notificationCommentContext && assignments.length > 0) {
+      console.log('   🔍 Looking for assignment ID:', notificationCommentContext.assignmentId);
       const assignment = assignments.find(a => a.id === notificationCommentContext.assignmentId)
+      
       if (assignment) {
+        console.log('   ✅ Found assignment:', assignment.title);
+        console.log('   💡 Opening comments modal...');
+        
+        // Store the expand flag in ref so it persists
+        if (notificationCommentContext.expandAllReplies) {
+          shouldExpandRepliesRef.current = true;
+          console.log('   📌 Reply notification detected - will expand after modal opens');
+        }
+        
         // Open comments modal for this assignment
         toggleComments(assignment)
-        // Clear the context after opening
-        if (onClearNotificationContext) {
-          onClearNotificationContext()
-        }
+        
+        // Clear the context after opening (but keep the expand flag in mind)
+        setTimeout(() => {
+          if (onClearNotificationContext) {
+            console.log('   🧹 Clearing notification context');
+            onClearNotificationContext()
+          }
+        }, 100);
+      } else {
+        console.log('   ❌ Assignment not found!');
+        console.log('   Available assignment IDs:', assignments.map(a => a.id));
+      }
+    } else {
+      if (!notificationCommentContext) {
+        console.log('   ⚠️ No notificationCommentContext');
+      }
+      if (assignments.length === 0) {
+        console.log('   ⚠️ No assignments loaded yet');
       }
     }
   }, [notificationCommentContext, assignments])
+
+  // Handle auto-expanding replies when modal opens from reply notification
+  useEffect(() => {
+    if (showCommentsModal && currentCommentsAssignment && shouldExpandRepliesRef.current) {
+      console.log('   🔓 Modal is open, expanding all replies...');
+      
+      // Wait a bit for the modal to render
+      setTimeout(() => {
+        const allComments = comments[currentCommentsAssignment.id] || [];
+        console.log('   📊 Found', allComments.length, 'comments');
+        
+        if (allComments.length > 0) {
+          // Expand all comments that have replies
+          const expandState = {};
+          let firstCommentWithReplies = null;
+          
+          allComments.forEach(comment => {
+            if (comment.replies && comment.replies.length > 0) {
+              expandState[comment.id] = true;
+              if (!firstCommentWithReplies) {
+                firstCommentWithReplies = comment.id;
+              }
+            }
+          });
+          
+          console.log('   ✅ Expanding replies for comments:', Object.keys(expandState));
+          setShowReplies(prev => ({ ...prev, ...expandState }));
+          
+          // Scroll to the first comment with replies after a short delay
+          if (firstCommentWithReplies) {
+            setTimeout(() => {
+              const commentElement = document.querySelector(`[data-comment-id="${firstCommentWithReplies}"]`);
+              if (commentElement) {
+                console.log('   📜 Scrolling to comment:', firstCommentWithReplies);
+                commentElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                
+                // Add a subtle highlight effect
+                const bubble = commentElement.querySelector('.tl-comment-bubble');
+                if (bubble) {
+                  bubble.classList.add('tl-comment-highlighted');
+                  setTimeout(() => {
+                    bubble.classList.remove('tl-comment-highlighted');
+                  }, 2000);
+                }
+              }
+            }, 400); // Wait for replies to expand
+          }
+        }
+        
+        // Reset the ref after expanding
+        shouldExpandRepliesRef.current = false;
+      }, 500); // Wait for modal to render
+    }
+  }, [showCommentsModal, currentCommentsAssignment, comments])
 
   // Handle clicking outside to close menu
   useEffect(() => {
@@ -90,6 +176,31 @@ const AssignmentsTab = ({
       }, 300)
     }
   }, [highlightedAssignmentId, assignments])
+
+  // Handle file highlighting within task card
+  useEffect(() => {
+    if (highlightedFileId && highlightedAssignmentId && assignments.length > 0) {
+      // Longer delay to ensure task card is highlighted first and DOM is ready
+      setTimeout(() => {
+        const fileElement = document.querySelector(`[data-file-id="${highlightedFileId}"]`)
+        if (fileElement) {
+          // Scroll to file within the task card
+          fileElement.scrollIntoView({ behavior: 'smooth', block: 'center' })
+          
+          // Add highlight effect
+          fileElement.classList.add('tl-assignment-file-highlighted')
+          
+          // Remove highlight after animation
+          setTimeout(() => {
+            fileElement.classList.remove('tl-assignment-file-highlighted')
+            if (onClearFileHighlight) {
+              onClearFileHighlight()
+            }
+          }, 1500)
+        }
+      }, 1000) // Wait 1 second after assignment card is highlighted
+    }
+  }, [highlightedFileId, highlightedAssignmentId, assignments])
 
   const fetchComments = async (assignmentId) => {
     try {
@@ -524,6 +635,7 @@ const AssignmentsTab = ({
                         {assignment.recent_submissions.map((submission) => (
                           <div
                             key={submission.id}
+                            data-file-id={submission.id}
                             className="tl-assignment-file-item"
                             onClick={(e) => {
                               e.stopPropagation()
@@ -627,7 +739,7 @@ const AssignmentsTab = ({
                 {comments[currentCommentsAssignment.id]?.length > 0 ? (
                   <div className="tl-comments-list">
                     {comments[currentCommentsAssignment.id].map((comment) => (
-                      <div key={comment.id} className="tl-comment-item">
+                      <div key={comment.id} data-comment-id={comment.id} className="tl-comment-item">
                         <div className="tl-comment-avatar">
                           {getInitials(comment.fullName || comment.username)}
                         </div>
@@ -663,7 +775,7 @@ const AssignmentsTab = ({
                           {showReplies[comment.id] && comment.replies && comment.replies.length > 0 && (
                             <div className="tl-replies-list">
                               {comment.replies.map((reply) => (
-                                <div key={reply.id} className="tl-reply-item">
+                                <div key={reply.id} data-comment-id={reply.id} className="tl-reply-item">
                                   <div className="tl-comment-avatar tl-reply-avatar">
                                     {getInitials(reply.fullName || reply.username)}
                                   </div>

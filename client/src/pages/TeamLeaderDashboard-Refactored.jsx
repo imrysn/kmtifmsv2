@@ -16,7 +16,6 @@ import {
   PriorityModal,
   MemberFilesModal,
   CreateAssignmentModal,
-  AssignmentDetailsModal,
   ReviewModal,
   FileViewModal
 } from '../components/teamleader'
@@ -87,9 +86,6 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
   const [assignments, setAssignments] = useState([])
   const [isLoadingAssignments, setIsLoadingAssignments] = useState(false)
   const [showCreateAssignmentModal, setShowCreateAssignmentModal] = useState(false)
-  const [showAssignmentDetailsModal, setShowAssignmentDetailsModal] = useState(false)
-  const [selectedAssignment, setSelectedAssignment] = useState(null)
-  const [assignmentSubmissions, setAssignmentSubmissions] = useState([])
   const [assignmentForm, setAssignmentForm] = useState({
     title: '',
     description: '',
@@ -100,6 +96,8 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
   })
   const [notificationCommentContext, setNotificationCommentContext] = useState(null)
   const [highlightedAssignmentId, setHighlightedAssignmentId] = useState(null)
+  const [highlightedFileId, setHighlightedFileId] = useState(null)
+  const [highlightedSubmissionFileId, setHighlightedSubmissionFileId] = useState(null)
 
   useEffect(() => {
     // Only fetch files for tabs that need them
@@ -284,24 +282,6 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
       setAssignments([])
     } finally {
       setIsLoadingAssignments(false)
-    }
-  }
-
-  const fetchAssignmentDetails = async (assignmentId) => {
-    setIsLoading(true)
-    try {
-      const response = await fetch(`http://localhost:3001/api/assignments/${assignmentId}/details`)
-      const data = await response.json()
-      if (data.success) {
-        setSelectedAssignment(data.assignment)
-        setAssignmentSubmissions(data.submissions || [])
-        setShowAssignmentDetailsModal(true)
-      }
-    } catch (error) {
-      console.error('Error fetching assignment details:', error)
-      setError('Failed to load assignment details')
-    } finally {
-      setIsLoading(false)
     }
   }
 
@@ -735,10 +715,15 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
             setFileCollectionFilter={setFileCollectionFilter}
             fileCollectionSort={fileCollectionSort}
             setFileCollectionSort={setFileCollectionSort}
-            onNavigateToTask={(assignmentId) => {
+            onNavigateToTask={(assignmentId, fileId) => {
               setActiveTab('assignments')
               setHighlightedAssignmentId(assignmentId)
+              if (fileId) {
+                setHighlightedSubmissionFileId(fileId)
+              }
             }}
+            highlightedFileId={highlightedFileId}
+            onClearFileHighlight={() => setHighlightedFileId(null)}
           />
         )
       case 'team-management':
@@ -755,7 +740,6 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
             isLoadingAssignments={isLoadingAssignments}
             assignments={assignments}
             formatDate={formatDate}
-            fetchAssignmentDetails={fetchAssignmentDetails}
             deleteAssignment={deleteAssignment}
             setShowCreateAssignmentModal={setShowCreateAssignmentModal}
             openReviewModal={openReviewModal}
@@ -764,6 +748,8 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
             onClearNotificationContext={() => setNotificationCommentContext(null)}
             highlightedAssignmentId={highlightedAssignmentId}
             onClearHighlight={() => setHighlightedAssignmentId(null)}
+            highlightedFileId={highlightedSubmissionFileId}
+            onClearFileHighlight={() => setHighlightedSubmissionFileId(null)}
           />
         )
       case 'notifications':
@@ -771,33 +757,65 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
           <NotificationTab
             user={user}
             onNavigate={async (tab, data) => {
+              console.log('🎯 Dashboard onNavigate called');
+              console.log('   Tab:', tab);
+              console.log('   Data:', data);
+              
               if (tab === 'assignments') {
                 setActiveTab('assignments')
+                // Ensure assignments are loaded first
+                if (assignments.length === 0) {
+                  console.log('   ⏳ Fetching assignments...');
+                  await fetchAssignments()
+                }
+                
                 // Handle both object and primitive data formats
                 const assignmentId = typeof data === 'object' ? data.assignmentId : data
                 const shouldOpenComments = typeof data === 'object' ? data.shouldOpenComments : false
+                const expandAllReplies = typeof data === 'object' ? data.expandAllReplies : false
+                const fileId = typeof data === 'object' ? data.fileId : null
+
+                console.log('   📋 Extracted data:');
+                console.log('      assignmentId:', assignmentId);
+                console.log('      shouldOpenComments:', shouldOpenComments);
+                console.log('      expandAllReplies:', expandAllReplies);
+                console.log('      fileId:', fileId);
 
                 if (assignmentId) {
-                  if (shouldOpenComments) {
-                    // For comment notifications, ensure assignments are loaded first
-                    if (assignments.length === 0) {
-                      await fetchAssignments()
-                    }
-                    // For comment notifications, set context to open comments modal
-                    setNotificationCommentContext({
-                      assignmentId: assignmentId,
-                      commentId: data.commentId
-                    })
-                  } else {
-                    // For regular assignment notifications, open assignment details modal
-                    fetchAssignmentDetails(assignmentId)
+                  // Set highlighted assignment for scroll and highlight
+                  setHighlightedAssignmentId(assignmentId)
+                  console.log('   ✅ Set highlightedAssignmentId:', assignmentId);
+                  
+                  // If there's a file_id, also highlight the specific file within the task
+                  if (fileId) {
+                    setHighlightedSubmissionFileId(fileId)
+                    console.log('   ✅ Set highlightedSubmissionFileId:', fileId);
                   }
-                  console.log('Navigate to assignment:', assignmentId, shouldOpenComments ? '(comments)' : '(details)')
+                  
+                  if (shouldOpenComments) {
+                    // For comment notifications, set context to auto-open comments
+                    const context = {
+                      assignmentId: assignmentId,
+                      expandAllReplies: expandAllReplies  // Pass the expand flag
+                    };
+                    console.log('   ✅ Setting notificationCommentContext:', context);
+                    setNotificationCommentContext(context)
+                  } else {
+                    console.log('   ⚠️ Not opening comments - shouldOpenComments:', shouldOpenComments);
+                  }
                 }
-              } else if (tab === 'file-review' || tab === 'file-collection') {
+              } else if (tab === 'file-collection') {
+                // For file approval/rejection notifications, navigate to file collection
                 setActiveTab('file-collection')
-                // For file navigation, we could highlight the specific file
-                console.log('Navigate to file:', data)
+                // Ensure submissions are loaded first
+                if (submittedFiles.length === 0) {
+                  await fetchAllSubmissions()
+                }
+                // Highlight the specific file
+                if (data) {
+                  const fileId = typeof data === 'object' ? data.fileId : data
+                  setHighlightedFileId(fileId)
+                }
               }
             }}
           />
@@ -886,20 +904,6 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
           teamMembers={teamMembers}
           isProcessing={isProcessing}
           createAssignment={createAssignment}
-        />
-
-        <AssignmentDetailsModal
-          showAssignmentDetailsModal={showAssignmentDetailsModal}
-          setShowAssignmentDetailsModal={setShowAssignmentDetailsModal}
-          selectedAssignment={selectedAssignment}
-          setSelectedAssignment={setSelectedAssignment}
-          assignmentSubmissions={assignmentSubmissions}
-          setAssignmentSubmissions={setAssignmentSubmissions}
-          formatDate={formatDate}
-          formatDateTime={formatDateTime}
-          formatFileSize={formatFileSize}
-          teamLeaderId={user.id}
-          teamLeaderUsername={user.username}
         />
 
         <ReviewModal

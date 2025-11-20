@@ -1029,3 +1029,55 @@
     max-height: 90vh;
   }
 }
+
+/* Highlight Animation for Navigation from Notifications */
+.tl-assignment-highlighted {
+  animation: highlightPulse 1.5s ease-in-out;
+  border-color: #9ca3af !important;
+  box-shadow: 0 0 0 3px rgba(156, 163, 175, 0.3) !important;
+}
+
+@keyframes highlightPulse {
+  0%, 100% {
+    box-shadow: 0 0 0 3px rgba(156, 163, 175, 0.3);
+    border-color: #9ca3af;
+  }
+  50% {
+    box-shadow: 0 0 0 6px rgba(156, 163, 175, 0.4);
+    border-color: #6b7280;
+  }
+}
+
+/* Highlight Animation for Comments */
+.tl-comment-highlighted {
+  animation: commentHighlightPulse 1.5s ease-in-out;
+  background: rgba(156, 163, 175, 0.15) !important;
+}
+
+@keyframes commentHighlightPulse {
+  0%, 100% {
+    background: rgba(156, 163, 175, 0.15);
+  }
+  50% {
+    background: rgba(156, 163, 175, 0.25);
+  }
+}
+
+/* Highlight Animation for Files within Task Cards */
+.tl-assignment-file-highlighted {
+  animation: fileItemHighlightPulse 1.5s ease-in-out;
+  background: rgba(156, 163, 175, 0.15) !important;
+  border: 2px solid #9ca3af !important;
+  border-radius: 8px;
+}
+
+@keyframes fileItemHighlightPulse {
+  0%, 100% {
+    background: rgba(156, 163, 175, 0.15);
+    border-color: #9ca3af;
+  }
+  50% {
+    background: rgba(156, 163, 175, 0.25);
+    border-color: #6b7280;
+  }
+}
