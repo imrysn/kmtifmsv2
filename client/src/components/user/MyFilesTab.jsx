@@ -273,7 +273,7 @@ const MyFilesTab = ({
           isOpen: true,
           title: 'File Deleted',
           message: 'File deleted successfully',
-          type: 'error'
+          type: 'info'
         });
         setShowDeleteModal(false);
         setFileToDelete(null);

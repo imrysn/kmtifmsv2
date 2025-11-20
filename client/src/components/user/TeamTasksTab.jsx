@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import './css/TeamTasksTab.css'
+import './css/TasksTab-Comments.css'
 import FileIcon from '../admin/FileIcon.jsx'
 
 const TeamTasksTab = ({ user }) => {
@@ -19,8 +20,10 @@ const TeamTasksTab = ({ user }) => {
   const [submittingComment, setSubmittingComment] = useState({})
   const [replyingTo, setReplyingTo] = useState({})
   const [showReplies, setShowReplies] = useState({}) // Track which comments have visible replies
+  const [visibleReplies, setVisibleReplies] = useState({})
   const [isPostingComment, setIsPostingComment] = useState({})
   const [isPostingReply, setIsPostingReply] = useState({})
+  const [showAllFiles, setShowAllFiles] = useState({}) // Track which assignments show all files
 
   // Pagination state
   const [nextCursor, setNextCursor] = useState(null)
@@ -100,6 +103,9 @@ const TeamTasksTab = ({ user }) => {
       setAssignments(allAssignments)
       setNextCursor(data.nextCursor)
       setHasMore(data.hasMore)
+      
+      // Fetch comment counts for all assignments
+      await fetchCommentCounts(allAssignments)
     } catch (error) {
       console.error('Error fetching team assignments:', error)
       setError('Failed to load team assignments')
@@ -135,6 +141,9 @@ const TeamTasksTab = ({ user }) => {
       setAssignments(prev => [...prev, ...newAssignments])
       setNextCursor(data.nextCursor)
       setHasMore(data.hasMore)
+      
+      // Fetch comment counts for new assignments
+      await fetchCommentCounts(newAssignments)
     } catch (error) {
       console.error('Error fetching more assignments:', error)
       setError('Failed to load more assignments')
@@ -142,6 +151,34 @@ const TeamTasksTab = ({ user }) => {
       setLoadingMore(false)
     }
   }, [nextCursor, hasMore, loadingMore, user.team])
+
+  // Fetch comment counts for all assignments
+  const fetchCommentCounts = async (assignmentsList) => {
+    try {
+      const commentCounts = {}
+      
+      // Fetch comment count for each assignment
+      await Promise.all(
+        assignmentsList.map(async (assignment) => {
+          try {
+            const response = await fetch(`http://localhost:3001/api/assignments/${assignment.id}/comments`)
+            const data = await response.json()
+            
+            if (data.success) {
+              commentCounts[assignment.id] = data.comments || []
+            }
+          } catch (error) {
+            console.error(`Error fetching comments for assignment ${assignment.id}:`, error)
+          }
+        })
+      )
+      
+      // Update comments state with all fetched comments
+      setComments(prev => ({ ...prev, ...commentCounts }))
+    } catch (error) {
+      console.error('Error fetching comment counts:', error)
+    }
+  }
 
   const toggleExpand = (assignmentId) => {
     setExpandedAssignments(prev => ({
@@ -417,6 +454,13 @@ const TeamTasksTab = ({ user }) => {
     }))
   }
 
+  const toggleRepliesVisibility = (commentId) => {
+    setVisibleReplies(prev => ({
+      ...prev,
+      [commentId]: !prev[commentId]
+    }))
+  }
+
   const toggleReplyBox = (commentId) => {
     setReplyingTo(prev => ({
       ...prev,
@@ -578,7 +622,14 @@ const TeamTasksTab = ({ user }) => {
                           new Date(b.submitted_at) - new Date(a.submitted_at)
                         );
 
-                        return sortedFiles.map((file, index) => (
+                        // Show only first 5 files unless "see more" is clicked
+                        const filesToShow = showAllFiles[assignment.id] 
+                          ? sortedFiles 
+                          : sortedFiles.slice(0, 5);
+
+                        return (
+                          <>
+                            {filesToShow.map((file, index) => (
                         <div
                           key={file.id}
                           className="file-item"
@@ -644,7 +695,57 @@ const TeamTasksTab = ({ user }) => {
                             </div>
                           </div>
                         </div>
-                        ));
+                            ))}
+                            
+                            {/* See More / See Less Button */}
+                            {sortedFiles.length > 5 && (
+                              <button
+                                className="see-more-files-btn"
+                                onClick={() => setShowAllFiles(prev => ({
+                                  ...prev,
+                                  [assignment.id]: !prev[assignment.id]
+                                }))}
+                                style={{
+                                  width: '100%',
+                                  padding: '8px',
+                                  marginTop: '8px',
+                                  backgroundColor: 'transparent',
+                                  border: 'none',
+                                  borderRadius: '6px',
+                                  color: '#6b7280',
+                                  fontSize: '13px',
+                                  fontWeight: '400',
+                                  cursor: 'pointer',
+                                  transition: 'all 0.2s',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  gap: '4px'
+                                }}
+                                onMouseEnter={(e) => {
+                                  e.target.style.backgroundColor = '#f9fafb';
+                                  e.target.style.color = '#374151';
+                                }}
+                                onMouseLeave={(e) => {
+                                  e.target.style.backgroundColor = 'transparent';
+                                  e.target.style.color = '#6b7280';
+                                }}
+                              >
+                                {showAllFiles[assignment.id] ? (
+                                  <>
+                                    <span>Show less</span>
+                                    <span style={{ fontSize: '10px' }}>▲</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <span>See more ({sortedFiles.length - 5} more files)</span>
+                                    <span style={{ fontSize: '10px' }}>▼</span>
+                                  </>
+                                )}
+                              </button>
+                            )}
+                          </>
+                        );
                       })()}
                     </div>
                   ) : (
@@ -658,14 +759,31 @@ const TeamTasksTab = ({ user }) => {
                 </div>
 
                 {/* Comments Section */}
-                <div className="team-task-comments-section">
+                <div className="team-task-comments-section" style={{
+                  display: 'flex',
+                  justifyContent: 'flex-start',
+                  paddingTop: '12px',
+                  borderTop: '1px solid #f3f4f6'
+                }}>
                   <button 
                     className="toggle-comments-btn"
                     onClick={() => toggleComments(assignment.id)}
+                    style={{
+                      padding: '0',
+                      backgroundColor: 'transparent',
+                      border: 'none',
+                      color: '#1c1e21',
+                      fontSize: '14px',
+                      fontWeight: '500',
+                      cursor: 'pointer',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '4px'
+                    }}
                   >
-                    <span>Comments</span>
+                    <span>Comment</span>
                     {comments[assignment.id] && comments[assignment.id].length > 0 && (
-                      <span className="comment-count">({comments[assignment.id].length})</span>
+                      <span>({comments[assignment.id].length})</span>
                     )}
                   </button>
                 </div>
@@ -702,159 +820,159 @@ const TeamTasksTab = ({ user }) => {
         )}
       </div>
 
-      {/* Comments Modal */}
+      {/* Comments Modal - Admin Style */}
       {showCommentsModal && (
         <div className="comments-modal-overlay" onClick={() => setShowCommentsModal(null)}>
           <div className="comments-modal" onClick={(e) => e.stopPropagation()}>
             <div className="comments-modal-header">
               <h3>Comments</h3>
               <button className="close-modal-btn" onClick={() => setShowCommentsModal(null)}>
-                ×
+                ✕
               </button>
             </div>
 
             <div className="comments-modal-body">
-              {/* Comments Section */}
-              <div className="comments-section">
-                {comments[showCommentsModal]?.length > 0 ? (
-                  <div className="comments-list">
-                    {comments[showCommentsModal].map((comment) => (
-                      <div 
-                        key={comment.id} 
-                        className="comment-item"
-                      >
+              {comments[showCommentsModal]?.length > 0 ? (
+                <div className="comments-list">
+                  {comments[showCommentsModal].map((comment) => (
+                    <div key={comment.id} className="comment-thread">
+                      {/* Main Comment */}
+                      <div className="comment-item">
                         <div className="comment-avatar">
                           {getInitials(comment.username)}
                         </div>
                         <div className="comment-content">
-                          <div className="comment-bubble">
-                            <div className="comment-author">{comment.username}</div>
-                            <div className="comment-text">{comment.comment}</div>
+                          <div className="comment-header">
+                            <span className="comment-author">{comment.username}</span>
+                            <span className={`role-badge ${comment.user_role ? comment.user_role.toLowerCase().replace(' ', '-').replace('_', '-') : 'user'}`}>
+                              {comment.user_role || 'USER'}
+                            </span>
+                            <span className="comment-time">{formatTimeAgo(comment.created_at)}</span>
                           </div>
+                          <div className="comment-text">{comment.comment}</div>
+
+                          {/* Action Buttons */}
                           <div className="comment-actions">
-                            <span className="comment-timestamp">{formatTimeAgo(comment.created_at)}</span>
-                            <button 
-                              className="comment-action-btn"
+                            <button
+                              className="reply-button"
                               onClick={() => toggleReplyBox(comment.id)}
                             >
                               Reply
                             </button>
+
+                            {/* View Replies Button */}
                             {comment.replies && comment.replies.length > 0 && (
-                              <button 
-                                className="comment-action-btn view-replies-btn"
-                                onClick={() => toggleShowReplies(comment.id)}
+                              <button
+                                className="view-replies-button"
+                                onClick={() => toggleRepliesVisibility(comment.id)}
                               >
-                                {showReplies[comment.id] 
-                                  ? 'Hide replies' 
-                                  : `View ${comment.replies.length} ${comment.replies.length === 1 ? 'reply' : 'replies'}`
-                                }
+                                {visibleReplies[comment.id] ? 'Hide' : 'View'} {comment.replies.length}{' '}
+                                {comment.replies.length === 1 ? 'reply' : 'replies'}
                               </button>
                             )}
                           </div>
-
-                          {/* Replies */}
-                          {showReplies[comment.id] && comment.replies && comment.replies.length > 0 && (
-                            <div className="replies-list">
-                              {comment.replies.map((reply) => (
-                                <div 
-                                  key={reply.id} 
-                                  className="reply-item"
-                                >
-                                  <div className="comment-avatar reply-avatar">
-                                    {getInitials(reply.username)}
-                                  </div>
-                                  <div className="comment-content">
-                                    <div className="comment-bubble">
-                                      <div className="comment-author">{reply.username}</div>
-                                      <div className="comment-text">{reply.reply}</div>
-                                    </div>
-                                    <div className="comment-timestamp">
-                                      {formatTimeAgo(reply.created_at)}
-                                    </div>
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          )}
-
-                          {/* Reply Input Box */}
-                          {replyingTo[comment.id] && (
-                            <div className="reply-input-box">
-                              <div className="comment-avatar reply-avatar">
-                                {getInitials(user.username || user.fullName)}
-                              </div>
-                              <div className="comment-input-wrapper">
-                                <input
-                                  type="text"
-                                  className="comment-input"
-                                  placeholder="Write a reply..."
-                                  value={replyText[comment.id] || ''}
-                                  onChange={(e) => setReplyText(prev => ({ 
-                                    ...prev, 
-                                    [comment.id]: e.target.value 
-                                  }))}
-                                  onKeyPress={(e) => {
-                                    if (e.key === 'Enter' && !e.shiftKey) {
-                                      e.preventDefault();
-                                      handleSubmitReply(showCommentsModal, comment.id);
-                                    }
-                                  }}
-                                  disabled={isPostingReply[comment.id]}
-                                  autoFocus
-                                />
-                                <button
-                                  className="comment-submit-btn"
-                                  onClick={() => handleSubmitReply(showCommentsModal, comment.id)}
-                                  disabled={!replyText[comment.id]?.trim() || isPostingReply[comment.id]}
-                                >
-                                  {isPostingReply[comment.id] ? '...' : '➤'}
-                                </button>
-                              </div>
-                            </div>
-                          )}
                         </div>
                       </div>
-                    ))}  
-                  </div>
-                ) : (
-                  <div style={{ textAlign: 'center', padding: '40px 20px', color: '#6B7280' }}>
-                    <div style={{ fontSize: '48px', marginBottom: '16px' }}>💬</div>
-                    <p style={{ fontSize: '16px', fontWeight: '600', marginBottom: '8px' }}>No comments yet</p>
-                    <p style={{ fontSize: '14px' }}>Be the first to comment on this task</p>
-                  </div>
-                )}
 
-                {/* Add Comment */}
-                <div className="add-comment" style={{ marginTop: '20px' }}>
-                  <div className="comment-avatar">
-                    {getInitials(user.username || user.fullName)}
-                  </div>
-                  <div className="comment-input-wrapper">
-                    <input
-                      type="text"
-                      className="comment-input"
-                      placeholder="Write a comment..."
-                      value={newComment[showCommentsModal] || ''}
-                      onChange={(e) => setNewComment(prev => ({ 
-                        ...prev, 
-                        [showCommentsModal]: e.target.value 
-                      }))}
-                      onKeyPress={(e) => {
-                        if (e.key === 'Enter' && !e.shiftKey) {
-                          e.preventDefault();
-                          handleSubmitComment(showCommentsModal);
-                        }
-                      }}
-                      disabled={isPostingComment[showCommentsModal]}
-                    />
-                    <button
-                      className="comment-submit-btn"
-                      onClick={() => handleSubmitComment(showCommentsModal)}
-                      disabled={!newComment[showCommentsModal]?.trim() || isPostingComment[showCommentsModal]}
-                    >
-                      {isPostingComment[showCommentsModal] ? '...' : '➤'}
-                    </button>
-                  </div>
+                      {/* Replies Thread */}
+                      {comment.replies && comment.replies.length > 0 && visibleReplies[comment.id] && (
+                        <div className="replies-thread">
+                          {comment.replies.map(reply => (
+                            <div key={reply.id} className="reply-item">
+                              <div className="reply-avatar">
+                                {getInitials(reply.username)}
+                              </div>
+                              <div className="reply-content">
+                                <div className="reply-header">
+                                  <span className="reply-author">{reply.username}</span>
+                                  <span className={`role-badge ${reply.user_role ? reply.user_role.toLowerCase().replace(' ', '-').replace('_', '-') : 'user'}`}>
+                                    {reply.user_role || 'USER'}
+                                  </span>
+                                  <span className="reply-time">{formatTimeAgo(reply.created_at)}</span>
+                                </div>
+                                <div className="reply-text">{reply.reply}</div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Reply Input Box */}
+                      {replyingTo[comment.id] && (
+                        <div className="reply-input-box">
+                          <div className="comment-avatar reply-avatar">
+                            {getInitials(user.username || user.fullName)}
+                          </div>
+                          <div className="comment-input-wrapper">
+                            <input
+                              type="text"
+                              className="comment-input"
+                              placeholder="Write a reply..."
+                              value={replyText[comment.id] || ''}
+                              onChange={(e) => setReplyText(prev => ({ 
+                                ...prev, 
+                                [comment.id]: e.target.value 
+                              }))}
+                              onKeyPress={(e) => {
+                                if (e.key === 'Enter' && !e.shiftKey) {
+                                  e.preventDefault();
+                                  handleSubmitReply(showCommentsModal, comment.id);
+                                }
+                              }}
+                              disabled={isPostingReply[comment.id]}
+                              autoFocus
+                            />
+                            <button
+                              className="comment-submit-btn"
+                              onClick={() => handleSubmitReply(showCommentsModal, comment.id)}
+                              disabled={!replyText[comment.id]?.trim() || isPostingReply[comment.id]}
+                            >
+                              {isPostingReply[comment.id] ? '...' : '➤'}
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="no-comments">
+                  <p>💬 No comments yet. Be the first to comment!</p>
+                </div>
+              )}
+            </div>
+
+            {/* Comment Form */}
+            <div className="comments-modal-footer">
+              <div className="add-comment">
+                <div className="comment-avatar">
+                  {getInitials(user.username || user.fullName)}
+                </div>
+                <div className="comment-input-wrapper">
+                  <input
+                    type="text"
+                    className="comment-input"
+                    placeholder="Write a comment..."
+                    value={newComment[showCommentsModal] || ''}
+                    onChange={(e) => setNewComment(prev => ({ 
+                      ...prev, 
+                      [showCommentsModal]: e.target.value 
+                    }))}
+                    onKeyPress={(e) => {
+                      if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        handleSubmitComment(showCommentsModal);
+                      }
+                    }}
+                    disabled={isPostingComment[showCommentsModal]}
+                  />
+                  <button
+                    className="comment-submit-btn"
+                    onClick={() => handleSubmitComment(showCommentsModal)}
+                    disabled={!newComment[showCommentsModal]?.trim() || isPostingComment[showCommentsModal]}
+                  >
+                    {isPostingComment[showCommentsModal] ? '...' : '➤'}
+                  </button>
                 </div>
               </div>
             </div>
