@@ -16,10 +16,11 @@
   background: #ffffff;
   border-radius: 16px;
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
-  max-width: 500px;
+  max-width: 600px;
   width: 90%;
   max-height: 90vh;
   overflow-y: auto;
+  overflow-x: hidden;
 }
 
 .confirmation-modal {
@@ -103,6 +104,8 @@
 
 .confirmation-modal .confirmation-text {
   flex: 1;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .confirmation-modal .confirmation-text h4 {
@@ -125,17 +128,29 @@
   border-radius: 8px;
   padding: 1rem;
   margin: 1rem 0;
+  width: 100%;
+  overflow: hidden;
 }
 
 .confirmation-modal .modal-body .file-info .file-name {
   font-weight: 500;
   color: #1f2937;
   font-size: 0.9375rem;
+  word-wrap: break-word;
+  word-break: break-word;
+  overflow-wrap: break-word;
+  hyphens: auto;
+  line-height: 1.5;
+  max-width: 100%;
+  white-space: normal !important;
+  text-overflow: clip !important;
+  overflow: visible !important;
 }
 
 .confirmation-modal .modal-body .file-info .file-size {
   font-size: 0.8125rem;
   color: #9ca3af;
+  margin-top: 0.25rem;
 }
 
 /* Warning message box */
