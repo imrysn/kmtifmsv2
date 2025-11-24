@@ -2459,7 +2459,7 @@ input[type="checkbox"] {
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--primary-color);
+  color: var(--text-primary);
   flex-shrink: 0;
 }
 
@@ -2562,7 +2562,7 @@ input[type="checkbox"] {
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--primary-color);
+  color: var(--text-primary);
 }
 
 .tl-card-stats {
@@ -2643,7 +2643,7 @@ input[type="checkbox"] {
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--primary-color);
+  color: var(--text-primary);
   flex-shrink: 0;
   margin-top: 2px;
 }
