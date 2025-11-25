@@ -204,7 +204,7 @@ const DashboardTab = ({ user, files, setActiveTab }) => {
                         <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
                       </svg>
                     </div>
-                    <span className="field-value">{user.role.toUpperCase()}</span>
+                    <span className="field-value">{user?.role?.toUpperCase() ?? "UNKNOWN"}</span>
                   </div>
                 </div>
               </div>
