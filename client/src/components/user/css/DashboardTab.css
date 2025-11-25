@@ -303,14 +303,11 @@
   align-items: flex-start;
   gap: var(--spacing-md);
   cursor: pointer;
-  transition: all 0.3s ease;
 }
 
 .user-dashboard-component .stat-card:hover {
   background: #f9fafb;
   border-color: #d1d5db;
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
 }
 
 .user-dashboard-component .stat-icon {
@@ -370,7 +367,6 @@
   font-size: 13px;
   font-weight: 500;
   cursor: pointer;
-  transition: background 0.2s ease;
 }
 
 .user-dashboard-component .view-all-btn:hover { background: rgba(0, 122, 255, 0.2); }
@@ -390,7 +386,6 @@
   background: #ffffff;
   border: 1px solid #e5e7eb;
   border-radius: var(--radius-md);
-  transition: all 0.2s ease;
 }
 
 .user-dashboard-component .task-preview-item:hover {
@@ -432,7 +427,6 @@
   background: #ffffff;
   border: 1px solid #e5e7eb;
   border-radius: var(--radius-md);
-  transition: all 0.2s ease;
 }
 
 .user-dashboard-component .activity-preview-item:hover {
@@ -475,7 +469,6 @@
   border: 1px solid #e5e7eb;
   border-radius: var(--radius-md);
   position: relative;
-  transition: all 0.2s ease;
 }
 
 .user-dashboard-component .notification-preview-item.unread { background: #f9fafb; border-color: #d1d5db; }
@@ -536,20 +529,13 @@
 .user-dashboard-component .empty-state p { font-size: 14px; margin: 0; color: #6b7280; }
 
 /* Skeleton Loading */
-@keyframes shimmer {
-  0% { background-position: -1000px 0; }
-  100% { background-position: 1000px 0; }
-}
-
 .user-dashboard-component .skeleton-card { pointer-events: none; }
 
 .user-dashboard-component .skeleton-line,
 .user-dashboard-component .skeleton-avatar,
 .user-dashboard-component .skeleton-circle,
 .user-dashboard-component .skeleton-stat-icon {
-  background: linear-gradient(90deg, rgba(229,231,235,0.6) 0%, rgba(229,231,235,0.9) 50%, rgba(229,231,235,0.6) 100%);
-  background-size: 1000px 100%;
-  animation: shimmer 2s infinite linear;
+  background: rgba(229,231,235,0.8);
   border-radius: var(--radius-sm);
 }
 
