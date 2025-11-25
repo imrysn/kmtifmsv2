@@ -168,6 +168,7 @@ function createSplashWindow() {
     resizable: false,
     show: false, // Will show after ready-to-show
     backgroundColor: '#667eea',
+    icon: path.join(__dirname, 'client/src/assets/fms-icon.ico'),
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
@@ -262,6 +263,7 @@ function createWindow() {
     height: 800,
     backgroundColor: '#667eea', // Match splash background to prevent flash
     show: false, // CHANGED: Don't show immediately, wait for content
+    icon: path.join(__dirname, 'client/src/assets/fms-icon.ico'),
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,

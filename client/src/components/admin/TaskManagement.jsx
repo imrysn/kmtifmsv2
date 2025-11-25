@@ -21,6 +21,7 @@ const TaskManagement = ({ error, success, setError, setSuccess, clearMessages, u
   const [assignmentToDelete, setAssignmentToDelete] = useState(null)
   const [isDeleting, setIsDeleting] = useState(false)
   const [showMenuForAssignment, setShowMenuForAssignment] = useState(null)
+  const [expandedAttachments, setExpandedAttachments] = useState({})
 
   // Pagination state
   const [nextCursor, setNextCursor] = useState(null)
@@ -295,6 +296,13 @@ const TaskManagement = ({ error, success, setError, setSuccess, clearMessages, u
 
   const toggleExpand = (assignmentId) => {
     setExpandedAssignments(prev => ({
+      ...prev,
+      [assignmentId]: !prev[assignmentId]
+    }))
+  }
+
+  const toggleAttachments = (assignmentId) => {
+    setExpandedAttachments(prev => ({
       ...prev,
       [assignmentId]: !prev[assignmentId]
     }))
@@ -665,14 +673,17 @@ const TaskManagement = ({ error, success, setError, setSuccess, clearMessages, u
                     {assignment.recent_submissions && assignment.recent_submissions.length > 0 ? (
                       <div className="admin-attached-file">
                         <div className="admin-file-label">📎 Attachment{assignment.recent_submissions.length > 1 ? 's' : ''} ({assignment.recent_submissions.length}):</div>
-                        {assignment.recent_submissions.map((file, index) => (
+                        {(expandedAttachments[assignment.id] 
+                          ? assignment.recent_submissions 
+                          : assignment.recent_submissions.slice(0, 5)
+                        ).map((file, index) => (
                           <div
                             key={file.id}
                             className="admin-file-item"
                             onClick={() => handleOpenFile(file.file_path, file.id)}
                             style={{ 
                               cursor: 'pointer',
-                              marginBottom: index < assignment.recent_submissions.length - 1 ? '8px' : '0'
+                              marginBottom: index < (expandedAttachments[assignment.id] ? assignment.recent_submissions.length : Math.min(5, assignment.recent_submissions.length)) - 1 ? '8px' : '0'
                             }}
                           >
                             <FileIcon
@@ -705,6 +716,16 @@ const TaskManagement = ({ error, success, setError, setSuccess, clearMessages, u
                             </div>
                           </div>
                         ))}
+                        {assignment.recent_submissions.length > 5 && (
+                          <button
+                            className="admin-attachment-toggle-btn"
+                            onClick={() => toggleAttachments(assignment.id)}
+                          >
+                            {expandedAttachments[assignment.id] 
+                              ? 'See less' 
+                              : `See more (${assignment.recent_submissions.length - 5} more)`}
+                          </button>
+                        )}
                       </div>
                     ) : (
                       <div className="admin-no-attachment">

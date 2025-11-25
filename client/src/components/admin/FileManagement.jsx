@@ -180,7 +180,7 @@ const FileManagement = ({ clearMessages, error, success, setError, setSuccess })
         directory: currentPath,
         recursive: true,
         checkPermissions: true,
-        limit: 500 // Limit results for performance
+        limit: 500 
       })
       
       const searchTime = performance.now() - startTime

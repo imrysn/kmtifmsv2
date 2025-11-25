@@ -435,7 +435,7 @@
 }
 
 .admin-file-item:hover {
-  background-color: rgba(59, 130, 246, 0.1);
+  background-color: rgba(161, 161, 161, 0.1);
   border-radius: 6px;
 }
 
@@ -467,6 +467,26 @@
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   font-size: 13px;
+}
+
+/* Attachment Toggle Button */
+.admin-attachment-toggle-btn {
+  background: none;
+  border: none;
+  color: #3b82f6;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 8px 0;
+  margin-top: 8px;
+  width: 100%;
+  text-align: center;
+  transition: color 0.2s;
+}
+
+.admin-attachment-toggle-btn:hover {
+  color: #2563eb;
+  text-decoration: underline;
 }
 
 /* No Attachment Message */
