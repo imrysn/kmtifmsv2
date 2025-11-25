@@ -14,7 +14,13 @@ const DashboardOverview = ({ user, users }) => {
     fileTypes: [],
     recentActivity: [],
     approvalRate: 0,
-    approvalTrends: []
+    approvalTrends: [],
+    previousMonth: {
+      totalFiles: 0,
+      approved: 0,
+      pending: 0,
+      rejected: 0
+    }
   })
 
   // Check network availability on mount and periodically
@@ -81,6 +87,51 @@ const DashboardOverview = ({ user, users }) => {
     return summary.recentActivity.filter(a => a.activity && a.activity.toLowerCase().includes('admin')).length
   }, [summary.recentActivity])
 
+  // Calculate percentage changes from previous month
+  const statChanges = useMemo(() => {
+    const calculateChange = (current, previous) => {
+      if (previous === 0) return current > 0 ? 100 : 0
+      return ((current - previous) / previous) * 100
+    }
+
+    // Check if previousMonth data exists
+    if (!summary.previousMonth) {
+      return {
+        pending: 0,
+        approved: 0,
+        rejected: 0,
+        total: 0
+      }
+    }
+
+    return {
+      pending: calculateChange(pendingCount, summary.previousMonth.pending),
+      approved: calculateChange(approvedCount, summary.previousMonth.approved),
+      rejected: calculateChange(rejectedCount, summary.previousMonth.rejected),
+      total: calculateChange(totalCount, summary.previousMonth.totalFiles)
+    }
+  }, [pendingCount, approvedCount, rejectedCount, totalCount, summary.previousMonth])
+
+  // Helper function to format stat change display
+  const formatStatChange = (change) => {
+    const absChange = Math.abs(change)
+    const sign = change > 0 ? '↑' : change < 0 ? '↓' : '—'
+    const className = change > 0 ? 'positive' : change < 0 ? 'negative' : 'neutral'
+    const formattedChange = absChange.toFixed(1)
+    
+    if (change === 0) {
+      return {
+        text: '— No change from last month',
+        className: 'neutral'
+      }
+    }
+    
+    return {
+      text: `${sign} ${change >= 0 ? '+' : '-'}${formattedChange}% from last month`,
+      className
+    }
+  }
+
   // Memoize activity items to prevent re-rendering on every update
   const activityItems = useMemo(() => {
     return summary.recentActivity.map(act => (
@@ -114,7 +165,11 @@ const DashboardOverview = ({ user, users }) => {
                 <span className="stat-label">Pending Files</span>
               </div>
               <div className="stat-number">{loading ? '—' : pendingCount}</div>
-              <div className="stat-change positive">↑ +8.2% from last month</div>
+              {!loading && (
+                <div className={`stat-change ${formatStatChange(statChanges.pending).className}`}>
+                  {formatStatChange(statChanges.pending).text}
+                </div>
+              )}
             </div>
             
             <div className="stat-card">
@@ -122,7 +177,11 @@ const DashboardOverview = ({ user, users }) => {
                 <span className="stat-label">Approved Files</span>
               </div>
               <div className="stat-number">{loading ? '—' : approvedCount.toLocaleString()}</div>
-              <div className="stat-change positive">↑ +12.5% from last month</div>
+              {!loading && (
+                <div className={`stat-change ${formatStatChange(statChanges.approved).className}`}>
+                  {formatStatChange(statChanges.approved).text}
+                </div>
+              )}
             </div>
             
             <div className="stat-card">
@@ -130,7 +189,11 @@ const DashboardOverview = ({ user, users }) => {
                 <span className="stat-label">Rejected Files</span>
               </div>
               <div className="stat-number">{loading ? '—' : rejectedCount}</div>
-              <div className="stat-change negative">↓ -15.1% from last month</div>
+              {!loading && (
+                <div className={`stat-change ${formatStatChange(statChanges.rejected).className}`}>
+                  {formatStatChange(statChanges.rejected).text}
+                </div>
+              )}
             </div>
             
             <div className="stat-card">
@@ -138,7 +201,11 @@ const DashboardOverview = ({ user, users }) => {
                 <span className="stat-label">Total Files</span>
               </div>
               <div className="stat-number">{loading ? '—' : totalCount.toLocaleString()}</div>
-              <div className="stat-change positive">↑ +6.8% from last month</div>
+              {!loading && (
+                <div className={`stat-change ${formatStatChange(statChanges.total).className}`}>
+                  {formatStatChange(statChanges.total).text}
+                </div>
+              )}
             </div>
           </div>
         </div>
