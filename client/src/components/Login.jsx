@@ -11,6 +11,9 @@ const STORAGE_KEYS = {
   REMEMBER: 'kmt_remember_me'
 }
 
+// Enforce maximum email length for security
+const MAX_EMAIL_LENGTH = 100
+
 const Login = ({ onLogin }) => {
   const [loginType, setLoginType] = useState('user') // 'user' or 'admin'
   const [formData, setFormData] = useState({
@@ -29,14 +32,18 @@ const Login = ({ onLogin }) => {
 
   // Load remembered email on component mount (NOT password for security)
   useEffect(() => {
-    const remembered = localStorage.getItem(STORAGE_KEYS.REMEMBER)
-    if (remembered === 'true') {
-      const savedEmail = localStorage.getItem(STORAGE_KEYS.EMAIL) || ''
-      setFormData({
-        email: savedEmail,
-        password: '' // Never save password
-      })
-      setRememberMe(true)
+    try {
+      const remembered = localStorage.getItem(STORAGE_KEYS.REMEMBER)
+      if (remembered === 'true') {
+        const savedEmail = localStorage.getItem(STORAGE_KEYS.EMAIL) || ''
+        setFormData({
+          email: savedEmail,
+          password: '' // Never save password
+        })
+        setRememberMe(true)
+      }
+    } catch (error) {
+      console.warn('Failed to load remembered email:', error)
     }
   }, [])
 
@@ -119,20 +126,67 @@ const Login = ({ onLogin }) => {
 
   const handleInputChange = (e) => {
     const { name, value } = e.target
+
+    // Sanitize input - remove HTML tags and limit length for security
+    let sanitizedValue = value.replace(/<[^>]*>/g, '').trim()
+
+    if (name === 'email') {
+      sanitizedValue = sanitizedValue.slice(0, MAX_EMAIL_LENGTH)
+    }
+
     setFormData(prev => ({
       ...prev,
-      [name]: value
+      [name]: sanitizedValue
     }))
-    
+
     if (errors[name]) {
       setErrors(prev => ({
         ...prev,
         [name]: ''
       }))
     }
-    
+
     if (apiError) {
       setApiError('')
+    }
+  }
+
+  // Safe localStorage operations with error handling
+  const safeLocalStorage = {
+    setItem: (key, value) => {
+      try {
+        localStorage.setItem(key, value)
+        return true
+      } catch (error) {
+        console.warn('localStorage setItem failed:', error)
+        return false
+      }
+    },
+    removeItem: (key) => {
+      try {
+        localStorage.removeItem(key)
+        return true
+      } catch (error) {
+        console.warn('localStorage removeItem failed:', error)
+        return false
+      }
+    }
+  }
+
+  // Handle remember me checkbox change - save preference immediately
+  const handleRememberMeChange = (checked) => {
+    setRememberMe(checked)
+
+    if (checked) {
+      // Save current email when enabling remember me
+      if (formData.email.trim()) {
+        safeLocalStorage.setItem(STORAGE_KEYS.EMAIL, formData.email.slice(0, MAX_EMAIL_LENGTH))
+        safeLocalStorage.setItem(STORAGE_KEYS.REMEMBER, 'true')
+      }
+    } else {
+      // Clear when disabling remember me
+      safeLocalStorage.removeItem(STORAGE_KEYS.EMAIL)
+      safeLocalStorage.removeItem(STORAGE_KEYS.REMEMBER)
     }
   }
 
@@ -161,11 +215,11 @@ const Login = ({ onLogin }) => {
         
         // Save only email if remember me is checked (NEVER password)
         if (rememberMe) {
-          localStorage.setItem(STORAGE_KEYS.EMAIL, formData.email)
-          localStorage.setItem(STORAGE_KEYS.REMEMBER, 'true')
+          safeLocalStorage.setItem(STORAGE_KEYS.EMAIL, formData.email.slice(0, MAX_EMAIL_LENGTH))
+          safeLocalStorage.setItem(STORAGE_KEYS.REMEMBER, 'true')
         } else {
-          localStorage.removeItem(STORAGE_KEYS.EMAIL)
-          localStorage.removeItem(STORAGE_KEYS.REMEMBER)
+          safeLocalStorage.removeItem(STORAGE_KEYS.EMAIL)
+          safeLocalStorage.removeItem(STORAGE_KEYS.REMEMBER)
         }
 
         // Smooth transition
@@ -265,7 +319,7 @@ const Login = ({ onLogin }) => {
                   <input
                     type="checkbox"
                     checked={rememberMe}
-                    onChange={(e) => setRememberMe(e.target.checked)}
+                    onChange={(e) => handleRememberMeChange(e.target.checked)}
                   />
                   <span className="checkmark"></span>
                   Remember me

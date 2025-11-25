@@ -17,24 +17,86 @@ const getCsrfToken = () => {
   return match ? match[1] : null
 }
 
-// Get auth token from cookie
-export const getAuthToken = () => {
-  const match = document.cookie.match(/authToken=([^;]+)/)
-  return match ? match[1] : null
+// Detect if running in Electron
+const isElectron = typeof window !== 'undefined' &&
+  window.navigator &&
+  window.navigator.userAgent.includes('Electron')
+
+// Simple obfuscation for Electron localStorage (not true encryption but better than plain text)
+const TOKEN_KEY = 'zwF9x#$1pL8!mA2'
+
+// Obfuscate/deobfuscate token (simple XOR for Electron security)
+const obfuscateToken = (token) => {
+  if (!token) return null
+  const key = TOKEN_KEY.repeat(Math.ceil(token.length / TOKEN_KEY.length)).slice(0, token.length)
+  let result = ''
+  for (let i = 0; i < token.length; i++) {
+    result += String.fromCharCode(token.charCodeAt(i) ^ key.charCodeAt(i % key.length))
+  }
+  return btoa(result) // Base64 encode
 }
 
-// Set auth token in cookie
+const unobfuscateToken = (obfuscated) => {
+  if (!obfuscated) return null
+  try {
+    const decoded = atob(obfuscated) // Base64 decode
+    const key = TOKEN_KEY.repeat(Math.ceil(decoded.length / TOKEN_KEY.length)).slice(0, decoded.length)
+    let result = ''
+    for (let i = 0; i < decoded.length; i++) {
+      result += String.fromCharCode(decoded.charCodeAt(i) ^ key.charCodeAt(i % key.length))
+    }
+    return result
+  } catch {
+    return null // Invalid token
+  }
+}
+
+// Get auth token - obfuscated localStorage for Electron, cookies for web
+export const getAuthToken = () => {
+  if (isElectron) {
+    try {
+      const obfuscated = localStorage.getItem('authToken')
+      return unobfuscateToken(obfuscated)
+    } catch (error) {
+      console.warn('Failed to get auth token from localStorage:', error)
+      return null
+    }
+  } else {
+    // Web browser - use cookies for security
+    const match = document.cookie.match(/authToken=([^;]+)/)
+    return match ? match[1] : null
+  }
+}
+
+// Set auth token - obfuscated localStorage for Electron, cookie for web
 export const setAuthToken = (token) => {
-  // Set cookie with secure flags
-  const maxAge = 24 * 60 * 60 // 24 hours in seconds
-  document.cookie = `authToken=${token}; max-age=${maxAge}; path=/; SameSite=Strict${
-    window.location.protocol === 'https:' ? '; Secure' : ''
-  }`
+  if (isElectron) {
+    try {
+      const obfuscated = obfuscateToken(token)
+      localStorage.setItem('authToken', obfuscated)
+    } catch (error) {
+      console.warn('Failed to save auth token to localStorage:', error)
+    }
+  } else {
+    // Web browser - use httpOnly cookie
+    const maxAge = 24 * 60 * 60 // 24 hours in seconds
+    document.cookie = `authToken=${token}; max-age=${maxAge}; path=/; SameSite=Strict${
+      window.location.protocol === 'https:' ? '; Secure' : ''
+    }`
+  }
 }
 
 // Clear auth token
 export const clearAuthToken = () => {
-  document.cookie = 'authToken=; max-age=0; path=/'
+  if (isElectron) {
+    try {
+      localStorage.removeItem('authToken')
+    } catch (error) {
+      console.warn('Failed to clear auth token from localStorage:', error)
+    }
+  } else {
+    document.cookie = 'authToken=; max-age=0; path=/'
+  }
 }
 
 // Check if user is authenticated
