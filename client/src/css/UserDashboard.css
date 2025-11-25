@@ -56,7 +56,6 @@
   height: 100vh;
   overflow-y: auto;
   position: relative;
-  transition: margin-left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 /* User Dashboard Header */
@@ -67,7 +66,6 @@
   border-bottom: 1px solid #E5E5EA;
   padding: var(--spacing-lg) var(--spacing-2xl);
   position: relative;
-  opacity: 0;
 }
 
 .user-dashboard .header-content {
@@ -163,17 +161,10 @@
   position: relative;
   overflow: hidden;
   opacity: 1;
-  transform: translateY(0);
-  transition: all 0.2s ease;
 }
 
 .user-dashboard .dashboard-card::before {
   display: none;
-}
-
-.user-dashboard .dashboard-card:hover {
-  transform: translateY(-2px);
-  box-shadow: none;
 }
 
 /* Card Headers */
@@ -900,12 +891,6 @@
   padding: var(--spacing-lg);
   box-shadow: none;
   cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.user-dashboard .file-card:hover {
-  transform: translateY(-2px);
-  box-shadow: none;
 }
 
 .user-dashboard .file-header {
@@ -1095,12 +1080,6 @@
   align-items: flex-start;
   gap: var(--spacing-md);
   position: relative;
-  transition: all 0.2s ease;
-}
-
-.user-dashboard .notification-card:hover {
-  transform: translateY(-1px);
-  box-shadow: none;
 }
 
 .user-dashboard .notification-card.unread {
