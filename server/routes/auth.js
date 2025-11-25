@@ -2,6 +2,7 @@ const express = require('express');
 const bcrypt = require('bcryptjs');
 const { db } = require('../config/database');
 const { logActivity } = require('../utils/logger');
+const { createNotification } = require('./notifications');
 
 const router = express.Router();
 
@@ -124,6 +125,66 @@ router.post('/login', (req, res) => {
       message: 'Login successful'
     });
   });
+});
+
+// Forgot password endpoint
+router.post('/forgot-password', async (req, res) => {
+  console.log('🔑 Forgot password request for:', req.body.email);
+  const { email } = req.body;
+
+  if (!email) {
+    return res.status(400).json({
+      success: false,
+      message: 'Email is required'
+    });
+  }
+
+  // Always return success for security reasons (don't reveal if email exists)
+  res.json({
+    success: true,
+    message: 'If the account exists, a password reset email has been sent.'
+  });
+
+  try {
+    // Find all admin users to notify them
+    const adminQuery = 'SELECT id, username, role FROM users WHERE role LIKE ?';
+    const adminUsers = await new Promise((resolve, reject) => {
+      db.all(adminQuery, ['%ADMIN%'], (err, rows) => {
+        if (err) reject(err);
+        else resolve(rows || []);
+      });
+    });
+
+    console.log(`👤 Found ${adminUsers.length} admin users to notify`);
+
+    // Create notification for each admin user
+    const notificationPromises = adminUsers.map(async (admin) => {
+      const notificationMessage = `User "${email}" requested a password reset. Please assist if needed.`;
+
+      await createNotification(
+        admin.id,           // userId
+        null,              // fileId (no file associated)
+        'system',          // type
+        'Password Reset Request', // title
+        notificationMessage, // message
+        null,              // actionById (system action)
+        'SYSTEM',          // actionByUsername
+        'SYSTEM',          // actionByRole
+        null               // assignmentId (no assignment)
+      );
+
+      console.log(`✅ Created notification for admin ${admin.username}`);
+    });
+
+    await Promise.all(notificationPromises);
+
+    // Log the attempt
+    console.log(`🔐 Password reset request logged: "${email}" - notified ${adminUsers.length} admins`);
+
+  } catch (error) {
+    console.error('❌ Error processing forgot password request:', error);
+    // Don't send error to client for security
+  }
 });
 
 module.exports = router;

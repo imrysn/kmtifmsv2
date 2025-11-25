@@ -1,9 +1,15 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import '../css/Login.css'
 import Logo from '../assets/kmti_logo.png'
 import { createLogger } from '../utils/secureLogger'
 
 const logger = createLogger('Login')
+
+const STORAGE_KEYS = {
+  EMAIL: 'kmt_login_email',
+  PASSWORD: 'kmt_login_password',
+  REMEMBER: 'kmt_remember_me'
+}
 
 const Login = ({ onLogin }) => {
   const [loginType, setLoginType] = useState('user') // 'user' or 'admin'
@@ -16,6 +22,24 @@ const Login = ({ onLogin }) => {
   const [apiError, setApiError] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [rememberMe, setRememberMe] = useState(false)
+  const [forgotPasswordMessage, setForgotPasswordMessage] = useState('')
+  const [isForgotPasswordSubmitting, setIsForgotPasswordSubmitting] = useState(false)
+  const [showForgotPasswordModal, setShowForgotPasswordModal] = useState(false)
+  const [forgotPasswordEmail, setForgotPasswordEmail] = useState('')
+
+  // Load remembered credentials on component mount
+  useEffect(() => {
+    const remembered = localStorage.getItem(STORAGE_KEYS.REMEMBER)
+    if (remembered === 'true') {
+      const savedEmail = localStorage.getItem(STORAGE_KEYS.EMAIL) || ''
+      const savedPassword = localStorage.getItem(STORAGE_KEYS.PASSWORD) || ''
+      setFormData({
+        email: savedEmail,
+        password: savedPassword
+      })
+      setRememberMe(true)
+    }
+  }, [])
 
   const handleToggle = () => {
     const newLoginType = loginType === 'user' ? 'admin' : 'user'
@@ -54,6 +78,49 @@ const Login = ({ onLogin }) => {
     
     setErrors(newErrors)
     return Object.keys(newErrors).length === 0
+  }
+
+  const handleForgotPassword = () => {
+    setShowForgotPasswordModal(true)
+    setForgotPasswordEmail('')
+  }
+
+  const handleForgotPasswordSubmit = async () => {
+    if (!forgotPasswordEmail.trim()) {
+      return
+    }
+
+    setIsForgotPasswordSubmitting(true)
+    setForgotPasswordMessage('')
+
+    try {
+      const response = await fetch('http://localhost:3001/api/auth/forgot-password', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email: forgotPasswordEmail.trim() })
+      })
+
+      const data = await response.json()
+
+      if (data.success) {
+        setForgotPasswordMessage('Password reset instructions have been sent to Admin (Contact him for your new password).')
+        setShowForgotPasswordModal(false)
+      } else {
+        setForgotPasswordMessage(data.message || 'Failed to send reset email.')
+      }
+    } catch (error) {
+      logger.error('Forgot password failed', error)
+      setForgotPasswordMessage('Unable to connect to server. Please try again.')
+    } finally {
+      setIsForgotPasswordSubmitting(false)
+    }
+  }
+
+  const handleForgotPasswordCancel = () => {
+    setShowForgotPasswordModal(false)
+    setForgotPasswordEmail('')
   }
 
   const handleInputChange = (e) => {
@@ -100,6 +167,17 @@ const Login = ({ onLogin }) => {
       const data = await response.json()
       
       if (data.success) {
+        // Save credentials if remember me is checked
+        if (rememberMe) {
+          localStorage.setItem(STORAGE_KEYS.EMAIL, formData.email)
+          localStorage.setItem(STORAGE_KEYS.PASSWORD, formData.password)
+          localStorage.setItem(STORAGE_KEYS.REMEMBER, 'true')
+        } else {
+          localStorage.removeItem(STORAGE_KEYS.EMAIL)
+          localStorage.removeItem(STORAGE_KEYS.PASSWORD)
+          localStorage.removeItem(STORAGE_KEYS.REMEMBER)
+        }
+
         // Smooth transition without anime.js
         setTimeout(() => {
           onLogin(data.user)
@@ -199,14 +277,25 @@ const Login = ({ onLogin }) => {
                   <span className="checkmark"></span>
                   Remember me
                 </label>
-                <button type="button" className="forgot-password">
-                  Forgot Password?
+                <button
+                  type="button"
+                  className="forgot-password"
+                  onClick={handleForgotPassword}
+                  disabled={isForgotPasswordSubmitting || isLoading}
+                >
+                  {isForgotPasswordSubmitting ? 'Sending...' : 'Forgot Password?'}
                 </button>
               </div>
               
               {apiError && (
                 <div className="api-error">
                   {apiError}
+                </div>
+              )}
+
+              {forgotPasswordMessage && (
+                <div className="api-error" style={{ backgroundColor: '#DCFCE7', color: '#166534', borderColor: '#BBF7D0' }}>
+                  {forgotPasswordMessage}
                 </div>
               )}
               
@@ -229,6 +318,39 @@ const Login = ({ onLogin }) => {
         </div>
         
       </div>
+
+      {/* Forgot Password Modal */}
+      {showForgotPasswordModal && (
+        <div className="modal-overlay" onClick={handleForgotPasswordCancel}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <h3>Reset Password</h3>
+            <p>Enter your email address or username to receive password reset instructions.</p>
+            <input
+              type="text"
+              value={forgotPasswordEmail}
+              onChange={(e) => setForgotPasswordEmail(e.target.value)}
+              placeholder="Email or Username"
+              disabled={isForgotPasswordSubmitting}
+            />
+            <div className="modal-buttons">
+              <button
+                onClick={handleForgotPasswordCancel}
+                disabled={isForgotPasswordSubmitting}
+                className="cancel-button"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleForgotPasswordSubmit}
+                disabled={!forgotPasswordEmail.trim() || isForgotPasswordSubmitting}
+                className="submit-button"
+              >
+                {isForgotPasswordSubmitting ? 'Sending...' : 'Send Reset Email'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
