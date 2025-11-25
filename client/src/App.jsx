@@ -1,7 +1,8 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
 import './css/App.css'
 import { createLogger } from './utils/secureLogger'
+import { apiClient, getAuthToken, clearAuthToken, isAuthenticated } from './config/api'
 
 // Direct imports for faster initial load - NO lazy loading
 import Login from './components/Login'
@@ -12,35 +13,52 @@ import AdminDashboard from './pages/AdminDashboard'
 const logger = createLogger('App')
 
 function App() {
-  const [user, setUser] = useState(() => {
-    const savedUser = localStorage.getItem('user')
-    if (savedUser) {
+  const [user, setUser] = useState(null)
+  const [loading, setLoading] = useState(true)
+
+  // Verify token on mount
+  useEffect(() => {
+    const verifyAuth = async () => {
+      if (!isAuthenticated()) {
+        setLoading(false)
+        return
+      }
+
       try {
-        const userData = JSON.parse(savedUser)
-        logger.info('User session restored from localStorage')
-        return userData
+        const response = await apiClient('/api/auth/verify')
+        if (response.success) {
+          logger.info('User session restored from token')
+          setUser(response.user)
+        }
       } catch (error) {
-        logger.error('Error parsing saved user', error)
-        localStorage.removeItem('user')
-        return null
+        logger.error('Token verification failed', error)
+        clearAuthToken()
+      } finally {
+        setLoading(false)
       }
     }
-    return null
-  })
+
+    verifyAuth()
+  }, [])
 
   // Handle login
-  const handleLogin = (userData) => {
+  const handleLogin = (userData, token) => {
     logger.logLogin(userData)
     setUser(userData)
-    localStorage.setItem('user', JSON.stringify(userData))
     logger.logStateUpdate('User authenticated and saved')
   }
 
   // Handle logout
-  const handleLogout = () => {
-    logger.logLogout()
-    setUser(null)
-    localStorage.removeItem('user')
+  const handleLogout = async () => {
+    try {
+      await apiClient('/api/auth/logout', { method: 'POST' })
+    } catch (error) {
+      logger.error('Logout error', error)
+    } finally {
+      logger.logLogout()
+      clearAuthToken()
+      setUser(null)
+    }
   }
 
   // Get the appropriate dashboard component based on user's panel type
@@ -60,6 +78,16 @@ function App() {
         logger.warn('Unknown panel type, defaulting to user dashboard', { panelType: user.panelType })
         return <UserDashboard user={user} onLogout={handleLogout} />
     }
+  }
+
+  // Show loading state while verifying authentication
+  if (loading) {
+    return (
+      <div className="app-loading">
+        <div className="loading-spinner"></div>
+        <p>Loading...</p>
+      </div>
+    )
   }
 
   return (

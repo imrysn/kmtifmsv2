@@ -2,12 +2,12 @@ import { useState, useEffect } from 'react'
 import '../css/Login.css'
 import Logo from '../assets/kmti_logo.png'
 import { createLogger } from '../utils/secureLogger'
+import { apiClient, setAuthToken } from '../config/api'
 
 const logger = createLogger('Login')
 
 const STORAGE_KEYS = {
   EMAIL: 'kmt_login_email',
-  PASSWORD: 'kmt_login_password',
   REMEMBER: 'kmt_remember_me'
 }
 
@@ -27,15 +27,14 @@ const Login = ({ onLogin }) => {
   const [showForgotPasswordModal, setShowForgotPasswordModal] = useState(false)
   const [forgotPasswordEmail, setForgotPasswordEmail] = useState('')
 
-  // Load remembered credentials on component mount
+  // Load remembered email on component mount (NOT password for security)
   useEffect(() => {
     const remembered = localStorage.getItem(STORAGE_KEYS.REMEMBER)
     if (remembered === 'true') {
       const savedEmail = localStorage.getItem(STORAGE_KEYS.EMAIL) || ''
-      const savedPassword = localStorage.getItem(STORAGE_KEYS.PASSWORD) || ''
       setFormData({
         email: savedEmail,
-        password: savedPassword
+        password: '' // Never save password
       })
       setRememberMe(true)
     }
@@ -94,15 +93,10 @@ const Login = ({ onLogin }) => {
     setForgotPasswordMessage('')
 
     try {
-      const response = await fetch('http://localhost:3001/api/auth/forgot-password', {
+      const data = await apiClient('/api/auth/forgot-password', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
         body: JSON.stringify({ email: forgotPasswordEmail.trim() })
       })
-
-      const data = await response.json()
 
       if (data.success) {
         setForgotPasswordMessage('Password reset instructions have been sent to Admin (Contact him for your new password).')
@@ -153,41 +147,37 @@ const Login = ({ onLogin }) => {
     setApiError('')
     
     try {
-      const response = await fetch('http://localhost:3001/api/auth/login', {
+      const data = await apiClient('/api/auth/login', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
         body: JSON.stringify({
           ...formData,
           loginType
         })
       })
       
-      const data = await response.json()
-      
       if (data.success) {
-        // Save credentials if remember me is checked
+        // Save auth token in cookie (handled by API client)
+        setAuthToken(data.token)
+        
+        // Save only email if remember me is checked (NEVER password)
         if (rememberMe) {
           localStorage.setItem(STORAGE_KEYS.EMAIL, formData.email)
-          localStorage.setItem(STORAGE_KEYS.PASSWORD, formData.password)
           localStorage.setItem(STORAGE_KEYS.REMEMBER, 'true')
         } else {
           localStorage.removeItem(STORAGE_KEYS.EMAIL)
-          localStorage.removeItem(STORAGE_KEYS.PASSWORD)
           localStorage.removeItem(STORAGE_KEYS.REMEMBER)
         }
 
-        // Smooth transition without anime.js
+        // Smooth transition
         setTimeout(() => {
-          onLogin(data.user)
+          onLogin(data.user, data.token)
         }, 200)
       } else {
         setApiError(data.message || 'Login failed')
       }
     } catch (error) {
       logger.error('Login failed', error)
-      setApiError('Unable to connect to server. Please try again.')
+      setApiError(error.message || 'Unable to connect to server. Please try again.')
     } finally {
       setIsLoading(false)
     }
@@ -240,6 +230,7 @@ const Login = ({ onLogin }) => {
                   className={errors.email ? 'error' : ''}
                   disabled={isLoading}
                   placeholder="User Name"
+                  autoComplete="username"
                 />
                 {errors.email && <span className="error-message">{errors.email}</span>}
               </div>
@@ -255,11 +246,13 @@ const Login = ({ onLogin }) => {
                     className={errors.password ? 'error' : ''}
                     disabled={isLoading}
                     placeholder="Password"
+                    autoComplete="current-password"
                   />
                   <button
                     type="button"
                     className="show-password-btn"
                     onClick={() => setShowPassword(!showPassword)}
+                    tabIndex={-1}
                   >
                     SHOW
                   </button>
@@ -324,13 +317,14 @@ const Login = ({ onLogin }) => {
         <div className="modal-overlay" onClick={handleForgotPasswordCancel}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
             <h3>Reset Password</h3>
-            <p>Enter your email address or username to receive password reset instructions.</p>
+            <p>Enter your email address to receive password reset instructions.</p>
             <input
-              type="text"
+              type="email"
               value={forgotPasswordEmail}
               onChange={(e) => setForgotPasswordEmail(e.target.value)}
-              placeholder="Email or Username"
+              placeholder="Email"
               disabled={isForgotPasswordSubmitting}
+              autoComplete="email"
             />
             <div className="modal-buttons">
               <button
