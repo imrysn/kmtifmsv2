@@ -538,7 +538,18 @@ const TeamTasksTab = ({ user }) => {
         ) : (
           <>
             {assignments.map(assignment => (
-              <div key={assignment.id} className="team-task-card">
+              <div 
+                key={assignment.id} 
+                className="team-task-card"
+                onClick={() => {
+                  // Open the first file if available
+                  if (assignment.recent_submissions && assignment.recent_submissions.length > 0) {
+                    const firstFile = assignment.recent_submissions[0];
+                    handleOpenFile(firstFile.file_path, firstFile.id);
+                  }
+                }}
+                style={{ cursor: assignment.recent_submissions && assignment.recent_submissions.length > 0 ? 'pointer' : 'default' }}
+              >
                 {/* Card Header */}
                 <div className="team-task-header">
                   <div className="team-task-header-left">
@@ -599,7 +610,10 @@ const TeamTasksTab = ({ user }) => {
                       {assignment.description.length > 200 && (
                         <button
                           className="expand-btn"
-                          onClick={() => toggleExpand(assignment.id)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggleExpand(assignment.id);
+                          }}
                         >
                           {expandedAssignments[assignment.id] ? 'Show less' : 'Show more'}
                         </button>
@@ -633,7 +647,10 @@ const TeamTasksTab = ({ user }) => {
                         <div
                           key={file.id}
                           className="file-item"
-                          onClick={() => handleOpenFile(file.file_path, file.id)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleOpenFile(file.file_path, file.id);
+                          }}
                         >
                           <div style={{
                             display: 'flex',
@@ -701,10 +718,13 @@ const TeamTasksTab = ({ user }) => {
                             {sortedFiles.length > 5 && (
                               <button
                                 className="see-more-files-btn"
-                                onClick={() => setShowAllFiles(prev => ({
-                                  ...prev,
-                                  [assignment.id]: !prev[assignment.id]
-                                }))}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setShowAllFiles(prev => ({
+                                    ...prev,
+                                    [assignment.id]: !prev[assignment.id]
+                                  }));
+                                }}
                                 style={{
                                   width: '100%',
                                   padding: '8px',
@@ -767,7 +787,10 @@ const TeamTasksTab = ({ user }) => {
                 }}>
                   <button 
                     className="toggle-comments-btn"
-                    onClick={() => toggleComments(assignment.id)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      toggleComments(assignment.id);
+                    }}
                     style={{
                       padding: '0',
                       backgroundColor: 'transparent',
@@ -839,11 +862,11 @@ const TeamTasksTab = ({ user }) => {
                       {/* Main Comment */}
                       <div className="comment-item">
                         <div className="comment-avatar">
-                          {getInitials(comment.username)}
+                          {getInitials(comment.fullName || comment.username)}
                         </div>
                         <div className="comment-content">
                           <div className="comment-header">
-                            <span className="comment-author">{comment.username}</span>
+                            <span className="comment-author">{comment.fullName || comment.username}</span>
                             <span className={`role-badge ${comment.user_role ? comment.user_role.toLowerCase().replace(' ', '-').replace('_', '-') : 'user'}`}>
                               {comment.user_role || 'USER'}
                             </span>
@@ -880,11 +903,11 @@ const TeamTasksTab = ({ user }) => {
                           {comment.replies.map(reply => (
                             <div key={reply.id} className="reply-item">
                               <div className="reply-avatar">
-                                {getInitials(reply.username)}
+                                {getInitials(reply.fullName || reply.username)}
                               </div>
                               <div className="reply-content">
                                 <div className="reply-header">
-                                  <span className="reply-author">{reply.username}</span>
+                                  <span className="reply-author">{reply.fullName || reply.username}</span>
                                   <span className={`role-badge ${reply.user_role ? reply.user_role.toLowerCase().replace(' ', '-').replace('_', '-') : 'user'}`}>
                                     {reply.user_role || 'USER'}
                                   </span>

@@ -1,5 +1,8 @@
 const express = require('express');
 const cors = require('cors');
+const helmet = require('helmet');
+const cookieParser = require('cookie-parser');
+const rateLimit = require('express-rate-limit');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
@@ -143,13 +146,42 @@ function moveToUserFolder(tempPath, username, originalFilename) {
   return finalPath;
 }
 
+// Rate limiter for API endpoints
+const apiLimiter = rateLimit({
+  windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000, // 15 minutes
+  max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS) || 100, // Limit each IP to 100 requests per windowMs
+  message: 'Too many requests from this IP, please try again later.',
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+// Stricter rate limiter for auth endpoints
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 5, // 5 requests per 15 minutes
+  message: 'Too many login attempts, please try again later.',
+  skipSuccessfulRequests: true, // Don't count successful requests
+});
+
 function setupMiddleware(app) {
-  // CORS configuration with UTF-8 support
-  app.use(cors({
-    origin: ['http://localhost:5173', 'file://'], // Allow Vite dev server and Electron
-    credentials: true,
-    exposedHeaders: ['Content-Disposition']
+  // Security headers with Helmet
+  app.use(helmet({
+    contentSecurityPolicy: false, // Disable for Electron compatibility
+    crossOriginEmbedderPolicy: false
   }));
+
+  // Cookie parser - MUST be before CSRF
+  app.use(cookieParser());
+
+  // CORS configuration with credentials support
+  const corsOptions = {
+    origin: process.env.CORS_ORIGIN?.split(',') || ['http://localhost:5173', 'file://'],
+    credentials: true, // Allow cookies
+    exposedHeaders: ['Content-Disposition', 'X-CSRF-Token'],
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-CSRF-Token']
+  };
+  app.use(cors(corsOptions));
 
   // JSON parsing with extended options to handle UTF-8 special characters
   app.use(express.json({ 
@@ -162,6 +194,13 @@ function setupMiddleware(app) {
     limit: '50mb',
     parameterLimit: 50000
   }));
+
+  // Apply rate limiting to all API routes
+  app.use('/api/', apiLimiter);
+  
+  // Stricter rate limiting for auth routes
+  app.use('/api/auth/login', authLimiter);
+  app.use('/api/auth/register', authLimiter);
 
   // Serve uploaded files - FORCE inline display (no downloads)
   app.use('/uploads', express.static(uploadsDir, {
@@ -200,11 +239,19 @@ function setupMiddleware(app) {
       res.setHeader('X-Content-Type-Options', 'nosniff');
     }
   }));
+
+  console.log('✅ Security middleware initialized');
+  console.log('   - Helmet security headers enabled');
+  console.log('   - CORS configured for:', corsOptions.origin);
+  console.log('   - Rate limiting: API (100 req/15min), Auth (5 req/15min)');
+  console.log('   - Cookie parser enabled');
 }
 
 module.exports = {
   setupMiddleware,
   upload,
   uploadsDir,
-  moveToUserFolder
+  moveToUserFolder,
+  authLimiter,
+  apiLimiter
 };

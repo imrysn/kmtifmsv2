@@ -46,36 +46,81 @@ router.get('/summary', (req, res) => {
               const approvalRate = summary.totalFiles > 0 ? (summary.approved / summary.totalFiles) * 100 : 0;
               summary.approvalRate = Math.round(approvalRate * 10) / 10; // 1 decimal
 
-              // Approval trends - Last 30 days of daily approval/rejection activity
-              db.all(
-                `SELECT 
-                  DATE(uploaded_at) as date,
-                  SUM(CASE WHEN status = 'final_approved' OR current_stage = 'published_to_public' THEN 1 ELSE 0 END) as approved,
-                  SUM(CASE WHEN status LIKE 'rejected%' OR current_stage LIKE 'rejected%' THEN 1 ELSE 0 END) as rejected
-                FROM files
-                WHERE uploaded_at >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
-                GROUP BY DATE(uploaded_at)
-                ORDER BY date ASC`,
-                [],
-                (err, trends) => {
-                  if (err) {
-                    console.error('Error fetching approval trends:', err);
-                    summary.approvalTrends = [];
-                  } else {
-                    // Format dates for display (e.g., "Oct 1", "Oct 2")
-                    summary.approvalTrends = (trends || []).map(t => {
-                      const d = new Date(t.date);
-                      const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-                      return {
-                        day: `${monthNames[d.getMonth()]} ${d.getDate()}`,
-                        date: t.date,
-                        approved: t.approved || 0,
-                        rejected: t.rejected || 0
-                      };
-                    });
-                  }
+              // Previous month statistics for comparison
+              const now = new Date();
+              const firstDayOfCurrentMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+              const firstDayOfPrevMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+              const lastDayOfPrevMonth = new Date(now.getFullYear(), now.getMonth(), 0);
 
-                  res.json({ success: true, summary });
+              db.get(
+                `SELECT COUNT(*) as total FROM files WHERE uploaded_at >= ? AND uploaded_at < ?`,
+                [firstDayOfPrevMonth.toISOString(), firstDayOfCurrentMonth.toISOString()],
+                (err, prevTotalResult) => {
+                  const prevTotal = prevTotalResult ? prevTotalResult.total || 0 : 0;
+
+                  db.get(
+                    `SELECT COUNT(*) as approved FROM files WHERE status = 'final_approved' AND uploaded_at >= ? AND uploaded_at < ?`,
+                    [firstDayOfPrevMonth.toISOString(), firstDayOfCurrentMonth.toISOString()],
+                    (err, prevApprovedResult) => {
+                      const prevApproved = prevApprovedResult ? prevApprovedResult.approved || 0 : 0;
+
+                      db.get(
+                        `SELECT COUNT(*) as pending FROM files WHERE status NOT IN ('final_approved','rejected_by_admin','rejected_by_team_leader') AND uploaded_at >= ? AND uploaded_at < ?`,
+                        [firstDayOfPrevMonth.toISOString(), firstDayOfCurrentMonth.toISOString()],
+                        (err, prevPendingResult) => {
+                          const prevPending = prevPendingResult ? prevPendingResult.pending || 0 : 0;
+
+                          db.get(
+                            `SELECT COUNT(*) as rejected FROM files WHERE status LIKE 'rejected%' AND uploaded_at >= ? AND uploaded_at < ?`,
+                            [firstDayOfPrevMonth.toISOString(), firstDayOfCurrentMonth.toISOString()],
+                            (err, prevRejectedResult) => {
+                              const prevRejected = prevRejectedResult ? prevRejectedResult.rejected || 0 : 0;
+
+                              summary.previousMonth = {
+                                totalFiles: prevTotal,
+                                approved: prevApproved,
+                                pending: prevPending,
+                                rejected: prevRejected
+                              };
+
+                              // Approval trends - Last 30 days of daily approval/rejection activity
+                              db.all(
+                                `SELECT 
+                                  DATE(uploaded_at) as date,
+                                  SUM(CASE WHEN status = 'final_approved' OR current_stage = 'published_to_public' THEN 1 ELSE 0 END) as approved,
+                                  SUM(CASE WHEN status LIKE 'rejected%' OR current_stage LIKE 'rejected%' THEN 1 ELSE 0 END) as rejected
+                                FROM files
+                                WHERE uploaded_at >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
+                                GROUP BY DATE(uploaded_at)
+                                ORDER BY date ASC`,
+                                [],
+                                (err, trends) => {
+                                  if (err) {
+                                    console.error('Error fetching approval trends:', err);
+                                    summary.approvalTrends = [];
+                                  } else {
+                                    // Format dates for display (e.g., "Oct 1", "Oct 2")
+                                    summary.approvalTrends = (trends || []).map(t => {
+                                      const d = new Date(t.date);
+                                      const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+                                      return {
+                                        day: `${monthNames[d.getMonth()]} ${d.getDate()}`,
+                                        date: t.date,
+                                        approved: t.approved || 0,
+                                        rejected: t.rejected || 0
+                                      };
+                                    });
+                                  }
+
+                                  res.json({ success: true, summary });
+                                }
+                              );
+                            }
+                          );
+                        }
+                      );
+                    }
+                  );
                 }
               );
             });

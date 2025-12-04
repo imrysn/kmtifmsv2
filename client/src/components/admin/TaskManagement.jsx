@@ -21,6 +21,7 @@ const TaskManagement = ({ error, success, setError, setSuccess, clearMessages, u
   const [assignmentToDelete, setAssignmentToDelete] = useState(null)
   const [isDeleting, setIsDeleting] = useState(false)
   const [showMenuForAssignment, setShowMenuForAssignment] = useState(null)
+  const [expandedAttachments, setExpandedAttachments] = useState({})
 
   // Pagination state
   const [nextCursor, setNextCursor] = useState(null)
@@ -300,6 +301,13 @@ const TaskManagement = ({ error, success, setError, setSuccess, clearMessages, u
     }))
   }
 
+  const toggleAttachments = (assignmentId) => {
+    setExpandedAttachments(prev => ({
+      ...prev,
+      [assignmentId]: !prev[assignmentId]
+    }))
+  }
+
   const getInitials = (name) => {
     if (!name) return '?'
     return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
@@ -499,28 +507,62 @@ const TaskManagement = ({ error, success, setError, setSuccess, clearMessages, u
   // Skeleton loader for initial load
   if (loading) {
     return (
-      <div className="task-feed">
-        <div className="feed-header-simple">
-          <h2>All Tasks</h2>
-        </div>
-        <div className="task-count">Loading...</div>
-        <div className="loading-skeleton">
-          {[1, 2, 3].map(i => (
-            <div key={i} className="skeleton-card">
-              <div className="skeleton-header">
-                <div className="skeleton-avatar"></div>
-                <div className="skeleton-text">
-                  <div className="skeleton-line skeleton-line-short"></div>
-                  <div className="skeleton-line skeleton-line-tiny"></div>
+      <div className="task-management-container">
+        <div className="task-feed">
+          <div className="feed-header-simple">
+            <h2>All Tasks</h2>
+          </div>
+          <div className="task-count">Loading...</div>
+          <div className="feed-container">
+            <div className="loading-skeleton">
+              {[1, 2, 3].map(i => (
+                <div key={i} className="skeleton-assignment-card">
+                  {/* Card Header */}
+                  <div className="skeleton-card-header">
+                    <div className="skeleton-header-left">
+                      <div className="skeleton-avatar"></div>
+                      <div className="skeleton-header-info">
+                        <div className="skeleton-line skeleton-line-medium"></div>
+                        <div className="skeleton-line skeleton-line-small"></div>
+                      </div>
+                    </div>
+                    <div className="skeleton-header-right">
+                      <div className="skeleton-line skeleton-line-tiny"></div>
+                    </div>
+                  </div>
+
+                  {/* Task Title */}
+                  <div className="skeleton-title-section">
+                    <div className="skeleton-line skeleton-line-title"></div>
+                  </div>
+
+                  {/* Task Description */}
+                  <div className="skeleton-description-section">
+                    <div className="skeleton-line skeleton-line-full"></div>
+                    <div className="skeleton-line skeleton-line-full"></div>
+                    <div className="skeleton-line skeleton-line-medium"></div>
+                  </div>
+
+                  {/* Attachments */}
+                  <div className="skeleton-attachment-section">
+                    <div className="skeleton-line skeleton-line-small"></div>
+                    <div className="skeleton-file-item">
+                      <div className="skeleton-file-icon"></div>
+                      <div className="skeleton-file-info">
+                        <div className="skeleton-line skeleton-line-medium"></div>
+                        <div className="skeleton-line skeleton-line-small"></div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Comments */}
+                  <div className="skeleton-comments-section">
+                    <div className="skeleton-line skeleton-line-tiny"></div>
+                  </div>
                 </div>
-              </div>
-              <div className="skeleton-body">
-                <div className="skeleton-line"></div>
-                <div className="skeleton-line"></div>
-                <div className="skeleton-line skeleton-line-short"></div>
-              </div>
+              ))}
             </div>
-          ))}
+          </div>
         </div>
       </div>
     )
@@ -665,14 +707,17 @@ const TaskManagement = ({ error, success, setError, setSuccess, clearMessages, u
                     {assignment.recent_submissions && assignment.recent_submissions.length > 0 ? (
                       <div className="admin-attached-file">
                         <div className="admin-file-label">📎 Attachment{assignment.recent_submissions.length > 1 ? 's' : ''} ({assignment.recent_submissions.length}):</div>
-                        {assignment.recent_submissions.map((file, index) => (
+                        {(expandedAttachments[assignment.id] 
+                          ? assignment.recent_submissions 
+                          : assignment.recent_submissions.slice(0, 5)
+                        ).map((file, index) => (
                           <div
                             key={file.id}
                             className="admin-file-item"
                             onClick={() => handleOpenFile(file.file_path, file.id)}
                             style={{ 
                               cursor: 'pointer',
-                              marginBottom: index < assignment.recent_submissions.length - 1 ? '8px' : '0'
+                              marginBottom: index < (expandedAttachments[assignment.id] ? assignment.recent_submissions.length : Math.min(5, assignment.recent_submissions.length)) - 1 ? '8px' : '0'
                             }}
                           >
                             <FileIcon
@@ -705,6 +750,16 @@ const TaskManagement = ({ error, success, setError, setSuccess, clearMessages, u
                             </div>
                           </div>
                         ))}
+                        {assignment.recent_submissions.length > 5 && (
+                          <button
+                            className="admin-attachment-toggle-btn"
+                            onClick={() => toggleAttachments(assignment.id)}
+                          >
+                            {expandedAttachments[assignment.id] 
+                              ? 'See less' 
+                              : `See more (${assignment.recent_submissions.length - 5} more)`}
+                          </button>
+                        )}
                       </div>
                     ) : (
                       <div className="admin-no-attachment">

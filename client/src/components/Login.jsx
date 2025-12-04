@@ -1,9 +1,18 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import '../css/Login.css'
 import Logo from '../assets/kmti_logo.png'
 import { createLogger } from '../utils/secureLogger'
+import { apiClient, setAuthToken } from '../config/api'
 
 const logger = createLogger('Login')
+
+const STORAGE_KEYS = {
+  EMAIL: 'kmt_login_email',
+  REMEMBER: 'kmt_remember_me'
+}
+
+// Enforce maximum email length for security
+const MAX_EMAIL_LENGTH = 100
 
 const Login = ({ onLogin }) => {
   const [loginType, setLoginType] = useState('user') // 'user' or 'admin'
@@ -16,6 +25,27 @@ const Login = ({ onLogin }) => {
   const [apiError, setApiError] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [rememberMe, setRememberMe] = useState(false)
+  const [forgotPasswordMessage, setForgotPasswordMessage] = useState('')
+  const [isForgotPasswordSubmitting, setIsForgotPasswordSubmitting] = useState(false)
+  const [showForgotPasswordModal, setShowForgotPasswordModal] = useState(false)
+  const [forgotPasswordEmail, setForgotPasswordEmail] = useState('')
+
+  // Load remembered email on component mount (NOT password for security)
+  useEffect(() => {
+    try {
+      const remembered = localStorage.getItem(STORAGE_KEYS.REMEMBER)
+      if (remembered === 'true') {
+        const savedEmail = localStorage.getItem(STORAGE_KEYS.EMAIL) || ''
+        setFormData({
+          email: savedEmail,
+          password: '' // Never save password
+        })
+        setRememberMe(true)
+      }
+    } catch (error) {
+      console.warn('Failed to load remembered email:', error)
+    }
+  }, [])
 
   const handleToggle = () => {
     const newLoginType = loginType === 'user' ? 'admin' : 'user'
@@ -56,22 +86,107 @@ const Login = ({ onLogin }) => {
     return Object.keys(newErrors).length === 0
   }
 
+  const handleForgotPassword = () => {
+    setShowForgotPasswordModal(true)
+    setForgotPasswordEmail('')
+  }
+
+  const handleForgotPasswordSubmit = async () => {
+    if (!forgotPasswordEmail.trim()) {
+      return
+    }
+
+    setIsForgotPasswordSubmitting(true)
+    setForgotPasswordMessage('')
+
+    try {
+      const data = await apiClient('/api/auth/forgot-password', {
+        method: 'POST',
+        body: JSON.stringify({ email: forgotPasswordEmail.trim() })
+      })
+
+      if (data.success) {
+        setForgotPasswordMessage('Password reset instructions have been sent to Admin (Contact him for your new password).')
+        setShowForgotPasswordModal(false)
+      } else {
+        setForgotPasswordMessage(data.message || 'Failed to send reset email.')
+      }
+    } catch (error) {
+      logger.error('Forgot password failed', error)
+      setForgotPasswordMessage('Unable to connect to server. Please try again.')
+    } finally {
+      setIsForgotPasswordSubmitting(false)
+    }
+  }
+
+  const handleForgotPasswordCancel = () => {
+    setShowForgotPasswordModal(false)
+    setForgotPasswordEmail('')
+  }
+
   const handleInputChange = (e) => {
     const { name, value } = e.target
+
+    // Sanitize input - remove HTML tags and limit length for security
+    let sanitizedValue = value.replace(/<[^>]*>/g, '').trim()
+
+    if (name === 'email') {
+      sanitizedValue = sanitizedValue.slice(0, MAX_EMAIL_LENGTH)
+    }
+
     setFormData(prev => ({
       ...prev,
-      [name]: value
+      [name]: sanitizedValue
     }))
-    
+
     if (errors[name]) {
       setErrors(prev => ({
         ...prev,
         [name]: ''
       }))
     }
-    
+
     if (apiError) {
       setApiError('')
+    }
+  }
+
+  // Safe localStorage operations with error handling
+  const safeLocalStorage = {
+    setItem: (key, value) => {
+      try {
+        localStorage.setItem(key, value)
+        return true
+      } catch (error) {
+        console.warn('localStorage setItem failed:', error)
+        return false
+      }
+    },
+    removeItem: (key) => {
+      try {
+        localStorage.removeItem(key)
+        return true
+      } catch (error) {
+        console.warn('localStorage removeItem failed:', error)
+        return false
+      }
+    }
+  }
+
+  // Handle remember me checkbox change - save preference immediately
+  const handleRememberMeChange = (checked) => {
+    setRememberMe(checked)
+
+    if (checked) {
+      // Save current email when enabling remember me
+      if (formData.email.trim()) {
+        safeLocalStorage.setItem(STORAGE_KEYS.EMAIL, formData.email.slice(0, MAX_EMAIL_LENGTH))
+        safeLocalStorage.setItem(STORAGE_KEYS.REMEMBER, 'true')
+      }
+    } else {
+      // Clear when disabling remember me
+      safeLocalStorage.removeItem(STORAGE_KEYS.EMAIL)
+      safeLocalStorage.removeItem(STORAGE_KEYS.REMEMBER)
     }
   }
 
@@ -86,30 +201,37 @@ const Login = ({ onLogin }) => {
     setApiError('')
     
     try {
-      const response = await fetch('http://localhost:3001/api/auth/login', {
+      const data = await apiClient('/api/auth/login', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
         body: JSON.stringify({
           ...formData,
           loginType
         })
       })
       
-      const data = await response.json()
-      
       if (data.success) {
-        // Smooth transition without anime.js
+        // Save auth token in cookie (handled by API client)
+        setAuthToken(data.token)
+        
+        // Save only email if remember me is checked (NEVER password)
+        if (rememberMe) {
+          safeLocalStorage.setItem(STORAGE_KEYS.EMAIL, formData.email.slice(0, MAX_EMAIL_LENGTH))
+          safeLocalStorage.setItem(STORAGE_KEYS.REMEMBER, 'true')
+        } else {
+          safeLocalStorage.removeItem(STORAGE_KEYS.EMAIL)
+          safeLocalStorage.removeItem(STORAGE_KEYS.REMEMBER)
+        }
+
+        // Smooth transition
         setTimeout(() => {
-          onLogin(data.user)
+          onLogin(data.user, data.token)
         }, 200)
       } else {
         setApiError(data.message || 'Login failed')
       }
     } catch (error) {
       logger.error('Login failed', error)
-      setApiError('Unable to connect to server. Please try again.')
+      setApiError(error.message || 'Unable to connect to server. Please try again.')
     } finally {
       setIsLoading(false)
     }
@@ -162,6 +284,7 @@ const Login = ({ onLogin }) => {
                   className={errors.email ? 'error' : ''}
                   disabled={isLoading}
                   placeholder="User Name"
+                  autoComplete="username"
                 />
                 {errors.email && <span className="error-message">{errors.email}</span>}
               </div>
@@ -177,11 +300,13 @@ const Login = ({ onLogin }) => {
                     className={errors.password ? 'error' : ''}
                     disabled={isLoading}
                     placeholder="Password"
+                    autoComplete="current-password"
                   />
                   <button
                     type="button"
                     className="show-password-btn"
                     onClick={() => setShowPassword(!showPassword)}
+                    tabIndex={-1}
                   >
                     SHOW
                   </button>
@@ -194,19 +319,30 @@ const Login = ({ onLogin }) => {
                   <input
                     type="checkbox"
                     checked={rememberMe}
-                    onChange={(e) => setRememberMe(e.target.checked)}
+                    onChange={(e) => handleRememberMeChange(e.target.checked)}
                   />
                   <span className="checkmark"></span>
                   Remember me
                 </label>
-                <button type="button" className="forgot-password">
-                  Forgot Password?
+                <button
+                  type="button"
+                  className="forgot-password"
+                  onClick={handleForgotPassword}
+                  disabled={isForgotPasswordSubmitting || isLoading}
+                >
+                  {isForgotPasswordSubmitting ? 'Sending...' : 'Forgot Password?'}
                 </button>
               </div>
               
               {apiError && (
                 <div className="api-error">
                   {apiError}
+                </div>
+              )}
+
+              {forgotPasswordMessage && (
+                <div className="api-error" style={{ backgroundColor: '#DCFCE7', color: '#166534', borderColor: '#BBF7D0' }}>
+                  {forgotPasswordMessage}
                 </div>
               )}
               
@@ -229,6 +365,40 @@ const Login = ({ onLogin }) => {
         </div>
         
       </div>
+
+      {/* Forgot Password Modal */}
+      {showForgotPasswordModal && (
+        <div className="modal-overlay" onClick={handleForgotPasswordCancel}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <h3>Reset Password</h3>
+            <p>Enter your email address to receive password reset instructions.</p>
+            <input
+              type="email"
+              value={forgotPasswordEmail}
+              onChange={(e) => setForgotPasswordEmail(e.target.value)}
+              placeholder="Email"
+              disabled={isForgotPasswordSubmitting}
+              autoComplete="email"
+            />
+            <div className="modal-buttons">
+              <button
+                onClick={handleForgotPasswordCancel}
+                disabled={isForgotPasswordSubmitting}
+                className="cancel-button"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleForgotPasswordSubmit}
+                disabled={!forgotPasswordEmail.trim() || isForgotPasswordSubmitting}
+                className="submit-button"
+              >
+                {isForgotPasswordSubmitting ? 'Sending...' : 'Send Reset Email'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

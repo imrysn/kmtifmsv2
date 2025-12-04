@@ -1,5 +1,4 @@
-import { useState, useEffect, useRef, Suspense } from 'react'
-import anime from 'animejs'
+import { useState, useEffect, Suspense } from 'react'
 import '../css/UserDashboard.css'
 import SkeletonLoader from '../components/common/SkeletonLoader'
 
@@ -27,9 +26,6 @@ const UserDashboard = ({ user, onLogout }) => {
   const [filterStatus, setFilterStatus] = useState('all')
   const [notificationCount, setNotificationCount] = useState(0)
   const [notifications, setNotifications] = useState([])
-  
-  const dashboardRef = useRef(null)
-  const headerRef = useRef(null)
 
   const fetchUserFiles = async () => {
     setIsLoading(true)
@@ -127,20 +123,16 @@ const UserDashboard = ({ user, onLogout }) => {
   }
 
   const openFileByIdFromNotification = async (fileId) => {
-    console.log('📂 Opening file from notification, fileId:', fileId);
     try {
       // Fetch the specific file
       const response = await fetch(`http://localhost:3001/api/files/user/${user.id}`)
       const data = await response.json()
-      
-      console.log('📊 Fetched files:', data.files?.length, 'files');
+
       
       if (data.success && data.files) {
         const file = data.files.find(f => f.id === parseInt(fileId))
-        console.log('🔍 Looking for file with ID:', fileId, 'Found:', file ? '✅' : '❌');
         
         if (file) {
-          console.log('✅ File found! Opening modal for:', file.original_name);
           // Switch to My Files tab
           setActiveTab('my-files')
           // Small delay to ensure tab switches before opening modal
@@ -148,31 +140,26 @@ const UserDashboard = ({ user, onLogout }) => {
             await openFileModal(file)
           }, 100);
         } else {
-          console.error('❌ File not found in user files. Available file IDs:', data.files.map(f => f.id));
           setError('File not found in your files')
         }
       } else {
-        console.error('❌ Failed to fetch files:', data);
         setError('Failed to fetch file details')
       }
     } catch (error) {
-      console.error('❌ Error fetching file:', error)
+      console.error('Error fetching file:', error)
       setError('Failed to connect to server')
     }
   }
 
   const navigateToTasks = (assignmentId = null) => {
-    console.log('🟢 navigateToTasks called with assignmentId:', assignmentId);
     setActiveTab('tasks')
     // Store the assignment ID to scroll to after tab switch
     if (assignmentId) {
       sessionStorage.setItem('scrollToAssignment', assignmentId)
-      console.log('✅ Stored scrollToAssignment in sessionStorage:', assignmentId);
     }
   }
 
   const handleToastNavigation = async (tabName, contextData) => {
-    console.log('🔔 Toast Navigation:', tabName, contextData);
     
     if (tabName === 'my-files' && contextData) {
       // For file notifications, open the file modal directly
@@ -181,7 +168,6 @@ const UserDashboard = ({ user, onLogout }) => {
       // For task/assignment notifications
       setActiveTab('tasks');
       sessionStorage.setItem('scrollToAssignment', contextData);
-      console.log('✅ Stored scrollToAssignment:', contextData);
     } else {
       // Default tab navigation
       setActiveTab(tabName);
@@ -265,7 +251,7 @@ const UserDashboard = ({ user, onLogout }) => {
 
   return (
     <Suspense fallback={<SkeletonLoader type="dashboard" />}>
-      <div className="minimal-dashboard user-dashboard" ref={dashboardRef}>
+      <div className="minimal-dashboard user-dashboard">
       <Sidebar 
         activeTab={activeTab}
         setActiveTab={handleTabChange}

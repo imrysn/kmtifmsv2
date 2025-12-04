@@ -765,6 +765,42 @@ const TasksTab = ({ user }) => {
                       <div 
                         key={file.id}
                         className="submitted-file-card"
+                        onClick={async () => {
+                          try {
+                            // Check if running in Electron
+                            if (window.electron && window.electron.openFileInApp) {
+                              // Get the actual file path from server
+                              const response = await fetch(`http://localhost:3001/api/files/${file.id}/path`);
+                              const data = await response.json();
+                              
+                              if (data.success && data.filePath) {
+                                // Open file with system default application
+                                const result = await window.electron.openFileInApp(data.filePath);
+                                
+                                if (!result.success) {
+                                  setError(result.error || 'Failed to open file with system application');
+                                }
+                              } else {
+                                throw new Error('Could not get file path');
+                              }
+                            } else {
+                              // In browser - get file path and open in new tab
+                              const response = await fetch(`http://localhost:3001/api/files/${file.id}`);
+                              const fileData = await response.json();
+                              
+                              if (fileData.success && fileData.file) {
+                                const fileUrl = `http://localhost:3001${fileData.file.file_path}`;
+                                window.open(fileUrl, '_blank', 'noopener,noreferrer');
+                              } else {
+                                throw new Error('Could not get file information');
+                              }
+                            }
+                          } catch (error) {
+                            console.error('Error opening file:', error);
+                            setError('Failed to open file. Please try again.');
+                          }
+                        }}
+                        style={{ cursor: 'pointer' }}
                       >
                         <div style={{
                           display: 'flex',
@@ -772,43 +808,7 @@ const TasksTab = ({ user }) => {
                           gap: '12px',
                         }}>
                           <div
-                            onClick={async () => {
-                              try {
-                                // Check if running in Electron
-                                if (window.electron && window.electron.openFileInApp) {
-                                  // Get the actual file path from server
-                                  const response = await fetch(`http://localhost:3001/api/files/${file.id}/path`);
-                                  const data = await response.json();
-                                  
-                                  if (data.success && data.filePath) {
-                                    // Open file with system default application
-                                    const result = await window.electron.openFileInApp(data.filePath);
-                                    
-                                    if (!result.success) {
-                                      setError(result.error || 'Failed to open file with system application');
-                                    }
-                                  } else {
-                                    throw new Error('Could not get file path');
-                                  }
-                                } else {
-                                  // In browser - get file path and open in new tab
-                                  const response = await fetch(`http://localhost:3001/api/files/${file.id}`);
-                                  const fileData = await response.json();
-                                  
-                                  if (fileData.success && fileData.file) {
-                                    const fileUrl = `http://localhost:3001${fileData.file.file_path}`;
-                                    window.open(fileUrl, '_blank', 'noopener,noreferrer');
-                                  } else {
-                                    throw new Error('Could not get file information');
-                                  }
-                                }
-                              } catch (error) {
-                                console.error('Error opening file:', error);
-                                setError('Failed to open file. Please try again.');
-                              }
-                            }}
                             style={{
-                              cursor: 'pointer',
                               flexShrink: 0
                             }}
                           >
@@ -823,49 +823,15 @@ const TasksTab = ({ user }) => {
                             />
                           </div>
                           <div style={{ flex: 1, minWidth: 0 }}>
-                            <div 
-                              onClick={async () => {
-                                try {
-                                  if (window.electron && window.electron.openFileInApp) {
-                                    const response = await fetch(`http://localhost:3001/api/files/${file.id}/path`);
-                                    const data = await response.json();
-                                    
-                                    if (data.success && data.filePath) {
-                                      const result = await window.electron.openFileInApp(data.filePath);
-                                      
-                                      if (!result.success) {
-                                        setError(result.error || 'Failed to open file with system application');
-                                      }
-                                    } else {
-                                      throw new Error('Could not get file path');
-                                    }
-                                  } else {
-                                    const response = await fetch(`http://localhost:3001/api/files/${file.id}`);
-                                    const fileData = await response.json();
-                                    
-                                    if (fileData.success && fileData.file) {
-                                      const fileUrl = `http://localhost:3001${fileData.file.file_path}`;
-                                      window.open(fileUrl, '_blank', 'noopener,noreferrer');
-                                    } else {
-                                      throw new Error('Could not get file information');
-                                    }
-                                  }
-                                } catch (error) {
-                                  console.error('Error opening file:', error);
-                                  setError('Failed to open file. Please try again.');
-                                }
-                              }}
-                              style={{ 
-                                fontWeight: '500', 
-                                fontSize: '15px', 
-                                color: '#111827',
-                                marginBottom: '6px',
-                                cursor: 'pointer',
-                                overflow: 'hidden',
-                                textOverflow: 'ellipsis',
-                                whiteSpace: 'nowrap'
-                              }}
-                            >
+                            <div style={{ 
+                              fontWeight: '500', 
+                              fontSize: '15px', 
+                              color: '#111827',
+                              marginBottom: '6px',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              whiteSpace: 'nowrap'
+                            }}>
                               {file.original_name || file.filename}
                             </div>
                             <div style={{ 
@@ -1110,11 +1076,11 @@ const TasksTab = ({ user }) => {
       {/* Main Comment */}
       <div className="comment-item">
         <div className="comment-avatar">
-          {getInitials(comment.username)}
+          {getInitials(comment.fullName || comment.username)}
       </div>
       <div className="comment-content">
           <div className="comment-header">
-          <span className="comment-author">{comment.username}</span>
+          <span className="comment-author">{comment.fullName || comment.username}</span>
         <span className={`role-badge ${comment.user_role ? comment.user_role.toLowerCase().replace(' ', '-').replace('_', '-') : 'user'}`}>
             {comment.user_role || 'USER'}
           </span>
@@ -1151,11 +1117,11 @@ const TasksTab = ({ user }) => {
       {comment.replies.map(reply => (
       <div key={reply.id} className="reply-item">
       <div className="reply-avatar">
-      {getInitials(reply.username)}
+      {getInitials(reply.fullName || reply.username)}
       </div>
       <div className="reply-content">
       <div className="reply-header">
-      <span className="reply-author">{reply.username}</span>
+      <span className="reply-author">{reply.fullName || reply.username}</span>
       <span className={`role-badge ${reply.user_role ? reply.user_role.toLowerCase().replace(' ', '-').replace('_', '-') : 'user'}`}>
         {reply.user_role || 'USER'}
       </span>
