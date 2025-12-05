@@ -8,3 +8,5 @@ export { CachedFileSystem } from './CachedFileSystem';
 export { SecureDirectoryManager } from './SecureDirectoryManager';
 export { FileEditor } from './FileEditor';
 export { FastSearchEngine } from './FastSearchEngine';
+export { PersistentIndexManager } from './PersistentIndexManager';
+export { BackgroundIndexer } from './BackgroundIndexer';

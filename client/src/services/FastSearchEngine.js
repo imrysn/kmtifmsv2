@@ -2,6 +2,8 @@ import { BitmaskFileIndex } from './BitmaskFileIndex';
 import { CachedFileSystem } from './CachedFileSystem';
 import { SecureDirectoryManager } from './SecureDirectoryManager';
 import { FileEditor } from './FileEditor';
+import { PersistentIndexManager } from './PersistentIndexManager';
+import { BackgroundIndexer } from './BackgroundIndexer';
 
 /**
  * FastSearchEngine - Main orchestrator for ultra-fast file search
@@ -16,6 +18,8 @@ export class FastSearchEngine {
     this.fsCache = new CachedFileSystem(5 * 60 * 1000); // 5 min TTL
     this.directoryManager = new SecureDirectoryManager();
     this.fileEditor = new FileEditor(this.apiBase, this.directoryManager);
+    this.persistentIndexManager = new PersistentIndexManager();
+    this.backgroundIndexer = new BackgroundIndexer(this.apiBase, this.persistentIndexManager);
     
     // Search state
     this.isIndexing = false;
@@ -43,8 +47,11 @@ export class FastSearchEngine {
     console.log('🚀 Initializing FastSearchEngine...');
     
     try {
-      // Start background indexing of common paths
-      this._startBackgroundIndexing();
+      // Initialize persistent storage
+      await this.persistentIndexManager.initialize();
+      
+      // Try to load cached index
+      await this._loadPersistedIndex();
       
       console.log('✅ FastSearchEngine initialized');
     } catch (error) {
@@ -275,39 +282,96 @@ export class FastSearchEngine {
   }
 
   /**
-   * Start background indexing
+   * Start background indexing for a directory
    */
-  async _startBackgroundIndexing() {
-    if (this.isIndexing) return;
+  async startDirectoryIndexing(directory, options = {}) {
+    console.log(`🚀 Starting indexing for: ${directory}`);
     
-    this.isIndexing = true;
-    console.log('📇 Starting background indexing...');
-    
-    try {
-      // Get common directories from directory manager
-      const allowedDirs = this.directoryManager.getAllowedDirectories();
-      const commonDirs = allowedDirs.slice(0, 5); // Limit to first 5 for performance
+    // Set up progress callback
+    this.backgroundIndexer.onProgress((progress) => {
+      this.indexProgress = progress.percentage;
+      console.log(`📊 Indexing progress: ${progress.indexedFiles} files (${progress.percentage}%)`);
       
-      // Warmup cache
-      await this.fsCache.warmup(commonDirs, async (path) => {
-        try {
-          const response = await fetch(
-            `${this.apiBase}/api/file-system/browse?path=${encodeURIComponent(path)}`
-          );
-          const data = await response.json();
-          return data.success ? data.items || [] : [];
-        } catch (error) {
-          console.warn(`Failed to prefetch ${path}:`, error.message);
-          return [];
-        }
-      });
+      // Notify any listeners
+      if (this.onIndexProgressCallback) {
+        this.onIndexProgressCallback(progress);
+      }
+    });
+
+    // Set up completion callback
+    this.backgroundIndexer.onComplete(async (result) => {
+      console.log(`✅ Indexing complete for ${directory}`);
+      
+      if (!result.fromCache) {
+        // Reload the persisted index into memory
+        await this._loadPersistedIndex();
+      }
       
       this.lastIndexTime = Date.now();
-      console.log('✅ Background indexing complete');
-    } catch (error) {
-      console.error('❌ Background indexing failed:', error);
-    } finally {
       this.isIndexing = false;
+      
+      // Notify any listeners
+      if (this.onIndexCompleteCallback) {
+        this.onIndexCompleteCallback(result);
+      }
+    });
+
+    // Set up error callback
+    this.backgroundIndexer.onError((error) => {
+      console.error('❌ Indexing error:', error);
+      this.isIndexing = false;
+      
+      // Notify any listeners
+      if (this.onIndexErrorCallback) {
+        this.onIndexErrorCallback(error);
+      }
+    });
+
+    this.isIndexing = true;
+    
+    try {
+      const indexData = await this.backgroundIndexer.startIndexing(directory, options);
+      return indexData;
+    } catch (error) {
+      this.isIndexing = false;
+      throw error;
+    }
+  }
+
+  /**
+   * Load persisted index from storage
+   */
+  async _loadPersistedIndex() {
+    try {
+      const indexes = await this.persistentIndexManager.getAllIndexes();
+      
+      if (indexes.length === 0) {
+        console.log('📦 No cached indexes found');
+        return;
+      }
+
+      console.log(`📦 Loading ${indexes.length} cached index(es)...`);
+      
+      let totalLoaded = 0;
+      for (const index of indexes) {
+        if (index.indexData && index.indexData.files) {
+          // Load files into in-memory index
+          index.indexData.files.forEach(file => {
+            this.bitmaskIndex.addFile(file.path, {
+              name: file.name,
+              size: file.size,
+              modified: file.modified,
+              type: file.type
+            });
+            totalLoaded++;
+          });
+        }
+      }
+
+      console.log(`✅ Loaded ${totalLoaded} files from cache`);
+      this.lastIndexTime = Math.max(...indexes.map(idx => idx.lastIndexed));
+    } catch (error) {
+      console.error('❌ Failed to load persisted index:', error);
     }
   }
 
@@ -399,7 +463,9 @@ export class FastSearchEngine {
   /**
    * Get comprehensive statistics
    */
-  getStats() {
+  async getStats() {
+    const persistentStats = await this.persistentIndexManager.getStats();
+    
     return {
       search: this.searchStats,
       index: this.bitmaskIndex.getStats(),
@@ -411,6 +477,11 @@ export class FastSearchEngine {
       queryCache: {
         size: this.queryCache.size,
         maxSize: this.queryCacheSize
+      },
+      persistent: persistentStats,
+      indexing: {
+        isActive: this.isIndexingActive(),
+        progress: this.backgroundIndexer.getProgress()
       }
     };
   }
@@ -418,17 +489,93 @@ export class FastSearchEngine {
   /**
    * Clear all caches and index
    */
-  clearAll() {
+  async clearAll() {
     this.bitmaskIndex.clear();
     this.fsCache.clear();
     this.queryCache.clear();
     this.directoryManager.clearCache();
+    await this.persistentIndexManager.clearAll();
     this.searchStats = {
       totalSearches: 0,
       avgSearchTime: 0,
       indexedSearches: 0,
       fallbackSearches: 0
     };
+    console.log('🗑️ All caches and indexes cleared');
+  }
+
+  /**
+   * Clear index for specific directory
+   */
+  async clearDirectoryIndex(directory) {
+    await this.persistentIndexManager.deleteIndex(directory);
+    
+    // Remove from in-memory index
+    const filesToRemove = Array.from(this.bitmaskIndex.fileMetadata.values())
+      .filter(file => file.path.startsWith(directory));
+    
+    filesToRemove.forEach(file => {
+      this.bitmaskIndex.removeFile(file.id);
+    });
+    
+    console.log(`🗑️ Cleared index for ${directory}`);
+  }
+
+  /**
+   * Pause background indexing
+   */
+  pauseIndexing() {
+    this.backgroundIndexer.pause();
+  }
+
+  /**
+   * Resume background indexing
+   */
+  resumeIndexing() {
+    this.backgroundIndexer.resume();
+  }
+
+  /**
+   * Cancel background indexing
+   */
+  cancelIndexing() {
+    this.backgroundIndexer.cancel();
+    this.isIndexing = false;
+  }
+
+  /**
+   * Get indexing progress
+   */
+  getIndexingProgress() {
+    return this.backgroundIndexer.getProgress();
+  }
+
+  /**
+   * Check if indexing is active
+   */
+  isIndexingActive() {
+    return this.backgroundIndexer.isActive();
+  }
+
+  /**
+   * Set callback for index progress updates
+   */
+  onIndexProgress(callback) {
+    this.onIndexProgressCallback = callback;
+  }
+
+  /**
+   * Set callback for index completion
+   */
+  onIndexComplete(callback) {
+    this.onIndexCompleteCallback = callback;
+  }
+
+  /**
+   * Set callback for index errors
+   */
+  onIndexError(callback) {
+    this.onIndexErrorCallback = callback;
   }
 
   /**

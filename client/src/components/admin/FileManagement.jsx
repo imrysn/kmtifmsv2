@@ -33,11 +33,25 @@ const FileManagement = ({ clearMessages, error, success, setError, setSuccess })
 
   // Initialize search engine
   useEffect(() => {
-    searchEngine.initialize()
+    const initEngine = async () => {
+      try {
+        await searchEngine.initialize()
+        console.log('✅ Search engine initialized in FileManagement')
+      } catch (error) {
+        console.error('❌ Failed to initialize search engine:', error)
+      }
+    }
+    
+    initEngine()
     
     // Update stats periodically
-    const statsInterval = setInterval(() => {
-      setEngineStats(searchEngine.getStats())
+    const statsInterval = setInterval(async () => {
+      try {
+        const stats = await searchEngine.getStats()
+        setEngineStats(stats)
+      } catch (error) {
+        console.error('Failed to get stats:', error)
+      }
     }, 5000)
     
     return () => clearInterval(statsInterval)

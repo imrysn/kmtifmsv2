@@ -574,3 +574,85 @@
   width: 100%;
   overflow-x: auto;
 }
+
+/* Indexing Status Styles */
+.indexing-status {
+  margin-top: 1rem;
+  padding: 1rem;
+  background: var(--background-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+}
+
+.indexing-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.indexing-icon {
+  font-size: 1.2rem;
+  animation: spin 2s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.indexing-progress {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.progress-bar {
+  width: 100%;
+  height: 8px;
+  background: var(--background-color);
+  border-radius: 4px;
+  overflow: hidden;
+  position: relative;
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--primary-color), var(--primary-hover));
+  transition: width 0.3s ease;
+  border-radius: 4px;
+}
+
+.progress-fill.progress-indeterminate {
+  width: 30%;
+  animation: indeterminate 1.5s ease-in-out infinite;
+}
+
+@keyframes indeterminate {
+  0% {
+    transform: translateX(-100%);
+  }
+  50% {
+    transform: translateX(300%);
+  }
+  100% {
+    transform: translateX(-100%);
+  }
+}
+
+.progress-text {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+}
+
+.current-path {
+  font-family: monospace;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  display: inline-block;
+  vertical-align: middle;
+}

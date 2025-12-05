@@ -2,12 +2,18 @@ import { useState, useEffect } from 'react'
 import './Settings.css'
 import { AlertMessage, ConfirmationModal } from './modals'
 import { SkeletonLoader } from '../common/SkeletonLoader'
+import { FastSearchEngine } from '../../services/FastSearchEngine'
 
 const Settings = ({ clearMessages, error, success, setError, setSuccess, users, user }) => {
   const [isLoading, setIsLoading] = useState(false)
   const [teams, setTeams] = useState([])
   const [teamsLoading, setTeamsLoading] = useState(false)
   const [networkAvailable, setNetworkAvailable] = useState(true)
+  
+  // Indexing state
+  const [isIndexing, setIsIndexing] = useState(false)
+  const [indexProgress, setIndexProgress] = useState(null)
+  const [searchEngine] = useState(() => new FastSearchEngine('http://localhost:3001'))
   const [newTeam, setNewTeam] = useState({
     name: '',
     leaderId: '',
@@ -113,7 +119,10 @@ const Settings = ({ clearMessages, error, success, setError, setSuccess, users, 
       })
       const data = await response.json()
       if (data.success) {
-        setSuccess('File management settings saved successfully')
+        setSuccess('File management settings saved successfully. Starting background indexing...')
+        
+        // Trigger background indexing for the new directory
+        startBackgroundIndexing(settings.fileManagement.rootDirectory)
       } else {
         setError(data.message || 'Failed to save file management settings')
       }
@@ -123,6 +132,84 @@ const Settings = ({ clearMessages, error, success, setError, setSuccess, users, 
     } finally {
       setIsLoading(false)
     }
+  }
+
+  const startBackgroundIndexing = async (directory) => {
+    console.log('🚀 Starting background indexing for:', directory)
+    
+    setIsIndexing(true)
+    setIndexProgress({
+      indexedFiles: 0,
+      percentage: 0,
+      currentPath: directory
+    })
+
+    try {
+      // Initialize search engine if not already done
+      if (!searchEngine.persistentIndexManager.isInitialized) {
+        console.log('🔄 Initializing search engine...')
+        await searchEngine.initialize()
+      }
+
+      // Set up progress tracking BEFORE starting indexing
+      searchEngine.onIndexProgress((progress) => {
+        console.log('📊 Progress update:', progress)
+        setIndexProgress({
+          indexedFiles: progress.indexedFiles || 0,
+          percentage: progress.percentage || 0,
+          currentPath: progress.currentPath || directory
+        })
+      })
+
+      searchEngine.onIndexComplete((result) => {
+        console.log('✅ Indexing complete:', result)
+        setIsIndexing(false)
+        setIndexProgress(null)
+        
+        if (result.fromCache) {
+          setSuccess(`Loaded ${result.fileCount || 0} files from cache`)
+        } else {
+          const duration = result.duration ? Math.round(result.duration / 1000) : 0
+          setSuccess(`Successfully indexed ${result.fileCount || 0} files in ${duration}s`)
+        }
+      })
+
+      searchEngine.onIndexError((error) => {
+        console.error('❌ Indexing error:', error)
+        setIsIndexing(false)
+        setIndexProgress(null)
+        setError(`Indexing failed: ${error.message}`)
+      })
+
+      // Start indexing
+      console.log('📇 Calling startDirectoryIndexing...')
+      await searchEngine.startDirectoryIndexing(directory)
+    } catch (error) {
+      console.error('Failed to start indexing:', error)
+      setIsIndexing(false)
+      setIndexProgress(null)
+      setError(`Failed to start indexing: ${error.message}`)
+    }
+  }
+
+  const handleClearIndex = async () => {
+    if (!confirm('Are you sure you want to clear the search index? This will require re-indexing.')) {
+      return
+    }
+
+    try {
+      await searchEngine.clearAll()
+      setSuccess('Search index cleared successfully')
+    } catch (error) {
+      setError('Failed to clear search index')
+    }
+  }
+
+  const handleCancelIndexing = () => {
+    searchEngine.cancelIndexing()
+    setIsIndexing(false)
+    setIndexProgress(null)
+    setSuccess('Indexing cancelled')
   }
 
   const handleSaveSettings = async () => {
@@ -151,6 +238,13 @@ const Settings = ({ clearMessages, error, success, setError, setSuccess, users, 
     checkNetwork()
     const interval = setInterval(checkNetwork, 30000) // Check every 30 seconds
     return () => clearInterval(interval)
+  }, [])
+
+  // Initialize search engine on mount
+  useEffect(() => {
+    searchEngine.initialize().catch(error => {
+      console.error('Failed to initialize search engine:', error)
+    })
   }, [])
 
   useEffect(() => {
@@ -330,6 +424,48 @@ const Settings = ({ clearMessages, error, success, setError, setSuccess, users, 
                 </button>
               </div>
               <p className="help-text">Base directory for files</p>
+            </div>
+            
+            {/* Indexing status */}
+            {isIndexing && indexProgress && (
+              <div className="indexing-status">
+                <div className="indexing-header">
+                  <span className="indexing-icon">🔄</span>
+                  <span>Indexing files...</span>
+                  <button 
+                    className="btn btn-secondary btn-sm"
+                    onClick={handleCancelIndexing}
+                  >
+                    Cancel
+                  </button>
+                </div>
+                <div className="indexing-progress">
+                  <div className="progress-bar">
+                    <div 
+                      className="progress-fill progress-indeterminate" 
+                    ></div>
+                  </div>
+                  <div className="progress-text">
+                    {indexProgress.indexedFiles} files indexed
+                    {indexProgress.currentPath && (
+                      <span className="current-path"> • {indexProgress.currentPath}</span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+            
+            {/* Index management */}
+            <div className="form-group">
+              <label>Search Index</label>
+              <button
+                className="btn btn-secondary"
+                onClick={handleClearIndex}
+                disabled={isLoading || isIndexing}
+              >
+                Clear Search Index
+              </button>
+              <p className="help-text">Clear the cached file index to force re-indexing</p>
             </div>
           </div>
         </div>
