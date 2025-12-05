@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useMemo, useCallback, memo } from '
 import FileIcon from './FileIcon'
 import { SkeletonLoader } from '../common/SkeletonLoader'
 import './FileApproval-Optimized.css'
-import { ConfirmationModal, AlertMessage } from './modals'
+import { ConfirmationModal, AlertMessage, FileDetailsModal } from './modals'
 
 const API_BASE = 'http://localhost:3001/api'
 const SERVER_BASE = API_BASE.replace(/\/api$/, '')
@@ -817,94 +817,19 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
       </div>
 
       {/* File Details Modal */}
-      {showFileModal && selectedFile && (
-        <div className="modal-overlay" onClick={closeFileModal}>
-          <div className="modal file-modal" onClick={e => e.stopPropagation()}>
-            <div className="modal-header">
-              <h3>File Details</h3>
-              <button onClick={closeFileModal} className="modal-close">×</button>
-            </div>
-            <div className="modal-body">
-              {/* File Details Section */}
-              <div className="file-details-section">
-                <h4 className="section-title">File Details</h4>
-                <div className="file-details-grid">
-                  <div className="detail-item">
-                    <span className="detail-label">FILE NAME:</span>
-                    <span className="detail-value">{selectedFile.original_name}</span>
-                  </div>
-                  <div className="detail-item">
-                    <span className="detail-label">FILE TYPE:</span>
-                    <span className="detail-value">{selectedFile.file_type}</span>
-                  </div>
-                  <div className="detail-item">
-                    <span className="detail-label">FILE SIZE:</span>
-                    <span className="detail-value">{selectedFileFormattedSize}</span>
-                  </div>
-                  <div className="detail-item">
-                    <span className="detail-label">SUBMITTED BY:</span>
-                    <span className="detail-value">{selectedFile.username}</span>
-                  </div>
-                  <div className="detail-item">
-                    <span className="detail-label">TEAM:</span>
-                    <span className="detail-value team-badge-inline">
-                      {selectedFile.user_team}
-                    </span>
-                  </div>
-                  <div className="detail-item">
-                    <span className="detail-label">UPLOAD DATE:</span>
-                    <span className="detail-value">{selectedFileFormattedDate}</span>
-                  </div>
-                  <div className="detail-item">
-                    <span className="detail-label">STATUS:</span>
-                    <span className={`detail-value status-badge status-${mapFileStatus(selectedFile.status)}`}>
-                      {getStatusDisplayName(selectedFile.status)}
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Actions Section */}
-              <div className="actions-section">
-                <div className="action-buttons-large">
-                  <button
-                    type="button"
-                    onClick={approveFile}
-                    className="btn btn-success-large"
-                    disabled={isLoading || selectedFile.status === 'final_approved' || selectedFile.status === 'rejected_by_team_leader' || selectedFile.status === 'rejected_by_admin'}
-                  >
-                    <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-                      <path d="M16.875 5L7.5 14.375L3.125 10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                    </svg>
-                    Approve
-                  </button>
-                  <button
-                    type="button"
-                    onClick={rejectFile}
-                    className="btn btn-danger-large"
-                    disabled={isLoading || selectedFile.status === 'final_approved' || selectedFile.status === 'rejected_by_team_leader' || selectedFile.status === 'rejected_by_admin'}
-                  >
-                    <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-                      <path d="M15 5L5 15M5 5L15 15" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                    </svg>
-                    Reject
-                  </button>
-                  <button
-                    onClick={() => openFile(selectedFile)}
-                    className="btn btn-secondary-large"
-                    disabled={isLoading || isOpeningFile}
-                  >
-                    <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-                      <path d="M15 10.8333V15.8333C15 16.2754 14.8244 16.6993 14.5118 17.0118C14.1993 17.3244 13.7754 17.5 13.3333 17.5H4.16667C3.72464 17.5 3.30072 17.3244 2.98816 17.0118C2.67559 16.6993 2.5 16.2754 2.5 15.8333V6.66667C2.5 6.22464 2.67559 5.80072 2.98816 5.48816C3.30072 5.17559 3.72464 5 4.16667 5H9.16667M12.5 2.5H17.5M17.5 2.5V7.5M17.5 2.5L8.33333 11.6667" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                    </svg>
-                    {isOpeningFile ? 'Opening...' : 'Open'}
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      <FileDetailsModal
+        isOpen={showFileModal}
+        onClose={closeFileModal}
+        file={selectedFile}
+        onApprove={approveFile}
+        onReject={rejectFile}
+        onOpenFile={() => openFile(selectedFile)}
+        isLoading={isLoading}
+        isOpeningFile={isOpeningFile}
+        formatFileSize={formatFileSize}
+        mapFileStatus={mapFileStatus}
+        getStatusDisplayName={getStatusDisplayName}
+      />
 
       {/* Delete Confirmation Modal */}
       <ConfirmationModal

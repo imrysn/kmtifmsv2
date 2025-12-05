@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, dialog, shell } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, shell, screen } = require('electron');
 const path = require('path');
 const { spawn } = require('child_process');
 const http = require('http');
@@ -14,13 +14,11 @@ const isDev = process.env.NODE_ENV === 'development';
 const SERVER_PORT = process.env.EXPRESS_PORT || 3001;
 const VITE_URL = 'http://localhost:5173';
 const EXPRESS_CHECK_INTERVAL = 500;
-const MAX_EXPRESS_WAIT = 30000; // 30 seconds
-const MAX_VITE_WAIT = 60000; // 60 seconds - enough time for Vite to start
+const MAX_EXPRESS_WAIT = 30000; 
+const MAX_VITE_WAIT = 60000; 
 const MAX_LOAD_RETRIES = 10;
 
-/**
- * Show a loading/error page as fallback when Vite isn't responding
- */
+/*** Show a loading/error page as fallback when Vite isn't responding */
 function showFallbackPage() {
   if (mainWindow && mainWindow.webContents) {
     const html = `
@@ -155,9 +153,7 @@ function checkViteConnection() {
   });
 }
 
-/**
- * Create and show splash window - NOW SHOWS IMMEDIATELY
- */
+/*** Create and show splash window - NOW SHOWS IMMEDIATELY */
 function createSplashWindow() {
   splashWindow = new BrowserWindow({
     width: 400,
@@ -166,9 +162,9 @@ function createSplashWindow() {
     alwaysOnTop: true,
     center: true,
     resizable: false,
-    show: false, // Will show after ready-to-show
+    show: false,
     backgroundColor: '#667eea',
-    icon: path.join(__dirname, 'client/src/assets/fms-icon.ico'),
+    icon: path.join(__dirname, 'client/src/assets/fms-icon.png'),
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
@@ -258,12 +254,25 @@ function createSplashWindow() {
 }
 
 function createWindow() {
+  const primaryDisplay = screen.getPrimaryDisplay();
+  const { width: screenWidth, height: screenHeight } = primaryDisplay.workAreaSize;
+  
+
+  const windowWidth = Math.floor(screenWidth * 0.8);
+  const windowHeight = Math.floor(screenHeight * 0.8);
+  const shouldAutoMaximize = screenWidth <= 1920 || screenHeight <= 1080;
+  
+  console.log(`🖥️  Screen detected: ${screenWidth}x${screenHeight}`);
+  console.log(`📐 Window size: ${windowWidth}x${windowHeight}`);
+  console.log(`🔍 Auto-maximize: ${shouldAutoMaximize ? 'Yes' : 'No'}`);
+  
   mainWindow = new BrowserWindow({
-    width: 1200,
-    height: 800,
-    backgroundColor: '#667eea', // Match splash background to prevent flash
-    show: false, // CHANGED: Don't show immediately, wait for content
-    icon: path.join(__dirname, 'client/src/assets/fms-icon.ico'),
+    width: windowWidth,
+    height: windowHeight,
+    backgroundColor: '#667eea',
+    show: false,
+    icon: path.join(__dirname, 'client/src/assets/fms-icon.png'),
+    center: true,
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,
@@ -279,13 +288,19 @@ function createWindow() {
     },
   });
 
+
+  if (shouldAutoMaximize) {
+    mainWindow.maximize();
+    console.log('✅ Window auto-maximized');
+  }
+
+  mainWindow.setMenuBarVisibility(false);
   mainWindow.once('ready-to-show', () => {
-    // Close splash window FIRST
+ 
     if (splashWindow && !splashWindow.isDestroyed()) {
       splashWindow.destroy();
       console.log('🏁 Splash window closed');
     }
-    // Then show main window
     mainWindow.show();
     console.log('✅ Main Electron window opened!');
   });
@@ -293,7 +308,6 @@ function createWindow() {
   if (isDev) {
     console.log(`🔗 Attempting to load React app from ${VITE_URL}`);
 
-    // IMPROVED: Show content faster
     mainWindow.webContents.on('did-start-loading', () => {
       console.log('🔄 Page started loading...');
     });
@@ -305,7 +319,7 @@ function createWindow() {
       if (loadRetryCount >= MAX_LOAD_RETRIES) {
         console.error('❌ Max retries reached. Showing fallback page.');
         showFallbackPage();
-        // Close splash and show main window with fallback
+
         if (splashWindow && !splashWindow.isDestroyed()) {
           splashWindow.destroy();
         }
@@ -324,11 +338,6 @@ function createWindow() {
       loadRetryCount = 0;
       isConnectedToVite = true;
       console.log('✅ Page loaded successfully');
-      
-      // Open DevTools after a short delay
-      setTimeout(() => {
-        mainWindow.webContents.openDevTools();
-      }, 500);
     });
 
     mainWindow.webContents.on('crashed', () => {
@@ -341,7 +350,6 @@ function createWindow() {
       console.log(`🖼️  [Renderer]: ${message}`);
     });
 
-    // Start checking immediately
     checkViteConnection();
     viteRetryInterval = setInterval(checkViteConnection, 3000);
 
@@ -361,9 +369,7 @@ function createWindow() {
   });
 }
 
-/**
- * Check if Vite is fully ready
- */
+/*** Check if Vite is fully ready */
 function checkViteServer() {
   return new Promise((resolve) => {
     const req = http.get(VITE_URL, { timeout: 2000 }, (res) => {
@@ -382,9 +388,7 @@ function checkViteServer() {
   });
 }
 
-/**
- * Check if Express is responding
- */
+/*** Check if Express is responding */
 function checkExpressServer() {
   return new Promise((resolve) => {
     const req = http.get(`http://localhost:${SERVER_PORT}`, { timeout: 1000 }, (res) => {
@@ -399,9 +403,7 @@ function checkExpressServer() {
   });
 }
 
-/**
- * Start Express server
- */
+/*** Start Express server */
 function startServer() {
   return new Promise((resolve, reject) => {
     console.log('🚀 Starting Express server...');
@@ -461,9 +463,7 @@ function startServer() {
   });
 }
 
-/**
- * Wait for Vite server - FASTER with early bailout
- */
+/*** Wait for Vite server - FASTER with early bailout */
 function waitForViteServer() {
   return new Promise((resolve) => {
     if (!isDev) {
@@ -485,7 +485,7 @@ function waitForViteServer() {
         console.error('   2. Try: cd client && npm install && npm run dev');
         console.error('   3. Restart the application');
         console.warn('⚠️  Proceeding anyway - fallback page will be shown...');
-        resolve(); // Resolve anyway to not block
+        resolve(); 
         return;
       }
 
@@ -498,7 +498,6 @@ function waitForViteServer() {
           return;
         }
       } catch (error) {
-        // Continue trying
       }
 
       if (attempts % 10 === 0) {
@@ -513,9 +512,7 @@ function waitForViteServer() {
   });
 }
 
-/**
- * Graceful shutdown handler
- */
+/*** Graceful shutdown handler */
 function shutdownServer() {
   if (serverProcess && !serverProcess.killed) {
     console.log('🛑 Stopping Express server...');
@@ -646,6 +643,14 @@ if (ipcMain) {
     } catch (error) {
       console.error('❌ Error:', error.message);
       return { success: false, error: error.message };
+    }
+  });
+
+  // Handle window flashing for notifications
+  ipcMain.on('window:flashFrame', (event, shouldFlash) => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      console.log(`🔔 Window flash: ${shouldFlash ? 'START' : 'STOP'}`);
+      mainWindow.flashFrame(shouldFlash);
     }
   });
 }

@@ -1,7 +1,12 @@
-/* NotificationTab Component Styles - Scoped */
+/* NotificationTab Component Styles - Electron Optimized */
 
 .user-notification-component.notification-section {
   padding: 24px;
+  height: 100%;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  contain: layout style;
 }
 
 .user-notification-component .page-header {
@@ -47,16 +52,7 @@
   }
 }
 
-.user-notification-component .bell-icon {
-  font-size: 28px;
-}
 
-.user-notification-component .page-header-title {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
-}
 
 .user-notification-component .page-header h2 {
   font-size: 28px;
@@ -65,16 +61,7 @@
   margin: 0;
 }
 
-.user-notification-component .unread-badge {
-  background: #ef4444;
-  color: white;
-  font-size: 14px;
-  font-weight: 600;
-  padding: 2px 8px;
-  border-radius: 12px;
-  min-width: 24px;
-  text-align: center;
-}
+
 
 .user-notification-component .page-header p {
   font-size: 14px;
@@ -91,7 +78,6 @@
   font-size: 14px;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.2s;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -101,8 +87,6 @@
 
 .user-notification-component .mark-all-read-btn:hover:not(:disabled) {
   background-color: #3b82f6;
-  transform: translateY(-1px);
-  box-shadow: 0 4px 6px -1px rgba(59, 130, 246, 0.4);
 }
 
 .user-notification-component .mark-all-read-btn:disabled {
@@ -119,7 +103,6 @@
   font-size: 14px;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.2s;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -129,8 +112,6 @@
 
 .user-notification-component .delete-all-btn:hover {
   background-color: #dc2626;
-  transform: translateY(-1px);
-  box-shadow: 0 4px 6px -1px rgba(239, 68, 68, 0.4);
 }
 
 .user-notification-component .notifications-container {
@@ -146,6 +127,7 @@
   flex-direction: column;
   gap: 12px;
   width: 100%;
+  contain: layout style;
 }
 
 .user-notification-component .notification-card {
@@ -155,14 +137,15 @@
   background-color: white;
   border: 1px solid #e5e7eb;
   border-radius: 8px;
-  transition: all 0.2s;
   position: relative;
+  cursor: pointer;
+  /* Electron performance optimization */
+  contain: layout style paint;
+  will-change: auto;
 }
 
 .user-notification-component .notification-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-  border-color: #d1d5db;
+  background-color: #f9fafb;
 }
 
 .user-notification-component .notification-card.unread {
@@ -211,53 +194,44 @@
 }
 
 .user-notification-component .notification-icon {
-  font-size: 24px;
   flex-shrink: 0;
-  width: 40px;
-  height: 40px;
+  width: 48px;
+  height: 48px;
   display: flex;
   align-items: center;
   justify-content: center;
-  background-color: #f3f4f6;
-  border-radius: 8px;
+  border-radius: 12px;
 }
 
-.user-notification-component .notification-icon svg {
-  width: 20px;
-  height: 20px;
-  stroke-width: 2;
-}
-
-.user-notification-component .notification-card.notification-comment .notification-icon {
-  background-color: #ccfbf1;
-  color: #0f766e;
-}
-
-.user-notification-component .notification-card.notification-assignment .notification-icon {
-  background-color: #e9d5ff;
-  color: #7c3aed;
-}
-
-.user-notification-component .notification-card.notification-success .notification-icon {
-  background-color: #d1fae5;
-  color: #047857;
-}
-
-.user-notification-component .notification-card.notification-error .notification-icon {
-  background-color: #fee2e2;
-  color: #dc2626;
-}
-
-.user-notification-component .bell-icon svg {
-  display: block;
+/* Icon colors for notification types */
+.user-notification-component .notification-card.notification-comment .notification-icon svg {
   color: #3b82f6;
+  stroke: #3b82f6;
 }
 
-.user-notification-component .empty-icon svg {
-  display: block;
-  color: #9ca3af;
-  opacity: 0.5;
+.user-notification-component .notification-card.notification-assignment .notification-icon svg {
+  color: #9333ea;
+  stroke: #9333ea;
 }
+
+.user-notification-component .notification-card.notification-success .notification-icon svg,
+.user-notification-component .notification-card.notification-approval .notification-icon svg {
+  color: #10b981;
+  stroke: #10b981;
+}
+
+.user-notification-component .notification-card.notification-error .notification-icon svg,
+.user-notification-component .notification-card.notification-rejection .notification-icon svg {
+  color: #ef4444;
+  stroke: #ef4444;
+}
+
+.user-notification-component .notification-card .notification-icon svg {
+  width: 24px;
+  height: 24px;
+}
+
+
 
 .user-notification-component .notification-content {
   flex: 1;
@@ -286,13 +260,11 @@
   cursor: pointer;
   padding: 4px 8px;
   line-height: 1;
-  transition: all 0.2s;
   border-radius: 4px;
 }
 
 .user-notification-component .delete-notification-btn:hover {
   background-color: #fecaca;
-  transform: scale(1.1);
 }
 
 .user-notification-component .notification-title {
@@ -325,10 +297,7 @@
   color: #6b7280;
 }
 
-.user-notification-component .notification-author {
-  font-weight: 500;
-  color: #4b5563;
-}
+
 
 .user-notification-component .notification-action-by {
   font-weight: 500;
@@ -417,6 +386,70 @@
   100% { transform: rotate(360deg); }
 }
 
+/* Skeleton Loading Styles */
+@keyframes skeleton-loading {
+  0% {
+    background-position: -200px 0;
+  }
+  100% {
+    background-position: calc(200px + 100%) 0;
+  }
+}
+
+.user-notification-component .skeleton-card {
+  pointer-events: none;
+  cursor: default;
+}
+
+.user-notification-component .skeleton-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  background: linear-gradient(90deg, #f0f0f0 0px, #f8f8f8 40px, #f0f0f0 80px);
+  background-size: 200px;
+  animation: skeleton-loading 1.5s ease-in-out infinite;
+}
+
+.user-notification-component .skeleton-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.user-notification-component .skeleton-title {
+  height: 20px;
+  width: 60%;
+  border-radius: 4px;
+  background: linear-gradient(90deg, #f0f0f0 0px, #f8f8f8 40px, #f0f0f0 80px);
+  background-size: 200px;
+  animation: skeleton-loading 1.5s ease-in-out infinite;
+}
+
+.user-notification-component .skeleton-message {
+  height: 16px;
+  width: 85%;
+  border-radius: 4px;
+  background: linear-gradient(90deg, #f0f0f0 0px, #f8f8f8 40px, #f0f0f0 80px);
+  background-size: 200px;
+  animation: skeleton-loading 1.5s ease-in-out infinite;
+}
+
+.user-notification-component .skeleton-footer {
+  display: flex;
+  gap: 16px;
+  margin-top: 4px;
+}
+
+.user-notification-component .skeleton-footer-item {
+  height: 14px;
+  width: 100px;
+  border-radius: 4px;
+  background: linear-gradient(90deg, #f0f0f0 0px, #f8f8f8 40px, #f0f0f0 80px);
+  background-size: 200px;
+  animation: skeleton-loading 1.5s ease-in-out infinite;
+}
+
 /* Custom Modal Styles */
 .custom-modal-overlay {
   position: fixed;
@@ -433,15 +466,6 @@
   z-index: 9999;
 }
 
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
-}
-
 .custom-modal {
   background: white;
   border-radius: 16px;
@@ -449,17 +473,6 @@
   max-width: 440px;
   width: 90%;
   box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
-}
-
-@keyframes slideUp {
-  from {
-    transform: translateY(20px);
-    opacity: 0;
-  }
-  to {
-    transform: translateY(0);
-    opacity: 1;
-  }
 }
 
 .modal-icon {
@@ -470,16 +483,6 @@
 
 .warning-icon {
   font-size: 56px;
-  animation: pulse 2s ease-in-out infinite;
-}
-
-@keyframes pulse {
-  0%, 100% {
-    transform: scale(1);
-  }
-  50% {
-    transform: scale(1.1);
-  }
 }
 
 .modal-title {
@@ -512,7 +515,6 @@
   border: none;
   border-radius: 8px;
   cursor: pointer;
-  transition: all 0.2s;
   min-width: 120px;
 }
 
@@ -523,7 +525,6 @@
 
 .modal-cancel-btn:hover {
   background-color: #e5e7eb;
-  transform: translateY(-1px);
 }
 
 .modal-confirm-btn {
@@ -533,6 +534,38 @@
 
 .modal-confirm-btn:hover {
   background-color: #dc2626;
-  transform: translateY(-1px);
-  box-shadow: 0 4px 6px -1px rgba(239, 68, 68, 0.3);
+}
+
+/* See More Button */
+.see-more-container {
+  display: flex;
+  justify-content: center;
+  padding: 16px 0;
+  margin-top: 8px;
+}
+
+.see-more-btn {
+  padding: 8px 0;
+  background: transparent;
+  border: none;
+  color: #5856d6;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  position: relative;
+}
+
+.see-more-btn::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: #5856d6;
+  transform: scaleX(0);
+}
+
+.see-more-btn:hover::after {
+  transform: scaleX(1);
 }

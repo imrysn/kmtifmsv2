@@ -72,15 +72,16 @@ async function updateNotificationsTable() {
 
     // Step 4: Update type enum
     const hasAssignmentType = typeColumn.Type.includes('assignment');
-    if (!hasAssignmentType) {
-      console.log('Step 4: Adding \'assignment\' to type enum...');
+    const hasPasswordResetType = typeColumn.Type.includes('password_reset_request');
+    if (!hasAssignmentType || !hasPasswordResetType) {
+      console.log('Step 4: Adding missing types to type enum...');
       await connection.query(`
-        ALTER TABLE notifications 
-        MODIFY COLUMN type ENUM('comment', 'approval', 'rejection', 'final_approval', 'final_rejection', 'assignment') NOT NULL
+        ALTER TABLE notifications
+        MODIFY COLUMN type ENUM('comment', 'approval', 'rejection', 'final_approval', 'final_rejection', 'assignment', 'password_reset_request') NOT NULL
       `);
       console.log('✅ Type enum updated');
     } else {
-      console.log('Step 4: \'assignment\' type already in enum ✓');
+      console.log('Step 4: All types already in enum ✓');
     }
 
     console.log('\n' + '='.repeat(60));

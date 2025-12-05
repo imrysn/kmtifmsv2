@@ -4,7 +4,7 @@ import { AlertMessage, ConfirmationModal, FormModal } from './modals'
 import { SkeletonLoader } from '../common/SkeletonLoader'
 import ErrorBoundary from '../ErrorBoundary'
 
-const UserManagement = ({ clearMessages, error, success, setError, setSuccess, user }) => {
+const UserManagement = ({ clearMessages, error, success, setError, setSuccess, user, contextData }) => {
   const [users, setUsers] = useState([])
   const [teams, setTeams] = useState([])
   const [teamsLoading, setTeamsLoading] = useState(false)
@@ -30,19 +30,28 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess, u
   const [currentPage, setCurrentPage] = useState(1)
   const itemsPerPage = 9
 
-  // Memoized filtered users for better performance
+  // Memoized filtered and sorted users for better performance
   const filteredUsers = useMemo(() => {
-    if (searchQuery.trim() === '') {
-      return users
+    let filtered = users
+    
+    // Filter by search query
+    if (searchQuery.trim() !== '') {
+      const query = searchQuery.toLowerCase()
+      filtered = users.filter(u =>
+        u.fullName.toLowerCase().includes(query) ||
+        u.username.toLowerCase().includes(query) ||
+        u.email.toLowerCase().includes(query) ||
+        u.role.toLowerCase().includes(query) ||
+        (u.team && u.team.toLowerCase().includes(query))
+      )
     }
-    const query = searchQuery.toLowerCase()
-    return users.filter(u =>
-      u.fullName.toLowerCase().includes(query) ||
-      u.username.toLowerCase().includes(query) ||
-      u.email.toLowerCase().includes(query) ||
-      u.role.toLowerCase().includes(query) ||
-      (u.team && u.team.toLowerCase().includes(query))
-    )
+    
+    // Sort by created_at (oldest first)
+    return filtered.sort((a, b) => {
+      const dateA = new Date(a.created_at || 0)
+      const dateB = new Date(b.created_at || 0)
+      return dateA - dateB // Ascending order (oldest first)
+    })
   }, [searchQuery, users])
 
   // Pagination calculations
@@ -115,6 +124,36 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess, u
     fetchUsers()
     fetchTeams()
   }, [fetchUsers, fetchTeams])
+
+  // Handle context data from notifications (e.g., password reset request)
+  useEffect(() => {
+    if (contextData && contextData.action === 'reset-password' && contextData.userId) {
+      console.log('🔑 Opening password reset modal for user:', contextData);
+      
+      // Find the user by ID
+      const targetUser = users.find(u => u.id === contextData.userId);
+      
+      if (targetUser) {
+        // Open password reset modal for this user
+        openPasswordModal(targetUser);
+        
+        // Optionally show a success message
+        setSuccess(`Password reset request from ${contextData.username || targetUser.username}`);
+        
+        // Scroll to the user in the list if possible
+        setTimeout(() => {
+          const userRow = document.querySelector(`[data-user-id="${contextData.userId}"]`);
+          if (userRow) {
+            userRow.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            userRow.classList.add('highlight-user');
+            setTimeout(() => userRow.classList.remove('highlight-user'), 2000);
+          }
+        }, 300);
+      } else {
+        setError('User not found. They may have been deleted.');
+      }
+    }
+  }, [contextData, users, setSuccess, setError]);
 
   const handleAddUser = useCallback(async (e) => {
     e.preventDefault()
@@ -400,7 +439,7 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess, u
                 {paginatedUsers.map((userData) => {
                   const roleClass = userData.role.toLowerCase().replace(' ', '-')
                   return (
-                    <tr key={userData.id} className="user-row">
+                    <tr key={userData.id} className="user-row" data-user-id={userData.id}>
                       <td>
                         <div className="user-cell">
                           <span className="user-name">

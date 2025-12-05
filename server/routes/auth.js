@@ -243,36 +243,61 @@ router.post('/forgot-password', forgotPasswordValidation, async (req, res) => {
   });
 
   try {
-    // Check if user exists
-    db.get('SELECT id, username, email FROM users WHERE email = ?', [email], async (err, user) => {
-      if (err || !user) {
-        // Don't reveal if user exists or not
-        console.log('Password reset requested for non-existent email:', email);
-        return;
-      }
-
-      // Find all admin users to notify them
-      db.all('SELECT id, username, role FROM users WHERE role LIKE ?', ['%ADMIN%'], async (err, admins) => {
-        if (err || !admins || admins.length === 0) {
-          console.error('❌ Error finding admins or no admins found:', err);
-          return;
-        }
-
-        // Create notifications for all admins
-        for (const admin of admins) {
-          await createNotification(
-            admin.id,
-            'password_reset_request',
-            `Password reset requested for ${user.email}`,
-            `/users?email=${user.email}`,
-            null,
-            user.id
-          );
-        }
-
-        console.log(`✅ Password reset notifications sent to ${admins.length} admin(s)`);
+    // First, find the user who is requesting the reset (by email or username)
+    const userQuery = email.includes('@')
+      ? 'SELECT id, username, fullName, email FROM users WHERE email = ?'
+      : 'SELECT id, username, fullName, email FROM users WHERE username = ?';
+    
+    const requestingUser = await new Promise((resolve, reject) => {
+      db.get(userQuery, [email], (err, row) => {
+        if (err) reject(err);
+        else resolve(row);
       });
     });
+
+    if (!requestingUser) {
+      console.log('⚠️ User not found for password reset:', email);
+      return; // Still return success to client for security
+    }
+
+    console.log('👤 Found requesting user:', requestingUser.username);
+
+    // Find all admin users to notify them
+    const adminQuery = 'SELECT id, username, role FROM users WHERE role LIKE ?';
+    const adminUsers = await new Promise((resolve, reject) => {
+      db.all(adminQuery, ['%ADMIN%'], (err, rows) => {
+        if (err) reject(err);
+        else resolve(rows || []);
+      });
+    });
+
+    console.log(`👤 Found ${adminUsers.length} admin users to notify`);
+
+    // Create notification for each admin user
+    const notificationPromises = adminUsers.map(async (admin) => {
+      const notificationMessage = `${requestingUser.fullName || requestingUser.username} (${requestingUser.email}) has requested a password reset. Click to reset their password.`;
+
+      // Create a notification with password_reset_request type
+      await createNotification(
+        admin.id,                    // userId (admin receiving notification)
+        null,                        // fileId (no file associated)
+        'password_reset_request',    // type
+        'Password Reset Request',    // title
+        notificationMessage,         // message (contains requesting user info)
+        requestingUser.id,           // actionById (user who requested reset)
+        requestingUser.username,     // actionByUsername
+        'USER',                      // actionByRole
+        null                         // assignmentId (no assignment)
+      );
+
+      console.log(`✅ Created password reset notification for admin ${admin.username}`);
+    });
+
+    await Promise.all(notificationPromises);
+
+    // Log the attempt
+    console.log(`🔐 Password reset request logged: "${email}" - notified ${adminUsers.length} admins`);
+
   } catch (error) {
     console.error('❌ Forgot password error:', error);
     // Still return success to prevent email enumeration

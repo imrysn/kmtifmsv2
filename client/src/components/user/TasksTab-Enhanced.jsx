@@ -905,46 +905,19 @@ const TasksTab = ({ user }) => {
                           {/* See More / See Less Button */}
                           {sortedFiles.length > 5 && (
                             <button
-                              onClick={() => setShowAllFiles(prev => ({
-                                ...prev,
-                                [assignment.id]: !prev[assignment.id]
-                              }))}
-                              style={{
-                                width: '100%',
-                                padding: '8px',
-                                marginTop: '8px',
-                                backgroundColor: 'transparent',
-                                border: 'none',
-                                borderRadius: '6px',
-                                color: '#6b7280',
-                                fontSize: '13px',
-                                fontWeight: '400',
-                                cursor: 'pointer',
-                                transition: 'all 0.2s',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                gap: '4px'
-                              }}
-                              onMouseEnter={(e) => {
-                                e.target.style.backgroundColor = '#f9fafb';
-                                e.target.style.color = '#374151';
-                              }}
-                              onMouseLeave={(e) => {
-                                e.target.style.backgroundColor = 'transparent';
-                                e.target.style.color = '#6b7280';
+                              className="see-more-files-btn"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setShowAllFiles(prev => ({
+                                  ...prev,
+                                  [assignment.id]: !prev[assignment.id]
+                                }));
                               }}
                             >
                               {showAllFiles[assignment.id] ? (
-                                <>
-                                  <span>Show less</span>
-                                  <span style={{ fontSize: '10px' }}>▲</span>
-                                </>
+                                <span>See less</span>
                               ) : (
-                                <>
-                                  <span>See more ({sortedFiles.length - 5} more files)</span>
-                                  <span style={{ fontSize: '10px' }}>▼</span>
-                                </>
+                                <span>See more ({sortedFiles.length - 5} more files)</span>
                               )}
                             </button>
                           )}

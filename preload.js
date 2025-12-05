@@ -10,7 +10,10 @@ try {
     openDirectoryDialog: () => ipcRenderer.invoke('dialog:openDirectory'),
     
     // File operations - uses Windows default file associations
-    openFileInApp: (filePath) => ipcRenderer.invoke('file:openInApp', filePath)
+    openFileInApp: (filePath) => ipcRenderer.invoke('file:openInApp', filePath),
+    
+    // Window flashing for notifications
+    flashFrame: (shouldFlash) => ipcRenderer.send('window:flashFrame', shouldFlash)
   });
   console.log('✅ Electron API exposed to window object');
 } catch (error) {

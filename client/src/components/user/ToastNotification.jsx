@@ -1,9 +1,13 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import './css/ToastNotification.css';
+import { useManualTaskbarFlash } from '../../utils/useTaskbarFlash';
 
 const ToastNotification = ({ notifications, onClose, onNavigate }) => {
   const [visible, setVisible] = useState([]);
   const [dismissed, setDismissed] = useState(new Set());
+  
+  // Manual taskbar flash trigger
+  const flashTaskbar = useManualTaskbarFlash({ duration: 5000 });
 
   useEffect(() => {
     // Filter out dismissed notifications and only show unread ones
@@ -12,6 +16,14 @@ const ToastNotification = ({ notifications, onClose, onNavigate }) => {
       .slice(0, 3); // Show max 3 at a time
 
     setVisible(newNotifications);
+
+    // Flash taskbar when new toast notifications appear
+    if (newNotifications.length > 0) {
+      const message = newNotifications.length === 1 
+        ? newNotifications[0].title 
+        : `${newNotifications.length} New Notifications`;
+      flashTaskbar(message);
+    }
 
     // Auto-dismiss after 5 seconds
     if (newNotifications.length > 0) {
@@ -25,14 +37,12 @@ const ToastNotification = ({ notifications, onClose, onNavigate }) => {
     }
   }, [notifications, dismissed]);
 
-  const handleDismiss = (notificationId) => {
+  const handleDismiss = useCallback((notificationId) => {
     setDismissed(prev => new Set([...prev, notificationId]));
     setVisible(prev => prev.filter(n => n.id !== notificationId));
-  };
+  }, []);
 
-  const handleClick = (notification) => {
-    console.log('👆 Notification clicked:', notification);
-    
+  const handleClick = useCallback((notification) => {
     if (onNavigate) {
       // Handle different notification types
       if (notification.type === 'comment' && notification.assignment_id) {
@@ -54,23 +64,18 @@ const ToastNotification = ({ notifications, onClose, onNavigate }) => {
         notification.file_id
       ) {
         // For file approval/rejection notifications, navigate to my-files and open the file
-        console.log('📂 Opening file:', notification.file_id);
         onNavigate('my-files', notification.file_id);
       }
       else if (notification.file_id) {
         // Generic file notification fallback
-        console.log('📂 Opening file (fallback):', notification.file_id);
         onNavigate('my-files', notification.file_id);
-      }
-      else {
-        console.log('⚠️ No specific navigation target found for notification');
       }
     }
     
     handleDismiss(notification.id);
-  };
+  }, [onNavigate, handleDismiss]);
 
-  const getNotificationIcon = (type) => {
+  const getNotificationIcon = useCallback((type) => {
     switch (type) {
       case 'comment':
         return '💬';
@@ -87,9 +92,9 @@ const ToastNotification = ({ notifications, onClose, onNavigate }) => {
       default:
         return '🔔';
     }
-  };
+  }, []);
 
-  const getNotificationColor = (type) => {
+  const getNotificationColor = useCallback((type) => {
     switch (type) {
       case 'comment':
         return 'blue';
@@ -104,7 +109,7 @@ const ToastNotification = ({ notifications, onClose, onNavigate }) => {
       default:
         return 'gray';
     }
-  };
+  }, []);
 
   if (visible.length === 0) return null;
 
