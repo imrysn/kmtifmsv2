@@ -345,7 +345,7 @@ const Login = ({ onLogin }) => {
                 disabled={!forgotPasswordEmail.trim() || isForgotPasswordSubmitting}
                 className="submit-button"
               >
-                {isForgotPasswordSubmitting ? 'Sending...' : 'Send Reset Email'}
+                {isForgotPasswordSubmitting ? 'Sending...' : 'Send Reset Password'}
               </button>
             </div>
           </div>

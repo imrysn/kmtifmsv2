@@ -640,15 +640,17 @@ body {
 .modal-content input {
   width: 100%;
   padding: 10px 12px;
-  border: 1px solid #E5E7EB;
+  border: 1px solid #000000;
   border-radius: 6px;
   font-size: 14px;
   margin-bottom: 20px;
+  background: #ffffff;
+  color: #101828;
 }
 
 .modal-content input:focus {
   outline: none;
-  border-color: #6d706e;
+  border-color: #1100ff;
   box-shadow: 0 0 0 2px rgba(79, 57, 246, 0.1);
 }
 
