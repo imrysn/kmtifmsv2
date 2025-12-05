@@ -356,16 +356,15 @@ const MyFilesTab = ({
 
   return (
     <div className="user-my-files-component my-files-wrapper">
-      {/* Header - LEFT TOP */}
+      {/* Header with Stats */}
       <div className="my-files-header-top">
         <div className="header-left">
           <h1>My Files</h1>
           <p className="header-subtitle">{submittedFiles.length} files • {formatFileSize(submittedFiles.reduce((total, file) => total + file.file_size, 0))} total</p>
         </div>
-      </div>
-
-      {/* Statistics Cards - BELOW */}
-      <div className="stats-row">
+        
+        {/* Statistics Cards - RIGHT SIDE */}
+        <div className="stats-row">
           <div className="stat-box pending-box">
             <div className="stat-icon pending-icon"></div>
             <div className="stat-text">
@@ -389,6 +388,7 @@ const MyFilesTab = ({
               <div className="stat-name">Rejected Files</div>
             </div>
           </div>
+        </div>
       </div>
 
       {/* Files Table */}

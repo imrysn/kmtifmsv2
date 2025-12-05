@@ -1,24 +1,28 @@
-import { useState, useEffect, Suspense } from 'react'
+import { useState, useEffect, Suspense, lazy } from 'react'
 import '../css/TeamLeaderDashboard.css'
 import SkeletonLoader from '../components/common/SkeletonLoader'
 
-// Import refactored components
+// Eagerly import critical components
 import {
   Sidebar,
   AlertMessage,
-  OverviewTab,
-  FileCollectionTab,
-  TeamManagementTab,
-  AssignmentsTab,
-  NotificationTab,
-  BulkActionModal,
-  FilterModal,
-  PriorityModal,
-  MemberFilesModal,
-  CreateAssignmentModal,
-  ReviewModal,
-  FileViewModal
 } from '../components/teamleader'
+
+// Lazy load tab components
+const OverviewTab = lazy(() => import('../components/teamleader').then(module => ({ default: module.OverviewTab })))
+const FileCollectionTab = lazy(() => import('../components/teamleader').then(module => ({ default: module.FileCollectionTab })))
+const TeamManagementTab = lazy(() => import('../components/teamleader').then(module => ({ default: module.TeamManagementTab })))
+const AssignmentsTab = lazy(() => import('../components/teamleader').then(module => ({ default: module.AssignmentsTab })))
+const NotificationTab = lazy(() => import('../components/teamleader').then(module => ({ default: module.NotificationTab })))
+
+// Lazy load modal components
+const BulkActionModal = lazy(() => import('../components/teamleader').then(module => ({ default: module.BulkActionModal })))
+const FilterModal = lazy(() => import('../components/teamleader').then(module => ({ default: module.FilterModal })))
+const PriorityModal = lazy(() => import('../components/teamleader').then(module => ({ default: module.PriorityModal })))
+const MemberFilesModal = lazy(() => import('../components/teamleader').then(module => ({ default: module.MemberFilesModal })))
+const CreateAssignmentModal = lazy(() => import('../components/teamleader').then(module => ({ default: module.CreateAssignmentModal })))
+const ReviewModal = lazy(() => import('../components/teamleader').then(module => ({ default: module.ReviewModal })))
+const FileViewModal = lazy(() => import('../components/teamleader').then(module => ({ default: module.FileViewModal })))
 
 const TeamLeaderDashboard = ({ user, onLogout }) => {
   const [activeTab, setActiveTab] = useState('dashboard')
@@ -701,161 +705,175 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
     switch (activeTab) {
       case 'overview':
         return (
-          <OverviewTab
-            pendingFiles={pendingFiles}
-            teamMembers={teamMembers}
-            calculateApprovalRate={calculateApprovalRate}
-          />
+          <Suspense fallback={<SkeletonLoader type="cards" />}>
+            <OverviewTab
+              pendingFiles={pendingFiles}
+              teamMembers={teamMembers}
+              calculateApprovalRate={calculateApprovalRate}
+            />
+          </Suspense>
         )
       case 'dashboard':
         return (
-          <OverviewTab
-            pendingFiles={pendingFiles}
-            teamMembers={teamMembers}
-            calculateApprovalRate={calculateApprovalRate}
-            submittedFiles={submittedFiles}
-            assignments={assignments}
-            notifications={notifications}
-            notificationCounts={notificationCounts}
-            analyticsData={analyticsData}
-            activeTab={activeTab}
-            setActiveTab={setActiveTab}
-            onNavigateToTask={(assignmentId, fileId) => {
-              setActiveTab('assignments')
-              setHighlightedAssignmentId(assignmentId)
-              if (fileId) {
-                setHighlightedSubmissionFileId(fileId)
-              }
-            }}
-          />
+          <Suspense fallback={<SkeletonLoader type="cards" />}>
+            <OverviewTab
+              pendingFiles={pendingFiles}
+              teamMembers={teamMembers}
+              calculateApprovalRate={calculateApprovalRate}
+              submittedFiles={submittedFiles}
+              assignments={assignments}
+              notifications={notifications}
+              notificationCounts={notificationCounts}
+              analyticsData={analyticsData}
+              activeTab={activeTab}
+              setActiveTab={setActiveTab}
+              onNavigateToTask={(assignmentId, fileId) => {
+                setActiveTab('assignments')
+                setHighlightedAssignmentId(assignmentId)
+                if (fileId) {
+                  setHighlightedSubmissionFileId(fileId)
+                }
+              }}
+            />
+          </Suspense>
         )
       case 'file-collection':
         return (
-          <FileCollectionTab
-            submittedFiles={submittedFiles}
-            isLoading={isLoading}
-            openFileViewModal={openFileViewModal}
-            formatFileSize={formatFileSize}
-            user={user}
-            openMenuId={openMenuId}
-            toggleMenu={toggleMenu}
-            handleOpenInExplorer={handleOpenInExplorer}
-            fileCollectionFilter={fileCollectionFilter}
-            setFileCollectionFilter={setFileCollectionFilter}
-            fileCollectionSort={fileCollectionSort}
-            setFileCollectionSort={setFileCollectionSort}
-            onNavigateToTask={(assignmentId, fileId) => {
-              setActiveTab('assignments')
-              setHighlightedAssignmentId(assignmentId)
-              if (fileId) {
-                setHighlightedSubmissionFileId(fileId)
-              }
-            }}
-            highlightedFileId={highlightedFileId}
-            onClearFileHighlight={() => setHighlightedFileId(null)}
-          />
+          <Suspense fallback={<SkeletonLoader type="table" />}>
+            <FileCollectionTab
+              submittedFiles={submittedFiles}
+              isLoading={isLoading}
+              openFileViewModal={openFileViewModal}
+              formatFileSize={formatFileSize}
+              user={user}
+              openMenuId={openMenuId}
+              toggleMenu={toggleMenu}
+              handleOpenInExplorer={handleOpenInExplorer}
+              fileCollectionFilter={fileCollectionFilter}
+              setFileCollectionFilter={setFileCollectionFilter}
+              fileCollectionSort={fileCollectionSort}
+              setFileCollectionSort={setFileCollectionSort}
+              onNavigateToTask={(assignmentId, fileId) => {
+                setActiveTab('assignments')
+                setHighlightedAssignmentId(assignmentId)
+                if (fileId) {
+                  setHighlightedSubmissionFileId(fileId)
+                }
+              }}
+              highlightedFileId={highlightedFileId}
+              onClearFileHighlight={() => setHighlightedFileId(null)}
+            />
+          </Suspense>
         )
       case 'team-management':
         return (
-          <TeamManagementTab
-            isLoadingTeam={isLoadingTeam}
-            teamMembers={teamMembers}
-            fetchMemberFiles={fetchMemberFiles}
-          />
+          <Suspense fallback={<SkeletonLoader type="table" />}>
+            <TeamManagementTab
+              isLoadingTeam={isLoadingTeam}
+              teamMembers={teamMembers}
+              fetchMemberFiles={fetchMemberFiles}
+            />
+          </Suspense>
         )
       case 'assignments':
         return (
-          <AssignmentsTab
-            isLoadingAssignments={isLoadingAssignments}
-            assignments={assignments}
-            formatDate={formatDate}
-            deleteAssignment={deleteAssignment}
-            setShowCreateAssignmentModal={setShowCreateAssignmentModal}
-            openReviewModal={openReviewModal}
-            user={user}
-            notificationCommentContext={notificationCommentContext}
-            onClearNotificationContext={() => setNotificationCommentContext(null)}
-            highlightedAssignmentId={highlightedAssignmentId}
-            onClearHighlight={() => setHighlightedAssignmentId(null)}
-            highlightedFileId={highlightedSubmissionFileId}
-            onClearFileHighlight={() => setHighlightedSubmissionFileId(null)}
-          />
+          <Suspense fallback={<SkeletonLoader type="table" />}>
+            <AssignmentsTab
+              isLoadingAssignments={isLoadingAssignments}
+              assignments={assignments}
+              formatDate={formatDate}
+              deleteAssignment={deleteAssignment}
+              setShowCreateAssignmentModal={setShowCreateAssignmentModal}
+              openReviewModal={openReviewModal}
+              user={user}
+              notificationCommentContext={notificationCommentContext}
+              onClearNotificationContext={() => setNotificationCommentContext(null)}
+              highlightedAssignmentId={highlightedAssignmentId}
+              onClearHighlight={() => setHighlightedAssignmentId(null)}
+              highlightedFileId={highlightedSubmissionFileId}
+              onClearFileHighlight={() => setHighlightedSubmissionFileId(null)}
+            />
+          </Suspense>
         )
       case 'notifications':
         return (
-          <NotificationTab
-            user={user}
-            onNavigate={async (tab, data) => {
-              console.log('🎯 Dashboard onNavigate called');
-              console.log('   Tab:', tab);
-              console.log('   Data:', data);
-              
-              if (tab === 'assignments') {
-                setActiveTab('assignments')
-                // Ensure assignments are loaded first
-                if (assignments.length === 0) {
-                  console.log('   ⏳ Fetching assignments...');
-                  await fetchAssignments()
-                }
+          <Suspense fallback={<SkeletonLoader type="list" />}>
+            <NotificationTab
+              user={user}
+              onNavigate={async (tab, data) => {
+                console.log('🎯 Dashboard onNavigate called');
+                console.log('   Tab:', tab);
+                console.log('   Data:', data);
                 
-                // Handle both object and primitive data formats
-                const assignmentId = typeof data === 'object' ? data.assignmentId : data
-                const shouldOpenComments = typeof data === 'object' ? data.shouldOpenComments : false
-                const expandAllReplies = typeof data === 'object' ? data.expandAllReplies : false
-                const fileId = typeof data === 'object' ? data.fileId : null
-
-                console.log('   📋 Extracted data:');
-                console.log('      assignmentId:', assignmentId);
-                console.log('      shouldOpenComments:', shouldOpenComments);
-                console.log('      expandAllReplies:', expandAllReplies);
-                console.log('      fileId:', fileId);
-
-                if (assignmentId) {
-                  // Set highlighted assignment for scroll and highlight
-                  setHighlightedAssignmentId(assignmentId)
-                  console.log('   ✅ Set highlightedAssignmentId:', assignmentId);
-                  
-                  // If there's a file_id, also highlight the specific file within the task
-                  if (fileId) {
-                    setHighlightedSubmissionFileId(fileId)
-                    console.log('   ✅ Set highlightedSubmissionFileId:', fileId);
+                if (tab === 'assignments') {
+                  setActiveTab('assignments')
+                  // Ensure assignments are loaded first
+                  if (assignments.length === 0) {
+                    console.log('   ⏳ Fetching assignments...');
+                    await fetchAssignments()
                   }
                   
-                  if (shouldOpenComments) {
-                    // For comment notifications, set context to auto-open comments
-                    const context = {
-                      assignmentId: assignmentId,
-                      expandAllReplies: expandAllReplies  // Pass the expand flag
-                    };
-                    console.log('   ✅ Setting notificationCommentContext:', context);
-                    setNotificationCommentContext(context)
-                  } else {
-                    console.log('   ⚠️ Not opening comments - shouldOpenComments:', shouldOpenComments);
+                  // Handle both object and primitive data formats
+                  const assignmentId = typeof data === 'object' ? data.assignmentId : data
+                  const shouldOpenComments = typeof data === 'object' ? data.shouldOpenComments : false
+                  const expandAllReplies = typeof data === 'object' ? data.expandAllReplies : false
+                  const fileId = typeof data === 'object' ? data.fileId : null
+
+                  console.log('   📋 Extracted data:');
+                  console.log('      assignmentId:', assignmentId);
+                  console.log('      shouldOpenComments:', shouldOpenComments);
+                  console.log('      expandAllReplies:', expandAllReplies);
+                  console.log('      fileId:', fileId);
+
+                  if (assignmentId) {
+                    // Set highlighted assignment for scroll and highlight
+                    setHighlightedAssignmentId(assignmentId)
+                    console.log('   ✅ Set highlightedAssignmentId:', assignmentId);
+                    
+                    // If there's a file_id, also highlight the specific file within the task
+                    if (fileId) {
+                      setHighlightedSubmissionFileId(fileId)
+                      console.log('   ✅ Set highlightedSubmissionFileId:', fileId);
+                    }
+                    
+                    if (shouldOpenComments) {
+                      // For comment notifications, set context to auto-open comments
+                      const context = {
+                        assignmentId: assignmentId,
+                        expandAllReplies: expandAllReplies  // Pass the expand flag
+                      };
+                      console.log('   ✅ Setting notificationCommentContext:', context);
+                      setNotificationCommentContext(context)
+                    } else {
+                      console.log('   ⚠️ Not opening comments - shouldOpenComments:', shouldOpenComments);
+                    }
+                  }
+                } else if (tab === 'file-collection') {
+                  // For file approval/rejection notifications, navigate to file collection
+                  setActiveTab('file-collection')
+                  // Ensure submissions are loaded first
+                  if (submittedFiles.length === 0) {
+                    await fetchAllSubmissions()
+                  }
+                  // Highlight the specific file
+                  if (data) {
+                    const fileId = typeof data === 'object' ? data.fileId : data
+                    setHighlightedFileId(fileId)
                   }
                 }
-              } else if (tab === 'file-collection') {
-                // For file approval/rejection notifications, navigate to file collection
-                setActiveTab('file-collection')
-                // Ensure submissions are loaded first
-                if (submittedFiles.length === 0) {
-                  await fetchAllSubmissions()
-                }
-                // Highlight the specific file
-                if (data) {
-                  const fileId = typeof data === 'object' ? data.fileId : data
-                  setHighlightedFileId(fileId)
-                }
-              }
-            }}
-          />
+              }}
+            />
+          </Suspense>
         )
       default:
         return (
-          <OverviewTab
-            pendingFiles={pendingFiles}
-            teamMembers={teamMembers}
-            calculateApprovalRate={calculateApprovalRate}
-          />
+          <Suspense fallback={<SkeletonLoader type="cards" />}>
+            <OverviewTab
+              pendingFiles={pendingFiles}
+              teamMembers={teamMembers}
+              calculateApprovalRate={calculateApprovalRate}
+            />
+          </Suspense>
         )
     }
   }
@@ -883,80 +901,108 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
         </main>
 
         {/* All Modals */}
-        <BulkActionModal
-          showBulkActionModal={showBulkActionModal}
-          setShowBulkActionModal={setShowBulkActionModal}
-          bulkAction={bulkAction}
-          selectedFileIds={selectedFileIds}
-          bulkComments={bulkComments}
-          setBulkComments={setBulkComments}
-          isProcessing={isProcessing}
-          submitBulkAction={submitBulkAction}
-        />
+        {showBulkActionModal && (
+          <Suspense fallback={<div />}>
+            <BulkActionModal
+              showBulkActionModal={showBulkActionModal}
+              setShowBulkActionModal={setShowBulkActionModal}
+              bulkAction={bulkAction}
+              selectedFileIds={selectedFileIds}
+              bulkComments={bulkComments}
+              setBulkComments={setBulkComments}
+              isProcessing={isProcessing}
+              submitBulkAction={submitBulkAction}
+            />
+          </Suspense>
+        )}
 
-        <FilterModal
-          showFilterModal={showFilterModal}
-          setShowFilterModal={setShowFilterModal}
-          filters={filters}
-          setFilters={setFilters}
-          clearFilters={clearFilters}
-          applyFilters={applyFilters}
-        />
+        {showFilterModal && (
+          <Suspense fallback={<div />}>
+            <FilterModal
+              showFilterModal={showFilterModal}
+              setShowFilterModal={setShowFilterModal}
+              filters={filters}
+              setFilters={setFilters}
+              clearFilters={clearFilters}
+              applyFilters={applyFilters}
+            />
+          </Suspense>
+        )}
 
-        <PriorityModal
-          showPriorityModal={showPriorityModal}
-          setShowPriorityModal={setShowPriorityModal}
-          priorityValue={priorityValue}
-          setPriorityValue={setPriorityValue}
-          dueDateValue={dueDateValue}
-          setDueDateValue={setDueDateValue}
-          isProcessing={isProcessing}
-          submitPriority={submitPriority}
-        />
+        {showPriorityModal && (
+          <Suspense fallback={<div />}>
+            <PriorityModal
+              showPriorityModal={showPriorityModal}
+              setShowPriorityModal={setShowPriorityModal}
+              priorityValue={priorityValue}
+              setPriorityValue={setPriorityValue}
+              dueDateValue={dueDateValue}
+              setDueDateValue={setDueDateValue}
+              isProcessing={isProcessing}
+              submitPriority={submitPriority}
+            />
+          </Suspense>
+        )}
 
-        <MemberFilesModal
-          showMemberFilesModal={showMemberFilesModal}
-          setShowMemberFilesModal={setShowMemberFilesModal}
-          selectedMember={selectedMember}
-          setSelectedMember={setSelectedMember}
-          memberFiles={memberFiles}
-          setMemberFiles={setMemberFiles}
-          isLoading={isLoading}
-          formatFileSize={formatFileSize}
-        />
+        {showMemberFilesModal && (
+          <Suspense fallback={<div />}>
+            <MemberFilesModal
+              showMemberFilesModal={showMemberFilesModal}
+              setShowMemberFilesModal={setShowMemberFilesModal}
+              selectedMember={selectedMember}
+              setSelectedMember={setSelectedMember}
+              memberFiles={memberFiles}
+              setMemberFiles={setMemberFiles}
+              isLoading={isLoading}
+              formatFileSize={formatFileSize}
+            />
+          </Suspense>
+        )}
 
-        <CreateAssignmentModal
-          showCreateAssignmentModal={showCreateAssignmentModal}
-          setShowCreateAssignmentModal={setShowCreateAssignmentModal}
-          assignmentForm={assignmentForm}
-          setAssignmentForm={setAssignmentForm}
-          teamMembers={teamMembers}
-          isProcessing={isProcessing}
-          createAssignment={createAssignment}
-        />
+        {showCreateAssignmentModal && (
+          <Suspense fallback={<div />}>
+            <CreateAssignmentModal
+              showCreateAssignmentModal={showCreateAssignmentModal}
+              setShowCreateAssignmentModal={setShowCreateAssignmentModal}
+              assignmentForm={assignmentForm}
+              setAssignmentForm={setAssignmentForm}
+              teamMembers={teamMembers}
+              isProcessing={isProcessing}
+              createAssignment={createAssignment}
+            />
+          </Suspense>
+        )}
 
-        <ReviewModal
-          showReviewModal={showReviewModal}
-          setShowReviewModal={setShowReviewModal}
-          selectedFile={selectedFile}
-          reviewAction={reviewAction}
-          setReviewAction={setReviewAction}
-          fileComments={fileComments}
-          reviewComments={reviewComments}
-          setReviewComments={setReviewComments}
-          isProcessing={isProcessing}
-          handleReviewSubmit={handleReviewSubmit}
-          formatFileSize={formatFileSize}
-          user={user}
-        />
+        {showReviewModal && (
+          <Suspense fallback={<div />}>
+            <ReviewModal
+              showReviewModal={showReviewModal}
+              setShowReviewModal={setShowReviewModal}
+              selectedFile={selectedFile}
+              reviewAction={reviewAction}
+              setReviewAction={setReviewAction}
+              fileComments={fileComments}
+              reviewComments={reviewComments}
+              setReviewComments={setReviewComments}
+              isProcessing={isProcessing}
+              handleReviewSubmit={handleReviewSubmit}
+              formatFileSize={formatFileSize}
+              user={user}
+            />
+          </Suspense>
+        )}
 
-        <FileViewModal
-          showModal={showFileViewModal}
-          setShowModal={setShowFileViewModal}
-          selectedFile={selectedFile}
-          formatFileSize={formatFileSize}
-          user={user}
-        />
+        {showFileViewModal && (
+          <Suspense fallback={<div />}>
+            <FileViewModal
+              showModal={showFileViewModal}
+              setShowModal={setShowFileViewModal}
+              selectedFile={selectedFile}
+              formatFileSize={formatFileSize}
+              user={user}
+            />
+          </Suspense>
+        )}
       </div>
     </Suspense>
   )

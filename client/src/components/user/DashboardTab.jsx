@@ -152,70 +152,19 @@ const DashboardTab = ({ user, files, setActiveTab }) => {
               </div>
             </div>
           </div>
-          
-          {user && (
-            <div className="user-info-grid">
-              <div className="user-info-row">
-                <div className="user-info-field">
-                  <span className="field-label">FULL NAME</span>
-                  <div className="field-value-wrapper">
-                    <div className="field-icon user-icon">
-                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
-                        <circle cx="12" cy="7" r="4"></circle>
-                      </svg>
-                    </div>
-                    <span className="field-value">{user.fullName}</span>
-                  </div>
-                </div>
-                <div className="user-info-field">
-                  <span className="field-label">EMAIL</span>
-                  <div className="field-value-wrapper">
-                    <div className="field-icon email-icon">
-                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <rect x="2" y="4" width="20" height="16" rx="2"></rect>
-                        <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"></path>
-                      </svg>
-                    </div>
-                    <span className="field-value">{user.email}</span>
-                  </div>
-                </div>
-              </div>
-              <div className="user-info-row">
-                <div className="user-info-field">
-                  <span className="field-label">TEAM</span>
-                  <div className="field-value-wrapper">
-                    <div className="field-icon team-icon">
-                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <rect x="3" y="3" width="7" height="7"></rect>
-                        <rect x="14" y="3" width="7" height="7"></rect>
-                        <rect x="14" y="14" width="7" height="7"></rect>
-                        <rect x="3" y="14" width="7" height="7"></rect>
-                      </svg>
-                    </div>
-                    <span className="field-value">{user.team}</span>
-                  </div>
-                </div>
-                <div className="user-info-field">
-                  <span className="field-label">ROLE</span>
-                  <div className="field-value-wrapper">
-                    <div className="field-icon role-icon">
-                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
-                      </svg>
-                    </div>
-                    <span className="field-value">{user.role.toUpperCase()}</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
         </div>
 
         {/* Performance Analytics */}
         <div className="dashboard-card analytics-card">
           <div className="analytics-header">
-            <h3>📊 Performance Analytics</h3>
+            <h3>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '8px', verticalAlign: 'middle' }}>
+                <line x1="18" y1="20" x2="18" y2="10"></line>
+                <line x1="12" y1="20" x2="12" y2="4"></line>
+                <line x1="6" y1="20" x2="6" y2="14"></line>
+              </svg>
+              Performance Analytics
+            </h3>
             <p className="analytics-subtitle">Your productivity metrics at a glance</p>
           </div>
           <div className="analytics-grid">
@@ -232,7 +181,11 @@ const DashboardTab = ({ user, files, setActiveTab }) => {
               </div>
             </div>
             <div className="analytics-item">
-              <div className="analytics-icon tasks-icon">✓</div>
+              <div className="analytics-icon tasks-icon">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+              </div>
               <div className="analytics-content-item">
                 <div className="analytics-label">Task Completion</div>
                 <div className="analytics-value">{taskCompletionRate}%</div>
@@ -240,7 +193,12 @@ const DashboardTab = ({ user, files, setActiveTab }) => {
               </div>
             </div>
             <div className="analytics-item">
-              <div className="analytics-icon files-icon">📄</div>
+              <div className="analytics-icon files-icon">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"></path>
+                  <polyline points="13 2 13 9 20 9"></polyline>
+                </svg>
+              </div>
               <div className="analytics-content-item">
                 <div className="analytics-label">File Approval Rate</div>
                 <div className="analytics-value">{fileApprovalRate}%</div>
@@ -248,7 +206,12 @@ const DashboardTab = ({ user, files, setActiveTab }) => {
               </div>
             </div>
             <div className="analytics-item">
-              <div className="analytics-icon ontime-icon">⏱️</div>
+              <div className="analytics-icon ontime-icon">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="10"></circle>
+                  <polyline points="12 6 12 12 16 14"></polyline>
+                </svg>
+              </div>
               <div className="analytics-content-item">
                 <div className="analytics-label">On-Time Delivery</div>
                 <div className="analytics-value">{onTimeRate}%</div>
@@ -256,7 +219,13 @@ const DashboardTab = ({ user, files, setActiveTab }) => {
               </div>
             </div>
             <div className="analytics-item">
-              <div className="analytics-icon overdue-icon">⚠️</div>
+              <div className="analytics-icon overdue-icon">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+                  <line x1="12" y1="9" x2="12" y2="13"></line>
+                  <line x1="12" y1="17" x2="12.01" y2="17"></line>
+                </svg>
+              </div>
               <div className="analytics-content-item">
                 <div className="analytics-label">Overdue Tasks</div>
                 <div className="analytics-value">{myTasksStats.overdue}</div>
@@ -270,7 +239,11 @@ const DashboardTab = ({ user, files, setActiveTab }) => {
       {/* Quick Stats Grid - No Container */}
       <div className="quick-stats-grid">
         <div className="stat-card" onClick={() => setActiveTab('tasks')}>
-          <div className="stat-icon tasks-icon">✓</div>
+          <div className="stat-icon tasks-icon">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="20 6 9 17 4 12"></polyline>
+            </svg>
+          </div>
           <div className="stat-content">
             <div className="stat-label">My Tasks</div>
             <div className="stat-value">{myTasksStats.total}</div>
@@ -285,7 +258,12 @@ const DashboardTab = ({ user, files, setActiveTab }) => {
           </div>
         </div>
         <div className="stat-card" onClick={() => setActiveTab('my-files')}>
-          <div className="stat-icon files-icon">📄</div>
+          <div className="stat-icon files-icon">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"></path>
+              <polyline points="13 2 13 9 20 9"></polyline>
+            </svg>
+          </div>
           <div className="stat-content">
             <div className="stat-label">My Files</div>
             <div className="stat-value">{filesStats.total}</div>
@@ -300,7 +278,14 @@ const DashboardTab = ({ user, files, setActiveTab }) => {
           </div>
         </div>
         <div className="stat-card" onClick={() => setActiveTab('team-files')}>
-          <div className="stat-icon team-icon">👥</div>
+          <div className="stat-icon team-icon">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+              <circle cx="9" cy="7" r="4"></circle>
+              <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+              <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+            </svg>
+          </div>
           <div className="stat-content">
             <div className="stat-label">Team Activity</div>
             <div className="stat-value">{teamStats.totalTasks}</div>
@@ -312,7 +297,12 @@ const DashboardTab = ({ user, files, setActiveTab }) => {
           </div>
         </div>
         <div className="stat-card" onClick={() => setActiveTab('notification')}>
-          <div className="stat-icon notifications-icon">🔔</div>
+          <div className="stat-icon notifications-icon">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+              <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+            </svg>
+          </div>
           <div className="stat-content">
             <div className="stat-label">Notifications</div>
             <div className="stat-value">{notificationStats.total}</div>
@@ -329,7 +319,12 @@ const DashboardTab = ({ user, files, setActiveTab }) => {
       {/* My Tasks Overview */}
       <div className="dashboard-card tasks-overview-card">
         <div className="card-header">
-          <h3>✓ My Tasks Overview</h3>
+          <h3>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '8px', verticalAlign: 'middle' }}>
+              <polyline points="20 6 9 17 4 12"></polyline>
+            </svg>
+            My Tasks Overview
+          </h3>
           <button className="view-all-btn" onClick={() => setActiveTab('tasks')}>View All →</button>
         </div>
         {assignments.length > 0 ? (
@@ -351,7 +346,31 @@ const DashboardTab = ({ user, files, setActiveTab }) => {
                   </div>
                   <div className="task-preview-status">
                     <span className={`status-badge ${isSubmitted ? 'submitted' : isOverdue ? 'overdue' : 'pending'}`}>
-                      {isSubmitted ? '✓ Submitted' : isOverdue ? '⚠ Overdue' : '⏳ Pending'}
+                      {isSubmitted ? (
+                        <>
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '4px', verticalAlign: 'middle' }}>
+                            <polyline points="20 6 9 17 4 12"></polyline>
+                          </svg>
+                          Submitted
+                        </>
+                      ) : isOverdue ? (
+                        <>
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '4px', verticalAlign: 'middle' }}>
+                            <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+                            <line x1="12" y1="9" x2="12" y2="13"></line>
+                            <line x1="12" y1="17" x2="12.01" y2="17"></line>
+                          </svg>
+                          Overdue
+                        </>
+                      ) : (
+                        <>
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '4px', verticalAlign: 'middle' }}>
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <polyline points="12 6 12 12 16 14"></polyline>
+                          </svg>
+                          Pending
+                        </>
+                      )}
                     </span>
                   </div>
                 </div>
@@ -360,7 +379,11 @@ const DashboardTab = ({ user, files, setActiveTab }) => {
           </div>
         ) : (
           <div className="empty-state">
-            <div className="empty-icon">✓</div>
+            <div className="empty-icon">
+              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
+            </div>
             <p>No tasks assigned yet</p>
           </div>
         )}
@@ -369,14 +392,27 @@ const DashboardTab = ({ user, files, setActiveTab }) => {
       {/* Recent Team Activity */}
       <div className="dashboard-card team-activity-card">
         <div className="card-header">
-          <h3>👥 Recent Team Activity</h3>
+          <h3>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '8px', verticalAlign: 'middle' }}>
+              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+              <circle cx="9" cy="7" r="4"></circle>
+              <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+              <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+            </svg>
+            Recent Team Activity
+          </h3>
           <button className="view-all-btn" onClick={() => setActiveTab('team-files')}>View All →</button>
         </div>
         {teamStats.recentActivity.length > 0 ? (
           <div className="activity-preview-list">
             {teamStats.recentActivity.map(task => (
               <div key={task.id} className="activity-preview-item">
-                <div className="activity-icon">📋</div>
+                <div className="activity-icon">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path>
+                    <rect x="8" y="2" width="8" height="4" rx="1" ry="1"></rect>
+                  </svg>
+                </div>
                 <div className="activity-content">
                   <div className="activity-title">{task.title}</div>
                   <div className="activity-meta">
@@ -391,7 +427,14 @@ const DashboardTab = ({ user, files, setActiveTab }) => {
           </div>
         ) : (
           <div className="empty-state">
-            <div className="empty-icon">👥</div>
+            <div className="empty-icon">
+              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                <circle cx="9" cy="7" r="4"></circle>
+                <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+              </svg>
+            </div>
             <p>No team activity yet</p>
           </div>
         )}
@@ -400,7 +443,13 @@ const DashboardTab = ({ user, files, setActiveTab }) => {
       {/* Recent Notifications */}
       <div className="dashboard-card notifications-preview-card">
         <div className="card-header">
-          <h3>🔔 Recent Notifications</h3>
+          <h3>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '8px', verticalAlign: 'middle' }}>
+              <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+              <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+            </svg>
+            Recent Notifications
+          </h3>
           <button className="view-all-btn" onClick={() => setActiveTab('notification')}>View All →</button>
         </div>
         {notificationStats.recent.length > 0 ? (
@@ -408,7 +457,25 @@ const DashboardTab = ({ user, files, setActiveTab }) => {
             {notificationStats.recent.map(notification => (
               <div key={notification.id} className={`notification-preview-item ${!notification.is_read ? 'unread' : ''}`}>
                 <div className={`notification-icon ${notification.type}-icon`}>
-                  {notification.type === 'comment' ? '💬' : notification.type === 'assignment' ? '✓' : notification.type === 'file' ? '📄' : '🔔'}
+                  {notification.type === 'comment' ? (
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+                    </svg>
+                  ) : notification.type === 'assignment' ? (
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <polyline points="20 6 9 17 4 12"></polyline>
+                    </svg>
+                  ) : notification.type === 'file' ? (
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"></path>
+                      <polyline points="13 2 13 9 20 9"></polyline>
+                    </svg>
+                  ) : (
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+                      <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+                    </svg>
+                  )}
                 </div>
                 <div className="notification-content">
                   <div className="notification-title">{notification.title}</div>
@@ -423,7 +490,12 @@ const DashboardTab = ({ user, files, setActiveTab }) => {
           </div>
         ) : (
           <div className="empty-state">
-            <div className="empty-icon">🔔</div>
+            <div className="empty-icon">
+              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+                <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+              </svg>
+            </div>
             <p>No notifications yet</p>
           </div>
         )}

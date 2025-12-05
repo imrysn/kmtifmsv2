@@ -13,7 +13,7 @@
 /* Top Row: Welcome + Analytics */
 .user-dashboard-component .dashboard-top-row {
   display: grid;
-  grid-template-columns: 1fr 1.2fr;
+  grid-template-columns: 1fr 1fr;
   gap: var(--spacing-xl);
   align-items: start;
 }

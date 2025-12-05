@@ -14,8 +14,9 @@
 .my-files-header-top {
   display: flex;
   justify-content: space-between;
-  align-items: flex-start;
-  gap: 16px;
+  align-items: center;
+  gap: 24px;
+  margin-bottom: 16px;
 }
 
 .header-left {
@@ -47,12 +48,13 @@
   gap: 40px;
 }
 
-/* Stats Row - LEFT side */
+/* Stats Row - RIGHT side */
 .stats-row {
   display: flex;
   gap: 16px;
   margin-bottom: 0;
   flex: 0 0 auto;
+  align-items: center;
 }
 
 .stat-box {
@@ -1044,23 +1046,15 @@
     padding: 16px;
   }
 
-  .files-top-section {
+  .my-files-header-top {
     flex-direction: column;
-    gap: 20px;
+    align-items: flex-start;
+    gap: 16px;
   }
 
   .stats-row {
     flex-wrap: wrap;
-    order: 2;
-  }
-
-  .my-files-header {
-    align-items: flex-start;
-    order: 1;
-  }
-
-  .header-content {
-    text-align: left;
+    width: 100%;
   }
 
   .stat-box {
