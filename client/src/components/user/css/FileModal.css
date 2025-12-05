@@ -1,0 +1,348 @@
+/* File Modal Component Styles - Scoped */
+@import './variables.css';
+
+.user-file-modal-component.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: var(--spacing-lg);
+}
+
+.user-file-modal-component .modal {
+  background: var(--macos-card-bg);
+  backdrop-filter: var(--macos-blur);
+  -webkit-backdrop-filter: var(--macos-blur);
+  border-radius: var(--radius-xl);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+  width: 100%;
+  max-width: 600px;
+  max-height: 80vh;
+  overflow-y: auto;
+  border: var(--macos-border);
+  transform-origin: center center;
+}
+
+.user-file-modal-component .modal-header {
+  padding: var(--spacing-lg) var(--spacing-xl);
+  border-bottom: 1px solid var(--macos-gray5);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.user-file-modal-component .modal-header h3 {
+  color: #1D1D1F;
+  font-size: 18px;
+  font-weight: 600;
+  margin: 0;
+}
+
+.user-file-modal-component .modal-close {
+  background: none;
+  border: none;
+  font-size: 20px;
+  color: var(--macos-gray);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+}
+
+.user-file-modal-component .modal-close:hover {
+  background: var(--macos-gray5);
+}
+
+.user-file-modal-component .modal-body {
+  padding: var(--spacing-xl);
+}
+
+.user-file-modal-component .modal-footer {
+  padding: var(--spacing-lg) var(--spacing-xl);
+  border-top: 1px solid var(--macos-gray5);
+  display: flex;
+  justify-content: flex-end;
+}
+
+/* File Details */
+.user-file-modal-component .file-details-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+}
+
+.user-file-modal-component .file-detail-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: var(--spacing-sm) 0;
+  border-bottom: 1px solid var(--macos-gray6);
+}
+
+.user-file-modal-component .file-detail-row:last-child {
+  border-bottom: none;
+}
+
+.user-file-modal-component .detail-label {
+  color: var(--macos-gray);
+  font-size: 12px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  flex-shrink: 0;
+  width: 120px;
+}
+
+.user-file-modal-component .detail-value {
+  color: #1D1D1F;
+  font-size: 14px;
+  font-weight: 500;
+  flex: 1;
+  text-align: right;
+}
+
+.user-file-modal-component .description-text {
+  text-align: right;
+  line-height: 1.5;
+  word-break: break-word;
+}
+
+.user-file-modal-component .category-badge {
+  display: inline-block;
+  padding: 4px 12px;
+  background: rgba(0, 122, 255, 0.1);
+  border: 1px solid rgba(0, 122, 255, 0.3);
+  border-radius: 6px;
+  color: #007aff;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.user-file-modal-component .tags-display {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: flex-end;
+}
+
+.user-file-modal-component .tag-badge {
+  display: inline-block;
+  padding: 4px 10px;
+  background: rgba(52, 199, 89, 0.1);
+  border: 1px solid rgba(52, 199, 89, 0.3);
+  border-radius: 6px;
+  color: #34c759;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.user-file-modal-component .status-container {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--spacing-xs);
+}
+
+.user-file-modal-component .stage-text {
+  font-size: 12px;
+  color: var(--macos-gray);
+}
+
+.user-file-modal-component .status-badge {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 8px;
+  border-radius: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  display: inline-block;
+  max-width: fit-content;
+}
+
+.user-file-modal-component .status-uploaded {
+  background: rgba(142, 142, 147, 0.1);
+  color: var(--macos-gray);
+}
+
+.user-file-modal-component .status-pending {
+  background: rgba(255, 149, 0, 0.1);
+  color: var(--macos-orange);
+}
+
+.user-file-modal-component .status-approved {
+  background: rgba(52, 199, 89, 0.1);
+  color: var(--macos-green);
+}
+
+.user-file-modal-component .status-rejected {
+  background: rgba(255, 59, 48, 0.1);
+  color: var(--macos-red);
+}
+
+/* Review Sections */
+.user-file-modal-component .review-section,
+.user-file-modal-component .public-network-section,
+.user-file-modal-component .rejection-section {
+  margin-top: var(--spacing-lg);
+  padding: var(--spacing-lg);
+  background: rgba(255, 255, 255, 0.3);
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.user-file-modal-component .review-section h4,
+.user-file-modal-component .public-network-section h4,
+.user-file-modal-component .rejection-section h4 {
+  color: #1D1D1F;
+  font-size: 16px;
+  font-weight: 600;
+  margin: 0 0 var(--spacing-md) 0;
+}
+
+.user-file-modal-component .review-info,
+.user-file-modal-component .public-info,
+.user-file-modal-component .rejection-info {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+}
+
+.user-file-modal-component .review-detail,
+.user-file-modal-component .public-detail,
+.user-file-modal-component .rejection-detail {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  font-size: 13px;
+}
+
+.user-file-modal-component .review-label,
+.user-file-modal-component .public-label,
+.user-file-modal-component .rejection-label {
+  color: var(--macos-gray);
+  font-weight: 500;
+  flex-shrink: 0;
+  width: 100px;
+}
+
+.user-file-modal-component .review-value,
+.user-file-modal-component .public-value,
+.user-file-modal-component .rejection-value {
+  color: #1D1D1F;
+  font-weight: 500;
+  flex: 1;
+  text-align: right;
+}
+
+.user-file-modal-component .public-link {
+  color: var(--user-accent);
+  text-decoration: none;
+}
+
+.user-file-modal-component .public-link:hover {
+  text-decoration: underline;
+}
+
+.user-file-modal-component .rejection-reason {
+  background: rgba(255, 59, 48, 0.1);
+  padding: var(--spacing-sm);
+  border-radius: var(--radius-sm);
+  border: 1px solid rgba(255, 59, 48, 0.2);
+  color: var(--macos-red);
+}
+
+/* Comments Section */
+.user-file-modal-component .comments-section {
+  margin-top: var(--spacing-lg);
+  padding: var(--spacing-lg);
+  background: rgba(255, 255, 255, 0.3);
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.user-file-modal-component .comments-section h4 {
+  color: #1D1D1F;
+  font-size: 16px;
+  font-weight: 600;
+  margin: 0 0 var(--spacing-md) 0;
+}
+
+.user-file-modal-component .comments-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+}
+
+.user-file-modal-component .comment-item {
+  background: rgba(255, 255, 255, 0.4);
+  padding: var(--spacing-md);
+  border-radius: var(--radius-sm);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.user-file-modal-component .comment-header {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  margin-bottom: var(--spacing-sm);
+  font-size: 12px;
+}
+
+.user-file-modal-component .comment-author {
+  color: #1D1D1F;
+  font-weight: 600;
+}
+
+.user-file-modal-component .comment-role {
+  color: var(--macos-gray);
+  font-weight: 500;
+}
+
+.user-file-modal-component .comment-date {
+  color: var(--macos-gray);
+  font-weight: 400;
+  margin-left: auto;
+}
+
+.user-file-modal-component .comment-text {
+  color: #1D1D1F;
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+.user-file-modal-component .btn {
+  padding: var(--spacing-md) var(--spacing-lg);
+  border-radius: var(--radius-md);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: none;
+}
+
+.user-file-modal-component .btn-primary {
+  background: var(--user-accent);
+  color: white;
+  box-shadow: 0 2px 8px rgba(0, 122, 255, 0.3);
+}
+
+.user-file-modal-component .btn-primary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 122, 255, 0.4);
+}
+
+/* Responsive Design */
+@media (max-width: 480px) {
+  .user-file-modal-component .modal {
+    margin: var(--spacing-md);
+    max-width: none;
+  }
+}

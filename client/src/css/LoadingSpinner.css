@@ -1,0 +1,157 @@
+/* Optimized Loading Spinner Styles */
+/* Uses GPU-accelerated transforms for smooth animation */
+
+.spinner-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+}
+
+.spinner {
+  border: 3px solid rgba(255, 255, 255, 0.1);
+  border-top-color: #4CAF50;
+  border-radius: 50%;
+  animation: spinner-rotate 0.8s linear infinite;
+  /* Use transform for better performance */
+  will-change: transform;
+}
+
+.spinner-small {
+  width: 24px;
+  height: 24px;
+  border-width: 2px;
+}
+
+.spinner-medium {
+  width: 40px;
+  height: 40px;
+  border-width: 3px;
+}
+
+.spinner-large {
+  width: 60px;
+  height: 60px;
+  border-width: 4px;
+}
+
+.spinner-fullscreen {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: rgba(0, 0, 0, 0.5);
+  z-index: 9999;
+  backdrop-filter: blur(2px);
+}
+
+.spinner-text {
+  margin: 0;
+  color: #666;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+/* GPU-accelerated animation */
+@keyframes spinner-rotate {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+/* Reduce motion for accessibility */
+@media (prefers-reduced-motion: reduce) {
+  .spinner {
+    animation-duration: 1.5s;
+  }
+}
+
+/* ===== Legacy Styles (Keep for backward compatibility) ===== */
+
+.loading-spinner-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: auto;
+}
+
+.loading-spinner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.loading-spinner-small {
+  /* adjust gap or other container properties */
+}
+
+.loading-spinner-large {
+   /* adjust gap or other container properties */
+}
+
+/* CSS Pulse Grid Animation */
+.loading-spinner-css-grid {
+  display: flex;
+  gap: 0.25rem;
+}
+
+.css-dot {
+  width: 8px;
+  height: 8px;
+  background-color: #007bff;
+  border-radius: 50%;
+  display: inline-block;
+  animation: cssPulseGrid 1.4s ease-in-out infinite both;
+}
+
+.loading-spinner-css-grid .css-dot:nth-child(1) {
+  animation-delay: -0.32s;
+}
+
+.loading-spinner-css-grid .css-dot:nth-child(2) {
+  animation-delay: -0.16s;
+}
+
+.loading-spinner-small .css-dot {
+  width: 6px;
+  height: 6px;
+}
+
+.loading-spinner-large .css-dot {
+  width: 12px;
+  height: 12px;
+}
+
+@keyframes cssPulseGrid {
+  0%,
+  80%,
+  100% {
+    transform: scale(0);
+    opacity: 1;
+  }
+  40% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.loading-spinner-message {
+  font-size: 0.875rem;
+  color: #6c757d;
+  text-align: center;
+}
+
+.loading-spinner-with-message {
+  flex-direction: row;
+}

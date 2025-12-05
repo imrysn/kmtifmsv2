@@ -1,0 +1,217 @@
+/* Success Modal Component - Modern Notification */
+
+.success-modal-overlay {
+  position: fixed;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 99999;
+  pointer-events: none;
+}
+
+.success-modal {
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15), 0 0 1px rgba(0, 0, 0, 0.1);
+  min-width: 400px;
+  max-width: 500px;
+  pointer-events: auto;
+  animation: slideDown 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  overflow: hidden;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-20px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.success-modal-content {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 20px 24px;
+}
+
+.success-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  font-weight: 700;
+  flex-shrink: 0;
+  animation: scaleIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) 0.1s both;
+}
+
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.success-icon-success {
+  background: #f5f5f7;
+  color: #34c759;
+  border: 2px solid #34c759;
+}
+
+.success-icon-error {
+  background: linear-gradient(135deg, #ff3b30 0%, #ff453a 100%);
+  color: white;
+}
+
+.success-icon-warning {
+  background: linear-gradient(135deg, #ff9500 0%, #ff9f0a 100%);
+  color: white;
+}
+
+.success-icon-info {
+  background: linear-gradient(135deg, #ff3b30 0%, #ff453a 100%);
+  color: white;
+}
+
+.success-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.success-title {
+  margin: 0 0 4px 0;
+  color: #1d1d1f;
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.success-message {
+  margin: 0;
+  color: #6e6e73;
+  font-size: 14px;
+  line-height: 1.4;
+  word-break: break-word;
+  background: transparent !important;
+  background-color: transparent !important;
+  border: none !important;
+  padding: 0 !important;
+}
+
+.success-close {
+  width: 28px;
+  height: 28px;
+  border: none;
+  background: #f5f5f7;
+  color: #86868b;
+  border-radius: 50%;
+  font-size: 20px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: all 0.2s ease;
+}
+
+.success-close:hover {
+  background: #e5e5ea;
+  color: #1d1d1f;
+  transform: scale(1.1);
+}
+
+.success-close:active {
+  transform: scale(0.95);
+}
+
+/* Progress Bar */
+.success-progress-bar {
+  height: 4px;
+  background: #f5f5f7;
+  width: 100%;
+  overflow: hidden;
+}
+
+.success-progress-fill {
+  height: 100%;
+  animation: progressBar 3s linear forwards;
+}
+
+@keyframes progressBar {
+  from {
+    width: 100%;
+  }
+  to {
+    width: 0%;
+  }
+}
+
+.success-progress-success {
+  background: #34c759;
+}
+
+.success-progress-error {
+  background: linear-gradient(90deg, #ff3b30 0%, #ff453a 100%);
+}
+
+.success-progress-warning {
+  background: linear-gradient(90deg, #ff9500 0%, #ff9f0a 100%);
+}
+
+.success-progress-info {
+  background: linear-gradient(90deg, #ff3b30 0%, #ff453a 100%);
+}
+
+/* Border accent based on type */
+.success-modal-success {
+  border-top: 3px solid #34c759;
+}
+
+.success-modal-error {
+  border-top: 3px solid #ff3b30;
+}
+
+.success-modal-warning {
+  border-top: 3px solid #ff9500;
+}
+
+.success-modal-info {
+  border-top: 3px solid #ff3b30;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .success-modal {
+    min-width: 320px;
+    max-width: calc(100vw - 40px);
+    margin: 0 20px;
+  }
+
+  .success-modal-content {
+    padding: 16px 20px;
+  }
+
+  .success-icon {
+    width: 36px;
+    height: 36px;
+    font-size: 18px;
+  }
+
+  .success-title {
+    font-size: 15px;
+  }
+
+  .success-message {
+    font-size: 13px;
+  }
+}

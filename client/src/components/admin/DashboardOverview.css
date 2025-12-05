@@ -1,0 +1,369 @@
+/* Dashboard Overview Styles - FileFlow Design */
+.dashboard-overview {
+  padding: 0;
+  margin-top: 30px;
+}
+
+/* Top Row Layout */
+.top-row {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 2rem;
+}
+
+/* Stats Section */
+.stats-section {
+  width: 100%;
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1.5rem;
+}
+
+.stat-card {
+  background: var(--background-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  padding: 1.5rem;
+}
+
+.stat-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+}
+
+.stat-label {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.stat-icon {
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-md);
+  font-size: 20px;
+  flex-shrink: 0;
+}
+
+.stat-icon.pending {
+  background: #FEF3C7;
+  color: #D97706;
+}
+
+.stat-icon.approved {
+  background: #D1FAE5;
+  color: #059669;
+}
+
+.stat-icon.rejected {
+  background: #FEE2E2;
+  color: #DC2626;
+}
+
+.stat-icon.total {
+  background: #E0E7FF;
+  color: #4F46E5;
+}
+
+.stat-number {
+  font-size: 36px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 0.5rem;
+  letter-spacing: -0.02em;
+  line-height: 1;
+}
+
+.stat-change {
+  font-size: 13px;
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.stat-change.positive {
+  color: var(--success-color);
+}
+
+.stat-change.negative {
+  color: var(--danger-color);
+}
+
+.stat-change.neutral {
+  color: var(--text-tertiary);
+}
+
+/* Bottom Row Layout */
+.bottom-row {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 1.5rem;
+}
+
+/* Charts Section */
+.charts-section {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1.5rem;
+}
+
+.chart-card {
+  background: var(--background-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  padding: 1.5rem;
+}
+
+.chart-header {
+  margin-bottom: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.chart-header h3 {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.chart-content {
+  min-height: 300px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+/* Activity Section */
+.section-card {
+  background: var(--background-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  padding: 1.5rem;
+}
+
+.activity-section {
+  height: fit-content;
+}
+
+.section-header {
+  margin-bottom: 1.5rem;
+}
+
+.section-header h3 {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+/* Recent Activity */
+.activity-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.activity-item {
+  display: flex;
+  gap: 1rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--border-light);
+}
+
+.activity-item:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.activity-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.activity-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 4px;
+  flex-wrap: wrap;
+}
+
+.activity-user {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.activity-badge {
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.activity-badge.upload {
+  background: #DBEAFE;
+  color: #1E40AF;
+}
+
+.activity-badge.approved {
+  background: #D1FAE5;
+  color: #065F46;
+}
+
+.activity-badge.rejected {
+  background: #FEE2E2;
+  color: #991B1B;
+}
+
+.activity-description {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin-bottom: 4px;
+}
+
+.activity-meta {
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+
+/* Responsive Design */
+@media (max-width: 1200px) {
+  .bottom-row {
+    grid-template-columns: 1fr;
+  }
+
+  .stats-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (max-width: 900px) {
+  .stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 768px) {
+  .stats-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .stat-number {
+    font-size: 28px;
+  }
+}
+
+@media (max-width: 844px) {
+  /* Make all components smaller */
+  .dashboard-overview {
+    margin-top: 20px;
+  }
+
+  .top-row {
+    margin-bottom: 1.5rem;
+  }
+
+  .stats-grid {
+    gap: 1rem;
+  }
+
+  .stat-card {
+    padding: 1rem;
+  }
+
+  .stat-header {
+    margin-bottom: 0.75rem;
+  }
+
+  .stat-label {
+    font-size: 13px;
+  }
+
+  .stat-number {
+    font-size: 32px;
+    margin-bottom: 0.25rem;
+  }
+
+  .stat-change {
+    font-size: 12px;
+  }
+
+  /* Make stats cards display in row style (horizontal) */
+  .stat-card {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-direction: row;
+    text-align: left;
+  }
+
+  .stat-header {
+    flex: 0 0 auto;
+    margin-bottom: 0;
+    margin-right: 1rem;
+  }
+
+  .stat-number,
+  .stat-change {
+    margin-bottom: 0;
+    text-align: right;
+  }
+
+  .stat-number {
+    margin-bottom: 0.25rem;
+  }
+
+  .chart-card {
+    padding: 1rem;
+  }
+
+  .chart-header h3 {
+    font-size: 14px;
+  }
+
+  .section-card {
+    padding: 1rem;
+  }
+
+  .section-header h3 {
+    font-size: 14px;
+  }
+
+  .activity-item {
+    padding-bottom: 0.75rem;
+  }
+
+  .activity-user {
+    font-size: 13px;
+  }
+
+  .activity-description {
+    font-size: 12px;
+  }
+
+  .activity-meta {
+    font-size: 11px;
+  }
+}
+
+@media (max-width: 480px) {
+  .stat-card,
+  .chart-card,
+  .section-card {
+    padding: 0.75rem;
+  }
+}

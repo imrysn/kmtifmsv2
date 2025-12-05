@@ -1,0 +1,300 @@
+/* File Card Component Styles - Scoped */
+@import './variables.css';
+
+.user-file-card-component.file-card {
+  background: var(--macos-card-bg);
+  backdrop-filter: var(--macos-blur);
+  -webkit-backdrop-filter: var(--macos-blur);
+  border: var(--macos-border);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-lg);
+  box-shadow: var(--macos-shadow);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.user-file-card-component.file-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+}
+
+/* Horizontal Layout Container */
+.user-file-card-component .file-card-horizontal {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--spacing-lg);
+}
+
+/* Left: Icon Section */
+.user-file-card-component .file-icon-large {
+  width: 56px;
+  height: 56px;
+  background: var(--user-accent);
+  color: white;
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: 700;
+  flex-shrink: 0;
+  box-shadow: 0 2px 8px rgba(0, 123, 255, 0.25);
+}
+
+/* Center: Details Section */
+.user-file-card-component .file-details-section {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+  min-width: 0;
+}
+
+.user-file-card-component .file-main-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.user-file-card-component .file-main-info h3 {
+  color: #1D1D1F;
+  font-size: 16px;
+  font-weight: 600;
+  margin: 0;
+  word-break: break-word;
+  line-height: 1.3;
+}
+
+.user-file-card-component .file-main-info p {
+  color: var(--macos-gray);
+  font-size: 13px;
+  margin: 0;
+  font-weight: 500;
+}
+
+/* Category Display */
+.user-file-card-component .file-category {
+  display: flex;
+  align-items: center;
+}
+
+.user-file-card-component .category-text {
+  padding: 4px 12px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  background: linear-gradient(135deg, #DBEAFE 0%, #BFDBFE 100%);
+  color: #1E40AF;
+  border: 1px solid rgba(59, 130, 246, 0.2);
+  display: inline-block;
+}
+
+/* Tags Display Inline */
+.user-file-card-component .file-tags-inline {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+.user-file-card-component .tags-label {
+  color: var(--macos-gray);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.user-file-card-component .tags-dropdown-inline {
+  position: relative;
+}
+
+.user-file-card-component .tags-dropdown-button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 4px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  background: linear-gradient(135deg, #F3F4F6 0%, #E5E7EB 100%);
+  color: #4B5563;
+  border: 1px solid rgba(107, 114, 128, 0.15);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.user-file-card-component .tags-dropdown-button:hover {
+  background: linear-gradient(135deg, #E5E7EB 0%, #D1D5DB 100%);
+  border-color: rgba(107, 114, 128, 0.25);
+}
+
+.user-file-card-component .dropdown-icon {
+  width: 12px;
+  height: 12px;
+  transition: transform 0.2s ease;
+}
+
+.user-file-card-component .tags-dropdown-inline:hover .dropdown-icon {
+  transform: rotate(180deg);
+}
+
+.user-file-card-component .tags-dropdown-content {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  margin-top: 4px;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  max-height: 0;
+  overflow: hidden;
+  opacity: 0;
+  visibility: hidden;
+  transition: all 0.3s ease;
+  z-index: 10;
+  min-width: 200px;
+}
+
+.user-file-card-component .tags-dropdown-inline:hover .tags-dropdown-content {
+  max-height: 300px;
+  opacity: 1;
+  visibility: visible;
+  overflow-y: auto;
+}
+
+.user-file-card-component .tag-item {
+  padding: 8px 12px;
+  font-size: 12px;
+  color: #4B5563;
+  border-bottom: 1px solid #F3F4F6;
+  transition: background 0.2s ease;
+  white-space: nowrap;
+}
+
+.user-file-card-component .tag-item:last-child {
+  border-bottom: none;
+}
+
+.user-file-card-component .tag-item:hover {
+  background: #F9FAFB;
+  color: #1F2937;
+}
+
+/* Metadata Row */
+.user-file-card-component .file-metadata-row {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  font-size: 12px;
+}
+
+.user-file-card-component .metadata-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.user-file-card-component .metadata-label {
+  color: var(--macos-gray);
+  font-weight: 500;
+}
+
+.user-file-card-component .metadata-value {
+  color: #1D1D1F;
+  font-weight: 600;
+}
+
+.user-file-card-component .metadata-divider {
+  color: var(--macos-gray5);
+  font-weight: 600;
+}
+
+/* Right: Status Section */
+.user-file-card-component .file-status-section {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--spacing-xs);
+  flex-shrink: 0;
+  min-width: 160px;
+}
+
+.user-file-card-component .status-badge {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 6px 14px;
+  border-radius: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  display: inline-block;
+  white-space: nowrap;
+}
+
+.user-file-card-component .status-uploaded {
+  background: rgba(142, 142, 147, 0.1);
+  color: var(--macos-gray);
+}
+
+.user-file-card-component .status-pending {
+  background: linear-gradient(135deg, #FFF3E0 0%, #FFE0B2 100%);
+  color: #E65100;
+  border: 1px solid rgba(255, 152, 0, 0.2);
+}
+
+.user-file-card-component .status-approved {
+  background: linear-gradient(135deg, #E8F5E9 0%, #C8E6C9 100%);
+  color: #2E7D32;
+  border: 1px solid rgba(76, 175, 80, 0.2);
+}
+
+.user-file-card-component .status-rejected {
+  background: linear-gradient(135deg, #FFEBEE 0%, #FFCDD2 100%);
+  color: #C62828;
+  border: 1px solid rgba(244, 67, 54, 0.2);
+}
+
+.user-file-card-component .status-stage {
+  font-size: 12px;
+  color: #4B5563;
+  font-weight: 500;
+  text-align: right;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .user-file-card-component .file-card-horizontal {
+    flex-direction: column;
+    gap: var(--spacing-md);
+  }
+  
+  .user-file-card-component .file-icon-large {
+    width: 48px;
+    height: 48px;
+    font-size: 12px;
+  }
+  
+  .user-file-card-component .file-status-section {
+    align-items: flex-start;
+    width: 100%;
+  }
+  
+  .user-file-card-component .status-stage {
+    text-align: left;
+  }
+}
+
+@media (max-width: 480px) {
+  .user-file-card-component.file-card {
+    padding: var(--spacing-md);
+  }
+  
+  .user-file-card-component .file-metadata-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+  }
+  
+  .user-file-card-component .metadata-divider {
+    display: none;
+  }
+}

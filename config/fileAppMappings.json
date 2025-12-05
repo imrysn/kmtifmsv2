@@ -1,0 +1,29 @@
+{
+  "_comment": "File type to application mappings. Add custom applications for specific file extensions.",
+  "_instructions": {
+    "format": "Extension without dot (e.g., 'icd', 'dwg')",
+    "path": "Full path to the executable",
+    "args": "Optional array of arguments. Use {file} placeholder for file path"
+  },
+  
+  "icd": {
+    "name": "iCADSX",
+    "path": "C:\\Program Files\\KMTI\\iCADSX\\iCADSX.exe",
+    "description": "iCAD Drawing Files",
+    "args": ["{file}"]
+  },
+  
+  "dwg": {
+    "name": "AutoCAD",
+    "path": "C:\\Program Files\\Autodesk\\AutoCAD 2024\\acad.exe",
+    "description": "AutoCAD Drawing Files",
+    "args": ["{file}"]
+  },
+  
+  "dxf": {
+    "name": "AutoCAD",
+    "path": "C:\\Program Files\\Autodesk\\AutoCAD 2024\\acad.exe",
+    "description": "AutoCAD DXF Files",
+    "args": ["{file}"]
+  }
+}

@@ -1,0 +1,325 @@
+.file-management-section {
+  padding: 0;
+  margin-top: 30px;
+}
+
+
+/* Network Status */
+.file-management-section .network-status {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  margin-top: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.file-management-section .network-status.accessible {
+  background: rgba(24, 248, 174, 0.1);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  color: #059669;
+}
+
+.file-management-section .network-status.not-accessible {
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  color: #dc2626;
+}
+
+.file-management-section .status-text {
+  font-weight: 500;
+}
+
+.file-management-section .network-path {
+  font-family: 'Courier New', monospace;
+  font-size: 0.85rem;
+  background: rgba(255, 255, 255, 0.5);
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  margin-left: auto;
+}
+
+/* Breadcrumbs + Controls */
+.file-management-section .file-nav-controls {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.file-management-section .breadcrumb {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+}
+
+.file-management-section .breadcrumb-link {
+  background: none;
+  border: none;
+  color: var(--primary-color);
+  cursor: pointer;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.9rem;
+  transition: all 0.2s ease;
+}
+
+.file-management-section .breadcrumb-link:hover:not(:disabled) {
+  background: var(--background-hover);
+  color: var(--primary-hover);
+}
+
+.file-management-section .breadcrumb-link.active {
+  color: var(--text-primary);
+  background: var(--background-secondary);
+  cursor: default;
+}
+
+.file-management-section .file-controls-right {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.file-management-section .file-search {
+  background: var(--background-secondary);
+  position: relative;
+  min-width: 250px;
+}
+
+.file-management-section .search-input {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background: var(--surface-color);
+  color: var(--text-primary);
+  font-size: 0.9rem;
+  transition: all 0.2s ease;
+}
+
+.file-management-section .search-clear-btn {
+  position: absolute;
+  right: 0.75rem;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  font-size: 1.2rem;
+  color: var(--text-secondary);
+  cursor: pointer;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+}
+
+/* NEW: Search Performance Bar */
+.file-management-section .search-performance-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.1) 0%, rgba(168, 85, 247, 0.1) 100%);
+  border: 1px solid rgba(99, 102, 241, 0.2);
+  border-radius: 8px;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+  animation: slideDown 0.3s ease;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.file-management-section .perf-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.25rem 0.75rem;
+  background: rgba(255, 255, 255, 0.8);
+  border: 1px solid rgba(99, 102, 241, 0.2);
+  border-radius: 12px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: #4f46e5;
+  white-space: nowrap;
+}
+
+.file-management-section .perf-badge:first-child {
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.15) 0%, rgba(5, 150, 105, 0.15) 100%);
+  border-color: rgba(16, 185, 129, 0.3);
+  color: #059669;
+  font-weight: 600;
+}
+
+/* NEW: No Results State */
+.file-management-section .no-results {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 4rem 2rem;
+  text-align: center;
+  color: var(--text-secondary);
+  grid-column: 1 / -1;
+}
+
+.file-management-section .no-results p {
+  margin: 0.5rem 0;
+  font-size: 1rem;
+}
+
+.file-management-section .no-results p:first-child {
+  font-size: 1.1rem;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.file-management-section .no-results-hint {
+  font-size: 0.9rem;
+  color: var(--text-tertiary);
+}
+
+/* File System Container */
+.file-management-section .file-system-container {
+  background: var(--background-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  overflow: hidden; 
+  min-height: 400px;
+  position: relative;
+}
+
+
+
+/* --- UPDATED: Overlay for component loading --- */
+.file-management-section .component-loading-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(255, 255, 255, 0.8);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem; 
+  z-index: 9999; 
+}
+
+
+
+.file-management-section .files-content.loading {
+  opacity: 0.5; 
+  pointer-events: none; 
+}
+
+/* Grid View */
+.file-management-section .files-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 1rem;
+  padding: 1.5rem;
+}
+
+.file-management-section .file-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 1rem;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: 1px solid transparent;
+  /* Removed position: relative and .opening styles for grid items */
+}
+
+.file-management-section .file-item:hover {
+  background: var(--background-hover);
+  border-color: var(--border-hover);
+}
+
+.file-management-section .file-item.selected {
+  background: rgba(128, 128, 128, 0.2);
+  border-color: #000000;
+}
+
+/* File Icon */
+.file-management-section .file-icon {
+  width: 48px;
+  height: 48px;
+  margin-bottom: 0.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  box-shadow: none;
+  /* Removed position: relative */
+}
+
+.file-management-section .file-icon-img {
+  width: 44px;  /* Bigger size for grid view */
+  height: 44px; /* Bigger size for grid view */
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
+.file-management-section .file-info {
+  text-align: center;
+  width: 100%;
+}
+
+.file-management-section .file-name {
+  color: var(--text-primary);
+  font-size: 0.85rem;
+  line-height: 1.3;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.file-management-section .file-location {
+  font-size: 0.7rem;
+  color: var(--text-tertiary);
+  margin-top: 0.25rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+
+
+
+
+
+
+/* Loading State (for initial load/search) */
+.file-management-section .loading-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 4rem 2rem;
+  text-align: center;
+}

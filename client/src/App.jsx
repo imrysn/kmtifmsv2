@@ -1,40 +1,44 @@
+import React, { useState } from 'react'
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
-import { useState, useEffect } from 'react'
+import './css/App.css'
+import { createLogger } from './utils/secureLogger'
+
+// Direct imports for faster initial load - NO lazy loading
 import Login from './components/Login'
 import UserDashboard from './pages/UserDashboard-Enhanced'
-import TeamLeaderDashboard from './pages/TeamLeaderDashboard-Enhanced'
+import TeamLeaderDashboard from './pages/TeamLeaderDashboard-Refactored'
 import AdminDashboard from './pages/AdminDashboard'
-import './css/App.css'
+
+const logger = createLogger('App')
 
 function App() {
-  const [user, setUser] = useState(null)
-  const [isLoading, setIsLoading] = useState(true)
-
-  // Check authentication status on app load
-  useEffect(() => {
+  const [user, setUser] = useState(() => {
     const savedUser = localStorage.getItem('user')
     if (savedUser) {
       try {
-        setUser(JSON.parse(savedUser))
+        const userData = JSON.parse(savedUser)
+        logger.info('User session restored from localStorage')
+        return userData
       } catch (error) {
-        console.error('Error parsing saved user:', error)
+        logger.error('Error parsing saved user', error)
         localStorage.removeItem('user')
+        return null
       }
     }
-    setIsLoading(false)
-  }, [])
+    return null
+  })
 
   // Handle login
   const handleLogin = (userData) => {
-    console.log('🔑 App handleLogin called with:', userData)
+    logger.logLogin(userData)
     setUser(userData)
     localStorage.setItem('user', JSON.stringify(userData))
-    console.log('✅ User state updated and saved to localStorage')
+    logger.logStateUpdate('User authenticated and saved')
   }
 
   // Handle logout
   const handleLogout = () => {
-    console.log('🔓 User logging out')
+    logger.logLogout()
     setUser(null)
     localStorage.removeItem('user')
   }
@@ -43,7 +47,7 @@ function App() {
   const getDashboardComponent = () => {
     if (!user) return null
     
-    console.log(`📊 Rendering dashboard for panelType: ${user.panelType}`)
+    logger.logNavigation('login', `${user.panelType}-dashboard`)
     
     switch (user.panelType) {
       case 'user':
@@ -53,25 +57,9 @@ function App() {
       case 'admin':
         return <AdminDashboard user={user} onLogout={handleLogout} />
       default:
-        console.error('Unknown panel type:', user.panelType)
+        logger.warn('Unknown panel type, defaulting to user dashboard', { panelType: user.panelType })
         return <UserDashboard user={user} onLogout={handleLogout} />
     }
-  }
-
-  if (isLoading) {
-    return (
-      <div className="app">
-        <div style={{ 
-          display: 'flex', 
-          justifyContent: 'center', 
-          alignItems: 'center', 
-          height: '100vh',
-          fontSize: '18px'
-        }}>
-          Loading...
-        </div>
-      </div>
-    )
   }
 
   return (

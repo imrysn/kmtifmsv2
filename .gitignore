@@ -16,6 +16,7 @@ client/dist/
 .env.development.local
 .env.test.local
 .env.production.local
+.env.example
 
 # Logs
 npm-debug.log*
@@ -98,6 +99,8 @@ Thumbs.db
 # Electron build output
 out/
 
+# Ignore all Markdown files
 *.md
 
+# But keep README.md tracked
 !README.md

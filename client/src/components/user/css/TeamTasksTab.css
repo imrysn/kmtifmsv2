@@ -1,0 +1,973 @@
+/* TeamTasksTab.css - User Team Tasks View */
+.team-tasks-tab {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+/* Header */
+.team-tasks-header {
+  margin-bottom: 12px;
+}
+
+.team-tasks-header h2 {
+  margin: 0;
+  font-size: 32px;
+  color: #1c1e21;
+  font-weight: 700;
+  text-align: left;
+}
+
+.team-tasks-subtitle {
+  color: #65676b;
+  font-size: 15px;
+  margin: 4px 0 0 0;
+  text-align: left;
+}
+
+/* Task Count */
+.team-tasks-count {
+  color: #65676b;
+  font-size: 15px;
+  margin-bottom: 24px;
+  text-align: left;
+}
+
+/* Messages */
+.team-tasks-message {
+  padding: 12px 16px;
+  border-radius: 8px;
+  margin-bottom: 16px;
+  font-size: 14px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.error-message {
+  background: #fee;
+  color: #c0392b;
+  border: 1px solid #e74c3c;
+}
+
+.success-message {
+  background: #efd;
+  color: #27ae60;
+  border: 1px solid #2ecc71;
+}
+
+.close-message-btn {
+  background: none;
+  border: none;
+  font-size: 20px;
+  cursor: pointer;
+  color: inherit;
+  padding: 0;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: background 0.2s;
+}
+
+.close-message-btn:hover {
+  background: rgba(0, 0, 0, 0.1);
+}
+
+/* Loading Skeleton */
+.loading-skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.skeleton-card {
+  background: white;
+  border-radius: 12px;
+  padding: 16px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+.skeleton-header {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.skeleton-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+.skeleton-text {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.skeleton-line {
+  height: 12px;
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: 4px;
+}
+
+.skeleton-line-short {
+  width: 60%;
+}
+
+.skeleton-line-tiny {
+  width: 40%;
+  height: 10px;
+}
+
+.skeleton-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+@keyframes shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* Feed Container */
+.team-tasks-container {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+/* Team Task Card */
+.team-task-card {
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  overflow: hidden;
+  transition: box-shadow 0.2s;
+}
+
+.team-task-card:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+/* Card Header */
+.team-task-header {
+  background: white;
+  padding: 16px 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.team-task-header-left {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  flex: 1;
+}
+
+.team-task-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.team-task-header-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.team-task-assigned {
+  font-size: 15px;
+  color: #1c1e21;
+  line-height: 1.3;
+  margin-bottom: 4px;
+}
+
+.team-leader-name {
+  font-weight: 700;
+  color: #1c1e21;
+}
+
+/* Role Badge */
+.role-badge {
+  padding: 2px 8px;
+  border: 1px solid;
+  border-radius: 12px;
+  font-size: 0.7rem;
+  font-weight: 500;
+  text-align: center;
+  display: inline-block;
+  margin-left: 5px;
+  margin-right: 5px;
+}
+
+.role-badge.team-leader {
+  border: 1px solid #1d4ed8;
+  color: #1d4ed8;
+}
+
+.assigned-user {
+  font-weight: 700;
+  color: #1c1e21;
+}
+
+.team-task-created {
+  font-size: 13px;
+  color: #65676b;
+}
+
+.team-task-header-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.team-task-due-date {
+  font-size: 14px;
+  color: #374151;
+  font-weight: 500;
+  text-align: right;
+}
+
+.days-left {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+/* Task Title Section */
+.team-task-title-section {
+  padding: 12px 20px;
+}
+
+.team-task-title {
+  font-weight: 700;
+  font-size: 18px;
+  color: #1c1e21;
+  margin: 0;
+  line-height: 1.3;
+}
+
+/* Task Description Section */
+.team-task-description-section {
+  padding: 12px 20px;
+}
+
+.team-task-description {
+  font-size: 15px;
+  color: #1c1e21;
+  line-height: 1.5;
+  margin: 0;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+
+.expand-btn {
+  background: none;
+  border: none;
+  color: #3b82f6;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  padding: 0;
+  margin-left: 4px;
+}
+
+.expand-btn:hover {
+  text-decoration: underline;
+}
+
+/* Attachment Section */
+.team-task-attachment-section {
+  padding: 12px 20px;
+}
+
+.team-task-attached-file {
+  background: #EFF6FF;
+  padding: 20px;
+  border-radius: 12px;
+  border: 1px solid #BFDBFE;
+}
+
+.file-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: #1e40af;
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.team-task-attached-file .file-item {
+  display: flex;
+  align-items: center;
+  padding: 16px;
+  gap: 12px;
+  transition: all 0.2s ease;
+  border: 1px solid #BFDBFE;
+  border-radius: 10px;
+  background: #EFF6FF;
+  box-shadow: 0 1px 2px rgba(59, 130, 246, 0.1);
+  margin-bottom: 12px;
+  cursor: pointer;
+}
+
+.file-item:last-child {
+  margin-bottom: 0;
+}
+
+.file-item:hover {
+  background: #DBEAFE;
+  border-color: #93c5fd;
+  box-shadow: 0 2px 4px rgba(59, 130, 246, 0.15);
+}
+
+.file-icon {
+  font-size: 24px;
+}
+
+.file-details {
+  flex: 1;
+}
+
+.file-name {
+  font-size: 14px;
+  font-weight: 500;
+  color: #1c1e21;
+  margin-bottom: 2px;
+}
+
+.file-meta {
+  font-size: 12px;
+  color: #65676b;
+}
+
+.file-submitter {
+  font-weight: 600;
+  color: #1877f2;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  font-size: 13px;
+}
+
+.file-description-text {
+  color: #1F2937 !important;
+}
+
+/* No Attachment Message */
+.no-attachment {
+  background: #f3f4f6;
+  padding: 20px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  justify-content: center;
+}
+
+.no-attachment-icon {
+  font-size: 16px;
+  color: #9ca3af;
+}
+
+.no-attachment-text {
+  font-size: 14px;
+  color: #6b7280;
+  font-weight: 500;
+}
+
+/* Empty State */
+.empty-team-tasks {
+  background: white;
+  border-radius: 12px;
+  padding: 60px 20px;
+  text-align: center;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+.empty-icon {
+  font-size: 64px;
+  margin-bottom: 16px;
+}
+
+.empty-team-tasks h3 {
+  margin: 0 0 8px 0;
+  font-size: 20px;
+  color: #1c1e21;
+  font-weight: 600;
+}
+
+.empty-team-tasks p {
+  margin: 0;
+  color: #65676b;
+  font-size: 15px;
+}
+
+/* Inline Skeleton Loader */
+.inline-skeleton-container {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-top: 16px;
+}
+
+/* File Opening Cursor */
+.file-opening-cursor {
+  cursor: wait !important;
+}
+
+.file-opening-cursor * {
+  cursor: wait !important;
+}
+
+/* Comments Section */
+.team-task-comments-section {
+  padding: 16px 20px;
+  border-top: 1px solid #e5e7eb;
+  display: flex;
+  justify-content: flex-start;
+}
+
+.toggle-comments-btn {
+  background: transparent;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  color: #65676b;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  transition: color 0.2s;
+}
+
+.toggle-comments-btn:hover {
+  color: #1c1e21;
+}
+
+.comment-icon {
+  font-size: 16px;
+}
+
+.comment-count {
+  color: #6b7280;
+  font-size: 13px;
+}
+
+/* Comments Modal */
+.comments-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 20px;
+  animation: modalOverlayFadeIn 0.2s ease-out;
+}
+
+@keyframes modalOverlayFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.comments-modal {
+  background: white;
+  border-radius: 12px;
+  width: 100%;
+  max-width: 700px;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  animation: modalScaleIn 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+  transform-origin: center center;
+}
+
+@keyframes modalScaleIn {
+  0% {
+    opacity: 0;
+    transform: scale(0.7);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.comments-modal-header {
+  padding: 20px 24px;
+  border-bottom: 1px solid #e5e7eb;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.comments-modal-header h3 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 600;
+  color: #1a1a1a;
+}
+
+.close-modal-btn {
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f2f3f5;
+  border: none;
+  color: #65676b;
+  font-size: 24px;
+  cursor: pointer;
+  border-radius: 50%;
+  transition: all 0.2s;
+}
+
+.close-modal-btn:hover {
+  background: #e4e6eb;
+  color: #1a1a1a;
+}
+
+.comments-modal-body {
+  padding: 24px;
+  overflow-y: auto;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  max-height: 600px;
+}
+
+/* Hide scrollbar but keep functionality */
+.comments-modal-body::-webkit-scrollbar {
+  width: 0;
+  background: transparent;
+}
+
+.comments-modal-body {
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE and Edge */
+}
+
+/* ============================================
+   COMMENTS SECTION
+   ============================================ */
+
+.comments-section {
+  background: #ffffff;
+}
+
+.comments-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.comment-item {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+
+.comment-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  font-size: 12px;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.comment-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.comment-bubble {
+  background: #f0f2f5;
+  padding: 10px 14px;
+  border-radius: 18px;
+  max-width: 100%;
+  word-wrap: break-word;
+}
+
+.comment-author {
+  font-size: 13px;
+  font-weight: 600;
+  color: #1a1a1a;
+  margin-bottom: 2px;
+}
+
+.comment-text {
+  font-size: 15px;
+  color: #1a1a1a;
+  line-height: 1.4;
+  white-space: pre-wrap;
+}
+
+.comment-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding-left: 14px;
+  position: relative;
+}
+
+.comment-timestamp {
+  font-size: 12px;
+  color: #65676b;
+}
+
+.comment-action-btn {
+  font-size: 12px;
+  font-weight: 600;
+  color: #65676b;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  transition: color 0.2s;
+}
+
+.comment-action-btn:hover {
+  color: #1a1a1a;
+  text-decoration: underline;
+}
+
+.view-replies-btn {
+  color: #65676b;
+  font-weight: 600;
+}
+
+.view-replies-btn:hover {
+  color: #1a1a1a;
+}
+
+/* Replies Section */
+.replies-list {
+  margin-top: 0;
+  margin-left: 52px;
+  padding-left: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  position: relative;
+}
+
+.replies-list::before {
+  content: '';
+  position: absolute;
+  left: -10px;
+  top: -12px;
+  width: 2px;
+  height: calc(100% + 12px);
+  background: #e4e6eb;
+}
+
+.reply-item {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  position: relative;
+}
+
+.reply-item::before {
+  content: '';
+  position: absolute;
+  left: -10px;
+  top: 16px;
+  width: 10px;
+  height: 2px;
+  background: #e4e6eb;
+}
+
+.reply-avatar {
+  width: 28px;
+  height: 28px;
+  font-size: 11px;
+}
+
+.reply-input-box {
+  margin-top: 8px;
+  margin-left: 42px;
+  padding-left: 20px;
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  position: relative;
+}
+
+.reply-input-box::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: -12px;
+  width: 2px;
+  height: calc(100% + 12px);
+  background: #e4e6eb;
+}
+
+/* Add Comment Input */
+.add-comment {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+
+.comment-input-wrapper {
+  flex: 1;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  background: #f0f2f5;
+  border-radius: 20px;
+  padding: 8px 12px;
+  border: 1px solid #e4e6eb;
+  transition: border-color 0.2s;
+}
+
+.comment-input-wrapper:focus-within {
+  border-color: #1877f2;
+}
+
+.comment-input {
+  flex: 1;
+  border: none;
+  outline: none;
+  font-size: 15px;
+  color: #1a1a1a;
+  background: transparent;
+  padding: 0;
+}
+
+.comment-input::placeholder {
+  color: #8a8d91;
+}
+
+.comment-submit-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: #1877f2;
+  color: white;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 16px;
+  transition: all 0.2s;
+  flex-shrink: 0;
+}
+
+.comment-submit-btn:hover:not(:disabled) {
+  background: #166fe5;
+  transform: scale(1.05);
+}
+
+.comment-submit-btn:disabled {
+  background: #e4e6eb;
+  color: #bcc0c4;
+  cursor: not-allowed;
+}
+
+/* Responsive Design */
+@media (max-width: 844px) {
+  .team-tasks-tab {
+    padding: 16px;
+  }
+
+  .team-tasks-header h2 {
+    font-size: 28px;
+  }
+
+  .team-tasks-subtitle {
+    font-size: 14px;
+  }
+
+  .team-tasks-count {
+    font-size: 14px;
+    margin-bottom: 20px;
+  }
+
+  .team-task-card {
+    border-radius: 6px;
+  }
+
+  .team-task-header {
+    padding: 14px 16px;
+  }
+
+  .team-task-avatar {
+    width: 36px;
+    height: 36px;
+    font-size: 12px;
+  }
+
+  .team-task-assigned {
+    font-size: 14px;
+  }
+
+  .role-badge {
+    font-size: 0.65rem;
+    padding: 1px 6px;
+  }
+
+  .team-task-created {
+    font-size: 12px;
+  }
+
+  .team-task-due-date {
+    font-size: 13px;
+  }
+
+  .days-left {
+    font-size: 12px;
+  }
+
+  .team-task-title-section {
+    padding: 12px 16px;
+  }
+
+  .team-task-title {
+    font-size: 16px;
+  }
+
+  .team-task-description-section {
+    padding: 12px 16px;
+  }
+
+  .team-task-description {
+    font-size: 14px;
+  }
+
+  .team-task-attachment-section {
+    padding: 12px 16px;
+  }
+
+  .team-task-attached-file {
+    padding: 16px;
+  }
+
+  .file-label {
+    font-size: 12px;
+  }
+
+  .file-item {
+    padding: 10px;
+  }
+
+  .file-name {
+    font-size: 13px;
+  }
+
+  .file-meta {
+    font-size: 11px;
+  }
+
+  .no-attachment {
+    padding: 16px;
+  }
+
+  .no-attachment-text {
+    font-size: 13px;
+  }
+
+  .comments-modal {
+    max-height: 90vh;
+  }
+
+  .comments-modal-header {
+    padding: 16px;
+  }
+
+  .comments-modal-header h3 {
+    font-size: 18px;
+  }
+
+  .comments-modal-body {
+    padding: 16px;
+  }
+}
+
+@media (max-width: 768px) {
+  .team-tasks-tab {
+    padding: 12px;
+  }
+
+  .team-task-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .team-task-header-right {
+    width: 100%;
+    align-items: flex-start;
+  }
+
+  .team-task-due-date {
+    text-align: left;
+  }
+
+  .comments-modal-overlay {
+    padding: 0;
+  }
+
+  .comments-modal {
+    border-radius: 0;
+    max-height: 100vh;
+    height: 100vh;
+  }
+
+  .comments-modal-header {
+    padding: 16px;
+  }
+
+  .comments-modal-body {
+    padding: 16px;
+  }
+}

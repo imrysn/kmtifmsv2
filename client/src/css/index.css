@@ -1,5 +1,5 @@
 :root {
-  font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Helvetica Neue', Arial, sans-serif;
   line-height: 1.5;
   font-weight: 400;
 
@@ -63,4 +63,91 @@ input:focus {
 a {
   color: inherit;
   text-decoration: none;
+}
+
+/* Global Alert Styles */
+.alert {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 10000; /* High z-index to ensure it appears above other elements */
+  padding: 1rem;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  max-width: 400px;
+  min-width: 300px; /* Optional: ensure a minimum width */
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15); /* Optional: add shadow for better visibility */
+  /* Animation */
+  opacity: 0;
+  transform: translateX(100%);
+  animation: slideInAndOut 3.5s ease-in-out forwards; /* 3s display + 0.5s animation */
+}
+
+.alert.show {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+@keyframes slideInAndOut {
+  0% {
+    opacity: 0;
+    transform: translateX(100%); /* Start off-screen to the right */
+  }
+  10% { /* Or a small % like 5% if you want a quicker initial pop */
+    opacity: 1;
+    transform: translateX(0); /* Slide in to position */
+  }
+  90% { /* Start fading out slightly before 3 seconds (e.g., at 2.5s if total is 3.5s) */
+    opacity: 1;
+    transform: translateX(0); /* Stay in position */
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(100%); /* Slide back out to the right */
+  }
+}
+
+/* Alert Type Specific Styles */
+.alert-error {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #dc2626;
+}
+
+.alert-success {
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  color: #059669;
+}
+
+.alert-message {
+  flex: 1;
+  word-wrap: break-word; /* Handle long messages */
+}
+
+.alert-close {
+  background: none;
+  border: none;
+  font-size: 1.2rem;
+  cursor: pointer;
+  color: inherit;
+  padding: 0;
+  margin-left: 0.5rem;
+  align-self: flex-start; /* Align close button to the top */
+}
+
+.alert-close:hover {
+  opacity: 0.8;
+}
+
+/* Responsive adjustments for smaller screens */
+@media (max-width: 768px) {
+  .alert {
+    right: 10px;
+    left: 10px; /* Use left/right to center on small screens or just right */
+    max-width: none; /* Remove max-width constraint */
+    min-width: auto; /* Remove min-width constraint */
+  }
 }

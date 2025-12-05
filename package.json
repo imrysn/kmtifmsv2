@@ -1,55 +1,104 @@
 {
   "name": "electron-react-app",
-  "version": "1.0.0",
-  "description": "Desktop application with React, Electron, Express, and SQLite",
+  "version": "2.0.0",
+  "description": "Desktop application with React, Electron, Express, and MySQL",
   "main": "main.js",
   "scripts": {
-    "dev": "concurrently --kill-others \"npm run client:dev\" \"npm run electron:dev\"",
+    "start": "node start-dev.js",
+    "dev": "node start-dev.js",
+    "diagnose:vite": "node diagnose-vite.js",
+    "verify:security": "node verify-security-fixes.js",
+    "dev:fast": "concurrently --kill-others \"cd client && npm run dev\" \"wait-on http://localhost:5173 && cross-env NODE_ENV=development electron .\"",
+    "dev:debug": "cross-env NODE_ENV=development ELECTRON_OPEN_DEVTOOLS=true electron .",
     "client:dev": "cd client && npm run dev",
     "electron:dev": "cross-env NODE_ENV=development electron .",
+    "electron:prod": "cross-env NODE_ENV=production electron .",
+    "start:prod": "npm run client:build && cross-env NODE_ENV=production electron .",
+    "prod": "npm run client:build && npm run electron:prod",
     "client:build": "cd client && npm run build",
     "electron:pack": "electron-builder",
     "build": "npm run client:build && npm run electron:pack",
     "postinstall": "cd client && npm install",
     "test:api": "node test-api.js",
     "server:standalone": "node server.js",
-    "reset:db": "node reset-db.js",
-    "reset:db:force": "node reset-db-force.js"
+    "db:init": "node database/init-mysql.js",
+    "db:recreate": "node database/recreate-tables.js",
+    "db:fix-teams": "node database/fix-teams-table.js",
+    "db:reset-admin": "node database/reset-admin-password.js",
+    "db:check-roles": "node database/check-roles.js",
+    "db:migrate": "node database/migrate-from-sqlite.js",
+    "db:migrate:assignments": "node server/scripts/migrate-assignments.js",
+    "db:test": "node database/test-connection.js",
+    "db:backup": "node database/backup-mysql.js",
+    "db:switch": "node database/switch-database-mode.js",
+    "db:verify": "node verify-mysql-fixes.js",
+    "db:add-notifications": "node database/add-notifications-table.js",
+    "health": "node database/health-check.js",
+    "reset:db": "node server/scripts/database/reset-db.js",
+    "reset:db:force": "node server/scripts/database/reset-db-force.js",
+    "reset:db:file-approval": "node server/scripts/database/reset-file-approval-db.js",
+    "update:db:file-system": "node server/scripts/database/update-database-file-system.js",
+    "check:db": "node server/scripts/database/check-db-tables.js",
+    "test:team-delete": "node server/scripts/testing/test-team-delete.js",
+    "test:teams-api": "node server/scripts/testing/test-teams-api.js",
+    "test:delete-endpoint": "node server/scripts/testing/test-delete-endpoint.js",
+    "test:file-management": "node server/scripts/testing/test-file-management-api.js",
+    "debug:file-management": "node server/scripts/testing/debug-file-management.js",
+    "network:status": "node server/scripts/network/network-config-manager.js status",
+    "network:test": "node server/scripts/network/network-config-manager.js test",
+    "network:backup": "node server/scripts/network/network-config-manager.js backup-local",
+    "network:verify": "node server/scripts/network/verify-network-connection.js",
+    "network:switch-local": "node server/scripts/network/switch-to-local-test.js",
+    "network:restore": "node server/scripts/network/restore-network-mode.js",
+    "network:create-test-dir": "node server/scripts/network/create-local-test-directory.js"
   },
   "devDependencies": {
+    "concurrently": "^8.2.2",
+    "cross-env": "^7.0.3",
     "electron": "^27.0.0",
     "electron-builder": "^24.6.4",
-    "concurrently": "^8.2.2",
-    "wait-on": "^7.0.1",
-    "cross-env": "^7.0.3"
+    "wait-on": "^7.0.1"
   },
   "dependencies": {
-    "express": "^4.18.2",
-    "cors": "^2.8.5",
-    "sqlite3": "^5.1.6",
     "bcryptjs": "^2.4.3",
-    "multer": "^1.4.5-lts.1"
+    "cors": "^2.8.5",
+    "dotenv": "^17.2.3",
+    "express": "^4.18.2",
+    "multer": "^1.4.5-lts.1",
+    "mysql2": "^3.15.1",
+    "node-fetch": "^2.7.0",
+    "sqlite3": "^5.1.6"
   },
   "build": {
-    "appId": "com.example.electron-react-app",
-    "productName": "Electron React App",
+    "appId": "com.kmti.kmtifms2",
+    "productName": "KMTIFMS2",
     "directories": {
       "output": "dist"
     },
     "files": [
       "main.js",
+      "preload.js",
       "server.js",
+      "server/**/*",
+      "database/**/*",
       "client/dist/**/*",
-      "node_modules/**/*"
+      "client/src/assets/fms-icon.ico",
+      "client/src/assets/fms-icon.png",
+      "node_modules/**/*",
+      "!database/backups/**",
+      "!database/sql/*.backup"
     ],
     "win": {
-      "target": "nsis"
+      "target": "nsis",
+      "icon": "client/src/assets/fms-icon.ico"
     },
     "mac": {
-      "target": "dmg"
+      "target": "dmg",
+      "icon": "client/src/assets/fms-icon.png"
     },
     "linux": {
-      "target": "AppImage"
+      "target": "AppImage",
+      "icon": "client/src/assets/fms-icon.png"
     }
   }
 }

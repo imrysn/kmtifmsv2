@@ -1,0 +1,138 @@
+/* Optimized Alert Styles - NO ANIMATIONS for Performance */
+.alert {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 1.25rem;
+  border-radius: 8px;
+  margin-bottom: 1rem;
+  font-size: 0.875rem;
+  max-width: 400px;
+  min-width: 300px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.alert .alert-content {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex: 1;
+}
+
+.alert .alert-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.alert .alert-message {
+  flex: 1;
+  line-height: 1.5;
+}
+
+.alert .alert-close {
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  cursor: pointer;
+  padding: 0;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  margin-left: 0.5rem;
+  flex-shrink: 0;
+}
+
+/* Success Alert */
+.alert.alert-success {
+  background-color: #d1fae5;
+  color: #065f46;
+  border: 1px solid #a7f3d0;
+}
+
+.alert.alert-success .alert-icon {
+  color: #059669;
+}
+
+.alert.alert-success .alert-close {
+  color: #065f46;
+}
+
+.alert.alert-success .alert-close:hover {
+  background-color: #a7f3d0;
+}
+
+/* Error Alert */
+.alert.alert-error {
+  background-color: #fee2e2;
+  color: #991b1b;
+  border: 1px solid #fecaca;
+}
+
+.alert.alert-error .alert-icon {
+  color: #dc2626;
+}
+
+.alert.alert-error .alert-close {
+  color: #991b1b;
+}
+
+.alert.alert-error .alert-close:hover {
+  background-color: #fecaca;
+}
+
+/* Warning Alert */
+.alert.alert-warning {
+  background-color: #fef3c7;
+  color: #92400e;
+  border: 1px solid #fde68a;
+}
+
+.alert.alert-warning .alert-icon {
+  color: #f59e0b;
+}
+
+.alert.alert-warning .alert-close {
+  color: #92400e;
+}
+
+.alert.alert-warning .alert-close:hover {
+  background-color: #fde68a;
+}
+
+/* Info Alert */
+.alert.alert-info {
+  background-color: #dbeafe;
+  color: #1e40af;
+  border: 1px solid #bfdbfe;
+}
+
+.alert.alert-info .alert-icon {
+  color: #3b82f6;
+}
+
+.alert.alert-info .alert-close {
+  color: #1e40af;
+}
+
+.alert.alert-info .alert-close:hover {
+  background-color: #bfdbfe;
+}
+
+/* Responsive adjustments for alerts */
+@media (max-width: 768px) {
+  .alert {
+    right: 10px;
+    left: 10px;
+    max-width: none;
+    min-width: auto;
+  }
+}
