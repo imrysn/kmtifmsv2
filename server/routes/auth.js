@@ -181,13 +181,12 @@ router.post('/forgot-password', async (req, res) => {
       const notificationMessage = `${requestingUser.fullName || requestingUser.username} (${requestingUser.email}) has requested a password reset. Click to reset their password.`;
 
       // Create a notification with password_reset_request type
-      // We'll use the file_id field to store the requesting user's ID for routing
       await createNotification(
         admin.id,                    // userId (admin receiving notification)
-        requestingUser.id,           // fileId (reusing this field to store requesting user's ID)
+        null,                        // fileId (no file associated)
         'password_reset_request',    // type
         'Password Reset Request',    // title
-        notificationMessage,         // message
+        notificationMessage,         // message (contains requesting user info)
         requestingUser.id,           // actionById (user who requested reset)
         requestingUser.username,     // actionByUsername
         'USER',                      // actionByRole
