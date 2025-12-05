@@ -30,19 +30,28 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess, u
   const [currentPage, setCurrentPage] = useState(1)
   const itemsPerPage = 9
 
-  // Memoized filtered users for better performance
+  // Memoized filtered and sorted users for better performance
   const filteredUsers = useMemo(() => {
-    if (searchQuery.trim() === '') {
-      return users
+    let filtered = users
+    
+    // Filter by search query
+    if (searchQuery.trim() !== '') {
+      const query = searchQuery.toLowerCase()
+      filtered = users.filter(u =>
+        u.fullName.toLowerCase().includes(query) ||
+        u.username.toLowerCase().includes(query) ||
+        u.email.toLowerCase().includes(query) ||
+        u.role.toLowerCase().includes(query) ||
+        (u.team && u.team.toLowerCase().includes(query))
+      )
     }
-    const query = searchQuery.toLowerCase()
-    return users.filter(u =>
-      u.fullName.toLowerCase().includes(query) ||
-      u.username.toLowerCase().includes(query) ||
-      u.email.toLowerCase().includes(query) ||
-      u.role.toLowerCase().includes(query) ||
-      (u.team && u.team.toLowerCase().includes(query))
-    )
+    
+    // Sort by created_at (oldest first)
+    return filtered.sort((a, b) => {
+      const dateA = new Date(a.created_at || 0)
+      const dateB = new Date(b.created_at || 0)
+      return dateA - dateB // Ascending order (oldest first)
+    })
   }, [searchQuery, users])
 
   // Pagination calculations
