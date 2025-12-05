@@ -228,7 +228,7 @@ const DashboardTab = ({ user, files, setActiveTab }) => {
               <div className="analytics-content-item">
                 <div className="analytics-label">Overall Score</div>
                 <div className="analytics-value">{productivityScore}%</div>
-                <div className="analytics-detail">Based on all metrics</div>
+                <div className="analytics-detail"></div>
               </div>
             </div>
             <div className="analytics-item">
