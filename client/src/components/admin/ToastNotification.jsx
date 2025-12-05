@@ -31,15 +31,42 @@ const ToastNotification = ({ notifications, onClose, onNavigate }) => {
   };
 
   const handleClick = (notification) => {
+    console.log('👉 Admin Toast clicked:', notification);
+    
     if (onNavigate) {
-      if (notification.assignment_id) {
+      // Handle password reset request notifications
+      if (notification.type === 'password_reset_request' && notification.file_id) {
+        console.log('🔑 Password reset request - Navigating to User Management');
+        // Note: file_id is being reused to store the requesting user's ID
+        onNavigate('users', {
+          userId: notification.file_id,  // file_id contains the requesting user's ID
+          action: 'reset-password',
+          username: notification.action_by_username
+        });
+      }
+      // Handle task/assignment notifications
+      else if (notification.assignment_id) {
+        console.log('📋 Navigating to tasks:', notification.assignment_id);
         onNavigate('tasks', notification.assignment_id);
-      } else if (notification.file_id) {
-        if (notification.type === 'approval' || notification.type === 'rejection') {
+      } 
+      // Handle file-related notifications
+      else if (notification.file_id) {
+        // Approval/rejection notifications go to file-approval tab
+        if (notification.type === 'approval' || 
+            notification.type === 'rejection' ||
+            notification.type === 'final_approval' ||
+            notification.type === 'final_rejection') {
+          console.log('✅ Navigating to file-approval:', notification.file_id);
           onNavigate('file-approval', notification.file_id);
-        } else {
+        } 
+        // Other file notifications go to file-management
+        else {
+          console.log('📁 Navigating to file-management:', notification.file_id);
           onNavigate('file-management', notification.file_id);
         }
+      }
+      else {
+        console.log('⚠️ No specific target for notification');
       }
     }
     handleDismiss(notification.id);
@@ -47,6 +74,8 @@ const ToastNotification = ({ notifications, onClose, onNavigate }) => {
 
   const getNotificationIcon = (type) => {
     switch (type) {
+      case 'password_reset_request':
+        return '🔑';
       case 'comment':
         return '💬';
       case 'assignment':
@@ -66,6 +95,8 @@ const ToastNotification = ({ notifications, onClose, onNavigate }) => {
 
   const getNotificationColor = (type) => {
     switch (type) {
+      case 'password_reset_request':
+        return 'gray';
       case 'comment':
         return 'blue';
       case 'assignment':

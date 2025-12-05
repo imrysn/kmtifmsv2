@@ -253,6 +253,23 @@ const Notifications = ({ user, onNavigate }) => {
       markAsRead(notification.id);
     }
 
+    console.log('📋 Notification clicked:', notification);
+
+    // Handle password reset request notifications
+    if (notification.type === 'password_reset_request') {
+      if (onNavigate && notification.file_id) {
+        console.log('🔑 Password reset request - Navigating to User Management');
+        // Navigate to users tab with context to open password reset modal
+        // Note: file_id is being reused to store the requesting user's ID
+        onNavigate('users', {
+          userId: notification.file_id,  // file_id contains the requesting user's ID
+          action: 'reset-password',
+          username: notification.action_by_username
+        });
+      }
+      return;
+    }
+
     // Navigate based on notification type
     if (notification.type === 'comment') {
       // For comments, open the task modal with the comment highlighted

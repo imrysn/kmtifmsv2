@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, dialog, shell } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, shell, screen } = require('electron');
 const path = require('path');
 const { spawn } = require('child_process');
 const http = require('http');
@@ -258,12 +258,29 @@ function createSplashWindow() {
 }
 
 function createWindow() {
+  // Get primary display dimensions
+  const primaryDisplay = screen.getPrimaryDisplay();
+  const { width: screenWidth, height: screenHeight } = primaryDisplay.workAreaSize;
+  
+  // Calculate optimal window size (80% of screen)
+  const windowWidth = Math.floor(screenWidth * 0.8);
+  const windowHeight = Math.floor(screenHeight * 0.8);
+  
+  // Determine if screen should auto-maximize
+  // Auto-maximize for Full HD (1920x1080) and below for better space utilization
+  const shouldAutoMaximize = screenWidth <= 1920 || screenHeight <= 1080;
+  
+  console.log(`🖥️  Screen detected: ${screenWidth}x${screenHeight}`);
+  console.log(`📐 Window size: ${windowWidth}x${windowHeight}`);
+  console.log(`🔍 Auto-maximize: ${shouldAutoMaximize ? 'Yes' : 'No'}`);
+  
   mainWindow = new BrowserWindow({
-    width: 1200,
-    height: 800,
+    width: windowWidth,
+    height: windowHeight,
     backgroundColor: '#667eea', // Match splash background to prevent flash
     show: false, // CHANGED: Don't show immediately, wait for content
     icon: path.join(__dirname, 'client/src/assets/fms-icon.ico'),
+    center: true, // Center the window on screen
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,
@@ -279,6 +296,13 @@ function createWindow() {
     },
   });
 
+  // Auto-maximize for better screen utilization
+  if (shouldAutoMaximize) {
+    mainWindow.maximize();
+    console.log('✅ Window auto-maximized');
+  }
+
+  mainWindow.setMenuBarVisibility(false);
   mainWindow.once('ready-to-show', () => {
     // Close splash window FIRST
     if (splashWindow && !splashWindow.isDestroyed()) {
@@ -325,10 +349,11 @@ function createWindow() {
       isConnectedToVite = true;
       console.log('✅ Page loaded successfully');
       
-      // Open DevTools after a short delay
-      setTimeout(() => {
-        mainWindow.webContents.openDevTools();
-      }, 500);
+      // DevTools disabled for production-ready build
+      // Uncomment the lines below only during development if needed:
+      // setTimeout(() => {
+      //   mainWindow.webContents.openDevTools();
+      // }, 500);
     });
 
     mainWindow.webContents.on('crashed', () => {

@@ -98,8 +98,32 @@ const AdminDashboard = ({ user, onLogout }) => {
   }
 
   const handleNotificationNavigation = (tabName, contextData) => {
-    handleTabChange(tabName, contextData)
-  }
+    console.log('🔔 Admin Navigation triggered:', { tabName, contextData });
+    
+    // Close sidebar if open (for mobile view)
+    if (sidebarOpen) {
+      setSidebarOpen(false);
+    }
+    
+    // Navigate to the tab with context data
+    setActiveTab(tabName);
+    setContextData(contextData);
+    clearMessages();
+    
+    // Special handling for different navigation types
+    if (contextData) {
+      // Scroll to top of content area
+      const contentArea = document.querySelector('.content-area');
+      if (contentArea) {
+        contentArea.scrollTop = 0;
+      }
+      
+      // Log the navigation context for debugging
+      if (contextData.action === 'reset-password') {
+        console.log('🔑 Password reset context:', contextData);
+      }
+    }
+  };
 
   const toggleSidebar = () => {
     setSidebarOpen(!sidebarOpen)
@@ -122,7 +146,7 @@ const AdminDashboard = ({ user, onLogout }) => {
       case 'dashboard':
         return <DashboardOverview user={user} users={users} />
       case 'users':
-        return <UserManagement {...commonProps} user={user} />
+        return <UserManagement {...commonProps} user={user} contextData={contextData} />
       case 'activity-logs':
         return <ActivityLogs {...commonProps} />
       case 'file-approval':

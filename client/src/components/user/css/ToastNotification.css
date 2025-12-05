@@ -23,6 +23,7 @@
   animation: slideIn 0.3s ease-out;
   transition: all 0.2s;
   max-width: 100%;
+  border-left: 4px solid transparent;
 }
 
 @keyframes slideIn {
@@ -37,8 +38,29 @@
 }
 
 .toast-notification:hover {
-  transform: translateX(-4px);
+  transform: translateX(-4px) scale(1.02);
   box-shadow: 0 12px 48px rgba(0, 0, 0, 0.2);
+}
+
+/* Add colored left border on hover for each type */
+.toast-blue:hover {
+  border-left-color: #3b82f6;
+}
+
+.toast-purple:hover {
+  border-left-color: #8b5cf6;
+}
+
+.toast-green:hover {
+  border-left-color: #10b981;
+}
+
+.toast-red:hover {
+  border-left-color: #ef4444;
+}
+
+.toast-gray:hover {
+  border-left-color: #6b7280;
 }
 
 /* Color variants - backgrounds removed */
@@ -78,6 +100,24 @@
   flex: 1;
   min-width: 0;
   padding-top: 4px;
+  position: relative;
+}
+
+/* Add "Click to view" indicator */
+.toast-content::after {
+  content: '👉 Click to view';
+  position: absolute;
+  bottom: -20px;
+  right: 0;
+  font-size: 11px;
+  color: #9ca3af;
+  font-weight: 500;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.toast-notification:hover .toast-content::after {
+  opacity: 1;
 }
 
 .toast-title {

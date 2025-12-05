@@ -87,6 +87,23 @@
   background: var(--background-hover);
 }
 
+/* Highlight animation for user row */
+.users-management .user-row.highlight-user {
+  animation: highlightUser 2s ease-in-out;
+  background: #fef3c7 !important;
+}
+
+@keyframes highlightUser {
+  0% {
+    background: #fef3c7;
+    box-shadow: 0 0 0 3px #fbbf24;
+  }
+  100% {
+    background: var(--background-hover);
+    box-shadow: none;
+  }
+}
+
 .users-management .user-cell {
   display: block;
 }

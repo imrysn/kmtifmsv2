@@ -146,6 +146,25 @@ router.post('/forgot-password', async (req, res) => {
   });
 
   try {
+    // First, find the user who is requesting the reset (by email or username)
+    const userQuery = email.includes('@')
+      ? 'SELECT id, username, fullName, email FROM users WHERE email = ?'
+      : 'SELECT id, username, fullName, email FROM users WHERE username = ?';
+    
+    const requestingUser = await new Promise((resolve, reject) => {
+      db.get(userQuery, [email], (err, row) => {
+        if (err) reject(err);
+        else resolve(row);
+      });
+    });
+
+    if (!requestingUser) {
+      console.log('⚠️ User not found for password reset:', email);
+      return; // Still return success to client for security
+    }
+
+    console.log('👤 Found requesting user:', requestingUser.username);
+
     // Find all admin users to notify them
     const adminQuery = 'SELECT id, username, role FROM users WHERE role LIKE ?';
     const adminUsers = await new Promise((resolve, reject) => {
@@ -159,21 +178,23 @@ router.post('/forgot-password', async (req, res) => {
 
     // Create notification for each admin user
     const notificationPromises = adminUsers.map(async (admin) => {
-      const notificationMessage = `User "${email}" requested a password reset. Please assist if needed.`;
+      const notificationMessage = `${requestingUser.fullName || requestingUser.username} (${requestingUser.email}) has requested a password reset. Click to reset their password.`;
 
+      // Create a notification with password_reset_request type
+      // We'll use the file_id field to store the requesting user's ID for routing
       await createNotification(
-        admin.id,           // userId
-        null,              // fileId (no file associated)
-        'system',          // type
-        'Password Reset Request', // title
-        notificationMessage, // message
-        null,              // actionById (system action)
-        'SYSTEM',          // actionByUsername
-        'SYSTEM',          // actionByRole
-        null               // assignmentId (no assignment)
+        admin.id,                    // userId (admin receiving notification)
+        requestingUser.id,           // fileId (reusing this field to store requesting user's ID)
+        'password_reset_request',    // type
+        'Password Reset Request',    // title
+        notificationMessage,         // message
+        requestingUser.id,           // actionById (user who requested reset)
+        requestingUser.username,     // actionByUsername
+        'USER',                      // actionByRole
+        null                         // assignmentId (no assignment)
       );
 
-      console.log(`✅ Created notification for admin ${admin.username}`);
+      console.log(`✅ Created password reset notification for admin ${admin.username}`);
     });
 
     await Promise.all(notificationPromises);
