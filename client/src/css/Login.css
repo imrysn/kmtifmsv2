@@ -104,7 +104,7 @@ body {
 }
 
 .system-name p {
-  font-size: 26px;
+  font-size: 24px;
   font-weight: 700;
   color: #101828;
   letter-spacing: -0.01em;
@@ -284,8 +284,7 @@ body {
 
 .form-group input:focus {
   outline: none;
-  border-color: #6d706e;
-  box-shadow: 0 0 0 3px rgba(79, 57, 246, 0.1);
+  border-color: #000000;
 }
 
 .form-group input.error {
@@ -359,14 +358,14 @@ body {
 }
 
 .remember-me input[type="checkbox"]:checked + .checkmark {
-  background: #6d706e;
-  border-color: #6d706e;
+  background: #fff;
+  border-color: #E5E7EB;
 }
 
 .remember-me input[type="checkbox"]:checked + .checkmark::after {
   content: '✓';
-  color: white;
-  font-size: 11px;
+  color: #1075e9;
+  font-size: 20px;
   font-weight: bold;
 }
 
@@ -589,15 +588,6 @@ body {
   .toggle-slider {
     transition: none !important;
   }
-}
-
-.toggle-switch:focus-visible,
-.login-button:focus-visible,
-.form-group input:focus-visible,
-.show-password-btn:focus-visible,
-.forgot-password:focus-visible {
-  outline: 2px solid #6d706e;
-  outline-offset: 2px;
 }
 
 /* Modal Styles */
