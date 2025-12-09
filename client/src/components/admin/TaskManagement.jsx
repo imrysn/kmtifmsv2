@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import './TaskManagement.css'
 import FileIcon from './FileIcon.jsx'
 import { AlertMessage, ConfirmationModal, CommentsModal } from './modals'
@@ -174,7 +174,8 @@ const TaskManagement = ({ error, success, setError, setSuccess, clearMessages, u
     }
   }, [nextCursor, hasMore, loadingMore])
 
-  const fetchComments = async (assignmentId) => {
+  // ⚡ OPTIMIZATION: Memoized fetchComments to prevent recreation
+  const fetchComments = useCallback(async (assignmentId) => {
     try {
       setLoadingComments(true)
       const response = await fetch(`http://localhost:3001/api/assignments/${assignmentId}/comments`)
@@ -191,24 +192,28 @@ const TaskManagement = ({ error, success, setError, setSuccess, clearMessages, u
     } finally {
       setLoadingComments(false)
     }
-  }
+  }, [setError])
 
-  const openCommentsModal = async (assignment) => {
+  // ⚡ OPTIMIZATION: Parallel loading - modal opens immediately, comments load in background
+  const openCommentsModal = useCallback((assignment) => {
     setSelectedAssignment(assignment)
     setShowCommentsModal(true)
-    await fetchComments(assignment.id)
-  }
+    // Don't await - let comments load in background for faster perceived performance
+    fetchComments(assignment.id)
+  }, [fetchComments])
 
-  const closeCommentsModal = () => {
+  // ⚡ OPTIMIZATION: Memoized close handler
+  const closeCommentsModal = useCallback(() => {
     setShowCommentsModal(false)
     setSelectedAssignment(null)
     setComments([])
     setNewComment('')
     setReplyingTo(null)
     setReplyText('')
-  }
+  }, [])
 
-  const handlePostComment = async (e) => {
+  // ⚡ OPTIMIZATION: Optimistic update + memoized handler
+  const handlePostComment = useCallback(async (e) => {
     e.preventDefault()
     
     if (!newComment.trim()) return
@@ -220,6 +225,21 @@ const TaskManagement = ({ error, success, setError, setSuccess, clearMessages, u
       }
       
       const currentUser = user
+      const commentText = newComment
+
+      // ⚡ OPTIMIZATION: Optimistic update - add comment to UI immediately
+      const optimisticComment = {
+        id: `temp-${Date.now()}`,
+        comment: commentText,
+        user_id: currentUser.id,
+        username: currentUser.username,
+        user_fullname: currentUser.fullName,
+        user_role: currentUser.role,
+        created_at: new Date().toISOString(),
+        replies: []
+      }
+      setComments(prev => [...prev, optimisticComment])
+      setNewComment('')
 
       const response = await fetch(`http://localhost:3001/api/assignments/${selectedAssignment.id}/comments`, {
         method: 'POST',
@@ -229,27 +249,31 @@ const TaskManagement = ({ error, success, setError, setSuccess, clearMessages, u
         body: JSON.stringify({
           userId: currentUser.id,
           username: currentUser.username,
-          comment: newComment
+          comment: commentText
         })
       })
 
       const data = await response.json()
       
       if (data.success) {
-        setNewComment('')
+        // ⚡ OPTIMIZATION: Only refetch to get the real ID and any server updates
         await fetchComments(selectedAssignment.id)
         setSuccess('Comment posted successfully')
         setTimeout(() => setSuccess(''), 3000)
       } else {
+        // Rollback optimistic update on error
+        setComments(prev => prev.filter(c => c.id !== optimisticComment.id))
+        setNewComment(commentText)
         setError(data.message || 'Failed to post comment')
       }
     } catch (error) {
       console.error('Error posting comment:', error)
       setError('Failed to post comment')
     }
-  }
+  }, [newComment, user, selectedAssignment, fetchComments, setError, setSuccess])
 
-  const handlePostReply = async (e, commentId) => {
+  // ⚡ OPTIMIZATION: Optimistic update + memoized handler
+  const handlePostReply = useCallback(async (e, commentId) => {
     e.preventDefault()
     
     if (!replyText.trim()) return
@@ -261,6 +285,26 @@ const TaskManagement = ({ error, success, setError, setSuccess, clearMessages, u
       }
       
       const currentUser = user
+      const replyMessage = replyText
+
+      // ⚡ OPTIMIZATION: Optimistic update - add reply to UI immediately
+      const optimisticReply = {
+        id: `temp-${Date.now()}`,
+        reply: replyMessage,
+        user_id: currentUser.id,
+        username: currentUser.username,
+        user_fullname: currentUser.fullName,
+        user_role: currentUser.role,
+        created_at: new Date().toISOString()
+      }
+      
+      setComments(prev => prev.map(comment => 
+        comment.id === commentId
+          ? { ...comment, replies: [...(comment.replies || []), optimisticReply] }
+          : comment
+      ))
+      setReplyText('')
+      setReplyingTo(null)
 
       const response = await fetch(
         `http://localhost:3001/api/assignments/${selectedAssignment.id}/comments/${commentId}/reply`,
@@ -272,7 +316,7 @@ const TaskManagement = ({ error, success, setError, setSuccess, clearMessages, u
           body: JSON.stringify({
             userId: currentUser.id,
             username: currentUser.username,
-            reply: replyText
+            reply: replyMessage
           })
         }
       )
@@ -280,19 +324,26 @@ const TaskManagement = ({ error, success, setError, setSuccess, clearMessages, u
       const data = await response.json()
       
       if (data.success) {
-        setReplyText('')
-        setReplyingTo(null)
+        // ⚡ OPTIMIZATION: Only refetch to sync with server
         await fetchComments(selectedAssignment.id)
         setSuccess('Reply posted successfully')
         setTimeout(() => setSuccess(''), 3000)
       } else {
+        // Rollback optimistic update on error
+        setComments(prev => prev.map(comment => 
+          comment.id === commentId
+            ? { ...comment, replies: (comment.replies || []).filter(r => r.id !== optimisticReply.id) }
+            : comment
+        ))
+        setReplyText(replyMessage)
+        setReplyingTo(commentId)
         setError(data.message || 'Failed to post reply')
       }
     } catch (error) {
       console.error('Error posting reply:', error)
       setError('Failed to post reply')
     }
-  }
+  }, [replyText, user, selectedAssignment, fetchComments, setError, setSuccess])
 
   const toggleExpand = (assignmentId) => {
     setExpandedAssignments(prev => ({
@@ -308,10 +359,11 @@ const TaskManagement = ({ error, success, setError, setSuccess, clearMessages, u
     }))
   }
 
-  const getInitials = (name) => {
+  // ⚡ OPTIMIZATION: Memoized utility function
+  const getInitials = useCallback((name) => {
     if (!name) return '?'
     return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
-  }
+  }, [])
 
   const formatDate = (dateString) => {
     if (!dateString) return 'No due date'
@@ -353,7 +405,8 @@ const TaskManagement = ({ error, success, setError, setSuccess, clearMessages, u
     })
   }
 
-  const formatTimeAgo = (dateString) => {
+  // ⚡ OPTIMIZATION: Memoized utility function
+  const formatTimeAgo = useCallback((dateString) => {
     if (!dateString) return 'Unknown'
     const date = new Date(dateString)
     const now = new Date()
@@ -364,7 +417,7 @@ const TaskManagement = ({ error, success, setError, setSuccess, clearMessages, u
     if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`
     if (seconds < 604800) return `${Math.floor(seconds / 86400)}d ago`
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-  }
+  }, [])
 
   const getStatusColor = (dueDate) => {
     if (!dueDate) return '#95a5a6'
@@ -377,12 +430,13 @@ const TaskManagement = ({ error, success, setError, setSuccess, clearMessages, u
     return '#27ae60'
   }
 
-  const toggleRepliesVisibility = (commentId) => {
+  // ⚡ OPTIMIZATION: Memoized toggle handler
+  const toggleRepliesVisibility = useCallback((commentId) => {
     setVisibleReplies(prev => ({
       ...prev,
       [commentId]: !prev[commentId]
     }))
-  }
+  }, [])
 
   const handleCommentKeyDown = (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
