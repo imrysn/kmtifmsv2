@@ -645,4 +645,12 @@ if (ipcMain) {
       return { success: false, error: error.message };
     }
   });
+
+  // Handle window flashing for notifications
+  ipcMain.on('window:flashFrame', (event, shouldFlash) => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      console.log(`🔔 Window flash: ${shouldFlash ? 'START' : 'STOP'}`);
+      mainWindow.flashFrame(shouldFlash);
+    }
+  });
 }

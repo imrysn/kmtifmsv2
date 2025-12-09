@@ -14,6 +14,7 @@ const Settings = ({ clearMessages, error, success, setError, setSuccess, users, 
     leaderUsername: ''
   })
   const [editingTeam, setEditingTeam] = useState(null)
+  const [deleteModal, setDeleteModal] = useState({ isOpen: false, teamId: null, teamName: '' })
   const [settings, setSettings] = useState({
     fileManagement: {
       rootDirectory: ''
@@ -113,13 +114,13 @@ const Settings = ({ clearMessages, error, success, setError, setSuccess, users, 
       })
       const data = await response.json()
       if (data.success) {
-        setSuccess('File management settings saved successfully')
+        setSuccess('New directory settings saved successfully')
       } else {
-        setError(data.message || 'Failed to save file management settings')
+        setError(data.message || 'Failed to save file directory settings')
       }
     } catch (error) {
       console.error('Error saving settings:', error)
-      setError('Failed to save file management settings')
+      setError('Failed to save file directory settings')
     } finally {
       setIsLoading(false)
     }
@@ -242,10 +243,12 @@ const Settings = ({ clearMessages, error, success, setError, setSuccess, users, 
     }
   }
 
-  const handleDeleteTeam = async (teamId, teamName) => {
-    if (!confirm(`Are you sure you want to delete team '${teamName}'? This action cannot be undone.`)) {
-      return
-    }
+  const handleDeleteTeam = (teamId, teamName) => {
+    setDeleteModal({ isOpen: true, teamId, teamName })
+  }
+
+  const handleConfirmDelete = async () => {
+    const { teamId, teamName } = deleteModal
 
     setIsLoading(true)
     try {
@@ -261,7 +264,12 @@ const Settings = ({ clearMessages, error, success, setError, setSuccess, users, 
       setError('Failed to delete team')
     } finally {
       setIsLoading(false)
+      setDeleteModal({ isOpen: false, teamId: null, teamName: '' })
     }
+  }
+
+  const closeDeleteModal = () => {
+    setDeleteModal({ isOpen: false, teamId: null, teamName: '' })
   }
 
   const startEditingTeam = (team) => setEditingTeam({ ...team })
@@ -518,9 +526,21 @@ const Settings = ({ clearMessages, error, success, setError, setSuccess, users, 
             </div>
           </div>
         </div>
-        
+
       </div>
-      
+
+      <ConfirmationModal
+        isOpen={deleteModal.isOpen}
+        onClose={closeDeleteModal}
+        onConfirm={handleConfirmDelete}
+        title=""
+        message={`Delete team '${deleteModal.teamName}'?`}
+        description="This action cannot be undone. All team members will be unassigned."
+        confirmText="Delete Team"
+        variant="danger"
+        isLoading={isLoading}
+      />
+
     </div>
   )
 }

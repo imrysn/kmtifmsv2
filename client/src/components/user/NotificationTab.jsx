@@ -1,11 +1,18 @@
 import { useState, useEffect } from 'react';
 import './css/NotificationTab.css';
 import { LoadingCards } from '../common/InlineSkeletonLoader';
+import { useTaskbarFlash } from '../../utils/useTaskbarFlash';
 
 const NotificationTab = ({ user, onNavigateToTask }) => {
   const [notifications, setNotifications] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
+
+  // Enable taskbar flashing for new notifications
+  useTaskbarFlash(unreadCount, {
+    enabled: true,
+    pageTitle: 'KMTI FMS - Notifications'
+  });
 
   useEffect(() => {
     if (user?.id) {

@@ -1,9 +1,13 @@
 import { useEffect, useState } from 'react';
 import './ToastNotification.css';
+import { useManualTaskbarFlash } from '../../utils/useTaskbarFlash';
 
 const ToastNotification = ({ notifications, onClose, onNavigate }) => {
   const [visible, setVisible] = useState([]);
   const [dismissed, setDismissed] = useState(new Set());
+  
+  // Manual taskbar flash trigger
+  const flashTaskbar = useManualTaskbarFlash({ duration: 8000 });
 
   useEffect(() => {
     // Filter out dismissed notifications and only show unread ones
@@ -12,6 +16,14 @@ const ToastNotification = ({ notifications, onClose, onNavigate }) => {
       .slice(0, 3); // Show max 3 at a time
 
     setVisible(newNotifications);
+
+    // Flash taskbar when new toast notifications appear
+    if (newNotifications.length > 0) {
+      const message = newNotifications.length === 1 
+        ? newNotifications[0].title 
+        : `${newNotifications.length} New Notifications`;
+      flashTaskbar(message);
+    }
 
     // Auto-dismiss after 8 seconds
     if (newNotifications.length > 0) {
