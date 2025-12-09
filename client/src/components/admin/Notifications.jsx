@@ -17,7 +17,6 @@ const NotificationItem = memo(({ notification, onNotificationClick, onDeleteNoti
       <div className="notification-content">
         <div className="notification-title">
           {notification.title}
-          {!notification.is_read && <span className="unread-badge">New</span>}
         </div>
         <div className="notification-message">{notification.message}</div>
         
