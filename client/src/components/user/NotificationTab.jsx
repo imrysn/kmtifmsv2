@@ -42,10 +42,17 @@ const NotificationCard = memo(({ notification, onNotificationClick, onDelete, ge
 });
 
 NotificationCard.displayName = 'NotificationCard';
+import { useTaskbarFlash } from '../../utils/useTaskbarFlash';
 
 const NotificationTab = ({ user, onNavigateToTask }) => {
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
+
+  // Enable taskbar flashing for new notifications
+  useTaskbarFlash(unreadCount, {
+    enabled: true,
+    pageTitle: 'KMTI FMS - Notifications'
+  });
   const [visibleRange, setVisibleRange] = useState({ start: 0, end: 20 });
   const containerRef = useRef(null);
   const ITEM_HEIGHT = 120; // Approximate height of each notification card

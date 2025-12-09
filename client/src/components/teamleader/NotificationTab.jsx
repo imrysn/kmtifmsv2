@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback, memo } from 'react';
 import './css/NotificationTab.css';
 import FileIcon from '../admin/FileIcon';
+import { useTaskbarFlash } from '../../utils/useTaskbarFlash';
 
 // Memoized notification item to prevent unnecessary re-renders
 const NotificationItem = memo(({ notification, onNotificationClick, onDeleteNotification, NotificationIcon, formatTimeAgo }) => {
@@ -67,6 +68,12 @@ const NotificationTab = ({ user, onNavigate }) => {
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState('');
   const [unreadCount, setUnreadCount] = useState(0);
+
+  // Enable taskbar flashing for new notifications
+  useTaskbarFlash(unreadCount, {
+    enabled: true,
+    pageTitle: 'KMTI FMS - Notifications'
+  });
   
   // Pagination state
   const [page, setPage] = useState(1);

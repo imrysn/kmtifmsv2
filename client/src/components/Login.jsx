@@ -205,7 +205,7 @@ const Login = ({ onLogin }) => {
               <img src={Logo} alt="KMTI Logo" className="login-logo" />
             </div>
             <div className="system-name">
-              <p>KMTI File Management System</p>
+              <p>File Management System</p>
             </div>
           </div>
         </div>
@@ -345,7 +345,7 @@ const Login = ({ onLogin }) => {
                 disabled={!forgotPasswordEmail.trim() || isForgotPasswordSubmitting}
                 className="submit-button"
               >
-                {isForgotPasswordSubmitting ? 'Sending...' : 'Send Reset Email'}
+                {isForgotPasswordSubmitting ? 'Sending...' : 'Send Reset Password'}
               </button>
             </div>
           </div>

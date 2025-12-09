@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback, memo } from 'react';
 import './Notifications.css';
 import FileIcon from './FileIcon';
+import { useTaskbarFlash } from '../../utils/useTaskbarFlash';
 
 // Memoized notification item to prevent unnecessary re-renders
 const NotificationItem = memo(({ notification, onNotificationClick, onDeleteNotification, NotificationIcon, formatTimeAgo }) => {
@@ -67,6 +68,12 @@ const Notifications = ({ user, onNavigate }) => {
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState('');
   const [unreadCount, setUnreadCount] = useState(0);
+
+  // Enable taskbar flashing for new notifications
+  useTaskbarFlash(unreadCount, {
+    enabled: true,
+    pageTitle: 'KMTI FMS - Notifications'
+  });
   
   // Pagination state
   const [page, setPage] = useState(1);
@@ -251,6 +258,23 @@ const Notifications = ({ user, onNavigate }) => {
     // Mark as read
     if (!notification.is_read) {
       markAsRead(notification.id);
+    }
+
+    console.log('📋 Notification clicked:', notification);
+
+    // Handle password reset request notifications
+    if (notification.type === 'password_reset_request') {
+      if (onNavigate && notification.file_id) {
+        console.log('🔑 Password reset request - Navigating to User Management');
+        // Navigate to users tab with context to open password reset modal
+        // Note: file_id is being reused to store the requesting user's ID
+        onNavigate('users', {
+          userId: notification.file_id,  // file_id contains the requesting user's ID
+          action: 'reset-password',
+          username: notification.action_by_username
+        });
+      }
+      return;
     }
 
     // Navigate based on notification type

@@ -1,9 +1,16 @@
 import { useState, useEffect } from 'react';
 import './css/NotificationBell.css';
+import { useTaskbarFlash } from '../../utils/useTaskbarFlash';
 
 const NotificationBell = ({ userId, onNotificationClick }) => {
   const [unreadCount, setUnreadCount] = useState(0);
   const [pulse, setPulse] = useState(false);
+
+  // Enable taskbar flashing for new notifications
+  useTaskbarFlash(unreadCount, {
+    enabled: true,
+    pageTitle: 'KMTI FMS - Team Leader Dashboard'
+  });
 
   useEffect(() => {
     fetchUnreadCount();
