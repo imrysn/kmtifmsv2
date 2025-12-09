@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import './css/DashboardTab.css';
+import { LoadingCards } from '../common/InlineSkeletonLoader';
 
 const DashboardTab = ({ user, files, setActiveTab }) => {
   const [assignments, setAssignments] = useState([]);
@@ -48,23 +49,21 @@ const DashboardTab = ({ user, files, setActiveTab }) => {
 
   const filesStats = {
     total: files.length,
-    pending: files.filter(f => f.current_stage.includes('pending')).length,
+    pending: files.filter(f => f.current_stage?.includes('pending')).length,
     approved: files.filter(f => f.status === 'final_approved').length,
-    rejected: files.filter(f => f.status.includes('rejected')).length
+    rejected: files.filter(f => f.status?.includes('rejected')).length
   };
 
   const teamStats = {
     totalTasks: teamTasks.length,
     totalSubmissions: teamTasks.reduce((sum, task) => 
       sum + (task.recent_submissions ? task.recent_submissions.length : 0), 0
-    ),
-    recentActivity: teamTasks.slice(0, 3)
+    )
   };
 
   const notificationStats = {
-    total: notifications.length,
     unread: notifications.filter(n => !n.is_read).length,
-    recent: notifications.slice(0, 5)
+    recent: notifications.slice(0, 3)
   };
 
   const taskCompletionRate = myTasksStats.total > 0 
@@ -76,357 +75,244 @@ const DashboardTab = ({ user, files, setActiveTab }) => {
   const onTimeRate = myTasksStats.total > 0
     ? Math.round(((myTasksStats.total - myTasksStats.overdue) / myTasksStats.total) * 100) : 100;
   
-  const productivityScore = (() => {
+  const overallScore = (() => {
     const taskScore = myTasksStats.total > 0 ? (myTasksStats.submitted / myTasksStats.total) * 100 : 0;
     const fileScore = filesStats.total > 0 ? (filesStats.approved / filesStats.total) * 100 : 0;
     const timeScore = myTasksStats.total > 0 ? ((myTasksStats.total - myTasksStats.overdue) / myTasksStats.total) * 100 : 100;
     return Math.round((taskScore * 0.4) + (fileScore * 0.3) + (timeScore * 0.3));
   })();
 
-  const getScoreColor = (score) => {
-    if (score >= 90) return '#10b981';
-    if (score >= 75) return '#3b82f6';
-    if (score >= 60) return '#f59e0b';
-    return '#ef4444';
-  };
-
   if (loading) {
     return (
-      <div className="user-dashboard-component dashboard-grid">
-        <div className="dashboard-card welcome-card skeleton-card">
-          <div className="skeleton-header">
-            <div className="skeleton-line skeleton-title"></div>
-            <div className="skeleton-line skeleton-subtitle"></div>
+      <div className="modern-dashboard">
+        <div className="dashboard-skeleton">
+          {/* Top Stats Skeleton */}
+          <div className="top-stats-grid">
+            <LoadingCards count={3} />
           </div>
-          <div className="skeleton-user-info">
-            <div className="skeleton-avatar"></div>
-            <div className="skeleton-user-details">
-              {[1,2,3,4].map(i => <div key={i} className="skeleton-line skeleton-short"></div>)}
-            </div>
-          </div>
-        </div>
-        <div className="skeleton-stats-grid">
-          {[1,2,3,4].map(i => (
-            <div key={i} className="skeleton-stat-card">
-              <div className="skeleton-stat-icon"></div>
-              <div className="skeleton-stat-content">
-                <div className="skeleton-line skeleton-tiny"></div>
-                <div className="skeleton-line skeleton-medium"></div>
+
+          {/* Main Content Skeleton */}
+          <div className="dashboard-main-grid">
+            {/* Analytics Card Skeleton */}
+            <div className="analytics-card-modern skeleton-card">
+              <div className="skeleton-box-inline" style={{ height: '24px', width: '180px', marginBottom: '20px' }} />
+              <div className="skeleton-box-inline" style={{ height: '16px', width: '100%', marginBottom: '10px' }} />
+              <div className="skeleton-box-inline" style={{ height: '40px', width: '100%', marginBottom: '20px' }} />
+              <div className="analytics-metrics-grid">
+                <LoadingCards count={4} />
               </div>
             </div>
-          ))}
-        </div>
-        {[1,2,3].map(i => (
-          <div key={i} className="dashboard-card skeleton-card">
-            <div className="skeleton-header"><div className="skeleton-line skeleton-medium"></div></div>
-            <div className="skeleton-list">
-              {[1,2,3].map(j => (
-                <div key={j} className="skeleton-list-item">
-                  <div className="skeleton-circle"></div>
-                  <div className="skeleton-line skeleton-long"></div>
-                </div>
-              ))}
+
+            {/* Notifications Card Skeleton */}
+            <div className="notifications-card-modern skeleton-card">
+              <div className="skeleton-box-inline" style={{ height: '24px', width: '140px', marginBottom: '20px' }} />
+              <div className="skeleton-box-inline" style={{ height: '60px', width: '100%', marginBottom: '10px' }} />
+              <div className="skeleton-box-inline" style={{ height: '60px', width: '100%', marginBottom: '10px' }} />
+              <div className="skeleton-box-inline" style={{ height: '60px', width: '100%' }} />
             </div>
           </div>
-        ))}
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="user-dashboard-component dashboard-grid">
-      <div className="dashboard-top-row">
-        {/* Welcome Card */}
-        <div className="dashboard-card welcome-card">
-          <div className="welcome-header-gradient">
-            <div className="welcome-header-content">
-              <div className="user-avatar-with-indicator">
-                <div className="user-avatar-circle">
-                  {user.fullName ? user.fullName.charAt(0).toUpperCase() : 'U'}
-                </div>
-                <div className="online-indicator"></div>
-              </div>
-              <div className="welcome-text">
-                <h2>Welcome Back, {user.fullName?.split(' ')[0] || user.username}!</h2>
-                <p className="welcome-subtitle">Here's what's happening with your workspace</p>
-              </div>
-            </div>
+    <div className="modern-dashboard">
+      {/* Top Stats Cards */}
+      <div className="top-stats-grid">
+        <div className="stat-card-modern" onClick={() => setActiveTab('tasks')}>
+          <div className="stat-card-icon">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="20 6 9 17 4 12"></polyline>
+            </svg>
           </div>
-          
-          {user && (
-            <div className="user-info-grid">
-              <div className="user-info-row">
-                <div className="user-info-field">
-                  <span className="field-label">FULL NAME</span>
-                  <div className="field-value-wrapper">
-                    <div className="field-icon user-icon">
-                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
-                        <circle cx="12" cy="7" r="4"></circle>
-                      </svg>
-                    </div>
-                    <span className="field-value">{user.fullName}</span>
-                  </div>
-                </div>
-                <div className="user-info-field">
-                  <span className="field-label">EMAIL</span>
-                  <div className="field-value-wrapper">
-                    <div className="field-icon email-icon">
-                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <rect x="2" y="4" width="20" height="16" rx="2"></rect>
-                        <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"></path>
-                      </svg>
-                    </div>
-                    <span className="field-value">{user.email}</span>
-                  </div>
-                </div>
-              </div>
-              <div className="user-info-row">
-                <div className="user-info-field">
-                  <span className="field-label">TEAM</span>
-                  <div className="field-value-wrapper">
-                    <div className="field-icon team-icon">
-                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <rect x="3" y="3" width="7" height="7"></rect>
-                        <rect x="14" y="3" width="7" height="7"></rect>
-                        <rect x="14" y="14" width="7" height="7"></rect>
-                        <rect x="3" y="14" width="7" height="7"></rect>
-                      </svg>
-                    </div>
-                    <span className="field-value">{user.team}</span>
-                  </div>
-                </div>
-                <div className="user-info-field">
-                  <span className="field-label">ROLE</span>
-                  <div className="field-value-wrapper">
-                    <div className="field-icon role-icon">
-                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
-                      </svg>
-                    </div>
-                    <span className="field-value">{user.role.toUpperCase()}</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
+          <div className="stat-card-content">
+            <div className="stat-card-label">My Tasks</div>
+            <div className="stat-card-value">{myTasksStats.total}</div>
+            <div className="stat-card-detail"><span className="pending-count">{myTasksStats.pending} pending</span> · <span className="submitted-count">{myTasksStats.submitted} submitted</span></div>
+          </div>
         </div>
 
+        <div className="stat-card-modern" onClick={() => setActiveTab('my-files')}>
+          <div className="stat-card-icon">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"></path>
+              <polyline points="13 2 13 9 20 9"></polyline>
+            </svg>
+          </div>
+          <div className="stat-card-content">
+            <div className="stat-card-label">My Files</div>
+            <div className="stat-card-value">{filesStats.total}</div>
+            <div className="stat-card-detail"><span className="pending-count">{filesStats.pending} pending</span> · <span className="approved-count">{filesStats.approved} approved</span> · <span className="rejected-count">{filesStats.rejected} rejected</span></div>
+          </div>
+        </div>
+
+        <div className="stat-card-modern" onClick={() => setActiveTab('team-files')}>
+          <div className="stat-card-icon">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+              <circle cx="9" cy="7" r="4"></circle>
+              <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+              <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+            </svg>
+          </div>
+          <div className="stat-card-content">
+            <div className="stat-card-label">Team Activity</div>
+            <div className="stat-card-value">{teamStats.totalTasks}</div>
+            <div className="stat-card-detail">{teamStats.totalTasks} tasks · {teamStats.totalSubmissions} submissions</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Main Content Grid */}
+      <div className="dashboard-main-grid">
         {/* Performance Analytics */}
-        <div className="dashboard-card analytics-card">
-          <div className="analytics-header">
-            <h3>📊 Performance Analytics</h3>
-            <p className="analytics-subtitle">Your productivity metrics at a glance</p>
+        <div className="analytics-card-modern">
+          <div className="analytics-card-header">
+            <h2 className="analytics-card-title">Performance Analytics</h2>
           </div>
-          <div className="analytics-grid">
-            <div className="analytics-item">
-              <div className="analytics-icon score-icon">
-                <div className="score-circle-small" style={{ background: `conic-gradient(${getScoreColor(productivityScore)} ${productivityScore * 3.6}deg, #e5e7eb ${productivityScore * 3.6}deg)` }}>
-                  <div className="score-value-small">{productivityScore}</div>
+          <div className="analytics-content">
+            {/* Overall Score Horizontal Bar */}
+            <div className="overall-score-section">
+              <div className="score-header">
+                <div className="score-label">Overall Performance Score</div>
+                <div className="score-percentage">{overallScore}%</div>
+              </div>
+              <div className="score-bar-container">
+                <div 
+                  className="score-bar-fill"
+                  style={{
+                    width: `${overallScore}%`
+                  }}
+                />
+              </div>
+              <div className="score-legend">
+                <span className="legend-item">
+                  <span className="legend-dot poor"></span> 0-49% Poor
+                </span>
+                <span className="legend-item">
+                  <span className="legend-dot fair"></span> 50-69% Fair
+                </span>
+                <span className="legend-item">
+                  <span className="legend-dot good"></span> 70-84% Good
+                </span>
+                <span className="legend-item">
+                  <span className="legend-dot excellent"></span> 85-100% Excellent
+                </span>
+              </div>
+            </div>
+
+            {/* Analytics Grid */}
+            <div className="analytics-metrics-grid">
+              <div className="analytics-metric">
+                <div className="metric-icon task-completion-icon">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="20 6 9 17 4 12"></polyline>
+                  </svg>
+                </div>
+                <div className="metric-content">
+                  <div className="metric-label">Task Completion</div>
+                  <div className="metric-value">{taskCompletionRate}%</div>
+                  <div className="metric-detail">{myTasksStats.submitted}/{myTasksStats.total} completed</div>
                 </div>
               </div>
-              <div className="analytics-content-item">
-                <div className="analytics-label">Overall Score</div>
-                <div className="analytics-value">{productivityScore}%</div>
-                <div className="analytics-detail">Based on all metrics</div>
-              </div>
-            </div>
-            <div className="analytics-item">
-              <div className="analytics-icon tasks-icon">✓</div>
-              <div className="analytics-content-item">
-                <div className="analytics-label">Task Completion</div>
-                <div className="analytics-value">{taskCompletionRate}%</div>
-                <div className="analytics-detail">{myTasksStats.submitted}/{myTasksStats.total} completed</div>
-              </div>
-            </div>
-            <div className="analytics-item">
-              <div className="analytics-icon files-icon">📄</div>
-              <div className="analytics-content-item">
-                <div className="analytics-label">File Approval Rate</div>
-                <div className="analytics-value">{fileApprovalRate}%</div>
-                <div className="analytics-detail">{filesStats.approved}/{filesStats.total} approved</div>
-              </div>
-            </div>
-            <div className="analytics-item">
-              <div className="analytics-icon ontime-icon">⏱️</div>
-              <div className="analytics-content-item">
-                <div className="analytics-label">On-Time Delivery</div>
-                <div className="analytics-value">{onTimeRate}%</div>
-                <div className="analytics-detail">{myTasksStats.total - myTasksStats.overdue}/{myTasksStats.total} on time</div>
-              </div>
-            </div>
-            <div className="analytics-item">
-              <div className="analytics-icon overdue-icon">⚠️</div>
-              <div className="analytics-content-item">
-                <div className="analytics-label">Overdue Tasks</div>
-                <div className="analytics-value">{myTasksStats.overdue}</div>
-                <div className="analytics-detail">Tasks awaiting attention</div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
 
-      {/* Quick Stats Grid - No Container */}
-      <div className="quick-stats-grid">
-        <div className="stat-card" onClick={() => setActiveTab('tasks')}>
-          <div className="stat-icon tasks-icon">✓</div>
-          <div className="stat-content">
-            <div className="stat-label">My Tasks</div>
-            <div className="stat-value">{myTasksStats.total}</div>
-            <div className="stat-breakdown">
-              <span className="stat-item">{myTasksStats.pending} pending</span>
-              <span className="stat-divider">•</span>
-              <span className="stat-item">{myTasksStats.submitted} submitted</span>
-              {myTasksStats.overdue > 0 && (
-                <><span className="stat-divider">•</span><span className="stat-item">{myTasksStats.overdue} overdue</span></>
-              )}
-            </div>
-          </div>
-        </div>
-        <div className="stat-card" onClick={() => setActiveTab('my-files')}>
-          <div className="stat-icon files-icon">📄</div>
-          <div className="stat-content">
-            <div className="stat-label">My Files</div>
-            <div className="stat-value">{filesStats.total}</div>
-            <div className="stat-breakdown">
-              <span className="stat-item">{filesStats.pending} pending</span>
-              <span className="stat-divider">•</span>
-              <span className="stat-item">{filesStats.approved} approved</span>
-              {filesStats.rejected > 0 && (
-                <><span className="stat-divider">•</span><span className="stat-item">{filesStats.rejected} rejected</span></>
-              )}
-            </div>
-          </div>
-        </div>
-        <div className="stat-card" onClick={() => setActiveTab('team-files')}>
-          <div className="stat-icon team-icon">👥</div>
-          <div className="stat-content">
-            <div className="stat-label">Team Activity</div>
-            <div className="stat-value">{teamStats.totalTasks}</div>
-            <div className="stat-breakdown">
-              <span className="stat-item">{teamStats.totalTasks} tasks</span>
-              <span className="stat-divider">•</span>
-              <span className="stat-item">{teamStats.totalSubmissions} submissions</span>
-            </div>
-          </div>
-        </div>
-        <div className="stat-card" onClick={() => setActiveTab('notification')}>
-          <div className="stat-icon notifications-icon">🔔</div>
-          <div className="stat-content">
-            <div className="stat-label">Notifications</div>
-            <div className="stat-value">{notificationStats.total}</div>
-            <div className="stat-breakdown">
-              {notificationStats.unread > 0 
-                ? <span className="stat-item">{notificationStats.unread} unread</span>
-                : <span className="stat-item">All caught up!</span>
-              }
-            </div>
-          </div>
-        </div>
-      </div>
+              <div className="analytics-metric">
+                <div className="metric-icon ontime-icon">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <polyline points="12 6 12 12 16 14"></polyline>
+                  </svg>
+                </div>
+                <div className="metric-content">
+                  <div className="metric-label">On-Time Delivery</div>
+                  <div className="metric-value">{onTimeRate}%</div>
+                  <div className="metric-detail">{myTasksStats.total - myTasksStats.overdue}/{myTasksStats.total} on time</div>
+                </div>
+              </div>
 
-      {/* My Tasks Overview */}
-      <div className="dashboard-card tasks-overview-card">
-        <div className="card-header">
-          <h3>✓ My Tasks Overview</h3>
-          <button className="view-all-btn" onClick={() => setActiveTab('tasks')}>View All →</button>
+              <div className="analytics-metric">
+                <div className="metric-icon approval-icon">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"></path>
+                    <polyline points="13 2 13 9 20 9"></polyline>
+                  </svg>
+                </div>
+                <div className="metric-content">
+                  <div className="metric-label">File Approval Rate</div>
+                  <div className="metric-value">{fileApprovalRate}%</div>
+                  <div className="metric-detail">{filesStats.approved}/{filesStats.total} approved</div>
+                </div>
+              </div>
+
+              <div className="analytics-metric">
+                <div className="metric-icon overdue-icon">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+                    <line x1="12" y1="9" x2="12" y2="13"></line>
+                    <line x1="12" y1="17" x2="12.01" y2="17"></line>
+                  </svg>
+                </div>
+                <div className="metric-content">
+                  <div className="metric-label">Overdue Tasks</div>
+                  <div className="metric-value">{myTasksStats.overdue}</div>
+                  <div className="metric-detail">Tasks awaiting attention</div>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
-        {assignments.length > 0 ? (
-          <div className="tasks-preview-list">
-            {assignments.slice(0, 3).map(assignment => {
-              const isOverdue = assignment.due_date && new Date(assignment.due_date) < new Date();
-              const isSubmitted = assignment.user_status === 'submitted';
-              return (
-                <div key={assignment.id} className="task-preview-item">
-                  <div className="task-preview-content">
-                    <div className="task-preview-title">{assignment.title}</div>
-                    <div className="task-preview-meta">
-                      {assignment.due_date && (
-                        <span className={`task-due-date ${isOverdue && !isSubmitted ? 'overdue' : ''}`}>
-                          Due: {new Date(assignment.due_date).toLocaleDateString()}
-                        </span>
-                      )}
+
+        {/* Notifications */}
+        <div className="notifications-card-modern">
+          <div className="notifications-card-header">
+            <h2 className="notifications-card-title">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+                <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+              </svg>
+              Notifications
+            </h2>
+            <div className="notifications-badge">{notificationStats.unread}</div>
+          </div>
+          <div className="notifications-content">
+            {notificationStats.recent.length > 0 ? (
+              <>
+                {notificationStats.recent.map(notification => (
+                  <div key={notification.id} className={`notification-item-modern ${!notification.is_read ? 'unread' : ''}`}>
+                    <div className="notification-text">
+                      <div className="notification-title-modern">{notification.title}</div>
+                      <div className="notification-time-modern">
+                        {(() => {
+                          const now = new Date();
+                          const notifTime = new Date(notification.created_at);
+                          const diffMs = now - notifTime;
+                          const diffMins = Math.floor(diffMs / 60000);
+                          const diffHours = Math.floor(diffMs / 3600000);
+                          
+                          if (diffMins < 60) return `${diffMins} minutes ago`;
+                          if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
+                          return notifTime.toLocaleDateString();
+                        })()}
+                      </div>
                     </div>
                   </div>
-                  <div className="task-preview-status">
-                    <span className={`status-badge ${isSubmitted ? 'submitted' : isOverdue ? 'overdue' : 'pending'}`}>
-                      {isSubmitted ? '✓ Submitted' : isOverdue ? '⚠ Overdue' : '⏳ Pending'}
-                    </span>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        ) : (
-          <div className="empty-state">
-            <div className="empty-icon">✓</div>
-            <p>No tasks assigned yet</p>
-          </div>
-        )}
-      </div>
-
-      {/* Recent Team Activity */}
-      <div className="dashboard-card team-activity-card">
-        <div className="card-header">
-          <h3>👥 Recent Team Activity</h3>
-          <button className="view-all-btn" onClick={() => setActiveTab('team-files')}>View All →</button>
-        </div>
-        {teamStats.recentActivity.length > 0 ? (
-          <div className="activity-preview-list">
-            {teamStats.recentActivity.map(task => (
-              <div key={task.id} className="activity-preview-item">
-                <div className="activity-icon">📋</div>
-                <div className="activity-content">
-                  <div className="activity-title">{task.title}</div>
-                  <div className="activity-meta">
-                    {task.recent_submissions?.length > 0 
-                      ? <span className="activity-submissions">{task.recent_submissions.length} submission{task.recent_submissions.length !== 1 ? 's' : ''}</span>
-                      : <span className="activity-no-submissions">No submissions yet</span>
-                    }
-                  </div>
-                </div>
+                ))}
+                <button className="view-all-notifications-btn" onClick={() => setActiveTab('notification')}>
+                  View all notifications
+                </button>
+              </>
+            ) : (
+              <div className="empty-notifications">
+                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+                  <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+                </svg>
+                <p>No notifications</p>
               </div>
-            ))}
+            )}
           </div>
-        ) : (
-          <div className="empty-state">
-            <div className="empty-icon">👥</div>
-            <p>No team activity yet</p>
-          </div>
-        )}
-      </div>
-
-      {/* Recent Notifications */}
-      <div className="dashboard-card notifications-preview-card">
-        <div className="card-header">
-          <h3>🔔 Recent Notifications</h3>
-          <button className="view-all-btn" onClick={() => setActiveTab('notification')}>View All →</button>
         </div>
-        {notificationStats.recent.length > 0 ? (
-          <div className="notifications-preview-list">
-            {notificationStats.recent.map(notification => (
-              <div key={notification.id} className={`notification-preview-item ${!notification.is_read ? 'unread' : ''}`}>
-                <div className={`notification-icon ${notification.type}-icon`}>
-                  {notification.type === 'comment' ? '💬' : notification.type === 'assignment' ? '✓' : notification.type === 'file' ? '📄' : '🔔'}
-                </div>
-                <div className="notification-content">
-                  <div className="notification-title">{notification.title}</div>
-                  <div className="notification-message">{notification.message}</div>
-                  <div className="notification-time">
-                    {new Date(notification.created_at).toLocaleDateString()} at {new Date(notification.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                  </div>
-                </div>
-                {!notification.is_read && <div className="unread-indicator"></div>}
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div className="empty-state">
-            <div className="empty-icon">🔔</div>
-            <p>No notifications yet</p>
-          </div>
-        )}
       </div>
     </div>
   );

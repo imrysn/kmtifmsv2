@@ -1,17 +1,19 @@
-import { useState, useEffect, Suspense } from 'react'
+import { useState, useEffect, Suspense, lazy } from 'react'
 import '../css/UserDashboard.css'
 import SkeletonLoader from '../components/common/SkeletonLoader'
 
-// Import refactored components
+// Eagerly import critical components that are always visible
 import Sidebar from '../components/user/Sidebar'
 import AlertMessage from '../components/user/AlertMessage'
-import DashboardTab from '../components/user/DashboardTab'
-import TeamTasksTab from '../components/user/TeamTasksTab'
-import MyFilesTab from '../components/user/MyFilesTab'
-import NotificationTab from '../components/user/NotificationTab-RealTime'
-import TasksTab from '../components/user/TasksTab-Enhanced'
-import FileModal from '../components/user/FileModal'
 import ToastNotification from '../components/user/ToastNotification'
+
+// Lazy load tab components - only loaded when user switches to that tab
+const DashboardTab = lazy(() => import('../components/user/DashboardTab'))
+const TeamTasksTab = lazy(() => import('../components/user/TeamTasksTab'))
+const MyFilesTab = lazy(() => import('../components/user/MyFilesTab'))
+const NotificationTab = lazy(() => import('../components/user/NotificationTab-RealTime'))
+const TasksTab = lazy(() => import('../components/user/TasksTab-Enhanced'))
+const FileModal = lazy(() => import('../components/user/FileModal'))
 
 const UserDashboard = ({ user, onLogout }) => {
   const [activeTab, setActiveTab] = useState('dashboard')
@@ -47,7 +49,7 @@ const UserDashboard = ({ user, onLogout }) => {
   }
 
   useEffect(() => {
-    // Fetch notifications
+    // Fetch notifications only once on mount
     const fetchNotifications = async () => {
       try {
         const response = await fetch(`http://localhost:3001/api/notifications/user/${user.id}`)
@@ -62,8 +64,7 @@ const UserDashboard = ({ user, onLogout }) => {
     }
 
     fetchNotifications()
-    const interval = setInterval(fetchNotifications, 5000)
-    return () => clearInterval(interval)
+    // Removed the polling interval - notifications will update when user visits the notification tab
   }, [user.id])
 
   useEffect(() => {
@@ -204,47 +205,63 @@ const UserDashboard = ({ user, onLogout }) => {
     switch (activeTab) {
       case 'dashboard':
         return (
-          <DashboardTab 
-            user={user}
-            files={files}
-            setActiveTab={setActiveTab}
-          />
+          <Suspense fallback={<SkeletonLoader type="cards" />}>
+            <DashboardTab 
+              user={user}
+              files={files}
+              setActiveTab={setActiveTab}
+            />
+          </Suspense>
         );
       case 'team-files':
-        return <TeamTasksTab user={user} />;
+        return (
+          <Suspense fallback={<SkeletonLoader type="table" />}>
+            <TeamTasksTab user={user} />
+          </Suspense>
+        );
       case 'my-files':
         return (
-          <MyFilesTab 
-            filteredFiles={filteredFiles}
-            isLoading={isLoading}
-            filterStatus={filterStatus}
-            setFilterStatus={setFilterStatus}
-            setActiveTab={setActiveTab}
-            fetchUserFiles={fetchUserFiles}
-            formatFileSize={formatFileSize}
-            openFileModal={openFileModal}
-            files={files}
-            user={user}
-            onUploadSuccess={onUploadSuccess}
-          />
+          <Suspense fallback={<SkeletonLoader type="table" />}>
+            <MyFilesTab 
+              filteredFiles={filteredFiles}
+              isLoading={isLoading}
+              filterStatus={filterStatus}
+              setFilterStatus={setFilterStatus}
+              setActiveTab={setActiveTab}
+              fetchUserFiles={fetchUserFiles}
+              formatFileSize={formatFileSize}
+              openFileModal={openFileModal}
+              files={files}
+              user={user}
+              onUploadSuccess={onUploadSuccess}
+            />
+          </Suspense>
         );
       case 'notification':
         return (
-          <NotificationTab 
-            user={user} 
-            onOpenFile={openFileByIdFromNotification}
-            onNavigateToTasks={navigateToTasks}
-          />
+          <Suspense fallback={<SkeletonLoader type="list" />}>
+            <NotificationTab 
+              user={user} 
+              onOpenFile={openFileByIdFromNotification}
+              onNavigateToTasks={navigateToTasks}
+            />
+          </Suspense>
         );
       case 'tasks':
-        return <TasksTab user={user} />;
+        return (
+          <Suspense fallback={<SkeletonLoader type="table" />}>
+            <TasksTab user={user} />
+          </Suspense>
+        );
       default:
         return (
-          <DashboardTab
-            user={user}
-            files={files}
-            setActiveTab={setActiveTab}
-          />
+          <Suspense fallback={<SkeletonLoader type="cards" />}>
+            <DashboardTab
+              user={user}
+              files={files}
+              setActiveTab={setActiveTab}
+            />
+          </Suspense>
         );
     }
   };
@@ -282,13 +299,17 @@ const UserDashboard = ({ user, onLogout }) => {
       </div>
 
       {/* File Details Modal */}
-      <FileModal 
-        showFileModal={showFileModal}
-        setShowFileModal={setShowFileModal}
-        selectedFile={selectedFile}
-        fileComments={fileComments}
-        formatFileSize={formatFileSize}
-      />
+      {showFileModal && (
+        <Suspense fallback={<div />}>
+          <FileModal 
+            showFileModal={showFileModal}
+            setShowFileModal={setShowFileModal}
+            selectedFile={selectedFile}
+            fileComments={fileComments}
+            formatFileSize={formatFileSize}
+          />
+        </Suspense>
+      )}
 
       {/* Toast Notifications */}
       <ToastNotification 

@@ -51,8 +51,8 @@
   z-index: 1000;
   transition: width var(--transition-speed) var(--transition-easing);
   overflow: hidden;
-  will-change: width;
   box-shadow: 0 0 10px rgba(0, 0, 0, 0.05);
+  pointer-events: auto;
 }
 
 .user-sidebar:hover {
@@ -175,19 +175,29 @@
 }
 
 /* Notification Badge */
+.user-sidebar .nav-item .notification-icon-wrapper {
+  position: relative;
+}
+
 .user-sidebar .nav-item .notification-badge {
   background: var(--danger-color);
   color: white;
-  padding: 2px 6px;
+  padding: 2px 5px;
   border-radius: 10px;
-  font-size: 11px;
-  font-weight: 600;
-  min-width: 20px;
+  font-size: 9px;
+  font-weight: 700;
+  min-width: 16px;
+  height: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   text-align: center;
   position: absolute;
-  right: 12px;
-  transition: all calc(var(--transition-speed) * 0.8) var(--transition-easing);
-  transition-delay: calc(var(--transition-speed) * 0.2);
+  top: -4px;
+  right: -4px;
+  border: 2px solid var(--sidebar-bg);
+  line-height: 1;
+  z-index: 10;
 }
 
 /* File Count Badge */
@@ -232,13 +242,15 @@
   cursor: pointer;
   font-size: 14px;
   font-weight: 500;
-  transition: all 0.2s var(--transition-easing);
   white-space: nowrap;
   overflow: hidden;
   display: flex;
   align-items: center;
   gap: 10px;
   justify-content: flex-start;
+  pointer-events: auto;
+  position: relative;
+  z-index: 10;
 }
 
 .user-sidebar .logout-btn .nav-icon {

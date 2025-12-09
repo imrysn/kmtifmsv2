@@ -399,6 +399,31 @@
   font-weight: 500;
 }
 
+/* See More/Less Button - Admin Style */
+.see-more-files-btn {
+  width: 100%;
+  padding: 0;
+  margin-top: 8px;
+  background: transparent;
+  border: none;
+  color: #6563ff;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  text-align: center;
+  transition: color 0.2s ease;
+  display: block;
+}
+
+.see-more-files-btn:hover {
+  color: #4f46e5;
+  text-decoration: underline;
+}
+
+.see-more-files-btn:active {
+  color: #4338ca;
+}
+
 /* Empty State */
 .empty-team-tasks {
   background: white;

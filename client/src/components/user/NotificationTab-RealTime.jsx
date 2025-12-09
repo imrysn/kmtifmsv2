@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import './css/NotificationTab.css';
 
 const NotificationTab = ({ user, onOpenFile, onNavigateToTasks }) => {
@@ -6,19 +6,20 @@ const NotificationTab = ({ user, onOpenFile, onNavigateToTasks }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [unreadCount, setUnreadCount] = useState(0);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [displayCount, setDisplayCount] = useState(10);
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
 
   useEffect(() => {
     fetchNotifications();
-    
-    // Poll for new notifications every 5 seconds
-    const interval = setInterval(() => {
-      fetchNotifications();
-    }, 5000);
-
-    return () => clearInterval(interval);
+    // Removed polling interval - fetch only when component mounts or user manually refreshes
   }, [user.id]);
 
   const fetchNotifications = async () => {
+    // Only show skeleton on initial load
+    if (isInitialLoad) {
+      setIsLoading(true);
+    }
+    
     try {
       const response = await fetch(`http://localhost:3001/api/notifications/user/${user.id}`);
       const data = await response.json();
@@ -32,10 +33,11 @@ const NotificationTab = ({ user, onOpenFile, onNavigateToTasks }) => {
       console.error('❌ Error fetching notifications:', error);
     } finally {
       setIsLoading(false);
+      setIsInitialLoad(false);
     }
   };
 
-  const handleNotificationClick = async (notification) => {
+  const handleNotificationClick = useCallback(async (notification) => {
     // Mark as read
     if (!notification.is_read) {
       try {
@@ -79,9 +81,9 @@ const NotificationTab = ({ user, onOpenFile, onNavigateToTasks }) => {
         onOpenFile(notification.file_id);
       }
     }
-  };
+  }, [onNavigateToTasks, onOpenFile]);
 
-  const handleDeleteNotification = async (e, notificationId) => {
+  const handleDeleteNotification = useCallback(async (e, notificationId) => {
     e.stopPropagation();
     try {
       const response = await fetch(`http://localhost:3001/api/notifications/${notificationId}`, {
@@ -97,9 +99,9 @@ const NotificationTab = ({ user, onOpenFile, onNavigateToTasks }) => {
     } catch (error) {
       console.error('❌ Error deleting notification:', error);
     }
-  };
+  }, []);
 
-  const handleMarkAllAsRead = async () => {
+  const handleMarkAllAsRead = useCallback(async () => {
     try {
       const response = await fetch(`http://localhost:3001/api/notifications/user/${user.id}/read-all`, {
         method: 'PUT'
@@ -116,13 +118,13 @@ const NotificationTab = ({ user, onOpenFile, onNavigateToTasks }) => {
     } catch (error) {
       console.error('Error marking all as read:', error);
     }
-  };
+  }, [user.id]);
 
-  const handleDeleteAll = () => {
+  const handleDeleteAll = useCallback(() => {
     setShowDeleteModal(true);
-  };
+  }, []);
 
-  const confirmDeleteAll = async () => {
+  const confirmDeleteAll = useCallback(async () => {
     try {
       console.log('Deleting all notifications for user:', user.id);
       const response = await fetch(`http://localhost:3001/api/notifications/user/${user.id}/delete-all`, {
@@ -145,28 +147,52 @@ const NotificationTab = ({ user, onOpenFile, onNavigateToTasks }) => {
       console.error('❌ Error deleting all notifications:', error);
       alert('An error occurred while deleting notifications.');
     }
-  };
+  }, [user.id]);
 
-  const getNotificationIcon = (type) => {
+  const getNotificationIcon = useCallback((type) => {
+    console.log('🔄 UPDATED VERSION - Using specific user dashboard icons');
     switch (type) {
       case 'approval':
-        return '✅';
-      case 'rejection':
-        return '❌';
       case 'final_approval':
-        return '🎉';
+        return (
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="file-icon-svg">
+            <circle cx="10" cy="10" r="8.5"/>
+            <path d="M6 10l2.5 2.5 5.5-5.5"/>
+          </svg>
+        );
+      case 'rejection':
       case 'final_rejection':
-        return '⛔';
+        return (
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="file-icon-svg">
+            <circle cx="10" cy="10" r="8.5"/>
+            <line x1="4" y1="4" x2="16" y2="16"/>
+          </svg>
+        );
       case 'comment':
-        return '💬';
+        return (
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="file-icon-svg">
+            <path d="M3 3h14a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H6l-3 3V4a1 1 0 0 1 1-1z"/>
+          </svg>
+        );
       case 'assignment':
-        return '📋';
+        return (
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="file-icon-svg">
+            <path d="M12 2H4a1.5 1.5 0 0 0-1.5 1.5v13A1.5 1.5 0 0 0 4 18h10a1.5 1.5 0 0 0 1.5-1.5V6l-3.5-4z"/>
+            <path d="M12 2v4h3.5"/>
+            <path d="M6 10h6M6 13h6"/>
+          </svg>
+        );
       default:
-        return '📄';
+        return (
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="file-icon-svg">
+            <path d="M12 2H4a1.5 1.5 0 0 0-1.5 1.5v13A1.5 1.5 0 0 0 4 18h10a1.5 1.5 0 0 0 1.5-1.5V6l-3.5-4z"/>
+            <path d="M12 2v4h3.5"/>
+          </svg>
+        );
     }
-  };
+  }, []);
 
-  const getStatusDisplayName = (dbStatus) => {
+  const getStatusDisplayName = useCallback((dbStatus) => {
     switch (dbStatus) {
       case 'uploaded':
         return 'PENDING TEAM LEADER';
@@ -181,9 +207,9 @@ const NotificationTab = ({ user, onOpenFile, onNavigateToTasks }) => {
       default:
         return dbStatus ? dbStatus.replace(/_/g, ' ').toUpperCase() : 'UNKNOWN';
     }
-  };
+  }, []);
 
-  const getNotificationColor = (type) => {
+  const getNotificationColor = useCallback((type) => {
     switch (type) {
       case 'approval':
       case 'final_approval':
@@ -198,9 +224,9 @@ const NotificationTab = ({ user, onOpenFile, onNavigateToTasks }) => {
       default:
         return 'notification-default';
     }
-  };
+  }, []);
 
-  const formatTimeAgo = (dateString) => {
+  const formatTimeAgo = useCallback((dateString) => {
     const date = new Date(dateString);
     const now = new Date();
     const seconds = Math.floor((now - date) / 1000);
@@ -210,16 +236,51 @@ const NotificationTab = ({ user, onOpenFile, onNavigateToTasks }) => {
     if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
     if (seconds < 604800) return `${Math.floor(seconds / 86400)}d ago`;
     return date.toLocaleDateString();
-  };
+  }, []);
 
+  // Memoize computed values
+  const displayedNotifications = useMemo(
+    () => notifications.slice(0, displayCount),
+    [notifications, displayCount]
+  );
+  
+  const remainingCount = useMemo(
+    () => notifications.length - displayCount,
+    [notifications.length, displayCount]
+  );
 
+  const handleSeeMore = useCallback(() => {
+    setDisplayCount(prev => prev + 10);
+  }, []);
 
   if (isLoading) {
     return (
       <div className="user-notification-component notification-section">
-        <div className="loading-state">
-          <div className="spinner"></div>
-          <p>Loading notifications...</p>
+        <div className="page-header">
+          <div className="page-header-content">
+            <div>
+              <h2>Notifications</h2>
+              <p>Stay updated with your file approvals and system messages</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="notifications-container">
+          <div className="notifications-list">
+            {[1, 2, 3, 4, 5].map((item) => (
+              <div key={item} className="notification-card skeleton-card">
+                <div className="skeleton-icon"></div>
+                <div className="skeleton-content">
+                  <div className="skeleton-title"></div>
+                  <div className="skeleton-message"></div>
+                  <div className="skeleton-footer">
+                    <div className="skeleton-footer-item"></div>
+                    <div className="skeleton-footer-item"></div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     );
@@ -253,7 +314,7 @@ const NotificationTab = ({ user, onOpenFile, onNavigateToTasks }) => {
                 onClick={handleDeleteAll}
                 title="Delete all notifications"
               >
-                🗑️ Delete All
+                ✕ Delete All
               </button>
             </div>
           )}
@@ -263,7 +324,7 @@ const NotificationTab = ({ user, onOpenFile, onNavigateToTasks }) => {
       <div className="notifications-container">
         {notifications.length > 0 ? (
           <div className="notifications-list">
-            {notifications.map((notification) => (
+            {displayedNotifications.map((notification) => (
               <div 
                 key={notification.id} 
                 className={`notification-card ${getNotificationColor(notification.type)} ${!notification.is_read ? 'unread' : ''}`}
@@ -290,7 +351,7 @@ const NotificationTab = ({ user, onOpenFile, onNavigateToTasks }) => {
                   <p className="notification-message">{notification.message}</p>
                   <div className="notification-footer">
                     <span className="notification-action-by">
-                      👤 {notification.action_by_username} ({notification.action_by_role})
+                      ◉ {notification.action_by_username} ({notification.action_by_role})
                     </span>
                     {notification.file_status && (
                       <span className="notification-status">
@@ -299,12 +360,12 @@ const NotificationTab = ({ user, onOpenFile, onNavigateToTasks }) => {
                     )}
                     {notification.assignment_title && (
                       <span className="notification-assignment-title">
-                        📋 Assignment: {notification.assignment_title}
+                        ▢ Assignment: {notification.assignment_title}
                       </span>
                     )}
                     {notification.assignment_due_date && (
                       <span className="notification-due-date">
-                        📅 Due: {new Date(notification.assignment_due_date).toLocaleDateString()}
+                        ◷ Due: {new Date(notification.assignment_due_date).toLocaleDateString()}
                       </span>
                     )}
                   </div>
@@ -314,10 +375,20 @@ const NotificationTab = ({ user, onOpenFile, onNavigateToTasks }) => {
                 </div>
               </div>
             ))}
+            {displayCount < notifications.length && (
+              <div className="see-more-container">
+                <button 
+                  className="see-more-btn"
+                  onClick={handleSeeMore}
+                >
+                  See more ({remainingCount} more notifications)
+                </button>
+              </div>
+            )}
           </div>
         ) : (
           <div className="empty-notifications">
-            <div className="empty-icon">🔔</div>
+            <div className="empty-icon">○</div>
             <h3>No notifications yet</h3>
             <p>We'll notify you when there are updates on your files or important system messages.</p>
           </div>
@@ -330,7 +401,7 @@ const NotificationTab = ({ user, onOpenFile, onNavigateToTasks }) => {
       <div className="custom-modal-overlay" onClick={() => setShowDeleteModal(false)}>
         <div className="custom-modal" onClick={(e) => e.stopPropagation()}>
           <div className="modal-icon">
-            <span className="warning-icon">⚠️</span>
+            <span className="warning-icon">⚠</span>
           </div>
           <h3 className="modal-title">Delete All Notifications?</h3>
           <p className="modal-message">
