@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import './css/NotificationTab.css';
 
 const NotificationTab = ({ user, onOpenFile, onNavigateToTasks }) => {
@@ -37,7 +37,7 @@ const NotificationTab = ({ user, onOpenFile, onNavigateToTasks }) => {
     }
   };
 
-  const handleNotificationClick = async (notification) => {
+  const handleNotificationClick = useCallback(async (notification) => {
     // Mark as read
     if (!notification.is_read) {
       try {
@@ -81,9 +81,9 @@ const NotificationTab = ({ user, onOpenFile, onNavigateToTasks }) => {
         onOpenFile(notification.file_id);
       }
     }
-  };
+  }, [onNavigateToTasks, onOpenFile]);
 
-  const handleDeleteNotification = async (e, notificationId) => {
+  const handleDeleteNotification = useCallback(async (e, notificationId) => {
     e.stopPropagation();
     try {
       const response = await fetch(`http://localhost:3001/api/notifications/${notificationId}`, {
@@ -99,9 +99,9 @@ const NotificationTab = ({ user, onOpenFile, onNavigateToTasks }) => {
     } catch (error) {
       console.error('❌ Error deleting notification:', error);
     }
-  };
+  }, []);
 
-  const handleMarkAllAsRead = async () => {
+  const handleMarkAllAsRead = useCallback(async () => {
     try {
       const response = await fetch(`http://localhost:3001/api/notifications/user/${user.id}/read-all`, {
         method: 'PUT'
@@ -118,13 +118,13 @@ const NotificationTab = ({ user, onOpenFile, onNavigateToTasks }) => {
     } catch (error) {
       console.error('Error marking all as read:', error);
     }
-  };
+  }, [user.id]);
 
-  const handleDeleteAll = () => {
+  const handleDeleteAll = useCallback(() => {
     setShowDeleteModal(true);
-  };
+  }, []);
 
-  const confirmDeleteAll = async () => {
+  const confirmDeleteAll = useCallback(async () => {
     try {
       console.log('Deleting all notifications for user:', user.id);
       const response = await fetch(`http://localhost:3001/api/notifications/user/${user.id}/delete-all`, {
@@ -147,14 +147,13 @@ const NotificationTab = ({ user, onOpenFile, onNavigateToTasks }) => {
       console.error('❌ Error deleting all notifications:', error);
       alert('An error occurred while deleting notifications.');
     }
-  };
+  }, [user.id]);
 
-  const getNotificationIcon = (type) => {
+  const getNotificationIcon = useCallback((type) => {
     console.log('🔄 UPDATED VERSION - Using specific user dashboard icons');
     switch (type) {
       case 'approval':
       case 'final_approval':
-        // Circle with checkmark - for approved files
         return (
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="file-icon-svg">
             <circle cx="10" cy="10" r="8.5"/>
@@ -163,7 +162,6 @@ const NotificationTab = ({ user, onOpenFile, onNavigateToTasks }) => {
         );
       case 'rejection':
       case 'final_rejection':
-        // Circle with slash - for rejected files
         return (
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="file-icon-svg">
             <circle cx="10" cy="10" r="8.5"/>
@@ -171,7 +169,6 @@ const NotificationTab = ({ user, onOpenFile, onNavigateToTasks }) => {
           </svg>
         );
       case 'comment':
-        // Comment bubble - for comments and replies
         return (
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="file-icon-svg">
             <path d="M3 3h14a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H6l-3 3V4a1 1 0 0 1 1-1z"/>
@@ -193,9 +190,9 @@ const NotificationTab = ({ user, onOpenFile, onNavigateToTasks }) => {
           </svg>
         );
     }
-  };
+  }, []);
 
-  const getStatusDisplayName = (dbStatus) => {
+  const getStatusDisplayName = useCallback((dbStatus) => {
     switch (dbStatus) {
       case 'uploaded':
         return 'PENDING TEAM LEADER';
@@ -210,9 +207,9 @@ const NotificationTab = ({ user, onOpenFile, onNavigateToTasks }) => {
       default:
         return dbStatus ? dbStatus.replace(/_/g, ' ').toUpperCase() : 'UNKNOWN';
     }
-  };
+  }, []);
 
-  const getNotificationColor = (type) => {
+  const getNotificationColor = useCallback((type) => {
     switch (type) {
       case 'approval':
       case 'final_approval':
@@ -227,9 +224,9 @@ const NotificationTab = ({ user, onOpenFile, onNavigateToTasks }) => {
       default:
         return 'notification-default';
     }
-  };
+  }, []);
 
-  const formatTimeAgo = (dateString) => {
+  const formatTimeAgo = useCallback((dateString) => {
     const date = new Date(dateString);
     const now = new Date();
     const seconds = Math.floor((now - date) / 1000);
@@ -239,10 +236,22 @@ const NotificationTab = ({ user, onOpenFile, onNavigateToTasks }) => {
     if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
     if (seconds < 604800) return `${Math.floor(seconds / 86400)}d ago`;
     return date.toLocaleDateString();
-  };
+  }, []);
 
-  const displayedNotifications = notifications.slice(0, displayCount);
-  const remainingCount = notifications.length - displayCount;
+  // Memoize computed values
+  const displayedNotifications = useMemo(
+    () => notifications.slice(0, displayCount),
+    [notifications, displayCount]
+  );
+  
+  const remainingCount = useMemo(
+    () => notifications.length - displayCount,
+    [notifications.length, displayCount]
+  );
+
+  const handleSeeMore = useCallback(() => {
+    setDisplayCount(prev => prev + 10);
+  }, []);
 
   if (isLoading) {
     return (
@@ -370,7 +379,7 @@ const NotificationTab = ({ user, onOpenFile, onNavigateToTasks }) => {
               <div className="see-more-container">
                 <button 
                   className="see-more-btn"
-                  onClick={() => setDisplayCount(prev => prev + 10)}
+                  onClick={handleSeeMore}
                 >
                   See more ({remainingCount} more notifications)
                 </button>

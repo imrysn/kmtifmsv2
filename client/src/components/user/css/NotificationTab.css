@@ -5,9 +5,8 @@
   height: 100%;
   overflow-y: auto;
   overflow-x: hidden;
-  /* Critical for Electron performance */
-  will-change: scroll-position;
-  transform: translate3d(0, 0, 0);
+  -webkit-overflow-scrolling: touch;
+  contain: layout style;
 }
 
 .user-notification-component .page-header {
@@ -53,16 +52,7 @@
   }
 }
 
-.user-notification-component .bell-icon {
-  font-size: 28px;
-}
 
-.user-notification-component .page-header-title {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
-}
 
 .user-notification-component .page-header h2 {
   font-size: 28px;
@@ -71,16 +61,7 @@
   margin: 0;
 }
 
-.user-notification-component .unread-badge {
-  background: #ef4444;
-  color: white;
-  font-size: 14px;
-  font-weight: 600;
-  padding: 2px 8px;
-  border-radius: 12px;
-  min-width: 24px;
-  text-align: center;
-}
+
 
 .user-notification-component .page-header p {
   font-size: 14px;
@@ -146,8 +127,7 @@
   flex-direction: column;
   gap: 12px;
   width: 100%;
-  /* Electron optimization */
-  transform: translate3d(0, 0, 0);
+  contain: layout style;
 }
 
 .user-notification-component .notification-card {
@@ -160,8 +140,8 @@
   position: relative;
   cursor: pointer;
   /* Electron performance optimization */
-  will-change: contents;
-  transform: translate3d(0, 0, 0);
+  contain: layout style paint;
+  will-change: auto;
 }
 
 .user-notification-component .notification-card:hover {
@@ -251,16 +231,7 @@
   height: 24px;
 }
 
-.user-notification-component .bell-icon svg {
-  display: block;
-  color: #3b82f6;
-}
 
-.user-notification-component .empty-icon svg {
-  display: block;
-  color: #9ca3af;
-  opacity: 0.5;
-}
 
 .user-notification-component .notification-content {
   flex: 1;
@@ -326,10 +297,7 @@
   color: #6b7280;
 }
 
-.user-notification-component .notification-author {
-  font-weight: 500;
-  color: #4b5563;
-}
+
 
 .user-notification-component .notification-action-by {
   font-weight: 500;

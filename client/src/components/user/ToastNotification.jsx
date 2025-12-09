@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import './css/ToastNotification.css';
 import { useManualTaskbarFlash } from '../../utils/useTaskbarFlash';
 
@@ -37,12 +37,12 @@ const ToastNotification = ({ notifications, onClose, onNavigate }) => {
     }
   }, [notifications, dismissed]);
 
-  const handleDismiss = (notificationId) => {
+  const handleDismiss = useCallback((notificationId) => {
     setDismissed(prev => new Set([...prev, notificationId]));
     setVisible(prev => prev.filter(n => n.id !== notificationId));
-  };
+  }, []);
 
-  const handleClick = (notification) => {
+  const handleClick = useCallback((notification) => {
     if (onNavigate) {
       // Handle different notification types
       if (notification.type === 'comment' && notification.assignment_id) {
@@ -73,9 +73,9 @@ const ToastNotification = ({ notifications, onClose, onNavigate }) => {
     }
     
     handleDismiss(notification.id);
-  };
+  }, [onNavigate, handleDismiss]);
 
-  const getNotificationIcon = (type) => {
+  const getNotificationIcon = useCallback((type) => {
     switch (type) {
       case 'comment':
         return '💬';
@@ -92,9 +92,9 @@ const ToastNotification = ({ notifications, onClose, onNavigate }) => {
       default:
         return '🔔';
     }
-  };
+  }, []);
 
-  const getNotificationColor = (type) => {
+  const getNotificationColor = useCallback((type) => {
     switch (type) {
       case 'comment':
         return 'blue';
@@ -109,7 +109,7 @@ const ToastNotification = ({ notifications, onClose, onNavigate }) => {
       default:
         return 'gray';
     }
-  };
+  }, []);
 
   if (visible.length === 0) return null;
 

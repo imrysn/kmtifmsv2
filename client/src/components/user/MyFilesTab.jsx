@@ -1,5 +1,5 @@
 import './css/MyFilesTab.css';
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import SingleSelectTags from './SingleSelectTags';
 import ConfirmationModal from '../admin/modals/ConfirmationModal';
 import SuccessModal from './SuccessModal';
@@ -33,16 +33,14 @@ const MyFilesTab = ({
   const [selectedFile, setSelectedFile] = useState(null);
   const fileInputRef = useRef(null);
 
-
-
-  const handleFileSelect = (e) => {
+  const handleFileSelect = useCallback((e) => {
     const file = e.target.files[0];
     if (file) {
       setUploadedFile(file);
     }
-  };
+  }, []);
 
-  const handleFileUpload = async (e, replaceExisting = false) => {
+  const handleFileUpload = useCallback(async (e, replaceExisting = false) => {
     if (e && e.preventDefault) {
       e.preventDefault();
     }
@@ -60,7 +58,6 @@ const MyFilesTab = ({
     setIsUploading(true);
 
     try {
-      // Only check for duplicates if not explicitly replacing
       if (!replaceExisting) {
         const duplicateResponse = await fetch('http://localhost:3001/api/files/check-duplicate', {
           method: 'POST',
@@ -150,14 +147,13 @@ const MyFilesTab = ({
     } finally {
       setIsUploading(false);
     }
-  };
+  }, [uploadedFile, description, selectedTag, user, fetchUserFiles]);
 
-  const handleReplaceFile = async () => {
-    // Call handleFileUpload with replaceExisting flag set to true
+  const handleReplaceFile = useCallback(async () => {
     await handleFileUpload(null, true);
-  };
+  }, [handleFileUpload]);
   
-  const handleKeepBoth = () => {
+  const handleKeepBoth = useCallback(() => {
     setShowDuplicateModal(false);
     setDuplicateFileInfo(null);
     setSuccessModal({
@@ -166,37 +162,29 @@ const MyFilesTab = ({
       message: 'Please rename your file and try uploading again.',
       type: 'info'
     });
-  };
+  }, []);
 
-  const clearUploadForm = () => {
+  const clearUploadForm = useCallback(() => {
     setUploadedFile(null);
     setDescription('');
     setSelectedTag('');
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
-  };
+  }, []);
 
-  const closeUploadModal = () => {
+  const closeUploadModal = useCallback(() => {
     setShowUploadModal(false);
     clearUploadForm();
-  };
+  }, [clearUploadForm]);
 
-  const openFile = async (file) => {
+  const openFile = useCallback(async (file) => {
     try {
-
-      // Check if running in Electron
       if (window.electron && window.electron.openFileInApp) {
-        // In Electron - open file directly from network location
-        // Convert URL path to actual file system path
-        // Format: /uploads/username/filename -> actual network path
-        
-        // Get the actual file path from server
         const response = await fetch(`http://localhost:3001/api/files/${file.id}/path`);
         const data = await response.json();
         
         if (data.success && data.filePath) {
-          // Open file with system default application
           const result = await window.electron.openFileInApp(data.filePath);
           
           if (!result.success) {
@@ -211,7 +199,6 @@ const MyFilesTab = ({
           throw new Error('Could not get file path');
         }
       } else {
-        // In browser - just open in new tab
         const fileUrl = `http://localhost:3001${file.file_path}`;
         window.open(fileUrl, '_blank', 'noopener,noreferrer');
       }
@@ -224,30 +211,30 @@ const MyFilesTab = ({
         type: 'error'
       });
     }
-  };
+  }, []);
 
-  const handleFileClick = (file, e) => {
+  const handleFileClick = useCallback((file, e) => {
     e.stopPropagation();
     setSelectedFile(file);
     setShowFileDetailsModal(true);
-  };
+  }, []);
 
-  const handleOpenFileFromModal = () => {
+  const handleOpenFileFromModal = useCallback(() => {
     if (selectedFile) {
       openFile(selectedFile);
     }
-  };
+  }, [selectedFile, openFile]);
 
-  const openDeleteModal = (file, e) => {
+  const openDeleteModal = useCallback((file, e) => {
     if (e) {
       e.preventDefault();
       e.stopPropagation();
     }
     setFileToDelete(file);
     setShowDeleteModal(true);
-  };
+  }, []);
 
-  const deleteFile = async () => {
+  const deleteFile = useCallback(async () => {
     if (!fileToDelete) return;
 
     try {
@@ -267,7 +254,6 @@ const MyFilesTab = ({
       const data = await response.json();
       
       if (data.success) {
-        // Remove file from local state
         fetchUserFiles();
         setSuccessModal({
           isOpen: true,
@@ -294,11 +280,9 @@ const MyFilesTab = ({
         type: 'error'
       });
     }
-  };
+  }, [fileToDelete, user, fetchUserFiles]);
 
-
-
-  const getStatusDisplayName = (dbStatus) => {
+  const getStatusDisplayName = useCallback((dbStatus) => {
     switch (dbStatus) {
       case 'uploaded':
         return 'Pending Team Leader';
@@ -313,9 +297,9 @@ const MyFilesTab = ({
       default:
         return dbStatus;
     }
-  };
+  }, []);
 
-  const getStatusClass = (status) => {
+  const getStatusClass = useCallback((status) => {
     switch (status) {
       case 'uploaded':
       case 'team_leader_approved':
@@ -328,9 +312,9 @@ const MyFilesTab = ({
       default:
         return 'status-default';
     }
-  };
+  }, []);
 
-  const formatDateTime = (dateString) => {
+  const formatDateTime = useCallback((dateString) => {
     const date = new Date(dateString);
     const dateStr = date.toLocaleDateString('en-US', {
       month: '2-digit',
@@ -344,26 +328,44 @@ const MyFilesTab = ({
       hour12: true
     });
     return { date: dateStr, time: timeStr };
-  };
+  }, []);
 
-  const submittedFiles = filteredFiles.filter(f => 
-    f.status === 'final_approved' || f.status === 'uploaded' || f.status === 'team_leader_approved' || f.status === 'rejected_by_team_leader' || f.status === 'rejected_by_admin'
+  const submittedFiles = useMemo(() => 
+    filteredFiles.filter(f => 
+      f.status === 'final_approved' || f.status === 'uploaded' || 
+      f.status === 'team_leader_approved' || f.status === 'rejected_by_team_leader' || 
+      f.status === 'rejected_by_admin'
+    ), [filteredFiles]
   );
 
-  const pendingFiles = submittedFiles.filter(f => f.status === 'uploaded' || f.status === 'team_leader_approved');
-  const approvedFiles = submittedFiles.filter(f => f.status === 'final_approved');
-  const rejectedFiles = submittedFiles.filter(f => f.status === 'rejected_by_team_leader' || f.status === 'rejected_by_admin');
+  const pendingFiles = useMemo(() => 
+    submittedFiles.filter(f => f.status === 'uploaded' || f.status === 'team_leader_approved'),
+    [submittedFiles]
+  );
+
+  const approvedFiles = useMemo(() => 
+    submittedFiles.filter(f => f.status === 'final_approved'),
+    [submittedFiles]
+  );
+
+  const rejectedFiles = useMemo(() => 
+    submittedFiles.filter(f => f.status === 'rejected_by_team_leader' || f.status === 'rejected_by_admin'),
+    [submittedFiles]
+  );
+
+  const totalSize = useMemo(() => 
+    submittedFiles.reduce((total, file) => total + file.file_size, 0),
+    [submittedFiles]
+  );
 
   return (
     <div className="user-my-files-component my-files-wrapper">
-      {/* Header with Stats */}
       <div className="my-files-header-top">
         <div className="header-left">
           <h1>My Files</h1>
-          <p className="header-subtitle">{submittedFiles.length} files • {formatFileSize(submittedFiles.reduce((total, file) => total + file.file_size, 0))} total</p>
+          <p className="header-subtitle">{submittedFiles.length} files • {formatFileSize(totalSize)} total</p>
         </div>
         
-        {/* Statistics Cards - RIGHT SIDE */}
         <div className="stats-row">
           <div className="stat-box pending-box">
             <div className="stat-icon pending-icon"></div>
@@ -391,7 +393,6 @@ const MyFilesTab = ({
         </div>
       </div>
 
-      {/* Files Table */}
       <div className="files-table-wrapper">
         {isLoading ? (
           <div>
@@ -471,7 +472,6 @@ const MyFilesTab = ({
         )}
       </div>
 
-      {/* Upload Modal */}
       {showUploadModal && (
         <div className="modal-overlay" onClick={closeUploadModal}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
@@ -570,7 +570,6 @@ const MyFilesTab = ({
         </div>
       )}
 
-      {/* Delete Confirmation Modal */}
       <ConfirmationModal
         isOpen={showDeleteModal}
         onClose={() => {
@@ -590,9 +589,6 @@ const MyFilesTab = ({
         variant="danger"
       />
 
-
-
-      {/* Duplicate File Modal */}
       {showDuplicateModal && duplicateFileInfo && (
         <div className="modal-overlay" onClick={() => setShowDuplicateModal(false)}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
@@ -657,7 +653,6 @@ const MyFilesTab = ({
         </div>
       )}
 
-      {/* Success/Error Modal */}
       <SuccessModal
         isOpen={successModal.isOpen}
         onClose={() => setSuccessModal({ ...successModal, isOpen: false })}
@@ -666,7 +661,6 @@ const MyFilesTab = ({
         type={successModal.type}
       />
 
-      {/* File Details Modal */}
       {showFileDetailsModal && selectedFile && (
         <div className="modal-overlay" onClick={() => setShowFileDetailsModal(false)}>
           <div className="modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '600px', backgroundColor: '#ffffff' }}>
@@ -680,7 +674,6 @@ const MyFilesTab = ({
             </div>
             
             <div className="modal-body" style={{ padding: '24px', backgroundColor: '#ffffff' }}>
-              {/* File Preview */}
               <div style={{
                 display: 'flex',
                 alignItems: 'center',
@@ -722,7 +715,6 @@ const MyFilesTab = ({
                 </div>
               </div>
 
-              {/* File Information */}
               <div style={{ marginBottom: '24px' }}>
                 <h4 style={{
                   fontSize: '14px',
@@ -736,7 +728,6 @@ const MyFilesTab = ({
                 </h4>
                 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                  {/* Upload Date */}
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <span style={{ fontSize: '14px', color: '#6b7280' }}>Uploaded</span>
                     <span style={{ fontSize: '14px', fontWeight: '500', color: '#111827' }}>
@@ -747,7 +738,6 @@ const MyFilesTab = ({
                     </span>
                   </div>
 
-                  {/* Team */}
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <span style={{ fontSize: '14px', color: '#6b7280' }}>Team</span>
                     <span style={{ fontSize: '14px', fontWeight: '500', color: '#111827' }}>
@@ -755,7 +745,6 @@ const MyFilesTab = ({
                     </span>
                   </div>
 
-                  {/* Status */}
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <span style={{ fontSize: '14px', color: '#6b7280' }}>Status</span>
                     <span className={`status-tag ${getStatusClass(selectedFile.status)}`}>
@@ -763,7 +752,6 @@ const MyFilesTab = ({
                     </span>
                   </div>
 
-                  {/* Tag */}
                   {selectedFile.tag && (
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <span style={{ fontSize: '14px', color: '#6b7280' }}>Tag</span>
@@ -784,7 +772,6 @@ const MyFilesTab = ({
                     </div>
                   )}
 
-                  {/* Description */}
                   {selectedFile.description && (
                     <div style={{ 
                       paddingTop: '12px',

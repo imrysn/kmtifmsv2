@@ -8,6 +8,7 @@
   flex-direction: column;
   gap: 16px;
   background: transparent;
+  contain: layout style;
 }
 
 /* Header - TOP */
@@ -40,13 +41,7 @@
   font-weight: 400;
 }
 
-/* Top Section - Stats LEFT, Header RIGHT */
-.files-top-section {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 40px;
-}
+
 
 /* Stats Row - RIGHT side */
 .stats-row {
@@ -118,34 +113,7 @@
   font-weight: 400;
 }
 
-.upload-btn-new {
-  background: #5856d6;
-  color: white;
-  border: none;
-  border-radius: 8px;
-  padding: 10px 18px;
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  box-shadow: 0 2px 8px rgba(88, 86, 214, 0.3);
-  transition: all 0.2s ease;
-  pointer-events: auto;
-  user-select: none;
-}
 
-.upload-btn-new:hover {
-  background: #5e5ce6;
-  box-shadow: 0 4px 12px rgba(88, 86, 214, 0.4);
-  transform: translateY(-1px);
-}
-
-.upload-btn-new:active {
-  transform: translateY(0);
-  box-shadow: 0 1px 4px rgba(88, 86, 214, 0.3);
-}
 
 /* Files Table Wrapper */
 .files-table-wrapper {
@@ -184,6 +152,7 @@
 .files-list {
   display: flex;
   flex-direction: column;
+  contain: layout style;
 }
 
 .table-header {
@@ -216,6 +185,8 @@
   align-items: center;
   transition: background 0.15s ease;
   cursor: pointer;
+  contain: layout style paint;
+  will-change: auto;
 }
 
 .file-row-new:last-child {
@@ -234,18 +205,7 @@
   min-width: 0;
 }
 
-.file-icon-box {
-  width: 44px;
-  height: 44px;
-  border-radius: 8px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 9px;
-  font-weight: 700;
-  flex-shrink: 0;
-  /* Removed background - icons have their own colors */
-}
+
 
 .file-text {
   display: flex;
@@ -343,30 +303,7 @@
 
 
 
-/* Comment action badge */
-.comment-action {
-  display: inline-block;
-  font-size: 11px;
-  font-weight: 700;
-  padding: 4px 8px;
-  border-radius: 4px;
-  text-transform: uppercase;
-  letter-spacing: 0.3px;
-  margin-left: 8px;
-}
 
-.comment-action.approve {
-  background: #c7f3e8;
-  color: #0f7f52;
-}
-
-.comment-action.reject {
-  background: #f8d7da;
-  color: #721c24;
-}
-
-/* File Type Icon Colors - REMOVED since FileIcon component handles colors */
-/* The SVG icons from FileIcon.jsx already have proper colors */
 
 /* Column - Actions */
 .col-actions {
@@ -402,110 +339,7 @@
   box-shadow: 0 1px 2px rgba(255, 59, 48, 0.2);
 }
 
-.actions-menu-container {
-  position: relative;
-}
 
-.menu-btn {
-  background: none;
-  border: none;
-  font-size: 20px;
-  cursor: pointer;
-  padding: 8px;
-  border-radius: 6px;
-  transition: all 0.2s ease;
-  color: #86868b;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 36px;
-  height: 36px;
-  pointer-events: auto;
-  user-select: none;
-  z-index: 10;
-}
-
-.menu-btn:active {
-  transform: scale(0.95);
-}
-
-.menu-btn:hover {
-  background: #f5f5f7;
-  color: #1d1d1f;
-}
-
-.actions-dropdown {
-  position: fixed;
-  background: white;
-  border: 1px solid #e5e5ea;
-  border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
-  min-width: 120px;
-  z-index: 9999;
-  overflow: hidden;
-}
-
-.dropdown-item {
-  display: block;
-  width: 100%;
-  padding: 10px 16px;
-  border: none;
-  background: none;
-  text-align: left;
-  cursor: pointer;
-  font-size: 14px;
-  color: #1d1d1f;
-  transition: background 0.15s ease;
-  pointer-events: auto;
-  user-select: none;
-}
-
-.dropdown-item:active {
-  transform: scale(0.98);
-}
-
-.dropdown-item:first-child {
-  border-top: none;
-}
-
-.dropdown-item:hover {
-  background: #f5f5f7;
-}
-
-.dropdown-item.delete-item:hover {
-  background: #fee2e2;
-  color: #dc2626;
-}
-
-.dropdown-item.open-item:hover {
-  background: #dbeafe;
-  color: #1e40af;
-}
-
-.open-file-btn {
-  background: #5856d6;
-  color: white;
-  border: none;
-  border-radius: 6px;
-  padding: 8px 16px;
-  font-size: 11px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.3px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  pointer-events: auto;
-  user-select: none;
-}
-
-.open-file-btn:active {
-  transform: translateY(1px);
-}
-
-.open-file-btn:hover {
-  background: #5e5ce6;
-  box-shadow: 0 2px 8px rgba(88, 86, 214, 0.3);
-}
 
 /* Empty State */
 .empty-state {
@@ -683,18 +517,7 @@
   gap: 12px;
 }
 
-.file-icon-preview {
-  width: 36px;
-  height: 36px;
-  border-radius: 6px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 10px;
-  font-weight: 600;
-  flex-shrink: 0;
-  /* Removed background - icons have their own colors */
-}
+
 
 .file-details {
   flex: 1;
