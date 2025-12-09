@@ -31,8 +31,6 @@ const ToastNotification = ({ notifications, onClose, onNavigate }) => {
   };
 
   const handleClick = (notification) => {
-    console.log('👆 Notification clicked:', notification);
-    
     if (onNavigate) {
       // Handle different notification types
       if (notification.type === 'comment' && notification.assignment_id) {
@@ -54,16 +52,11 @@ const ToastNotification = ({ notifications, onClose, onNavigate }) => {
         notification.file_id
       ) {
         // For file approval/rejection notifications, navigate to my-files and open the file
-        console.log('📂 Opening file:', notification.file_id);
         onNavigate('my-files', notification.file_id);
       }
       else if (notification.file_id) {
         // Generic file notification fallback
-        console.log('📂 Opening file (fallback):', notification.file_id);
         onNavigate('my-files', notification.file_id);
-      }
-      else {
-        console.log('⚠️ No specific navigation target found for notification');
       }
     }
     

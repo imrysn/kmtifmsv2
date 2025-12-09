@@ -49,7 +49,7 @@ const UserDashboard = ({ user, onLogout }) => {
   }
 
   useEffect(() => {
-    // Fetch notifications
+    // Fetch notifications only once on mount
     const fetchNotifications = async () => {
       try {
         const response = await fetch(`http://localhost:3001/api/notifications/user/${user.id}`)
@@ -64,8 +64,7 @@ const UserDashboard = ({ user, onLogout }) => {
     }
 
     fetchNotifications()
-    const interval = setInterval(fetchNotifications, 5000)
-    return () => clearInterval(interval)
+    // Removed the polling interval - notifications will update when user visits the notification tab
   }, [user.id])
 
   useEffect(() => {

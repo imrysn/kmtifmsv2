@@ -55,7 +55,9 @@
   width: calc(100% - 75px);
   height: 100vh;
   overflow-y: auto;
+  overflow-x: hidden;
   position: relative;
+  isolation: isolate;
 }
 
 /* User Dashboard Header */

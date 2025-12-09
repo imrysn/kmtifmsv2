@@ -30,9 +30,11 @@ const Sidebar = ({ activeTab, setActiveTab, filesCount, notificationCount, onLog
           className={`nav-item ${activeTab === 'notification' ? 'active' : ''}`}
           onClick={() => setActiveTab('notification')}
         >
-          <span className="nav-icon">{getSidebarIcon('notifications')}</span>
+          <span className="nav-icon notification-icon-wrapper">
+            {getSidebarIcon('notifications')}
+            {notificationCount > 0 && <span className="notification-badge">{notificationCount}</span>}
+          </span>
           <span className="nav-label">Notifications</span>
-          {notificationCount > 0 && <span className="notification-badge">{notificationCount}</span>}
         </button>
         <button
           className={`nav-item ${activeTab === 'my-files' ? 'active' : ''}`}

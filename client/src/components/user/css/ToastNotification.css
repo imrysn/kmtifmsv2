@@ -21,7 +21,7 @@
   cursor: pointer;
   pointer-events: auto;
   animation: slideIn 0.3s ease-out;
-  transition: all 0.2s;
+  transition: background-color 0.2s;
   max-width: 100%;
 }
 
@@ -37,8 +37,7 @@
 }
 
 .toast-notification:hover {
-  transform: translateX(-4px);
-  box-shadow: 0 12px 48px rgba(0, 0, 0, 0.2);
+  background-color: #f9fafb;
 }
 
 /* Color variants - backgrounds removed */
@@ -133,7 +132,6 @@
 .toast-close:hover {
   background: #e5e7eb;
   color: #1a1a1a;
-  transform: scale(1.1);
 }
 
 /* Responsive Design */

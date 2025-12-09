@@ -1,116 +1,256 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useCallback, memo, useRef } from 'react';
 import './css/NotificationTab.css';
 import { LoadingCards } from '../common/InlineSkeletonLoader';
+import FileIcon from '../admin/FileIcon';
+
+// Memoized notification card component to prevent unnecessary re-renders
+const NotificationCard = memo(({ notification, onNotificationClick, onDelete, getNotificationIcon, getNotificationColor, formatTimeAgo }) => {
+  return (
+    <div 
+      className={`notification-card ${getNotificationColor(notification.type)} ${!notification.is_read ? 'unread' : ''}`}
+      onClick={() => onNotificationClick(notification)}
+    >
+      <div className="notification-icon">
+        {getNotificationIcon(notification.type)}
+      </div>
+      <div className="notification-content">
+        <div className="notification-header">
+          <h4 className="notification-title">{notification.title}</h4>
+          <button
+            className="delete-notification-btn"
+            onClick={(e) => onDelete(notification.id, e)}
+            title="Delete notification"
+          >
+            ×
+          </button>
+        </div>
+        <p className="notification-message">{notification.message}</p>
+        <div className="notification-footer">
+          <span className="notification-time">{formatTimeAgo(notification.created_at)}</span>
+          {notification.action_by_username && (
+            <span className="notification-author">
+              by {notification.action_by_username}
+            </span>
+          )}
+        </div>
+        {!notification.is_read && (
+          <div className="unread-indicator"></div>
+        )}
+      </div>
+    </div>
+  );
+});
+
+NotificationCard.displayName = 'NotificationCard';
 
 const NotificationTab = ({ user, onNavigateToTask }) => {
   const [notifications, setNotifications] = useState([]);
-  const [isLoading, setIsLoading] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [visibleRange, setVisibleRange] = useState({ start: 0, end: 20 });
+  const containerRef = useRef(null);
+  const ITEM_HEIGHT = 120; // Approximate height of each notification card
+  const BUFFER_SIZE = 5; // Extra items to render above/below viewport
 
-  useEffect(() => {
-    if (user?.id) {
-      fetchNotifications();
-    }
-  }, [user]);
-
-  const fetchNotifications = async () => {
-    setIsLoading(true);
+  const fetchNotifications = useCallback(async () => {
+    if (!user?.id) return;
     try {
-      const response = await fetch(`http://localhost:3001/api/notifications/user/${user.id}`);
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000);
+      
+      const response = await fetch(
+        `http://localhost:3001/api/notifications/user/${user.id}`,
+        { signal: controller.signal }
+      );
+      
+      clearTimeout(timeoutId);
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
       const data = await response.json();
 
       if (data.success) {
         setNotifications(data.notifications || []);
         setUnreadCount(data.unreadCount || 0);
+      } else {
+        console.warn('Failed to fetch notifications:', data.message);
+        setNotifications([]);
+        setUnreadCount(0);
       }
     } catch (error) {
-      console.error('Error fetching notifications:', error);
-    } finally {
-      setIsLoading(false);
+      if (error.name === 'AbortError') {
+        console.log('Notification fetch timeout');
+      } else {
+        console.error('Error fetching notifications:', error);
+      }
+      setNotifications([]);
+      setUnreadCount(0);
     }
-  };
+  }, [user?.id]);
 
-  const markAsRead = async (notificationId) => {
+  // Virtual scrolling handler for Electron performance
+  const handleScroll = useCallback(() => {
+    if (!containerRef.current) return;
+    
+    const scrollTop = containerRef.current.scrollTop;
+    const viewportHeight = containerRef.current.clientHeight;
+    
+    const startIndex = Math.max(0, Math.floor(scrollTop / ITEM_HEIGHT) - BUFFER_SIZE);
+    const endIndex = Math.min(
+      notifications.length,
+      Math.ceil((scrollTop + viewportHeight) / ITEM_HEIGHT) + BUFFER_SIZE
+    );
+    
+    setVisibleRange({ start: startIndex, end: endIndex });
+  }, [notifications.length, ITEM_HEIGHT, BUFFER_SIZE]);
+
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+    
+    // Throttle scroll events for better performance
+    let ticking = false;
+    const onScroll = () => {
+      if (!ticking) {
+        window.requestAnimationFrame(() => {
+          handleScroll();
+          ticking = false;
+        });
+        ticking = true;
+      }
+    };
+    
+    container.addEventListener('scroll', onScroll, { passive: true });
+    return () => container.removeEventListener('scroll', onScroll);
+  }, [handleScroll]);
+
+  // Calculate visible notifications
+  const visibleNotifications = useMemo(() => {
+    return notifications.slice(visibleRange.start, visibleRange.end);
+  }, [notifications, visibleRange]);
+
+  useEffect(() => {
+    if (user?.id) {
+      fetchNotifications();
+    }
+  }, [fetchNotifications, user?.id]);
+
+  const markAsRead = useCallback(async (notificationId) => {
+    // Optimistic update - update UI immediately
+    const notificationToUpdate = notifications.find(n => n.id === notificationId);
+    if (notificationToUpdate?.is_read) return; // Already read
+    
+    setNotifications(prevNotifications =>
+      prevNotifications.map(n =>
+        n.id === notificationId ? { ...n, is_read: true } : n
+      )
+    );
+    setUnreadCount(prev => Math.max(0, prev - 1));
+
+    // Then update server in background
     try {
-      await fetch(`http://localhost:3001/api/notifications/${notificationId}/read`, {
-        method: 'PUT'
+      const response = await fetch(`http://localhost:3001/api/notifications/${notificationId}/read`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' }
       });
       
-      // Update local state
-      setNotifications(prevNotifications =>
-        prevNotifications.map(n =>
-          n.id === notificationId ? { ...n, is_read: true } : n
-        )
-      );
-      setUnreadCount(prev => Math.max(0, prev - 1));
+      if (!response.ok) {
+        // Revert on error
+        setNotifications(prevNotifications =>
+          prevNotifications.map(n =>
+            n.id === notificationId ? { ...n, is_read: false } : n
+          )
+        );
+        setUnreadCount(prev => prev + 1);
+        throw new Error('Failed to mark as read');
+      }
     } catch (error) {
       console.error('Error marking notification as read:', error);
     }
-  };
+  }, [notifications]);
 
-  const markAllAsRead = async () => {
+  const markAllAsRead = useCallback(async () => {
+    if (!user?.id) return;
+    
+    // Optimistic update
+    const previousNotifications = notifications;
+    const previousUnreadCount = unreadCount;
+    
+    setNotifications(prevNotifications =>
+      prevNotifications.map(n => ({ ...n, is_read: true }))
+    );
+    setUnreadCount(0);
+    
+    // Update server in background
     try {
-      await fetch(`http://localhost:3001/api/notifications/user/${user.id}/read-all`, {
-        method: 'PUT'
+      const response = await fetch(`http://localhost:3001/api/notifications/user/${user.id}/read-all`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' }
       });
       
-      // Update local state
-      setNotifications(prevNotifications =>
-        prevNotifications.map(n => ({ ...n, is_read: true }))
-      );
-      setUnreadCount(0);
+      if (!response.ok) {
+        // Revert on error
+        setNotifications(previousNotifications);
+        setUnreadCount(previousUnreadCount);
+        throw new Error('Failed to mark all as read');
+      }
     } catch (error) {
       console.error('Error marking all as read:', error);
     }
-  };
+  }, [user?.id, notifications, unreadCount]);
 
-  const deleteNotification = async (notificationId, e) => {
+  const deleteNotification = useCallback(async (notificationId, e) => {
     e.stopPropagation();
+    
+    // Optimistic update
+    const deletedNotif = notifications.find(n => n.id === notificationId);
+    const previousNotifications = notifications;
+    
+    setNotifications(prevNotifications => 
+      prevNotifications.filter(n => n.id !== notificationId)
+    );
+    
+    if (deletedNotif && !deletedNotif.is_read) {
+      setUnreadCount(prev => Math.max(0, prev - 1));
+    }
+    
+    // Delete from server in background
     try {
-      await fetch(`http://localhost:3001/api/notifications/${notificationId}`, {
-        method: 'DELETE'
+      const response = await fetch(`http://localhost:3001/api/notifications/${notificationId}`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' }
       });
       
-      // Update local state
-      setNotifications(prevNotifications =>
-        prevNotifications.filter(n => n.id !== notificationId)
-      );
-      
-      // Update unread count if the deleted notification was unread
-      const deletedNotif = notifications.find(n => n.id === notificationId);
-      if (deletedNotif && !deletedNotif.is_read) {
-        setUnreadCount(prev => Math.max(0, prev - 1));
+      if (!response.ok) {
+        // Revert on error
+        setNotifications(previousNotifications);
+        if (deletedNotif && !deletedNotif.is_read) {
+          setUnreadCount(prev => prev + 1);
+        }
+        throw new Error('Failed to delete notification');
       }
     } catch (error) {
       console.error('Error deleting notification:', error);
     }
-  };
+  }, [notifications]);
 
-  const handleNotificationClick = async (notification) => {
-    console.log('🔔 Notification clicked:', notification);
-    
-    // Mark as read
+  const handleNotificationClick = useCallback(async (notification) => {
+    // Mark as read (non-blocking)
     if (!notification.is_read) {
-      await markAsRead(notification.id);
+      markAsRead(notification.id); // Don't await - let it run in background
     }
 
     // Handle navigation based on notification type
     if (notification.type === 'comment' && notification.assignment_id) {
-      console.log('💬 Comment notification - assignment_id:', notification.assignment_id);
-      console.log('👤 action_by_username:', notification.action_by_username);
-      
       // Store the username of who commented/replied for highlighting
       if (notification.action_by_username) {
         sessionStorage.setItem('highlightCommentBy', notification.action_by_username);
-        console.log('✅ Stored highlightCommentBy:', notification.action_by_username);
       }
       
       // Navigate to tasks tab and scroll to comments section
       if (onNavigateToTask) {
-        console.log('➡️ Calling onNavigateToTask...');
         onNavigateToTask(notification.assignment_id);
-      } else {
-        console.log('❌ onNavigateToTask is not defined!');
       }
     } else if (notification.type === 'assignment' && notification.assignment_id) {
       // Navigate to tasks tab
@@ -118,105 +258,59 @@ const NotificationTab = ({ user, onNavigateToTask }) => {
         onNavigateToTask(notification.assignment_id);
       }
     }
-    // For file notifications, you can add navigation to files tab if needed
-  };
+  }, [markAsRead, onNavigateToTask]);
 
-  const getNotificationIcon = (type) => {
-    const iconStyle = {
-      width: '48px',
-      height: '48px',
-      minWidth: '48px',
-      minHeight: '48px',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      borderRadius: '12px',
-      flexShrink: 0
+  const getNotificationIcon = useCallback((type) => {
+    return (
+      <FileIcon
+        fileType={type}
+        size="medium"
+        altText={`${type} notification icon`}
+        className="notification-type-icon"
+      />
+    );
+  }, []);
+
+  const getNotificationColor = useMemo(() => {
+    return (type) => {
+      switch (type) {
+        case 'comment':
+          return 'notification-comment';
+        case 'assignment':
+          return 'notification-assignment';
+        case 'approval':
+        case 'final_approval':
+          return 'notification-success';
+        case 'rejection':
+        case 'final_rejection':
+          return 'notification-error';
+        default:
+          return 'notification-default';
+      }
     };
+  }, []);
 
-    switch (type) {
-      case 'comment':
-        return (
-          <div style={{ ...iconStyle, background: '#EFF6FF' }}>
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="#3B82F6" width="24" height="24">
-              <path d="M20 2H4c-1.1 0-1.99.9-1.99 2L2 22l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM6 9h12v2H6V9zm8 5H6v-2h8v2zm4-6H6V6h12v2z"/>
-            </svg>
-          </div>
-        );
-      case 'assignment':
-        return (
-          <div style={{ ...iconStyle, background: '#F3E8FF' }}>
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="#9333EA" width="24" height="24">
-              <path d="M19 3h-4.18C14.4 1.84 13.3 1 12 1s-2.4.84-2.82 2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 0c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1zm-2 14l-4-4 1.41-1.41L10 14.17l6.59-6.59L18 9l-8 8z"/>
-            </svg>
-          </div>
-        );
-      case 'approval':
-      case 'final_approval':
-        return (
-          <div style={{ ...iconStyle, background: '#D1FAE5' }}>
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="#10B981" width="24" height="24">
-              <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"/>
-            </svg>
-          </div>
-        );
-      case 'rejection':
-      case 'final_rejection':
-        return (
-          <div style={{ ...iconStyle, background: '#FEE2E2' }}>
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="#EF4444" width="24" height="24">
-              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
-              <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
-            </svg>
-          </div>
-        );
-      default:
-        return (
-          <div style={{ ...iconStyle, background: '#FEF3C7' }}>
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="#F59E0B" width="24" height="24">
-              <path d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.9 2 2 2zm6-6v-5c0-3.07-1.64-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.63 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z"/>
-            </svg>
-          </div>
-        );
-    }
-  };
+  const formatTimeAgo = useMemo(() => {
+    return (dateString) => {
+      const date = new Date(dateString);
+      const now = new Date();
+      const diffMs = now - date;
+      const diffSecs = Math.floor(diffMs / 1000);
+      const diffMins = Math.floor(diffSecs / 60);
+      const diffHours = Math.floor(diffMins / 60);
+      const diffDays = Math.floor(diffHours / 24);
 
-  const getNotificationColor = (type) => {
-    switch (type) {
-      case 'comment':
-        return 'notification-comment';
-      case 'assignment':
-        return 'notification-assignment';
-      case 'approval':
-      case 'final_approval':
-        return 'notification-success';
-      case 'rejection':
-      case 'final_rejection':
-        return 'notification-error';
-      default:
-        return 'notification-default';
-    }
-  };
-
-  const formatTimeAgo = (dateString) => {
-    const date = new Date(dateString);
-    const now = new Date();
-    const diffMs = now - date;
-    const diffSecs = Math.floor(diffMs / 1000);
-    const diffMins = Math.floor(diffSecs / 60);
-    const diffHours = Math.floor(diffMins / 60);
-    const diffDays = Math.floor(diffHours / 24);
-
-    if (diffDays > 0) {
-      return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
-    } else if (diffHours > 0) {
-      return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
-    } else if (diffMins > 0) {
-      return `${diffMins} minute${diffMins > 1 ? 's' : ''} ago`;
-    } else {
-      return 'Just now';
-    }
-  };
+      if (diffDays > 0) {
+        return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
+      } else if (diffHours > 0) {
+        return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
+      } else if (diffMins > 0) {
+        return `${diffMins} minute${diffMins > 1 ? 's' : ''} ago`;
+      } else {
+        return 'Just now';
+      }
+    };
+  }, []);
 
   return (
     <div className="user-notification-component notification-section">
@@ -244,49 +338,26 @@ const NotificationTab = ({ user, onNavigateToTask }) => {
         </div>
       )}
 
-      <div className="notifications-container">
-        {isLoading ? (
-          <div>
-            <LoadingCards count={6} />
-          </div>
-        ) : notifications.length > 0 ? (
+      <div className="notifications-container" ref={containerRef}>
+        {notifications.length > 0 ? (
           <div className="notifications-list">
-            {notifications.map((notification) => (
-              <div 
-                key={notification.id} 
-                className={`notification-card ${getNotificationColor(notification.type)} ${!notification.is_read ? 'unread' : ''}`}
-                onClick={() => handleNotificationClick(notification)}
-                style={{ cursor: 'pointer' }}
-              >
-                <div className="notification-icon">
-                  {getNotificationIcon(notification.type)}
-                </div>
-                <div className="notification-content">
-                  <div className="notification-header">
-                    <h4 className="notification-title">{notification.title}</h4>
-                    <button
-                      className="delete-notification-btn"
-                      onClick={(e) => deleteNotification(notification.id, e)}
-                      title="Delete notification"
-                    >
-                      ×
-                    </button>
-                  </div>
-                  <p className="notification-message">{notification.message}</p>
-                  <div className="notification-footer">
-                    <span className="notification-time">{formatTimeAgo(notification.created_at)}</span>
-                    {notification.action_by_username && (
-                      <span className="notification-author">
-                        by {notification.action_by_username}
-                      </span>
-                    )}
-                  </div>
-                  {!notification.is_read && (
-                    <div className="unread-indicator"></div>
-                  )}
-                </div>
-              </div>
+            {/* Spacer for items before visible range */}
+            <div style={{ height: `${visibleRange.start * ITEM_HEIGHT}px` }} />
+            
+            {visibleNotifications.map((notification) => (
+              <NotificationCard
+                key={notification.id}
+                notification={notification}
+                onNotificationClick={handleNotificationClick}
+                onDelete={deleteNotification}
+                getNotificationIcon={getNotificationIcon}
+                getNotificationColor={getNotificationColor}
+                formatTimeAgo={formatTimeAgo}
+              />
             ))}
+            
+            {/* Spacer for items after visible range */}
+            <div style={{ height: `${(notifications.length - visibleRange.end) * ITEM_HEIGHT}px` }} />
           </div>
         ) : (
           <div className="empty-notifications">
