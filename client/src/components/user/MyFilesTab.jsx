@@ -9,15 +9,10 @@ import { LoadingTable, LoadingCards } from '../common/InlineSkeletonLoader';
 const MyFilesTab = ({ 
   filteredFiles,
   isLoading,
-  filterStatus,
-  setFilterStatus,
-  setActiveTab,
   fetchUserFiles,
   formatFileSize,
-  openFileModal,
   files,
-  user,
-  onUploadSuccess
+  user
 }) => {
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [uploadedFile, setUploadedFile] = useState(null);
@@ -32,6 +27,10 @@ const MyFilesTab = ({
   const [showFileDetailsModal, setShowFileDetailsModal] = useState(false);
   const [selectedFile, setSelectedFile] = useState(null);
   const fileInputRef = useRef(null);
+  
+  // Pagination states
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
 
   const handleFileSelect = useCallback((e) => {
     const file = e.target.files[0];
@@ -358,6 +357,57 @@ const MyFilesTab = ({
     [submittedFiles]
   );
 
+  // Pagination calculations
+  const totalPages = useMemo(() => Math.ceil(submittedFiles.length / itemsPerPage), [submittedFiles.length, itemsPerPage]);
+  
+  const paginatedFiles = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    return submittedFiles.slice(startIndex, endIndex);
+  }, [submittedFiles, currentPage, itemsPerPage]);
+
+  // Reset to page 1 when filters change or items per page changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [filteredFiles, itemsPerPage]);
+
+  const handlePageChange = useCallback((page) => {
+    setCurrentPage(page);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, []);
+
+  const handleItemsPerPageChange = useCallback((e) => {
+    setItemsPerPage(Number(e.target.value));
+  }, []);
+
+  const getPageNumbers = useCallback(() => {
+    const pages = [];
+    const maxVisiblePages = 5;
+    
+    if (totalPages <= maxVisiblePages) {
+      for (let i = 1; i <= totalPages; i++) {
+        pages.push(i);
+      }
+    } else {
+      if (currentPage <= 3) {
+        for (let i = 1; i <= 4; i++) pages.push(i);
+        pages.push('...');
+        pages.push(totalPages);
+      } else if (currentPage >= totalPages - 2) {
+        pages.push(1);
+        pages.push('...');
+        for (let i = totalPages - 3; i <= totalPages; i++) pages.push(i);
+      } else {
+        pages.push(1);
+        pages.push('...');
+        for (let i = currentPage - 1; i <= currentPage + 1; i++) pages.push(i);
+        pages.push('...');
+        pages.push(totalPages);
+      }
+    }
+    return pages;
+  }, [currentPage, totalPages]);
+
   return (
     <div className="user-my-files-component my-files-wrapper">
       <div className="my-files-header-top">
@@ -410,7 +460,7 @@ const MyFilesTab = ({
               <div className="col-status">STATUS</div>
               <div className="col-actions">ACTIONS</div>
             </div>
-            {submittedFiles.map((file) => {
+            {paginatedFiles.map((file) => {
               const { date, time } = formatDateTime(file.uploaded_at);
               return (
                 <div key={file.id} className="file-row-new" onClick={(e) => handleFileClick(file, e)}>
@@ -471,6 +521,68 @@ const MyFilesTab = ({
           </div>
         )}
       </div>
+
+      {/* Pagination Controls */}
+      {submittedFiles.length > 0 && (
+        <div className="pagination-wrapper">
+          <div className="pagination-info">
+            <span className="pagination-text">
+              Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, submittedFiles.length)} of {submittedFiles.length} files
+            </span>
+            <div className="items-per-page">
+              <label htmlFor="itemsPerPage">Show:</label>
+              <select 
+                id="itemsPerPage"
+                value={itemsPerPage} 
+                onChange={handleItemsPerPageChange}
+                className="items-select"
+              >
+                <option value={5}>5</option>
+                <option value={10}>10</option>
+                <option value={25}>25</option>
+                <option value={50}>50</option>
+                <option value={100}>100</option>
+              </select>
+            </div>
+          </div>
+          
+          <div className="pagination-controls">
+            <button
+              className="pagination-btn pagination-prev"
+              onClick={() => handlePageChange(currentPage - 1)}
+              disabled={currentPage === 1}
+              title="Previous page"
+            >
+              <span>‹</span>
+            </button>
+            
+            {getPageNumbers().map((page, index) => (
+              page === '...' ? (
+                <span key={`ellipsis-${index}`} className="pagination-ellipsis">...</span>
+              ) : (
+                <button
+                  key={page}
+                  className={`pagination-btn pagination-number ${
+                    currentPage === page ? 'active' : ''
+                  }`}
+                  onClick={() => handlePageChange(page)}
+                >
+                  {page}
+                </button>
+              )
+            ))}
+            
+            <button
+              className="pagination-btn pagination-next"
+              onClick={() => handlePageChange(currentPage + 1)}
+              disabled={currentPage === totalPages}
+              title="Next page"
+            >
+              <span>›</span>
+            </button>
+          </div>
+        </div>
+      )}
 
       {showUploadModal && (
         <div className="modal-overlay" onClick={closeUploadModal}>
