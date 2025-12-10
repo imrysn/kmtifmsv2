@@ -180,7 +180,10 @@ const DashboardOverview = ({ user, users }) => {
               </div>
               <div className="stat-number">{loading ? '—' : rejectedCount}</div>
               {!loading && (
-                <div className={`stat-change ${formatStatChange(statChanges.rejected).className}`}>
+                <div className={`stat-change ${
+                  statChanges.rejected > 0 ? 'negative' : 
+                  statChanges.rejected < 0 ? 'positive' : 'neutral'
+                }`}>
                   {formatStatChange(statChanges.rejected).text}
                 </div>
               )}
