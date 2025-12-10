@@ -20,8 +20,9 @@ const FileDetailsModal = ({
   const formattedDate = new Date(file.uploaded_at).toLocaleString()
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal file-modal" onClick={e => e.stopPropagation()}>
+    <div className="file-details-modal-component">
+      <div className="modal-overlay" onClick={onClose}>
+        <div className="modal file-modal" onClick={e => e.stopPropagation()}>
         <div className="modal-header">
           <h3>File Details</h3>
           <button onClick={onClose} className="modal-close">×</button>
@@ -103,6 +104,7 @@ const FileDetailsModal = ({
               </button>
             </div>
           </div>
+        </div>
         </div>
       </div>
     </div>

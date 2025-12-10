@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback, memo } from 'react';
 import './Notifications.css';
 import FileIcon from './FileIcon';
 import { useTaskbarFlash } from '../../utils/useTaskbarFlash';
+import { ConfirmationModal } from './modals';
 
 // Memoized notification item to prevent unnecessary re-renders
 const NotificationItem = memo(({ notification, onNotificationClick, onDeleteNotification, NotificationIcon, formatTimeAgo }) => {
@@ -67,6 +68,8 @@ const Notifications = ({ user, onNavigate }) => {
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState('');
   const [unreadCount, setUnreadCount] = useState(0);
+  const [showDeleteAllModal, setShowDeleteAllModal] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Enable taskbar flashing for new notifications
   useTaskbarFlash(unreadCount, {
@@ -150,6 +153,7 @@ const Notifications = ({ user, onNavigate }) => {
             setNotifications([...truelyNew, ...notifications]);
           }
         } else {
+          // For pagination
           setNotifications(prev => [...prev, ...newNotifications]);
           setPage(pageNum);
         }
@@ -231,11 +235,8 @@ const Notifications = ({ user, onNavigate }) => {
     }
   };
 
-  const deleteAll = async () => {
-    if (!window.confirm('Are you sure you want to delete all notifications?')) {
-      return;
-    }
-
+  const handleDeleteAll = async () => {
+    setIsDeleting(true);
     try {
       const response = await fetch(`http://localhost:3001/api/notifications/user/${user.id}/delete-all`, {
         method: 'DELETE'
@@ -247,9 +248,13 @@ const Notifications = ({ user, onNavigate }) => {
         setUnreadCount(0);
         setTotalCount(0);
         setHasMore(false);
+        setShowDeleteAllModal(false);
       }
     } catch (error) {
       console.error('Error deleting all notifications:', error);
+      setError('Failed to delete all notifications');
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -381,7 +386,7 @@ const Notifications = ({ user, onNavigate }) => {
             </button>
           )}
           {notifications.length > 0 && (
-            <button className="btn-delete-all" onClick={deleteAll}>
+            <button className="btn-delete-all" onClick={() => setShowDeleteAllModal(true)}>
               Delete All
             </button>
           )}
@@ -447,6 +452,29 @@ const Notifications = ({ user, onNavigate }) => {
             </div>
           )}
         </>
+      )}
+
+      {/* Delete All Confirmation Modal */}
+      {showDeleteAllModal && (
+        <ConfirmationModal
+          isOpen={showDeleteAllModal}
+          onClose={() => setShowDeleteAllModal(false)}
+          onConfirm={handleDeleteAll}
+          title="Delete All Notifications"
+          message="Are you sure you want to delete all notifications?"
+          confirmText="Delete All"
+          cancelText="Cancel"
+          variant="danger"
+          isLoading={isDeleting}
+          itemInfo={{
+            name: `${totalCount} notification${totalCount !== 1 ? 's' : ''}`,
+            details: `Including ${unreadCount} unread notification${unreadCount !== 1 ? 's' : ''}`
+          }}
+        >
+          <p className="warning-text">
+            This action cannot be undone. All notifications will be permanently removed from your account.
+          </p>
+        </ConfirmationModal>
       )}
     </div>
   );

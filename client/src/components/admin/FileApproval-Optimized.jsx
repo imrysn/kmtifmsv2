@@ -841,19 +841,14 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
         confirmText="Delete File"
         variant="danger"
         isLoading={isLoading}
+        itemInfo={fileToDelete ? {
+          name: fileToDelete.original_name || fileToDelete.filename,
+          details: `Submitted by ${fileToDelete.username} from ${fileToDelete.user_team} team`
+        } : null}
       >
-        {fileToDelete && (
-          <>
-            <p className="confirmation-description">
-              <strong>{fileToDelete.original_name || fileToDelete.filename}</strong>
-              <br />
-              Submitted by <strong>{fileToDelete.username}</strong> from <strong>{fileToDelete.user_team}</strong> team
-            </p>
-            <p className="confirmation-description" style={{ marginTop: '0.5rem' }}>
-              This action cannot be undone. The file and all its associated data will be permanently removed.
-            </p>
-          </>
-        )}
+        <p className="warning-text">
+          This action cannot be undone. The file and all its associated data will be permanently removed.
+        </p>
       </ConfirmationModal>
     </div>
   )

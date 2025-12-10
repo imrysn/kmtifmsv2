@@ -761,11 +761,12 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess, u
           confirmText="Delete User"
           variant="danger"
           isLoading={isLoading}
+          itemInfo={{
+            name: userToDelete.fullName,
+            details: `${userToDelete.email} • ${userToDelete.role}`
+          }}
         >
-          <p className="confirmation-description">
-            <strong>{userToDelete.fullName}</strong>
-          </p>
-          <p className="confirmation-description" style={{ marginTop: '0.5rem' }}>
+          <p className="warning-text">
             This action cannot be undone. The user account and all associated data will be permanently removed from the system.
           </p>
         </ConfirmationModal>

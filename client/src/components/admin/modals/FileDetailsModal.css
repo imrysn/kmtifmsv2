@@ -1,14 +1,14 @@
-/* File Details Modal Styles */
-.file-modal .modal-body {
+/* File Details Modal Styles - Scoped to avoid global CSS conflicts */
+.file-details-modal-component .file-modal .modal-body {
   padding: 0;
 }
 
-.file-details-section {
+.file-details-modal-component .file-details-section {
   padding: 1.5rem;
   border-bottom: 1px solid var(--border-light);
 }
 
-.section-title {
+.file-details-modal-component .section-title {
   font-size: 14px;
   font-weight: 600;
   color: var(--text-secondary);
@@ -17,19 +17,19 @@
   margin-bottom: 1rem;
 }
 
-.file-details-grid {
+.file-details-modal-component .file-details-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 1rem;
 }
 
-.detail-item {
+.file-details-modal-component .detail-item {
   display: flex;
   flex-direction: column;
   gap: 0.25rem;
 }
 
-.detail-label {
+.file-details-modal-component .detail-label {
   font-size: 11px;
   font-weight: 600;
   color: var(--text-tertiary);
@@ -37,13 +37,13 @@
   letter-spacing: 0.5px;
 }
 
-.detail-value {
+.file-details-modal-component .detail-value {
   font-size: 14px;
   color: var(--text-primary);
   word-break: break-word;
 }
 
-.team-badge-inline {
+.file-details-modal-component .team-badge-inline {
   display: inline-block;
   padding: 4px 12px;
   background: var(--primary-light);
@@ -55,19 +55,19 @@
   width: fit-content;
 }
 
-.actions-section {
+.file-details-modal-component .actions-section {
   padding: 1.5rem;
 }
 
-.action-buttons-large {
+.file-details-modal-component .action-buttons-large {
   display: flex;
   gap: 0.75rem;
   justify-content: flex-start;
 }
 
-.btn-success-large,
-.btn-danger-large,
-.btn-secondary-large {
+.file-details-modal-component .btn-success-large,
+.file-details-modal-component .btn-danger-large,
+.file-details-modal-component .file-details-modal-component .btn-secondary-large {
   flex: 1;
   display: flex;
   align-items: center;
@@ -82,23 +82,23 @@
   transition: all 0.2s;
 }
 
-.btn-success-large {
+.file-details-modal-component .btn-success-large {
   background: var(--success);
   color: white;
 }
 
-.btn-success-large:hover:not(:disabled) {
+.file-details-modal-component .btn-success-large:hover:not(:disabled) {
   background: var(--success-dark);
   transform: translateY(-1px);
   box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
 }
 
-.btn-danger-large {
+.file-details-modal-component .btn-danger-large {
   background: var(--danger);
   color: white;
 }
 
-.btn-danger-large:hover:not(:disabled) {
+.file-details-modal-component .btn-danger-large:hover:not(:disabled) {
   background: var(--danger-dark);
   transform: translateY(-1px);
   box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
@@ -110,15 +110,15 @@
   border: 1px solid var(--border);
 }
 
-.btn-secondary-large:hover:not(:disabled) {
+.file-details-modal-component .btn-secondary-large:hover:not(:disabled) {
   background: var(--hover);
   transform: translateY(-1px);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
-.btn-success-large:disabled,
-.btn-danger-large:disabled,
-.btn-secondary-large:disabled {
+.file-details-modal-component .btn-success-large:disabled,
+.file-details-modal-component .btn-danger-large:disabled,
+.file-details-modal-component .btn-secondary-large:disabled {
   opacity: 0.5;
   cursor: not-allowed;
   transform: none;
@@ -126,11 +126,11 @@
 
 /* Responsive */
 @media (max-width: 768px) {
-  .file-details-grid {
+  .file-details-modal-component .file-details-grid {
     grid-template-columns: 1fr;
   }
 
-  .action-buttons-large {
+  .file-details-modal-component .action-buttons-large {
     flex-direction: column;
   }
 }

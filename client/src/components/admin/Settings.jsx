@@ -533,13 +533,20 @@ const Settings = ({ clearMessages, error, success, setError, setSuccess, users, 
         isOpen={deleteModal.isOpen}
         onClose={closeDeleteModal}
         onConfirm={handleConfirmDelete}
-        title=""
-        message={`Delete team '${deleteModal.teamName}'?`}
-        description="This action cannot be undone. All team members will be unassigned."
+        title="Delete Team"
+        message="Are you sure you want to delete this team?"
         confirmText="Delete Team"
         variant="danger"
         isLoading={isLoading}
-      />
+        itemInfo={deleteModal.teamName ? {
+          name: deleteModal.teamName,
+          details: "All team members will be unassigned"
+        } : null}
+      >
+        <p className="warning-text">
+          This action cannot be undone. The team will be permanently removed from the system.
+        </p>
+      </ConfirmationModal>
 
     </div>
   )

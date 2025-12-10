@@ -1,3 +1,7 @@
+/* Toast Notification Styles - Scoped to .toast-container
+ * Note: Uses position:fixed for global toast notifications overlay
+ * This is intentional as toasts need to appear above all content
+ */
 .toast-container {
   position: fixed;
   bottom: 20px;
