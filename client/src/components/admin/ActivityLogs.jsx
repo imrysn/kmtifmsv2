@@ -3,6 +3,8 @@ import './ActivityLogs.css'
 import { ConfirmationModal, AlertMessage } from './modals'
 import { SkeletonLoader } from '../common/SkeletonLoader'
 import { memoize } from '../../utils/performance'
+import { useAuth, useNetwork } from '../../contexts'
+import { withErrorBoundary } from '../common'
 
 // Memoize expensive date formatting functions to avoid creating Date objects repeatedly
 const formatDate = memoize((timestamp) => {
@@ -26,6 +28,9 @@ const LogRow = memo(({ log }) => (
 ))
 
 const ActivityLogs = ({ clearMessages, error, success, setError, setSuccess }) => {
+  const { user: authUser } = useAuth()
+  const { isConnected } = useNetwork()
+  
   const [activityLogs, setActivityLogs] = useState([])
   const [logsSearchQuery, setLogsSearchQuery] = useState('')
   const [searchedQuery, setSearchedQuery] = useState('')
@@ -35,31 +40,16 @@ const ActivityLogs = ({ clearMessages, error, success, setError, setSuccess }) =
   const [showDeleteLogsModal, setShowDeleteLogsModal] = useState(false)
   const [paginationInfo, setPaginationInfo] = useState(null)
   const [hasActiveFilters, setHasActiveFilters] = useState(false)
-  const [networkAvailable, setNetworkAvailable] = useState(true)
   const itemsPerPage = 12 // Set to 12 logs per page as requested
 
-  // Check network availability on mount and periodically
-  useEffect(() => {
-    const checkNetwork = async () => {
-      try {
-        await fetch('http://localhost:3001/api/health')
-        setNetworkAvailable(true)
-      } catch {
-        setNetworkAvailable(false)
-      }
-    }
-
-    checkNetwork()
-    const interval = setInterval(checkNetwork, 30000) // Check every 30 seconds
-    return () => clearInterval(interval)
-  }, [])
+  // Network check removed - using NetworkContext
 
   // Fetch activity logs on component mount and when date filter changes to 'all'
   useEffect(() => {
-    if (dateFilter === 'all' && networkAvailable) {
+    if (dateFilter === 'all' && isConnected) {
       fetchActivityLogs()
     }
-  }, [dateFilter, networkAvailable])
+  }, [dateFilter, isConnected])
 
   // Debounced search
   useEffect(() => {
@@ -388,7 +378,7 @@ const ActivityLogs = ({ clearMessages, error, success, setError, setSuccess }) =
   }
 
   // Show skeleton loader when network is not available
-  if (!networkAvailable) {
+  if (!isConnected) {
     return <SkeletonLoader type="table" />
   }
 
@@ -566,4 +556,6 @@ const ActivityLogs = ({ clearMessages, error, success, setError, setSuccess }) =
   )
 }
 
-export default memo(ActivityLogs)
+export default withErrorBoundary(memo(ActivityLogs), {
+  componentName: 'Activity Logs'
+})

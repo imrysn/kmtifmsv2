@@ -7,3 +7,6 @@ export {
   LoadingTable, 
   LoadingCards 
 } from './InlineSkeletonLoader'
+
+// Export error boundary
+export { default as EnhancedErrorBoundary, withErrorBoundary } from './EnhancedErrorBoundary'

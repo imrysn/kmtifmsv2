@@ -2,15 +2,19 @@ import { useState, useEffect, useMemo, useCallback } from 'react'
 import './UserManagement.css'
 import { AlertMessage, ConfirmationModal, FormModal } from './modals'
 import { SkeletonLoader } from '../common/SkeletonLoader'
-import ErrorBoundary from '../ErrorBoundary'
+import { useAuth, useNetwork } from '../../contexts'
+import { usePagination } from '../../hooks'
+import { withErrorBoundary } from '../common'
 
 const UserManagement = ({ clearMessages, error, success, setError, setSuccess, user, contextData }) => {
+  const { user: authUser } = useAuth()
+  const { isConnected } = useNetwork()
+  
   const [users, setUsers] = useState([])
   const [teams, setTeams] = useState([])
   const [teamsLoading, setTeamsLoading] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [isLoading, setIsLoading] = useState(false)
-  const [networkAvailable, setNetworkAvailable] = useState(true)
   const [selectedUser, setSelectedUser] = useState(null)
   const [showAddModal, setShowAddModal] = useState(false)
   const [showEditModal, setShowEditModal] = useState(false)
@@ -25,10 +29,6 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess, u
     role: 'USER',
     team: ''
   })
-
-  // Pagination state
-  const [currentPage, setCurrentPage] = useState(1)
-  const itemsPerPage = 9
 
   // Memoized filtered and sorted users for better performance
   const filteredUsers = useMemo(() => {
@@ -54,13 +54,18 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess, u
     })
   }, [searchQuery, users])
 
-  // Pagination calculations
-  const totalPages = Math.ceil(filteredUsers.length / itemsPerPage)
-  const paginatedUsers = useMemo(() => {
-    const startIndex = (currentPage - 1) * itemsPerPage
-    const endIndex = startIndex + itemsPerPage
-    return filteredUsers.slice(startIndex, endIndex)
-  }, [filteredUsers, currentPage, itemsPerPage])
+  // Use pagination hook
+  const {
+    currentPage,
+    totalPages,
+    paginatedItems: paginatedUsers,
+    startIndex,
+    endIndex,
+    goToPage,
+    nextPage,
+    prevPage,
+    resetPagination
+  } = usePagination(filteredUsers, 9)
 
   // Memoized active teams
   const activeTeams = useMemo(() => 
@@ -76,7 +81,7 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess, u
       const data = await response.json()
       if (data.success) {
         setUsers(data.users)
-        setCurrentPage(1) // Reset to first page when users are refetched
+        resetPagination() // Reset to first page when users are refetched
       } else {
         setError('Failed to fetch users')
       }
@@ -86,7 +91,7 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess, u
     } finally {
       setIsLoading(false)
     }
-  }, [setError])
+  }, [setError, resetPagination])
 
   const fetchTeams = useCallback(async () => {
     setTeamsLoading(true)
@@ -103,21 +108,7 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess, u
     }
   }, [])
 
-  // Check network availability on mount only
-  useEffect(() => {
-    const checkNetwork = async () => {
-      try {
-        await fetch('http://localhost:3001/api/health')
-        setNetworkAvailable(true)
-      } catch {
-        setNetworkAvailable(false)
-      }
-    }
-
-    checkNetwork()
-    const interval = setInterval(checkNetwork, 30000)
-    return () => clearInterval(interval)
-  }, [])
+  // Network check removed - using NetworkContext
 
   // Fetch users and teams ONCE on mount
   useEffect(() => {
@@ -166,10 +157,10 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess, u
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...formData,
-          adminId: user.id,
-          adminUsername: user.username,
-          adminRole: user.role,
-          adminTeam: user.team
+          adminId: authUser.id,
+          adminUsername: authUser.username,
+          adminRole: authUser.role,
+          adminTeam: authUser.team
         })
       })
       
@@ -194,7 +185,7 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess, u
     } finally {
       setIsLoading(false)
     }
-  }, [formData, user, setError, setSuccess, fetchUsers])
+  }, [formData, authUser, setError, setSuccess, fetchUsers])
 
   const handleEditUser = useCallback(async (e) => {
     e.preventDefault()
@@ -211,10 +202,10 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess, u
           email: formData.email,
           role: formData.role,
           team: formData.team,
-          adminId: user.id,
-          adminUsername: user.username,
-          adminRole: user.role,
-          adminTeam: user.team
+          adminId: authUser.id,
+          adminUsername: authUser.username,
+          adminRole: authUser.role,
+          adminTeam: authUser.team
         })
       })
       
@@ -232,7 +223,7 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess, u
     } finally {
       setIsLoading(false)
     }
-  }, [formData, selectedUser, user, setError, setSuccess, fetchUsers])
+  }, [formData, selectedUser, authUser, setError, setSuccess, fetchUsers])
 
   const handleResetPassword = useCallback(async (e) => {
     e.preventDefault()
@@ -245,10 +236,10 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess, u
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           password: formData.password,
-          adminId: user.id,
-          adminUsername: user.username,
-          adminRole: user.role,
-          adminTeam: user.team
+          adminId: authUser.id,
+          adminUsername: authUser.username,
+          adminRole: authUser.role,
+          adminTeam: authUser.team
         })
       })
       
@@ -266,7 +257,7 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess, u
     } finally {
       setIsLoading(false)
     }
-  }, [formData.password, selectedUser, user, setError, setSuccess])
+  }, [formData.password, selectedUser, authUser, setError, setSuccess])
 
   const handleDeleteUser = useCallback(async () => {
     if (!userToDelete) return
@@ -277,10 +268,10 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess, u
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          adminId: user.id,
-          adminUsername: user.username,
-          adminRole: user.role,
-          adminTeam: user.team
+          adminId: authUser.id,
+          adminUsername: authUser.username,
+          adminRole: authUser.role,
+          adminTeam: authUser.team
         })
       })
       
@@ -298,7 +289,7 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess, u
     } finally {
       setIsLoading(false)
     }
-  }, [userToDelete, user, setError, setSuccess, fetchUsers])
+  }, [userToDelete, authUser, setError, setSuccess, fetchUsers])
 
   const openEditModal = useCallback((user) => {
     setError('')
@@ -349,24 +340,11 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess, u
 
   const handleSearchChange = useCallback((e) => {
     setSearchQuery(e.target.value)
-    setCurrentPage(1) // Reset to first page when search changes
-  }, [])
-
-  // Pagination handlers
-  const handlePageChange = useCallback((page) => {
-    setCurrentPage(page)
-  }, [])
-
-  const handlePrevPage = useCallback(() => {
-    setCurrentPage(prev => Math.max(1, prev - 1))
-  }, [])
-
-  const handleNextPage = useCallback(() => {
-    setCurrentPage(prev => Math.min(totalPages, prev + 1))
-  }, [])
+    resetPagination() // Reset to first page when search changes
+  }, [resetPagination])
 
   // Show skeleton loader when network is not available
-  if (!networkAvailable) {
+  if (!isConnected) {
     return <SkeletonLoader type="table" />
   }
 
@@ -508,12 +486,12 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess, u
         {!isLoading && totalPages > 1 && (
           <div className="pagination-container">
             <div className="pagination-info">
-              Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, filteredUsers.length)} of {filteredUsers.length} users
+              Showing {startIndex + 1} to {endIndex} of {filteredUsers.length} users
             </div>
             <div className="pagination-controls">
               <button
                 className="pagination-btn"
-                onClick={handlePrevPage}
+                onClick={prevPage}
                 disabled={currentPage === 1}
                 title="Previous Page"
               >
@@ -537,7 +515,7 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess, u
                     <button
                       key={pageNum}
                       className={`pagination-number ${currentPage === pageNum ? 'active' : ''}`}
-                      onClick={() => handlePageChange(pageNum)}
+                      onClick={() => goToPage(pageNum)}
                     >
                       {pageNum}
                     </button>
@@ -547,7 +525,7 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess, u
 
               <button
                 className="pagination-btn"
-                onClick={handleNextPage}
+                onClick={nextPage}
                 disabled={currentPage === totalPages}
                 title="Next Page"
               >
@@ -776,11 +754,6 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess, u
   )
 }
 
-// Wrap component with ErrorBoundary
-const UserManagementWithErrorBoundary = (props) => (
-  <ErrorBoundary>
-    <UserManagement {...props} />
-  </ErrorBoundary>
-)
-
-export default UserManagementWithErrorBoundary
+export default withErrorBoundary(UserManagement, {
+  componentName: 'User Management'
+})

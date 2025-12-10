@@ -4,12 +4,17 @@ import { SkeletonLoader } from '../common/SkeletonLoader'
 import './FileManagement.css'
 import { AlertMessage } from './modals'
 import { FastSearchEngine } from '../../services/FastSearchEngine'
+import { useAuth, useNetwork } from '../../contexts'
+import { withErrorBoundary } from '../common'
 
 const API_BASE = process.env.NODE_ENV === 'development'
   ? 'http://localhost:3001'
   : 'http://localhost:3001'
 
 const FileManagement = ({ clearMessages, error, success, setError, setSuccess }) => {
+  const { user: authUser } = useAuth()
+  const { isConnected } = useNetwork() // <--- Using global network state
+  
   const [currentPath, setCurrentPath] = useState('/')
   const [fileSystemItems, setFileSystemItems] = useState([])
   const [filteredItems, setFilteredItems] = useState([])
@@ -19,7 +24,6 @@ const FileManagement = ({ clearMessages, error, success, setError, setSuccess })
   const [isLoading, setIsLoading] = useState(false)
   const [isComponentLoading, setIsComponentLoading] = useState(false)
   const [networkInfo, setNetworkInfo] = useState(null)
-  const [networkAvailable, setNetworkAvailable] = useState(true)
   
   // NEW: Search engine and performance tracking
   const [searchEngine] = useState(() => new FastSearchEngine(API_BASE))
@@ -52,31 +56,19 @@ const FileManagement = ({ clearMessages, error, success, setError, setSuccess })
     }
   }, [error, success, clearMessages])
 
-  // Check network availability on mount and periodically
+  // Check specific file system access when global connection is established
   useEffect(() => {
-    const checkNetwork = async () => {
-      try {
-        await fetch(`${API_BASE}/api/health`)
-        setNetworkAvailable(true)
-      } catch {
-        setNetworkAvailable(false)
-      }
+    if (isConnected) {
+      checkNetworkAccess()
     }
+  }, [isConnected])
 
-    checkNetwork()
-    const interval = setInterval(checkNetwork, 30000)
-    return () => clearInterval(interval)
-  }, [])
-
+  // Fetch items when connected or path changes
   useEffect(() => {
-    checkNetworkAccess()
-  }, [])
-
-  useEffect(() => {
-    if (networkAvailable) {
+    if (isConnected) {
       fetchFileSystemItems()
     }
-  }, [currentPath, networkAvailable])
+  }, [currentPath, isConnected])
 
   // NEW: Enhanced search with debouncing
   useEffect(() => {
@@ -117,14 +109,9 @@ const FileManagement = ({ clearMessages, error, success, setError, setSuccess })
   }, [])
 
   const checkNetworkAccess = async () => {
+    // FIX: Removed manual health check since useNetwork handles it.
+    // We only check for specific File System info here.
     try {
-      const response = await fetch(`${API_BASE}/api/health`)
-      if (response.ok) {
-        setNetworkAvailable(true)
-      } else {
-        setNetworkAvailable(false)
-      }
-
       const infoResponse = await fetch(`${API_BASE}/api/file-system/info`)
       const data = await infoResponse.json()
       setNetworkInfo(data)
@@ -133,7 +120,6 @@ const FileManagement = ({ clearMessages, error, success, setError, setSuccess })
       }
     } catch (error) {
       console.error('Error checking network access:', error)
-      setNetworkAvailable(false)
       setError('Failed to check network directory access: ' + error.message)
       setNetworkInfo({ accessible: false, message: 'Connection failed' })
     }
@@ -325,7 +311,8 @@ const FileManagement = ({ clearMessages, error, success, setError, setSuccess })
     return breadcrumbs
   }
 
-  if (!networkAvailable) {
+  // FIX: Using isConnected instead of the removed networkAvailable state
+  if (!isConnected) {
     return <SkeletonLoader type="table" />
   }
 
@@ -473,4 +460,6 @@ const FileManagement = ({ clearMessages, error, success, setError, setSuccess })
   )
 }
 
-export default FileManagement
+export default withErrorBoundary(FileManagement, {
+  componentName: 'File Management'
+})

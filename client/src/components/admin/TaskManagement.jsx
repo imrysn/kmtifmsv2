@@ -2,8 +2,13 @@ import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import './TaskManagement.css'
 import FileIcon from './FileIcon.jsx'
 import { AlertMessage, ConfirmationModal, CommentsModal } from './modals'
+import { useAuth, useNetwork } from '../../contexts'
+import { withErrorBoundary } from '../common'
 
 const TaskManagement = ({ error, success, setError, setSuccess, clearMessages, user, contextAssignmentId }) => {
+  const { user: authUser } = useAuth()
+  const { isConnected } = useNetwork()
+  
   const [assignments, setAssignments] = useState([])
   const [loading, setLoading] = useState(true)
   const [loadingMore, setLoadingMore] = useState(false)
@@ -911,4 +916,6 @@ const TaskManagement = ({ error, success, setError, setSuccess, clearMessages, u
   )
 }
 
-export default TaskManagement
+export default withErrorBoundary(TaskManagement, {
+  componentName: 'Task Management'
+})

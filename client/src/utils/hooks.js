@@ -1,6 +1,11 @@
 import { useEffect, useRef, useCallback, useMemo, useState } from 'react';
 import { debounce, throttle, rafThrottle } from './performance';
 
+// Re-export from contexts for convenience
+export { useAuth } from '../contexts/AuthContext';
+export { useNetwork } from '../contexts/NetworkContext';
+export { useNotifications } from '../contexts/NotificationContext';
+
 /**
  * Custom hook for debounced values
  * Usage: const debouncedSearch = useDebounce(searchTerm, 500);
@@ -235,4 +240,150 @@ export function useAsync(asyncFunction, immediate = true) {
   }, [execute, immediate]);
 
   return { execute, status, data, error, isLoading: status === 'pending' };
+}
+
+/**
+ * Hook for pagination with comprehensive controls
+ * Usage: const { currentPage, paginatedItems, nextPage, prevPage } = usePagination(items, 10);
+ */
+export function usePagination(items = [], itemsPerPage = 10) {
+  const [currentPage, setCurrentPage] = useState(1);
+
+  const totalPages = useMemo(() => {
+    return Math.ceil(items.length / itemsPerPage);
+  }, [items.length, itemsPerPage]);
+
+  const paginatedItems = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    return items.slice(startIndex, endIndex);
+  }, [items, currentPage, itemsPerPage]);
+
+  const startIndex = useMemo(() => {
+    return (currentPage - 1) * itemsPerPage;
+  }, [currentPage, itemsPerPage]);
+
+  const endIndex = useMemo(() => {
+    return Math.min(startIndex + itemsPerPage, items.length);
+  }, [startIndex, itemsPerPage, items.length]);
+
+  const goToPage = useCallback((page) => {
+    const pageNumber = Math.max(1, Math.min(page, totalPages));
+    setCurrentPage(pageNumber);
+  }, [totalPages]);
+
+  const nextPage = useCallback(() => {
+    setCurrentPage(prev => Math.min(prev + 1, totalPages));
+  }, [totalPages]);
+
+  const prevPage = useCallback(() => {
+    setCurrentPage(prev => Math.max(prev - 1, 1));
+  }, []);
+
+  const goToFirstPage = useCallback(() => {
+    setCurrentPage(1);
+  }, []);
+
+  const goToLastPage = useCallback(() => {
+    setCurrentPage(totalPages);
+  }, [totalPages]);
+
+  const resetPagination = useCallback(() => {
+    setCurrentPage(1);
+  }, []);
+
+  const canGoNext = currentPage < totalPages;
+  const canGoPrev = currentPage > 1;
+
+  return {
+    currentPage,
+    totalPages,
+    paginatedItems,
+    startIndex,
+    endIndex,
+    itemsPerPage,
+    goToPage,
+    nextPage,
+    prevPage,
+    goToFirstPage,
+    goToLastPage,
+    resetPagination,
+    canGoNext,
+    canGoPrev
+  };
+}
+
+/**
+ * Hook for optimistic UI updates
+ * Immediately updates UI, then syncs with server
+ */
+export function useOptimisticUpdate(initialData = null) {
+  const [data, setData] = useState(initialData);
+  const [isUpdating, setIsUpdating] = useState(false);
+  const [error, setError] = useState(null);
+
+  const updateOptimistically = useCallback(async (
+    optimisticUpdate,
+    actualUpdate,
+    rollbackUpdate = null
+  ) => {
+    setIsUpdating(true);
+    setError(null);
+
+    const previousData = data;
+
+    try {
+      // Apply optimistic update immediately
+      if (typeof optimisticUpdate === 'function') {
+        setData(optimisticUpdate(previousData));
+      } else {
+        setData(optimisticUpdate);
+      }
+
+      // Perform actual update
+      const result = await actualUpdate();
+
+      // Update with actual data if provided
+      if (result && result.data) {
+        setData(result.data);
+      }
+
+      return { success: true, data: result };
+    } catch (err) {
+      console.error('Optimistic update failed:', err);
+      setError(err.message || 'Update failed');
+
+      // Rollback to previous state or use custom rollback
+      if (rollbackUpdate) {
+        if (typeof rollbackUpdate === 'function') {
+          setData(rollbackUpdate(previousData));
+        } else {
+          setData(rollbackUpdate);
+        }
+      } else {
+        setData(previousData);
+      }
+
+      return { success: false, error: err };
+    } finally {
+      setIsUpdating(false);
+    }
+  }, [data]);
+
+  const setOptimisticData = useCallback((newData) => {
+    setData(newData);
+  }, []);
+
+  const clearError = useCallback(() => {
+    setError(null);
+  }, []);
+
+  return {
+    data,
+    setData: setOptimisticData,
+    isUpdating,
+    error,
+    updateOptimistically,
+    clearError
+  };
 }

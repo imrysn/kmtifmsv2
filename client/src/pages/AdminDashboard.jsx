@@ -3,6 +3,7 @@ import anime from 'animejs'
 import '../css/AdminDashboard.css'
 import SkeletonLoader from '../components/common/SkeletonLoader'
 import { getSidebarIcon } from '../components/admin/FileIcon'
+import { AuthProvider, NetworkProvider, NotificationProvider } from '../contexts'
 
 // Import admin tab components
 import {
@@ -170,8 +171,11 @@ const AdminDashboard = ({ user, onLogout }) => {
   }
 
   return (
-    <Suspense fallback={<SkeletonLoader type="admin" />}>
-      <div className="minimal-admin-dashboard">
+    <AuthProvider initialUser={user}>
+      <NetworkProvider>
+        <NotificationProvider userId={user?.id}>
+          <Suspense fallback={<SkeletonLoader type="admin" />}>
+            <div className="minimal-admin-dashboard">
       {/* Burger Menu Button */}
       <button
         className={`burger-menu-btn ${sidebarOpen ? 'active' : ''}`}
@@ -312,8 +316,11 @@ const AdminDashboard = ({ user, onLogout }) => {
         notifications={notifications}
         onNavigate={handleNotificationNavigation}
       />
-      </div>
-    </Suspense>
+            </div>
+          </Suspense>
+        </NotificationProvider>
+      </NetworkProvider>
+    </AuthProvider>
   )
 }
 

@@ -3,6 +3,8 @@ import FileIcon from './FileIcon'
 import { SkeletonLoader } from '../common/SkeletonLoader'
 import './FileApproval-Optimized.css'
 import { ConfirmationModal, AlertMessage, FileDetailsModal } from './modals'
+import { useAuth, useNetwork } from '../../contexts'
+import { withErrorBoundary } from '../common'
 
 const API_BASE = 'http://localhost:3001/api'
 const SERVER_BASE = API_BASE.replace(/\/api$/, '')
@@ -120,6 +122,9 @@ const FileRow = memo(({
 
 
 const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) => {
+  const { user: authUser } = useAuth()
+  const { isConnected } = useNetwork()
+  
   // State management
   const [files, setFiles] = useState([])
   const [fileSearchQuery, setFileSearchQuery] = useState('')
@@ -134,7 +139,6 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
   const [fileToDelete, setFileToDelete] = useState(null)
   const [isLoading, setIsLoading] = useState(true)
   const [isOpeningFile, setIsOpeningFile] = useState(false)
-  const [networkAvailable, setNetworkAvailable] = useState(true)
   
   // Refs
   const statusCardsRef = useRef(null)
@@ -142,21 +146,7 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
   const filterSelectRef = useRef(null)
   const fetchAbortController = useRef(null)
 
-  // Check network availability on mount and periodically
-  useEffect(() => {
-    const checkNetwork = async () => {
-      try {
-        await fetch(`${API_BASE}/health`)
-        setNetworkAvailable(true)
-      } catch {
-        setNetworkAvailable(false)
-      }
-    }
-
-    checkNetwork()
-    const interval = setInterval(checkNetwork, 30000) // Check every 30 seconds
-    return () => clearInterval(interval)
-  }, [])
+  // Network check removed - using NetworkContext
 
   // Auto-clear messages
   useEffect(() => {
@@ -168,9 +158,39 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
     }
   }, [error, success, clearMessages])
 
+  const fetchFiles = useCallback(async () => {
+    // Cancel previous request if still pending
+    if (fetchAbortController.current) {
+      fetchAbortController.current.abort()
+    }
+
+    fetchAbortController.current = new AbortController()
+    setIsLoading(true)
+
+    try {
+      const response = await fetch(`${API_BASE}/files/all`, {
+        signal: fetchAbortController.current.signal
+      })
+      const data = await response.json()
+      
+      if (data.success) {
+        setFiles(data.files)
+      } else {
+        setError('Failed to fetch files')
+      }
+    } catch (error) {
+      if (error.name !== 'AbortError') {
+        console.error('Error fetching files:', error)
+        setError('Failed to connect to server')
+      }
+    } finally {
+      setIsLoading(false)
+    }
+  }, [setError])
+
   // Initial fetch
   useEffect(() => {
-    if (networkAvailable) {
+    if (isConnected) {
       fetchFiles()
     }
     return () => {
@@ -178,7 +198,7 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
         fetchAbortController.current.abort()
       }
     }
-  }, [networkAvailable])
+  }, [isConnected, fetchFiles])
 
   // Debounced search
   useEffect(() => {
@@ -283,35 +303,7 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
     return selectedFile ? new Date(selectedFile.uploaded_at).toLocaleString() : ''
   }, [selectedFile])
 
-  const fetchFiles = useCallback(async () => {
-    // Cancel previous request if still pending
-    if (fetchAbortController.current) {
-      fetchAbortController.current.abort()
-    }
-
-    fetchAbortController.current = new AbortController()
-    setIsLoading(true)
-
-    try {
-      const response = await fetch(`${API_BASE}/files/all`, {
-        signal: fetchAbortController.current.signal
-      })
-      const data = await response.json()
-      
-      if (data.success) {
-        setFiles(data.files)
-      } else {
-        setError('Failed to fetch files')
-      }
-    } catch (error) {
-      if (error.name !== 'AbortError') {
-        console.error('Error fetching files:', error)
-        setError('Failed to connect to server')
-      }
-    } finally {
-      setIsLoading(false)
-    }
-  }, [setError])
+  
 
 
 
@@ -373,9 +365,9 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          adminId: 1,
-          adminUsername: 'admin',
-          adminRole: 'ADMIN'
+          adminId: authUser.id,
+          adminUsername: authUser.username,
+          adminRole: authUser.role
         })
       }).catch(() => {}) // Ignore errors for physical file deletion
 
@@ -384,10 +376,10 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          adminId: 1,
-          adminUsername: 'admin',
-          adminRole: 'ADMIN',
-          team: 'IT Administration'
+          adminId: authUser.id,
+          adminUsername: authUser.username,
+          adminRole: authUser.role,
+          team: authUser.team
         })
       })
 
@@ -408,7 +400,7 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
     } finally {
       setIsLoading(false)
     }
-  }, [fileToDelete, setError, setSuccess])
+  }, [fileToDelete, authUser, setError, setSuccess])
 
 
 
@@ -473,10 +465,10 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             destinationPath: selectedPath,
-            adminId: 1,
-            adminUsername: 'admin',
-            adminRole: 'ADMIN',
-            team: 'IT Administration',
+            adminId: authUser.id,
+            adminUsername: authUser.username,
+            adminRole: authUser.role,
+            team: authUser.team,
             deleteFromUploads: true
           })
         })
@@ -490,10 +482,10 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
           body: JSON.stringify({
             action: 'approve',
             comments: null,
-            adminId: 1,
-            adminUsername: 'admin',
-            adminRole: 'ADMIN',
-            team: 'IT Administration'
+            adminId: authUser.id,
+            adminUsername: authUser.username,
+            adminRole: authUser.role,
+            team: authUser.team
           })
         })
         const approveData = await approveResp.json()
@@ -523,7 +515,7 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
     } finally {
       setIsLoading(false)
     }
-  }, [selectedFile, setError, setSuccess, closeFileModal, fetchFiles])
+  }, [selectedFile, authUser, setError, setSuccess, closeFileModal, fetchFiles])
 
   const rejectFile = useCallback(async () => {
     if (!selectedFile) return
@@ -536,10 +528,10 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
         body: JSON.stringify({
           action: 'reject',
           comments: null,
-          adminId: 1,
-          adminUsername: 'admin',
-          adminRole: 'ADMIN',
-          team: 'IT Administration'
+          adminId: authUser.id,
+          adminUsername: authUser.username,
+          adminRole: authUser.role,
+          team: authUser.team
         })
       })
 
@@ -551,9 +543,9 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            adminId: 1,
-            adminUsername: 'admin',
-            adminRole: 'ADMIN'
+            adminId: authUser.id,
+            adminUsername: authUser.username,
+            adminRole: authUser.role
           })
         }).catch(() => {}) // Ignore errors for physical file deletion
 
@@ -578,7 +570,7 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
     } finally {
       setIsLoading(false)
     }
-  }, [selectedFile, setError, setSuccess, closeFileModal, fetchFiles])
+  }, [selectedFile, authUser, setError, setSuccess, closeFileModal, fetchFiles])
 
   const renderPaginationNumbers = useMemo(() => {
     const pageNumbers = []
@@ -649,7 +641,7 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
   }, [totalPages, currentPage])
 
   // Show skeleton loader when network is not available
-  if (!networkAvailable) {
+  if (!isConnected) {
     return <SkeletonLoader type="table" />
   }
 
@@ -854,39 +846,6 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
   )
 }
 
-// Error Boundary
-class FileApprovalErrorBoundary extends React.Component {
-  constructor(props) {
-    super(props)
-    this.state = { error: null, errorInfo: null }
-  }
-
-  componentDidCatch(error, errorInfo) {
-    console.error('FileApproval render error:', error, errorInfo)
-    this.setState({ error, errorInfo })
-  }
-
-  render() {
-    if (this.state.error) {
-      return (
-        <div className="file-approval-section error-boundary">
-          <h2>Something went wrong rendering File Approval</h2>
-          <pre style={{ whiteSpace: 'pre-wrap', color: 'var(--text-secondary)' }}>
-            {this.state.error && this.state.error.toString()}
-            {this.state.errorInfo && '\n' + (this.state.errorInfo.componentStack || '')}
-          </pre>
-        </div>
-      )
-    }
-
-    return this.props.children
-  }
-}
-
-const WrappedFileApproval = (props) => (
-  <FileApprovalErrorBoundary>
-    <FileApproval {...props} />
-  </FileApprovalErrorBoundary>
-)
-
-export default WrappedFileApproval
+export default withErrorBoundary(FileApproval, {
+  componentName: 'File Approval'
+})

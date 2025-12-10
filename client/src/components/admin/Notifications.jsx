@@ -3,6 +3,8 @@ import './Notifications.css';
 import FileIcon from './FileIcon';
 import { useTaskbarFlash } from '../../utils/useTaskbarFlash';
 import { ConfirmationModal } from './modals';
+import { useAuth, useNetwork } from '../../contexts';
+import { withErrorBoundary } from '../common';
 
 // Memoized notification item to prevent unnecessary re-renders
 const NotificationItem = memo(({ notification, onNotificationClick, onDeleteNotification, NotificationIcon, formatTimeAgo }) => {
@@ -480,4 +482,6 @@ const Notifications = ({ user, onNavigate }) => {
   );
 };
 
-export default Notifications;
+export default withErrorBoundary(Notifications, {
+  componentName: 'Notifications'
+});
