@@ -7,14 +7,22 @@ const DashboardTab = ({ user, files, setActiveTab }) => {
   const [teamTasks, setTeamTasks] = useState([]);
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [lastUpdate, setLastUpdate] = useState(new Date());
 
   useEffect(() => {
     fetchDashboardData();
+    
+    // Auto-refresh every 30 seconds for real-time updates (silent)
+    const refreshInterval = setInterval(() => {
+      fetchDashboardData(true);
+    }, 30000);
+
+    return () => clearInterval(refreshInterval);
   }, [user.id, user.team]);
 
-  const fetchDashboardData = async () => {
+  const fetchDashboardData = async (silent = false) => {
     try {
-      setLoading(true);
+      if (!silent) setLoading(true);
       const [assignmentsRes, teamTasksRes, notificationsRes] = await Promise.all([
         fetch(`http://localhost:3001/api/assignments/user/${user.id}`),
         fetch(`http://localhost:3001/api/assignments/team/${user.team}/all-tasks?limit=5`),
@@ -30,11 +38,16 @@ const DashboardTab = ({ user, files, setActiveTab }) => {
       if (assignmentsData.success) setAssignments(assignmentsData.assignments || []);
       if (teamTasksData.success) setTeamTasks(teamTasksData.assignments || []);
       if (notificationsData.success) setNotifications(notificationsData.notifications || []);
+      setLastUpdate(new Date());
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleRefresh = () => {
+    fetchDashboardData();
   };
 
   const myTasksStats = {
@@ -51,7 +64,7 @@ const DashboardTab = ({ user, files, setActiveTab }) => {
     total: files.length,
     pending: files.filter(f => f.current_stage?.includes('pending')).length,
     approved: files.filter(f => f.status === 'final_approved').length,
-    rejected: files.filter(f => f.status?.includes('rejected')).length
+    rejected: files.filter(f => f.status?.includes('rejected') || f.current_stage?.includes('rejected')).length
   };
 
   const teamStats = {
@@ -72,14 +85,19 @@ const DashboardTab = ({ user, files, setActiveTab }) => {
   const fileApprovalRate = filesStats.total > 0
     ? Math.round((filesStats.approved / filesStats.total) * 100) : 0;
   
+  const fileRejectionRate = filesStats.total > 0
+    ? Math.round((filesStats.rejected / filesStats.total) * 100) : 0;
+  
   const onTimeRate = myTasksStats.total > 0
     ? Math.round(((myTasksStats.total - myTasksStats.overdue) / myTasksStats.total) * 100) : 100;
   
   const overallScore = (() => {
     const taskScore = myTasksStats.total > 0 ? (myTasksStats.submitted / myTasksStats.total) * 100 : 0;
     const fileScore = filesStats.total > 0 ? (filesStats.approved / filesStats.total) * 100 : 0;
+    const rejectionPenalty = filesStats.total > 0 ? (filesStats.rejected / filesStats.total) * 20 : 0;
     const timeScore = myTasksStats.total > 0 ? ((myTasksStats.total - myTasksStats.overdue) / myTasksStats.total) * 100 : 100;
-    return Math.round((taskScore * 0.4) + (fileScore * 0.3) + (timeScore * 0.3));
+    const rawScore = (taskScore * 0.4) + (fileScore * 0.3) + (timeScore * 0.3);
+    return Math.max(0, Math.round(rawScore - rejectionPenalty));
   })();
 
   if (loading) {
@@ -172,33 +190,88 @@ const DashboardTab = ({ user, files, setActiveTab }) => {
             <h2 className="analytics-card-title">Performance Analytics</h2>
           </div>
           <div className="analytics-content">
-            {/* Overall Score Horizontal Bar */}
+            {/* Overall Score - Circular Gauge */}
             <div className="overall-score-section">
-              <div className="score-header">
-                <div className="score-label">Overall Performance Score</div>
-                <div className="score-percentage">{overallScore}%</div>
-              </div>
-              <div className="score-bar-container">
-                <div 
-                  className="score-bar-fill"
-                  style={{
-                    width: `${overallScore}%`
-                  }}
-                />
-              </div>
-              <div className="score-legend">
-                <span className="legend-item">
-                  <span className="legend-dot poor"></span> 0-49% Poor
-                </span>
-                <span className="legend-item">
-                  <span className="legend-dot fair"></span> 50-69% Fair
-                </span>
-                <span className="legend-item">
-                  <span className="legend-dot good"></span> 70-84% Good
-                </span>
-                <span className="legend-item">
-                  <span className="legend-dot excellent"></span> 85-100% Excellent
-                </span>
+              <div className="score-content-wrapper">
+                {/* Circular Progress */}
+                <div className="circular-progress-container">
+                  <svg className="circular-progress-svg" viewBox="0 0 200 200">
+                    {/* Background circle */}
+                    <circle
+                      className="progress-ring-bg"
+                      cx="100"
+                      cy="100"
+                      r="85"
+                      fill="none"
+                      strokeWidth="18"
+                    />
+                    {/* Progress circle */}
+                    <circle
+                      className="progress-ring-fill"
+                      cx="100"
+                      cy="100"
+                      r="85"
+                      fill="none"
+                      strokeWidth="18"
+                      strokeDasharray={`${(overallScore / 100) * 534} 534`}
+                      strokeLinecap="round"
+                      style={{
+                        stroke: overallScore >= 85 ? '#10b981' : 
+                                overallScore >= 70 ? '#22c55e' : 
+                                overallScore >= 50 ? '#f59e0b' : '#ef4444'
+                      }}
+                    />
+                    {/* Center text */}
+                    <text className="score-percentage-text" x="100" y="95" textAnchor="middle">
+                      {overallScore}%
+                    </text>
+                    <text className="score-label-text" x="100" y="118" textAnchor="middle">
+                      Performance
+                    </text>
+                  </svg>
+                </div>
+
+                {/* Score Description */}
+                <div className="score-description">
+                  <div className="score-status">
+                    <div className="status-badge" style={{
+                      background: overallScore >= 85 ? '#d1fae5' : 
+                                  overallScore >= 70 ? '#d1fae5' : 
+                                  overallScore >= 50 ? '#fef3c7' : '#fee2e2',
+                      color: overallScore >= 85 ? '#065f46' : 
+                             overallScore >= 70 ? '#065f46' : 
+                             overallScore >= 50 ? '#92400e' : '#991b1b'
+                    }}>
+                      {overallScore >= 85 ? '🌟 Excellent' : 
+                       overallScore >= 70 ? '✅ Good' : 
+                       overallScore >= 50 ? '⚠️ Fair' : '📉 Needs Improvement'}
+                    </div>
+                  </div>
+                  <p className="score-message">
+                    {overallScore >= 85 ? 'Outstanding work! You\'re exceeding expectations.' :
+                     overallScore >= 70 ? 'Great job! Keep up the good momentum.' :
+                     overallScore >= 50 ? 'You\'re on track. Focus on completing pending tasks.' :
+                     'Let\'s work on improving your completion rate.'}
+                  </p>
+                  <div className="score-legend-grid">
+                    <div className="legend-item">
+                      <span className="legend-dot excellent"></span>
+                      <span>85-100% Excellent</span>
+                    </div>
+                    <div className="legend-item">
+                      <span className="legend-dot good"></span>
+                      <span>70-84% Good</span>
+                    </div>
+                    <div className="legend-item">
+                      <span className="legend-dot fair"></span>
+                      <span>50-69% Fair</span>
+                    </div>
+                    <div className="legend-item">
+                      <span className="legend-dot poor"></span>
+                      <span>0-49% Poor</span>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -242,6 +315,21 @@ const DashboardTab = ({ user, files, setActiveTab }) => {
                   <div className="metric-label">File Approval Rate</div>
                   <div className="metric-value">{fileApprovalRate}%</div>
                   <div className="metric-detail">{filesStats.approved}/{filesStats.total} approved</div>
+                </div>
+              </div>
+
+              <div className="analytics-metric">
+                <div className="metric-icon rejection-icon">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <line x1="15" y1="9" x2="9" y2="15"></line>
+                    <line x1="9" y1="9" x2="15" y2="15"></line>
+                  </svg>
+                </div>
+                <div className="metric-content">
+                  <div className="metric-label">File Rejection Rate</div>
+                  <div className="metric-value">{fileRejectionRate}%</div>
+                  <div className="metric-detail">{filesStats.rejected}/{filesStats.total} rejected</div>
                 </div>
               </div>
 

@@ -1,16 +1,14 @@
 /* Modern Comment Design - Admin Style for User Panel */
 
-/* NUCLEAR OPTION: Remove ALL possible vertical lines */
-.comments-modal-body,
-.comments-modal-body *,
-.comments-list,
-.comments-list *,
-.comment-thread,
-.comment-thread > *,
-.replies-thread,
-.replies-thread > *,
-.reply-input-box,
-.reply-input-box > * {
+/* Specific styles without global wildcards */
+.tasks-container .comments-modal-body,
+.tasks-container .comments-list,
+.tasks-container .comment-thread,
+.tasks-container .comment-thread > *,
+.tasks-container .replies-thread,
+.tasks-container .replies-thread > *,
+.tasks-container .reply-input-box,
+.tasks-container .reply-input-box > * {
   border-left: 0 !important;
   border-left-width: 0 !important;
   border-left-style: none !important;
@@ -18,22 +16,22 @@
 }
 
 /* Remove all pseudo-elements that could create lines */
-.comments-modal-body::before,
-.comments-modal-body::after,
-.comments-list::before,
-.comments-list::after,
-.comment-thread::before,
-.comment-thread::after,
-.comment-thread > *::before,
-.comment-thread > *::after,
-.replies-thread::before,
-.replies-thread::after,
-.replies-thread > *::before,
-.replies-thread > *::after,
-.reply-input-box::before,
-.reply-input-box::after,
-.reply-input-box > *::before,
-.reply-input-box > *::after {
+.tasks-container .comments-modal-body::before,
+.tasks-container .comments-modal-body::after,
+.tasks-container .comments-list::before,
+.tasks-container .comments-list::after,
+.tasks-container .comment-thread::before,
+.tasks-container .comment-thread::after,
+.tasks-container .comment-thread > *::before,
+.tasks-container .comment-thread > *::after,
+.tasks-container .replies-thread::before,
+.tasks-container .replies-thread::after,
+.tasks-container .replies-thread > *::before,
+.tasks-container .replies-thread > *::after,
+.tasks-container .reply-input-box::before,
+.tasks-container .reply-input-box::after,
+.tasks-container .reply-input-box > *::before,
+.tasks-container .reply-input-box > *::after {
   display: none !important;
   content: none !important;
   border: none !important;
@@ -461,6 +459,15 @@
 .role-badge.team-leader {
   border-color: #1d4ed8;
   color: #1d4ed8;
+  background: transparent !important;
+  background-color: transparent !important;
+}
+
+/* Force remove any background from team-leader badge */
+.comment-header .role-badge.team-leader,
+.reply-header .role-badge.team-leader,
+.post-header .role-badge.team-leader,
+.author-info .role-badge.team-leader {
   background: transparent !important;
   background-color: transparent !important;
 }

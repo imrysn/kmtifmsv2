@@ -667,14 +667,14 @@ const TasksTab = ({ user }) => {
                           {assignment.team_leader_fullname || assignment.team_leader_username}
                         </span>
                         <span style={{
-                          backgroundColor: '#EFF6FF',
+                          backgroundColor: 'transparent',
                           color: '#1D4ED8',
                           padding: '2px 10px',
                           borderRadius: '12px',
                           fontSize: '11px',
                           fontWeight: '600',
                           textTransform: 'uppercase',
-                          border: '1px solid #BFDBFE'
+                          border: '1px solid #1D4ED8'
                         }}>
                           {assignment.team_leader_role === 'TEAM_LEADER' ? 'TEAM LEADER' : assignment.team_leader_role || 'TEAM LEADER'}
                         </span>
@@ -705,21 +705,18 @@ const TasksTab = ({ user }) => {
                     </div>
                   </div>
                   {/* Show due date at top right */}
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <span style={{ fontSize: '14px' }}>📅</span>
-                      <span style={{ fontSize: '14px', color: '#374151' }}>
-                        Due: {assignment.due_date ? formatDate(assignment.due_date) : 'No due date'}
-                        {daysLeft !== null && (
-                          <span style={{ 
-                            color: daysLeft < 0 ? '#DC2626' : daysLeft <= 2 ? '#EA580C' : '#059669',
-                            fontWeight: '600',
-                            marginLeft: '4px'
-                          }}>
-                            {getDaysText(assignment)}
-                          </span>
-                        )}
-                      </span>
+                  <div style={{ textAlign: 'right' }}>
+                    <div style={{ fontSize: '14px', fontWeight: '500', color: '#000000' }}>
+                      Due: {assignment.due_date ? formatDate(assignment.due_date) : 'No due date'}
+                      {daysLeft !== null && (
+                        <span style={{ 
+                          color: '#DC2626',
+                          fontWeight: '400',
+                          marginLeft: '4px'
+                        }}>
+                          {daysLeft < 0 ? `(${Math.abs(daysLeft)} days overdue)` : ''}
+                        </span>
+                      )}
                     </div>
                   </div>
                 </div>

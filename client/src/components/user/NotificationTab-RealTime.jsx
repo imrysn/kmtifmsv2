@@ -3,23 +3,25 @@ import './css/NotificationTab.css';
 
 const NotificationTab = ({ user, onOpenFile, onNavigateToTasks }) => {
   const [notifications, setNotifications] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [displayCount, setDisplayCount] = useState(10);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
+  const [showAll, setShowAll] = useState(false);
 
   useEffect(() => {
     fetchNotifications();
-    // Removed polling interval - fetch only when component mounts or user manually refreshes
+    
+    // Poll for new notifications every 5 seconds for real-time updates
+    const pollInterval = setInterval(() => {
+      fetchNotifications();
+    }, 5000);
+
+    return () => clearInterval(pollInterval);
   }, [user.id]);
 
   const fetchNotifications = async () => {
-    // Only show skeleton on initial load
-    if (isInitialLoad) {
-      setIsLoading(true);
-    }
-    
     try {
       const response = await fetch(`http://localhost:3001/api/notifications/user/${user.id}`);
       const data = await response.json();
@@ -27,13 +29,13 @@ const NotificationTab = ({ user, onOpenFile, onNavigateToTasks }) => {
       if (data.success) {
         setNotifications(data.notifications || []);
         setUnreadCount(data.unreadCount || 0);
-        console.log('📬 Notifications updated:', data.notifications?.length || 0);
       }
     } catch (error) {
       console.error('❌ Error fetching notifications:', error);
     } finally {
-      setIsLoading(false);
-      setIsInitialLoad(false);
+      if (isInitialLoad) {
+        setIsInitialLoad(false);
+      }
     }
   };
 
@@ -238,6 +240,12 @@ const NotificationTab = ({ user, onOpenFile, onNavigateToTasks }) => {
     return date.toLocaleDateString();
   }, []);
 
+  const formatRole = useCallback((role) => {
+    if (!role) return '';
+    // Convert "TEAM LEADER" to "TEAM LEADER", "ADMIN" to "ADMIN", "USER" to "USER"
+    return role.toUpperCase();
+  }, []);
+
   // Memoize computed values
   const displayedNotifications = useMemo(
     () => notifications.slice(0, displayCount),
@@ -250,15 +258,24 @@ const NotificationTab = ({ user, onOpenFile, onNavigateToTasks }) => {
   );
 
   const handleSeeMore = useCallback(() => {
-    setDisplayCount(prev => prev + 10);
-  }, []);
+    if (showAll) {
+      setDisplayCount(10);
+      setShowAll(false);
+    } else {
+      setDisplayCount(prev => prev + 10);
+      if (displayCount + 10 >= notifications.length) {
+        setShowAll(true);
+      }
+    }
+  }, [showAll, displayCount, notifications.length]);
 
-  if (isLoading) {
+  // Show minimal skeleton only on very first load
+  if (isInitialLoad && notifications.length === 0) {
     return (
       <div className="user-notification-component notification-section">
         <div className="page-header">
           <div className="page-header-content">
-            <div>
+            <div className="page-header-left">
               <h2>Notifications</h2>
               <p>Stay updated with your file approvals and system messages</p>
             </div>
@@ -267,7 +284,7 @@ const NotificationTab = ({ user, onOpenFile, onNavigateToTasks }) => {
 
         <div className="notifications-container">
           <div className="notifications-list">
-            {[1, 2, 3, 4, 5].map((item) => (
+            {[1, 2, 3].map((item) => (
               <div key={item} className="notification-card skeleton-card">
                 <div className="skeleton-icon"></div>
                 <div className="skeleton-content">
@@ -291,33 +308,33 @@ const NotificationTab = ({ user, onOpenFile, onNavigateToTasks }) => {
     <div className="user-notification-component notification-section">
       <div className="page-header">
         <div className="page-header-content">
-          <div>
+          <div className="page-header-left">
             <h2>Notifications</h2>
             <p>Stay updated with your file approvals and system messages</p>
+            <div className="notification-stats">
+              {notifications.length} total • {unreadCount} unread
+            </div>
           </div>
-          {notifications.length > 0 && (
-            <div className="notification-actions">
+          <div className="notification-actions">
+            {unreadCount > 0 && (
               <button 
                 className="mark-all-read-btn"
                 onClick={handleMarkAllAsRead}
                 title="Mark all as read"
-                disabled={unreadCount === 0}
-                style={{
-                  opacity: unreadCount === 0 ? 0.5 : 1,
-                  cursor: unreadCount === 0 ? 'not-allowed' : 'pointer'
-                }}
               >
-                ✓ Mark All as Read
+                Mark All as Read
               </button>
+            )}
+            {notifications.length > 0 && (
               <button 
                 className="delete-all-btn"
                 onClick={handleDeleteAll}
                 title="Delete all notifications"
               >
-                ✕ Delete All
+                Delete All
               </button>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       </div>
 
@@ -335,53 +352,27 @@ const NotificationTab = ({ user, onOpenFile, onNavigateToTasks }) => {
                   {getNotificationIcon(notification.type)}
                 </div>
                 <div className="notification-content">
-                  <div className="notification-header">
-                    <h4 className="notification-title">{notification.title}</h4>
-                    <div className="notification-time-actions">
-                      <span className="notification-time">{formatTimeAgo(notification.created_at)}</span>
-                      <button 
-                        className="delete-notification-btn"
-                        onClick={(e) => handleDeleteNotification(e, notification.id)}
-                        title="Delete notification"
-                      >
-                        ✕
-                      </button>
-                    </div>
-                  </div>
+                  <h4 className="notification-title">{notification.title}</h4>
                   <p className="notification-message">{notification.message}</p>
                   <div className="notification-footer">
                     <span className="notification-action-by">
-                      ◉ {notification.action_by_username} ({notification.action_by_role})
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                        <path d="M10 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM3.465 14.493a1.23 1.23 0 0 1 .41-1.108A9.965 9.965 0 0 1 10 11c2.456 0 4.71.886 6.425 2.385.276.24.456.6.41 1.108a9.98 9.98 0 0 1-13.37 0Z"/>
+                      </svg>
+                      {notification.action_by_username} ({formatRole(notification.action_by_role)})
                     </span>
-                    {notification.file_status && (
-                      <span className="notification-status">
-                        Status: {getStatusDisplayName(notification.file_status)}
-                      </span>
-                    )}
-                    {notification.assignment_title && (
-                      <span className="notification-assignment-title">
-                        ▢ Assignment: {notification.assignment_title}
-                      </span>
-                    )}
-                    {notification.assignment_due_date && (
-                      <span className="notification-due-date">
-                        ◷ Due: {new Date(notification.assignment_due_date).toLocaleDateString()}
-                      </span>
-                    )}
+                    <span className="notification-time">{formatTimeAgo(notification.created_at)}</span>
                   </div>
-                  {!notification.is_read && (
-                    <div className="unread-indicator"></div>
-                  )}
                 </div>
               </div>
             ))}
-            {displayCount < notifications.length && (
+            {notifications.length > 10 && (
               <div className="see-more-container">
                 <button 
                   className="see-more-btn"
                   onClick={handleSeeMore}
                 >
-                  See more ({remainingCount} more notifications)
+                  {showAll ? 'See less' : `See more (${remainingCount} more notifications)`}
                 </button>
               </div>
             )}
