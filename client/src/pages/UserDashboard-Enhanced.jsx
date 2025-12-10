@@ -6,9 +6,9 @@ import SkeletonLoader from '../components/common/SkeletonLoader'
 import Sidebar from '../components/user/Sidebar'
 import AlertMessage from '../components/user/AlertMessage'
 import ToastNotification from '../components/user/ToastNotification'
+import DashboardTab from '../components/user/DashboardTab'
 
 // Lazy load tab components - only loaded when user switches to that tab
-const DashboardTab = lazy(() => import('../components/user/DashboardTab'))
 const TeamTasksTab = lazy(() => import('../components/user/TeamTasksTab'))
 const MyFilesTab = lazy(() => import('../components/user/MyFilesTab'))
 const NotificationTab = lazy(() => import('../components/user/NotificationTab-RealTime'))
@@ -205,13 +205,11 @@ const UserDashboard = ({ user, onLogout }) => {
     switch (activeTab) {
       case 'dashboard':
         return (
-          <Suspense fallback={<SkeletonLoader type="cards" />}>
-            <DashboardTab 
-              user={user}
-              files={files}
-              setActiveTab={setActiveTab}
-            />
-          </Suspense>
+          <DashboardTab 
+            user={user}
+            files={files}
+            setActiveTab={setActiveTab}
+          />
         );
       case 'team-files':
         return (
@@ -255,13 +253,11 @@ const UserDashboard = ({ user, onLogout }) => {
         );
       default:
         return (
-          <Suspense fallback={<SkeletonLoader type="cards" />}>
-            <DashboardTab
-              user={user}
-              files={files}
-              setActiveTab={setActiveTab}
-            />
-          </Suspense>
+          <DashboardTab
+            user={user}
+            files={files}
+            setActiveTab={setActiveTab}
+          />
         );
     }
   };

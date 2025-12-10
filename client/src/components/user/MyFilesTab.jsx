@@ -411,45 +411,95 @@ const MyFilesTab = ({
   return (
     <div className="user-my-files-component my-files-wrapper">
       <div className="my-files-header-top">
-        <div className="header-left">
-          <h1>My Files</h1>
-          <p className="header-subtitle">{submittedFiles.length} files • {formatFileSize(totalSize)} total</p>
-        </div>
-        
-        <div className="stats-row">
-          <div className="stat-box pending-box">
-            <div className="stat-icon pending-icon"></div>
-            <div className="stat-text">
-              <div className="stat-number">{pendingFiles.length}</div>
-              <div className="stat-name">Pending Team Leader</div>
+        {isLoading ? (
+          <>
+            <div className="header-left">
+              <div className="skeleton-box-inline" style={{ height: '32px', width: '140px', marginBottom: '12px', borderRadius: '8px' }} />
+              <div className="skeleton-box-inline" style={{ height: '18px', width: '200px', borderRadius: '6px' }} />
             </div>
-          </div>
-          
-          <div className="stat-box approved-box">
-            <div className="stat-icon approved-icon"></div>
-            <div className="stat-text">
-              <div className="stat-number">{approvedFiles.length}</div>
-              <div className="stat-name">Approved Files</div>
+            
+            <div className="stats-row">
+              <div className="stat-box-skeleton">
+                <div className="skeleton-circle" style={{ width: '56px', height: '56px' }} />
+                <div className="stat-text-skeleton">
+                  <div className="skeleton-box-inline" style={{ height: '28px', width: '40px', marginBottom: '8px', borderRadius: '6px' }} />
+                  <div className="skeleton-box-inline" style={{ height: '14px', width: '140px', borderRadius: '6px' }} />
+                </div>
+              </div>
+              
+              <div className="stat-box-skeleton">
+                <div className="skeleton-circle" style={{ width: '56px', height: '56px' }} />
+                <div className="stat-text-skeleton">
+                  <div className="skeleton-box-inline" style={{ height: '28px', width: '40px', marginBottom: '8px', borderRadius: '6px' }} />
+                  <div className="skeleton-box-inline" style={{ height: '14px', width: '140px', borderRadius: '6px' }} />
+                </div>
+              </div>
+              
+              <div className="stat-box-skeleton">
+                <div className="skeleton-circle" style={{ width: '56px', height: '56px' }} />
+                <div className="stat-text-skeleton">
+                  <div className="skeleton-box-inline" style={{ height: '28px', width: '40px', marginBottom: '8px', borderRadius: '6px' }} />
+                  <div className="skeleton-box-inline" style={{ height: '14px', width: '140px', borderRadius: '6px' }} />
+                </div>
+              </div>
+              
+              <div className="stat-box-skeleton">
+                <div className="skeleton-circle" style={{ width: '56px', height: '56px' }} />
+                <div className="stat-text-skeleton">
+                  <div className="skeleton-box-inline" style={{ height: '28px', width: '40px', marginBottom: '8px', borderRadius: '6px' }} />
+                  <div className="skeleton-box-inline" style={{ height: '14px', width: '140px', borderRadius: '6px' }} />
+                </div>
+              </div>
             </div>
-          </div>
-          
-          <div className="stat-box rejected-box">
-            <div className="stat-icon rejected-icon"></div>
-            <div className="stat-text">
-              <div className="stat-number">{rejectedFiles.length}</div>
-              <div className="stat-name">Rejected Files</div>
+          </>
+        ) : (
+          <>
+            <div className="header-left">
+              <h1>My Files</h1>
+              <p className="header-subtitle">{submittedFiles.length} files • {formatFileSize(totalSize)} total</p>
             </div>
-          </div>
-        </div>
+            
+            <div className="stats-row">
+              <div className="stat-box">
+                <div className="stat-icon">TL</div>
+                <div className="stat-text">
+                  <div className="stat-number">{pendingFiles.filter(f => f.status === 'uploaded').length}</div>
+                  <div className="stat-name">Pending Team Leader</div>
+                </div>
+              </div>
+              
+              <div className="stat-box">
+                <div className="stat-icon">AD</div>
+                <div className="stat-text">
+                  <div className="stat-number">{pendingFiles.filter(f => f.status === 'team_leader_approved').length}</div>
+                  <div className="stat-name">Pending Admin</div>
+                </div>
+              </div>
+              
+              <div className="stat-box">
+                <div className="stat-icon">AP</div>
+                <div className="stat-text">
+                  <div className="stat-number">{approvedFiles.length}</div>
+                  <div className="stat-name">Approved Files</div>
+                </div>
+              </div>
+              
+              <div className="stat-box">
+                <div className="stat-icon">RE</div>
+                <div className="stat-text">
+                  <div className="stat-number">{rejectedFiles.length}</div>
+                  <div className="stat-name">Rejected Files</div>
+                </div>
+              </div>
+            </div>
+          </>
+        )}
       </div>
 
       <div className="files-table-wrapper">
         {isLoading ? (
-          <div>
-            <LoadingCards count={3} />
-            <div style={{ marginTop: '24px' }}>
-              <LoadingTable rows={8} columns={5} />
-            </div>
+          <div className="loading-state">
+            <LoadingTable rows={10} columns={5} />
           </div>
         ) : submittedFiles.length > 0 ? (
           <div className="files-list">

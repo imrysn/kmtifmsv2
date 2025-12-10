@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import './css/TeamTasksTab.css'
-import './css/TasksTab-Comments.css'
 import FileIcon from '../admin/FileIcon.jsx'
 
 const TeamTasksTab = ({ user }) => {
@@ -17,9 +16,7 @@ const TeamTasksTab = ({ user }) => {
   const [newComment, setNewComment] = useState({})
   const [replyText, setReplyText] = useState({})
   const [showCommentsModal, setShowCommentsModal] = useState(null) // null or assignmentId
-  const [submittingComment, setSubmittingComment] = useState({})
   const [replyingTo, setReplyingTo] = useState({})
-  const [showReplies, setShowReplies] = useState({}) // Track which comments have visible replies
   const [visibleReplies, setVisibleReplies] = useState({})
   const [isPostingComment, setIsPostingComment] = useState({})
   const [isPostingReply, setIsPostingReply] = useState({})
@@ -445,13 +442,6 @@ const TeamTasksTab = ({ user }) => {
     if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`
     if (seconds < 604800) return `${Math.floor(seconds / 86400)}d ago`
     return formatDate(dateString)
-  }
-
-  const toggleShowReplies = (commentId) => {
-    setShowReplies(prev => ({
-      ...prev,
-      [commentId]: !prev[commentId]
-    }))
   }
 
   const toggleRepliesVisibility = (commentId) => {

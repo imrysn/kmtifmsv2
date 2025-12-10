@@ -46,52 +46,100 @@
 /* Stats Row - RIGHT side */
 .stats-row {
   display: flex;
-  gap: 16px;
+  justify-content: flex-end;
+  gap: 0;
   margin-bottom: 0;
   flex: 0 0 auto;
   align-items: center;
+  flex-wrap: wrap;
+}
+
+/* Skeleton Loading Styles */
+.stat-box-skeleton {
+  border-right: 1px solid #d5d5d9;
+  padding: 0 24px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-width: 200px;
+  height: 80px;
+}
+
+.stat-box-skeleton:last-child {
+  border-right: none;
+  padding-right: 0;
+}
+
+.stat-box-skeleton:first-child {
+  padding-left: 0;
+}
+
+.stat-text-skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.skeleton-circle {
+  background: linear-gradient(90deg, #f3f4f6 0%, #e5e7eb 50%, #f3f4f6 100%);
+  background-size: 200% 100%;
+  animation: skeleton-loading 1.5s ease-in-out infinite;
+  border-radius: 12px;
+  flex-shrink: 0;
+}
+
+.skeleton-box-inline {
+  background: linear-gradient(90deg, #f3f4f6 0%, #e5e7eb 50%, #f3f4f6 100%);
+  background-size: 200% 100%;
+  animation: skeleton-loading 1.5s ease-in-out infinite;
+}
+
+@keyframes skeleton-loading {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+.loading-state {
+  width: 100%;
+  min-height: 400px;
 }
 
 .stat-box {
+  border-right: 1px solid #d5d5d9;
+  padding: 0 24px;
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 16px 20px;
-  background: transparent;
-  border: none;
-  border-radius: 10px;
-  min-width: 180px;
+  gap: 16px;
+  min-width: 200px;
+  height: 80px;
+}
+
+.stat-box:last-child {
+  border-right: none;
+  padding-right: 0;
+}
+
+.stat-box:first-child {
+  padding-left: 0;
 }
 
 .stat-icon {
-  width: 48px;
-  height: 48px;
-  border-radius: 8px;
-  border: 1px solid #e5e7eb;
+  width: 56px;
+  height: 56px;
+  border-radius: 12px;
+  border: 1.5px solid #000000;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 14px;
-  font-weight: 700;
+  font-size: 15px;
+  font-weight: 600;
+  color: #1d1d1f;
   flex-shrink: 0;
-  flex-basis: 48px;
-  min-width: 48px;
-  min-height: 48px;
-  background: #f9fafb;
-  color: #1f2937;
-  letter-spacing: -0.5px;
-}
-
-.stat-icon.pending-icon::before {
-  content: 'TL';
-}
-
-.stat-icon.approved-icon::before {
-  content: 'AP';
-}
-
-.stat-icon.rejected-icon::before {
-  content: 'RE';
+  background: transparent;
 }
 
 .stat-text {
@@ -101,9 +149,18 @@
 }
 
 .stat-number {
-  font-size: 24px;
+  font-size: 28px;
   font-weight: 700;
-  color: #000000 !important;
+  color: #1d1d1f;
+  margin-bottom: 4px;
+  line-height: 1;
+}
+
+.stat-name {
+  font-size: 13px;
+  font-weight: 400;
+  color: #86868b;
+  line-height: 1.2;
 }
 
 .header-subtitle {
@@ -1010,6 +1067,11 @@
     min-width: 140px;
   }
 
+  .stat-box-skeleton {
+    flex: 1;
+    min-width: 140px;
+  }
+
   .pagination-wrapper {
     flex-direction: column;
     gap: 16px;
@@ -1120,4 +1182,9 @@
   .filesize {
     font-size: 11px;
   }
+}
+
+/* Force black color for stat numbers */
+.my-files-wrapper .stats-row .stat-box .stat-text .stat-number {
+  color: #1d1d1f !important;
 }
