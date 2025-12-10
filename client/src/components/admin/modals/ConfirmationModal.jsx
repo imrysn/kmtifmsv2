@@ -2,20 +2,19 @@ import React from 'react'
 import './ConfirmationModal.css'
 
 /**
- * Reusable Confirmation Modal Component
+ * Reusable Confirmation Modal Component - Styled to match FileApproval design
  * 
  * @param {boolean} isOpen - Controls modal visibility
  * @param {function} onClose - Handler for closing the modal
  * @param {function} onConfirm - Handler for confirming the action
  * @param {string} title - Modal title
  * @param {string} message - Main message/question
- * @param {string} description - Additional description (optional)
  * @param {string} confirmText - Text for confirm button (default: "Confirm")
  * @param {string} cancelText - Text for cancel button (default: "Cancel")
  * @param {string} variant - Visual variant: 'danger', 'warning', 'info' (default: 'danger')
  * @param {boolean} isLoading - Shows loading state on confirm button
- * @param {object} fileInfo - Optional file info object with name and size
- * @param {string} warningText - Optional warning message text
+ * @param {object} itemInfo - Optional item info object (for file, user, etc.)
+ * @param {ReactNode} children - Custom content to display in the modal body
  */
 const ConfirmationModal = ({
   isOpen,
@@ -23,19 +22,17 @@ const ConfirmationModal = ({
   onConfirm,
   title = 'Confirm Action',
   message = 'Are you sure you want to proceed?',
-  description,
   confirmText = 'Confirm',
   cancelText = 'Cancel',
   variant = 'danger',
   isLoading = false,
-  fileInfo,
-  warningText,
+  itemInfo,
   children
 }) => {
   if (!isOpen) return null
 
   const handleOverlayClick = (e) => {
-    if (e.target === e.currentTarget) {
+    if (e.target === e.currentTarget && !isLoading) {
       onClose()
     }
   }
@@ -43,25 +40,16 @@ const ConfirmationModal = ({
   const handleConfirm = (e) => {
     e.preventDefault()
     e.stopPropagation()
-    onConfirm()
+    if (!isLoading) {
+      onConfirm()
+    }
   }
 
   const handleCancel = (e) => {
     e.preventDefault()
     e.stopPropagation()
-    onClose()
-  }
-
-  const getVariantIcon = () => {
-    switch (variant) {
-      case 'danger':
-        return '⚠'
-      case 'warning':
-        return '⚠'
-      case 'info':
-        return 'ℹ'
-      default:
-        return '⚠'
+    if (!isLoading) {
+      onClose()
     }
   }
 
@@ -76,14 +64,6 @@ const ConfirmationModal = ({
       default:
         return 'btn-danger'
     }
-  }
-
-  const formatFileSize = (bytes) => {
-    if (bytes === 0) return '0 Bytes'
-    const k = 1024
-    const sizes = ['Bytes', 'KB', 'MB', 'GB']
-    const i = Math.floor(Math.log(bytes) / Math.log(k))
-    return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + ' ' + sizes[i]
   }
 
   return (
@@ -101,49 +81,41 @@ const ConfirmationModal = ({
             onClick={handleCancel} 
             className="modal-close"
             disabled={isLoading}
+            type="button"
           >
             ×
           </button>
         </div>
         
         <div className="modal-body">
-          <div className="confirmation-content">
-            <div className="confirmation-icon">
-              {getVariantIcon()}
-            </div>
-            <div className="confirmation-text">
+          <div className="delete-warning">
+            <span className="warning-icon">⚠️</span>
+            <div className="warning-content">
               <h4>{message}</h4>
               
-              {/* File info section */}
-              {fileInfo && (
-                <div className="file-info">
-                  <div className="file-name">{fileInfo.name}</div>
-                  <div className="file-size">
-                    {typeof fileInfo.size === 'number' 
-                      ? formatFileSize(fileInfo.size)
-                      : fileInfo.size}
-                  </div>
+              {/* Item info section (can be file, user, task, etc.) */}
+              {itemInfo && (
+                <div className="item-info">
+                  {itemInfo.name && <div className="item-name">{itemInfo.name}</div>}
+                  {itemInfo.details && <div className="item-details">{itemInfo.details}</div>}
                 </div>
               )}
               
-              {description && (
-                <p className="confirmation-description">{description}</p>
-              )}
-              
-              {/* Warning message box */}
-              {warningText && (
-                <div className="warning-message">
-                  <p>{warningText}</p>
-                </div>
-              )}
-              
+              {/* Custom children content */}
               {children}
+              
+              {/* Default warning text */}
+              {!children && (
+                <p className="warning-text">
+                  This action cannot be undone. The file and all its associated data will be permanently removed.
+                </p>
+              )}
             </div>
           </div>
         </div>
         
         <div className="modal-footer">
-          <div className="modal-actions">
+          <div className="delete-actions">
             <button 
               type="button" 
               onClick={handleCancel} 
@@ -158,7 +130,7 @@ const ConfirmationModal = ({
               className={`btn ${getConfirmButtonClass()}`}
               disabled={isLoading}
             >
-              {isLoading ? 'Processing...' : confirmText}
+              {isLoading ? 'Deleting...' : confirmText}
             </button>
           </div>
         </div>

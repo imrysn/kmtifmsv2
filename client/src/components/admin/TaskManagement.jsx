@@ -892,14 +892,20 @@ const TaskManagement = ({ error, success, setError, setSuccess, clearMessages, u
           onClose={handleCloseDeleteModal}
           onConfirm={handleDeleteAssignment}
           title="Delete Task"
-          message={`Are you sure you want to delete "${assignmentToDelete?.title}" task?`}
-          description="This action cannot be undone. The task and all associated comments will be permanently removed from the system."
-          confirmText="Delete"
+          message="Are you sure you want to delete this task?"
+          confirmText="Delete Task"
           cancelText="Cancel"
           variant="danger"
           isLoading={isDeleting}
-          warningText="This will permanently delete the task and cannot be recovered."
-        />
+          itemInfo={assignmentToDelete ? {
+            name: assignmentToDelete.title,
+            details: `${assignmentToDelete.comment_count || 0} comment${(assignmentToDelete.comment_count || 0) !== 1 ? 's' : ''} • ${assignmentToDelete.recent_submissions?.length || 0} submission${(assignmentToDelete.recent_submissions?.length || 0) !== 1 ? 's' : ''}`
+          } : null}
+        >
+          <p className="warning-text">
+            This action cannot be undone. The task and all associated comments will be permanently removed from the system.
+          </p>
+        </ConfirmationModal>
       </div>
     </div>
   )

@@ -74,7 +74,8 @@ const AlertMessage = ({
   }
 
   return (
-    <div className={`alert ${getAlertClass()} message-fade`}>
+    <div className="alert-message-component">
+      <div className={`alert ${getAlertClass()} message-fade`}>
       <div className="alert-content">
         <span className="alert-icon">
           {getIcon()}
@@ -86,6 +87,7 @@ const AlertMessage = ({
           ×
         </button>
       )}
+      </div>
     </div>
   )
 }

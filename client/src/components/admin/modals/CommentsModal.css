@@ -260,17 +260,14 @@
 }
 
 .role-badge.admin {
-  background: #fee2e2;
   color: #991b1b;
 }
 
 .role-badge.team-leader {
-  background: #dbeafe;
   color: #1e40af;
 }
 
 .role-badge.user {
-  background: #f3f4f6;
   color: #374151;
 }
 
@@ -298,6 +295,12 @@
 /* ⚡ OPTIMIZED: Simple button styles */
 .reply-button {
   color: #6b7280;
+  background: none;
+  border: none;
+  font-size: 13px;
+  font-weight: 500;
+  padding: 0;
+  transition: color 0.15s ease;  /* ⚡ Simple transition */
 }
 .view-replies-button {
   background: none;
@@ -432,6 +435,7 @@
 .comment-input {
   flex: 1;
   padding: 0.625rem 0.875rem;  /* ⚡ Reduced */
+  border: 1px solid #e5e7eb;  /* 1px border */
   border-radius: 8px;
   font-size: 14px;
   background: #ffffff;  /* ⚡ Direct color */
@@ -441,15 +445,16 @@
 
 .comment-input:focus {
   outline: none;
-  border-color: #3b82f6;  /* ⚡ Direct color */
+  border-color: #000000;  /* ⚡ Direct color */
 }
 
 /* ⚡ OPTIMIZED: Simple submit button */
 .comment-submit-btn {
   width: 38px;  /* ⚡ Slightly smaller */
   height: 38px;
-  border-radius: 8px;
+  border-radius: 20px;
   border: none;
+  padding-left: 2px;
   background: #3b82f6;  /* ⚡ Direct color */
   color: #ffffff;  /* ⚡ Direct color */
   font-size: 16px;  /* ⚡ Reduced */
