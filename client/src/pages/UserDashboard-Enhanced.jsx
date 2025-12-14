@@ -219,7 +219,7 @@ const UserDashboard = ({ user, onLogout }) => {
         );
       case 'my-files':
         return (
-          <Suspense fallback={<SkeletonLoader type="table" />}>
+          <Suspense fallback={<SkeletonLoader type="myfiles" />}>
             <MyFilesTab 
               filteredFiles={filteredFiles}
               isLoading={isLoading}
@@ -242,6 +242,7 @@ const UserDashboard = ({ user, onLogout }) => {
               user={user} 
               onOpenFile={openFileByIdFromNotification}
               onNavigateToTasks={navigateToTasks}
+              onUpdateUnreadCount={setNotificationCount}
             />
           </Suspense>
         );

@@ -33,6 +33,8 @@ const TasksTab = ({ user }) => {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [fileToDelete, setFileToDelete] = useState(null);
   const [showAllFiles, setShowAllFiles] = useState({}); // Track which assignments show all files
+  const [expandedCommentTexts, setExpandedCommentTexts] = useState({}); // Track which comment texts are expanded
+  const [expandedReplyTexts, setExpandedReplyTexts] = useState({}); // Track which reply texts are expanded
 
   // Check for sessionStorage when component mounts or becomes visible
   useEffect(() => {
@@ -1056,7 +1058,42 @@ const TasksTab = ({ user }) => {
           </span>
         <span className="comment-time">{formatRelativeTime(comment.created_at)}</span>
       </div>
-      <div className="comment-text">{comment.comment}</div>
+      <div className="comment-text">
+        {(() => {
+          const MAX_LENGTH = 150;
+          const isLong = comment.comment.length > MAX_LENGTH;
+          const isExpanded = expandedCommentTexts[comment.id];
+          
+          return (
+            <>
+              {isLong && !isExpanded
+                ? comment.comment.substring(0, MAX_LENGTH) + '...'
+                : comment.comment}
+              {isLong && (
+                <button
+                  className="see-more-btn"
+                  onClick={() => setExpandedCommentTexts(prev => ({
+                    ...prev,
+                    [comment.id]: !prev[comment.id]
+                  }))}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: '#3b82f6',
+                    fontSize: '13px',
+                    fontWeight: '500',
+                    cursor: 'pointer',
+                    padding: '0',
+                    marginLeft: '4px'
+                  }}
+                >
+                  {isExpanded ? 'See less' : 'See more'}
+                </button>
+              )}
+            </>
+          );
+        })()}
+      </div>
 
       {/* Action Buttons */}
       <div className="comment-actions">
@@ -1097,7 +1134,42 @@ const TasksTab = ({ user }) => {
       </span>
       <span className="reply-time">{formatRelativeTime(reply.created_at)}</span>
       </div>
-      <div className="reply-text">{reply.reply}</div>
+      <div className="reply-text">
+        {(() => {
+          const MAX_LENGTH = 150;
+          const isLong = reply.reply.length > MAX_LENGTH;
+          const isExpanded = expandedReplyTexts[reply.id];
+          
+          return (
+            <>
+              {isLong && !isExpanded
+                ? reply.reply.substring(0, MAX_LENGTH) + '...'
+                : reply.reply}
+              {isLong && (
+                <button
+                  className="see-more-btn"
+                  onClick={() => setExpandedReplyTexts(prev => ({
+                    ...prev,
+                    [reply.id]: !prev[reply.id]
+                  }))}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: '#3b82f6',
+                    fontSize: '12px',
+                    fontWeight: '500',
+                    cursor: 'pointer',
+                    padding: '0',
+                    marginLeft: '4px'
+                  }}
+                >
+                  {isExpanded ? 'See less' : 'See more'}
+                </button>
+              )}
+            </>
+          );
+        })()}
+      </div>
       </div>
       </div>
       ))}
