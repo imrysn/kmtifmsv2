@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import './css/NotificationTab.css';
 
-const NotificationTab = ({ user, onOpenFile, onNavigateToTasks }) => {
+const NotificationTab = ({ user, onOpenFile, onNavigateToTasks, onUpdateUnreadCount }) => {
   const [notifications, setNotifications] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -28,7 +28,12 @@ const NotificationTab = ({ user, onOpenFile, onNavigateToTasks }) => {
       
       if (data.success) {
         setNotifications(data.notifications || []);
-        setUnreadCount(data.unreadCount || 0);
+        const newUnreadCount = data.unreadCount || 0;
+        setUnreadCount(newUnreadCount);
+        // Update parent component's unread count
+        if (onUpdateUnreadCount) {
+          onUpdateUnreadCount(newUnreadCount);
+        }
       }
     } catch (error) {
       console.error('❌ Error fetching notifications:', error);
@@ -53,7 +58,12 @@ const NotificationTab = ({ user, onOpenFile, onNavigateToTasks }) => {
             n.id === notification.id ? { ...n, is_read: 1 } : n
           )
         );
-        setUnreadCount(prev => Math.max(0, prev - 1));
+        const newUnreadCount = Math.max(0, unreadCount - 1);
+        setUnreadCount(newUnreadCount);
+        // Update parent component's unread count
+        if (onUpdateUnreadCount) {
+          onUpdateUnreadCount(newUnreadCount);
+        }
       } catch (error) {
         console.error('❌ Error marking notification as read:', error);
       }
@@ -116,11 +126,15 @@ const NotificationTab = ({ user, onOpenFile, onNavigateToTasks }) => {
           prevNotifications.map(n => ({ ...n, is_read: 1 }))
         );
         setUnreadCount(0);
+        // Update parent component's unread count
+        if (onUpdateUnreadCount) {
+          onUpdateUnreadCount(0);
+        }
       }
     } catch (error) {
       console.error('Error marking all as read:', error);
     }
-  }, [user.id]);
+  }, [user.id, onUpdateUnreadCount]);
 
   const handleDeleteAll = useCallback(() => {
     setShowDeleteModal(true);
@@ -140,6 +154,10 @@ const NotificationTab = ({ user, onOpenFile, onNavigateToTasks }) => {
         setNotifications([]);
         setUnreadCount(0);
         setShowDeleteModal(false);
+        // Update parent component's unread count
+        if (onUpdateUnreadCount) {
+          onUpdateUnreadCount(0);
+        }
         console.log('✅ All notifications deleted successfully');
       } else {
         console.error('❌ Delete failed:', data.message);
@@ -149,7 +167,7 @@ const NotificationTab = ({ user, onOpenFile, onNavigateToTasks }) => {
       console.error('❌ Error deleting all notifications:', error);
       alert('An error occurred while deleting notifications.');
     }
-  }, [user.id]);
+  }, [user.id, onUpdateUnreadCount]);
 
   const getNotificationIcon = useCallback((type) => {
     console.log('🔄 UPDATED VERSION - Using specific user dashboard icons');

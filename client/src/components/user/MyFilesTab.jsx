@@ -1,10 +1,9 @@
 import './css/MyFilesTab.css';
-import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
-import SingleSelectTags from './SingleSelectTags';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import ConfirmationModal from '../admin/modals/ConfirmationModal';
 import SuccessModal from './SuccessModal';
 import FileIcon from '../admin/FileIcon';
-import { LoadingTable, LoadingCards } from '../common/InlineSkeletonLoader';
+import FileModal from './FileModal';
 
 const MyFilesTab = ({ 
   filteredFiles,
@@ -14,168 +13,19 @@ const MyFilesTab = ({
   files,
   user
 }) => {
-  const [showUploadModal, setShowUploadModal] = useState(false);
-  const [uploadedFile, setUploadedFile] = useState(null);
-  const [description, setDescription] = useState('');
-  const [selectedTag, setSelectedTag] = useState('');
   const [isUploading, setIsUploading] = useState(false);
-  const [showDuplicateModal, setShowDuplicateModal] = useState(false);
-  const [duplicateFileInfo, setDuplicateFileInfo] = useState(null);
+
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [fileToDelete, setFileToDelete] = useState(null);
   const [successModal, setSuccessModal] = useState({ isOpen: false, title: '', message: '', type: 'success' });
   const [showFileDetailsModal, setShowFileDetailsModal] = useState(false);
   const [selectedFile, setSelectedFile] = useState(null);
-  const fileInputRef = useRef(null);
   
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
 
-  const handleFileSelect = useCallback((e) => {
-    const file = e.target.files[0];
-    if (file) {
-      setUploadedFile(file);
-    }
-  }, []);
 
-  const handleFileUpload = useCallback(async (e, replaceExisting = false) => {
-    if (e && e.preventDefault) {
-      e.preventDefault();
-    }
-    
-    if (!uploadedFile) {
-      setSuccessModal({
-        isOpen: true,
-        title: 'No File Selected',
-        message: 'Please select a file to upload',
-        type: 'warning'
-      });
-      return;
-    }
-
-    setIsUploading(true);
-
-    try {
-      if (!replaceExisting) {
-        const duplicateResponse = await fetch('http://localhost:3001/api/files/check-duplicate', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            originalName: uploadedFile.name,
-            userId: user.id
-          })
-        });
-        
-        const duplicateData = await duplicateResponse.json();
-        
-        if (duplicateData.success && duplicateData.isDuplicate) {
-          setDuplicateFileInfo({
-            newFile: uploadedFile,
-            existingFile: duplicateData.existingFile
-          });
-          setShowDuplicateModal(true);
-          setIsUploading(false);
-          return;
-        }
-      }
-      
-      const formData = new FormData();
-      formData.append('file', uploadedFile);
-      formData.append('description', description);
-      formData.append('tags', selectedTag ? JSON.stringify([selectedTag]) : '[]');
-      formData.append('userId', user.id);
-      formData.append('username', user.username);
-      formData.append('userTeam', user.team);
-      if (replaceExisting) {
-        formData.append('replaceExisting', 'true');
-      }
-
-      const response = await fetch('http://localhost:3001/api/files/upload', {
-        method: 'POST',
-        body: formData
-      });
-
-      const data = await response.json();
-
-      if (data.success) {
-        const action = data.replaced ? 'replaced' : 'uploaded';
-        setSuccessModal({
-          isOpen: true,
-          title: 'Success!',
-          message: `File ${action} successfully! It has been submitted for team leader review.`,
-          type: 'success'
-        });
-        setUploadedFile(null);
-        setDescription('');
-        setSelectedTag('');
-        setShowUploadModal(false);
-        setShowDuplicateModal(false);
-        setDuplicateFileInfo(null);
-        if (fileInputRef.current) {
-          fileInputRef.current.value = '';
-        }
-        
-        fetchUserFiles();
-      } else {
-        if (data.isDuplicate) {
-          setDuplicateFileInfo({
-            newFile: uploadedFile,
-            existingFile: data.existingFile
-          });
-          setShowDuplicateModal(true);
-        } else {
-          setSuccessModal({
-            isOpen: true,
-            title: 'Upload Failed',
-            message: data.message || 'Failed to upload file',
-            type: 'error'
-          });
-        }
-      }
-    } catch (error) {
-      console.error('Error uploading file:', error);
-      setSuccessModal({
-        isOpen: true,
-        title: 'Upload Error',
-        message: 'Failed to upload file. Please try again.',
-        type: 'error'
-      });
-    } finally {
-      setIsUploading(false);
-    }
-  }, [uploadedFile, description, selectedTag, user, fetchUserFiles]);
-
-  const handleReplaceFile = useCallback(async () => {
-    await handleFileUpload(null, true);
-  }, [handleFileUpload]);
-  
-  const handleKeepBoth = useCallback(() => {
-    setShowDuplicateModal(false);
-    setDuplicateFileInfo(null);
-    setSuccessModal({
-      isOpen: true,
-      title: 'Rename Required',
-      message: 'Please rename your file and try uploading again.',
-      type: 'info'
-    });
-  }, []);
-
-  const clearUploadForm = useCallback(() => {
-    setUploadedFile(null);
-    setDescription('');
-    setSelectedTag('');
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
-    }
-  }, []);
-
-  const closeUploadModal = useCallback(() => {
-    setShowUploadModal(false);
-    clearUploadForm();
-  }, [clearUploadForm]);
 
   const openFile = useCallback(async (file) => {
     try {
@@ -282,6 +132,8 @@ const MyFilesTab = ({
   }, [fileToDelete, user, fetchUserFiles]);
 
   const getStatusDisplayName = useCallback((dbStatus) => {
+    if (!dbStatus) return 'Pending';
+    
     switch (dbStatus) {
       case 'uploaded':
         return 'Pending Team Leader';
@@ -294,7 +146,7 @@ const MyFilesTab = ({
       case 'rejected_by_admin':
         return 'Rejected by Admin';
       default:
-        return dbStatus;
+        return 'Pending';
     }
   }, []);
 
@@ -497,11 +349,7 @@ const MyFilesTab = ({
       </div>
 
       <div className="files-table-wrapper">
-        {isLoading ? (
-          <div className="loading-state">
-            <LoadingTable rows={10} columns={5} />
-          </div>
-        ) : submittedFiles.length > 0 ? (
+        {submittedFiles.length > 0 ? (
           <div className="files-list">
             <div className="table-header">
               <div className="col-filename">FILENAME</div>
@@ -634,103 +482,7 @@ const MyFilesTab = ({
         </div>
       )}
 
-      {showUploadModal && (
-        <div className="modal-overlay" onClick={closeUploadModal}>
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
-              <h3>Upload File for Approval</h3>
-              <button 
-                className="modal-close" 
-                onClick={(e) => {
-                  e.preventDefault();
-                  closeUploadModal();
-                }}
-                type="button"
-              >×</button>
-            </div>
-            
-            <form onSubmit={handleFileUpload} className="upload-form">
-              <div className="form-group">
-                <label className="form-label">Select File</label>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  onChange={handleFileSelect}
-                  className="file-input"
-                  disabled={isUploading}
-                />
-                <div className="file-input-info">
-                  <p>All file types are supported</p>
-                  <p>No file size limit</p>
-                </div>
-              </div>
 
-              {uploadedFile && (
-                <div className="selected-file-info">
-                  <div className="file-preview">
-                    <FileIcon 
-                      fileType={uploadedFile.name.split('.').pop().toLowerCase()} 
-                      isFolder={false}
-                      size="default"
-                      altText={`${uploadedFile.name} file`}
-                      style={{
-                        width: '36px',
-                        height: '36px'
-                      }}
-                    />
-                    <div className="file-details">
-                      <div className="file-name">{uploadedFile.name}</div>
-                      <div className="file-size">{formatFileSize(uploadedFile.size)}</div>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              <div className="form-group">
-                <label className="form-label">Description</label>
-                <textarea
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  placeholder="Provide a brief description of this file and its purpose..."
-                  rows="3"
-                  className="form-textarea"
-                  disabled={isUploading}
-                />
-              </div>
-
-              <div className="form-group">
-                <label className="form-label">Tag</label>
-                <SingleSelectTags
-                  selectedTag={selectedTag}
-                  onChange={setSelectedTag}
-                  disabled={isUploading}
-                />
-              </div>
-
-              <div className="modal-actions">
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    closeUploadModal();
-                  }}
-                  className="btn btn-cancel"
-                  disabled={isUploading}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={!uploadedFile || isUploading}
-                  className="btn btn-submit"
-                >
-                  {isUploading ? 'Uploading...' : 'Submit for Approval'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
 
       <ConfirmationModal
         isOpen={showDeleteModal}
@@ -741,79 +493,20 @@ const MyFilesTab = ({
         onConfirm={deleteFile}
         title="Delete File"
         message="Are you sure you want to delete this file?"
-        fileInfo={{
+        itemInfo={{
           name: fileToDelete?.original_name || '',
-          size: fileToDelete?.file_size || 0
+          details: fileToDelete ? formatFileSize(fileToDelete.file_size) : ''
         }}
-        warningText="This action cannot be undone. The file and all its associated data will be permanently removed."
         confirmText="Delete File"
         cancelText="Cancel"
         variant="danger"
-      />
+      >
+        <p className="warning-text">
+          This action cannot be undone. The file and all its associated data will be permanently removed.
+        </p>
+      </ConfirmationModal>
 
-      {showDuplicateModal && duplicateFileInfo && (
-        <div className="modal-overlay" onClick={() => setShowDuplicateModal(false)}>
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
-              <h3>⚠️ Duplicate File Detected</h3>
-              <button 
-                className="modal-close" 
-                onClick={(e) => {
-                  e.preventDefault();
-                  setShowDuplicateModal(false);
-                  setDuplicateFileInfo(null);
-                }}
-                type="button"
-              >×</button>
-            </div>
-            
-            <div className="modal-body">
-              <p className="duplicate-warning">
-                A file with this name already exists in your files.
-              </p>
-              
-              <div className="file-comparison">
-                <div className="file-info-box">
-                  <h4>📁 Existing File</h4>
-                  <p><strong>Name:</strong> {duplicateFileInfo.existingFile?.original_name}</p>
-                  <p><strong>Size:</strong> {formatFileSize(duplicateFileInfo.existingFile?.file_size)}</p>
-                  <p><strong>Uploaded:</strong> {new Date(duplicateFileInfo.existingFile?.uploaded_at).toLocaleString()}</p>
-                  <p><strong>Status:</strong> {getStatusDisplayName(duplicateFileInfo.existingFile?.status)}</p>
-                </div>
-                
-                <div className="file-info-box">
-                  <h4>📄 New File</h4>
-                  <p><strong>Name:</strong> {duplicateFileInfo.newFile?.name}</p>
-                  <p><strong>Size:</strong> {formatFileSize(duplicateFileInfo.newFile?.size)}</p>
-                </div>
-              </div>
-              
-              <p className="duplicate-question">
-                What would you like to do?
-              </p>
-            </div>
-            
-            <div className="modal-actions">
-              <button
-                type="button"
-                onClick={handleKeepBoth}
-                className="btn btn-secondary"
-                disabled={isUploading}
-              >
-                Keep Both (Rename)
-              </button>
-              <button
-                type="button"
-                onClick={handleReplaceFile}
-                className="btn btn-danger"
-                disabled={isUploading}
-              >
-                {isUploading ? 'Replacing...' : 'Replace Existing'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+
 
       <SuccessModal
         isOpen={successModal.isOpen}
@@ -823,197 +516,13 @@ const MyFilesTab = ({
         type={successModal.type}
       />
 
-      {showFileDetailsModal && selectedFile && (
-        <div className="modal-overlay" onClick={() => setShowFileDetailsModal(false)}>
-          <div className="modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '600px', backgroundColor: '#ffffff' }}>
-            <div className="modal-header">
-              <h3>File Details</h3>
-              <button 
-                className="modal-close" 
-                onClick={() => setShowFileDetailsModal(false)}
-                type="button"
-              >×</button>
-            </div>
-            
-            <div className="modal-body" style={{ padding: '24px', backgroundColor: '#ffffff' }}>
-              <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '16px',
-                padding: '20px',
-                backgroundColor: '#ffffff',
-                borderRadius: '12px',
-                marginBottom: '24px',
-                border: '1px solid #e5e7eb'
-              }}>
-                <FileIcon 
-                  fileType={selectedFile.original_name.split('.').pop().toLowerCase()} 
-                  isFolder={false}
-                  size="default"
-                  style={{
-                    width: '64px',
-                    height: '64px',
-                    flexShrink: 0
-                  }}
-                />
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{
-                    fontSize: '16px',
-                    fontWeight: '600',
-                    color: '#111827',
-                    marginBottom: '4px',
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    whiteSpace: 'nowrap'
-                  }}>
-                    {selectedFile.original_name}
-                  </div>
-                  <div style={{
-                    fontSize: '14px',
-                    color: '#6b7280'
-                  }}>
-                    {formatFileSize(selectedFile.file_size)}
-                  </div>
-                </div>
-              </div>
-
-              <div style={{ marginBottom: '24px' }}>
-                <h4 style={{
-                  fontSize: '14px',
-                  fontWeight: '600',
-                  color: '#374151',
-                  marginBottom: '12px',
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.5px'
-                }}>
-                  Information
-                </h4>
-                
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ fontSize: '14px', color: '#6b7280' }}>Uploaded</span>
-                    <span style={{ fontSize: '14px', fontWeight: '500', color: '#111827' }}>
-                      {(() => {
-                        const { date, time } = formatDateTime(selectedFile.uploaded_at);
-                        return `${date} at ${time}`;
-                      })()}
-                    </span>
-                  </div>
-
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ fontSize: '14px', color: '#6b7280' }}>Team</span>
-                    <span style={{ fontSize: '14px', fontWeight: '500', color: '#111827' }}>
-                      {selectedFile.user_team}
-                    </span>
-                  </div>
-
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ fontSize: '14px', color: '#6b7280' }}>Status</span>
-                    <span className={`status-tag ${getStatusClass(selectedFile.status)}`}>
-                      {getStatusDisplayName(selectedFile.status)}
-                    </span>
-                  </div>
-
-                  {selectedFile.tag && (
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <span style={{ fontSize: '14px', color: '#6b7280' }}>Tag</span>
-                      <span style={{
-                        backgroundColor: '#dbeafe',
-                        color: '#1e40af',
-                        padding: '4px 12px',
-                        borderRadius: '12px',
-                        fontSize: '12px',
-                        fontWeight: '600',
-                        border: '1px solid #93c5fd',
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '4px'
-                      }}>
-                        🏷️ {selectedFile.tag}
-                      </span>
-                    </div>
-                  )}
-
-                  {selectedFile.description && (
-                    <div style={{ 
-                      paddingTop: '12px',
-                      borderTop: '1px solid #e5e7eb'
-                    }}>
-                      <span style={{ 
-                        fontSize: '14px', 
-                        color: '#6b7280',
-                        display: 'block',
-                        marginBottom: '8px'
-                      }}>Description</span>
-                      <p style={{
-                        fontSize: '14px',
-                        color: '#111827',
-                        lineHeight: '1.6',
-                        margin: 0,
-                        fontStyle: 'italic',
-                        backgroundColor: '#f9fafb',
-                        padding: '12px',
-                        borderRadius: '8px',
-                        border: '1px solid #e5e7eb'
-                      }}>
-                        📝 {selectedFile.description}
-                      </p>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            <div className="modal-actions" style={{ 
-              borderTop: '1px solid #e5e7eb',
-              padding: '16px 24px',
-              display: 'flex',
-              gap: '12px',
-              justifyContent: 'flex-end'
-            }}>
-              <button
-                type="button"
-                onClick={() => setShowFileDetailsModal(false)}
-                className="btn btn-cancel"
-                style={{
-                  padding: '10px 20px',
-                  borderRadius: '8px',
-                  border: '1px solid #d1d5db',
-                  backgroundColor: '#ffffff',
-                  color: '#374151',
-                  fontSize: '14px',
-                  fontWeight: '500',
-                  cursor: 'pointer',
-                  transition: 'all 0.2s'
-                }}
-              >
-                Close
-              </button>
-              <button
-                type="button"
-                onClick={handleOpenFileFromModal}
-                className="btn btn-primary"
-                style={{
-                  padding: '10px 20px',
-                  borderRadius: '8px',
-                  border: 'none',
-                  backgroundColor: '#4f46e5',
-                  color: '#ffffff',
-                  fontSize: '14px',
-                  fontWeight: '500',
-                  cursor: 'pointer',
-                  transition: 'all 0.2s',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '8px'
-                }}
-              >
-                📂 Open File
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <FileModal 
+        showFileModal={showFileDetailsModal}
+        setShowFileModal={setShowFileDetailsModal}
+        selectedFile={selectedFile}
+        fileComments={[]}
+        formatFileSize={formatFileSize}
+      />
     </div>
   );
 };

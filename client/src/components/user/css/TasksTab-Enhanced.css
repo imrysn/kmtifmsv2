@@ -1147,8 +1147,8 @@
   line-height: 1.5;
   resize: vertical;
   min-height: 80px;
-  color: #1a1a1a;
-  background-color: #ffffff;
+  color: #1a1a1a !important;
+  background-color: #ffffff !important;
   transition: border-color 0.2s, box-shadow 0.2s;
 }
 
@@ -1156,10 +1156,11 @@
   outline: none;
   border-color: #1877f2;
   box-shadow: 0 0 0 3px rgba(24, 119, 242, 0.1);
+  color: #1a1a1a !important;
 }
 
 .file-description-textarea::placeholder {
-  color: #9ca3af;
+  color: #9ca3af !important;
 }
 
 .file-description-textarea:disabled {

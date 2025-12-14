@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import './css/FileModal.css';
 
 const FileModal = ({ 
@@ -7,6 +8,26 @@ const FileModal = ({
   fileComments,
   formatFileSize 
 }) => {
+  // Lock body scroll when modal is open
+  useEffect(() => {
+    if (showFileModal) {
+      document.body.style.overflow = 'hidden';
+      document.body.style.height = '100vh';
+      document.body.style.position = 'relative';
+    } else {
+      document.body.style.overflow = 'auto';
+      document.body.style.height = 'auto';
+      document.body.style.position = 'relative';
+    }
+    
+    // Cleanup on unmount
+    return () => {
+      document.body.style.overflow = 'auto';
+      document.body.style.height = 'auto';
+      document.body.style.position = 'relative';
+    };
+  }, [showFileModal]);
+  
   if (!showFileModal || !selectedFile) return null;
 
   const getStatusBadgeClass = (status, currentStage) => {
@@ -85,8 +106,38 @@ const FileModal = ({
   const tags = getTags();
 
   return (
-    <div className="user-file-modal-component modal-overlay" onClick={() => setShowFileModal(false)}>
-      <div className="modal file-modal" onClick={e => e.stopPropagation()}>
+    <div 
+      className="user-file-modal-component modal-overlay" 
+      onClick={() => setShowFileModal(false)}
+      style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        width: '100vw',
+        height: '100vh',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: 9999,
+        margin: 0,
+        padding: 0
+      }}
+    >
+      <div 
+        className="modal file-modal" 
+        onClick={e => e.stopPropagation()}
+        style={{
+          margin: '0 auto',
+          maxWidth: '650px',
+          width: '90%',
+          maxHeight: '85vh',
+          display: 'flex',
+          flexDirection: 'column',
+          overflow: 'hidden'
+        }}
+      >
         <div className="modal-header">
           <h3>File Details</h3>
           <button onClick={() => setShowFileModal(false)} className="modal-close">×</button>
@@ -213,29 +264,6 @@ const FileModal = ({
                     <span className="rejection-value rejection-reason">{selectedFile.rejection_reason}</span>
                   </div>
                 </div>
-              </div>
-            )}
-          </div>
-          
-          {/* Comments Section */}
-          <div className="comments-section">
-            <h4>Review Comments</h4>
-            {fileComments && fileComments.length > 0 ? (
-              <div className="comments-list">
-                {fileComments.map((comment, index) => (
-                  <div key={index} className="comment-item">
-                    <div className="comment-header">
-                      <span className="comment-author">{comment.username}</span>
-                      <span className="comment-role">({comment.user_role})</span>
-                      <span className="comment-date">{new Date(comment.created_at).toLocaleString()}</span>
-                    </div>
-                    <div className="comment-text">{comment.comment}</div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="no-comments">
-                <p style={{ fontStyle: 'italic', color: '#9ca3af', textAlign: 'center', padding: '20px' }}>No comments yet.</p>
               </div>
             )}
           </div>
