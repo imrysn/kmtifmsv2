@@ -10,6 +10,8 @@ export const SkeletonLoader = ({ type = 'dashboard' }) => {
       return <AdminSkeleton />
     case 'teamleader':
       return <TeamLeaderSkeleton />
+    case 'myfiles':
+      return <MyFilesTabSkeleton />
     case 'table':
       return <TableSkeleton />
     case 'card':
@@ -166,6 +168,122 @@ const TeamLeaderSkeleton = () => (
             </div>
           ))}
         </div>
+      </div>
+    </div>
+  </div>
+)
+
+// My Files Tab Skeleton
+const MyFilesTabSkeleton = () => (
+  <div style={{ padding: '24px' }}>
+    {/* Header Section */}
+    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+      <div>
+        <div className="skeleton-box" style={{ height: '32px', width: '140px', marginBottom: '8px' }} />
+        <div className="skeleton-box" style={{ height: '18px', width: '200px' }} />
+      </div>
+      
+      {/* Stats Row */}
+      <div style={{ display: 'flex', gap: '0' }}>
+        {[1, 2, 3, 4].map(i => (
+          <div key={i} style={{ 
+            borderRight: i !== 4 ? '1px solid #d5d5d9' : 'none',
+            padding: '0 24px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '16px',
+            minWidth: '200px',
+            height: '80px'
+          }}>
+            <div className="skeleton-box" style={{ width: '56px', height: '56px', borderRadius: '12px', flexShrink: 0 }} />
+            <div>
+              <div className="skeleton-box" style={{ height: '28px', width: '40px', marginBottom: '8px' }} />
+              <div className="skeleton-box" style={{ height: '14px', width: '140px' }} />
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+
+    {/* Files Table */}
+    <div style={{ 
+      background: 'white',
+      border: '1px solid #d5d5d9',
+      borderRadius: '12px',
+      overflow: 'hidden'
+    }}>
+      {/* Table Header */}
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: '1fr 180px 120px 220px 120px',
+        gap: '30px',
+        padding: '14px 20px',
+        background: 'white',
+        borderBottom: '1px solid #d5d5d9'
+      }}>
+        {['FILENAME', 'DATE & TIME', 'TEAM', 'STATUS', 'ACTIONS'].map((header, i) => (
+          <div key={i} className="skeleton-box" style={{ height: '14px', width: '80px' }} />
+        ))}
+      </div>
+      
+      {/* Table Rows */}
+      {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(i => (
+        <div key={i} style={{
+          display: 'grid',
+          gridTemplateColumns: '1fr 180px 120px 220px 120px',
+          gap: '30px',
+          padding: '16px 20px',
+          borderBottom: i !== 10 ? '1px solid #e5e5ea' : 'none',
+          alignItems: 'center'
+        }}>
+          {/* Filename column with icon */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <div className="skeleton-box" style={{ width: '44px', height: '44px', borderRadius: '8px', flexShrink: 0 }} />
+            <div style={{ flex: 1 }}>
+              <div className="skeleton-box" style={{ height: '14px', width: '70%', marginBottom: '6px' }} />
+              <div className="skeleton-box" style={{ height: '12px', width: '40%' }} />
+            </div>
+          </div>
+          
+          {/* Date & Time */}
+          <div>
+            <div className="skeleton-box" style={{ height: '14px', width: '90%', marginBottom: '4px' }} />
+            <div className="skeleton-box" style={{ height: '12px', width: '70%' }} />
+          </div>
+          
+          {/* Team */}
+          <div className="skeleton-box" style={{ height: '14px', width: '80%' }} />
+          
+          {/* Status */}
+          <div className="skeleton-box" style={{ height: '28px', width: '180px', borderRadius: '50px' }} />
+          
+          {/* Actions */}
+          <div style={{ display: 'flex', justifyContent: 'center' }}>
+            <div className="skeleton-box" style={{ height: '32px', width: '70px', borderRadius: '6px' }} />
+          </div>
+        </div>
+      ))}
+    </div>
+
+    {/* Pagination */}
+    <div style={{
+      display: 'flex',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      padding: '20px 24px',
+      background: 'white',
+      borderTop: '1px solid #e5e5ea',
+      marginTop: '-1px',
+      borderRadius: '0 0 12px 12px'
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+        <div className="skeleton-box" style={{ height: '14px', width: '200px' }} />
+        <div className="skeleton-box" style={{ height: '32px', width: '100px', borderRadius: '6px' }} />
+      </div>
+      <div style={{ display: 'flex', gap: '6px' }}>
+        {[1, 2, 3, 4, 5].map(i => (
+          <div key={i} className="skeleton-box" style={{ height: '36px', width: '36px', borderRadius: '6px' }} />
+        ))}
       </div>
     </div>
   </div>

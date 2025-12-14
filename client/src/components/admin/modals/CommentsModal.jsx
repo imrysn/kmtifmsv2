@@ -1,4 +1,4 @@
-import React, { memo, useCallback } from 'react'
+import React, { memo, useCallback, useState } from 'react'
 import './CommentsModal.css'
 
 // ⚡ OPTIMIZATION: Memoized Comment component to prevent unnecessary re-renders
@@ -15,6 +15,10 @@ const CommentItem = memo(({
   onPostReply,
   user
 }) => {
+  const MAX_COMMENT_LENGTH = 150
+  const [isExpanded, setIsExpanded] = useState(false)
+  const isLongComment = comment.comment.length > MAX_COMMENT_LENGTH
+
   const handleReplyClick = useCallback(() => {
     setReplyingTo(comment.id)
   }, [comment.id, setReplyingTo])
@@ -38,7 +42,19 @@ const CommentItem = memo(({
             </span>
             <span className="comment-time">{formatTimeAgo(comment.created_at)}</span>
           </div>
-          <div className="comment-text">{comment.comment}</div>
+          <div className="comment-text">
+            {isLongComment && !isExpanded
+              ? comment.comment.substring(0, MAX_COMMENT_LENGTH) + '...'
+              : comment.comment}
+            {isLongComment && (
+              <button
+                className="see-more-btn"
+                onClick={() => setIsExpanded(!isExpanded)}
+              >
+                {isExpanded ? 'See less' : 'See more'}
+              </button>
+            )}
+          </div>
 
           {/* Action Buttons */}
           <div className="comment-actions">
@@ -95,23 +111,41 @@ const CommentItem = memo(({
 CommentItem.displayName = 'CommentItem'
 
 // ⚡ OPTIMIZATION: Memoized Reply component
-const ReplyItem = memo(({ reply, getInitials, formatTimeAgo }) => (
-  <div className="reply-item">
-    <div className="reply-avatar">
-      {getInitials(reply.user_fullname || reply.username)}
-    </div>
-    <div className="reply-content">
-      <div className="reply-header">
-        <span className="reply-author">{reply.user_fullname || reply.username}</span>
-        <span className={`role-badge ${reply.user_role ? reply.user_role.toLowerCase().replace(' ', '-') : 'user'}`}>
-          {reply.user_role || 'USER'}
-        </span>
-        <span className="reply-time">{formatTimeAgo(reply.created_at)}</span>
+const ReplyItem = memo(({ reply, getInitials, formatTimeAgo }) => {
+  const MAX_REPLY_LENGTH = 150
+  const [isExpanded, setIsExpanded] = useState(false)
+  const isLongReply = reply.reply.length > MAX_REPLY_LENGTH
+
+  return (
+    <div className="reply-item">
+      <div className="reply-avatar">
+        {getInitials(reply.user_fullname || reply.username)}
       </div>
-      <div className="reply-text">{reply.reply}</div>
+      <div className="reply-content">
+        <div className="reply-header">
+          <span className="reply-author">{reply.user_fullname || reply.username}</span>
+          <span className={`role-badge ${reply.user_role ? reply.user_role.toLowerCase().replace(' ', '-') : 'user'}`}>
+            {reply.user_role || 'USER'}
+          </span>
+          <span className="reply-time">{formatTimeAgo(reply.created_at)}</span>
+        </div>
+        <div className="reply-text">
+          {isLongReply && !isExpanded
+            ? reply.reply.substring(0, MAX_REPLY_LENGTH) + '...'
+            : reply.reply}
+          {isLongReply && (
+            <button
+              className="see-more-btn"
+              onClick={() => setIsExpanded(!isExpanded)}
+            >
+              {isExpanded ? 'See less' : 'See more'}
+            </button>
+          )}
+        </div>
+      </div>
     </div>
-  </div>
-))
+  )
+})
 
 ReplyItem.displayName = 'ReplyItem'
 

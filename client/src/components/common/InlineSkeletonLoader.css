@@ -71,18 +71,4 @@
   margin-bottom: 24px;
 }
 
-/* Animation entrance */
-.skeleton-row,
-.skeleton-card-inline,
-.skeleton-stat-card {
-  animation: fadeIn 0.3s ease-in;
-}
 
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
-}

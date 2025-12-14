@@ -286,6 +286,23 @@
   white-space: pre-wrap;
 }
 
+.see-more-btn {
+  background: none;
+  border: none;
+  color: #3b82f6;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  padding: 0;
+  margin-left: 4px;
+  transition: color 0.15s ease;
+}
+
+.see-more-btn:hover {
+  color: #2563eb;
+  text-decoration: underline;
+}
+
 .comment-actions {
   display: flex;
   gap: 0.875rem;  /* ⚡ Reduced */
@@ -392,6 +409,10 @@
   line-height: 1.5;
   word-wrap: break-word;
   white-space: pre-wrap;
+}
+
+.reply-text .see-more-btn {
+  font-size: 12px;
 }
 
 /* =================================================================
