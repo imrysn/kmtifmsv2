@@ -7,10 +7,7 @@ const NotificationBell = ({ userId, onNotificationClick }) => {
   const [pulse, setPulse] = useState(false);
 
   // Enable taskbar flashing for new notifications
-  useTaskbarFlash(unreadCount, {
-    enabled: true,
-    pageTitle: 'KMTI FMS - Team Leader Dashboard'
-  });
+  useTaskbarFlash(unreadCount);
 
   useEffect(() => {
     fetchUnreadCount();

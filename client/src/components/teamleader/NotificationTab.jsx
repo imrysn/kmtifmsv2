@@ -70,10 +70,7 @@ const NotificationTab = ({ user, onNavigate }) => {
   const [unreadCount, setUnreadCount] = useState(0);
 
   // Enable taskbar flashing for new notifications
-  useTaskbarFlash(unreadCount, {
-    enabled: true,
-    pageTitle: 'KMTI FMS - Notifications'
-  });
+  useTaskbarFlash(unreadCount);
   
   // Pagination state
   const [page, setPage] = useState(1);
