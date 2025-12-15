@@ -465,3 +465,111 @@
     background: rgba(156, 163, 175, 0.25);
   }
 }
+
+/* Pagination Styles - Matching Design System */
+.pagination-section {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 1.5rem;
+  border-top: 1px solid var(--border-light);
+  background: var(--background-secondary);
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.pagination-info {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.pagination-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.pagination-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 36px;
+  height: 36px;
+  padding: 0 0.5rem;
+  border: 1px solid var(--border-color);
+  background: white;
+  color: var(--text-primary);
+  border-radius: 6px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  text-decoration: none;
+}
+
+.pagination-btn:hover:not(:disabled) {
+  background: var(--background-primary);
+  border-color: #999999;
+  color: #000000;
+}
+
+.pagination-btn:active {
+  transform: scale(0.95);
+}
+
+.pagination-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background: var(--background-secondary);
+  color: var(--text-tertiary);
+}
+
+.pagination-btn.active {
+  background: #555555;
+  border-color: #555555;
+  color: white;
+  font-weight: 600;
+}
+
+.pagination-btn.active:hover {
+  background: #666666;
+  border-color: #666666;
+}
+
+.pagination-ellipsis {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 36px;
+  height: 36px;
+  padding: 0 0.25rem;
+  color: var(--text-tertiary);
+  font-size: 1rem;
+  font-weight: 500;
+}
+
+/* Responsive Pagination */
+@media (max-width: 640px) {
+  .pagination-section {
+    flex-direction: column;
+    align-items: flex-start;
+    padding: 1rem;
+  }
+
+  .pagination-info {
+    font-size: 0.8rem;
+  }
+
+  .pagination-controls {
+    flex-wrap: wrap;
+    gap: 0.125rem;
+  }
+
+  .pagination-btn {
+    min-width: 32px;
+    height: 32px;
+    font-size: 0.8rem;
+    padding: 0 0.25rem;
+  }
+}
