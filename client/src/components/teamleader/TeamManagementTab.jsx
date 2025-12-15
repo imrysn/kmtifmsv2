@@ -26,7 +26,7 @@ const TeamManagementTab = ({
             <h2>Team Members ({teamMembers.length})</h2>
           </div>
 
-          <table className="tl-table">
+          <table className="tl-table tl-team-members-table">
             <thead>
               <tr>
                 <th>NAME</th>

@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useTaskbarFlash } from '../../utils/useTaskbarFlash';
 import './css/NotificationTab.css';
 
 const NotificationTab = ({ user, onOpenFile, onNavigateToTasks, onUpdateUnreadCount }) => {
@@ -9,6 +10,9 @@ const NotificationTab = ({ user, onOpenFile, onNavigateToTasks, onUpdateUnreadCo
   const [displayCount, setDisplayCount] = useState(10);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [showAll, setShowAll] = useState(false);
+
+  // Enable taskbar flashing for new notifications
+  useTaskbarFlash(unreadCount);
 
   useEffect(() => {
     fetchNotifications();

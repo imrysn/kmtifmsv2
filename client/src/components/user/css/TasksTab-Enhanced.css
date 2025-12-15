@@ -1208,9 +1208,8 @@
 }
 
 .submitted-file-card:hover {
-  background: #DBEAFE;
+  background-color: rgba(161, 161, 161, 0.1);
   border-color: #93c5fd;
-  box-shadow: 0 2px 4px rgba(59, 130, 246, 0.15);
 }
 
 /* ============================================

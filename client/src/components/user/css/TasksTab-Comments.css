@@ -71,9 +71,6 @@
 .reply-text .see-more-btn {
   font-size: 12px;
 }
-  transition: none;
-  overflow: hidden;
-}
 
 .comment-thread:hover {
   /* Hover animation removed */

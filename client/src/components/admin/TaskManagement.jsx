@@ -520,7 +520,7 @@ const TaskManagement = ({ error, success, setError, setSuccess, clearMessages, u
     } catch (error) {
       console.error('❌ Error opening file:', error);
       setSuccess('') // Clear loading message
-      setError(`Error opening file: ${error.message || 'Failed to open file'}`);
+      setError(`Error opening file: File deleted/rejected or ${error.message || 'Failed to open file'}`);
     } finally {
       setIsOpeningFile(false)
     }

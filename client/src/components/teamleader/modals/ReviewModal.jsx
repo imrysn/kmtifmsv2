@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import './css/AssignmentDetailsModal.css'
 
 const ReviewModal = ({
@@ -15,6 +16,30 @@ const ReviewModal = ({
   user
 }) => {
   if (!showReviewModal || !selectedFile) return null
+
+  const [isOpeningFile, setIsOpeningFile] = useState(false)
+
+  const handleOpenFile = async () => {
+    setIsOpeningFile(true)
+    try {
+      const response = await fetch('http://localhost:3001/api/files/open-file', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ filePath: selectedFile.file_path })
+      })
+      const data = await response.json()
+      if (!data.success) {
+        alert('Failed to open file: ' + (data.message || 'Unknown error'))
+      }
+    } catch (error) {
+      console.error('Error opening file:', error)
+      alert('Failed to open file. Please try again.')
+    } finally {
+      setIsOpeningFile(false)
+    }
+  }
 
   const handleClose = () => {
     setShowReviewModal(false)
@@ -191,14 +216,14 @@ const ReviewModal = ({
               </button>
               <button
                 type="button"
-                onClick={() => window.open(`http://localhost:3001${selectedFile.file_path}`, '_blank')}
+                onClick={handleOpenFile}
                 className="btn btn-secondary-large"
-                disabled={isProcessing}
+                disabled={isProcessing || isOpeningFile}
               >
                 <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-                  <path d="M15 10.8333V15.8333C15 16.2754 14.8244 16.6993 14.5118 17.0118C14.1993 17.3244 13.7754 17.5 13.3333 17.5H4.16667C3.72464 17.5 3.30072 17.3244 2.98816 17.0118C2.67559 16.6993 2.5 16.2754 2.5 15.8333V6.66667C2.5 6.22464 2.67559 5.80072 2.98816 5.48816C3.30072 5.17559 3.72464 5 4.16667 5H9.16667M12.5 2.5H17.5M17.5 2.5V7.5M17.5 2.5L8.33333 11.6667" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                  <path d="M10 2.5V10M10 10V17.5M10 10H17.5M10 10H2.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                 </svg>
-                Open
+                {isOpeningFile ? 'Opening...' : 'Open File'}
               </button>
             </div>
           </div>

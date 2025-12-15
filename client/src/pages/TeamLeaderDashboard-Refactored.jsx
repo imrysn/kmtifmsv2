@@ -95,7 +95,6 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
     description: '',
     dueDate: '',
     fileTypeRequired: '',
-    maxFileSize: 10485760,
     assignedMembers: []
   })
   const [notificationCommentContext, setNotificationCommentContext] = useState(null)
@@ -330,7 +329,6 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
           description: '',
           dueDate: '',
           fileTypeRequired: '',
-          maxFileSize: 10485760,
           assignedMembers: []
         })
         fetchAssignments()
@@ -346,8 +344,6 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
   }
 
   const deleteAssignment = async (assignmentId, title) => {
-    if (!confirm(`Are you sure you want to delete "${title}"?`)) return
-
     try {
       const response = await fetch(`http://localhost:3001/api/assignments/${assignmentId}`, {
         method: 'DELETE',
@@ -389,9 +385,25 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
     }
   }
 
-  const openFileViewModal = (file) => {
-    setSelectedFile(file)
-    setShowFileViewModal(true)
+  const openFileViewModal = async (file) => {
+    try {
+      const response = await fetch('http://localhost:3001/api/files/open-file', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ filePath: file.file_path })
+      })
+      const data = await response.json()
+      if (data.success) {
+        setSuccess('File opened successfully')
+      } else {
+        setError('Failed to open file')
+      }
+    } catch (error) {
+      console.error('Error opening file:', error)
+      setError('Failed to open file')
+    }
   }
 
   const handleReviewSubmit = async (e) => {

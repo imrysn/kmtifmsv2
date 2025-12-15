@@ -70,10 +70,7 @@ const NotificationTab = ({ user, onNavigate }) => {
   const [unreadCount, setUnreadCount] = useState(0);
 
   // Enable taskbar flashing for new notifications
-  useTaskbarFlash(unreadCount, {
-    enabled: true,
-    pageTitle: 'KMTI FMS - Notifications'
-  });
+  useTaskbarFlash(unreadCount);
   
   // Pagination state
   const [page, setPage] = useState(1);
@@ -440,7 +437,12 @@ const NotificationTab = ({ user, onNavigate }) => {
 
       {notifications.length === 0 ? (
         <div className="tl-no-notifications">
-          <div className="tl-no-notifications-icon">🔔</div>
+          <div className="tl-no-notifications-icon">
+            <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+              <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+            </svg>
+          </div>
           <h3>No notifications</h3>
           <p>You're all caught up! Check back later for updates.</p>
         </div>
