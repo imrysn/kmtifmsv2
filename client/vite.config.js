@@ -3,6 +3,7 @@ import react from '@vitejs/plugin-react'
 import path from 'path'
 
 export default defineConfig({
+  base: './',  // CRITICAL: Required for Electron packaging
   plugins: [
     react({
       jsxRuntime: 'automatic',
@@ -16,6 +17,8 @@ export default defineConfig({
     alias: {
       '@': path.resolve(__dirname, './src'),
     },
+    // Pre-defined extensions for faster resolution
+    extensions: ['.mjs', '.js', '.jsx', '.json']
   },
   server: {
     port: 5173,
@@ -72,8 +75,8 @@ export default defineConfig({
           'router-vendor': ['react-router-dom'],
           'anime-vendor': ['animejs']
         },
-        entryFileNames: 'js/[name]-[hash].js',
-        chunkFileNames: 'js/[name]-[hash].js',
+        entryFileNames: 'assets/[name]-[hash].js',
+        chunkFileNames: 'assets/[name]-[hash].js',
         assetFileNames: 'assets/[name]-[hash][extname]'
       },
       external: []
@@ -139,12 +142,5 @@ export default defineConfig({
   // PERFORMANCE: Caching configuration
   cacheDir: 'node_modules/.vite',
   
-  // CRITICAL: Faster module resolution
-  resolve: {
-    alias: {
-      '@': path.resolve(__dirname, './src'),
-    },
-    // Pre-defined extensions for faster resolution
-    extensions: ['.mjs', '.js', '.jsx', '.json']
-  }
+  // CRITICAL: Faster module resolution (merged with resolve above)
 })
