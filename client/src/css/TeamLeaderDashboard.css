@@ -2445,10 +2445,8 @@ input[type="checkbox"] {
   color: inherit;
 }
 
-.tl-quick-action-card:hover {
-  border-color: var(--primary-color);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-  transform: translateY(-2px);
+.tl-quick-action-card {
+  transition: all 0.2s ease;
 }
 
 .tl-quick-action-icon {
@@ -2484,12 +2482,6 @@ input[type="checkbox"] {
   font-size: 20px;
   color: var(--text-secondary);
   font-weight: bold;
-  transition: all 0.2s ease;
-}
-
-.tl-quick-action-card:hover .tl-quick-action-arrow {
-  color: var(--primary-color);
-  transform: translateX(4px);
 }
 
 .tl-dashboard-grid {
@@ -2505,10 +2497,6 @@ input[type="checkbox"] {
   border-radius: var(--radius-lg);
   overflow: hidden;
   transition: all 0.2s ease;
-}
-
-.tl-dashboard-card:hover {
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
 }
 
 .tl-dashboard-card.large {
@@ -2627,10 +2615,6 @@ input[type="checkbox"] {
   transition: background 0.2s ease;
 }
 
-.tl-activity-item:hover {
-  background: var(--background-primary);
-}
-
 .tl-activity-item:last-child {
   border-bottom: none;
 }
@@ -2741,6 +2725,12 @@ input[type="checkbox"] {
   margin-left: calc(-1 * var(--spacing-sm));
   margin-right: calc(-1 * var(--spacing-sm));
   border-radius: var(--radius-sm);
+}
+
+/* Team Management specific overrides - remove row hover effects */
+/* Remove hover effects from team member rows, keep only View Files button hover */
+.tl-team-members-table tbody tr:hover {
+  background: transparent !important;
 }
 
 .tl-priority-item:last-child {

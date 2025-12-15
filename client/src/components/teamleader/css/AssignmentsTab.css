@@ -452,6 +452,25 @@
   font-style: italic;
 }
 
+.tl-attachment-toggle-btn {
+  background: none;
+  border: none;
+  color: #3b82f6;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 8px 0;
+  margin-top: 8px;
+  width: 100%;
+  text-align: center;
+  transition: color 0.2s;
+}
+
+.tl-attachment-toggle-btn:hover {
+  color: #2563eb;
+  text-decoration: underline;
+}
+
 /* No Attachment Message */
 .tl-assignment-no-attachment {
   background: #FEF3C7;
@@ -500,6 +519,34 @@
 
 .tl-assignment-comments-text:hover {
   color: #1877f2;
+}
+
+/* Role Badges */
+.role-badge {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 3px 7px;
+  border-radius: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  border: 1px solid;
+  background: white;
+  margin-left: 8px;
+}
+
+.role-badge.admin {
+  color: #991b1b;
+  border-color: #991b1b;
+}
+
+.role-badge.team-leader {
+  color: #1e40af;
+  border-color: #1e40af;
+}
+
+.role-badge.user {
+  color: #374151;
+  border-color: #9ca3af;
 }
 
 /* Empty State */

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import './css/FileCollectionTab.css'
 import FileIcon from '../admin/FileIcon'
 import { LoadingTable, LoadingCards } from '../common/InlineSkeletonLoader'
@@ -21,6 +21,13 @@ const FileCollectionTab = ({
   onClearFileHighlight
 }) => {
   const [searchQuery, setSearchQuery] = useState('')
+  const [currentPage, setCurrentPage] = useState(1)
+  const [filesPerPage] = useState(7)
+  
+  // Reset page when filters change
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [searchQuery, fileCollectionFilter, fileCollectionSort])
   
   // Handle file highlighting from notifications
   useEffect(() => {
@@ -100,6 +107,7 @@ const FileCollectionTab = ({
       filtered = filtered.filter(file => {
         switch (fileCollectionFilter) {
           case 'pending':
+            // Show both pending team leader AND pending admin (team_leader_approved) files
             return file.status === 'uploaded' || file.status === 'team_leader_approved'
           case 'approved':
             return file.status === 'final_approved' || file.status === 'approved'
@@ -136,6 +144,87 @@ const FileCollectionTab = ({
 
   const displayedFiles = filteredAndSortedFiles()
 
+  // Get current page files
+  const currentPageFiles = useMemo(() => {
+    const startIndex = (currentPage - 1) * filesPerPage
+    const endIndex = startIndex + filesPerPage
+    return displayedFiles.slice(startIndex, endIndex)
+  }, [displayedFiles, currentPage, filesPerPage])
+
+  // Calculate total pages
+  const totalPages = useMemo(() => {
+    return Math.ceil(displayedFiles.length / filesPerPage)
+  }, [displayedFiles.length, filesPerPage])
+
+  // Render pagination numbers with ellipsis
+  const renderPaginationNumbers = useMemo(() => {
+    const pageNumbers = []
+    const maxVisiblePages = 5
+
+    if (totalPages <= maxVisiblePages) {
+      for (let i = 1; i <= totalPages; i++) {
+        pageNumbers.push(
+          <button
+            key={i}
+            className={`pagination-btn ${i === currentPage ? 'active' : ''}`}
+            onClick={() => setCurrentPage(i)}
+          >
+            {i}
+          </button>
+        )
+      }
+    } else {
+      pageNumbers.push(
+        <button
+          key={1}
+          className={`pagination-btn ${1 === currentPage ? 'active' : ''}`}
+          onClick={() => setCurrentPage(1)}
+        >
+          1
+        </button>
+      )
+
+      if (currentPage > 3) {
+        pageNumbers.push(<span key="ellipsis1" className="pagination-ellipsis">...</span>)
+      }
+
+      const startPage = Math.max(2, currentPage - 1)
+      const endPage = Math.min(totalPages - 1, currentPage + 1)
+
+      for (let i = startPage; i <= endPage; i++) {
+        if (i !== 1 && i !== totalPages) {
+          pageNumbers.push(
+            <button
+              key={i}
+              className={`pagination-btn ${i === currentPage ? 'active' : ''}`}
+              onClick={() => setCurrentPage(i)}
+            >
+              {i}
+            </button>
+          )
+        }
+      }
+
+      if (currentPage < totalPages - 2) {
+        pageNumbers.push(<span key="ellipsis2" className="pagination-ellipsis">...</span>)
+      }
+
+      if (totalPages > 1) {
+        pageNumbers.push(
+          <button
+            key={totalPages}
+            className={`pagination-btn ${totalPages === currentPage ? 'active' : ''}`}
+            onClick={() => setCurrentPage(totalPages)}
+          >
+            {totalPages}
+          </button>
+        )
+      }
+    }
+
+    return pageNumbers
+  }, [totalPages, currentPage])
+
   return (
     <div className="tl-content">
       {/* Page Header */}
@@ -167,7 +256,7 @@ const FileCollectionTab = ({
             </div>
             <div className="status-info">
               <div className="status-number">{stats.pending}</div>
-              <div className="status-label">Pending Team Leader</div>
+              <div className="status-label">Pending Review</div>
             </div>
           </div>
 
@@ -216,7 +305,7 @@ const FileCollectionTab = ({
             className="form-select"
           >
             <option value="all">All Files</option>
-            <option value="pending">Pending Team Leader</option>
+            <option value="pending">Pending</option>
             <option value="approved">Approved</option>
             <option value="rejected">Rejected</option>
           </select>
@@ -241,125 +330,144 @@ const FileCollectionTab = ({
         <div className="tl-files-list">
           <LoadingTable rows={8} columns={6} />
         </div>
-      ) : displayedFiles.length > 0 ? (
+      ) : currentPageFiles.length > 0 ? (
         <div className="tl-files-list">
           <table className="tl-files-table">
-            <thead>
-              <tr>
-                <th>File Name</th>
-                <th>Assignment</th>
-                <th>Submitted By</th>
-                <th>Submitted Date</th>
-                <th>Status</th>
-                <th style={{width: '80px', textAlign: 'center'}}>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {displayedFiles.map((submission) => {
-                const fileExtension = getFileExtension(submission.original_name, submission.file_type)
-                
-                return (
-                <tr key={submission.id} data-file-id={submission.id} className="tl-clickable-row" onClick={() => openFileViewModal(submission)}>
-                  <td>
-                    <div className="file-cell">
-                      <div className="file-icon">
-                        <FileIcon
-                          fileType={fileExtension}
-                          isFolder={false}
-                          altText={`Icon for ${submission.original_name}`}
-                          size="medium"
-                        />
-                      </div>
-                      <div className="file-details">
-                        <span className="file-name">{submission.original_name}</span>
-                        <span className="file-size">{formatFileSize(submission.file_size)}</span>
-                      </div>
-                    </div>
-                  </td>
-                  <td>
-                    <div className="assignment-cell">
-                      <span className="assignment-title">{submission.assignment_title}</span>
-                      {submission.assignment_due_date && (
-                        <span className="assignment-due-date">
-                          Due: {new Date(submission.assignment_due_date).toLocaleDateString()}
-                        </span>
-                      )}
-                    </div>
-                  </td>
-                  <td>
-                    <div className="user-cell">
-                      <span className="user-name">{submission.fullName || submission.username}</span>
-                    </div>
-                  </td>
-                  <td>
-                    <div className="datetime-cell">
-                      <div className="date">{new Date(submission.submitted_at || submission.uploaded_at).toLocaleDateString()}</div>
-                      <div className="time">{new Date(submission.submitted_at || submission.uploaded_at).toLocaleTimeString()}</div>
-                    </div>
-                  </td>
-                  <td>
-                    <span className={`status-badge status-${
-                      submission.status === 'approved' || submission.status === 'final_approved' ? 'approved' : 
-                      submission.status === 'rejected' || submission.status === 'rejected_by_team_leader' || submission.status === 'rejected_by_admin' ? 'rejected' : 
-                      'pending'
-                    }`}>
-                      {
-                        submission.status === 'approved' || submission.status === 'final_approved' ? 'Approved' :
-                        submission.status === 'rejected' || submission.status === 'rejected_by_team_leader' || submission.status === 'rejected_by_admin' ? 'Rejected' :
-                        submission.status === 'team_leader_approved' ? 'Pending Admin' :
-                        'Pending Team Leader'
-                      }
-                    </span>
-                  </td>
-                  <td style={{textAlign: 'center'}}>
-                    <div className="tl-actions-menu-wrapper">
-                      <button 
-                        className="tl-menu-button" 
-                        onClick={(e) => toggleMenu(submission.id, e)}
-                        title="Options"
-                      >
-                        <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                          <circle cx="3" cy="8" r="1.5" fill="currentColor"/>
-                          <circle cx="8" cy="8" r="1.5" fill="currentColor"/>
-                          <circle cx="13" cy="8" r="1.5" fill="currentColor"/>
-                        </svg>
-                      </button>
-                      {openMenuId === submission.id && (
-                        <div className="tl-dropdown-menu">
-                          {submission.assignment_id && onNavigateToTask && (
-                            <button 
-                              className="tl-dropdown-item"
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                onNavigateToTask(submission.assignment_id, submission.id)
-                              }}
-                            >
-                              <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                                <path d="M5.33333 2.66667H2.66667C2.29848 2.66667 2 2.96514 2 3.33333V13.3333C2 13.7015 2.29848 14 2.66667 14H12.6667C13.0349 14 13.3333 13.7015 13.3333 13.3333V10.6667" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                                <path d="M12 2L14 4L8.66667 9.33333L6.66667 9.66667L7 7.66667L12 2Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                              </svg>
-                              Go to Task
-                            </button>
-                          )}
-                          <button 
-                            className="tl-dropdown-item"
-                            onClick={(e) => handleOpenInExplorer(submission.file_path, e)}
-                          >
-                            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                              <path d="M14 5.33333H8.66667L7.33333 4H2C1.63181 4 1.33333 4.29848 1.33333 4.66667V11.3333C1.33333 11.7015 1.63181 12 2 12H14C14.3682 12 14.6667 11.7015 14.6667 11.3333V6C14.6667 5.63181 14.3682 5.33333 14 5.33333Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                            </svg>
-                            Open in File Explorer
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  </td>
+              <thead>
+                <tr>
+                  <th>File Name</th>
+                  <th>Assignment</th>
+                  <th>Submitted By</th>
+                  <th>Submitted Date</th>
+                  <th>Status</th>
+                  <th style={{width: '80px', textAlign: 'center'}}>Actions</th>
                 </tr>
-                )
-              })}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {currentPageFiles.map((submission) => {
+                  const fileExtension = getFileExtension(submission.original_name, submission.file_type)
+                  
+                  return (
+                  <tr key={submission.id} data-file-id={submission.id} className="tl-clickable-row" onClick={() => openFileViewModal(submission)}>
+                    <td>
+                      <div className="file-cell">
+                        <div className="file-icon">
+                          <FileIcon
+                            fileType={fileExtension}
+                            isFolder={false}
+                            altText={`Icon for ${submission.original_name}`}
+                            size="medium"
+                          />
+                        </div>
+                        <div className="file-details">
+                          <span className="file-name">{submission.original_name}</span>
+                          <span className="file-size">{formatFileSize(submission.file_size)}</span>
+                        </div>
+                      </div>
+                    </td>
+                    <td>
+                      <div className="assignment-cell">
+                        <span className="assignment-title">{submission.assignment_title}</span>
+                        {submission.assignment_due_date && (
+                          <span className="assignment-due-date">
+                            Due: {new Date(submission.assignment_due_date).toLocaleDateString()}
+                          </span>
+                        )}
+                      </div>
+                    </td>
+                    <td>
+                      <div className="user-cell">
+                        <span className="user-name">{submission.fullName || submission.username}</span>
+                      </div>
+                    </td>
+                    <td>
+                      <div className="datetime-cell">
+                        <div className="date">{new Date(submission.submitted_at || submission.uploaded_at).toLocaleDateString()}</div>
+                        <div className="time">{new Date(submission.submitted_at || submission.uploaded_at).toLocaleTimeString()}</div>
+                      </div>
+                    </td>
+                    <td>
+                      <span className={`status-badge status-${
+                        submission.status === 'approved' || submission.status === 'final_approved' ? 'approved' : 
+                        submission.status === 'rejected' || submission.status === 'rejected_by_team_leader' || submission.status === 'rejected_by_admin' ? 'rejected' : 
+                        'pending'
+                      }`}>
+                        {
+                          submission.status === 'approved' || submission.status === 'final_approved' ? 'Approved' :
+                          submission.status === 'rejected' || submission.status === 'rejected_by_team_leader' || submission.status === 'rejected_by_admin' ? 'Rejected' :
+                          submission.status === 'team_leader_approved' ? 'Pending Admin' :
+                          'Pending Team Leader'
+                        }
+                      </span>
+                    </td>
+                    <td style={{textAlign: 'center'}}>
+                      <div className="tl-actions-menu-wrapper">
+                        <button 
+                          className="tl-menu-button" 
+                          onClick={(e) => toggleMenu(submission.id, e)}
+                          title="Options"
+                        >
+                          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                            <circle cx="3" cy="8" r="1.5" fill="currentColor"/>
+                            <circle cx="8" cy="8" r="1.5" fill="currentColor"/>
+                            <circle cx="13" cy="8" r="1.5" fill="currentColor"/>
+                          </svg>
+                        </button>
+                        {openMenuId === submission.id && (
+                          <div className="tl-dropdown-menu">
+                            {submission.assignment_id && onNavigateToTask && (
+                              <button 
+                                className="tl-dropdown-item"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  onNavigateToTask(submission.assignment_id, submission.id)
+                                }}
+                              >
+                                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                                  <path d="M5.33333 2.66667H2.66667C2.29848 2.66667 2 2.96514 2 3.33333V13.3333C2 13.7015 2.29848 14 2.66667 14H12.6667C13.0349 14 13.3333 13.7015 13.3333 13.3333V10.6667" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                                  <path d="M12 2L14 4L8.66667 9.33333L6.66667 9.66667L7 7.66667L12 2Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                                </svg>
+                                Go to Task
+                              </button>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                  )
+                })}
+                </tbody>
+                </table>
+                  
+                {/* Pagination */}
+                {!isLoading && displayedFiles.length > 0 && (
+                  <div className="pagination-section">
+                  <div className="pagination-info">
+                  Showing {((currentPage - 1) * filesPerPage) + 1} to {Math.min(currentPage * filesPerPage, displayedFiles.length)} of {displayedFiles.length} files
+                </div>
+                {totalPages > 1 && (
+                  <div className="pagination-controls">
+                  <button 
+                  className="pagination-btn" 
+                onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                disabled={currentPage === 1}
+                >
+                  ‹
+                </button>
+                {renderPaginationNumbers}
+                <button 
+                  className="pagination-btn" 
+                onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                disabled={currentPage === totalPages}
+                >
+                  ›
+                </button>
+                </div>
+                )}
+                </div>
+                )}
+                </div>
       ) : (
         <div className="tl-empty">
           <svg width="64" height="64" viewBox="0 0 64 64" fill="none" style={{marginBottom: '16px', opacity: 0.3}}>
