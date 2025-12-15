@@ -38,7 +38,6 @@ const CreateAssignmentModal = ({
       description: '',
       dueDate: '',
       fileTypeRequired: '',
-      maxFileSize: 10485760,
       assignedMembers: []
     })
   }
@@ -136,6 +135,46 @@ const CreateAssignmentModal = ({
               </div>
 
               <div className="tl-form-group">
+                <label>File Type Required</label>
+                <div className="tl-member-dropdown-wrapper">
+                  <button
+                    ref={fileTypeButtonRef}
+                    type="button"
+                    className="tl-member-dropdown-button"
+                    onClick={handleFileTypeDropdownToggle}
+                  >
+                    <span>{getFileTypeLabel()}</span>
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className={showFileTypeDropdown ? 'rotated' : ''}>
+                      <path d="M4 6L8 10L12 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                  </button>
+                  
+                  {showFileTypeDropdown && (
+                    <div 
+                      className="tl-member-dropdown-menu"
+                      style={{
+                        top: `${fileTypeDropdownPosition.top}px`,
+                        left: `${fileTypeDropdownPosition.left}px`,
+                        width: `${fileTypeDropdownPosition.width}px`
+                      }}
+                    >
+                      {fileTypeOptions.map(option => (
+                        <div 
+                          key={option.value} 
+                          className="tl-file-type-dropdown-item"
+                          onClick={() => handleFileTypeSelect(option.value)}
+                        >
+                          <span>{option.label}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="tl-form-row">
+              <div className="tl-form-group">
                 <label>Assign To Members *</label>
                 <div className="tl-member-dropdown-wrapper">
                   <button
@@ -177,57 +216,9 @@ const CreateAssignmentModal = ({
                   )}
                 </div>
               </div>
-            </div>
-
-            <div className="tl-form-row">
-              <div className="tl-form-group">
-                <label>Max File Size (MB)</label>
-                <input
-                  type="number"
-                  value={assignmentForm.maxFileSize / (1024*1024)}
-                  onChange={(e) => setAssignmentForm({...assignmentForm, maxFileSize: e.target.value * 1024 * 1024})}
-                  placeholder="10"
-                  min="1"
-                  max="100"
-                />
-              </div>
 
               <div className="tl-form-group">
-                <label>File Type Required</label>
-                <div className="tl-member-dropdown-wrapper">
-                  <button
-                    ref={fileTypeButtonRef}
-                    type="button"
-                    className="tl-member-dropdown-button"
-                    onClick={handleFileTypeDropdownToggle}
-                  >
-                    <span>{getFileTypeLabel()}</span>
-                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className={showFileTypeDropdown ? 'rotated' : ''}>
-                      <path d="M4 6L8 10L12 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                    </svg>
-                  </button>
-                  
-                  {showFileTypeDropdown && (
-                    <div 
-                      className="tl-member-dropdown-menu"
-                      style={{
-                        top: `${fileTypeDropdownPosition.top}px`,
-                        left: `${fileTypeDropdownPosition.left}px`,
-                        width: `${fileTypeDropdownPosition.width}px`
-                      }}
-                    >
-                      {fileTypeOptions.map(option => (
-                        <div 
-                          key={option.value} 
-                          className="tl-file-type-dropdown-item"
-                          onClick={() => handleFileTypeSelect(option.value)}
-                        >
-                          <span>{option.label}</span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
+                {/* Empty column for alignment */}
               </div>
             </div>
 

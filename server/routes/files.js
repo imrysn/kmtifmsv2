@@ -1,6 +1,7 @@
 const express = require('express');
 const fs = require('fs').promises;
 const path = require('path');
+const { exec } = require('child_process');
 const { db } = require('../config/database');
 const { upload, uploadsDir, moveToUserFolder } = require('../config/middleware');
 const { logActivity, logFileStatusChange } = require('../utils/logger');
@@ -1888,6 +1889,75 @@ router.get('/team/:team/status/:status', (req, res) => {
       });
     }
   );
+});
+
+// Open file with system's default application
+router.post('/open-file', async (req, res) => {
+  const { filePath } = req.body;
+  console.log(`📂 Opening file with default application: ${filePath}`);
+
+  try {
+    // Resolve the file path
+    let resolvedPath = filePath;
+    
+    // If it's a relative path starting with /uploads/, resolve it
+    if (filePath.startsWith('/uploads/')) {
+      const relativePath = filePath.substring(8);
+      resolvedPath = path.join(uploadsDir, relativePath);
+    }
+    
+    // Normalize path for Windows
+    resolvedPath = path.normalize(resolvedPath);
+    
+    // Check if file exists
+    try {
+      await fs.access(resolvedPath);
+    } catch (error) {
+      console.error('❌ File not found:', resolvedPath);
+      return res.status(404).json({
+        success: false,
+        message: 'File not found'
+      });
+    }
+    
+    // Platform-specific command to open file with default application
+    let command;
+    if (process.platform === 'win32') {
+      // Windows: use start command
+      command = `start "" "${resolvedPath}"`;
+    } else if (process.platform === 'darwin') {
+      // macOS: use open command
+      command = `open "${resolvedPath}"`;
+    } else {
+      // Linux: use xdg-open command
+      command = `xdg-open "${resolvedPath}"`;
+    }
+    
+    // Execute the command
+    exec(command, (error) => {
+      if (error) {
+        console.error('❌ Error opening file:', error);
+        return res.status(500).json({
+          success: false,
+          message: 'Failed to open file',
+          error: error.message
+        });
+      }
+      
+      console.log('✅ File opened successfully with default application');
+      res.json({
+        success: true,
+        message: 'File opened successfully'
+      });
+    });
+  } catch (error) {
+    console.error('❌ Error processing file open request:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to open file',
+      error: error.message
+    });
+  }
 });
 
 module.exports = router;

@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import './css/AssignmentsTab.css'
 import FileIcon from '../admin/FileIcon.jsx'
 import { CardSkeleton } from '../common/InlineSkeletonLoader'
+import ConfirmationModal from '../admin/modals/ConfirmationModal'
 
 const AssignmentsTab = ({
   isLoadingAssignments,
@@ -30,7 +31,10 @@ const AssignmentsTab = ({
   const [isPostingReply, setIsPostingReply] = useState({})
   const [showReplies, setShowReplies] = useState({})
   const [showMenuForAssignment, setShowMenuForAssignment] = useState(null)
-  
+  const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false)
+  const [assignmentToDelete, setAssignmentToDelete] = useState(null)
+  const [expandedAttachments, setExpandedAttachments] = useState({})
+
   // Ref to track if we should expand replies (persists between renders)
   const shouldExpandRepliesRef = useRef(false)
 
@@ -306,6 +310,13 @@ const AssignmentsTab = ({
   const toggleComments = (assignment) => {
     setCurrentCommentsAssignment(assignment)
     setShowCommentsModal(true)
+  }
+
+  const toggleAttachments = (assignmentId) => {
+    setExpandedAttachments(prev => ({
+      ...prev,
+      [assignmentId]: !prev[assignmentId]
+    }))
   }
 
   const formatRelativeTime = (dateString) => {
@@ -597,7 +608,8 @@ const AssignmentsTab = ({
                             <button
                               className="tl-assignment-menu-item tl-assignment-delete-menu-item"
                               onClick={() => {
-                                deleteAssignment(assignment.id, assignment.title)
+                                setAssignmentToDelete({ id: assignment.id, title: assignment.title })
+                                setShowDeleteConfirmation(true)
                                 setShowMenuForAssignment(null)
                               }}
                             >
@@ -632,7 +644,10 @@ const AssignmentsTab = ({
                         <div className="tl-assignment-file-label">
                           📎 Submitted Files ({assignment.recent_submissions.length})
                         </div>
-                        {assignment.recent_submissions.map((submission) => (
+                        {(expandedAttachments[assignment.id]
+                          ? assignment.recent_submissions
+                          : assignment.recent_submissions.slice(0, 5)
+                        ).map((submission) => (
                           <div
                             key={submission.id}
                             data-file-id={submission.id}
@@ -672,7 +687,7 @@ const AssignmentsTab = ({
                                 <span className={`tl-assignment-file-status ${
                                   submission.status === 'uploaded' ? 'uploaded' :
                                   submission.status === 'team_leader_approved' ? 'team-leader-approved' :
-                                  submission.status === 'final_approved' ? 'final-approved' : 
+                                  submission.status === 'final_approved' ? 'final-approved' :
                                   submission.status === 'rejected_by_team_leader' || submission.status === 'rejected_by_admin' ? 'rejected' :
                                   'uploaded'
                                 }`}>
@@ -687,10 +702,15 @@ const AssignmentsTab = ({
                             </div>
                           </div>
                         ))}
-                        {(assignment.submission_count || 0) > assignment.recent_submissions.length && (
-                          <div className="tl-assignment-more-files">
-                            +{(assignment.submission_count || 0) - assignment.recent_submissions.length} more
-                          </div>
+                        {assignment.recent_submissions.length > 5 && (
+                          <button
+                            className="tl-attachment-toggle-btn"
+                            onClick={() => toggleAttachments(assignment.id)}
+                          >
+                            {expandedAttachments[assignment.id]
+                              ? 'See less'
+                              : `See more (${assignment.recent_submissions.length - 5} more)`}
+                          </button>
                         )}
                       </div>
                     ) : (
@@ -745,7 +765,12 @@ const AssignmentsTab = ({
                         </div>
                         <div className="tl-comment-content">
                           <div className="tl-comment-bubble">
-                            <div className="tl-comment-author">{comment.fullName || comment.username}</div>
+                            <div className="tl-comment-author">
+                              {comment.fullName || comment.username}
+                              <span className={`role-badge ${comment.user_role ? comment.user_role.toLowerCase().replace(' ', '-') : 'user'}`}>
+                                {comment.user_role || 'USER'}
+                              </span>
+                            </div>
                             <div className="tl-comment-text">{comment.comment}</div>
                           </div>
                           <div className="tl-comment-actions">
@@ -781,7 +806,12 @@ const AssignmentsTab = ({
                                   </div>
                                   <div className="tl-comment-content">
                                     <div className="tl-comment-bubble">
-                                      <div className="tl-comment-author">{reply.fullName || reply.username}</div>
+                                      <div className="tl-comment-author">
+                                        {reply.fullName || reply.username}
+                                        <span className={`role-badge ${reply.user_role ? reply.user_role.toLowerCase().replace(' ', '-') : 'user'}`}>
+                                          {reply.user_role || 'USER'}
+                                        </span>
+                                      </div>
                                       <div className="tl-comment-text">{reply.reply}</div>
                                     </div>
                                     <div className="tl-comment-timestamp">
@@ -929,6 +959,28 @@ const AssignmentsTab = ({
           </div>
         </div>
       )}
+
+      {/* Delete Confirmation Modal */}
+      <ConfirmationModal
+        isOpen={showDeleteConfirmation}
+        onClose={() => {
+          setShowDeleteConfirmation(false)
+          setAssignmentToDelete(null)
+        }}
+        onConfirm={() => {
+          if (assignmentToDelete) {
+            deleteAssignment(assignmentToDelete.id, assignmentToDelete.title)
+          }
+          setShowDeleteConfirmation(false)
+          setAssignmentToDelete(null)
+        }}
+        title="Delete Task"
+        message={`Are you sure you want to delete "${assignmentToDelete?.title}"?`}
+        description="This action cannot be undone. All submissions and comments associated with this task will be permanently deleted."
+        confirmText="Delete Task"
+        cancelText="Cancel"
+        variant="danger"
+      />
     </div>
   )
 }

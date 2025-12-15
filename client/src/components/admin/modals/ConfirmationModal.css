@@ -1,5 +1,5 @@
-/* Optimized Confirmation Modal - Styled to match FileApproval design */
-.confirmation-modal .modal-overlay {
+/* Optimized Confirmation Modal - NO ANIMATIONS for Performance */
+.modal-overlay {
   position: fixed;
   top: 0;
   left: 0;
@@ -13,16 +13,15 @@
   padding: 1rem;
 }
 
-.confirmation-modal .modal {
+.confirmation-modal {
   background: #ffffff;
-  border-radius: 12px;
-  box-shadow: 0 20px 32px rgba(0, 0, 0, 0.15);
+  border-radius: 16px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
   max-width: 500px;
-  width: 100%;
+  width: 90%;
   max-height: 90vh;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
 .confirmation-modal .modal-header {
@@ -91,20 +90,24 @@
   font-weight: 600;
 }
 
-.confirmation-modal .file-info,
-.confirmation-modal .user-info,
-.confirmation-modal .item-info {
-  background: #f9fafb;
+.confirmation-modal .confirmation-description {
+  margin: 0.75rem 0 0 0;
+  font-size: 0.875rem;
+  color: #6b7280;
+  line-height: 1.5;
+}
+
+/* File info styling */
+.confirmation-modal .file-info {
+  border-radius: 8px;
   padding: 1rem;
   border-radius: 8px;
   margin: 0 0 1rem 0;
   border-left: 4px solid #ef4444;
 }
 
-.confirmation-modal .file-info .file-name,
-.confirmation-modal .user-info .user-name,
-.confirmation-modal .item-info .item-name {
-  font-weight: 600;
+.confirmation-modal .file-info .file-name {
+  font-weight: 500;
   color: #1f2937;
   font-size: 0.9375rem;
   word-wrap: break-word;
@@ -114,24 +117,23 @@
   margin-bottom: 0.25rem;
 }
 
-.confirmation-modal .file-info .file-size,
-.confirmation-modal .user-info .user-details,
-.confirmation-modal .item-info .item-details {
+.confirmation-modal .file-info .file-size {
   font-size: 0.8125rem;
   color: #6b7280;
   margin-top: 0.25rem;
 }
 
-.confirmation-modal .warning-text {
-  color: #6b7280;
-  margin: 0;
-  font-size: 0.9rem;
-  line-height: 1.5;
+/* Warning message box */
+.confirmation-modal .warning-message {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  padding: 1rem;
+  margin-top: 1.25rem;
 }
 
-.confirmation-modal .confirmation-description {
-  color: #6b7280;
-  margin: 0.75rem 0 0 0;
+.confirmation-modal .warning-message p {
+  margin: 0;
   font-size: 0.875rem;
   line-height: 1.5;
 }
@@ -164,8 +166,8 @@
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
-  min-width: 100px;
-  justify-content: center;
+  min-width: 110px;
+  transition: all 0.15s ease;
 }
 
 .confirmation-modal .btn:disabled {
