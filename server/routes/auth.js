@@ -178,7 +178,7 @@ router.post('/forgot-password', async (req, res) => {
 
     // Create notification for each admin user
     const notificationPromises = adminUsers.map(async (admin) => {
-      const notificationMessage = `${requestingUser.fullName || requestingUser.username} (${requestingUser.email}) has requested a password reset. Click to reset their password.`;
+      const notificationMessage = `${requestingUser.fullName || requestingUser.username} (${requestingUser.email}) has requested a password reset.`;
 
       // Create a notification with password_reset_request type
       await createNotification(

@@ -360,18 +360,23 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
 
     setIsLoading(true)
     try {
-      // Delete physical file first (optional)
-      await fetch(`${API_BASE}/files/${fileToDelete.id}/delete-file`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          adminId: authUser.id,
-          adminUsername: authUser.username,
-          adminRole: authUser.role
+      // Try to delete physical file first (optional - don't let it block metadata deletion)
+      try {
+        await fetch(`${API_BASE}/files/${fileToDelete.id}/delete-file`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            adminId: authUser.id,
+            adminUsername: authUser.username,
+            adminRole: authUser.role
+          })
         })
-      }).catch(() => {}) // Ignore errors for physical file deletion
+      } catch (fileDeleteError) {
+        // Log but continue - physical file might already be deleted
+        console.warn('Physical file deletion failed (file may not exist):', fileDeleteError)
+      }
 
-      // Delete database record
+      // Always delete database record regardless of physical file deletion result
       const response = await fetch(`${API_BASE}/files/${fileToDelete.id}`, {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
@@ -390,13 +395,13 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
         setFiles(prevFiles => prevFiles.filter(file => file.id !== fileToDelete.id))
         setShowDeleteModal(false)
         setFileToDelete(null)
-        setSuccess('File deleted successfully')
+        setSuccess('File metadata deleted successfully')
       } else {
-        setError(data.message || 'Failed to delete file')
+        setError(data.message || 'Failed to delete file metadata')
       }
     } catch (error) {
       console.error('Error deleting file:', error)
-      setError(error.message || 'Failed to delete file')
+      setError(error.message || 'Failed to delete file metadata')
     } finally {
       setIsLoading(false)
     }

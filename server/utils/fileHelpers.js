@@ -1,4 +1,5 @@
 const path = require('path');
+const { categorizeFileType } = require('./fileTypeUtils');
 
 // Helper function to get parent path
 function getParentPath(currentPath) {
@@ -25,8 +26,24 @@ function truncateName(name, maxLength = 50) {
   return truncatedName + '...' + extension;
 }
 
-// Get file type description based on mime type
-function getFileTypeDescription(mimeType) {
+// Get file type description based on mime type or file extension
+function getFileTypeDescription(mimeType, filename = '') {
+  // First, try to get extension from filename if provided
+  let extension = '';
+  if (filename) {
+    extension = path.extname(filename).replace(/^\./,  '').toLowerCase();
+  }
+  
+  // If we have a valid extension, use our categorization system
+  if (extension) {
+    const category = categorizeFileType(extension);
+    // Return the category unless it's just the uppercase extension (unknown type)
+    if (category !== extension.toUpperCase()) {
+      return category;
+    }
+  }
+  
+  // Fallback to MIME type mapping for common types
   const types = {
     'application/pdf': 'PDF Document',
     'application/msword': 'Word Document',
@@ -38,7 +55,17 @@ function getFileTypeDescription(mimeType) {
     'image/png': 'PNG Image',
     'application/zip': 'ZIP Archive'
   };
-  return types[mimeType] || 'Unknown File Type';
+  
+  if (types[mimeType]) {
+    return types[mimeType];
+  }
+  
+  // If we still don't have a match, return the extension in a readable format
+  if (extension) {
+    return `${extension.toUpperCase()} File`;
+  }
+  
+  return 'Unknown File Type';
 }
 
 module.exports = {

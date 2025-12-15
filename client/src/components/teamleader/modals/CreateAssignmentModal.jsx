@@ -98,18 +98,18 @@ const CreateAssignmentModal = ({
     <div className="tl-modal-overlay" onClick={handleClose}>
       <div className="tl-modal-large" onClick={e => e.stopPropagation()}>
         <div className="tl-modal-header">
-          <h3>Create New Assignment</h3>
+          <h3>Create New Task</h3>
           <button onClick={handleClose}>×</button>
         </div>
         <div className="tl-modal-body-large">
           <form>
             <div className="tl-form-group">
-              <label>Assignment Title *</label>
+              <label>Task Title *</label>
               <input
                 type="text"
                 value={assignmentForm.title}
                 onChange={(e) => setAssignmentForm({...assignmentForm, title: e.target.value})}
-                placeholder="Enter assignment title..."
+                placeholder="Enter task title..."
                 required
               />
             </div>
@@ -119,7 +119,7 @@ const CreateAssignmentModal = ({
               <textarea
                 value={assignmentForm.description}
                 onChange={(e) => setAssignmentForm({...assignmentForm, description: e.target.value})}
-                placeholder="Enter assignment description..."
+                placeholder="Enter task description..."
                 rows="4"
               />
             </div>

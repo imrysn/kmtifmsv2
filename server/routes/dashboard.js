@@ -1,5 +1,6 @@
 const express = require('express');
 const { db } = require('../config/database');
+const { categorizeFileTypes } = require('../utils/fileTypeUtils');
 
 const router = express.Router();
 
@@ -34,7 +35,8 @@ router.get('/summary', (req, res) => {
               // non-fatal - continue without types
               summary.fileTypes = [];
             } else {
-              summary.fileTypes = types || [];
+              // Categorize file types for better visualization
+              summary.fileTypes = categorizeFileTypes(types || []);
             }
 
             // Recent activity logs
@@ -193,7 +195,8 @@ router.get('/team/:teamName', (req, res) => {
                   console.error('❌ Error getting file types:', err);
                   analytics.fileTypes = [];
                 } else {
-                  analytics.fileTypes = fileTypes || [];
+                  // Categorize file types for better visualization
+                  analytics.fileTypes = categorizeFileTypes(fileTypes || []);
                 }
 
                 // Top contributors (members with most files)

@@ -1,4 +1,5 @@
 import './css/AssignmentDetailsModal.css'
+import { getDisplayFileType } from '../../../utils/fileTypeUtils'
 
 const FileViewModal = ({
   showModal,
@@ -71,7 +72,7 @@ const FileViewModal = ({
               </div>
               <div className="detail-item">
                 <span className="detail-label">FILE TYPE:</span>
-                <span className="detail-value">{selectedFile.file_type}</span>
+                <span className="detail-value">{getDisplayFileType(selectedFile.file_type, selectedFile.original_name)}</span>
               </div>
               <div className="detail-item">
                 <span className="detail-label">FILE SIZE:</span>

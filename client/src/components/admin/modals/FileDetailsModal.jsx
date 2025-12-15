@@ -1,5 +1,6 @@
 import React from 'react'
 import './FileDetailsModal.css'
+import { getDisplayFileType } from '../../../utils/fileTypeUtils'
 
 const FileDetailsModal = ({
   isOpen,
@@ -38,7 +39,7 @@ const FileDetailsModal = ({
               </div>
               <div className="detail-item">
                 <span className="detail-label">FILE TYPE:</span>
-                <span className="detail-value">{file.file_type}</span>
+                <span className="detail-value">{getDisplayFileType(file.file_type, file.original_name)}</span>
               </div>
               <div className="detail-item">
                 <span className="detail-label">FILE SIZE:</span>
