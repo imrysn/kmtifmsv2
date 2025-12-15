@@ -117,7 +117,8 @@
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
       "shortcutName": "KMTI FMS",
-      "deleteAppDataOnUninstall": false
+      "deleteAppDataOnUninstall": false,
+      "artifactName": "KMTI_FMS_Installer_${version}.${ext}"
     },
     "mac": {
       "target": "dmg",
@@ -132,6 +133,11 @@
       "target": "AppImage",
       "icon": "client/src/assets/fms-icon.png",
       "category": "Office"
-    }
+    },
+    "asarUnpack": [
+      "node_modules/sqlite3/**/*"
+    ],
+    "buildDependenciesFromSource": false,
+    "npmRebuild": false
   }
 }
