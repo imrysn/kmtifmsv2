@@ -1,0 +1,242 @@
+name: Build and Release Electron App
+
+on:
+  # Trigger on version tags
+  push:
+    tags:
+      - 'v*.*.*'
+  
+  # Allow manual workflow dispatch
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to release (e.g., 2.0.1)'
+        required: true
+        type: string
+
+# Environment variables for the entire workflow
+env:
+  NODE_VERSION: '18.x'
+
+jobs:
+  build-windows:
+    name: Build for Windows
+    runs-on: windows-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Fetch all history for proper versioning
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Get version from tag or input
+        id: version
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            VERSION="${{ github.event.inputs.version }}"
+          else
+            VERSION=${GITHUB_REF#refs/tags/v}
+          fi
+          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+          echo "Building version: $VERSION"
+
+      - name: Update package.json version
+        shell: bash
+        run: |
+          VERSION="${{ steps.version.outputs.VERSION }}"
+          npm version $VERSION --no-git-tag-version --allow-same-version
+
+      - name: Install root dependencies
+        run: npm ci
+
+      - name: Install client dependencies
+        working-directory: ./client
+        run: npm ci
+
+      - name: Build React client
+        working-directory: ./client
+        run: npm run build
+        env:
+          NODE_ENV: production
+
+      - name: Verify client build
+        shell: bash
+        run: |
+          if [ ! -d "client/dist" ]; then
+            echo "Error: client/dist directory not found"
+            exit 1
+          fi
+          echo "Client build successful"
+
+      - name: Build Electron app
+        run: npm run electron:pack
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          NODE_ENV: production
+          # Code signing placeholders (add these secrets in repository settings when ready)
+          # CSC_LINK: ${{ secrets.CSC_LINK }}
+          # CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+
+      - name: List build outputs
+        shell: bash
+        run: |
+          echo "Build artifacts:"
+          ls -lh dist/
+
+      - name: Upload Windows artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-build
+          path: |
+            dist/*.exe
+            dist/*.yml
+          retention-days: 5
+
+  # macOS build job (placeholder - ready for future use)
+  build-macos:
+    name: Build for macOS
+    runs-on: macos-latest
+    if: false  # Disabled by default - enable when needed
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: |
+          npm ci
+          cd client && npm ci
+
+      - name: Build app
+        run: |
+          npm run client:build
+          npm run electron:pack
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          # macOS code signing placeholders
+          # CSC_LINK: ${{ secrets.MACOS_CSC_LINK }}
+          # CSC_KEY_PASSWORD: ${{ secrets.MACOS_CSC_KEY_PASSWORD }}
+          # APPLE_ID: ${{ secrets.APPLE_ID }}
+          # APPLE_ID_PASSWORD: ${{ secrets.APPLE_ID_PASSWORD }}
+
+      - name: Upload macOS artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-build
+          path: dist/*.dmg
+
+  # Linux build job (placeholder - ready for future use)
+  build-linux:
+    name: Build for Linux
+    runs-on: ubuntu-latest
+    if: false  # Disabled by default - enable when needed
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: |
+          npm ci
+          cd client && npm ci
+
+      - name: Build app
+        run: |
+          npm run client:build
+          npm run electron:pack
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+
+      - name: Upload Linux artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-build
+          path: dist/*.AppImage
+
+  # Create GitHub Release and publish artifacts
+  release:
+    name: Create GitHub Release
+    needs: [build-windows]  # Add build-macos, build-linux when enabled
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write  # Required for creating releases
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Get version
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            VERSION="${{ github.event.inputs.version }}"
+          else
+            VERSION=${GITHUB_REF#refs/tags/v}
+          fi
+          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+          echo "TAG=v$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Download Windows artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: windows-build
+          path: ./release-artifacts/windows
+
+      # Uncomment when other platforms are enabled
+      # - name: Download macOS artifacts
+      #   uses: actions/download-artifact@v4
+      #   with:
+      #     name: macos-build
+      #     path: ./release-artifacts/macos
+
+      # - name: Download Linux artifacts
+      #   uses: actions/download-artifact@v4
+      #   with:
+      #     name: linux-build
+      #     path: ./release-artifacts/linux
+
+      - name: List all artifacts
+        run: |
+          echo "Release artifacts:"
+          find ./release-artifacts -type f -ls
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ steps.version.outputs.TAG }}
+          name: Release ${{ steps.version.outputs.VERSION }}
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+          files: |
+            release-artifacts/**/*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+
+      - name: Release summary
+        run: |
+          echo "### 🎉 Release Created Successfully!" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Version:** ${{ steps.version.outputs.VERSION }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Tag:** ${{ steps.version.outputs.TAG }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "The release is now available for automatic updates!" >> $GITHUB_STEP_SUMMARY

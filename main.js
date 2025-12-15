@@ -2,6 +2,7 @@ const { app, BrowserWindow, ipcMain, dialog, shell, screen } = require('electron
 const path = require('path');
 const { spawn } = require('child_process');
 const http = require('http');
+const updater = require('./updater');
 
 let mainWindow;
 let splashWindow;
@@ -11,6 +12,7 @@ let viteRetryInterval = null;
 let isConnectedToVite = false;
 
 const isDev = process.env.NODE_ENV === 'development';
+const isProduction = !isDev;
 const SERVER_PORT = process.env.EXPRESS_PORT || 3001;
 const VITE_URL = 'http://localhost:5173';
 const EXPRESS_CHECK_INTERVAL = 500;
@@ -168,9 +170,13 @@ function createSplashWindow() {
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
-      enableRemoteModule: false
+      enableRemoteModule: false,
+      preload: path.join(__dirname, 'preload.js')
     }
   });
+
+  // Register splash window with updater
+  updater.setSplashWindow(splashWindow);
 
   const splashHtml = `
     <!DOCTYPE html>
@@ -205,6 +211,17 @@ function createSplashWindow() {
           animation: spin 1s linear infinite;
           margin: 0 auto 30px;
         }
+        .spinner.checking {
+          animation: pulse 1.5s ease-in-out infinite;
+        }
+        .spinner.downloading {
+          border-top-color: #4ade80;
+          animation: spin 0.8s linear infinite;
+        }
+        .spinner.downloaded {
+          border: 4px solid #4ade80;
+          animation: none;
+        }
         .logo {
           font-size: 28px;
           font-weight: bold;
@@ -220,10 +237,30 @@ function createSplashWindow() {
           font-size: 14px;
           opacity: 0.8;
           line-height: 1.5;
+          min-height: 20px;
+        }
+        .progress-bar {
+          width: 200px;
+          height: 4px;
+          background: rgba(255, 255, 255, 0.2);
+          border-radius: 2px;
+          margin: 15px auto 10px;
+          overflow: hidden;
+          display: none;
+        }
+        .progress-fill {
+          height: 100%;
+          background: #4ade80;
+          width: 0%;
+          transition: width 0.3s ease;
         }
         @keyframes spin {
           0% { transform: rotate(0deg); }
           100% { transform: rotate(360deg); }
+        }
+        @keyframes pulse {
+          0%, 100% { transform: scale(1); opacity: 1; }
+          50% { transform: scale(1.1); opacity: 0.8; }
         }
         @keyframes fadeIn {
           from { opacity: 0; transform: scale(0.95); }
@@ -234,12 +271,57 @@ function createSplashWindow() {
     <body>
       <div class="container">
         <div class="logo">KMTI</div>
-        <div class="spinner"></div>
+        <div class="spinner" id="spinner"></div>
         <div class="title">File Management System</div>
-        <div class="message">
+        <div class="progress-bar" id="progressBar">
+          <div class="progress-fill" id="progressFill"></div>
+        </div>
+        <div class="message" id="message">
           ${isDev ? 'Starting development server...' : 'Initializing...'}
         </div>
       </div>
+      <script>
+        // Update splash screen based on updater events
+        if (window.updater) {
+          window.updater.onStatus((data) => {
+            const spinner = document.getElementById('spinner');
+            const message = document.getElementById('message');
+            const progressBar = document.getElementById('progressBar');
+            const progressFill = document.getElementById('progressFill');
+
+            spinner.className = 'spinner';
+            progressBar.style.display = 'none';
+
+            switch(data.status) {
+              case 'checking':
+                spinner.className = 'spinner checking';
+                message.textContent = 'Checking for updates...';
+                break;
+              case 'available':
+                message.textContent = \`Update v\${data.version} available\`;
+                break;
+              case 'downloading':
+                spinner.className = 'spinner downloading';
+                progressBar.style.display = 'block';
+                progressFill.style.width = data.percent + '%';
+                message.textContent = \`Downloading update: \${data.percent}%\`;
+                break;
+              case 'downloaded':
+                spinner.className = 'spinner downloaded';
+                progressBar.style.display = 'block';
+                progressFill.style.width = '100%';
+                message.textContent = 'Update ready to install';
+                break;
+              case 'error':
+                message.textContent = 'Update check failed';
+                setTimeout(() => {
+                  message.textContent = 'Continuing with current version...';
+                }, 2000);
+                break;
+            }
+          });
+        }
+      </script>
     </body>
     </html>`;
 
@@ -295,6 +377,9 @@ function createWindow() {
   }
 
   mainWindow.setMenuBarVisibility(false);
+  // Register main window with updater
+  updater.setMainWindow(mainWindow);
+
   mainWindow.once('ready-to-show', () => {
  
     if (splashWindow && !splashWindow.isDestroyed()) {
@@ -559,6 +644,14 @@ if (app) {
     console.log('🔒 Content Security Policy configured');
 
     try {
+      // Run health check on startup (if pending verification)
+      if (isProduction) {
+        const isHealthy = await updater.checkStartupHealth();
+        if (!isHealthy) {
+          console.warn('⚠️  Application started with health warnings');
+        }
+      }
+
       // Create splash window FIRST - shows immediately
       createSplashWindow();
 
@@ -573,6 +666,12 @@ if (app) {
 
       // Wait briefly for Vite (but proceed even if not ready)
       await waitForViteServer();
+
+      // Start automatic update checks (production only)
+      if (isProduction) {
+        updater.startPeriodicUpdateCheck();
+        console.log('🔄 Automatic update system initialized');
+      }
 
     } catch (error) {
       console.error('❌ Failed to start application:', error.message);
@@ -652,5 +751,20 @@ if (ipcMain) {
       console.log(`🔔 Window flash: ${shouldFlash ? 'START' : 'STOP'}`);
       mainWindow.flashFrame(shouldFlash);
     }
+  });
+
+  // Updater IPC handlers
+  ipcMain.on('updater:quit-and-install', () => {
+    console.log('🔄 User requested update installation');
+    updater.quitAndInstall();
+  });
+
+  ipcMain.on('updater:check-for-updates', () => {
+    console.log('🔍 Manual update check requested');
+    updater.checkForUpdates();
+  });
+
+  ipcMain.handle('app:get-version', () => {
+    return app.getVersion();
   });
 }

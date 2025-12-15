@@ -50,7 +50,8 @@
     "network:verify": "node server/scripts/network/verify-network-connection.js",
     "network:switch-local": "node server/scripts/network/switch-to-local-test.js",
     "network:restore": "node server/scripts/network/restore-network-mode.js",
-    "network:create-test-dir": "node server/scripts/network/create-local-test-directory.js"
+    "network:create-test-dir": "node server/scripts/network/create-local-test-directory.js",
+    "validate:updates": "node validate-update-system.js"
   },
   "devDependencies": {
     "concurrently": "^8.2.2",
@@ -63,6 +64,8 @@
     "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",
     "dotenv": "^17.2.3",
+    "electron-log": "^5.0.1",
+    "electron-updater": "^6.1.7",
     "express": "^4.18.2",
     "multer": "^1.4.5-lts.1",
     "mysql2": "^3.15.1",
@@ -79,6 +82,7 @@
       "main.js",
       "preload.js",
       "server.js",
+      "updater.js",
       "server/**/*",
       "database/**/*",
       "client/dist/**/*",
@@ -88,17 +92,46 @@
       "!database/backups/**",
       "!database/sql/*.backup"
     ],
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "imrysn",
+        "repo": "kmtifmsv2",
+        "releaseType": "release"
+      }
+    ],
     "win": {
-      "target": "nsis",
-      "icon": "client/src/assets/fms-icon.ico"
+      "target": [
+        {
+          "target": "nsis",
+          "arch": ["x64"]
+        }
+      ],
+      "icon": "client/src/assets/fms-icon.ico",
+      "publisherName": "KMTI",
+      "verifyUpdateCodeSignature": false
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "KMTI FMS",
+      "deleteAppDataOnUninstall": false
     },
     "mac": {
       "target": "dmg",
-      "icon": "client/src/assets/fms-icon.png"
+      "icon": "client/src/assets/fms-icon.png",
+      "category": "public.app-category.business",
+      "hardenedRuntime": true,
+      "gatekeeperAssess": false,
+      "entitlements": null,
+      "entitlementsInherit": null
     },
     "linux": {
       "target": "AppImage",
-      "icon": "client/src/assets/fms-icon.png"
+      "icon": "client/src/assets/fms-icon.png",
+      "category": "Office"
     }
   }
 }
