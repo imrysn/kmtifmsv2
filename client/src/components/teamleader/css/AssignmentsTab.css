@@ -130,23 +130,39 @@
   color: #1c1e21;
 }
 
-/* Role Badge */
+/* Role Badge - Unified Style */
 .tl-assignments-role-badge {
-  background: #e4e6eb;
-  color: #65676b;
   padding: 2px 8px;
-  border-radius: 4px;
-  font-size: 11px;
+  border-radius: 12px;
+  font-size: 0.7rem;
   font-weight: 600;
   text-transform: uppercase;
-  margin: 0 6px;
+  margin-left: 5px;
   display: inline-block;
+  border: 1px solid;
+  background: transparent !important;
+  background-color: transparent !important;
+}
+
+.tl-assignments-role-badge.user {
+  border-color: #059669;
+  color: #059669;
+  background: transparent !important;
+  background-color: transparent !important;
 }
 
 .tl-assignments-role-badge.team-leader {
-  border: 1px solid #1d4ed8;
+  border-color: #1d4ed8;
   color: #1d4ed8;
-  background: transparent;
+  background: transparent !important;
+  background-color: transparent !important;
+}
+
+.tl-assignments-role-badge.admin {
+  border-color: #dc2626;
+  color: #dc2626;
+  background: transparent !important;
+  background-color: transparent !important;
 }
 
 .tl-assignment-assigned-user {
