@@ -48,6 +48,10 @@ const UserDashboard = ({ user, onLogout }) => {
     }
   }
 
+  const handleTabChange = (tab) => {
+    setActiveTab(tab);
+  };
+
   useEffect(() => {
     // Fetch notifications only once on mount
     const fetchNotifications = async () => {
@@ -188,11 +192,6 @@ const UserDashboard = ({ user, onLogout }) => {
     setSuccess('')
   }
 
-  const handleTabChange = (tab) => {
-    setActiveTab(tab)
-    clearMessages()
-  }
-
   const handleLogout = () => {
     onLogout()
   }
@@ -257,7 +256,9 @@ const UserDashboard = ({ user, onLogout }) => {
           <DashboardTab
             user={user}
             files={files}
-            setActiveTab={setActiveTab}
+            setActiveTab={handleTabChange}
+            onOpenFile={openFileByIdFromNotification}
+            onNavigateToTasks={navigateToTasks}
           />
         );
     }

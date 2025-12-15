@@ -246,6 +246,7 @@
   cursor: pointer;
   contain: layout style paint;
   will-change: auto;
+  user-select: none; /* Prevent text selection on double-click */
 }
 
 .file-row-new:last-child {
@@ -255,6 +256,11 @@
 .file-row-new:hover {
   background: #f9f9fb;
   box-shadow: inset 0 0 0 1px #e5e5ea;
+}
+
+/* Visual hint for double-click */
+.file-row-new:active {
+  background: #f3f4f6;
 }
 
 /* Column - Filename */

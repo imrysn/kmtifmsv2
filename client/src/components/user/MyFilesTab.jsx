@@ -1,9 +1,8 @@
 import './css/MyFilesTab.css';
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import ConfirmationModal from '../admin/modals/ConfirmationModal';
 import SuccessModal from './SuccessModal';
 import FileIcon from '../admin/FileIcon';
-import FileModal from './FileModal';
 
 const MyFilesTab = ({ 
   filteredFiles,
@@ -18,14 +17,15 @@ const MyFilesTab = ({
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [fileToDelete, setFileToDelete] = useState(null);
   const [successModal, setSuccessModal] = useState({ isOpen: false, title: '', message: '', type: 'success' });
-  const [showFileDetailsModal, setShowFileDetailsModal] = useState(false);
-  const [selectedFile, setSelectedFile] = useState(null);
   
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [itemsPerPage, setItemsPerPage] = useState(7);
 
-
+  // Double-click detection
+  const clickTimerRef = useRef(null);
+  const lastClickedFileRef = useRef(null);
+  const DOUBLE_CLICK_DELAY = 300; // milliseconds
 
   const openFile = useCallback(async (file) => {
     try {
@@ -64,15 +64,35 @@ const MyFilesTab = ({
 
   const handleFileClick = useCallback((file, e) => {
     e.stopPropagation();
-    setSelectedFile(file);
-    setShowFileDetailsModal(true);
-  }, []);
-
-  const handleOpenFileFromModal = useCallback(() => {
-    if (selectedFile) {
-      openFile(selectedFile);
+    
+    // Clear any existing timer
+    if (clickTimerRef.current) {
+      clearTimeout(clickTimerRef.current);
     }
-  }, [selectedFile, openFile]);
+
+    // Check if this is a double-click (same file clicked twice quickly)
+    if (lastClickedFileRef.current === file.id) {
+      // Double-click detected - open file
+      lastClickedFileRef.current = null;
+      openFile(file);
+    } else {
+      // Single click - just set the reference, don't open modal
+      lastClickedFileRef.current = file.id;
+      clickTimerRef.current = setTimeout(() => {
+        // Reset after delay
+        lastClickedFileRef.current = null;
+      }, DOUBLE_CLICK_DELAY);
+    }
+  }, [openFile]);
+
+  // Cleanup timer on unmount
+  useEffect(() => {
+    return () => {
+      if (clickTimerRef.current) {
+        clearTimeout(clickTimerRef.current);
+      }
+    };
+  }, []);
 
   const openDeleteModal = useCallback((file, e) => {
     if (e) {
@@ -361,7 +381,12 @@ const MyFilesTab = ({
             {paginatedFiles.map((file) => {
               const { date, time } = formatDateTime(file.uploaded_at);
               return (
-                <div key={file.id} className="file-row-new" onClick={(e) => handleFileClick(file, e)}>
+                <div 
+                  key={file.id} 
+                  className="file-row-new" 
+                  onClick={(e) => handleFileClick(file, e)}
+                  title="Double click to open file"
+                >
                   <div className="col-filename">
                     <FileIcon 
                       fileType={file.original_name.split('.').pop().toLowerCase()} 
@@ -482,8 +507,6 @@ const MyFilesTab = ({
         </div>
       )}
 
-
-
       <ConfirmationModal
         isOpen={showDeleteModal}
         onClose={() => {
@@ -506,22 +529,12 @@ const MyFilesTab = ({
         </p>
       </ConfirmationModal>
 
-
-
       <SuccessModal
         isOpen={successModal.isOpen}
         onClose={() => setSuccessModal({ ...successModal, isOpen: false })}
         title={successModal.title}
         message={successModal.message}
         type={successModal.type}
-      />
-
-      <FileModal 
-        showFileModal={showFileDetailsModal}
-        setShowFileModal={setShowFileDetailsModal}
-        selectedFile={selectedFile}
-        fileComments={[]}
-        formatFileSize={formatFileSize}
       />
     </div>
   );
