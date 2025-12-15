@@ -295,7 +295,7 @@ const NotificationTab = ({ user, onOpenFile, onNavigateToTasks, onUpdateUnreadCo
           <div className="page-header-content">
             <div className="page-header-left">
               <h2>Notifications</h2>
-              <p>Stay updated with your file approvals and system messages</p>
+              <p>Click on any notification to view details</p>
             </div>
           </div>
         </div>
@@ -362,15 +362,19 @@ const NotificationTab = ({ user, onOpenFile, onNavigateToTasks, onUpdateUnreadCo
             {displayedNotifications.map((notification) => (
               <div 
                 key={notification.id} 
-                className={`notification-card ${getNotificationColor(notification.type)} ${!notification.is_read ? 'unread' : ''}`}
+                className={`notification-card clickable ${getNotificationColor(notification.type)} ${!notification.is_read ? 'unread' : ''}`}
                 onClick={() => handleNotificationClick(notification)}
-                style={{ cursor: 'pointer' }}
               >
                 <div className="notification-icon">
                   {getNotificationIcon(notification.type)}
                 </div>
                 <div className="notification-content">
-                  <h4 className="notification-title">{notification.title}</h4>
+                  <div className="notification-title-row">
+                    <h4 className="notification-title">{notification.title}</h4>
+                    <svg className="arrow-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M7.21 14.77a.75.75 0 01.02-1.06L11.168 10 7.23 6.29a.75.75 0 111.04-1.08l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 01-1.06-.02z" clipRule="evenodd" />
+                    </svg>
+                  </div>
                   <p className="notification-message">{notification.message}</p>
                   <div className="notification-footer">
                     <span className="notification-action-by">

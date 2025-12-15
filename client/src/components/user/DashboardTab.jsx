@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import './css/DashboardTab.css';
 import { LoadingCards } from '../common/InlineSkeletonLoader';
 
-const DashboardTab = ({ user, files, setActiveTab }) => {
+const DashboardTab = ({ user, files, setActiveTab, onOpenFile, onNavigateToTasks }) => {
   const [assignments, setAssignments] = useState([]);
   const [teamTasks, setTeamTasks] = useState([]);
   const [notifications, setNotifications] = useState([]);
@@ -48,6 +48,40 @@ const DashboardTab = ({ user, files, setActiveTab }) => {
 
   const handleRefresh = () => {
     fetchDashboardData();
+  };
+
+  const handleNotificationClick = async (notification) => {
+    // Mark notification as read
+    try {
+      await fetch(`http://localhost:3001/api/notifications/${notification.id}/read`, {
+        method: 'PUT'
+      });
+    } catch (error) {
+      console.error('Error marking notification as read:', error);
+    }
+
+    // Navigate based on notification type
+    if (notification.type === 'comment' && notification.assignment_id) {
+      sessionStorage.setItem('scrollToAssignment', notification.assignment_id);
+      sessionStorage.setItem('highlightCommentBy', notification.action_by_username);
+      if (onNavigateToTasks) {
+        onNavigateToTasks(notification.assignment_id);
+      } else {
+        setActiveTab('tasks');
+      }
+    } else if (notification.type === 'assignment') {
+      if (onNavigateToTasks) {
+        onNavigateToTasks();
+      } else {
+        setActiveTab('tasks');
+      }
+    } else if (notification.file_id) {
+      if (onOpenFile) {
+        onOpenFile(notification.file_id);
+      } else {
+        setActiveTab('my-files');
+      }
+    }
   };
 
   const myTasksStats = {
@@ -147,7 +181,9 @@ const DashboardTab = ({ user, files, setActiveTab }) => {
           <div className="stat-card-content">
             <div className="stat-card-label">My Tasks</div>
             <div className="stat-card-value">{myTasksStats.total}</div>
-            <div className="stat-card-detail"><span className="pending-count">{myTasksStats.pending} pending</span> · <span className="submitted-count">{myTasksStats.submitted} submitted</span></div>
+            <div className="stat-card-detail">
+              <span className="pending-count">{myTasksStats.pending} pending</span> · <span className="submitted-count">{myTasksStats.submitted} submitted</span>
+            </div>
           </div>
         </div>
 
@@ -161,7 +197,9 @@ const DashboardTab = ({ user, files, setActiveTab }) => {
           <div className="stat-card-content">
             <div className="stat-card-label">My Files</div>
             <div className="stat-card-value">{filesStats.total}</div>
-            <div className="stat-card-detail"><span className="pending-count">{filesStats.pending} pending</span> · <span className="approved-count">{filesStats.approved} approved</span> · <span className="rejected-count">{filesStats.rejected} rejected</span></div>
+            <div className="stat-card-detail">
+              <span className="pending-count">{filesStats.pending} pending</span> · <span className="approved-count">{filesStats.approved} approved</span> · <span className="rejected-count">{filesStats.rejected} rejected</span>
+            </div>
           </div>
         </div>
 
@@ -367,7 +405,12 @@ const DashboardTab = ({ user, files, setActiveTab }) => {
             {notificationStats.recent.length > 0 ? (
               <>
                 {notificationStats.recent.map(notification => (
-                  <div key={notification.id} className={`notification-item-modern ${!notification.is_read ? 'unread' : ''}`}>
+                  <div 
+                    key={notification.id} 
+                    className={`notification-item-modern ${!notification.is_read ? 'unread' : ''}`}
+                    onClick={() => handleNotificationClick(notification)}
+                    style={{ cursor: 'pointer' }}
+                  >
                     <div className="notification-text">
                       <div className="notification-title-modern">{notification.title}</div>
                       <div className="notification-time-modern">
