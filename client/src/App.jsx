@@ -8,6 +8,7 @@ import Login from './components/Login'
 import UserDashboard from './pages/UserDashboard-Enhanced'
 import TeamLeaderDashboard from './pages/TeamLeaderDashboard-Refactored'
 import AdminDashboard from './pages/AdminDashboard'
+import UpdateStatusBanner from './components/updater/UpdateStatusBanner'
 
 const logger = createLogger('App')
 
@@ -65,6 +66,9 @@ function App() {
   return (
     <Router>
       <div className="app">
+        {/* Update status banner - only visible in production when updates are available */}
+        <UpdateStatusBanner />
+        
         <Routes>
           <Route 
             path="/login" 
