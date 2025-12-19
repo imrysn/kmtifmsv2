@@ -5,6 +5,12 @@ echo ========================================
 echo.
 echo This will build: KMTI_FMS_Installer_2.0.0.exe
 echo.
+
+REM Change to script directory
+cd /d "%~dp0"
+
+echo Working directory: %CD%
+echo.
 pause
 
 REM Close any running instances
