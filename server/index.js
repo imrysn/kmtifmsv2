@@ -1,4 +1,6 @@
 const express = require('express');
+const path = require('path');
+const fs = require('fs');
 const { db, dbPath, networkDataPath, USE_MYSQL, closeDatabase } = require('./config/database');
 const { setupMiddleware } = require('./config/middleware');
 const { initializeDatabase, verifyUploadsDirectory } = require('./db/initialize');
@@ -45,6 +47,30 @@ app.use('/api/settings', settingsRoutes);
 app.use('/api/file-viewer', fileViewerRoutes);
 app.use('/api/notifications', notificationsRoutes);
 app.use('/api/assignments', assignmentsRoutes);
+
+// Serve static files from the React app build directory
+// In bundled mode, client files are in client-dist, otherwise in ../client/dist
+const clientBuildPath = path.join(__dirname, 'client-dist');
+const fallbackClientPath = path.join(__dirname, '../client/dist');
+
+// Check which path exists (bundled vs development)
+const actualClientPath = fs.existsSync(clientBuildPath) ? clientBuildPath : fallbackClientPath;
+
+if (fs.existsSync(actualClientPath)) {
+  console.log(`📁 Serving frontend from: ${actualClientPath}`);
+  app.use(express.static(actualClientPath));
+
+  // Catch all handler: send back React's index.html file for client-side routing
+  app.get('*', (req, res) => {
+    // Don't serve index.html for API routes
+    if (req.path.startsWith('/api/')) {
+      return res.status(404).json({ error: 'API endpoint not found' });
+    }
+    res.sendFile(path.join(actualClientPath, 'index.html'));
+  });
+} else {
+  console.warn('⚠️  Frontend build not found. Server will only serve API endpoints.');
+}
 
 // Start server
 async function startServer() {

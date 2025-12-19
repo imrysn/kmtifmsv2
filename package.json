@@ -17,9 +17,14 @@
     "prod": "npm run client:build && npm run electron:prod",
     "client:build": "cd client && npm run build",
     "electron:pack": "electron-builder",
-    "build": "npm run client:build && npm run electron:pack",
-    "build:installer": "npm run client:build && npm run electron:pack",
-    "build:server": "ncc build server.js -o dist-server",
+    "build": "npm run client:build && npm run build:server && npm run electron:pack",
+    "build:installer": "npm run client:build && npm run build:server && npm run electron:pack",
+    "build:server": "npm run client:build && ncc build server.js -o dist-server",
+    "build:server-standalone": "npm run client:build && ncc build server.js -o dist-server && xcopy client\\dist dist-server\\client-dist /E /I /Y",
+    "build:server-exe": "npm run build:server-standalone && pkg server.js --targets node18-win-x64 --output dist\\KMTI_FMS_Server.exe",
+    "build:server-installer": "npm run build:server-exe && xcopy database dist\\database /E /I /Y && copy .env dist\\.env && copy start-server.bat dist\\ && copy install-server-startup.bat dist\\ && xcopy dist-server\\client-dist dist\\client-dist /E /I /Y && echo Server installer created in dist\\",
+    "build:service-installer": "npm run build:server-installer && npm run create-service-scripts",
+    "create-service-scripts": "echo Creating Windows service scripts...",
     "postinstall": "cd client && npm install",
     "test:api": "node test-api.js",
     "server:standalone": "node server.js",
@@ -61,6 +66,7 @@
     "cross-env": "^7.0.3",
     "electron": "^27.0.0",
     "electron-builder": "^24.6.4",
+    "pkg": "^5.8.1",
     "wait-on": "^7.0.1"
   },
   "dependencies": {
@@ -73,6 +79,7 @@
     "multer": "^1.4.5-lts.1",
     "mysql2": "^3.15.1",
     "node-fetch": "^2.7.0",
+    "react-hook-form": "^7.68.0",
     "sqlite3": "^5.1.6"
   },
   "build": {

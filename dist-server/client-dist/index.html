@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/x-icon" href="./assets/fms-icon-83e494c9.ico" />
+    <link rel="icon" type="image/png" href="./assets/fms-icon-98e7b12f.png" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>KMTI File Management System</title>
+    <style>
+      /* Inline loading screen - shows INSTANTLY before JS loads */
+      #initial-loader {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 9999;
+        transition: opacity 0.3s ease-out;
+      }
+      
+      #initial-loader.loaded {
+        opacity: 0;
+        pointer-events: none;
+      }
+      
+      .loader-content {
+        text-align: center;
+        color: white;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        animation: fadeIn 0.3s ease-in-out;
+      }
+      
+      .loader-logo {
+        font-size: 32px;
+        font-weight: bold;
+        margin-bottom: 24px;
+        text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+      }
+      
+      .loader-spinner {
+        border: 4px solid rgba(255, 255, 255, 0.3);
+        border-top: 4px solid white;
+        border-radius: 50%;
+        width: 50px;
+        height: 50px;
+        animation: spin 1s linear infinite;
+        margin: 0 auto 24px;
+      }
+      
+      .loader-title {
+        font-size: 20px;
+        margin-bottom: 8px;
+        opacity: 0.95;
+      }
+      
+      .loader-message {
+        font-size: 14px;
+        opacity: 0.8;
+      }
+      
+      @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+      }
+      
+      @keyframes fadeIn {
+        from { opacity: 0; transform: scale(0.95); }
+        to { opacity: 1; transform: scale(1); }
+      }
+      
+      /* Hide root until React loads to prevent flash */
+      #root:empty {
+        display: none;
+      }
+    </style>
+    <script type="module" crossorigin src="./assets/index-c6791fe0.js"></script>
+    <link rel="modulepreload" crossorigin href="./assets/react-vendor-a308f804.js">
+    <link rel="modulepreload" crossorigin href="./assets/router-vendor-90630356.js">
+    <link rel="modulepreload" crossorigin href="./assets/anime-vendor-37453147.js">
+    <link rel="stylesheet" href="./assets/index-ad6a1706.css">
+  </head>
+  <body>
+    <!-- Instant loading screen - no JS required -->
+    <div id="initial-loader">
+      <div class="loader-content">
+        <div class="loader-logo">KMTI</div>
+        <div class="loader-spinner"></div>
+        <div class="loader-title">File Management System</div>
+        <div class="loader-message">Loading application...</div>
+      </div>
+    </div>
+    
+    <div id="root"></div>
+    
+    
+
+    <script src="./loader.js"></script>
+  </body>
+</html>
