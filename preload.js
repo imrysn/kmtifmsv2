@@ -18,20 +18,20 @@ try {
 
   // Expose updater API - secure and scoped
   contextBridge.exposeInMainWorld('updater', {
-    // Listen for update status events
+    // Listen for update toast events
     onStatus: (callback) => {
       const subscription = (event, data) => callback(data);
-      ipcRenderer.on('updater:status', subscription);
+      ipcRenderer.on('updater:toast', subscription);
       // Return unsubscribe function
-      return () => ipcRenderer.removeListener('updater:status', subscription);
+      return () => ipcRenderer.removeListener('updater:toast', subscription);
     },
-    
+
     // Request to install downloaded update and restart
     restartAndInstall: () => ipcRenderer.send('updater:quit-and-install'),
-    
+
     // Manually check for updates
     checkForUpdates: () => ipcRenderer.send('updater:check-for-updates'),
-    
+
     // Get current app version
     getVersion: () => ipcRenderer.invoke('app:get-version')
   });

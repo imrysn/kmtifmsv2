@@ -88,8 +88,34 @@ class UpdateStateManager {
   }
 
   shouldRevert() {
-    return this.state.pendingUpdateVerification && 
+    return this.state.pendingUpdateVerification &&
            this.state.consecutiveFailures >= MAX_STARTUP_FAILURES;
+  }
+
+  async rollbackUpdate() {
+    console.log('🔄 Attempting to rollback to previous version...');
+
+    try {
+      // Use electron-updater's rollback feature if available
+      if (autoUpdater.rollback && typeof autoUpdater.rollback === 'function') {
+        await autoUpdater.rollback();
+        console.log('✅ Update rolled back successfully');
+        return true;
+      } else {
+        // Manual rollback - mark as failed and suggest manual reinstall
+        console.warn('⚠️  Automatic rollback not available, manual intervention required');
+        console.warn('   Please reinstall the previous version manually from backup');
+
+        // Reset state to prevent further attempts
+        this.stateManager.state.pendingUpdateVerification = false;
+        this.stateManager.saveState();
+
+        return false;
+      }
+    } catch (error) {
+      console.error('❌ Rollback failed:', error.message);
+      return false;
+    }
   }
 
   resetFailures() {
@@ -211,7 +237,8 @@ class AppUpdater {
 
   notifyRenderer(status, data = {}) {
     if (this.mainWindow && !this.mainWindow.isDestroyed()) {
-      this.mainWindow.webContents.send('updater:status', {
+      // Send to toast container for toast notifications
+      this.mainWindow.webContents.send('updater:toast', {
         status,
         ...data,
         timestamp: Date.now()
@@ -355,23 +382,32 @@ class AppUpdater {
     // Check if we're in pending verification state
     if (this.stateManager.state.pendingUpdateVerification) {
       console.log('⚠️  Pending update verification detected');
-      
+
       // Check if we should revert
       if (this.stateManager.shouldRevert()) {
-        console.error('❌ Too many startup failures. Update appears broken.');
-        console.error('💡 Manual intervention required - reverting to previous version not implemented.');
-        console.error('   Please reinstall the previous version manually.');
-        
-        // Reset state to prevent infinite loop
-        this.stateManager.state.pendingUpdateVerification = false;
-        this.stateManager.saveState();
-        
-        return false;
+        console.error('❌ Too many startup failures. Update appears broken. Attempting rollback...');
+
+        // Attempt automatic rollback
+        const rollbackSuccess = await this.stateManager.rollbackUpdate();
+
+        if (rollbackSuccess) {
+          console.log('✅ Update rolled back successfully');
+          return false; // Still return false as app needs restart
+        } else {
+          console.error('❌ Automatic rollback failed. Manual intervention required.');
+          console.error('   Please reinstall the previous version manually.');
+
+          // Reset state to prevent infinite loop
+          this.stateManager.state.pendingUpdateVerification = false;
+          this.stateManager.saveState();
+
+          return false;
+        }
       }
 
       // Run health check
       const healthy = await this.runHealthCheck();
-      
+
       if (!healthy) {
         console.warn('⚠️  Health check failed, failure recorded');
         return false;

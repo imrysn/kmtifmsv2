@@ -2,6 +2,7 @@ const { app, BrowserWindow, ipcMain, dialog, shell, screen } = require('electron
 const path = require('path');
 const { spawn } = require('child_process');
 const http = require('http');
+const fs = require('fs');
 const updater = require('./updater');
 
 let mainWindow;
@@ -10,6 +11,7 @@ let serverProcess;
 let loadRetryCount = 0;
 let viteRetryInterval = null;
 let isConnectedToVite = false;
+let splashTimeout = null;
 
 const isDev = process.env.NODE_ENV === 'development';
 const isProduction = !isDev;
@@ -19,6 +21,30 @@ const EXPRESS_CHECK_INTERVAL = 500;
 const MAX_EXPRESS_WAIT = 30000; 
 const MAX_VITE_WAIT = 60000; 
 const MAX_LOAD_RETRIES = 10;
+const SPLASH_TIMEOUT = 15000; // 15 second max for splash screen
+
+// Logging utility with levels
+const LogLevel = {
+  ERROR: 0,
+  WARN: 1,
+  INFO: 2,
+  DEBUG: 3
+};
+
+const currentLogLevel = isDev ? LogLevel.DEBUG : LogLevel.INFO;
+
+function log(level, message, ...args) {
+  if (level <= currentLogLevel) {
+    const prefix = {
+      [LogLevel.ERROR]: '❌',
+      [LogLevel.WARN]: '⚠️',
+      [LogLevel.INFO]: '✅',
+      [LogLevel.DEBUG]: '🔍'
+    }[level] || '📝';
+    
+    console.log(`${prefix} ${message}`, ...args);
+  }
+}
 
 /*** Show a loading/error page as fallback when Vite isn't responding */
 function showFallbackPage() {
@@ -128,7 +154,100 @@ function showFallbackPage() {
 
     mainWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
     mainWindow.show();
-    console.log('🛑 Showing fallback loading page while waiting for Vite server...');
+    log(LogLevel.INFO, 'Showing fallback loading page while waiting for Vite server...');
+  }
+}
+
+/**
+ * Show error page when production build is missing
+ */
+function showProductionErrorPage(error) {
+  if (mainWindow && mainWindow.webContents) {
+    const html = `
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>KMTI FMS - Build Error</title>
+      <style>
+        body {
+          margin: 0;
+          padding: 20px;
+          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+          background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+          color: white;
+          height: 100vh;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+        .container {
+          text-align: center;
+          max-width: 600px;
+        }
+        .icon {
+          font-size: 64px;
+          margin-bottom: 20px;
+        }
+        .title {
+          font-size: 28px;
+          font-weight: bold;
+          margin-bottom: 15px;
+        }
+        .message {
+          font-size: 16px;
+          line-height: 1.6;
+          margin-bottom: 25px;
+          opacity: 0.95;
+        }
+        .details {
+          background: rgba(0,0,0,0.2);
+          padding: 15px;
+          border-radius: 8px;
+          font-family: monospace;
+          font-size: 14px;
+          margin-bottom: 25px;
+          text-align: left;
+        }
+        .button {
+          display: inline-block;
+          padding: 12px 24px;
+          background: white;
+          color: #dc2626;
+          border-radius: 6px;
+          text-decoration: none;
+          font-weight: 600;
+          transition: transform 0.2s;
+        }
+        .button:hover {
+          transform: translateY(-2px);
+        }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="icon">⚠️</div>
+        <div class="title">Application Build Not Found</div>
+        <div class="message">
+          The application interface could not be loaded. This usually happens when the build files are missing or corrupted.
+        </div>
+        <div class="details">
+          Error: ${error}<br>
+          <br>
+          Please rebuild the application:<br>
+          1. npm run client:build<br>
+          2. npm run build
+        </div>
+        <a href="#" onclick="require('electron').ipcRenderer.send('app:restart')" class="button">
+          Restart Application
+        </a>
+      </div>
+    </body>
+    </html>`;
+
+    mainWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
+    mainWindow.show();
   }
 }
 
@@ -140,7 +259,7 @@ function checkViteConnection() {
 
   checkViteServer().then((isReady) => {
     if (isReady && !isConnectedToVite) {
-      console.log('🔄 Vite server detected! Loading React app...');
+      log(LogLevel.INFO, 'Vite server detected! Loading React app...');
       isConnectedToVite = true;
       loadRetryCount = 0;
       mainWindow.loadURL(VITE_URL);
@@ -155,7 +274,7 @@ function checkViteConnection() {
   });
 }
 
-/*** Create and show splash window - NOW SHOWS IMMEDIATELY */
+/*** Create and show splash window - SHOWS IMMEDIATELY, NO BLOCKING */
 function createSplashWindow() {
   splashWindow = new BrowserWindow({
     width: 400,
@@ -174,9 +293,6 @@ function createSplashWindow() {
       preload: path.join(__dirname, 'preload.js')
     }
   });
-
-  // Register splash window with updater
-  updater.setSplashWindow(splashWindow);
 
   const splashHtml = `
     <!DOCTYPE html>
@@ -211,17 +327,6 @@ function createSplashWindow() {
           animation: spin 1s linear infinite;
           margin: 0 auto 30px;
         }
-        .spinner.checking {
-          animation: pulse 1.5s ease-in-out infinite;
-        }
-        .spinner.downloading {
-          border-top-color: #4ade80;
-          animation: spin 0.8s linear infinite;
-        }
-        .spinner.downloaded {
-          border: 4px solid #4ade80;
-          animation: none;
-        }
         .logo {
           font-size: 28px;
           font-weight: bold;
@@ -239,28 +344,9 @@ function createSplashWindow() {
           line-height: 1.5;
           min-height: 20px;
         }
-        .progress-bar {
-          width: 200px;
-          height: 4px;
-          background: rgba(255, 255, 255, 0.2);
-          border-radius: 2px;
-          margin: 15px auto 10px;
-          overflow: hidden;
-          display: none;
-        }
-        .progress-fill {
-          height: 100%;
-          background: #4ade80;
-          width: 0%;
-          transition: width 0.3s ease;
-        }
         @keyframes spin {
           0% { transform: rotate(0deg); }
           100% { transform: rotate(360deg); }
-        }
-        @keyframes pulse {
-          0%, 100% { transform: scale(1); opacity: 1; }
-          50% { transform: scale(1.1); opacity: 0.8; }
         }
         @keyframes fadeIn {
           from { opacity: 0; transform: scale(0.95); }
@@ -273,55 +359,10 @@ function createSplashWindow() {
         <div class="logo">KMTI</div>
         <div class="spinner" id="spinner"></div>
         <div class="title">File Management System</div>
-        <div class="progress-bar" id="progressBar">
-          <div class="progress-fill" id="progressFill"></div>
-        </div>
         <div class="message" id="message">
-          ${isDev ? 'Starting development server...' : 'Initializing...'}
+          ${isDev ? 'Starting development server...' : 'Initializing application...'}
         </div>
       </div>
-      <script>
-        // Update splash screen based on updater events
-        if (window.updater) {
-          window.updater.onStatus((data) => {
-            const spinner = document.getElementById('spinner');
-            const message = document.getElementById('message');
-            const progressBar = document.getElementById('progressBar');
-            const progressFill = document.getElementById('progressFill');
-
-            spinner.className = 'spinner';
-            progressBar.style.display = 'none';
-
-            switch(data.status) {
-              case 'checking':
-                spinner.className = 'spinner checking';
-                message.textContent = 'Checking for updates...';
-                break;
-              case 'available':
-                message.textContent = \`Update v\${data.version} available\`;
-                break;
-              case 'downloading':
-                spinner.className = 'spinner downloading';
-                progressBar.style.display = 'block';
-                progressFill.style.width = data.percent + '%';
-                message.textContent = \`Downloading update: \${data.percent}%\`;
-                break;
-              case 'downloaded':
-                spinner.className = 'spinner downloaded';
-                progressBar.style.display = 'block';
-                progressFill.style.width = '100%';
-                message.textContent = 'Update ready to install';
-                break;
-              case 'error':
-                message.textContent = 'Update check failed';
-                setTimeout(() => {
-                  message.textContent = 'Continuing with current version...';
-                }, 2000);
-                break;
-            }
-          });
-        }
-      </script>
     </body>
     </html>`;
 
@@ -329,24 +370,59 @@ function createSplashWindow() {
 
   splashWindow.once('ready-to-show', () => {
     splashWindow.show();
-    console.log('🚀 Splash window shown');
+    log(LogLevel.INFO, 'Splash window shown');
+    
+    // Safety timeout: force close splash after max time
+    splashTimeout = setTimeout(() => {
+      if (splashWindow && !splashWindow.isDestroyed()) {
+        log(LogLevel.WARN, 'Splash timeout reached, forcing close');
+        splashWindow.destroy();
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          mainWindow.show();
+        }
+      }
+    }, SPLASH_TIMEOUT);
   });
 
   return splashWindow;
+}
+
+/**
+ * Validate production build exists
+ */
+function validateProductionBuild() {
+  const indexPath = path.join(__dirname, 'client/dist/index.html');
+  const distPath = path.join(__dirname, 'client/dist');
+  
+  if (!fs.existsSync(distPath)) {
+    throw new Error('client/dist directory not found. Run: npm run client:build');
+  }
+  
+  if (!fs.existsSync(indexPath)) {
+    throw new Error('client/dist/index.html not found. Run: npm run client:build');
+  }
+  
+  // Check if dist has content
+  const files = fs.readdirSync(distPath);
+  if (files.length < 2) { // Should have at least index.html and assets
+    throw new Error('client/dist appears to be empty. Run: npm run client:build');
+  }
+  
+  log(LogLevel.INFO, 'Production build validated');
+  return indexPath;
 }
 
 function createWindow() {
   const primaryDisplay = screen.getPrimaryDisplay();
   const { width: screenWidth, height: screenHeight } = primaryDisplay.workAreaSize;
   
-
   const windowWidth = Math.floor(screenWidth * 0.8);
   const windowHeight = Math.floor(screenHeight * 0.8);
   const shouldAutoMaximize = screenWidth <= 1920 || screenHeight <= 1080;
   
-  console.log(`🖥️  Screen detected: ${screenWidth}x${screenHeight}`);
-  console.log(`📐 Window size: ${windowWidth}x${windowHeight}`);
-  console.log(`🔍 Auto-maximize: ${shouldAutoMaximize ? 'Yes' : 'No'}`);
+  log(LogLevel.DEBUG, `Screen detected: ${screenWidth}x${screenHeight}`);
+  log(LogLevel.DEBUG, `Window size: ${windowWidth}x${windowHeight}`);
+  log(LogLevel.DEBUG, `Auto-maximize: ${shouldAutoMaximize ? 'Yes' : 'No'}`);
   
   mainWindow = new BrowserWindow({
     width: windowWidth,
@@ -370,39 +446,43 @@ function createWindow() {
     },
   });
 
-
   if (shouldAutoMaximize) {
     mainWindow.maximize();
-    console.log('✅ Window auto-maximized');
+    log(LogLevel.DEBUG, 'Window auto-maximized');
   }
 
   mainWindow.setMenuBarVisibility(false);
-  // Register main window with updater
-  updater.setMainWindow(mainWindow);
 
   mainWindow.once('ready-to-show', () => {
- 
+    // Clear splash timeout
+    if (splashTimeout) {
+      clearTimeout(splashTimeout);
+      splashTimeout = null;
+    }
+    
+    // Close splash window
     if (splashWindow && !splashWindow.isDestroyed()) {
       splashWindow.destroy();
-      console.log('🏁 Splash window closed');
+      log(LogLevel.INFO, 'Splash window closed');
     }
+    
     mainWindow.show();
-    console.log('✅ Main Electron window opened!');
+    log(LogLevel.INFO, 'Main Electron window opened!');
   });
 
   if (isDev) {
-    console.log(`🔗 Attempting to load React app from ${VITE_URL}`);
+    log(LogLevel.DEBUG, `Attempting to load React app from ${VITE_URL}`);
 
     mainWindow.webContents.on('did-start-loading', () => {
-      console.log('🔄 Page started loading...');
+      log(LogLevel.DEBUG, 'Page started loading...');
     });
 
     mainWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription) => {
       loadRetryCount++;
-      console.error(`❌ Failed to load (attempt ${loadRetryCount}/${MAX_LOAD_RETRIES}): ${errorCode} - ${errorDescription}`);
+      log(LogLevel.ERROR, `Failed to load (attempt ${loadRetryCount}/${MAX_LOAD_RETRIES}): ${errorCode} - ${errorDescription}`);
 
       if (loadRetryCount >= MAX_LOAD_RETRIES) {
-        console.error('❌ Max retries reached. Showing fallback page.');
+        log(LogLevel.ERROR, 'Max retries reached. Showing fallback page.');
         showFallbackPage();
 
         if (splashWindow && !splashWindow.isDestroyed()) {
@@ -414,7 +494,7 @@ function createWindow() {
 
       const retryDelay = Math.min(1000 * Math.pow(1.5, loadRetryCount - 1), 5000);
       setTimeout(() => {
-        console.log(`🔄 Retrying connection to Vite (attempt ${loadRetryCount + 1})...`);
+        log(LogLevel.DEBUG, `Retrying connection to Vite (attempt ${loadRetryCount + 1})...`);
         mainWindow.loadURL(VITE_URL);
       }, retryDelay);
     });
@@ -422,26 +502,42 @@ function createWindow() {
     mainWindow.webContents.on('did-finish-load', () => {
       loadRetryCount = 0;
       isConnectedToVite = true;
-      console.log('✅ Page loaded successfully');
+      log(LogLevel.INFO, 'Page loaded successfully');
     });
 
     mainWindow.webContents.on('crashed', () => {
-      console.error('❌ Renderer process crashed!');
+      log(LogLevel.ERROR, 'Renderer process crashed!');
       showFallbackPage();
       mainWindow.show();
     });
 
-    mainWindow.webContents.on('console-message', (level, message, line, sourceId) => {
-      console.log(`🖼️  [Renderer]: ${message}`);
-    });
+    if (currentLogLevel >= LogLevel.DEBUG) {
+      mainWindow.webContents.on('console-message', (level, message, line, sourceId) => {
+        log(LogLevel.DEBUG, `[Renderer]: ${message}`);
+      });
+    }
 
     checkViteConnection();
     viteRetryInterval = setInterval(checkViteConnection, 3000);
 
-    mainWindow.loadURL(VITE_URL);
+    mainWindow.loadURL(VITE_URL).catch(err => {
+      log(LogLevel.ERROR, 'Failed to load Vite URL:', err);
+      showFallbackPage();
+      mainWindow.show();
+    });
   } else {
-    const indexPath = path.join(__dirname, 'client/dist/index.html');
-    mainWindow.loadFile(indexPath);
+    // PRODUCTION MODE - with validation
+    try {
+      const indexPath = validateProductionBuild();
+      mainWindow.loadFile(indexPath).catch(err => {
+        log(LogLevel.ERROR, 'Failed to load production build:', err.message);
+        showProductionErrorPage(err.message);
+      });
+    } catch (error) {
+      log(LogLevel.ERROR, 'Production build validation failed:', error.message);
+      showProductionErrorPage(error.message);
+      mainWindow.show();
+    }
   }
 
   mainWindow.on('closed', () => {
@@ -491,7 +587,7 @@ function checkExpressServer() {
 /*** Start Express server */
 function startServer() {
   return new Promise((resolve, reject) => {
-    console.log('🚀 Starting Express server...');
+    log(LogLevel.INFO, 'Starting Express server...');
     
     const serverPath = path.join(__dirname, 'server.js');
     serverProcess = spawn('node', [serverPath], {
@@ -509,12 +605,14 @@ function startServer() {
     serverProcess.stdout.on('data', (data) => {
       const output = data.toString().trim();
       if (output) {
-        console.log(`📡 ${output}`);
+        if (currentLogLevel >= LogLevel.DEBUG) {
+          console.log(`📡 ${output}`);
+        }
         
         if ((output.includes('running') || output.includes('listening')) && !serverReady) {
           serverReady = true;
           clearTimeout(startTimeout);
-          console.log('✅ Express server is ready!');
+          log(LogLevel.INFO, 'Express server is ready!');
           resolve();
         }
       }
@@ -522,26 +620,26 @@ function startServer() {
 
     serverProcess.stderr.on('data', (data) => {
       const error = data.toString().trim();
-      if (error && !error.includes('Warning')) {
-        console.error(`⚠️  ${error}`);
+      if (error && !error.includes('Warning') && !error.includes('DeprecationWarning')) {
+        log(LogLevel.WARN, `Server: ${error}`);
       }
     });
 
     serverProcess.on('error', (error) => {
       clearTimeout(startTimeout);
-      console.error('❌ Failed to start server:', error.message);
+      log(LogLevel.ERROR, 'Failed to start server:', error.message);
       reject(error);
     });
 
     serverProcess.on('exit', (code) => {
       if (code !== 0) {
-        console.error(`⚠️  Server exited with code ${code}`);
+        log(LogLevel.WARN, `Server exited with code ${code}`);
       }
     });
 
     startTimeout = setTimeout(() => {
       if (!serverReady) {
-        console.warn('⚠️  Server startup timeout, proceeding anyway...');
+        log(LogLevel.WARN, 'Server startup timeout, proceeding anyway...');
         resolve();
       }
     }, MAX_EXPRESS_WAIT);
@@ -556,7 +654,7 @@ function waitForViteServer() {
       return;
     }
 
-    console.log('⏳ Waiting for Vite dev server...');
+    log(LogLevel.DEBUG, 'Waiting for Vite dev server...');
     let attempts = 0;
     const maxAttempts = Math.ceil(MAX_VITE_WAIT / 500);
 
@@ -564,12 +662,8 @@ function waitForViteServer() {
       attempts++;
 
       if (attempts > maxAttempts) {
-        console.error(`❌ Vite server did not start within ${MAX_VITE_WAIT / 1000}s`);
-        console.error('💡 Troubleshooting:');
-        console.error('   1. Check if port 5173 is in use: netstat -ano | findstr :5173');
-        console.error('   2. Try: cd client && npm install && npm run dev');
-        console.error('   3. Restart the application');
-        console.warn('⚠️  Proceeding anyway - fallback page will be shown...');
+        log(LogLevel.WARN, `Vite server did not start within ${MAX_VITE_WAIT / 1000}s`);
+        log(LogLevel.WARN, 'Proceeding anyway - fallback page will be shown...');
         resolve(); 
         return;
       }
@@ -578,16 +672,17 @@ function waitForViteServer() {
         const isReady = await checkViteServer();
 
         if (isReady) {
-          console.log('✅ Vite dev server is ready!');
+          log(LogLevel.INFO, 'Vite dev server is ready!');
           resolve();
           return;
         }
       } catch (error) {
+        // Continue checking
       }
 
-      if (attempts % 10 === 0) {
+      if (attempts % 10 === 0 && currentLogLevel >= LogLevel.DEBUG) {
         const elapsed = Math.floor(attempts * 0.5);
-        console.log(`⏳ Still waiting for Vite... (${elapsed}s/${MAX_VITE_WAIT / 1000}s)`);
+        log(LogLevel.DEBUG, `Still waiting for Vite... (${elapsed}s/${MAX_VITE_WAIT / 1000}s)`);
       }
 
       setTimeout(checkServer, 500);
@@ -600,7 +695,7 @@ function waitForViteServer() {
 /*** Graceful shutdown handler */
 function shutdownServer() {
   if (serverProcess && !serverProcess.killed) {
-    console.log('🛑 Stopping Express server...');
+    log(LogLevel.INFO, 'Stopping Express server...');
     serverProcess.kill('SIGTERM');
     
     setTimeout(() => {
@@ -614,15 +709,15 @@ function shutdownServer() {
 if (app) {
   // CRITICAL: Disable hardware acceleration to prevent GPU crashes
   app.disableHardwareAcceleration();
-  console.log('🔧 Hardware acceleration disabled (prevents GPU crashes)');
+  log(LogLevel.INFO, 'Hardware acceleration disabled (prevents GPU crashes)');
 
   app.on('ready', async () => {
-    console.log('⚡ Electron app is ready!');
+    log(LogLevel.INFO, 'Electron app is ready!');
 
     app.on('child-process-gone', (event, details) => {
-      console.error('❌ Child process error:', details.type, details.reason);
+      log(LogLevel.ERROR, 'Child process error:', details.type, details.reason);
       if (details.type === 'GPU') {
-        console.error('💡 GPU process crashed. Hardware acceleration issue detected.');
+        log(LogLevel.ERROR, 'GPU process crashed. Hardware acceleration issue detected.');
       }
     });
 
@@ -641,41 +736,64 @@ if (app) {
       });
     });
 
-    console.log('🔒 Content Security Policy configured');
+    log(LogLevel.INFO, 'Content Security Policy configured');
 
     try {
-      // Run health check on startup (if pending verification)
-      if (isProduction) {
-        const isHealthy = await updater.checkStartupHealth();
-        if (!isHealthy) {
-          console.warn('⚠️  Application started with health warnings');
-        }
-      }
-
-      // Create splash window FIRST - shows immediately
+      // CRITICAL FIX: Create splash window FIRST - instant visual feedback
       createSplashWindow();
 
-      // Start Express server in parallel
+      // Start Express server in parallel (non-blocking)
       const serverPromise = startServer();
 
-      // Create main window immediately (hidden)
+      // Create main window immediately (hidden, non-blocking)
       createWindow();
 
-      // Wait for server (but don't block window creation)
+      // Wait for server (but don't block UI)
       await serverPromise;
 
-      // Wait briefly for Vite (but proceed even if not ready)
-      await waitForViteServer();
+      // Wait briefly for Vite in dev mode (non-blocking)
+      if (isDev) {
+        await waitForViteServer();
+      }
 
-      // Start automatic update checks (production only)
+      // CRITICAL FIX: Register windows with updater AFTER they're created
+      // This ensures IPC is ready before any update operations
       if (isProduction) {
-        updater.startPeriodicUpdateCheck();
-        console.log('🔄 Automatic update system initialized');
+        updater.setMainWindow(mainWindow);
+        
+        // Run health check in BACKGROUND (non-blocking)
+        // This happens after windows are shown to user
+        setImmediate(async () => {
+          try {
+            const isHealthy = await updater.checkStartupHealth();
+            if (!isHealthy) {
+              log(LogLevel.WARN, 'Application started with health warnings');
+            }
+          } catch (error) {
+            log(LogLevel.ERROR, 'Health check failed:', error.message);
+          }
+        });
+
+        // Start automatic update checks in BACKGROUND (non-blocking)
+        // Updates will show as toast notifications, NOT on splash screen
+        setImmediate(() => {
+          updater.startPeriodicUpdateCheck();
+          log(LogLevel.INFO, 'Automatic update system initialized');
+        });
       }
 
     } catch (error) {
-      console.error('❌ Failed to start application:', error.message);
-      if (splashWindow) splashWindow.destroy();
+      log(LogLevel.ERROR, 'Failed to start application:', error.message);
+      if (splashWindow && !splashWindow.isDestroyed()) {
+        splashWindow.destroy();
+      }
+      
+      // Show error dialog
+      dialog.showErrorBox(
+        'Startup Failed',
+        `The application failed to start:\n\n${error.message}\n\nPlease check the logs and try again.`
+      );
+      
       app.quit();
     }
   });
@@ -691,6 +809,10 @@ if (app) {
     if (splashWindow && !splashWindow.isDestroyed()) {
       splashWindow.destroy();
     }
+    
+    if (splashTimeout) {
+      clearTimeout(splashTimeout);
+    }
 
     shutdownServer();
 
@@ -703,6 +825,11 @@ if (app) {
     if (splashWindow && !splashWindow.isDestroyed()) {
       splashWindow.destroy();
     }
+    
+    if (splashTimeout) {
+      clearTimeout(splashTimeout);
+    }
+    
     shutdownServer();
   });
 }
@@ -721,26 +848,37 @@ if (ipcMain) {
 
   ipcMain.handle('file:openInApp', async (event, filePath) => {
     try {
-      const fs = require('fs');
+      // SECURITY: Validate input
+      if (!filePath || typeof filePath !== 'string') {
+        log(LogLevel.WARN, 'Invalid file path provided');
+        return { success: false, error: 'Invalid file path' };
+      }
 
-      console.log(`📂 Opening file: ${filePath}`);
+      // SECURITY: Prevent directory traversal attacks
+      const normalizedPath = path.normalize(filePath);
+      if (normalizedPath.includes('..') || path.isAbsolute(normalizedPath)) {
+        log(LogLevel.WARN, 'Suspicious file path detected:', filePath);
+        return { success: false, error: 'Invalid file path' };
+      }
 
-      if (!fs.existsSync(filePath)) {
+      log(LogLevel.DEBUG, `Opening file: ${normalizedPath}`);
+
+      if (!fs.existsSync(normalizedPath)) {
         return { success: false, error: 'File not found' };
       }
 
-      const result = await shell.openPath(filePath);
+      const result = await shell.openPath(normalizedPath);
 
       if (result) {
-        console.error('❌ Error opening file:', result);
+        log(LogLevel.ERROR, 'Error opening file:', result);
         return { success: false, error: result };
       }
 
-      console.log('✅ File opened successfully');
+      log(LogLevel.INFO, 'File opened successfully');
       return { success: true, method: 'system-default' };
 
     } catch (error) {
-      console.error('❌ Error:', error.message);
+      log(LogLevel.ERROR, 'Error:', error.message);
       return { success: false, error: error.message };
     }
   });
@@ -748,20 +886,22 @@ if (ipcMain) {
   // Handle window flashing for notifications
   ipcMain.on('window:flashFrame', (event, shouldFlash) => {
     if (mainWindow && !mainWindow.isDestroyed()) {
-      console.log(`🔔 Window flash: ${shouldFlash ? 'START' : 'STOP'}`);
+      log(LogLevel.DEBUG, `Window flash: ${shouldFlash ? 'START' : 'STOP'}`);
       mainWindow.flashFrame(shouldFlash);
     }
   });
 
   // Updater IPC handlers
   ipcMain.on('updater:quit-and-install', () => {
-    console.log('🔄 User requested update installation');
-    updater.quitAndInstall();
+    if (isProduction) {
+      updater.quitAndInstall();
+    }
   });
 
   ipcMain.on('updater:check-for-updates', () => {
-    console.log('🔍 Manual update check requested');
-    updater.checkForUpdates();
+    if (isProduction) {
+      updater.checkForUpdates();
+    }
   });
 
   ipcMain.handle('app:get-version', () => {
