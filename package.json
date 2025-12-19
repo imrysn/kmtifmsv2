@@ -18,6 +18,8 @@
     "client:build": "cd client && npm run build",
     "electron:pack": "electron-builder",
     "build": "npm run client:build && npm run electron:pack",
+    "build:installer": "npm run client:build && npm run electron:pack",
+    "build:server": "ncc build server.js -o dist-server",
     "postinstall": "cd client && npm install",
     "test:api": "node test-api.js",
     "server:standalone": "node server.js",
@@ -54,6 +56,7 @@
     "validate:updates": "node validate-update-system.js"
   },
   "devDependencies": {
+    "@vercel/ncc": "^0.38.4",
     "concurrently": "^8.2.2",
     "cross-env": "^7.0.3",
     "electron": "^27.0.0",
@@ -74,23 +77,33 @@
   },
   "build": {
     "appId": "com.kmti.kmtifms2",
-    "productName": "KMTIFMS2",
+    "productName": "KMTI-File-Management-System",
     "directories": {
       "output": "dist"
     },
     "files": [
       "main.js",
       "preload.js",
-      "server.js",
       "updater.js",
-      "server/**/*",
-      "database/**/*",
       "client/dist/**/*",
       "client/src/assets/fms-icon.ico",
       "client/src/assets/fms-icon.png",
-      "node_modules/**/*",
-      "!database/backups/**",
-      "!database/sql/*.backup"
+      "!**/*.log",
+      "!**/*.sqlite"
+    ],
+    "extraResources": [
+      {
+        "from": "dist-server/",
+        "to": "app-server/"
+      },
+      {
+        "from": ".env",
+        "to": ".env"
+      },
+      {
+        "from": "database/",
+        "to": "database/"
+      }
     ],
     "publish": [
       {
@@ -104,12 +117,15 @@
       "target": [
         {
           "target": "nsis",
-          "arch": ["x64"]
+          "arch": [
+            "x64"
+          ]
         }
       ],
       "icon": "client/src/assets/fms-icon.ico",
       "publisherName": "KMTI",
-      "verifyUpdateCodeSignature": false
+      "verifyUpdateCodeSignature": false,
+      "requestedExecutionLevel": "asInvoker"
     },
     "nsis": {
       "oneClick": false,
@@ -118,7 +134,12 @@
       "createStartMenuShortcut": true,
       "shortcutName": "KMTI FMS",
       "deleteAppDataOnUninstall": false,
-      "artifactName": "KMTI_FMS_Installer_${version}.${ext}"
+      "artifactName": "KMTI_FMS_Installer_${version}.${ext}",
+      "perMachine": false,
+      "allowElevation": true,
+      "runAfterFinish": true,
+      "installerIcon": "client/src/assets/fms-icon.ico",
+      "uninstallerIcon": "client/src/assets/fms-icon.ico"
     },
     "mac": {
       "target": "dmg",
@@ -135,7 +156,10 @@
       "category": "Office"
     },
     "asarUnpack": [
-      "node_modules/sqlite3/**/*"
+      "node_modules/sqlite3/**/*",
+      "server/**/*",
+      "database/**/*",
+      ".env"
     ],
     "buildDependenciesFromSource": false,
     "npmRebuild": false

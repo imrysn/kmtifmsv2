@@ -587,17 +587,44 @@ function checkExpressServer() {
 /*** Start Express server */
 function startServer() {
   return new Promise((resolve, reject) => {
+    console.log('🔧 STARTING SERVER FUNCTION CALLED');
     log(LogLevel.INFO, 'Starting Express server...');
+
+    // In production, use the correct path for ASAR archive or unpacked resources
+    let serverPath;
+    if (isProduction && process.resourcesPath) {
+      // Try unpacked first (for files that need to be accessible)
+      const unpackedPath = path.join(process.resourcesPath, 'app.asar.unpacked', 'server.js');
+      const asarPath = path.join(process.resourcesPath, 'app.asar', 'server.js');
+      
+      if (fs.existsSync(unpackedPath)) {
+        serverPath = unpackedPath;
+      } else if (fs.existsSync(asarPath)) {
+        serverPath = asarPath;
+      } else {
+        serverPath = path.join(__dirname, 'server.js');
+      }
+    } else {
+      serverPath = path.join(__dirname, 'server.js');
+    }
     
-    const serverPath = path.join(__dirname, 'server.js');
+    log(LogLevel.INFO, `Server path: ${serverPath}`);
+    log(LogLevel.INFO, `Server exists: ${fs.existsSync(serverPath)}`);
+
     serverProcess = spawn('node', [serverPath], {
       stdio: 'pipe',
-      env: { 
-        ...process.env, 
-        NODE_ENV: process.env.NODE_ENV || 'development',
-        PORT: SERVER_PORT
+      env: {
+        ...process.env,
+        NODE_ENV: isProduction ? 'production' : 'development',
+        PORT: SERVER_PORT,
+        // Ensure the .env is loaded from the correct location
+        DOTENV_CONFIG_PATH: isProduction && process.resourcesPath 
+          ? path.join(process.resourcesPath, '.env')
+          : path.join(__dirname, '.env')
       }
     });
+
+    log(LogLevel.INFO, 'Server process spawned');
 
     let serverReady = false;
     let startTimeout;
@@ -627,7 +654,8 @@ function startServer() {
 
     serverProcess.on('error', (error) => {
       clearTimeout(startTimeout);
-      log(LogLevel.ERROR, 'Failed to start server:', error.message);
+      log(LogLevel.ERROR, 'Failed to start server process:', error.message);
+      log(LogLevel.ERROR, 'Error code:', error.code);
       reject(error);
     });
 
@@ -714,42 +742,54 @@ if (app) {
   app.on('ready', async () => {
     log(LogLevel.INFO, 'Electron app is ready!');
 
-    app.on('child-process-gone', (event, details) => {
-      log(LogLevel.ERROR, 'Child process error:', details.type, details.reason);
-      if (details.type === 'GPU') {
-        log(LogLevel.ERROR, 'GPU process crashed. Hardware acceleration issue detected.');
-      }
-    });
-
-    const { session } = require('electron');
-
-    session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
-      callback({
-        responseHeaders: {
-          ...details.responseHeaders,
-          'Content-Security-Policy': [
-            isDev
-              ? "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: blob:; font-src 'self' data: https://fonts.gstatic.com; connect-src 'self' http://localhost:* ws://localhost:* wss://localhost:* https://fonts.googleapis.com https://fonts.gstatic.com; media-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none';"
-              : "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data:; font-src 'self' data: https://fonts.gstatic.com; connect-src 'self' https://fonts.googleapis.com https://fonts.gstatic.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none';"
-          ]
+    try {
+      app.on('child-process-gone', (event, details) => {
+        log(LogLevel.ERROR, 'Child process error:', details.type, details.reason);
+        if (details.type === 'GPU') {
+          log(LogLevel.ERROR, 'GPU process crashed. Hardware acceleration issue detected.');
         }
       });
-    });
 
-    log(LogLevel.INFO, 'Content Security Policy configured');
+      log(LogLevel.INFO, 'Setting up session and CSP...');
+      const { session } = require('electron');
 
-    try {
+      session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
+        callback({
+          responseHeaders: {
+            ...details.responseHeaders,
+            'Content-Security-Policy': [
+              isDev
+                ? "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: blob:; font-src 'self' data: https://fonts.gstatic.com; connect-src 'self' http://localhost:* ws://localhost:* wss://localhost:* https://fonts.googleapis.com https://fonts.gstatic.com; media-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none';"
+                : "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: blob:; font-src 'self' data: https://fonts.gstatic.com; connect-src 'self' http://localhost:* ws://localhost:* https://fonts.googleapis.com https://fonts.gstatic.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none';"
+            ]
+          }
+        });
+      });
+
+      log(LogLevel.INFO, 'Content Security Policy configured');
       // CRITICAL FIX: Create splash window FIRST - instant visual feedback
       createSplashWindow();
 
+      console.log('🔧 ABOUT TO START SERVER PROMISE');
+
       // Start Express server in parallel (non-blocking)
-      const serverPromise = startServer();
+      const serverPromise = startServer().catch(error => {
+        log(LogLevel.ERROR, 'Server startup failed:', error.message);
+        log(LogLevel.ERROR, 'Server error stack:', error.stack);
+        // Don't crash the app, just log the error
+        return null;
+      });
 
       // Create main window immediately (hidden, non-blocking)
       createWindow();
 
       // Wait for server (but don't block UI)
-      await serverPromise;
+      const serverResult = await serverPromise;
+      if (serverResult === null) {
+        log(LogLevel.ERROR, 'Server failed to start - app will run without backend');
+      } else {
+        log(LogLevel.INFO, 'Server started successfully');
+      }
 
       // Wait briefly for Vite in dev mode (non-blocking)
       if (isDev) {
