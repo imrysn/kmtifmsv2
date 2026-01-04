@@ -1,8 +1,40 @@
 import React, { useState, useCallback } from 'react';
 import Toast from './Toast';
+import AlertMessage from '../user/AlertMessage';
+import './UpdateAlert.css';
+
+// Custom Update Alert Component using AlertMessage
+const UpdateAlert = ({ version, onInstall, onClose }) => {
+  return (
+    <div className="update-alert-overlay">
+      <div className="update-alert-modal">
+        <AlertMessage
+          type="success"
+          message={`Update ${version} has been downloaded and is ready to install. The application will restart to apply the update.`}
+          onClose={onClose}
+        />
+        <div className="update-alert-buttons">
+          <button
+            onClick={onInstall}
+            className="update-install-btn"
+          >
+            Install & Restart
+          </button>
+          <button
+            onClick={onClose}
+            className="update-cancel-btn"
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 const ToastContainer = () => {
   const [toasts, setToasts] = useState([]);
+  const [updateAlert, setUpdateAlert] = useState(null);
 
   const addToast = useCallback((toast) => {
     const id = Date.now() + Math.random();
@@ -13,6 +45,17 @@ const ToastContainer = () => {
 
   const removeToast = useCallback((id) => {
     setToasts(prev => prev.filter(toast => toast.id !== id));
+  }, []);
+
+  const handleUpdateInstall = useCallback(() => {
+    if (window.updater) {
+      window.updater.restartAndInstall();
+    }
+    setUpdateAlert(null);
+  }, []);
+
+  const handleAlertClose = useCallback(() => {
+    setUpdateAlert(null);
   }, []);
 
   const showUpdateToast = useCallback((status, data) => {
@@ -27,29 +70,12 @@ const ToastContainer = () => {
         break;
 
       case 'downloading':
-        addToast({
-          type: 'info',
-          title: 'Downloading Update',
-          message: `Downloading update: ${data.percent || 0}% complete`,
-          duration: 0 // Don't auto-close while downloading
-        });
+        // Removed downloading toast - runs in background
         break;
 
       case 'downloaded':
-        addToast({
-          type: 'success',
-          title: 'Update Ready',
-          message: `Version ${data.version} has been downloaded and is ready to install.`,
-          duration: 0,
-          action: {
-            label: 'Restart & Install',
-            onClick: () => {
-              if (window.updater) {
-                window.updater.restartAndInstall();
-              }
-            }
-          }
-        });
+        // Show custom update alert using AlertMessage component
+        setUpdateAlert({ version: data.version });
         break;
 
       case 'error':
@@ -98,23 +124,34 @@ const ToastContainer = () => {
   }, [addToast, showUpdateToast]);
 
   return (
-    <div className="fixed top-0 right-0 z-50 pointer-events-none">
-      {toasts.map((toast, index) => (
-        <div
-          key={toast.id}
-          className="pointer-events-auto mb-2"
-          style={{
-            transform: `translateY(${index * 10}px)`,
-            zIndex: 50 + index
-          }}
-        >
-          <Toast
-            {...toast}
-            onClose={removeToast}
-          />
-        </div>
-      ))}
-    </div>
+    <>
+      <div className="fixed top-0 right-0 z-50 pointer-events-none">
+        {toasts.map((toast, index) => (
+          <div
+            key={toast.id}
+            className="pointer-events-auto mb-2"
+            style={{
+              transform: `translateY(${index * 10}px)`,
+              zIndex: 50 + index
+            }}
+          >
+            <Toast
+              {...toast}
+              onClose={removeToast}
+            />
+          </div>
+        ))}
+      </div>
+
+      {/* Update Alert Modal */}
+      {updateAlert && (
+        <UpdateAlert
+          version={updateAlert.version}
+          onInstall={handleUpdateInstall}
+          onClose={handleAlertClose}
+        />
+      )}
+    </>
   );
 };
 
