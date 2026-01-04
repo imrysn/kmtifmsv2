@@ -3,7 +3,7 @@ const path = require('path');
 const { spawn } = require('child_process');
 const http = require('http');
 const fs = require('fs');
-const updater = require('./updater');
+const updaterWindow = require('./updater-window');
 
 let mainWindow;
 let splashWindow;
@@ -805,29 +805,15 @@ if (app) {
         await waitForViteServer();
       }
 
-      // CRITICAL FIX: Register windows with updater AFTER they're created
-      // This ensures IPC is ready before any update operations
+      // CRITICAL FIX: Initialize standalone updater window AFTER main windows are created
+      // This ensures the updater runs independently of the main application
       if (isProduction) {
-        updater.setMainWindow(mainWindow);
-        
-        // Run health check in BACKGROUND (non-blocking)
-        // This happens after windows are shown to user
-        setImmediate(async () => {
-          try {
-            const isHealthy = await updater.checkStartupHealth();
-            if (!isHealthy) {
-              log(LogLevel.WARN, 'Application started with health warnings');
-            }
-          } catch (error) {
-            log(LogLevel.ERROR, 'Health check failed:', error.message);
-          }
-        });
-
         // Start automatic update checks in BACKGROUND (non-blocking)
-        // Updates will show as toast notifications, NOT on splash screen
+        // Updates will show in dedicated updater window
         setImmediate(() => {
+          const updater = require('./updater');
           updater.startPeriodicUpdateCheck();
-          log(LogLevel.INFO, 'Automatic update system initialized');
+          log(LogLevel.INFO, 'Standalone updater system initialized');
         });
       }
 
@@ -940,15 +926,17 @@ if (ipcMain) {
     }
   });
 
-  // Updater IPC handlers
+  // Updater IPC handlers - now handled by updater-window module
   ipcMain.on('updater:quit-and-install', () => {
     if (isProduction) {
+      const updater = require('./updater');
       updater.quitAndInstall();
     }
   });
 
   ipcMain.on('updater:check-for-updates', () => {
     if (isProduction) {
+      const updater = require('./updater');
       updater.checkForUpdates();
     }
   });

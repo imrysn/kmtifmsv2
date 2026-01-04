@@ -13,6 +13,7 @@ const { app, BrowserWindow } = require('electron');
 const { autoUpdater } = require('electron-updater');
 const path = require('path');
 const fs = require('fs');
+const updaterWindow = require('./updater-window');
 
 // Constants
 const isDev = process.env.NODE_ENV === 'development';
@@ -166,64 +167,70 @@ class AppUpdater {
   setupEventHandlers() {
     autoUpdater.on('checking-for-update', () => {
       console.log('🔍 Checking for updates...');
-      this.notifyRenderer('checking');
-      this.notifySplash('checking');
+      updaterWindow.showUpdaterWindow('checking');
+      this.notifyRenderer('checking'); // Keep for backward compatibility with main app
     });
 
     autoUpdater.on('update-available', (info) => {
       console.log(`📦 Update available: ${info.version}`);
       console.log(`   Current: ${app.getVersion()}`);
       console.log(`   Release date: ${info.releaseDate}`);
-      
+
+      updaterWindow.updateStatus('available', {
+        version: info.version,
+        releaseDate: info.releaseDate,
+        releaseNotes: info.releaseNotes
+      });
       this.notifyRenderer('available', {
         version: info.version,
         releaseDate: info.releaseDate,
         releaseNotes: info.releaseNotes
       });
-      this.notifySplash('available', { version: info.version });
     });
 
     autoUpdater.on('update-not-available', (info) => {
       console.log('✅ Application is up to date');
+      updaterWindow.closeUpdaterWindow();
       this.notifyRenderer('not-available');
-      this.notifySplash('not-available');
     });
 
     autoUpdater.on('download-progress', (progressObj) => {
       const percent = Math.round(progressObj.percent);
       console.log(`⬇️  Downloading update: ${percent}% (${this.formatBytes(progressObj.transferred)}/${this.formatBytes(progressObj.total)})`);
-      
-      this.notifyRenderer('downloading', {
+
+      updaterWindow.updateStatus('downloading', {
         percent,
         transferred: progressObj.transferred,
         total: progressObj.total,
         bytesPerSecond: progressObj.bytesPerSecond
       });
-      this.notifySplash('downloading', { percent });
+      // Don't notify main window during download to keep it silent
     });
 
     autoUpdater.on('update-downloaded', (info) => {
       console.log('✅ Update downloaded successfully');
       console.log(`   Version: ${info.version}`);
       console.log(`   Release date: ${info.releaseDate}`);
-      
+
       this.stateManager.state.updateDownloaded = true;
       this.stateManager.saveState();
-      
-      this.notifyRenderer('downloaded', {
+
+      updaterWindow.updateStatus('downloaded', {
         version: info.version,
         releaseDate: info.releaseDate
       });
-      this.notifySplash('downloaded', { version: info.version });
+      // Don't notify main window - the updater window will handle user interaction
     });
 
     autoUpdater.on('error', (error) => {
       console.error('❌ Update error:', error.message);
-      
+
+      updaterWindow.updateStatus('error', {
+        message: error.message
+      });
       this.notifyRenderer('error', {
         message: error.message
       });
-      this.notifySplash('error', { message: error.message });
     });
   }
 
