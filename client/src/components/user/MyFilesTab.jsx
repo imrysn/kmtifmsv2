@@ -1,6 +1,5 @@
 import './css/MyFilesTab.css';
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import ConfirmationModal from '../admin/modals/ConfirmationModal';
 import SuccessModal from './SuccessModal';
 import FileIcon from '../admin/FileIcon';
 
@@ -13,9 +12,6 @@ const MyFilesTab = ({
   user
 }) => {
   const [isUploading, setIsUploading] = useState(false);
-
-  const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [fileToDelete, setFileToDelete] = useState(null);
   const [successModal, setSuccessModal] = useState({ isOpen: false, title: '', message: '', type: 'success' });
   
   // Pagination states
@@ -93,63 +89,6 @@ const MyFilesTab = ({
       }
     };
   }, []);
-
-  const openDeleteModal = useCallback((file, e) => {
-    if (e) {
-      e.preventDefault();
-      e.stopPropagation();
-    }
-    setFileToDelete(file);
-    setShowDeleteModal(true);
-  }, []);
-
-  const deleteFile = useCallback(async () => {
-    if (!fileToDelete) return;
-
-    try {
-      const response = await fetch(`http://localhost:3001/api/files/${fileToDelete.id}`, {
-        method: 'DELETE',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          userId: user.id,
-          username: user.username,
-          userRole: 'USER',
-          team: user.team
-        })
-      });
-
-      const data = await response.json();
-      
-      if (data.success) {
-        fetchUserFiles();
-        setSuccessModal({
-          isOpen: true,
-          title: 'File Deleted',
-          message: 'File deleted successfully',
-          type: 'info'
-        });
-        setShowDeleteModal(false);
-        setFileToDelete(null);
-      } else {
-        setSuccessModal({
-          isOpen: true,
-          title: 'Delete Failed',
-          message: data.message || 'Failed to delete file',
-          type: 'error'
-        });
-      }
-    } catch (error) {
-      console.error('Error deleting file:', error);
-      setSuccessModal({
-        isOpen: true,
-        title: 'Delete Error',
-        message: 'Failed to delete file. Please try again.',
-        type: 'error'
-      });
-    }
-  }, [fileToDelete, user, fetchUserFiles]);
 
   const getStatusDisplayName = useCallback((dbStatus) => {
     if (!dbStatus) return 'Pending';
@@ -376,7 +315,6 @@ const MyFilesTab = ({
               <div className="col-datetime">DATE & TIME</div>
               <div className="col-team">TEAM</div>
               <div className="col-status">STATUS</div>
-              <div className="col-actions">ACTIONS</div>
             </div>
             {paginatedFiles.map((file) => {
               const { date, time } = formatDateTime(file.uploaded_at);
@@ -418,15 +356,6 @@ const MyFilesTab = ({
                     <span className={`status-tag ${getStatusClass(file.status)}`}>
                       {getStatusDisplayName(file.status)}
                     </span>
-                  </div>
-                  <div className="col-actions">
-                    <button
-                      className="delete-btn"
-                      onClick={(e) => openDeleteModal(file, e)}
-                      title="Delete file"
-                    >
-                      Delete
-                    </button>
                   </div>
                 </div>
               );
@@ -506,28 +435,6 @@ const MyFilesTab = ({
           </div>
         </div>
       )}
-
-      <ConfirmationModal
-        isOpen={showDeleteModal}
-        onClose={() => {
-          setShowDeleteModal(false);
-          setFileToDelete(null);
-        }}
-        onConfirm={deleteFile}
-        title="Delete File"
-        message="Are you sure you want to delete this file?"
-        itemInfo={{
-          name: fileToDelete?.original_name || '',
-          details: fileToDelete ? formatFileSize(fileToDelete.file_size) : ''
-        }}
-        confirmText="Delete File"
-        cancelText="Cancel"
-        variant="danger"
-      >
-        <p className="warning-text">
-          This action cannot be undone. The file and all its associated data will be permanently removed.
-        </p>
-      </ConfirmationModal>
 
       <SuccessModal
         isOpen={successModal.isOpen}

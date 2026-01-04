@@ -68,6 +68,8 @@ const NotificationTab = ({ user, onNavigate }) => {
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState('');
   const [unreadCount, setUnreadCount] = useState(0);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Enable taskbar flashing for new notifications
   useTaskbarFlash(unreadCount);
@@ -226,11 +228,12 @@ const NotificationTab = ({ user, onNavigate }) => {
     }
   };
 
-  const deleteAll = async () => {
-    if (!window.confirm('Are you sure you want to delete all notifications?')) {
-      return;
-    }
+  const handleDeleteAll = () => {
+    setShowDeleteModal(true);
+  };
 
+  const confirmDeleteAll = async () => {
+    setIsDeleting(true);
     try {
       const response = await fetch(`http://localhost:3001/api/notifications/user/${user.id}/delete-all`, {
         method: 'DELETE'
@@ -242,9 +245,13 @@ const NotificationTab = ({ user, onNavigate }) => {
         setUnreadCount(0);
         setTotalCount(0);
         setHasMore(false);
+        setShowDeleteModal(false);
       }
     } catch (error) {
       console.error('Error deleting all notifications:', error);
+      setError('Failed to delete all notifications');
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -420,7 +427,7 @@ const NotificationTab = ({ user, onNavigate }) => {
             </button>
           )}
           {notifications.length > 0 && (
-            <button className="tl-btn-delete-all" onClick={deleteAll}>
+            <button className="tl-btn-delete-all" onClick={handleDeleteAll}>
               Delete All
             </button>
           )}
@@ -493,6 +500,64 @@ const NotificationTab = ({ user, onNavigate }) => {
             </div>
           )}
         </>
+      )}
+
+      {/* Delete All Confirmation Modal */}
+      {showDeleteModal && (
+        <div className="custom-modal-overlay" onClick={() => !isDeleting && setShowDeleteModal(false)}>
+          <div className="custom-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="custom-modal-header">
+              <h3>Delete All Notifications?</h3>
+              <button 
+                onClick={() => setShowDeleteModal(false)} 
+                className="custom-modal-close"
+                disabled={isDeleting}
+                type="button"
+              >
+                ×
+              </button>
+            </div>
+            
+            <div className="custom-modal-body">
+              <div className="delete-warning">
+                <span className="warning-icon">⚠️</span>
+                <div className="warning-content">
+                  <h4>Are you sure you want to delete all notifications?</h4>
+                  
+                  <div className="item-info">
+                    <div className="item-name">{totalCount} notification{totalCount !== 1 ? 's' : ''}</div>
+                    <div className="item-details">Including {unreadCount} unread notification{unreadCount !== 1 ? 's' : ''}</div>
+                  </div>
+                  
+                  <p className="warning-text">
+                    This action cannot be undone. All notifications will be permanently removed from your account.
+                  </p>
+                </div>
+              </div>
+            </div>
+            
+            <div className="custom-modal-footer">
+              <div className="modal-actions">
+                <button 
+                  type="button" 
+                  onClick={() => setShowDeleteModal(false)} 
+                  className="modal-cancel-btn"
+                  disabled={isDeleting}
+                >
+                  Cancel
+                </button>
+                <button 
+                  type="button" 
+                  onClick={confirmDeleteAll}
+                  className="modal-confirm-btn"
+                  disabled={isDeleting}
+                >
+                  {isDeleting ? 'Deleting...' : 'Delete All'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
