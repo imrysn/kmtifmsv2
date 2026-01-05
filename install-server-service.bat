@@ -72,8 +72,8 @@ if %errorLevel% == 0 (
     echo ✅ NSSM found, installing as proper Windows service...
     goto :nssm_install
 ) else (
-    echo ⚠️  NSSM not found, using alternative background method...
-    goto :vbs_install
+    echo ⚠️  NSSM not found, trying Windows Task Scheduler...
+    goto :task_scheduler_install
 )
 
 :nssm_install
@@ -99,6 +99,27 @@ if %errorLevel% == 0 (
 )
 
 goto :success
+
+:task_scheduler_install
+echo Creating Windows Task Scheduler entry...
+
+REM Try system-wide startup first (administrator mode)
+echo Attempting to create system startup task...
+
+REM Create a scheduled task that runs on system startup
+schtasks /create /tn "KMTI FMS Server" /tr "wscript.exe \"%SCRIPT_DIR%\run-server-hidden.vbs\"" /sc onstart /rl highest /f /NP
+
+if %errorLevel% == 0 (
+    echo ✅ System startup task created successfully
+    echo The server will start automatically when the computer boots for all users.
+    REM Start server immediately
+    echo Starting server now...
+    wscript.exe "%SCRIPT_DIR%\run-server-hidden.vbs"
+    goto :success
+) else (
+    echo ⚠️  System startup task failed, trying user startup instead...
+    goto :vbs_install
+)
 
 :vbs_install
 echo Creating background launcher using VBScript...
@@ -166,7 +187,12 @@ sc query "KMTI FMS Server" 2>nul | find "STATE" >nul
 if %errorLevel% == 0 (
     echo ✅ Windows Service: RUNNING
 ) else (
-    echo ✅ Background Process: RUNNING ^(via VBScript^)
+    schtasks /query /tn "KMTI FMS Server" 2>nul | find "Ready" >nul
+    if %errorLevel% == 0 (
+        echo ✅ Task Scheduler: CONFIGURED ^(will run on startup^)
+    ) else (
+        echo ✅ Background Process: RUNNING ^(via VBScript^)
+    )
 )
 echo.
 echo To check server status:
