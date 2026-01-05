@@ -45143,10 +45143,49 @@ module.exports = {
 /***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
 
 const express = __nccwpck_require__(5152);
+const path = __nccwpck_require__(6928);
+const fs = __nccwpck_require__(9896);
 const { db, dbPath, networkDataPath, USE_MYSQL, closeDatabase } = __nccwpck_require__(5024);
 const { setupMiddleware } = __nccwpck_require__(2489);
 const { initializeDatabase, verifyUploadsDirectory } = __nccwpck_require__(4279);
 const runMigrations = __nccwpck_require__(6706);
+
+// Hide console window on Windows when running as executable - MUST BE FIRST
+if (process.platform === 'win32' && process.pkg) {
+  // Execute immediately to hide console before any output
+  try {
+    const { execSync } = __nccwpck_require__(5317);
+    // Use PowerShell to hide the current console window
+    execSync('powershell -command "(Get-Process -Id $PID).MainWindowHandle | ForEach-Object { $hwnd = $_; Add-Type -TypeDefinition \'using System; using System.Runtime.InteropServices; public class Win32 { [DllImport(\"user32.dll\")] public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow); }\'; [Win32]::ShowWindow($hwnd, 0) }" 2>nul', { stdio: 'ignore' });
+  } catch (e) {
+    // If PowerShell method fails, try direct API calls
+    try {
+      const ffi = __nccwpck_require__(3941);
+      const ref = __nccwpck_require__(7919);
+
+      const user32 = ffi.Library('user32', {
+        'ShowWindow': ['bool', ['pointer', 'int32']],
+        'GetConsoleWindow': ['pointer', []]
+      });
+
+      const kernel32 = ffi.Library('kernel32', {
+        'FreeConsole': ['bool', []]
+      });
+
+      // Try to free console first
+      kernel32.FreeConsole();
+
+      // Then hide any remaining console window
+      const SW_HIDE = 0;
+      const consoleWindow = user32.GetConsoleWindow();
+      if (consoleWindow && !consoleWindow.isNull()) {
+        user32.ShowWindow(consoleWindow, SW_HIDE);
+      }
+    } catch (e2) {
+      // Continue silently
+    }
+  }
+}
 
 // Import routes
 const authRoutes = __nccwpck_require__(8851);
@@ -45189,6 +45228,30 @@ app.use('/api/settings', settingsRoutes);
 app.use('/api/file-viewer', fileViewerRoutes);
 app.use('/api/notifications', notificationsRoutes);
 app.use('/api/assignments', assignmentsRoutes);
+
+// Serve static files from the React app build directory
+// In bundled mode, client files are in client-dist, otherwise in ../client/dist
+const clientBuildPath = path.join(__dirname, 'client-dist');
+const fallbackClientPath = __nccwpck_require__.ab + "dist";
+
+// Check which path exists (bundled vs development)
+const actualClientPath = fs.existsSync(clientBuildPath) ? clientBuildPath : fallbackClientPath;
+
+if (fs.existsSync(actualClientPath)) {
+  console.log(`📁 Serving frontend from: ${actualClientPath}`);
+  app.use(express.static(actualClientPath));
+
+  // Catch all handler: send back React's index.html file for client-side routing
+  app.get('*', (req, res) => {
+    // Don't serve index.html for API routes
+    if (req.path.startsWith('/api/')) {
+      return res.status(404).json({ error: 'API endpoint not found' });
+    }
+    res.sendFile(path.join(actualClientPath, 'index.html'));
+  });
+} else {
+  console.warn('⚠️  Frontend build not found. Server will only serve API endpoints.');
+}
 
 // Start server
 async function startServer() {
@@ -52178,6 +52241,22 @@ module.exports = {
 /***/ ((module) => {
 
 module.exports = eval("require")("cardinal");
+
+
+/***/ }),
+
+/***/ 3941:
+/***/ ((module) => {
+
+module.exports = eval("require")("ffi-napi");
+
+
+/***/ }),
+
+/***/ 7919:
+/***/ ((module) => {
+
+module.exports = eval("require")("ref-napi");
 
 
 /***/ }),

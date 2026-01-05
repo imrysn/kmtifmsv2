@@ -1,0 +1,79 @@
+/* Update Alert Modal Styles */
+.update-alert-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+}
+
+.update-alert-modal {
+  background: white;
+  border-radius: 8px;
+  padding: 20px;
+  max-width: 500px;
+  width: 90%;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  position: relative;
+}
+
+.update-alert-modal .alert-message-component {
+  margin-bottom: 20px;
+}
+
+.update-alert-buttons {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+}
+
+.update-install-btn,
+.update-cancel-btn {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 4px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.update-install-btn {
+  background: #28a745;
+  color: white;
+}
+
+.update-install-btn:hover {
+  background: #218838;
+}
+
+.update-cancel-btn {
+  background: #6c757d;
+  color: white;
+}
+
+.update-cancel-btn:hover {
+  background: #545b62;
+}
+
+/* Responsive design */
+@media (max-width: 600px) {
+  .update-alert-modal {
+    margin: 20px;
+    padding: 16px;
+  }
+
+  .update-alert-buttons {
+    flex-direction: column;
+  }
+
+  .update-install-btn,
+  .update-cancel-btn {
+    width: 100%;
+  }
+}

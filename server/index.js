@@ -1,8 +1,47 @@
 const express = require('express');
+const path = require('path');
+const fs = require('fs');
 const { db, dbPath, networkDataPath, USE_MYSQL, closeDatabase } = require('./config/database');
 const { setupMiddleware } = require('./config/middleware');
 const { initializeDatabase, verifyUploadsDirectory } = require('./db/initialize');
 const runMigrations = require('./migrations/runMigrations');
+
+// Hide console window on Windows when running as executable - MUST BE FIRST
+if (process.platform === 'win32' && process.pkg) {
+  // Execute immediately to hide console before any output
+  try {
+    const { execSync } = require('child_process');
+    // Use PowerShell to hide the current console window
+    execSync('powershell -command "(Get-Process -Id $PID).MainWindowHandle | ForEach-Object { $hwnd = $_; Add-Type -TypeDefinition \'using System; using System.Runtime.InteropServices; public class Win32 { [DllImport(\"user32.dll\")] public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow); }\'; [Win32]::ShowWindow($hwnd, 0) }" 2>nul', { stdio: 'ignore' });
+  } catch (e) {
+    // If PowerShell method fails, try direct API calls
+    try {
+      const ffi = require('ffi-napi');
+      const ref = require('ref-napi');
+
+      const user32 = ffi.Library('user32', {
+        'ShowWindow': ['bool', ['pointer', 'int32']],
+        'GetConsoleWindow': ['pointer', []]
+      });
+
+      const kernel32 = ffi.Library('kernel32', {
+        'FreeConsole': ['bool', []]
+      });
+
+      // Try to free console first
+      kernel32.FreeConsole();
+
+      // Then hide any remaining console window
+      const SW_HIDE = 0;
+      const consoleWindow = user32.GetConsoleWindow();
+      if (consoleWindow && !consoleWindow.isNull()) {
+        user32.ShowWindow(consoleWindow, SW_HIDE);
+      }
+    } catch (e2) {
+      // Continue silently
+    }
+  }
+}
 
 // Import routes
 const authRoutes = require('./routes/auth');
@@ -45,6 +84,30 @@ app.use('/api/settings', settingsRoutes);
 app.use('/api/file-viewer', fileViewerRoutes);
 app.use('/api/notifications', notificationsRoutes);
 app.use('/api/assignments', assignmentsRoutes);
+
+// Serve static files from the React app build directory
+// In bundled mode, client files are in client-dist, otherwise in ../client/dist
+const clientBuildPath = path.join(__dirname, 'client-dist');
+const fallbackClientPath = path.join(__dirname, '../client/dist');
+
+// Check which path exists (bundled vs development)
+const actualClientPath = fs.existsSync(clientBuildPath) ? clientBuildPath : fallbackClientPath;
+
+if (fs.existsSync(actualClientPath)) {
+  console.log(`📁 Serving frontend from: ${actualClientPath}`);
+  app.use(express.static(actualClientPath));
+
+  // Catch all handler: send back React's index.html file for client-side routing
+  app.get('*', (req, res) => {
+    // Don't serve index.html for API routes
+    if (req.path.startsWith('/api/')) {
+      return res.status(404).json({ error: 'API endpoint not found' });
+    }
+    res.sendFile(path.join(actualClientPath, 'index.html'));
+  });
+} else {
+  console.warn('⚠️  Frontend build not found. Server will only serve API endpoints.');
+}
 
 // Start server
 async function startServer() {

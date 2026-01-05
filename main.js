@@ -3,7 +3,7 @@ const path = require('path');
 const { spawn } = require('child_process');
 const http = require('http');
 const fs = require('fs');
-const updater = require('./updater');
+const updaterWindow = require('./updater-window');
 
 let mainWindow;
 let splashWindow;
@@ -587,82 +587,91 @@ function checkExpressServer() {
 /*** Start Express server */
 function startServer() {
   return new Promise((resolve, reject) => {
-    console.log('🔧 STARTING SERVER FUNCTION CALLED');
     log(LogLevel.INFO, 'Starting Express server...');
 
-    // In production, use the correct path for ASAR archive or unpacked resources
     let serverPath;
-    if (isProduction && process.resourcesPath) {
-      // Try unpacked first (for files that need to be accessible)
-      const unpackedPath = path.join(process.resourcesPath, 'app.asar.unpacked', 'server.js');
-      const asarPath = path.join(process.resourcesPath, 'app.asar', 'server.js');
-      
-      if (fs.existsSync(unpackedPath)) {
-        serverPath = unpackedPath;
-      } else if (fs.existsSync(asarPath)) {
-        serverPath = asarPath;
+    let spawnCommand;
+    let spawnArgs;
+
+    // 1. Determine the correct path based on environment
+    if (isProduction) {
+      // In production, try to use the standalone server executable first
+      const exePath = path.join(path.dirname(process.execPath), 'KMTI_FMS_Server.exe');
+
+      if (require('fs').existsSync(exePath)) {
+        // Use the standalone server executable
+        serverPath = exePath;
+        spawnCommand = exePath;
+        spawnArgs = [];
+        log(LogLevel.INFO, `Using standalone server executable: ${exePath}`);
       } else {
-        serverPath = path.join(__dirname, 'server.js');
+        // Fallback to bundled server (if available)
+        if (process.resourcesPath) {
+          serverPath = path.join(process.resourcesPath, 'app-server', 'index.js');
+        } else {
+          serverPath = path.join(__dirname, '../../app-server/index.js');
+        }
+        spawnCommand = 'node';
+        spawnArgs = [serverPath];
+        log(LogLevel.INFO, `Using bundled server: ${serverPath}`);
       }
     } else {
+      // In development, run the source file directly
       serverPath = path.join(__dirname, 'server.js');
+      spawnCommand = 'node';
+      spawnArgs = [serverPath];
     }
-    
-    log(LogLevel.INFO, `Server path: ${serverPath}`);
-    log(LogLevel.INFO, `Server exists: ${fs.existsSync(serverPath)}`);
 
-    serverProcess = spawn('node', [serverPath], {
+    // 2. Prepare Environment Variables
+    const serverEnv = {
+      ...process.env,
+      NODE_ENV: isProduction ? 'production' : 'development',
+      PORT: SERVER_PORT,
+      // Tell the server where the database is
+      DB_BASE_PATH: isProduction && process.resourcesPath
+        ? path.join(process.resourcesPath, 'database')
+        : path.join(__dirname, 'database'),
+    };
+
+    // 3. Spawn the process
+    serverProcess = spawn(spawnCommand, spawnArgs, {
       stdio: 'pipe',
-      env: {
-        ...process.env,
-        NODE_ENV: isProduction ? 'production' : 'development',
-        PORT: SERVER_PORT,
-        // Ensure the .env is loaded from the correct location
-        DOTENV_CONFIG_PATH: isProduction && process.resourcesPath 
-          ? path.join(process.resourcesPath, '.env')
-          : path.join(__dirname, '.env')
-      }
+      env: serverEnv,
+      cwd: path.dirname(serverPath) // Important for relative paths inside the server
     });
 
-    log(LogLevel.INFO, 'Server process spawned');
-
+    // ... (Keep the rest of your logging/event listener logic from here down) ...
     let serverReady = false;
     let startTimeout;
     
     serverProcess.stdout.on('data', (data) => {
-      const output = data.toString().trim();
-      if (output) {
-        if (currentLogLevel >= LogLevel.DEBUG) {
-          console.log(`📡 ${output}`);
-        }
-        
-        if ((output.includes('running') || output.includes('listening')) && !serverReady) {
-          serverReady = true;
-          clearTimeout(startTimeout);
-          log(LogLevel.INFO, 'Express server is ready!');
-          resolve();
-        }
-      }
+       // ... keep existing code ...
+       const output = data.toString().trim();
+       if (output) {
+         if (currentLogLevel >= LogLevel.DEBUG) console.log(`📡 ${output}`);
+         if ((output.includes('running') || output.includes('listening')) && !serverReady) {
+           serverReady = true;
+           clearTimeout(startTimeout);
+           log(LogLevel.INFO, 'Express server is ready!');
+           resolve();
+         }
+       }
     });
 
     serverProcess.stderr.on('data', (data) => {
-      const error = data.toString().trim();
-      if (error && !error.includes('Warning') && !error.includes('DeprecationWarning')) {
-        log(LogLevel.WARN, `Server: ${error}`);
-      }
+      // ... keep existing code ...
+       const error = data.toString().trim();
+       if (error && !error.includes('Warning')) log(LogLevel.WARN, `Server: ${error}`);
     });
 
     serverProcess.on('error', (error) => {
       clearTimeout(startTimeout);
-      log(LogLevel.ERROR, 'Failed to start server process:', error.message);
-      log(LogLevel.ERROR, 'Error code:', error.code);
+      log(LogLevel.ERROR, 'Failed to start server:', error.message);
       reject(error);
     });
 
     serverProcess.on('exit', (code) => {
-      if (code !== 0) {
-        log(LogLevel.WARN, `Server exited with code ${code}`);
-      }
+      if (code !== 0) log(LogLevel.WARN, `Server exited with code ${code}`);
     });
 
     startTimeout = setTimeout(() => {
@@ -796,29 +805,15 @@ if (app) {
         await waitForViteServer();
       }
 
-      // CRITICAL FIX: Register windows with updater AFTER they're created
-      // This ensures IPC is ready before any update operations
+      // CRITICAL FIX: Initialize standalone updater window AFTER main windows are created
+      // This ensures the updater runs independently of the main application
       if (isProduction) {
-        updater.setMainWindow(mainWindow);
-        
-        // Run health check in BACKGROUND (non-blocking)
-        // This happens after windows are shown to user
-        setImmediate(async () => {
-          try {
-            const isHealthy = await updater.checkStartupHealth();
-            if (!isHealthy) {
-              log(LogLevel.WARN, 'Application started with health warnings');
-            }
-          } catch (error) {
-            log(LogLevel.ERROR, 'Health check failed:', error.message);
-          }
-        });
-
         // Start automatic update checks in BACKGROUND (non-blocking)
-        // Updates will show as toast notifications, NOT on splash screen
+        // Updates will show in dedicated updater window
         setImmediate(() => {
+          const updater = require('./updater');
           updater.startPeriodicUpdateCheck();
-          log(LogLevel.INFO, 'Automatic update system initialized');
+          log(LogLevel.INFO, 'Standalone updater system initialized');
         });
       }
 
@@ -933,15 +928,17 @@ if (ipcMain) {
     log(LogLevel.DEBUG, `Window flash request ignored (disabled to prevent blinking)`);
   });
 
-  // Updater IPC handlers
+  // Updater IPC handlers - now handled by updater-window module
   ipcMain.on('updater:quit-and-install', () => {
     if (isProduction) {
+      const updater = require('./updater');
       updater.quitAndInstall();
     }
   });
 
   ipcMain.on('updater:check-for-updates', () => {
     if (isProduction) {
+      const updater = require('./updater');
       updater.checkForUpdates();
     }
   });
