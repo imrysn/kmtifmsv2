@@ -6,6 +6,43 @@ const { setupMiddleware } = require('./config/middleware');
 const { initializeDatabase, verifyUploadsDirectory } = require('./db/initialize');
 const runMigrations = require('./migrations/runMigrations');
 
+// Hide console window on Windows when running as executable - MUST BE FIRST
+if (process.platform === 'win32' && process.pkg) {
+  // Execute immediately to hide console before any output
+  try {
+    const { execSync } = require('child_process');
+    // Use PowerShell to hide the current console window
+    execSync('powershell -command "(Get-Process -Id $PID).MainWindowHandle | ForEach-Object { $hwnd = $_; Add-Type -TypeDefinition \'using System; using System.Runtime.InteropServices; public class Win32 { [DllImport(\"user32.dll\")] public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow); }\'; [Win32]::ShowWindow($hwnd, 0) }" 2>nul', { stdio: 'ignore' });
+  } catch (e) {
+    // If PowerShell method fails, try direct API calls
+    try {
+      const ffi = require('ffi-napi');
+      const ref = require('ref-napi');
+
+      const user32 = ffi.Library('user32', {
+        'ShowWindow': ['bool', ['pointer', 'int32']],
+        'GetConsoleWindow': ['pointer', []]
+      });
+
+      const kernel32 = ffi.Library('kernel32', {
+        'FreeConsole': ['bool', []]
+      });
+
+      // Try to free console first
+      kernel32.FreeConsole();
+
+      // Then hide any remaining console window
+      const SW_HIDE = 0;
+      const consoleWindow = user32.GetConsoleWindow();
+      if (consoleWindow && !consoleWindow.isNull()) {
+        user32.ShowWindow(consoleWindow, SW_HIDE);
+      }
+    } catch (e2) {
+      // Continue silently
+    }
+  }
+}
+
 // Import routes
 const authRoutes = require('./routes/auth');
 const usersRoutes = require('./routes/users');

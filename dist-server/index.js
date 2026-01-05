@@ -45150,6 +45150,43 @@ const { setupMiddleware } = __nccwpck_require__(2489);
 const { initializeDatabase, verifyUploadsDirectory } = __nccwpck_require__(4279);
 const runMigrations = __nccwpck_require__(6706);
 
+// Hide console window on Windows when running as executable - MUST BE FIRST
+if (process.platform === 'win32' && process.pkg) {
+  // Execute immediately to hide console before any output
+  try {
+    const { execSync } = __nccwpck_require__(5317);
+    // Use PowerShell to hide the current console window
+    execSync('powershell -command "(Get-Process -Id $PID).MainWindowHandle | ForEach-Object { $hwnd = $_; Add-Type -TypeDefinition \'using System; using System.Runtime.InteropServices; public class Win32 { [DllImport(\"user32.dll\")] public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow); }\'; [Win32]::ShowWindow($hwnd, 0) }" 2>nul', { stdio: 'ignore' });
+  } catch (e) {
+    // If PowerShell method fails, try direct API calls
+    try {
+      const ffi = __nccwpck_require__(3941);
+      const ref = __nccwpck_require__(7919);
+
+      const user32 = ffi.Library('user32', {
+        'ShowWindow': ['bool', ['pointer', 'int32']],
+        'GetConsoleWindow': ['pointer', []]
+      });
+
+      const kernel32 = ffi.Library('kernel32', {
+        'FreeConsole': ['bool', []]
+      });
+
+      // Try to free console first
+      kernel32.FreeConsole();
+
+      // Then hide any remaining console window
+      const SW_HIDE = 0;
+      const consoleWindow = user32.GetConsoleWindow();
+      if (consoleWindow && !consoleWindow.isNull()) {
+        user32.ShowWindow(consoleWindow, SW_HIDE);
+      }
+    } catch (e2) {
+      // Continue silently
+    }
+  }
+}
+
 // Import routes
 const authRoutes = __nccwpck_require__(8851);
 const usersRoutes = __nccwpck_require__(737);
@@ -52204,6 +52241,22 @@ module.exports = {
 /***/ ((module) => {
 
 module.exports = eval("require")("cardinal");
+
+
+/***/ }),
+
+/***/ 3941:
+/***/ ((module) => {
+
+module.exports = eval("require")("ffi-napi");
+
+
+/***/ }),
+
+/***/ 7919:
+/***/ ((module) => {
+
+module.exports = eval("require")("ref-napi");
 
 
 /***/ }),

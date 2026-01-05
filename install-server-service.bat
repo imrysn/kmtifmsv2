@@ -39,7 +39,7 @@ if "%SCRIPT_DIR:~-1%"=="\" set "SCRIPT_DIR=%SCRIPT_DIR:~0,-1%"
 echo Setting up KMTI FMS Server to run as a background service...
 echo.
 
-REM Check if server executable exists
+REM Check if server executable and VBScript exist
 if not exist "%SCRIPT_DIR%\KMTI_FMS_Server.exe" (
     echo ERROR: KMTI_FMS_Server.exe not found in %SCRIPT_DIR%
     echo.
@@ -51,7 +51,19 @@ if not exist "%SCRIPT_DIR%\KMTI_FMS_Server.exe" (
     exit /b 1
 )
 
+if not exist "%SCRIPT_DIR%\run-server-hidden.vbs" (
+    echo ERROR: run-server-hidden.vbs not found in %SCRIPT_DIR%
+    echo.
+    echo Please ensure:
+    echo 1. All files from the ZIP are extracted
+    echo 2. The run-server-hidden.vbs file is present
+    echo.
+    pause
+    exit /b 1
+)
+
 echo ✅ Found server executable: %SCRIPT_DIR%\KMTI_FMS_Server.exe
+echo ✅ Found VBScript wrapper: %SCRIPT_DIR%\run-server-hidden.vbs
 echo.
 
 REM Check if NSSM is available (Non-Sucking Service Manager)
