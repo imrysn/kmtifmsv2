@@ -94,6 +94,8 @@
       "main.js",
       "preload.js",
       "updater.js",
+      "updater-window.js",
+      "updater-preload.js",
       "client/dist/**/*",
       "client/src/assets/fms-icon.ico",
       "client/src/assets/fms-icon.png",
@@ -131,7 +133,7 @@
           ]
         }
       ],
-      "icon": "client/src/assets/fms-icon.png",
+      "icon": "client/src/assets/fms-icon.ico",
       "publisherName": "KMTI",
       "verifyUpdateCodeSignature": false,
       "requestedExecutionLevel": "asInvoker"
@@ -147,8 +149,8 @@
       "perMachine": false,
       "allowElevation": true,
       "runAfterFinish": true,
-      "installerIcon": "client/src/assets/fms-icon.png",
-      "uninstallerIcon": "client/src/assets/fms-icon.png"
+      "installerIcon": "client/src/assets/fms-icon.ico",
+      "uninstallerIcon": "client/src/assets/fms-icon.ico"
     },
     "mac": {
       "target": "dmg",
