@@ -417,26 +417,52 @@ const NotificationTab = ({ user, onOpenFile, onNavigateToTasks, onUpdateUnreadCo
     {showDeleteModal && (
       <div className="custom-modal-overlay" onClick={() => setShowDeleteModal(false)}>
         <div className="custom-modal" onClick={(e) => e.stopPropagation()}>
-          <div className="modal-icon">
-            <span className="warning-icon">⚠</span>
+          <div className="custom-modal-header">
+            <h3>Delete All Notifications?</h3>
+            <button 
+              onClick={() => setShowDeleteModal(false)} 
+              className="custom-modal-close"
+              type="button"
+            >
+              ×
+            </button>
           </div>
-          <h3 className="modal-title">Delete All Notifications?</h3>
-          <p className="modal-message">
-            Are you sure you want to delete all notifications? This action cannot be undone.
-          </p>
-          <div className="modal-actions">
-            <button 
-              className="modal-cancel-btn"
-              onClick={() => setShowDeleteModal(false)}
-            >
-              Cancel
-            </button>
-            <button 
-              className="modal-confirm-btn"
-              onClick={confirmDeleteAll}
-            >
-              Delete All
-            </button>
+          
+          <div className="custom-modal-body">
+            <div className="delete-warning">
+              <span className="warning-icon">⚠️</span>
+              <div className="warning-content">
+                <h4>Are you sure you want to delete all notifications?</h4>
+                
+                <div className="item-info">
+                  <div className="item-name">{notifications.length} notification{notifications.length !== 1 ? 's' : ''}</div>
+                  <div className="item-details">Including {unreadCount} unread notification{unreadCount !== 1 ? 's' : ''}</div>
+                </div>
+                
+                <p className="warning-text">
+                  This action cannot be undone. All notifications will be permanently removed from your account.
+                </p>
+              </div>
+            </div>
+          </div>
+          
+          <div className="custom-modal-footer">
+            <div className="modal-actions">
+              <button 
+                type="button" 
+                onClick={() => setShowDeleteModal(false)} 
+                className="modal-cancel-btn"
+              >
+                Cancel
+              </button>
+              <button 
+                type="button" 
+                onClick={confirmDeleteAll}
+                className="modal-confirm-btn"
+              >
+                Delete All
+              </button>
+            </div>
           </div>
         </div>
       </div>
