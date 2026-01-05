@@ -71,6 +71,26 @@ app.get('/api/health', (req, res) => {
   });
 });
 
+// Version endpoint - returns app version from package.json
+app.get('/api/version', (req, res) => {
+  try {
+    const packageJsonPath = path.join(__dirname, '../package.json');
+    const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
+    res.status(200).json({
+      success: true,
+      version: packageJson.version,
+      name: packageJson.name,
+      description: packageJson.description
+    });
+  } catch (error) {
+    console.error('Failed to read package.json:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to retrieve version information'
+    });
+  }
+});
+
 // Register routes
 app.use('/api/auth', authRoutes);
 app.use('/api/users', usersRoutes);

@@ -1,0 +1,312 @@
+/**
+ * Update Alert Styles - Improved Version
+ * 
+ * Improvements:
+ * - CSS custom properties for theming
+ * - Dark mode support
+ * - Better responsive design
+ * - Smooth animations
+ * - Accessibility improvements
+ */
+
+:root {
+  /* Color Palette */
+  --update-primary: #007bff;
+  --update-primary-hover: #0056b3;
+  --update-success: #28a745;
+  --update-success-hover: #218838;
+  --update-danger: #dc3545;
+  --update-neutral: #6c757d;
+  --update-neutral-hover: #545b62;
+  
+  /* Layout */
+  --update-z-modal: 1000;
+  --update-border-radius: 8px;
+  --update-spacing-sm: 8px;
+  --update-spacing-md: 16px;
+  --update-spacing-lg: 20px;
+  
+  /* Transitions */
+  --update-transition-fast: 0.2s ease;
+  --update-transition-smooth: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  
+  /* Light theme (default) */
+  --update-overlay-bg: rgba(0, 0, 0, 0.5);
+  --update-modal-bg: #ffffff;
+  --update-text-primary: #212529;
+  --update-text-secondary: #6c757d;
+  --update-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --update-overlay-bg: rgba(0, 0, 0, 0.75);
+    --update-modal-bg: #1e1e1e;
+    --update-text-primary: #e0e0e0;
+    --update-text-secondary: #a0a0a0;
+    --update-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+  }
+}
+
+/* ===== Overlay ===== */
+.update-alert-overlay {
+  position: fixed;
+  inset: 0;
+  background: var(--update-overlay-bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: var(--update-z-modal);
+  animation: fadeIn var(--update-transition-fast);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+}
+
+/* ===== Modal Container ===== */
+.update-alert-modal {
+  background: var(--update-modal-bg);
+  border-radius: var(--update-border-radius);
+  padding: var(--update-spacing-lg);
+  max-width: 500px;
+  width: 90%;
+  box-shadow: var(--update-shadow);
+  position: relative;
+  color: var(--update-text-primary);
+  animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  transform-origin: center center;
+}
+
+/* ===== Alert Message Component ===== */
+.update-alert-modal .alert-message-component {
+  margin-bottom: var(--update-spacing-lg);
+  line-height: 1.5;
+  color: var(--update-text-secondary);
+}
+
+/* ===== Button Container ===== */
+.update-alert-buttons {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+  margin-top: var(--update-spacing-lg);
+}
+
+/* ===== Base Button Styles ===== */
+.update-install-btn,
+.update-cancel-btn {
+  padding: var(--update-spacing-sm) var(--update-spacing-md);
+  border: none;
+  border-radius: 4px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--update-transition-fast);
+  font-family: inherit;
+  white-space: nowrap;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Focus visible for accessibility */
+.update-install-btn:focus-visible,
+.update-cancel-btn:focus-visible {
+  outline: 2px solid var(--update-primary);
+  outline-offset: 2px;
+}
+
+/* Disabled state */
+.update-install-btn:disabled,
+.update-cancel-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ===== Install Button (Primary Action) ===== */
+.update-install-btn {
+  background: var(--update-success);
+  color: white;
+  box-shadow: 0 2px 4px rgba(40, 167, 69, 0.2);
+}
+
+.update-install-btn:hover:not(:disabled) {
+  background: var(--update-success-hover);
+  box-shadow: 0 4px 8px rgba(40, 167, 69, 0.3);
+  transform: translateY(-1px);
+}
+
+.update-install-btn:active:not(:disabled) {
+  transform: translateY(0);
+  box-shadow: 0 1px 2px rgba(40, 167, 69, 0.2);
+}
+
+/* Ripple effect on click */
+.update-install-btn::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: rgba(255, 255, 255, 0.3);
+  border-radius: inherit;
+  transform: scale(0);
+  transition: transform 0.6s ease-out;
+}
+
+.update-install-btn:active:not(:disabled)::after {
+  transform: scale(2);
+  opacity: 0;
+}
+
+/* ===== Cancel Button (Secondary Action) ===== */
+.update-cancel-btn {
+  background: var(--update-neutral);
+  color: white;
+  box-shadow: 0 2px 4px rgba(108, 117, 125, 0.2);
+}
+
+.update-cancel-btn:hover:not(:disabled) {
+  background: var(--update-neutral-hover);
+  box-shadow: 0 4px 8px rgba(108, 117, 125, 0.3);
+  transform: translateY(-1px);
+}
+
+.update-cancel-btn:active:not(:disabled) {
+  transform: translateY(0);
+  box-shadow: 0 1px 2px rgba(108, 117, 125, 0.2);
+}
+
+/* ===== Animations ===== */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* Exit animations */
+.update-alert-overlay.exiting {
+  animation: fadeOut 0.2s ease-out;
+}
+
+.update-alert-modal.exiting {
+  animation: slideDown 0.2s ease-out;
+}
+
+@keyframes fadeOut {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(20px) scale(0.95);
+  }
+}
+
+/* ===== Responsive Design ===== */
+@media (max-width: 600px) {
+  .update-alert-modal {
+    margin: var(--update-spacing-lg);
+    padding: var(--update-spacing-md);
+    max-width: calc(100% - calc(var(--update-spacing-lg) * 2));
+  }
+
+  .update-alert-buttons {
+    flex-direction: column;
+    gap: var(--update-spacing-sm);
+  }
+
+  .update-install-btn,
+  .update-cancel-btn {
+    width: 100%;
+    justify-content: center;
+    display: inline-flex;
+    align-items: center;
+  }
+}
+
+/* Extra small devices */
+@media (max-width: 360px) {
+  .update-alert-modal {
+    font-size: 14px;
+  }
+  
+  .update-install-btn,
+  .update-cancel-btn {
+    font-size: 13px;
+    padding: 6px 12px;
+  }
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+  .update-install-btn,
+  .update-cancel-btn {
+    border: 2px solid currentColor;
+  }
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  .update-alert-overlay,
+  .update-alert-modal,
+  .update-install-btn,
+  .update-cancel-btn {
+    animation: none;
+    transition: none;
+  }
+  
+  .update-install-btn:hover:not(:disabled),
+  .update-cancel-btn:hover:not(:disabled) {
+    transform: none;
+  }
+}
+
+/* ===== Loading State ===== */
+.update-install-btn.loading {
+  pointer-events: none;
+  position: relative;
+  color: transparent;
+}
+
+.update-install-btn.loading::before {
+  content: '';
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  top: 50%;
+  left: 50%;
+  margin-left: -8px;
+  margin-top: -8px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top-color: white;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

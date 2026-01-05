@@ -870,15 +870,37 @@ if (app) {
 }
 
 if (ipcMain) {
-  ipcMain.handle('dialog:openDirectory', async () => {
+  ipcMain.handle('dialog:openDirectory', async (event, options = {}) => {
     const result = await dialog.showOpenDialog(mainWindow, {
-      properties: ['openDirectory']
+      properties: ['openDirectory'],
+      defaultPath: options.defaultPath || undefined
     });
 
     return {
       canceled: result.canceled,
       filePaths: result.filePaths || []
     };
+  });
+
+  // Get default network projects path
+  ipcMain.handle('app:getNetworkProjectsPath', async () => {
+    try {
+      // Try to get network path from environment or config
+      // Default to a common Windows network share path
+      const networkPath = process.env.NETWORK_PROJECTS_PATH || '\\\\KMTI-NAS\\Shared\\Public\\PROJECTS';
+      
+      // Check if path exists
+      if (fs.existsSync(networkPath)) {
+        log(LogLevel.DEBUG, 'Network projects path found:', networkPath);
+        return networkPath;
+      }
+      
+      log(LogLevel.DEBUG, 'Network projects path not found, returning null');
+      return null;
+    } catch (error) {
+      log(LogLevel.ERROR, 'Error getting network projects path:', error.message);
+      return null;
+    }
   });
 
   ipcMain.handle('file:openInApp', async (event, filePath) => {
@@ -889,31 +911,39 @@ if (ipcMain) {
         return { success: false, error: 'Invalid file path' };
       }
 
-      // SECURITY: Prevent directory traversal attacks
+      // Normalize the path for Windows
       const normalizedPath = path.normalize(filePath);
-      if (normalizedPath.includes('..') || path.isAbsolute(normalizedPath)) {
-        log(LogLevel.WARN, 'Suspicious file path detected:', filePath);
-        return { success: false, error: 'Invalid file path' };
-      }
-
-      log(LogLevel.DEBUG, `Opening file: ${normalizedPath}`);
-
+      
+      // SECURITY: Check if file exists before attempting to open
+      // This prevents attempting to open non-existent or invalid paths
       if (!fs.existsSync(normalizedPath)) {
-        return { success: false, error: 'File not found' };
+        log(LogLevel.WARN, 'File not found:', normalizedPath);
+        return { success: false, error: 'File not found or has been deleted/moved' };
       }
 
+      // SECURITY: Verify it's actually a file, not a directory
+      const stats = fs.statSync(normalizedPath);
+      if (stats.isDirectory()) {
+        log(LogLevel.WARN, 'Attempted to open directory as file:', normalizedPath);
+        return { success: false, error: 'Cannot open directory as file' };
+      }
+
+      log(LogLevel.DEBUG, `Opening file with system default application: ${normalizedPath}`);
+
+      // Use shell.openPath to open with default application
       const result = await shell.openPath(normalizedPath);
 
       if (result) {
+        // If result is not empty, it means there was an error
         log(LogLevel.ERROR, 'Error opening file:', result);
         return { success: false, error: result };
       }
 
-      log(LogLevel.INFO, 'File opened successfully');
+      log(LogLevel.INFO, 'File opened successfully with system default application');
       return { success: true, method: 'system-default' };
 
     } catch (error) {
-      log(LogLevel.ERROR, 'Error:', error.message);
+      log(LogLevel.ERROR, 'Error opening file:', error.message);
       return { success: false, error: error.message };
     }
   });

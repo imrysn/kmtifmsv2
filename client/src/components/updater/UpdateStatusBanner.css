@@ -1,0 +1,80 @@
+/**
+ * UpdateStatusBanner Styles
+ * 
+ * CRITICAL FIX: This banner uses position: fixed and should NOT push content down.
+ * The banner overlays the content without affecting document flow.
+ */
+
+/* Banner container - overlays content, doesn't push it */
+.update-status-banner {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 9999; /* High z-index to appear above all content */
+  pointer-events: none; /* Allow clicks to pass through empty areas */
+}
+
+/* Banner content - re-enable pointer events */
+.update-status-banner > * {
+  pointer-events: auto;
+}
+
+/* Slide down animation */
+@keyframes slideDown {
+  from {
+    transform: translateY(-100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+/* Slide up animation (for exit) */
+@keyframes slideUp {
+  from {
+    transform: translateY(0);
+    opacity: 1;
+  }
+  to {
+    transform: translateY(-100%);
+    opacity: 0;
+  }
+}
+
+/* Apply animations */
+.update-status-banner.entering {
+  animation: slideDown 0.3s ease-out forwards;
+}
+
+.update-status-banner.exiting {
+  animation: slideUp 0.2s ease-in forwards;
+}
+
+/* Ensure the banner doesn't cause layout shift */
+.update-status-banner::before {
+  content: none;
+}
+
+/* Shadow for better visibility over content */
+.update-status-banner .banner-content {
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 
+              0 2px 4px -1px rgba(0, 0, 0, 0.06);
+}
+
+/* Responsive: make banner full width on mobile */
+@media (max-width: 768px) {
+  .update-status-banner {
+    left: 0;
+    right: 0;
+  }
+}
+
+/* Print: hide update banner */
+@media print {
+  .update-status-banner {
+    display: none !important;
+  }
+}

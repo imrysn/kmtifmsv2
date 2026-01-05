@@ -1,0 +1,447 @@
+/**
+ * KMTI FMS - Updater Window Styles
+ * 
+ * Design Philosophy:
+ * - Clean, minimal interface focused on updates
+ * - Smooth animations for better UX
+ * - Dark theme consistent with app branding
+ * - Accessible with proper ARIA support
+ * - Performance-optimized CSS
+ */
+
+/* ===== CSS Custom Properties (Design Tokens) ===== */
+:root {
+  /* Brand Colors */
+  --color-primary: #007bff;
+  --color-primary-dark: #0056b3;
+  --color-success: #28a745;
+  --color-danger: #ff6b6b;
+  --color-warning: #ffc107;
+  
+  /* Neutral Colors */
+  --color-text: #ffffff;
+  --color-text-muted: rgba(255, 255, 255, 0.7);
+  --color-bg-dark: #1a1a1a;
+  --color-bg-medium: #2d2d2d;
+  --color-bg-light: rgba(255, 255, 255, 0.1);
+  
+  /* Spacing Scale */
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 12px;
+  --space-lg: 16px;
+  --space-xl: 20px;
+  --space-2xl: 30px;
+  
+  /* Typography */
+  --font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --font-size-sm: 12px;
+  --font-size-base: 14px;
+  --font-size-md: 16px;
+  --font-size-lg: 20px;
+  --font-size-xl: 24px;
+  
+  /* Border Radius */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-full: 50%;
+  
+  /* Shadows */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.1);
+  --shadow-md: 0 2px 4px rgba(0, 0, 0, 0.15);
+  --shadow-lg: 0 4px 8px rgba(0, 0, 0, 0.2);
+  
+  /* Transitions */
+  --transition-fast: 0.15s ease;
+  --transition-base: 0.3s ease;
+  --transition-smooth: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ===== Base Resets ===== */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+/* ===== Body & Container ===== */
+body {
+  font-family: var(--font-family);
+  background: linear-gradient(135deg, var(--color-bg-dark) 0%, var(--color-bg-medium) 100%);
+  color: var(--color-text);
+  height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.updater-container {
+  text-align: center;
+  padding: var(--space-2xl);
+  max-width: 350px;
+  width: 100%;
+}
+
+/* ===== Logo/Branding ===== */
+.logo {
+  font-size: var(--font-size-xl);
+  font-weight: 700;
+  margin-bottom: var(--space-xl);
+  color: var(--color-primary);
+  letter-spacing: -0.5px;
+  text-shadow: 0 2px 4px rgba(0, 123, 255, 0.3);
+}
+
+/* ===== Status Message ===== */
+.status {
+  font-size: var(--font-size-md);
+  margin-bottom: var(--space-lg);
+  opacity: 0.9;
+  min-height: 20px;
+  line-height: 1.5;
+  transition: opacity var(--transition-base);
+}
+
+.status:empty {
+  opacity: 0;
+}
+
+/* ===== Loading Spinner ===== */
+.spinner {
+  border: 3px solid var(--color-bg-light);
+  border-top-color: var(--color-primary);
+  border-radius: var(--radius-full);
+  width: 40px;
+  height: 40px;
+  animation: spin 1s linear infinite;
+  margin: var(--space-xl) auto;
+  display: block;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.spinner.hidden {
+  display: none;
+}
+
+/* ===== Progress Bar ===== */
+.progress-container {
+  margin: var(--space-xl) 0;
+  display: none;
+  opacity: 0;
+  animation: fadeIn var(--transition-base) forwards;
+}
+
+.progress-container.visible {
+  display: block;
+}
+
+.progress-bar {
+  width: 100%;
+  height: 8px;
+  background: var(--color-bg-light);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  margin-bottom: var(--space-md);
+  position: relative;
+}
+
+/* Shimmer effect for indeterminate progress */
+.progress-bar.indeterminate::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.2),
+    transparent
+  );
+  animation: shimmer 1.5s infinite;
+}
+
+@keyframes shimmer {
+  to {
+    left: 100%;
+  }
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--color-primary) 0%, var(--color-primary-dark) 100%);
+  width: 0%;
+  transition: width var(--transition-smooth);
+  border-radius: var(--radius-sm);
+  position: relative;
+  overflow: hidden;
+}
+
+/* Animated gradient in progress fill */
+.progress-fill::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.2),
+    transparent
+  );
+  animation: progressShine 2s infinite;
+}
+
+@keyframes progressShine {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+.progress-text {
+  font-size: var(--font-size-sm);
+  opacity: 0.7;
+  font-weight: 600;
+  margin-bottom: var(--space-xs);
+}
+
+.progress-details {
+  font-size: var(--font-size-sm);
+  opacity: 0.5;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ===== Action Buttons ===== */
+.buttons {
+  display: none;
+  gap: var(--space-md);
+  justify-content: center;
+  margin-top: var(--space-xl);
+  opacity: 0;
+  animation: fadeIn var(--transition-base) forwards;
+}
+
+.buttons.visible {
+  display: flex;
+}
+
+.btn {
+  padding: var(--space-md) var(--space-xl);
+  border: none;
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-base);
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  font-family: inherit;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-sm);
+  position: relative;
+  overflow: hidden;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* Focus styles for accessibility */
+.btn:focus-visible {
+  outline: 2px solid var(--color-text);
+  outline-offset: 2px;
+}
+
+.btn:active {
+  transform: scale(0.98);
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none !important;
+}
+
+/* Button ripple effect */
+.btn::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  border-radius: var(--radius-full);
+  background: rgba(255, 255, 255, 0.4);
+  transform: translate(-50%, -50%);
+  transition: width 0.6s, height 0.6s;
+}
+
+.btn:active:not(:disabled)::before {
+  width: 300px;
+  height: 300px;
+}
+
+/* Primary Button */
+.btn-primary {
+  background: var(--color-primary);
+  color: var(--color-text);
+  box-shadow: var(--shadow-md);
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: var(--color-primary-dark);
+  box-shadow: var(--shadow-lg);
+  transform: translateY(-1px);
+}
+
+.btn-icon {
+  font-size: var(--font-size-lg);
+  line-height: 1;
+  display: inline-block;
+}
+
+/* Secondary Button */
+.btn-secondary {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--color-text);
+  box-shadow: var(--shadow-sm);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.btn-secondary:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.15);
+  border-color: rgba(255, 255, 255, 0.3);
+  transform: translateY(-1px);
+}
+
+/* ===== Error Message ===== */
+.error-message {
+  background: rgba(220, 53, 69, 0.15);
+  border: 1px solid rgba(220, 53, 69, 0.4);
+  color: var(--color-danger);
+  padding: var(--space-lg);
+  border-radius: var(--radius-md);
+  margin-top: var(--space-lg);
+  display: none;
+  animation: shake 0.5s;
+  font-size: var(--font-size-sm);
+  line-height: 1.5;
+}
+
+.error-message.visible {
+  display: block;
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  10%, 30%, 50%, 70%, 90% { transform: translateX(-5px); }
+  20%, 40%, 60%, 80% { transform: translateX(5px); }
+}
+
+/* ===== Utility Animations ===== */
+.fade-in {
+  animation: fadeIn var(--transition-smooth);
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.slide-up {
+  animation: slideUp var(--transition-smooth);
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ===== Accessibility ===== */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+  
+  .spinner {
+    animation: none;
+    border-top-color: var(--color-text);
+  }
+}
+
+/* High contrast mode */
+@media (prefers-contrast: high) {
+  :root {
+    --color-bg-light: rgba(255, 255, 255, 0.3);
+  }
+  
+  .btn {
+    border: 2px solid currentColor;
+  }
+}
+
+/* ===== Responsive Design ===== */
+@media (max-width: 400px) {
+  .updater-container {
+    padding: var(--space-xl);
+  }
+  
+  .logo {
+    font-size: var(--font-size-lg);
+  }
+  
+  .status {
+    font-size: var(--font-size-base);
+  }
+  
+  .buttons {
+    flex-direction: column;
+    width: 100%;
+  }
+  
+  .btn {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+/* ===== State Classes for JavaScript ===== */
+.hidden {
+  display: none !important;
+}
+
+.visible {
+  display: block !important;
+}
+
+.disabled {
+  pointer-events: none;
+  opacity: 0.5;
+}

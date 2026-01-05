@@ -7,10 +7,13 @@ console.log('🔌 Preload script loaded');
 try {
   contextBridge.exposeInMainWorld('electron', {
     // Dialog methods
-    openDirectoryDialog: () => ipcRenderer.invoke('dialog:openDirectory'),
+    openDirectoryDialog: (options) => ipcRenderer.invoke('dialog:openDirectory', options),
     
     // File operations - uses Windows default file associations
     openFileInApp: (filePath) => ipcRenderer.invoke('file:openInApp', filePath),
+    
+    // Get default network projects path
+    getNetworkProjectsPath: () => ipcRenderer.invoke('app:getNetworkProjectsPath'),
     
     // Window flashing for notifications
     flashFrame: (shouldFlash) => ipcRenderer.send('window:flashFrame', shouldFlash)

@@ -12,6 +12,7 @@ const Settings = ({ clearMessages, error, success, setError, setSuccess, users, 
   const [isLoading, setIsLoading] = useState(false)
   const [teams, setTeams] = useState([])
   const [teamsLoading, setTeamsLoading] = useState(false)
+  const [appVersion, setAppVersion] = useState('Loading...')
   const [newTeam, setNewTeam] = useState({
     name: '',
     leaderId: '',
@@ -30,6 +31,32 @@ const Settings = ({ clearMessages, error, success, setError, setSuccess, users, 
     }
   })
   const [isLoadingSettings, setIsLoadingSettings] = useState(true)
+
+  // Fetch app version on mount
+  useEffect(() => {
+    const fetchAppVersion = async () => {
+      try {
+        if (window.updater && window.updater.getVersion) {
+          const version = await window.updater.getVersion()
+          setAppVersion(`v${version}`)
+        } else {
+          // Fallback: try to get from package.json via API
+          const response = await fetch('http://localhost:3001/api/version')
+          const data = await response.json()
+          if (data.success && data.version) {
+            setAppVersion(`v${data.version}`)
+          } else {
+            setAppVersion('Unknown')
+          }
+        }
+      } catch (error) {
+        console.error('Failed to fetch app version:', error)
+        setAppVersion('Unknown')
+      }
+    }
+
+    fetchAppVersion()
+  }, [])
 
   const handleSettingsChange = (category, field, value) => {
     setSettings(prev => ({
@@ -507,7 +534,7 @@ const Settings = ({ clearMessages, error, success, setError, setSuccess, users, 
             <div className="system-info">
               <div className="info-row">
                 <span className="info-label">Application Version:</span>
-                <span className="info-value">v2.1.0</span>
+                <span className="info-value">{appVersion}</span>
               </div>
               <div className="info-row">
                 <span className="info-label">Database Version:</span>

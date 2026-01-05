@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline';">
+  <title>KMTI FMS - Updating...</title>
+  <link rel="stylesheet" href="./updater.css">
+</head>
+<body>
+  <div class="updater-container fade-in">
+    <!-- Logo/Branding -->
+    <div class="logo">KMTI FMS</div>
+    
+    <!-- Status Message -->
+    <div class="status" id="status" role="status" aria-live="polite">
+      Preparing update...
+    </div>
+
+    <!-- Loading Spinner -->
+    <div class="spinner" id="spinner" aria-hidden="true"></div>
+
+    <!-- Progress Bar Container -->
+    <div class="progress-container" id="progressContainer" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">
+      <div class="progress-bar">
+        <div class="progress-fill" id="progressFill"></div>
+      </div>
+      <div class="progress-text" id="progressText">0%</div>
+      <div class="progress-details" id="progressDetails"></div>
+    </div>
+
+    <!-- Action Buttons -->
+    <div class="buttons" id="buttons">
+      <button class="btn btn-primary" id="installBtn" type="button">
+        <span class="btn-icon">↻</span>
+        <span class="btn-text">Install & Restart</span>
+      </button>
+      <button class="btn btn-secondary" id="cancelBtn" type="button">
+        <span class="btn-text">Cancel</span>
+      </button>
+    </div>
+
+    <!-- Error Message -->
+    <div class="error-message" id="errorMessage" role="alert"></div>
+  </div>
+
+  <script src="./updater.js"></script>
+</body>
+</html>

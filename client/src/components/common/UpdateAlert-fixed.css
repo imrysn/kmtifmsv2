@@ -1,0 +1,313 @@
+/**
+ * Update Alert Modal Styles - FIXED VERSION
+ * 
+ * CRITICAL FIX: Modal uses position: fixed and creates an overlay
+ * WITHOUT pushing content down or affecting document flow.
+ */
+
+/* ===== Overlay ===== */
+.update-alert-overlay {
+  /* Fixed positioning - overlays everything, doesn't affect layout */
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  
+  /* Backdrop */
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  
+  /* Layout */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  
+  /* Stacking */
+  z-index: 10000; /* Above everything else */
+  
+  /* Animation */
+  animation: fadeIn 0.2s ease-out;
+  
+  /* Prevent scrolling behind modal */
+  overflow: hidden;
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+  .update-alert-overlay {
+    background: rgba(0, 0, 0, 0.75);
+  }
+}
+
+/* ===== Modal Container ===== */
+.update-alert-modal {
+  background: white;
+  border-radius: 8px;
+  padding: 20px;
+  max-width: 500px;
+  width: 90%;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 
+    0 20px 25px -5px rgba(0, 0, 0, 0.1),
+    0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  
+  /* Animation */
+  animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  
+  /* Positioning */
+  position: relative;
+  margin: 20px;
+}
+
+/* Dark mode for modal */
+@media (prefers-color-scheme: dark) {
+  .update-alert-modal {
+    background: #1e1e1e;
+    color: #e0e0e0;
+    box-shadow: 
+      0 20px 25px -5px rgba(0, 0, 0, 0.5),
+      0 10px 10px -5px rgba(0, 0, 0, 0.3);
+  }
+}
+
+/* ===== Alert Message Component ===== */
+.update-alert-modal .alert-message-component {
+  margin-bottom: 20px;
+  line-height: 1.5;
+}
+
+/* ===== Button Container ===== */
+.update-alert-buttons {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+  margin-top: 20px;
+}
+
+/* ===== Base Button Styles ===== */
+.update-install-btn,
+.update-cancel-btn {
+  padding: 10px 20px;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-family: inherit;
+  white-space: nowrap;
+  
+  /* Remove default button styles */
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+}
+
+/* Focus visible for accessibility */
+.update-install-btn:focus-visible,
+.update-cancel-btn:focus-visible {
+  outline: 2px solid #007bff;
+  outline-offset: 2px;
+}
+
+/* Disabled state */
+.update-install-btn:disabled,
+.update-cancel-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ===== Install Button (Primary Action) ===== */
+.update-install-btn {
+  background: #28a745;
+  color: white;
+  box-shadow: 0 2px 4px rgba(40, 167, 69, 0.2);
+}
+
+.update-install-btn:hover:not(:disabled) {
+  background: #218838;
+  box-shadow: 0 4px 8px rgba(40, 167, 69, 0.3);
+  transform: translateY(-1px);
+}
+
+.update-install-btn:active:not(:disabled) {
+  transform: translateY(0);
+  box-shadow: 0 1px 2px rgba(40, 167, 69, 0.2);
+}
+
+/* ===== Cancel Button (Secondary Action) ===== */
+.update-cancel-btn {
+  background: #6c757d;
+  color: white;
+  box-shadow: 0 2px 4px rgba(108, 117, 125, 0.2);
+}
+
+.update-cancel-btn:hover:not(:disabled) {
+  background: #545b62;
+  box-shadow: 0 4px 8px rgba(108, 117, 125, 0.3);
+  transform: translateY(-1px);
+}
+
+.update-cancel-btn:active:not(:disabled) {
+  transform: translateY(0);
+  box-shadow: 0 1px 2px rgba(108, 117, 125, 0.2);
+}
+
+/* ===== Animations ===== */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* Exit animations */
+.update-alert-overlay.exiting {
+  animation: fadeOut 0.2s ease-in;
+}
+
+.update-alert-modal.exiting {
+  animation: slideDown 0.2s ease-in;
+}
+
+@keyframes fadeOut {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(20px) scale(0.95);
+  }
+}
+
+/* ===== Responsive Design ===== */
+@media (max-width: 600px) {
+  .update-alert-modal {
+    margin: 20px;
+    padding: 16px;
+    max-width: calc(100% - 40px);
+  }
+
+  .update-alert-buttons {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .update-install-btn,
+  .update-cancel-btn {
+    width: 100%;
+    justify-content: center;
+    display: inline-flex;
+    align-items: center;
+  }
+}
+
+/* Extra small devices */
+@media (max-width: 360px) {
+  .update-alert-modal {
+    font-size: 14px;
+    margin: 10px;
+  }
+  
+  .update-install-btn,
+  .update-cancel-btn {
+    font-size: 13px;
+    padding: 8px 16px;
+  }
+}
+
+/* ===== Accessibility ===== */
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+  .update-install-btn,
+  .update-cancel-btn {
+    border: 2px solid currentColor;
+  }
+  
+  .update-alert-overlay {
+    background: rgba(0, 0, 0, 0.9);
+  }
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  .update-alert-overlay,
+  .update-alert-modal,
+  .update-install-btn,
+  .update-cancel-btn {
+    animation: none !important;
+    transition: none !important;
+  }
+  
+  .update-install-btn:hover:not(:disabled),
+  .update-cancel-btn:hover:not(:disabled) {
+    transform: none;
+  }
+}
+
+/* ===== Print Styles ===== */
+@media print {
+  .update-alert-overlay {
+    display: none !important;
+  }
+}
+
+/* ===== Loading State ===== */
+.update-install-btn.loading {
+  pointer-events: none;
+  position: relative;
+  color: transparent;
+}
+
+.update-install-btn.loading::before {
+  content: '';
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  top: 50%;
+  left: 50%;
+  margin-left: -8px;
+  margin-top: -8px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top-color: white;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ===== Prevent Body Scroll When Modal is Open ===== */
+body.modal-open {
+  overflow: hidden;
+}
