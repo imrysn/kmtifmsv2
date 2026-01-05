@@ -1,6 +1,6 @@
 {
   "name": "electron-react-app",
-  "version": "2.0.0",
+  "version": "2.1.3",
   "description": "Desktop application with React, Electron, Express, and MySQL",
   "main": "main.js",
   "scripts": {
