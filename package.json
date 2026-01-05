@@ -131,7 +131,7 @@
           ]
         }
       ],
-      "icon": "client/src/assets/fms-icon.ico",
+      "icon": "client/src/assets/fms-icon.png",
       "publisherName": "KMTI",
       "verifyUpdateCodeSignature": false,
       "requestedExecutionLevel": "asInvoker"
@@ -147,8 +147,8 @@
       "perMachine": false,
       "allowElevation": true,
       "runAfterFinish": true,
-      "installerIcon": "client/src/assets/fms-icon.ico",
-      "uninstallerIcon": "client/src/assets/fms-icon.ico"
+      "installerIcon": "client/src/assets/fms-icon.png",
+      "uninstallerIcon": "client/src/assets/fms-icon.png"
     },
     "mac": {
       "target": "dmg",
