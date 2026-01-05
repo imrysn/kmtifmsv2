@@ -286,7 +286,7 @@
 }
 
 .progress-ring-fill {
-  transition: stroke-dasharray 1.2s cubic-bezier(0.4, 0, 0.2, 1);
+  /* Transition removed to prevent blinking */
   filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.15));
 }
 

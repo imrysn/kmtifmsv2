@@ -56,6 +56,10 @@ window.addEventListener('load', () => {
 export const flashTaskbar = (message = 'New Notification', duration = 10000) => {
   console.log(`🔔 flashTaskbar called: "${message}" (isElectron: ${isElectron}, isVisible: ${isPageVisible})`);
   
+  // DISABLED to prevent page blinking - document.title changes were causing React re-renders
+  console.log('⚠️ Taskbar flash disabled to prevent page blinking');
+  return;
+  
   // Only flash if the page is not visible
   if (isPageVisible) {
     console.log('⚠️ Page is visible, skipping flash');

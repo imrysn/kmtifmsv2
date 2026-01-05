@@ -923,12 +923,14 @@ if (ipcMain) {
     }
   });
 
-  // Handle window flashing for notifications
+  // Handle window flashing for notifications - DISABLED to prevent blinking
   ipcMain.on('window:flashFrame', (event, shouldFlash) => {
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      log(LogLevel.DEBUG, `Window flash: ${shouldFlash ? 'START' : 'STOP'}`);
-      mainWindow.flashFrame(shouldFlash);
-    }
+    // DISABLED: Window flashing was causing the entire app to blink
+    // if (mainWindow && !mainWindow.isDestroyed()) {
+    //   log(LogLevel.DEBUG, `Window flash: ${shouldFlash ? 'START' : 'STOP'}`);
+    //   mainWindow.flashFrame(shouldFlash);
+    // }
+    log(LogLevel.DEBUG, `Window flash request ignored (disabled to prevent blinking)`);
   });
 
   // Updater IPC handlers
