@@ -47,6 +47,17 @@ jobs:
           echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
           echo "Building version: $VERSION"
 
+      - name: Validate version format
+        shell: bash
+        run: |
+          VERSION="${{ steps.version.outputs.VERSION }}"
+          if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "❌ Invalid version format: $VERSION"
+            echo "Version must be in format: X.Y.Z (e.g., 2.1.5)"
+            exit 1
+          fi
+          echo "✅ Version format valid: $VERSION"
+
       - name: Update package.json version
         shell: bash
         run: |
@@ -62,7 +73,12 @@ jobs:
 
       - name: Build React client
         working-directory: ./client
-        run: npm run build
+        run: |
+          npm run build || {
+            echo "❌ Client build failed!"
+            echo "Check Vite configuration and dependencies"
+            exit 1
+          }
         env:
           NODE_ENV: production
 
@@ -70,25 +86,55 @@ jobs:
         shell: bash
         run: |
           if [ ! -d "client/dist" ]; then
-            echo "Error: client/dist directory not found"
+            echo "❌ client/dist directory not found"
             exit 1
           fi
-          echo "Client build successful"
+          
+          if [ ! -f "client/dist/index.html" ]; then
+            echo "❌ client/dist/index.html not found"
+            exit 1
+          fi
+          
+          # Check if dist has content
+          FILE_COUNT=$(find client/dist -type f | wc -l)
+          if [ "$FILE_COUNT" -lt 2 ]; then
+            echo "❌ client/dist appears empty (only $FILE_COUNT files)"
+            exit 1
+          fi
+          
+          echo "✅ Client build verified ($FILE_COUNT files)"
 
       - name: Build Electron app
-        run: npm run electron:pack
+        run: |
+          npm run electron:pack || {
+            echo "❌ Electron build failed!"
+            echo "Check electron-builder configuration"
+            exit 1
+          }
         env:
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
           NODE_ENV: production
-          # Code signing placeholders (add these secrets in repository settings when ready)
+          # Code signing placeholders (add these secrets when ready for production)
           # CSC_LINK: ${{ secrets.CSC_LINK }}
           # CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
 
-      - name: List build outputs
+      - name: Verify build outputs
         shell: bash
         run: |
-          echo "Build artifacts:"
-          ls -lh dist/
+          echo "Checking build artifacts..."
+          
+          if ! ls dist/*.exe 1> /dev/null 2>&1; then
+            echo "❌ No .exe installer found in dist/"
+            exit 1
+          fi
+          
+          if [ ! -f "dist/latest.yml" ]; then
+            echo "❌ No update metadata (latest.yml) found!"
+            exit 1
+          fi
+          
+          echo "✅ Build outputs verified:"
+          ls -lh dist/*.exe dist/*.yml
 
       - name: Upload Windows artifacts
         uses: actions/upload-artifact@v4
@@ -214,9 +260,22 @@ jobs:
       #     name: linux-build
       #     path: ./release-artifacts/linux
 
-      - name: List all artifacts
+      - name: Verify artifacts before release
         run: |
-          echo "Release artifacts:"
+          echo "Verifying release artifacts..."
+          
+          if [ ! -f release-artifacts/windows/*.exe ]; then
+            echo "❌ No .exe installer found!"
+            exit 1
+          fi
+          
+          if [ ! -f release-artifacts/windows/latest.yml ]; then
+            echo "❌ No latest.yml metadata found!"
+            echo "Auto-updates will NOT work without this file!"
+            exit 1
+          fi
+          
+          echo "✅ All required artifacts present:"
           find ./release-artifacts -type f -ls
 
       - name: Create Release
@@ -239,4 +298,9 @@ jobs:
           echo "**Version:** ${{ steps.version.outputs.VERSION }}" >> $GITHUB_STEP_SUMMARY
           echo "**Tag:** ${{ steps.version.outputs.TAG }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "The release is now available for automatic updates!" >> $GITHUB_STEP_SUMMARY
+          echo "📦 **Artifacts:**" >> $GITHUB_STEP_SUMMARY
+          find ./release-artifacts -type f -exec basename {} \; | sed 's/^/- /' >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "✅ The release is now available for automatic updates!" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "🔗 **Release URL:** https://github.com/imrysn/kmtifmsv2/releases/tag/${{ steps.version.outputs.TAG }}" >> $GITHUB_STEP_SUMMARY

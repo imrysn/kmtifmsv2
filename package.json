@@ -17,6 +17,7 @@
     "prod": "npm run client:build && npm run electron:prod",
     "client:build": "cd client && npm run build",
     "electron:pack": "electron-builder",
+    "electron:pack-dir": "electron-builder --dir",
     "build": "npm run client:build && npm run build:server && npm run electron:pack",
     "build:installer": "npm run client:build && npm run build:server && npm run electron:pack",
     "build:server": "npm run client:build && ncc build server.js -o dist-server",
@@ -58,7 +59,13 @@
     "network:switch-local": "node server/scripts/network/switch-to-local-test.js",
     "network:restore": "node server/scripts/network/restore-network-mode.js",
     "network:create-test-dir": "node server/scripts/network/create-local-test-directory.js",
-    "validate:updates": "node validate-update-system.js"
+    "validate:updates": "node validate-update-system.js",
+    "validate:code": "node validate-code.js",
+    "clean": "rimraf dist dist-server",
+    "clean:all": "rimraf dist dist-server client/dist",
+    "prebuild": "npm run clean",
+    "test:release": "node test-release.js",
+    "prepare:release": "npm run validate:code && echo ✅ Code is ready! Push tag to trigger GitHub Actions build"
   },
   "devDependencies": {
     "@vercel/ncc": "^0.38.4",

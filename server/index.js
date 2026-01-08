@@ -62,13 +62,46 @@ const PORT = process.env.SERVER_PORT || 3001;
 // Setup middleware
 setupMiddleware(app);
 
-// Health check endpoint
-app.get('/api/health', (req, res) => {
-  res.status(200).json({
+// Health check endpoint - used by updater for post-update verification
+app.get('/api/health', async (req, res) => {
+  const health = {
     status: 'healthy',
     timestamp: new Date().toISOString(),
-    uptime: process.uptime()
-  });
+    uptime: process.uptime(),
+    database: 'unknown',
+    version: null
+  };
+
+  try {
+    // Test database connection
+    if (USE_MYSQL) {
+      await new Promise((resolve, reject) => {
+        db.query('SELECT 1 as test', (err, results) => {
+          if (err) reject(err);
+          else resolve(results);
+        });
+      });
+      health.database = 'connected';
+    } else {
+      // SQLite - just check if db is defined
+      health.database = db ? 'connected' : 'disconnected';
+    }
+
+    // Get version
+    try {
+      const packageJson = require('../package.json');
+      health.version = packageJson.version;
+    } catch (e) {
+      // Not critical if version can't be read
+    }
+
+    res.status(200).json(health);
+  } catch (error) {
+    health.status = 'unhealthy';
+    health.database = 'disconnected';
+    health.error = error.message;
+    res.status(500).json(health);
+  }
 });
 
 // Version endpoint - returns app version from package.json

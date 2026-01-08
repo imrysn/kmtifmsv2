@@ -1,0 +1,28 @@
+name: Test GH_TOKEN
+
+on:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check if GH_TOKEN exists
+        run: |
+          if [ -z "${{ secrets.GH_TOKEN }}" ]; then
+            echo "❌ GH_TOKEN is not configured!"
+            echo "Please add it in Settings → Secrets → Actions"
+            exit 1
+          else
+            echo "✅ GH_TOKEN is configured"
+            echo "Token length: ${#GH_TOKEN}"
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+      
+      - name: Test token permissions
+        run: |
+          # Try to access repository info
+          curl -s -H "Authorization: token ${{ secrets.GH_TOKEN }}" \
+               https://api.github.com/repos/imrysn/kmtifmsv2 | \
+               jq -r '.full_name // "ERROR: Token invalid or insufficient permissions"'

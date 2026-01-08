@@ -45206,13 +45206,46 @@ const PORT = process.env.SERVER_PORT || 3001;
 // Setup middleware
 setupMiddleware(app);
 
-// Health check endpoint
-app.get('/api/health', (req, res) => {
-  res.status(200).json({
+// Health check endpoint - used by updater for post-update verification
+app.get('/api/health', async (req, res) => {
+  const health = {
     status: 'healthy',
     timestamp: new Date().toISOString(),
-    uptime: process.uptime()
-  });
+    uptime: process.uptime(),
+    database: 'unknown',
+    version: null
+  };
+
+  try {
+    // Test database connection
+    if (USE_MYSQL) {
+      await new Promise((resolve, reject) => {
+        db.query('SELECT 1 as test', (err, results) => {
+          if (err) reject(err);
+          else resolve(results);
+        });
+      });
+      health.database = 'connected';
+    } else {
+      // SQLite - just check if db is defined
+      health.database = db ? 'connected' : 'disconnected';
+    }
+
+    // Get version
+    try {
+      const packageJson = __nccwpck_require__(8330);
+      health.version = packageJson.version;
+    } catch (e) {
+      // Not critical if version can't be read
+    }
+
+    res.status(200).json(health);
+  } catch (error) {
+    health.status = 'unhealthy';
+    health.database = 'disconnected';
+    health.error = error.message;
+    res.status(500).json(health);
+  }
 });
 
 // Version endpoint - returns app version from package.json
@@ -69619,6 +69652,14 @@ module.exports = /*#__PURE__*/JSON.parse('{"application/andrew-inset":["ez"],"ap
 
 "use strict";
 module.exports = /*#__PURE__*/JSON.parse('{"100":"Continue","101":"Switching Protocols","102":"Processing","103":"Early Hints","200":"OK","201":"Created","202":"Accepted","203":"Non-Authoritative Information","204":"No Content","205":"Reset Content","206":"Partial Content","207":"Multi-Status","208":"Already Reported","226":"IM Used","300":"Multiple Choices","301":"Moved Permanently","302":"Found","303":"See Other","304":"Not Modified","305":"Use Proxy","307":"Temporary Redirect","308":"Permanent Redirect","400":"Bad Request","401":"Unauthorized","402":"Payment Required","403":"Forbidden","404":"Not Found","405":"Method Not Allowed","406":"Not Acceptable","407":"Proxy Authentication Required","408":"Request Timeout","409":"Conflict","410":"Gone","411":"Length Required","412":"Precondition Failed","413":"Payload Too Large","414":"URI Too Long","415":"Unsupported Media Type","416":"Range Not Satisfiable","417":"Expectation Failed","418":"I\'m a Teapot","421":"Misdirected Request","422":"Unprocessable Entity","423":"Locked","424":"Failed Dependency","425":"Too Early","426":"Upgrade Required","428":"Precondition Required","429":"Too Many Requests","431":"Request Header Fields Too Large","451":"Unavailable For Legal Reasons","500":"Internal Server Error","501":"Not Implemented","502":"Bad Gateway","503":"Service Unavailable","504":"Gateway Timeout","505":"HTTP Version Not Supported","506":"Variant Also Negotiates","507":"Insufficient Storage","508":"Loop Detected","509":"Bandwidth Limit Exceeded","510":"Not Extended","511":"Network Authentication Required"}');
+
+/***/ }),
+
+/***/ 8330:
+/***/ ((module) => {
+
+"use strict";
+module.exports = /*#__PURE__*/JSON.parse('{"name":"KMTI-File-Management","version":"2.1.5","description":"Desktop application with React, Electron, Express, and MySQL","main":"main.js","scripts":{"start":"node start-dev.js","dev":"node start-dev.js","diagnose:vite":"node diagnose-vite.js","verify:security":"node verify-security-fixes.js","dev:fast":"concurrently --kill-others \\"cd client && npm run dev\\" \\"wait-on http://localhost:5173 && cross-env NODE_ENV=development electron .\\"","dev:debug":"cross-env NODE_ENV=development ELECTRON_OPEN_DEVTOOLS=true electron .","client:dev":"cd client && npm run dev","electron:dev":"cross-env NODE_ENV=development electron .","electron:prod":"cross-env NODE_ENV=production electron .","start:prod":"npm run client:build && cross-env NODE_ENV=production electron .","prod":"npm run client:build && npm run electron:prod","client:build":"cd client && npm run build","electron:pack":"electron-builder","build":"npm run client:build && npm run build:server && npm run electron:pack","build:installer":"npm run client:build && npm run build:server && npm run electron:pack","build:server":"npm run client:build && ncc build server.js -o dist-server","build:server-standalone":"npm run client:build && ncc build server.js -o dist-server && xcopy client\\\\dist dist-server\\\\client-dist /E /I /Y","build:server-exe":"npm run build:server-standalone && pkg server.js --targets node18-win --output dist\\\\KMTI_FMS_Server.exe","build:server-installer":"npm run build:server-exe && xcopy database dist\\\\database /E /I /Y && copy .env dist\\\\.env && copy start-server.bat dist\\\\ && copy install-server-startup.bat dist\\\\ && copy install-server-service.bat dist\\\\ && copy run-server-hidden.vbs dist\\\\ && copy USER_SETUP_GUIDE.md dist\\\\ && xcopy dist-server\\\\client-dist dist\\\\client-dist /E /I /Y && echo Server installer created in dist\\\\","build:service-installer":"npm run build:server-installer && npm run create-service-scripts","create-service-scripts":"echo Creating Windows service scripts...","postinstall":"cd client && npm install","test:api":"node test-api.js","server:standalone":"node server.js","db:init":"node database/init-mysql.js","db:recreate":"node database/recreate-tables.js","db:fix-teams":"node database/fix-teams-table.js","db:reset-admin":"node database/reset-admin-password.js","db:check-roles":"node database/check-roles.js","db:migrate":"node database/migrate-from-sqlite.js","db:migrate:assignments":"node server/scripts/migrate-assignments.js","db:test":"node database/test-connection.js","db:backup":"node database/backup-mysql.js","db:switch":"node database/switch-database-mode.js","db:verify":"node verify-mysql-fixes.js","db:add-notifications":"node database/add-notifications-table.js","health":"node database/health-check.js","reset:db":"node server/scripts/database/reset-db.js","reset:db:force":"node server/scripts/database/reset-db-force.js","reset:db:file-approval":"node server/scripts/database/reset-file-approval-db.js","update:db:file-system":"node server/scripts/database/update-database-file-system.js","check:db":"node server/scripts/database/check-db-tables.js","test:team-delete":"node server/scripts/testing/test-team-delete.js","test:teams-api":"node server/scripts/testing/test-teams-api.js","test:delete-endpoint":"node server/scripts/testing/test-delete-endpoint.js","test:file-management":"node server/scripts/testing/test-file-management-api.js","debug:file-management":"node server/scripts/testing/debug-file-management.js","network:status":"node server/scripts/network/network-config-manager.js status","network:test":"node server/scripts/network/network-config-manager.js test","network:backup":"node server/scripts/network/network-config-manager.js backup-local","network:verify":"node server/scripts/network/verify-network-connection.js","network:switch-local":"node server/scripts/network/switch-to-local-test.js","network:restore":"node server/scripts/network/restore-network-mode.js","network:create-test-dir":"node server/scripts/network/create-local-test-directory.js","validate:updates":"node validate-update-system.js","clean":"rimraf dist dist-server","clean:all":"rimraf dist dist-server client/dist","prebuild":"npm run clean","test:release":"node test-release.js","prepare:release":"npm run test:release && echo ✅ Ready to release! Run: git tag vX.Y.Z && git push origin vX.Y.Z"},"devDependencies":{"@vercel/ncc":"^0.38.4","concurrently":"^8.2.2","cross-env":"^7.0.3","electron":"^27.0.0","electron-builder":"^24.6.4","pkg":"^5.8.1","wait-on":"^7.0.1"},"dependencies":{"bcryptjs":"^2.4.3","cors":"^2.8.5","dotenv":"^17.2.3","electron-log":"^5.0.1","electron-updater":"^6.1.7","express":"^4.18.2","ffi-napi":"^4.0.3","multer":"^1.4.5-lts.1","mysql2":"^3.15.1","node-fetch":"^2.7.0","react-hook-form":"^7.68.0","ref-napi":"^3.0.3","sqlite3":"^5.1.6"},"build":{"appId":"com.kmti.kmtifms2","productName":"KMTI File Management","directories":{"output":"dist"},"files":["main.js","preload.js","updater.js","updater-window.js","updater-preload.js","client/dist/**/*","client/src/assets/fms-icon.ico","client/src/assets/fms-icon.png","!**/*.log","!**/*.sqlite"],"extraResources":[{"from":"dist-server/","to":"app-server/"},{"from":".env","to":".env"},{"from":"database/","to":"database/"}],"publish":[{"provider":"github","owner":"imrysn","repo":"kmtifmsv2","releaseType":"release"}],"win":{"target":[{"target":"nsis","arch":["x64"]}],"icon":"client/src/assets/fms-icon.ico","publisherName":"KMTI","verifyUpdateCodeSignature":false,"requestedExecutionLevel":"asInvoker"},"nsis":{"oneClick":false,"allowToChangeInstallationDirectory":true,"createDesktopShortcut":true,"createStartMenuShortcut":true,"shortcutName":"KMTI File Management","deleteAppDataOnUninstall":false,"artifactName":"KMTI_FMS_Installer_${version}.${ext}","perMachine":false,"allowElevation":true,"runAfterFinish":true,"installerIcon":"client/src/assets/fms-icon.ico","uninstallerIcon":"client/src/assets/fms-icon.ico"},"mac":{"target":"dmg","icon":"client/src/assets/fms-icon.png","category":"public.app-category.business","hardenedRuntime":true,"gatekeeperAssess":false,"entitlements":null,"entitlementsInherit":null},"linux":{"target":"AppImage","icon":"client/src/assets/fms-icon.png","category":"Office"},"asarUnpack":["node_modules/sqlite3/**/*","server/**/*","database/**/*",".env"],"buildDependenciesFromSource":false,"npmRebuild":false}}');
 
 /***/ })
 

@@ -94,29 +94,34 @@ class UpdateStateManager {
   }
 
   async rollbackUpdate() {
-    console.log('🔄 Attempting to rollback to previous version...');
+    console.error('❌ Update verification failed after multiple attempts');
+    console.error('   Automatic rollback is NOT supported by electron-updater');
+    console.error('   User must manually reinstall previous version or contact support');
 
-    try {
-      // Use electron-updater's rollback feature if available
-      if (autoUpdater.rollback && typeof autoUpdater.rollback === 'function') {
-        await autoUpdater.rollback();
-        console.log('✅ Update rolled back successfully');
-        return true;
-      } else {
-        // Manual rollback - mark as failed and suggest manual reinstall
-        console.warn('⚠️  Automatic rollback not available, manual intervention required');
-        console.warn('   Please reinstall the previous version manually from backup');
+    // Reset state to prevent infinite restart loop
+    this.stateManager.state.pendingUpdateVerification = false;
+    this.stateManager.saveState();
 
-        // Reset state to prevent further attempts
-        this.stateManager.state.pendingUpdateVerification = false;
-        this.stateManager.saveState();
+    // Show error dialog to user
+    const { dialog } = require('electron');
+    const result = await dialog.showMessageBox({
+      type: 'error',
+      title: 'Update Failed',
+      message: 'The update appears to be broken and the application cannot start properly.',
+      detail: `Version: ${this.stateManager.state.lastUpdateVersion || 'unknown'}\n\n` +
+              'The application will continue running with the current version, but it may be unstable.\n\n' +
+              'Please contact support or reinstall the previous version manually.',
+      buttons: ['Continue Anyway', 'Exit Application'],
+      defaultId: 0,
+      cancelId: 1
+    });
 
-        return false;
-      }
-    } catch (error) {
-      console.error('❌ Rollback failed:', error.message);
-      return false;
+    if (result.response === 1) {
+      // User chose to exit
+      app.quit();
     }
+
+    return false;
   }
 
   resetFailures() {
@@ -344,45 +349,99 @@ class AppUpdater {
   async runHealthCheck() {
     console.log('🏥 Running post-update health check...');
     
-    return new Promise((resolve) => {
-      const checks = {
-        windowRender: false,
-        serverInit: false,
-        ipcReady: false
-      };
+    const checks = {
+      windowRender: false,
+      serverReady: false,
+      databaseConnected: false,
+      ipcReady: false
+    };
 
-      // Timeout for health check
-      this.healthCheckTimer = setTimeout(() => {
-        const passed = checks.windowRender && checks.serverInit && checks.ipcReady;
-        if (passed) {
-          console.log('✅ Health check passed');
-          this.stateManager.markVerificationSuccess();
-          resolve(true);
-        } else {
-          console.error('❌ Health check failed:', checks);
-          this.stateManager.recordFailure();
-          resolve(false);
-        }
-      }, HEALTH_CHECK_TIMEOUT);
-
+    try {
       // Check 1: Window rendered
       if (this.mainWindow && !this.mainWindow.isDestroyed()) {
-        this.mainWindow.webContents.once('did-finish-load', () => {
-          checks.windowRender = true;
-          console.log('  ✓ Window rendered');
+        // Wait for window to finish loading
+        await new Promise((resolve, reject) => {
+          const timeout = setTimeout(() => {
+            reject(new Error('Window load timeout'));
+          }, 5000);
+
+          this.mainWindow.webContents.once('did-finish-load', () => {
+            clearTimeout(timeout);
+            resolve();
+          });
         });
+        checks.windowRender = true;
+        console.log('  ✓ Window rendered');
+      } else {
+        console.error('  ✗ Window not available');
+        return false;
       }
 
-      // Check 2: Server initialized (checked externally)
-      checks.serverInit = true; // Assume server is working if we got this far
-      console.log('  ✓ Server initialized');
+      // Check 2: Server responding
+      const SERVER_PORT = process.env.EXPRESS_PORT || 3001;
+      try {
+        const http = require('http');
+        const serverResponse = await new Promise((resolve, reject) => {
+          const timeout = setTimeout(() => reject(new Error('Server timeout')), 5000);
+          
+          const req = http.get(`http://localhost:${SERVER_PORT}/api/health`, (res) => {
+            clearTimeout(timeout);
+            let data = '';
+            res.on('data', chunk => data += chunk);
+            res.on('end', () => {
+              try {
+                resolve(JSON.parse(data));
+              } catch (e) {
+                reject(e);
+              }
+            });
+          });
+          
+          req.on('error', reject);
+        });
+
+        if (serverResponse.status === 'healthy') {
+          checks.serverReady = true;
+          console.log('  ✓ Server responding');
+          
+          if (serverResponse.database === 'connected') {
+            checks.databaseConnected = true;
+            console.log('  ✓ Database connected');
+          } else {
+            console.error('  ✗ Database not connected');
+          }
+        }
+      } catch (error) {
+        console.error('  ✗ Server health check failed:', error.message);
+        return false;
+      }
 
       // Check 3: IPC ready
-      if (this.mainWindow) {
+      if (this.mainWindow && !this.mainWindow.isDestroyed()) {
         checks.ipcReady = true;
         console.log('  ✓ IPC ready');
       }
-    });
+
+      // All critical checks must pass
+      const allPassed = checks.windowRender && 
+                       checks.serverReady && 
+                       checks.databaseConnected && 
+                       checks.ipcReady;
+
+      if (allPassed) {
+        console.log('✅ Health check passed - all systems operational');
+        this.stateManager.markVerificationSuccess();
+        return true;
+      } else {
+        console.error('❌ Health check failed:', checks);
+        this.stateManager.recordFailure();
+        return false;
+      }
+    } catch (error) {
+      console.error('❌ Health check error:', error.message);
+      this.stateManager.recordFailure();
+      return false;
+    }
   }
 
   async checkStartupHealth() {

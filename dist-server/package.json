@@ -58,7 +58,12 @@
     "network:switch-local": "node server/scripts/network/switch-to-local-test.js",
     "network:restore": "node server/scripts/network/restore-network-mode.js",
     "network:create-test-dir": "node server/scripts/network/create-local-test-directory.js",
-    "validate:updates": "node validate-update-system.js"
+    "validate:updates": "node validate-update-system.js",
+    "clean": "rimraf dist dist-server",
+    "clean:all": "rimraf dist dist-server client/dist",
+    "prebuild": "npm run clean",
+    "test:release": "node test-release.js",
+    "prepare:release": "npm run test:release && echo ✅ Ready to release! Run: git tag vX.Y.Z && git push origin vX.Y.Z"
   },
   "devDependencies": {
     "@vercel/ncc": "^0.38.4",
