@@ -107,7 +107,7 @@ REM Try system-wide startup first (administrator mode)
 echo Attempting to create system startup task...
 
 REM Create a scheduled task that runs on system startup
-schtasks /create /tn "KMTI FMS Server" /tr "wscript.exe \"%SCRIPT_DIR%\run-server-hidden.vbs\"" /sc onstart /rl highest /f /NP
+schtasks /create /tn "KMTI FMS Server" /tr "\"%SCRIPT_DIR%\KMTI_FMS_Server.exe\"" /sc onstart /rl highest /f /NP
 
 if %errorLevel% == 0 (
     echo ✅ System startup task created successfully
