@@ -4,6 +4,7 @@ import { AlertMessage, ConfirmationModal } from './modals'
 import { SkeletonLoader } from '../common/SkeletonLoader'
 import { useAuth, useNetwork } from '../../contexts'
 import { withErrorBoundary } from '../common'
+import { getApiUrl } from '../../config/api'
 
 const Settings = ({ clearMessages, error, success, setError, setSuccess, users, user }) => {
   const { user: authUser } = useAuth()
@@ -41,7 +42,7 @@ const Settings = ({ clearMessages, error, success, setError, setSuccess, users, 
           setAppVersion(`v${version}`)
         } else {
           // Fallback: try to get from package.json via API
-          const response = await fetch('http://localhost:3001/api/version')
+          const response = await fetch(getApiUrl('api/version'))
           const data = await response.json()
           if (data.success && data.version) {
             setAppVersion(`v${data.version}`)
@@ -71,7 +72,7 @@ const Settings = ({ clearMessages, error, success, setError, setSuccess, users, 
   const fetchSettings = async () => {
     setIsLoadingSettings(true)
     try {
-      const response = await fetch('http://localhost:3001/api/settings/root_directory')
+      const response = await fetch(getApiUrl('api/settings/root_directory'))
       const data = await response.json()
       if (data.success && data.setting) {
         setSettings(prev => ({
@@ -135,7 +136,7 @@ const Settings = ({ clearMessages, error, success, setError, setSuccess, users, 
     
     setIsLoading(true)
     try {
-      const response = await fetch('http://localhost:3001/api/settings/root_directory', {
+      const response = await fetch(getApiUrl('api/settings/root_directory'), {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -181,7 +182,7 @@ const Settings = ({ clearMessages, error, success, setError, setSuccess, users, 
   const fetchTeams = async () => {
     setTeamsLoading(true)
     try {
-      const response = await fetch('http://localhost:3001/api/teams')
+      const response = await fetch(getApiUrl('api/teams'))
       const data = await response.json()
       if (data.success) {
         setTeams(data.teams || [])
@@ -203,7 +204,7 @@ const Settings = ({ clearMessages, error, success, setError, setSuccess, users, 
 
     setIsLoading(true)
     try {
-      const response = await fetch('http://localhost:3001/api/teams', {
+      const response = await fetch(getApiUrl('api/teams'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -235,7 +236,7 @@ const Settings = ({ clearMessages, error, success, setError, setSuccess, users, 
 
     setIsLoading(true)
     try {
-      const response = await fetch(`http://localhost:3001/api/teams/${editingTeam.id}`, {
+      const response = await fetch(getApiUrl(`api/teams/${editingTeam.id}`), {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -269,7 +270,7 @@ const Settings = ({ clearMessages, error, success, setError, setSuccess, users, 
 
     setIsLoading(true)
     try {
-      const response = await fetch(`http://localhost:3001/api/teams/${teamId}`, { method: 'DELETE' })
+      const response = await fetch(getApiUrl(`api/teams/${teamId}`), { method: 'DELETE' })
       const data = await response.json()
       if (data.success) {
         setSuccess(`Team '${teamName}' deleted successfully`)

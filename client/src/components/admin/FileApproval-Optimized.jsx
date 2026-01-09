@@ -5,6 +5,7 @@ import './FileApproval-Optimized.css'
 import { ConfirmationModal, AlertMessage, FileDetailsModal } from './modals'
 import { useAuth, useNetwork } from '../../contexts'
 import { withErrorBoundary } from '../common'
+import { getApiUrl } from '../../config/api'
 
 const API_BASE = 'http://localhost:3001/api'
 const SERVER_BASE = API_BASE.replace(/\/api$/, '')

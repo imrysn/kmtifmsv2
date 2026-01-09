@@ -5,6 +5,7 @@ import { SkeletonLoader } from '../common/SkeletonLoader'
 import { memoize } from '../../utils/performance'
 import { useAuth, useNetwork } from '../../contexts'
 import { withErrorBoundary } from '../common'
+import { getApiUrl } from '../../config/api'
 
 // Memoize expensive date formatting functions to avoid creating Date objects repeatedly
 const formatDate = memoize((timestamp) => {
@@ -308,7 +309,7 @@ const ActivityLogs = ({ clearMessages, error, success, setError, setSuccess }) =
 
     // Quick API test first
     try {
-      const testResponse = await fetch('http://localhost:3001/api/health')
+      const testResponse = await fetch(getApiUrl('api/health'))
       console.log('API health check:', testResponse.status, testResponse.ok)
     } catch (healthError) {
       console.error('API health check failed:', healthError)
@@ -322,7 +323,7 @@ const ActivityLogs = ({ clearMessages, error, success, setError, setSuccess }) =
       console.log('Making delete request to:', 'http://localhost:3001/api/activity-logs/bulk-delete')
       
       // Make API call to delete the logs
-      const response = await fetch('http://localhost:3001/api/activity-logs/bulk-delete', {
+      const response = await fetch(getApiUrl('api/activity-logs/bulk-delete'), {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',

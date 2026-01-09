@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import '../css/Login.css'
 import Logo from '../assets/kmti_logo.png'
 import { createLogger } from '../utils/secureLogger'
+import { getApiUrl } from '../config/api'
 
 const logger = createLogger('Login')
 
@@ -94,7 +95,7 @@ const Login = ({ onLogin }) => {
     setForgotPasswordMessage('')
 
     try {
-      const response = await fetch('http://localhost:3001/api/auth/forgot-password', {
+      const response = await fetch(getApiUrl('api/auth/forgot-password'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -153,7 +154,7 @@ const Login = ({ onLogin }) => {
     setApiError('')
     
     try {
-      const response = await fetch('http://localhost:3001/api/auth/login', {
+      const response = await fetch(getApiUrl('api/auth/login'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

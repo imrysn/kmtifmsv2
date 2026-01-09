@@ -5,6 +5,7 @@ import { SkeletonLoader } from '../common/SkeletonLoader'
 import { useAuth, useNetwork } from '../../contexts'
 import { usePagination } from '../../hooks'
 import { withErrorBoundary } from '../common'
+import { getApiUrl } from '../../config/api'
 
 const UserManagement = ({ clearMessages, error, success, setError, setSuccess, user, contextData }) => {
   const { user: authUser } = useAuth()
@@ -77,7 +78,7 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess, u
   const fetchUsers = useCallback(async () => {
     setIsLoading(true)
     try {
-      const response = await fetch('http://localhost:3001/api/users')
+      const response = await fetch(getApiUrl('api/users'))
       const data = await response.json()
       if (data.success) {
         setUsers(data.users)
@@ -96,7 +97,7 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess, u
   const fetchTeams = useCallback(async () => {
     setTeamsLoading(true)
     try {
-      const response = await fetch('http://localhost:3001/api/teams')
+      const response = await fetch(getApiUrl('api/teams'))
       const data = await response.json()
       if (data.success) {
         setTeams(data.teams || [])
@@ -152,7 +153,7 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess, u
     setError('')
     
     try {
-      const response = await fetch('http://localhost:3001/api/users', {
+      const response = await fetch(getApiUrl('api/users'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -193,7 +194,7 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess, u
     setError('')
     
     try {
-      const response = await fetch(`http://localhost:3001/api/users/${selectedUser.id}`, {
+      const response = await fetch(getApiUrl(`api/users/${selectedUser.id}`), {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -231,7 +232,7 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess, u
     setError('')
     
     try {
-      const response = await fetch(`http://localhost:3001/api/users/${selectedUser.id}/password`, {
+      const response = await fetch(getApiUrl(`api/users/${selectedUser.id}/password`), {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
@@ -264,7 +265,7 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess, u
     
     setIsLoading(true)
     try {
-      const response = await fetch(`http://localhost:3001/api/users/${userToDelete.id}`, {
+      const response = await fetch(getApiUrl(`api/users/${userToDelete.id}`), {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

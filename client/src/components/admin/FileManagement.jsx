@@ -6,6 +6,7 @@ import { AlertMessage } from './modals'
 import { FastSearchEngine } from '../../services/FastSearchEngine'
 import { useAuth, useNetwork } from '../../contexts'
 import { withErrorBoundary } from '../common'
+import { getApiUrl } from '../../config/api'
 
 const API_BASE = process.env.NODE_ENV === 'development'
   ? 'http://localhost:3001'
@@ -112,7 +113,7 @@ const FileManagement = ({ clearMessages, error, success, setError, setSuccess })
     // FIX: Removed manual health check since useNetwork handles it.
     // We only check for specific File System info here.
     try {
-      const infoResponse = await fetch(`${API_BASE}/api/file-system/info`)
+      const infoResponse = await fetch(getApiUrl(`api/file-system/info`))
       const data = await infoResponse.json()
       setNetworkInfo(data)
       if (!data.accessible) {
@@ -252,7 +253,7 @@ const FileManagement = ({ clearMessages, error, success, setError, setSuccess })
           console.log('💻 Running in Electron - using Windows default application')
           
           const pathResponse = await fetch(
-            `${API_BASE}/api/file-system/filepath?path=${encodeURIComponent(item.path)}`
+            getApiUrl(`api/file-system/filepath?path=${encodeURIComponent(item.path)}`)
           )
           const pathData = await pathResponse.json()
           
@@ -274,7 +275,7 @@ const FileManagement = ({ clearMessages, error, success, setError, setSuccess })
         } else {
           console.log('🌐 Running in browser - opening in new tab')
           
-          const fileUrl = `${API_BASE}/api/file-system/file?path=${encodeURIComponent(item.path)}`
+          const fileUrl = getApiUrl(`api/file-system/file?path=${encodeURIComponent(item.path)}`)
           const newWindow = window.open(fileUrl, '_blank')
           
           if (!newWindow) {

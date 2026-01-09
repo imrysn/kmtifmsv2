@@ -15,7 +15,7 @@ let splashTimeout = null;
 
 const isDev = process.env.NODE_ENV === 'development';
 const isProduction = !isDev;
-const SERVER_PORT = process.env.EXPRESS_PORT || 3001;
+const SERVER_PORT = process.env.SERVER_PORT || (isDev ? 3002 : 3001); // Dev uses 3002, prod uses 3001
 const VITE_URL = 'http://localhost:5173';
 const EXPRESS_CHECK_INTERVAL = 500;
 const MAX_EXPRESS_WAIT = 30000; 

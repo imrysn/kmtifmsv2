@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react'
+import { getApiUrl } from '../config/api'
 
 const NotificationContext = createContext(null)
 
@@ -15,7 +16,7 @@ export const NotificationProvider = ({ children, userId }) => {
     
     try {
       const response = await fetch(
-        `http://localhost:3001/api/notifications/user/${userId}?page=1&limit=20`
+        getApiUrl(`api/notifications/user/${userId}?page=1&limit=20`)
       )
       const data = await response.json()
       
@@ -33,7 +34,7 @@ export const NotificationProvider = ({ children, userId }) => {
   const markAsRead = useCallback(async (notificationId) => {
     try {
       const response = await fetch(
-        `http://localhost:3001/api/notifications/${notificationId}/read`,
+        getApiUrl(`api/notifications/${notificationId}/read`),
         { method: 'PUT' }
       )
       
@@ -54,7 +55,7 @@ export const NotificationProvider = ({ children, userId }) => {
 
     try {
       const response = await fetch(
-        `http://localhost:3001/api/notifications/user/${userId}/read-all`,
+        getApiUrl(`api/notifications/user/${userId}/read-all`),
         { method: 'PUT' }
       )
       
@@ -71,7 +72,7 @@ export const NotificationProvider = ({ children, userId }) => {
   const deleteNotification = useCallback(async (notificationId) => {
     try {
       const response = await fetch(
-        `http://localhost:3001/api/notifications/${notificationId}`,
+        getApiUrl(`api/notifications/${notificationId}`),
         { method: 'DELETE' }
       )
       

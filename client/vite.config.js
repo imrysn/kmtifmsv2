@@ -124,7 +124,7 @@ export default defineConfig({
   
   define: {
     '__DEV__': true,
-    '__VITE_API_URL__': JSON.stringify('http://localhost:3001'),
+    '__VITE_API_URL__': JSON.stringify('http://localhost:3002'), // Dev server port
     'process.env': {}
   },
 

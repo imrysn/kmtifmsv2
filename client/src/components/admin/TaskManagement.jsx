@@ -4,6 +4,7 @@ import FileIcon from './FileIcon.jsx'
 import { AlertMessage, ConfirmationModal, CommentsModal } from './modals'
 import { useAuth, useNetwork } from '../../contexts'
 import { withErrorBoundary } from '../common'
+import { getApiUrl } from '../../config/api'
 
 const TaskManagement = ({ error, success, setError, setSuccess, clearMessages, user, contextAssignmentId }) => {
   const { user: authUser } = useAuth()
@@ -119,7 +120,7 @@ const TaskManagement = ({ error, success, setError, setSuccess, clearMessages, u
       
       console.log('Fetching initial assignments...')
       
-      const response = await fetch('http://localhost:3001/api/assignments/admin/all?limit=20')
+      const response = await fetch(getApiUrl('api/assignments/admin/all?limit=20'))
       const data = await response.json()
       
       console.log('Initial assignments response:', data)
@@ -155,7 +156,7 @@ const TaskManagement = ({ error, success, setError, setSuccess, clearMessages, u
       
       console.log('Fetching more assignments with cursor:', nextCursor)
       
-      const response = await fetch(`http://localhost:3001/api/assignments/admin/all?cursor=${nextCursor}&limit=20`)
+      const response = await fetch(getApiUrl(`api/assignments/admin/all?cursor=${nextCursor}&limit=20`))
       const data = await response.json()
       
       console.log('More assignments response:', data)
@@ -183,7 +184,7 @@ const TaskManagement = ({ error, success, setError, setSuccess, clearMessages, u
   const fetchComments = useCallback(async (assignmentId) => {
     try {
       setLoadingComments(true)
-      const response = await fetch(`http://localhost:3001/api/assignments/${assignmentId}/comments`)
+      const response = await fetch(getApiUrl(`api/assignments/${assignmentId}/comments`))
       const data = await response.json()
       
       if (data.success) {
@@ -246,7 +247,7 @@ const TaskManagement = ({ error, success, setError, setSuccess, clearMessages, u
       setComments(prev => [...prev, optimisticComment])
       setNewComment('')
 
-      const response = await fetch(`http://localhost:3001/api/assignments/${selectedAssignment.id}/comments`, {
+      const response = await fetch(getApiUrl(`api/assignments/${selectedAssignment.id}/comments`), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -311,8 +312,7 @@ const TaskManagement = ({ error, success, setError, setSuccess, clearMessages, u
       setReplyText('')
       setReplyingTo(null)
 
-      const response = await fetch(
-        `http://localhost:3001/api/assignments/${selectedAssignment.id}/comments/${commentId}/reply`,
+      const response = await fetch(getApiUrl(`api/assignments/${selectedAssignment.id}/comments/${commentId}/reply`),
         {
           method: 'POST',
           headers: {
@@ -481,8 +481,7 @@ const TaskManagement = ({ error, success, setError, setSuccess, clearMessages, u
         console.log('💻 Running in Electron - using Windows default application');
 
         // For uploaded files, get the full system path from server
-        const pathResponse = await fetch(
-          `http://localhost:3001/api/files/${fileId}/path`
+        const pathResponse = await fetch(getApiUrl(`api/files/${fileId}/path`)
         );
         const pathData = await pathResponse.json();
 
@@ -534,7 +533,7 @@ const TaskManagement = ({ error, success, setError, setSuccess, clearMessages, u
       clearMessages()
       setSuccess('Deleting assignment and associated files...')
 
-      const response = await fetch(`http://localhost:3001/api/assignments/${assignmentToDelete.id}`, {
+      const response = await fetch(getApiUrl(`api/assignments/${assignmentToDelete.id}`), {
         method: 'DELETE'
       })
 

@@ -4,6 +4,7 @@ import '../css/AdminDashboard.css'
 import SkeletonLoader from '../components/common/SkeletonLoader'
 import { getSidebarIcon } from '../components/admin/FileIcon'
 import { AuthProvider, NetworkProvider, NotificationProvider } from '../contexts'
+import { getApiUrl } from '../config/api'
 
 // Import admin tab components
 import {
@@ -60,7 +61,7 @@ const AdminDashboard = ({ user, onLogout }) => {
 
   const fetchUsers = async () => {
     try {
-      const response = await fetch('http://localhost:3001/api/users')
+      const response = await fetch(getApiUrl('api/users'))
       const data = await response.json()
       if (data.success) {
         setUsers(data.users)
@@ -72,7 +73,7 @@ const AdminDashboard = ({ user, onLogout }) => {
 
   const fetchNotifications = async () => {
     try {
-      const response = await fetch(`http://localhost:3001/api/notifications/user/${user.id}`)
+      const response = await fetch(getApiUrl(`api/notifications/user/${user.id}`))
       const data = await response.json()
       if (data.success) {
         setNotifications(data.notifications || [])

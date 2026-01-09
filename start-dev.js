@@ -4,13 +4,16 @@
  * All services start simultaneously for fastest possible loading
  */
 
+// Load development environment variables FIRST
+require('dotenv').config({ path: '.env.development' });
+
 const { spawn } = require('child_process');
 const http = require('http');
 const path = require('path');
 const net = require('net');
 
 const VITE_PORT = 5173;
-const EXPRESS_PORT = 3001;
+const EXPRESS_PORT = process.env.SERVER_PORT || 3002; // Use dev port from .env.development
 const MAX_VITE_WAIT = 60000; // 60 seconds - enough time for Vite to start
 
 let viteProcess = null;
@@ -224,7 +227,8 @@ process.on('exit', cleanup);
 async function main() {
   try {
     log('═'.repeat(70), colors.bright, '');
-    log('KMTI File Management System - OPTIMIZED STARTUP', colors.bright, '█');
+    log('KMTI File Management System - DEVELOPMENT MODE', colors.bright, '█');
+    log(`Dev Server Port: ${EXPRESS_PORT} | Prod Server Port: 3001`, colors.cyan, '█');
     log('No more white screen! Parallel startup enabled.', colors.green, '█');
     log('═'.repeat(70), colors.bright, '');
 
