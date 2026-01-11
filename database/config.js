@@ -30,9 +30,13 @@ const MYSQL_CONFIG = {
   database: process.env.DB_NAME || (isProduction ? 'kmtifms' : 'kmtifms_dev'),
   waitForConnections: true,
   connectionLimit: 10,
+  maxIdle: 10,
+  idleTimeout: 60000,
   queueLimit: 0,
   enableKeepAlive: true,
-  keepAliveInitialDelay: 0
+  keepAliveInitialDelay: 0,
+  // Connection timeout settings
+  connectTimeout: 10000
 };
 
 // Current configuration
@@ -43,6 +47,43 @@ const currentConfig = MYSQL_CONFIG;
 // ============================================================================
 
 let pool = null;
+let healthCheckInterval = null;
+
+// Periodic health check to keep connections alive
+function startHealthCheck() {
+  if (healthCheckInterval) {
+    clearInterval(healthCheckInterval);
+  }
+  
+  // Check connection health every 5 minutes
+  healthCheckInterval = setInterval(async () => {
+    try {
+      const currentPool = getPool();
+      const connection = await currentPool.getConnection();
+      await connection.query('SELECT 1');
+      connection.release();
+      // console.log('💚 Health check passed');
+    } catch (error) {
+      console.error('❌ Health check failed:', error.message);
+      console.log('🔄 Attempting to recreate connection pool...');
+      // Try to recreate the pool
+      if (pool) {
+        try {
+          await pool.end();
+        } catch (e) {
+          // Ignore
+        }
+      }
+      pool = null;
+      try {
+        createPool();
+        console.log('✅ Connection pool recreated successfully');
+      } catch (recreateError) {
+        console.error('❌ Failed to recreate pool:', recreateError.message);
+      }
+    }
+  }, 5 * 60 * 1000); // 5 minutes
+}
 
 // Create connection pool
 function createPool() {
@@ -51,6 +92,18 @@ function createPool() {
       pool = mysql.createPool(currentConfig);
       console.log(`✅ MySQL pool created`);
       console.log(`📊 Database: ${currentConfig.database} @ ${currentConfig.host}:${currentConfig.port}`);
+      
+      // Add error handler to pool
+      pool.on('error', (err) => {
+        console.error('❌ MySQL pool error:', err.message);
+        if (err.code === 'PROTOCOL_CONNECTION_LOST') {
+          console.log('🔄 Connection lost, pool will handle reconnection...');
+        }
+      });
+      
+      // Start health check
+      startHealthCheck();
+      
     } catch (error) {
       console.error('❌ Failed to create MySQL pool:', error.message);
       throw error;
@@ -68,69 +121,181 @@ function getPool() {
 }
 
 // Test database connection
-async function testConnection() {
-  try {
-    const pool = getPool();
-    const connection = await pool.getConnection();
-    console.log('✅ MySQL connection successful');
-    connection.release();
-    return true;
-  } catch (error) {
-    console.error('❌ MySQL connection failed:', error.message);
-    console.error('💡 Please check:');
-    console.error('   1. MySQL server is running');
-    console.error('   2. Database credentials are correct in .env');
-    console.error('   3. Network connectivity to database server');
-    console.error('   4. Firewall allows MySQL port (3306)');
-    console.error('\n🔍 Current configuration:');
-    console.error(`   Host: ${currentConfig.host}`);
-    console.error(`   Port: ${currentConfig.port}`);
-    console.error(`   Database: ${currentConfig.database}`);
-    console.error(`   User: ${currentConfig.user}`);
-    return false;
+async function testConnection(retries = 3) {
+  for (let attempt = 0; attempt < retries; attempt++) {
+    try {
+      const pool = getPool();
+      const connection = await pool.getConnection();
+      
+      // Test a simple query
+      await connection.query('SELECT 1 as test');
+      
+      console.log('✅ MySQL connection successful');
+      connection.release();
+      return true;
+    } catch (error) {
+      console.error(`❌ MySQL connection failed (Attempt ${attempt + 1}/${retries}):`, error.message);
+      
+      if (attempt < retries - 1) {
+        console.log(`🔄 Retrying connection in 2 seconds...`);
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        
+        // Try recreating the pool
+        if (pool) {
+          try {
+            await pool.end();
+          } catch (e) {
+            // Ignore
+          }
+        }
+        pool = null;
+        createPool();
+      } else {
+        console.error('\n💡 Please check:');
+        console.error('   1. MySQL server is running');
+        console.error('   2. Database credentials are correct in .env');
+        console.error('   3. Network connectivity to database server');
+        console.error('   4. Firewall allows MySQL port (3306)');
+        console.error('\n🔍 Current configuration:');
+        console.error(`   Host: ${currentConfig.host}`);
+        console.error(`   Port: ${currentConfig.port}`);
+        console.error(`   Database: ${currentConfig.database}`);
+        console.error(`   User: ${currentConfig.user}`);
+        return false;
+      }
+    }
   }
+  return false;
 }
 
-// Execute query with error handling
-async function query(sql, params = []) {
-  const pool = getPool();
-  try {
-    const [results] = await pool.execute(sql, params);
-    return results;
-  } catch (error) {
-    console.error('❌ Query error:', error.message);
-    console.error('SQL:', sql);
-    throw error;
+// Execute query with error handling and retry logic
+async function query(sql, params = [], retries = 3) {
+  let lastError;
+  
+  for (let attempt = 0; attempt < retries; attempt++) {
+    try {
+      const pool = getPool();
+      const [results] = await pool.execute(sql, params);
+      return results;
+    } catch (error) {
+      lastError = error;
+      
+      // Check if it's a pool error
+      if (error.message && error.message.includes('Pool is closed')) {
+        console.log(`🔄 Pool was closed, recreating... (Attempt ${attempt + 1}/${retries})`);
+        if (pool) {
+          try {
+            await pool.end();
+          } catch (e) {
+            // Ignore errors when closing already-closed pool
+          }
+        }
+        pool = null; // Reset pool
+        createPool(); // Recreate pool
+        
+        if (attempt < retries - 1) {
+          // Wait before retrying
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          continue;
+        }
+      }
+      
+      console.error('❌ Query error:', error.message);
+      console.error('SQL:', sql);
+      
+      if (attempt < retries - 1) {
+        console.log(`🔄 Retrying query... (Attempt ${attempt + 1}/${retries})`);
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      } else {
+        throw error;
+      }
+    }
   }
+  
+  throw lastError;
 }
 
 // Execute query and return first result
 async function queryOne(sql, params = []) {
-  const results = await query(sql, params);
-  return results[0] || null;
+  try {
+    const results = await query(sql, params);
+    return results[0] || null;
+  } catch (error) {
+    console.error('❌ QueryOne error:', error.message);
+    throw error;
+  }
 }
 
-// Execute transaction
-async function transaction(callback) {
-  const pool = getPool();
-  const connection = await pool.getConnection();
+// Execute transaction with retry logic
+async function transaction(callback, retries = 3) {
+  let lastError;
   
-  try {
-    await connection.beginTransaction();
-    const result = await callback(connection);
-    await connection.commit();
-    return result;
-  } catch (error) {
-    await connection.rollback();
-    console.error('❌ Transaction failed:', error.message);
-    throw error;
-  } finally {
-    connection.release();
+  for (let attempt = 0; attempt < retries; attempt++) {
+    let connection;
+    try {
+      const pool = getPool();
+      connection = await pool.getConnection();
+      
+      await connection.beginTransaction();
+      const result = await callback(connection);
+      await connection.commit();
+      return result;
+    } catch (error) {
+      lastError = error;
+      
+      if (connection) {
+        try {
+          await connection.rollback();
+        } catch (rollbackError) {
+          console.error('❌ Rollback error:', rollbackError.message);
+        }
+      }
+      
+      // Check if it's a pool error
+      if (error.message && error.message.includes('Pool is closed')) {
+        console.log(`🔄 Pool was closed during transaction, recreating... (Attempt ${attempt + 1}/${retries})`);
+        if (pool) {
+          try {
+            await pool.end();
+          } catch (e) {
+            // Ignore errors when closing already-closed pool
+          }
+        }
+        pool = null;
+        createPool();
+        
+        if (attempt < retries - 1) {
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          continue;
+        }
+      }
+      
+      console.error('❌ Transaction failed:', error.message);
+      
+      if (attempt < retries - 1) {
+        console.log(`🔄 Retrying transaction... (Attempt ${attempt + 1}/${retries})`);
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      } else {
+        throw error;
+      }
+    } finally {
+      if (connection) {
+        connection.release();
+      }
+    }
   }
+  
+  throw lastError;
 }
 
 // Close all connections (for graceful shutdown)
 async function closePool() {
+  // Stop health check
+  if (healthCheckInterval) {
+    clearInterval(healthCheckInterval);
+    healthCheckInterval = null;
+  }
+  
   if (pool) {
     try {
       await pool.end();

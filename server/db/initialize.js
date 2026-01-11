@@ -32,11 +32,14 @@ async function initializeDatabase() {
     try {
       const mysqlConfig = require('../../database/config');
       
-      // Test connection
+      // Test connection with retries
+      console.log('🔍 Testing MySQL connection...');
       const connected = await mysqlConfig.testConnection();
       if (!connected) {
+        console.error('❌ Could not establish MySQL connection after multiple retries');
         throw new Error('Failed to connect to MySQL database');
       }
+      console.log('✅ MySQL connection verified');
       
       // Check if tables exist
       const tables = await mysqlConfig.query('SHOW TABLES');
@@ -69,10 +72,14 @@ async function initializeDatabase() {
       
     } catch (error) {
       console.error('❌ MySQL initialization error:', error.message);
-      console.error('💡 Please ensure:');
-      console.error('   1. MySQL server is running');
-      console.error('   2. Database credentials are correct in database/config.js');
-      console.error('   3. Database has been initialized: npm run db:init');
+      console.error('\n💡 Please ensure:');
+      console.error('   1. MySQL server (KMTI-NAS) is running and accessible');
+      console.error('   2. Database credentials are correct in .env file');
+      console.error('   3. Network connection to KMTI-NAS is stable');
+      console.error('   4. Database has been initialized: npm run db:init');
+      console.error('   5. Firewall allows MySQL port 3306');
+      console.error('\n🔧 Debug information:');
+      console.error('   Error:', error.stack || error.message);
       throw error;
     }
     
