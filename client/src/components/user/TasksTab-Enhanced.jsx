@@ -12,8 +12,6 @@ const TasksTab = ({ user }) => {
   const [success, setSuccess] = useState('');
   const [showSubmitModal, setShowSubmitModal] = useState(false);
   const [currentAssignment, setCurrentAssignment] = useState(null);
-  const [userFiles, setUserFiles] = useState([]);
-  const [expandedComments, setExpandedComments] = useState({});
   const [comments, setComments] = useState({});
   const [newComment, setNewComment] = useState({});
   const [isPostingComment, setIsPostingComment] = useState({});
@@ -22,19 +20,18 @@ const TasksTab = ({ user }) => {
   const [isPostingReply, setIsPostingReply] = useState({});
   const [showCommentsModal, setShowCommentsModal] = useState(false);
   const [currentCommentsAssignment, setCurrentCommentsAssignment] = useState(null);
-  const [highlightCommentBy, setHighlightCommentBy] = useState(null); // Track who to highlight
+  const [highlightCommentBy, setHighlightCommentBy] = useState(null);
   const [uploadedFiles, setUploadedFiles] = useState([]);
   const [fileDescription, setFileDescription] = useState('');
-  const [fileTag, setFileTag] = useState(''); // Add tag state
+  const [fileTag, setFileTag] = useState('');
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef(null);
-  const [showReplies, setShowReplies] = useState({}); // Track which comments have visible replies renamed to visibleReplies
   const [visibleReplies, setVisibleReplies] = useState({});
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [fileToDelete, setFileToDelete] = useState(null);
-  const [showAllFiles, setShowAllFiles] = useState({}); // Track which assignments show all files
-  const [expandedCommentTexts, setExpandedCommentTexts] = useState({}); // Track which comment texts are expanded
-  const [expandedReplyTexts, setExpandedReplyTexts] = useState({}); // Track which reply texts are expanded
+  const [showAllFiles, setShowAllFiles] = useState({});
+  const [expandedCommentTexts, setExpandedCommentTexts] = useState({});
+  const [expandedReplyTexts, setExpandedReplyTexts] = useState({});
 
   // Check for sessionStorage when component mounts or becomes visible
   useEffect(() => {
@@ -91,7 +88,6 @@ const TasksTab = ({ user }) => {
 
   useEffect(() => {
     fetchAssignments();
-    fetchUserFiles();
   }, [user.id]);
 
   const fetchAssignments = async () => {
@@ -243,26 +239,6 @@ const TasksTab = ({ user }) => {
       ...prev,
       [commentId]: !prev[commentId]
     }));
-  };
-
-  const fetchUserFiles = async () => {
-    try {
-      const response = await fetch(`http://localhost:3001/api/files/user/${user.id}`);
-      const data = await response.json();
-
-      if (data.success) {
-        console.log('📁 All user files:', data.files);
-        const approvedFiles = data.files.filter(f => f.status === 'final_approved');
-        console.log('✅ Final approved files:', approvedFiles);
-        const unsubmittedFiles = data.files.filter(file =>
-          !assignments.some(assignment => assignment.submitted_file_id === file.id)
-        );
-        console.log('📂 Unsubmitted files:', unsubmittedFiles);
-        setUserFiles(unsubmittedFiles || []);
-      }
-    } catch (error) {
-      console.error('Error fetching user files:', error);
-    }
   };
 
   const formatDate = (dateString) => {
@@ -554,7 +530,6 @@ const TasksTab = ({ user }) => {
         fileInputRef.current.value = '';
       }
       fetchAssignments();
-      fetchUserFiles();
       
       setTimeout(() => setSuccess(''), 5000);
     } catch (error) {
@@ -579,21 +554,10 @@ const TasksTab = ({ user }) => {
     setSuccess('');
   };
 
-  // Treat assignments with deleted files as pending (allow resubmission)
-  const pendingAssignments = assignments.filter(assignment => 
-    assignment.user_status !== 'submitted' || 
-    (assignment.user_status === 'submitted' && !assignment.submitted_file_id)
-  );
-  const submittedAssignments = assignments.filter(assignment => 
-    assignment.user_status === 'submitted' && assignment.submitted_file_id
-  );
-
   // Sort assignments by created date (newest first)
-  const sortedAssignments = [...assignments].sort((a, b) => {
-    const dateA = new Date(a.created_at)
-    const dateB = new Date(b.created_at)
-    return dateB - dateA
-  })
+  const sortedAssignments = [...assignments].sort((a, b) => 
+    new Date(b.created_at) - new Date(a.created_at)
+  );
 
   return (
     <div className="tasks-container">
@@ -1522,6 +1486,7 @@ const TasksTab = ({ user }) => {
                           placeholder="Add a brief description..."
                           rows="2"
                           disabled={isUploading}
+                          className="file-description-textarea"
                           style={{
                             width: '100%',
                             padding: '10px 12px',
@@ -1530,7 +1495,8 @@ const TasksTab = ({ user }) => {
                             fontSize: '14px',
                             fontFamily: 'inherit',
                             resize: 'vertical',
-                            backgroundColor: '#ffffff'
+                            backgroundColor: '#ffffff',
+                            color: '#1a1a1a'
                           }}
                         />
                       </div>
