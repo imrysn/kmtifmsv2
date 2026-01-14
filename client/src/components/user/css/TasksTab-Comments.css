@@ -308,7 +308,7 @@
   height: 0 !important;
 }
 
-/* Modal Styles */
+/* Modal Styles - Optimized for Performance */
 .comments-modal-overlay {
   position: fixed;
   top: 0;
@@ -320,6 +320,17 @@
   align-items: center;
   justify-content: center;
   z-index: 1000;
+  animation: fadeIn 0.15s ease-out;
+  will-change: opacity;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 .comments-modal {
@@ -331,6 +342,49 @@
   display: flex;
   flex-direction: column;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  animation: slideUp 0.2s ease-out;
+  will-change: transform, opacity;
+  transform: translateZ(0);
+  backface-visibility: hidden;
+}
+
+.comments-modal.closing {
+  animation: slideDown 0.2s ease-out forwards;
+}
+
+.comments-modal-overlay.closing {
+  animation: fadeOut 0.2s ease-out forwards;
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px) translateZ(0);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) translateZ(0);
+  }
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 1;
+    transform: translateY(0) translateZ(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(20px) translateZ(0);
+  }
+}
+
+@keyframes fadeOut {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
 }
 
 .comments-modal-header {
@@ -374,6 +428,10 @@
   padding: 24px;
   border-left: none !important;
   border-right: none !important;
+  /* Performance optimization */
+  -webkit-overflow-scrolling: touch;
+  will-change: scroll-position;
+  contain: layout style paint;
 }
 
 .no-comments {

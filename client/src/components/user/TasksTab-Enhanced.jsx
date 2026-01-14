@@ -1,6 +1,6 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import './css/TasksTab-Enhanced.css';
-import './css/TasksTab-Comments.css';
+import './css/TasksTab-Comments-New.css';
 import FileIcon from '../admin/FileIcon';
 import SingleSelectTags from './SingleSelectTags';
 import { LoadingTable, LoadingCards } from '../common/InlineSkeletonLoader';
@@ -181,9 +181,13 @@ const TasksTab = ({ user }) => {
   };
 
   const toggleComments = (assignment) => {
-    console.log('🔵 toggleComments called for:', assignment.title);
     setCurrentCommentsAssignment(assignment);
     setShowCommentsModal(true);
+  };
+
+  const closeCommentsModal = () => {
+    setShowCommentsModal(false);
+    setCurrentCommentsAssignment(null);
   };
 
   const postReply = async (assignmentId, commentId) => {
@@ -963,23 +967,30 @@ const TasksTab = ({ user }) => {
                 )}
 
                 {/* Comment toggle */}
-                <div style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px solid #f3f4f6' }}>
+                <div style={{ paddingTop: '12px', borderTop: '1px solid #f3f4f6' }}>
                   <button 
                     onClick={() => toggleComments(assignment)}
                     style={{
+
                       background: 'transparent',
                       border: 'none',
-                      color: '#1c1e21',
+                      color: '#65676b',
                       fontSize: '14px',
                       fontWeight: '500',
                       cursor: 'pointer',
-                      display: 'inline-flex',
+                      display: 'flex',
                       alignItems: 'center',
                       gap: '4px',
-                      padding: '0'
+                      padding: '0',
+                      transition: 'color 0.2s'
                     }}
+                    onMouseEnter={(e) => e.currentTarget.style.color = '#1c1e21'}
+                    onMouseLeave={(e) => e.currentTarget.style.color = '#65676b'}
                   >
-                    Comment ({assignmentComments.length})
+                    <span>Comment</span>
+                    {assignmentComments.length > 0 && (
+                      <span>({assignmentComments.length})</span>
+                    )}
                   </button>
                 </div>
               </div>
@@ -994,13 +1005,13 @@ const TasksTab = ({ user }) => {
         </div>
       )}
 
-      {/* Comments Modal - Admin Style */}
+      {/* Comments Modal - Lightweight */}
       {showCommentsModal && currentCommentsAssignment && (
-      <div className="comments-modal-overlay" onClick={() => setShowCommentsModal(false)}>
+      <div className="comments-modal-overlay" onClick={closeCommentsModal}>
       <div className="comments-modal" onClick={(e) => e.stopPropagation()}>
       <div className="comments-modal-header">
       <h3>Comments - {currentCommentsAssignment.title}</h3>
-      <button className="close-modal-btn" onClick={() => setShowCommentsModal(false)}>
+      <button className="close-modal-btn" onClick={closeCommentsModal}>
           ✕
               </button>
       </div>
