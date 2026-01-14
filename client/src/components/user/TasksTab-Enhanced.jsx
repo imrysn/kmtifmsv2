@@ -32,6 +32,7 @@ const TasksTab = ({ user }) => {
   const [showAllFiles, setShowAllFiles] = useState({});
   const [expandedCommentTexts, setExpandedCommentTexts] = useState({});
   const [expandedReplyTexts, setExpandedReplyTexts] = useState({});
+  const [expandedComments, setExpandedComments] = useState({});
 
   // Check for sessionStorage when component mounts or becomes visible
   useEffect(() => {
