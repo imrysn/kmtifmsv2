@@ -75,12 +75,9 @@ app.get('/api/health', async (req, res) => {
   try {
     // Test database connection
     if (USE_MYSQL) {
-      await new Promise((resolve, reject) => {
-        db.query('SELECT 1 as test', (err, results) => {
-          if (err) reject(err);
-          else resolve(results);
-        });
-      });
+      // Use the promise-based query directly
+      const mysqlConfig = require('../database/config');
+      await mysqlConfig.query('SELECT 1 as test');
       health.database = 'connected';
     } else {
       // SQLite - just check if db is defined

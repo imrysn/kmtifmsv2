@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import './css/TeamTasksTab.css'
+import './css/TasksTab-Comments-New.css'
 import FileIcon from '../admin/FileIcon.jsx'
 
 const TeamTasksTab = ({ user }) => {
@@ -730,29 +731,12 @@ const TeamTasksTab = ({ user }) => {
                 </div>
 
                 {/* Comments Section */}
-                <div className="team-task-comments-section" style={{
-                  display: 'flex',
-                  justifyContent: 'flex-start',
-                  paddingTop: '12px',
-                  borderTop: '1px solid #f3f4f6'
-                }}>
+                <div className="team-task-comments-section">
                   <button 
                     className="toggle-comments-btn"
                     onClick={(e) => {
                       e.stopPropagation();
                       toggleComments(assignment.id);
-                    }}
-                    style={{
-                      padding: '0',
-                      backgroundColor: 'transparent',
-                      border: 'none',
-                      color: '#1c1e21',
-                      fontSize: '14px',
-                      fontWeight: '500',
-                      cursor: 'pointer',
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '4px'
                     }}
                   >
                     <span>Comment</span>

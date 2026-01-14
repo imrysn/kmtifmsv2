@@ -20,6 +20,9 @@ class FileIndexer {
     console.log('🔧 Initializing file_index table...');
 
     if (USE_MYSQL) {
+      // Use the MySQL config directly for better error handling
+      const mysqlConfig = require('../../database/config');
+      
       // --- CORRECTED SQL: Changed TIMESTAMP, CHARSET, COLLATE, and removed FULLTEXT INDEX ---
       const createTableSQL = `
         CREATE TABLE IF NOT EXISTS file_index (
@@ -41,8 +44,14 @@ class FileIndexer {
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci -- Changed from utf8mb4
       `;
 
-      await db.query(createTableSQL);
-      console.log('✅ MySQL file_index table created/verified');
+      try {
+        await mysqlConfig.query(createTableSQL);
+        console.log('✅ MySQL file_index table created/verified');
+      } catch (error) {
+        console.error('❌ Error creating file_index table:', error.message);
+        // Don't throw - allow server to continue even if index table fails
+        console.log('⚠️  Server will continue without file indexing');
+      }
 
     } else {
       const createTableSQL = `
@@ -95,7 +104,8 @@ class FileIndexer {
     console.log('🗑️  Clearing file index...');
 
     if (USE_MYSQL) {
-      await db.query('DELETE FROM file_index');
+      const mysqlConfig = require('../../database/config');
+      await mysqlConfig.query('DELETE FROM file_index');
     } else {
       await new Promise((resolve, reject) => {
         db.run('DELETE FROM file_index', (err) => {
@@ -242,7 +252,8 @@ class FileIndexer {
    */
   async insertIndexEntry(entry) {
     if (USE_MYSQL) {
-      await db.query(
+      const mysqlConfig = require('../../database/config');
+      await mysqlConfig.query(
         `INSERT INTO file_index 
          (file_name, file_path, parent_path, full_path, file_type, is_directory, file_size, modified_date)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -289,8 +300,9 @@ class FileIndexer {
     const searchLower = searchQuery.toLowerCase();
 
     if (USE_MYSQL) {
+      const mysqlConfig = require('../../database/config');
       // MySQL with LIKE search (fallback due to removed FULLTEXT index for older MySQL)
-      const results = await db.query(
+      const results = await mysqlConfig.query(
         `SELECT * FROM file_index 
          WHERE file_name LIKE ?
          AND (parent_path = ? OR parent_path LIKE ?)
@@ -338,7 +350,8 @@ class FileIndexer {
    */
   async getStats() {
     if (USE_MYSQL) {
-      const result = await db.query(
+      const mysqlConfig = require('../../database/config');
+      const result = await mysqlConfig.query(
         `SELECT 
            COUNT(*) as total_items,
            SUM(CASE WHEN is_directory = 1 THEN 1 ELSE 0 END) as total_directories,

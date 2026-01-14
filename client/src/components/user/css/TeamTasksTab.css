@@ -355,8 +355,6 @@
   box-shadow: 0 2px 4px rgba(59, 130, 246, 0.15);
 }
 
-
-
 /* No Attachment Message */
 .no-attachment {
   background: #f3f4f6;
@@ -404,6 +402,29 @@
   color: #4338ca;
 }
 
+/* Comments Section */
+.team-task-comments-section {
+  display: flex;
+  justify-content: flex-start;
+  padding: 12px 20px;
+  border-top: 1px solid #e4e6eb;
+}
+
+.toggle-comments-btn {
+  padding: 8px 12px;
+  background: transparent;
+  border: none;
+  color: #65676b;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border-radius: 4px;
+  margin-left: -12px;
+}
+
 /* Empty State */
 .empty-team-tasks {
   background: white;
@@ -446,315 +467,6 @@
 
 .file-opening-cursor * {
   cursor: wait !important;
-}
-
-/* Comments Section */
-.team-task-comments-section {
-  padding: 16px 20px;
-  border-top: 1px solid #e5e7eb;
-  display: flex;
-  justify-content: flex-start;
-}
-
-.toggle-comments-btn {
-  background: transparent;
-  border: none;
-  padding: 0;
-  cursor: pointer;
-  font-size: 14px;
-  font-weight: 500;
-  color: #65676b;
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  transition: color 0.2s;
-}
-
-.toggle-comments-btn:hover {
-  color: #1c1e21;
-}
-
-
-
-/* Comments Modal */
-.comments-modal-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-  padding: 20px;
-  animation: modalOverlayFadeIn 0.2s ease-out;
-}
-
-@keyframes modalOverlayFadeIn {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
-}
-
-.comments-modal {
-  background: white;
-  border-radius: 12px;
-  width: 100%;
-  max-width: 700px;
-  max-height: 90vh;
-  display: flex;
-  flex-direction: column;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-  animation: modalScaleIn 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
-  transform-origin: center center;
-}
-
-@keyframes modalScaleIn {
-  0% {
-    opacity: 0;
-    transform: scale(0.7);
-  }
-  100% {
-    opacity: 1;
-    transform: scale(1);
-  }
-}
-
-.comments-modal-header {
-  padding: 20px 24px;
-  border-bottom: 1px solid #e5e7eb;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.comments-modal-header h3 {
-  margin: 0;
-  font-size: 20px;
-  font-weight: 600;
-  color: #1a1a1a;
-}
-
-.close-modal-btn {
-  width: 36px;
-  height: 36px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: #f2f3f5;
-  border: none;
-  color: #65676b;
-  font-size: 24px;
-  cursor: pointer;
-  border-radius: 50%;
-  transition: all 0.2s;
-}
-
-.close-modal-btn:hover {
-  background: #e4e6eb;
-  color: #1a1a1a;
-}
-
-.comments-modal-body {
-  padding: 24px;
-  overflow-y: auto;
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-  max-height: 600px;
-}
-
-/* Hide scrollbar but keep functionality */
-.comments-modal-body::-webkit-scrollbar {
-  width: 0;
-  background: transparent;
-}
-
-.comments-modal-body {
-  scrollbar-width: none; /* Firefox */
-  -ms-overflow-style: none; /* IE and Edge */
-}
-
-/* ============================================
-   COMMENTS SECTION
-   ============================================ */
-
-.comments-section {
-  background: #ffffff;
-}
-
-.comments-list {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  margin-bottom: 16px;
-}
-
-.comment-item {
-  display: flex;
-  gap: 10px;
-  align-items: flex-start;
-}
-
-.comment-avatar {
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: 600;
-  font-size: 12px;
-  flex-shrink: 0;
-  margin-top: 2px;
-}
-
-.comment-content {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.comment-author {
-  font-size: 13px;
-  font-weight: 600;
-  color: #1a1a1a;
-  margin-bottom: 2px;
-}
-
-.comment-text {
-  font-size: 15px;
-  color: #1a1a1a;
-  line-height: 1.4;
-  white-space: pre-wrap;
-}
-
-.comment-actions {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding-left: 14px;
-  position: relative;
-}
-
-
-
-/* Replies Section */
-
-.reply-item {
-  display: flex;
-  gap: 10px;
-  align-items: flex-start;
-  position: relative;
-}
-
-.reply-item::before {
-  content: '';
-  position: absolute;
-  left: -10px;
-  top: 16px;
-  width: 10px;
-  height: 2px;
-  background: #e4e6eb;
-}
-
-.reply-avatar {
-  width: 28px;
-  height: 28px;
-  font-size: 11px;
-}
-
-.reply-input-box {
-  margin-top: 8px;
-  margin-left: 42px;
-  padding-left: 20px;
-  display: flex;
-  gap: 10px;
-  align-items: flex-start;
-  position: relative;
-}
-
-.reply-input-box::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  top: -12px;
-  width: 2px;
-  height: calc(100% + 12px);
-  background: #e4e6eb;
-}
-
-/* Add Comment Input */
-.add-comment {
-  display: flex;
-  gap: 10px;
-  align-items: flex-start;
-}
-
-.comment-input-wrapper {
-  flex: 1;
-  display: flex;
-  gap: 8px;
-  align-items: center;
-  background: #f0f2f5;
-  border-radius: 20px;
-  padding: 8px 12px;
-  border: 1px solid #e4e6eb;
-  transition: border-color 0.2s;
-}
-
-.comment-input-wrapper:focus-within {
-  border-color: #1877f2;
-}
-
-.comment-input {
-  flex: 1;
-  border: none;
-  outline: none;
-  font-size: 15px;
-  color: #1a1a1a;
-  background: transparent;
-  padding: 0;
-}
-
-.comment-input::placeholder {
-  color: #8a8d91;
-}
-
-.comment-submit-btn {
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  background: #1877f2;
-  color: white;
-  border: none;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  font-size: 16px;
-  transition: all 0.2s;
-  flex-shrink: 0;
-}
-
-.comment-submit-btn:hover:not(:disabled) {
-  background: #166fe5;
-  transform: scale(1.05);
-}
-
-.comment-submit-btn:disabled {
-  background: #e4e6eb;
-  color: #bcc0c4;
-  cursor: not-allowed;
 }
 
 /* Responsive Design */
@@ -841,14 +553,6 @@
 
   .file-item {
     padding: 10px;
-  }
-
-  .file-name {
-    font-size: 13px;
-  }
-
-  .file-meta {
-    font-size: 11px;
   }
 
   .no-attachment {

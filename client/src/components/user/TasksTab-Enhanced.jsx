@@ -1,6 +1,6 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import './css/TasksTab-Enhanced.css';
-import './css/TasksTab-Comments.css';
+import './css/TasksTab-Comments-New.css';
 import FileIcon from '../admin/FileIcon';
 import SingleSelectTags from './SingleSelectTags';
 import { LoadingTable, LoadingCards } from '../common/InlineSkeletonLoader';
@@ -12,8 +12,6 @@ const TasksTab = ({ user }) => {
   const [success, setSuccess] = useState('');
   const [showSubmitModal, setShowSubmitModal] = useState(false);
   const [currentAssignment, setCurrentAssignment] = useState(null);
-  const [userFiles, setUserFiles] = useState([]);
-  const [expandedComments, setExpandedComments] = useState({});
   const [comments, setComments] = useState({});
   const [newComment, setNewComment] = useState({});
   const [isPostingComment, setIsPostingComment] = useState({});
@@ -22,19 +20,19 @@ const TasksTab = ({ user }) => {
   const [isPostingReply, setIsPostingReply] = useState({});
   const [showCommentsModal, setShowCommentsModal] = useState(false);
   const [currentCommentsAssignment, setCurrentCommentsAssignment] = useState(null);
-  const [highlightCommentBy, setHighlightCommentBy] = useState(null); // Track who to highlight
+  const [highlightCommentBy, setHighlightCommentBy] = useState(null);
   const [uploadedFiles, setUploadedFiles] = useState([]);
   const [fileDescription, setFileDescription] = useState('');
-  const [fileTag, setFileTag] = useState(''); // Add tag state
+  const [fileTag, setFileTag] = useState('');
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef(null);
-  const [showReplies, setShowReplies] = useState({}); // Track which comments have visible replies renamed to visibleReplies
   const [visibleReplies, setVisibleReplies] = useState({});
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [fileToDelete, setFileToDelete] = useState(null);
-  const [showAllFiles, setShowAllFiles] = useState({}); // Track which assignments show all files
-  const [expandedCommentTexts, setExpandedCommentTexts] = useState({}); // Track which comment texts are expanded
-  const [expandedReplyTexts, setExpandedReplyTexts] = useState({}); // Track which reply texts are expanded
+  const [showAllFiles, setShowAllFiles] = useState({});
+  const [expandedCommentTexts, setExpandedCommentTexts] = useState({});
+  const [expandedReplyTexts, setExpandedReplyTexts] = useState({});
+  const [expandedComments, setExpandedComments] = useState({});
 
   // Check for sessionStorage when component mounts or becomes visible
   useEffect(() => {
@@ -91,7 +89,6 @@ const TasksTab = ({ user }) => {
 
   useEffect(() => {
     fetchAssignments();
-    fetchUserFiles();
   }, [user.id]);
 
   const fetchAssignments = async () => {
@@ -184,9 +181,13 @@ const TasksTab = ({ user }) => {
   };
 
   const toggleComments = (assignment) => {
-    console.log('🔵 toggleComments called for:', assignment.title);
     setCurrentCommentsAssignment(assignment);
     setShowCommentsModal(true);
+  };
+
+  const closeCommentsModal = () => {
+    setShowCommentsModal(false);
+    setCurrentCommentsAssignment(null);
   };
 
   const postReply = async (assignmentId, commentId) => {
@@ -243,26 +244,6 @@ const TasksTab = ({ user }) => {
       ...prev,
       [commentId]: !prev[commentId]
     }));
-  };
-
-  const fetchUserFiles = async () => {
-    try {
-      const response = await fetch(`http://localhost:3001/api/files/user/${user.id}`);
-      const data = await response.json();
-
-      if (data.success) {
-        console.log('📁 All user files:', data.files);
-        const approvedFiles = data.files.filter(f => f.status === 'final_approved');
-        console.log('✅ Final approved files:', approvedFiles);
-        const unsubmittedFiles = data.files.filter(file =>
-          !assignments.some(assignment => assignment.submitted_file_id === file.id)
-        );
-        console.log('📂 Unsubmitted files:', unsubmittedFiles);
-        setUserFiles(unsubmittedFiles || []);
-      }
-    } catch (error) {
-      console.error('Error fetching user files:', error);
-    }
   };
 
   const formatDate = (dateString) => {
@@ -554,7 +535,6 @@ const TasksTab = ({ user }) => {
         fileInputRef.current.value = '';
       }
       fetchAssignments();
-      fetchUserFiles();
       
       setTimeout(() => setSuccess(''), 5000);
     } catch (error) {
@@ -579,21 +559,10 @@ const TasksTab = ({ user }) => {
     setSuccess('');
   };
 
-  // Treat assignments with deleted files as pending (allow resubmission)
-  const pendingAssignments = assignments.filter(assignment => 
-    assignment.user_status !== 'submitted' || 
-    (assignment.user_status === 'submitted' && !assignment.submitted_file_id)
-  );
-  const submittedAssignments = assignments.filter(assignment => 
-    assignment.user_status === 'submitted' && assignment.submitted_file_id
-  );
-
   // Sort assignments by created date (newest first)
-  const sortedAssignments = [...assignments].sort((a, b) => {
-    const dateA = new Date(a.created_at)
-    const dateB = new Date(b.created_at)
-    return dateB - dateA
-  })
+  const sortedAssignments = [...assignments].sort((a, b) => 
+    new Date(b.created_at) - new Date(a.created_at)
+  );
 
   return (
     <div className="tasks-container">
@@ -998,23 +967,30 @@ const TasksTab = ({ user }) => {
                 )}
 
                 {/* Comment toggle */}
-                <div style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px solid #f3f4f6' }}>
+                <div style={{ paddingTop: '12px', borderTop: '1px solid #f3f4f6' }}>
                   <button 
                     onClick={() => toggleComments(assignment)}
                     style={{
+
                       background: 'transparent',
                       border: 'none',
-                      color: '#1c1e21',
+                      color: '#65676b',
                       fontSize: '14px',
                       fontWeight: '500',
                       cursor: 'pointer',
-                      display: 'inline-flex',
+                      display: 'flex',
                       alignItems: 'center',
                       gap: '4px',
-                      padding: '0'
+                      padding: '0',
+                      transition: 'color 0.2s'
                     }}
+                    onMouseEnter={(e) => e.currentTarget.style.color = '#1c1e21'}
+                    onMouseLeave={(e) => e.currentTarget.style.color = '#65676b'}
                   >
-                    Comment ({assignmentComments.length})
+                    <span>Comment</span>
+                    {assignmentComments.length > 0 && (
+                      <span>({assignmentComments.length})</span>
+                    )}
                   </button>
                 </div>
               </div>
@@ -1029,13 +1005,13 @@ const TasksTab = ({ user }) => {
         </div>
       )}
 
-      {/* Comments Modal - Admin Style */}
+      {/* Comments Modal - Lightweight */}
       {showCommentsModal && currentCommentsAssignment && (
-      <div className="comments-modal-overlay" onClick={() => setShowCommentsModal(false)}>
+      <div className="comments-modal-overlay" onClick={closeCommentsModal}>
       <div className="comments-modal" onClick={(e) => e.stopPropagation()}>
       <div className="comments-modal-header">
       <h3>Comments - {currentCommentsAssignment.title}</h3>
-      <button className="close-modal-btn" onClick={() => setShowCommentsModal(false)}>
+      <button className="close-modal-btn" onClick={closeCommentsModal}>
           ✕
               </button>
       </div>
@@ -1522,6 +1498,7 @@ const TasksTab = ({ user }) => {
                           placeholder="Add a brief description..."
                           rows="2"
                           disabled={isUploading}
+                          className="file-description-textarea"
                           style={{
                             width: '100%',
                             padding: '10px 12px',
@@ -1530,7 +1507,8 @@ const TasksTab = ({ user }) => {
                             fontSize: '14px',
                             fontFamily: 'inherit',
                             resize: 'vertical',
-                            backgroundColor: '#ffffff'
+                            backgroundColor: '#ffffff',
+                            color: '#1a1a1a'
                           }}
                         />
                       </div>

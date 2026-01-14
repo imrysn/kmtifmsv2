@@ -28,6 +28,8 @@
     "create-service-scripts": "echo Creating Windows service scripts...",
     "postinstall": "cd client && npm install",
     "test:api": "node test-api.js",
+    "test:startup": "node test-server-startup.js",
+    "diagnose": "node diagnose-startup.js",
     "server:standalone": "node server.js",
     "db:init": "node database/init-mysql.js",
     "db:recreate": "node database/recreate-tables.js",
