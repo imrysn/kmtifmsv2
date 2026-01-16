@@ -35,7 +35,7 @@ const MYSQL_CONFIG = {
   password: process.env.DB_PASSWORD || '',
   database: process.env.DB_NAME || (isProduction ? 'kmtifms' : 'kmtifms_dev'),
   waitForConnections: true,
-  connectionLimit: 10,
+  connectionLimit: 20,
   queueLimit: 0,
   enableKeepAlive: true,
   keepAliveInitialDelay: 0

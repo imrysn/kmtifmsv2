@@ -63,8 +63,9 @@ router.post('/upload', upload.single('file'), async (req, res) => {
     console.log(`📁 File upload by ${username} from ${userTeam} team:`, originalFilename);
     
     // Move file from temp location to user folder
+    // FIXED: Now async - doesn't block server during large file moves
     try {
-      const finalPath = moveToUserFolder(req.file.path, username, originalFilename);
+      const finalPath = await moveToUserFolder(req.file.path, username, originalFilename);
       req.file.path = finalPath;
       req.file.filename = originalFilename; // Use decoded original filename
       req.file.originalname = originalFilename; // Update originalname with decoded version

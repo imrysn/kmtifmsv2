@@ -29,10 +29,14 @@ const MYSQL_CONFIG = {
   password: process.env.DB_PASSWORD || '',
   database: process.env.DB_NAME || (isProduction ? 'kmtifms' : 'kmtifms_dev'),
   waitForConnections: true,
-  connectionLimit: 10,
-  queueLimit: 0,
+  connectionLimit: 20,        // FIXED: Increased for better concurrency
+  queueLimit: 50,             // FIXED: Prevent memory overflow from unlimited queue
+  acquireTimeout: 10000,      // FIXED: Timeout after 10s instead of hanging forever
   enableKeepAlive: true,
-  keepAliveInitialDelay: 0
+  keepAliveInitialDelay: 0,
+  // Connection health checks
+  maxIdle: 10,                // ADDED: Close idle connections after 10 connections
+  idleTimeout: 60000          // ADDED: Close connections idle for 60s
 };
 
 // Current configuration

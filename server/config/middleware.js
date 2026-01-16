@@ -5,6 +5,9 @@ const path = require('path');
 const fs = require('fs');
 const { networkDataPath } = require('./database');
 
+// FIXED: Import async file utilities
+const { moveToUserFolder: moveToUserFolderAsync, sanitizeFilename } = require('../utils/fileUtils');
+
 // Network Uploads Configuration
 const uploadsDir = path.join(networkDataPath, 'uploads');
 
@@ -63,85 +66,6 @@ const upload = multer({
     files: 1 // Only one file at a time
   }
 });
-
-// Helper to sanitize filename for Windows file system
-function sanitizeFilename(filename) {
-  // Windows doesn't allow these characters in filenames: < > : " / \ | ? *
-  // Also remove control characters (ASCII 0-31)
-  const sanitized = filename
-    .replace(/[<>:"/\\|?*\x00-\x1F]/g, '_')
-    .replace(/^\.|\.$/, '_') // Don't allow filenames starting or ending with a dot
-    .trim();
-  
-  return sanitized || 'unnamed_file';
-}
-
-// Helper to move file to user folder after upload
-function moveToUserFolder(tempPath, username, originalFilename) {
-  console.log('📦 moveToUserFolder called:');
-  console.log('  tempPath:', tempPath);
-  console.log('  username:', username);
-  console.log('  originalFilename:', originalFilename);
-  
-  const userDir = path.join(uploadsDir, username);
-  
-  if (!fs.existsSync(userDir)) {
-    fs.mkdirSync(userDir, { recursive: true });
-    console.log(`✅ Created user folder: ${userDir}`);
-  }
-  
-  // Decode UTF-8 filename if needed
-  let decodedFilename = originalFilename;
-  try {
-    // Check if the filename contains typical garbled UTF-8 patterns
-    if (/[Ã¢â¬â¢Ã¤Â¸â¬Ã¦ââÃ¨Â±Â¡]/.test(originalFilename)) {
-      // The filename was decoded as latin1/binary instead of utf8
-      // Re-encode as binary bytes, then decode as utf8
-      const buffer = Buffer.from(originalFilename, 'binary');
-      decodedFilename = buffer.toString('utf8');
-      console.log('📝 Fixed UTF-8 encoding:', originalFilename, '->', decodedFilename);
-    }
-  } catch (e) {
-    console.warn('⚠️ Could not decode filename, using original:', originalFilename);
-  }
-  
-  // Sanitize filename for Windows compatibility
-  const sanitizedFilename = sanitizeFilename(decodedFilename);
-  console.log('🧹 Sanitized filename:', sanitizedFilename);
-  
-  const finalPath = path.join(userDir, sanitizedFilename);
-  console.log('📍 Final path:', finalPath);
-  
-  // Check if temp file exists
-  if (!fs.existsSync(tempPath)) {
-    const error = new Error(`Temp file not found: ${tempPath}`);
-    console.error('❌', error.message);
-    throw error;
-  }
-  
-  // Move the file using rename (faster than copy + delete for local drives)
-  try {
-    fs.renameSync(tempPath, finalPath);
-    console.log(`✅ Successfully moved file to: ${finalPath}`);
-  } catch (moveError) {
-    // Fallback to copy if rename fails (e.g., cross-device link)
-    try {
-      fs.copyFileSync(tempPath, finalPath);
-      fs.unlinkSync(tempPath);
-      console.log(`✅ Successfully copied file to: ${finalPath}`);
-    } catch (copyError) {
-      console.error('❌ Error moving file:', moveError);
-      console.error('❌ Error copying file:', copyError);
-      console.error('  Temp path:', tempPath);
-      console.error('  Final path:', finalPath);
-      console.error('  Temp exists:', fs.existsSync(tempPath));
-      console.error('  User dir exists:', fs.existsSync(userDir));
-      throw new Error(`Failed to move file: ${moveError.message}`);
-    }
-  }
-  
-  return finalPath;
-}
 
 function setupMiddleware(app) {
   // CORS configuration with UTF-8 support
@@ -206,5 +130,5 @@ module.exports = {
   setupMiddleware,
   upload,
   uploadsDir,
-  moveToUserFolder
+  moveToUserFolder: moveToUserFolderAsync  // FIXED: Now exports async version
 };
