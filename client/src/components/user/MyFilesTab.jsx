@@ -2,6 +2,7 @@ import './css/MyFilesTab.css';
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import SuccessModal from './SuccessModal';
 import FileIcon from '../admin/FileIcon';
+import { usePagination } from '../../hooks';
 
 const MyFilesTab = ({ 
   filteredFiles,
@@ -14,9 +15,19 @@ const MyFilesTab = ({
   const [isUploading, setIsUploading] = useState(false);
   const [successModal, setSuccessModal] = useState({ isOpen: false, title: '', message: '', type: 'success' });
   
-  // Pagination states
-  const [currentPage, setCurrentPage] = useState(1);
+  // Pagination using custom hook
   const [itemsPerPage, setItemsPerPage] = useState(7);
+  const {
+    currentPage,
+    paginatedItems: paginatedFiles,
+    goToPage,
+    canGoNext,
+    canGoPrev,
+    totalPages,
+    startIndex,
+    endIndex,
+    resetPagination
+  } = usePagination(submittedFiles, itemsPerPage);
 
   // Double-click detection
   const clickTimerRef = useRef(null);
@@ -168,24 +179,15 @@ const MyFilesTab = ({
     [submittedFiles]
   );
 
-  // Pagination calculations
-  const totalPages = useMemo(() => Math.ceil(submittedFiles.length / itemsPerPage), [submittedFiles.length, itemsPerPage]);
-  
-  const paginatedFiles = useMemo(() => {
-    const startIndex = (currentPage - 1) * itemsPerPage;
-    const endIndex = startIndex + itemsPerPage;
-    return submittedFiles.slice(startIndex, endIndex);
-  }, [submittedFiles, currentPage, itemsPerPage]);
-
   // Reset to page 1 when filters change or items per page changes
   useEffect(() => {
-    setCurrentPage(1);
-  }, [filteredFiles, itemsPerPage]);
+    resetPagination();
+  }, [filteredFiles, itemsPerPage, resetPagination]);
 
   const handlePageChange = useCallback((page) => {
-    setCurrentPage(page);
+    goToPage(page);
     window.scrollTo({ top: 0, behavior: 'smooth' });
-  }, []);
+  }, [goToPage]);
 
   const handleItemsPerPageChange = useCallback((e) => {
     setItemsPerPage(Number(e.target.value));
@@ -379,7 +381,7 @@ const MyFilesTab = ({
         <div className="pagination-wrapper">
           <div className="pagination-info">
             <span className="pagination-text">
-              Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, submittedFiles.length)} of {submittedFiles.length} files
+              Showing {startIndex + 1} to {endIndex} of {submittedFiles.length} files
             </span>
             <div className="items-per-page">
               <label htmlFor="itemsPerPage">Show:</label>
@@ -402,7 +404,7 @@ const MyFilesTab = ({
             <button
               className="pagination-btn pagination-prev"
               onClick={() => handlePageChange(currentPage - 1)}
-              disabled={currentPage === 1}
+              disabled={!canGoPrev}
               title="Previous page"
             >
               <span>‹</span>
@@ -427,7 +429,7 @@ const MyFilesTab = ({
             <button
               className="pagination-btn pagination-next"
               onClick={() => handlePageChange(currentPage + 1)}
-              disabled={currentPage === totalPages}
+              disabled={!canGoNext}
               title="Next page"
             >
               <span>›</span>

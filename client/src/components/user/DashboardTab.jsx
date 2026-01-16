@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import './css/DashboardTab.css';
 import { LoadingCards } from '../common/InlineSkeletonLoader';
 
@@ -10,14 +10,27 @@ const DashboardTab = ({ user, files, setActiveTab, onOpenFile, onNavigateToTasks
   const [lastUpdate, setLastUpdate] = useState(new Date());
 
   useEffect(() => {
-    fetchDashboardData();
+    let isMounted = true;
+    
+    const loadData = async () => {
+      if (isMounted) {
+        await fetchDashboardData();
+      }
+    };
+    
+    loadData();
     
     // Auto-refresh every 30 seconds for real-time updates (silent)
     const refreshInterval = setInterval(() => {
-      fetchDashboardData(true);
+      if (isMounted) {
+        fetchDashboardData(true);
+      }
     }, 30000);
 
-    return () => clearInterval(refreshInterval);
+    return () => {
+      isMounted = false;
+      clearInterval(refreshInterval);
+    };
   }, [user.id, user.team]);
 
   const fetchDashboardData = async (silent = false) => {
@@ -84,7 +97,7 @@ const DashboardTab = ({ user, files, setActiveTab, onOpenFile, onNavigateToTasks
     }
   };
 
-  const myTasksStats = {
+  const myTasksStats = useMemo(() => ({
     total: assignments.length,
     pending: assignments.filter(a => a.user_status !== 'submitted').length,
     submitted: assignments.filter(a => a.user_status === 'submitted').length,
@@ -92,47 +105,59 @@ const DashboardTab = ({ user, files, setActiveTab, onOpenFile, onNavigateToTasks
       if (!a.due_date) return false;
       return new Date(a.due_date) < new Date() && a.user_status !== 'submitted';
     }).length
-  };
+  }), [assignments]);
 
-  const filesStats = {
+  const filesStats = useMemo(() => ({
     total: files.length,
     pending: files.filter(f => f.current_stage?.includes('pending')).length,
     approved: files.filter(f => f.status === 'final_approved').length,
     rejected: files.filter(f => f.status?.includes('rejected') || f.current_stage?.includes('rejected')).length
-  };
+  }), [files]);
 
-  const teamStats = {
+  const teamStats = useMemo(() => ({
     totalTasks: teamTasks.length,
     totalSubmissions: teamTasks.reduce((sum, task) => 
       sum + (task.recent_submissions ? task.recent_submissions.length : 0), 0
     )
-  };
+  }), [teamTasks]);
 
-  const notificationStats = {
+  const notificationStats = useMemo(() => ({
     unread: notifications.filter(n => !n.is_read).length,
     recent: notifications.slice(0, 3)
-  };
+  }), [notifications]);
 
-  const taskCompletionRate = myTasksStats.total > 0 
-    ? Math.round((myTasksStats.submitted / myTasksStats.total) * 100) : 0;
+  const taskCompletionRate = useMemo(() => 
+    myTasksStats.total > 0 
+      ? Math.round((myTasksStats.submitted / myTasksStats.total) * 100) : 0,
+    [myTasksStats]
+  );
   
-  const fileApprovalRate = filesStats.total > 0
-    ? Math.round((filesStats.approved / filesStats.total) * 100) : 0;
+  const fileApprovalRate = useMemo(() => 
+    filesStats.total > 0
+      ? Math.round((filesStats.approved / filesStats.total) * 100) : 0,
+    [filesStats]
+  );
   
-  const fileRejectionRate = filesStats.total > 0
-    ? Math.round((filesStats.rejected / filesStats.total) * 100) : 0;
+  const fileRejectionRate = useMemo(() => 
+    filesStats.total > 0
+      ? Math.round((filesStats.rejected / filesStats.total) * 100) : 0,
+    [filesStats]
+  );
   
-  const onTimeRate = myTasksStats.total > 0
-    ? Math.round(((myTasksStats.total - myTasksStats.overdue) / myTasksStats.total) * 100) : 100;
+  const onTimeRate = useMemo(() => 
+    myTasksStats.total > 0
+      ? Math.round(((myTasksStats.total - myTasksStats.overdue) / myTasksStats.total) * 100) : 100,
+    [myTasksStats]
+  );
   
-  const overallScore = (() => {
+  const overallScore = useMemo(() => {
     const taskScore = myTasksStats.total > 0 ? (myTasksStats.submitted / myTasksStats.total) * 100 : 0;
     const fileScore = filesStats.total > 0 ? (filesStats.approved / filesStats.total) * 100 : 0;
     const rejectionPenalty = filesStats.total > 0 ? (filesStats.rejected / filesStats.total) * 20 : 0;
     const timeScore = myTasksStats.total > 0 ? ((myTasksStats.total - myTasksStats.overdue) / myTasksStats.total) * 100 : 100;
     const rawScore = (taskScore * 0.4) + (fileScore * 0.3) + (timeScore * 0.3);
     return Math.max(0, Math.round(rawScore - rejectionPenalty));
-  })();
+  }, [myTasksStats, filesStats]);
 
   if (loading) {
     return (
