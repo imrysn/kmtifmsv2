@@ -40,6 +40,7 @@
     "db:switch": "node database/switch-database-mode.js",
     "db:verify": "node verify-mysql-fixes.js",
     "db:add-notifications": "node database/add-notifications-table.js",
+    "db:fix-comments-fullname": "node database/fix-comments-fullname.js",
     "health": "node database/health-check.js",
     "reset:db": "node server/scripts/database/reset-db.js",
     "reset:db:force": "node server/scripts/database/reset-db-force.js",

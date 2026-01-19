@@ -1048,11 +1048,11 @@ const TasksTab = ({ user }) => {
       {/* Main Comment */}
       <div className="comment-item">
         <div className="comment-avatar">
-          {getInitials(comment.fullName || comment.username)}
+          {getInitials(comment.user_fullname || comment.fullName || comment.username)}
       </div>
       <div className="comment-content">
           <div className="comment-header">
-          <span className="comment-author">{comment.fullName || comment.username}</span>
+          <span className="comment-author">{comment.user_fullname || comment.fullName || comment.username}</span>
         <span className={`role-badge ${comment.user_role ? comment.user_role.toLowerCase().replace(' ', '-').replace('_', '-') : 'user'}`}>
             {comment.user_role || 'USER'}
           </span>
@@ -1124,11 +1124,11 @@ const TasksTab = ({ user }) => {
       {comment.replies.map(reply => (
       <div key={reply.id} className="reply-item">
       <div className="reply-avatar">
-      {getInitials(reply.fullName || reply.username)}
+      {getInitials(reply.user_fullname || reply.fullName || reply.username)}
       </div>
       <div className="reply-content">
       <div className="reply-header">
-      <span className="reply-author">{reply.fullName || reply.username}</span>
+      <span className="reply-author">{reply.user_fullname || reply.fullName || reply.username}</span>
       <span className={`role-badge ${reply.user_role ? reply.user_role.toLowerCase().replace(' ', '-').replace('_', '-') : 'user'}`}>
         {reply.user_role || 'USER'}
       </span>
