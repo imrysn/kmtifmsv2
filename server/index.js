@@ -162,10 +162,10 @@ async function startServer() {
       console.log('='.repeat(70));
       console.log('\n✅ Notifications API routes registered');
       console.log('\n🔄 File Approval Workflow:');
-      console.log(`   1. User uploads file → Pending Team Leader Review`);
-      console.log(`   2. Team Leader approves → Pending Admin Review`);
-      console.log(`   3. Admin approves → Published to Public Network`);
-      console.log(`   ❌ Any stage can reject → Back to User with comments`);
+      console.log('   1. User uploads file → Pending Team Leader Review');
+      console.log('   2. Team Leader approves → Pending Admin Review');
+      console.log('   3. Admin approves → Published to Public Network');
+      console.log('   ❌ Any stage can reject → Back to User with comments');
       console.log('='.repeat(70));
 
       if (USE_MYSQL) {

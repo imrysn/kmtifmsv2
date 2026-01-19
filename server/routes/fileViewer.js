@@ -19,23 +19,23 @@ router.get('/view/*', (req, res) => {
     }
 
     const fullPath = path.join(uploadsDir, filePath);
-    
+
     console.log('📂 File view request:', filePath);
     console.log('📂 Full path:', fullPath);
-    
+
     // Check if file exists
     if (!fs.existsSync(fullPath)) {
       console.error('❌ File not found:', fullPath);
       return res.status(404).send('File not found');
     }
-    
+
     // Get file stats
     const stat = fs.statSync(fullPath);
-    
+
     // Get file extension
     const ext = path.extname(fullPath).toLowerCase();
     const filename = path.basename(fullPath);
-    
+
     // Set appropriate content type based on file extension
     const contentTypes = {
       '.pdf': 'application/pdf',
@@ -66,9 +66,9 @@ router.get('/view/*', (req, res) => {
       '.avi': 'video/x-msvideo',
       '.mov': 'video/quicktime'
     };
-    
+
     const contentType = contentTypes[ext] || 'application/octet-stream';
-    
+
     // CRITICAL: Force inline display for ALL files
     // Use filename* (RFC 5987) for better compatibility with special characters
     res.setHeader('Content-Type', contentType);
@@ -78,23 +78,23 @@ router.get('/view/*', (req, res) => {
     res.setHeader('Pragma', 'no-cache');
     res.setHeader('Expires', '0');
     res.setHeader('X-Content-Type-Options', 'nosniff');
-    
+
     console.log('✅ File serving as inline:', filePath);
     console.log('✅ Content-Type:', contentType);
     console.log('✅ Content-Disposition: inline');
-    
+
     // Stream the file with proper error handling
     const readStream = fs.createReadStream(fullPath);
-    
+
     readStream.on('error', (error) => {
       console.error('❌ Stream error:', error);
       if (!res.headersSent) {
         res.status(500).send('Error reading file');
       }
     });
-    
+
     readStream.pipe(res);
-    
+
   } catch (error) {
     console.error('❌ Error serving file:', error);
     res.status(500).send('Error serving file');
@@ -114,23 +114,23 @@ router.get('/download/*', (req, res) => {
     }
 
     const fullPath = path.join(uploadsDir, filePath);
-    
+
     console.log('💾 File download request:', filePath);
-    
+
     if (!fs.existsSync(fullPath)) {
       console.error('❌ File not found:', fullPath);
       return res.status(404).send('File not found');
     }
-    
+
     const filename = path.basename(fullPath);
-    
+
     // Force download with original filename using RFC 5987 format
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"; filename*=UTF-8''${encodeURIComponent(filename)}`);
     res.setHeader('Content-Type', 'application/octet-stream');
     res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
-    
+
     console.log('✅ File download starting:', filename);
-    
+
     res.download(fullPath, filename, (err) => {
       if (err) {
         console.error('❌ Download error:', err);
@@ -138,7 +138,7 @@ router.get('/download/*', (req, res) => {
         console.log('✅ File download completed:', filename);
       }
     });
-    
+
   } catch (error) {
     console.error('❌ Error downloading file:', error);
     res.status(500).send('Error downloading file');

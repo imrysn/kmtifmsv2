@@ -8,15 +8,15 @@ const path = require('path');
  */
 async function moveToUserFolder(tempPath, username, originalFilename) {
   console.log('📦 moveToUserFolder:', { tempPath, username, originalFilename });
-  
+
   const { uploadsDir } = require('../config/middleware');
   const userDir = path.join(uploadsDir, username);
-  
+
   // CRITICAL FIX: recursive: true handles race condition
   // If folder already exists from parallel request, this won't throw
   await fs.mkdir(userDir, { recursive: true });
   console.log(`✅ User folder ready: ${userDir}`);
-  
+
   // Decode and sanitize filename
   let decodedFilename = originalFilename;
   try {
@@ -29,19 +29,19 @@ async function moveToUserFolder(tempPath, username, originalFilename) {
   } catch (e) {
     console.warn('⚠️ Could not decode filename:', e.message);
   }
-  
+
   // Sanitize for Windows
   const sanitizedFilename = sanitizeFilename(decodedFilename);
   const finalPath = path.join(userDir, sanitizedFilename);
   console.log('📍 Target path:', finalPath);
-  
+
   // Verify source exists
   try {
     await fs.access(tempPath);
   } catch (error) {
     throw new Error(`Temp file not found: ${tempPath}`);
   }
-  
+
   // CRITICAL FIX: Async move with fallback for cross-device
   try {
     // Try rename first (fast, atomic on same filesystem)
@@ -64,7 +64,7 @@ async function moveToUserFolder(tempPath, username, originalFilename) {
       throw new Error(`Failed to move file: ${renameError.message}`);
     }
   }
-  
+
   return finalPath;
 }
 
@@ -79,7 +79,7 @@ function sanitizeFilename(filename) {
     .replace(/[<>:"/\\|?*\x00-\x1F]/g, '_')
     .replace(/^\.+|\.+$/g, '_')  // No leading/trailing dots
     .trim();
-  
+
   return sanitized || 'unnamed_file';
 }
 

@@ -17,7 +17,7 @@ const initializeSettingsTable = async () => {
           updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
         )
       `);
-      
+
       // Insert default settings if not exists
       await db.query(`
         INSERT IGNORE INTO settings (setting_key, setting_value, description)
@@ -35,15 +35,19 @@ const initializeSettingsTable = async () => {
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
           )
         `, (err) => {
-          if (err) reject(err);
-          else {
+          if (err) {
+            reject(err);
+          } else {
             // Insert default settings
             db.run(`
               INSERT OR IGNORE INTO settings (setting_key, setting_value, description)
               VALUES ('root_directory', '/home/admin/files', 'Root directory for file management system')
             `, (err) => {
-              if (err) reject(err);
-              else resolve();
+              if (err) {
+                reject(err);
+              } else {
+                resolve();
+              }
             });
           }
         });
@@ -62,7 +66,7 @@ router.get('/', async (req, res) => {
   try {
     if (USE_MYSQL) {
       const settings = await db.query('SELECT * FROM settings');
-      
+
       // Convert array to object for easier access
       const settingsObj = {};
       settings.forEach(setting => {
@@ -73,7 +77,7 @@ router.get('/', async (req, res) => {
           updated_at: setting.updated_at
         };
       });
-      
+
       res.json({ success: true, settings: settingsObj });
     } else {
       db.all('SELECT * FROM settings', [], (err, settings) => {
@@ -81,7 +85,7 @@ router.get('/', async (req, res) => {
           console.error('Error fetching settings:', err);
           return res.status(500).json({ success: false, message: 'Failed to fetch settings' });
         }
-        
+
         // Convert array to object
         const settingsObj = {};
         settings.forEach(setting => {
@@ -92,7 +96,7 @@ router.get('/', async (req, res) => {
             updated_at: setting.updated_at
           };
         });
-        
+
         res.json({ success: true, settings: settingsObj });
       });
     }
@@ -105,18 +109,18 @@ router.get('/', async (req, res) => {
 // GET specific setting by key
 router.get('/:key', async (req, res) => {
   const { key } = req.params;
-  
+
   try {
     if (USE_MYSQL) {
       const settings = await db.query(
         'SELECT * FROM settings WHERE setting_key = ?',
         [key]
       );
-      
+
       if (settings.length === 0) {
         return res.status(404).json({ success: false, message: 'Setting not found' });
       }
-      
+
       res.json({
         success: true,
         setting: {
@@ -136,11 +140,11 @@ router.get('/:key', async (req, res) => {
             console.error('Error fetching setting:', err);
             return res.status(500).json({ success: false, message: 'Failed to fetch setting' });
           }
-          
+
           if (!setting) {
             return res.status(404).json({ success: false, message: 'Setting not found' });
           }
-          
+
           res.json({
             success: true,
             setting: {
@@ -164,11 +168,11 @@ router.get('/:key', async (req, res) => {
 router.put('/:key', async (req, res) => {
   const { key } = req.params;
   const { value, updated_by } = req.body;
-  
+
   if (!value) {
     return res.status(400).json({ success: false, message: 'Setting value is required' });
   }
-  
+
   try {
     if (USE_MYSQL) {
       const result = await db.query(
@@ -177,7 +181,7 @@ router.put('/:key', async (req, res) => {
          WHERE setting_key = ?`,
         [value, updated_by || 'system', key]
       );
-      
+
       if (result.affectedRows === 0) {
         // Setting doesn't exist, insert it
         await db.query(
@@ -186,7 +190,7 @@ router.put('/:key', async (req, res) => {
           [key, value, updated_by || 'system']
         );
       }
-      
+
       // Log activity
       if (updated_by) {
         logActivity(
@@ -198,7 +202,7 @@ router.put('/:key', async (req, res) => {
           `Updated setting: ${key} = ${value}`
         );
       }
-      
+
       res.json({ success: true, message: 'Setting updated successfully' });
     } else {
       db.run(
@@ -210,7 +214,7 @@ router.put('/:key', async (req, res) => {
             console.error('Error updating setting:', err);
             return res.status(500).json({ success: false, message: 'Failed to update setting' });
           }
-          
+
           // Log activity
           if (updated_by) {
             logActivity(
@@ -222,7 +226,7 @@ router.put('/:key', async (req, res) => {
               `Updated setting: ${key} = ${value}`
             );
           }
-          
+
           res.json({ success: true, message: 'Setting updated successfully' });
         }
       );

@@ -26,8 +26,11 @@ router.post('/login', validate(schemas.login), asyncHandler(async (req, res) => 
 
   const user = await new Promise((resolve, reject) => {
     db.get(query, [email], (err, row) => {
-      if (err) reject(err);
-      else resolve(row);
+      if (err) {
+        reject(err);
+      } else {
+        resolve(row);
+      }
     });
   });
 
@@ -119,8 +122,11 @@ router.post('/forgot-password', validate(schemas.forgotPassword), asyncHandler(a
 
     const requestingUser = await new Promise((resolve, reject) => {
       db.get(userQuery, [email], (err, row) => {
-        if (err) reject(err);
-        else resolve(row);
+        if (err) {
+          reject(err);
+        } else {
+          resolve(row);
+        }
       });
     });
 
@@ -135,8 +141,11 @@ router.post('/forgot-password', validate(schemas.forgotPassword), asyncHandler(a
     const adminQuery = 'SELECT id, username, role FROM users WHERE role LIKE ?';
     const adminUsers = await new Promise((resolve, reject) => {
       db.all(adminQuery, ['%ADMIN%'], (err, rows) => {
-        if (err) reject(err);
-        else resolve(rows || []);
+        if (err) {
+          reject(err);
+        } else {
+          resolve(rows || []);
+        }
       });
     });
 

@@ -4,13 +4,17 @@ const { categorizeFileType } = require('./fileTypeUtils');
 // Helper function to get parent path
 function getParentPath(currentPath) {
   const parts = currentPath.split('/').filter(p => p);
-  if (parts.length <= 1) return '/';
+  if (parts.length <= 1) {
+    return '/';
+  }
   return '/' + parts.slice(0, -1).join('/');
 }
 
 // Helper function to format file size
 function formatFileSize(bytes) {
-  if (bytes === 0) return '0 B';
+  if (bytes === 0) {
+    return '0 B';
+  }
   const k = 1024;
   const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
   const i = Math.floor(Math.log(bytes) / Math.log(k));
@@ -19,7 +23,9 @@ function formatFileSize(bytes) {
 
 // Function to truncate names to prevent UI misalignment
 function truncateName(name, maxLength = 50) {
-  if (name.length <= maxLength) return name;
+  if (name.length <= maxLength) {
+    return name;
+  }
   const extension = path.extname(name);
   const nameWithoutExt = path.basename(name, extension);
   const truncatedName = nameWithoutExt.slice(0, maxLength - extension.length - 3);
@@ -33,7 +39,7 @@ function getFileTypeDescription(mimeType, filename = '') {
   if (filename) {
     extension = path.extname(filename).replace(/^\./,  '').toLowerCase();
   }
-  
+
   // If we have a valid extension, use our categorization system
   if (extension) {
     const category = categorizeFileType(extension);
@@ -42,7 +48,7 @@ function getFileTypeDescription(mimeType, filename = '') {
       return category;
     }
   }
-  
+
   // Fallback to MIME type mapping for common types
   const types = {
     'application/pdf': 'PDF Document',
@@ -55,16 +61,16 @@ function getFileTypeDescription(mimeType, filename = '') {
     'image/png': 'PNG Image',
     'application/zip': 'ZIP Archive'
   };
-  
+
   if (types[mimeType]) {
     return types[mimeType];
   }
-  
+
   // If we still don't have a match, return the extension in a readable format
   if (extension) {
     return `${extension.toUpperCase()} File`;
   }
-  
+
   return 'Unknown File Type';
 }
 

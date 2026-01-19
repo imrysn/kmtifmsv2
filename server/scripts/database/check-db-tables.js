@@ -12,14 +12,14 @@ db.all("SELECT name FROM sqlite_master WHERE type='table'", [], (err, tables) =>
     console.error('❌ Error checking tables:', err);
     return;
   }
-  
+
   console.log('📋 Existing tables:');
   tables.forEach(table => {
     console.log(`  - ${table.name}`);
   });
-  
+
   const hasTeamsTable = tables.some(table => table.name === 'teams');
-  
+
   if (hasTeamsTable) {
     console.log('\n✅ Teams table exists');
     // Check teams data

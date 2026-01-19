@@ -85,8 +85,11 @@ router.post('/', validate(schemas.createUser), asyncHandler(async (req, res) => 
         db.get('SELECT id FROM teams WHERE name = ?', [team], (err, teamRow) => {
           if (!err && teamRow) {
             db.run('UPDATE teams SET leader_id = ?, leader_username = ? WHERE id = ?', [newUserId, username, teamRow.id], (err) => {
-              if (err) console.error('❌ Error assigning team leader to team:', err);
-              else console.log(`✅ Assigned ${username} (ID: ${newUserId}) as leader for team '${team}'`);
+              if (err) {
+                console.error('❌ Error assigning team leader to team:', err);
+              } else {
+                console.log(`✅ Assigned ${username} (ID: ${newUserId}) as leader for team '${team}'`);
+              }
             });
           } else {
             console.log(`⚠️ Team '${team}' not found; skipping leader assignment`);
@@ -177,8 +180,11 @@ router.put('/:id', (req, res) => {
             db.get('SELECT id FROM teams WHERE name = ?', [team], (err, teamRow) => {
               if (!err && teamRow) {
                 db.run('UPDATE teams SET leader_id = ?, leader_username = ? WHERE id = ?', [userId, username, teamRow.id], (err) => {
-                  if (err) console.error('❌ Error assigning team leader during user update:', err);
-                  else console.log(`✅ Assigned ${username} (ID: ${userId}) as leader for team '${team}'`);
+                  if (err) {
+                    console.error('❌ Error assigning team leader during user update:', err);
+                  } else {
+                    console.log(`✅ Assigned ${username} (ID: ${userId}) as leader for team '${team}'`);
+                  }
                 });
               } else {
                 console.log(`⚠️ Team '${team}' not found; skipping leader assignment`);
@@ -188,8 +194,11 @@ router.put('/:id', (req, res) => {
 
           if (currentUser.role === 'TEAM LEADER' && role !== 'TEAM LEADER') {
             db.run('UPDATE teams SET leader_id = NULL, leader_username = NULL WHERE leader_id = ?', [userId], (err) => {
-              if (err) console.error('❌ Error clearing leader assignment:', err);
-              else console.log(`✅ Cleared leader assignment for user ID ${userId}`);
+              if (err) {
+                console.error('❌ Error clearing leader assignment:', err);
+              } else {
+                console.log(`✅ Cleared leader assignment for user ID ${userId}`);
+              }
             });
           }
         } catch (err) {
@@ -236,8 +245,12 @@ router.put('/:id/password', validateId(), validate(schemas.resetPassword), async
       'UPDATE users SET password = ? WHERE id = ?',
       [hashedPassword, userId],
       function (err) {
-        if (err) reject(new DatabaseError('Failed to reset password', err));
-        if (this.changes === 0) reject(new NotFoundError('User'));
+        if (err) {
+          reject(new DatabaseError('Failed to reset password', err));
+        }
+        if (this.changes === 0) {
+          reject(new NotFoundError('User'));
+        }
         resolve();
       }
     );
@@ -248,8 +261,11 @@ router.put('/:id/password', validateId(), validate(schemas.resetPassword), async
   // Get user details for logging
   const userDetails = await new Promise((resolve, reject) => {
     db.get('SELECT username, fullName FROM users WHERE id = ?', [userId], (err, row) => {
-      if (err) reject(err);
-      else resolve(row);
+      if (err) {
+        reject(err);
+      } else {
+        resolve(row);
+      }
     });
   });
 

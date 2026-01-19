@@ -7,7 +7,7 @@ const levels = {
   warn: 1,
   info: 2,
   http: 3,
-  debug: 4,
+  debug: 4
 };
 
 // Define colors for each level
@@ -16,7 +16,7 @@ const colors = {
   warn: 'yellow',
   info: 'green',
   http: 'magenta',
-  debug: 'blue',
+  debug: 'blue'
 };
 
 winston.addColors(colors);
@@ -49,7 +49,7 @@ const consoleFormat = winston.format.combine(
 const transports = [
   // Console transport
   new winston.transports.Console({
-    format: consoleFormat,
+    format: consoleFormat
   }),
 
   // Error log file
@@ -58,7 +58,7 @@ const transports = [
     level: 'error',
     format,
     maxsize: 5242880, // 5MB
-    maxFiles: 5,
+    maxFiles: 5
   }),
 
   // Combined log file
@@ -66,8 +66,8 @@ const transports = [
     filename: path.join(__dirname, '../../logs/combined.log'),
     format,
     maxsize: 5242880, // 5MB
-    maxFiles: 5,
-  }),
+    maxFiles: 5
+  })
 ];
 
 // Create logger instance
@@ -76,7 +76,7 @@ const logger = winston.createLogger({
   levels,
   format,
   transports,
-  exitOnError: false,
+  exitOnError: false
 });
 
 // Create logs directory if it doesn't exist

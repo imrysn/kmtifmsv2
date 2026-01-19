@@ -5,7 +5,7 @@ console.log('🔧 DEBUGGING File Management Network Issues\n');
 
 async function debugNetworkIssues() {
   const baseURL = 'http://localhost:3001';
-  
+
   console.log('🔍 Step 1: Test Basic Server Health');
   try {
     const response = await fetch(`${baseURL}/api/health`);
@@ -15,17 +15,17 @@ async function debugNetworkIssues() {
     console.log('❌ Server not responding:', error.message);
     return;
   }
-  
+
   console.log('\n🔍 Step 2: Check Network Directory Info Endpoint');
   try {
     const response = await fetch(`${baseURL}/api/file-system/info`);
     console.log('Response Status:', response.status);
     console.log('Response Headers:', Object.fromEntries(response.headers.entries()));
-    
+
     const responseText = await response.text();
     console.log('Raw Response:');
     console.log(responseText.substring(0, 500) + (responseText.length > 500 ? '...' : ''));
-    
+
     // Try to parse as JSON
     try {
       const data = JSON.parse(responseText);
@@ -37,17 +37,17 @@ async function debugNetworkIssues() {
   } catch (error) {
     console.log('❌ Network request failed:', error.message);
   }
-  
+
   console.log('\n🔍 Step 3: Test File Browse Endpoint');
   try {
     const response = await fetch(`${baseURL}/api/file-system/browse?path=${encodeURIComponent('/')}`);
     console.log('Response Status:', response.status);
     console.log('Response Headers:', Object.fromEntries(response.headers.entries()));
-    
+
     const responseText = await response.text();
     console.log('Raw Response:');
     console.log(responseText.substring(0, 500) + (responseText.length > 500 ? '...' : ''));
-    
+
     // Try to parse as JSON
     try {
       const data = JSON.parse(responseText);
@@ -59,11 +59,11 @@ async function debugNetworkIssues() {
   } catch (error) {
     console.log('❌ Network request failed:', error.message);
   }
-  
+
   console.log('\n🔍 Step 4: Check Network Path Directly');
   const networkPath = '\\\\KMTI-NAS\\Shared\\Public\\PROJECTS';
   console.log('Testing network path:', networkPath);
-  
+
   try {
     if (fs.existsSync(networkPath)) {
       console.log('✅ Network path exists');
@@ -87,14 +87,14 @@ async function debugNetworkIssues() {
     console.log('❌ Error checking network path:', error.message);
     console.log('Error code:', error.code);
   }
-  
+
   console.log('\n🔍 Step 5: Test Alternative Path Formats');
   const alternativePaths = [
     'KMTI-NAS\\Shared\\Public\\PROJECTS',
     '\\\\KMTI-NAS\\Shared\\Public',
     'Z:\\PROJECTS' // If mapped as drive letter
   ];
-  
+
   alternativePaths.forEach(altPath => {
     try {
       if (fs.existsSync(altPath)) {
@@ -106,7 +106,7 @@ async function debugNetworkIssues() {
       console.log(`❌ Error with ${altPath}:`, error.message);
     }
   });
-  
+
   console.log('\n📋 SUMMARY & RECOMMENDATIONS:');
   console.log('1. If network path is not accessible:');
   console.log('   - Check VPN connection');

@@ -14,12 +14,24 @@ const validate = (schema) => {
     if (error) {
       const errors = error.details.map(detail => ({
         field: detail.path.join('.'),
-        message: detail.message
+        message: detail.message.replace(/"/g, '') // Remove quotes from Joi messages
       }));
+
+      // Create a user-friendly summary message
+      const firstError = errors[0];
+      let userMessage = 'Please check your input';
+
+      if (firstError.field === 'password') {
+        userMessage = firstError.message;
+      } else if (errors.length === 1) {
+        userMessage = firstError.message;
+      } else {
+        userMessage = `Please fix ${errors.length} validation errors`;
+      }
 
       return res.status(400).json({
         success: false,
-        message: 'Validation failed',
+        message: userMessage,
         errors
       });
     }
@@ -57,9 +69,9 @@ const schemas = {
     password: Joi.string().min(8).max(100).required()
       .pattern(/^(?=.*[A-Za-z])(?=.*\d)/)
       .messages({
-        'string.min': 'Password must be at least 8 characters',
+        'string.min': 'Password must be at least 8 characters long',
         'string.max': 'Password cannot exceed 100 characters',
-        'string.pattern.base': 'Password must contain at least one letter and one number',
+        'string.pattern.base': 'Password must contain both letters and numbers',
         'any.required': 'Password is required'
       }),
     role: Joi.string().valid('USER', 'TEAM_LEADER', 'ADMIN').default('USER'),
@@ -89,9 +101,9 @@ const schemas = {
     password: Joi.string().min(8).max(100).required()
       .pattern(/^(?=.*[A-Za-z])(?=.*\d)/)
       .messages({
-        'string.min': 'Password must be at least 8 characters',
+        'string.min': 'Password must be at least 8 characters long',
         'string.max': 'Password cannot exceed 100 characters',
-        'string.pattern.base': 'Password must contain at least one letter and one number',
+        'string.pattern.base': 'Password must contain both letters and numbers',
         'any.required': 'Password is required'
       }),
     adminId: Joi.number().optional(),
@@ -181,7 +193,7 @@ const schemas = {
 const validateId = (paramName = 'id') => {
   return (req, res, next) => {
     const id = parseInt(req.params[paramName]);
-    
+
     if (isNaN(id) || id <= 0) {
       return res.status(400).json({
         success: false,
@@ -198,8 +210,10 @@ const validateId = (paramName = 'id') => {
  * Sanitize string to prevent XSS
  */
 const sanitizeString = (str) => {
-  if (typeof str !== 'string') return str;
-  
+  if (typeof str !== 'string') {
+    return str;
+  }
+
   return str
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
