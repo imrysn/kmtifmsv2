@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import './TaskManagement.css'
-import FileIcon from './FileIcon.jsx'
+import FileIcon from '../shared/FileIcon.jsx'
 import { AlertMessage, ConfirmationModal, CommentsModal } from './modals'
 import { useAuth, useNetwork } from '../../contexts'
 import { withErrorBoundary } from '../common'

@@ -23,6 +23,12 @@ const MAX_VITE_WAIT = 60000;
 const MAX_LOAD_RETRIES = 10;
 const SPLASH_TIMEOUT = 15000; // 15 second max for splash screen
 
+// FIXED: PID file for tracking server process
+const PID_FILE = path.join(app.getPath('userData'), 'server.pid');
+
+// FIXED: Import port utilities for cleanup
+const { isPortAvailable, waitForPortToBeFree, killProcess, findProcessByPort } = require('./server/utils/portUtils');
+
 // Logging utility with levels
 const LogLevel = {
   ERROR: 0,

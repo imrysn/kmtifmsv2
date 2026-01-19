@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback, memo } from 'react';
 import './css/NotificationTab.css';
-import FileIcon from '../admin/FileIcon';
+import FileIcon from '../shared/FileIcon';
 import { useTaskbarFlash } from '../../utils/useTaskbarFlash';
 
 // Memoized notification item to prevent unnecessary re-renders

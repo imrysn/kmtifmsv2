@@ -11,26 +11,34 @@ router.get('/summary', (req, res) => {
 
   // Total files
   db.get('SELECT COUNT(*) as total FROM files', [], (err, totalResult) => {
-    if (err) return res.status(500).json({ success: false, message: 'Failed to fetch total files' });
+    if (err) {
+      return res.status(500).json({ success: false, message: 'Failed to fetch total files' });
+    }
     summary.totalFiles = totalResult.total || 0;
 
     // Approved (final_approved)
     db.get("SELECT COUNT(*) as approved FROM files WHERE status = 'final_approved'", [], (err, approvedResult) => {
-      if (err) return res.status(500).json({ success: false, message: 'Failed to fetch approved count' });
+      if (err) {
+        return res.status(500).json({ success: false, message: 'Failed to fetch approved count' });
+      }
       summary.approved = approvedResult.approved || 0;
 
       // Pending (not final_approved and not rejected)
       db.get("SELECT COUNT(*) as pending FROM files WHERE status NOT IN ('final_approved','rejected_by_admin','rejected_by_team_leader')", [], (err, pendingResult) => {
-        if (err) return res.status(500).json({ success: false, message: 'Failed to fetch pending count' });
+        if (err) {
+          return res.status(500).json({ success: false, message: 'Failed to fetch pending count' });
+        }
         summary.pending = pendingResult.pending || 0;
 
         // Rejected (any rejection status)
         db.get("SELECT COUNT(*) as rejected FROM files WHERE status LIKE 'rejected%'", [], (err, rejectedResult) => {
-          if (err) return res.status(500).json({ success: false, message: 'Failed to fetch rejected count' });
+          if (err) {
+            return res.status(500).json({ success: false, message: 'Failed to fetch rejected count' });
+          }
           summary.rejected = rejectedResult.rejected || 0;
 
           // File types breakdown (group by file_type)
-          db.all("SELECT file_type, COUNT(*) as count FROM files GROUP BY file_type ORDER BY count DESC", [], (err, types) => {
+          db.all('SELECT file_type, COUNT(*) as count FROM files GROUP BY file_type ORDER BY count DESC', [], (err, types) => {
             if (err) {
               // non-fatal - continue without types
               summary.fileTypes = [];
@@ -41,7 +49,9 @@ router.get('/summary', (req, res) => {
 
             // Recent activity logs
             db.all('SELECT id, username, role, team, activity, timestamp FROM activity_logs ORDER BY timestamp DESC LIMIT 6', [], (err, logs) => {
-              if (err) return res.status(500).json({ success: false, message: 'Failed to fetch activity logs' });
+              if (err) {
+                return res.status(500).json({ success: false, message: 'Failed to fetch activity logs' });
+              }
               summary.recentActivity = logs || [];
 
               // Approval rate & simple stats (derived)
@@ -52,28 +62,27 @@ router.get('/summary', (req, res) => {
               const now = new Date();
               const firstDayOfCurrentMonth = new Date(now.getFullYear(), now.getMonth(), 1);
               const firstDayOfPrevMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-              const lastDayOfPrevMonth = new Date(now.getFullYear(), now.getMonth(), 0);
 
               db.get(
-                `SELECT COUNT(*) as total FROM files WHERE uploaded_at >= ? AND uploaded_at < ?`,
+                'SELECT COUNT(*) as total FROM files WHERE uploaded_at >= ? AND uploaded_at < ?',
                 [firstDayOfPrevMonth.toISOString(), firstDayOfCurrentMonth.toISOString()],
                 (err, prevTotalResult) => {
                   const prevTotal = prevTotalResult ? prevTotalResult.total || 0 : 0;
 
                   db.get(
-                    `SELECT COUNT(*) as approved FROM files WHERE status = 'final_approved' AND uploaded_at >= ? AND uploaded_at < ?`,
+                    'SELECT COUNT(*) as approved FROM files WHERE status = \'final_approved\' AND uploaded_at >= ? AND uploaded_at < ?',
                     [firstDayOfPrevMonth.toISOString(), firstDayOfCurrentMonth.toISOString()],
                     (err, prevApprovedResult) => {
                       const prevApproved = prevApprovedResult ? prevApprovedResult.approved || 0 : 0;
 
                       db.get(
-                        `SELECT COUNT(*) as pending FROM files WHERE status NOT IN ('final_approved','rejected_by_admin','rejected_by_team_leader') AND uploaded_at >= ? AND uploaded_at < ?`,
+                        'SELECT COUNT(*) as pending FROM files WHERE status NOT IN (\'final_approved\',\'rejected_by_admin\',\'rejected_by_team_leader\') AND uploaded_at >= ? AND uploaded_at < ?',
                         [firstDayOfPrevMonth.toISOString(), firstDayOfCurrentMonth.toISOString()],
                         (err, prevPendingResult) => {
                           const prevPending = prevPendingResult ? prevPendingResult.pending || 0 : 0;
 
                           db.get(
-                            `SELECT COUNT(*) as rejected FROM files WHERE status LIKE 'rejected%' AND uploaded_at >= ? AND uploaded_at < ?`,
+                            'SELECT COUNT(*) as rejected FROM files WHERE status LIKE \'rejected%\' AND uploaded_at >= ? AND uploaded_at < ?',
                             [firstDayOfPrevMonth.toISOString(), firstDayOfCurrentMonth.toISOString()],
                             (err, prevRejectedResult) => {
                               const prevRejected = prevRejectedResult ? prevRejectedResult.rejected || 0 : 0;
@@ -138,7 +147,7 @@ router.get('/summary', (req, res) => {
 router.get('/team/:teamName', (req, res) => {
   const { teamName } = req.params;
   console.log(`📊 Getting analytics for team: ${teamName}`);
-  
+
   const analytics = {};
 
   // Total files for team
@@ -190,7 +199,7 @@ router.get('/team/:teamName', (req, res) => {
               analytics.teamMembers = membersResult.total || 0;
 
               // File types breakdown for team
-              db.all("SELECT file_type, COUNT(*) as count FROM files WHERE user_team = ? GROUP BY file_type ORDER BY count DESC", [teamName], (err, fileTypes) => {
+              db.all('SELECT file_type, COUNT(*) as count FROM files WHERE user_team = ? GROUP BY file_type ORDER BY count DESC', [teamName], (err, fileTypes) => {
                 if (err) {
                   console.error('❌ Error getting file types:', err);
                   analytics.fileTypes = [];
@@ -218,8 +227,8 @@ router.get('/team/:teamName', (req, res) => {
                     }
 
                     // Approval rate
-                    const approvalRate = analytics.totalFiles > 0 
-                      ? (analytics.approvedFiles / analytics.totalFiles) * 100 
+                    const approvalRate = analytics.totalFiles > 0
+                      ? (analytics.approvedFiles / analytics.totalFiles) * 100
                       : 0;
                     analytics.approvalRate = Math.round(approvalRate * 10) / 10;
 
@@ -239,7 +248,7 @@ router.get('/team/:teamName', (req, res) => {
 
                         // Files by stage (for pie chart)
                         db.all(
-                          `SELECT current_stage, COUNT(*) as count FROM files WHERE user_team = ? GROUP BY current_stage`,
+                          'SELECT current_stage, COUNT(*) as count FROM files WHERE user_team = ? GROUP BY current_stage',
                           [teamName],
                           (err, stageBreakdown) => {
                             if (err) {

@@ -15,14 +15,27 @@ const NotificationTab = ({ user, onOpenFile, onNavigateToTasks, onUpdateUnreadCo
   useTaskbarFlash(unreadCount);
 
   useEffect(() => {
-    fetchNotifications();
+    let isMounted = true;
+    
+    const loadNotifications = async () => {
+      if (isMounted) {
+        await fetchNotifications();
+      }
+    };
+    
+    loadNotifications();
     
     // Poll for new notifications every 5 seconds for real-time updates
     const pollInterval = setInterval(() => {
-      fetchNotifications();
+      if (isMounted) {
+        fetchNotifications();
+      }
     }, 5000);
 
-    return () => clearInterval(pollInterval);
+    return () => {
+      isMounted = false;
+      clearInterval(pollInterval);
+    };
   }, [user.id]);
 
   const fetchNotifications = async () => {

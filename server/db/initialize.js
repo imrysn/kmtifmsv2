@@ -1,5 +1,4 @@
 const fs = require('fs').promises;
-const path = require('path');
 const { db, USE_MYSQL } = require('../config/database');
 const { uploadsDir } = require('../config/middleware');
 const fileIndexer = require('../services/fileIndexer');
@@ -28,34 +27,32 @@ async function initializeDatabase() {
     // MySQL INITIALIZATION
     // ========================================================================
     console.log('🔧 Initializing MySQL database...');
-    
+
     try {
       const mysqlConfig = require('../../database/config');
-      
-      // Test connection with retries
-      console.log('🔍 Testing MySQL connection...');
+
+      // Test connection
       const connected = await mysqlConfig.testConnection();
       if (!connected) {
         console.error('❌ Could not establish MySQL connection after multiple retries');
         throw new Error('Failed to connect to MySQL database');
       }
-      console.log('✅ MySQL connection verified');
-      
+
       // Check if tables exist
       const tables = await mysqlConfig.query('SHOW TABLES');
-      
+
       if (tables.length === 0) {
         console.log('⚠️  No tables found. Please run: npm run db:init');
         console.log('   This will create all required tables and initial data.');
       } else {
         console.log(`✅ Found ${tables.length} tables in database`);
-        
+
         // Verify required tables exist
         const tableNames = tables.map(t => Object.values(t)[0]);
-        const requiredTables = ['users', 'teams', 'files', 'file_comments', 
-                               'file_status_history', 'activity_logs'];
+        const requiredTables = ['users', 'teams', 'files', 'file_comments',
+          'file_status_history', 'activity_logs'];
         const missingTables = requiredTables.filter(t => !tableNames.includes(t));
-        
+
         if (missingTables.length > 0) {
           console.log('⚠️  Missing tables:', missingTables.join(', '));
           console.log('   Run: npm run db:init');
@@ -63,13 +60,13 @@ async function initializeDatabase() {
           console.log('✅ All required tables present');
         }
       }
-      
+
       console.log('📁 File approval system ready (MySQL)');
       console.log('✅ Database initialized successfully');
-      
+
       // Initialize file index table
       await fileIndexer.initializeIndexTable();
-      
+
     } catch (error) {
       console.error('❌ MySQL initialization error:', error.message);
       console.error('\n💡 Please ensure:');
@@ -82,13 +79,13 @@ async function initializeDatabase() {
       console.error('   Error:', error.stack || error.message);
       throw error;
     }
-    
+
   } else {
     // ========================================================================
     // SQLITE INITIALIZATION
     // ========================================================================
     console.log('🔧 Initializing SQLite database...');
-    
+
     return new Promise((resolve, reject) => {
       // Create users table if it doesn't exist
       db.run(`CREATE TABLE IF NOT EXISTS users (
@@ -366,28 +363,44 @@ function handleUserTableMigration(resolve, reject) {
     if (!hasFullName) {
       alterPromises.push(new Promise((resolve, reject) => {
         db.run('ALTER TABLE users ADD COLUMN fullName TEXT DEFAULT "Unknown"', (err) => {
-          if (err) reject(err); else { console.log('✅ Added fullName column'); resolve(); }
+          if (err) {
+            reject(err);
+          } else {
+            console.log('✅ Added fullName column'); resolve();
+          }
         });
       }));
     }
     if (!hasUsername) {
       alterPromises.push(new Promise((resolve, reject) => {
         db.run('ALTER TABLE users ADD COLUMN username TEXT', (err) => {
-          if (err) reject(err); else { console.log('✅ Added username column'); resolve(); }
+          if (err) {
+            reject(err);
+          } else {
+            console.log('✅ Added username column'); resolve();
+          }
         });
       }));
     }
     if (!hasRole) {
       alterPromises.push(new Promise((resolve, reject) => {
         db.run('ALTER TABLE users ADD COLUMN role TEXT DEFAULT "USER"', (err) => {
-          if (err) reject(err); else { console.log('✅ Added role column'); resolve(); }
+          if (err) {
+            reject(err);
+          } else {
+            console.log('✅ Added role column'); resolve();
+          }
         });
       }));
     }
     if (!hasTeam) {
       alterPromises.push(new Promise((resolve, reject) => {
         db.run('ALTER TABLE users ADD COLUMN team TEXT DEFAULT "General"', (err) => {
-          if (err) reject(err); else { console.log('✅ Added team column'); resolve(); }
+          if (err) {
+            reject(err);
+          } else {
+            console.log('✅ Added team column'); resolve();
+          }
         });
       }));
     }

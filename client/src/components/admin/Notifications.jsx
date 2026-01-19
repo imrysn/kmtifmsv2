@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback, memo } from 'react';
 import './Notifications.css';
-import FileIcon from './FileIcon';
+import FileIcon from '../shared/FileIcon';
 import { useTaskbarFlash } from '../../utils/useTaskbarFlash';
 import { ConfirmationModal } from './modals';
 import { useAuth, useNetwork } from '../../contexts';

@@ -45,7 +45,7 @@ router.post('/upload', upload.single('file'), async (req, res) => {
 
     // Get the original filename and ensure proper UTF-8 encoding
     let originalFilename = req.file.originalname;
-    
+
     // Fix common UTF-8 encoding issues (garbled Japanese/Chinese characters)
     try {
       // Check if the filename contains typical garbled UTF-8 patterns
@@ -59,12 +59,13 @@ router.post('/upload', upload.single('file'), async (req, res) => {
     } catch (e) {
       console.warn('⚠️ Could not decode filename, using original:', originalFilename);
     }
-    
+
     console.log(`📁 File upload by ${username} from ${userTeam} team:`, originalFilename);
-    
+
     // Move file from temp location to user folder
+    // FIXED: Now async - doesn't block server during large file moves
     try {
-      const finalPath = moveToUserFolder(req.file.path, username, originalFilename);
+      const finalPath = await moveToUserFolder(req.file.path, username, originalFilename);
       req.file.path = finalPath;
       req.file.filename = originalFilename; // Use decoded original filename
       req.file.originalname = originalFilename; // Update originalname with decoded version
@@ -124,7 +125,7 @@ router.post('/upload', upload.single('file'), async (req, res) => {
           const oldRelativePath = existingFile.file_path.startsWith('/uploads/') ? existingFile.file_path.substring(8) : existingFile.file_path;
           const oldFilePath = path.join(uploadsDir, oldRelativePath);
           await safeDeleteFile(oldFilePath);
-          
+
           // Delete old database record
           db.run('DELETE FROM files WHERE id = ?', [existingFile.id], (deleteErr) => {
             if (deleteErr) {
@@ -144,7 +145,7 @@ router.post('/upload', upload.single('file'), async (req, res) => {
     function insertFileRecord() {
       // Get the relative path from the uploadsDir
       const relativePath = path.relative(uploadsDir, req.file.path).replace(/\\/g, '/');
-      
+
       // Insert file record into database
       db.run(`INSERT INTO files (
         filename, original_name, file_path, file_size, file_type, mime_type, description, tag,
@@ -558,9 +559,9 @@ router.post('/:fileId/team-leader-review', (req, res) => {
       });
     }
 
-  // Use MySQL-friendly DATETIME format: YYYY-MM-DD HH:MM:SS
-  const now = new Date();
-  const nowSql = now.toISOString().slice(0,19).replace('T', ' ');
+    // Use MySQL-friendly DATETIME format: YYYY-MM-DD HH:MM:SS
+    const now = new Date();
+    const nowSql = now.toISOString().slice(0,19).replace('T', ' ');
     let newStatus, newStage;
     if (action === 'approve') {
       newStatus = 'team_leader_approved';
@@ -613,11 +614,11 @@ router.post('/:fileId/team-leader-review', (req, res) => {
               console.error('Comment details:', { fileId, teamLeaderId, teamLeaderUsername, teamLeaderRole, comments, commentType });
             } else {
               console.log('✅ Team leader comment added successfully');
-              
+
               // Create a separate notification for the comment itself
               const commentNotifTitle = `Team Leader ${action === 'approve' ? 'Approved' : 'Rejected'} with Comments`;
               const commentNotifMessage = `${teamLeaderUsername} left ${commentType} comments on your file: "${comments.substring(0, 150)}${comments.length > 150 ? '...' : ''}"`.replace(/\\"/g, '"');
-              
+
               createNotification(
                 file.user_id,
                 fileId,
@@ -661,13 +662,13 @@ router.post('/:fileId/team-leader-review', (req, res) => {
 
       // Create notification for the file owner
       const notificationType = action === 'approve' ? 'approval' : 'rejection';
-      const notificationTitle = action === 'approve' 
+      const notificationTitle = action === 'approve'
         ? 'File Approved by Team Leader'
         : 'File Rejected by Team Leader';
       const notificationMessage = action === 'approve'
         ? `Your file "${file.original_name}" has been approved by ${teamLeaderUsername} and is now pending admin review.`
         : `Your file "${file.original_name}" has been rejected by ${teamLeaderUsername}. ${comments ? 'Reason: ' + comments : 'Please review and resubmit.'}`;
-      
+
       createNotification(
         file.user_id,
         fileId,
@@ -707,8 +708,11 @@ router.post('/:fileId/move-to-projects', async (req, res) => {
     // Get file info
     const file = await new Promise((resolve, reject) => {
       db.get('SELECT * FROM files WHERE id = ?', [fileId], (err, row) => {
-        if (err) reject(err);
-        else resolve(row);
+        if (err) {
+          reject(err);
+        } else {
+          resolve(row);
+        }
       });
     });
 
@@ -722,7 +726,7 @@ router.post('/:fileId/move-to-projects', async (req, res) => {
     // Get source file path
     const relativePath = file.file_path.startsWith('/uploads/') ? file.file_path.substring(8) : file.file_path;
     const sourcePath = path.join(uploadsDir, relativePath);
-    
+
     // Check if source file exists
     const sourceExists = await fs.access(sourcePath).then(() => true).catch(() => false);
     if (!sourceExists) {
@@ -737,15 +741,15 @@ router.post('/:fileId/move-to-projects', async (req, res) => {
     // e.g., "C:\\Users\\...\\PROJECTS\\Engineering\\2025"
     // or "\\\\KMTI-NAS\\Shared\\Public\\PROJECTS\\Engineering\\2025"
     const fullDestinationPath = destinationPath;
-    
+
     console.log('📂 Destination path:', fullDestinationPath);
 
     // Ensure destination directory exists
     await fs.mkdir(fullDestinationPath, { recursive: true });
-    
+
     // Construct destination file path with original name
     const destinationFilePath = path.join(fullDestinationPath, file.original_name);
-    
+
     // Check if destination file already exists
     const destExists = await fs.access(destinationFilePath).then(() => true).catch(() => false);
     if (destExists) {
@@ -776,8 +780,11 @@ router.post('/:fileId/move-to-projects', async (req, res) => {
         'UPDATE files SET public_network_url = ? WHERE id = ?',
         [destinationFilePath, fileId],
         (err) => {
-          if (err) reject(err);
-          else resolve();
+          if (err) {
+            reject(err);
+          } else {
+            resolve();
+          }
         }
       );
     });
@@ -839,9 +846,9 @@ router.post('/:fileId/admin-review', async (req, res) => {
     }
     console.log(`Current stage: ${file.current_stage}, Status: ${file.status}, Can approve: ${canApprove}`);
 
-  // Use MySQL-friendly DATETIME format
-  const now = new Date();
-  const nowSql = now.toISOString().slice(0,19).replace('T', ' ');
+    // Use MySQL-friendly DATETIME format
+    const now = new Date();
+    const nowSql = now.toISOString().slice(0,19).replace('T', ' ');
     let newStatus, newStage, publicNetworkUrl = null;
     if (action === 'approve') {
       newStatus = 'final_approved';
@@ -901,11 +908,11 @@ router.post('/:fileId/admin-review', async (req, res) => {
               console.error('Comment details:', { fileId, adminId, adminUsername, adminRole, comments, commentType });
             } else {
               console.log('✅ Admin comment added successfully');
-              
+
               // Create a separate notification for the admin comment
               const commentNotifTitle = `Admin ${action === 'approve' ? 'Approved' : 'Rejected'} with Comments`;
               const commentNotifMessage = `${adminUsername} (Admin) left ${commentType} comments on your file: "${comments.substring(0, 150)}${comments.length > 150 ? '...' : ''}"`;
-              
+
               createNotification(
                 file.user_id,
                 fileId,
@@ -955,7 +962,7 @@ router.post('/:fileId/admin-review', async (req, res) => {
       const notificationMessage = action === 'approve'
         ? `Your file "${file.original_name}" has been final approved by ${adminUsername} and published to the public network!`
         : `Your file "${file.original_name}" has been rejected by ${adminUsername}. ${comments ? 'Reason: ' + comments : 'Please review and resubmit.'}`;
-      
+
       createNotification(
         file.user_id,
         fileId,
@@ -1048,7 +1055,7 @@ router.post('/:fileId/admin-review', async (req, res) => {
 // Get single file details
 router.get('/:fileId', (req, res) => {
   const { fileId } = req.params;
-  
+
   db.get('SELECT * FROM files WHERE id = ?', [fileId], (err, file) => {
     if (err) {
       console.error('❌ Error getting file:', err);
@@ -1063,7 +1070,7 @@ router.get('/:fileId', (req, res) => {
         message: 'File not found'
       });
     }
-    
+
     res.json({
       success: true,
       file
@@ -1143,7 +1150,7 @@ router.post('/:fileId/comments', (req, res) => {
       message: 'Comment cannot be empty'
     });
   }
-  
+
   // Get file info to send notification to owner
   db.get('SELECT * FROM files WHERE id = ?', [fileId], (err, file) => {
     if (err || !file) {
@@ -1152,7 +1159,7 @@ router.post('/:fileId/comments', (req, res) => {
         message: 'File not found'
       });
     }
-    
+
     db.run(
       'INSERT INTO file_comments (file_id, user_id, username, user_role, comment) VALUES (?, ?, ?, ?, ?)',
       [fileId, userId, username, userRole, comment.trim()],
@@ -1164,12 +1171,12 @@ router.post('/:fileId/comments', (req, res) => {
             message: 'Failed to add comment'
           });
         }
-        
+
         // Create notification for the file owner (if comment is not by the owner)
         if (userId !== file.user_id) {
           const notificationTitle = 'New Comment on Your File';
           const notificationMessage = `${username} commented on your file "${file.original_name}": ${comment.trim().substring(0, 100)}${comment.trim().length > 100 ? '...' : ''}`;
-          
+
           createNotification(
             file.user_id,
             fileId,
@@ -1183,7 +1190,7 @@ router.post('/:fileId/comments', (req, res) => {
             console.error('Failed to create notification for comment:', err);
           });
         }
-        
+
         res.json({
           success: true,
           message: 'Comment added successfully',
@@ -1234,8 +1241,11 @@ router.delete('/:fileId', async (req, res) => {
     // Get file info first
     const file = await new Promise((resolve, reject) => {
       db.get('SELECT * FROM files WHERE id = ?', [fileId], (err, row) => {
-        if (err) reject(err);
-        else resolve(row);
+        if (err) {
+          reject(err);
+        } else {
+          resolve(row);
+        }
       });
     });
 
@@ -1280,20 +1290,20 @@ router.delete('/:fileId', async (req, res) => {
     // Delete file from filesystem
     // First, properly resolve the file path using stored information
     let filePath;
-    
+
     if (file.file_path) {
       // For paths stored in database, we need to handle user subdirectories
       if (file.file_path.startsWith('/uploads/')) {
         // Check if the path already includes the username directory
         const relativePath = file.file_path.substring('/uploads/'.length);
-        
+
         if (relativePath.includes('/')) {
           // Already has subdirectory - use as is
           filePath = path.join(uploadsDir, relativePath);
         } else {
           // Try to find in user's directory
           filePath = path.join(uploadsDir, file.username, path.basename(file.file_path));
-          
+
           // If not found in user directory, fallback to direct location
           try {
             await fs.access(filePath);
@@ -1309,10 +1319,10 @@ router.delete('/:fileId', async (req, res) => {
       // Fallback to basic resolution
       filePath = path.join(uploadsDir, path.basename(file.file_path || ''));
     }
-    
+
     console.log(`🗑️ Attempting to delete file at: ${filePath}`);
     const deleteResult = await safeDeleteFile(filePath);
-    
+
     if (!deleteResult.success && !deleteResult.notFound) {
       console.warn(`⚠️ Physical file deletion issue: ${deleteResult.message}`);
     }
@@ -1320,8 +1330,11 @@ router.delete('/:fileId', async (req, res) => {
     // Delete file record from database
     await new Promise((resolve, reject) => {
       db.run('DELETE FROM files WHERE id = ?', [fileId], function(err) {
-        if (err) reject(err);
-        else resolve();
+        if (err) {
+          reject(err);
+        } else {
+          resolve();
+        }
       });
     });
 
@@ -1334,7 +1347,7 @@ router.delete('/:fileId', async (req, res) => {
       team,
       `File deleted: ${file.filename} (Admin Action) - Assignment submissions cleared`
     );
-    
+
     console.log(`✅ File deleted: ${file.filename}`);
     res.json({
       success: true,
@@ -1352,22 +1365,24 @@ router.delete('/:fileId', async (req, res) => {
 
 // Helper: convert stored file_path to a filesystem path the server can unlink
 async function resolveFilePath(storedPath, username = null) {
-  if (!storedPath) return null;
+  if (!storedPath) {
+    return null;
+  }
 
   // If UNC path (\\server\share...) or absolute Windows (C:\...) or POSIX absolute (/..), return as-is
   if (/^\\\\/.test(storedPath) || path.isAbsolute(storedPath)) {
     return storedPath;
   }
-  
+
   // Handle paths stored as relative URLs with /uploads/ prefix
   if (storedPath.startsWith('/uploads/')) {
     const relativePath = storedPath.substring('/uploads/'.length);
-    
+
     // Check if this is a username path format like 'username/filename.ext'
     if (relativePath.includes('/')) {
       // This is likely a username/filename path
       return path.join(uploadsDir, relativePath);
-    } 
+    }
     // If username is provided, check if the file exists in that user's directory
     else if (username) {
       // Try the username directory first
@@ -1379,7 +1394,7 @@ async function resolveFilePath(storedPath, username = null) {
         // File not found in user directory
       }
     }
-    
+
     // Default to direct file in uploads dir
     return path.join(uploadsDir, relativePath);
   }
@@ -1387,7 +1402,7 @@ async function resolveFilePath(storedPath, username = null) {
   // For paths without /uploads/ prefix, try various locations
   // First check if it exists directly in uploads folder
   const directPath = path.join(uploadsDir, path.basename(storedPath));
-  
+
   // If username is provided, also check in user's folder
   if (username) {
     const userPath = path.join(uploadsDir, username, path.basename(storedPath));
@@ -1398,7 +1413,7 @@ async function resolveFilePath(storedPath, username = null) {
       // File not found in user directory
     }
   }
-  
+
   // Final fallback - direct join with uploads dir
   return directPath;
 }
@@ -1510,28 +1525,28 @@ router.delete('/:id', async (req, res) => {
 // HIGH PRIORITY FEATURE: Bulk Actions - Approve/Reject multiple files
 router.post('/bulk-action', (req, res) => {
   const { fileIds, action, comments, reviewerId, reviewerUsername, reviewerRole, team } = req.body;
-  
+
   if (!fileIds || !Array.isArray(fileIds) || fileIds.length === 0) {
     return res.status(400).json({
       success: false,
       message: 'File IDs array is required'
     });
   }
-  
+
   if (!['approve', 'reject'].includes(action)) {
     return res.status(400).json({
       success: false,
       message: 'Invalid action. Must be approve or reject'
     });
   }
-  
+
   console.log(`📋 Bulk ${action} for ${fileIds.length} files by ${reviewerUsername}`);
-  
+
   const now = new Date();
   const nowSql = now.toISOString().slice(0,19).replace('T', ' ');
   const results = { success: [], failed: [] };
   let processed = 0;
-  
+
   fileIds.forEach(fileId => {
     db.get('SELECT * FROM files WHERE id = ?', [fileId], (err, file) => {
       if (err || !file) {
@@ -1540,19 +1555,19 @@ router.post('/bulk-action', (req, res) => {
         checkComplete();
         return;
       }
-      
+
       const isTeamLeader = reviewerRole === 'team_leader';
       const isAdmin = reviewerRole === 'admin';
-      const correctStage = (isTeamLeader && file.current_stage === 'pending_team_leader') || 
+      const correctStage = (isTeamLeader && file.current_stage === 'pending_team_leader') ||
                           (isAdmin && file.current_stage === 'pending_admin');
-      
+
       if (!correctStage) {
         results.failed.push({ fileId, reason: 'Incorrect review stage', fileName: file.original_name });
         processed++;
         checkComplete();
         return;
       }
-      
+
       let newStatus, newStage;
       if (isTeamLeader) {
         newStatus = action === 'approve' ? 'team_leader_approved' : 'rejected_by_team_leader';
@@ -1561,27 +1576,27 @@ router.post('/bulk-action', (req, res) => {
         newStatus = action === 'approve' ? 'final_approved' : 'rejected_by_admin';
         newStage = action === 'approve' ? 'published_to_public' : 'rejected_by_admin';
       }
-      
-      const updateSql = isTeamLeader ? 
+
+      const updateSql = isTeamLeader ?
         `UPDATE files SET status = ?, current_stage = ?, team_leader_id = ?, team_leader_username = ?, 
          team_leader_reviewed_at = ?, team_leader_comments = ?${action === 'reject' ? ', rejection_reason = ?, rejected_by = ?, rejected_at = ?' : ''} 
          WHERE id = ?` :
         `UPDATE files SET status = ?, current_stage = ?, admin_id = ?, admin_username = ?, 
          admin_reviewed_at = ?, admin_comments = ?${action === 'approve' ? ', public_network_url = ?, final_approved_at = ?' : ''}${action === 'reject' ? ', rejection_reason = ?, rejected_by = ?, rejected_at = ?' : ''} 
          WHERE id = ?`;
-      
+
       const publicNetworkUrl = (isAdmin && action === 'approve') ? `https://public-network.example.com/files/${file.filename}` : null;
-      
-      const updateParams = isTeamLeader ? 
-        (action === 'reject' ? 
+
+      const updateParams = isTeamLeader ?
+        (action === 'reject' ?
           [newStatus, newStage, reviewerId, reviewerUsername, nowSql, comments, comments, reviewerUsername, nowSql, fileId] :
           [newStatus, newStage, reviewerId, reviewerUsername, nowSql, comments, fileId]) :
-        (action === 'approve' ? 
+        (action === 'approve' ?
           [newStatus, newStage, reviewerId, reviewerUsername, nowSql, comments, publicNetworkUrl, nowSql, fileId] :
-          action === 'reject' ? 
+          action === 'reject' ?
             [newStatus, newStage, reviewerId, reviewerUsername, nowSql, comments, comments, reviewerUsername, nowSql, fileId] :
             [newStatus, newStage, reviewerId, reviewerUsername, nowSql, comments, fileId]);
-      
+
       db.run(updateSql, updateParams, function(err) {
         if (err) {
           console.error(`❌ Error updating file ${fileId}:`, err);
@@ -1590,7 +1605,7 @@ router.post('/bulk-action', (req, res) => {
           checkComplete();
           return;
         }
-        
+
         // Add comment
         if (comments) {
           db.run(
@@ -1599,20 +1614,20 @@ router.post('/bulk-action', (req, res) => {
             () => {}
           );
         }
-        
+
         // Log status change
         logFileStatusChange(
           db, fileId, file.status, newStatus, file.current_stage, newStage,
           reviewerId, reviewerUsername, reviewerRole, `Bulk ${action}: ${comments || 'No comments'}`
         );
-        
+
         results.success.push({ fileId, fileName: file.original_name, newStatus, newStage });
         processed++;
         checkComplete();
       });
     });
   });
-  
+
   function checkComplete() {
     if (processed === fileIds.length) {
       // Log activity
@@ -1620,7 +1635,7 @@ router.post('/bulk-action', (req, res) => {
         db, reviewerId, reviewerUsername, reviewerRole, team,
         `Bulk ${action}: ${results.success.length} files ${action}d, ${results.failed.length} failed`
       );
-      
+
       console.log(`✅ Bulk action complete: ${results.success.length} succeeded, ${results.failed.length} failed`);
       res.json({
         success: true,
@@ -1636,12 +1651,12 @@ router.post('/team-leader/:team/filter', (req, res) => {
   const { team } = req.params;
   const { filters, sort, page = 1, limit = 50 } = req.body;
   const offset = (page - 1) * limit;
-  
+
   console.log(`🔍 Filtering files for team ${team}:`, filters);
-  
-  let whereClauses = ['user_team = ?', 'current_stage = ?'];
-  let params = [team, 'pending_team_leader'];
-  
+
+  const whereClauses = ['user_team = ?', 'current_stage = ?'];
+  const params = [team, 'pending_team_leader'];
+
   // Build WHERE clauses based on filters
   if (filters) {
     if (filters.fileType && filters.fileType.length > 0) {
@@ -1649,38 +1664,38 @@ router.post('/team-leader/:team/filter', (req, res) => {
       whereClauses.push(`file_type IN (${placeholders})`);
       params.push(...filters.fileType);
     }
-    
+
     if (filters.submittedBy && filters.submittedBy.length > 0) {
       const placeholders = filters.submittedBy.map(() => '?').join(',');
       whereClauses.push(`user_id IN (${placeholders})`);
       params.push(...filters.submittedBy);
     }
-    
+
     if (filters.dateFrom) {
       whereClauses.push('uploaded_at >= ?');
       params.push(filters.dateFrom);
     }
-    
+
     if (filters.dateTo) {
       whereClauses.push('uploaded_at <= ?');
       params.push(filters.dateTo);
     }
-    
+
     if (filters.priority) {
       whereClauses.push('priority = ?');
       params.push(filters.priority);
     }
-    
+
     if (filters.hasDeadline) {
       whereClauses.push('due_date IS NOT NULL');
     }
-    
+
     if (filters.isOverdue) {
       whereClauses.push('due_date < ?');
       params.push(new Date().toISOString());
     }
   }
-  
+
   // Build ORDER BY clause
   let orderBy = 'uploaded_at DESC';
   if (sort) {
@@ -1691,25 +1706,25 @@ router.post('/team-leader/:team/filter', (req, res) => {
       orderBy = `${sortField} ${sortDir}`;
     }
   }
-  
+
   const whereClause = whereClauses.join(' AND ');
   const countSql = `SELECT COUNT(*) as total FROM files WHERE ${whereClause}`;
   const dataSql = `SELECT f.*, fc.comment as latest_comment FROM files f 
                    LEFT JOIN file_comments fc ON f.id = fc.file_id AND fc.id = (SELECT MAX(id) FROM file_comments WHERE file_id = f.id) 
                    WHERE ${whereClause} ORDER BY ${orderBy} LIMIT ? OFFSET ?`;
-  
+
   db.get(countSql, params, (err, countResult) => {
     if (err) {
       console.error('❌ Error counting filtered files:', err);
       return res.status(500).json({ success: false, message: 'Failed to filter files' });
     }
-    
+
     db.all(dataSql, [...params, limit, offset], (err, files) => {
       if (err) {
         console.error('❌ Error getting filtered files:', err);
         return res.status(500).json({ success: false, message: 'Failed to filter files' });
       }
-      
+
       console.log(`✅ Retrieved ${files.length} filtered files`);
       res.json({
         success: true,
@@ -1729,40 +1744,44 @@ router.post('/team-leader/:team/filter', (req, res) => {
 router.patch('/:fileId/priority', (req, res) => {
   const { fileId } = req.params;
   const { priority, dueDate, reviewerId, reviewerUsername } = req.body;
-  
+
   console.log(`🎯 Setting priority for file ${fileId}: ${priority}, due: ${dueDate}`);
-  
+
   const updates = [];
   const params = [];
-  
+
   if (priority !== undefined) {
     updates.push('priority = ?');
     params.push(priority);
   }
-  
+
   if (dueDate !== undefined) {
     updates.push('due_date = ?');
     params.push(dueDate);
   }
-  
+
   if (updates.length === 0) {
     return res.status(400).json({ success: false, message: 'No updates provided' });
   }
-  
+
   params.push(fileId);
   const sql = `UPDATE files SET ${updates.join(', ')} WHERE id = ?`;
-  
+
   db.run(sql, params, function(err) {
     if (err) {
       console.error('❌ Error updating file priority:', err);
       return res.status(500).json({ success: false, message: 'Failed to update priority' });
     }
-    
+
     // Log activity
     const changes = [];
-    if (priority !== undefined) changes.push(`priority: ${priority}`);
-    if (dueDate !== undefined) changes.push(`due date: ${dueDate}`);
-    
+    if (priority !== undefined) {
+      changes.push(`priority: ${priority}`);
+    }
+    if (dueDate !== undefined) {
+      changes.push(`due date: ${dueDate}`);
+    }
+
     db.get('SELECT * FROM files WHERE id = ?', [fileId], (err, file) => {
       if (file) {
         logActivity(
@@ -1771,8 +1790,8 @@ router.patch('/:fileId/priority', (req, res) => {
         );
       }
     });
-    
-    console.log(`✅ File priority updated`);
+
+    console.log('✅ File priority updated');
     res.json({ success: true, message: 'Priority updated successfully' });
   });
 });
@@ -1781,9 +1800,9 @@ router.patch('/:fileId/priority', (req, res) => {
 router.get('/notifications/:team', (req, res) => {
   const { team } = req.params;
   console.log(`🔔 Getting notifications for team ${team}`);
-  
+
   const now = new Date().toISOString();
-  
+
   db.all(
     `SELECT id, original_name, uploaded_at, priority, due_date, username 
      FROM files 
@@ -1803,11 +1822,11 @@ router.get('/notifications/:team', (req, res) => {
         console.error('❌ Error getting notifications:', err);
         return res.status(500).json({ success: false, message: 'Failed to get notifications' });
       }
-      
+
       const notifications = files.map(file => {
         const isOverdue = file.due_date && new Date(file.due_date) < new Date();
         const isUrgent = file.priority === 'urgent' || file.priority === 'high';
-        
+
         return {
           id: file.id,
           fileName: file.original_name,
@@ -1818,14 +1837,14 @@ router.get('/notifications/:team', (req, res) => {
           isOverdue,
           isUrgent,
           type: isOverdue ? 'overdue' : isUrgent ? 'urgent' : 'pending',
-          message: isOverdue ? 
+          message: isOverdue ?
             `Overdue: ${file.original_name} was due ${new Date(file.due_date).toLocaleDateString()}` :
-            isUrgent ? 
+            isUrgent ?
               `${file.priority.toUpperCase()}: ${file.original_name} needs review` :
               `New file: ${file.original_name} awaiting review`
         };
       });
-      
+
       console.log(`✅ Retrieved ${notifications.length} notifications`);
       res.json({
         success: true,
@@ -1899,16 +1918,16 @@ router.post('/open-file', async (req, res) => {
   try {
     // Resolve the file path
     let resolvedPath = filePath;
-    
+
     // If it's a relative path starting with /uploads/, resolve it
     if (filePath.startsWith('/uploads/')) {
       const relativePath = filePath.substring(8);
       resolvedPath = path.join(uploadsDir, relativePath);
     }
-    
+
     // Normalize path for Windows
     resolvedPath = path.normalize(resolvedPath);
-    
+
     // Check if file exists
     try {
       await fs.access(resolvedPath);
@@ -1919,7 +1938,7 @@ router.post('/open-file', async (req, res) => {
         message: 'File not found'
       });
     }
-    
+
     // Platform-specific command to open file with default application
     let command;
     if (process.platform === 'win32') {
@@ -1932,7 +1951,7 @@ router.post('/open-file', async (req, res) => {
       // Linux: use xdg-open command
       command = `xdg-open "${resolvedPath}"`;
     }
-    
+
     // Execute the command
     exec(command, (error) => {
       if (error) {
@@ -1943,7 +1962,7 @@ router.post('/open-file', async (req, res) => {
           error: error.message
         });
       }
-      
+
       console.log('✅ File opened successfully with default application');
       res.json({
         success: true,

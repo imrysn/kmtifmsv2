@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import FileIcon from './FileIcon'
+import FileIcon from '../shared/FileIcon'
 import { SkeletonLoader } from '../common/SkeletonLoader'
 import './FileManagement.css'
 import { AlertMessage } from './modals'

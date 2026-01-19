@@ -2,9 +2,9 @@ import { useState, useEffect, useRef, Suspense } from 'react'
 import anime from 'animejs'
 import '../css/AdminDashboard.css'
 import SkeletonLoader from '../components/common/SkeletonLoader'
-import { getSidebarIcon } from '../components/admin/FileIcon'
+import { getSidebarIcon } from '../components/shared/FileIcon'
 import { AuthProvider, NetworkProvider, NotificationProvider } from '../contexts'
-import { getApiUrl } from '../config/api'
+import { ToastNotification } from '../components/shared'
 
 // Import admin tab components
 import {
@@ -15,8 +15,7 @@ import {
   FileManagement,
   Settings,
   TaskManagement,
-  Notifications,
-  ToastNotification
+  Notifications
 } from '../components/admin'
 
 const AdminDashboard = ({ user, onLogout }) => {
@@ -316,6 +315,7 @@ const AdminDashboard = ({ user, onLogout }) => {
       <ToastNotification 
         notifications={notifications}
         onNavigate={handleNotificationNavigation}
+        role="admin"
       />
             </div>
           </Suspense>

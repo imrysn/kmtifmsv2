@@ -1,6 +1,6 @@
 import React, { useState, useCallback } from 'react';
 import Toast from './Toast';
-import AlertMessage from '../user/AlertMessage';
+import AlertMessage from '../../components/shared/AlertMessage';
 import './UpdateAlert.css';
 
 // Custom Update Alert Component using AlertMessage

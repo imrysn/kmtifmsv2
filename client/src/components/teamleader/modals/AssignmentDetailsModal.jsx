@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import './css/AssignmentDetailsModal.css'
-import FileIcon from '../../admin/FileIcon'
+import FileIcon from '../../shared/FileIcon'
 
 const AssignmentDetailsModal = ({
   showAssignmentDetailsModal,

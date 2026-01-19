@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback, memo } from 'react'
-import FileIcon from './FileIcon'
+import FileIcon from '../shared/FileIcon'
 import { SkeletonLoader } from '../common/SkeletonLoader'
 import './FileApproval-Optimized.css'
 import { ConfirmationModal, AlertMessage, FileDetailsModal } from './modals'

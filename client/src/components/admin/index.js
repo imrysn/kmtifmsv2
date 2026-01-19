@@ -7,4 +7,4 @@ export { default as FileManagement } from './FileManagement'
 export { default as Settings } from './Settings'
 export { default as TaskManagement } from './TaskManagement'
 export { default as Notifications } from './Notifications'
-export { default as ToastNotification } from './ToastNotification'
+// ToastNotification moved to shared/
