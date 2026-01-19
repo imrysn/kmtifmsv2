@@ -2,7 +2,6 @@
 // This is a bridge between the main database config and the server
 
 const mysqlConfig = require('../../database/config');
-const path = require('path');
 
 // Re-export MySQL connection functions
 const {

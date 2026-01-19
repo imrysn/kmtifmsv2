@@ -1,6 +1,5 @@
 const express = require('express');
-const { db } = require('../config/database');
-const { query, queryOne } = require('../../database/config');
+const { query, queryOne } = require('../config/database-mysql');
 
 const router = express.Router();
 

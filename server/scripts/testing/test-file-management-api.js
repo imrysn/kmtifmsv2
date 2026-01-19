@@ -1,4 +1,6 @@
-const fs = require('fs');
+/* eslint-disable no-undef */
+// Test file - fetch and global are provided by test environment
+const axios = require('axios');
 const path = require('path');
 
 console.log('🧪 Testing File Management Network Directory API\n');

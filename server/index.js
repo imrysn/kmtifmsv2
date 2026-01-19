@@ -1,7 +1,7 @@
 const express = require('express');
 const path = require('path');
 const fs = require('fs');
-const { db, dbPath, networkDataPath, USE_MYSQL, closeDatabase } = require('./config/database');
+const { dbPath, networkDataPath, USE_MYSQL, closeDatabase } = require('./config/database');
 const { setupMiddleware } = require('./config/middleware');
 const { initializeDatabase, verifyUploadsDirectory } = require('./db/initialize');
 const runMigrations = require('./migrations/runMigrations');
@@ -14,12 +14,13 @@ if (process.platform === 'win32' && process.pkg) {
   try {
     const { execSync } = require('child_process');
     // Use PowerShell to hide the current console window
-    execSync('powershell -command "(Get-Process -Id $PID).MainWindowHandle | ForEach-Object { $hwnd = $_; Add-Type -TypeDefinition \'using System; using System.Runtime.InteropServices; public class Win32 { [DllImport(\"user32.dll\")] public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow); }\'; [Win32]::ShowWindow($hwnd, 0) }" 2>nul', { stdio: 'ignore' });
-  } catch (e) {
+    // eslint-disable-next-line no-useless-escape
+    execSync('powershell -command "(Get-Process -Id $PID).MainWindowHandle | ForEach-Object { $hwnd = $_; Add-Type -TypeDefinition \'using System; using System.Runtime.InteropServices; public class Win32 { [DllImport(\\"user32.dll\\")] public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow); }\'; [Win32]::ShowWindow($hwnd, 0) }" 2>nul', { stdio: 'ignore' });
+  } catch (_e) {
     // If PowerShell method fails, try direct API calls
     try {
       const ffi = require('ffi-napi');
-      const ref = require('ref-napi');
+      const _ref = require('ref-napi');
 
       const user32 = ffi.Library('user32', {
         'ShowWindow': ['bool', ['pointer', 'int32']],
@@ -39,7 +40,7 @@ if (process.platform === 'win32' && process.pkg) {
       if (consoleWindow && !consoleWindow.isNull()) {
         user32.ShowWindow(consoleWindow, SW_HIDE);
       }
-    } catch (e2) {
+    } catch (_e2) {
       // Continue silently
     }
   }

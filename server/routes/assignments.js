@@ -1,7 +1,6 @@
 const express = require('express');
 const router = express.Router();
 const { query, queryOne } = require('../../database/config');
-const { createNotification } = require('./notifications');
 
 router.get('/admin/all', async (req, res) => {
   try {

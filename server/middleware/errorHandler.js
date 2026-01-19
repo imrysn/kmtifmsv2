@@ -69,7 +69,7 @@ class NotFoundError extends AppError {
 /**
  * Centralized Error Handler Middleware
  */
-const errorHandler = (err, req, res, next) => {
+const errorHandler = (err, req, res, _next) => {
   let error = err;
 
   // If it's not an AppError, convert it

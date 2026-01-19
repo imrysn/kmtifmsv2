@@ -4,7 +4,7 @@ const { db } = require('../config/database');
 const { logActivity, logError, logInfo } = require('../utils/logger');
 const { createNotification } = require('./notifications');
 const { validate, schemas } = require('../middleware/validation');
-const { asyncHandler, AuthenticationError, NotFoundError } = require('../middleware/errorHandler');
+const { asyncHandler, AuthenticationError } = require('../middleware/errorHandler');
 
 const router = express.Router();
 
@@ -91,7 +91,7 @@ router.post('/login', validate(schemas.login), asyncHandler(async (req, res) => 
   );
 
   // Remove password from user object before sending response
-  const { password: _, ...userWithoutPassword } = user;
+  const { password: _password, ...userWithoutPassword } = user;
   res.json({
     success: true,
     user: {

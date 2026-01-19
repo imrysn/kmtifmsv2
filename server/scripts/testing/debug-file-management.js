@@ -1,3 +1,6 @@
+/* eslint-disable no-undef */
+// Test file - fetch and global are provided by test environment
+const axios = require('axios');
 const fs = require('fs');
 const path = require('path');
 

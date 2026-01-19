@@ -62,7 +62,6 @@ router.get('/summary', (req, res) => {
               const now = new Date();
               const firstDayOfCurrentMonth = new Date(now.getFullYear(), now.getMonth(), 1);
               const firstDayOfPrevMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-              const lastDayOfPrevMonth = new Date(now.getFullYear(), now.getMonth(), 0);
 
               db.get(
                 'SELECT COUNT(*) as total FROM files WHERE uploaded_at >= ? AND uploaded_at < ?',

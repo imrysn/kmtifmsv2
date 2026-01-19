@@ -1,6 +1,4 @@
 const net = require('net');
-const fs = require('fs');
-const path = require('path');
 
 /**
  * Check if a port is available

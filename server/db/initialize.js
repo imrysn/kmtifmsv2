@@ -1,5 +1,4 @@
 const fs = require('fs').promises;
-const path = require('path');
 const { db, USE_MYSQL } = require('../config/database');
 const { uploadsDir } = require('../config/middleware');
 const fileIndexer = require('../services/fileIndexer');

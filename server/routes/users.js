@@ -1,7 +1,7 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const { db } = require('../config/database');
-const { logActivity, logError, logInfo } = require('../utils/logger');
+const { logActivity, logInfo } = require('../utils/logger');
 const { getCache, setCache, clearCache } = require('../utils/cache');
 const { validate, schemas, validateId } = require('../middleware/validation');
 const { asyncHandler, DatabaseError, NotFoundError } = require('../middleware/errorHandler');

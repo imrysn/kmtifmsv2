@@ -6,7 +6,7 @@ const fs = require('fs');
 const { networkDataPath } = require('./database');
 
 // FIXED: Import async file utilities
-const { moveToUserFolder: moveToUserFolderAsync, sanitizeFilename } = require('../utils/fileUtils');
+const { moveToUserFolder: moveToUserFolderAsync } = require('../utils/fileUtils');
 
 // Network Uploads Configuration
 const uploadsDir = path.join(networkDataPath, 'uploads');
