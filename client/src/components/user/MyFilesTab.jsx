@@ -1,7 +1,7 @@
 import './css/MyFilesTab.css';
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import SuccessModal from './SuccessModal';
-import FileIcon from '../admin/FileIcon';
+import { FileIcon } from '../shared';
 import { usePagination } from '../../hooks';
 
 const MyFilesTab = ({ 
@@ -15,7 +15,16 @@ const MyFilesTab = ({
   const [isUploading, setIsUploading] = useState(false);
   const [successModal, setSuccessModal] = useState({ isOpen: false, title: '', message: '', type: 'success' });
   
-  // Pagination using custom hook
+  // Calculate submittedFiles FIRST (before pagination hook uses it)
+  const submittedFiles = useMemo(() => 
+    filteredFiles.filter(f => 
+      f.status === 'final_approved' || f.status === 'uploaded' || 
+      f.status === 'team_leader_approved' || f.status === 'rejected_by_team_leader' || 
+      f.status === 'rejected_by_admin'
+    ), [filteredFiles]
+  );
+  
+  // Pagination using custom hook (NOW submittedFiles exists)
   const [itemsPerPage, setItemsPerPage] = useState(7);
   const {
     currentPage,
@@ -150,14 +159,6 @@ const MyFilesTab = ({
     });
     return { date: dateStr, time: timeStr };
   }, []);
-
-  const submittedFiles = useMemo(() => 
-    filteredFiles.filter(f => 
-      f.status === 'final_approved' || f.status === 'uploaded' || 
-      f.status === 'team_leader_approved' || f.status === 'rejected_by_team_leader' || 
-      f.status === 'rejected_by_admin'
-    ), [filteredFiles]
-  );
 
   const pendingFiles = useMemo(() => 
     submittedFiles.filter(f => f.status === 'uploaded' || f.status === 'team_leader_approved'),

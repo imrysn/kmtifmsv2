@@ -1,11 +1,11 @@
 import { useState, useEffect, Suspense, lazy } from 'react'
 import '../css/TeamLeaderDashboard.css'
 import SkeletonLoader from '../components/common/SkeletonLoader'
+import { AlertMessage } from '../components/shared'
 
 // Eagerly import critical components
 import {
   Sidebar,
-  AlertMessage,
 } from '../components/teamleader'
 
 // Lazy load tab components

@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import './css/TeamTasksTab.css'
-import FileIcon from '../admin/FileIcon.jsx'
+import { FileIcon } from '../shared'
 
 const TeamTasksTab = ({ user }) => {
   const [assignments, setAssignments] = useState([])

@@ -1,9 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import './css/AssignmentsTab.css'
-import FileIcon from '../admin/FileIcon.jsx'
 import { CardSkeleton } from '../common/InlineSkeletonLoader'
-import ConfirmationModal from '../admin/modals/ConfirmationModal'
-import CommentsModal from '../shared/CommentsModal'
+import { ConfirmationModal, CommentsModal, FileIcon } from '../shared'
 
 const AssignmentsTab = ({
   isLoadingAssignments,

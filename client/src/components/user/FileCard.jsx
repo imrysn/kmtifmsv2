@@ -1,4 +1,4 @@
-import FileIcon from '../admin/FileIcon';
+import FileIcon from '../shared/FileIcon';
 import './css/FileCard.css';
 
 const FileCard = ({ file, formatFileSize, onFileClick }) => {

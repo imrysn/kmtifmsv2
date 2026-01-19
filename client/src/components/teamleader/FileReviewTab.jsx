@@ -1,5 +1,5 @@
 import './css/FileReviewTab.css'
-import FileIcon from '../admin/FileIcon'
+import FileIcon from '../shared/FileIcon'
 
 const FileReviewTab = ({
   analyticsData,

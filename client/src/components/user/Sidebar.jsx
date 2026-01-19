@@ -1,4 +1,4 @@
-import { getSidebarIcon } from '../admin/FileIcon';
+import { getSidebarIcon } from '../shared/FileIcon';
 import './css/Sidebar.css';
 
 const Sidebar = ({ activeTab, setActiveTab, filesCount, notificationCount, onLogout, user }) => {

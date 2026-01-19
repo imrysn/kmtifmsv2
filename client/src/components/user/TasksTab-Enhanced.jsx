@@ -1,7 +1,7 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import './css/TasksTab-Enhanced.css';
 import './css/TasksTab-Comments.css';
-import FileIcon from '../admin/FileIcon';
+import { FileIcon } from '../shared';
 import SingleSelectTags from './SingleSelectTags';
 import { LoadingTable, LoadingCards } from '../common/InlineSkeletonLoader';
 
@@ -36,62 +36,58 @@ const TasksTab = ({ user }) => {
   const [expandedCommentTexts, setExpandedCommentTexts] = useState({}); // Track which comment texts are expanded
   const [expandedReplyTexts, setExpandedReplyTexts] = useState({}); // Track which reply texts are expanded
 
-  // Check for sessionStorage when component mounts or becomes visible
+  // Check for sessionStorage when component mounts - run ONCE when assignments first load
   useEffect(() => {
-    const checkAndOpenComments = () => {
-      const assignmentId = sessionStorage.getItem('scrollToAssignment');
-      const highlightUser = sessionStorage.getItem('highlightCommentBy');
+    const assignmentId = sessionStorage.getItem('scrollToAssignment');
+    const highlightUser = sessionStorage.getItem('highlightCommentBy');
+    
+    // Only run if we have both the session data AND assignments have loaded
+    if (assignmentId && assignments.length > 0) {
+      console.log('📍 Found assignment to open:', assignmentId);
+      console.log('📍 Found user to highlight:', highlightUser);
       
-      if (assignmentId && assignments.length > 0) {
-        console.log('📍 Found assignment to open:', assignmentId);
-        console.log('📍 Found user to highlight:', highlightUser);
+      // Clear the session storage immediately to prevent re-triggering
+      sessionStorage.removeItem('scrollToAssignment');
+      sessionStorage.removeItem('highlightCommentBy');
+      
+      // Find the assignment
+      const assignment = assignments.find(a => a.id === parseInt(assignmentId));
+      if (assignment) {
+        console.log('✅ Assignment found, opening comments...');
         
-        // Clear the session storage immediately
-        sessionStorage.removeItem('scrollToAssignment');
-        sessionStorage.removeItem('highlightCommentBy');
-        
-        // Find the assignment
-        const assignment = assignments.find(a => a.id === parseInt(assignmentId));
-        if (assignment) {
-          console.log('✅ Assignment found, opening comments...');
-          
-          // Set highlight user if provided
-          if (highlightUser) {
-            setHighlightCommentBy(highlightUser);
-          }
-          
-          // Open the comments modal for this assignment after a delay
-          setTimeout(() => {
-            toggleComments(assignment);
-            
-            // Scroll to the comments modal after it opens
-            setTimeout(() => {
-              const modalBody = document.querySelector('.tasks-modal-body');
-              if (modalBody) {
-                modalBody.scrollTop = 0; // Scroll to top to see comments
-              }
-              
-              // Clear highlight after 3 seconds
-              setTimeout(() => {
-                setHighlightCommentBy(null);
-              }, 3000);
-            }, 100);
-          }, 500);
-        } else {
-          console.log('❌ Assignment not found in list');
+        // Set highlight user if provided
+        if (highlightUser) {
+          setHighlightCommentBy(highlightUser);
         }
+        
+        // Open the comments modal for this assignment after a delay
+        setTimeout(() => {
+          toggleComments(assignment);
+          
+          // Scroll to the comments modal after it opens
+          setTimeout(() => {
+            const modalBody = document.querySelector('.tasks-modal-body');
+            if (modalBody) {
+              modalBody.scrollTop = 0; // Scroll to top to see comments
+            }
+            
+            // Clear highlight after 3 seconds
+            setTimeout(() => {
+              setHighlightCommentBy(null);
+            }, 3000);
+          }, 100);
+        }, 500);
+      } else {
+        console.log('❌ Assignment not found in list');
       }
-    };
-
-    // Check immediately when assignments are loaded
-    if (assignments.length > 0) {
-      checkAndOpenComments();
     }
-  }, [assignments]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [assignments.length]); // Only re-run when assignments.length changes, not the entire array
 
   useEffect(() => {
     fetchAssignments();
-    fetchUserFiles();
+    // Don't call fetchUserFiles here - it will be called after assignments are fetched
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user.id]);
 
   const fetchAssignments = async () => {
@@ -121,6 +117,8 @@ const TasksTab = ({ user }) => {
         data.assignments.forEach(assignment => {
           fetchComments(assignment.id);
         });
+        // Fetch user files after assignments are loaded - pass the fresh data
+        fetchUserFiles(data.assignments);
       } else {
         setError('Failed to fetch assignments');
       }
@@ -245,7 +243,7 @@ const TasksTab = ({ user }) => {
     }));
   };
 
-  const fetchUserFiles = async () => {
+  const fetchUserFiles = useCallback(async (currentAssignments = assignments) => {
     try {
       const response = await fetch(`http://localhost:3001/api/files/user/${user.id}`);
       const data = await response.json();
@@ -255,7 +253,7 @@ const TasksTab = ({ user }) => {
         const approvedFiles = data.files.filter(f => f.status === 'final_approved');
         console.log('✅ Final approved files:', approvedFiles);
         const unsubmittedFiles = data.files.filter(file =>
-          !assignments.some(assignment => assignment.submitted_file_id === file.id)
+          !currentAssignments.some(assignment => assignment.submitted_file_id === file.id)
         );
         console.log('📂 Unsubmitted files:', unsubmittedFiles);
         setUserFiles(unsubmittedFiles || []);
@@ -263,7 +261,8 @@ const TasksTab = ({ user }) => {
     } catch (error) {
       console.error('Error fetching user files:', error);
     }
-  };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user.id]);
 
   const formatDate = (dateString) => {
     return new Date(dateString).toLocaleDateString('en-US', {

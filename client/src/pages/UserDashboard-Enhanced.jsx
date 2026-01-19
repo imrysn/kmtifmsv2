@@ -1,11 +1,10 @@
 import { useState, useEffect, Suspense, lazy } from 'react'
 import '../css/UserDashboard.css'
 import SkeletonLoader from '../components/common/SkeletonLoader'
+import { AlertMessage, ToastNotification } from '../components/shared'
 
 // Eagerly import critical components that are always visible
 import Sidebar from '../components/user/Sidebar'
-import AlertMessage from '../components/user/AlertMessage'
-import ToastNotification from '../components/user/ToastNotification'
 import DashboardTab from '../components/user/DashboardTab'
 
 // Lazy load tab components - only loaded when user switches to that tab
@@ -313,6 +312,7 @@ const UserDashboard = ({ user, onLogout }) => {
       <ToastNotification 
         notifications={notifications}
         onNavigate={handleToastNavigation}
+        role="user"
       />
       </div>
     </Suspense>

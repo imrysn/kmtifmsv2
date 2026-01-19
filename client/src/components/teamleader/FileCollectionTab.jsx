@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import './css/FileCollectionTab.css'
-import FileIcon from '../admin/FileIcon'
+import FileIcon from '../shared/FileIcon'
 import { LoadingTable, LoadingCards } from '../common/InlineSkeletonLoader'
 
 const FileCollectionTab = ({
