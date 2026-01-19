@@ -5,6 +5,8 @@ const { db, dbPath, networkDataPath, USE_MYSQL, closeDatabase } = require('./con
 const { setupMiddleware } = require('./config/middleware');
 const { initializeDatabase, verifyUploadsDirectory } = require('./db/initialize');
 const runMigrations = require('./migrations/runMigrations');
+const { errorHandler, notFoundHandler, handleUnhandledRejection, handleUncaughtException } = require('./middleware/errorHandler');
+const { logRequest, logInfo, logError } = require('./utils/logger');
 
 // Hide console window on Windows when running as executable - MUST BE FIRST
 if (process.platform === 'win32' && process.pkg) {
@@ -62,6 +64,9 @@ const PORT = process.env.SERVER_PORT || 3001;
 // Setup middleware
 setupMiddleware(app);
 
+// Add request logging
+app.use(logRequest);
+
 // Health check endpoint
 app.get('/api/health', (req, res) => {
   res.status(200).json({
@@ -83,7 +88,7 @@ app.get('/api/version', (req, res) => {
       description: packageJson.description
     });
   } catch (error) {
-    console.error('Failed to read package.json:', error);
+    logError(error, { context: 'version-endpoint' });
     res.status(500).json({
       success: false,
       error: 'Failed to retrieve version information'
@@ -114,7 +119,7 @@ const fallbackClientPath = path.join(__dirname, '../client/dist');
 const actualClientPath = fs.existsSync(clientBuildPath) ? clientBuildPath : fallbackClientPath;
 
 if (fs.existsSync(actualClientPath)) {
-  console.log(`📁 Serving frontend from: ${actualClientPath}`);
+  logInfo('Serving frontend', { path: actualClientPath });
   app.use(express.static(actualClientPath));
 
   // Catch all handler: send back React's index.html file for client-side routing
@@ -129,15 +134,25 @@ if (fs.existsSync(actualClientPath)) {
   console.warn('⚠️  Frontend build not found. Server will only serve API endpoints.');
 }
 
+// 404 handler for API routes
+app.use('/api/*', notFoundHandler);
+
+// Global error handler (must be last)
+app.use(errorHandler);
+
+// Setup global error handlers
+handleUnhandledRejection();
+handleUncaughtException();
+
 // Start server
 async function startServer() {
   try {
     await verifyUploadsDirectory();
     await initializeDatabase();
-    
+
     // Run database migrations
     await runMigrations();
-    
+
     app.listen(PORT, () => {
       console.log('\n' + '='.repeat(70));
       console.log(`🚀 Express server running on http://localhost:${PORT}`);
@@ -152,7 +167,7 @@ async function startServer() {
       console.log(`   3. Admin approves → Published to Public Network`);
       console.log(`   ❌ Any stage can reject → Back to User with comments`);
       console.log('='.repeat(70));
-      
+
       if (USE_MYSQL) {
         console.log('\n✨ MySQL Benefits:');
         console.log('   • Supports multiple concurrent users');
@@ -170,7 +185,7 @@ async function startServer() {
   } catch (error) {
     console.error('\n❌ Failed to start server:', error.message);
     console.error('Stack trace:', error.stack);
-    
+
     if (USE_MYSQL) {
       console.error('\n💡 MySQL Troubleshooting:');
       console.error('   1. Ensure MySQL server is running');
@@ -178,7 +193,7 @@ async function startServer() {
       console.error('   3. Verify database exists: npm run db:init');
       console.error('   4. Test connection: npm run db:test');
     }
-    
+
     process.exit(1);
   }
 }
@@ -188,12 +203,12 @@ startServer();
 // Graceful shutdown
 async function shutdown(signal) {
   console.log(`\n⏹️  Received ${signal}, shutting down gracefully...`);
-  
+
   try {
     // Close database connection
     await closeDatabase();
     console.log('✅ Database connection closed');
-    
+
     // Exit successfully
     console.log('👋 Server stopped\n');
     process.exit(0);

@@ -1,8 +1,10 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const { db } = require('../config/database');
-const { logActivity } = require('../utils/logger');
+const { logActivity, logError, logInfo } = require('../utils/logger');
 const { getCache, setCache, clearCache } = require('../utils/cache');
+const { validate, schemas, validateId } = require('../middleware/validation');
+const { asyncHandler, DatabaseError, NotFoundError } = require('../middleware/errorHandler');
 
 const router = express.Router();
 
@@ -35,27 +37,19 @@ router.get('/', (req, res) => {
 });
 
 // Create new user (Admin only)
-router.post('/', (req, res) => {
+router.post('/', validate(schemas.createUser), asyncHandler(async (req, res) => {
   let { fullName, username, email, password, role = 'USER', team = 'General', adminId, adminUsername, adminRole, adminTeam } = req.body;
   // Normalize role and team
   role = (role || 'USER').toString().trim().toUpperCase();
   team = (team || 'General').toString().trim();
-  console.log('👥 Creating new user:', { fullName, username, email, role, team });
-
-  // Validation
-  if (!fullName || !username || !email || !password) {
-    return res.status(400).json({
-      success: false,
-      message: 'Full name, username, email, and password are required'
-    });
-  }
+  logInfo('Creating new user', { fullName, username, email, role, team });
 
   // Hash password
   const hashedPassword = bcrypt.hashSync(password, 10);
   db.run(
     'INSERT INTO users (fullName, username, email, password, role, team) VALUES (?, ?, ?, ?, ?, ?)',
     [fullName, username, email, hashedPassword, role, team],
-    function(err, result) {
+    function (err, result) {
       if (err) {
         console.error('❌ Error creating user:', err);
         if (err.code === 'ER_DUP_ENTRY' || err.code === 'SQLITE_CONSTRAINT') {
@@ -107,7 +101,7 @@ router.post('/', (req, res) => {
       });
     }
   );
-});
+}));
 
 // Update user (Admin only)
 router.put('/:id', (req, res) => {
@@ -146,7 +140,7 @@ router.put('/:id', (req, res) => {
     db.run(
       'UPDATE users SET fullName = ?, username = ?, email = ?, role = ?, team = ? WHERE id = ?',
       [fullName, username, email, role, team || 'General', userId],
-      function(err, result) {
+      function (err, result) {
         if (err) {
           console.error('❌ Error updating user:', err);
           if (err.code === 'ER_DUP_ENTRY' || err.code === 'SQLITE_CONSTRAINT') {
@@ -230,59 +224,52 @@ router.put('/:id', (req, res) => {
 });
 
 // Reset user password (Admin only)
-router.put('/:id/password', (req, res) => {
+router.put('/:id/password', validateId(), validate(schemas.resetPassword), asyncHandler(async (req, res) => {
   const userId = req.params.id;
   const { password, adminId, adminUsername, adminRole, adminTeam } = req.body;
-  console.log(`🔐 Resetting password for user ${userId}`);
-
-  if (!password || password.length < 6) {
-    return res.status(400).json({
-      success: false,
-      message: 'Password must be at least 6 characters long'
-    });
-  }
+  logInfo('Resetting password for user', { userId });
 
   const hashedPassword = bcrypt.hashSync(password, 10);
-  db.run(
-    'UPDATE users SET password = ? WHERE id = ?',
-    [hashedPassword, userId],
-    function(err) {
-      if (err) {
-        console.error('❌ Error resetting password:', err);
-        return res.status(500).json({
-          success: false,
-          message: 'Failed to reset password'
-        });
-      }
-      if (this.changes === 0) {
-        return res.status(404).json({
-          success: false,
-          message: 'User not found'
-        });
-      }
-      console.log(`✅ Password reset for user ${userId}`);
 
-      // Get user details for logging the affected user's name
-      db.get('SELECT username, fullName FROM users WHERE id = ?', [userId], (err, userDetails) => {
-        if (!err && userDetails) {
-          // Log activity using admin's information
-          logActivity(
-            db,
-            adminId || null,
-            adminUsername || 'Administrator',
-            adminRole || 'ADMIN',
-            adminTeam || 'System',
-            `Password reset by administrator for user: ${userDetails.fullName} (${userDetails.username})`
-          );
-        }
-      });
-      res.json({
-        success: true,
-        message: 'Password reset successfully'
-      });
-    }
-  );
-});
+  await new Promise((resolve, reject) => {
+    db.run(
+      'UPDATE users SET password = ? WHERE id = ?',
+      [hashedPassword, userId],
+      function (err) {
+        if (err) reject(new DatabaseError('Failed to reset password', err));
+        if (this.changes === 0) reject(new NotFoundError('User'));
+        resolve();
+      }
+    );
+  });
+
+  logInfo('Password reset successful', { userId });
+
+  // Get user details for logging
+  const userDetails = await new Promise((resolve, reject) => {
+    db.get('SELECT username, fullName FROM users WHERE id = ?', [userId], (err, row) => {
+      if (err) reject(err);
+      else resolve(row);
+    });
+  });
+
+  if (userDetails) {
+    // Log activity using admin's information
+    logActivity(
+      db,
+      adminId || null,
+      adminUsername || 'Administrator',
+      adminRole || 'ADMIN',
+      adminTeam || 'System',
+      `Password reset by administrator for user: ${userDetails.fullName} (${userDetails.username})`
+    );
+  }
+
+  res.json({
+    success: true,
+    message: 'Password reset successfully'
+  });
+}));
 
 // Delete user (Admin only)
 router.delete('/:id', (req, res) => {
@@ -307,7 +294,7 @@ router.delete('/:id', (req, res) => {
     }
 
     // Delete the user
-    db.run('DELETE FROM users WHERE id = ?', [userId], function(err) {
+    db.run('DELETE FROM users WHERE id = ?', [userId], function (err) {
       if (err) {
         console.error('❌ Error deleting user:', err);
         return res.status(500).json({
@@ -355,7 +342,7 @@ router.get('/team/:teamName', (req, res) => {
         });
       }
       console.log(`✅ Retrieved ${members.length} members for team ${teamName}`);
-      
+
       // Get file counts for each member
       const memberPromises = members.map(member => {
         return new Promise((resolve) => {
@@ -373,7 +360,7 @@ router.get('/team/:teamName', (req, res) => {
           );
         });
       });
-      
+
       Promise.all(memberPromises).then(membersWithFiles => {
         res.json({
           success: true,
@@ -436,7 +423,7 @@ router.get('/:teamName', (req, res) => {
         });
       }
       console.log(`✅ Retrieved ${members.length} members for team ${teamName}`);
-      
+
       // Get file counts for each member
       const memberPromises = members.map(member => {
         return new Promise((resolve) => {
@@ -454,7 +441,7 @@ router.get('/:teamName', (req, res) => {
           );
         });
       });
-      
+
       Promise.all(memberPromises).then(membersWithFiles => {
         res.json({
           success: true,
