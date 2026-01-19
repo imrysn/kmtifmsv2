@@ -1,6 +1,4 @@
 const net = require('net');
-const fs = require('fs');
-const path = require('path');
 
 /**
  * Check if a port is available
@@ -10,7 +8,7 @@ const path = require('path');
 function isPortAvailable(port) {
   return new Promise((resolve) => {
     const server = net.createServer();
-    
+
     server.once('error', (err) => {
       if (err.code === 'EADDRINUSE') {
         resolve(false);
@@ -18,12 +16,12 @@ function isPortAvailable(port) {
         resolve(false);
       }
     });
-    
+
     server.once('listening', () => {
       server.close();
       resolve(true);
     });
-    
+
     server.listen(port);
   });
 }
@@ -36,14 +34,14 @@ function isPortAvailable(port) {
  */
 async function waitForPortToBeFree(port, maxWait = 10000) {
   const startTime = Date.now();
-  
+
   while (Date.now() - startTime < maxWait) {
     if (await isPortAvailable(port)) {
       return true;
     }
     await new Promise(resolve => setTimeout(resolve, 500));
   }
-  
+
   return false;
 }
 
@@ -56,7 +54,7 @@ function killProcess(pid) {
   return new Promise((resolve) => {
     try {
       process.kill(pid, 'SIGTERM');
-      
+
       // Give it 2 seconds to die gracefully
       setTimeout(() => {
         try {
@@ -66,7 +64,7 @@ function killProcess(pid) {
         }
         resolve(true);
       }, 2000);
-      
+
     } catch (error) {
       if (error.code === 'ESRCH') {
         // Process doesn't exist
@@ -90,14 +88,14 @@ function findProcessByPort(port) {
       resolve(null);
       return;
     }
-    
+
     const { exec } = require('child_process');
     exec(`netstat -ano | findstr :${port}`, (error, stdout) => {
       if (error) {
         resolve(null);
         return;
       }
-      
+
       const lines = stdout.split('\n');
       for (const line of lines) {
         if (line.includes('LISTENING')) {

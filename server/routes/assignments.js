@@ -1,7 +1,6 @@
 const express = require('express');
 const router = express.Router();
 const { query, queryOne } = require('../../database/config');
-const { createNotification } = require('./notifications');
 
 router.get('/admin/all', async (req, res) => {
   try {
@@ -22,21 +21,21 @@ router.get('/admin/all', async (req, res) => {
       LEFT JOIN assignment_submissions asub ON a.id = asub.assignment_id
       LEFT JOIN assignment_comments ac ON a.id = ac.assignment_id
     `;
-    
-    let queryParams = [];
-    let conditions = [];
-    
+
+    const queryParams = [];
+    const conditions = [];
+
     // Add cursor condition if provided
     if (cursor) {
       conditions.push('a.id < ?');
       queryParams.push(cursor);
     }
-    
+
     // Add WHERE clause if there are conditions
     if (conditions.length > 0) {
       queryStr += ' WHERE ' + conditions.join(' AND ');
     }
-    
+
     queryStr += `
       GROUP BY a.id
       ORDER BY a.created_at DESC, a.id DESC
@@ -47,16 +46,16 @@ router.get('/admin/all', async (req, res) => {
     const assignments = await query(queryStr, queryParams);
 
     console.log(`Found ${assignments.length} assignments for this batch`);
-    
+
     // Check if there are more results
     const hasMore = assignments.length > parsedLimit;
     const assignmentsToReturn = hasMore ? assignments.slice(0, parsedLimit) : assignments;
-    const nextCursor = hasMore && assignmentsToReturn.length > 0 
-      ? assignmentsToReturn[assignmentsToReturn.length - 1].id 
+    const nextCursor = hasMore && assignmentsToReturn.length > 0
+      ? assignmentsToReturn[assignmentsToReturn.length - 1].id
       : null;
 
     // Get additional details for each assignment
-    for (let assignment of assignmentsToReturn) {
+    for (const assignment of assignmentsToReturn) {
       // Get assigned member details
       const assignedMembers = await query(`
         SELECT u.id, u.username, u.fullName
@@ -64,9 +63,9 @@ router.get('/admin/all', async (req, res) => {
         JOIN users u ON am.user_id = u.id
         WHERE am.assignment_id = ?
       `, [assignment.id]);
-      
+
       assignment.assigned_member_details = assignedMembers || [];
-      
+
       // Get recent submissions from assignment_submissions table (includes ALL submitted files)
       const recentSubmissions = await query(`
         SELECT
@@ -93,13 +92,13 @@ router.get('/admin/all', async (req, res) => {
       `, [assignment.id]);
 
       assignment.recent_submissions = recentSubmissions || [];
-      
+
       // Get team leader info
       const teamLeader = await queryOne(
         'SELECT fullName, username, email FROM users WHERE id = ?',
         [assignment.team_leader_id || assignment.teamLeaderId]
       );
-      
+
       if (teamLeader) {
         assignment.team_leader_fullname = teamLeader.fullName;
         assignment.team_leader_username = teamLeader.username;
@@ -199,15 +198,15 @@ router.get('/team/:team/all-tasks', async (req, res) => {
       LEFT JOIN assignment_comments ac ON a.id = ac.assignment_id
       WHERE a.team = ?
     `;
-    
-    let queryParams = [team];
-    
+
+    const queryParams = [team];
+
     // Add cursor condition if provided
     if (cursor) {
       queryStr += ' AND a.id < ?';
       queryParams.push(cursor);
     }
-    
+
     queryStr += `
       GROUP BY a.id
       ORDER BY a.created_at DESC, a.id DESC
@@ -218,16 +217,16 @@ router.get('/team/:team/all-tasks', async (req, res) => {
     const assignments = await query(queryStr, queryParams);
 
     console.log(`Found ${assignments.length} assignments for team ${team}`);
-    
+
     // Check if there are more results
     const hasMore = assignments.length > parsedLimit;
     const assignmentsToReturn = hasMore ? assignments.slice(0, parsedLimit) : assignments;
-    const nextCursor = hasMore && assignmentsToReturn.length > 0 
-      ? assignmentsToReturn[assignmentsToReturn.length - 1].id 
+    const nextCursor = hasMore && assignmentsToReturn.length > 0
+      ? assignmentsToReturn[assignmentsToReturn.length - 1].id
       : null;
 
     // Get additional details for each assignment
-    for (let assignment of assignmentsToReturn) {
+    for (const assignment of assignmentsToReturn) {
       // Get assigned member details
       const assignedMembers = await query(`
         SELECT u.id, u.username, u.fullName
@@ -235,9 +234,9 @@ router.get('/team/:team/all-tasks', async (req, res) => {
         JOIN users u ON am.user_id = u.id
         WHERE am.assignment_id = ?
       `, [assignment.id]);
-      
+
       assignment.assigned_member_details = assignedMembers || [];
-      
+
       // Get recent submissions from assignment_submissions table (includes ALL submitted files)
       const recentSubmissions = await query(`
         SELECT
@@ -263,13 +262,13 @@ router.get('/team/:team/all-tasks', async (req, res) => {
       `, [assignment.id]);
 
       assignment.recent_submissions = recentSubmissions || [];
-      
+
       // Get team leader info
       const teamLeader = await queryOne(
         'SELECT fullName, username, email FROM users WHERE id = ?',
         [assignment.team_leader_id || assignment.teamLeaderId]
       );
-      
+
       if (teamLeader) {
         assignment.team_leader_fullname = teamLeader.fullName;
         assignment.team_leader_username = teamLeader.username;
@@ -314,7 +313,7 @@ router.get('/team-leader/:team', async (req, res) => {
     `, [team]);
 
     // Get recent submissions for each assignment
-    for (let assignment of assignments) {
+    for (const assignment of assignments) {
       // Get assigned member details
       const assignedMembers = await query(`
         SELECT u.id, u.username, u.fullName
@@ -322,9 +321,9 @@ router.get('/team-leader/:team', async (req, res) => {
         JOIN users u ON am.user_id = u.id
         WHERE am.assignment_id = ?
       `, [assignment.id]);
-      
+
       assignment.assigned_member_details = assignedMembers || [];
-      
+
       // Get all submissions from assignment_submissions table (includes ALL submitted files)
       const recentSubmissions = await query(`
         SELECT
@@ -351,7 +350,7 @@ router.get('/team-leader/:team', async (req, res) => {
       `, [assignment.id]);
 
       assignment.recent_submissions = recentSubmissions || [];
-      
+
       // Debug log
       if (assignment.submission_count > 0 && (!recentSubmissions || recentSubmissions.length === 0)) {
         console.log(`WARNING: Assignment ${assignment.id} has submission_count ${assignment.submission_count} but no recent_submissions`);
@@ -403,7 +402,7 @@ router.get('/:assignmentId/details', async (req, res) => {
       JOIN users u ON am.user_id = u.id
       WHERE am.assignment_id = ?
     `, [assignmentId]);
-    
+
     assignment.assigned_member_details = memberDetails || [];
 
     // Get submissions
@@ -577,7 +576,7 @@ router.post('/create', async (req, res) => {
         console.log('Members:', finalMembers);
         console.log('Team:', team);
         console.log('Team Leader:', finalTeamLeaderUsername, '(ID:', finalTeamLeaderId, ')');
-        
+
         if (finalAssignedTo === 'specific' && finalMembers && finalMembers.length > 0) {
           // Notify specific members
           console.log('Creating notifications for specific members:', finalMembers);
@@ -594,9 +593,9 @@ router.post('/create', async (req, res) => {
                 action_by_username: finalTeamLeaderUsername,
                 action_by_role: 'TEAM_LEADER'
               };
-              
+
               console.log('Inserting notification:', notificationData);
-              
+
               await query(`
                 INSERT INTO notifications (
                   user_id,
@@ -636,7 +635,7 @@ router.post('/create', async (req, res) => {
             'SELECT id FROM users WHERE team = ? AND role = ?',
             [team, 'USER']
           );
-          
+
           console.log(`Found ${teamMembers.length} team members to notify`);
           for (const member of teamMembers) {
             try {
@@ -651,9 +650,9 @@ router.post('/create', async (req, res) => {
                 action_by_username: finalTeamLeaderUsername,
                 action_by_role: 'TEAM_LEADER'
               };
-              
+
               console.log('Inserting notification for member:', member.id, notificationData);
-              
+
               await query(`
                 INSERT INTO notifications (
                   user_id,
@@ -774,14 +773,14 @@ router.get('/user/:userId', async (req, res) => {
     }
 
     // Fetch assigned member details and all submitted files for each assignment
-    for (let assignment of assignments) {
+    for (const assignment of assignments) {
       const memberDetails = await query(`
         SELECT u.id, u.username, u.fullName
         FROM assignment_members am
         JOIN users u ON am.user_id = u.id
         WHERE am.assignment_id = ?
       `, [assignment.id]);
-      
+
       assignment.assigned_member_details = memberDetails || [];
 
       // Fetch ALL submitted files for this assignment by this user
@@ -901,7 +900,7 @@ router.post('/submit', async (req, res) => {
 
     // Create notification for team leader about the submission
     try {
-      console.log(`🔔 Creating submission notification for team leader`);
+      console.log('🔔 Creating submission notification for team leader');
 
       // Get user details for notification
       const submitter = await queryOne(
@@ -990,7 +989,7 @@ router.get('/:assignmentId/comments', async (req, res) => {
     `, [assignmentId]);
 
     // For each comment, get its replies
-    for (let comment of comments) {
+    for (const comment of comments) {
       const replies = await query(`
         SELECT
           cr.*,
@@ -1073,7 +1072,7 @@ router.post('/:assignmentId/comments', async (req, res) => {
     try {
       console.log(` Comment posted by ${user.role}: ${user.fullName} (ID: ${userId})`);
       console.log(` Assignment ID: ${assignmentId}`);
-      
+
       // Get assignment details
       const assignment = await queryOne(
         'SELECT title, team_leader_id FROM assignments WHERE id = ?',
@@ -1093,7 +1092,7 @@ router.post('/:assignmentId/comments', async (req, res) => {
       // If admin commented, notify both team leader AND assigned members
       if (user.role === 'ADMIN') {
         console.log('🏗️ Admin commented - notifying both team leader and assigned members');
-        console.log(`📊 Assignment details:`, {
+        console.log('📊 Assignment details:', {
           assignmentId,
           team_leader_id: assignment.team_leader_id,
           teamLeaderId: assignment.teamLeaderId,
@@ -1214,7 +1213,7 @@ router.post('/:assignmentId/comments', async (req, res) => {
       // If regular user commented, notify team leader
       else if (user.role === 'USER' && assignment.team_leader_id && assignment.team_leader_id !== userId) {
         console.log(`📤 Creating notification for team leader ID: ${assignment.team_leader_id}`);
-        
+
         const notificationResult = await query(`
           INSERT INTO notifications (
             user_id,
@@ -1238,7 +1237,7 @@ router.post('/:assignmentId/comments', async (req, res) => {
           username,
           user.role
         ]);
-        
+
         console.log(` Notification created for team leader with ID: ${notificationResult.insertId}`);
       } else {
         console.log(`ℹ User ${user.fullName} (${user.role}) posted comment - no additional notifications needed`);
@@ -1466,7 +1465,7 @@ router.delete('/:assignmentId', async (req, res) => {
     // Delete related records (replies will cascade delete when comments are deleted)
     await query('DELETE FROM assignment_members WHERE assignment_id = ?', [assignmentId]);
     await query('DELETE FROM assignment_comments WHERE assignment_id = ?', [assignmentId]);
-    
+
     // Delete the assignment
     await query('DELETE FROM assignments WHERE id = ?', [assignmentId]);
 

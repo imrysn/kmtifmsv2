@@ -7,7 +7,7 @@ const { db, USE_MYSQL } = require('../config/database');
 const router = express.Router();
 
 // Default network projects directory
-let networkProjectsPath = '\\\\KMTI-NAS\\Shared\\Public\\PROJECTS';
+const networkProjectsPath = '\\\\KMTI-NAS\\Shared\\Public\\PROJECTS';
 
 // Function to get current root directory from settings
 async function getRootDirectory() {
@@ -26,8 +26,11 @@ async function getRootDirectory() {
           'SELECT setting_value FROM settings WHERE setting_key = ?',
           ['root_directory'],
           (err, row) => {
-            if (err) reject(err);
-            else resolve(row);
+            if (err) {
+              reject(err);
+            } else {
+              resolve(row);
+            }
           }
         );
       });
@@ -111,7 +114,9 @@ router.get('/browse', async (req, res) => {
         const isDirectory = itemStats.isDirectory();
 
         // Skip hidden files/folders
-        if (item.startsWith('.')) return null;
+        if (item.startsWith('.')) {
+          return null;
+        }
 
         const truncatedName = truncateName(item);
         const itemRequestPath = requestPath === '/' ? `/${item}` : `${requestPath}/${item}`;
@@ -145,8 +150,12 @@ router.get('/browse', async (req, res) => {
 
     // Sort items: folders first, then files, alphabetically
     fileSystemItems.sort((a, b) => {
-      if (a.isParent) return -1;
-      if (b.isParent) return 1;
+      if (a.isParent) {
+        return -1;
+      }
+      if (b.isParent) {
+        return 1;
+      }
       if (a.type !== b.type) {
         return a.type === 'folder' ? -1 : 1;
       }
@@ -182,7 +191,7 @@ router.get('/info', async (req, res) => {
   try {
     // Get the current root directory from settings
     const rootDirectory = await getRootDirectory();
-    
+
     const exists = await fs.access(rootDirectory).then(() => true).catch(() => false);
     if (exists) {
       const stats = await fs.stat(rootDirectory);
@@ -271,7 +280,7 @@ router.get('/file', async (req, res) => {
       '.txt': 'text/plain',
       '.rtf': 'application/rtf',
       '.csv': 'text/csv',
-      
+
       // Images
       '.jpg': 'image/jpeg',
       '.jpeg': 'image/jpeg',
@@ -281,7 +290,7 @@ router.get('/file', async (req, res) => {
       '.webp': 'image/webp',
       '.svg': 'image/svg+xml',
       '.ico': 'image/x-icon',
-      
+
       // Videos
       '.mp4': 'video/mp4',
       '.webm': 'video/webm',
@@ -290,14 +299,14 @@ router.get('/file', async (req, res) => {
       '.wmv': 'video/x-ms-wmv',
       '.flv': 'video/x-flv',
       '.mkv': 'video/x-matroska',
-      
+
       // Audio
       '.mp3': 'audio/mpeg',
       '.wav': 'audio/wav',
       '.ogg': 'audio/ogg',
       '.m4a': 'audio/mp4',
       '.flac': 'audio/flac',
-      
+
       // Web
       '.html': 'text/html',
       '.htm': 'text/html',
@@ -305,7 +314,7 @@ router.get('/file', async (req, res) => {
       '.js': 'application/javascript',
       '.json': 'application/json',
       '.xml': 'application/xml',
-      
+
       // Archives
       '.zip': 'application/zip',
       '.rar': 'application/x-rar-compressed',
@@ -374,7 +383,7 @@ router.get('/search', async (req, res) => {
   try {
     const rootDirectory = await getRootDirectory();
     const searchRoot = searchPath === '/' ? rootDirectory : path.join(rootDirectory, searchPath.slice(1));
-    
+
     const results = [];
     const searchLower = searchQuery.toLowerCase();
 
@@ -382,18 +391,20 @@ router.get('/search', async (req, res) => {
     async function searchDirectory(dirPath, relativePath) {
       try {
         const items = await fs.readdir(dirPath);
-        
+
         for (const item of items) {
           // Skip hidden files/folders
-          if (item.startsWith('.')) continue;
-          
+          if (item.startsWith('.')) {
+            continue;
+          }
+
           const fullPath = path.join(dirPath, item);
           const itemRelativePath = relativePath === '/' ? `/${item}` : `${relativePath}/${item}`;
-          
+
           try {
             const stats = await fs.stat(fullPath);
             const isDirectory = stats.isDirectory();
-            
+
             // Check if item name matches search query
             if (item.toLowerCase().includes(searchLower)) {
               const truncatedName = truncateName(item);
@@ -409,7 +420,7 @@ router.get('/search', async (req, res) => {
                 fileType: isDirectory ? null : path.extname(item).toLowerCase().slice(1) || 'unknown'
               });
             }
-            
+
             // Recursively search subdirectories (limit depth to prevent infinite loops)
             if (isDirectory && results.length < 500) {
               await searchDirectory(fullPath, itemRelativePath);
@@ -467,7 +478,7 @@ router.get('/filepath', async (req, res) => {
     const rootDirectory = await getRootDirectory();
     const relativePath = requestPath.startsWith('/') ? requestPath.slice(1) : requestPath;
     const fullPath = path.join(rootDirectory, relativePath);
-    
+
     // Check if file exists
     const exists = await fs.access(fullPath).then(() => true).catch(() => false);
     if (!exists) {
@@ -479,7 +490,7 @@ router.get('/filepath', async (req, res) => {
 
     // Get file extension
     const ext = path.extname(fullPath).toLowerCase().slice(1);
-    
+
     res.json({
       success: true,
       fullPath: fullPath,

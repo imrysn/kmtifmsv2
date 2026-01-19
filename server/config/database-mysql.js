@@ -2,7 +2,6 @@
 // This is a bridge between the main database config and the server
 
 const mysqlConfig = require('../../database/config');
-const path = require('path');
 
 // Re-export MySQL connection functions
 const {
@@ -38,51 +37,66 @@ module.exports = {
   transaction,
   testConnection,
   closePool,
-  
+
   // Database info
   dbInfo,
   dbPath: `${dbInfo.host}:${dbInfo.port}/${dbInfo.database}`,
-  
+
   // Network paths
   networkDataPath,
   networkProjectsPath,
-  
+
   // Helper function for backward compatibility with SQLite code
   // Wraps callback-based code to use promises
   db: {
     run: async (sql, params, callback) => {
       try {
         const result = await query(sql, params || []);
-        if (callback) callback(null, result);
+        if (callback) {
+          callback(null, result);
+        }
         return result;
       } catch (error) {
-        if (callback) callback(error);
-        else throw error;
+        if (callback) {
+          callback(error);
+        } else {
+          throw error;
+        }
       }
     },
-    
+
     get: async (sql, params, callback) => {
       try {
         const result = await queryOne(sql, params || []);
-        if (callback) callback(null, result);
+        if (callback) {
+          callback(null, result);
+        }
         return result;
       } catch (error) {
-        if (callback) callback(error);
-        else throw error;
+        if (callback) {
+          callback(error);
+        } else {
+          throw error;
+        }
       }
     },
-    
+
     all: async (sql, params, callback) => {
       try {
         const results = await query(sql, params || []);
-        if (callback) callback(null, results);
+        if (callback) {
+          callback(null, results);
+        }
         return results;
       } catch (error) {
-        if (callback) callback(error);
-        else throw error;
+        if (callback) {
+          callback(error);
+        } else {
+          throw error;
+        }
       }
     },
-    
+
     // Transaction support
     transaction
   }

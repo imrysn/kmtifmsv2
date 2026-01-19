@@ -62,8 +62,11 @@ class FileIndexer {
 
       await new Promise((resolve, reject) => {
         db.run(createTableSQL, (err) => {
-          if (err) reject(err);
-          else resolve();
+          if (err) {
+            reject(err);
+          } else {
+            resolve();
+          }
         });
       });
 
@@ -78,8 +81,11 @@ class FileIndexer {
       for (const indexSQL of indexes) {
         await new Promise((resolve, reject) => {
           db.run(indexSQL, (err) => {
-            if (err) reject(err);
-            else resolve();
+            if (err) {
+              reject(err);
+            } else {
+              resolve();
+            }
           });
         });
       }
@@ -99,8 +105,11 @@ class FileIndexer {
     } else {
       await new Promise((resolve, reject) => {
         db.run('DELETE FROM file_index', (err) => {
-          if (err) reject(err);
-          else resolve();
+          if (err) {
+            reject(err);
+          } else {
+            resolve();
+          }
         });
       });
     }
@@ -163,7 +172,9 @@ class FileIndexer {
       count += items.length;
 
       for (const item of items) {
-        if (item.startsWith('.')) continue;
+        if (item.startsWith('.')) {
+          continue;
+        }
 
         try {
           const fullPath = path.join(dirPath, item);
@@ -192,7 +203,9 @@ class FileIndexer {
 
       for (const item of items) {
         // Skip hidden files
-        if (item.startsWith('.')) continue;
+        if (item.startsWith('.')) {
+          continue;
+        }
 
         try {
           const fullPath = path.join(currentPath, item);
@@ -274,8 +287,11 @@ class FileIndexer {
             entry.modifiedDate
           ],
           (err) => {
-            if (err) reject(err);
-            else resolve();
+            if (err) {
+              reject(err);
+            } else {
+              resolve();
+            }
           }
         );
       });
@@ -315,8 +331,11 @@ class FileIndexer {
            LIMIT 500`,
           [`%${searchLower}%`, searchPath, `${searchPath}/%`],
           (err, rows) => {
-            if (err) reject(err);
-            else resolve(rows);
+            if (err) {
+              reject(err);
+            } else {
+              resolve(rows);
+            }
           }
         );
       });
@@ -358,8 +377,11 @@ class FileIndexer {
              MAX(indexed_at) as last_indexed
            FROM file_index`,
           (err, row) => {
-            if (err) reject(err);
-            else resolve(row || { total_items: 0, total_directories: 0, total_files: 0, last_indexed: null });
+            if (err) {
+              reject(err);
+            } else {
+              resolve(row || { total_items: 0, total_directories: 0, total_files: 0, last_indexed: null });
+            }
           }
         );
       });

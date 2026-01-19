@@ -131,7 +131,7 @@ function updateDatabase() {
               console.log('\n✅ Database update completed successfully!');
               console.log('📁 File approval system tables created:');
               console.log('   - files: Main file storage and workflow tracking');
-              console.log('   - file_comments: Comments and feedback system'); 
+              console.log('   - file_comments: Comments and feedback system');
               console.log('   - file_status_history: Complete audit trail');
               console.log('   - uploads/: Physical file storage directory\n');
               resolve();
@@ -145,7 +145,7 @@ function updateDatabase() {
 
 function insertSampleFiles(callback) {
   console.log('📝 Creating sample files for testing...');
-  
+
   const sampleFiles = [
     {
       filename: 'project_proposal_2025.pdf',
@@ -163,7 +163,7 @@ function insertSampleFiles(callback) {
     },
     {
       filename: 'budget_analysis_q4.xlsx',
-      original_name: 'budget_analysis_q4.xlsx', 
+      original_name: 'budget_analysis_q4.xlsx',
       file_path: '/uploads/sample_budget_analysis_q4.xlsx',
       file_size: 1887436, // 1.8 MB
       file_type: 'Excel Spreadsheet',
@@ -188,7 +188,7 @@ function insertSampleFiles(callback) {
       mime_type: 'application/zip',
       description: 'Mobile app UI/UX design mockups for the new user interface',
       user_id: 1,
-      username: 'john.user', 
+      username: 'john.user',
       user_team: 'Development',
       status: 'rejected',
       current_stage: 'rejected_by_team_leader',
@@ -203,7 +203,7 @@ function insertSampleFiles(callback) {
     {
       filename: 'test_results_automation.pdf',
       original_name: 'test_results_automation.pdf',
-      file_path: '/uploads/sample_test_results_automation.pdf', 
+      file_path: '/uploads/sample_test_results_automation.pdf',
       file_size: 3145728, // 3 MB
       file_type: 'PDF Document',
       mime_type: 'application/pdf',
@@ -238,10 +238,10 @@ function insertSampleFiles(callback) {
       public_network_url, final_approved_at, rejection_reason, rejected_by, rejected_at
     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
-      file.filename, file.original_name, file.file_path, file.file_size, 
+      file.filename, file.original_name, file.file_path, file.file_size,
       file.file_type, file.mime_type, file.description,
       file.user_id, file.username, file.user_team, file.status, file.current_stage,
-      file.team_leader_id || null, file.team_leader_username || null, 
+      file.team_leader_id || null, file.team_leader_username || null,
       file.team_leader_reviewed_at || null, file.team_leader_comments || null,
       file.admin_id || null, file.admin_username || null,
       file.admin_reviewed_at || null, file.admin_comments || null,
@@ -252,22 +252,22 @@ function insertSampleFiles(callback) {
         console.error(`❌ Error inserting sample file ${file.filename}:`, err);
       } else {
         console.log(`✅ Sample file created: ${file.filename} (ID: ${this.lastID}, Status: ${file.status})`);
-        
+
         // Add sample comments for some files
         if (index === 1) { // budget_analysis_q4.xlsx
           db.run(`INSERT INTO file_comments (file_id, user_id, username, user_role, comment, comment_type) 
                   VALUES (?, ?, ?, ?, ?, ?)`,
-                  [this.lastID, 2, 'sarah.leader', 'TEAM LEADER', 'Budget allocation looks reasonable. Approved for admin review.', 'approval']);
+          [this.lastID, 2, 'sarah.leader', 'TEAM LEADER', 'Budget allocation looks reasonable. Approved for admin review.', 'approval']);
         } else if (index === 3) { // test_results_automation.pdf
           db.run(`INSERT INTO file_comments (file_id, user_id, username, user_role, comment, comment_type) 
                   VALUES (?, ?, ?, ?, ?, ?)`,
-                  [this.lastID, 2, 'sarah.leader', 'TEAM LEADER', 'Comprehensive test coverage. All critical paths verified.', 'approval']);
+          [this.lastID, 2, 'sarah.leader', 'TEAM LEADER', 'Comprehensive test coverage. All critical paths verified.', 'approval']);
           db.run(`INSERT INTO file_comments (file_id, user_id, username, user_role, comment, comment_type) 
                   VALUES (?, ?, ?, ?, ?, ?)`,
-                  [this.lastID, 3, 'admin', 'ADMIN', 'Outstanding work. Ready for public release.', 'final_approval']);
+          [this.lastID, 3, 'admin', 'ADMIN', 'Outstanding work. Ready for public release.', 'final_approval']);
         }
       }
-      
+
       insertedCount++;
       if (insertedCount === totalCount) {
         callback();

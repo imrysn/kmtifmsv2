@@ -1,6 +1,5 @@
 const express = require('express');
-const { db } = require('../config/database');
-const { query, queryOne } = require('../../database/config');
+const { query, queryOne } = require('../config/database-mysql');
 
 const router = express.Router();
 
@@ -8,7 +7,7 @@ const router = express.Router();
 const createNotification = async (userId, fileId, type, title, message, actionById, actionByUsername, actionByRole, assignmentId = null) => {
   try {
     console.log('🔔 Creating notification:', { userId, fileId, assignmentId, type, title });
-    
+
     const result = await query(
       `INSERT INTO notifications (
         user_id, file_id, assignment_id, type, title, message, 
@@ -16,7 +15,7 @@ const createNotification = async (userId, fileId, type, title, message, actionBy
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [userId, fileId, assignmentId, type, title, message, actionById, actionByUsername, actionByRole]
     );
-    
+
     console.log(`✅ Notification created for user ${userId}: ${title}`);
     return result.insertId;
   } catch (error) {
@@ -72,9 +71,9 @@ router.get('/user/:userId', async (req, res) => {
     queryStr += ` ORDER BY n.created_at DESC LIMIT ${limitNum} OFFSET ${offset}`;
 
     const notifications = await query(queryStr, [userId]);
-    
+
     console.log(`✅ Found ${notifications.length} notifications for user ${userId} (page ${pageNum})`);
-    
+
     // Count unread notifications (total, not just in this page)
     const unreadCountResult = await queryOne(
       'SELECT COUNT(*) as count FROM notifications WHERE user_id = ? AND is_read = 0',

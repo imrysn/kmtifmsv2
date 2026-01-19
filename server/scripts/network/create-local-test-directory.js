@@ -20,13 +20,13 @@ try {
 
   // Create some test subdirectories
   const subdirs = ['Project Alpha', 'Project Beta', 'Archive', 'Templates', 'Documentation'];
-  
+
   subdirs.forEach(subdir => {
     const subdirPath = path.join(testDir, subdir);
     if (!fs.existsSync(subdirPath)) {
       fs.mkdirSync(subdirPath, { recursive: true });
       console.log('✅ Created subdirectory:', subdir);
-      
+
       // Add some test files
       const testFiles = [
         'README.txt',
@@ -34,7 +34,7 @@ try {
         'requirements.docx',
         'design-mockups.zip'
       ];
-      
+
       testFiles.forEach(filename => {
         const filePath = path.join(subdirPath, filename);
         if (!fs.existsSync(filePath)) {
@@ -64,10 +64,10 @@ try {
   console.log(testDir);
   subdirs.forEach(subdir => {
     console.log(`  └── ${subdir}/`);
-    console.log(`      ├── README.txt`);
-    console.log(`      ├── project-overview.pdf`);
-    console.log(`      ├── requirements.docx`);
-    console.log(`      └── design-mockups.zip`);
+    console.log('      ├── README.txt');
+    console.log('      ├── project-overview.pdf');
+    console.log('      ├── requirements.docx');
+    console.log('      └── design-mockups.zip');
   });
 
   console.log('\n🔧 TO USE THIS TEST DIRECTORY:');

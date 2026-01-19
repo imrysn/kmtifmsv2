@@ -6,7 +6,7 @@ const fs = require('fs');
 const { networkDataPath } = require('./database');
 
 // FIXED: Import async file utilities
-const { moveToUserFolder: moveToUserFolderAsync, sanitizeFilename } = require('../utils/fileUtils');
+const { moveToUserFolder: moveToUserFolderAsync } = require('../utils/fileUtils');
 
 // Network Uploads Configuration
 const uploadsDir = path.join(networkDataPath, 'uploads');
@@ -28,7 +28,7 @@ if (!fs.existsSync(uploadsDir)) {
   }
 } else {
   console.log(`✅ Uploads directory ready: ${uploadsDir}`);
-  
+
   // Test write permission
   const testFile = path.join(uploadsDir, '.test-write-' + Date.now());
   try {
@@ -76,12 +76,12 @@ function setupMiddleware(app) {
   }));
 
   // JSON parsing with extended options to handle UTF-8 special characters
-  app.use(express.json({ 
+  app.use(express.json({
     extended: true,
     limit: '50mb' // Increase limit for larger payloads
   }));
-  
-  app.use(express.urlencoded({ 
+
+  app.use(express.urlencoded({
     extended: true,
     limit: '50mb',
     parameterLimit: 50000
@@ -93,7 +93,7 @@ function setupMiddleware(app) {
     setHeaders: (res, filePath) => {
       // CRITICAL: Always use 'inline' to open in browser, never 'attachment'
       res.setHeader('Content-Disposition', 'inline');
-      
+
       // Set proper MIME type for common file types
       const ext = path.extname(filePath).toLowerCase();
       const mimeTypes = {
@@ -116,10 +116,10 @@ function setupMiddleware(app) {
         '.ppt': 'application/vnd.ms-powerpoint',
         '.pptx': 'application/vnd.openxmlformats-officedocument.presentationml.presentation'
       };
-      
+
       const mimeType = mimeTypes[ext] || 'application/octet-stream';
       res.setHeader('Content-Type', mimeType);
-      
+
       // Disable download for all files
       res.setHeader('X-Content-Type-Options', 'nosniff');
     }
