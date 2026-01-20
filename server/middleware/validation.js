@@ -133,6 +133,22 @@ const schemas = {
       })
   }),
 
+  // Reset password with token (self-service)
+  resetPasswordWithToken: Joi.object({
+    token: Joi.string().required()
+      .messages({
+        'any.required': 'Reset token is required'
+      }),
+    newPassword: Joi.string().min(8).max(100).required()
+      .pattern(/^(?=.*[A-Za-z])(?=.*\d)/)
+      .messages({
+        'string.min': 'Password must be at least 8 characters long',
+        'string.max': 'Password cannot exceed 100 characters',
+        'string.pattern.base': 'Password must contain both letters and numbers',
+        'any.required': 'Password is required'
+      })
+  }),
+
   // Team creation
   createTeam: Joi.object({
     name: Joi.string().min(2).max(50).required()

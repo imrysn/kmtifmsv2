@@ -1,7 +1,7 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const { db } = require('../config/database');
-const { logActivity, logError, logInfo } = require('../utils/logger');
+const { logActivity, logError, logInfo, logWarn } = require('../utils/logger');
 const { createNotification } = require('./notifications');
 const { validate, schemas } = require('../middleware/validation');
 const { asyncHandler, AuthenticationError } = require('../middleware/errorHandler');
@@ -111,14 +111,14 @@ router.post('/forgot-password', validate(schemas.forgotPassword), asyncHandler(a
   // Always return success for security reasons (don't reveal if email exists)
   res.json({
     success: true,
-    message: 'If the account exists, a password reset email has been sent.'
+    message: 'If the account exists, admin has been notified.'
   });
 
   try {
     // First, find the user who is requesting the reset (by email or username)
     const userQuery = email.includes('@')
-      ? 'SELECT id, username, fullName, email FROM users WHERE email = ?'
-      : 'SELECT id, username, fullName, email FROM users WHERE username = ?';
+      ? 'SELECT id, username, fullName, email, role FROM users WHERE email = ?'
+      : 'SELECT id, username, fullName, email, role FROM users WHERE username = ?';
 
     const requestingUser = await new Promise((resolve, reject) => {
       db.get(userQuery, [email], (err, row) => {
@@ -158,13 +158,13 @@ router.post('/forgot-password', validate(schemas.forgotPassword), asyncHandler(a
       // Create a notification with password_reset_request type
       await createNotification(
         admin.id,                    // userId (admin receiving notification)
-        null,                        // fileId (no file associated)
+        null,                        // fileId (explicitly null for password reset)
         'password_reset_request',    // type
         'Password Reset Request',    // title
         notificationMessage,         // message (contains requesting user info)
         requestingUser.id,           // actionById (user who requested reset)
         requestingUser.username,     // actionByUsername
-        'USER',                      // actionByRole
+        requestingUser.role || 'USER', // actionByRole (use actual role, not hardcoded)
         null                         // assignmentId (no assignment)
       );
 
@@ -172,6 +172,7 @@ router.post('/forgot-password', validate(schemas.forgotPassword), asyncHandler(a
     });
 
     await Promise.all(notificationPromises);
+
 
     logInfo('Password reset request completed', { email, notifiedAdmins: adminUsers.length });
 

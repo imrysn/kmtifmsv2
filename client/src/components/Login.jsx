@@ -52,7 +52,7 @@ const Login = ({ onLogin }) => {
   const validateUsernameOrEmail = (input) => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
     const usernameRegex = /^[a-zA-Z0-9._-]+$/
-    
+
     if (input.includes('@')) {
       return emailRegex.test(input)
     }
@@ -61,7 +61,7 @@ const Login = ({ onLogin }) => {
 
   const validateForm = () => {
     const newErrors = {}
-    
+
     if (!formData.email.trim()) {
       newErrors.email = 'Username or email is required'
     } else if (!validateUsernameOrEmail(formData.email)) {
@@ -71,11 +71,11 @@ const Login = ({ onLogin }) => {
         newErrors.email = 'Username must be 3-30 characters and contain only letters, numbers, dots, underscores, or hyphens'
       }
     }
-    
+
     if (!formData.password.trim()) {
       newErrors.password = 'Password is required'
     }
-    
+
     setErrors(newErrors)
     return Object.keys(newErrors).length === 0
   }
@@ -121,22 +121,22 @@ const Login = ({ onLogin }) => {
   const handleForgotPasswordCancel = () => {
     setShowForgotPasswordModal(false)
     setForgotPasswordEmail('')
+    setForgotPasswordMessage('')
   }
-
   const handleInputChange = (e) => {
     const { name, value } = e.target
     setFormData(prev => ({
       ...prev,
       [name]: value
     }))
-    
+
     if (errors[name]) {
       setErrors(prev => ({
         ...prev,
         [name]: ''
       }))
     }
-    
+
     if (apiError) {
       setApiError('')
     }
@@ -144,14 +144,14 @@ const Login = ({ onLogin }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
-    
+
     if (!validateForm()) {
       return
     }
-    
+
     setIsLoading(true)
     setApiError('')
-    
+
     try {
       const response = await fetch('http://localhost:3001/api/auth/login', {
         method: 'POST',
@@ -163,9 +163,9 @@ const Login = ({ onLogin }) => {
           loginType
         })
       })
-      
+
       const data = await response.json()
-      
+
       if (data.success) {
         // Save credentials if remember me is checked
         if (rememberMe) {
@@ -197,7 +197,7 @@ const Login = ({ onLogin }) => {
     <div className="unified-login-container">
       {/* Main Container holding both sections */}
       <div className="main-login-card">
-        
+
         {/* Left Side - Welcome Section */}
         <div className="welcome-section">
           <div className="welcome-content">
@@ -228,7 +228,7 @@ const Login = ({ onLogin }) => {
                 <span className="toggle-slider"></span>
               </button>
             </div>
-            
+
             <form onSubmit={handleSubmit} className="login-form">
               <div className="form-group">
                 <input
@@ -243,7 +243,7 @@ const Login = ({ onLogin }) => {
                 />
                 {errors.email && <span className="error-message">{errors.email}</span>}
               </div>
-              
+
               <div className="form-group">
                 <div className="password-input-container">
                   <input
@@ -286,7 +286,7 @@ const Login = ({ onLogin }) => {
                   {isForgotPasswordSubmitting ? 'Sending...' : 'Forgot Password?'}
                 </button>
               </div>
-              
+
               {apiError && (
                 <div className="api-error">
                   {apiError}
@@ -298,9 +298,9 @@ const Login = ({ onLogin }) => {
                   {forgotPasswordMessage}
                 </div>
               )}
-              
-              <button 
-                type="submit" 
+
+              <button
+                type="submit"
                 className={`login-button ${loginType} ${isLoading ? 'loading' : ''}`}
                 disabled={isLoading}
               >
@@ -316,7 +316,7 @@ const Login = ({ onLogin }) => {
             </form>
           </div>
         </div>
-        
+
       </div>
 
       {/* Forgot Password Modal */}

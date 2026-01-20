@@ -10,10 +10,10 @@ const createNotification = async (userId, fileId, type, title, message, actionBy
 
     const result = await query(
       `INSERT INTO notifications (
-        user_id, file_id, assignment_id, type, title, message, 
+        user_id, file_id, type, title, message, assignment_id,
         action_by_id, action_by_username, action_by_role
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [userId, fileId, assignmentId, type, title, message, actionById, actionByUsername, actionByRole]
+      [userId, fileId, type, title, message, assignmentId, actionById, actionByUsername, actionByRole]
     );
 
     console.log(`✅ Notification created for user ${userId}: ${title}`);

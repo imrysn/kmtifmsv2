@@ -16,13 +16,13 @@ const NotificationItem = memo(({ notification, onNotificationClick, onDeleteNoti
       <div className="notification-icon">
         <NotificationIcon type={notification.type} />
       </div>
-      
+
       <div className="notification-content">
         <div className="notification-title">
           {notification.title}
         </div>
         <div className="notification-message">{notification.message}</div>
-        
+
         <div className="notification-meta">
           <span className="notification-author">
             👤 {notification.action_by_username} ({notification.action_by_role})
@@ -43,7 +43,7 @@ const NotificationItem = memo(({ notification, onNotificationClick, onDeleteNoti
             </span>
           )}
         </div>
-        
+
         <div className="notification-time">
           {formatTimeAgo(notification.created_at)}
         </div>
@@ -75,7 +75,7 @@ const Notifications = ({ user, onNavigate }) => {
 
   // Enable taskbar flashing for new notifications
   useTaskbarFlash(unreadCount);
-  
+
   // Pagination state
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
@@ -137,10 +137,26 @@ const Notifications = ({ user, onNavigate }) => {
         `http://localhost:3001/api/notifications/user/${user.id}?page=${pageNum}&limit=${limit}`
       );
       const data = await response.json();
-      
+
       if (data.success) {
         const newNotifications = data.notifications || [];
-        
+
+        // Debug: Log password reset notifications
+        const passwordResetNotifs = newNotifications.filter(n => n.type === 'password_reset_request');
+        if (passwordResetNotifs.length > 0) {
+          console.log('🔍 Password reset notifications found:', passwordResetNotifs.length);
+          passwordResetNotifs.forEach(n => {
+            console.log('  - Notification:', {
+              id: n.id,
+              type: n.type,
+              action_by_id: n.action_by_id,
+              action_by_username: n.action_by_username,
+              file_id: n.file_id,
+              message: n.message
+            });
+          });
+        }
+
         if (isInitial) {
           setNotifications(newNotifications);
           setPage(1);
@@ -156,7 +172,7 @@ const Notifications = ({ user, onNavigate }) => {
           setNotifications(prev => [...prev, ...newNotifications]);
           setPage(pageNum);
         }
-        
+
         setUnreadCount(data.unreadCount || 0);
         setTotalCount(data.totalCount || 0);
         setHasMore(data.hasMore || false);
@@ -182,11 +198,11 @@ const Notifications = ({ user, onNavigate }) => {
       const response = await fetch(`http://localhost:3001/api/notifications/${notificationId}/read`, {
         method: 'PUT'
       });
-      
+
       const data = await response.json();
       if (data.success) {
         // Update local state instead of refetching
-        setNotifications(prev => prev.map(n => 
+        setNotifications(prev => prev.map(n =>
           n.id === notificationId ? { ...n, is_read: true } : n
         ));
         setUnreadCount(prev => Math.max(0, prev - 1));
@@ -201,7 +217,7 @@ const Notifications = ({ user, onNavigate }) => {
       const response = await fetch(`http://localhost:3001/api/notifications/user/${user.id}/read-all`, {
         method: 'PUT'
       });
-      
+
       const data = await response.json();
       if (data.success) {
         // Update local state
@@ -218,7 +234,7 @@ const Notifications = ({ user, onNavigate }) => {
       const response = await fetch(`http://localhost:3001/api/notifications/${notificationId}`, {
         method: 'DELETE'
       });
-      
+
       const data = await response.json();
       if (data.success) {
         // Update local state
@@ -240,7 +256,7 @@ const Notifications = ({ user, onNavigate }) => {
       const response = await fetch(`http://localhost:3001/api/notifications/user/${user.id}/delete-all`, {
         method: 'DELETE'
       });
-      
+
       const data = await response.json();
       if (data.success) {
         setNotifications([]);
@@ -264,31 +280,46 @@ const Notifications = ({ user, onNavigate }) => {
     }
 
     console.log('📋 Notification clicked:', notification);
+    console.log('   - Full notification object:', JSON.stringify(notification, null, 2));
+    console.log('   - Type:', notification.type);
+    console.log('   - Type (string):', String(notification.type));
+    console.log('   - Type comparison:', notification.type === 'password_reset_request');
+    console.log('   - Type includes:', String(notification.type).includes('password_reset_request'));
 
-    // Handle password reset request notifications
-    if (notification.type === 'password_reset_request') {
-      if (onNavigate && notification.file_id) {
+    // Handle password reset request notifications (use includes to handle any encoding issues)
+    if (String(notification.type).includes('password_reset_request')) {
+      console.log('🔑 Password reset request detected');
+      console.log('   - action_by_id:', notification.action_by_id);
+      console.log('   - action_by_username:', notification.action_by_username);
+      console.log('   - file_id:', notification.file_id);
+      console.log('   - onNavigate exists:', !!onNavigate);
+
+      if (onNavigate) {
         console.log('🔑 Password reset request - Navigating to User Management');
-        // Navigate to users tab with context to open password reset modal
-        // Note: file_id is being reused to store the requesting user's ID
-        onNavigate('users', {
-          userId: notification.file_id,  // file_id contains the requesting user's ID
+        const contextData = {
+          userId: notification.action_by_id,  // Use action_by_id (requesting user's ID)
           action: 'reset-password',
           username: notification.action_by_username
-        });
+        };
+        console.log('   - Context data:', contextData);
+
+        // Navigate to users tab with context to open password reset modal
+        onNavigate('users', contextData);
+      } else {
+        console.error('❌ onNavigate is not defined!');
       }
       return;
     }
 
     // Navigate based on notification type
-    if (notification.type === 'comment') {
+    if (String(notification.type).includes('comment')) {
       // For comments, open the task modal with the comment highlighted
       if (notification.assignment_id) {
         // Store the comment ID to highlight
         if (notification.comment_id) {
           setHighlightedCommentId(notification.comment_id);
         }
-        
+
         // Navigate to tasks tab with assignment context
         if (onNavigate) {
           onNavigate('tasks', {

@@ -1,7 +1,7 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const { db } = require('../config/database');
-const { logActivity, logInfo } = require('../utils/logger');
+const { logActivity, logInfo, logWarn } = require('../utils/logger');
 const { getCache, setCache, clearCache } = require('../utils/cache');
 const { validate, schemas, validateId } = require('../middleware/validation');
 const { asyncHandler, DatabaseError, NotFoundError } = require('../middleware/errorHandler');
@@ -258,9 +258,9 @@ router.put('/:id/password', validateId(), validate(schemas.resetPassword), async
 
   logInfo('Password reset successful', { userId });
 
-  // Get user details for logging
+  // Get user details for logging, notification, and email
   const userDetails = await new Promise((resolve, reject) => {
-    db.get('SELECT username, fullName FROM users WHERE id = ?', [userId], (err, row) => {
+    db.get('SELECT username, fullName, email FROM users WHERE id = ?', [userId], (err, row) => {
       if (err) {
         reject(err);
       } else {
@@ -279,6 +279,50 @@ router.put('/:id/password', validateId(), validate(schemas.resetPassword), async
       adminTeam || 'System',
       `Password reset by administrator for user: ${userDetails.fullName} (${userDetails.username})`
     );
+
+    // Create in-app notification for the user
+    try {
+      const { createNotification } = require('./notifications');
+      const notificationMessage = `Your password has been reset by ${adminUsername || 'Administrator'}. You can now log in with your new password.`;
+
+      await createNotification(
+        userId,                          // userId (user whose password was reset)
+        null,                            // fileId (no file associated)
+        'password_reset_complete',       // type
+        'Password Reset Complete',       // title
+        notificationMessage,             // message
+        adminId || null,                 // actionById (admin who reset the password)
+        adminUsername || 'Administrator', // actionByUsername
+        adminRole || 'ADMIN',            // actionByRole
+        null                             // assignmentId (no assignment)
+      );
+
+      logInfo('Password reset notification sent to user', { userId, username: userDetails.username });
+    } catch (notifError) {
+      // Log error but don't fail the password reset
+      console.error('❌ Failed to create password reset notification:', notifError);
+    }
+
+    // Send email notification to user
+    try {
+      const { sendPasswordResetEmail } = require('../utils/email');
+
+      const emailResult = await sendPasswordResetEmail(
+        userDetails.email,
+        userDetails.fullName || userDetails.username,
+        adminUsername || 'Administrator'
+      );
+
+      if (emailResult.success) {
+        logInfo('Password reset email sent', { userId, email: userDetails.email });
+      } else {
+        logWarn('Failed to send password reset email', { userId, reason: emailResult.message || emailResult.error });
+      }
+    } catch (emailError) {
+      // Log error but don't fail the password reset
+      console.error('❌ Failed to send password reset email:', emailError);
+      logWarn('Password reset email failed', { userId, error: emailError.message });
+    }
   }
 
   res.json({
