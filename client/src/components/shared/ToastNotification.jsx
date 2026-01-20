@@ -12,16 +12,16 @@ import { useManualTaskbarFlash } from '../../utils/useTaskbarFlash'
  * @param {number} duration - Auto-dismiss duration in ms (default: 5000)
  * @param {string} role - User role ('admin', 'user', 'teamleader')
  */
-const ToastNotification = ({ 
-  notifications, 
-  onClose, 
+const ToastNotification = ({
+  notifications,
+  onClose,
   onNavigate,
   duration = 5000,
   role = 'user'
 }) => {
   const [visible, setVisible] = useState([])
   const [dismissed, setDismissed] = useState(new Set())
-  
+
   // Manual taskbar flash trigger
   const flashTaskbar = useManualTaskbarFlash({ duration })
 
@@ -35,15 +35,15 @@ const ToastNotification = ({
 
     // Flash taskbar when new toast notifications appear
     if (newNotifications.length > 0) {
-      const message = newNotifications.length === 1 
-        ? newNotifications[0].title 
+      const message = newNotifications.length === 1
+        ? newNotifications[0].title
         : `${newNotifications.length} New Notifications`
       flashTaskbar(message)
     }
 
     // Auto-dismiss after duration
     if (newNotifications.length > 0) {
-      const timers = newNotifications.map(notification => 
+      const timers = newNotifications.map(notification =>
         setTimeout(() => {
           handleDismiss(notification.id)
         }, duration)
@@ -61,15 +61,15 @@ const ToastNotification = ({
 
   const handleClick = useCallback((notification) => {
     console.log(`👉 ${role} Toast clicked:`, notification)
-    
+
     if (onNavigate) {
       // Admin-specific navigation
       if (role === 'admin') {
         // Handle password reset request notifications
-        if (notification.type === 'password_reset_request' && notification.file_id) {
+        if (notification.type === 'password_reset_request') {
           console.log('🔑 Password reset request - Navigating to User Management')
           onNavigate('users', {
-            userId: notification.file_id,  // file_id contains the requesting user's ID
+            userId: notification.action_by_id,  // Use action_by_id (requesting user's ID)
             action: 'reset-password',
             username: notification.action_by_username
           })
@@ -78,13 +78,13 @@ const ToastNotification = ({
         else if (notification.assignment_id) {
           console.log('📋 Navigating to tasks:', notification.assignment_id)
           onNavigate('tasks', notification.assignment_id)
-        } 
+        }
         // Handle file-related notifications
         else if (notification.file_id) {
-          if (notification.type === 'approval' || 
-              notification.type === 'rejection' ||
-              notification.type === 'final_approval' ||
-              notification.type === 'final_rejection') {
+          if (notification.type === 'approval' ||
+            notification.type === 'rejection' ||
+            notification.type === 'final_approval' ||
+            notification.type === 'final_rejection') {
             console.log('✅ Navigating to file-approval:', notification.file_id)
             onNavigate('file-approval', notification.file_id)
           } else {
@@ -93,7 +93,7 @@ const ToastNotification = ({
           }
         }
       }
-      
+
       // User-specific navigation
       else if (role === 'user') {
         if (notification.type === 'comment' && notification.assignment_id) {
@@ -102,15 +102,15 @@ const ToastNotification = ({
             sessionStorage.setItem('highlightCommentBy', notification.action_by_username)
           }
           onNavigate('tasks', notification.assignment_id)
-        } 
+        }
         else if (notification.type === 'assignment' && notification.assignment_id) {
           onNavigate('tasks', notification.assignment_id)
-        } 
+        }
         else if (
-          (notification.type === 'approval' || 
-           notification.type === 'rejection' || 
-           notification.type === 'final_approval' || 
-           notification.type === 'final_rejection') && 
+          (notification.type === 'approval' ||
+            notification.type === 'rejection' ||
+            notification.type === 'final_approval' ||
+            notification.type === 'final_rejection') &&
           notification.file_id
         ) {
           onNavigate('my-files', notification.file_id)
@@ -119,7 +119,7 @@ const ToastNotification = ({
           onNavigate('my-files', notification.file_id)
         }
       }
-      
+
       // Team Leader-specific navigation
       else if (role === 'teamleader') {
         if (notification.assignment_id) {
@@ -129,7 +129,7 @@ const ToastNotification = ({
         }
       }
     }
-    
+
     handleDismiss(notification.id)
   }, [onNavigate, handleDismiss, role])
 
@@ -137,6 +137,8 @@ const ToastNotification = ({
     switch (type) {
       case 'password_reset_request':
         return '🔑'
+      case 'password_reset_complete':
+        return '✅'
       case 'comment':
         return '💬'
       case 'assignment':
@@ -158,6 +160,8 @@ const ToastNotification = ({
     switch (type) {
       case 'password_reset_request':
         return 'gray'
+      case 'password_reset_complete':
+        return 'green'
       case 'comment':
         return 'blue'
       case 'assignment':
@@ -187,7 +191,7 @@ const ToastNotification = ({
           <div className="toast-icon">
             {getNotificationIcon(notification.type)}
           </div>
-          
+
           <div className="toast-content">
             <div className="toast-title">{notification.title}</div>
             <div className="toast-message">{notification.message}</div>

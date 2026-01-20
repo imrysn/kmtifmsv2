@@ -30,6 +30,9 @@
     "lint:check": "eslint server/**/*.js",
     "format": "prettier --write \"server/**/*.js\"",
     "format:check": "prettier --check \"server/**/*.js\"",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage",
     "test:api": "node test-api.js",
     "server:standalone": "node server.js",
     "db:init": "node database/init-mysql.js",
@@ -66,6 +69,7 @@
     "validate:updates": "node validate-update-system.js"
   },
   "devDependencies": {
+    "@types/jest": "^30.0.0",
     "@vercel/ncc": "^0.38.4",
     "concurrently": "^8.2.2",
     "cross-env": "^7.0.3",
@@ -73,8 +77,10 @@
     "electron-builder": "^24.6.4",
     "eslint": "^9.39.2",
     "eslint-config-prettier": "^10.1.8",
+    "jest": "^30.2.0",
     "pkg": "^5.8.1",
     "prettier": "^3.8.0",
+    "supertest": "^7.2.2",
     "wait-on": "^7.0.1"
   },
   "dependencies": {
