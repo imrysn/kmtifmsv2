@@ -420,3 +420,10 @@
   color: #a0a0a0;
   cursor: not-allowed;
 }
+
+/* Custom Tag Indicator */
+.custom-tag-indicator {
+  font-size: 14px;
+  opacity: 0.8;
+  margin-right: 2px;
+}

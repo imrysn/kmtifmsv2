@@ -215,7 +215,7 @@
 
 .table-header {
   display: grid;
-  grid-template-columns: 2fr 200px 140px 200px;
+  grid-template-columns: 2fr 200px 140px 200px 80px;
   gap: 20px;
   padding: 14px 20px;
   background: white;
@@ -237,7 +237,7 @@
 /* File Row */
 .file-row-new {
   display: grid;
-  grid-template-columns: 2fr 200px 140px 200px;
+  grid-template-columns: 2fr 200px 140px 200px 80px;
   gap: 20px;
   padding: 16px 20px;
   border-bottom: 1px solid #e5e5ea;
@@ -544,12 +544,12 @@
 /* Responsive */
 @media (max-width: 1200px) {
   .table-header {
-    grid-template-columns: 2fr 180px 120px 180px;
+    grid-template-columns: 2fr 180px 120px 180px 80px;
     gap: 16px;
   }
 
   .file-row-new {
-    grid-template-columns: 2fr 180px 120px 180px;
+    grid-template-columns: 2fr 180px 120px 180px 80px;
     gap: 16px;
   }
   
@@ -609,22 +609,24 @@
   }
 
   .table-header {
-    grid-template-columns: 1fr 80px 80px;
+    grid-template-columns: 1fr 80px 60px;
     gap: 12px;
     padding: 12px 16px;
   }
 
-  .table-header > div:nth-child(4) {
+  .table-header > div:nth-child(4),
+  .table-header > div:nth-child(3) {
     display: none;
   }
 
   .file-row-new {
-    grid-template-columns: 1fr 80px 80px;
+    grid-template-columns: 1fr 80px 60px;
     gap: 12px;
     padding: 12px 16px;
   }
 
-  .col-status {
+  .col-status,
+  .col-team {
     display: none;
   }
 
@@ -649,7 +651,8 @@
   }
 
   .table-header > div:nth-child(2),
-  .table-header > div:nth-child(3) {
+  .table-header > div:nth-child(3),
+  .table-header > div:nth-child(4) {
     display: none;
   }
 
@@ -663,6 +666,15 @@
   .col-team,
   .col-status {
     display: none;
+  }
+
+  .col-actions {
+    width: 60px;
+  }
+
+  .delete-btn {
+    width: 32px;
+    height: 32px;
   }
 
   .file-icon-box {
@@ -682,4 +694,215 @@
 /* Force black color for stat numbers */
 .my-files-wrapper .stats-row .stat-box .stat-text .stat-number {
   color: #1d1d1f !important;
+}
+
+/* Actions Column */
+.col-actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 80px;
+}
+
+.delete-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  background: transparent;
+  border: 1px solid #d5d5d9;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  color: #86868b;
+}
+
+.delete-btn:hover {
+  background: #fff1f2;
+  border-color: #ef4444;
+  color: #ef4444;
+}
+
+.delete-btn:active {
+  transform: scale(0.95);
+}
+
+/* Delete Modal */
+.delete-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  animation: fadeIn 0.15s ease;
+  will-change: opacity;
+}
+
+.delete-modal-content {
+  background: white;
+  border-radius: 16px;
+  width: 90%;
+  max-width: 480px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(0, 0, 0, 0.05);
+  animation: slideUp 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  position: relative;
+  z-index: 10000;
+  will-change: transform, opacity;
+  transform: translateZ(0);
+}
+
+.delete-modal-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 24px 24px 16px 24px;
+  border-bottom: 1px solid #f5f5f7;
+}
+
+.delete-icon-wrapper {
+  width: 56px;
+  height: 56px;
+  background: #fee2e2;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #dc2626;
+  flex-shrink: 0;
+}
+
+.delete-modal-header h2 {
+  color: #1d1d1f;
+  font-size: 20px;
+  font-weight: 600;
+  margin: 0;
+}
+
+.delete-modal-body {
+  padding: 24px;
+}
+
+.delete-warning {
+  color: #1d1d1f;
+  font-size: 15px;
+  font-weight: 500;
+  margin: 0 0 12px 0;
+}
+
+.delete-filename {
+  color: #1d1d1f;
+  font-size: 14px;
+  font-weight: 600;
+  margin: 0 0 16px 0;
+  padding: 12px;
+  background: #f5f5f7;
+  border-radius: 8px;
+  border: 1px solid #e5e5ea;
+  word-break: break-word;
+}
+
+.delete-note {
+  color: #86868b;
+  font-size: 13px;
+  margin: 0;
+  line-height: 1.5;
+}
+
+.delete-modal-footer {
+  display: flex;
+  gap: 12px;
+  padding: 20px 24px 24px 24px;
+  border-top: 1px solid #f5f5f7;
+}
+
+.delete-cancel-btn,
+.delete-confirm-btn {
+  flex: 1;
+  height: 44px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.delete-cancel-btn {
+  background: white;
+  border: 1px solid #d5d5d9;
+  color: #1d1d1f;
+}
+
+.delete-cancel-btn:hover:not(:disabled) {
+  background: #f9f9fb;
+  border-color: #86868b;
+}
+
+.delete-confirm-btn {
+  background: #ef4444;
+  border: 1px solid #ef4444;
+  color: white;
+}
+
+.delete-confirm-btn:hover:not(:disabled) {
+  background: #dc2626;
+  border-color: #dc2626;
+}
+
+.delete-cancel-btn:active:not(:disabled),
+.delete-confirm-btn:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+.delete-cancel-btn:disabled,
+.delete-confirm-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.delete-spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top-color: white;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(10px) scale(0.98);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
 }
