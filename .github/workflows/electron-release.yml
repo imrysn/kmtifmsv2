@@ -53,12 +53,17 @@ jobs:
           VERSION="${{ steps.version.outputs.VERSION }}"
           npm version $VERSION --no-git-tag-version --allow-same-version
 
+      - name: Setup MSBuild (Windows)
+        uses: microsoft/setup-msbuild@v1.1
+        with:
+          msbuild-architecture: x64
+
       - name: Install root dependencies
-        run: npm ci
+        run: npm install --legacy-peer-deps
 
       - name: Install client dependencies
         working-directory: ./client
-        run: npm ci
+        run: npm install --legacy-peer-deps
 
       - name: Build React client
         working-directory: ./client
