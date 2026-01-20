@@ -54,9 +54,8 @@ const Toast = ({ id, type, title, message, duration = 5000, onClose, action }) =
 
   return (
     <div
-      className={`fixed top-4 right-4 z-50 max-w-sm w-full animate-slide-in ${
-        isExiting ? 'animate-slide-out' : ''
-      }`}
+      className={`max-w-sm w-full animate-slide-in ${isExiting ? 'animate-slide-out' : ''
+        }`}
       style={{
         animation: isExiting
           ? 'slideOut 0.3s ease-in forwards'
