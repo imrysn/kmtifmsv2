@@ -1,6 +1,6 @@
 {
   "name": "KMTI-File-Management",
-  "version": "2.1.6-test",
+  "version": "2.1.7-test",
   "description": "Desktop application with React, Electron, Express, and MySQL",
   "main": "main.js",
   "scripts": {
