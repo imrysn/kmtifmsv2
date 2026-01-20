@@ -149,7 +149,7 @@
         }
       ],
       "icon": "client/src/assets/fms-icon.ico",
-      "publisherName": "KMTI",
+      "publisherName": "Kusakabe & Maeno Tech., Inc.",
       "verifyUpdateCodeSignature": false,
       "requestedExecutionLevel": "asInvoker"
     },
