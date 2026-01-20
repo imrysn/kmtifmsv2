@@ -4,6 +4,7 @@ const { spawn } = require('child_process');
 const http = require('http');
 const fs = require('fs');
 const updaterWindow = require('./updater-window');
+const updater = require('./updater'); // Import updater module for window registration
 
 let mainWindow;
 let splashWindow;
@@ -18,8 +19,8 @@ const isProduction = !isDev;
 const SERVER_PORT = process.env.EXPRESS_PORT || 3001;
 const VITE_URL = 'http://localhost:5173';
 const EXPRESS_CHECK_INTERVAL = 500;
-const MAX_EXPRESS_WAIT = 30000; 
-const MAX_VITE_WAIT = 60000; 
+const MAX_EXPRESS_WAIT = 30000;
+const MAX_VITE_WAIT = 60000;
 const MAX_LOAD_RETRIES = 10;
 const SPLASH_TIMEOUT = 15000; // 15 second max for splash screen
 
@@ -47,7 +48,7 @@ function log(level, message, ...args) {
       [LogLevel.INFO]: '✅',
       [LogLevel.DEBUG]: '🔍'
     }[level] || '📝';
-    
+
     console.log(`${prefix} ${message}`, ...args);
   }
 }
@@ -377,7 +378,13 @@ function createSplashWindow() {
   splashWindow.once('ready-to-show', () => {
     splashWindow.show();
     log(LogLevel.INFO, 'Splash window shown');
-    
+
+    // Register splash window with updater for IPC communication
+    if (isProduction) {
+      updater.setSplashWindow(splashWindow);
+      log(LogLevel.INFO, 'Splash window registered with updater');
+    }
+
     // Safety timeout: force close splash after max time
     splashTimeout = setTimeout(() => {
       if (splashWindow && !splashWindow.isDestroyed()) {
@@ -399,21 +406,21 @@ function createSplashWindow() {
 function validateProductionBuild() {
   const indexPath = path.join(__dirname, 'client/dist/index.html');
   const distPath = path.join(__dirname, 'client/dist');
-  
+
   if (!fs.existsSync(distPath)) {
     throw new Error('client/dist directory not found. Run: npm run client:build');
   }
-  
+
   if (!fs.existsSync(indexPath)) {
     throw new Error('client/dist/index.html not found. Run: npm run client:build');
   }
-  
+
   // Check if dist has content
   const files = fs.readdirSync(distPath);
   if (files.length < 2) { // Should have at least index.html and assets
     throw new Error('client/dist appears to be empty. Run: npm run client:build');
   }
-  
+
   log(LogLevel.INFO, 'Production build validated');
   return indexPath;
 }
@@ -421,15 +428,15 @@ function validateProductionBuild() {
 function createWindow() {
   const primaryDisplay = screen.getPrimaryDisplay();
   const { width: screenWidth, height: screenHeight } = primaryDisplay.workAreaSize;
-  
+
   const windowWidth = Math.floor(screenWidth * 0.8);
   const windowHeight = Math.floor(screenHeight * 0.8);
   const shouldAutoMaximize = screenWidth <= 1920 || screenHeight <= 1080;
-  
+
   log(LogLevel.DEBUG, `Screen detected: ${screenWidth}x${screenHeight}`);
   log(LogLevel.DEBUG, `Window size: ${windowWidth}x${windowHeight}`);
   log(LogLevel.DEBUG, `Auto-maximize: ${shouldAutoMaximize ? 'Yes' : 'No'}`);
-  
+
   mainWindow = new BrowserWindow({
     width: windowWidth,
     height: windowHeight,
@@ -465,13 +472,19 @@ function createWindow() {
       clearTimeout(splashTimeout);
       splashTimeout = null;
     }
-    
+
     // Close splash window
     if (splashWindow && !splashWindow.isDestroyed()) {
       splashWindow.destroy();
       log(LogLevel.INFO, 'Splash window closed');
     }
-    
+
+    // Register main window with updater for IPC communication
+    if (isProduction) {
+      updater.setMainWindow(mainWindow);
+      log(LogLevel.INFO, 'Main window registered with updater');
+    }
+
     mainWindow.show();
     log(LogLevel.INFO, 'Main Electron window opened!');
   });
@@ -566,7 +579,7 @@ function checkViteServer() {
         resolve(false);
       }
     });
-    
+
     req.on('error', () => resolve(false));
     req.on('timeout', () => {
       req.destroy();
@@ -581,7 +594,7 @@ function checkExpressServer() {
     const req = http.get(`http://localhost:${SERVER_PORT}`, { timeout: 1000 }, (res) => {
       resolve(res.statusCode < 500);
     });
-    
+
     req.on('error', () => resolve(false));
     req.on('timeout', () => {
       req.destroy();
@@ -649,25 +662,25 @@ function startServer() {
     // ... (Keep the rest of your logging/event listener logic from here down) ...
     let serverReady = false;
     let startTimeout;
-    
+
     serverProcess.stdout.on('data', (data) => {
-       // ... keep existing code ...
-       const output = data.toString().trim();
-       if (output) {
-         if (currentLogLevel >= LogLevel.DEBUG) console.log(`📡 ${output}`);
-         if ((output.includes('running') || output.includes('listening')) && !serverReady) {
-           serverReady = true;
-           clearTimeout(startTimeout);
-           log(LogLevel.INFO, 'Express server is ready!');
-           resolve();
-         }
-       }
+      // ... keep existing code ...
+      const output = data.toString().trim();
+      if (output) {
+        if (currentLogLevel >= LogLevel.DEBUG) console.log(`📡 ${output}`);
+        if ((output.includes('running') || output.includes('listening')) && !serverReady) {
+          serverReady = true;
+          clearTimeout(startTimeout);
+          log(LogLevel.INFO, 'Express server is ready!');
+          resolve();
+        }
+      }
     });
 
     serverProcess.stderr.on('data', (data) => {
       // ... keep existing code ...
-       const error = data.toString().trim();
-       if (error && !error.includes('Warning')) log(LogLevel.WARN, `Server: ${error}`);
+      const error = data.toString().trim();
+      if (error && !error.includes('Warning')) log(LogLevel.WARN, `Server: ${error}`);
     });
 
     serverProcess.on('error', (error) => {
@@ -707,7 +720,7 @@ function waitForViteServer() {
       if (attempts > maxAttempts) {
         log(LogLevel.WARN, `Vite server did not start within ${MAX_VITE_WAIT / 1000}s`);
         log(LogLevel.WARN, 'Proceeding anyway - fallback page will be shown...');
-        resolve(); 
+        resolve();
         return;
       }
 
@@ -740,7 +753,7 @@ function shutdownServer() {
   if (serverProcess && !serverProcess.killed) {
     log(LogLevel.INFO, 'Stopping Express server...');
     serverProcess.kill('SIGTERM');
-    
+
     setTimeout(() => {
       if (serverProcess && !serverProcess.killed) {
         serverProcess.kill('SIGKILL');
@@ -814,10 +827,21 @@ if (app) {
       // CRITICAL FIX: Initialize standalone updater window AFTER main windows are created
       // This ensures the updater runs independently of the main application
       if (isProduction) {
-        // Start automatic update checks in BACKGROUND (non-blocking)
-        // Updates will show in dedicated updater window
-        setImmediate(() => {
-          const updater = require('./updater');
+        // Run health check to verify app is working after potential update
+        setImmediate(async () => {
+          try {
+            const healthy = await updater.checkStartupHealth();
+            if (healthy) {
+              log(LogLevel.INFO, 'Startup health check passed');
+            } else {
+              log(LogLevel.WARN, 'Startup health check failed - update may have issues');
+            }
+          } catch (error) {
+            log(LogLevel.ERROR, 'Health check error:', error.message);
+          }
+
+          // Start automatic update checks in BACKGROUND (non-blocking)
+          // Updates will show in dedicated updater window
           updater.startPeriodicUpdateCheck();
           log(LogLevel.INFO, 'Standalone updater system initialized');
         });
@@ -828,13 +852,13 @@ if (app) {
       if (splashWindow && !splashWindow.isDestroyed()) {
         splashWindow.destroy();
       }
-      
+
       // Show error dialog
       dialog.showErrorBox(
         'Startup Failed',
         `The application failed to start:\n\n${error.message}\n\nPlease check the logs and try again.`
       );
-      
+
       app.quit();
     }
   });
@@ -850,7 +874,7 @@ if (app) {
     if (splashWindow && !splashWindow.isDestroyed()) {
       splashWindow.destroy();
     }
-    
+
     if (splashTimeout) {
       clearTimeout(splashTimeout);
     }
@@ -866,11 +890,11 @@ if (app) {
     if (splashWindow && !splashWindow.isDestroyed()) {
       splashWindow.destroy();
     }
-    
+
     if (splashTimeout) {
       clearTimeout(splashTimeout);
     }
-    
+
     shutdownServer();
   });
 }
@@ -894,13 +918,13 @@ if (ipcMain) {
       // Try to get network path from environment or config
       // Default to a common Windows network share path
       const networkPath = process.env.NETWORK_PROJECTS_PATH || '\\\\KMTI-NAS\\Shared\\Public\\PROJECTS';
-      
+
       // Check if path exists
       if (fs.existsSync(networkPath)) {
         log(LogLevel.DEBUG, 'Network projects path found:', networkPath);
         return networkPath;
       }
-      
+
       log(LogLevel.DEBUG, 'Network projects path not found, returning null');
       return null;
     } catch (error) {
@@ -919,7 +943,7 @@ if (ipcMain) {
 
       // Normalize the path for Windows
       const normalizedPath = path.normalize(filePath);
-      
+
       // SECURITY: Check if file exists before attempting to open
       // This prevents attempting to open non-existent or invalid paths
       if (!fs.existsSync(normalizedPath)) {

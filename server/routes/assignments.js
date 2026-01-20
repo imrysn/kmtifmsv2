@@ -351,6 +351,18 @@ router.get('/team-leader/:team', async (req, res) => {
 
       assignment.recent_submissions = recentSubmissions || [];
 
+      // Get team leader info
+      const teamLeader = await queryOne(
+        'SELECT fullName, username, email FROM users WHERE id = ?',
+        [assignment.team_leader_id || assignment.teamLeaderId]
+      );
+
+      if (teamLeader) {
+        assignment.team_leader_fullname = teamLeader.fullName;
+        assignment.team_leader_username = teamLeader.username;
+        assignment.team_leader_email = teamLeader.email;
+      }
+
       // Debug log
       if (assignment.submission_count > 0 && (!recentSubmissions || recentSubmissions.length === 0)) {
         console.log(`WARNING: Assignment ${assignment.id} has submission_count ${assignment.submission_count} but no recent_submissions`);
