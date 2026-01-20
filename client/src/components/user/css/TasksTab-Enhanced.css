@@ -1169,6 +1169,19 @@
   opacity: 0.6;
 }
 
+/* Global textarea color fix - Ensure all textareas have visible text */
+textarea {
+  color: #1a1a1a !important;
+}
+
+textarea::placeholder {
+  color: #9ca3af !important;
+}
+
+textarea:focus {
+  color: #1a1a1a !important;
+}
+
 /* File Description Text */
 .file-description-text {
   color: #1F2937 !important;

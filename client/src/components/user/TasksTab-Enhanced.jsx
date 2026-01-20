@@ -329,11 +329,30 @@ const TasksTab = ({ user }) => {
   };
 
   const getStatusBadge = (assignment) => {
+    // If assignment has submitted files, show SUBMITTED status regardless of due date
+    if (assignment.submitted_files && assignment.submitted_files.length > 0) {
+      return (
+        <span style={{
+          backgroundColor: '#F0FDF4',
+          color: '#15803D',
+          padding: '4px 12px',
+          borderRadius: '20px',
+          fontSize: '12px',
+          fontWeight: '600',
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: '4px'
+        }}>
+          ✓ SUBMITTED
+        </span>
+      )
+    }
+
     const dueDate = new Date(assignment.due_date)
     const now = new Date()
     const daysUntilDue = Math.ceil((dueDate - now) / (1000 * 60 * 60 * 24))
 
-    // Check if submitted but no files - show MISSING
+    // Check if marked as submitted but no files - show MISSING
     if (assignment.user_status === 'submitted' && (!assignment.submitted_files || assignment.submitted_files.length === 0)) {
       return (
         <span style={{
@@ -348,22 +367,6 @@ const TasksTab = ({ user }) => {
           gap: '4px'
         }}>
           ⚠️ MISSING
-        </span>
-      )
-    } else if (assignment.user_status === 'submitted') {
-      return (
-        <span style={{
-          backgroundColor: '#F0FDF4',
-          color: '#15803D',
-          padding: '4px 12px',
-          borderRadius: '20px',
-          fontSize: '12px',
-          fontWeight: '600',
-          display: 'inline-flex',
-          alignItems: 'center',
-          gap: '4px'
-        }}>
-          ✓ SUBMITTED
         </span>
       )
     } else if (daysUntilDue < 0) {
@@ -403,6 +406,11 @@ const TasksTab = ({ user }) => {
   }
 
   const getDaysText = (assignment) => {
+    // If files are submitted, don't show overdue text
+    if (assignment.submitted_files && assignment.submitted_files.length > 0) {
+      return ''
+    }
+
     const dueDate = new Date(assignment.due_date)
     const now = new Date()
     const daysUntilDue = Math.ceil((dueDate - now) / (1000 * 60 * 60 * 24))
@@ -709,13 +717,14 @@ const TasksTab = ({ user }) => {
                   <div style={{ textAlign: 'right' }}>
                     <div style={{ fontSize: '14px', fontWeight: '500', color: '#000000' }}>
                       Due: {assignment.due_date ? formatDate(assignment.due_date) : 'No due date'}
-                      {daysLeft !== null && (
+                      {/* Only show overdue text if no files submitted */}
+                      {daysLeft !== null && daysLeft < 0 && (!assignment.submitted_files || assignment.submitted_files.length === 0) && (
                         <span style={{ 
                           color: '#DC2626',
                           fontWeight: '400',
                           marginLeft: '4px'
                         }}>
-                          {daysLeft < 0 ? `(${Math.abs(daysLeft)} days overdue)` : ''}
+                          ({Math.abs(daysLeft)} days overdue)
                         </span>
                       )}
                     </div>
@@ -1529,7 +1538,8 @@ const TasksTab = ({ user }) => {
                             fontSize: '14px',
                             fontFamily: 'inherit',
                             resize: 'vertical',
-                            backgroundColor: '#ffffff'
+                            backgroundColor: '#ffffff',
+                            color: '#1a1a1a'
                           }}
                         />
                       </div>

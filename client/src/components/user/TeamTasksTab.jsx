@@ -199,8 +199,12 @@ const TeamTasksTab = ({ user }) => {
     })
   }
 
-  const formatDaysLeft = (dateString) => {
+  const formatDaysLeft = (dateString, hasSubmissions) => {
     if (!dateString) return ''
+    
+    // If there are submissions, don't show overdue text
+    if (hasSubmissions) return ''
+    
     const date = new Date(dateString)
     const now = new Date()
     const diffTime = date - now
@@ -560,19 +564,7 @@ const TeamTasksTab = ({ user }) => {
                       </div>
                     </div>
                   </div>
-                  <div className="team-task-header-right">
-                    {assignment.due_date && (
-                      <div className="team-task-due-date">
-                        Due: {formatDate(assignment.due_date)}
-                        <span
-                          className="days-left"
-                          style={{ color: getStatusColor(assignment.due_date) }}
-                        >
-                          {' '}({formatDaysLeft(assignment.due_date)})
-                        </span>
-                      </div>
-                    )}
-                  </div>
+
                 </div>
 
                 {/* Task Title */}
