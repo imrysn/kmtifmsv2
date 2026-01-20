@@ -53,20 +53,12 @@ jobs:
           VERSION="${{ steps.version.outputs.VERSION }}"
           npm version $VERSION --no-git-tag-version --allow-same-version
 
-      - name: Add msbuild to PATH
-        uses: microsoft/setup-msbuild@v2
-        
-      - name: Setup Visual Studio shell
-        uses: egor-tensin/vs-shell@v2
-        with:
-          arch: x64
-
       - name: Install root dependencies
-        run: npm install --legacy-peer-deps
+        run: npm ci
 
       - name: Install client dependencies
         working-directory: ./client
-        run: npm install --legacy-peer-deps
+        run: npm ci
 
       - name: Build React client
         working-directory: ./client
