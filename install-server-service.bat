@@ -36,34 +36,22 @@ cd /d "%SCRIPT_DIR%"
 REM Remove trailing backslash if present
 if "%SCRIPT_DIR:~-1%"=="\" set "SCRIPT_DIR=%SCRIPT_DIR:~0,-1%"
 
-echo Setting up KMTI FMS Server to run as a background service...
+echo Setting up KMTI FMS Server...
 echo.
 
-REM Check if server executable and VBScript exist
+REM Check if server executable exists
 if not exist "%SCRIPT_DIR%\KMTI_FMS_Server.exe" (
     echo ERROR: KMTI_FMS_Server.exe not found in %SCRIPT_DIR%
     echo.
     echo Please ensure:
     echo 1. This script is run from the same folder as KMTI_FMS_Server.exe
-    echo 2. All server files are extracted from the ZIP file
-    echo.
-    pause
-    exit /b 1
-)
-
-if not exist "%SCRIPT_DIR%\run-server-hidden.vbs" (
-    echo ERROR: run-server-hidden.vbs not found in %SCRIPT_DIR%
-    echo.
-    echo Please ensure:
-    echo 1. All files from the ZIP are extracted
-    echo 2. The run-server-hidden.vbs file is present
+    echo 2. You have built the server executable using 'npm run build:server-exe'
     echo.
     pause
     exit /b 1
 )
 
 echo ✅ Found server executable: %SCRIPT_DIR%\KMTI_FMS_Server.exe
-echo ✅ Found VBScript wrapper: %SCRIPT_DIR%\run-server-hidden.vbs
 echo.
 
 REM Check if NSSM is available (Non-Sucking Service Manager)
@@ -93,76 +81,63 @@ nssm start "KMTI FMS Server"
 if %errorLevel% == 0 (
     echo ✅ Windows service installed and started successfully
     echo The server will run in the background without any windows.
+    goto :success
 ) else (
-    echo ❌ Failed to install Windows service
-    goto :vbs_install
+    echo ❌ NSSM Installation failed, trying Task Scheduler...
+    goto :task_scheduler_install
 )
 
-goto :success
-
 :task_scheduler_install
-echo Creating Windows Task Scheduler entry...
+echo Creating Windows Task Scheduler entry for background startup...
 
-REM Try system-wide startup first (administrator mode)
-echo Attempting to create system startup task...
-
-REM Create a scheduled task that runs on system startup
+REM Create a scheduled task that runs on system startup with highest privileges
 schtasks /create /tn "KMTI FMS Server" /tr "\"%SCRIPT_DIR%\KMTI_FMS_Server.exe\"" /sc onstart /rl highest /f /NP
 
 if %errorLevel% == 0 (
     echo ✅ System startup task created successfully
     echo The server will start automatically when the computer boots for all users.
-    REM Start server immediately
-    echo Starting server now...
-    wscript.exe "%SCRIPT_DIR%\run-server-hidden.vbs"
-    goto :success
+    
+    REM Start server immediately using VBS to hide window
+    echo Starting server in background now...
+    goto :create_vbs_wrapper
 ) else (
-    echo ⚠️  System startup task failed, trying user startup instead...
-    goto :vbs_install
+    echo ⚠️  System startup task failed, trying User Startup fallback...
+    goto :user_startup_fallback
 )
 
-:vbs_install
-echo Creating background launcher using VBScript...
+:user_startup_fallback
+echo Creating user-level startup fallback...
 
-REM Create a VBScript that runs the server hidden
+REM Use PowerShell to create a robust shortcut in the Startup folder
+set "STARTUP_DIR=%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup"
+set "SHORTCUT_NAME=KMTI_FMS_Server.lnk"
+
+echo Creating startup shortcut...
+powershell -command "$WshShell = New-Object -comObject WScript.Shell; $Shortcut = $WshShell.CreateShortcut('%STARTUP_DIR%\%SHORTCUT_NAME%'); $Shortcut.TargetPath = '%SCRIPT_DIR%\KMTI_FMS_Server.exe'; $Shortcut.WorkingDirectory = '%SCRIPT_DIR%'; $Shortcut.Description = 'KMTI File Management System Server'; $Shortcut.WindowStyle = 7; $Shortcut.Save()"
+
+if %errorLevel% == 0 (
+    echo ✅ User startup shortcut created successfully (Minimized mode)
+    echo The server will start when you log in.
+) else (
+    echo ⚠️  Shortcut creation failed, standard VBS fallback...
+)
+
+:create_vbs_wrapper
+REM Create a VBScript that runs the server hidden (used for immediate start and general backgrounding)
 set "VBS_FILE=%SCRIPT_DIR%\run-server-hidden.vbs"
 
-echo Creating VBScript launcher...
-(
-echo Set WshShell = CreateObject^("WScript.Shell"^)
-echo WshShell.Run chr^(34^) ^& "%SCRIPT_DIR%\KMTI_FMS_Server.exe" ^& chr^(34^), 0
-echo Set WshShell = Nothing
-) > "%VBS_FILE%"
-
-REM Create a batch file to start the VBScript
-set "START_FILE=%SCRIPT_DIR%\start-server-service.bat"
-(
-echo @echo off
-echo echo Starting KMTI FMS Server in background...
-echo wscript.exe "%VBS_FILE%"
-echo echo Server started successfully ^(running hidden^)
-echo exit
-) > "%START_FILE%"
-
-REM Add to startup (hidden mode)
-set "STARTUP_DIR=%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup"
-set "SHORTCUT_NAME=KMTI_FMS_Server_Background.vbs"
-
-if not exist "%STARTUP_DIR%\%SHORTCUT_NAME%" (
-    copy "%VBS_FILE%" "%STARTUP_DIR%\%SHORTCUT_NAME%" >nul
-    echo ✅ Created startup shortcut for background server
-) else (
-    echo ✅ Startup shortcut already exists
+if not exist "%VBS_FILE%" (
+    echo Creating VBScript background launcher...
+    (
+    echo Set WshShell = CreateObject^("WScript.Shell"^)
+    echo WshShell.Run chr^(34^) ^& "%SCRIPT_DIR%\KMTI_FMS_Server.exe" ^& chr^(34^), 0
+    echo Set WshShell = Nothing
+    ) > "%VBS_FILE%"
 )
 
 REM Start server immediately
-echo Starting server in background now...
 wscript.exe "%VBS_FILE%"
-
 echo ✅ Server started in background mode
-echo No console windows will appear.
-
-goto :success
 
 :success
 echo.
@@ -170,7 +145,7 @@ echo ========================================
 echo ✅ SERVICE SETUP COMPLETE!
 echo ========================================
 echo.
-echo The KMTI FMS Server is now running as a background service.
+echo The KMTI FMS Server is now configured for background operation.
 echo.
 echo ┌─────────────────────────────────────────────────────────────┐
 echo │                    🎯 WHAT THIS MEANS                        │
@@ -182,28 +157,9 @@ echo │  ✓ Desktop app connects instantly                          │
 echo │  ✓ No manual server management needed                      │
 echo └─────────────────────────────────────────────────────────────┘
 echo.
-echo Current Status:
-sc query "KMTI FMS Server" 2>nul | find "STATE" >nul
-if %errorLevel% == 0 (
-    echo ✅ Windows Service: RUNNING
-) else (
-    schtasks /query /tn "KMTI FMS Server" 2>nul | find "Ready" >nul
-    if %errorLevel% == 0 (
-        echo ✅ Task Scheduler: CONFIGURED ^(will run on startup^)
-    ) else (
-        echo ✅ Background Process: RUNNING ^(via VBScript^)
-    )
-)
-echo.
-echo To check server status:
-echo • Open Task Manager ^-^> Processes tab
-echo • Look for KMTI_FMS_Server.exe
-echo • Or check if port 3001 is listening
-echo.
-echo To stop the server:
-echo • Windows Service: sc stop "KMTI FMS Server"
-echo • Background Process: End task in Task Manager
-echo.
-echo You can now use the KMTI FMS desktop application normally!
+echo Troubleshooting:
+echo • Look for KMTI_FMS_Server.exe in Task Manager
+echo • Check if port 3001 is listening
+echo • If it fails to start, run start-server.bat manually
 echo.
 pause
