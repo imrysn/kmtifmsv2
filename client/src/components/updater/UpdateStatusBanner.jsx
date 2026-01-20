@@ -142,11 +142,11 @@ const UpdateStatusBanner = () => {
 
   return (
     <div
-      className="fixed bottom-4 right-4 z-[9999] animate-slide-up"
+      className="fixed top-4 left-1/2 transform -translate-x-1/2 z-[99999] animate-slide-down"
       style={{
-        animation: 'slideUp 0.3s ease-out',
-        maxWidth: '400px',
-        minWidth: '320px'
+        animation: 'slideDown 0.3s ease-out',
+        maxWidth: '500px',
+        minWidth: '400px'
       }}
     >
       <div className={`${config.bgColor} text-white rounded-lg shadow-2xl overflow-hidden`}>
@@ -159,11 +159,11 @@ const UpdateStatusBanner = () => {
 
             {/* Content */}
             <div className="flex-1 min-w-0">
-              <div className="font-semibold text-sm mb-1">
+              <div className="font-semibold text-base mb-1">
                 {config.title}
               </div>
               {config.message && (
-                <div className="text-xs opacity-90">
+                <div className="text-sm opacity-90">
                   {config.message}
                 </div>
               )}
@@ -194,7 +194,7 @@ const UpdateStatusBanner = () => {
             <div className="mt-3 flex justify-end">
               <button
                 onClick={config.actionButton.onClick}
-                className="px-4 py-2 bg-white text-gray-900 rounded-md text-sm font-medium hover:bg-opacity-90 transition-all hover:scale-105 shadow-lg"
+                className="px-5 py-2.5 bg-white text-gray-900 rounded-md text-sm font-semibold hover:bg-opacity-90 transition-all hover:scale-105 shadow-lg"
               >
                 {config.actionButton.label}
               </button>
@@ -204,13 +204,13 @@ const UpdateStatusBanner = () => {
       </div>
 
       <style jsx>{`
-        @keyframes slideUp {
+        @keyframes slideDown {
           from {
-            transform: translateY(100%);
+            transform: translate(-50%, -100%);
             opacity: 0;
           }
           to {
-            transform: translateY(0);
+            transform: translate(-50%, 0);
             opacity: 1;
           }
         }

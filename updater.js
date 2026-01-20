@@ -90,7 +90,7 @@ class UpdateStateManager {
 
   shouldRevert() {
     return this.state.pendingUpdateVerification &&
-           this.state.consecutiveFailures >= MAX_STARTUP_FAILURES;
+      this.state.consecutiveFailures >= MAX_STARTUP_FAILURES;
   }
 
   async rollbackUpdate() {
@@ -133,7 +133,7 @@ class AppUpdater {
     this.splashWindow = null;
     this.updateCheckInterval = null;
     this.healthCheckTimer = null;
-    
+
     // Configure autoUpdater
     this.configureAutoUpdater();
   }
@@ -281,7 +281,7 @@ class AppUpdater {
     try {
       this.stateManager.state.lastUpdateCheck = Date.now();
       this.stateManager.saveState();
-      
+
       await autoUpdater.checkForUpdates();
     } catch (error) {
       console.error('❌ Failed to check for updates:', error.message);
@@ -292,17 +292,18 @@ class AppUpdater {
   startPeriodicUpdateCheck() {
     if (isDev) return;
 
-    // Initial check after 30 seconds
+    // Check for updates on app startup (after 5 seconds to let app initialize)
     setTimeout(() => {
+      console.log('🔍 Checking for updates on app startup...');
       this.checkForUpdates();
-    }, 30000);
+    }, 5000);
 
-    // Periodic checks
+    // Periodic checks every 4 hours
     this.updateCheckInterval = setInterval(() => {
       this.checkForUpdates();
     }, UPDATE_CHECK_INTERVAL);
 
-    console.log(`🔄 Periodic update checks enabled (every ${UPDATE_CHECK_INTERVAL / 3600000} hours)`);
+    console.log(`🔄 Automatic updates enabled (checks on startup + every ${UPDATE_CHECK_INTERVAL / 3600000} hours)`);
   }
 
   stopPeriodicUpdateCheck() {
@@ -319,7 +320,7 @@ class AppUpdater {
     }
 
     console.log('🔄 Preparing to install update and restart...');
-    
+
     // Mark that we're about to update
     this.stateManager.markPendingVerification(
       this.stateManager.state.lastUpdateVersion || 'unknown'
@@ -343,7 +344,7 @@ class AppUpdater {
   // Health check system
   async runHealthCheck() {
     console.log('🏥 Running post-update health check...');
-    
+
     return new Promise((resolve) => {
       const checks = {
         windowRender: false,
