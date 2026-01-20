@@ -1,6 +1,6 @@
 {
   "name": "KMTI-File-Management",
-  "version": "2.1.4",
+  "version": "2.1.6-test",
   "description": "Desktop application with React, Electron, Express, and MySQL",
   "main": "main.js",
   "scripts": {
@@ -112,6 +112,7 @@
       "updater.js",
       "updater-window.js",
       "updater-preload.js",
+      "server/utils/**/*",
       "client/dist/**/*",
       "client/src/assets/fms-icon.ico",
       "client/src/assets/fms-icon.png",

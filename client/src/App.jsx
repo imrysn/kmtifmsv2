@@ -9,6 +9,7 @@ import UserDashboard from './pages/UserDashboard-Enhanced'
 import TeamLeaderDashboard from './pages/TeamLeaderDashboard-Refactored'
 import AdminDashboard from './pages/AdminDashboard'
 import ToastContainer from './components/common/ToastContainer'
+import UpdateStatusBanner from './components/updater/UpdateStatusBanner'
 
 const logger = createLogger('App')
 
@@ -47,9 +48,9 @@ function App() {
   // Get the appropriate dashboard component based on user's panel type
   const getDashboardComponent = () => {
     if (!user) return null
-    
+
     logger.logNavigation('login', `${user.panelType}-dashboard`)
-    
+
     switch (user.panelType) {
       case 'user':
         return <UserDashboard user={user} onLogout={handleLogout} />
@@ -69,18 +70,21 @@ function App() {
         {/* Toast notifications for updates */}
         <ToastContainer />
 
+        {/* Update status banner for automatic updates */}
+        <UpdateStatusBanner />
+
         <Routes>
-          <Route 
-            path="/login" 
-            element={!user ? <Login onLogin={handleLogin} /> : <Navigate to="/dashboard" replace />} 
+          <Route
+            path="/login"
+            element={!user ? <Login onLogin={handleLogin} /> : <Navigate to="/dashboard" replace />}
           />
-          <Route 
-            path="/dashboard" 
-            element={user ? getDashboardComponent() : <Navigate to="/login" replace />} 
+          <Route
+            path="/dashboard"
+            element={user ? getDashboardComponent() : <Navigate to="/login" replace />}
           />
-          <Route 
-            path="/" 
-            element={<Navigate to={user ? "/dashboard" : "/login"} replace />} 
+          <Route
+            path="/"
+            element={<Navigate to={user ? "/dashboard" : "/login"} replace />}
           />
         </Routes>
       </div>
