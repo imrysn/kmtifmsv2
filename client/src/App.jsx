@@ -9,7 +9,6 @@ import UserDashboard from './pages/UserDashboard-Enhanced'
 import TeamLeaderDashboard from './pages/TeamLeaderDashboard-Refactored'
 import AdminDashboard from './pages/AdminDashboard'
 import ToastContainer from './components/common/ToastContainer'
-import UpdateStatusBanner from './components/updater/UpdateStatusBanner'
 
 const logger = createLogger('App')
 
@@ -67,11 +66,8 @@ function App() {
   return (
     <Router>
       <div className="app">
-        {/* Toast notifications for updates */}
+        {/* Toast notifications - handles ALL notifications including updates */}
         <ToastContainer />
-
-        {/* Update status banner for automatic updates */}
-        <UpdateStatusBanner />
 
         <Routes>
           <Route

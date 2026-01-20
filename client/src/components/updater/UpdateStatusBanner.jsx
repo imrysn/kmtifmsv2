@@ -1,20 +1,17 @@
-import React, { useState, useEffect } from 'react';
-import { Download, CheckCircle, AlertCircle, X, RefreshCw } from 'lucide-react';
+import React, { useEffect } from 'react';
+import { toast } from 'react-toastify';
+import { Download, CheckCircle, AlertCircle, RefreshCw } from 'lucide-react';
 
 /**
  * UpdateStatusBanner Component
  * 
- * Displays update status and progress in the React renderer.
- * - Non-intrusive toast-style notification
+ * Displays update notifications using toast system.
+ * - Uses existing ToastContainer
+ * - Non-intrusive toast notifications
  * - Real-time update progress
- * - Dismissible where appropriate
  * - Production-only visibility
  */
 const UpdateStatusBanner = () => {
-  const [updateStatus, setUpdateStatus] = useState(null);
-  const [isDismissed, setIsDismissed] = useState(false);
-  const [isVisible, setIsVisible] = useState(false);
-
   useEffect(() => {
     // Only show in production Electron environment
     if (!window.updater) {
@@ -24,9 +21,7 @@ const UpdateStatusBanner = () => {
     // Subscribe to update events
     const unsubscribe = window.updater.onStatus((data) => {
       console.log('📦 Update status:', data);
-      setUpdateStatus(data);
-      setIsVisible(true);
-      setIsDismissed(false);
+      handleUpdateStatus(data);
     });
 
     // Cleanup subscription
@@ -35,188 +30,136 @@ const UpdateStatusBanner = () => {
     };
   }, []);
 
-  // Auto-hide after 5 seconds for non-critical statuses
-  useEffect(() => {
-    if (updateStatus?.status === 'not-available' || updateStatus?.status === 'checking') {
-      const timer = setTimeout(() => {
-        setIsVisible(false);
-      }, 5000);
-      return () => clearTimeout(timer);
-    }
-  }, [updateStatus]);
+  const handleUpdateStatus = (status) => {
+    // Dismiss any existing update toasts
+    toast.dismiss('update-notification');
 
-  const handleDismiss = () => {
-    setIsDismissed(true);
-    setIsVisible(false);
-  };
-
-  const handleInstallUpdate = () => {
-    if (window.updater && updateStatus?.status === 'downloaded') {
-      window.updater.restartAndInstall();
-    }
-  };
-
-  const handleCheckForUpdates = () => {
-    if (window.updater) {
-      window.updater.checkForUpdates();
-    }
-  };
-
-  // Don't render if no updater available (dev mode) or dismissed
-  if (!window.updater || isDismissed || !isVisible) {
-    return null;
-  }
-
-  // Don't show for not-available status (no need to inform user)
-  if (updateStatus?.status === 'not-available') {
-    return null;
-  }
-
-  const getStatusConfig = () => {
-    switch (updateStatus?.status) {
+    switch (status.status) {
       case 'checking':
-        return {
-          icon: <RefreshCw className="w-5 h-5 animate-spin" />,
-          title: 'Checking for updates...',
-          message: null,
-          bgColor: 'bg-gradient-to-r from-blue-500 to-blue-600',
-          dismissible: true,
-          actionButton: null
-        };
+        toast.info(
+          <div className="flex items-center gap-3">
+            <RefreshCw className="w-5 h-5 animate-spin flex-shrink-0" />
+            <div>
+              <div className="font-semibold">Checking for updates...</div>
+            </div>
+          </div>,
+          {
+            toastId: 'update-notification',
+            autoClose: 5000,
+            closeButton: true
+          }
+        );
+        break;
 
       case 'available':
-        return {
-          icon: <Download className="w-5 h-5" />,
-          title: 'New Update Available!',
-          message: `Version ${updateStatus.version} is ready to download`,
-          bgColor: 'bg-gradient-to-r from-purple-500 to-purple-600',
-          dismissible: true,
-          actionButton: null
-        };
+        toast.info(
+          <div className="flex items-center gap-3">
+            <Download className="w-5 h-5 flex-shrink-0" />
+            <div>
+              <div className="font-semibold">New Update Available!</div>
+              <div className="text-sm opacity-90">Version {status.version} is ready to download</div>
+            </div>
+          </div>,
+          {
+            toastId: 'update-notification',
+            autoClose: false,
+            closeButton: true
+          }
+        );
+        break;
 
       case 'downloading':
-        return {
-          icon: <Download className="w-5 h-5 animate-bounce" />,
-          title: 'Downloading Update',
-          message: `${updateStatus.percent || 0}% complete`,
-          bgColor: 'bg-gradient-to-r from-blue-500 to-indigo-600',
-          dismissible: false,
-          actionButton: null,
-          showProgress: true,
-          progress: updateStatus.percent || 0
-        };
+        toast.info(
+          <div className="flex items-center gap-3">
+            <Download className="w-5 h-5 animate-bounce flex-shrink-0" />
+            <div className="flex-1">
+              <div className="font-semibold">Downloading Update</div>
+              <div className="text-sm opacity-90 mb-2">{status.percent || 0}% complete</div>
+              <div className="w-full bg-white bg-opacity-20 rounded-full h-2 overflow-hidden">
+                <div
+                  className="h-full bg-white transition-all duration-300 ease-out rounded-full"
+                  style={{ width: `${status.percent || 0}%` }}
+                />
+              </div>
+            </div>
+          </div>,
+          {
+            toastId: 'update-notification',
+            autoClose: false,
+            closeButton: false
+          }
+        );
+        break;
 
       case 'downloaded':
-        return {
-          icon: <CheckCircle className="w-5 h-5" />,
-          title: 'Update Ready to Install',
-          message: `Version ${updateStatus.version} has been downloaded`,
-          bgColor: 'bg-gradient-to-r from-green-500 to-green-600',
-          dismissible: true,
-          actionButton: {
-            label: 'Restart & Install',
-            onClick: handleInstallUpdate
+        toast.success(
+          <div>
+            <div className="flex items-center gap-3 mb-3">
+              <CheckCircle className="w-5 h-5 flex-shrink-0" />
+              <div>
+                <div className="font-semibold">Update Ready to Install</div>
+                <div className="text-sm opacity-90">Version {status.version} has been downloaded</div>
+              </div>
+            </div>
+            <button
+              onClick={() => {
+                if (window.updater) {
+                  window.updater.restartAndInstall();
+                }
+              }}
+              className="w-full px-4 py-2 bg-white text-gray-900 rounded-md text-sm font-semibold hover:bg-opacity-90 transition-all hover:scale-105 shadow-lg"
+            >
+              Restart & Install Now
+            </button>
+          </div>,
+          {
+            toastId: 'update-notification',
+            autoClose: false,
+            closeButton: true
           }
-        };
+        );
+        break;
 
       case 'error':
-        return {
-          icon: <AlertCircle className="w-5 h-5" />,
-          title: 'Update Check Failed',
-          message: updateStatus.message || 'Unable to check for updates',
-          bgColor: 'bg-gradient-to-r from-red-500 to-red-600',
-          dismissible: true,
-          actionButton: {
-            label: 'Retry',
-            onClick: handleCheckForUpdates
+        toast.error(
+          <div>
+            <div className="flex items-center gap-3 mb-3">
+              <AlertCircle className="w-5 h-5 flex-shrink-0" />
+              <div>
+                <div className="font-semibold">Update Check Failed</div>
+                <div className="text-sm opacity-90">{status.message || 'Unable to check for updates'}</div>
+              </div>
+            </div>
+            <button
+              onClick={() => {
+                if (window.updater) {
+                  window.updater.checkForUpdates();
+                }
+              }}
+              className="w-full px-4 py-2 bg-white text-red-900 rounded-md text-sm font-semibold hover:bg-opacity-90 transition-all"
+            >
+              Retry
+            </button>
+          </div>,
+          {
+            toastId: 'update-notification',
+            autoClose: 10000,
+            closeButton: true
           }
-        };
+        );
+        break;
+
+      case 'not-available':
+        // Don't show toast for no updates
+        break;
 
       default:
-        return null;
+        break;
     }
   };
 
-  const config = getStatusConfig();
-  if (!config) return null;
-
-  return (
-    <div
-      className="fixed top-4 left-1/2 transform -translate-x-1/2 z-[99999] animate-slide-down"
-      style={{
-        animation: 'slideDown 0.3s ease-out',
-        maxWidth: '500px',
-        minWidth: '400px'
-      }}
-    >
-      <div className={`${config.bgColor} text-white rounded-lg shadow-2xl overflow-hidden`}>
-        <div className="p-4">
-          <div className="flex items-start gap-3">
-            {/* Icon */}
-            <div className="flex-shrink-0 mt-0.5">
-              {config.icon}
-            </div>
-
-            {/* Content */}
-            <div className="flex-1 min-w-0">
-              <div className="font-semibold text-base mb-1">
-                {config.title}
-              </div>
-              {config.message && (
-                <div className="text-sm opacity-90">
-                  {config.message}
-                </div>
-              )}
-              {config.showProgress && (
-                <div className="mt-3 w-full bg-white bg-opacity-20 rounded-full h-2 overflow-hidden">
-                  <div
-                    className="h-full bg-white transition-all duration-300 ease-out rounded-full"
-                    style={{ width: `${config.progress}%` }}
-                  />
-                </div>
-              )}
-            </div>
-
-            {/* Dismiss Button */}
-            {config.dismissible && (
-              <button
-                onClick={handleDismiss}
-                className="flex-shrink-0 p-1 hover:bg-white hover:bg-opacity-20 rounded transition-colors"
-                aria-label="Dismiss"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            )}
-          </div>
-
-          {/* Action Button */}
-          {config.actionButton && (
-            <div className="mt-3 flex justify-end">
-              <button
-                onClick={config.actionButton.onClick}
-                className="px-5 py-2.5 bg-white text-gray-900 rounded-md text-sm font-semibold hover:bg-opacity-90 transition-all hover:scale-105 shadow-lg"
-              >
-                {config.actionButton.label}
-              </button>
-            </div>
-          )}
-        </div>
-      </div>
-
-      <style jsx>{`
-        @keyframes slideDown {
-          from {
-            transform: translate(-50%, -100%);
-            opacity: 0;
-          }
-          to {
-            transform: translate(-50%, 0);
-            opacity: 1;
-          }
-        }
-      `}</style>
-    </div>
-  );
+  // This component doesn't render anything - it just manages toasts
+  return null;
 };
 
 export default UpdateStatusBanner;
