@@ -1,0 +1,15 @@
+{
+    "testEnvironment": "node",
+    "coverageDirectory": "coverage",
+    "collectCoverageFrom": [
+        "server/**/*.js",
+        "!server/migrations/**",
+        "!server/scripts/**",
+        "!server/db/initialize.js"
+    ],
+    "testMatch": [
+        "**/tests/**/*.test.js"
+    ],
+    "verbose": true,
+    "testTimeout": 10000
+}

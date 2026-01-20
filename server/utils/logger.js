@@ -110,7 +110,7 @@ function logActivity(db, userId, username, role, team, action) {
 
   // Log to database
   const query = `
-    INSERT INTO activity_logs (userId, username, role, team, action, timestamp)
+    INSERT INTO activity_logs (user_id, username, role, team, action, timestamp)
     VALUES (?, ?, ?, ?, ?, ?)
   `;
 
