@@ -40,37 +40,37 @@ const TasksTab = ({ user }) => {
   useEffect(() => {
     const assignmentId = sessionStorage.getItem('scrollToAssignment');
     const highlightUser = sessionStorage.getItem('highlightCommentBy');
-    
+
     // Only run if we have both the session data AND assignments have loaded
     if (assignmentId && assignments.length > 0) {
       console.log('📍 Found assignment to open:', assignmentId);
       console.log('📍 Found user to highlight:', highlightUser);
-      
+
       // Clear the session storage immediately to prevent re-triggering
       sessionStorage.removeItem('scrollToAssignment');
       sessionStorage.removeItem('highlightCommentBy');
-      
+
       // Find the assignment
       const assignment = assignments.find(a => a.id === parseInt(assignmentId));
       if (assignment) {
         console.log('✅ Assignment found, opening comments...');
-        
+
         // Set highlight user if provided
         if (highlightUser) {
           setHighlightCommentBy(highlightUser);
         }
-        
+
         // Open the comments modal for this assignment after a delay
         setTimeout(() => {
           toggleComments(assignment);
-          
+
           // Scroll to the comments modal after it opens
           setTimeout(() => {
             const modalBody = document.querySelector('.tasks-modal-body');
             if (modalBody) {
               modalBody.scrollTop = 0; // Scroll to top to see comments
             }
-            
+
             // Clear highlight after 3 seconds
             setTimeout(() => {
               setHighlightCommentBy(null);
@@ -134,7 +134,7 @@ const TasksTab = ({ user }) => {
     try {
       const response = await fetch(`http://localhost:3001/api/assignments/${assignmentId}/comments`);
       const data = await response.json();
-      
+
       if (data.success) {
         setComments(prev => ({
           ...prev,
@@ -151,7 +151,7 @@ const TasksTab = ({ user }) => {
     if (!commentText) return;
 
     setIsPostingComment(prev => ({ ...prev, [assignmentId]: true }));
-    
+
     try {
       const response = await fetch(`http://localhost:3001/api/assignments/${assignmentId}/comments`, {
         method: 'POST',
@@ -166,7 +166,7 @@ const TasksTab = ({ user }) => {
       });
 
       const data = await response.json();
-      
+
       if (data.success) {
         setNewComment(prev => ({ ...prev, [assignmentId]: '' }));
         fetchComments(assignmentId);
@@ -192,7 +192,7 @@ const TasksTab = ({ user }) => {
     if (!replyTextValue) return;
 
     setIsPostingReply(prev => ({ ...prev, [commentId]: true }));
-    
+
     try {
       console.log('Posting reply:', { assignmentId, commentId, replyTextValue });
       const response = await fetch(`http://localhost:3001/api/assignments/${assignmentId}/comments/${commentId}/reply`, {
@@ -209,7 +209,7 @@ const TasksTab = ({ user }) => {
 
       const data = await response.json();
       console.log('Reply response:', data);
-      
+
       if (data.success) {
         setReplyText(prev => ({ ...prev, [commentId]: '' }));
         setReplyingTo(prev => ({ ...prev, [commentId]: false }));
@@ -289,13 +289,13 @@ const TasksTab = ({ user }) => {
     const date = new Date(dateString);
     const now = new Date();
     const diffInSeconds = Math.floor((now - date) / 1000);
-    
+
     if (diffInSeconds < 60) return 'Just now';
     if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)}m ago`;
     if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)}h ago`;
     if (diffInSeconds < 604800) return `${Math.floor(diffInSeconds / 86400)}d ago`;
     if (diffInSeconds < 2592000) return `${Math.floor(diffInSeconds / 604800)}w ago`;
-    
+
     return formatDate(dateString);
   };
 
@@ -554,7 +554,7 @@ const TasksTab = ({ user }) => {
       }
       fetchAssignments();
       fetchUserFiles();
-      
+
       setTimeout(() => setSuccess(''), 5000);
     } catch (error) {
       console.error('Error uploading files:', error);
@@ -579,11 +579,11 @@ const TasksTab = ({ user }) => {
   };
 
   // Treat assignments with deleted files as pending (allow resubmission)
-  const pendingAssignments = assignments.filter(assignment => 
-    assignment.user_status !== 'submitted' || 
+  const pendingAssignments = assignments.filter(assignment =>
+    assignment.user_status !== 'submitted' ||
     (assignment.user_status === 'submitted' && !assignment.submitted_file_id)
   );
-  const submittedAssignments = assignments.filter(assignment => 
+  const submittedAssignments = assignments.filter(assignment =>
     assignment.user_status === 'submitted' && assignment.submitted_file_id
   );
 
@@ -634,7 +634,7 @@ const TasksTab = ({ user }) => {
             const isCommentsExpanded = expandedComments[assignment.id];
 
             return (
-              <div 
+              <div
                 key={assignment.id}
                 style={{
                   backgroundColor: 'white',
@@ -646,7 +646,7 @@ const TasksTab = ({ user }) => {
                 }}
               >
                 {/* Header with user info and status */}
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>  
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                     <div style={{
                       width: '48px',
@@ -710,7 +710,7 @@ const TasksTab = ({ user }) => {
                     <div style={{ fontSize: '14px', fontWeight: '500', color: '#000000' }}>
                       Due: {assignment.due_date ? formatDate(assignment.due_date) : 'No due date'}
                       {daysLeft !== null && (
-                        <span style={{ 
+                        <span style={{
                           color: '#DC2626',
                           fontWeight: '400',
                           marginLeft: '4px'
@@ -748,158 +748,158 @@ const TasksTab = ({ user }) => {
                     </div>
                     {(() => {
                       // Sort files by submitted_at (newest first)
-                      const sortedFiles = [...assignment.submitted_files].sort((a, b) => 
+                      const sortedFiles = [...assignment.submitted_files].sort((a, b) =>
                         new Date(b.submitted_at || b.uploaded_at) - new Date(a.submitted_at || a.uploaded_at)
                       );
 
                       // Show only first 5 files unless "see more" is clicked
-                      const filesToShow = showAllFiles[assignment.id] 
-                        ? sortedFiles 
+                      const filesToShow = showAllFiles[assignment.id]
+                        ? sortedFiles
                         : sortedFiles.slice(0, 5);
 
                       return (
                         <>
                           {filesToShow.map((file, index) => (
-                      <div 
-                        key={file.id}
-                        className="submitted-file-card"
-                        onClick={async () => {
-                          try {
-                            // Check if running in Electron
-                            if (window.electron && window.electron.openFileInApp) {
-                              // Get the actual file path from server
-                              const response = await fetch(`http://localhost:3001/api/files/${file.id}/path`);
-                              const data = await response.json();
-                              
-                              if (data.success && data.filePath) {
-                                // Open file with system default application
-                                const result = await window.electron.openFileInApp(data.filePath);
-                                
-                                if (!result.success) {
-                                  setError(result.error || 'Failed to open file with system application');
+                            <div
+                              key={file.id}
+                              className="submitted-file-card"
+                              onClick={async () => {
+                                try {
+                                  // Check if running in Electron
+                                  if (window.electron && window.electron.openFileInApp) {
+                                    // Get the actual file path from server
+                                    const response = await fetch(`http://localhost:3001/api/files/${file.id}/path`);
+                                    const data = await response.json();
+
+                                    if (data.success && data.filePath) {
+                                      // Open file with system default application
+                                      const result = await window.electron.openFileInApp(data.filePath);
+
+                                      if (!result.success) {
+                                        setError(result.error || 'Failed to open file with system application');
+                                      }
+                                    } else {
+                                      throw new Error('Could not get file path');
+                                    }
+                                  } else {
+                                    // In browser - get file path and open in new tab
+                                    const response = await fetch(`http://localhost:3001/api/files/${file.id}`);
+                                    const fileData = await response.json();
+
+                                    if (fileData.success && fileData.file) {
+                                      const fileUrl = `http://localhost:3001${fileData.file.file_path}`;
+                                      window.open(fileUrl, '_blank', 'noopener,noreferrer');
+                                    } else {
+                                      throw new Error('Could not get file information');
+                                    }
+                                  }
+                                } catch (error) {
+                                  console.error('Error opening file:', error);
+                                  setError('Failed to open file. Please try again.');
                                 }
-                              } else {
-                                throw new Error('Could not get file path');
-                              }
-                            } else {
-                              // In browser - get file path and open in new tab
-                              const response = await fetch(`http://localhost:3001/api/files/${file.id}`);
-                              const fileData = await response.json();
-                              
-                              if (fileData.success && fileData.file) {
-                                const fileUrl = `http://localhost:3001${fileData.file.file_path}`;
-                                window.open(fileUrl, '_blank', 'noopener,noreferrer');
-                              } else {
-                                throw new Error('Could not get file information');
-                              }
-                            }
-                          } catch (error) {
-                            console.error('Error opening file:', error);
-                            setError('Failed to open file. Please try again.');
-                          }
-                        }}
-                        style={{ cursor: 'pointer' }}
-                      >
-                        <div style={{
-                          display: 'flex',
-                          alignItems: 'flex-start',
-                          gap: '12px',
-                        }}>
-                          <div
-                            style={{
-                              flexShrink: 0
-                            }}
-                          >
-                            <FileIcon 
-                              fileType={(file.original_name || file.filename || 'file').split('.').pop().toLowerCase()} 
-                              isFolder={false}
-                              size="default"
-                              style={{
-                                width: '48px',
-                                height: '48px'
                               }}
-                            />
-                          </div>
-                          <div style={{ flex: 1, minWidth: 0 }}>
-                            <div style={{ 
-                              fontWeight: '500', 
-                              fontSize: '15px', 
-                              color: '#111827',
-                              marginBottom: '6px',
-                              overflow: 'hidden',
-                              textOverflow: 'ellipsis',
-                              whiteSpace: 'nowrap'
-                            }}>
-                              {file.original_name || file.filename}
-                            </div>
-                            <div style={{ 
-                              fontSize: '13px', 
-                              color: '#6b7280',
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: '8px',
-                              flexWrap: 'wrap'
-                            }}>
-                              <span>Submitted by <span style={{ fontWeight: '500', color: '#374151' }}>{file.submitter_name || user.fullName || user.username}</span></span>
-                              <span style={{ color: '#d1d5db' }}>•</span>
-                              <span>on {file.submitted_at ? formatDate(file.submitted_at) : formatDate(file.uploaded_at)}</span>
-                              {file.tag && (
-                                <>
-                                  <span style={{ color: '#d1d5db' }}>•</span>
-                                  <span style={{
-                                    backgroundColor: '#eff6ff',
-                                    color: '#1e40af',
-                                    padding: '2px 10px',
-                                    borderRadius: '12px',
-                                    fontSize: '11px',
-                                    fontWeight: '600',
-                                    border: '1px solid #bfdbfe',
-                                    display: 'inline-flex',
-                                    alignItems: 'center',
-                                    gap: '4px'
+                              style={{ cursor: 'pointer' }}
+                            >
+                              <div style={{
+                                display: 'flex',
+                                alignItems: 'flex-start',
+                                gap: '12px',
+                              }}>
+                                <div
+                                  style={{
+                                    flexShrink: 0
+                                  }}
+                                >
+                                  <FileIcon
+                                    fileType={(file.original_name || file.filename || 'file').split('.').pop().toLowerCase()}
+                                    isFolder={false}
+                                    size="default"
+                                    style={{
+                                      width: '48px',
+                                      height: '48px'
+                                    }}
+                                  />
+                                </div>
+                                <div style={{ flex: 1, minWidth: 0 }}>
+                                  <div style={{
+                                    fontWeight: '500',
+                                    fontSize: '15px',
+                                    color: '#111827',
+                                    marginBottom: '6px',
+                                    overflow: 'hidden',
+                                    textOverflow: 'ellipsis',
+                                    whiteSpace: 'nowrap'
                                   }}>
-                                    <span>🏷️</span> {file.tag}
-                                  </span>
-                                </>
-                              )}
+                                    {file.original_name || file.filename}
+                                  </div>
+                                  <div style={{
+                                    fontSize: '13px',
+                                    color: '#6b7280',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '8px',
+                                    flexWrap: 'wrap'
+                                  }}>
+                                    <span>Submitted by <span style={{ fontWeight: '500', color: '#374151' }}>{file.submitter_name || user.fullName || user.username}</span></span>
+                                    <span style={{ color: '#d1d5db' }}>•</span>
+                                    <span>on {file.submitted_at ? formatDate(file.submitted_at) : formatDate(file.uploaded_at)}</span>
+                                    {file.tag && (
+                                      <>
+                                        <span style={{ color: '#d1d5db' }}>•</span>
+                                        <span style={{
+                                          backgroundColor: '#eff6ff',
+                                          color: '#1e40af',
+                                          padding: '2px 10px',
+                                          borderRadius: '12px',
+                                          fontSize: '11px',
+                                          fontWeight: '600',
+                                          border: '1px solid #bfdbfe',
+                                          display: 'inline-flex',
+                                          alignItems: 'center',
+                                          gap: '4px'
+                                        }}>
+                                          <span>🏷️</span> {file.tag}
+                                        </span>
+                                      </>
+                                    )}
+                                  </div>
+                                </div>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    confirmDeleteFile(assignment.id, file.id, file.original_name || file.filename);
+                                  }}
+                                  style={{
+                                    background: 'transparent',
+                                    color: '#9ca3af',
+                                    border: 'none',
+                                    borderRadius: '6px',
+                                    padding: '6px',
+                                    fontSize: '20px',
+                                    cursor: 'pointer',
+                                    flexShrink: 0,
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    transition: 'all 0.2s',
+                                    lineHeight: 1
+                                  }}
+                                  onMouseEnter={(e) => {
+                                    e.currentTarget.style.backgroundColor = '#fee2e2';
+                                    e.currentTarget.style.color = '#dc2626';
+                                  }}
+                                  onMouseLeave={(e) => {
+                                    e.currentTarget.style.backgroundColor = 'transparent';
+                                    e.currentTarget.style.color = '#9ca3af';
+                                  }}
+                                  title="Remove file"
+                                >
+                                  ×
+                                </button>
+                              </div>
                             </div>
-                          </div>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              confirmDeleteFile(assignment.id, file.id, file.original_name || file.filename);
-                            }}
-                            style={{
-                              background: 'transparent',
-                              color: '#9ca3af',
-                              border: 'none',
-                              borderRadius: '6px',
-                              padding: '6px',
-                              fontSize: '20px',
-                              cursor: 'pointer',
-                              flexShrink: 0,
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              transition: 'all 0.2s',
-                              lineHeight: 1
-                            }}
-                            onMouseEnter={(e) => {
-                              e.currentTarget.style.backgroundColor = '#fee2e2';
-                              e.currentTarget.style.color = '#dc2626';
-                            }}
-                            onMouseLeave={(e) => {
-                              e.currentTarget.style.backgroundColor = 'transparent';
-                              e.currentTarget.style.color = '#9ca3af';
-                            }}
-                            title="Remove file"
-                          >
-                            ×
-                          </button>
-                        </div>
-                      </div>
                           ))}
-                          
+
                           {/* See More / See Less Button */}
                           {sortedFiles.length > 5 && (
                             <button
@@ -947,58 +947,58 @@ const TasksTab = ({ user }) => {
                 )}
 
                 {/* Submit button - Show for assigned users */}
-                {(assignment.assigned_to === 'all' || 
-                 (assignment.assigned_member_details && assignment.assigned_member_details.some(member => member.id === user.id))) && (
-                  <div style={{ paddingTop: '16px' }}>
-                    {/* Show different button text based on submission status */}
-                    <button 
-                      onClick={() => handleSubmit(assignment)}
-                      style={{
-                        backgroundColor: '#f3f4f6',
-                        border: '1px solid #d1d5db',
-                        borderRadius: '6px',
-                        padding: '10px 12px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'flex-start',
-                        width: '100%',
-                        cursor: 'pointer',
-                        transition: 'all 0.2s',
-                        outline: 'none',
-                        gap: '12px'
-                      }}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.backgroundColor = '#e5e7eb';
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.backgroundColor = '#f3f4f6';
-                      }}
-                    >
-                      <span style={{
-                        backgroundColor: assignment.user_status === 'submitted' && assignment.submitted_file_id ? '#059669' : '#000000',
-                        color: '#ffffff',
-                        padding: '6px 16px',
-                        borderRadius: '4px',
-                        fontSize: '14px',
-                        fontWeight: '500',
-                        whiteSpace: 'nowrap'
-                      }}>
-                        {assignment.user_status === 'submitted' && assignment.submitted_file_id ? 'Add more files' : 'Submit file'}
-                      </span>
-                      <span style={{ fontSize: '14px', color: '#6b7280' }}>
-                        {assignment.user_status === 'submitted' && assignment.submitted_file_id 
-                          ? 'Upload additional files' 
-                          : (assignment.user_status === 'submitted' && !assignment.submitted_file_id 
-                            ? 'File was deleted - resubmit' 
-                            : 'No file attached')}
-                      </span>
-                    </button>
-                  </div>
-                )}
+                {(assignment.assigned_to === 'all' ||
+                  (assignment.assigned_member_details && assignment.assigned_member_details.some(member => member.id === user.id))) && (
+                    <div style={{ paddingTop: '16px' }}>
+                      {/* Show different button text based on submission status */}
+                      <button
+                        onClick={() => handleSubmit(assignment)}
+                        style={{
+                          backgroundColor: '#f3f4f6',
+                          border: '1px solid #d1d5db',
+                          borderRadius: '6px',
+                          padding: '10px 12px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'flex-start',
+                          width: '100%',
+                          cursor: 'pointer',
+                          transition: 'all 0.2s',
+                          outline: 'none',
+                          gap: '12px'
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.backgroundColor = '#e5e7eb';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.backgroundColor = '#f3f4f6';
+                        }}
+                      >
+                        <span style={{
+                          backgroundColor: assignment.user_status === 'submitted' && assignment.submitted_file_id ? '#059669' : '#000000',
+                          color: '#ffffff',
+                          padding: '6px 16px',
+                          borderRadius: '4px',
+                          fontSize: '14px',
+                          fontWeight: '500',
+                          whiteSpace: 'nowrap'
+                        }}>
+                          {assignment.user_status === 'submitted' && assignment.submitted_file_id ? 'Add more files' : 'Submit file'}
+                        </span>
+                        <span style={{ fontSize: '14px', color: '#6b7280' }}>
+                          {assignment.user_status === 'submitted' && assignment.submitted_file_id
+                            ? 'Upload additional files'
+                            : (assignment.user_status === 'submitted' && !assignment.submitted_file_id
+                              ? 'File was deleted - resubmit'
+                              : 'No file attached')}
+                        </span>
+                      </button>
+                    </div>
+                  )}
 
                 {/* Comment toggle */}
                 <div style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px solid #f3f4f6' }}>
-                  <button 
+                  <button
                     onClick={() => toggleComments(assignment)}
                     style={{
                       background: 'transparent',
@@ -1030,232 +1030,232 @@ const TasksTab = ({ user }) => {
 
       {/* Comments Modal - Admin Style */}
       {showCommentsModal && currentCommentsAssignment && (
-      <div className="comments-modal-overlay" onClick={() => setShowCommentsModal(false)}>
-      <div className="comments-modal" onClick={(e) => e.stopPropagation()}>
-      <div className="comments-modal-header">
-      <h3>Comments - {currentCommentsAssignment.title}</h3>
-      <button className="close-modal-btn" onClick={() => setShowCommentsModal(false)}>
-          ✕
+        <div className="comments-modal-overlay" onClick={() => setShowCommentsModal(false)}>
+          <div className="comments-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="comments-modal-header">
+              <h3>Comments - {currentCommentsAssignment.title}</h3>
+              <button className="close-modal-btn" onClick={() => setShowCommentsModal(false)}>
+                ✕
               </button>
-      </div>
+            </div>
 
-      <div className="comments-modal-body">
-      {comments[currentCommentsAssignment.id]?.length > 0 ? (
-      <div className="comments-list">
-      {comments[currentCommentsAssignment.id].map((comment) => (
-      <div key={comment.id} className="comment-thread">
-      {/* Main Comment */}
-      <div className="comment-item">
-        <div className="comment-avatar">
-          {getInitials(comment.user_fullname || comment.fullName || comment.username)}
-      </div>
-      <div className="comment-content">
-          <div className="comment-header">
-          <span className="comment-author">{comment.user_fullname || comment.fullName || comment.username}</span>
-        <span className={`role-badge ${comment.user_role ? comment.user_role.toLowerCase().replace(' ', '-').replace('_', '-') : 'user'}`}>
-            {comment.user_role || 'USER'}
-          </span>
-        <span className="comment-time">{formatRelativeTime(comment.created_at)}</span>
-      </div>
-      <div className="comment-text">
-        {(() => {
-          const MAX_LENGTH = 150;
-          const isLong = comment.comment.length > MAX_LENGTH;
-          const isExpanded = expandedCommentTexts[comment.id];
-          
-          return (
-            <>
-              {isLong && !isExpanded
-                ? comment.comment.substring(0, MAX_LENGTH) + '...'
-                : comment.comment}
-              {isLong && (
-                <button
-                  className="see-more-btn"
-                  onClick={() => setExpandedCommentTexts(prev => ({
-                    ...prev,
-                    [comment.id]: !prev[comment.id]
-                  }))}
-                  style={{
-                    background: 'none',
-                    border: 'none',
-                    color: '#3b82f6',
-                    fontSize: '13px',
-                    fontWeight: '500',
-                    cursor: 'pointer',
-                    padding: '0',
-                    marginLeft: '4px'
-                  }}
-                >
-                  {isExpanded ? 'See less' : 'See more'}
-                </button>
-              )}
-            </>
-          );
-        })()}
-      </div>
-
-      {/* Action Buttons */}
-      <div className="comment-actions">
-      <button
-      className="reply-button"
-      onClick={() => setReplyingTo(prev => ({ ...prev, [comment.id]: true }))}
-      >
-      Reply
-      </button>
-
-      {/* View Replies Button */}
-      {comment.replies && comment.replies.length > 0 && (
-      <button
-        className="view-replies-button"
-      onClick={() => toggleRepliesVisibility(comment.id)}
-      >
-      {visibleReplies[comment.id] ? 'Hide' : 'View'} {comment.replies.length}{' '}
-      {comment.replies.length === 1 ? 'reply' : 'replies'}
-      </button>
-      )}
-      </div>
+            <div className="comments-modal-body">
+              {comments[currentCommentsAssignment.id]?.length > 0 ? (
+                <div className="comments-list">
+                  {comments[currentCommentsAssignment.id].map((comment) => (
+                    <div key={comment.id} className="comment-thread">
+                      {/* Main Comment */}
+                      <div className="comment-item">
+                        <div className="comment-avatar">
+                          {getInitials(comment.user_fullname || comment.fullName || comment.username)}
                         </div>
-      </div>
+                        <div className="comment-content">
+                          <div className="comment-header">
+                            <span className="comment-author">{comment.user_fullname || comment.fullName || comment.username}</span>
+                            <span className={`role-badge ${comment.user_role ? comment.user_role.toLowerCase().replace(' ', '-').replace('_', '-') : 'user'}`}>
+                              {comment.user_role || 'USER'}
+                            </span>
+                            <span className="comment-time">{formatRelativeTime(comment.created_at)}</span>
+                          </div>
+                          <div className="comment-text">
+                            {(() => {
+                              const MAX_LENGTH = 150;
+                              const isLong = comment.comment.length > MAX_LENGTH;
+                              const isExpanded = expandedCommentTexts[comment.id];
 
-      {/* Replies Thread */}
-      {comment.replies && comment.replies.length > 0 && visibleReplies[comment.id] && (
-      <div className="replies-thread">
-      {comment.replies.map(reply => (
-      <div key={reply.id} className="reply-item">
-      <div className="reply-avatar">
-      {getInitials(reply.user_fullname || reply.fullName || reply.username)}
-      </div>
-      <div className="reply-content">
-      <div className="reply-header">
-      <span className="reply-author">{reply.user_fullname || reply.fullName || reply.username}</span>
-      <span className={`role-badge ${reply.user_role ? reply.user_role.toLowerCase().replace(' ', '-').replace('_', '-') : 'user'}`}>
-        {reply.user_role || 'USER'}
-      </span>
-      <span className="reply-time">{formatRelativeTime(reply.created_at)}</span>
-      </div>
-      <div className="reply-text">
-        {(() => {
-          const MAX_LENGTH = 150;
-          const isLong = reply.reply.length > MAX_LENGTH;
-          const isExpanded = expandedReplyTexts[reply.id];
-          
-          return (
-            <>
-              {isLong && !isExpanded
-                ? reply.reply.substring(0, MAX_LENGTH) + '...'
-                : reply.reply}
-              {isLong && (
-                <button
-                  className="see-more-btn"
-                  onClick={() => setExpandedReplyTexts(prev => ({
-                    ...prev,
-                    [reply.id]: !prev[reply.id]
-                  }))}
-                  style={{
-                    background: 'none',
-                    border: 'none',
-                    color: '#3b82f6',
-                    fontSize: '12px',
-                    fontWeight: '500',
-                    cursor: 'pointer',
-                    padding: '0',
-                    marginLeft: '4px'
-                  }}
-                >
-                  {isExpanded ? 'See less' : 'See more'}
-                </button>
-              )}
-            </>
-          );
-        })()}
-      </div>
-      </div>
-      </div>
-      ))}
-      </div>
-      )}
+                              return (
+                                <>
+                                  {isLong && !isExpanded
+                                    ? comment.comment.substring(0, MAX_LENGTH) + '...'
+                                    : comment.comment}
+                                  {isLong && (
+                                    <button
+                                      className="see-more-btn"
+                                      onClick={() => setExpandedCommentTexts(prev => ({
+                                        ...prev,
+                                        [comment.id]: !prev[comment.id]
+                                      }))}
+                                      style={{
+                                        background: 'none',
+                                        border: 'none',
+                                        color: '#3b82f6',
+                                        fontSize: '13px',
+                                        fontWeight: '500',
+                                        cursor: 'pointer',
+                                        padding: '0',
+                                        marginLeft: '4px'
+                                      }}
+                                    >
+                                      {isExpanded ? 'See less' : 'See more'}
+                                    </button>
+                                  )}
+                                </>
+                              );
+                            })()}
+                          </div>
 
-      {/* Reply Input Box */}
+                          {/* Action Buttons */}
+                          <div className="comment-actions">
+                            <button
+                              className="reply-button"
+                              onClick={() => setReplyingTo(prev => ({ ...prev, [comment.id]: true }))}
+                            >
+                              Reply
+                            </button>
+
+                            {/* View Replies Button */}
+                            {comment.replies && comment.replies.length > 0 && (
+                              <button
+                                className="view-replies-button"
+                                onClick={() => toggleRepliesVisibility(comment.id)}
+                              >
+                                {visibleReplies[comment.id] ? 'Hide' : 'View'} {comment.replies.length}{' '}
+                                {comment.replies.length === 1 ? 'reply' : 'replies'}
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Replies Thread */}
+                      {comment.replies && comment.replies.length > 0 && visibleReplies[comment.id] && (
+                        <div className="replies-thread">
+                          {comment.replies.map(reply => (
+                            <div key={reply.id} className="reply-item">
+                              <div className="reply-avatar">
+                                {getInitials(reply.user_fullname || reply.fullName || reply.username)}
+                              </div>
+                              <div className="reply-content">
+                                <div className="reply-header">
+                                  <span className="reply-author">{reply.user_fullname || reply.fullName || reply.username}</span>
+                                  <span className={`role-badge ${reply.user_role ? reply.user_role.toLowerCase().replace(' ', '-').replace('_', '-') : 'user'}`}>
+                                    {reply.user_role || 'USER'}
+                                  </span>
+                                  <span className="reply-time">{formatRelativeTime(reply.created_at)}</span>
+                                </div>
+                                <div className="reply-text">
+                                  {(() => {
+                                    const MAX_LENGTH = 150;
+                                    const isLong = reply.reply.length > MAX_LENGTH;
+                                    const isExpanded = expandedReplyTexts[reply.id];
+
+                                    return (
+                                      <>
+                                        {isLong && !isExpanded
+                                          ? reply.reply.substring(0, MAX_LENGTH) + '...'
+                                          : reply.reply}
+                                        {isLong && (
+                                          <button
+                                            className="see-more-btn"
+                                            onClick={() => setExpandedReplyTexts(prev => ({
+                                              ...prev,
+                                              [reply.id]: !prev[reply.id]
+                                            }))}
+                                            style={{
+                                              background: 'none',
+                                              border: 'none',
+                                              color: '#3b82f6',
+                                              fontSize: '12px',
+                                              fontWeight: '500',
+                                              cursor: 'pointer',
+                                              padding: '0',
+                                              marginLeft: '4px'
+                                            }}
+                                          >
+                                            {isExpanded ? 'See less' : 'See more'}
+                                          </button>
+                                        )}
+                                      </>
+                                    );
+                                  })()}
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Reply Input Box */}
                       {replyingTo[comment.id] && (
-      <div className="reply-input-box">
-      <div className="comment-avatar reply-avatar">
-      {getInitials(user.username || user.fullName)}
-      </div>
-      <div className="comment-input-wrapper">
-      <input
-      type="text"
-      className="comment-input"
-      placeholder="Write a reply..."
-      value={replyText[comment.id] || ''}
-      onChange={(e) => setReplyText(prev => ({ 
-      ...prev, 
-      [comment.id]: e.target.value 
-      }))}
-      onKeyPress={(e) => {
-      if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      postReply(currentCommentsAssignment.id, comment.id);
-      }
-      }}
-      disabled={isPostingReply[comment.id]}
-      autoFocus
-      />
-      <button
-      className="comment-submit-btn"
-      onClick={() => postReply(currentCommentsAssignment.id, comment.id)}
-      disabled={!replyText[comment.id]?.trim() || isPostingReply[comment.id]}
-      >
-      {isPostingReply[comment.id] ? '...' : '➤'}
-      </button>
-      </div>
-      </div>
-      )}
-      </div>
-      ))}
-      </div>
-      ) : (
-      <div className="no-comments">
-      <p>💬 No comments yet. Be the first to comment!</p>
-      </div>
-      )}
-      </div>
+                        <div className="reply-input-box">
+                          <div className="comment-avatar reply-avatar">
+                            {getInitials(user.username || user.fullName)}
+                          </div>
+                          <div className="comment-input-wrapper">
+                            <input
+                              type="text"
+                              className="comment-input"
+                              placeholder="Write a reply..."
+                              value={replyText[comment.id] || ''}
+                              onChange={(e) => setReplyText(prev => ({
+                                ...prev,
+                                [comment.id]: e.target.value
+                              }))}
+                              onKeyPress={(e) => {
+                                if (e.key === 'Enter' && !e.shiftKey) {
+                                  e.preventDefault();
+                                  postReply(currentCommentsAssignment.id, comment.id);
+                                }
+                              }}
+                              disabled={isPostingReply[comment.id]}
+                              autoFocus
+                            />
+                            <button
+                              className="comment-submit-btn"
+                              onClick={() => postReply(currentCommentsAssignment.id, comment.id)}
+                              disabled={!replyText[comment.id]?.trim() || isPostingReply[comment.id]}
+                            >
+                              {isPostingReply[comment.id] ? '...' : '➤'}
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="no-comments">
+                  <p>💬 No comments yet. Be the first to comment!</p>
+                </div>
+              )}
+            </div>
 
-      {/* Comment Form */}
-      <div className="comments-modal-footer">
-      <div className="add-comment">
+            {/* Comment Form */}
+            <div className="comments-modal-footer">
+              <div className="add-comment">
                 <div className="comment-avatar">
-        {getInitials(user.username || user.fullName)}
-      </div>
-      <div className="comment-input-wrapper">
-      <input
-        type="text"
-        className="comment-input"
-      placeholder="Write a comment..."
-      value={newComment[currentCommentsAssignment.id] || ''}
-      onChange={(e) => setNewComment(prev => ({ 
-      ...prev, 
-      [currentCommentsAssignment.id]: e.target.value 
-      }))}
-      onKeyPress={(e) => {
-      if (e.key === 'Enter' && !e.shiftKey) {
-        e.preventDefault();
-        postComment(currentCommentsAssignment.id);
-      }
-      }}
-      disabled={isPostingComment[currentCommentsAssignment.id]}
-      />
-      <button
-      className="comment-submit-btn"
-      onClick={() => postComment(currentCommentsAssignment.id)}
-      disabled={!newComment[currentCommentsAssignment.id]?.trim() || isPostingComment[currentCommentsAssignment.id]}
-      >
-      {isPostingComment[currentCommentsAssignment.id] ? '...' : '➤'}
-      </button>
-      </div>
-      </div>
-      </div>
-      </div>
-      </div>
+                  {getInitials(user.username || user.fullName)}
+                </div>
+                <div className="comment-input-wrapper">
+                  <input
+                    type="text"
+                    className="comment-input"
+                    placeholder="Write a comment..."
+                    value={newComment[currentCommentsAssignment.id] || ''}
+                    onChange={(e) => setNewComment(prev => ({
+                      ...prev,
+                      [currentCommentsAssignment.id]: e.target.value
+                    }))}
+                    onKeyPress={(e) => {
+                      if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        postComment(currentCommentsAssignment.id);
+                      }
+                    }}
+                    disabled={isPostingComment[currentCommentsAssignment.id]}
+                  />
+                  <button
+                    className="comment-submit-btn"
+                    onClick={() => postComment(currentCommentsAssignment.id)}
+                    disabled={!newComment[currentCommentsAssignment.id]?.trim() || isPostingComment[currentCommentsAssignment.id]}
+                  >
+                    {isPostingComment[currentCommentsAssignment.id] ? '...' : '➤'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Delete Confirmation Modal */}
@@ -1383,159 +1383,160 @@ const TasksTab = ({ user }) => {
 
             <div className="tasks-modal-body">
               <div className="tasks-file-selection">
-                  <div className="upload-section">
-                    <div className="file-upload-wrapper">
-                      <input
-                        ref={fileInputRef}
-                        type="file"
-                        multiple
-                        onChange={(e) => {
-                          const files = Array.from(e.target.files);
-                          if (files.length > 0) {
-                            const newFiles = files.map(file => ({
-                              file: file
-                            }));
-                            setUploadedFiles(prev => [...prev, ...newFiles]);
-                          }
-                          // Clear input so same files can be added again if needed
-                          e.target.value = '';
-                        }}
-                        className="file-input"
-                        id="file-upload-input"
-                        disabled={isUploading}
-                      />
-                      <label htmlFor="file-upload-input" className="file-upload-label" style={{
-                        border: '2px dashed #d1d5db',
-                        borderRadius: '12px',
-                        padding: '32px',
-                        textAlign: 'center',
-                        cursor: 'pointer',
-                        transition: 'all 0.2s',
-                        backgroundColor: '#fafafa'
-                      }}>
-                        <div className="file-upload-content" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>
-                          <div style={{ fontSize: '48px' }}>📁</div>
-                          <div className="upload-text">
-                            <p style={{ fontSize: '15px', fontWeight: '500', color: '#111827', margin: '0 0 4px 0' }}>Click to browse or drag and drop</p>
-                            <p style={{ fontSize: '13px', color: '#6b7280', margin: 0 }}>All file types • No size limit • Multiple files</p>
-                          </div>
+                <div className="upload-section">
+                  <div className="file-upload-wrapper">
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      multiple
+                      onChange={(e) => {
+                        const files = Array.from(e.target.files);
+                        if (files.length > 0) {
+                          const newFiles = files.map(file => ({
+                            file: file
+                          }));
+                          setUploadedFiles(prev => [...prev, ...newFiles]);
+                        }
+                        // Clear input so same files can be added again if needed
+                        e.target.value = '';
+                      }}
+                      className="file-input"
+                      id="file-upload-input"
+                      disabled={isUploading}
+                    />
+                    <label htmlFor="file-upload-input" className="file-upload-label" style={{
+                      border: '2px dashed #d1d5db',
+                      borderRadius: '12px',
+                      padding: '32px',
+                      textAlign: 'center',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s',
+                      backgroundColor: '#fafafa'
+                    }}>
+                      <div className="file-upload-content" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>
+                        <div style={{ fontSize: '48px' }}>📁</div>
+                        <div className="upload-text">
+                          <p style={{ fontSize: '15px', fontWeight: '500', color: '#111827', margin: '0 0 4px 0' }}>Click to browse or drag and drop</p>
+                          <p style={{ fontSize: '13px', color: '#6b7280', margin: 0 }}>All file types • No size limit • Multiple files</p>
                         </div>
+                      </div>
+                    </label>
+                  </div>
+                </div>
+
+                {uploadedFiles.length > 0 && (
+                  <div style={{ marginTop: '24px' }}>
+                    <div style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      marginBottom: '12px'
+                    }}>
+                      <label style={{ fontSize: '14px', fontWeight: '600', color: '#111827' }}>
+                        📎 Selected Files ({uploadedFiles.length})
                       </label>
                     </div>
-                  </div>
-
-                  {uploadedFiles.length > 0 && (
-                    <div style={{ marginTop: '24px' }}>
-                      <div style={{ 
-                        display: 'flex', 
-                        alignItems: 'center', 
-                        justifyContent: 'space-between',
-                        marginBottom: '12px'
+                    {uploadedFiles.map((fileObj, index) => (
+                      <div key={index} style={{
+                        border: '1px solid #e5e7eb',
+                        borderRadius: '10px',
+                        padding: '12px 16px',
+                        marginBottom: '8px',
+                        backgroundColor: '#ffffff',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '12px',
+                        transition: 'all 0.2s'
                       }}>
-                        <label style={{ fontSize: '14px', fontWeight: '600', color: '#111827' }}>
-                          📎 Selected Files ({uploadedFiles.length})
-                        </label>
-                      </div>
-                      {uploadedFiles.map((fileObj, index) => (
-                        <div key={index} style={{
-                          border: '1px solid #e5e7eb',
-                          borderRadius: '10px',
-                          padding: '12px 16px',
-                          marginBottom: '8px',
-                          backgroundColor: '#ffffff',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '12px',
-                          transition: 'all 0.2s'
-                        }}>
-                          <FileIcon 
-                            fileType={fileObj.file.name.split('.').pop().toLowerCase()} 
-                            isFolder={false}
-                            size="default"
-                            style={{ width: '40px', height: '40px', flexShrink: 0 }}
-                          />
-                          <div style={{ flex: 1, minWidth: 0 }}>
-                            <div style={{ 
-                              fontWeight: '500', 
-                              fontSize: '14px', 
-                              color: '#1a1a1a',
-                              overflow: 'hidden',
-                              textOverflow: 'ellipsis',
-                              whiteSpace: 'nowrap'
-                            }}>
-                              {fileObj.file.name}
-                            </div>
-                            <div style={{ fontSize: '12px', color: '#6B7280' }}>
-                              {formatFileSize(fileObj.file.size)}
-                            </div>
-                          </div>
-                          <button
-                            onClick={() => handleRemoveFile(index)}
-                            style={{
-                              background: 'transparent',
-                              color: '#9ca3af',
-                              border: 'none',
-                              borderRadius: '6px',
-                              padding: '6px',
-                              fontSize: '18px',
-                              cursor: 'pointer',
-                              flexShrink: 0,
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              transition: 'all 0.2s'
-                            }}
-                            onMouseEnter={(e) => {
-                              e.currentTarget.style.backgroundColor = '#fee2e2';
-                              e.currentTarget.style.color = '#dc2626';
-                            }}
-                            onMouseLeave={(e) => {
-                              e.currentTarget.style.backgroundColor = 'transparent';
-                              e.currentTarget.style.color = '#9ca3af';
-                            }}
-                            disabled={isUploading}
-                            title="Remove file"
-                          >
-                            ×
-                          </button>
-                        </div>
-                      ))}
-
-                      {/* Single Tag field for all files */}
-                      <div style={{ marginTop: '24px', marginBottom: '16px', padding: '16px', backgroundColor: '#f9fafb', borderRadius: '10px', border: '1px solid #e5e7eb' }}>
-                        <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', marginBottom: '8px', color: '#111827' }}>
-                          🏷️ Tag
-                        </label>
-                        <SingleSelectTags 
-                          selectedTag={fileTag}
-                          onChange={(newTag) => setFileTag(newTag)}
-                          disabled={isUploading}
+                        <FileIcon
+                          fileType={fileObj.file.name.split('.').pop().toLowerCase()}
+                          isFolder={false}
+                          size="default"
+                          style={{ width: '40px', height: '40px', flexShrink: 0 }}
                         />
-
-                        <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', marginBottom: '8px', color: '#111827', marginTop: '16px' }}>
-                          📝 Description (optional)
-                        </label>
-                        <textarea
-                          value={fileDescription}
-                          onChange={(e) => setFileDescription(e.target.value)}
-                          placeholder="Add a brief description..."
-                          rows="2"
-                          disabled={isUploading}
-                          style={{
-                            width: '100%',
-                            padding: '10px 12px',
-                            border: '1px solid #d1d5db',
-                            borderRadius: '8px',
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{
+                            fontWeight: '500',
                             fontSize: '14px',
-                            fontFamily: 'inherit',
-                            resize: 'vertical',
-                            backgroundColor: '#ffffff'
+                            color: '#1a1a1a',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap'
+                          }}>
+                            {fileObj.file.name}
+                          </div>
+                          <div style={{ fontSize: '12px', color: '#6B7280' }}>
+                            {formatFileSize(fileObj.file.size)}
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => handleRemoveFile(index)}
+                          style={{
+                            background: 'transparent',
+                            color: '#9ca3af',
+                            border: 'none',
+                            borderRadius: '6px',
+                            padding: '6px',
+                            fontSize: '18px',
+                            cursor: 'pointer',
+                            flexShrink: 0,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            transition: 'all 0.2s'
                           }}
-                        />
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.backgroundColor = '#fee2e2';
+                            e.currentTarget.style.color = '#dc2626';
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.backgroundColor = 'transparent';
+                            e.currentTarget.style.color = '#9ca3af';
+                          }}
+                          disabled={isUploading}
+                          title="Remove file"
+                        >
+                          ×
+                        </button>
                       </div>
+                    ))}
+
+                    {/* Single Tag field for all files */}
+                    <div style={{ marginTop: '24px', marginBottom: '16px', padding: '16px', backgroundColor: '#f9fafb', borderRadius: '10px', border: '1px solid #e5e7eb' }}>
+                      <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', marginBottom: '8px', color: '#111827' }}>
+                        🏷️ Tag
+                      </label>
+                      <SingleSelectTags
+                        selectedTag={fileTag}
+                        onChange={(newTag) => setFileTag(newTag)}
+                        disabled={isUploading}
+                      />
+
+                      <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', marginBottom: '8px', color: '#111827', marginTop: '16px' }}>
+                        📝 Description (optional)
+                      </label>
+                      <textarea
+                        value={fileDescription}
+                        onChange={(e) => setFileDescription(e.target.value)}
+                        placeholder="Add a brief description..."
+                        rows="2"
+                        disabled={isUploading}
+                        style={{
+                          width: '100%',
+                          padding: '10px 12px',
+                          border: '1px solid #d1d5db',
+                          borderRadius: '8px',
+                          fontSize: '14px',
+                          fontFamily: 'inherit',
+                          resize: 'vertical',
+                          backgroundColor: '#ffffff',
+                          color: '#000000'
+                        }}
+                      />
                     </div>
-                  )}
-                </div>
+                  </div>
+                )}
+              </div>
             </div>
 
             <div className="tasks-modal-footer" style={{ borderTop: '1px solid #e5e7eb', paddingTop: '16px', display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
