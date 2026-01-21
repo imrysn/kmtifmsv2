@@ -197,6 +197,55 @@ function logDebug(message, meta = {}) {
   logger.debug(message, meta);
 }
 
+/**
+ * Log file status change to database
+ * @param {Object} db - Database instance
+ * @param {number} fileId - File ID
+ * @param {string} oldStatus - Previous status
+ * @param {string} newStatus - New status
+ * @param {string} oldStage - Previous stage
+ * @param {string} newStage - New stage
+ * @param {number} userId - User ID who made the change
+ * @param {string} username - Username who made the change
+ * @param {string} role - User role
+ * @param {string} reason - Optional reason for the change
+ */
+function logFileStatusChange(db, fileId, oldStatus, newStatus, oldStage, newStage, userId, username, role, reason = '') {
+  // Log to Winston
+  logger.info('File Status Change', {
+    fileId,
+    oldStatus,
+    newStatus,
+    oldStage,
+    newStage,
+    userId,
+    username,
+    role,
+    reason
+  });
+
+  // Log to database - use DEFAULT CURRENT_TIMESTAMP for created_at
+  const query = `
+    INSERT INTO file_status_history
+    (file_id, old_status, new_status, old_stage, new_stage, changed_by_id, changed_by_username, changed_by_role, reason)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `;
+
+  db.run(query, [fileId, oldStatus, newStatus, oldStage, newStage, userId, username, role, reason], (err) => {
+    if (err) {
+      logger.error('Failed to log file status change to database', {
+        error: err.message,
+        fileId,
+        oldStatus,
+        newStatus
+      });
+      console.error('❌ Error logging file status change:', err.message);
+    } else {
+      console.log(`✅ File status change logged: ${oldStatus} → ${newStatus}`);
+    }
+  });
+}
+
 module.exports = {
   logger,
   logActivity,
@@ -204,5 +253,6 @@ module.exports = {
   logError,
   logInfo,
   logWarn,
-  logDebug
+  logDebug,
+  logFileStatusChange
 };
