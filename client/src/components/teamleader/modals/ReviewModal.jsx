@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import './css/AssignmentDetailsModal.css'
 import { getDisplayFileType } from '../../../utils/fileTypeUtils'
+import { ConfirmationModal } from '../../shared'
 
 const ReviewModal = ({
   showReviewModal,
@@ -19,6 +20,7 @@ const ReviewModal = ({
   if (!showReviewModal || !selectedFile) return null
 
   const [isOpeningFile, setIsOpeningFile] = useState(false)
+  const [showRejectConfirmation, setShowRejectConfirmation] = useState(false)
 
   const handleOpenFile = async () => {
     setIsOpeningFile(true)
@@ -45,6 +47,22 @@ const ReviewModal = ({
   const handleClose = () => {
     setShowReviewModal(false)
     setReviewAction(null)
+  }
+
+  const handleRejectClick = (e) => {
+    e.preventDefault()
+    // If there's no comment, show confirmation modal
+    if (!reviewComments.trim()) {
+      setShowRejectConfirmation(true)
+    } else {
+      // If there's a comment, proceed directly
+      handleReviewSubmit({ preventDefault: () => {} }, 'reject')
+    }
+  }
+
+  const handleConfirmReject = () => {
+    setShowRejectConfirmation(false)
+    handleReviewSubmit({ preventDefault: () => {} }, 'reject')
   }
 
   const getStatusDisplayName = (status) => {
@@ -143,8 +161,34 @@ const ReviewModal = ({
 
 
 
+          {/* Comments Section */}
+          {selectedFile.status !== 'team_leader_approved' &&
+           selectedFile.status !== 'final_approved' &&
+           selectedFile.status !== 'rejected_by_team_leader' &&
+           selectedFile.status !== 'rejected_by_admin' && (
+            <div className="comments-section" style={{ marginBottom: '20px' }}>
+              <h4 className="section-title">Comments (Optional)</h4>
+              <textarea
+                value={reviewComments}
+                onChange={(e) => setReviewComments(e.target.value)}
+                placeholder="Add optional comments or rejection reason..."
+                rows="3"
+                style={{
+                  width: '100%',
+                  padding: '12px',
+                  border: '1px solid #E5E7EB',
+                  borderRadius: '8px',
+                  fontSize: '14px',
+                  fontFamily: 'inherit',
+                  resize: 'vertical',
+                  minHeight: '80px'
+                }}
+              />
+            </div>
+          )}
+
           {/* Already Reviewed Notice */}
-          {(selectedFile.status === 'team_leader_approved' || selectedFile.status === 'final_approved' || 
+          {(selectedFile.status === 'team_leader_approved' || selectedFile.status === 'final_approved' ||
             selectedFile.status === 'rejected_by_team_leader' || selectedFile.status === 'rejected_by_admin') && (
             <div className="review-notice" style={{
               padding: '12px 16px',
@@ -163,8 +207,8 @@ const ReviewModal = ({
                   <path d="M10 18C14.4183 18 18 14.4183 18 10C18 5.58172 14.4183 2 10 2C5.58172 2 2 5.58172 2 10C2 14.4183 5.58172 18 10 18Z" stroke="currentColor" strokeWidth="2"/>
                   <path d="M10 6V10M10 14H10.01" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
                 </svg>
-                <span style={{ 
-                  fontWeight: '500', 
+                <span style={{
+                  fontWeight: '500',
                   color: selectedFile.status === 'team_leader_approved' ? '#92400E' :
                         selectedFile.status === 'final_approved' ? '#065F46' : '#991B1B'
                 }}>
@@ -183,9 +227,8 @@ const ReviewModal = ({
                 type="button"
                 onClick={(e) => {
                   e.preventDefault()
-                  setReviewAction('approve')
-                  // Create a synthetic event for handleReviewSubmit
-                  handleReviewSubmit({ preventDefault: () => {} })
+                  // Pass the action directly to handleReviewSubmit
+                  handleReviewSubmit({ preventDefault: () => {} }, 'approve')
                 }}
                 className="btn btn-success-large"
                 disabled={isProcessing || selectedFile.status === 'team_leader_approved' || selectedFile.status === 'final_approved' || selectedFile.status === 'rejected_by_team_leader' || selectedFile.status === 'rejected_by_admin'}
@@ -197,16 +240,7 @@ const ReviewModal = ({
               </button>
               <button
                 type="button"
-                onClick={(e) => {
-                  e.preventDefault()
-                  if (!reviewComments.trim()) {
-                    alert('Please add a rejection reason in the comment box above')
-                    return
-                  }
-                  setReviewAction('reject')
-                  // Create a synthetic event for handleReviewSubmit
-                  handleReviewSubmit({ preventDefault: () => {} })
-                }}
+                onClick={handleRejectClick}
                 className="btn btn-danger-large"
                 disabled={isProcessing || selectedFile.status === 'team_leader_approved' || selectedFile.status === 'final_approved' || selectedFile.status === 'rejected_by_team_leader' || selectedFile.status === 'rejected_by_admin'}
               >
@@ -230,6 +264,23 @@ const ReviewModal = ({
           </div>
         </div>
       </div>
+
+      {/* Reject without reason confirmation modal */}
+      <ConfirmationModal
+        isOpen={showRejectConfirmation}
+        onClose={() => setShowRejectConfirmation(false)}
+        onConfirm={handleConfirmReject}
+        title="Reject Without Reason?"
+        message="You are about to reject this file without providing a reason."
+        confirmText="Reject Anyway"
+        cancelText="Cancel"
+        variant="warning"
+        isLoading={isProcessing}
+      >
+        <p className="warning-text" style={{ marginTop: '12px', fontSize: '14px', color: '#6B7280' }}>
+          Consider adding a comment to help the submitter understand why the file was rejected.
+        </p>
+      </ConfirmationModal>
     </div>
   )
 }

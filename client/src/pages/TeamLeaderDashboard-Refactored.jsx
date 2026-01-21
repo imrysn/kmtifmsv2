@@ -433,15 +433,13 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
     }
   }
 
-  const handleReviewSubmit = async (e) => {
+  const handleReviewSubmit = async (e, action = null) => {
     e.preventDefault()
-    
-    if (!selectedFile || !reviewAction) return
-    
-    if (reviewAction === 'reject' && !reviewComments.trim()) {
-      setError('Please provide a reason for rejection')
-      return
-    }
+
+    // Use the passed action or fall back to the state
+    const actionToUse = action || reviewAction
+
+    if (!selectedFile || !actionToUse) return
 
     setIsProcessing(true)
     setError('')
@@ -453,7 +451,7 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          action: reviewAction,
+          action: actionToUse,
           comments: reviewComments.trim(),
           teamLeaderId: user.id,
           teamLeaderUsername: user.username,
@@ -465,7 +463,7 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
       const data = await response.json()
 
       if (data.success) {
-        setSuccess(`File ${reviewAction}d successfully!`)
+        setSuccess(`File ${actionToUse}d successfully!`)
         setShowReviewModal(false)
         setSelectedFile(null)
         setReviewComments('')
@@ -473,11 +471,11 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
         setFileComments([])
         fetchPendingFiles()
       } else {
-        setError(data.message || `Failed to ${reviewAction} file`)
+        setError(data.message || `Failed to ${actionToUse} file`)
       }
     } catch (error) {
-      console.error(`Error ${reviewAction}ing file:`, error)
-      setError(`Failed to ${reviewAction} file. Please try again.`)
+      console.error(`Error ${actionToUse}ing file:`, error)
+      setError(`Failed to ${actionToUse} file. Please try again.`)
     } finally {
       setIsProcessing(false)
     }
@@ -931,9 +929,14 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
 
         <main className="tl-main">
           <AlertMessage
-            error={error}
-            success={success}
-            clearMessages={clearMessages}
+            type="error"
+            message={error}
+            onClose={clearMessages}
+          />
+          <AlertMessage
+            type="success"
+            message={success}
+            onClose={clearMessages}
           />
 
           {renderActiveTab()}
