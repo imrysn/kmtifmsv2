@@ -16,7 +16,9 @@ const AssignmentsTab = ({
   highlightedAssignmentId,
   onClearHighlight,
   highlightedFileId,
-  onClearFileHighlight
+  onClearFileHighlight,
+  markAssignmentAsDone,
+  handleEditAssignment
 }) => {
   const [showMembersModal, setShowMembersModal] = useState(false)
   const [selectedMembers, setSelectedMembers] = useState([])
@@ -449,6 +451,14 @@ const AssignmentsTab = ({
     return name.substring(0, 2).toUpperCase()
   }
 
+  const formatFileSize = (bytes) => {
+    if (!bytes || bytes === 0) return '0 Bytes'
+    const k = 1024
+    const sizes = ['Bytes', 'KB', 'MB', 'GB']
+    const i = Math.floor(Math.log(bytes) / Math.log(k))
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
+  }
+
   if (isLoadingAssignments) {
     return (
       <div className="tl-content">
@@ -531,16 +541,22 @@ const AssignmentsTab = ({
                     </div>
                   </div>
                   <div className="tl-assignment-header-right">
-                    {(assignment.due_date || assignment.dueDate) && (
-                      <div className="tl-assignment-due-date">
-                        Due {formatDate(assignment.due_date || assignment.dueDate)}
-                        <span
-                          className="tl-assignment-days-left"
-                          style={{ color: getStatusColor(assignment.due_date || assignment.dueDate) }}
-                        >
-                          {' '}({formatDaysLeft(assignment.due_date || assignment.dueDate)})
-                        </span>
+                    {assignment.status === 'completed' ? (
+                      <div className="tl-assignment-status-badge completed">
+                        ✓ Completed
                       </div>
+                    ) : (
+                      (assignment.due_date || assignment.dueDate) && (
+                        <div className="tl-assignment-due-date">
+                          Due {formatDate(assignment.due_date || assignment.dueDate)}
+                          <span
+                            className="tl-assignment-days-left"
+                            style={{ color: getStatusColor(assignment.due_date || assignment.dueDate) }}
+                          >
+                            {' '}({formatDaysLeft(assignment.due_date || assignment.dueDate)})
+                          </span>
+                        </div>
+                      )
                     )}
                     <div className="tl-assignment-card-menu">
                       <button
@@ -552,6 +568,25 @@ const AssignmentsTab = ({
                       </button>
                       {showMenuForAssignment === assignment.id && (
                         <div className="tl-assignment-menu-dropdown">
+                          <button
+                            className="tl-assignment-menu-item"
+                            onClick={() => {
+                              markAssignmentAsDone(assignment.id, assignment.title)
+                              setShowMenuForAssignment(null)
+                            }}
+                            disabled={assignment.status === 'completed'}
+                          >
+                            {assignment.status === 'completed' ? '✓ Marked as Done' : 'Mark as Done'}
+                          </button>
+                          <button
+                            className="tl-assignment-menu-item"
+                            onClick={() => {
+                              handleEditAssignment(assignment)
+                              setShowMenuForAssignment(null)
+                            }}
+                          >
+                            Edit
+                          </button>
                           <button
                             className="tl-assignment-menu-item tl-assignment-delete-menu-item"
                             onClick={() => {
@@ -579,6 +614,60 @@ const AssignmentsTab = ({
                 ) : (
                   <div className="tl-assignment-task-description-section">
                     <p className="tl-assignment-no-description">No description</p>
+                  </div>
+                )}
+
+                {/* Attachments Section */}
+                {assignment.attachments && assignment.attachments.length > 0 && (
+                  <div className="tl-assignment-attachment-section">
+                    <div className="tl-assignment-tl-attached-file">
+                      <div className="tl-assignment-tl-file-label">
+                        📎 Attached Files ({assignment.attachments.length})
+                      </div>
+                      {assignment.attachments.map((attachment) => (
+                        <div
+                          key={attachment.id}
+                          className="tl-assignment-tl-file-item"
+                          onClick={async () => {
+                            try {
+                              const response = await fetch('http://localhost:3001/api/files/open-file', {
+                                method: 'POST',
+                                headers: {
+                                  'Content-Type': 'application/json'
+                                },
+                                body: JSON.stringify({ filePath: attachment.file_path })
+                              });
+                              const data = await response.json();
+                              if (!data.success) {
+                                alert('Failed to open file: ' + (data.message || 'Unknown error'));
+                              }
+                            } catch (error) {
+                              console.error('Error opening file:', error);
+                              alert('Failed to open file. Please try again.');
+                            }
+                          }}
+                        >
+                          <FileIcon
+                            fileType={attachment.original_name.split('.').pop()}
+                            size="small"
+                            className="tl-assignment-file-icon"
+                          />
+                          <div className="tl-assignment-file-details">
+                            <div className="tl-assignment-file-name">
+                              {attachment.original_name}
+                            </div>
+                            <div className="tl-assignment-file-meta">
+                              <span>
+                                by <span className="tl-assignment-file-submitter">
+                                  {assignment.team_leader_fullname || assignment.teamLeaderUsername || 'Team Leader'}
+                                </span>
+                              </span>
+                              <span>{formatFileSize(attachment.file_size)}</span>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 )}
 

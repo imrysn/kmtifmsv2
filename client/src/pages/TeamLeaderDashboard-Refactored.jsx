@@ -97,6 +97,7 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
     fileTypeRequired: '',
     assignedMembers: []
   })
+  const [editingAssignmentId, setEditingAssignmentId] = useState(null)
   const [notificationCommentContext, setNotificationCommentContext] = useState(null)
   const [highlightedAssignmentId, setHighlightedAssignmentId] = useState(null)
   const [highlightedFileId, setHighlightedFileId] = useState(null)
@@ -322,7 +323,7 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
     }
   }
 
-  const createAssignment = async () => {
+  const createAssignment = async (attachedFiles = []) => {
     if (!assignmentForm.title.trim()) {
       setError('Please enter assignment title')
       return
@@ -335,22 +336,45 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
 
     setIsProcessing(true)
     try {
-      const response = await fetch('http://localhost:3001/api/assignments/create', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...assignmentForm,
-          assignedTo: assignmentForm.assignedMembers.length > 0 ? 'specific' : 'all',
-          teamLeaderId: user.id,
-          teamLeaderUsername: user.username,
-          team: user.team
+      // Check if we're editing or creating
+      const url = editingAssignmentId
+        ? `http://localhost:3001/api/assignments/${editingAssignmentId}`
+        : 'http://localhost:3001/api/assignments/create'
+
+      const method = editingAssignmentId ? 'PUT' : 'POST'
+
+      // Use FormData to handle file uploads
+      const formData = new FormData()
+      formData.append('title', assignmentForm.title)
+      formData.append('description', assignmentForm.description || '')
+      formData.append('dueDate', assignmentForm.dueDate || '')
+      formData.append('fileTypeRequired', assignmentForm.fileTypeRequired || '')
+      formData.append('assignedTo', assignmentForm.assignedMembers.length > 0 ? 'specific' : 'all')
+      formData.append('assignedMembers', JSON.stringify(assignmentForm.assignedMembers))
+      formData.append('teamLeaderId', user.id)
+      formData.append('teamLeaderUsername', user.username)
+      formData.append('team', user.team)
+
+      // Append files if any
+      if (attachedFiles && attachedFiles.length > 0) {
+        attachedFiles.forEach((file) => {
+          formData.append('attachments', file)
         })
+      }
+
+      const response = await fetch(url, {
+        method,
+        body: formData // Don't set Content-Type header, let browser handle it for FormData
       })
 
       const data = await response.json()
       if (data.success) {
-        setSuccess(`Assignment created! ${data.membersAssigned} members assigned.`)
+        setSuccess(editingAssignmentId
+          ? 'Task updated successfully!'
+          : `Assignment created! ${data.membersAssigned} members assigned.`
+        )
         setShowCreateAssignmentModal(false)
+        setEditingAssignmentId(null)
         setAssignmentForm({
           title: '',
           description: '',
@@ -360,14 +384,40 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
         })
         fetchAssignments()
       } else {
-        setError(data.message || 'Failed to create assignment')
+        setError(data.message || `Failed to ${editingAssignmentId ? 'update' : 'create'} assignment`)
       }
     } catch (error) {
-      console.error('Error creating assignment:', error)
-      setError('Failed to create assignment')
+      console.error(`Error ${editingAssignmentId ? 'updating' : 'creating'} assignment:`, error)
+      setError(`Failed to ${editingAssignmentId ? 'update' : 'create'} assignment`)
     } finally {
       setIsProcessing(false)
     }
+  }
+
+  const handleEditAssignment = async (assignment) => {
+    setEditingAssignmentId(assignment.id)
+
+    // Format the due date for the input field (YYYY-MM-DD format)
+    let formattedDueDate = ''
+    if (assignment.due_date || assignment.dueDate) {
+      const dueDate = new Date(assignment.due_date || assignment.dueDate)
+      if (!isNaN(dueDate.getTime())) {
+        formattedDueDate = dueDate.toISOString().split('T')[0]
+      }
+    }
+
+    // Get assigned member IDs
+    const assignedMemberIds = (assignment.assigned_member_details || []).map(m => m.id)
+
+    setAssignmentForm({
+      title: assignment.title || '',
+      description: assignment.description || '',
+      dueDate: formattedDueDate,
+      fileTypeRequired: assignment.file_type_required || assignment.fileTypeRequired || '',
+      assignedMembers: assignedMemberIds
+    })
+
+    setShowCreateAssignmentModal(true)
   }
 
   const deleteAssignment = async (assignmentId, title) => {
@@ -391,6 +441,31 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
     } catch (error) {
       console.error('Error deleting assignment:', error)
       setError('Failed to delete assignment')
+    }
+  }
+
+  const markAssignmentAsDone = async (assignmentId, title) => {
+    try {
+      const response = await fetch(`http://localhost:3001/api/assignments/${assignmentId}/mark-done`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          teamLeaderId: user.id,
+          teamLeaderUsername: user.username,
+          team: user.team
+        })
+      })
+
+      const data = await response.json()
+      if (data.success) {
+        setSuccess(`Task "${title}" marked as completed`)
+        fetchAssignments()
+      } else {
+        setError(data.message || 'Failed to mark assignment as done')
+      }
+    } catch (error) {
+      console.error('Error marking assignment as done:', error)
+      setError('Failed to mark assignment as done')
     }
   }
 
@@ -829,6 +904,8 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
               onClearHighlight={() => setHighlightedAssignmentId(null)}
               highlightedFileId={highlightedSubmissionFileId}
               onClearFileHighlight={() => setHighlightedSubmissionFileId(null)}
+              markAssignmentAsDone={markAssignmentAsDone}
+              handleEditAssignment={handleEditAssignment}
             />
           </Suspense>
         )
@@ -1012,6 +1089,18 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
               isProcessing={isProcessing}
               createAssignment={createAssignment}
               currentUserId={user.id}
+              isEditMode={!!editingAssignmentId}
+              onClose={() => {
+                setShowCreateAssignmentModal(false)
+                setEditingAssignmentId(null)
+                setAssignmentForm({
+                  title: '',
+                  description: '',
+                  dueDate: '',
+                  fileTypeRequired: '',
+                  assignedMembers: []
+                })
+              }}
             />
           </Suspense>
         )}
