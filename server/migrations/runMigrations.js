@@ -2,28 +2,28 @@ const { USE_MYSQL } = require('../config/database');
 
 async function runMigrations() {
   try {
-    if (!checkColumn || checkColumn.length === 0) {
-      console.log('🔄 Adding tag column to files table...');
-      await mysqlConfig.query('ALTER TABLE files ADD COLUMN tag VARCHAR(100)');
-      console.log('✅ Successfully added tag column');
+    console.log('🔄 Checking database migrations...');
 
-      // Add index
-      try {
-        await mysqlConfig.query('CREATE INDEX idx_files_tag ON files(tag)');
-        console.log('✅ Successfully added index on tag column');
-      } catch (error) {
-        if (!error.message.includes('Duplicate key name')) {
-          console.warn('⚠️ Could not create index:', error.message);
-        }
+    // List of migrations to run in order
+    const migrations = [
+      { name: 'Add Tag Column', run: require('./001-add-tag-column') },
+      { name: 'Add Database Indexes', run: require('./002-add-database-indexes') }
+    ];
+
+    for (const migration of migrations) {
+      console.log(`🚀 Running migration: ${migration.name}...`);
+      const success = await migration.run();
+      if (success) {
+        console.log(`✅ Migration successful: ${migration.name}`);
+      } else {
+        console.warn(`⚠️ Migration failed or skipped: ${migration.name}`);
       }
-    } else {
-      console.log('✅ Tag column already exists');
     }
 
-    console.log('✅ All migrations completed successfully');
+    console.log('✅ All migrations check completed');
     return true;
   } catch (error) {
-    console.error('❌ Migration error:', error);
+    console.error('❌ Migration runner error:', error);
     // Don't fail the server startup if migrations fail
     return false;
   }

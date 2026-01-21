@@ -108,6 +108,11 @@ function logActivity(db, userId, username, role, team, action) {
     timestamp
   });
 
+  // Log to database
+  const query = `
+    INSERT INTO activity_logs (user_id, username, role, team, activity, timestamp)
+    VALUES (?, ?, ?, ?, ?, ?)
+  `;
   // Check if we're using MySQL or SQLite
   const USE_MYSQL = require('../config/database').USE_MYSQL;
 
@@ -284,9 +289,11 @@ module.exports = {
   logger,
   logActivity,
   logFileStatusChange,
+  logFileStatusChange,
   logRequest,
   logError,
   logInfo,
   logWarn,
-  logDebug
+  logDebug,
+  logFileStatusChange
 };

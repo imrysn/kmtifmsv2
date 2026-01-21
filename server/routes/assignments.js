@@ -1,6 +1,31 @@
 const express = require('express');
 const router = express.Router();
 const { query, queryOne } = require('../../database/config');
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
+const { uploadsDir, moveToUserFolder } = require('../config/middleware');
+
+// Configure multer for file uploads using existing uploads directory
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    // Upload to temp location first, then move to user folder
+    cb(null, uploadsDir);
+  },
+  filename: (req, file, cb) => {
+    // Use temp filename like regular uploads
+    const timestamp = Date.now();
+    const randomString = Math.random().toString(36).substring(7);
+    cb(null, `temp_${timestamp}_${randomString}`);
+  }
+});
+
+const upload = multer({
+  storage: storage,
+  limits: {
+    fileSize: 100 * 1024 * 1024 // 100MB limit
+  }
+});
 
 router.get('/admin/all', async (req, res) => {
   try {
@@ -148,17 +173,17 @@ router.get('/team-leader/:team/all-submissions', async (req, res) => {
         f.status,
         u.username,
         u.fullName,
-        am.submitted_at,
-        am.created_at,
+        asub.submitted_at,
+        asub.submitted_at as created_at,
         a.id as assignment_id,
         a.title as assignment_title,
         a.due_date as assignment_due_date
-      FROM assignment_members am
-      JOIN files f ON am.file_id = f.id
-      JOIN users u ON am.user_id = u.id
-      JOIN assignments a ON am.assignment_id = a.id
-      WHERE a.team = ? AND am.status = 'submitted'
-      ORDER BY am.submitted_at DESC
+      FROM assignment_submissions asub
+      JOIN files f ON asub.file_id = f.id
+      JOIN users u ON asub.user_id = u.id
+      JOIN assignments a ON asub.assignment_id = a.id
+      WHERE a.team = ?
+      ORDER BY asub.submitted_at DESC
     `, [team]);
 
     console.log(`✅ DASHBOARD API: Found ${allSubmissions?.length || 0} submissions for team ${team}`);
@@ -324,6 +349,16 @@ router.get('/team-leader/:team', async (req, res) => {
 
       assignment.assigned_member_details = assignedMembers || [];
 
+      // Get attachments for this assignment
+      const attachments = await query(`
+        SELECT id, original_name, filename, file_path, file_size, file_type, created_at
+        FROM assignment_attachments
+        WHERE assignment_id = ?
+        ORDER BY created_at DESC
+      `, [assignment.id]);
+
+      assignment.attachments = attachments || [];
+
       // Get all submissions from assignment_submissions table (includes ALL submitted files)
       const recentSubmissions = await query(`
         SELECT
@@ -455,8 +490,8 @@ router.get('/:assignmentId/details', async (req, res) => {
   }
 });
 
-// Create new assignment
-router.post('/create', async (req, res) => {
+// Create new assignment with file attachments
+router.post('/create', upload.array('attachments', 10), async (req, res) => {
   try {
     const {
       title,
@@ -483,9 +518,12 @@ router.post('/create', async (req, res) => {
     const finalFileType = fileTypeRequired || file_type_required;
     const finalAssignedTo = assignedTo || assigned_to;
     const finalMaxSize = maxFileSize || max_file_size || 10485760;
-    const finalMembers = assignedMembers || assigned_members;
+    const finalMembers = typeof assignedMembers === 'string' ? JSON.parse(assignedMembers) : (assignedMembers || assigned_members);
     const finalTeamLeaderId = teamLeaderId || team_leader_id;
     const finalTeamLeaderUsername = teamLeaderUsername || team_leader_username;
+
+    // Get uploaded files
+    const uploadedFiles = req.files || [];
 
     // Validate required fields
     if (!title || !team || !finalTeamLeaderId) {
@@ -524,6 +562,55 @@ router.post('/create', async (req, res) => {
 
     const assignmentId = assignmentResult.insertId;
     let membersAssigned = 0;
+    let attachmentsCreated = 0;
+
+    // Save attachment file records if any files were uploaded
+    if (uploadedFiles.length > 0) {
+      try {
+        console.log(`📎 Saving ${uploadedFiles.length} attachment(s) for assignment ${assignmentId}`);
+
+        for (const file of uploadedFiles) {
+          // Move file from temp location to team leader's folder
+          let finalPath;
+          try {
+            finalPath = await moveToUserFolder(file.path, finalTeamLeaderUsername, file.originalname);
+            console.log(`✅ Moved attachment to: ${finalPath}`);
+          } catch (moveError) {
+            console.error('⚠️ Failed to move attachment file:', moveError);
+            // If move fails, use the original temp path
+            finalPath = file.path;
+          }
+
+          await query(`
+            INSERT INTO assignment_attachments (
+              assignment_id,
+              original_name,
+              filename,
+              file_path,
+              file_size,
+              file_type,
+              uploaded_by_id,
+              uploaded_by_username
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+          `, [
+            assignmentId,
+            file.originalname,
+            path.basename(finalPath),
+            finalPath,
+            file.size,
+            file.mimetype,
+            finalTeamLeaderId,
+            finalTeamLeaderUsername
+          ]);
+          attachmentsCreated++;
+        }
+
+        console.log(`✅ Saved ${attachmentsCreated} attachment(s) for assignment ${assignmentId}`);
+      } catch (attachmentError) {
+        console.error('⚠️ Failed to save attachments:', attachmentError);
+        // Don't fail the request if attachments fail
+      }
+    }
 
     try {
       // Assign members
@@ -709,7 +796,8 @@ router.post('/create', async (req, res) => {
         success: true,
         message: 'Assignment created successfully',
         assignmentId,
-        membersAssigned
+        membersAssigned,
+        attachmentsCreated
       });
 
     } catch (memberError) {
@@ -1430,6 +1518,214 @@ router.patch('/:assignmentId/archive', async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Failed to archive assignment',
+      error: error.message
+    });
+  }
+});
+
+// Mark assignment as done (Team Leader only)
+router.put('/:assignmentId/mark-done', async (req, res) => {
+  try {
+    const { assignmentId } = req.params;
+    const { teamLeaderId, teamLeaderUsername, team } = req.body;
+
+    console.log(`✅ Marking assignment ${assignmentId} as completed by ${teamLeaderUsername}`);
+
+    // Verify assignment exists
+    const assignment = await queryOne(
+      'SELECT * FROM assignments WHERE id = ?',
+      [assignmentId]
+    );
+
+    if (!assignment) {
+      return res.status(404).json({
+        success: false,
+        message: 'Assignment not found'
+      });
+    }
+
+    // Update assignment status to completed
+    const now = new Date().toISOString().slice(0, 19).replace('T', ' ');
+
+    await query(
+      'UPDATE assignments SET status = ?, updated_at = ? WHERE id = ?',
+      ['completed', now, assignmentId]
+    );
+
+    console.log(`✅ Assignment ${assignmentId} marked as completed`);
+
+    res.json({
+      success: true,
+      message: 'Assignment marked as completed',
+      assignment: {
+        ...assignment,
+        status: 'completed',
+        updated_at: now
+      }
+    });
+  } catch (error) {
+    console.error('Error marking assignment as done:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to mark assignment as done',
+      error: error.message
+    });
+  }
+});
+
+// Update assignment (Team Leader only)
+router.put('/:assignmentId', async (req, res) => {
+  try {
+    const { assignmentId } = req.params;
+    const {
+      title,
+      description,
+      dueDate,
+      fileTypeRequired,
+      assignedMembers,
+      teamLeaderId,
+      teamLeaderUsername,
+      team
+    } = req.body;
+
+    console.log(`✏️ Updating assignment ${assignmentId} by ${teamLeaderUsername}`);
+
+    // Verify assignment exists
+    const assignment = await queryOne(
+      'SELECT * FROM assignments WHERE id = ?',
+      [assignmentId]
+    );
+
+    if (!assignment) {
+      return res.status(404).json({
+        success: false,
+        message: 'Assignment not found'
+      });
+    }
+
+    // Update assignment details
+    const now = new Date().toISOString().slice(0, 19).replace('T', ' ');
+
+    await query(`
+      UPDATE assignments
+      SET
+        title = ?,
+        description = ?,
+        due_date = ?,
+        file_type_required = ?,
+        updated_at = ?
+      WHERE id = ?
+    `, [
+      title,
+      description || null,
+      dueDate || null,
+      fileTypeRequired || null,
+      now,
+      assignmentId
+    ]);
+
+    console.log(`✅ Assignment ${assignmentId} details updated`);
+
+    // Update assigned members if provided
+    if (assignedMembers && Array.isArray(assignedMembers)) {
+      // Get current assigned members
+      const currentMembers = await query(
+        'SELECT user_id FROM assignment_members WHERE assignment_id = ?',
+        [assignmentId]
+      );
+
+      const currentMemberIds = currentMembers.map(m => m.user_id);
+      const newMemberIds = assignedMembers;
+
+      // Find members to add and remove
+      const membersToAdd = newMemberIds.filter(id => !currentMemberIds.includes(id));
+      const membersToRemove = currentMemberIds.filter(id => !newMemberIds.includes(id));
+
+      // Remove members that are no longer assigned
+      if (membersToRemove.length > 0) {
+        await query(
+          `DELETE FROM assignment_members WHERE assignment_id = ? AND user_id IN (${membersToRemove.map(() => '?').join(',')})`,
+          [assignmentId, ...membersToRemove]
+        );
+        console.log(`✅ Removed ${membersToRemove.length} member(s) from assignment`);
+      }
+
+      // Add new members
+      if (membersToAdd.length > 0) {
+        const memberValues = membersToAdd.map(userId => [assignmentId, userId]);
+        const placeholders = memberValues.map(() => '(?, ?)').join(', ');
+        const flattenedValues = memberValues.flat();
+
+        await query(
+          `INSERT INTO assignment_members (assignment_id, user_id) VALUES ${placeholders}`,
+          flattenedValues
+        );
+        console.log(`✅ Added ${membersToAdd.length} new member(s) to assignment`);
+
+        // Create notifications for newly added members
+        try {
+          for (const userId of membersToAdd) {
+            await query(`
+              INSERT INTO notifications (
+                user_id,
+                assignment_id,
+                file_id,
+                type,
+                title,
+                message,
+                action_by_id,
+                action_by_username,
+                action_by_role
+              ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            `, [
+              userId,
+              assignmentId,
+              null,
+              'assignment',
+              'Added to Assignment',
+              `${teamLeaderUsername} added you to the task: "${title}"${dueDate ? ` - Due: ${new Date(dueDate).toLocaleDateString()}` : ''}`,
+              teamLeaderId,
+              teamLeaderUsername,
+              'TEAM_LEADER'
+            ]);
+          }
+          console.log(`✅ Created notifications for ${membersToAdd.length} newly added member(s)`);
+        } catch (notifError) {
+          console.error('⚠️ Failed to create notifications for new members:', notifError);
+        }
+      }
+    }
+
+    // Log activity
+    try {
+      await query(`
+        INSERT INTO activity_logs (
+          user_id,
+          username,
+          role,
+          team,
+          activity
+        ) VALUES (?, ?, ?, ?, ?)
+      `, [
+        teamLeaderId,
+        teamLeaderUsername,
+        'TEAM_LEADER',
+        team,
+        `Updated assignment: ${title}`
+      ]);
+    } catch (logError) {
+      console.warn('Activity log insertion failed:', logError.message);
+    }
+
+    res.json({
+      success: true,
+      message: 'Assignment updated successfully'
+    });
+  } catch (error) {
+    console.error('Error updating assignment:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to update assignment',
       error: error.message
     });
   }

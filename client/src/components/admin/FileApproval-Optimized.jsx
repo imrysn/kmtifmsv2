@@ -124,7 +124,7 @@ const FileRow = memo(({
 const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) => {
   const { user: authUser } = useAuth()
   const { isConnected } = useNetwork()
-  
+
   // State management
   const [files, setFiles] = useState([])
   const [fileSearchQuery, setFileSearchQuery] = useState('')
@@ -137,9 +137,11 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
   const [showFileModal, setShowFileModal] = useState(false)
   const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [fileToDelete, setFileToDelete] = useState(null)
+  const [showRejectModal, setShowRejectModal] = useState(false)
+  const [fileToReject, setFileToReject] = useState(null)
   const [isLoading, setIsLoading] = useState(true)
   const [isOpeningFile, setIsOpeningFile] = useState(false)
-  
+
   // Refs
   const statusCardsRef = useRef(null)
   const searchInputRef = useRef(null)
@@ -172,7 +174,7 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
         signal: fetchAbortController.current.signal
       })
       const data = await response.json()
-      
+
       if (data.success) {
         setFiles(data.files)
       } else {
@@ -303,7 +305,7 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
     return selectedFile ? new Date(selectedFile.uploaded_at).toLocaleString() : ''
   }, [selectedFile])
 
-  
+
 
 
 
@@ -342,6 +344,16 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
   const openDeleteModal = useCallback((file) => {
     setFileToDelete(file)
     setShowDeleteModal(true)
+  }, [])
+
+  const openRejectModal = useCallback((file) => {
+    setFileToReject(file)
+    setShowRejectModal(true)
+  }, [])
+
+  const closeRejectModal = useCallback(() => {
+    setShowRejectModal(false)
+    setFileToReject(null)
   }, [])
 
   const openFileModal = useCallback((file) => {
@@ -389,7 +401,7 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
       })
 
       const data = await response.json()
-      
+
       if (data.success) {
         // Optimistic update - remove from state immediately
         setFiles(prevFiles => prevFiles.filter(file => file.id !== fileToDelete.id))
@@ -522,12 +534,12 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
     }
   }, [selectedFile, authUser, setError, setSuccess, closeFileModal, fetchFiles])
 
-  const rejectFile = useCallback(async () => {
-    if (!selectedFile) return
+  const confirmRejectFile = useCallback(async () => {
+    if (!fileToReject) return
 
     setIsLoading(true)
     try {
-      const response = await fetch(`${API_BASE}/files/${selectedFile.id}/admin-review`, {
+      const response = await fetch(`${API_BASE}/files/${fileToReject.id}/admin-review`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -544,7 +556,7 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
 
       if (data.success) {
         // Delete the uploaded file from uploads folder
-        await fetch(`${API_BASE}/files/${selectedFile.id}/delete-file`, {
+        await fetch(`${API_BASE}/files/${fileToReject.id}/delete-file`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -552,16 +564,17 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
             adminUsername: authUser.username,
             adminRole: authUser.role
           })
-        }).catch(() => {}) // Ignore errors for physical file deletion
+        }).catch(() => { }) // Ignore errors for physical file deletion
 
         // Optimistic update
         setFiles(prevFiles =>
           prevFiles.map(f =>
-            f.id === selectedFile.id ? { ...f, status: 'rejected_by_admin' } : f
+            f.id === fileToReject.id ? { ...f, status: 'rejected_by_admin' } : f
           )
         )
 
         closeFileModal()
+        closeRejectModal()
         setSuccess('File rejected successfully')
 
         // Refresh in background
@@ -575,7 +588,7 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
     } finally {
       setIsLoading(false)
     }
-  }, [selectedFile, authUser, setError, setSuccess, closeFileModal, fetchFiles])
+  }, [fileToReject, authUser, setError, setSuccess, closeFileModal, closeRejectModal, fetchFiles])
 
   const renderPaginationNumbers = useMemo(() => {
     const pageNumbers = []
@@ -655,35 +668,35 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
       {/* Messages */}
       {error && <AlertMessage type="error" message={error} onClose={clearMessages} />}
       {success && <AlertMessage type="success" message={success} onClose={clearMessages} />}
-      
+
       {/* Status Cards */}
       <div className="file-status-cards" ref={statusCardsRef}>
-        <StatusCard 
-          icon="TL" 
-          label="Pending Team Leader" 
+        <StatusCard
+          icon="TL"
+          label="Pending Team Leader"
           count={statusCounts.pendingTeamLeader}
           className="pending"
         />
-        <StatusCard 
-          icon="AD" 
-          label="Pending Admin" 
+        <StatusCard
+          icon="AD"
+          label="Pending Admin"
           count={statusCounts.pendingAdmin}
           className="pending-admin"
         />
-        <StatusCard 
-          icon="AP" 
-          label="Approved Files" 
+        <StatusCard
+          icon="AP"
+          label="Approved Files"
           count={statusCounts.approved}
           className="approved"
         />
-        <StatusCard 
-          icon="RE" 
-          label="Rejected Files" 
+        <StatusCard
+          icon="RE"
+          label="Rejected Files"
           count={statusCounts.rejected}
           className="rejected"
         />
       </div>
-      
+
       {/* Filter and Search Controls */}
       <div className="file-controls">
         <div className="file-search">
@@ -696,7 +709,7 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
             ref={searchInputRef}
           />
           {fileSearchQuery && (
-            <button 
+            <button
               className="search-clear-btn"
               onClick={() => {
                 setFileSearchInput('')
@@ -708,7 +721,7 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
             </button>
           )}
         </div>
-        
+
         <div className="file-filters">
           <select
             value={fileFilter}
@@ -722,7 +735,7 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
             <option value="approved">Approved</option>
             <option value="rejected">Rejected</option>
           </select>
-          
+
           <select
             value={fileSortBy}
             onChange={(e) => setFileSortBy(e.target.value)}
@@ -737,7 +750,7 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
           </select>
         </div>
       </div>
-      
+
       {/* Files Table */}
       <div className="table-section">
         <div className="files-table-container">
@@ -783,7 +796,7 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
             </tbody>
           </table>
         </div>
-        
+
         {/* Pagination */}
         {!isLoading && filteredFiles.length > 0 && (
           <div className="pagination-section">
@@ -792,16 +805,16 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
             </div>
             {totalPages > 1 && (
               <div className="pagination-controls">
-                <button 
-                  className="pagination-btn" 
+                <button
+                  className="pagination-btn"
                   onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
                   disabled={currentPage === 1}
                 >
                   ‹
                 </button>
                 {renderPaginationNumbers}
-                <button 
-                  className="pagination-btn" 
+                <button
+                  className="pagination-btn"
                   onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
                   disabled={currentPage === totalPages}
                 >
@@ -819,7 +832,7 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
         onClose={closeFileModal}
         file={selectedFile}
         onApprove={approveFile}
-        onReject={rejectFile}
+        onReject={openRejectModal}
         onOpenFile={() => openFile(selectedFile)}
         isLoading={isLoading}
         isOpeningFile={isOpeningFile}
@@ -845,6 +858,26 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
       >
         <p className="warning-text">
           This action cannot be undone. The file and all its associated data will be permanently removed.
+        </p>
+      </ConfirmationModal>
+
+      {/* Reject Confirmation Modal */}
+      <ConfirmationModal
+        isOpen={showRejectModal && fileToReject}
+        onClose={closeRejectModal}
+        onConfirm={confirmRejectFile}
+        title="Reject File"
+        message="Are you sure you want to reject this file?"
+        confirmText="Reject File"
+        variant="danger"
+        isLoading={isLoading}
+        itemInfo={fileToReject ? {
+          name: fileToReject.original_name || fileToReject.filename,
+          details: `Submitted by ${fileToReject.username} from ${fileToReject.user_team} team`
+        } : null}
+      >
+        <p className="warning-text">
+          The user who submitted this file will be notified that their file has been rejected. The file will be deleted from the uploads folder.
         </p>
       </ConfirmationModal>
     </div>

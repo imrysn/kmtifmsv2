@@ -7,14 +7,19 @@ const CreateAssignmentModal = ({
   setAssignmentForm,
   teamMembers,
   isProcessing,
-  createAssignment
+  createAssignment,
+  currentUserId,
+  isEditMode = false,
+  onClose
 }) => {
   const [showMemberDropdown, setShowMemberDropdown] = React.useState(false)
   const [showFileTypeDropdown, setShowFileTypeDropdown] = React.useState(false)
   const [dropdownPosition, setDropdownPosition] = React.useState({ top: 0, left: 0, width: 0 })
   const [fileTypeDropdownPosition, setFileTypeDropdownPosition] = React.useState({ top: 0, left: 0, width: 0 })
+  const [attachedFiles, setAttachedFiles] = React.useState([])
   const buttonRef = React.useRef(null)
   const fileTypeButtonRef = React.useRef(null)
+  const fileInputRef = React.useRef(null)
 
   const fileTypeOptions = [
     { value: '', label: 'Any file type' },
@@ -30,16 +35,40 @@ const CreateAssignmentModal = ({
   if (!showCreateAssignmentModal) return null
 
   const handleClose = () => {
-    setShowCreateAssignmentModal(false)
+    if (onClose) {
+      onClose()
+    } else {
+      setShowCreateAssignmentModal(false)
+      setAssignmentForm({
+        title: '',
+        description: '',
+        dueDate: '',
+        fileTypeRequired: '',
+        assignedMembers: []
+      })
+    }
     setShowMemberDropdown(false)
     setShowFileTypeDropdown(false)
-    setAssignmentForm({
-      title: '',
-      description: '',
-      dueDate: '',
-      fileTypeRequired: '',
-      assignedMembers: []
-    })
+    setAttachedFiles([])
+  }
+
+  const handleFileSelect = (e) => {
+    const files = Array.from(e.target.files)
+    if (files.length > 0) {
+      setAttachedFiles(prevFiles => [...prevFiles, ...files])
+    }
+  }
+
+  const handleRemoveFile = (index) => {
+    setAttachedFiles(prevFiles => prevFiles.filter((_, i) => i !== index))
+  }
+
+  const formatFileSize = (bytes) => {
+    if (bytes === 0) return '0 Bytes'
+    const k = 1024
+    const sizes = ['Bytes', 'KB', 'MB', 'GB']
+    const i = Math.floor(Math.log(bytes) / Math.log(k))
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
   }
 
   const toggleMemberSelection = (memberId) => {
@@ -98,7 +127,7 @@ const CreateAssignmentModal = ({
     <div className="tl-modal-overlay" onClick={handleClose}>
       <div className="tl-modal-large" onClick={e => e.stopPropagation()}>
         <div className="tl-modal-header">
-          <h3>Create New Task</h3>
+          <h3>{isEditMode ? 'Edit Task' : 'Create New Task'}</h3>
           <button onClick={handleClose}>×</button>
         </div>
         <div className="tl-modal-body-large">
@@ -188,9 +217,9 @@ const CreateAssignmentModal = ({
                       <path d="M4 6L8 10L12 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                     </svg>
                   </button>
-                  
+
                   {showMemberDropdown && (
-                    <div 
+                    <div
                       className="tl-member-dropdown-menu"
                       style={{
                         top: `${dropdownPosition.top}px`,
@@ -206,7 +235,19 @@ const CreateAssignmentModal = ({
                               checked={assignmentForm.assignedMembers.includes(member.id)}
                               onChange={() => toggleMemberSelection(member.id)}
                             />
-                            <span>{member.name}</span>
+                            <span>
+                              {member.name}
+                              {member.id === currentUserId && (
+                                <span style={{
+                                  marginLeft: '6px',
+                                  fontSize: '12px',
+                                  color: '#6B7280',
+                                  fontWeight: '500'
+                                }}>
+                                  (You)
+                                </span>
+                              )}
+                            </span>
                           </label>
                         ))
                       ) : (
@@ -222,6 +263,92 @@ const CreateAssignmentModal = ({
               </div>
             </div>
 
+            <div className="tl-form-group">
+              <label>Attach Files (Optional)</label>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  multiple
+                  onChange={handleFileSelect}
+                  style={{ display: 'none' }}
+                />
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="tl-btn secondary"
+                  style={{
+                    padding: '10px 16px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    justifyContent: 'center'
+                  }}
+                >
+                  <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                    <path d="M10 4V16M4 10H16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                  Attach Files
+                </button>
+
+                {attachedFiles.length > 0 && (
+                  <div style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '8px',
+                    padding: '12px',
+                    background: '#F9FAFB',
+                    borderRadius: '8px',
+                    border: '1px solid #E5E7EB'
+                  }}>
+                    {attachedFiles.map((file, index) => (
+                      <div key={index} style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        padding: '8px 12px',
+                        background: 'white',
+                        borderRadius: '6px',
+                        border: '1px solid #E5E7EB'
+                      }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1 }}>
+                          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" style={{ color: '#6B7280' }}>
+                            <path d="M9 2H3C2.44772 2 2 2.44772 2 3V13C2 13.5523 2.44772 14 3 14H13C13.5523 14 14 13.5523 14 13V7M9 2L14 7M9 2V7H14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                          </svg>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontSize: '14px', fontWeight: '500', color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              {file.name}
+                            </div>
+                            <div style={{ fontSize: '12px', color: '#6B7280' }}>
+                              {formatFileSize(file.size)}
+                            </div>
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveFile(index)}
+                          style={{
+                            padding: '4px',
+                            background: 'transparent',
+                            border: 'none',
+                            cursor: 'pointer',
+                            color: '#EF4444',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center'
+                          }}
+                        >
+                          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                            <path d="M12 4L4 12M4 4L12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                          </svg>
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
             <div className="tl-modal-footer">
               <button
                 type="button"
@@ -233,10 +360,13 @@ const CreateAssignmentModal = ({
               <button
                 type="button"
                 className="tl-btn success"
-                onClick={createAssignment}
+                onClick={() => createAssignment(attachedFiles)}
                 disabled={isProcessing || !assignmentForm.title.trim() || assignmentForm.assignedMembers.length === 0}
               >
-                {isProcessing ? 'Creating...' : 'Create Assignment'}
+                {isProcessing
+                  ? (isEditMode ? 'Updating...' : 'Creating...')
+                  : (isEditMode ? 'Update Task' : 'Create Assignment')
+                }
               </button>
             </div>
           </form>

@@ -97,6 +97,7 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
     fileTypeRequired: '',
     assignedMembers: []
   })
+  const [editingAssignmentId, setEditingAssignmentId] = useState(null)
   const [notificationCommentContext, setNotificationCommentContext] = useState(null)
   const [highlightedAssignmentId, setHighlightedAssignmentId] = useState(null)
   const [highlightedFileId, setHighlightedFileId] = useState(null)
@@ -212,7 +213,7 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
     try {
       const response = await fetch(`http://localhost:3001/api/team-members/${user.team}`)
       const data = await response.json()
-      
+
       if (data.success && data.members && data.members.length > 0) {
         const mappedMembers = data.members.map(member => ({
           id: member.id,
@@ -223,9 +224,36 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
           status: 'Active',
           ...member
         }))
-        setTeamMembers(mappedMembers)
+
+        // Add the team leader (current user) to the members list
+        const teamLeaderMember = {
+          id: user.id,
+          name: user.fullName || user.username,
+          email: user.email,
+          joined: new Date(user.created_at || Date.now()).toLocaleDateString('en-US', { year: 'numeric', month: '2-digit', day: '2-digit' }),
+          files: 0,
+          status: 'Active',
+          fullName: user.fullName,
+          username: user.username,
+          role: user.role
+        }
+
+        // Add team leader at the beginning of the array
+        setTeamMembers([teamLeaderMember, ...mappedMembers])
       } else {
-        setTeamMembers([])
+        // If no members found, still add the team leader
+        const teamLeaderMember = {
+          id: user.id,
+          name: user.fullName || user.username,
+          email: user.email,
+          joined: new Date(user.created_at || Date.now()).toLocaleDateString('en-US', { year: 'numeric', month: '2-digit', day: '2-digit' }),
+          files: 0,
+          status: 'Active',
+          fullName: user.fullName,
+          username: user.username,
+          role: user.role
+        }
+        setTeamMembers([teamLeaderMember])
       }
     } catch (error) {
       console.error('Error fetching team members:', error)
@@ -295,7 +323,7 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
     }
   }
 
-  const createAssignment = async () => {
+  const createAssignment = async (attachedFiles = []) => {
     if (!assignmentForm.title.trim()) {
       setError('Please enter assignment title')
       return
@@ -308,22 +336,45 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
 
     setIsProcessing(true)
     try {
-      const response = await fetch('http://localhost:3001/api/assignments/create', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...assignmentForm,
-          assignedTo: assignmentForm.assignedMembers.length > 0 ? 'specific' : 'all',
-          teamLeaderId: user.id,
-          teamLeaderUsername: user.username,
-          team: user.team
+      // Check if we're editing or creating
+      const url = editingAssignmentId
+        ? `http://localhost:3001/api/assignments/${editingAssignmentId}`
+        : 'http://localhost:3001/api/assignments/create'
+
+      const method = editingAssignmentId ? 'PUT' : 'POST'
+
+      // Use FormData to handle file uploads
+      const formData = new FormData()
+      formData.append('title', assignmentForm.title)
+      formData.append('description', assignmentForm.description || '')
+      formData.append('dueDate', assignmentForm.dueDate || '')
+      formData.append('fileTypeRequired', assignmentForm.fileTypeRequired || '')
+      formData.append('assignedTo', assignmentForm.assignedMembers.length > 0 ? 'specific' : 'all')
+      formData.append('assignedMembers', JSON.stringify(assignmentForm.assignedMembers))
+      formData.append('teamLeaderId', user.id)
+      formData.append('teamLeaderUsername', user.username)
+      formData.append('team', user.team)
+
+      // Append files if any
+      if (attachedFiles && attachedFiles.length > 0) {
+        attachedFiles.forEach((file) => {
+          formData.append('attachments', file)
         })
+      }
+
+      const response = await fetch(url, {
+        method,
+        body: formData // Don't set Content-Type header, let browser handle it for FormData
       })
 
       const data = await response.json()
       if (data.success) {
-        setSuccess(`Assignment created! ${data.membersAssigned} members assigned.`)
+        setSuccess(editingAssignmentId
+          ? 'Task updated successfully!'
+          : `Assignment created! ${data.membersAssigned} members assigned.`
+        )
         setShowCreateAssignmentModal(false)
+        setEditingAssignmentId(null)
         setAssignmentForm({
           title: '',
           description: '',
@@ -333,14 +384,40 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
         })
         fetchAssignments()
       } else {
-        setError(data.message || 'Failed to create assignment')
+        setError(data.message || `Failed to ${editingAssignmentId ? 'update' : 'create'} assignment`)
       }
     } catch (error) {
-      console.error('Error creating assignment:', error)
-      setError('Failed to create assignment')
+      console.error(`Error ${editingAssignmentId ? 'updating' : 'creating'} assignment:`, error)
+      setError(`Failed to ${editingAssignmentId ? 'update' : 'create'} assignment`)
     } finally {
       setIsProcessing(false)
     }
+  }
+
+  const handleEditAssignment = async (assignment) => {
+    setEditingAssignmentId(assignment.id)
+
+    // Format the due date for the input field (YYYY-MM-DD format)
+    let formattedDueDate = ''
+    if (assignment.due_date || assignment.dueDate) {
+      const dueDate = new Date(assignment.due_date || assignment.dueDate)
+      if (!isNaN(dueDate.getTime())) {
+        formattedDueDate = dueDate.toISOString().split('T')[0]
+      }
+    }
+
+    // Get assigned member IDs
+    const assignedMemberIds = (assignment.assigned_member_details || []).map(m => m.id)
+
+    setAssignmentForm({
+      title: assignment.title || '',
+      description: assignment.description || '',
+      dueDate: formattedDueDate,
+      fileTypeRequired: assignment.file_type_required || assignment.fileTypeRequired || '',
+      assignedMembers: assignedMemberIds
+    })
+
+    setShowCreateAssignmentModal(true)
   }
 
   const deleteAssignment = async (assignmentId, title) => {
@@ -364,6 +441,31 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
     } catch (error) {
       console.error('Error deleting assignment:', error)
       setError('Failed to delete assignment')
+    }
+  }
+
+  const markAssignmentAsDone = async (assignmentId, title) => {
+    try {
+      const response = await fetch(`http://localhost:3001/api/assignments/${assignmentId}/mark-done`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          teamLeaderId: user.id,
+          teamLeaderUsername: user.username,
+          team: user.team
+        })
+      })
+
+      const data = await response.json()
+      if (data.success) {
+        setSuccess(`Task "${title}" marked as completed`)
+        fetchAssignments()
+      } else {
+        setError(data.message || 'Failed to mark assignment as done')
+      }
+    } catch (error) {
+      console.error('Error marking assignment as done:', error)
+      setError('Failed to mark assignment as done')
     }
   }
 
@@ -406,15 +508,13 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
     }
   }
 
-  const handleReviewSubmit = async (e) => {
+  const handleReviewSubmit = async (e, action = null) => {
     e.preventDefault()
-    
-    if (!selectedFile || !reviewAction) return
-    
-    if (reviewAction === 'reject' && !reviewComments.trim()) {
-      setError('Please provide a reason for rejection')
-      return
-    }
+
+    // Use the passed action or fall back to the state
+    const actionToUse = action || reviewAction
+
+    if (!selectedFile || !actionToUse) return
 
     setIsProcessing(true)
     setError('')
@@ -426,7 +526,7 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          action: reviewAction,
+          action: actionToUse,
           comments: reviewComments.trim(),
           teamLeaderId: user.id,
           teamLeaderUsername: user.username,
@@ -438,7 +538,7 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
       const data = await response.json()
 
       if (data.success) {
-        setSuccess(`File ${reviewAction}d successfully!`)
+        setSuccess(`File ${actionToUse}d successfully!`)
         setShowReviewModal(false)
         setSelectedFile(null)
         setReviewComments('')
@@ -446,11 +546,11 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
         setFileComments([])
         fetchPendingFiles()
       } else {
-        setError(data.message || `Failed to ${reviewAction} file`)
+        setError(data.message || `Failed to ${actionToUse} file`)
       }
     } catch (error) {
-      console.error(`Error ${reviewAction}ing file:`, error)
-      setError(`Failed to ${reviewAction} file. Please try again.`)
+      console.error(`Error ${actionToUse}ing file:`, error)
+      setError(`Failed to ${actionToUse} file. Please try again.`)
     } finally {
       setIsProcessing(false)
     }
@@ -804,6 +904,8 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
               onClearHighlight={() => setHighlightedAssignmentId(null)}
               highlightedFileId={highlightedSubmissionFileId}
               onClearFileHighlight={() => setHighlightedSubmissionFileId(null)}
+              markAssignmentAsDone={markAssignmentAsDone}
+              handleEditAssignment={handleEditAssignment}
             />
           </Suspense>
         )
@@ -904,9 +1006,14 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
 
         <main className="tl-main">
           <AlertMessage
-            error={error}
-            success={success}
-            clearMessages={clearMessages}
+            type="error"
+            message={error}
+            onClose={clearMessages}
+          />
+          <AlertMessage
+            type="success"
+            message={success}
+            onClose={clearMessages}
           />
 
           {renderActiveTab()}
@@ -981,6 +1088,19 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
               teamMembers={teamMembers}
               isProcessing={isProcessing}
               createAssignment={createAssignment}
+              currentUserId={user.id}
+              isEditMode={!!editingAssignmentId}
+              onClose={() => {
+                setShowCreateAssignmentModal(false)
+                setEditingAssignmentId(null)
+                setAssignmentForm({
+                  title: '',
+                  description: '',
+                  dueDate: '',
+                  fileTypeRequired: '',
+                  assignedMembers: []
+                })
+              }}
             />
           </Suspense>
         )}
