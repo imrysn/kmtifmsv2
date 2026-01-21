@@ -212,7 +212,7 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
     try {
       const response = await fetch(`http://localhost:3001/api/team-members/${user.team}`)
       const data = await response.json()
-      
+
       if (data.success && data.members && data.members.length > 0) {
         const mappedMembers = data.members.map(member => ({
           id: member.id,
@@ -223,9 +223,36 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
           status: 'Active',
           ...member
         }))
-        setTeamMembers(mappedMembers)
+
+        // Add the team leader (current user) to the members list
+        const teamLeaderMember = {
+          id: user.id,
+          name: user.fullName || user.username,
+          email: user.email,
+          joined: new Date(user.created_at || Date.now()).toLocaleDateString('en-US', { year: 'numeric', month: '2-digit', day: '2-digit' }),
+          files: 0,
+          status: 'Active',
+          fullName: user.fullName,
+          username: user.username,
+          role: user.role
+        }
+
+        // Add team leader at the beginning of the array
+        setTeamMembers([teamLeaderMember, ...mappedMembers])
       } else {
-        setTeamMembers([])
+        // If no members found, still add the team leader
+        const teamLeaderMember = {
+          id: user.id,
+          name: user.fullName || user.username,
+          email: user.email,
+          joined: new Date(user.created_at || Date.now()).toLocaleDateString('en-US', { year: 'numeric', month: '2-digit', day: '2-digit' }),
+          files: 0,
+          status: 'Active',
+          fullName: user.fullName,
+          username: user.username,
+          role: user.role
+        }
+        setTeamMembers([teamLeaderMember])
       }
     } catch (error) {
       console.error('Error fetching team members:', error)
@@ -981,6 +1008,7 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
               teamMembers={teamMembers}
               isProcessing={isProcessing}
               createAssignment={createAssignment}
+              currentUserId={user.id}
             />
           </Suspense>
         )}
