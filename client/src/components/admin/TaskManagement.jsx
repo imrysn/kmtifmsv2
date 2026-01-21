@@ -811,12 +811,12 @@ const TaskManagement = ({ error, success, setError, setSuccess, clearMessages, u
                                       file.status === 'rejected_by_team_leader' || file.status === 'rejected_by_admin' ? 'rejected' :
                                         'uploaded'
                                   }`}>
-                                  {file.status === 'uploaded' ? 'NEW' :
+                                  {file.status === 'uploaded' ? 'PENDING TEAM LEADER' :
                                     file.status === 'team_leader_approved' ? 'PENDING ADMIN' :
                                       file.status === 'final_approved' ? '✓ APPROVED' :
                                         file.status === 'rejected_by_team_leader' ? '✗ REJECTED' :
                                           file.status === 'rejected_by_admin' ? '✗ REJECTED' :
-                                            'PENDING'}
+                                            'DELETED by user'}
                                 </span>
                               </div>
                             </div>
