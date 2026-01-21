@@ -108,21 +108,39 @@ function logActivity(db, userId, username, role, team, action) {
     timestamp
   });
 
-  // Log to database
-  const query = `
-    INSERT INTO activity_logs (user_id, username, role, team, action, timestamp)
-    VALUES (?, ?, ?, ?, ?, ?)
-  `;
+  // Check if we're using MySQL or SQLite
+  const USE_MYSQL = require('../config/database').USE_MYSQL;
 
-  db.run(query, [userId, username, role, team, action, timestamp], (err) => {
-    if (err) {
-      logger.error('Failed to log activity to database', {
+  if (USE_MYSQL) {
+    // MySQL: Use activity column instead of action
+    const mysqlDb = require('../../database/config');
+    mysqlDb.query(
+      'INSERT INTO activity_logs (user_id, username, role, team, activity, timestamp) VALUES (?, ?, ?, ?, ?, ?)',
+      [userId, username, role, team, action, timestamp]
+    ).catch(err => {
+      logger.error('Failed to log activity to MySQL database', {
         error: err.message,
         userId,
         action
       });
-    }
-  });
+    });
+  } else {
+    // SQLite: Use action column
+    const query = `
+      INSERT INTO activity_logs (user_id, username, role, team, action, timestamp)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `;
+
+    db.run(query, [userId, username, role, team, action, timestamp], (err) => {
+      if (err) {
+        logger.error('Failed to log activity to database', {
+          error: err.message,
+          userId,
+          action
+        });
+      }
+    });
+  }
 }
 
 /**
@@ -197,9 +215,75 @@ function logDebug(message, meta = {}) {
   logger.debug(message, meta);
 }
 
+/**
+ * Log file status change to database
+ * @param {Object} db - Database instance
+ * @param {number} fileId - File ID
+ * @param {string} oldStatus - Old status
+ * @param {string} newStatus - New status
+ * @param {string} oldStage - Old stage
+ * @param {string} newStage - New stage
+ * @param {number} userId - User ID
+ * @param {string} username - Username
+ * @param {string} role - User role
+ * @param {string} comment - Optional comment
+ */
+function logFileStatusChange(db, fileId, oldStatus, newStatus, oldStage, newStage, userId, username, role, comment = '') {
+  const timestamp = new Date().toISOString();
+
+  // Log to Winston
+  logger.info('File status change', {
+    fileId,
+    oldStatus,
+    newStatus,
+    oldStage,
+    newStage,
+    userId,
+    username,
+    role,
+    comment,
+    timestamp
+  });
+
+  // Check if we're using MySQL or SQLite
+  const USE_MYSQL = require('../config/database').USE_MYSQL;
+
+  if (USE_MYSQL) {
+    // MySQL
+    const mysqlDb = require('../../database/config');
+    mysqlDb.query(
+      'INSERT INTO file_status_history (file_id, old_status, new_status, old_stage, new_stage, changed_by_id, changed_by_username, changed_by_role, comment, changed_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [fileId, oldStatus, newStatus, oldStage, newStage, userId, username, role, comment, timestamp]
+    ).catch(err => {
+      logger.error('Failed to log file status change to MySQL database', {
+        error: err.message,
+        fileId,
+        newStatus
+      });
+    });
+  } else {
+    // SQLite
+    const query = `
+      INSERT INTO file_status_history (file_id, old_status, new_status, old_stage, new_stage, changed_by_id, changed_by_username, changed_by_role, comment, changed_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `;
+
+    db.run(query, [fileId, oldStatus, newStatus, oldStage, newStage, userId, username, role, comment, timestamp], (err) => {
+      if (err) {
+        logger.error('Failed to log file status change to database', {
+          error: err.message,
+          fileId,
+          newStatus
+        });
+      }
+    });
+  }
+}
+
 module.exports = {
   logger,
   logActivity,
+  logFileStatusChange,
   logRequest,
   logError,
   logInfo,

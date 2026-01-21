@@ -66,8 +66,20 @@ const SingleSelectTags = ({ selectedTag, onChange, disabled, user }) => {
 
   const handleCustomTagSubmit = async () => {
     const trimmedTag = customTagInput.trim();
-    if (trimmedTag && user) {
-      try {
+    if (!trimmedTag) {
+      console.error('Tag name is empty');
+      return;
+    }
+    
+    if (!user || !user.id) {
+      console.error('User not available:', user);
+      alert('Error: User information not available. Please refresh the page and try again.');
+      return;
+    }
+    
+    console.log('Adding custom tag:', trimmedTag, 'for user:', user.id);
+    
+    try {
         const response = await fetch('http://localhost:3001/api/custom-tags', {
           method: 'POST',
           headers: {
@@ -80,6 +92,7 @@ const SingleSelectTags = ({ selectedTag, onChange, disabled, user }) => {
         });
 
         const data = await response.json();
+        console.log('API Response:', data);
 
         if (data.success) {
           // Refresh custom tags list
@@ -89,13 +102,15 @@ const SingleSelectTags = ({ selectedTag, onChange, disabled, user }) => {
           onChange(trimmedTag);
           setCustomTagInput('');
           setShowCustomTagModal(false);
+          console.log('✅ Tag added successfully!');
         } else {
           console.error('Failed to add custom tag:', data.message);
+          alert(`Error: ${data.message || 'Failed to add custom tag'}`);
         }
       } catch (error) {
         console.error('Error adding custom tag:', error);
+        alert(`Error: ${error.message || 'Failed to connect to server'}`);
       }
-    }
   };
 
   const handleCustomTagCancel = () => {
