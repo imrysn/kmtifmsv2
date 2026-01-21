@@ -4,19 +4,19 @@ const { query, queryOne } = require('../../database/config');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
+const { uploadsDir, moveToUserFolder } = require('../config/middleware');
 
-// Configure multer for file uploads
+// Configure multer for file uploads using existing uploads directory
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    const uploadDir = path.join(__dirname, '../../uploads/assignment_attachments');
-    if (!fs.existsSync(uploadDir)) {
-      fs.mkdirSync(uploadDir, { recursive: true });
-    }
-    cb(null, uploadDir);
+    // Upload to temp location first, then move to user folder
+    cb(null, uploadsDir);
   },
   filename: (req, file, cb) => {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, uniqueSuffix + '-' + file.originalname);
+    // Use temp filename like regular uploads
+    const timestamp = Date.now();
+    const randomString = Math.random().toString(36).substring(7);
+    cb(null, `temp_${timestamp}_${randomString}`);
   }
 });
 
@@ -570,6 +570,17 @@ router.post('/create', upload.array('attachments', 10), async (req, res) => {
         console.log(`📎 Saving ${uploadedFiles.length} attachment(s) for assignment ${assignmentId}`);
 
         for (const file of uploadedFiles) {
+          // Move file from temp location to team leader's folder
+          let finalPath;
+          try {
+            finalPath = await moveToUserFolder(file.path, finalTeamLeaderUsername, file.originalname);
+            console.log(`✅ Moved attachment to: ${finalPath}`);
+          } catch (moveError) {
+            console.error('⚠️ Failed to move attachment file:', moveError);
+            // If move fails, use the original temp path
+            finalPath = file.path;
+          }
+
           await query(`
             INSERT INTO assignment_attachments (
               assignment_id,
@@ -584,8 +595,8 @@ router.post('/create', upload.array('attachments', 10), async (req, res) => {
           `, [
             assignmentId,
             file.originalname,
-            file.filename,
-            file.path,
+            path.basename(finalPath),
+            finalPath,
             file.size,
             file.mimetype,
             finalTeamLeaderId,
