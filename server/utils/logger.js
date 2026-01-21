@@ -110,7 +110,7 @@ function logActivity(db, userId, username, role, team, action) {
 
   // Log to database
   const query = `
-    INSERT INTO activity_logs (user_id, username, role, team, action, timestamp)
+    INSERT INTO activity_logs (user_id, username, role, team, activity, timestamp)
     VALUES (?, ?, ?, ?, ?, ?)
   `;
 
@@ -197,9 +197,37 @@ function logDebug(message, meta = {}) {
   logger.debug(message, meta);
 }
 
+/**
+ * Log file status change to history table
+ */
+function logFileStatusChange(db, fileId, oldStatus, newStatus, oldStage, newStage, changedById, changedByUsername, changedByRole, reason) {
+  const query = `
+    INSERT INTO file_status_history (
+      file_id, old_status, new_status, old_stage, new_stage, 
+      changed_by_id, changed_by_username, changed_by_role, reason, created_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `;
+
+  const timestamp = new Date().toISOString().slice(0, 19).replace('T', ' ');
+
+  db.run(query, [
+    fileId, oldStatus, newStatus, oldStage, newStage,
+    changedById, changedByUsername, changedByRole, reason, timestamp
+  ], (err) => {
+    if (err) {
+      logger.error('Failed to log file status change to database', {
+        error: err.message,
+        fileId,
+        newStatus
+      });
+    }
+  });
+}
+
 module.exports = {
   logger,
   logActivity,
+  logFileStatusChange,
   logRequest,
   logError,
   logInfo,
