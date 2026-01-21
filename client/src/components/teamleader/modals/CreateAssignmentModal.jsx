@@ -7,7 +7,8 @@ const CreateAssignmentModal = ({
   setAssignmentForm,
   teamMembers,
   isProcessing,
-  createAssignment
+  createAssignment,
+  currentUserId
 }) => {
   const [showMemberDropdown, setShowMemberDropdown] = React.useState(false)
   const [showFileTypeDropdown, setShowFileTypeDropdown] = React.useState(false)
@@ -206,7 +207,19 @@ const CreateAssignmentModal = ({
                               checked={assignmentForm.assignedMembers.includes(member.id)}
                               onChange={() => toggleMemberSelection(member.id)}
                             />
-                            <span>{member.name}</span>
+                            <span>
+                              {member.name}
+                              {member.id === currentUserId && (
+                                <span style={{
+                                  marginLeft: '6px',
+                                  fontSize: '12px',
+                                  color: '#6B7280',
+                                  fontWeight: '500'
+                                }}>
+                                  (You)
+                                </span>
+                              )}
+                            </span>
                           </label>
                         ))
                       ) : (
