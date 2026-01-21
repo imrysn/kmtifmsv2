@@ -124,16 +124,47 @@
   border-radius: 4px;
 }
 
-.skeleton-line-full { width: 100%; }
-.skeleton-line-title { width: 65%; height: 16px; }
-.skeleton-line-medium { width: 60%; }
-.skeleton-line-small { width: 40%; height: 10px; }
-.skeleton-line-tiny { width: 80px; height: 10px; }
+.skeleton-line-full {
+  width: 100%;
+}
 
-.skeleton-title-section { padding: 12px 18px; }
-.skeleton-description-section { padding: 12px 18px; display: flex; flex-direction: column; gap: 8px; }
-.skeleton-attachment-section { padding: 12px 18px; }
-.skeleton-comments-section { padding: 12px 18px; }
+.skeleton-line-title {
+  width: 65%;
+  height: 16px;
+}
+
+.skeleton-line-medium {
+  width: 60%;
+}
+
+.skeleton-line-small {
+  width: 40%;
+  height: 10px;
+}
+
+.skeleton-line-tiny {
+  width: 80px;
+  height: 10px;
+}
+
+.skeleton-title-section {
+  padding: 12px 18px;
+}
+
+.skeleton-description-section {
+  padding: 12px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.skeleton-attachment-section {
+  padding: 12px 18px;
+}
+
+.skeleton-comments-section {
+  padding: 12px 18px;
+}
 
 .skeleton-file-item {
   display: flex;
@@ -163,8 +194,13 @@
 }
 
 @keyframes shimmer {
-  0% { background-position: 200% 0; }
-  100% { background-position: -200% 0; }
+  0% {
+    background-position: 200% 0;
+  }
+
+  100% {
+    background-position: -200% 0;
+  }
 }
 
 /* Inline Skeleton Loader for Loading More */
@@ -195,7 +231,10 @@
   gap: 8px;
 }
 
-.skeleton-line-short { width: 60%; }
+.skeleton-line-short {
+  width: 60%;
+}
+
 .skeleton-body {
   display: flex;
   flex-direction: column;
@@ -339,10 +378,21 @@
   border-radius: 0;
 }
 
-.admin-menu-item:first-child { border-radius: 8px 8px 0 0; }
-.admin-menu-item:last-child { border-radius: 0 0 8px 8px; }
-.admin-menu-item:only-child { border-radius: 8px; }
-.admin-menu-item:hover { background-color: #f0f2f5; }
+.admin-menu-item:first-child {
+  border-radius: 8px 8px 0 0;
+}
+
+.admin-menu-item:last-child {
+  border-radius: 0 0 8px 8px;
+}
+
+.admin-menu-item:only-child {
+  border-radius: 8px;
+}
+
+.admin-menu-item:hover {
+  background-color: #f0f2f5;
+}
 
 .admin-delete-menu-item {
   color: #dc2626;
@@ -449,6 +499,39 @@
   -webkit-text-fill-color: transparent;
   font-size: 13px;
 }
+
+/* File Status Badges */
+.admin-file-status {
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 8px;
+}
+
+.admin-file-status.uploaded {
+  background: #E0E7FF;
+  color: #4f46e5;
+}
+
+.admin-file-status.team-leader-approved {
+  background: #FEF3C7;
+  color: #92400E;
+}
+
+.admin-file-status.final-approved {
+  background: #d1fae5;
+  color: #059669;
+}
+
+.admin-file-status.rejected {
+  background: #fee2e2;
+  color: #dc2626;
+}
+
 
 .admin-attachment-toggle-btn {
   background: none;
