@@ -8,7 +8,7 @@ import { withErrorBoundary } from '../common'
 const TaskManagement = ({ error, success, setError, setSuccess, clearMessages, user, contextAssignmentId }) => {
   const { user: authUser } = useAuth()
   const { isConnected } = useNetwork()
-  
+
   const [assignments, setAssignments] = useState([])
   const [loading, setLoading] = useState(true)
   const [loadingMore, setLoadingMore] = useState(false)
@@ -31,7 +31,7 @@ const TaskManagement = ({ error, success, setError, setSuccess, clearMessages, u
   // Pagination state
   const [nextCursor, setNextCursor] = useState(null)
   const [hasMore, setHasMore] = useState(true)
-  
+
   // Ref for infinite scroll
   const observerRef = useRef(null)
   const loadMoreRef = useRef(null)
@@ -44,14 +44,14 @@ const TaskManagement = ({ error, success, setError, setSuccess, clearMessages, u
   useEffect(() => {
     if (contextAssignmentId && typeof contextAssignmentId === 'object') {
       const { assignmentId, commentId, shouldOpenComments } = contextAssignmentId
-      
+
       if (assignmentId && shouldOpenComments) {
         // Find the assignment
         const assignment = assignments.find(a => a.id === assignmentId)
         if (assignment) {
           // Open comments modal
           openCommentsModal(assignment)
-          
+
           // Highlight the comment after modal opens
           if (commentId) {
             setTimeout(() => {
@@ -116,14 +116,14 @@ const TaskManagement = ({ error, success, setError, setSuccess, clearMessages, u
     try {
       setLoading(true)
       clearMessages()
-      
+
       console.log('Fetching initial assignments...')
-      
+
       const response = await fetch('http://localhost:3001/api/assignments/admin/all?limit=20')
       const data = await response.json()
-      
+
       console.log('Initial assignments response:', data)
-      
+
       if (!data.success) {
         setError(data.message || 'Failed to fetch assignments')
         setLoading(false)
@@ -132,7 +132,7 @@ const TaskManagement = ({ error, success, setError, setSuccess, clearMessages, u
 
       const allAssignments = data.assignments || []
       console.log(`Fetched ${allAssignments.length} initial assignments`)
-      
+
       setAssignments(allAssignments)
       setNextCursor(data.nextCursor)
       setHasMore(data.hasMore)
@@ -152,14 +152,14 @@ const TaskManagement = ({ error, success, setError, setSuccess, clearMessages, u
 
     try {
       setLoadingMore(true)
-      
+
       console.log('Fetching more assignments with cursor:', nextCursor)
-      
+
       const response = await fetch(`http://localhost:3001/api/assignments/admin/all?cursor=${nextCursor}&limit=20`)
       const data = await response.json()
-      
+
       console.log('More assignments response:', data)
-      
+
       if (!data.success) {
         setError(data.message || 'Failed to fetch more assignments')
         return
@@ -167,7 +167,7 @@ const TaskManagement = ({ error, success, setError, setSuccess, clearMessages, u
 
       const newAssignments = data.assignments || []
       console.log(`Fetched ${newAssignments.length} more assignments`)
-      
+
       setAssignments(prev => [...prev, ...newAssignments])
       setNextCursor(data.nextCursor)
       setHasMore(data.hasMore)
@@ -185,7 +185,7 @@ const TaskManagement = ({ error, success, setError, setSuccess, clearMessages, u
       setLoadingComments(true)
       const response = await fetch(`http://localhost:3001/api/assignments/${assignmentId}/comments`)
       const data = await response.json()
-      
+
       if (data.success) {
         setComments(data.comments || [])
       } else {
@@ -220,7 +220,7 @@ const TaskManagement = ({ error, success, setError, setSuccess, clearMessages, u
   // ⚡ OPTIMIZATION: Optimistic update + memoized handler
   const handlePostComment = useCallback(async (e) => {
     e.preventDefault()
-    
+
     if (!newComment.trim()) return
 
     try {
@@ -228,7 +228,7 @@ const TaskManagement = ({ error, success, setError, setSuccess, clearMessages, u
         setError('User session not found. Please log in again.')
         return
       }
-      
+
       const currentUser = user
       const commentText = newComment
 
@@ -259,7 +259,7 @@ const TaskManagement = ({ error, success, setError, setSuccess, clearMessages, u
       })
 
       const data = await response.json()
-      
+
       if (data.success) {
         // ⚡ OPTIMIZATION: Only refetch to get the real ID and any server updates
         await fetchComments(selectedAssignment.id)
@@ -280,7 +280,7 @@ const TaskManagement = ({ error, success, setError, setSuccess, clearMessages, u
   // ⚡ OPTIMIZATION: Optimistic update + memoized handler
   const handlePostReply = useCallback(async (e, commentId) => {
     e.preventDefault()
-    
+
     if (!replyText.trim()) return
 
     try {
@@ -288,7 +288,7 @@ const TaskManagement = ({ error, success, setError, setSuccess, clearMessages, u
         setError('User session not found. Please log in again.')
         return
       }
-      
+
       const currentUser = user
       const replyMessage = replyText
 
@@ -302,8 +302,8 @@ const TaskManagement = ({ error, success, setError, setSuccess, clearMessages, u
         user_role: currentUser.role,
         created_at: new Date().toISOString()
       }
-      
-      setComments(prev => prev.map(comment => 
+
+      setComments(prev => prev.map(comment =>
         comment.id === commentId
           ? { ...comment, replies: [...(comment.replies || []), optimisticReply] }
           : comment
@@ -327,7 +327,7 @@ const TaskManagement = ({ error, success, setError, setSuccess, clearMessages, u
       )
 
       const data = await response.json()
-      
+
       if (data.success) {
         // ⚡ OPTIMIZATION: Only refetch to sync with server
         await fetchComments(selectedAssignment.id)
@@ -335,7 +335,7 @@ const TaskManagement = ({ error, success, setError, setSuccess, clearMessages, u
         setTimeout(() => setSuccess(''), 3000)
       } else {
         // Rollback optimistic update on error
-        setComments(prev => prev.map(comment => 
+        setComments(prev => prev.map(comment =>
           comment.id === commentId
             ? { ...comment, replies: (comment.replies || []).filter(r => r.id !== optimisticReply.id) }
             : comment
@@ -386,7 +386,7 @@ const TaskManagement = ({ error, success, setError, setSuccess, clearMessages, u
     const now = new Date()
     const diffTime = date - now
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
-    
+
     if (diffDays < 0) {
       return `${Math.abs(diffDays)} days overdue`
     } else if (diffDays === 0) {
@@ -416,7 +416,7 @@ const TaskManagement = ({ error, success, setError, setSuccess, clearMessages, u
     const date = new Date(dateString)
     const now = new Date()
     const seconds = Math.floor((now - date) / 1000)
-    
+
     if (seconds < 60) return 'Just now'
     if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`
     if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`
@@ -429,7 +429,7 @@ const TaskManagement = ({ error, success, setError, setSuccess, clearMessages, u
     const date = new Date(dueDate)
     const now = new Date()
     const diffDays = Math.ceil((date - now) / (1000 * 60 * 60 * 24))
-    
+
     if (diffDays < 0) return '#e74c3c'
     if (diffDays <= 2) return '#f39c12'
     return '#27ae60'
@@ -650,7 +650,7 @@ const TaskManagement = ({ error, success, setError, setSuccess, clearMessages, u
         <div className="feed-header-simple">
           <h2>All Tasks</h2>
         </div>
-        
+
         {/* Task Count */}
         <div className="task-count">
           {assignments.length} task{assignments.length !== 1 ? 's' : ''}
@@ -766,15 +766,15 @@ const TaskManagement = ({ error, success, setError, setSuccess, clearMessages, u
                     {assignment.recent_submissions && assignment.recent_submissions.length > 0 ? (
                       <div className="admin-attached-file">
                         <div className="admin-file-label">📎 Attachment{assignment.recent_submissions.length > 1 ? 's' : ''} ({assignment.recent_submissions.length}):</div>
-                        {(expandedAttachments[assignment.id] 
-                          ? assignment.recent_submissions 
+                        {(expandedAttachments[assignment.id]
+                          ? assignment.recent_submissions
                           : assignment.recent_submissions.slice(0, 5)
                         ).map((file, index) => (
                           <div
                             key={file.id}
                             className="admin-file-item"
                             onClick={() => handleOpenFile(file.file_path, file.id)}
-                            style={{ 
+                            style={{
                               cursor: 'pointer',
                               marginBottom: index < (expandedAttachments[assignment.id] ? assignment.recent_submissions.length : Math.min(5, assignment.recent_submissions.length)) - 1 ? '8px' : '0'
                             }}
@@ -805,6 +805,19 @@ const TaskManagement = ({ error, success, setError, setSuccess, clearMessages, u
                                     🏷️ {file.tag}
                                   </span>
                                 )}
+                                <span className={`admin-file-status ${file.status === 'uploaded' ? 'uploaded' :
+                                  file.status === 'team_leader_approved' ? 'team-leader-approved' :
+                                    file.status === 'final_approved' ? 'final-approved' :
+                                      file.status === 'rejected_by_team_leader' || file.status === 'rejected_by_admin' ? 'rejected' :
+                                        'uploaded'
+                                  }`}>
+                                  {file.status === 'uploaded' ? 'NEW' :
+                                    file.status === 'team_leader_approved' ? 'PENDING ADMIN' :
+                                      file.status === 'final_approved' ? '✓ APPROVED' :
+                                        file.status === 'rejected_by_team_leader' ? '✗ REJECTED' :
+                                          file.status === 'rejected_by_admin' ? '✗ REJECTED' :
+                                            'PENDING'}
+                                </span>
                               </div>
                             </div>
                           </div>
@@ -814,8 +827,8 @@ const TaskManagement = ({ error, success, setError, setSuccess, clearMessages, u
                             className="admin-attachment-toggle-btn"
                             onClick={() => toggleAttachments(assignment.id)}
                           >
-                            {expandedAttachments[assignment.id] 
-                              ? 'See less' 
+                            {expandedAttachments[assignment.id]
+                              ? 'See less'
                               : `See more (${assignment.recent_submissions.length - 5} more)`}
                           </button>
                         )}
