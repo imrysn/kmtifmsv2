@@ -47,9 +47,9 @@ function App() {
   // Get the appropriate dashboard component based on user's panel type
   const getDashboardComponent = () => {
     if (!user) return null
-    
+
     logger.logNavigation('login', `${user.panelType}-dashboard`)
-    
+
     switch (user.panelType) {
       case 'user':
         return <UserDashboard user={user} onLogout={handleLogout} />
@@ -66,21 +66,21 @@ function App() {
   return (
     <Router>
       <div className="app">
-        {/* Toast notifications for updates */}
+        {/* Toast notifications - handles ALL notifications including updates */}
         <ToastContainer />
 
         <Routes>
-          <Route 
-            path="/login" 
-            element={!user ? <Login onLogin={handleLogin} /> : <Navigate to="/dashboard" replace />} 
+          <Route
+            path="/login"
+            element={!user ? <Login onLogin={handleLogin} /> : <Navigate to="/dashboard" replace />}
           />
-          <Route 
-            path="/dashboard" 
-            element={user ? getDashboardComponent() : <Navigate to="/login" replace />} 
+          <Route
+            path="/dashboard"
+            element={user ? getDashboardComponent() : <Navigate to="/login" replace />}
           />
-          <Route 
-            path="/" 
-            element={<Navigate to={user ? "/dashboard" : "/login"} replace />} 
+          <Route
+            path="/"
+            element={<Navigate to={user ? "/dashboard" : "/login"} replace />}
           />
         </Routes>
       </div>

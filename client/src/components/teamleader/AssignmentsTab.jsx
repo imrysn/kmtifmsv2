@@ -20,7 +20,7 @@ const AssignmentsTab = ({
 }) => {
   const [showMembersModal, setShowMembersModal] = useState(false)
   const [selectedMembers, setSelectedMembers] = useState([])
-  
+
   // Shared modal state - simplified to work like admin/user
   const [showCommentsModal, setShowCommentsModal] = useState(false)
   const [selectedAssignment, setSelectedAssignment] = useState(null)
@@ -30,7 +30,7 @@ const AssignmentsTab = ({
   const [replyingTo, setReplyingTo] = useState(null)
   const [replyText, setReplyText] = useState('')
   const [visibleReplies, setVisibleReplies] = useState({})
-  
+
   const [showMenuForAssignment, setShowMenuForAssignment] = useState(null)
   const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false)
   const [assignmentToDelete, setAssignmentToDelete] = useState(null)
@@ -44,24 +44,24 @@ const AssignmentsTab = ({
   useEffect(() => {
     console.log('💬 AssignmentsTab: notificationCommentContext changed:', notificationCommentContext)
     console.log('   Assignments length:', assignments.length)
-    
+
     if (notificationCommentContext && assignments.length > 0) {
       console.log('   🔍 Looking for assignment ID:', notificationCommentContext.assignmentId)
       const assignment = assignments.find(a => a.id === notificationCommentContext.assignmentId)
-      
+
       if (assignment) {
         console.log('   ✅ Found assignment:', assignment.title)
         console.log('   💡 Opening comments modal...')
-        
+
         // Store the expand flag in ref so it persists
         if (notificationCommentContext.expandAllReplies) {
           shouldExpandRepliesRef.current = true
           console.log('   📌 Reply notification detected - will expand after modal opens')
         }
-        
+
         // Open comments modal for this assignment
         openCommentsModal(assignment)
-        
+
         // Clear the context after opening (but keep the expand flag in mind)
         setTimeout(() => {
           if (onClearNotificationContext) {
@@ -87,16 +87,16 @@ const AssignmentsTab = ({
   useEffect(() => {
     if (showCommentsModal && selectedAssignment && shouldExpandRepliesRef.current) {
       console.log('   🔓 Modal is open, expanding all replies...')
-      
+
       // Wait a bit for the modal to render
       setTimeout(() => {
         console.log('   📊 Found', comments.length, 'comments')
-        
+
         if (comments.length > 0) {
           // Expand all comments that have replies
           const expandState = {}
           let firstCommentWithReplies = null
-          
+
           comments.forEach(comment => {
             if (comment.replies && comment.replies.length > 0) {
               expandState[comment.id] = true
@@ -105,10 +105,10 @@ const AssignmentsTab = ({
               }
             }
           })
-          
+
           console.log('   ✅ Expanding replies for comments:', Object.keys(expandState))
           setVisibleReplies(prev => ({ ...prev, ...expandState }))
-          
+
           // Scroll to the first comment with replies after a short delay
           if (firstCommentWithReplies) {
             setTimeout(() => {
@@ -120,7 +120,7 @@ const AssignmentsTab = ({
             }, 400) // Wait for replies to expand
           }
         }
-        
+
         // Reset the ref after expanding
         shouldExpandRepliesRef.current = false
       }, 500) // Wait for modal to render
@@ -175,10 +175,10 @@ const AssignmentsTab = ({
         if (fileElement) {
           // Scroll to file within the task card
           fileElement.scrollIntoView({ behavior: 'smooth', block: 'center' })
-          
+
           // Add highlight effect
           fileElement.classList.add('tl-assignment-file-highlighted')
-          
+
           // Remove highlight after animation
           setTimeout(() => {
             fileElement.classList.remove('tl-assignment-file-highlighted')
@@ -274,7 +274,7 @@ const AssignmentsTab = ({
     e.preventDefault()
     const replyTextValue = replyText.trim()
     if (!replyTextValue || !selectedAssignment) return
-    
+
     try {
       const response = await fetch(`http://localhost:3001/api/assignments/${selectedAssignment.id}/comments/${commentId}/reply`, {
         method: 'POST',
@@ -289,7 +289,7 @@ const AssignmentsTab = ({
       })
 
       const data = await response.json()
-      
+
       if (data.success) {
         setReplyText('')
         setReplyingTo(null)
@@ -335,13 +335,13 @@ const AssignmentsTab = ({
     const date = new Date(dateString)
     const now = new Date()
     const diffInSeconds = Math.floor((now - date) / 1000)
-    
+
     if (diffInSeconds < 60) return 'Just now'
     if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)}m ago`
     if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)}h ago`
     if (diffInSeconds < 604800) return `${Math.floor(diffInSeconds / 86400)}d ago`
     if (diffInSeconds < 2592000) return `${Math.floor(diffInSeconds / 604800)}w ago`
-    
+
     return formatDate(dateString)
   }
 
@@ -363,7 +363,7 @@ const AssignmentsTab = ({
     const now = new Date()
     const diffTime = date - now
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
-    
+
     if (diffDays < 0) {
       return `${Math.abs(diffDays)} days overdue`
     } else if (diffDays === 0) {
@@ -380,7 +380,7 @@ const AssignmentsTab = ({
     const date = new Date(dueDate)
     const now = new Date()
     const diffDays = Math.ceil((date - now) / (1000 * 60 * 60 * 24))
-    
+
     if (diffDays < 0) return '#e74c3c'
     if (diffDays <= 2) return '#f39c12'
     return '#27ae60'
@@ -394,16 +394,16 @@ const AssignmentsTab = ({
 
   const renderAssignedTo = (assignment) => {
     const assignedTo = assignment.assigned_to || assignment.assignedTo
-    
+
     if (assignedTo === 'all') {
       return (
         <span className="tl-assignment-assigned-user">All team members</span>
       )
     }
-    
+
     const members = assignment.assigned_member_details || []
     const memberCount = members.length
-    
+
     if (memberCount === 0) {
       return <span className="tl-assignment-assigned-user">No members assigned</span>
     } else if (memberCount === 1) {
@@ -422,7 +422,7 @@ const AssignmentsTab = ({
       const remainingMembers = members.slice(4)
       const displayedNames = displayedMembers.map(m => m.fullName || m.username).join(', ')
       const remainingNames = remainingMembers.map(m => m.fullName || m.username).join(', ')
-      
+
       return (
         <span className="tl-assignment-assigned-user">
           {displayedNames}
@@ -460,7 +460,7 @@ const AssignmentsTab = ({
             </div>
             <button className="tl-btn success" onClick={() => setShowCreateAssignmentModal(true)}>
               <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-                <path d="M10 4V16M4 10H16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                <path d="M10 4V16M4 10H16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
               Create Task
             </button>
@@ -486,7 +486,7 @@ const AssignmentsTab = ({
           </div>
           <button className="tl-btn success" onClick={() => setShowCreateAssignmentModal(true)}>
             <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-              <path d="M10 4V16M4 10H16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              <path d="M10 4V16M4 10H16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
             Create Task
           </button>
@@ -515,12 +515,18 @@ const AssignmentsTab = ({
                       {getInitials(assignment.team_leader_username || 'TL')}
                     </div>
                     <div className="tl-assignment-header-info">
-                      <div className="tl-assignment-assigned">
-                        <span className="tl-assignment-assigned-label">Assigned to</span>
-                        {renderAssignedTo(assignment)}
+                      <div className="tl-assignment-team-leader-info">
+                        <span className="tl-assignment-team-leader-name">
+                          {assignment.team_leader_fullname || assignment.team_leader_full_name || user.fullName || assignment.team_leader_username || 'KMTI Team Leader'}
+                        </span>
+                        <span className="tl-assignments-role-badge team-leader">TEAM LEADER</span>
+                        <span className="tl-assignment-assigned-to-text"> assigned to</span>
+                        <span className="tl-assignment-assigned-user-wrapper">
+                          {renderAssignedTo(assignment)}
+                        </span>
                       </div>
                       <div className="tl-assignment-created">
-                        Created {formatDateTime(assignment.created_at)}
+                        {formatDateTime(assignment.created_at)}
                       </div>
                     </div>
                   </div>
@@ -622,19 +628,18 @@ const AssignmentsTab = ({
                                   {submission.description}
                                 </span>
                               )}
-                              <span className={`tl-assignment-file-status ${
-                                submission.status === 'uploaded' ? 'uploaded' :
+                              <span className={`tl-assignment-file-status ${submission.status === 'uploaded' ? 'uploaded' :
                                 submission.status === 'team_leader_approved' ? 'team-leader-approved' :
-                                submission.status === 'final_approved' ? 'final-approved' :
-                                submission.status === 'rejected_by_team_leader' || submission.status === 'rejected_by_admin' ? 'rejected' :
-                                'uploaded'
-                              }`}>
+                                  submission.status === 'final_approved' ? 'final-approved' :
+                                    submission.status === 'rejected_by_team_leader' || submission.status === 'rejected_by_admin' ? 'rejected' :
+                                      'uploaded'
+                                }`}>
                                 {submission.status === 'uploaded' ? 'NEW' :
-                                 submission.status === 'team_leader_approved' ? 'PENDING ADMIN' :
-                                 submission.status === 'final_approved' ? '✓ APPROVED' :
-                                 submission.status === 'rejected_by_team_leader' ? '✗ REJECTED' :
-                                 submission.status === 'rejected_by_admin' ? '✗ REJECTED' :
-                                 'PENDING'}
+                                  submission.status === 'team_leader_approved' ? 'PENDING ADMIN' :
+                                    submission.status === 'final_approved' ? '✓ APPROVED' :
+                                      submission.status === 'rejected_by_team_leader' ? '✗ REJECTED' :
+                                        submission.status === 'rejected_by_admin' ? '✗ REJECTED' :
+                                          'PENDING'}
                               </span>
                             </div>
                           </div>
@@ -663,7 +668,7 @@ const AssignmentsTab = ({
                 </div>
 
                 <div className="tl-assignment-comments-section">
-                  <button 
+                  <button
                     className="tl-assignment-comments-text"
                     onClick={() => openCommentsModal(assignment)}
                   >

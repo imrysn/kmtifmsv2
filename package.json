@@ -1,7 +1,7 @@
 {
-  "name": "KMTI-File-Management",
-  "version": "2.1.4",
-  "description": "Desktop application with React, Electron, Express, and MySQL",
+  "name": "kmti-file-management",
+  "version": "2.1.9",
+  "description": "Desktop application used for file management, checking, and approval of files.",
   "main": "main.js",
   "scripts": {
     "start": "node start-dev.js",
@@ -93,13 +93,11 @@
     "electron-log": "^5.0.1",
     "electron-updater": "^6.1.7",
     "express": "^4.18.2",
-    "ffi-napi": "^4.0.3",
     "joi": "^18.0.2",
     "multer": "^1.4.5-lts.1",
     "mysql2": "^3.15.1",
     "node-fetch": "^2.7.0",
     "react-hook-form": "^7.68.0",
-    "ref-napi": "^3.0.3",
     "sqlite3": "^5.1.6",
     "winston": "^3.19.0"
   },
@@ -115,6 +113,7 @@
       "updater.js",
       "updater-window.js",
       "updater-preload.js",
+      "server/utils/**/*",
       "client/dist/**/*",
       "client/src/assets/fms-icon.ico",
       "client/src/assets/fms-icon.png",
