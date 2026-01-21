@@ -173,17 +173,17 @@ router.get('/team-leader/:team/all-submissions', async (req, res) => {
         f.status,
         u.username,
         u.fullName,
-        am.submitted_at,
-        am.created_at,
+        asub.submitted_at,
+        asub.submitted_at as created_at,
         a.id as assignment_id,
         a.title as assignment_title,
         a.due_date as assignment_due_date
-      FROM assignment_members am
-      JOIN files f ON am.file_id = f.id
-      JOIN users u ON am.user_id = u.id
-      JOIN assignments a ON am.assignment_id = a.id
-      WHERE a.team = ? AND am.status = 'submitted'
-      ORDER BY am.submitted_at DESC
+      FROM assignment_submissions asub
+      JOIN files f ON asub.file_id = f.id
+      JOIN users u ON asub.user_id = u.id
+      JOIN assignments a ON asub.assignment_id = a.id
+      WHERE a.team = ?
+      ORDER BY asub.submitted_at DESC
     `, [team]);
 
     console.log(`✅ DASHBOARD API: Found ${allSubmissions?.length || 0} submissions for team ${team}`);
