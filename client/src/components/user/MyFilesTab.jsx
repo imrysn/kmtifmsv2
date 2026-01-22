@@ -233,7 +233,7 @@ const MyFilesTab = ({
           isOpen: true,
           title: 'File Deleted',
           message: 'The file has been successfully deleted.',
-          type: 'success'
+          type: 'error'
         });
         
         // Refresh the file list

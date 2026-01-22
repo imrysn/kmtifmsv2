@@ -1407,6 +1407,11 @@ textarea:focus {
   color: #65676b;
 }
 
+/* Submit Button Label - Force white text */
+.submit-button-label {
+  color: #ffffff !important;
+}
+
 /* See More/Less Button - Admin Style (Same as TeamTasksTab) */
 .see-more-files-btn {
   width: 100%;

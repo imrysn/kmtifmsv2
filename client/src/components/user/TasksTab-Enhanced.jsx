@@ -4,12 +4,12 @@ import './css/TasksTab-Comments.css';
 import { FileIcon } from '../shared';
 import SingleSelectTags from './SingleSelectTags';
 import { LoadingTable, LoadingCards } from '../common/InlineSkeletonLoader';
+import SuccessModal from './SuccessModal';
 
 const TasksTab = ({ user }) => {
   const [assignments, setAssignments] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
+  const [successModal, setSuccessModal] = useState({ isOpen: false, title: '', message: '', type: 'success' });
   const [showSubmitModal, setShowSubmitModal] = useState(false);
   const [currentAssignment, setCurrentAssignment] = useState(null);
   const [userFiles, setUserFiles] = useState([]);
@@ -32,6 +32,8 @@ const TasksTab = ({ user }) => {
   const [visibleReplies, setVisibleReplies] = useState({});
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [fileToDelete, setFileToDelete] = useState(null);
+  const [showOpenFileModal, setShowOpenFileModal] = useState(false);
+  const [fileToOpen, setFileToOpen] = useState(null);
   const [showAllFiles, setShowAllFiles] = useState({}); // Track which assignments show all files
   const [expandedCommentTexts, setExpandedCommentTexts] = useState({}); // Track which comment texts are expanded
   const [expandedReplyTexts, setExpandedReplyTexts] = useState({}); // Track which reply texts are expanded
@@ -92,7 +94,6 @@ const TasksTab = ({ user }) => {
 
   const fetchAssignments = async () => {
     setIsLoading(true);
-    setError('');
     try {
       const response = await fetch(`http://localhost:3001/api/assignments/user/${user.id}`);
       const data = await response.json();
@@ -120,11 +121,11 @@ const TasksTab = ({ user }) => {
         // Fetch user files after assignments are loaded - pass the fresh data
         fetchUserFiles(data.assignments);
       } else {
-        setError('Failed to fetch assignments');
+        setSuccessModal({ isOpen: true, title: 'Error', message: 'Failed to fetch assignments', type: 'error' });
       }
     } catch (error) {
       console.error('Error fetching assignments:', error);
-      setError('Failed to connect to server');
+      setSuccessModal({ isOpen: true, title: 'Error', message: 'Failed to connect to server', type: 'error' });
     } finally {
       setIsLoading(false);
     }
@@ -171,11 +172,11 @@ const TasksTab = ({ user }) => {
         setNewComment(prev => ({ ...prev, [assignmentId]: '' }));
         fetchComments(assignmentId);
       } else {
-        setError('Failed to post comment');
+        setSuccessModal({ isOpen: true, title: 'Error', message: 'Failed to post comment', type: 'error' });
       }
     } catch (error) {
       console.error('Error posting comment:', error);
-      setError('Failed to post comment');
+      setSuccessModal({ isOpen: true, title: 'Error', message: 'Failed to post comment', type: 'error' });
     } finally {
       setIsPostingComment(prev => ({ ...prev, [assignmentId]: false }));
     }
@@ -214,16 +215,13 @@ const TasksTab = ({ user }) => {
         setReplyText(prev => ({ ...prev, [commentId]: '' }));
         setReplyingTo(prev => ({ ...prev, [commentId]: false }));
         fetchComments(assignmentId);
-        setSuccess('Reply posted successfully');
-        setTimeout(() => setSuccess(''), 3000);
+        setSuccessModal({ isOpen: true, title: 'Success', message: 'Reply posted successfully', type: 'success' });
       } else {
-        setError(data.message || 'Failed to post reply');
-        setTimeout(() => setError(''), 5000);
+        setSuccessModal({ isOpen: true, title: 'Error', message: data.message || 'Failed to post reply', type: 'error' });
       }
     } catch (error) {
       console.error('Error posting reply:', error);
-      setError('Failed to post reply: ' + error.message);
-      setTimeout(() => setError(''), 5000);
+      setSuccessModal({ isOpen: true, title: 'Error', message: 'Failed to post reply: ' + error.message, type: 'error' });
     } finally {
       setIsPostingReply(prev => ({ ...prev, [commentId]: false }));
     }
@@ -472,24 +470,69 @@ const TasksTab = ({ user }) => {
       const data = await response.json();
 
       if (data.success) {
-        setSuccess('File removed successfully');
+        setSuccessModal({ isOpen: true, title: 'Success', message: 'File removed successfully', type: 'success' });
         // Refresh assignments to update the UI
         await fetchAssignments();
-        setTimeout(() => setSuccess(''), 3000);
       } else {
-        setError(data.message || 'Failed to remove file');
-        setTimeout(() => setError(''), 5000);
+        setSuccessModal({ isOpen: true, title: 'Error', message: data.message || 'Failed to remove file', type: 'error' });
       }
     } catch (error) {
       console.error('Error removing file:', error);
-      setError('Failed to remove file. Please try again.');
-      setTimeout(() => setError(''), 5000);
+      setSuccessModal({ isOpen: true, title: 'Error', message: 'Failed to remove file. Please try again.', type: 'error' });
     }
   };
 
   const confirmDeleteFile = (assignmentId, fileId, fileName) => {
     setFileToDelete({ assignmentId, fileId, fileName });
     setShowDeleteModal(true);
+  };
+
+  const confirmOpenFile = (file) => {
+    setFileToOpen(file);
+    setShowOpenFileModal(true);
+  };
+
+  const handleOpenFile = async () => {
+    if (!fileToOpen) return;
+
+    // Close modal first
+    setShowOpenFileModal(false);
+    const file = fileToOpen;
+    setFileToOpen(null);
+
+    try {
+      // Check if running in Electron
+      if (window.electron && window.electron.openFileInApp) {
+        // Get the actual file path from server
+        const response = await fetch(`http://localhost:3001/api/files/${file.id}/path`);
+        const data = await response.json();
+
+        if (data.success && data.filePath) {
+          // Open file with system default application
+          const result = await window.electron.openFileInApp(data.filePath);
+
+          if (!result.success) {
+            setSuccessModal({ isOpen: true, title: 'Error', message: result.error || 'Failed to open file with system application', type: 'error' });
+          }
+        } else {
+          throw new Error('Could not get file path');
+        }
+      } else {
+        // In browser - get file path and open in new tab
+        const response = await fetch(`http://localhost:3001/api/files/${file.id}`);
+        const fileData = await response.json();
+
+        if (fileData.success && fileData.file) {
+          const fileUrl = `http://localhost:3001${fileData.file.file_path}`;
+          window.open(fileUrl, '_blank', 'noopener,noreferrer');
+        } else {
+          throw new Error('Could not get file information');
+        }
+      }
+    } catch (error) {
+      console.error('Error opening file:', error);
+      setSuccessModal({ isOpen: true, title: 'Error', message: 'Failed to open file. Please try again.', type: 'error' });
+    }
   };
 
   const handleFileUpload = async () => {
@@ -624,9 +667,9 @@ const TasksTab = ({ user }) => {
 
       // Show success message
       if (submissionErrors.length === 0) {
-        setSuccess(`${uploadedFileIds.length} file(s) uploaded and submitted successfully!`);
+        setSuccessModal({ isOpen: true, title: 'Success', message: `${uploadedFileIds.length} file(s) uploaded and submitted successfully!`, type: 'success' });
       } else if (submissionErrors.length < uploadedFileIds.length) {
-        setSuccess(`${uploadedFileIds.length - submissionErrors.length} file(s) submitted successfully. Some files had errors.`);
+        setSuccessModal({ isOpen: true, title: 'Success', message: `${uploadedFileIds.length - submissionErrors.length} file(s) submitted successfully. Some files had errors.`, type: 'success' });
       } else {
         throw new Error('Failed to submit files: ' + submissionErrors.join(', '));
       }
@@ -641,12 +684,9 @@ const TasksTab = ({ user }) => {
       }
       fetchAssignments();
       fetchUserFiles();
-
-      setTimeout(() => setSuccess(''), 5000);
     } catch (error) {
       console.error('Error uploading files:', error);
-      setError(error.message || 'Failed to upload files');
-      setTimeout(() => setError(''), 5000);
+      setSuccessModal({ isOpen: true, title: 'Error', message: error.message || 'Failed to upload files', type: 'error' });
     } finally {
       setIsUploading(false);
     }
@@ -658,11 +698,6 @@ const TasksTab = ({ user }) => {
     const sizes = ['Bytes', 'KB', 'MB', 'GB'];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-  };
-
-  const clearMessages = () => {
-    setError('');
-    setSuccess('');
   };
 
   // Treat assignments with deleted files as pending (allow resubmission)
@@ -691,19 +726,14 @@ const TasksTab = ({ user }) => {
         </div>
       </div>
 
-      {/* Alerts */}
-      {error && (
-        <div className="tasks-alert tasks-alert-error">
-          <span>{error}</span>
-          <button onClick={clearMessages} className="tasks-alert-close">×</button>
-        </div>
-      )}
-      {success && (
-        <div className="tasks-alert tasks-alert-success">
-          <span>{success}</span>
-          <button onClick={clearMessages} className="tasks-alert-close">×</button>
-        </div>
-      )}
+      {/* Success Modal */}
+      <SuccessModal
+        isOpen={successModal.isOpen}
+        onClose={() => setSuccessModal({ isOpen: false, title: '', message: '', type: 'success' })}
+        title={successModal.title}
+        message={successModal.message}
+        type={successModal.type}
+      />
 
       {/* Content */}
       {isLoading ? (
@@ -854,41 +884,7 @@ const TasksTab = ({ user }) => {
                             <div
                               key={file.id}
                               className="submitted-file-card"
-                              onClick={async () => {
-                                try {
-                                  // Check if running in Electron
-                                  if (window.electron && window.electron.openFileInApp) {
-                                    // Get the actual file path from server
-                                    const response = await fetch(`http://localhost:3001/api/files/${file.id}/path`);
-                                    const data = await response.json();
-
-                                    if (data.success && data.filePath) {
-                                      // Open file with system default application
-                                      const result = await window.electron.openFileInApp(data.filePath);
-
-                                      if (!result.success) {
-                                        setError(result.error || 'Failed to open file with system application');
-                                      }
-                                    } else {
-                                      throw new Error('Could not get file path');
-                                    }
-                                  } else {
-                                    // In browser - get file path and open in new tab
-                                    const response = await fetch(`http://localhost:3001/api/files/${file.id}`);
-                                    const fileData = await response.json();
-
-                                    if (fileData.success && fileData.file) {
-                                      const fileUrl = `http://localhost:3001${fileData.file.file_path}`;
-                                      window.open(fileUrl, '_blank', 'noopener,noreferrer');
-                                    } else {
-                                      throw new Error('Could not get file information');
-                                    }
-                                  }
-                                } catch (error) {
-                                  console.error('Error opening file:', error);
-                                  setError('Failed to open file. Please try again.');
-                                }
-                              }}
+                              onClick={() => confirmOpenFile(file)}
                               style={{ cursor: 'pointer' }}
                             >
                               <div style={{
@@ -1107,9 +1103,8 @@ const TasksTab = ({ user }) => {
                           e.currentTarget.style.backgroundColor = '#f3f4f6';
                         }}
                       >
-                        <span style={{
-                          backgroundColor: assignment.user_status === 'submitted' && assignment.submitted_file_id ? '#059669' : '#000000',
-                          color: '#ffffff',
+                        <span className="submit-button-label" style={{
+                          backgroundColor: assignment.user_status === 'submitted' && assignment.submitted_file_id ? '#10b981' : '#000000',
                           padding: '6px 16px',
                           borderRadius: '4px',
                           fontSize: '14px',
@@ -1468,6 +1463,89 @@ const TasksTab = ({ user }) => {
               >
                 <span>🗑️</span>
                 Remove File
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Open File Confirmation Modal */}
+      {showOpenFileModal && fileToOpen && (
+        <div className="tasks-modal-overlay" onClick={() => setShowOpenFileModal(false)}>
+          <div className="tasks-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '500px' }}>
+            <div className="tasks-modal-header">
+              <h3 style={{ color: '#2563eb', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '24px' }}>📄</span>
+                Open File
+              </h3>
+              <button className="tasks-modal-close" onClick={() => setShowOpenFileModal(false)}>×</button>
+            </div>
+
+            <div className="tasks-modal-body">
+              <div style={{ padding: '20px 0' }}>
+                <p style={{ fontSize: '15px', color: '#374151', marginBottom: '16px', lineHeight: '1.6' }}>
+                  Do you want to open this file?
+                </p>
+                <div style={{
+                  backgroundColor: '#eff6ff',
+                  border: '1px solid #bfdbfe',
+                  borderRadius: '8px',
+                  padding: '12px 16px',
+                  marginBottom: '16px'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ fontSize: '16px' }}>📄</span>
+                    <span style={{ fontSize: '14px', fontWeight: '500', color: '#1e40af' }}>
+                      {fileToOpen.original_name || fileToOpen.filename}
+                    </span>
+                  </div>
+                </div>
+                <p style={{ fontSize: '13px', color: '#6b7280', margin: 0 }}>
+                  The file will open in your default application.
+                </p>
+              </div>
+            </div>
+
+            <div className="tasks-modal-footer" style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
+              <button
+                onClick={() => setShowOpenFileModal(false)}
+                style={{
+                  padding: '10px 20px',
+                  borderRadius: '8px',
+                  border: '1px solid #d1d5db',
+                  backgroundColor: '#ffffff',
+                  color: '#374151',
+                  fontSize: '14px',
+                  fontWeight: '500',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s'
+                }}
+                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f9fafb'}
+                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#ffffff'}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleOpenFile}
+                style={{
+                  padding: '10px 20px',
+                  borderRadius: '8px',
+                  border: 'none',
+                  backgroundColor: '#2563eb',
+                  color: '#ffffff',
+                  fontSize: '14px',
+                  fontWeight: '500',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px'
+                }}
+                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#1d4ed8'}
+                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#2563eb'}
+              >
+                <span>📂</span>
+                Open File
               </button>
             </div>
           </div>
