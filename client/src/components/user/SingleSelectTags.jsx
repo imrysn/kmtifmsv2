@@ -2,12 +2,35 @@ import { useState, useRef, useEffect } from 'react';
 import './css/MultiSelectTags.css';
 import { FILE_TAGS } from './fileTags';
 
-const SingleSelectTags = ({ selectedTag, onChange, disabled }) => {
+const SingleSelectTags = ({ selectedTag, onChange, disabled, user }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [showCustomTagModal, setShowCustomTagModal] = useState(false);
   const [customTagInput, setCustomTagInput] = useState('');
+  const [customTags, setCustomTags] = useState([]);
+  const [isLoadingTags, setIsLoadingTags] = useState(true);
   const dropdownRef = useRef(null);
+
+  // Load custom tags from API on mount
+  useEffect(() => {
+    fetchCustomTags();
+  }, []);
+
+  const fetchCustomTags = async () => {
+    try {
+      setIsLoadingTags(true);
+      const response = await fetch('http://localhost:3001/api/custom-tags');
+      const data = await response.json();
+      
+      if (data.success) {
+        setCustomTags(data.tags || []);
+      }
+    } catch (error) {
+      console.error('Error loading custom tags:', error);
+    } finally {
+      setIsLoadingTags(false);
+    }
+  };
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -20,9 +43,11 @@ const SingleSelectTags = ({ selectedTag, onChange, disabled }) => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Filter out "Add New" from the regular list
-  const filteredTags = FILE_TAGS
-    .filter(tag => tag !== 'Add New')
+  // Combine default tags with custom tags, filter out "Add New"
+  const allTags = [...customTags, ...FILE_TAGS.filter(tag => tag !== 'Add New')];
+  
+  // Remove duplicates and filter by search query
+  const filteredTags = [...new Set(allTags)]
     .filter(tag => tag.toLowerCase().includes(searchQuery.toLowerCase()));
 
   const selectTag = (tag) => {
@@ -39,13 +64,53 @@ const SingleSelectTags = ({ selectedTag, onChange, disabled }) => {
     setShowCustomTagModal(true);
   };
 
-  const handleCustomTagSubmit = () => {
+  const handleCustomTagSubmit = async () => {
     const trimmedTag = customTagInput.trim();
-    if (trimmedTag) {
-      onChange(trimmedTag);
-      setCustomTagInput('');
-      setShowCustomTagModal(false);
+    if (!trimmedTag) {
+      console.error('Tag name is empty');
+      return;
     }
+    
+    if (!user || !user.id) {
+      console.error('User not available:', user);
+      alert('Error: User information not available. Please refresh the page and try again.');
+      return;
+    }
+    
+    console.log('Adding custom tag:', trimmedTag, 'for user:', user.id);
+    
+    try {
+        const response = await fetch('http://localhost:3001/api/custom-tags', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            tagName: trimmedTag,
+            userId: user.id
+          })
+        });
+
+        const data = await response.json();
+        console.log('API Response:', data);
+
+        if (data.success) {
+          // Refresh custom tags list
+          await fetchCustomTags();
+          
+          // Apply the tag
+          onChange(trimmedTag);
+          setCustomTagInput('');
+          setShowCustomTagModal(false);
+          console.log('✅ Tag added successfully!');
+        } else {
+          console.error('Failed to add custom tag:', data.message);
+          alert(`Error: ${data.message || 'Failed to add custom tag'}`);
+        }
+      } catch (error) {
+        console.error('Error adding custom tag:', error);
+        alert(`Error: ${error.message || 'Failed to connect to server'}`);
+      }
   };
 
   const handleCustomTagCancel = () => {

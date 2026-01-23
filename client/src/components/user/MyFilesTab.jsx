@@ -1,8 +1,10 @@
 import './css/MyFilesTab.css';
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import SuccessModal from './SuccessModal';
 import { FileIcon } from '../shared';
 import { usePagination } from '../../hooks';
+import { Trash2 } from 'lucide-react';
 
 const MyFilesTab = ({ 
   filteredFiles,
@@ -14,6 +16,8 @@ const MyFilesTab = ({
 }) => {
   const [isUploading, setIsUploading] = useState(false);
   const [successModal, setSuccessModal] = useState({ isOpen: false, title: '', message: '', type: 'success' });
+  const [deleteModal, setDeleteModal] = useState({ isOpen: false, fileId: null, fileName: '' });
+  const [isDeleting, setIsDeleting] = useState(false);
   
   // Calculate submittedFiles FIRST (before pagination hook uses it)
   const submittedFiles = useMemo(() => 
@@ -194,6 +198,121 @@ const MyFilesTab = ({
     setItemsPerPage(Number(e.target.value));
   }, []);
 
+  const handleDeleteClick = useCallback((e, file) => {
+    e.stopPropagation();
+    setDeleteModal({
+      isOpen: true,
+      fileId: file.id,
+      fileName: file.original_name
+    });
+    document.body.style.overflow = 'hidden';
+  }, []);
+
+  const handleDeleteConfirm = useCallback(async () => {
+    if (!deleteModal.fileId) return;
+    
+    setIsDeleting(true);
+    try {
+      const response = await fetch(`http://localhost:3001/api/files/${deleteModal.fileId}`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          adminId: user.id,
+          adminUsername: user.username,
+          adminRole: user.role,
+          team: user.team
+        })
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        setSuccessModal({
+          isOpen: true,
+          title: 'File Deleted',
+          message: 'The file has been successfully deleted.',
+          type: 'error'
+        });
+        
+        // Refresh the file list
+        if (fetchUserFiles) {
+          await fetchUserFiles();
+        }
+      } else {
+        throw new Error(data.message || 'Failed to delete file');
+      }
+    } catch (error) {
+      console.error('Error deleting file:', error);
+      setSuccessModal({
+        isOpen: true,
+        title: 'Error',
+        message: error.message || 'Failed to delete file. Please try again.',
+        type: 'error'
+      });
+    } finally {
+      setIsDeleting(false);
+      setDeleteModal({ isOpen: false, fileId: null, fileName: '' });
+      document.body.style.overflow = '';
+    }
+  }, [deleteModal.fileId, user, fetchUserFiles]);
+
+  const handleDeleteCancel = useCallback(() => {
+    setDeleteModal({ isOpen: false, fileId: null, fileName: '' });
+    document.body.style.overflow = '';
+  }, []);
+
+  // Memoize delete modal to prevent re-renders
+  const DeleteModal = useMemo(() => {
+    if (!deleteModal.isOpen) return null;
+    
+    return createPortal(
+      <div className="delete-modal-overlay" onClick={handleDeleteCancel}>
+        <div className="delete-modal-content" onClick={(e) => e.stopPropagation()}>
+          <div className="delete-modal-header">
+            <div className="delete-icon-wrapper">
+              <Trash2 size={28} />
+            </div>
+            <h2>Delete File</h2>
+          </div>
+          <div className="delete-modal-body">
+            <p className="delete-warning">Are you sure you want to delete this file?</p>
+            <p className="delete-filename">{deleteModal.fileName}</p>
+            <p className="delete-note">This action cannot be undone. The file will be permanently deleted from the system.</p>
+          </div>
+          <div className="delete-modal-footer">
+            <button
+              className="delete-cancel-btn"
+              onClick={handleDeleteCancel}
+              disabled={isDeleting}
+            >
+              Cancel
+            </button>
+            <button
+              className="delete-confirm-btn"
+              onClick={handleDeleteConfirm}
+              disabled={isDeleting}
+            >
+              {isDeleting ? (
+                <>
+                  <span className="delete-spinner"></span>
+                  Deleting...
+                </>
+              ) : (
+                <>
+                  <Trash2 size={18} />
+                  Delete File
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+      </div>,
+      document.body
+    );
+  }, [deleteModal.isOpen, deleteModal.fileName, isDeleting, handleDeleteCancel, handleDeleteConfirm]);
+
   const getPageNumbers = useCallback(() => {
     const pages = [];
     const maxVisiblePages = 5;
@@ -318,6 +437,7 @@ const MyFilesTab = ({
               <div className="col-datetime">DATE & TIME</div>
               <div className="col-team">TEAM</div>
               <div className="col-status">STATUS</div>
+              <div className="col-actions">ACTIONS</div>
             </div>
             {paginatedFiles.map((file) => {
               const { date, time } = formatDateTime(file.uploaded_at);
@@ -359,6 +479,16 @@ const MyFilesTab = ({
                     <span className={`status-tag ${getStatusClass(file.status)}`}>
                       {getStatusDisplayName(file.status)}
                     </span>
+                  </div>
+                  <div className="col-actions">
+                    <button
+                      className="delete-btn"
+                      onClick={(e) => handleDeleteClick(e, file)}
+                      title="Delete file"
+                      aria-label="Delete file"
+                    >
+                      <Trash2 size={18} />
+                    </button>
                   </div>
                 </div>
               );
@@ -446,6 +576,9 @@ const MyFilesTab = ({
         message={successModal.message}
         type={successModal.type}
       />
+
+      {/* Custom Delete Confirmation Modal */}
+      {DeleteModal}
     </div>
   );
 };

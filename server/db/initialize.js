@@ -289,6 +289,21 @@ async function initializeDatabase() {
                         }
                         console.log('✅ Assignment submissions table created/verified');
 
+                        // Create custom_tags table
+                        db.run(`CREATE TABLE IF NOT EXISTS custom_tags (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                          tag_name TEXT NOT NULL UNIQUE,
+                          created_by INTEGER NOT NULL,
+                        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                          FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE CASCADE
+                        )`, (err) => {
+                          if (err) {
+                          console.error('Error creating custom_tags table:', err);
+                            reject(err);
+                            return;
+                        }
+                        console.log('✅ Custom tags table created/verified');
+
                         // Add database indexes
                         addDatabaseIndexes();
 
@@ -301,6 +316,7 @@ async function initializeDatabase() {
 
                         // Handle user table migration
                         handleUserTableMigration(resolve, reject);
+                      });
                       });
                     });
                   });
@@ -326,7 +342,9 @@ function addDatabaseIndexes() {
     'CREATE INDEX IF NOT EXISTS idx_files_uploaded_at ON files(uploaded_at)',
     'CREATE INDEX IF NOT EXISTS idx_activity_logs_timestamp ON activity_logs(timestamp)',
     'CREATE INDEX IF NOT EXISTS idx_activity_logs_user_id ON activity_logs(user_id)',
-    'CREATE INDEX IF NOT EXISTS idx_file_comments_file_id ON file_comments(file_id)'
+    'CREATE INDEX IF NOT EXISTS idx_file_comments_file_id ON file_comments(file_id)',
+    'CREATE INDEX IF NOT EXISTS idx_custom_tags_name ON custom_tags(tag_name)',
+    'CREATE INDEX IF NOT EXISTS idx_custom_tags_created_by ON custom_tags(created_by)'
   ];
 
   indexes.forEach(sql => {

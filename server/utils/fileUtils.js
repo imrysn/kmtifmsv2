@@ -7,21 +7,31 @@ const path = require('path');
  * FIXED: Now async, no blocking, handles race conditions
  */
 async function moveToUserFolder(tempPath, username, originalFilename) {
-  console.log('📦 moveToUserFolder:', { tempPath, username, originalFilename });
+  console.log('📦 moveToUserFolder called with:');
+  console.log('   tempPath:', tempPath);
+  console.log('   username:', username);
+  console.log('   originalFilename:', originalFilename);
 
   const { uploadsDir } = require('../config/middleware');
   const userDir = path.join(uploadsDir, username);
+  console.log('   uploadsDir:', uploadsDir);
+  console.log('   userDir:', userDir);
 
   // CRITICAL FIX: recursive: true handles race condition
   // If folder already exists from parallel request, this won't throw
-  await fs.mkdir(userDir, { recursive: true });
-  console.log(`✅ User folder ready: ${userDir}`);
+  try {
+    await fs.mkdir(userDir, { recursive: true });
+    console.log(`✅ User folder created/verified: ${userDir}`);
+  } catch (mkdirError) {
+    console.error('❌ Failed to create user folder:', mkdirError);
+    throw new Error(`Failed to create user folder: ${mkdirError.message}`);
+  }
 
   // Decode and sanitize filename
   let decodedFilename = originalFilename;
   try {
     // Check for garbled UTF-8 patterns
-    if (/[Ã¢â¬â¢Ã¤Â¸â¬Ã¦ââÃ¨Â±Â¡]/.test(originalFilename)) {
+    if (/[Ã¢â¬â¢Ã¤Â¸â‚¬Ã¦â€"‡Ã¨Â±Â¡]/.test(originalFilename)) {
       const buffer = Buffer.from(originalFilename, 'binary');
       decodedFilename = buffer.toString('utf8');
       console.log('📝 Fixed UTF-8:', originalFilename, '->', decodedFilename);
@@ -33,36 +43,61 @@ async function moveToUserFolder(tempPath, username, originalFilename) {
   // Sanitize for Windows
   const sanitizedFilename = sanitizeFilename(decodedFilename);
   const finalPath = path.join(userDir, sanitizedFilename);
-  console.log('📍 Target path:', finalPath);
+  console.log('📍 Final target path:', finalPath);
 
   // Verify source exists
+  console.log('🔍 Checking if temp file exists...');
   try {
     await fs.access(tempPath);
+    console.log('✅ Temp file exists');
+    
+    // Get file stats for debugging
+    const stats = await fs.stat(tempPath);
+    console.log(`   File size: ${stats.size} bytes`);
+    console.log(`   Is file: ${stats.isFile()}`);
   } catch (error) {
+    console.error('❌ Temp file not found at:', tempPath);
     throw new Error(`Temp file not found: ${tempPath}`);
   }
 
   // CRITICAL FIX: Async move with fallback for cross-device
+  console.log('🚚 Attempting to move file...');
   try {
     // Try rename first (fast, atomic on same filesystem)
     await fs.rename(tempPath, finalPath);
     console.log(`✅ Moved via rename: ${finalPath}`);
   } catch (renameError) {
+    console.log('⚠️ Rename failed:', renameError.code, renameError.message);
     // Handle cross-device link error (EXDEV)
     if (renameError.code === 'EXDEV') {
-      console.log('⚠️ Cross-device detected, using copy+delete');
+      console.log('🔄 Cross-device detected, using copy+delete');
       try {
         await fs.copyFile(tempPath, finalPath);
+        console.log('✅ Copy successful');
         await fs.unlink(tempPath);
+        console.log('✅ Temp file deleted');
         console.log(`✅ Moved via copy: ${finalPath}`);
       } catch (copyError) {
         console.error('❌ Copy failed:', copyError);
         throw new Error(`Failed to copy file: ${copyError.message}`);
       }
     } else {
-      console.error('❌ Rename failed:', renameError);
+      console.error('❌ Rename failed with unexpected error:', renameError);
       throw new Error(`Failed to move file: ${renameError.message}`);
     }
+  }
+
+  // Final verification
+  console.log('🔍 Verifying file exists at final location...');
+  try {
+    await fs.access(finalPath);
+    const stats = await fs.stat(finalPath);
+    console.log('✅ File verified at final location');
+    console.log(`   Final file size: ${stats.size} bytes`);
+  } catch (verifyError) {
+    console.error('❌ CRITICAL: File not found after move operation!');
+    console.error('   Expected at:', finalPath);
+    throw new Error('File verification failed after move');
   }
 
   return finalPath;
@@ -86,20 +121,21 @@ function sanitizeFilename(filename) {
 /**
  * Safely delete file with verification
  * FIXED: Now async, doesn't block event loop
+ * Returns object with success status and additional info
  */
 async function safeDeleteFile(filePath) {
   try {
     await fs.access(filePath);
     await fs.unlink(filePath);
     console.log(`✅ Deleted: ${filePath}`);
-    return true;
+    return { success: true, message: 'File deleted successfully' };
   } catch (error) {
     if (error.code === 'ENOENT') {
-      console.log(`ℹ️ File already deleted: ${filePath}`);
-      return true;
+      console.log(`ℹ️ File already deleted or not found: ${filePath}`);
+      return { success: true, notFound: true, message: 'File not found (already deleted)' };
     }
     console.error(`❌ Failed to delete ${filePath}:`, error);
-    return false;
+    return { success: false, error: error, message: error.message };
   }
 }
 

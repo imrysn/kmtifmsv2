@@ -66,7 +66,10 @@
     "network:switch-local": "node server/scripts/network/switch-to-local-test.js",
     "network:restore": "node server/scripts/network/restore-network-mode.js",
     "network:create-test-dir": "node server/scripts/network/create-local-test-directory.js",
-    "validate:updates": "node validate-update-system.js"
+    "validate:updates": "node validate-update-system.js",
+    "server:health": "node server-health-check.js",
+    "server:test-mysql": "node test-mysql-connection.js",
+    "server:direct": "node server.js"
   },
   "devDependencies": {
     "@types/jest": "^30.0.0",

@@ -319,19 +319,19 @@ const DashboardTab = ({ user, files, setActiveTab, onOpenFile, onNavigateToTasks
                   <div className="score-legend-grid">
                     <div className="legend-item">
                       <span className="legend-dot excellent"></span>
-                      <span>85-100% Excellent</span>
+                      <span>85-100% </span>
                     </div>
                     <div className="legend-item">
                       <span className="legend-dot good"></span>
-                      <span>70-84% Good</span>
+                      <span>70-84% </span>
                     </div>
                     <div className="legend-item">
                       <span className="legend-dot fair"></span>
-                      <span>50-69% Fair</span>
+                      <span>50-69% </span>
                     </div>
                     <div className="legend-item">
                       <span className="legend-dot poor"></span>
-                      <span>0-49% Poor</span>
+                      <span>0-49% </span>
                     </div>
                   </div>
                 </div>

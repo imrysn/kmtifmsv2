@@ -4,12 +4,12 @@ import './css/TasksTab-Comments.css';
 import { FileIcon } from '../shared';
 import SingleSelectTags from './SingleSelectTags';
 import { LoadingTable, LoadingCards } from '../common/InlineSkeletonLoader';
+import SuccessModal from './SuccessModal';
 
 const TasksTab = ({ user }) => {
   const [assignments, setAssignments] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
+  const [successModal, setSuccessModal] = useState({ isOpen: false, title: '', message: '', type: 'success' });
   const [showSubmitModal, setShowSubmitModal] = useState(false);
   const [currentAssignment, setCurrentAssignment] = useState(null);
   const [userFiles, setUserFiles] = useState([]);
@@ -32,6 +32,8 @@ const TasksTab = ({ user }) => {
   const [visibleReplies, setVisibleReplies] = useState({});
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [fileToDelete, setFileToDelete] = useState(null);
+  const [showOpenFileModal, setShowOpenFileModal] = useState(false);
+  const [fileToOpen, setFileToOpen] = useState(null);
   const [showAllFiles, setShowAllFiles] = useState({}); // Track which assignments show all files
   const [expandedCommentTexts, setExpandedCommentTexts] = useState({}); // Track which comment texts are expanded
   const [expandedReplyTexts, setExpandedReplyTexts] = useState({}); // Track which reply texts are expanded
@@ -92,7 +94,6 @@ const TasksTab = ({ user }) => {
 
   const fetchAssignments = async () => {
     setIsLoading(true);
-    setError('');
     try {
       const response = await fetch(`http://localhost:3001/api/assignments/user/${user.id}`);
       const data = await response.json();
@@ -120,11 +121,11 @@ const TasksTab = ({ user }) => {
         // Fetch user files after assignments are loaded - pass the fresh data
         fetchUserFiles(data.assignments);
       } else {
-        setError('Failed to fetch assignments');
+        setSuccessModal({ isOpen: true, title: 'Error', message: 'Failed to fetch assignments', type: 'error' });
       }
     } catch (error) {
       console.error('Error fetching assignments:', error);
-      setError('Failed to connect to server');
+      setSuccessModal({ isOpen: true, title: 'Error', message: 'Failed to connect to server', type: 'error' });
     } finally {
       setIsLoading(false);
     }
@@ -171,11 +172,11 @@ const TasksTab = ({ user }) => {
         setNewComment(prev => ({ ...prev, [assignmentId]: '' }));
         fetchComments(assignmentId);
       } else {
-        setError('Failed to post comment');
+        setSuccessModal({ isOpen: true, title: 'Error', message: 'Failed to post comment', type: 'error' });
       }
     } catch (error) {
       console.error('Error posting comment:', error);
-      setError('Failed to post comment');
+      setSuccessModal({ isOpen: true, title: 'Error', message: 'Failed to post comment', type: 'error' });
     } finally {
       setIsPostingComment(prev => ({ ...prev, [assignmentId]: false }));
     }
@@ -214,16 +215,13 @@ const TasksTab = ({ user }) => {
         setReplyText(prev => ({ ...prev, [commentId]: '' }));
         setReplyingTo(prev => ({ ...prev, [commentId]: false }));
         fetchComments(assignmentId);
-        setSuccess('Reply posted successfully');
-        setTimeout(() => setSuccess(''), 3000);
+        setSuccessModal({ isOpen: true, title: 'Success', message: 'Reply posted successfully', type: 'success' });
       } else {
-        setError(data.message || 'Failed to post reply');
-        setTimeout(() => setError(''), 5000);
+        setSuccessModal({ isOpen: true, title: 'Error', message: data.message || 'Failed to post reply', type: 'error' });
       }
     } catch (error) {
       console.error('Error posting reply:', error);
-      setError('Failed to post reply: ' + error.message);
-      setTimeout(() => setError(''), 5000);
+      setSuccessModal({ isOpen: true, title: 'Error', message: 'Failed to post reply: ' + error.message, type: 'error' });
     } finally {
       setIsPostingReply(prev => ({ ...prev, [commentId]: false }));
     }
@@ -250,12 +248,26 @@ const TasksTab = ({ user }) => {
 
       if (data.success) {
         console.log('📁 All user files:', data.files);
-        const approvedFiles = data.files.filter(f => f.status === 'final_approved');
-        console.log('✅ Final approved files:', approvedFiles);
-        const unsubmittedFiles = data.files.filter(file =>
-          !currentAssignments.some(assignment => assignment.submitted_file_id === file.id)
+        
+        // Get all file IDs that are currently in ACTIVE assignment submissions
+        const activeSubmittedFileIds = new Set();
+        currentAssignments.forEach(assignment => {
+          if (assignment.submitted_files && assignment.submitted_files.length > 0) {
+            assignment.submitted_files.forEach(file => {
+              activeSubmittedFileIds.add(file.id);
+            });
+          }
+        });
+        
+        console.log('🔒 Files currently in active assignments:', Array.from(activeSubmittedFileIds));
+        
+        // Filter out ONLY files that are currently in active assignment submissions
+        // This means completed/finished assignment files will show up again in "My Files"
+        const unsubmittedFiles = data.files.filter(file => 
+          !activeSubmittedFileIds.has(file.id)
         );
-        console.log('📂 Unsubmitted files:', unsubmittedFiles);
+        
+        console.log('📂 Available files (excluding active submissions):', unsubmittedFiles);
         setUserFiles(unsubmittedFiles || []);
       }
     } catch (error) {
@@ -329,11 +341,30 @@ const TasksTab = ({ user }) => {
   };
 
   const getStatusBadge = (assignment) => {
+    // If assignment has submitted files, show SUBMITTED status regardless of due date
+    if (assignment.submitted_files && assignment.submitted_files.length > 0) {
+      return (
+        <span style={{
+          backgroundColor: '#F0FDF4',
+          color: '#15803D',
+          padding: '4px 12px',
+          borderRadius: '20px',
+          fontSize: '12px',
+          fontWeight: '600',
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: '4px'
+        }}>
+          ✓ SUBMITTED
+        </span>
+      )
+    }
+
     const dueDate = new Date(assignment.due_date)
     const now = new Date()
     const daysUntilDue = Math.ceil((dueDate - now) / (1000 * 60 * 60 * 24))
 
-    // Check if submitted but no files - show MISSING
+    // Check if marked as submitted but no files - show MISSING
     if (assignment.user_status === 'submitted' && (!assignment.submitted_files || assignment.submitted_files.length === 0)) {
       return (
         <span style={{
@@ -348,22 +379,6 @@ const TasksTab = ({ user }) => {
           gap: '4px'
         }}>
           ⚠️ MISSING
-        </span>
-      )
-    } else if (assignment.user_status === 'submitted') {
-      return (
-        <span style={{
-          backgroundColor: '#F0FDF4',
-          color: '#15803D',
-          padding: '4px 12px',
-          borderRadius: '20px',
-          fontSize: '12px',
-          fontWeight: '600',
-          display: 'inline-flex',
-          alignItems: 'center',
-          gap: '4px'
-        }}>
-          ✓ SUBMITTED
         </span>
       )
     } else if (daysUntilDue < 0) {
@@ -403,6 +418,11 @@ const TasksTab = ({ user }) => {
   }
 
   const getDaysText = (assignment) => {
+    // If files are submitted, don't show overdue text
+    if (assignment.submitted_files && assignment.submitted_files.length > 0) {
+      return ''
+    }
+
     const dueDate = new Date(assignment.due_date)
     const now = new Date()
     const daysUntilDue = Math.ceil((dueDate - now) / (1000 * 60 * 60 * 24))
@@ -450,18 +470,15 @@ const TasksTab = ({ user }) => {
       const data = await response.json();
 
       if (data.success) {
-        setSuccess('File removed successfully');
+        setSuccessModal({ isOpen: true, title: 'Success', message: 'File removed successfully', type: 'success' });
         // Refresh assignments to update the UI
         await fetchAssignments();
-        setTimeout(() => setSuccess(''), 3000);
       } else {
-        setError(data.message || 'Failed to remove file');
-        setTimeout(() => setError(''), 5000);
+        setSuccessModal({ isOpen: true, title: 'Error', message: data.message || 'Failed to remove file', type: 'error' });
       }
     } catch (error) {
       console.error('Error removing file:', error);
-      setError('Failed to remove file. Please try again.');
-      setTimeout(() => setError(''), 5000);
+      setSuccessModal({ isOpen: true, title: 'Error', message: 'Failed to remove file. Please try again.', type: 'error' });
     }
   };
 
@@ -470,11 +487,114 @@ const TasksTab = ({ user }) => {
     setShowDeleteModal(true);
   };
 
+  const confirmOpenFile = (file) => {
+    setFileToOpen(file);
+    setShowOpenFileModal(true);
+  };
+
+  const handleOpenFile = async () => {
+    if (!fileToOpen) return;
+
+    // Close modal first
+    setShowOpenFileModal(false);
+    const file = fileToOpen;
+    setFileToOpen(null);
+
+    try {
+      // Check if running in Electron
+      if (window.electron && window.electron.openFileInApp) {
+        // Get the actual file path from server
+        const response = await fetch(`http://localhost:3001/api/files/${file.id}/path`);
+        const data = await response.json();
+
+        if (data.success && data.filePath) {
+          // Open file with system default application
+          const result = await window.electron.openFileInApp(data.filePath);
+
+          if (!result.success) {
+            setSuccessModal({ isOpen: true, title: 'Error', message: result.error || 'Failed to open file with system application', type: 'error' });
+          }
+        } else {
+          throw new Error('Could not get file path');
+        }
+      } else {
+        // In browser - get file path and open in new tab
+        const response = await fetch(`http://localhost:3001/api/files/${file.id}`);
+        const fileData = await response.json();
+
+        if (fileData.success && fileData.file) {
+          const fileUrl = `http://localhost:3001${fileData.file.file_path}`;
+          window.open(fileUrl, '_blank', 'noopener,noreferrer');
+        } else {
+          throw new Error('Could not get file information');
+        }
+      }
+    } catch (error) {
+      console.error('Error opening file:', error);
+      setSuccessModal({ isOpen: true, title: 'Error', message: 'Failed to open file. Please try again.', type: 'error' });
+    }
+  };
+
   const handleFileUpload = async () => {
     if (uploadedFiles.length === 0 || !currentAssignment) return;
 
     setIsUploading(true);
     try {
+      const replacedRejectedFiles = []; // Track which rejected files we're replacing
+      
+      // First, check for rejected files with the same name and delete them
+      if (currentAssignment.submitted_files && currentAssignment.submitted_files.length > 0) {
+        const rejectedFiles = currentAssignment.submitted_files.filter(
+          file => file.status === 'rejected_by_team_leader' || file.status === 'rejected_by_admin'
+        );
+
+        if (rejectedFiles.length > 0) {
+          console.log(`🔍 Found ${rejectedFiles.length} rejected file(s), checking for same names...`);
+          
+          // Check each new file against rejected files
+          for (const fileObj of uploadedFiles) {
+            const newFileName = fileObj.file.name;
+            
+            // Find rejected file with the same name
+            const matchingRejectedFile = rejectedFiles.find(
+              rejectedFile => rejectedFile.original_name === newFileName || rejectedFile.filename === newFileName
+            );
+            
+            if (matchingRejectedFile) {
+              console.log(`🗑️ Found matching rejected file: ${matchingRejectedFile.original_name} - will replace it`);
+              replacedRejectedFiles.push(newFileName); // Track this as a revision
+              
+              try {
+                const deleteResponse = await fetch(
+                  `http://localhost:3001/api/assignments/${currentAssignment.id}/files/${matchingRejectedFile.id}`,
+                  {
+                    method: 'DELETE',
+                    headers: {
+                      'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                      userId: user.id
+                    })
+                  }
+                );
+
+                const deleteData = await deleteResponse.json();
+                if (deleteData.success) {
+                  console.log(`✅ Deleted rejected file: ${matchingRejectedFile.original_name}`);
+                } else {
+                  console.warn(`⚠️ Could not delete rejected file ${matchingRejectedFile.original_name}:`, deleteData.message);
+                }
+              } catch (deleteError) {
+                console.error(`❌ Error deleting rejected file ${matchingRejectedFile.id}:`, deleteError);
+                // Continue with upload even if delete fails
+              }
+            } else {
+              console.log(`ℹ️ No matching rejected file found for: ${newFileName}`);
+            }
+          }
+        }
+      }
+
       const uploadedFileIds = [];
       let uploadErrors = [];
 
@@ -488,6 +608,16 @@ const TasksTab = ({ user }) => {
         formData.append('userTeam', user.team);
         formData.append('description', fileDescription || '');
         formData.append('tag', fileTag || '');
+        
+        // Mark as revision if this file replaced a rejected one
+        const isRevision = replacedRejectedFiles.includes(fileObj.file.name);
+        formData.append('isRevision', isRevision.toString());
+        // IMPORTANT: Set replaceExisting=true to automatically replace duplicate files
+        formData.append('replaceExisting', 'true');
+        
+        if (isRevision) {
+          console.log(`📝 Marking ${fileObj.file.name} as REVISION`);
+        }
 
         const uploadResponse = await fetch('http://localhost:3001/api/files/upload', {
           method: 'POST',
@@ -537,9 +667,9 @@ const TasksTab = ({ user }) => {
 
       // Show success message
       if (submissionErrors.length === 0) {
-        setSuccess(`${uploadedFileIds.length} file(s) uploaded and submitted successfully!`);
+        setSuccessModal({ isOpen: true, title: 'Success', message: `${uploadedFileIds.length} file(s) uploaded and submitted successfully!`, type: 'success' });
       } else if (submissionErrors.length < uploadedFileIds.length) {
-        setSuccess(`${uploadedFileIds.length - submissionErrors.length} file(s) submitted successfully. Some files had errors.`);
+        setSuccessModal({ isOpen: true, title: 'Success', message: `${uploadedFileIds.length - submissionErrors.length} file(s) submitted successfully. Some files had errors.`, type: 'success' });
       } else {
         throw new Error('Failed to submit files: ' + submissionErrors.join(', '));
       }
@@ -554,12 +684,9 @@ const TasksTab = ({ user }) => {
       }
       fetchAssignments();
       fetchUserFiles();
-
-      setTimeout(() => setSuccess(''), 5000);
     } catch (error) {
       console.error('Error uploading files:', error);
-      setError(error.message || 'Failed to upload files');
-      setTimeout(() => setError(''), 5000);
+      setSuccessModal({ isOpen: true, title: 'Error', message: error.message || 'Failed to upload files', type: 'error' });
     } finally {
       setIsUploading(false);
     }
@@ -571,11 +698,6 @@ const TasksTab = ({ user }) => {
     const sizes = ['Bytes', 'KB', 'MB', 'GB'];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-  };
-
-  const clearMessages = () => {
-    setError('');
-    setSuccess('');
   };
 
   // Treat assignments with deleted files as pending (allow resubmission)
@@ -604,19 +726,14 @@ const TasksTab = ({ user }) => {
         </div>
       </div>
 
-      {/* Alerts */}
-      {error && (
-        <div className="tasks-alert tasks-alert-error">
-          <span>{error}</span>
-          <button onClick={clearMessages} className="tasks-alert-close">×</button>
-        </div>
-      )}
-      {success && (
-        <div className="tasks-alert tasks-alert-success">
-          <span>{success}</span>
-          <button onClick={clearMessages} className="tasks-alert-close">×</button>
-        </div>
-      )}
+      {/* Success Modal */}
+      <SuccessModal
+        isOpen={successModal.isOpen}
+        onClose={() => setSuccessModal({ isOpen: false, title: '', message: '', type: 'success' })}
+        title={successModal.title}
+        message={successModal.message}
+        type={successModal.type}
+      />
 
       {/* Content */}
       {isLoading ? (
@@ -710,12 +827,12 @@ const TasksTab = ({ user }) => {
                     <div style={{ fontSize: '14px', fontWeight: '500', color: '#000000' }}>
                       Due: {assignment.due_date ? formatDate(assignment.due_date) : 'No due date'}
                       {daysLeft !== null && (
-                        <span style={{
+                        <span style={{ 
                           color: '#DC2626',
                           fontWeight: '400',
                           marginLeft: '4px'
                         }}>
-                          {daysLeft < 0 ? `(${Math.abs(daysLeft)} days overdue)` : ''}
+                          ({Math.abs(daysLeft)} days overdue)
                         </span>
                       )}
                     </div>
@@ -759,45 +876,15 @@ const TasksTab = ({ user }) => {
 
                       return (
                         <>
-                          {filesToShow.map((file, index) => (
+                          {filesToShow.map((file, index) => {
+                            // Log file status for debugging
+                            console.log(`File "${file.original_name || file.filename}" has status: "${file.status}"`);
+                            
+                            return (
                             <div
                               key={file.id}
                               className="submitted-file-card"
-                              onClick={async () => {
-                                try {
-                                  // Check if running in Electron
-                                  if (window.electron && window.electron.openFileInApp) {
-                                    // Get the actual file path from server
-                                    const response = await fetch(`http://localhost:3001/api/files/${file.id}/path`);
-                                    const data = await response.json();
-
-                                    if (data.success && data.filePath) {
-                                      // Open file with system default application
-                                      const result = await window.electron.openFileInApp(data.filePath);
-
-                                      if (!result.success) {
-                                        setError(result.error || 'Failed to open file with system application');
-                                      }
-                                    } else {
-                                      throw new Error('Could not get file path');
-                                    }
-                                  } else {
-                                    // In browser - get file path and open in new tab
-                                    const response = await fetch(`http://localhost:3001/api/files/${file.id}`);
-                                    const fileData = await response.json();
-
-                                    if (fileData.success && fileData.file) {
-                                      const fileUrl = `http://localhost:3001${fileData.file.file_path}`;
-                                      window.open(fileUrl, '_blank', 'noopener,noreferrer');
-                                    } else {
-                                      throw new Error('Could not get file information');
-                                    }
-                                  }
-                                } catch (error) {
-                                  console.error('Error opening file:', error);
-                                  setError('Failed to open file. Please try again.');
-                                }
-                              }}
+                              onClick={() => confirmOpenFile(file)}
                               style={{ cursor: 'pointer' }}
                             >
                               <div style={{
@@ -825,7 +912,7 @@ const TasksTab = ({ user }) => {
                                     fontWeight: '500',
                                     fontSize: '15px',
                                     color: '#111827',
-                                    marginBottom: '6px',
+                                    marginBottom: '8px',
                                     overflow: 'hidden',
                                     textOverflow: 'ellipsis',
                                     whiteSpace: 'nowrap'
@@ -840,20 +927,16 @@ const TasksTab = ({ user }) => {
                                     gap: '8px',
                                     flexWrap: 'wrap'
                                   }}>
-                                    <span>Submitted by <span style={{ fontWeight: '500', color: '#374151' }}>{file.submitter_name || user.fullName || user.username}</span></span>
-                                    <span style={{ color: '#d1d5db' }}>•</span>
-                                    <span>on {file.submitted_at ? formatDate(file.submitted_at) : formatDate(file.uploaded_at)}</span>
+                                    <span>by <span style={{ fontWeight: '500', color: '#2563eb' }}>{file.submitter_name || user.fullName || user.username}</span></span>
                                     {file.tag && (
                                       <>
-                                        <span style={{ color: '#d1d5db' }}>•</span>
                                         <span style={{
                                           backgroundColor: '#eff6ff',
                                           color: '#1e40af',
-                                          padding: '2px 10px',
-                                          borderRadius: '12px',
+                                          padding: '3px 10px',
+                                          borderRadius: '4px',
                                           fontSize: '11px',
                                           fontWeight: '600',
-                                          border: '1px solid #bfdbfe',
                                           display: 'inline-flex',
                                           alignItems: 'center',
                                           gap: '4px'
@@ -861,6 +944,51 @@ const TasksTab = ({ user }) => {
                                           <span>🏷️</span> {file.tag}
                                         </span>
                                       </>
+                                    )}
+                                    {file.status === 'under_revision' && (
+                                      <span style={{
+                                        backgroundColor: '#fef3c7',
+                                        color: '#92400e',
+                                        padding: '3px 10px',
+                                        borderRadius: '4px',
+                                        fontSize: '11px',
+                                        fontWeight: '600',
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: '4px'
+                                      }}>
+                                        📝 REVISED
+                                      </span>
+                                    )}
+                                    {file.status === 'approved_by_team_leader' && (
+                                      <span style={{
+                                        backgroundColor: '#dcfce7',
+                                        color: '#166534',
+                                        padding: '3px 10px',
+                                        borderRadius: '4px',
+                                        fontSize: '11px',
+                                        fontWeight: '600',
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: '4px'
+                                      }}>
+                                        ✓ APPROVED
+                                      </span>
+                                    )}
+                                    {(file.status === 'rejected_by_team_leader' || file.status === 'rejected_by_admin') && (
+                                      <span style={{
+                                        backgroundColor: '#fee2e2',
+                                        color: '#991b1b',
+                                        padding: '3px 10px',
+                                        borderRadius: '4px',
+                                        fontSize: '11px',
+                                        fontWeight: '600',
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: '4px'
+                                      }}>
+                                        ✗ REJECTED
+                                      </span>
                                     )}
                                   </div>
                                 </div>
@@ -898,7 +1026,8 @@ const TasksTab = ({ user }) => {
                                 </button>
                               </div>
                             </div>
-                          ))}
+                            );
+                          })}
 
                           {/* See More / See Less Button */}
                           {sortedFiles.length > 5 && (
@@ -974,9 +1103,8 @@ const TasksTab = ({ user }) => {
                           e.currentTarget.style.backgroundColor = '#f3f4f6';
                         }}
                       >
-                        <span style={{
-                          backgroundColor: assignment.user_status === 'submitted' && assignment.submitted_file_id ? '#059669' : '#000000',
-                          color: '#ffffff',
+                        <span className="submit-button-label" style={{
+                          backgroundColor: assignment.user_status === 'submitted' && assignment.submitted_file_id ? '#10b981' : '#000000',
                           padding: '6px 16px',
                           borderRadius: '4px',
                           fontSize: '14px',
@@ -1341,6 +1469,89 @@ const TasksTab = ({ user }) => {
         </div>
       )}
 
+      {/* Open File Confirmation Modal */}
+      {showOpenFileModal && fileToOpen && (
+        <div className="tasks-modal-overlay" onClick={() => setShowOpenFileModal(false)}>
+          <div className="tasks-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '500px' }}>
+            <div className="tasks-modal-header">
+              <h3 style={{ color: '#2563eb', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '24px' }}>📄</span>
+                Open File
+              </h3>
+              <button className="tasks-modal-close" onClick={() => setShowOpenFileModal(false)}>×</button>
+            </div>
+
+            <div className="tasks-modal-body">
+              <div style={{ padding: '20px 0' }}>
+                <p style={{ fontSize: '15px', color: '#374151', marginBottom: '16px', lineHeight: '1.6' }}>
+                  Do you want to open this file?
+                </p>
+                <div style={{
+                  backgroundColor: '#eff6ff',
+                  border: '1px solid #bfdbfe',
+                  borderRadius: '8px',
+                  padding: '12px 16px',
+                  marginBottom: '16px'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ fontSize: '16px' }}>📄</span>
+                    <span style={{ fontSize: '14px', fontWeight: '500', color: '#1e40af' }}>
+                      {fileToOpen.original_name || fileToOpen.filename}
+                    </span>
+                  </div>
+                </div>
+                <p style={{ fontSize: '13px', color: '#6b7280', margin: 0 }}>
+                  The file will open in your default application.
+                </p>
+              </div>
+            </div>
+
+            <div className="tasks-modal-footer" style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
+              <button
+                onClick={() => setShowOpenFileModal(false)}
+                style={{
+                  padding: '10px 20px',
+                  borderRadius: '8px',
+                  border: '1px solid #d1d5db',
+                  backgroundColor: '#ffffff',
+                  color: '#374151',
+                  fontSize: '14px',
+                  fontWeight: '500',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s'
+                }}
+                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f9fafb'}
+                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#ffffff'}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleOpenFile}
+                style={{
+                  padding: '10px 20px',
+                  borderRadius: '8px',
+                  border: 'none',
+                  backgroundColor: '#2563eb',
+                  color: '#ffffff',
+                  fontSize: '14px',
+                  fontWeight: '500',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px'
+                }}
+                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#1d4ed8'}
+                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#2563eb'}
+              >
+                <span>📂</span>
+                Open File
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Submit Modal */}
       {showSubmitModal && currentAssignment && (
         <div className="tasks-modal-overlay" onClick={() => setShowSubmitModal(false)}>
@@ -1510,33 +1721,33 @@ const TasksTab = ({ user }) => {
                         selectedTag={fileTag}
                         onChange={(newTag) => setFileTag(newTag)}
                         disabled={isUploading}
+                        user={user}
                       />
 
-                      <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', marginBottom: '8px', color: '#111827', marginTop: '16px' }}>
-                        📝 Description (optional)
-                      </label>
-                      <textarea
-                        value={fileDescription}
-                        onChange={(e) => setFileDescription(e.target.value)}
-                        placeholder="Add a brief description..."
-                        rows="2"
-                        disabled={isUploading}
-                        style={{
-                          width: '100%',
-                          padding: '10px 12px',
-                          border: '1px solid #d1d5db',
-                          borderRadius: '8px',
-                          fontSize: '14px',
-                          fontFamily: 'inherit',
-                          resize: 'vertical',
-                          backgroundColor: '#ffffff',
-                          color: '#000000'
-                        }}
-                      />
+                        <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', marginBottom: '8px', color: '#111827', marginTop: '16px' }}>
+                          📝 Description (optional)
+                        </label>
+                        <textarea
+                          value={fileDescription}
+                          onChange={(e) => setFileDescription(e.target.value)}
+                          placeholder="Add a brief description..."
+                          rows="2"
+                          disabled={isUploading}
+                          style={{
+                            width: '100%',
+                            padding: '10px 12px',
+                            border: '1px solid #d1d5db',
+                            borderRadius: '8px',
+                            fontSize: '14px',
+                            fontFamily: 'inherit',
+                            resize: 'vertical',
+                            backgroundColor: '#ffffff'
+                          }}
+                        />
+                      </div>
                     </div>
-                  </div>
-                )}
-              </div>
+                  )}
+                </div>
             </div>
 
             <div className="tasks-modal-footer" style={{ borderTop: '1px solid #e5e7eb', paddingTop: '16px', display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>

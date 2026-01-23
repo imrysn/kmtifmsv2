@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
+import { createPortal } from 'react-dom'
 import './css/TeamTasksTab.css'
 import { FileIcon } from '../shared'
 
@@ -41,6 +42,7 @@ const TeamTasksTab = ({ user }) => {
     const handleEscape = (e) => {
       if (e.key === 'Escape' && showCommentsModal) {
         setShowCommentsModal(null)
+        document.body.style.overflow = ''
       }
     }
 
@@ -199,8 +201,12 @@ const TeamTasksTab = ({ user }) => {
     })
   }
 
-  const formatDaysLeft = (dateString) => {
+  const formatDaysLeft = (dateString, hasSubmissions) => {
     if (!dateString) return ''
+    
+    // If there are submissions, don't show overdue text
+    if (hasSubmissions) return ''
+    
     const date = new Date(dateString)
     const now = new Date()
     const diffTime = date - now
@@ -333,9 +339,11 @@ const TeamTasksTab = ({ user }) => {
     if (showCommentsModal === assignmentId) {
       // Close modal
       setShowCommentsModal(null)
+      document.body.style.overflow = ''
     } else {
       // Open modal
       setShowCommentsModal(assignmentId)
+      document.body.style.overflow = 'hidden'
       
       // Fetch comments if not already loaded
       if (!comments[assignmentId]) {
@@ -543,7 +551,7 @@ const TeamTasksTab = ({ user }) => {
                         <span className="team-leader-name">
                           {assignment.team_leader_fullname || assignment.team_leader_username}
                         </span>
-                        <span className="role-badge team-leader">TEAM LEADER</span>
+                        {' '}<span className="role-badge team-leader">TEAM LEADER</span>{' '}
                         assigned to{' '}
                         <span className="assigned-user">
                           {assignment.assigned_member_details && assignment.assigned_member_details.length > 0
@@ -560,19 +568,7 @@ const TeamTasksTab = ({ user }) => {
                       </div>
                     </div>
                   </div>
-                  <div className="team-task-header-right">
-                    {assignment.due_date && (
-                      <div className="team-task-due-date">
-                        Due: {formatDate(assignment.due_date)}
-                        <span
-                          className="days-left"
-                          style={{ color: getStatusColor(assignment.due_date) }}
-                        >
-                          {' '}({formatDaysLeft(assignment.due_date)})
-                        </span>
-                      </div>
-                    )}
-                  </div>
+
                 </div>
 
                 {/* Task Title */}
@@ -795,12 +791,12 @@ const TeamTasksTab = ({ user }) => {
       </div>
 
       {/* Comments Modal - Admin Style */}
-      {showCommentsModal && (
-        <div className="comments-modal-overlay" onClick={() => setShowCommentsModal(null)}>
+      {showCommentsModal && createPortal(
+        <div className="comments-modal-overlay" onClick={() => { setShowCommentsModal(null); document.body.style.overflow = ''; }}>
           <div className="comments-modal" onClick={(e) => e.stopPropagation()}>
             <div className="comments-modal-header">
               <h3>Comments</h3>
-              <button className="close-modal-btn" onClick={() => setShowCommentsModal(null)}>
+              <button className="close-modal-btn" onClick={() => { setShowCommentsModal(null); document.body.style.overflow = ''; }}>
                 ✕
               </button>
             </div>
@@ -951,7 +947,8 @@ const TeamTasksTab = ({ user }) => {
               </div>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   )
