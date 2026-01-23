@@ -1,15 +1,21 @@
-import React, { useEffect } from 'react'
+import React, { lazy, Suspense, useEffect } from 'react'
 import { HashRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
+import { QueryClientProvider } from '@tanstack/react-query'
+import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
 import './css/App.css'
 import { createLogger } from './utils/secureLogger'
 import useStore from './store/useStore'
+import { queryClient } from './config/queryClient'
 
-// Direct imports for faster initial load - NO lazy loading
+// Eager load (always needed)
 import Login from './components/Login'
-import UserDashboard from './pages/UserDashboard-Enhanced'
-import TeamLeaderDashboard from './pages/TeamLeaderDashboard-Refactored'
-import AdminDashboard from './pages/AdminDashboard'
+import LoadingSpinner from './components/LoadingSpinner'
 import ToastContainer from './components/common/ToastContainer'
+
+// Lazy load dashboards (only when needed)
+const UserDashboard = lazy(() => import('./pages/UserDashboard-Enhanced'))
+const TeamLeaderDashboard = lazy(() => import('./pages/TeamLeaderDashboard-Refactored'))
+const AdminDashboard = lazy(() => import('./pages/AdminDashboard'))
 
 const logger = createLogger('App')
 
@@ -57,27 +63,35 @@ function App() {
   }
 
   return (
-    <Router>
-      <div className="app">
-        {/* Toast notifications - handles ALL notifications including updates */}
-        <ToastContainer />
+    <QueryClientProvider client={queryClient}>
+      <Router>
+        <div className="app">
+          {/* Toast notifications - handles ALL notifications including updates */}
+          <ToastContainer />
 
-        <Routes>
-          <Route
-            path="/login"
-            element={!user ? <Login onLogin={handleLogin} /> : <Navigate to="/dashboard" replace />}
-          />
-          <Route
-            path="/dashboard"
-            element={user ? getDashboardComponent() : <Navigate to="/login" replace />}
-          />
-          <Route
-            path="/"
-            element={<Navigate to={user ? "/dashboard" : "/login"} replace />}
-          />
-        </Routes>
-      </div>
-    </Router>
+          <Suspense fallback={<LoadingSpinner message="Loading dashboard..." />}>
+            <Routes>
+              <Route
+                path="/login"
+                element={!user ? <Login onLogin={handleLogin} /> : <Navigate to="/dashboard" replace />}
+              />
+              <Route
+                path="/dashboard"
+                element={user ? getDashboardComponent() : <Navigate to="/login" replace />}
+              />
+              <Route
+                path="/"
+                element={<Navigate to={user ? "/dashboard" : "/login"} replace />}
+              />
+            </Routes>
+          </Suspense>
+        </div>
+      </Router>
+      {/* React Query DevTools - only in development */}
+      {process.env.NODE_ENV === 'development' && (
+        <ReactQueryDevtools initialIsOpen={false} />
+      )}
+    </QueryClientProvider>
   )
 }
 
