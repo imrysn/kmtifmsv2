@@ -58,6 +58,7 @@ const settingsRoutes = require('./routes/settings');
 const fileViewerRoutes = require('./routes/fileViewer');
 const { router: notificationsRoutes } = require('./routes/notifications');
 const assignmentsRoutes = require('./routes/assignments');
+const customTagsRoutes = require('./routes/customTags');
 
 const app = express();
 const PORT = process.env.SERVER_PORT || 3001;
@@ -110,6 +111,7 @@ app.use('/api/settings', settingsRoutes);
 app.use('/api/file-viewer', fileViewerRoutes);
 app.use('/api/notifications', notificationsRoutes);
 app.use('/api/assignments', assignmentsRoutes);
+app.use('/api/custom-tags', customTagsRoutes);
 
 // Serve static files from the React app build directory
 // In bundled mode, client files are in client-dist, otherwise in ../client/dist

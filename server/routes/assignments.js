@@ -894,9 +894,13 @@ router.get('/user/:userId', async (req, res) => {
           f.file_size,
           f.tag,
           f.description,
-          asub.submitted_at
+          f.status,
+          asub.submitted_at,
+          u.fullName as submitter_name,
+          u.username as submitter_username
         FROM assignment_submissions asub
         JOIN files f ON asub.file_id = f.id
+        JOIN users u ON asub.user_id = u.id
         WHERE asub.assignment_id = ? AND asub.user_id = ?
         ORDER BY asub.submitted_at DESC
       `, [assignment.id, userId]);
@@ -1745,32 +1749,21 @@ router.delete('/:assignmentId', async (req, res) => {
       });
     }
 
-    // Get all file IDs associated with this assignment before deleting
+    // Get all file IDs associated with this assignment
     const submittedFiles = await query(
-      'SELECT file_id FROM assignment_members WHERE assignment_id = ? AND file_id IS NOT NULL',
+      'SELECT file_id FROM assignment_submissions WHERE assignment_id = ?',
       [assignmentId]
     );
 
-    console.log(` Assignment ${assignmentId} has ${submittedFiles ? submittedFiles.length : 0} submitted file(s)`);
-
-    // Delete files from the files table if they exist
-    if (submittedFiles && submittedFiles.length > 0) {
-      console.log(` Deleting ${submittedFiles.length} file(s) from files table...`);
-      for (const submission of submittedFiles) {
-        try {
-          await query('DELETE FROM files WHERE id = ?', [submission.file_id]);
-          console.log(` Deleted file ID ${submission.file_id} from files table (associated with assignment ${assignmentId})`);
-        } catch (fileDeleteError) {
-          console.error(` Error deleting file ${submission.file_id}:`, fileDeleteError);
-          // Continue deleting other files even if one fails
-        }
-      }
-      console.log(` Completed file deletion for assignment ${assignmentId}`);
-    } else {
-      console.log(`ℹ No files to delete for assignment ${assignmentId}`);
-    }
+    console.log(`✅ Assignment ${assignmentId} has ${submittedFiles ? submittedFiles.length : 0} submitted file(s)`);
+    console.log('ℹ️ Files will be kept in database and NAS - they will return to users\' "My Files"');
+    
+    // ✅ IMPORTANT: Do NOT delete files from the files table
+    // Files should persist after assignment deletion so users can access them in "My Files"
+    // Only delete the assignment_submissions links (done below via cascade)
 
     // Delete related records (replies will cascade delete when comments are deleted)
+    await query('DELETE FROM assignment_submissions WHERE assignment_id = ?', [assignmentId]);
     await query('DELETE FROM assignment_members WHERE assignment_id = ?', [assignmentId]);
     await query('DELETE FROM assignment_comments WHERE assignment_id = ?', [assignmentId]);
 
@@ -1816,6 +1809,12 @@ router.delete('/:assignmentId/files/:fileId', async (req, res) => {
       });
     }
 
+    // Get file info before deleting to get the physical file path
+    const fileInfo = await queryOne(
+      'SELECT file_path FROM files WHERE id = ?',
+      [fileId]
+    );
+
     // Delete from assignment_submissions table
     await query(
       'DELETE FROM assignment_submissions WHERE assignment_id = ? AND file_id = ? AND user_id = ?',
@@ -1846,9 +1845,11 @@ router.delete('/:assignmentId/files/:fileId', async (req, res) => {
       console.log('✅ Updated assignment_members to point to most recent submission');
     }
 
-    // Delete the file from the files table
-    await query('DELETE FROM files WHERE id = ?', [fileId]);
-    console.log('✅ Deleted file from files table');
+    // ✅ IMPORTANT: Keep file record in database and physical file in NAS
+    // This allows the file to reappear in "My Files" after being removed from assignment
+    // Only the assignment_submissions link is removed above
+    console.log('ℹ️ File record kept in database - file will return to "My Files"');
+    console.log('ℹ️ Physical file kept in NAS at:', fileInfo?.file_path);
 
     res.json({
       success: true,
