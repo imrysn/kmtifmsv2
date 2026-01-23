@@ -1,7 +1,8 @@
-import React, { useState } from 'react'
+import React, { useEffect } from 'react'
 import { HashRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
 import './css/App.css'
 import { createLogger } from './utils/secureLogger'
+import useStore from './store/useStore'
 
 // Direct imports for faster initial load - NO lazy loading
 import Login from './components/Login'
@@ -13,35 +14,27 @@ import ToastContainer from './components/common/ToastContainer'
 const logger = createLogger('App')
 
 function App() {
-  const [user, setUser] = useState(() => {
-    const savedUser = localStorage.getItem('user')
-    if (savedUser) {
-      try {
-        const userData = JSON.parse(savedUser)
-        logger.info('User session restored from localStorage')
-        return userData
-      } catch (error) {
-        logger.error('Error parsing saved user', error)
-        localStorage.removeItem('user')
-        return null
-      }
+  // Use Zustand store instead of local state
+  const { user, login, logout } = useStore()
+
+  // Log user session restoration
+  useEffect(() => {
+    if (user) {
+      logger.info('User session restored from store')
     }
-    return null
-  })
+  }, [])
 
   // Handle login
   const handleLogin = (userData) => {
     logger.logLogin(userData)
-    setUser(userData)
-    localStorage.setItem('user', JSON.stringify(userData))
+    login(userData)
     logger.logStateUpdate('User authenticated and saved')
   }
 
   // Handle logout
   const handleLogout = () => {
     logger.logLogout()
-    setUser(null)
-    localStorage.removeItem('user')
+    logout()
   }
 
   // Get the appropriate dashboard component based on user's panel type

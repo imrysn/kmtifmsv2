@@ -40,20 +40,16 @@ async function create(fileData) {
     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
   `;
 
-    return new Promise((resolve, reject) => {
-        db.run(
+    try {
+        const result = await db.run(
             query,
             [filename, original_name, file_path, file_size, file_type, mime_type,
-                description, user_id, username, user_team, status, current_stage],
-            function (err) {
-                if (err) {
-                    reject(new DatabaseError('Failed to create file record', err));
-                } else {
-                    resolve(this.lastID);
-                }
-            }
+                description, user_id, username, user_team, status, current_stage]
         );
-    });
+        return result.lastID;
+    } catch (err) {
+        throw new DatabaseError('Failed to create file record', err);
+    }
 }
 
 /**
@@ -62,17 +58,12 @@ async function create(fileData) {
  * @returns {Promise<Object|null>} - File object or null
  */
 async function findById(fileId) {
-    const query = 'SELECT * FROM files WHERE id = ?';
-
-    return new Promise((resolve, reject) => {
-        db.get(query, [fileId], (err, row) => {
-            if (err) {
-                reject(new DatabaseError('Failed to find file', err));
-            } else {
-                resolve(row || null);
-            }
-        });
-    });
+    try {
+        const file = await db.get('SELECT * FROM files WHERE id = ?', [fileId]);
+        return file || null;
+    } catch (err) {
+        throw new DatabaseError('Failed to find file', err);
+    }
 }
 
 /**
@@ -95,15 +86,12 @@ async function findByUserId(userId, options = {}) {
     query += ' ORDER BY uploaded_at DESC LIMIT ? OFFSET ?';
     params.push(limit, offset);
 
-    return new Promise((resolve, reject) => {
-        db.all(query, params, (err, rows) => {
-            if (err) {
-                reject(new DatabaseError('Failed to find files by user', err));
-            } else {
-                resolve(rows || []);
-            }
-        });
-    });
+    try {
+        const files = await db.all(query, params);
+        return files || [];
+    } catch (err) {
+        throw new DatabaseError('Failed to find files by user', err);
+    }
 }
 
 /**
@@ -131,15 +119,12 @@ async function findByTeam(team, options = {}) {
     query += ' ORDER BY uploaded_at DESC LIMIT ? OFFSET ?';
     params.push(limit, offset);
 
-    return new Promise((resolve, reject) => {
-        db.all(query, params, (err, rows) => {
-            if (err) {
-                reject(new DatabaseError('Failed to find files by team', err));
-            } else {
-                resolve(rows || []);
-            }
-        });
-    });
+    try {
+        const files = await db.all(query, params);
+        return files || [];
+    } catch (err) {
+        throw new DatabaseError('Failed to find files by team', err);
+    }
 }
 
 /**
@@ -211,15 +196,12 @@ async function updateStatus(fileId, updates) {
     const query = `UPDATE files SET ${fields.join(', ')} WHERE id = ?`;
     values.push(fileId);
 
-    return new Promise((resolve, reject) => {
-        db.run(query, values, function (err) {
-            if (err) {
-                reject(new DatabaseError('Failed to update file status', err));
-            } else {
-                resolve(this.changes > 0);
-            }
-        });
-    });
+    try {
+        const result = await db.run(query, values);
+        return result.changes > 0;
+    } catch (err) {
+        throw new DatabaseError('Failed to update file status', err);
+    }
 }
 
 /**
@@ -228,17 +210,12 @@ async function updateStatus(fileId, updates) {
  * @returns {Promise<boolean>} - Success status
  */
 async function deleteById(fileId) {
-    const query = 'DELETE FROM files WHERE id = ?';
-
-    return new Promise((resolve, reject) => {
-        db.run(query, [fileId], function (err) {
-            if (err) {
-                reject(new DatabaseError('Failed to delete file', err));
-            } else {
-                resolve(this.changes > 0);
-            }
-        });
-    });
+    try {
+        const result = await db.run('DELETE FROM files WHERE id = ?', [fileId]);
+        return result.changes > 0;
+    } catch (err) {
+        throw new DatabaseError('Failed to delete file', err);
+    }
 }
 
 /**
@@ -269,15 +246,12 @@ async function count(criteria = {}) {
         params.push(stage);
     }
 
-    return new Promise((resolve, reject) => {
-        db.get(query, params, (err, row) => {
-            if (err) {
-                reject(new DatabaseError('Failed to count files', err));
-            } else {
-                resolve(row?.count || 0);
-            }
-        });
-    });
+    try {
+        const result = await db.get(query, params);
+        return result?.count || 0;
+    } catch (err) {
+        throw new DatabaseError('Failed to count files', err);
+    }
 }
 
 module.exports = {
