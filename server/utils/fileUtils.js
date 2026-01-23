@@ -62,6 +62,16 @@ async function moveToUserFolder(tempPath, username, originalFilename) {
 
   // CRITICAL FIX: Async move with fallback for cross-device
   console.log('🚚 Attempting to move file...');
+  
+  // CHECK: If destination file already exists, we're about to overwrite it
+  try {
+    await fs.access(finalPath);
+    console.log('⚠️  WARNING: Destination file already exists and will be OVERWRITTEN');
+    console.log(`   Existing file: ${finalPath}`);
+  } catch (e) {
+    console.log('✅ Destination path is clear (no existing file)');
+  }
+  
   try {
     // Try rename first (fast, atomic on same filesystem)
     await fs.rename(tempPath, finalPath);

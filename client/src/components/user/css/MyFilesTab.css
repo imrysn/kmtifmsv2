@@ -369,6 +369,12 @@
   background: transparent !important;
 }
 
+.status-tag.status-revised {
+  color: #eab308;
+  border: 1px solid #eab308;
+  background: transparent !important;
+}
+
 .status-tag.status-approved {
   color: #10b981;
   border: 1px solid #10b981;
@@ -711,17 +717,16 @@
   width: 36px;
   height: 36px;
   background: transparent;
-  border: 1px solid #d5d5d9;
+  border: none;
   border-radius: 6px;
   cursor: pointer;
   transition: all 0.2s ease;
-  color: #86868b;
+  color: #dc2626;
 }
 
 .delete-btn:hover {
-  background: #fff1f2;
-  border-color: #ef4444;
-  color: #ef4444;
+  background: #fee2e2;
+  color: #b91c1c;
 }
 
 .delete-btn:active {

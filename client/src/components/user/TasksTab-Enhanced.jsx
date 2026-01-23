@@ -928,6 +928,8 @@ const TasksTab = ({ user }) => {
                                     flexWrap: 'wrap'
                                   }}>
                                     <span>by <span style={{ fontWeight: '500', color: '#2563eb' }}>{file.submitter_name || user.fullName || user.username}</span></span>
+                                    <span style={{ color: '#9ca3af' }}>•</span>
+                                    <span>{formatDate(file.submitted_at || file.uploaded_at)}</span>
                                     {file.tag && (
                                       <>
                                         <span style={{
@@ -1001,16 +1003,18 @@ const TasksTab = ({ user }) => {
                                     background: 'transparent',
                                     color: '#9ca3af',
                                     border: 'none',
-                                    borderRadius: '6px',
-                                    padding: '6px',
-                                    fontSize: '20px',
+                                    borderRadius: '8px',
+                                    padding: '8px',
+                                    fontSize: '16px',
                                     cursor: 'pointer',
                                     flexShrink: 0,
                                     display: 'flex',
                                     alignItems: 'center',
                                     justifyContent: 'center',
                                     transition: 'all 0.2s',
-                                    lineHeight: 1
+                                    lineHeight: 1,
+                                    width: '32px',
+                                    height: '32px'
                                   }}
                                   onMouseEnter={(e) => {
                                     e.currentTarget.style.backgroundColor = '#fee2e2';
@@ -1512,16 +1516,24 @@ const TasksTab = ({ user }) => {
                 style={{
                   padding: '10px 20px',
                   borderRadius: '8px',
-                  border: '1px solid #d1d5db',
+                  border: '1px solid #dc2626',
                   backgroundColor: '#ffffff',
-                  color: '#374151',
+                  color: '#dc2626',
                   fontSize: '14px',
                   fontWeight: '500',
                   cursor: 'pointer',
                   transition: 'all 0.2s'
                 }}
-                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f9fafb'}
-                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#ffffff'}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = '#fee2e2';
+                  e.currentTarget.style.borderColor = '#b91c1c';
+                  e.currentTarget.style.color = '#b91c1c';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = '#ffffff';
+                  e.currentTarget.style.borderColor = '#dc2626';
+                  e.currentTarget.style.color = '#dc2626';
+                }}
               >
                 Cancel
               </button>
