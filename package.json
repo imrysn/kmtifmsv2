@@ -1,6 +1,6 @@
 {
   "name": "kmti-file-management",
-  "version": "2.1.10",
+  "version": "2.1.11",
   "description": "Desktop application used for file management, checking, and approval of files.",
   "main": "main.js",
   "scripts": {
