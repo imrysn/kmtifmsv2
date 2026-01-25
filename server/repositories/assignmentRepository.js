@@ -38,20 +38,16 @@ async function create(assignmentData) {
     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
   `;
 
-    return new Promise((resolve, reject) => {
-        db.run(
+    try {
+        const result = await db.run(
             query,
             [title, description, due_date, file_type_required, assigned_to,
-                max_file_size, team_leader_id, team_leader_username, team, status],
-            function (err) {
-                if (err) {
-                    reject(new DatabaseError('Failed to create assignment', err));
-                } else {
-                    resolve(this.lastID);
-                }
-            }
+                max_file_size, team_leader_id, team_leader_username, team, status]
         );
-    });
+        return result.lastID;
+    } catch (err) {
+        throw new DatabaseError('Failed to create assignment', err);
+    }
 }
 
 /**
@@ -60,17 +56,12 @@ async function create(assignmentData) {
  * @returns {Promise<Object|null>} - Assignment object or null
  */
 async function findById(assignmentId) {
-    const query = 'SELECT * FROM assignments WHERE id = ?';
-
-    return new Promise((resolve, reject) => {
-        db.get(query, [assignmentId], (err, row) => {
-            if (err) {
-                reject(new DatabaseError('Failed to find assignment', err));
-            } else {
-                resolve(row || null);
-            }
-        });
-    });
+    try {
+        const assignment = await db.get('SELECT * FROM assignments WHERE id = ?', [assignmentId]);
+        return assignment || null;
+    } catch (err) {
+        throw new DatabaseError('Failed to find assignment', err);
+    }
 }
 
 /**
@@ -93,15 +84,12 @@ async function findByTeam(team, options = {}) {
     query += ' ORDER BY created_at DESC LIMIT ? OFFSET ?';
     params.push(limit, offset);
 
-    return new Promise((resolve, reject) => {
-        db.all(query, params, (err, rows) => {
-            if (err) {
-                reject(new DatabaseError('Failed to find assignments by team', err));
-            } else {
-                resolve(rows || []);
-            }
-        });
-    });
+    try {
+        const assignments = await db.all(query, params);
+        return assignments || [];
+    } catch (err) {
+        throw new DatabaseError('Failed to find assignments by team', err);
+    }
 }
 
 /**
@@ -123,15 +111,12 @@ async function findAll(options = {}) {
     query += ' ORDER BY created_at DESC LIMIT ? OFFSET ?';
     params.push(limit, offset);
 
-    return new Promise((resolve, reject) => {
-        db.all(query, params, (err, rows) => {
-            if (err) {
-                reject(new DatabaseError('Failed to find assignments', err));
-            } else {
-                resolve(rows || []);
-            }
-        });
-    });
+    try {
+        const assignments = await db.all(query, params);
+        return assignments || [];
+    } catch (err) {
+        throw new DatabaseError('Failed to find assignments', err);
+    }
 }
 
 /**
@@ -168,15 +153,12 @@ async function update(assignmentId, updates) {
     const query = `UPDATE assignments SET ${fields.join(', ')} WHERE id = ?`;
     values.push(assignmentId);
 
-    return new Promise((resolve, reject) => {
-        db.run(query, values, function (err) {
-            if (err) {
-                reject(new DatabaseError('Failed to update assignment', err));
-            } else {
-                resolve(this.changes > 0);
-            }
-        });
-    });
+    try {
+        const result = await db.run(query, values);
+        return result.changes > 0;
+    } catch (err) {
+        throw new DatabaseError('Failed to update assignment', err);
+    }
 }
 
 /**
@@ -185,17 +167,12 @@ async function update(assignmentId, updates) {
  * @returns {Promise<boolean>} - Success status
  */
 async function deleteById(assignmentId) {
-    const query = 'DELETE FROM assignments WHERE id = ?';
-
-    return new Promise((resolve, reject) => {
-        db.run(query, [assignmentId], function (err) {
-            if (err) {
-                reject(new DatabaseError('Failed to delete assignment', err));
-            } else {
-                resolve(this.changes > 0);
-            }
-        });
-    });
+    try {
+        const result = await db.run('DELETE FROM assignments WHERE id = ?', [assignmentId]);
+        return result.changes > 0;
+    } catch (err) {
+        throw new DatabaseError('Failed to delete assignment', err);
+    }
 }
 
 /**
@@ -210,15 +187,12 @@ async function addMember(assignmentId, userId) {
     VALUES (?, ?, 'pending', CURRENT_TIMESTAMP)
   `;
 
-    return new Promise((resolve, reject) => {
-        db.run(query, [assignmentId, userId], function (err) {
-            if (err) {
-                reject(new DatabaseError('Failed to add assignment member', err));
-            } else {
-                resolve(this.lastID);
-            }
-        });
-    });
+    try {
+        const result = await db.run(query, [assignmentId, userId]);
+        return result.lastID;
+    } catch (err) {
+        throw new DatabaseError('Failed to add assignment member', err);
+    }
 }
 
 /**
@@ -234,15 +208,12 @@ async function getMembers(assignmentId) {
     WHERE am.assignment_id = ?
   `;
 
-    return new Promise((resolve, reject) => {
-        db.all(query, [assignmentId], (err, rows) => {
-            if (err) {
-                reject(new DatabaseError('Failed to get assignment members', err));
-            } else {
-                resolve(rows || []);
-            }
-        });
-    });
+    try {
+        const members = await db.all(query, [assignmentId]);
+        return members || [];
+    } catch (err) {
+        throw new DatabaseError('Failed to get assignment members', err);
+    }
 }
 
 /**
@@ -259,15 +230,149 @@ async function updateMemberStatus(assignmentId, userId, status) {
     WHERE assignment_id = ? AND user_id = ?
   `;
 
-    return new Promise((resolve, reject) => {
-        db.run(query, [status, assignmentId, userId], function (err) {
-            if (err) {
-                reject(new DatabaseError('Failed to update member status', err));
-            } else {
-                resolve(this.changes > 0);
+    try {
+        const result = await db.run(query, [status, assignmentId, userId]);
+        return result.changes > 0;
+    } catch (err) {
+        throw new DatabaseError('Failed to update member status', err);
+    }
+}
+
+/**
+ * Find all assignments with full details (OPTIMIZED - Fixes N+1 Query Problem)
+ * This method uses JOINs and batch queries instead of individual queries per assignment
+ * @param {Object} options - Query options
+ * @returns {Promise<Object>} - Assignments with pagination info
+ */
+async function findAllWithDetails(options = {}) {
+    const { cursor, limit = 20, team } = options;
+
+    try {
+        // Build main query with team leader info
+        let query = `
+            SELECT 
+                a.*,
+                tl.fullName as team_leader_fullname,
+                tl.username as team_leader_username,
+                tl.email as team_leader_email
+            FROM assignments a
+            LEFT JOIN users tl ON a.team_leader_id = tl.id
+        `;
+
+        const params = [];
+        const whereConditions = [];
+
+        if (team) {
+            whereConditions.push('a.team = ?');
+            params.push(team);
+        }
+        if (cursor) {
+            whereConditions.push('a.id > ?');
+            params.push(cursor);
+        }
+
+        if (whereConditions.length > 0) {
+            query += ' WHERE ' + whereConditions.join(' AND ');
+        }
+
+        query += ' ORDER BY a.id DESC LIMIT ?';
+        params.push(limit + 1); // Fetch one extra to check if there are more
+
+        const assignments = await db.all(query, params);
+
+        // Check for pagination
+        const hasMore = assignments.length > limit;
+        const assignmentsToReturn = hasMore ? assignments.slice(0, limit) : assignments;
+        const nextCursor = hasMore && assignmentsToReturn.length > 0
+            ? assignmentsToReturn[assignmentsToReturn.length - 1].id
+            : null;
+
+        // If no assignments, return early
+        if (assignmentsToReturn.length === 0) {
+            return { assignments: [], nextCursor: null, hasMore: false };
+        }
+
+        // Fetch all members for all assignments in ONE query (instead of N queries)
+        const assignmentIds = assignmentsToReturn.map(a => a.id);
+        const placeholders = assignmentIds.map(() => '?').join(',');
+
+        const membersQuery = `
+            SELECT 
+                am.assignment_id,
+                am.user_id,
+                am.status as member_status,
+                u.fullName,
+                u.username,
+                u.email
+            FROM assignment_members am
+            JOIN users u ON am.user_id = u.id
+            WHERE am.assignment_id IN (${placeholders})
+        `;
+
+        const members = await db.all(membersQuery, assignmentIds);
+
+        // Group members by assignment_id
+        const membersByAssignment = members.reduce((acc, member) => {
+            if (!acc[member.assignment_id]) {
+                acc[member.assignment_id] = [];
             }
-        });
-    });
+            acc[member.assignment_id].push({
+                id: member.user_id,
+                username: member.username,
+                fullName: member.fullName,
+                email: member.email,
+                status: member.member_status
+            });
+            return acc;
+        }, {});
+
+        // Fetch counts for attachments and comments in TWO queries (instead of 2N queries)
+        const attachmentCountsQuery = `
+            SELECT assignment_id, COUNT(*) as count
+            FROM assignment_attachments
+            WHERE assignment_id IN (${placeholders})
+            GROUP BY assignment_id
+        `;
+
+        const commentCountsQuery = `
+            SELECT assignment_id, COUNT(*) as count
+            FROM assignment_comments
+            WHERE assignment_id IN (${placeholders})
+            GROUP BY assignment_id
+        `;
+
+        const [attachmentCounts, commentCounts] = await Promise.all([
+            db.all(attachmentCountsQuery, assignmentIds),
+            db.all(commentCountsQuery, assignmentIds)
+        ]);
+
+        // Create lookup maps
+        const attachmentCountMap = attachmentCounts.reduce((acc, row) => {
+            acc[row.assignment_id] = row.count;
+            return acc;
+        }, {});
+
+        const commentCountMap = commentCounts.reduce((acc, row) => {
+            acc[row.assignment_id] = row.count;
+            return acc;
+        }, {});
+
+        // Attach all related data to assignments
+        const enrichedAssignments = assignmentsToReturn.map(assignment => ({
+            ...assignment,
+            members: membersByAssignment[assignment.id] || [],
+            attachment_count: attachmentCountMap[assignment.id] || 0,
+            comment_count: commentCountMap[assignment.id] || 0
+        }));
+
+        return {
+            assignments: enrichedAssignments,
+            nextCursor,
+            hasMore
+        };
+    } catch (err) {
+        throw new DatabaseError('Failed to fetch assignments with details', err);
+    }
 }
 
 /**
@@ -290,15 +395,12 @@ async function count(criteria = {}) {
         params.push(status);
     }
 
-    return new Promise((resolve, reject) => {
-        db.get(query, params, (err, row) => {
-            if (err) {
-                reject(new DatabaseError('Failed to count assignments', err));
-            } else {
-                resolve(row?.count || 0);
-            }
-        });
-    });
+    try {
+        const result = await db.get(query, params);
+        return result?.count || 0;
+    } catch (err) {
+        throw new DatabaseError('Failed to count assignments', err);
+    }
 }
 
 module.exports = {
@@ -306,6 +408,7 @@ module.exports = {
     findById,
     findByTeam,
     findAll,
+    findAllWithDetails,
     update,
     deleteById,
     addMember,

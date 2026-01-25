@@ -1,47 +1,46 @@
-import React, { useState } from 'react'
+import React, { lazy, Suspense, useEffect } from 'react'
 import { HashRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
+import { QueryClientProvider } from '@tanstack/react-query'
+import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
 import './css/App.css'
 import { createLogger } from './utils/secureLogger'
+import useStore from './store/useStore'
+import { queryClient } from './config/queryClient'
 
-// Direct imports for faster initial load - NO lazy loading
+// Eager load (always needed)
 import Login from './components/Login'
-import UserDashboard from './pages/UserDashboard-Enhanced'
-import TeamLeaderDashboard from './pages/TeamLeaderDashboard-Refactored'
-import AdminDashboard from './pages/AdminDashboard'
+import LoadingSpinner from './components/LoadingSpinner'
 import ToastContainer from './components/common/ToastContainer'
+
+// Lazy load dashboards (only when needed)
+const UserDashboard = lazy(() => import('./pages/UserDashboard-Enhanced'))
+const TeamLeaderDashboard = lazy(() => import('./pages/TeamLeaderDashboard-Refactored'))
+const AdminDashboard = lazy(() => import('./pages/AdminDashboard'))
 
 const logger = createLogger('App')
 
 function App() {
-  const [user, setUser] = useState(() => {
-    const savedUser = localStorage.getItem('user')
-    if (savedUser) {
-      try {
-        const userData = JSON.parse(savedUser)
-        logger.info('User session restored from localStorage')
-        return userData
-      } catch (error) {
-        logger.error('Error parsing saved user', error)
-        localStorage.removeItem('user')
-        return null
-      }
+  // Use Zustand store instead of local state
+  const { user, login, logout } = useStore()
+
+  // Log user session restoration
+  useEffect(() => {
+    if (user) {
+      logger.info('User session restored from store')
     }
-    return null
-  })
+  }, [])
 
   // Handle login
   const handleLogin = (userData) => {
     logger.logLogin(userData)
-    setUser(userData)
-    localStorage.setItem('user', JSON.stringify(userData))
+    login(userData)
     logger.logStateUpdate('User authenticated and saved')
   }
 
   // Handle logout
   const handleLogout = () => {
     logger.logLogout()
-    setUser(null)
-    localStorage.removeItem('user')
+    logout()
   }
 
   // Get the appropriate dashboard component based on user's panel type
@@ -64,27 +63,35 @@ function App() {
   }
 
   return (
-    <Router>
-      <div className="app">
-        {/* Toast notifications - handles ALL notifications including updates */}
-        <ToastContainer />
+    <QueryClientProvider client={queryClient}>
+      <Router>
+        <div className="app">
+          {/* Toast notifications - handles ALL notifications including updates */}
+          <ToastContainer />
 
-        <Routes>
-          <Route
-            path="/login"
-            element={!user ? <Login onLogin={handleLogin} /> : <Navigate to="/dashboard" replace />}
-          />
-          <Route
-            path="/dashboard"
-            element={user ? getDashboardComponent() : <Navigate to="/login" replace />}
-          />
-          <Route
-            path="/"
-            element={<Navigate to={user ? "/dashboard" : "/login"} replace />}
-          />
-        </Routes>
-      </div>
-    </Router>
+          <Suspense fallback={<LoadingSpinner message="Loading dashboard..." />}>
+            <Routes>
+              <Route
+                path="/login"
+                element={!user ? <Login onLogin={handleLogin} /> : <Navigate to="/dashboard" replace />}
+              />
+              <Route
+                path="/dashboard"
+                element={user ? getDashboardComponent() : <Navigate to="/login" replace />}
+              />
+              <Route
+                path="/"
+                element={<Navigate to={user ? "/dashboard" : "/login"} replace />}
+              />
+            </Routes>
+          </Suspense>
+        </div>
+      </Router>
+      {/* React Query DevTools - only in development */}
+      {process.env.NODE_ENV === 'development' && (
+        <ReactQueryDevtools initialIsOpen={false} />
+      )}
+    </QueryClientProvider>
   )
 }
 

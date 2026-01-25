@@ -1,146 +1,78 @@
-import { defineConfig } from 'vite'
-import react from '@vitejs/plugin-react'
-import path from 'path'
+import { defineConfig } from 'vite';
+import react from '@vitejs/plugin-react';
+import path from 'path';
 
+// https://vitejs.dev/config/
 export default defineConfig({
-  base: './',  // CRITICAL: Required for Electron packaging
-  plugins: [
-    react({
-      jsxRuntime: 'automatic',
-      jsxImportSource: 'react',
-      babel: {
-        plugins: [],
-      },
-    })
-  ],
+  plugins: [react()],
+
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
-    },
-    // Pre-defined extensions for faster resolution
-    extensions: ['.mjs', '.js', '.jsx', '.json']
-  },
-  server: {
-    port: 5173,
-    open: false,
-    strictPort: false,
-    // CRITICAL: Faster HMR connection
-    hmr: {
-      overlay: true,
-      protocol: 'ws',
-      host: 'localhost',
-      port: 5173,
-      timeout: 30000
-    },
-    watch: {
-      usePolling: false,
-      ignored: ['**/node_modules/**', '**/.git/**']
-    },
-    middlewareMode: false,
-    cors: {
-      origin: '*',
-      methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE']
-    },
-    https: false,
-    fs: {
-      strict: false,
-      allow: ['..']
-    },
-    // FASTER: Pre-transform main files
-    warmup: {
-      clientFiles: [
-        './src/main.jsx',
-        './src/App.jsx',
-        './src/components/Login.jsx',
-        './src/pages/UserDashboard-Enhanced.jsx'
-      ],
-    },
-    // CRITICAL: Headers for faster loading
-    headers: {
-      'Cache-Control': 'no-cache',
-      'X-Content-Type-Options': 'nosniff'
+      '@components': path.resolve(__dirname, './src/components'),
+      '@services': path.resolve(__dirname, './src/services'),
+      '@utils': path.resolve(__dirname, './src/utils'),
+      '@store': path.resolve(__dirname, './src/store')
     }
   },
+
   build: {
+    // Output directory
     outDir: 'dist',
-    minify: 'esbuild',
+
+    // Generate sourcemaps for production debugging
     sourcemap: false,
-    reportCompressedSize: false,
-    emptyOutDir: true,
-    
+
+    // Chunk size warning limit (in KB)
+    chunkSizeWarningLimit: 1000,
+
     rollupOptions: {
       output: {
+        // Manual chunks for better code splitting
         manualChunks: {
-          'react-vendor': ['react', 'react-dom'],
-          'router-vendor': ['react-router-dom'],
-          'anime-vendor': ['animejs']
+          // React vendor bundle
+          'react-vendor': [
+            'react',
+            'react-dom',
+            'react-router-dom'
+          ],
+
+          // UI components bundle
+          'ui-components': [
+            './src/components/common',
+            './src/components/shared'
+          ],
+
+          // Zustand store
+          'store': [
+            'zustand'
+          ]
         },
-        entryFileNames: 'assets/[name]-[hash].js',
-        chunkFileNames: 'assets/[name]-[hash].js',
-        assetFileNames: 'assets/[name]-[hash][extname]'
-      },
-      external: []
+
+        // Naming pattern for chunks
+        chunkFileNames: 'assets/js/[name]-[hash].js',
+        entryFileNames: 'assets/js/[name]-[hash].js',
+        assetFileNames: 'assets/[ext]/[name]-[hash].[ext]'
+      }
     },
-    
-    chunkSizeWarningLimit: 1000,
-    cssCodeSplit: true,
-    target: 'esnext',
-    lib: false
-  },
-  
-  // CRITICAL: Pre-bundle dependencies for MUCH faster startup
-  optimizeDeps: {
-    include: [
-      'react',
-      'react-dom',
-      'react/jsx-runtime',
-      'react-router-dom',
-      'animejs'
-    ],
-    exclude: ['node_modules/.vite'],
-    esbuildOptions: {
-      define: {
-        global: 'globalThis'
-      },
-      jsx: 'automatic',
-      jsxDev: true,
-      target: 'esnext'
-    },
-    // CRITICAL: Force pre-bundling on first start
-    force: false, // Force rebuild of dependencies to fix slow startup
-    // Faster dependency scanning
-    entries: ['./src/main.jsx']
-  },
-  
-  css: {
-    preprocessorOptions: {
-      scss: {
-        quietDeps: true
+
+    // Minification
+    minify: 'terser',
+    terserOptions: {
+      compress: {
+        drop_console: true, // Remove console.log in production
+        drop_debugger: true
       }
     }
   },
-  
-  ssr: false,
-  
-  define: {
-    '__DEV__': true,
-    '__VITE_API_URL__': JSON.stringify('http://localhost:3001'),
-    'process.env': {}
+
+  server: {
+    port: 5173,
+    strictPort: false,
+    open: false
   },
 
-  esbuild: {
-    jsx: 'automatic',
-    jsxInject: undefined,
-    jsxFactory: undefined,
-    jsxFragment: undefined,
-    target: 'esnext',
-    // Faster builds
-    logLevel: 'error',
-    logLimit: 10
-  },
-
-  // PERFORMANCE: Caching configuration
-  cacheDir: 'node_modules/.vite',
-  
-  // CRITICAL: Faster module resolution (merged with resolve above)
-})
+  preview: {
+    port: 4173
+  }
+});
