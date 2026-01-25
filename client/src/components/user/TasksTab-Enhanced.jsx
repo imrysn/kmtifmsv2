@@ -1108,21 +1108,19 @@ const TasksTab = ({ user }) => {
                         }}
                       >
                         <span className="submit-button-label" style={{
-                          backgroundColor: assignment.user_status === 'submitted' && assignment.submitted_file_id ? '#10b981' : '#000000',
+                          backgroundColor: assignment.submitted_files && assignment.submitted_files.length > 0 ? '#10b981' : '#000000',
                           padding: '6px 16px',
                           borderRadius: '4px',
                           fontSize: '14px',
                           fontWeight: '500',
                           whiteSpace: 'nowrap'
                         }}>
-                          {assignment.user_status === 'submitted' && assignment.submitted_file_id ? 'Add more files' : 'Submit file'}
+                          {assignment.submitted_files && assignment.submitted_files.length > 0 ? 'Add more files' : 'Submit file'}
                         </span>
                         <span style={{ fontSize: '14px', color: '#6b7280' }}>
-                          {assignment.user_status === 'submitted' && assignment.submitted_file_id
+                          {assignment.submitted_files && assignment.submitted_files.length > 0
                             ? 'Upload additional files'
-                            : (assignment.user_status === 'submitted' && !assignment.submitted_file_id
-                              ? 'File was deleted - resubmit'
-                              : 'No file attached')}
+                            : 'Click to attach files'}
                         </span>
                       </button>
                     </div>
@@ -1627,15 +1625,45 @@ const TasksTab = ({ user }) => {
                       id="file-upload-input"
                       disabled={isUploading}
                     />
-                    <label htmlFor="file-upload-input" className="file-upload-label" style={{
-                      border: '2px dashed #d1d5db',
-                      borderRadius: '12px',
-                      padding: '32px',
-                      textAlign: 'center',
-                      cursor: 'pointer',
-                      transition: 'all 0.2s',
-                      backgroundColor: '#fafafa'
-                    }}>
+                    <label 
+                      htmlFor="file-upload-input" 
+                      className="file-upload-label" 
+                      style={{
+                        border: '2px dashed #d1d5db',
+                        borderRadius: '12px',
+                        padding: '32px',
+                        textAlign: 'center',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s',
+                        backgroundColor: '#fafafa'
+                      }}
+                      onDragOver={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        e.currentTarget.style.backgroundColor = '#e0e7ff';
+                        e.currentTarget.style.borderColor = '#4f46e5';
+                      }}
+                      onDragLeave={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        e.currentTarget.style.backgroundColor = '#fafafa';
+                        e.currentTarget.style.borderColor = '#d1d5db';
+                      }}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        e.currentTarget.style.backgroundColor = '#fafafa';
+                        e.currentTarget.style.borderColor = '#d1d5db';
+                        
+                        const files = Array.from(e.dataTransfer.files);
+                        if (files.length > 0) {
+                          const newFiles = files.map(file => ({
+                            file: file
+                          }));
+                          setUploadedFiles(prev => [...prev, ...newFiles]);
+                        }
+                      }}
+                    >
                       <div className="file-upload-content" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>
                         <div style={{ fontSize: '48px' }}>📁</div>
                         <div className="upload-text">
