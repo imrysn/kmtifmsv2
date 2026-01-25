@@ -16,6 +16,8 @@ let splashTimeout = null;
 
 const isDev = process.env.NODE_ENV === 'development';
 const isProduction = !isDev;
+const SERVER_MODE = process.env.SERVER_MODE || 'embedded'; // 'embedded' or 'remote'
+const REMOTE_SERVER_URL = process.env.REMOTE_SERVER_URL || 'http://192.168.200.105:3001';
 const SERVER_PORT = process.env.EXPRESS_PORT || 3001;
 const VITE_URL = 'http://localhost:5173';
 const EXPRESS_CHECK_INTERVAL = 500;
@@ -800,13 +802,20 @@ if (app) {
 
       console.log('🔧 ABOUT TO START SERVER PROMISE');
 
-      // Start Express server in parallel (non-blocking)
-      const serverPromise = startServer().catch(error => {
-        log(LogLevel.ERROR, 'Server startup failed:', error.message);
-        log(LogLevel.ERROR, 'Server error stack:', error.stack);
-        // Don't crash the app, just log the error
-        return null;
-      });
+      // Start Express server in parallel (non-blocking) - only if in embedded mode
+      let serverPromise;
+      if (SERVER_MODE === 'embedded') {
+        log(LogLevel.INFO, 'Starting embedded server mode...');
+        serverPromise = startServer().catch(error => {
+          log(LogLevel.ERROR, 'Server startup failed:', error.message);
+          log(LogLevel.ERROR, 'Server error stack:', error.stack);
+          // Don't crash the app, just log the error
+          return null;
+        });
+      } else {
+        log(LogLevel.INFO, `Remote server mode - connecting to ${REMOTE_SERVER_URL}`);
+        serverPromise = Promise.resolve(); // Skip server startup
+      }
 
       // Create main window immediately (hidden, non-blocking)
       createWindow();
