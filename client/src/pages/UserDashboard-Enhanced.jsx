@@ -1,4 +1,4 @@
-import { useState, useEffect, Suspense, lazy } from 'react'
+import { useState, useEffect, Suspense, lazy, useCallback } from 'react'
 import '../css/UserDashboard.css'
 import SkeletonLoader from '../components/common/SkeletonLoader'
 import { AlertMessage, ToastNotification } from '../components/shared'
@@ -6,13 +6,13 @@ import { AlertMessage, ToastNotification } from '../components/shared'
 // Eagerly import critical components that are always visible
 import Sidebar from '../components/user/Sidebar'
 import DashboardTab from '../components/user/DashboardTab'
+import FileModal from '../components/user/FileModal' // Load immediately for notifications
 
 // Lazy load tab components - only loaded when user switches to that tab
 const TeamTasksTab = lazy(() => import('../components/user/TeamTasksTab'))
 const MyFilesTab = lazy(() => import('../components/user/MyFilesTab'))
 const NotificationTab = lazy(() => import('../components/user/NotificationTab-RealTime'))
 const TasksTab = lazy(() => import('../components/user/TasksTab-Enhanced'))
-const FileModal = lazy(() => import('../components/user/FileModal'))
 
 const UserDashboard = ({ user, onLogout }) => {
   const [activeTab, setActiveTab] = useState('dashboard')
@@ -109,45 +109,46 @@ const UserDashboard = ({ user, onLogout }) => {
     setFilteredFiles(filtered)
   }
 
-  const openFileModal = async (file) => {
+  const openFileModal = (file) => {
+    // Open modal immediately without waiting for comments
     setSelectedFile(file)
     setShowFileModal(true)
+    setFileComments([]) // Clear old comments
     
-    // Fetch comments for this file
-    try {
-      const response = await fetch(`http://localhost:3001/api/files/${file.id}/comments`)
-      const data = await response.json()
-      if (data.success) {
-        setFileComments(data.comments || [])
-      }
-    } catch (error) {
-      console.error('Error fetching comments:', error)
-      setFileComments([])
-    }
+    // Fetch comments in the background
+    fetch(`http://localhost:3001/api/files/${file.id}/comments`)
+      .then(response => response.json())
+      .then(data => {
+        if (data.success) {
+          setFileComments(data.comments || [])
+        }
+      })
+      .catch(error => {
+        console.error('Error fetching comments:', error)
+        setFileComments([])
+      })
   }
 
   const openFileByIdFromNotification = async (fileId) => {
     try {
-      // Fetch the specific file
-      const response = await fetch(`http://localhost:3001/api/files/user/${user.id}`)
-      const data = await response.json()
-
+      // First check if we already have the file in our cache
+      let file = files.find(f => f.id === parseInt(fileId))
       
-      if (data.success && data.files) {
-        const file = data.files.find(f => f.id === parseInt(fileId))
-        
-        if (file) {
-          // Switch to My Files tab
-          setActiveTab('my-files')
-          // Small delay to ensure tab switches before opening modal
-          setTimeout(async () => {
-            await openFileModal(file)
-          }, 100);
-        } else {
-          setError('File not found in your files')
-        }
+      if (file) {
+        // File found in cache - open immediately
+        setActiveTab('my-files')
+        openFileModal(file) // No await needed
       } else {
-        setError('Failed to fetch file details')
+        // File not in cache - fetch just this specific file
+        const response = await fetch(`http://localhost:3001/api/files/${fileId}`)
+        const data = await response.json()
+        
+        if (data.success && data.file) {
+          setActiveTab('my-files')
+          openFileModal(data.file) // No await needed
+        } else {
+          setError('File not found')
+        }
       }
     } catch (error) {
       console.error('Error fetching file:', error)
@@ -178,13 +179,13 @@ const UserDashboard = ({ user, onLogout }) => {
     }
   }
 
-  const formatFileSize = (bytes) => {
+  const formatFileSize = useCallback((bytes) => {
     if (bytes === 0) return '0 Bytes'
     const k = 1024
     const sizes = ['Bytes', 'KB', 'MB', 'GB']
     const i = Math.floor(Math.log(bytes) / Math.log(k))
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
-  }
+  }, [])
 
   const clearMessages = () => {
     setError('')
@@ -297,15 +298,13 @@ const UserDashboard = ({ user, onLogout }) => {
 
       {/* File Details Modal */}
       {showFileModal && (
-        <Suspense fallback={<div />}>
-          <FileModal 
-            showFileModal={showFileModal}
-            setShowFileModal={setShowFileModal}
-            selectedFile={selectedFile}
-            fileComments={fileComments}
-            formatFileSize={formatFileSize}
-          />
-        </Suspense>
+        <FileModal 
+          showFileModal={showFileModal}
+          setShowFileModal={setShowFileModal}
+          selectedFile={selectedFile}
+          fileComments={fileComments}
+          formatFileSize={formatFileSize}
+        />
       )}
 
       {/* Toast Notifications */}

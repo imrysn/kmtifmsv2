@@ -1,13 +1,18 @@
-import { useEffect } from 'react';
+import { useEffect, useMemo, memo, useCallback } from 'react';
 import './css/FileModal.css';
 
-const FileModal = ({ 
+const FileModal = memo(({ 
   showFileModal,
   setShowFileModal,
   selectedFile,
   fileComments,
   formatFileSize 
 }) => {
+  // Memoize close handler
+  const handleClose = useCallback(() => {
+    setShowFileModal(false);
+  }, [setShowFileModal]);
+
   // Lock body scroll when modal is open
   useEffect(() => {
     if (showFileModal) {
@@ -71,19 +76,20 @@ const FileModal = ({
     }
   };
 
-  // Parse tags from JSON string - show ALL tags in modal
-  const getTags = () => {
-    if (!selectedFile.tags) return [];
+  // Memoize parsed tags to avoid re-parsing on every render
+  const tags = useMemo(() => {
+    if (!selectedFile?.tags) return [];
     try {
-      const tags = JSON.parse(selectedFile.tags);
-      return Array.isArray(tags) ? tags : [];
+      const parsed = JSON.parse(selectedFile.tags);
+      return Array.isArray(parsed) ? parsed : [];
     } catch (e) {
       return [];
     }
-  };
+  }, [selectedFile?.tags]);
 
-  // Format category for display - "Projects : Arm Plate" format
-  const formatCategory = (category) => {
+  // Memoize formatted category
+  const formattedCategory = useMemo(() => {
+    const category = selectedFile?.category;
     if (!category) return '';
     
     // Split on capital letters and spaces
@@ -101,14 +107,12 @@ const FileModal = ({
     const restWords = words.slice(1).join(' ');
     
     return `${firstWord} : ${restWords}`;
-  };
-
-  const tags = getTags();
+  }, [selectedFile?.category]);
 
   return (
     <div 
       className="user-file-modal-component modal-overlay" 
-      onClick={() => setShowFileModal(false)}
+      onClick={handleClose}
       style={{
         position: 'fixed',
         top: 0,
@@ -140,7 +144,7 @@ const FileModal = ({
       >
         <div className="modal-header">
           <h3>File Details</h3>
-          <button onClick={() => setShowFileModal(false)} className="modal-close">×</button>
+          <button onClick={handleClose} className="modal-close">×</button>
         </div>
         <div className="modal-body">
           <div className="file-details-section">
@@ -172,7 +176,7 @@ const FileModal = ({
               <div className="file-detail-row">
                 <span className="detail-label">Category:</span>
                 <span className="detail-value">
-                  <span className="category-badge">{formatCategory(selectedFile.category)}</span>
+                  <span className="category-badge">{formattedCategory}</span>
                 </span>
               </div>
             )}
@@ -271,6 +275,8 @@ const FileModal = ({
       </div>
     </div>
   );
-};
+});
+
+FileModal.displayName = 'FileModal';
 
 export default FileModal;

@@ -1564,7 +1564,7 @@ const TasksTab = ({ user }) => {
 
       {/* Submit Modal */}
       {showSubmitModal && currentAssignment && (
-        <div className="tasks-modal-overlay" onClick={() => setShowSubmitModal(false)}>
+        <div className="tasks-modal-overlay">
           <div className="tasks-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '600px' }}>
             <div className="tasks-modal-header" style={{ borderBottom: '1px solid #e5e7eb', paddingBottom: '16px' }}>
               <div style={{ flex: 1, marginRight: '40px' }}>
