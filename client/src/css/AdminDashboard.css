@@ -9,21 +9,21 @@
   --warning-color: #F59E0B;
   --danger-color: #EF4444;
   --info-color: #3B82F6;
-  
+
   /* Neutral Colors */
   --text-primary: #111827;
   --text-secondary: #6B7280;
   --text-tertiary: #9CA3AF;
-  
+
   /* Background Colors */
   --background-primary: #F9FAFB;
   --background-secondary: #FFFFFF;
   --sidebar-bg: #FFFFFF;
-  
+
   /* Border Colors */
   --border-color: #E5E7EB;
   --border-light: #F3F4F6;
-  
+
   /* Status Colors */
   --status-approved: #D1FAE5;
   --status-approved-text: #065F46;
@@ -33,14 +33,14 @@
   --status-rejected-text: #991B1B;
   --status-review: #DBEAFE;
   --status-review-text: #1E40AF;
-  
+
   /* Spacing */
   --spacing-xs: 4px;
   --spacing-sm: 8px;
   --spacing-md: 16px;
   --spacing-lg: 24px;
   --spacing-xl: 32px;
-  
+
   /* Border Radius */
   --radius-sm: 6px;
   --radius-md: 8px;
@@ -147,16 +147,19 @@
   text-align: center;
 }
 
-.admin-name, .admin-role {
+.admin-name,
+.admin-role {
   transition: all calc(var(--transition-speed) * 0.8) var(--transition-easing);
   transition-delay: calc(var(--transition-speed) * 0.2);
   max-width: 0;
   overflow: hidden;
+  opacity: 0;
 }
 
 .admin-sidebar:hover .admin-name,
 .admin-sidebar:hover .admin-role {
   max-width: 200px;
+  opacity: 1;
 }
 
 .admin-name {
@@ -255,9 +258,12 @@
 }
 
 @keyframes pulse-badge {
-  0%, 100% {
+
+  0%,
+  100% {
     transform: scale(1);
   }
+
   50% {
     transform: scale(1.1);
   }
@@ -271,10 +277,12 @@
   max-width: 0;
   overflow: hidden;
   padding-right: 10px;
+  opacity: 0;
 }
 
 .admin-sidebar:hover .nav-label {
   max-width: 200px;
+  opacity: 1;
 }
 
 /* Sidebar Footer */
@@ -308,10 +316,12 @@
   max-width: 0;
   overflow: hidden;
   padding-right: 10px;
+  opacity: 0;
 }
 
 .admin-sidebar:hover .logout-btn-text {
   max-width: 200px;
+  opacity: 1;
 }
 
 .logout-btn:hover {
@@ -468,6 +478,7 @@
   from {
     opacity: 0;
   }
+
   to {
     opacity: 1;
   }

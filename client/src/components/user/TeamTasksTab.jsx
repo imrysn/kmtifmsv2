@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { API_BASE_URL } from '@/config/api'
 import { createPortal } from 'react-dom'
 import './css/TeamTasksTab.css'
-import { FileIcon } from '../shared'
+import { FileIcon, FileOpenModal } from '../shared'
 
 const TeamTasksTab = ({ user }) => {
   const [assignments, setAssignments] = useState([])
@@ -23,6 +23,8 @@ const TeamTasksTab = ({ user }) => {
   const [isPostingComment, setIsPostingComment] = useState({})
   const [isPostingReply, setIsPostingReply] = useState({})
   const [showAllFiles, setShowAllFiles] = useState({}) // Track which assignments show all files
+  const [showOpenFileConfirmation, setShowOpenFileConfirmation] = useState(false)
+  const [fileToOpen, setFileToOpen] = useState(null)
 
   // Pagination state
   const [nextCursor, setNextCursor] = useState(null)
@@ -628,7 +630,8 @@ const TeamTasksTab = ({ user }) => {
                                 className="file-item"
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  handleOpenFile(file.file_path, file.id);
+                                  setFileToOpen(file);
+                                  setShowOpenFileConfirmation(true);
                                 }}
                               >
                                 <div style={{
@@ -951,6 +954,26 @@ const TeamTasksTab = ({ user }) => {
         </div>,
         document.body
       )}
+
+      {/* File Open Modal */}
+      <FileOpenModal
+        isOpen={showOpenFileConfirmation}
+        onClose={() => {
+          setShowOpenFileConfirmation(false)
+          setFileToOpen(null)
+        }}
+        onConfirm={async () => {
+          if (!fileToOpen) return
+
+          try {
+            await handleOpenFile(fileToOpen.file_path, fileToOpen.id)
+          } finally {
+            setShowOpenFileConfirmation(false)
+            setFileToOpen(null)
+          }
+        }}
+        file={fileToOpen}
+      />
     </div>
   )
 }
