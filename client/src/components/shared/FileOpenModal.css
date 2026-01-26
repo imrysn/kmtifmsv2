@@ -1,0 +1,165 @@
+/* File Open Modal Styles */
+.file-open-modal {
+    max-width: 480px;
+    border-radius: 12px;
+    background: #FFFFFF;
+}
+
+.file-open-modal .modal-header {
+    padding: 20px 24px;
+    border-bottom: 1px solid #E5E7EB;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-radius: 12px 12px 0 0;
+}
+
+.file-open-modal .modal-header-content {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex: 1;
+    min-width: 0;
+}
+
+.file-open-modal .file-icon-svg {
+    color: #4F46E5;
+    flex-shrink: 0;
+    width: 20px;
+    height: 20px;
+}
+
+.file-open-modal .modal-header h3 {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 600;
+    color: #111827;
+}
+
+.file-open-modal .modal-close {
+    background: none;
+    border: none;
+    font-size: 28px;
+    color: #6B7280;
+    cursor: pointer;
+    padding: 0;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 6px;
+    transition: all 0.2s;
+}
+
+.file-open-modal .modal-close:hover {
+    background-color: #F3F4F6;
+    color: #111827;
+}
+
+.file-open-modal .modal-close:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.file-open-modal .modal-body {
+    padding: 24px;
+}
+
+.file-open-content {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.file-open-question {
+    font-size: 15px;
+    color: #374151;
+    margin: 0;
+    font-weight: 500;
+}
+
+.file-info-box {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 16px;
+    background-color: #F9FAFB;
+    border: 1px solid #E5E7EB;
+    border-radius: 8px;
+}
+
+.file-doc-icon {
+    flex-shrink: 0;
+}
+
+.file-name-display {
+    font-size: 14px;
+    color: #4F46E5;
+    font-weight: 500;
+    word-break: break-word;
+    flex: 1;
+}
+
+.file-open-hint {
+    font-size: 13px;
+    color: #6B7280;
+    margin: 0;
+    text-align: center;
+}
+
+.file-open-modal .modal-footer {
+    padding: 16px 24px;
+    border-top: 1px solid #E5E7EB;
+    background-color: #F9FAFB;
+    border-radius: 0 0 12px 12px;
+}
+
+.file-open-actions {
+    display: flex;
+    gap: 12px;
+    justify-content: flex-end;
+}
+
+.file-open-actions .btn {
+    padding: 10px 20px;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+    border: none;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.file-open-actions .btn-cancel {
+    background-color: #FFFFFF;
+    color: #374151;
+    border: 1px solid #D1D5DB;
+}
+
+.file-open-actions .btn-cancel:hover {
+    background-color: #F9FAFB;
+    border-color: #9CA3AF;
+}
+
+.file-open-actions .btn-open-file {
+    background-color: #4F46E5;
+    color: #FFFFFF;
+}
+
+.file-open-actions .btn-open-file:hover {
+    background-color: #4338CA;
+}
+
+.file-open-actions .btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.file-open-actions .btn-open-file svg {
+    width: 16px;
+    height: 16px;
+}

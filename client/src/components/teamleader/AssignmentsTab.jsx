@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { API_BASE_URL } from '@/config/api'
 import './css/AssignmentsTab.css'
 import { CardSkeleton } from '../common/InlineSkeletonLoader'
-import { ConfirmationModal, CommentsModal, FileIcon } from '../shared'
+import { ConfirmationModal, CommentsModal, FileIcon, FileOpenModal } from '../shared'
 
 const AssignmentsTab = ({
   isLoadingAssignments,
@@ -39,6 +39,8 @@ const AssignmentsTab = ({
   const [assignmentToDelete, setAssignmentToDelete] = useState(null)
   const [expandedAttachments, setExpandedAttachments] = useState({})
   const [commentCounts, setCommentCounts] = useState({}) // Track comment counts per assignment
+  const [showOpenFileConfirmation, setShowOpenFileConfirmation] = useState(false)
+  const [fileToOpen, setFileToOpen] = useState(null)
 
   // Ref to track if we should expand replies (persists between renders)
   const shouldExpandRepliesRef = useRef(false)
@@ -629,23 +631,9 @@ const AssignmentsTab = ({
                         <div
                           key={attachment.id}
                           className="tl-assignment-tl-file-item"
-                          onClick={async () => {
-                            try {
-                              const response = await fetch(`${API_BASE_URL}/api/files/open-file`, {
-                                method: 'POST',
-                                headers: {
-                                  'Content-Type': 'application/json'
-                                },
-                                body: JSON.stringify({ filePath: attachment.file_path })
-                              });
-                              const data = await response.json();
-                              if (!data.success) {
-                                alert('Failed to open file: ' + (data.message || 'Unknown error'));
-                              }
-                            } catch (error) {
-                              console.error('Error opening file:', error);
-                              alert('Failed to open file. Please try again.');
-                            }
+                          onClick={() => {
+                            setFileToOpen(attachment)
+                            setShowOpenFileConfirmation(true)
                           }}
                         >
                           <FileIcon
@@ -862,6 +850,45 @@ const AssignmentsTab = ({
         confirmText="Delete Task"
         cancelText="Cancel"
         variant="danger"
+      />
+
+      {/* File Open Modal */}
+      <FileOpenModal
+        isOpen={showOpenFileConfirmation}
+        onClose={() => {
+          setShowOpenFileConfirmation(false)
+          setFileToOpen(null)
+        }}
+        onConfirm={async () => {
+          if (!fileToOpen) return
+
+          try {
+            // Use public_network_url if available for approved files
+            let filePathToOpen = fileToOpen.file_path
+            if (fileToOpen.status === 'final_approved' && fileToOpen.public_network_url) {
+              filePathToOpen = fileToOpen.public_network_url
+            }
+
+            const response = await fetch(`${API_BASE_URL}/api/files/open-file`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({ filePath: filePathToOpen })
+            });
+            const data = await response.json();
+            if (!data.success) {
+              alert('Failed to open file: ' + (data.message || 'Unknown error'));
+            }
+          } catch (error) {
+            console.error('Error opening file:', error);
+            alert('Failed to open file. Please try again.');
+          } finally {
+            setShowOpenFileConfirmation(false)
+            setFileToOpen(null)
+          }
+        }}
+        file={fileToOpen}
       />
     </div>
   )
