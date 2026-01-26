@@ -9,6 +9,7 @@ database.sqlite
 # Build outputs
 dist/
 client/dist/
+dist-server/
 
 # Environment variables
 .env
