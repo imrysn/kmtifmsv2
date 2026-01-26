@@ -2,6 +2,7 @@ import { BitmaskFileIndex } from './BitmaskFileIndex';
 import { CachedFileSystem } from './CachedFileSystem';
 import { SecureDirectoryManager } from './SecureDirectoryManager';
 import { FileEditor } from './FileEditor';
+import { API_BASE_URL } from '@/config/api';
 
 /**
  * FastSearchEngine - Main orchestrator for ultra-fast file search
@@ -9,19 +10,19 @@ import { FileEditor } from './FileEditor';
  */
 export class FastSearchEngine {
   constructor(apiBase) {
-    this.apiBase = apiBase || 'http://localhost:3001';
-    
+    this.apiBase = apiBase || API_BASE_URL;
+
     // Core components
     this.bitmaskIndex = new BitmaskFileIndex();
     this.fsCache = new CachedFileSystem(5 * 60 * 1000); // 5 min TTL
     this.directoryManager = new SecureDirectoryManager();
     this.fileEditor = new FileEditor(this.apiBase, this.directoryManager);
-    
+
     // Search state
     this.isIndexing = false;
     this.indexProgress = 0;
     this.lastIndexTime = null;
-    
+
     // Performance tracking
     this.searchStats = {
       totalSearches: 0,
@@ -29,7 +30,7 @@ export class FastSearchEngine {
       indexedSearches: 0,
       fallbackSearches: 0
     };
-    
+
     // Query cache for instant repeated searches
     this.queryCache = new Map();
     this.queryCacheSize = 100;
@@ -41,11 +42,11 @@ export class FastSearchEngine {
    */
   async initialize() {
     console.log('🚀 Initializing FastSearchEngine...');
-    
+
     try {
       // Start background indexing of common paths
       this._startBackgroundIndexing();
-      
+
       console.log('✅ FastSearchEngine initialized');
     } catch (error) {
       console.error('❌ Failed to initialize FastSearchEngine:', error);
@@ -63,7 +64,7 @@ export class FastSearchEngine {
       // Check query cache first
       const cacheKey = this._getQueryCacheKey(query, options);
       const cachedResult = this._getFromQueryCache(cacheKey);
-      
+
       if (cachedResult) {
         console.log('⚡ Cache hit for query:', query);
         return cachedResult;
@@ -77,7 +78,7 @@ export class FastSearchEngine {
       // Perform hybrid search
       let results;
       const useIndexedSearch = this.bitmaskIndex.getStats().totalFiles > 100;
-      
+
       if (useIndexedSearch && !options.forceAPISearch) {
         // Fast indexed search
         results = await this._indexedSearch(query, options);
@@ -122,7 +123,7 @@ export class FastSearchEngine {
    */
   async _indexedSearch(query, options) {
     console.log('🔍 Using indexed search for:', query);
-    
+
     const files = this.bitmaskIndex.search(query, {
       fileTypes: options.fileTypes,
       minSize: options.minSize,
@@ -155,18 +156,18 @@ export class FastSearchEngine {
    */
   async _apiSearch(query, options) {
     console.log('🌐 Using API search for:', query);
-    
+
     const searchPath = options.directory || '/';
     const url = `${this.apiBase}/api/file-system/search?query=${encodeURIComponent(query)}&path=${encodeURIComponent(searchPath)}`;
-    
+
     const response = await fetch(url);
-    
+
     if (!response.ok) {
       throw new Error(`API search failed: ${response.statusText}`);
     }
-    
+
     const data = await response.json();
-    
+
     if (!data.success) {
       throw new Error(data.message || 'API search failed');
     }
@@ -197,9 +198,9 @@ export class FastSearchEngine {
         const response = await fetch(
           `${this.apiBase}/api/file-system/browse?path=${encodeURIComponent(dirPath)}`
         );
-        
+
         const data = await response.json();
-        
+
         if (!data.success) {
           throw new Error(data.message || 'Failed to list directory');
         }
@@ -240,10 +241,10 @@ export class FastSearchEngine {
    */
   async updateFileContent(filePath, content, options = {}) {
     const result = await this.fileEditor.editFile(filePath, content, options);
-    
+
     // Invalidate caches
     this._invalidateCachesForPath(filePath);
-    
+
     return result;
   }
 
@@ -252,11 +253,11 @@ export class FastSearchEngine {
    */
   async deleteFile(filePath, options = {}) {
     const result = await this.fileEditor.deleteFile(filePath, options);
-    
+
     // Remove from index and invalidate caches
     this._removeFromIndex(filePath);
     this._invalidateCachesForPath(filePath);
-    
+
     return result;
   }
 
@@ -265,12 +266,12 @@ export class FastSearchEngine {
    */
   async renameFile(oldPath, newPath) {
     const result = await this.fileEditor.renameFile(oldPath, newPath);
-    
+
     // Update index and caches
     this._removeFromIndex(oldPath);
     this._invalidateCachesForPath(oldPath);
     this._invalidateCachesForPath(newPath);
-    
+
     return result;
   }
 
@@ -279,15 +280,15 @@ export class FastSearchEngine {
    */
   async _startBackgroundIndexing() {
     if (this.isIndexing) return;
-    
+
     this.isIndexing = true;
     console.log('📇 Starting background indexing...');
-    
+
     try {
       // Get common directories from directory manager
       const allowedDirs = this.directoryManager.getAllowedDirectories();
       const commonDirs = allowedDirs.slice(0, 5); // Limit to first 5 for performance
-      
+
       // Warmup cache
       await this.fsCache.warmup(commonDirs, async (path) => {
         try {
@@ -301,7 +302,7 @@ export class FastSearchEngine {
           return [];
         }
       });
-      
+
       this.lastIndexTime = Date.now();
       console.log('✅ Background indexing complete');
     } catch (error) {
@@ -332,7 +333,7 @@ export class FastSearchEngine {
     // Find and remove file from index
     const fileInfo = Array.from(this.bitmaskIndex.fileMetadata.values())
       .find(file => file.path === filePath);
-    
+
     if (fileInfo) {
       this.bitmaskIndex.removeFile(fileInfo.id);
     }
@@ -343,10 +344,10 @@ export class FastSearchEngine {
    */
   _invalidateCachesForPath(filePath) {
     const dirPath = this._getDirectoryPath(filePath);
-    
+
     // Invalidate directory cache
     this.fsCache.invalidate(dirPath);
-    
+
     // Clear query cache
     this.queryCache.clear();
   }
@@ -360,15 +361,15 @@ export class FastSearchEngine {
 
   _getFromQueryCache(key) {
     const cached = this.queryCache.get(key);
-    
+
     if (!cached) return null;
-    
+
     const age = Date.now() - cached.timestamp;
     if (age > this.queryCacheTTL) {
       this.queryCache.delete(key);
       return null;
     }
-    
+
     return { ...cached.data, cached: true };
   }
 
@@ -378,7 +379,7 @@ export class FastSearchEngine {
       const firstKey = this.queryCache.keys().next().value;
       this.queryCache.delete(firstKey);
     }
-    
+
     this.queryCache.set(key, {
       data,
       timestamp: Date.now()
@@ -391,8 +392,8 @@ export class FastSearchEngine {
   _updateSearchStats(searchTime) {
     const totalSearches = this.searchStats.totalSearches;
     const prevAvg = this.searchStats.avgSearchTime;
-    
-    this.searchStats.avgSearchTime = 
+
+    this.searchStats.avgSearchTime =
       (prevAvg * (totalSearches - 1) + searchTime) / totalSearches;
   }
 

@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
+import { API_BASE_URL } from '@/config/api'
 import { createPortal } from 'react-dom'
 import './css/TeamTasksTab.css'
 import { FileIcon } from '../shared'
@@ -26,7 +27,7 @@ const TeamTasksTab = ({ user }) => {
   // Pagination state
   const [nextCursor, setNextCursor] = useState(null)
   const [hasMore, setHasMore] = useState(true)
-  
+
   // Ref for infinite scroll
   const observerRef = useRef(null)
   const loadMoreRef = useRef(null)
@@ -82,14 +83,14 @@ const TeamTasksTab = ({ user }) => {
     try {
       setLoading(true)
       setError('')
-      
+
       console.log('Fetching team assignments for team:', user.team)
-      
-      const response = await fetch(`http://localhost:3001/api/assignments/team/${user.team}/all-tasks?limit=20`)
+
+      const response = await fetch(`${API_BASE_URL}/api/assignments/team/${user.team}/all-tasks?limit=20`)
       const data = await response.json()
-      
+
       console.log('Team assignments response:', data)
-      
+
       if (!data.success) {
         setError(data.message || 'Failed to fetch team assignments')
         setLoading(false)
@@ -98,11 +99,11 @@ const TeamTasksTab = ({ user }) => {
 
       const allAssignments = data.assignments || []
       console.log(`Fetched ${allAssignments.length} team assignments`)
-      
+
       setAssignments(allAssignments)
       setNextCursor(data.nextCursor)
       setHasMore(data.hasMore)
-      
+
       // Fetch comment counts for all assignments
       await fetchCommentCounts(allAssignments)
     } catch (error) {
@@ -121,14 +122,14 @@ const TeamTasksTab = ({ user }) => {
 
     try {
       setLoadingMore(true)
-      
+
       console.log('Fetching more team assignments with cursor:', nextCursor)
-      
-      const response = await fetch(`http://localhost:3001/api/assignments/team/${user.team}/all-tasks?cursor=${nextCursor}&limit=20`)
+
+      const response = await fetch(`${API_BASE_URL}/api/assignments/team/${user.team}/all-tasks?cursor=${nextCursor}&limit=20`)
       const data = await response.json()
-      
+
       console.log('More team assignments response:', data)
-      
+
       if (!data.success) {
         setError(data.message || 'Failed to fetch more assignments')
         return
@@ -136,11 +137,11 @@ const TeamTasksTab = ({ user }) => {
 
       const newAssignments = data.assignments || []
       console.log(`Fetched ${newAssignments.length} more assignments`)
-      
+
       setAssignments(prev => [...prev, ...newAssignments])
       setNextCursor(data.nextCursor)
       setHasMore(data.hasMore)
-      
+
       // Fetch comment counts for new assignments
       await fetchCommentCounts(newAssignments)
     } catch (error) {
@@ -155,14 +156,14 @@ const TeamTasksTab = ({ user }) => {
   const fetchCommentCounts = async (assignmentsList) => {
     try {
       const commentCounts = {}
-      
+
       // Fetch comment count for each assignment
       await Promise.all(
         assignmentsList.map(async (assignment) => {
           try {
-            const response = await fetch(`http://localhost:3001/api/assignments/${assignment.id}/comments`)
+            const response = await fetch(`${API_BASE_URL}/api/assignments/${assignment.id}/comments`)
             const data = await response.json()
-            
+
             if (data.success) {
               commentCounts[assignment.id] = data.comments || []
             }
@@ -171,7 +172,7 @@ const TeamTasksTab = ({ user }) => {
           }
         })
       )
-      
+
       // Update comments state with all fetched comments
       setComments(prev => ({ ...prev, ...commentCounts }))
     } catch (error) {
@@ -203,15 +204,15 @@ const TeamTasksTab = ({ user }) => {
 
   const formatDaysLeft = (dateString, hasSubmissions) => {
     if (!dateString) return ''
-    
+
     // If there are submissions, don't show overdue text
     if (hasSubmissions) return ''
-    
+
     const date = new Date(dateString)
     const now = new Date()
     const diffTime = date - now
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
-    
+
     if (diffDays < 0) {
       return `${Math.abs(diffDays)} days overdue`
     } else if (diffDays === 0) {
@@ -240,7 +241,7 @@ const TeamTasksTab = ({ user }) => {
     const date = new Date(dueDate)
     const now = new Date()
     const diffDays = Math.ceil((date - now) / (1000 * 60 * 60 * 24))
-    
+
     if (diffDays < 0) return '#e74c3c'
     if (diffDays <= 2) return '#f39c12'
     return '#27ae60'
@@ -265,7 +266,7 @@ const TeamTasksTab = ({ user }) => {
         console.log('💻 Running in Electron - using Windows default application');
 
         const pathResponse = await fetch(
-          `http://localhost:3001/api/files/${fileId}/path`
+          `${API_BASE_URL}/api/files/${fileId}/path`
         );
         const pathData = await pathResponse.json();
 
@@ -287,7 +288,7 @@ const TeamTasksTab = ({ user }) => {
       } else {
         console.log('🌐 Running in browser - opening in new tab');
 
-        const fileUrl = `http://localhost:3001${filePath}`;
+        const fileUrl = `${API_BASE_URL}${filePath}`;
         const newWindow = window.open(fileUrl, '_blank');
 
         if (!newWindow) {
@@ -320,9 +321,9 @@ const TeamTasksTab = ({ user }) => {
   // Fetch comments for an assignment
   const fetchComments = async (assignmentId) => {
     try {
-      const response = await fetch(`http://localhost:3001/api/assignments/${assignmentId}/comments`)
+      const response = await fetch(`${API_BASE_URL}/api/assignments/${assignmentId}/comments`)
       const data = await response.json()
-      
+
       if (data.success) {
         setComments(prev => ({
           ...prev,
@@ -344,7 +345,7 @@ const TeamTasksTab = ({ user }) => {
       // Open modal
       setShowCommentsModal(assignmentId)
       document.body.style.overflow = 'hidden'
-      
+
       // Fetch comments if not already loaded
       if (!comments[assignmentId]) {
         await fetchComments(assignmentId)
@@ -355,13 +356,13 @@ const TeamTasksTab = ({ user }) => {
   // Submit a new comment
   const handleSubmitComment = async (assignmentId) => {
     const commentText = newComment[assignmentId]?.trim()
-    
+
     if (!commentText) return
 
     try {
       setIsPostingComment(prev => ({ ...prev, [assignmentId]: true }))
-      
-      const response = await fetch(`http://localhost:3001/api/assignments/${assignmentId}/comments`, {
+
+      const response = await fetch(`${API_BASE_URL}/api/assignments/${assignmentId}/comments`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -372,9 +373,9 @@ const TeamTasksTab = ({ user }) => {
           comment: commentText
         })
       })
-      
+
       const data = await response.json()
-      
+
       if (data.success) {
         // Clear input
         setNewComment(prev => ({ ...prev, [assignmentId]: '' }))
@@ -398,13 +399,13 @@ const TeamTasksTab = ({ user }) => {
   // Submit a reply to a comment
   const handleSubmitReply = async (assignmentId, commentId) => {
     const reply = replyText[commentId]?.trim()
-    
+
     if (!reply) return
 
     try {
       setIsPostingReply(prev => ({ ...prev, [commentId]: true }))
-      
-      const response = await fetch(`http://localhost:3001/api/assignments/${assignmentId}/comments/${commentId}/reply`, {
+
+      const response = await fetch(`${API_BASE_URL}/api/assignments/${assignmentId}/comments/${commentId}/reply`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -415,9 +416,9 @@ const TeamTasksTab = ({ user }) => {
           reply: reply
         })
       })
-      
+
       const data = await response.json()
-      
+
       if (data.success) {
         // Clear input and hide reply box
         setReplyText(prev => ({ ...prev, [commentId]: '' }))
@@ -444,7 +445,7 @@ const TeamTasksTab = ({ user }) => {
     const date = new Date(dateString)
     const now = new Date()
     const seconds = Math.floor((now - date) / 1000)
-    
+
     if (seconds < 60) return 'Just now'
     if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`
     if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`
@@ -518,7 +519,7 @@ const TeamTasksTab = ({ user }) => {
         <h2>Team Tasks</h2>
         <p className="team-tasks-subtitle">Tasks assigned to your team members</p>
       </div>
-      
+
       {/* Task Count */}
       <div className="team-tasks-count">
         {assignments.length} task{assignments.length !== 1 ? 's' : ''}
@@ -536,8 +537,8 @@ const TeamTasksTab = ({ user }) => {
         ) : (
           <>
             {assignments.map(assignment => (
-              <div 
-                key={assignment.id} 
+              <div
+                key={assignment.id}
                 className="team-task-card"
               >
                 {/* Card Header */}
@@ -610,88 +611,88 @@ const TeamTasksTab = ({ user }) => {
                       </div>
                       {(() => {
                         // Simply sort all files by submitted_at (newest first)
-                        const sortedFiles = [...assignment.recent_submissions].sort((a, b) => 
+                        const sortedFiles = [...assignment.recent_submissions].sort((a, b) =>
                           new Date(b.submitted_at) - new Date(a.submitted_at)
                         );
 
                         // Show only first 5 files unless "see more" is clicked
-                        const filesToShow = showAllFiles[assignment.id] 
-                          ? sortedFiles 
+                        const filesToShow = showAllFiles[assignment.id]
+                          ? sortedFiles
                           : sortedFiles.slice(0, 5);
 
                         return (
                           <>
                             {filesToShow.map((file, index) => (
-                        <div
-                          key={file.id}
-                          className="file-item"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleOpenFile(file.file_path, file.id);
-                          }}
-                        >
-                          <div style={{
-                            display: 'flex',
-                            alignItems: 'flex-start',
-                            gap: '12px'
-                          }}>
-                            <FileIcon
-                              fileType={file.original_name.split('.').pop()}
-                              size="small"
-                              style={{
-                                width: '48px',
-                                height: '48px',
-                                flexShrink: 0
-                              }}
-                            />
-                            <div style={{ flex: 1, minWidth: 0 }}>
-                              <div style={{ 
-                                fontWeight: '500', 
-                                fontSize: '15px', 
-                                color: '#111827',
-                                marginBottom: '6px',
-                                overflow: 'hidden',
-                                textOverflow: 'ellipsis',
-                                whiteSpace: 'nowrap'
-                              }}>
-                                {file.original_name}
-                              </div>
-                              <div style={{ 
-                                fontSize: '13px', 
-                                color: '#6b7280',
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '8px',
-                                flexWrap: 'wrap'
-                              }}>
-                                <span>Submitted by <span style={{ fontWeight: '500', color: '#374151' }}>{file.fullName || file.username}</span></span>
-                                <span style={{ color: '#d1d5db' }}>•</span>
-                                <span>on {formatDate(file.submitted_at)}</span>
-                                {file.tag && (
-                                  <>
-                                    <span style={{ color: '#d1d5db' }}>•</span>
-                                    <span style={{
-                                      backgroundColor: '#eff6ff',
-                                      color: '#1e40af',
-                                      padding: '2px 10px',
-                                      borderRadius: '12px',
-                                      fontSize: '11px',
-                                      fontWeight: '600',
-                                      border: '1px solid #bfdbfe',
-                                      display: 'inline-flex',
-                                      alignItems: 'center',
-                                      gap: '4px'
+                              <div
+                                key={file.id}
+                                className="file-item"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleOpenFile(file.file_path, file.id);
+                                }}
+                              >
+                                <div style={{
+                                  display: 'flex',
+                                  alignItems: 'flex-start',
+                                  gap: '12px'
+                                }}>
+                                  <FileIcon
+                                    fileType={file.original_name.split('.').pop()}
+                                    size="small"
+                                    style={{
+                                      width: '48px',
+                                      height: '48px',
+                                      flexShrink: 0
+                                    }}
+                                  />
+                                  <div style={{ flex: 1, minWidth: 0 }}>
+                                    <div style={{
+                                      fontWeight: '500',
+                                      fontSize: '15px',
+                                      color: '#111827',
+                                      marginBottom: '6px',
+                                      overflow: 'hidden',
+                                      textOverflow: 'ellipsis',
+                                      whiteSpace: 'nowrap'
                                     }}>
-                                      <span>🏷️</span> {file.tag}
-                                    </span>
-                                  </>
-                                )}
+                                      {file.original_name}
+                                    </div>
+                                    <div style={{
+                                      fontSize: '13px',
+                                      color: '#6b7280',
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      gap: '8px',
+                                      flexWrap: 'wrap'
+                                    }}>
+                                      <span>Submitted by <span style={{ fontWeight: '500', color: '#374151' }}>{file.fullName || file.username}</span></span>
+                                      <span style={{ color: '#d1d5db' }}>•</span>
+                                      <span>on {formatDate(file.submitted_at)}</span>
+                                      {file.tag && (
+                                        <>
+                                          <span style={{ color: '#d1d5db' }}>•</span>
+                                          <span style={{
+                                            backgroundColor: '#eff6ff',
+                                            color: '#1e40af',
+                                            padding: '2px 10px',
+                                            borderRadius: '12px',
+                                            fontSize: '11px',
+                                            fontWeight: '600',
+                                            border: '1px solid #bfdbfe',
+                                            display: 'inline-flex',
+                                            alignItems: 'center',
+                                            gap: '4px'
+                                          }}>
+                                            <span>🏷️</span> {file.tag}
+                                          </span>
+                                        </>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
                               </div>
-                            </div>
-                          </div>
-                        </div>
                             ))}
-                            
+
                             {/* See More / See Less Button */}
                             {sortedFiles.length > 5 && (
                               <button
@@ -732,7 +733,7 @@ const TeamTasksTab = ({ user }) => {
                   paddingTop: '12px',
                   borderTop: '1px solid #f3f4f6'
                 }}>
-                  <button 
+                  <button
                     className="toggle-comments-btn"
                     onClick={(e) => {
                       e.stopPropagation();
@@ -879,9 +880,9 @@ const TeamTasksTab = ({ user }) => {
                               className="comment-input"
                               placeholder="Write a reply..."
                               value={replyText[comment.id] || ''}
-                              onChange={(e) => setReplyText(prev => ({ 
-                                ...prev, 
-                                [comment.id]: e.target.value 
+                              onChange={(e) => setReplyText(prev => ({
+                                ...prev,
+                                [comment.id]: e.target.value
                               }))}
                               onKeyPress={(e) => {
                                 if (e.key === 'Enter' && !e.shiftKey) {
@@ -924,9 +925,9 @@ const TeamTasksTab = ({ user }) => {
                     className="comment-input"
                     placeholder="Write a comment..."
                     value={newComment[showCommentsModal] || ''}
-                    onChange={(e) => setNewComment(prev => ({ 
-                      ...prev, 
-                      [showCommentsModal]: e.target.value 
+                    onChange={(e) => setNewComment(prev => ({
+                      ...prev,
+                      [showCommentsModal]: e.target.value
                     }))}
                     onKeyPress={(e) => {
                       if (e.key === 'Enter' && !e.shiftKey) {

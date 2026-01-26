@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useMemo, memo } from 'react'
+import { API_BASE_URL } from '@/config/api'
 import './DashboardOverview.css'
 import { SkeletonLoader } from '../common/SkeletonLoader'
 import { useAuth, useNetwork } from '../../contexts'
@@ -7,7 +8,7 @@ import { withErrorBoundary } from '../common'
 const DashboardOverview = ({ user, users }) => {
   const { user: authUser } = useAuth()
   const { isConnected } = useNetwork()
-  
+
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [summary, setSummary] = useState({
@@ -37,7 +38,7 @@ const DashboardOverview = ({ user, users }) => {
       setLoading(true)
       setError('')
       try {
-        const res = await fetch('http://localhost:3001/api/dashboard/summary')
+        const res = await fetch(`${API_BASE_URL}/api/dashboard/summary`)
         const data = await res.json()
         if (!mounted) return
         if (data.success) {
@@ -108,14 +109,14 @@ const DashboardOverview = ({ user, users }) => {
     const sign = change > 0 ? '↑' : change < 0 ? '↓' : '—'
     const className = change > 0 ? 'positive' : change < 0 ? 'negative' : 'neutral'
     const formattedChange = absChange.toFixed(1)
-    
+
     if (change === 0) {
       return {
         text: '— No change from last month',
         className: 'neutral'
       }
     }
-    
+
     return {
       text: `${sign} ${change >= 0 ? '+' : '-'}${formattedChange}% from last month`,
       className
@@ -145,7 +146,7 @@ const DashboardOverview = ({ user, users }) => {
 
   return (
     <div className={`dashboard-overview ${loading ? 'loading-cursor' : ''}`}>
-      
+
       {/* Top Row: Stats Grid (Upper Right) */}
       <div className="top-row">
         <div className="stats-section">
@@ -161,7 +162,7 @@ const DashboardOverview = ({ user, users }) => {
                 </div>
               )}
             </div>
-            
+
             <div className="stat-card">
               <div className="stat-header">
                 <span className="stat-label">Approved Files</span>
@@ -173,22 +174,21 @@ const DashboardOverview = ({ user, users }) => {
                 </div>
               )}
             </div>
-            
+
             <div className="stat-card">
               <div className="stat-header">
                 <span className="stat-label">Rejected Files</span>
               </div>
               <div className="stat-number">{loading ? '—' : rejectedCount}</div>
               {!loading && (
-                <div className={`stat-change ${
-                  statChanges.rejected > 0 ? 'negative' : 
-                  statChanges.rejected < 0 ? 'positive' : 'neutral'
-                }`}>
+                <div className={`stat-change ${statChanges.rejected > 0 ? 'negative' :
+                    statChanges.rejected < 0 ? 'positive' : 'neutral'
+                  }`}>
                   {formatStatChange(statChanges.rejected).text}
                 </div>
               )}
             </div>
-            
+
             <div className="stat-card">
               <div className="stat-header">
                 <span className="stat-label">Total Files</span>
@@ -228,18 +228,18 @@ const DashboardOverview = ({ user, users }) => {
                     const chartWidth = 700 - padding.left - padding.right
                     const chartHeight = 300 - padding.top - padding.bottom
                     const stepX = chartWidth / Math.max(trends.length - 1, 1)
-                    
+
                     // Calculate points for approved and rejected lines
                     const approvedPoints = trends.map((t, i) => ({
                       x: padding.left + i * stepX,
                       y: padding.top + chartHeight - ((t.approved || 0) / maxValue) * chartHeight
                     }))
-                    
+
                     const rejectedPoints = trends.map((t, i) => ({
                       x: padding.left + i * stepX,
                       y: padding.top + chartHeight - ((t.rejected || 0) / maxValue) * chartHeight
                     }))
-                    
+
                     return (
                       <>
                         {/* Grid lines */}
@@ -258,7 +258,7 @@ const DashboardOverview = ({ user, users }) => {
                             />
                           )
                         })}
-                        
+
                         {/* Approved line */}
                         {approvedPoints.map((point, i) => {
                           if (i === 0) return null
@@ -275,7 +275,7 @@ const DashboardOverview = ({ user, users }) => {
                             />
                           )
                         })}
-                        
+
                         {/* Rejected line */}
                         {rejectedPoints.map((point, i) => {
                           if (i === 0) return null
@@ -292,7 +292,7 @@ const DashboardOverview = ({ user, users }) => {
                             />
                           )
                         })}
-                        
+
                         {/* Approved points */}
                         {approvedPoints.map((point, i) => (
                           <circle
@@ -303,7 +303,7 @@ const DashboardOverview = ({ user, users }) => {
                             fill="#10B981"
                           />
                         ))}
-                        
+
                         {/* Rejected points */}
                         {rejectedPoints.map((point, i) => (
                           <circle
@@ -314,7 +314,7 @@ const DashboardOverview = ({ user, users }) => {
                             fill="#EF4444"
                           />
                         ))}
-                        
+
                         {/* X-axis labels - Show every 5th day to avoid crowding */}
                         {trends.map((t, i) => {
                           if (i % 5 !== 0 && i !== trends.length - 1) return null
@@ -333,7 +333,7 @@ const DashboardOverview = ({ user, users }) => {
                             </text>
                           )
                         })}
-                        
+
                         {/* Legend */}
                         <g transform={`translate(${padding.left}, 10)`}>
                           <circle cx="0" cy="0" r="4" fill="#10B981" />
@@ -348,7 +348,7 @@ const DashboardOverview = ({ user, users }) => {
               )}
             </div>
           </div>
-          
+
           <div className="chart-card">
             <div className="chart-header">
               <h3>File Types Distribution</h3>
@@ -363,7 +363,7 @@ const DashboardOverview = ({ user, users }) => {
                     {(() => {
                       const total = summary.fileTypes.reduce((sum, t) => sum + t.count, 0)
                       const colors = [
-                        '#6366F1', '#10B981', '#F59E0B', '#EF4444', 
+                        '#6366F1', '#10B981', '#F59E0B', '#EF4444',
                         '#8B5CF6', '#EC4899', '#06B6D4', '#84CC16',
                         '#F97316', '#14B8A6', '#A855F7', '#F43F5E'
                       ]
@@ -393,7 +393,7 @@ const DashboardOverview = ({ user, users }) => {
                     <div style={{ fontSize: '11px', color: 'var(--text-secondary)', display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: '8px' }}>
                       {summary.fileTypes.map((t, i) => {
                         const colors = [
-                          '#6366F1', '#10B981', '#F59E0B', '#EF4444', 
+                          '#6366F1', '#10B981', '#F59E0B', '#EF4444',
                           '#8B5CF6', '#EC4899', '#06B6D4', '#84CC16',
                           '#F97316', '#14B8A6', '#A855F7', '#F43F5E'
                         ]
@@ -411,7 +411,7 @@ const DashboardOverview = ({ user, users }) => {
             </div>
           </div>
         </div>
-        
+
         <div className="section-card activity-section">
           <div className="section-header">
             <h3>Recent Activity</h3>

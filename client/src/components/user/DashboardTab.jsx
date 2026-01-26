@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
+import { API_BASE_URL } from '@/config/api';
 import './css/DashboardTab.css';
 import { LoadingCards } from '../common/InlineSkeletonLoader';
 
@@ -11,15 +12,15 @@ const DashboardTab = ({ user, files, setActiveTab, onOpenFile, onNavigateToTasks
 
   useEffect(() => {
     let isMounted = true;
-    
+
     const loadData = async () => {
       if (isMounted) {
         await fetchDashboardData();
       }
     };
-    
+
     loadData();
-    
+
     // Auto-refresh every 30 seconds for real-time updates (silent)
     const refreshInterval = setInterval(() => {
       if (isMounted) {
@@ -37,9 +38,9 @@ const DashboardTab = ({ user, files, setActiveTab, onOpenFile, onNavigateToTasks
     try {
       if (!silent) setLoading(true);
       const [assignmentsRes, teamTasksRes, notificationsRes] = await Promise.all([
-        fetch(`http://localhost:3001/api/assignments/user/${user.id}`),
-        fetch(`http://localhost:3001/api/assignments/team/${user.team}/all-tasks?limit=5`),
-        fetch(`http://localhost:3001/api/notifications/user/${user.id}`)
+        fetch(`${API_BASE_URL}/api/assignments/user/${user.id}`),
+        fetch(`${API_BASE_URL}/api/assignments/team/${user.team}/all-tasks?limit=5`),
+        fetch(`${API_BASE_URL}/api/notifications/user/${user.id}`)
       ]);
 
       const [assignmentsData, teamTasksData, notificationsData] = await Promise.all([
@@ -66,7 +67,7 @@ const DashboardTab = ({ user, files, setActiveTab, onOpenFile, onNavigateToTasks
   const handleNotificationClick = async (notification) => {
     // Mark notification as read
     try {
-      await fetch(`http://localhost:3001/api/notifications/${notification.id}/read`, {
+      await fetch(`${API_BASE_URL}/api/notifications/${notification.id}/read`, {
         method: 'PUT'
       });
     } catch (error) {
@@ -116,7 +117,7 @@ const DashboardTab = ({ user, files, setActiveTab, onOpenFile, onNavigateToTasks
 
   const teamStats = useMemo(() => ({
     totalTasks: teamTasks.length,
-    totalSubmissions: teamTasks.reduce((sum, task) => 
+    totalSubmissions: teamTasks.reduce((sum, task) =>
       sum + (task.recent_submissions ? task.recent_submissions.length : 0), 0
     )
   }), [teamTasks]);
@@ -126,30 +127,30 @@ const DashboardTab = ({ user, files, setActiveTab, onOpenFile, onNavigateToTasks
     recent: notifications.slice(0, 3)
   }), [notifications]);
 
-  const taskCompletionRate = useMemo(() => 
-    myTasksStats.total > 0 
+  const taskCompletionRate = useMemo(() =>
+    myTasksStats.total > 0
       ? Math.round((myTasksStats.submitted / myTasksStats.total) * 100) : 0,
     [myTasksStats]
   );
-  
-  const fileApprovalRate = useMemo(() => 
+
+  const fileApprovalRate = useMemo(() =>
     filesStats.total > 0
       ? Math.round((filesStats.approved / filesStats.total) * 100) : 0,
     [filesStats]
   );
-  
-  const fileRejectionRate = useMemo(() => 
+
+  const fileRejectionRate = useMemo(() =>
     filesStats.total > 0
       ? Math.round((filesStats.rejected / filesStats.total) * 100) : 0,
     [filesStats]
   );
-  
-  const onTimeRate = useMemo(() => 
+
+  const onTimeRate = useMemo(() =>
     myTasksStats.total > 0
       ? Math.round(((myTasksStats.total - myTasksStats.overdue) / myTasksStats.total) * 100) : 100,
     [myTasksStats]
   );
-  
+
   const overallScore = useMemo(() => {
     const taskScore = myTasksStats.total > 0 ? (myTasksStats.submitted / myTasksStats.total) * 100 : 0;
     const fileScore = filesStats.total > 0 ? (filesStats.approved / filesStats.total) * 100 : 0;
@@ -279,9 +280,9 @@ const DashboardTab = ({ user, files, setActiveTab, onOpenFile, onNavigateToTasks
                       strokeDasharray={`${(overallScore / 100) * 534} 534`}
                       strokeLinecap="round"
                       style={{
-                        stroke: overallScore >= 85 ? '#10b981' : 
-                                overallScore >= 70 ? '#22c55e' : 
-                                overallScore >= 50 ? '#f59e0b' : '#ef4444'
+                        stroke: overallScore >= 85 ? '#10b981' :
+                          overallScore >= 70 ? '#22c55e' :
+                            overallScore >= 50 ? '#f59e0b' : '#ef4444'
                       }}
                     />
                     {/* Center text */}
@@ -298,23 +299,23 @@ const DashboardTab = ({ user, files, setActiveTab, onOpenFile, onNavigateToTasks
                 <div className="score-description">
                   <div className="score-status">
                     <div className="status-badge" style={{
-                      background: overallScore >= 85 ? '#d1fae5' : 
-                                  overallScore >= 70 ? '#d1fae5' : 
-                                  overallScore >= 50 ? '#fef3c7' : '#fee2e2',
-                      color: overallScore >= 85 ? '#065f46' : 
-                             overallScore >= 70 ? '#065f46' : 
-                             overallScore >= 50 ? '#92400e' : '#991b1b'
+                      background: overallScore >= 85 ? '#d1fae5' :
+                        overallScore >= 70 ? '#d1fae5' :
+                          overallScore >= 50 ? '#fef3c7' : '#fee2e2',
+                      color: overallScore >= 85 ? '#065f46' :
+                        overallScore >= 70 ? '#065f46' :
+                          overallScore >= 50 ? '#92400e' : '#991b1b'
                     }}>
-                      {overallScore >= 85 ? '🌟 Excellent' : 
-                       overallScore >= 70 ? '✅ Good' : 
-                       overallScore >= 50 ? '⚠️ Fair' : '📉 Needs Improvement'}
+                      {overallScore >= 85 ? '🌟 Excellent' :
+                        overallScore >= 70 ? '✅ Good' :
+                          overallScore >= 50 ? '⚠️ Fair' : '📉 Needs Improvement'}
                     </div>
                   </div>
                   <p className="score-message">
                     {overallScore >= 85 ? 'Outstanding work! You\'re exceeding expectations.' :
-                     overallScore >= 70 ? 'Great job! Keep up the good momentum.' :
-                     overallScore >= 50 ? 'You\'re on track. Focus on completing pending tasks.' :
-                     'Let\'s work on improving your completion rate.'}
+                      overallScore >= 70 ? 'Great job! Keep up the good momentum.' :
+                        overallScore >= 50 ? 'You\'re on track. Focus on completing pending tasks.' :
+                          'Let\'s work on improving your completion rate.'}
                   </p>
                   <div className="score-legend-grid">
                     <div className="legend-item">
@@ -430,8 +431,8 @@ const DashboardTab = ({ user, files, setActiveTab, onOpenFile, onNavigateToTasks
             {notificationStats.recent.length > 0 ? (
               <>
                 {notificationStats.recent.map(notification => (
-                  <div 
-                    key={notification.id} 
+                  <div
+                    key={notification.id}
                     className={`notification-item-modern ${!notification.is_read ? 'unread' : ''}`}
                     onClick={() => handleNotificationClick(notification)}
                     style={{ cursor: 'pointer' }}
@@ -445,7 +446,7 @@ const DashboardTab = ({ user, files, setActiveTab, onOpenFile, onNavigateToTasks
                           const diffMs = now - notifTime;
                           const diffMins = Math.floor(diffMs / 60000);
                           const diffHours = Math.floor(diffMs / 3600000);
-                          
+
                           if (diffMins < 60) return `${diffMins} minutes ago`;
                           if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
                           return notifTime.toLocaleDateString();

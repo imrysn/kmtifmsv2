@@ -1,4 +1,5 @@
 import './css/MyFilesTab.css';
+import { API_BASE_URL } from '@/config/api';
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import SuccessModal from './SuccessModal';
@@ -6,7 +7,7 @@ import { FileIcon } from '../shared';
 import { usePagination } from '../../hooks';
 import { Trash2 } from 'lucide-react';
 
-const MyFilesTab = ({ 
+const MyFilesTab = ({
   filteredFiles,
   isLoading,
   fetchUserFiles,
@@ -18,16 +19,16 @@ const MyFilesTab = ({
   const [successModal, setSuccessModal] = useState({ isOpen: false, title: '', message: '', type: 'success' });
   const [deleteModal, setDeleteModal] = useState({ isOpen: false, fileId: null, fileName: '' });
   const [isDeleting, setIsDeleting] = useState(false);
-  
+
   // Calculate submittedFiles FIRST (before pagination hook uses it)
-  const submittedFiles = useMemo(() => 
-    filteredFiles.filter(f => 
-      f.status === 'final_approved' || f.status === 'uploaded' || 
-      f.status === 'team_leader_approved' || f.status === 'rejected_by_team_leader' || 
+  const submittedFiles = useMemo(() =>
+    filteredFiles.filter(f =>
+      f.status === 'final_approved' || f.status === 'uploaded' ||
+      f.status === 'team_leader_approved' || f.status === 'rejected_by_team_leader' ||
       f.status === 'rejected_by_admin'
     ), [filteredFiles]
   );
-  
+
   // Pagination using custom hook (NOW submittedFiles exists)
   const [itemsPerPage, setItemsPerPage] = useState(7);
   const {
@@ -50,12 +51,12 @@ const MyFilesTab = ({
   const openFile = useCallback(async (file) => {
     try {
       if (window.electron && window.electron.openFileInApp) {
-        const response = await fetch(`http://localhost:3001/api/files/${file.id}/path`);
+        const response = await fetch(`${API_BASE_URL}/api/files/${file.id}/path`);
         const data = await response.json();
-        
+
         if (data.success && data.filePath) {
           const result = await window.electron.openFileInApp(data.filePath);
-          
+
           if (!result.success) {
             setSuccessModal({
               isOpen: true,
@@ -68,7 +69,7 @@ const MyFilesTab = ({
           throw new Error('Could not get file path');
         }
       } else {
-        const fileUrl = `http://localhost:3001${file.file_path}`;
+        const fileUrl = `${API_BASE_URL}${file.file_path}`;
         window.open(fileUrl, '_blank', 'noopener,noreferrer');
       }
     } catch (error) {
@@ -84,7 +85,7 @@ const MyFilesTab = ({
 
   const handleFileClick = useCallback((file, e) => {
     e.stopPropagation();
-    
+
     // Clear any existing timer
     if (clickTimerRef.current) {
       clearTimeout(clickTimerRef.current);
@@ -116,7 +117,7 @@ const MyFilesTab = ({
 
   const getStatusDisplayName = useCallback((dbStatus) => {
     if (!dbStatus) return 'Pending';
-    
+
     switch (dbStatus) {
       case 'uploaded':
         return 'Pending Team Leader';
@@ -164,22 +165,22 @@ const MyFilesTab = ({
     return { date: dateStr, time: timeStr };
   }, []);
 
-  const pendingFiles = useMemo(() => 
+  const pendingFiles = useMemo(() =>
     submittedFiles.filter(f => f.status === 'uploaded' || f.status === 'team_leader_approved'),
     [submittedFiles]
   );
 
-  const approvedFiles = useMemo(() => 
+  const approvedFiles = useMemo(() =>
     submittedFiles.filter(f => f.status === 'final_approved'),
     [submittedFiles]
   );
 
-  const rejectedFiles = useMemo(() => 
+  const rejectedFiles = useMemo(() =>
     submittedFiles.filter(f => f.status === 'rejected_by_team_leader' || f.status === 'rejected_by_admin'),
     [submittedFiles]
   );
 
-  const totalSize = useMemo(() => 
+  const totalSize = useMemo(() =>
     submittedFiles.reduce((total, file) => total + file.file_size, 0),
     [submittedFiles]
   );
@@ -210,10 +211,10 @@ const MyFilesTab = ({
 
   const handleDeleteConfirm = useCallback(async () => {
     if (!deleteModal.fileId) return;
-    
+
     setIsDeleting(true);
     try {
-      const response = await fetch(`http://localhost:3001/api/files/${deleteModal.fileId}`, {
+      const response = await fetch(`${API_BASE_URL}/api/files/${deleteModal.fileId}`, {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
@@ -235,7 +236,7 @@ const MyFilesTab = ({
           message: 'The file has been successfully deleted.',
           type: 'error'
         });
-        
+
         // Refresh the file list
         if (fetchUserFiles) {
           await fetchUserFiles();
@@ -266,7 +267,7 @@ const MyFilesTab = ({
   // Memoize delete modal to prevent re-renders
   const DeleteModal = useMemo(() => {
     if (!deleteModal.isOpen) return null;
-    
+
     return createPortal(
       <div className="delete-modal-overlay" onClick={handleDeleteCancel}>
         <div className="delete-modal-content" onClick={(e) => e.stopPropagation()}>
@@ -316,7 +317,7 @@ const MyFilesTab = ({
   const getPageNumbers = useCallback(() => {
     const pages = [];
     const maxVisiblePages = 5;
-    
+
     if (totalPages <= maxVisiblePages) {
       for (let i = 1; i <= totalPages; i++) {
         pages.push(i);
@@ -350,7 +351,7 @@ const MyFilesTab = ({
               <div className="skeleton-box-inline" style={{ height: '32px', width: '140px', marginBottom: '12px', borderRadius: '8px' }} />
               <div className="skeleton-box-inline" style={{ height: '18px', width: '200px', borderRadius: '6px' }} />
             </div>
-            
+
             <div className="stats-row">
               <div className="stat-box-skeleton">
                 <div className="skeleton-circle" style={{ width: '56px', height: '56px' }} />
@@ -359,7 +360,7 @@ const MyFilesTab = ({
                   <div className="skeleton-box-inline" style={{ height: '14px', width: '140px', borderRadius: '6px' }} />
                 </div>
               </div>
-              
+
               <div className="stat-box-skeleton">
                 <div className="skeleton-circle" style={{ width: '56px', height: '56px' }} />
                 <div className="stat-text-skeleton">
@@ -367,7 +368,7 @@ const MyFilesTab = ({
                   <div className="skeleton-box-inline" style={{ height: '14px', width: '140px', borderRadius: '6px' }} />
                 </div>
               </div>
-              
+
               <div className="stat-box-skeleton">
                 <div className="skeleton-circle" style={{ width: '56px', height: '56px' }} />
                 <div className="stat-text-skeleton">
@@ -375,7 +376,7 @@ const MyFilesTab = ({
                   <div className="skeleton-box-inline" style={{ height: '14px', width: '140px', borderRadius: '6px' }} />
                 </div>
               </div>
-              
+
               <div className="stat-box-skeleton">
                 <div className="skeleton-circle" style={{ width: '56px', height: '56px' }} />
                 <div className="stat-text-skeleton">
@@ -391,7 +392,7 @@ const MyFilesTab = ({
               <h1>My Files</h1>
               <p className="header-subtitle">{submittedFiles.length} files • {formatFileSize(totalSize)} total</p>
             </div>
-            
+
             <div className="stats-row">
               <div className="stat-box">
                 <div className="stat-icon">TL</div>
@@ -400,7 +401,7 @@ const MyFilesTab = ({
                   <div className="stat-name">Pending Team Leader</div>
                 </div>
               </div>
-              
+
               <div className="stat-box">
                 <div className="stat-icon">AD</div>
                 <div className="stat-text">
@@ -408,7 +409,7 @@ const MyFilesTab = ({
                   <div className="stat-name">Pending Admin</div>
                 </div>
               </div>
-              
+
               <div className="stat-box">
                 <div className="stat-icon">AP</div>
                 <div className="stat-text">
@@ -416,7 +417,7 @@ const MyFilesTab = ({
                   <div className="stat-name">Approved Files</div>
                 </div>
               </div>
-              
+
               <div className="stat-box">
                 <div className="stat-icon">RE</div>
                 <div className="stat-text">
@@ -442,15 +443,15 @@ const MyFilesTab = ({
             {paginatedFiles.map((file) => {
               const { date, time } = formatDateTime(file.uploaded_at);
               return (
-                <div 
-                  key={file.id} 
-                  className="file-row-new" 
+                <div
+                  key={file.id}
+                  className="file-row-new"
                   onClick={(e) => handleFileClick(file, e)}
                   title="Double click to open file"
                 >
                   <div className="col-filename">
-                    <FileIcon 
-                      fileType={file.original_name.split('.').pop().toLowerCase()} 
+                    <FileIcon
+                      fileType={file.original_name.split('.').pop().toLowerCase()}
                       isFolder={false}
                       size="default"
                       altText={`${file.file_type} file`}
@@ -499,8 +500,8 @@ const MyFilesTab = ({
             <div className="empty-icon">📋</div>
             <h3>No files found</h3>
             <p>
-              {files.length === 0 
-                ? "Ready to upload your first file? Click the button above to get started." 
+              {files.length === 0
+                ? "Ready to upload your first file? Click the button above to get started."
                 : "No files match your current search criteria."}
             </p>
           </div>
@@ -516,9 +517,9 @@ const MyFilesTab = ({
             </span>
             <div className="items-per-page">
               <label htmlFor="itemsPerPage">Show:</label>
-              <select 
+              <select
                 id="itemsPerPage"
-                value={itemsPerPage} 
+                value={itemsPerPage}
                 onChange={handleItemsPerPageChange}
                 className="items-select"
               >
@@ -530,7 +531,7 @@ const MyFilesTab = ({
               </select>
             </div>
           </div>
-          
+
           <div className="pagination-controls">
             <button
               className="pagination-btn pagination-prev"
@@ -540,23 +541,22 @@ const MyFilesTab = ({
             >
               <span>‹</span>
             </button>
-            
+
             {getPageNumbers().map((page, index) => (
               page === '...' ? (
                 <span key={`ellipsis-${index}`} className="pagination-ellipsis">...</span>
               ) : (
                 <button
                   key={page}
-                  className={`pagination-btn pagination-number ${
-                    currentPage === page ? 'active' : ''
-                  }`}
+                  className={`pagination-btn pagination-number ${currentPage === page ? 'active' : ''
+                    }`}
                   onClick={() => handlePageChange(page)}
                 >
                   {page}
                 </button>
               )
             ))}
-            
+
             <button
               className="pagination-btn pagination-next"
               onClick={() => handlePageChange(currentPage + 1)}

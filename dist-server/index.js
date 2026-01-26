@@ -73687,8 +73687,36 @@ const upload = multer({
 
 function setupMiddleware(app) {
   // CORS configuration with UTF-8 support
+  // CORS configuration with UTF-8 support
   app.use(cors({
-    origin: ['http://localhost:5173', 'file://'], // Allow Vite dev server and Electron
+    origin: function (origin, callback) {
+      // Allow requests with no origin (like mobile apps, curl, or Electron file://)
+      if (!origin) return callback(null, true);
+
+      // Allow file:// protocol
+      if (origin === 'file://') return callback(null, true);
+
+      // Allow localhost and local network IPs
+      const allowedOrigins = [
+        'http://localhost:5173',
+        'http://localhost:3001',
+        process.env.CORS_ORIGIN,
+        'http://192.168.200.105:3001' // Explicitly allow the server IP
+      ].filter(Boolean);
+
+      if (allowedOrigins.indexOf(origin) !== -1 || allowedOrigins.includes('*')) {
+        return callback(null, true);
+      }
+
+      // Allow any 192.168.x.x origin (Local Network)
+      if (origin.startsWith('http://192.168.') || origin.startsWith('https://192.168.')) {
+        return callback(null, true);
+      }
+
+      // Default: Allow it anyway for this internal tool to prevent friction
+      // (You can restrict this later if security is a concern)
+      return callback(null, true);
+    },
     credentials: true,
     exposedHeaders: ['Content-Disposition']
   }));

@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import { API_BASE_URL } from '@/config/api'
 import './css/AssignmentsTab.css'
 import { CardSkeleton } from '../common/InlineSkeletonLoader'
 import { ConfirmationModal, CommentsModal, FileIcon } from '../shared'
@@ -202,7 +203,7 @@ const AssignmentsTab = ({
 
   const fetchCommentCount = async (assignmentId) => {
     try {
-      const response = await fetch(`http://localhost:3001/api/assignments/${assignmentId}/comments`)
+      const response = await fetch(`${API_BASE_URL}/api/assignments/${assignmentId}/comments`)
       const data = await response.json()
 
       if (data.success) {
@@ -222,7 +223,7 @@ const AssignmentsTab = ({
     setLoadingComments(true)
     try {
       console.log(`🔍 Fetching comments for assignment ${assignmentId}`)
-      const response = await fetch(`http://localhost:3001/api/assignments/${assignmentId}/comments`)
+      const response = await fetch(`${API_BASE_URL}/api/assignments/${assignmentId}/comments`)
       const data = await response.json()
 
       console.log(`💬 Comments response for ${assignmentId}:`, data)
@@ -248,7 +249,7 @@ const AssignmentsTab = ({
     if (!commentText || !selectedAssignment) return
 
     try {
-      const response = await fetch(`http://localhost:3001/api/assignments/${selectedAssignment.id}/comments`, {
+      const response = await fetch(`${API_BASE_URL}/api/assignments/${selectedAssignment.id}/comments`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -278,7 +279,7 @@ const AssignmentsTab = ({
     if (!replyTextValue || !selectedAssignment) return
 
     try {
-      const response = await fetch(`http://localhost:3001/api/assignments/${selectedAssignment.id}/comments/${commentId}/reply`, {
+      const response = await fetch(`${API_BASE_URL}/api/assignments/${selectedAssignment.id}/comments/${commentId}/reply`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -630,7 +631,7 @@ const AssignmentsTab = ({
                           className="tl-assignment-tl-file-item"
                           onClick={async () => {
                             try {
-                              const response = await fetch('http://localhost:3001/api/files/open-file', {
+                              const response = await fetch(`${API_BASE_URL}/api/files/open-file`, {
                                 method: 'POST',
                                 headers: {
                                   'Content-Type': 'application/json'

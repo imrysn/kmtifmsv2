@@ -1,7 +1,8 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
+import { API_BASE_URL } from '@/config/api';
 
-const API_BASE = 'http://localhost:3001/api';
+const API_BASE = `${API_BASE_URL}/api`;
 
 /**
  * Fetch user files with pagination

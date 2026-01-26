@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { API_BASE_URL } from '@/config/api';
 import './css/TasksTab-Enhanced.css';
 import './css/TasksTab-Comments.css';
 import { FileIcon } from '../shared';
@@ -95,7 +96,7 @@ const TasksTab = ({ user }) => {
   const fetchAssignments = async () => {
     setIsLoading(true);
     try {
-      const response = await fetch(`http://localhost:3001/api/assignments/user/${user.id}`);
+      const response = await fetch(`${API_BASE_URL}/api/assignments/user/${user.id}`);
       const data = await response.json();
 
       if (data.success) {
@@ -133,7 +134,7 @@ const TasksTab = ({ user }) => {
 
   const fetchComments = async (assignmentId) => {
     try {
-      const response = await fetch(`http://localhost:3001/api/assignments/${assignmentId}/comments`);
+      const response = await fetch(`${API_BASE_URL}/api/assignments/${assignmentId}/comments`);
       const data = await response.json();
 
       if (data.success) {
@@ -154,7 +155,7 @@ const TasksTab = ({ user }) => {
     setIsPostingComment(prev => ({ ...prev, [assignmentId]: true }));
 
     try {
-      const response = await fetch(`http://localhost:3001/api/assignments/${assignmentId}/comments`, {
+      const response = await fetch(`${API_BASE_URL}/api/assignments/${assignmentId}/comments`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -196,7 +197,7 @@ const TasksTab = ({ user }) => {
 
     try {
       console.log('Posting reply:', { assignmentId, commentId, replyTextValue });
-      const response = await fetch(`http://localhost:3001/api/assignments/${assignmentId}/comments/${commentId}/reply`, {
+      const response = await fetch(`${API_BASE_URL}/api/assignments/${assignmentId}/comments/${commentId}/reply`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -243,12 +244,12 @@ const TasksTab = ({ user }) => {
 
   const fetchUserFiles = useCallback(async (currentAssignments = assignments) => {
     try {
-      const response = await fetch(`http://localhost:3001/api/files/user/${user.id}`);
+      const response = await fetch(`${API_BASE_URL}/api/files/user/${user.id}`);
       const data = await response.json();
 
       if (data.success) {
         console.log('📁 All user files:', data.files);
-        
+
         // Get all file IDs that are currently in ACTIVE assignment submissions
         const activeSubmittedFileIds = new Set();
         currentAssignments.forEach(assignment => {
@@ -258,15 +259,15 @@ const TasksTab = ({ user }) => {
             });
           }
         });
-        
+
         console.log('🔒 Files currently in active assignments:', Array.from(activeSubmittedFileIds));
-        
+
         // Filter out ONLY files that are currently in active assignment submissions
         // This means completed/finished assignment files will show up again in "My Files"
-        const unsubmittedFiles = data.files.filter(file => 
+        const unsubmittedFiles = data.files.filter(file =>
           !activeSubmittedFileIds.has(file.id)
         );
-        
+
         console.log('📂 Available files (excluding active submissions):', unsubmittedFiles);
         setUserFiles(unsubmittedFiles || []);
       }
@@ -457,7 +458,7 @@ const TasksTab = ({ user }) => {
     setFileToDelete(null);
 
     try {
-      const response = await fetch(`http://localhost:3001/api/assignments/${assignmentId}/files/${fileId}`, {
+      const response = await fetch(`${API_BASE_URL}/api/assignments/${assignmentId}/files/${fileId}`, {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
@@ -504,7 +505,7 @@ const TasksTab = ({ user }) => {
       // Check if running in Electron
       if (window.electron && window.electron.openFileInApp) {
         // Get the actual file path from server
-        const response = await fetch(`http://localhost:3001/api/files/${file.id}/path`);
+        const response = await fetch(`${API_BASE_URL}/api/files/${file.id}/path`);
         const data = await response.json();
 
         if (data.success && data.filePath) {
@@ -519,11 +520,11 @@ const TasksTab = ({ user }) => {
         }
       } else {
         // In browser - get file path and open in new tab
-        const response = await fetch(`http://localhost:3001/api/files/${file.id}`);
+        const response = await fetch(`${API_BASE_URL}/api/files/${file.id}`);
         const fileData = await response.json();
 
         if (fileData.success && fileData.file) {
-          const fileUrl = `http://localhost:3001${fileData.file.file_path}`;
+          const fileUrl = `${API_BASE_URL}${fileData.file.file_path}`;
           window.open(fileUrl, '_blank', 'noopener,noreferrer');
         } else {
           throw new Error('Could not get file information');
@@ -541,7 +542,7 @@ const TasksTab = ({ user }) => {
     setIsUploading(true);
     try {
       const replacedRejectedFiles = []; // Track which rejected files we're replacing
-      
+
       // First, check for rejected files with the same name and delete them
       if (currentAssignment.submitted_files && currentAssignment.submitted_files.length > 0) {
         const rejectedFiles = currentAssignment.submitted_files.filter(
@@ -550,23 +551,23 @@ const TasksTab = ({ user }) => {
 
         if (rejectedFiles.length > 0) {
           console.log(`🔍 Found ${rejectedFiles.length} rejected file(s), checking for same names...`);
-          
+
           // Check each new file against rejected files
           for (const fileObj of uploadedFiles) {
             const newFileName = fileObj.file.name;
-            
+
             // Find rejected file with the same name
             const matchingRejectedFile = rejectedFiles.find(
               rejectedFile => rejectedFile.original_name === newFileName || rejectedFile.filename === newFileName
             );
-            
+
             if (matchingRejectedFile) {
               console.log(`🗑️ Found matching rejected file: ${matchingRejectedFile.original_name} - will replace it`);
               replacedRejectedFiles.push(newFileName); // Track this as a revision
-              
+
               try {
                 const deleteResponse = await fetch(
-                  `http://localhost:3001/api/assignments/${currentAssignment.id}/files/${matchingRejectedFile.id}`,
+                  `${API_BASE_URL}/api/assignments/${currentAssignment.id}/files/${matchingRejectedFile.id}`,
                   {
                     method: 'DELETE',
                     headers: {
@@ -608,18 +609,18 @@ const TasksTab = ({ user }) => {
         formData.append('userTeam', user.team);
         formData.append('description', fileDescription || '');
         formData.append('tag', fileTag || '');
-        
+
         // Mark as revision if this file replaced a rejected one
         const isRevision = replacedRejectedFiles.includes(fileObj.file.name);
         formData.append('isRevision', isRevision.toString());
         // IMPORTANT: Set replaceExisting=true to automatically replace duplicate files
         formData.append('replaceExisting', 'true');
-        
+
         if (isRevision) {
           console.log(`📝 Marking ${fileObj.file.name} as REVISION`);
         }
 
-        const uploadResponse = await fetch('http://localhost:3001/api/files/upload', {
+        const uploadResponse = await fetch(`${API_BASE_URL}/api/files/upload`, {
           method: 'POST',
           body: formData
         });
@@ -643,7 +644,7 @@ const TasksTab = ({ user }) => {
       // Submit ALL uploaded files to the assignment
       let submissionErrors = [];
       for (const fileId of uploadedFileIds) {
-        const submitResponse = await fetch('http://localhost:3001/api/assignments/submit', {
+        const submitResponse = await fetch(`${API_BASE_URL}/api/assignments/submit`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -827,7 +828,7 @@ const TasksTab = ({ user }) => {
                     <div style={{ fontSize: '14px', fontWeight: '500', color: '#000000' }}>
                       Due: {assignment.due_date ? formatDate(assignment.due_date) : 'No due date'}
                       {daysLeft !== null && (
-                        <span style={{ 
+                        <span style={{
                           color: '#DC2626',
                           fontWeight: '400',
                           marginLeft: '4px'
@@ -879,60 +880,76 @@ const TasksTab = ({ user }) => {
                           {filesToShow.map((file, index) => {
                             // Log file status for debugging
                             console.log(`File "${file.original_name || file.filename}" has status: "${file.status}"`);
-                            
+
                             return (
-                            <div
-                              key={file.id}
-                              className="submitted-file-card"
-                              onClick={() => confirmOpenFile(file)}
-                              style={{ cursor: 'pointer' }}
-                            >
-                              <div style={{
-                                display: 'flex',
-                                alignItems: 'flex-start',
-                                gap: '12px',
-                              }}>
-                                <div
-                                  style={{
-                                    flexShrink: 0
-                                  }}
-                                >
-                                  <FileIcon
-                                    fileType={(file.original_name || file.filename || 'file').split('.').pop().toLowerCase()}
-                                    isFolder={false}
-                                    size="default"
+                              <div
+                                key={file.id}
+                                className="submitted-file-card"
+                                onClick={() => confirmOpenFile(file)}
+                                style={{ cursor: 'pointer' }}
+                              >
+                                <div style={{
+                                  display: 'flex',
+                                  alignItems: 'flex-start',
+                                  gap: '12px',
+                                }}>
+                                  <div
                                     style={{
-                                      width: '48px',
-                                      height: '48px'
+                                      flexShrink: 0
                                     }}
-                                  />
-                                </div>
-                                <div style={{ flex: 1, minWidth: 0 }}>
-                                  <div style={{
-                                    fontWeight: '500',
-                                    fontSize: '15px',
-                                    color: '#111827',
-                                    marginBottom: '8px',
-                                    overflow: 'hidden',
-                                    textOverflow: 'ellipsis',
-                                    whiteSpace: 'nowrap'
-                                  }}>
-                                    {file.original_name || file.filename}
+                                  >
+                                    <FileIcon
+                                      fileType={(file.original_name || file.filename || 'file').split('.').pop().toLowerCase()}
+                                      isFolder={false}
+                                      size="default"
+                                      style={{
+                                        width: '48px',
+                                        height: '48px'
+                                      }}
+                                    />
                                   </div>
-                                  <div style={{
-                                    fontSize: '13px',
-                                    color: '#6b7280',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: '8px',
-                                    flexWrap: 'wrap'
-                                  }}>
-                                    <span>by <span style={{ fontWeight: '500', color: '#2563eb' }}>{file.submitter_name || user.fullName || user.username}</span></span>
-                                    {file.tag && (
-                                      <>
+                                  <div style={{ flex: 1, minWidth: 0 }}>
+                                    <div style={{
+                                      fontWeight: '500',
+                                      fontSize: '15px',
+                                      color: '#111827',
+                                      marginBottom: '8px',
+                                      overflow: 'hidden',
+                                      textOverflow: 'ellipsis',
+                                      whiteSpace: 'nowrap'
+                                    }}>
+                                      {file.original_name || file.filename}
+                                    </div>
+                                    <div style={{
+                                      fontSize: '13px',
+                                      color: '#6b7280',
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      gap: '8px',
+                                      flexWrap: 'wrap'
+                                    }}>
+                                      <span>by <span style={{ fontWeight: '500', color: '#2563eb' }}>{file.submitter_name || user.fullName || user.username}</span></span>
+                                      {file.tag && (
+                                        <>
+                                          <span style={{
+                                            backgroundColor: '#eff6ff',
+                                            color: '#1e40af',
+                                            padding: '3px 10px',
+                                            borderRadius: '4px',
+                                            fontSize: '11px',
+                                            fontWeight: '600',
+                                            display: 'inline-flex',
+                                            alignItems: 'center',
+                                            gap: '4px'
+                                          }}>
+                                            <span>🏷️</span> {file.tag}
+                                          </span>
+                                        </>
+                                      )}
+                                      {file.status === 'under_revision' && (
                                         <span style={{
-                                          backgroundColor: '#eff6ff',
-                                          color: '#1e40af',
+                                          backgroundColor: '#fef3c7',
+                                          color: '#92400e',
                                           padding: '3px 10px',
                                           borderRadius: '4px',
                                           fontSize: '11px',
@@ -941,91 +958,75 @@ const TasksTab = ({ user }) => {
                                           alignItems: 'center',
                                           gap: '4px'
                                         }}>
-                                          <span>🏷️</span> {file.tag}
+                                          📝 REVISED
                                         </span>
-                                      </>
-                                    )}
-                                    {file.status === 'under_revision' && (
-                                      <span style={{
-                                        backgroundColor: '#fef3c7',
-                                        color: '#92400e',
-                                        padding: '3px 10px',
-                                        borderRadius: '4px',
-                                        fontSize: '11px',
-                                        fontWeight: '600',
-                                        display: 'inline-flex',
-                                        alignItems: 'center',
-                                        gap: '4px'
-                                      }}>
-                                        📝 REVISED
-                                      </span>
-                                    )}
-                                    {file.status === 'approved_by_team_leader' && (
-                                      <span style={{
-                                        backgroundColor: '#dcfce7',
-                                        color: '#166534',
-                                        padding: '3px 10px',
-                                        borderRadius: '4px',
-                                        fontSize: '11px',
-                                        fontWeight: '600',
-                                        display: 'inline-flex',
-                                        alignItems: 'center',
-                                        gap: '4px'
-                                      }}>
-                                        ✓ APPROVED
-                                      </span>
-                                    )}
-                                    {(file.status === 'rejected_by_team_leader' || file.status === 'rejected_by_admin') && (
-                                      <span style={{
-                                        backgroundColor: '#fee2e2',
-                                        color: '#991b1b',
-                                        padding: '3px 10px',
-                                        borderRadius: '4px',
-                                        fontSize: '11px',
-                                        fontWeight: '600',
-                                        display: 'inline-flex',
-                                        alignItems: 'center',
-                                        gap: '4px'
-                                      }}>
-                                        ✗ REJECTED
-                                      </span>
-                                    )}
+                                      )}
+                                      {file.status === 'approved_by_team_leader' && (
+                                        <span style={{
+                                          backgroundColor: '#dcfce7',
+                                          color: '#166534',
+                                          padding: '3px 10px',
+                                          borderRadius: '4px',
+                                          fontSize: '11px',
+                                          fontWeight: '600',
+                                          display: 'inline-flex',
+                                          alignItems: 'center',
+                                          gap: '4px'
+                                        }}>
+                                          ✓ APPROVED
+                                        </span>
+                                      )}
+                                      {(file.status === 'rejected_by_team_leader' || file.status === 'rejected_by_admin') && (
+                                        <span style={{
+                                          backgroundColor: '#fee2e2',
+                                          color: '#991b1b',
+                                          padding: '3px 10px',
+                                          borderRadius: '4px',
+                                          fontSize: '11px',
+                                          fontWeight: '600',
+                                          display: 'inline-flex',
+                                          alignItems: 'center',
+                                          gap: '4px'
+                                        }}>
+                                          ✗ REJECTED
+                                        </span>
+                                      )}
+                                    </div>
                                   </div>
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      confirmDeleteFile(assignment.id, file.id, file.original_name || file.filename);
+                                    }}
+                                    style={{
+                                      background: 'transparent',
+                                      color: '#9ca3af',
+                                      border: 'none',
+                                      borderRadius: '6px',
+                                      padding: '6px',
+                                      fontSize: '20px',
+                                      cursor: 'pointer',
+                                      flexShrink: 0,
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      justifyContent: 'center',
+                                      transition: 'all 0.2s',
+                                      lineHeight: 1
+                                    }}
+                                    onMouseEnter={(e) => {
+                                      e.currentTarget.style.backgroundColor = '#fee2e2';
+                                      e.currentTarget.style.color = '#dc2626';
+                                    }}
+                                    onMouseLeave={(e) => {
+                                      e.currentTarget.style.backgroundColor = 'transparent';
+                                      e.currentTarget.style.color = '#9ca3af';
+                                    }}
+                                    title="Remove file"
+                                  >
+                                    ×
+                                  </button>
                                 </div>
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    confirmDeleteFile(assignment.id, file.id, file.original_name || file.filename);
-                                  }}
-                                  style={{
-                                    background: 'transparent',
-                                    color: '#9ca3af',
-                                    border: 'none',
-                                    borderRadius: '6px',
-                                    padding: '6px',
-                                    fontSize: '20px',
-                                    cursor: 'pointer',
-                                    flexShrink: 0,
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    transition: 'all 0.2s',
-                                    lineHeight: 1
-                                  }}
-                                  onMouseEnter={(e) => {
-                                    e.currentTarget.style.backgroundColor = '#fee2e2';
-                                    e.currentTarget.style.color = '#dc2626';
-                                  }}
-                                  onMouseLeave={(e) => {
-                                    e.currentTarget.style.backgroundColor = 'transparent';
-                                    e.currentTarget.style.color = '#9ca3af';
-                                  }}
-                                  title="Remove file"
-                                >
-                                  ×
-                                </button>
                               </div>
-                            </div>
                             );
                           })}
 
@@ -1724,30 +1725,30 @@ const TasksTab = ({ user }) => {
                         user={user}
                       />
 
-                        <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', marginBottom: '8px', color: '#111827', marginTop: '16px' }}>
-                          📝 Description (optional)
-                        </label>
-                        <textarea
-                          value={fileDescription}
-                          onChange={(e) => setFileDescription(e.target.value)}
-                          placeholder="Add a brief description..."
-                          rows="2"
-                          disabled={isUploading}
-                          style={{
-                            width: '100%',
-                            padding: '10px 12px',
-                            border: '1px solid #d1d5db',
-                            borderRadius: '8px',
-                            fontSize: '14px',
-                            fontFamily: 'inherit',
-                            resize: 'vertical',
-                            backgroundColor: '#ffffff'
-                          }}
-                        />
-                      </div>
+                      <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', marginBottom: '8px', color: '#111827', marginTop: '16px' }}>
+                        📝 Description (optional)
+                      </label>
+                      <textarea
+                        value={fileDescription}
+                        onChange={(e) => setFileDescription(e.target.value)}
+                        placeholder="Add a brief description..."
+                        rows="2"
+                        disabled={isUploading}
+                        style={{
+                          width: '100%',
+                          padding: '10px 12px',
+                          border: '1px solid #d1d5db',
+                          borderRadius: '8px',
+                          fontSize: '14px',
+                          fontFamily: 'inherit',
+                          resize: 'vertical',
+                          backgroundColor: '#ffffff'
+                        }}
+                      />
                     </div>
-                  )}
-                </div>
+                  </div>
+                )}
+              </div>
             </div>
 
             <div className="tasks-modal-footer" style={{ borderTop: '1px solid #e5e7eb', paddingTop: '16px', display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>

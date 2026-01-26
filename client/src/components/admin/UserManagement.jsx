@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from 'react'
+import { API_BASE_URL } from '@/config/api'
 import './UserManagement.css'
 import { AlertMessage, ConfirmationModal, FormModal } from './modals'
 import { SkeletonLoader } from '../common/SkeletonLoader'
@@ -9,7 +10,7 @@ import { withErrorBoundary } from '../common'
 const UserManagement = ({ clearMessages, error, success, setError, setSuccess, user, contextData }) => {
   const { user: authUser } = useAuth()
   const { isConnected } = useNetwork()
-  
+
   const [users, setUsers] = useState([])
   const [teams, setTeams] = useState([])
   const [teamsLoading, setTeamsLoading] = useState(false)
@@ -33,7 +34,7 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess, u
   // Memoized filtered and sorted users for better performance
   const filteredUsers = useMemo(() => {
     let filtered = users
-    
+
     // Filter by search query
     if (searchQuery.trim() !== '') {
       const query = searchQuery.toLowerCase()
@@ -45,7 +46,7 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess, u
         (u.team && u.team.toLowerCase().includes(query))
       )
     }
-    
+
     // Sort by created_at (oldest first)
     return filtered.sort((a, b) => {
       const dateA = new Date(a.created_at || 0)
@@ -68,7 +69,7 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess, u
   } = usePagination(filteredUsers, 9)
 
   // Memoized active teams
-  const activeTeams = useMemo(() => 
+  const activeTeams = useMemo(() =>
     teams.filter(team => team.is_active),
     [teams]
   )
@@ -77,7 +78,7 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess, u
   const fetchUsers = useCallback(async () => {
     setIsLoading(true)
     try {
-      const response = await fetch('http://localhost:3001/api/users')
+      const response = await fetch(`${API_BASE_URL}/api/users`)
       const data = await response.json()
       if (data.success) {
         setUsers(data.users)
@@ -96,7 +97,7 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess, u
   const fetchTeams = useCallback(async () => {
     setTeamsLoading(true)
     try {
-      const response = await fetch('http://localhost:3001/api/teams')
+      const response = await fetch(`${API_BASE_URL}/api/teams`)
       const data = await response.json()
       if (data.success) {
         setTeams(data.teams || [])
@@ -120,17 +121,17 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess, u
   useEffect(() => {
     if (contextData && contextData.action === 'reset-password' && contextData.userId) {
       console.log('🔑 Opening password reset modal for user:', contextData);
-      
+
       // Find the user by ID
       const targetUser = users.find(u => u.id === contextData.userId);
-      
+
       if (targetUser) {
         // Open password reset modal for this user
         openPasswordModal(targetUser);
-        
+
         // Optionally show a success message
         setSuccess(`Password reset request from ${contextData.username || targetUser.username}`);
-        
+
         // Scroll to the user in the list if possible
         setTimeout(() => {
           const userRow = document.querySelector(`[data-user-id="${contextData.userId}"]`);
@@ -150,9 +151,9 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess, u
     e.preventDefault()
     setIsLoading(true)
     setError('')
-    
+
     try {
-      const response = await fetch('http://localhost:3001/api/users', {
+      const response = await fetch(`${API_BASE_URL}/api/users`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -163,18 +164,18 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess, u
           adminTeam: authUser.team
         })
       })
-      
+
       const data = await response.json()
       if (data.success) {
         setSuccess('User created successfully')
         setShowAddModal(false)
-        setFormData({ 
-          fullName: '', 
-          username: '', 
-          email: '', 
-          password: '', 
-          role: 'USER', 
-          team: '' 
+        setFormData({
+          fullName: '',
+          username: '',
+          email: '',
+          password: '',
+          role: 'USER',
+          team: ''
         })
         fetchUsers()
       } else {
@@ -191,9 +192,9 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess, u
     e.preventDefault()
     setIsLoading(true)
     setError('')
-    
+
     try {
-      const response = await fetch(`http://localhost:3001/api/users/${selectedUser.id}`, {
+      const response = await fetch(`${API_BASE_URL}/api/users/${selectedUser.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -208,7 +209,7 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess, u
           adminTeam: authUser.team
         })
       })
-      
+
       const data = await response.json()
       if (data.success) {
         setSuccess('User updated successfully')
@@ -229,12 +230,12 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess, u
     e.preventDefault()
     setIsLoading(true)
     setError('')
-    
+
     try {
-      const response = await fetch(`http://localhost:3001/api/users/${selectedUser.id}/password`, {
+      const response = await fetch(`${API_BASE_URL}/api/users/${selectedUser.id}/password`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
+        body: JSON.stringify({
           password: formData.password,
           adminId: authUser.id,
           adminUsername: authUser.username,
@@ -242,7 +243,7 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess, u
           adminTeam: authUser.team
         })
       })
-      
+
       const data = await response.json()
       if (data.success) {
         setSuccess('Password reset successfully')
@@ -261,10 +262,10 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess, u
 
   const handleDeleteUser = useCallback(async () => {
     if (!userToDelete) return
-    
+
     setIsLoading(true)
     try {
-      const response = await fetch(`http://localhost:3001/api/users/${userToDelete.id}`, {
+      const response = await fetch(`${API_BASE_URL}/api/users/${userToDelete.id}`, {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -274,7 +275,7 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess, u
           adminTeam: authUser.team
         })
       })
-      
+
       const data = await response.json()
       if (data.success) {
         setSuccess(`User ${userToDelete.fullName} deleted successfully`)
@@ -323,13 +324,13 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess, u
     setError('')
     setSuccess('')
     setSelectedUser(null)
-    setFormData({ 
-      fullName: '', 
-      username: '', 
-      email: '', 
-      password: '', 
-      role: 'USER', 
-      team: '' 
+    setFormData({
+      fullName: '',
+      username: '',
+      email: '',
+      password: '',
+      role: 'USER',
+      team: ''
     })
     setShowAddModal(true)
   }, [setError, setSuccess])
@@ -350,7 +351,7 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess, u
 
   return (
     <div className={`users-management ${isLoading ? 'loading-cursor' : ''}`}>
-      
+
       {/* Action Bar */}
       <div className="action-bar">
         <div className="search-section">
@@ -364,9 +365,9 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess, u
             />
           </div>
         </div>
-        
+
         <div className="action-buttons">
-          <button 
+          <button
             className="btn btn-primary"
             onClick={openAddModal}
           >
@@ -374,24 +375,24 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess, u
           </button>
         </div>
       </div>
-      
+
       {/* Messages */}
       {error && (
-        <AlertMessage 
-          type="error" 
-          message={error} 
+        <AlertMessage
+          type="error"
+          message={error}
           onClose={clearMessages}
         />
       )}
-      
+
       {success && (
-        <AlertMessage 
-          type="success" 
-          message={success} 
+        <AlertMessage
+          type="success"
+          message={success}
           onClose={clearMessages}
         />
       )}
-      
+
       {/* Users Table */}
       <div className="table-section">
         {isLoading ? (
@@ -474,7 +475,7 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess, u
             </table>
           </div>
         )}
-        
+
         {!isLoading && filteredUsers.length === 0 && (
           <div className="empty-state">
             <h3>No users found</h3>

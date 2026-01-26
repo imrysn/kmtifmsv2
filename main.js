@@ -615,8 +615,8 @@ function startServer() {
     let spawnArgs;
 
     // 1. Determine the correct path based on environment
-    if (isProduction) {
-      // In production, try to use the standalone server executable first
+    if (app.isPackaged) {
+      // In production (installed app), try to use the standalone server executable first
       const exePath = path.join(path.dirname(process.execPath), 'KMTI_FMS_Server.exe');
 
       if (require('fs').existsSync(exePath)) {
@@ -626,21 +626,18 @@ function startServer() {
         spawnArgs = [];
         log(LogLevel.INFO, `Using standalone server executable: ${exePath}`);
       } else {
-        // Fallback to bundled server (if available)
-        if (process.resourcesPath) {
-          serverPath = path.join(process.resourcesPath, 'app-server', 'index.js');
-        } else {
-          serverPath = path.join(__dirname, '../../app-server/index.js');
-        }
+        // Fallback to bundled server
+        serverPath = path.join(process.resourcesPath, 'app-server', 'index.js');
         spawnCommand = 'node';
         spawnArgs = [serverPath];
         log(LogLevel.INFO, `Using bundled server: ${serverPath}`);
       }
     } else {
-      // In development, run the source file directly
+      // In development or "npm run prod" (source mode), run the source file directly
       serverPath = path.join(__dirname, 'server.js');
       spawnCommand = 'node';
       spawnArgs = [serverPath];
+      log(LogLevel.INFO, `Using source server file: ${serverPath}`);
     }
 
     // 2. Prepare Environment Variables
@@ -649,7 +646,7 @@ function startServer() {
       NODE_ENV: isProduction ? 'production' : 'development',
       PORT: SERVER_PORT,
       // Tell the server where the database is
-      DB_BASE_PATH: isProduction && process.resourcesPath
+      DB_BASE_PATH: app.isPackaged && process.resourcesPath
         ? path.join(process.resourcesPath, 'database')
         : path.join(__dirname, 'database'),
     };
@@ -789,8 +786,8 @@ if (app) {
             ...details.responseHeaders,
             'Content-Security-Policy': [
               isDev
-                ? "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: blob:; font-src 'self' data: https://fonts.gstatic.com; connect-src 'self' http://localhost:* ws://localhost:* wss://localhost:* https://fonts.googleapis.com https://fonts.gstatic.com; media-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none';"
-                : "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: blob:; font-src 'self' data: https://fonts.gstatic.com; connect-src 'self' http://localhost:* ws://localhost:* https://fonts.googleapis.com https://fonts.gstatic.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none';"
+                ? "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: blob:; font-src 'self' data: https://fonts.gstatic.com; connect-src 'self' http://localhost:* ws://localhost:* wss://localhost:* https://fonts.googleapis.com https://fonts.gstatic.com http: https:; media-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none';"
+                : "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: blob:; font-src 'self' data: https://fonts.gstatic.com; connect-src 'self' http://localhost:* ws://localhost:* https://fonts.googleapis.com https://fonts.gstatic.com http: https:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none';"
             ]
           }
         });

@@ -12,7 +12,14 @@ async function runMigrations() {
 
     for (const migration of migrations) {
       console.log(`🚀 Running migration: ${migration.name}...`);
-      const success = await migration.run();
+
+      // Support both function exports and object exports with up() method
+      let runFn = migration.run;
+      if (typeof runFn !== 'function' && runFn && typeof runFn.up === 'function') {
+        runFn = runFn.up;
+      }
+
+      const success = await runFn();
       if (success) {
         console.log(`✅ Migration successful: ${migration.name}`);
       } else {

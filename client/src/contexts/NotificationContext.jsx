@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react'
+import { API_BASE_URL } from '@/config/api'
 
 const NotificationContext = createContext(null)
 
@@ -12,13 +13,13 @@ export const NotificationProvider = ({ children, userId }) => {
     if (!userId) return
 
     if (!silent) setIsLoading(true)
-    
+
     try {
       const response = await fetch(
-        `http://localhost:3001/api/notifications/user/${userId}?page=1&limit=20`
+        `${API_BASE_URL}/api/notifications/user/${userId}?page=1&limit=20`
       )
       const data = await response.json()
-      
+
       if (data.success) {
         setNotifications(data.notifications || [])
         setUnreadCount(data.unreadCount || 0)
@@ -33,13 +34,13 @@ export const NotificationProvider = ({ children, userId }) => {
   const markAsRead = useCallback(async (notificationId) => {
     try {
       const response = await fetch(
-        `http://localhost:3001/api/notifications/${notificationId}/read`,
+        `${API_BASE_URL}/api/notifications/${notificationId}/read`,
         { method: 'PUT' }
       )
-      
+
       const data = await response.json()
       if (data.success) {
-        setNotifications(prev => 
+        setNotifications(prev =>
           prev.map(n => n.id === notificationId ? { ...n, is_read: true } : n)
         )
         setUnreadCount(prev => Math.max(0, prev - 1))
@@ -54,10 +55,10 @@ export const NotificationProvider = ({ children, userId }) => {
 
     try {
       const response = await fetch(
-        `http://localhost:3001/api/notifications/user/${userId}/read-all`,
+        `${API_BASE_URL}/api/notifications/user/${userId}/read-all`,
         { method: 'PUT' }
       )
-      
+
       const data = await response.json()
       if (data.success) {
         setNotifications(prev => prev.map(n => ({ ...n, is_read: true })))
@@ -71,10 +72,10 @@ export const NotificationProvider = ({ children, userId }) => {
   const deleteNotification = useCallback(async (notificationId) => {
     try {
       const response = await fetch(
-        `http://localhost:3001/api/notifications/${notificationId}`,
+        `${API_BASE_URL}/api/notifications/${notificationId}`,
         { method: 'DELETE' }
       )
-      
+
       const data = await response.json()
       if (data.success) {
         const deletedNotification = notifications.find(n => n.id === notificationId)
@@ -92,7 +93,7 @@ export const NotificationProvider = ({ children, userId }) => {
     if (pollingIntervalRef.current) {
       clearInterval(pollingIntervalRef.current)
     }
-    
+
     pollingIntervalRef.current = setInterval(() => {
       fetchNotifications(true)
     }, interval)

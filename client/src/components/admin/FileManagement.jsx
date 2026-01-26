@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import { API_BASE_URL } from '@/config/api'
 import FileIcon from '../shared/FileIcon'
 import { SkeletonLoader } from '../common/SkeletonLoader'
 import './FileManagement.css'
@@ -7,14 +8,12 @@ import { FastSearchEngine } from '../../services/FastSearchEngine'
 import { useAuth, useNetwork } from '../../contexts'
 import { withErrorBoundary } from '../common'
 
-const API_BASE = process.env.NODE_ENV === 'development'
-  ? 'http://localhost:3001'
-  : 'http://localhost:3001'
+const API_BASE = API_BASE_URL
 
 const FileManagement = ({ clearMessages, error, success, setError, setSuccess }) => {
   const { user: authUser } = useAuth()
   const { isConnected } = useNetwork() // <--- Using global network state
-  
+
   const [currentPath, setCurrentPath] = useState('/')
   const [fileSystemItems, setFileSystemItems] = useState([])
   const [filteredItems, setFilteredItems] = useState([])
@@ -24,7 +23,7 @@ const FileManagement = ({ clearMessages, error, success, setError, setSuccess })
   const [isLoading, setIsLoading] = useState(false)
   const [isComponentLoading, setIsComponentLoading] = useState(false)
   const [networkInfo, setNetworkInfo] = useState(null)
-  
+
   // NEW: Search engine and performance tracking
   const [searchEngine] = useState(() => new FastSearchEngine(API_BASE))
   const [searchPerformance, setSearchPerformance] = useState(null)
@@ -38,21 +37,21 @@ const FileManagement = ({ clearMessages, error, success, setError, setSuccess })
   // Initialize search engine
   useEffect(() => {
     searchEngine.initialize()
-    
+
     // Update stats periodically
     const statsInterval = setInterval(() => {
       setEngineStats(searchEngine.getStats())
     }, 5000)
-    
+
     return () => clearInterval(statsInterval)
   }, [searchEngine])
 
   useEffect(() => {
     if (error || success) {
       const timer = setTimeout(() => {
-        clearMessages() 
+        clearMessages()
       }, 3000)
-      return () => clearTimeout(timer) 
+      return () => clearTimeout(timer)
     }
   }, [error, success, clearMessages])
 
@@ -131,7 +130,7 @@ const FileManagement = ({ clearMessages, error, success, setError, setSuccess })
     clearMessages()
     try {
       const result = await searchEngine.listDirectory(currentPath)
-      
+
       if (result.success) {
         setFileSystemItems(result.items)
         setFilteredItems(result.items)
@@ -158,19 +157,19 @@ const FileManagement = ({ clearMessages, error, success, setError, setSuccess })
 
     setIsSearching(true)
     clearMessages()
-    
+
     try {
       const startTime = performance.now()
-      
+
       const results = await searchEngine.searchFiles(query, {
         directory: currentPath,
         recursive: true,
         checkPermissions: true,
-        limit: 500 
+        limit: 500
       })
-      
+
       const searchTime = performance.now() - startTime
-      
+
       setSearchPerformance({
         time: searchTime,
         indexed: results.indexed,
@@ -178,16 +177,16 @@ const FileManagement = ({ clearMessages, error, success, setError, setSuccess })
         resultCount: results.files.length,
         query: query
       })
-      
+
       setFilteredItems(results.files)
-      
+
       // Show performance message if search was very fast
       if (searchTime < 100 && results.files.length > 0) {
         setSuccess(`⚡ Found ${results.files.length} results in ${searchTime.toFixed(0)}ms ${results.cached ? '(cached)' : results.indexed ? '(indexed)' : ''}`)
       }
     } catch (error) {
       console.error('Search error:', error)
-      
+
       if (error.message.includes('permission denied') || error.message.includes('access denied')) {
         setError(`Access denied: ${error.message}`)
       } else {
@@ -247,24 +246,24 @@ const FileManagement = ({ clearMessages, error, success, setError, setSuccess })
         await new Promise(resolve => setTimeout(resolve, 300))
 
         const isElectron = window.electron && window.electron.openFileInApp
-        
+
         if (isElectron) {
           console.log('💻 Running in Electron - using Windows default application')
-          
+
           const pathResponse = await fetch(
             `${API_BASE}/api/file-system/filepath?path=${encodeURIComponent(item.path)}`
           )
           const pathData = await pathResponse.json()
-          
+
           if (!pathData.success) {
             throw new Error(pathData.message || 'Failed to get file path')
           }
-          
+
           console.log('📂 Full path:', pathData.fullPath)
           console.log('📄 File type:', pathData.fileType)
-          
+
           const result = await window.electron.openFileInApp(pathData.fullPath)
-          
+
           if (result.success) {
             console.log('✅ Opened with Windows default application')
             setSuccess(`Opened ${item.displayName}`)
@@ -273,14 +272,14 @@ const FileManagement = ({ clearMessages, error, success, setError, setSuccess })
           }
         } else {
           console.log('🌐 Running in browser - opening in new tab')
-          
+
           const fileUrl = `${API_BASE}/api/file-system/file?path=${encodeURIComponent(item.path)}`
           const newWindow = window.open(fileUrl, '_blank')
-          
+
           if (!newWindow) {
             throw new Error('Pop-up blocked. Please allow pop-ups for this site.')
           }
-          
+
           newWindow.focus()
           console.log('✅ Opened in browser tab')
           setSuccess(`Opened ${item.displayName} in browser`)
@@ -390,17 +389,17 @@ const FileManagement = ({ clearMessages, error, success, setError, setSuccess })
 
       {/* Messages */}
       {error && (
-        <AlertMessage 
-          type="error" 
-          message={error} 
+        <AlertMessage
+          type="error"
+          message={error}
           onClose={clearMessages}
         />
       )}
 
       {success && (
-        <AlertMessage 
-          type="success" 
-          message={success} 
+        <AlertMessage
+          type="success"
+          message={success}
           onClose={clearMessages}
         />
       )}

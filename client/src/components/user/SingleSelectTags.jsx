@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
+import { API_BASE_URL } from '@/config/api';
 import './css/MultiSelectTags.css';
 import { FILE_TAGS } from './fileTags';
 
@@ -19,9 +20,9 @@ const SingleSelectTags = ({ selectedTag, onChange, disabled, user }) => {
   const fetchCustomTags = async () => {
     try {
       setIsLoadingTags(true);
-      const response = await fetch('http://localhost:3001/api/custom-tags');
+      const response = await fetch(`${API_BASE_URL}/api/custom-tags`);
       const data = await response.json();
-      
+
       if (data.success) {
         setCustomTags(data.tags || []);
       }
@@ -45,7 +46,7 @@ const SingleSelectTags = ({ selectedTag, onChange, disabled, user }) => {
 
   // Combine default tags with custom tags, filter out "Add New"
   const allTags = [...customTags, ...FILE_TAGS.filter(tag => tag !== 'Add New')];
-  
+
   // Remove duplicates and filter by search query
   const filteredTags = [...new Set(allTags)]
     .filter(tag => tag.toLowerCase().includes(searchQuery.toLowerCase()));
@@ -70,47 +71,47 @@ const SingleSelectTags = ({ selectedTag, onChange, disabled, user }) => {
       console.error('Tag name is empty');
       return;
     }
-    
+
     if (!user || !user.id) {
       console.error('User not available:', user);
       alert('Error: User information not available. Please refresh the page and try again.');
       return;
     }
-    
+
     console.log('Adding custom tag:', trimmedTag, 'for user:', user.id);
-    
+
     try {
-        const response = await fetch('http://localhost:3001/api/custom-tags', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            tagName: trimmedTag,
-            userId: user.id
-          })
-        });
+      const response = await fetch(`${API_BASE_URL}/api/custom-tags`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          tagName: trimmedTag,
+          userId: user.id
+        })
+      });
 
-        const data = await response.json();
-        console.log('API Response:', data);
+      const data = await response.json();
+      console.log('API Response:', data);
 
-        if (data.success) {
-          // Refresh custom tags list
-          await fetchCustomTags();
-          
-          // Apply the tag
-          onChange(trimmedTag);
-          setCustomTagInput('');
-          setShowCustomTagModal(false);
-          console.log('✅ Tag added successfully!');
-        } else {
-          console.error('Failed to add custom tag:', data.message);
-          alert(`Error: ${data.message || 'Failed to add custom tag'}`);
-        }
-      } catch (error) {
-        console.error('Error adding custom tag:', error);
-        alert(`Error: ${error.message || 'Failed to connect to server'}`);
+      if (data.success) {
+        // Refresh custom tags list
+        await fetchCustomTags();
+
+        // Apply the tag
+        onChange(trimmedTag);
+        setCustomTagInput('');
+        setShowCustomTagModal(false);
+        console.log('✅ Tag added successfully!');
+      } else {
+        console.error('Failed to add custom tag:', data.message);
+        alert(`Error: ${data.message || 'Failed to add custom tag'}`);
       }
+    } catch (error) {
+      console.error('Error adding custom tag:', error);
+      alert(`Error: ${error.message || 'Failed to connect to server'}`);
+    }
   };
 
   const handleCustomTagCancel = () => {
@@ -121,7 +122,7 @@ const SingleSelectTags = ({ selectedTag, onChange, disabled, user }) => {
   return (
     <>
       <div className="user-multi-select-tags-component multi-select-container" ref={dropdownRef}>
-        <div 
+        <div
           className={`multi-select-input ${isOpen ? 'open' : ''} ${disabled ? 'disabled' : ''}`}
           onClick={() => !disabled && setIsOpen(!isOpen)}
         >
@@ -144,12 +145,12 @@ const SingleSelectTags = ({ selectedTag, onChange, disabled, user }) => {
               </span>
             )}
           </div>
-          <svg 
-            className={`dropdown-arrow ${isOpen ? 'open' : ''}`} 
-            viewBox="0 0 24 24" 
+          <svg
+            className={`dropdown-arrow ${isOpen ? 'open' : ''}`}
+            viewBox="0 0 24 24"
             fill="currentColor"
           >
-            <path d="M7.41,8.58L12,13.17L16.59,8.58L18,10L12,16L6,10L7.41,8.58Z"/>
+            <path d="M7.41,8.58L12,13.17L16.59,8.58L18,10L12,16L6,10L7.41,8.58Z" />
           </svg>
         </div>
 
@@ -158,7 +159,7 @@ const SingleSelectTags = ({ selectedTag, onChange, disabled, user }) => {
             <div className="search-container">
               <div className="search-input-wrapper">
                 <svg className="search-icon" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M9.5,3A6.5,6.5 0 0,1 16,9.5C16,11.11 15.41,12.59 14.44,13.73L14.71,14H15.5L20.5,19L19,20.5L14,15.5V14.71L13.73,14.44C12.59,15.41 11.11,16 9.5,16A6.5,6.5 0 0,1 3,9.5A6.5,6.5 0 0,1 9.5,3M9.5,5C7,5 5,7 5,9.5C5,12 7,14 9.5,14C12,14 14,12 14,9.5C14,7 12,5 9.5,5Z"/>
+                  <path d="M9.5,3A6.5,6.5 0 0,1 16,9.5C16,11.11 15.41,12.59 14.44,13.73L14.71,14H15.5L20.5,19L19,20.5L14,15.5V14.71L13.73,14.44C12.59,15.41 11.11,16 9.5,16A6.5,6.5 0 0,1 3,9.5A6.5,6.5 0 0,1 9.5,3M9.5,5C7,5 5,7 5,9.5C5,12 7,14 9.5,14C12,14 14,12 14,9.5C14,7 12,5 9.5,5Z" />
                 </svg>
                 <input
                   type="text"
@@ -175,7 +176,7 @@ const SingleSelectTags = ({ selectedTag, onChange, disabled, user }) => {
                 className="add-new-btn"
               >
                 <svg viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M19,13H13V19H11V13H5V11H11V5H13V11H19V13Z"/>
+                  <path d="M19,13H13V19H11V13H5V11H11V5H13V11H19V13Z" />
                 </svg>
                 Add New
               </button>
@@ -224,11 +225,11 @@ const SingleSelectTags = ({ selectedTag, onChange, disabled, user }) => {
               <h3>Add Custom Tag</h3>
               <button className="modal-close" onClick={handleCustomTagCancel}>
                 <svg viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M19,6.41L17.59,5L12,10.59L6.41,5L5,6.41L10.59,12L5,17.59L6.41,19L12,13.41L17.59,19L19,17.59L13.41,12L19,6.41Z"/>
+                  <path d="M19,6.41L17.59,5L12,10.59L6.41,5L5,6.41L10.59,12L5,17.59L6.41,19L12,13.41L17.59,19L19,17.59L13.41,12L19,6.41Z" />
                 </svg>
               </button>
             </div>
-            
+
             <div className="modal-body">
               <label className="custom-tag-label">Enter your custom tag:</label>
               <input
@@ -245,7 +246,7 @@ const SingleSelectTags = ({ selectedTag, onChange, disabled, user }) => {
                 autoFocus
               />
             </div>
-            
+
             <div className="modal-footer">
               <button
                 type="button"

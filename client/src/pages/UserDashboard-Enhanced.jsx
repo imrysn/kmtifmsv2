@@ -1,4 +1,5 @@
 import { useState, useEffect, Suspense, lazy } from 'react'
+import { API_BASE_URL } from '@/config/api'
 import '../css/UserDashboard.css'
 import SkeletonLoader from '../components/common/SkeletonLoader'
 import { AlertMessage, ToastNotification } from '../components/shared'
@@ -31,9 +32,9 @@ const UserDashboard = ({ user, onLogout }) => {
   const fetchUserFiles = async () => {
     setIsLoading(true)
     try {
-      const response = await fetch(`http://localhost:3001/api/files/user/${user.id}`)
+      const response = await fetch(`${API_BASE_URL}/api/files/user/${user.id}`)
       const data = await response.json()
-      
+
       if (data.success) {
         setFiles(data.files || [])
       } else {
@@ -55,7 +56,7 @@ const UserDashboard = ({ user, onLogout }) => {
     // Fetch notifications only once on mount
     const fetchNotifications = async () => {
       try {
-        const response = await fetch(`http://localhost:3001/api/notifications/user/${user.id}`)
+        const response = await fetch(`${API_BASE_URL}/api/notifications/user/${user.id}`)
         const data = await response.json()
         if (data.success) {
           setNotificationCount(data.unreadCount || 0)
@@ -112,10 +113,10 @@ const UserDashboard = ({ user, onLogout }) => {
   const openFileModal = async (file) => {
     setSelectedFile(file)
     setShowFileModal(true)
-    
+
     // Fetch comments for this file
     try {
-      const response = await fetch(`http://localhost:3001/api/files/${file.id}/comments`)
+      const response = await fetch(`${API_BASE_URL}/api/files/${file.id}/comments`)
       const data = await response.json()
       if (data.success) {
         setFileComments(data.comments || [])
@@ -129,13 +130,13 @@ const UserDashboard = ({ user, onLogout }) => {
   const openFileByIdFromNotification = async (fileId) => {
     try {
       // Fetch the specific file
-      const response = await fetch(`http://localhost:3001/api/files/user/${user.id}`)
+      const response = await fetch(`${API_BASE_URL}/api/files/user/${user.id}`)
       const data = await response.json()
 
-      
+
       if (data.success && data.files) {
         const file = data.files.find(f => f.id === parseInt(fileId))
-        
+
         if (file) {
           // Switch to My Files tab
           setActiveTab('my-files')
@@ -164,7 +165,7 @@ const UserDashboard = ({ user, onLogout }) => {
   }
 
   const handleToastNavigation = async (tabName, contextData) => {
-    
+
     if (tabName === 'my-files' && contextData) {
       // For file notifications, open the file modal directly
       await openFileByIdFromNotification(contextData);
@@ -203,7 +204,7 @@ const UserDashboard = ({ user, onLogout }) => {
     switch (activeTab) {
       case 'dashboard':
         return (
-          <DashboardTab 
+          <DashboardTab
             user={user}
             files={files}
             setActiveTab={setActiveTab}
@@ -218,7 +219,7 @@ const UserDashboard = ({ user, onLogout }) => {
       case 'my-files':
         return (
           <Suspense fallback={<SkeletonLoader type="myfiles" />}>
-            <MyFilesTab 
+            <MyFilesTab
               filteredFiles={filteredFiles}
               isLoading={isLoading}
               filterStatus={filterStatus}
@@ -236,8 +237,8 @@ const UserDashboard = ({ user, onLogout }) => {
       case 'notification':
         return (
           <Suspense fallback={<SkeletonLoader type="list" />}>
-            <NotificationTab 
-              user={user} 
+            <NotificationTab
+              user={user}
               onOpenFile={openFileByIdFromNotification}
               onNavigateToTasks={navigateToTasks}
               onUpdateUnreadCount={setNotificationCount}
@@ -266,54 +267,54 @@ const UserDashboard = ({ user, onLogout }) => {
   return (
     <Suspense fallback={<SkeletonLoader type="dashboard" />}>
       <div className="minimal-dashboard user-dashboard">
-      <Sidebar 
-        activeTab={activeTab}
-        setActiveTab={handleTabChange}
-        filesCount={files.filter(f => f.status === 'uploaded' || f.status === 'team_leader_approved' || f.status === 'final_approved').length}
-        notificationCount={notificationCount}
-        onLogout={handleLogout}
-        user={user}
-      />
+        <Sidebar
+          activeTab={activeTab}
+          setActiveTab={handleTabChange}
+          filesCount={files.filter(f => f.status === 'uploaded' || f.status === 'team_leader_approved' || f.status === 'final_approved').length}
+          notificationCount={notificationCount}
+          onLogout={handleLogout}
+          user={user}
+        />
 
-      {/* Main Content */}
-      <div className="main-content">
-        <div className="dashboard-content">
-          {/* Alert Messages */}
-          <AlertMessage 
-            type="error" 
-            message={error} 
-            onClose={clearMessages}
-          />
-          <AlertMessage 
-            type="success" 
-            message={success} 
-            onClose={clearMessages}
-          />
+        {/* Main Content */}
+        <div className="main-content">
+          <div className="dashboard-content">
+            {/* Alert Messages */}
+            <AlertMessage
+              type="error"
+              message={error}
+              onClose={clearMessages}
+            />
+            <AlertMessage
+              type="success"
+              message={success}
+              onClose={clearMessages}
+            />
 
-          {/* Render Active Tab */}
-          {renderActiveTab()}
+            {/* Render Active Tab */}
+            {renderActiveTab()}
+          </div>
         </div>
-      </div>
 
-      {/* File Details Modal */}
-      {showFileModal && (
-        <Suspense fallback={<div />}>
-          <FileModal 
-            showFileModal={showFileModal}
-            setShowFileModal={setShowFileModal}
-            selectedFile={selectedFile}
-            fileComments={fileComments}
-            formatFileSize={formatFileSize}
-          />
-        </Suspense>
-      )}
+        {/* File Details Modal */}
+        {showFileModal && (
+          <Suspense fallback={<div />}>
+            <FileModal
+              showFileModal={showFileModal}
+              setShowFileModal={setShowFileModal}
+              selectedFile={selectedFile}
+              fileComments={fileComments}
+              formatFileSize={formatFileSize}
+            />
+          </Suspense>
+        )}
 
-      {/* Toast Notifications */}
-      <ToastNotification 
-        notifications={notifications}
-        onNavigate={handleToastNavigation}
-        role="user"
-      />
+        {/* Toast Notifications */}
+        <ToastNotification
+          notifications={notifications}
+          onNavigate={handleToastNavigation}
+          role="user"
+        />
       </div>
     </Suspense>
   )

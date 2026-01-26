@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback, memo } from 'react';
+import { API_BASE_URL } from '@/config/api';
 import './Notifications.css';
 import FileIcon from '../shared/FileIcon';
 import { useTaskbarFlash } from '../../utils/useTaskbarFlash';
@@ -134,7 +135,7 @@ const Notifications = ({ user, onNavigate }) => {
       }
 
       const response = await fetch(
-        `http://localhost:3001/api/notifications/user/${user.id}?page=${pageNum}&limit=${limit}`
+        `${API_BASE_URL}/api/notifications/user/${user.id}?page=${pageNum}&limit=${limit}`
       );
       const data = await response.json();
 
@@ -195,7 +196,7 @@ const Notifications = ({ user, onNavigate }) => {
 
   const markAsRead = async (notificationId) => {
     try {
-      const response = await fetch(`http://localhost:3001/api/notifications/${notificationId}/read`, {
+      const response = await fetch(`${API_BASE_URL}/api/notifications/${notificationId}/read`, {
         method: 'PUT'
       });
 
@@ -214,7 +215,7 @@ const Notifications = ({ user, onNavigate }) => {
 
   const markAllAsRead = async () => {
     try {
-      const response = await fetch(`http://localhost:3001/api/notifications/user/${user.id}/read-all`, {
+      const response = await fetch(`${API_BASE_URL}/api/notifications/user/${user.id}/read-all`, {
         method: 'PUT'
       });
 
@@ -231,7 +232,7 @@ const Notifications = ({ user, onNavigate }) => {
 
   const deleteNotification = async (notificationId) => {
     try {
-      const response = await fetch(`http://localhost:3001/api/notifications/${notificationId}`, {
+      const response = await fetch(`${API_BASE_URL}/api/notifications/${notificationId}`, {
         method: 'DELETE'
       });
 
@@ -253,7 +254,7 @@ const Notifications = ({ user, onNavigate }) => {
   const handleDeleteAll = async () => {
     setIsDeleting(true);
     try {
-      const response = await fetch(`http://localhost:3001/api/notifications/user/${user.id}/delete-all`, {
+      const response = await fetch(`${API_BASE_URL}/api/notifications/user/${user.id}/delete-all`, {
         method: 'DELETE'
       });
 

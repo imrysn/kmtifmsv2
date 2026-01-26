@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { API_BASE_URL } from '@/config/api'
 import './Settings.css'
 import { AlertMessage, ConfirmationModal } from './modals'
 import { SkeletonLoader } from '../common/SkeletonLoader'
@@ -8,7 +9,7 @@ import { withErrorBoundary } from '../common'
 const Settings = ({ clearMessages, error, success, setError, setSuccess, users, user }) => {
   const { user: authUser } = useAuth()
   const { isConnected } = useNetwork()
-  
+
   const [isLoading, setIsLoading] = useState(false)
   const [teams, setTeams] = useState([])
   const [teamsLoading, setTeamsLoading] = useState(false)
@@ -41,7 +42,7 @@ const Settings = ({ clearMessages, error, success, setError, setSuccess, users, 
           setAppVersion(`v${version}`)
         } else {
           // Fallback: try to get from package.json via API
-          const response = await fetch('http://localhost:3001/api/version')
+          const response = await fetch(`${API_BASE_URL}/api/version`)
           const data = await response.json()
           if (data.success && data.version) {
             setAppVersion(`v${data.version}`)
@@ -71,7 +72,7 @@ const Settings = ({ clearMessages, error, success, setError, setSuccess, users, 
   const fetchSettings = async () => {
     setIsLoadingSettings(true)
     try {
-      const response = await fetch('http://localhost:3001/api/settings/root_directory')
+      const response = await fetch(`${API_BASE_URL}/api/settings/root_directory`)
       const data = await response.json()
       if (data.success && data.setting) {
         setSettings(prev => ({
@@ -97,12 +98,12 @@ const Settings = ({ clearMessages, error, success, setError, setSuccess, users, 
       console.log('Browse button clicked');
       console.log('window.electron available:', !!window.electron);
       console.log('window.electron.openDirectoryDialog available:', !!(window.electron && window.electron.openDirectoryDialog));
-      
+
       if (window.electron && window.electron.openDirectoryDialog) {
         console.log('Opening Electron directory dialog...');
         const result = await window.electron.openDirectoryDialog()
         console.log('Dialog result:', result);
-        
+
         if (!result.canceled && result.filePaths && result.filePaths.length > 0) {
           const selectedPath = result.filePaths[0]
           console.log('Selected path:', selectedPath);
@@ -132,10 +133,10 @@ const Settings = ({ clearMessages, error, success, setError, setSuccess, users, 
       setError('Root directory path is required')
       return
     }
-    
+
     setIsLoading(true)
     try {
-      const response = await fetch('http://localhost:3001/api/settings/root_directory', {
+      const response = await fetch(`${API_BASE_URL}/api/settings/root_directory`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -181,7 +182,7 @@ const Settings = ({ clearMessages, error, success, setError, setSuccess, users, 
   const fetchTeams = async () => {
     setTeamsLoading(true)
     try {
-      const response = await fetch('http://localhost:3001/api/teams')
+      const response = await fetch(`${API_BASE_URL}/api/teams`)
       const data = await response.json()
       if (data.success) {
         setTeams(data.teams || [])
@@ -203,7 +204,7 @@ const Settings = ({ clearMessages, error, success, setError, setSuccess, users, 
 
     setIsLoading(true)
     try {
-      const response = await fetch('http://localhost:3001/api/teams', {
+      const response = await fetch(`${API_BASE_URL}/api/teams`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -235,7 +236,7 @@ const Settings = ({ clearMessages, error, success, setError, setSuccess, users, 
 
     setIsLoading(true)
     try {
-      const response = await fetch(`http://localhost:3001/api/teams/${editingTeam.id}`, {
+      const response = await fetch(`${API_BASE_URL}/api/teams/${editingTeam.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -269,7 +270,7 @@ const Settings = ({ clearMessages, error, success, setError, setSuccess, users, 
 
     setIsLoading(true)
     try {
-      const response = await fetch(`http://localhost:3001/api/teams/${teamId}`, { method: 'DELETE' })
+      const response = await fetch(`${API_BASE_URL}/api/teams/${teamId}`, { method: 'DELETE' })
       const data = await response.json()
       if (data.success) {
         setSuccess(`Team '${teamName}' deleted successfully`)
@@ -303,25 +304,25 @@ const Settings = ({ clearMessages, error, success, setError, setSuccess, users, 
 
   return (
     <div className={`settings-section ${isLoading ? 'loading-cursor' : ''}`}>
-      
+
       {error && (
-        <AlertMessage 
-          type="error" 
-          message={error} 
+        <AlertMessage
+          type="error"
+          message={error}
           onClose={clearMessages}
         />
       )}
-      
+
       {success && (
-        <AlertMessage 
-          type="success" 
-          message={success} 
+        <AlertMessage
+          type="success"
+          message={success}
           onClose={clearMessages}
         />
       )}
-      
+
       <div className="settings-grid">
-        
+
         <div className="settings-card">
           <div className="settings-card-header">
             <h3>File Management</h3>
@@ -358,7 +359,7 @@ const Settings = ({ clearMessages, error, success, setError, setSuccess, users, 
             </div>
           </div>
         </div>
-        
+
         <div className="settings-card team-management-card">
           <div className="settings-card-header">
             <h3>Team Management</h3>
@@ -383,8 +384,8 @@ const Settings = ({ clearMessages, error, success, setError, setSuccess, users, 
                     value={newTeam.leaderId}
                     onChange={(e) => {
                       const selectedUser = getTeamLeaderOptions().find(u => u.id == e.target.value)
-                      setNewTeam(prev => ({ 
-                        ...prev, 
+                      setNewTeam(prev => ({
+                        ...prev,
                         leaderId: e.target.value,
                         leaderUsername: selectedUser ? selectedUser.username : ''
                       }))
@@ -409,7 +410,7 @@ const Settings = ({ clearMessages, error, success, setError, setSuccess, users, 
                 </button>
               </div>
             </div>
-            
+
             <div className="team-section">
               <h4>Existing Teams ({teams.length})</h4>
               {teamsLoading ? (
@@ -445,8 +446,8 @@ const Settings = ({ clearMessages, error, success, setError, setSuccess, users, 
                                   value={editingTeam.leader_id || ''}
                                   onChange={(e) => {
                                     const selectedUser = getTeamLeaderOptions().find(u => u.id == e.target.value)
-                                    setEditingTeam(prev => ({ 
-                                      ...prev, 
+                                    setEditingTeam(prev => ({
+                                      ...prev,
                                       leader_id: e.target.value,
                                       leader_username: selectedUser ? selectedUser.username : ''
                                     }))
