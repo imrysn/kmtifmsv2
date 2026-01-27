@@ -3,6 +3,7 @@ import { API_BASE_URL } from '@/config/api';
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import SuccessModal from './SuccessModal';
+import FileOpenModal from '../shared/FileOpenModal';
 import { FileIcon } from '../shared';
 import { usePagination } from '../../hooks';
 import { Trash2 } from 'lucide-react';
@@ -19,6 +20,8 @@ const MyFilesTab = ({
   const [successModal, setSuccessModal] = useState({ isOpen: false, title: '', message: '', type: 'success' });
   const [deleteModal, setDeleteModal] = useState({ isOpen: false, fileId: null, fileName: '' });
   const [isDeleting, setIsDeleting] = useState(false);
+  const [showOpenFileModal, setShowOpenFileModal] = useState(false);
+  const [fileToOpen, setFileToOpen] = useState(null);
 
   // Calculate submittedFiles FIRST (before pagination hook uses it)
   const submittedFiles = useMemo(() =>
@@ -43,10 +46,7 @@ const MyFilesTab = ({
     resetPagination
   } = usePagination(submittedFiles, itemsPerPage);
 
-  // Double-click detection
-  const clickTimerRef = useRef(null);
-  const lastClickedFileRef = useRef(null);
-  const DOUBLE_CLICK_DELAY = 300; // milliseconds
+
 
   const openFile = useCallback(async (file) => {
     try {
@@ -85,35 +85,17 @@ const MyFilesTab = ({
 
   const handleFileClick = useCallback((file, e) => {
     e.stopPropagation();
-
-    // Clear any existing timer
-    if (clickTimerRef.current) {
-      clearTimeout(clickTimerRef.current);
-    }
-
-    // Check if this is a double-click (same file clicked twice quickly)
-    if (lastClickedFileRef.current === file.id) {
-      // Double-click detected - open file
-      lastClickedFileRef.current = null;
-      openFile(file);
-    } else {
-      // Single click - just set the reference, don't open modal
-      lastClickedFileRef.current = file.id;
-      clickTimerRef.current = setTimeout(() => {
-        // Reset after delay
-        lastClickedFileRef.current = null;
-      }, DOUBLE_CLICK_DELAY);
-    }
-  }, [openFile]);
-
-  // Cleanup timer on unmount
-  useEffect(() => {
-    return () => {
-      if (clickTimerRef.current) {
-        clearTimeout(clickTimerRef.current);
-      }
-    };
+    setFileToOpen(file);
+    setShowOpenFileModal(true);
   }, []);
+
+  const handleOpenFile = useCallback(async () => {
+    if (fileToOpen) {
+      await openFile(fileToOpen);
+      setShowOpenFileModal(false);
+      setFileToOpen(null);
+    }
+  }, [fileToOpen, openFile]);
 
   const getStatusDisplayName = useCallback((dbStatus) => {
     if (!dbStatus) return 'Pending';
@@ -447,7 +429,7 @@ const MyFilesTab = ({
                   key={file.id}
                   className="file-row-new"
                   onClick={(e) => handleFileClick(file, e)}
-                  title="Double click to open file"
+                  title="Click to open file"
                 >
                   <div className="col-filename">
                     <FileIcon
@@ -575,6 +557,17 @@ const MyFilesTab = ({
         title={successModal.title}
         message={successModal.message}
         type={successModal.type}
+      />
+
+      {/* File Open Modal */}
+      <FileOpenModal
+        isOpen={showOpenFileModal}
+        onClose={() => {
+          setShowOpenFileModal(false);
+          setFileToOpen(null);
+        }}
+        onConfirm={handleOpenFile}
+        file={fileToOpen}
       />
 
       {/* Custom Delete Confirmation Modal */}

@@ -43,6 +43,7 @@ body {
     opacity: 0;
     transform: scale(0.95);
   }
+
   to {
     opacity: 1;
     transform: scale(1);
@@ -67,6 +68,7 @@ body {
     opacity: 0;
     transform: translateX(-20px);
   }
+
   to {
     opacity: 1;
     transform: translateX(0);
@@ -128,6 +130,7 @@ body {
     opacity: 0;
     transform: translateX(20px);
   }
+
   to {
     opacity: 1;
     transform: translateX(0);
@@ -357,12 +360,12 @@ body {
   background: white;
 }
 
-.remember-me input[type="checkbox"]:checked + .checkmark {
+.remember-me input[type="checkbox"]:checked+.checkmark {
   background: #fff;
   border-color: #E5E7EB;
 }
 
-.remember-me input[type="checkbox"]:checked + .checkmark::after {
+.remember-me input[type="checkbox"]:checked+.checkmark::after {
   content: '✓';
   color: #1075e9;
   font-size: 20px;
@@ -427,7 +430,6 @@ body {
 
 .login-button:hover:not(:disabled) {
   background: #000000;
-  transform: translateY(-1px);
   box-shadow: 0 4px 8px rgba(47, 46, 58, 0.3);
 }
 
@@ -456,7 +458,9 @@ body {
 }
 
 @keyframes spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 /* Responsive Design */
@@ -464,7 +468,7 @@ body {
   .main-login-card {
     max-width: 900px;
   }
-  
+
   .login-section {
     flex: 0 0 380px;
   }
@@ -476,41 +480,41 @@ body {
     max-width: 500px;
     min-height: auto;
   }
-  
+
   .welcome-section {
     flex: 0 0 250px;
     padding: 32px 24px;
     border-right: none;
     border-bottom: 1px solid #E5E7EB;
   }
-  
+
   .welcome-content {
     gap: 24px;
   }
-  
+
   .login-logo {
     width: 120px;
     height: 120px;
   }
-  
+
   .system-name p {
     font-size: 20px;
   }
-  
+
   .login-section {
     flex: 1;
     padding: 32px 24px;
   }
-  
+
   .login-form-container {
     max-width: none;
   }
-  
+
   .toggle-switch {
     width: 180px;
     height: 34px;
   }
-  
+
   .toggle-slider {
     height: 28px;
     font-size: 12px;
@@ -521,48 +525,48 @@ body {
   .unified-login-container {
     padding: 16px;
   }
-  
+
   .main-login-card {
     max-width: none;
   }
-  
+
   .welcome-section {
     flex: 0 0 200px;
     padding: 24px 16px;
   }
-  
+
   .login-logo {
     width: 100px;
     height: 100px;
   }
-  
+
   .system-name p {
     font-size: 18px;
   }
-  
+
   .login-section {
     padding: 24px 16px;
   }
-  
+
   .login-header h2 {
     font-size: 24px;
   }
-  
+
   .form-options {
     flex-direction: column;
     gap: 16px;
     align-items: stretch;
   }
-  
+
   .forgot-password {
     text-align: center;
   }
-  
+
   .toggle-switch {
     width: 160px;
     height: 32px;
   }
-  
+
   .toggle-slider {
     height: 26px;
     font-size: 11px;
@@ -571,6 +575,7 @@ body {
 
 /* Accessibility */
 @media (prefers-reduced-motion: reduce) {
+
   *,
   *::before,
   *::after {
@@ -578,13 +583,13 @@ body {
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
-  
+
   .main-login-card,
   .welcome-section,
   .login-section {
     animation: none !important;
   }
-  
+
   .toggle-slider {
     transition: none !important;
   }
