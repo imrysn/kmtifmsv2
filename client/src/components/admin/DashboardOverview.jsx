@@ -4,8 +4,8 @@ import './DashboardOverview.css'
 import { SkeletonLoader } from '../common/SkeletonLoader'
 import { useAuth, useNetwork } from '../../contexts'
 import { withErrorBoundary } from '../common'
-import ApprovalTrendChart from './charts/ApprovalTrendChart'
-import FileTypesPieChart from './charts/FileTypesPieChart'
+import AnimatedTrendChart from './charts/AnimatedTrendChart'
+import AnimatedPieChart from './charts/AnimatedPieChart'
 
 const DashboardOverview = ({ user, users }) => {
   const { user: authUser } = useAuth()
@@ -214,7 +214,7 @@ const DashboardOverview = ({ user, users }) => {
               <h3>File Approval Trends</h3>
             </div>
             <div className="chart-content">
-              <ApprovalTrendChart trends={summary.approvalTrends} loading={loading} />
+              <AnimatedTrendChart trends={summary.approvalTrends} loading={loading} />
             </div>
           </div>
 
@@ -224,7 +224,7 @@ const DashboardOverview = ({ user, users }) => {
               <span style={{ fontSize: '12px', color: 'var(--text-tertiary)' }}>All file types tracked</span>
             </div>
             <div className="chart-content">
-              <FileTypesPieChart fileTypes={summary.fileTypes} loading={loading} />
+              <AnimatedPieChart fileTypes={summary.fileTypes} loading={loading} />
             </div>
           </div>
         </div>

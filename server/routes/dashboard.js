@@ -95,16 +95,20 @@ router.get('/summary', (req, res) => {
                               };
 
                               // Approval trends - Last 30 days of daily approval/rejection activity
+                              // Fixed: Using SQLite syntax instead of MySQL
+                              const thirtyDaysAgo = new Date();
+                              thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
                               db.all(
                                 `SELECT 
                                   DATE(uploaded_at) as date,
                                   SUM(CASE WHEN status = 'final_approved' OR current_stage = 'published_to_public' THEN 1 ELSE 0 END) as approved,
                                   SUM(CASE WHEN status LIKE 'rejected%' OR current_stage LIKE 'rejected%' THEN 1 ELSE 0 END) as rejected
                                 FROM files
-                                WHERE uploaded_at >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
+                                WHERE uploaded_at >= ?
                                 GROUP BY DATE(uploaded_at)
                                 ORDER BY date ASC`,
-                                [],
+                                [thirtyDaysAgo.toISOString()],
                                 (err, trends) => {
                                   if (err) {
                                     console.error('Error fetching approval trends:', err);
@@ -115,7 +119,7 @@ router.get('/summary', (req, res) => {
                                       const d = new Date(t.date);
                                       const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
                                       return {
-                                        day: `${monthNames[d.getMonth()]} ${d.getDate()}`,
+                                        month: `${monthNames[d.getMonth()]} ${d.getDate()}`,
                                         date: t.date,
                                         approved: t.approved || 0,
                                         rejected: t.rejected || 0

@@ -1,0 +1,152 @@
+/**
+ * Glassmorphism UI Effects
+ * Modern frosted glass aesthetic with backdrop blur
+ */
+
+/* Base glass card effect */
+.glass-card {
+    background: rgba(255, 255, 255, 0.7);
+    backdrop-filter: blur(10px) saturate(180%);
+    -webkit-backdrop-filter: blur(10px) saturate(180%);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.15);
+    transition: transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease, background 0.3s ease;
+    will-change: transform, box-shadow;
+    /* Hint to browser for optimization */
+}
+
+/* Fallback for browsers that don't support backdrop-filter */
+@supports not (backdrop-filter: blur(10px)) {
+    .glass-card {
+        background: rgba(255, 255, 255, 0.95);
+    }
+}
+
+/* Glass card hover state */
+.glass-card:hover {
+    background: rgba(255, 255, 255, 0.8);
+    border-color: rgba(255, 255, 255, 0.4);
+    box-shadow: 0 12px 40px 0 rgba(31, 38, 135, 0.2);
+    transform: translateY(-2px);
+}
+
+/* Stronger glass effect */
+.glass-card-strong {
+    background: rgba(255, 255, 255, 0.85);
+    backdrop-filter: blur(16px) saturate(200%);
+    -webkit-backdrop-filter: blur(16px) saturate(200%);
+    border: 1px solid rgba(255, 255, 255, 0.4);
+    box-shadow: 0 12px 48px 0 rgba(31, 38, 135, 0.2);
+}
+
+/* Subtle glass effect */
+.glass-card-subtle {
+    background: rgba(255, 255, 255, 0.5);
+    backdrop-filter: blur(8px) saturate(150%);
+    -webkit-backdrop-filter: blur(8px) saturate(150%);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    box-shadow: 0 4px 24px 0 rgba(31, 38, 135, 0.1);
+}
+
+/* Dark mode glass effects */
+@media (prefers-color-scheme: dark) {
+    .glass-card {
+        background: rgba(30, 30, 30, 0.7);
+        border-color: rgba(255, 255, 255, 0.1);
+        box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+    }
+
+    .glass-card:hover {
+        background: rgba(40, 40, 40, 0.8);
+        border-color: rgba(255, 255, 255, 0.15);
+    }
+
+    .glass-card-strong {
+        background: rgba(30, 30, 30, 0.85);
+        border-color: rgba(255, 255, 255, 0.15);
+    }
+
+    .glass-card-subtle {
+        background: rgba(30, 30, 30, 0.5);
+        border-color: rgba(255, 255, 255, 0.08);
+    }
+
+    @supports not (backdrop-filter: blur(10px)) {
+        .glass-card {
+            background: rgba(30, 30, 30, 0.95);
+        }
+    }
+}
+
+/* Glass modal overlay */
+.glass-overlay {
+    background: rgba(0, 0, 0, 0.3);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+}
+
+/* Glass button */
+.glass-button {
+    background: rgba(255, 255, 255, 0.2);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    transition: transform 0.2s ease, background 0.2s ease, border-color 0.2s ease;
+}
+
+.glass-button:hover {
+    background: rgba(255, 255, 255, 0.3);
+    border-color: rgba(255, 255, 255, 0.5);
+    transform: scale(1.05);
+}
+
+/* Apply to existing dashboard cards */
+.stat-card,
+.chart-card,
+.section-card {
+    background: rgba(255, 255, 255, 0.7);
+    backdrop-filter: blur(10px) saturate(180%);
+    -webkit-backdrop-filter: blur(10px) saturate(180%);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    will-change: transform, box-shadow;
+}
+
+.stat-card:hover,
+.chart-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 40px 0 rgba(31, 38, 135, 0.2);
+}
+
+@supports not (backdrop-filter: blur(10px)) {
+
+    .stat-card,
+    .chart-card,
+    .section-card {
+        background: rgba(255, 255, 255, 0.95);
+    }
+}
+
+@media (prefers-color-scheme: dark) {
+
+    .stat-card,
+    .chart-card,
+    .section-card {
+        background: rgba(30, 30, 30, 0.7);
+        border-color: rgba(255, 255, 255, 0.1);
+    }
+
+    .stat-card:hover,
+    .chart-card:hover {
+        box-shadow: 0 12px 40px 0 rgba(0, 0, 0, 0.4);
+    }
+
+    @supports not (backdrop-filter: blur(10px)) {
+
+        .stat-card,
+        .chart-card,
+        .section-card {
+            background: rgba(30, 30, 30, 0.95);
+        }
+    }
+}

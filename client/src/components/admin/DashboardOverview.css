@@ -138,7 +138,8 @@
 }
 
 .chart-content {
-  min-height: 300px;
+  height: 350px;
+  min-height: 350px;
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -261,13 +262,14 @@
   .stats-grid {
     grid-template-columns: 1fr;
   }
-  
+
   .stat-number {
     font-size: 28px;
   }
 }
 
 @media (max-width: 844px) {
+
   /* Make all components smaller */
   .dashboard-overview {
     margin-top: 20px;
@@ -361,6 +363,7 @@
 }
 
 @media (max-width: 480px) {
+
   .stat-card,
   .chart-card,
   .section-card {

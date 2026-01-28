@@ -4,6 +4,8 @@ import App from './App.jsx'
 import ErrorBoundary from './components/ErrorBoundary.jsx'
 import './css/index.css'
 import './css/transitions.css'
+import './css/glassmorphism.css'
+import './css/micro-interactions.css'
 
 // Ensure React is available globally for debugging
 if (typeof window !== 'undefined') {
