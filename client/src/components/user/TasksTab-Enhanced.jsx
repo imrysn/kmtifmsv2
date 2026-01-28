@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { API_BASE_URL } from '@/config/api';
 import './css/TasksTab-Enhanced.css';
 import './css/TasksTab-Comments.css';
-import { FileIcon } from '../shared';
+import { FileIcon, FileOpenModal } from '../shared';
 import SingleSelectTags from './SingleSelectTags';
 import { LoadingTable, LoadingCards } from '../common/InlineSkeletonLoader';
 import SuccessModal from './SuccessModal';
@@ -1472,96 +1472,16 @@ const TasksTab = ({ user }) => {
         </div>
       )}
 
-      {/* Open File Confirmation Modal */}
-      {showOpenFileModal && fileToOpen && (
-        <div className="tasks-modal-overlay" onClick={() => setShowOpenFileModal(false)}>
-          <div className="tasks-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '500px' }}>
-            <div className="tasks-modal-header">
-              <h3 style={{ color: '#2563eb', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span style={{ fontSize: '24px' }}>📄</span>
-                Open File
-              </h3>
-              <button className="tasks-modal-close" onClick={() => setShowOpenFileModal(false)}>×</button>
-            </div>
-
-            <div className="tasks-modal-body">
-              <div style={{ padding: '20px 0' }}>
-                <p style={{ fontSize: '15px', color: '#374151', marginBottom: '16px', lineHeight: '1.6' }}>
-                  Do you want to open this file?
-                </p>
-                <div style={{
-                  backgroundColor: '#eff6ff',
-                  border: '1px solid #bfdbfe',
-                  borderRadius: '8px',
-                  padding: '12px 16px',
-                  marginBottom: '16px'
-                }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <span style={{ fontSize: '16px' }}>📄</span>
-                    <span style={{ fontSize: '14px', fontWeight: '500', color: '#1e40af' }}>
-                      {fileToOpen.original_name || fileToOpen.filename}
-                    </span>
-                  </div>
-                </div>
-                <p style={{ fontSize: '13px', color: '#6b7280', margin: 0 }}>
-                  The file will open in your default application.
-                </p>
-              </div>
-            </div>
-
-            <div className="tasks-modal-footer" style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
-              <button
-                onClick={() => setShowOpenFileModal(false)}
-                style={{
-                  padding: '10px 20px',
-                  borderRadius: '8px',
-                  border: '1px solid #dc2626',
-                  backgroundColor: '#ffffff',
-                  color: '#dc2626',
-                  fontSize: '14px',
-                  fontWeight: '500',
-                  cursor: 'pointer',
-                  transition: 'all 0.2s'
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.backgroundColor = '#fee2e2';
-                  e.currentTarget.style.borderColor = '#b91c1c';
-                  e.currentTarget.style.color = '#b91c1c';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.backgroundColor = '#ffffff';
-                  e.currentTarget.style.borderColor = '#dc2626';
-                  e.currentTarget.style.color = '#dc2626';
-                }}
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleOpenFile}
-                style={{
-                  padding: '10px 20px',
-                  borderRadius: '8px',
-                  border: 'none',
-                  backgroundColor: '#2563eb',
-                  color: '#ffffff',
-                  fontSize: '14px',
-                  fontWeight: '500',
-                  cursor: 'pointer',
-                  transition: 'all 0.2s',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '6px'
-                }}
-                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#1d4ed8'}
-                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#2563eb'}
-              >
-                <span>📂</span>
-                Open File
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* File Open Modal */}
+      <FileOpenModal
+        isOpen={showOpenFileModal}
+        onClose={() => {
+          setShowOpenFileModal(false)
+          setFileToOpen(null)
+        }}
+        onConfirm={handleOpenFile}
+        file={fileToOpen}
+      />
 
       {/* Submit Modal */}
       {showSubmitModal && currentAssignment && (

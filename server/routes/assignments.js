@@ -99,6 +99,7 @@ router.get('/admin/all', async (req, res) => {
           f.filename,
           f.file_type,
           f.file_path,
+          f.public_network_url,
           f.file_size,
           f.tag,
           f.description,
@@ -168,6 +169,7 @@ router.get('/team-leader/:team/all-submissions', async (req, res) => {
         f.filename,
         f.file_type,
         f.file_path,
+        f.public_network_url,
         f.file_size,
         f.uploaded_at,
         f.status,
@@ -270,6 +272,7 @@ router.get('/team/:team/all-tasks', async (req, res) => {
           f.filename,
           f.file_type,
           f.file_path,
+          f.public_network_url,
           f.file_size,
           f.tag,
           f.description,
@@ -367,6 +370,7 @@ router.get('/team-leader/:team', async (req, res) => {
           f.filename,
           f.file_type,
           f.file_path,
+          f.public_network_url,
           f.file_size,
           f.tag,
           f.description,
@@ -1757,7 +1761,7 @@ router.delete('/:assignmentId', async (req, res) => {
 
     console.log(`✅ Assignment ${assignmentId} has ${submittedFiles ? submittedFiles.length : 0} submitted file(s)`);
     console.log('ℹ️ Files will be kept in database and NAS - they will return to users\' "My Files"');
-    
+
     // ✅ IMPORTANT: Do NOT delete files from the files table
     // Files should persist after assignment deletion so users can access them in "My Files"
     // Only delete the assignment_submissions links (done below via cascade)

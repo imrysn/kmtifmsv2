@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { API_BASE_URL } from '@/config/api'
 import './css/AssignmentDetailsModal.css'
 import { getDisplayFileType } from '../../../utils/fileTypeUtils'
-import { ConfirmationModal } from '../../shared'
+import { ConfirmationModal, FileOpenModal } from '../../shared'
 
 const ReviewModal = ({
   showReviewModal,
@@ -23,15 +23,36 @@ const ReviewModal = ({
   const [isOpeningFile, setIsOpeningFile] = useState(false)
   const [showRejectConfirmation, setShowRejectConfirmation] = useState(false)
 
-  const handleOpenFile = async () => {
+  const [showOpenConfirmation, setShowOpenConfirmation] = useState(false)
+
+  const handleOpenFileClick = () => {
+    setShowOpenConfirmation(true)
+  }
+
+  const executeOpenFile = async () => {
     setIsOpeningFile(true)
+    setShowOpenConfirmation(false)
     try {
+      // Use public_network_url if available for approved files, otherwise use file_path
+      // This handles files that have been moved to the projects folder
+      let filePathToOpen = selectedFile.file_path
+      if (selectedFile.status === 'final_approved' && selectedFile.public_network_url) {
+        filePathToOpen = selectedFile.public_network_url
+      }
+
+      console.log('Opening file:', {
+        status: selectedFile.status,
+        originalPath: selectedFile.file_path,
+        publicUrl: selectedFile.public_network_url,
+        usingPath: filePathToOpen
+      })
+
       const response = await fetch(`${API_BASE_URL}/api/files/open-file`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ filePath: selectedFile.file_path })
+        body: JSON.stringify({ filePath: filePathToOpen })
       })
       const data = await response.json()
       if (!data.success) {
@@ -252,7 +273,7 @@ const ReviewModal = ({
               </button>
               <button
                 type="button"
-                onClick={handleOpenFile}
+                onClick={handleOpenFileClick}
                 className="btn btn-secondary-large"
                 disabled={isProcessing || isOpeningFile}
               >
@@ -282,6 +303,15 @@ const ReviewModal = ({
           Consider adding a comment to help the submitter understand why the file was rejected.
         </p>
       </ConfirmationModal>
+
+      {/* File Open Modal */}
+      <FileOpenModal
+        isOpen={showOpenConfirmation}
+        onClose={() => setShowOpenConfirmation(false)}
+        onConfirm={executeOpenFile}
+        file={selectedFile}
+        isLoading={isOpeningFile}
+      />
     </div>
   )
 }

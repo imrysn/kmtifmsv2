@@ -7,6 +7,7 @@ const { initializeDatabase, verifyUploadsDirectory } = require('./db/initialize'
 const runMigrations = require('./migrations/runMigrations');
 const { errorHandler, notFoundHandler, handleUnhandledRejection, handleUncaughtException } = require('./middleware/errorHandler');
 const { logRequest, logInfo, logError } = require('./utils/logger');
+const { apiLimiter, authLimiter, uploadLimiter } = require('./config/rateLimiter');
 
 // Hide console window on Windows when running as executable - MUST BE FIRST
 if (process.platform === 'win32' && process.pkg) {
@@ -69,6 +70,9 @@ setupMiddleware(app);
 // Add request logging
 app.use(logRequest);
 
+// Apply general API rate limiting to all /api routes
+app.use('/api/', apiLimiter);
+
 // Health check endpoint
 app.get('/api/health', (req, res) => {
   res.status(200).json({
@@ -99,13 +103,15 @@ app.get('/api/version', (req, res) => {
 });
 
 // Register routes
-app.use('/api/auth', authRoutes);
+// Auth routes with strict rate limiting
+app.use('/api/auth', authLimiter, authRoutes);
 app.use('/api/users', usersRoutes);
 app.use('/api/team-members', usersRoutes); // Alias for team members endpoint
 app.use('/api/teams', teamsRoutes);
 app.use('/api/activity-logs', activityLogsRoutes);
 app.use('/api/file-system', fileSystemRoutes);
-app.use('/api/files', filesRoutes);
+// File routes with upload rate limiting
+app.use('/api/files', uploadLimiter, filesRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/settings', settingsRoutes);
 app.use('/api/file-viewer', fileViewerRoutes);

@@ -4,6 +4,8 @@ import './DashboardOverview.css'
 import { SkeletonLoader } from '../common/SkeletonLoader'
 import { useAuth, useNetwork } from '../../contexts'
 import { withErrorBoundary } from '../common'
+import ApprovalTrendChart from './charts/ApprovalTrendChart'
+import FileTypesPieChart from './charts/FileTypesPieChart'
 
 const DashboardOverview = ({ user, users }) => {
   const { user: authUser } = useAuth()
@@ -182,7 +184,7 @@ const DashboardOverview = ({ user, users }) => {
               <div className="stat-number">{loading ? '—' : rejectedCount}</div>
               {!loading && (
                 <div className={`stat-change ${statChanges.rejected > 0 ? 'negative' :
-                    statChanges.rejected < 0 ? 'positive' : 'neutral'
+                  statChanges.rejected < 0 ? 'positive' : 'neutral'
                   }`}>
                   {formatStatChange(statChanges.rejected).text}
                 </div>
@@ -212,140 +214,7 @@ const DashboardOverview = ({ user, users }) => {
               <h3>File Approval Trends</h3>
             </div>
             <div className="chart-content">
-              {loading && <div style={{ padding: '1rem', textAlign: 'center' }}>Loading trends...</div>}
-              {!loading && (!summary.approvalTrends || summary.approvalTrends.length === 0) && (
-                <div style={{ padding: '1rem', textAlign: 'center' }}>No trend data available</div>
-              )}
-              {!loading && summary.approvalTrends && summary.approvalTrends.length > 0 && (
-                <svg width="100%" height="300" viewBox="0 0 700 300" preserveAspectRatio="xMidYMid meet" style={{ background: 'transparent' }}>
-                  {(() => {
-                    const trends = summary.approvalTrends.slice(-30) // Last 30 days
-                    const maxValue = Math.max(
-                      ...trends.map(t => Math.max(t.approved || 0, t.rejected || 0)),
-                      1
-                    )
-                    const padding = { left: 50, right: 50, top: 30, bottom: 50 }
-                    const chartWidth = 700 - padding.left - padding.right
-                    const chartHeight = 300 - padding.top - padding.bottom
-                    const stepX = chartWidth / Math.max(trends.length - 1, 1)
-
-                    // Calculate points for approved and rejected lines
-                    const approvedPoints = trends.map((t, i) => ({
-                      x: padding.left + i * stepX,
-                      y: padding.top + chartHeight - ((t.approved || 0) / maxValue) * chartHeight
-                    }))
-
-                    const rejectedPoints = trends.map((t, i) => ({
-                      x: padding.left + i * stepX,
-                      y: padding.top + chartHeight - ((t.rejected || 0) / maxValue) * chartHeight
-                    }))
-
-                    return (
-                      <>
-                        {/* Grid lines */}
-                        {[0, 0.25, 0.5, 0.75, 1].map((ratio) => {
-                          const y = padding.top + chartHeight - ratio * chartHeight
-                          return (
-                            <line
-                              key={ratio}
-                              x1={padding.left}
-                              y1={y}
-                              x2={padding.left + chartWidth}
-                              y2={y}
-                              stroke="#E5E7EB"
-                              strokeWidth="1"
-                              strokeDasharray="4 4"
-                            />
-                          )
-                        })}
-
-                        {/* Approved line */}
-                        {approvedPoints.map((point, i) => {
-                          if (i === 0) return null
-                          const prevPoint = approvedPoints[i - 1]
-                          return (
-                            <line
-                              key={`approved-${i}`}
-                              x1={prevPoint.x}
-                              y1={prevPoint.y}
-                              x2={point.x}
-                              y2={point.y}
-                              stroke="#10B981"
-                              strokeWidth="3"
-                            />
-                          )
-                        })}
-
-                        {/* Rejected line */}
-                        {rejectedPoints.map((point, i) => {
-                          if (i === 0) return null
-                          const prevPoint = rejectedPoints[i - 1]
-                          return (
-                            <line
-                              key={`rejected-${i}`}
-                              x1={prevPoint.x}
-                              y1={prevPoint.y}
-                              x2={point.x}
-                              y2={point.y}
-                              stroke="#EF4444"
-                              strokeWidth="3"
-                            />
-                          )
-                        })}
-
-                        {/* Approved points */}
-                        {approvedPoints.map((point, i) => (
-                          <circle
-                            key={`approved-point-${i}`}
-                            cx={point.x}
-                            cy={point.y}
-                            r="4"
-                            fill="#10B981"
-                          />
-                        ))}
-
-                        {/* Rejected points */}
-                        {rejectedPoints.map((point, i) => (
-                          <circle
-                            key={`rejected-point-${i}`}
-                            cx={point.x}
-                            cy={point.y}
-                            r="4"
-                            fill="#EF4444"
-                          />
-                        ))}
-
-                        {/* X-axis labels - Show every 5th day to avoid crowding */}
-                        {trends.map((t, i) => {
-                          if (i % 5 !== 0 && i !== trends.length - 1) return null
-                          const x = padding.left + i * stepX
-                          const label = t.day || t.date || `D${i + 1}`
-                          return (
-                            <text
-                              key={`label-${i}`}
-                              x={x}
-                              y={padding.top + chartHeight + 30}
-                              fontSize="11"
-                              fill="#6B7280"
-                              textAnchor="middle"
-                            >
-                              {label}
-                            </text>
-                          )
-                        })}
-
-                        {/* Legend */}
-                        <g transform={`translate(${padding.left}, 10)`}>
-                          <circle cx="0" cy="0" r="4" fill="#10B981" />
-                          <text x="10" y="4" fontSize="12" fill="#6B7280">Approved</text>
-                          <circle cx="80" cy="0" r="4" fill="#EF4444" />
-                          <text x="90" y="4" fontSize="12" fill="#6B7280">Rejected</text>
-                        </g>
-                      </>
-                    )
-                  })()}
-                </svg>
-              )}
+              <ApprovalTrendChart trends={summary.approvalTrends} loading={loading} />
             </div>
           </div>
 
@@ -355,59 +224,7 @@ const DashboardOverview = ({ user, users }) => {
               <span style={{ fontSize: '12px', color: 'var(--text-tertiary)' }}>All file types tracked</span>
             </div>
             <div className="chart-content">
-              {loading && <div style={{ padding: '1rem', textAlign: 'center' }}>Loading file types...</div>}
-              {!loading && summary.fileTypes.length === 0 && <div style={{ padding: '1rem', textAlign: 'center' }}>No file type data available</div>}
-              {!loading && summary.fileTypes.length > 0 && (
-                <>
-                  <svg width="100%" height="300" viewBox="0 0 200 200">
-                    {(() => {
-                      const total = summary.fileTypes.reduce((sum, t) => sum + t.count, 0)
-                      const colors = [
-                        '#6366F1', '#10B981', '#F59E0B', '#EF4444',
-                        '#8B5CF6', '#EC4899', '#06B6D4', '#84CC16',
-                        '#F97316', '#14B8A6', '#A855F7', '#F43F5E'
-                      ]
-                      let offset = 0
-                      return summary.fileTypes.map((fileType, i) => {
-                        const percentage = (fileType.count / total) * 100
-                        const dashArray = `${(percentage / 100) * 440} 440`
-                        const circle = (
-                          <circle
-                            key={fileType.file_type}
-                            cx="100"
-                            cy="100"
-                            r="70"
-                            fill="none"
-                            stroke={colors[i % colors.length] || '#999'}
-                            strokeWidth="30"
-                            strokeDasharray={dashArray}
-                            strokeDashoffset={-offset}
-                          />
-                        )
-                        offset += (percentage / 100) * 440
-                        return circle
-                      })
-                    })()}
-                  </svg>
-                  <div style={{ textAlign: 'center', marginTop: '1rem' }}>
-                    <div style={{ fontSize: '11px', color: 'var(--text-secondary)', display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: '8px' }}>
-                      {summary.fileTypes.map((t, i) => {
-                        const colors = [
-                          '#6366F1', '#10B981', '#F59E0B', '#EF4444',
-                          '#8B5CF6', '#EC4899', '#06B6D4', '#84CC16',
-                          '#F97316', '#14B8A6', '#A855F7', '#F43F5E'
-                        ]
-                        return (
-                          <span key={t.file_type} style={{ whiteSpace: 'nowrap' }}>
-                            <span style={{ color: colors[i % colors.length] || '#999' }}>■</span>
-                            &nbsp;{t.file_type || 'Unknown'} ({t.count})
-                          </span>
-                        )
-                      })}
-                    </div>
-                  </div>
-                </>
-              )}
+              <FileTypesPieChart fileTypes={summary.fileTypes} loading={loading} />
             </div>
           </div>
         </div>

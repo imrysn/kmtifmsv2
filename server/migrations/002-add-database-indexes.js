@@ -21,63 +21,76 @@ async function up() {
 
         const indexes = [
             // Users table
-            'CREATE INDEX IF NOT EXISTS idx_users_email ON users(email)',
-            'CREATE INDEX IF NOT EXISTS idx_users_username ON users(username)',
-            'CREATE INDEX IF NOT EXISTS idx_users_role ON users(role)',
-            'CREATE INDEX IF NOT EXISTS idx_users_team ON users(team)',
+            { name: 'idx_users_email', table: 'users', column: 'email' },
+            { name: 'idx_users_username', table: 'users', column: 'username' },
+            { name: 'idx_users_role', table: 'users', column: 'role' },
+            { name: 'idx_users_team', table: 'users', column: 'team' },
 
             // Files table
-            'CREATE INDEX IF NOT EXISTS idx_files_user_id ON files(user_id)',
-            'CREATE INDEX IF NOT EXISTS idx_files_status ON files(status)',
-            'CREATE INDEX IF NOT EXISTS idx_files_uploaded_at ON files(uploaded_at)',
-            'CREATE INDEX IF NOT EXISTS idx_files_user_team ON files(user_team)',
-            'CREATE INDEX IF NOT EXISTS idx_files_current_stage ON files(current_stage)',
+            { name: 'idx_files_user_id', table: 'files', column: 'user_id' },
+            { name: 'idx_files_status', table: 'files', column: 'status' },
+            { name: 'idx_files_uploaded_at', table: 'files', column: 'uploaded_at' },
+            { name: 'idx_files_user_team', table: 'files', column: 'user_team' },
+            { name: 'idx_files_current_stage', table: 'files', column: 'current_stage' },
 
             // Assignments table
-            'CREATE INDEX IF NOT EXISTS idx_assignments_team_leader_id ON assignments(team_leader_id)',
-            'CREATE INDEX IF NOT EXISTS idx_assignments_status ON assignments(status)',
-            'CREATE INDEX IF NOT EXISTS idx_assignments_due_date ON assignments(due_date)',
-            'CREATE INDEX IF NOT EXISTS idx_assignments_team ON assignments(team)',
+            { name: 'idx_assignments_team_leader_id', table: 'assignments', column: 'team_leader_id' },
+            { name: 'idx_assignments_status', table: 'assignments', column: 'status' },
+            { name: 'idx_assignments_due_date', table: 'assignments', column: 'due_date' },
+            { name: 'idx_assignments_team', table: 'assignments', column: 'team' },
 
             // Assignment members table
-            'CREATE INDEX IF NOT EXISTS idx_assignment_members_user_id ON assignment_members(user_id)',
-            'CREATE INDEX IF NOT EXISTS idx_assignment_members_assignment_id ON assignment_members(assignment_id)',
-            'CREATE INDEX IF NOT EXISTS idx_assignment_members_status ON assignment_members(status)',
+            { name: 'idx_assignment_members_user_id', table: 'assignment_members', column: 'user_id' },
+            { name: 'idx_assignment_members_assignment_id', table: 'assignment_members', column: 'assignment_id' },
+            { name: 'idx_assignment_members_status', table: 'assignment_members', column: 'status' },
 
             // Notifications table (if exists)
-            'CREATE INDEX IF NOT EXISTS idx_notifications_user_id ON notifications(user_id)',
-            'CREATE INDEX IF NOT EXISTS idx_notifications_is_read ON notifications(is_read)',
-            'CREATE INDEX IF NOT EXISTS idx_notifications_created_at ON notifications(created_at)',
+            { name: 'idx_notifications_user_id', table: 'notifications', column: 'user_id' },
+            { name: 'idx_notifications_is_read', table: 'notifications', column: 'is_read' },
+            { name: 'idx_notifications_created_at', table: 'notifications', column: 'created_at' },
 
             // Activity logs table
-            'CREATE INDEX IF NOT EXISTS idx_activity_logs_user_id ON activity_logs(user_id)',
-            'CREATE INDEX IF NOT EXISTS idx_activity_logs_timestamp ON activity_logs(timestamp)',
+            { name: 'idx_activity_logs_user_id', table: 'activity_logs', column: 'user_id' },
+            { name: 'idx_activity_logs_timestamp', table: 'activity_logs', column: 'timestamp' },
 
             // File comments table
-            'CREATE INDEX IF NOT EXISTS idx_file_comments_file_id ON file_comments(file_id)',
-            'CREATE INDEX IF NOT EXISTS idx_file_comments_user_id ON file_comments(user_id)',
+            { name: 'idx_file_comments_file_id', table: 'file_comments', column: 'file_id' },
+            { name: 'idx_file_comments_user_id', table: 'file_comments', column: 'user_id' },
 
             // File status history table
-            'CREATE INDEX IF NOT EXISTS idx_file_status_history_file_id ON file_status_history(file_id)',
-            'CREATE INDEX IF NOT EXISTS idx_file_status_history_changed_by_id ON file_status_history(changed_by_id)'
+            { name: 'idx_file_status_history_file_id', table: 'file_status_history', column: 'file_id' },
+            { name: 'idx_file_status_history_changed_by_id', table: 'file_status_history', column: 'changed_by_id' }
         ];
 
         console.log('📊 Adding database indexes for MySQL...');
 
-        for (const sql of indexes) {
+        for (const index of indexes) {
             try {
-                await query(sql);
-                const indexName = sql.match(/idx_\w+/)[0];
-                console.log(`  ✅ Created index: ${indexName}`);
-            } catch (error) {
-                // Ignore if index already exists
-                if (!error.message.includes('Duplicate key name')) {
-                    console.error(`  ❌ Error creating index: ${error.message}`);
+                // Check if index exists
+                const checkSql = `
+                    SELECT COUNT(*) as count 
+                    FROM information_schema.statistics 
+                    WHERE table_schema = DATABASE() 
+                    AND table_name = '${index.table}' 
+                    AND index_name = '${index.name}'
+                `;
+                const result = await query(checkSql);
+
+                if (result[0].count === 0) {
+                    // Index doesn't exist, create it
+                    const createSql = `CREATE INDEX ${index.name} ON ${index.table}(${index.column})`;
+                    await query(createSql);
+                    console.log(`  ✅ Created index: ${index.name}`);
+                } else {
+                    console.log(`  ⏭️  Index already exists: ${index.name}`);
                 }
+            } catch (error) {
+                console.error(`  ⚠️ Server: ❌ Query error: ${error.message}`);
+                console.error(`  ❌ Error creating index: ${error.message}`);
             }
         }
 
-        console.log('✅ MySQL indexes added successfully');
+        console.log('📡 ✅ MySQL indexes added successfully');
 
     } else {
         // SQLite indexes (already handled in initialize.js, but we can add more)

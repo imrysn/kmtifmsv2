@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { API_BASE_URL } from '@/config/api'
 import './TaskManagement.css'
 import FileIcon from '../shared/FileIcon.jsx'
-import { AlertMessage, ConfirmationModal, CommentsModal } from './modals'
+import { AlertMessage, ConfirmationModal, CommentsModal, FileOpenModal } from './modals'
 import { useAuth, useNetwork } from '../../contexts'
 import { withErrorBoundary } from '../common'
 
@@ -28,6 +28,8 @@ const TaskManagement = ({ error, success, setError, setSuccess, clearMessages, u
   const [isDeleting, setIsDeleting] = useState(false)
   const [showMenuForAssignment, setShowMenuForAssignment] = useState(null)
   const [expandedAttachments, setExpandedAttachments] = useState({})
+  const [showOpenFileConfirmation, setShowOpenFileConfirmation] = useState(false)
+  const [fileToOpen, setFileToOpen] = useState(null)
 
   // Pagination state
   const [nextCursor, setNextCursor] = useState(null)
@@ -774,7 +776,10 @@ const TaskManagement = ({ error, success, setError, setSuccess, clearMessages, u
                           <div
                             key={file.id}
                             className="admin-file-item"
-                            onClick={() => handleOpenFile(file.file_path, file.id)}
+                            onClick={() => {
+                              setFileToOpen(file)
+                              setShowOpenFileConfirmation(true)
+                            }}
                             style={{
                               cursor: 'pointer',
                               marginBottom: index < (expandedAttachments[assignment.id] ? assignment.recent_submissions.length : Math.min(5, assignment.recent_submissions.length)) - 1 ? '8px' : '0'
@@ -925,6 +930,26 @@ const TaskManagement = ({ error, success, setError, setSuccess, clearMessages, u
             This action cannot be undone. The task and all associated comments will be permanently removed from the system.
           </p>
         </ConfirmationModal>
+
+        {/* File Open Modal */}
+        <FileOpenModal
+          isOpen={showOpenFileConfirmation}
+          onClose={() => {
+            setShowOpenFileConfirmation(false)
+            setFileToOpen(null)
+          }}
+          onConfirm={async () => {
+            if (!fileToOpen) return
+
+            try {
+              await handleOpenFile(fileToOpen.file_path, fileToOpen.id)
+            } finally {
+              setShowOpenFileConfirmation(false)
+              setFileToOpen(null)
+            }
+          }}
+          file={fileToOpen}
+        />
       </div>
     </div>
   )

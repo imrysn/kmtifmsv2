@@ -5,26 +5,26 @@
   --primary-color: #6366F1;
   --primary-hover: #4F46E5;
   --danger-color: #EF4444;
-  
+
   /* Neutral Colors */
   --text-primary: #111827;
   --text-secondary: #6B7280;
   --text-tertiary: #9CA3AF;
-  
+
   /* Background Colors */
   --background-primary: #F9FAFB;
   --background-secondary: #FFFFFF;
   --sidebar-bg: #FFFFFF;
-  
+
   /* Border Colors */
   --border-color: #E5E7EB;
-  
+
   /* Spacing */
   --spacing-xs: 4px;
   --spacing-sm: 8px;
   --spacing-md: 16px;
   --spacing-lg: 24px;
-  
+
   /* Border Radius */
   --radius-sm: 6px;
   --radius-md: 8px;
@@ -84,11 +84,13 @@
   transition-delay: calc(var(--transition-speed) * 0.2);
   max-width: 0;
   overflow: hidden;
+  opacity: 0;
 }
 
 .user-sidebar:hover .user-name,
 .user-sidebar:hover .user-role {
   max-width: 200px;
+  opacity: 1;
 }
 
 .user-sidebar .user-name {
@@ -168,10 +170,12 @@
   max-width: 0;
   overflow: hidden;
   padding-right: 10px;
+  opacity: 0;
 }
 
 .user-sidebar:hover .nav-item .nav-label {
   max-width: 200px;
+  opacity: 1;
 }
 
 /* Notification Badge */
@@ -276,10 +280,12 @@
   max-width: 0;
   overflow: hidden;
   padding-right: 10px;
+  opacity: 0;
 }
 
 .user-sidebar:hover .logout-btn-text {
   max-width: 200px;
+  opacity: 1;
 }
 
 .user-sidebar .logout-btn:hover {
@@ -300,7 +306,7 @@
   .user-sidebar {
     width: var(--sidebar-collapsed-width);
   }
-  
+
   .user-sidebar:hover {
     width: var(--sidebar-expanded-width);
   }
@@ -314,17 +320,17 @@
     border-right: none;
     border-bottom: 1px solid var(--border-color);
   }
-  
+
   .user-sidebar:hover {
     width: 100%;
   }
-  
+
   .user-sidebar .sidebar-nav {
     flex-direction: row;
     overflow-x: auto;
     padding: var(--spacing-sm);
   }
-  
+
   .user-sidebar .user-name,
   .user-sidebar .user-role,
   .user-sidebar .nav-item .nav-label,

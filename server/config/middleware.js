@@ -1,5 +1,6 @@
 const express = require('express');
 const cors = require('cors');
+const helmet = require('helmet');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
@@ -60,15 +61,33 @@ const storage = multer.diskStorage({
 // Create multer upload middleware with optimizations
 const upload = multer({
   storage: storage,
-  // Optimized limits for better performance
+  // Security limits to prevent DoS attacks
   limits: {
-    // No file size limit - set to undefined
+    fileSize: 500 * 1024 * 1024, // 500MB max file size
     files: 1 // Only one file at a time
   }
 });
 
 function setupMiddleware(app) {
-  // CORS configuration with UTF-8 support
+  // Security Headers with Helmet
+  app.use(helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        styleSrc: ["'self'", "'unsafe-inline'"], // Allow inline styles for React
+        scriptSrc: ["'self'", "'unsafe-inline'"], // Allow inline scripts for React
+        imgSrc: ["'self'", "data:", "blob:"],
+        connectSrc: ["'self'", "http://localhost:*", "http://192.168.*.*"], // Allow local network
+        fontSrc: ["'self'", "data:"],
+        objectSrc: ["'none'"],
+        mediaSrc: ["'self'"],
+        frameSrc: ["'none'"]
+      }
+    },
+    crossOriginEmbedderPolicy: false, // Disable for file uploads
+    crossOriginResourcePolicy: { policy: "cross-origin" } // Allow cross-origin for local network
+  }));
+
   // CORS configuration with UTF-8 support
   app.use(cors({
     origin: function (origin, callback) {
