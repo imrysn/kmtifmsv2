@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
+import { API_BASE_URL } from '@/config/api'
 import './TaskManagement.css'
 import FileIcon from '../shared/FileIcon.jsx'
 import { AlertMessage, ConfirmationModal, CommentsModal } from './modals'
@@ -119,7 +120,7 @@ const TaskManagement = ({ error, success, setError, setSuccess, clearMessages, u
 
       console.log('Fetching initial assignments...')
 
-      const response = await fetch('http://localhost:3001/api/assignments/admin/all?limit=20')
+      const response = await fetch(`${API_BASE_URL}/api/assignments/admin/all?limit=20`)
       const data = await response.json()
 
       console.log('Initial assignments response:', data)
@@ -155,7 +156,7 @@ const TaskManagement = ({ error, success, setError, setSuccess, clearMessages, u
 
       console.log('Fetching more assignments with cursor:', nextCursor)
 
-      const response = await fetch(`http://localhost:3001/api/assignments/admin/all?cursor=${nextCursor}&limit=20`)
+      const response = await fetch(`${API_BASE_URL}/api/assignments/admin/all?cursor=${nextCursor}&limit=20`)
       const data = await response.json()
 
       console.log('More assignments response:', data)
@@ -183,7 +184,7 @@ const TaskManagement = ({ error, success, setError, setSuccess, clearMessages, u
   const fetchComments = useCallback(async (assignmentId) => {
     try {
       setLoadingComments(true)
-      const response = await fetch(`http://localhost:3001/api/assignments/${assignmentId}/comments`)
+      const response = await fetch(`${API_BASE_URL}/api/assignments/${assignmentId}/comments`)
       const data = await response.json()
 
       if (data.success) {
@@ -246,7 +247,7 @@ const TaskManagement = ({ error, success, setError, setSuccess, clearMessages, u
       setComments(prev => [...prev, optimisticComment])
       setNewComment('')
 
-      const response = await fetch(`http://localhost:3001/api/assignments/${selectedAssignment.id}/comments`, {
+      const response = await fetch(`${API_BASE_URL}/api/assignments/${selectedAssignment.id}/comments`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -312,7 +313,7 @@ const TaskManagement = ({ error, success, setError, setSuccess, clearMessages, u
       setReplyingTo(null)
 
       const response = await fetch(
-        `http://localhost:3001/api/assignments/${selectedAssignment.id}/comments/${commentId}/reply`,
+        `${API_BASE_URL}/api/assignments/${selectedAssignment.id}/comments/${commentId}/reply`,
         {
           method: 'POST',
           headers: {
@@ -482,7 +483,7 @@ const TaskManagement = ({ error, success, setError, setSuccess, clearMessages, u
 
         // For uploaded files, get the full system path from server
         const pathResponse = await fetch(
-          `http://localhost:3001/api/files/${fileId}/path`
+          `${API_BASE_URL}/api/files/${fileId}/path`
         );
         const pathData = await pathResponse.json();
 
@@ -505,7 +506,7 @@ const TaskManagement = ({ error, success, setError, setSuccess, clearMessages, u
         console.log('🌐 Running in browser - opening in new tab');
 
         // For browser, open the file directly using the static file serving
-        const fileUrl = `http://localhost:3001${filePath}`;
+        const fileUrl = `${API_BASE_URL}${filePath}`;
         const newWindow = window.open(fileUrl, '_blank');
 
         if (!newWindow) {
@@ -534,7 +535,7 @@ const TaskManagement = ({ error, success, setError, setSuccess, clearMessages, u
       clearMessages()
       setSuccess('Deleting assignment and associated files...')
 
-      const response = await fetch(`http://localhost:3001/api/assignments/${assignmentToDelete.id}`, {
+      const response = await fetch(`${API_BASE_URL}/api/assignments/${assignmentToDelete.id}`, {
         method: 'DELETE'
       })
 

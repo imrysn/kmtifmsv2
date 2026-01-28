@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useRef, memo, useCallback } from 'react'
+import { API_BASE_URL } from '@/config/api'
 import './ActivityLogs.css'
 import { ConfirmationModal, AlertMessage } from './modals'
 import { SkeletonLoader } from '../common/SkeletonLoader'
@@ -30,7 +31,7 @@ const LogRow = memo(({ log }) => (
 const ActivityLogs = ({ clearMessages, error, success, setError, setSuccess }) => {
   const { user: authUser } = useAuth()
   const { isConnected } = useNetwork()
-  
+
   const [activityLogs, setActivityLogs] = useState([])
   const [logsSearchQuery, setLogsSearchQuery] = useState('')
   const [searchedQuery, setSearchedQuery] = useState('')
@@ -126,7 +127,7 @@ const ActivityLogs = ({ clearMessages, error, success, setError, setSuccess }) =
   const fetchActivityLogs = async (limit = 10000) => {
     setIsLoading(true)
     try {
-      const url = `http://localhost:3001/api/activity-logs?limit=${limit}`
+      const url = `${API_BASE_URL}/api/activity-logs?limit=${limit}`
       const response = await fetch(url)
       const data = await response.json()
       if (data.success) {
@@ -153,7 +154,7 @@ const ActivityLogs = ({ clearMessages, error, success, setError, setSuccess }) =
         log.activity
       ])
     ].map(row => row.join(',')).join('\n')
-    
+
     const blob = new Blob([csvContent], { type: 'text/csv' })
     const url = window.URL.createObjectURL(blob)
     const link = document.createElement('a')
@@ -261,7 +262,7 @@ const ActivityLogs = ({ clearMessages, error, success, setError, setSuccess }) =
   const getFilterDescription = () => {
     const hasSearchFilter = logsSearchQuery.trim() !== ''
     const hasDateFilter = dateFilter !== 'all'
-    
+
     if (hasSearchFilter && hasDateFilter) {
       const dateFilterText = {
         'today': 'today',
@@ -274,7 +275,7 @@ const ActivityLogs = ({ clearMessages, error, success, setError, setSuccess }) =
     } else if (hasDateFilter) {
       const dateFilterText = {
         'today': 'today',
-        'week': 'this week', 
+        'week': 'this week',
         'month': 'this month'
       }[dateFilter]
       return `date filter "${dateFilterText}"`
@@ -286,7 +287,7 @@ const ActivityLogs = ({ clearMessages, error, success, setError, setSuccess }) =
     // Check if any filter is applied
     const hasSearchFilter = logsSearchQuery.trim() !== ''
     const hasDateFilter = dateFilter !== 'all'
-    
+
     if (!hasSearchFilter && !hasDateFilter) {
       setError('Please apply a search term or date filter to specify logs for deletion')
       return
@@ -303,12 +304,12 @@ const ActivityLogs = ({ clearMessages, error, success, setError, setSuccess }) =
   const confirmDeleteLogs = async () => {
     const logsToDelete = filteredLogs.length
     const logIdsToDelete = filteredLogs.map(log => log.id)
-    
+
     console.log('Attempting to delete logs:', { logsToDelete, logIdsToDelete })
 
     // Quick API test first
     try {
-      const testResponse = await fetch('http://localhost:3001/api/health')
+      const testResponse = await fetch(`${API_BASE_URL}/api/health`)
       console.log('API health check:', testResponse.status, testResponse.ok)
     } catch (healthError) {
       console.error('API health check failed:', healthError)
@@ -319,56 +320,56 @@ const ActivityLogs = ({ clearMessages, error, success, setError, setSuccess }) =
 
     setIsLoading(true)
     try {
-      console.log('Making delete request to:', 'http://localhost:3001/api/activity-logs/bulk-delete')
-      
+      console.log('Making delete request to:', `${API_BASE_URL}/api/activity-logs/bulk-delete`)
+
       // Make API call to delete the logs
-      const response = await fetch('http://localhost:3001/api/activity-logs/bulk-delete', {
+      const response = await fetch(`${API_BASE_URL}/api/activity-logs/bulk-delete`, {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ logIds: logIdsToDelete })
       })
-      
+
       console.log('Response status:', response.status, 'OK:', response.ok)
-      
+
       if (!response.ok) {
         const errorText = await response.text()
         console.error('Response error text:', errorText)
         throw new Error(`HTTP error! status: ${response.status} - ${errorText}`)
       }
-      
+
       const data = await response.json()
       console.log('Delete response:', data)
-      
+
       if (!data.success) {
         throw new Error(data.message || 'Failed to delete logs')
       }
-      
+
       // Update the state by removing deleted logs
-      const updatedActivityLogs = activityLogs.filter(log => 
+      const updatedActivityLogs = activityLogs.filter(log =>
         !logIdsToDelete.includes(log.id)
       )
-      
-      console.log('Updating state:', { 
-        originalCount: activityLogs.length, 
+
+      console.log('Updating state:', {
+        originalCount: activityLogs.length,
         newCount: updatedActivityLogs.length,
         deletedCount: data.deletedCount
       })
-      
+
       // Set the new activity logs
       setActivityLogs(updatedActivityLogs)
 
       setCurrentPage(1) // Reset to first page
       setShowDeleteLogsModal(false)
-      
+
       // Clear any existing errors
       if (error) {
         setError('')
       }
-      
+
       setSuccess(`Successfully deleted ${data.deletedCount || logsToDelete} log(s) matching your filter criteria`)
-      
+
     } catch (error) {
       console.error('Error deleting logs:', error)
       setError(`Failed to delete logs: ${error.message}`)
@@ -384,7 +385,7 @@ const ActivityLogs = ({ clearMessages, error, success, setError, setSuccess }) =
 
   return (
     <div className={`activity-logs-section ${isLoading ? 'loading-cursor' : ''}`}>
-      
+
       {/* Action Bar */}
       <div className="action-bar">
         <div className="filters-section">
@@ -397,7 +398,7 @@ const ActivityLogs = ({ clearMessages, error, success, setError, setSuccess }) =
               className="search-input"
             />
             {logsSearchQuery && (
-              <button 
+              <button
                 className="search-clear-btn"
                 onClick={clearLogsSearch}
                 title="Clear search"
@@ -406,7 +407,7 @@ const ActivityLogs = ({ clearMessages, error, success, setError, setSuccess }) =
               </button>
             )}
           </div>
-          
+
           <div className="date-filter-container">
             <select
               value={dateFilter}
@@ -419,9 +420,9 @@ const ActivityLogs = ({ clearMessages, error, success, setError, setSuccess }) =
               <option value="month">This Month</option>
             </select>
           </div>
-          
+
           {(logsSearchQuery || dateFilter !== 'all') && (
-            <button 
+            <button
               className="btn btn-secondary btn-sm"
               onClick={clearLogFilters}
             >
@@ -429,21 +430,21 @@ const ActivityLogs = ({ clearMessages, error, success, setError, setSuccess }) =
             </button>
           )}
         </div>
-        
+
         <div className="action-buttons">
-          <button 
+          <button
             className="btn btn-danger"
             onClick={deleteFilteredLogs}
             disabled={(logsSearchQuery.trim() === '' && dateFilter === 'all') || filteredLogs.length === 0 || isLoading}
             title={
-              (logsSearchQuery.trim() === '' && dateFilter === 'all') 
-                ? "Apply a search term or date filter to specify logs for deletion" 
+              (logsSearchQuery.trim() === '' && dateFilter === 'all')
+                ? "Apply a search term or date filter to specify logs for deletion"
                 : `Delete ${filteredLogs.length} filtered log(s)`
             }
           >
             {isLoading ? 'Deleting...' : `Delete Logs (${filteredLogs.length})`}
           </button>
-          <button 
+          <button
             className="btn btn-primary"
             onClick={exportLogs}
             disabled={filteredLogs.length === 0}
@@ -452,24 +453,24 @@ const ActivityLogs = ({ clearMessages, error, success, setError, setSuccess }) =
           </button>
         </div>
       </div>
-      
+
       {/* Messages */}
       {error && (
-        <AlertMessage 
-          type="error" 
-          message={error} 
+        <AlertMessage
+          type="error"
+          message={error}
           onClose={clearMessages}
         />
       )}
-      
+
       {success && (
-        <AlertMessage 
-          type="success" 
-          message={success} 
+        <AlertMessage
+          type="success"
+          message={success}
           onClose={clearMessages}
         />
       )}
-      
+
       {/* Activity Logs Table */}
       <div className="table-section">
         {isLoading ? (
@@ -497,14 +498,14 @@ const ActivityLogs = ({ clearMessages, error, success, setError, setSuccess }) =
             </table>
           </div>
         )}
-        
+
         {!isLoading && filteredLogs.length === 0 && (
           <div className="empty-state">
             <h3>No activity logs found</h3>
             <p>No activity logs match your current search criteria.</p>
           </div>
         )}
-        
+
         {/* Pagination */}
         {!isLoading && filteredLogs.length > 0 && totalPages > 1 && (
           <div className="pagination-section">

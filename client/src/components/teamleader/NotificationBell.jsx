@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { API_BASE_URL } from '@/config/api';
 import './css/NotificationBell.css';
 import { useTaskbarFlash } from '../../utils/useTaskbarFlash';
 
@@ -18,9 +19,9 @@ const NotificationBell = ({ userId, onNotificationClick }) => {
 
   const fetchUnreadCount = async () => {
     try {
-      const response = await fetch(`http://localhost:3001/api/notifications/user/${userId}/unread-count`);
+      const response = await fetch(`${API_BASE_URL}/api/notifications/user/${userId}/unread-count`);
       const data = await response.json();
-      
+
       if (data.success) {
         const newCount = data.count || 0;
         if (newCount > unreadCount) {
@@ -35,7 +36,7 @@ const NotificationBell = ({ userId, onNotificationClick }) => {
   };
 
   return (
-    <button 
+    <button
       className={`tl-notification-bell ${pulse ? 'pulse' : ''}`}
       onClick={onNotificationClick}
       title="Notifications"

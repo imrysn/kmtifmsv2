@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback, memo } from 'react'
+import { API_BASE_URL } from '@/config/api'
 import FileIcon from '../shared/FileIcon'
 import { SkeletonLoader } from '../common/SkeletonLoader'
 import './FileApproval-Optimized.css'
@@ -6,7 +7,7 @@ import { ConfirmationModal, AlertMessage, FileDetailsModal } from './modals'
 import { useAuth, useNetwork } from '../../contexts'
 import { withErrorBoundary } from '../common'
 
-const API_BASE = 'http://localhost:3001/api'
+const API_BASE = `${API_BASE_URL}/api`
 const SERVER_BASE = API_BASE.replace(/\/api$/, '')
 
 

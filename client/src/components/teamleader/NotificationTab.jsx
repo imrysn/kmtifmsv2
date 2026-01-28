@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback, memo } from 'react';
+import { API_BASE_URL } from '@/config/api';
 import './css/NotificationTab.css';
 import FileIcon from '../shared/FileIcon';
 import { useTaskbarFlash } from '../../utils/useTaskbarFlash';
@@ -13,14 +14,14 @@ const NotificationItem = memo(({ notification, onNotificationClick, onDeleteNoti
       <div className="tl-notification-icon">
         <NotificationIcon type={notification.type} />
       </div>
-      
+
       <div className="tl-notification-content">
         <div className="tl-notification-title">
           {notification.title}
           {!notification.is_read && <span className="tl-unread-badge">New</span>}
         </div>
         <div className="tl-notification-message">{notification.message}</div>
-        
+
         <div className="tl-notification-meta">
           <span className="tl-notification-author">
             👤 {notification.action_by_username} ({notification.action_by_role})
@@ -41,7 +42,7 @@ const NotificationItem = memo(({ notification, onNotificationClick, onDeleteNoti
             </span>
           )}
         </div>
-        
+
         <div className="tl-notification-time">
           {formatTimeAgo(notification.created_at)}
         </div>
@@ -73,7 +74,7 @@ const NotificationTab = ({ user, onNavigate }) => {
 
   // Enable taskbar flashing for new notifications
   useTaskbarFlash(unreadCount);
-  
+
   // Pagination state
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
@@ -129,13 +130,13 @@ const NotificationTab = ({ user, onNavigate }) => {
       }
 
       const response = await fetch(
-        `http://localhost:3001/api/notifications/user/${user.id}?page=${pageNum}&limit=${limit}`
+        `${API_BASE_URL}/api/notifications/user/${user.id}?page=${pageNum}&limit=${limit}`
       );
       const data = await response.json();
-      
+
       if (data.success) {
         const newNotifications = data.notifications || [];
-        
+
         if (isInitial) {
           setNotifications(newNotifications);
           setPage(1);
@@ -150,7 +151,7 @@ const NotificationTab = ({ user, onNavigate }) => {
           setNotifications(prev => [...prev, ...newNotifications]);
           setPage(pageNum);
         }
-        
+
         setUnreadCount(data.unreadCount || 0);
         setTotalCount(data.totalCount || 0);
         setHasMore(data.hasMore || false);
@@ -173,14 +174,14 @@ const NotificationTab = ({ user, onNavigate }) => {
 
   const markAsRead = async (notificationId) => {
     try {
-      const response = await fetch(`http://localhost:3001/api/notifications/${notificationId}/read`, {
+      const response = await fetch(`${API_BASE_URL}/api/notifications/${notificationId}/read`, {
         method: 'PUT'
       });
-      
+
       const data = await response.json();
       if (data.success) {
         // Update local state instead of refetching
-        setNotifications(prev => prev.map(n => 
+        setNotifications(prev => prev.map(n =>
           n.id === notificationId ? { ...n, is_read: true } : n
         ));
         setUnreadCount(prev => Math.max(0, prev - 1));
@@ -192,10 +193,10 @@ const NotificationTab = ({ user, onNavigate }) => {
 
   const markAllAsRead = async () => {
     try {
-      const response = await fetch(`http://localhost:3001/api/notifications/user/${user.id}/read-all`, {
+      const response = await fetch(`${API_BASE_URL}/api/notifications/user/${user.id}/read-all`, {
         method: 'PUT'
       });
-      
+
       const data = await response.json();
       if (data.success) {
         // Update local state
@@ -209,10 +210,10 @@ const NotificationTab = ({ user, onNavigate }) => {
 
   const deleteNotification = async (notificationId) => {
     try {
-      const response = await fetch(`http://localhost:3001/api/notifications/${notificationId}`, {
+      const response = await fetch(`${API_BASE_URL}/api/notifications/${notificationId}`, {
         method: 'DELETE'
       });
-      
+
       const data = await response.json();
       if (data.success) {
         // Update local state
@@ -235,10 +236,10 @@ const NotificationTab = ({ user, onNavigate }) => {
   const confirmDeleteAll = async () => {
     setIsDeleting(true);
     try {
-      const response = await fetch(`http://localhost:3001/api/notifications/user/${user.id}/delete-all`, {
+      const response = await fetch(`${API_BASE_URL}/api/notifications/user/${user.id}/delete-all`, {
         method: 'DELETE'
       });
-      
+
       const data = await response.json();
       if (data.success) {
         setNotifications([]);
@@ -260,7 +261,7 @@ const NotificationTab = ({ user, onNavigate }) => {
     console.log('   Type:', notification.type);
     console.log('   Title:', notification.title);
     console.log('   Assignment ID:', notification.assignment_id);
-    
+
     // Mark as read
     if (!notification.is_read) {
       markAsRead(notification.id);
@@ -281,7 +282,7 @@ const NotificationTab = ({ user, onNavigate }) => {
           expandAllReplies: isReplyNotification  // Auto-expand replies for reply notifications
         };
         console.log('   📤 Sending navigation data:', navigationData);
-        
+
         if (onNavigate) {
           onNavigate('assignments', navigationData);
         } else {
@@ -508,8 +509,8 @@ const NotificationTab = ({ user, onNavigate }) => {
           <div className="custom-modal" onClick={(e) => e.stopPropagation()}>
             <div className="custom-modal-header">
               <h3>Delete All Notifications?</h3>
-              <button 
-                onClick={() => setShowDeleteModal(false)} 
+              <button
+                onClick={() => setShowDeleteModal(false)}
                 className="custom-modal-close"
                 disabled={isDeleting}
                 type="button"
@@ -517,37 +518,37 @@ const NotificationTab = ({ user, onNavigate }) => {
                 ×
               </button>
             </div>
-            
+
             <div className="custom-modal-body">
               <div className="delete-warning">
                 <span className="warning-icon">⚠️</span>
                 <div className="warning-content">
                   <h4>Are you sure you want to delete all notifications?</h4>
-                  
+
                   <div className="item-info">
                     <div className="item-name">{totalCount} notification{totalCount !== 1 ? 's' : ''}</div>
                     <div className="item-details">Including {unreadCount} unread notification{unreadCount !== 1 ? 's' : ''}</div>
                   </div>
-                  
+
                   <p className="warning-text">
                     This action cannot be undone. All notifications will be permanently removed from your account.
                   </p>
                 </div>
               </div>
             </div>
-            
+
             <div className="custom-modal-footer">
               <div className="modal-actions">
-                <button 
-                  type="button" 
-                  onClick={() => setShowDeleteModal(false)} 
+                <button
+                  type="button"
+                  onClick={() => setShowDeleteModal(false)}
                   className="modal-cancel-btn"
                   disabled={isDeleting}
                 >
                   Cancel
                 </button>
-                <button 
-                  type="button" 
+                <button
+                  type="button"
                   onClick={confirmDeleteAll}
                   className="modal-confirm-btn"
                   disabled={isDeleting}

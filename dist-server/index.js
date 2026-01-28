@@ -73687,8 +73687,36 @@ const upload = multer({
 
 function setupMiddleware(app) {
   // CORS configuration with UTF-8 support
+  // CORS configuration with UTF-8 support
   app.use(cors({
-    origin: ['http://localhost:5173', 'file://'], // Allow Vite dev server and Electron
+    origin: function (origin, callback) {
+      // Allow requests with no origin (like mobile apps, curl, or Electron file://)
+      if (!origin) return callback(null, true);
+
+      // Allow file:// protocol
+      if (origin === 'file://') return callback(null, true);
+
+      // Allow localhost and local network IPs
+      const allowedOrigins = [
+        'http://localhost:5173',
+        'http://localhost:3001',
+        process.env.CORS_ORIGIN,
+        'http://192.168.200.105:3001' // Explicitly allow the server IP
+      ].filter(Boolean);
+
+      if (allowedOrigins.indexOf(origin) !== -1 || allowedOrigins.includes('*')) {
+        return callback(null, true);
+      }
+
+      // Allow any 192.168.x.x origin (Local Network)
+      if (origin.startsWith('http://192.168.') || origin.startsWith('https://192.168.')) {
+        return callback(null, true);
+      }
+
+      // Default: Allow it anyway for this internal tool to prevent friction
+      // (You can restrict this later if security is a concern)
+      return callback(null, true);
+    },
     credentials: true,
     exposedHeaders: ['Content-Disposition']
   }));
@@ -74048,6 +74076,21 @@ async function initializeDatabase() {
                         }
                         console.log('✅ Assignment submissions table created/verified');
 
+                        // Create custom_tags table
+                        db.run(`CREATE TABLE IF NOT EXISTS custom_tags (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                          tag_name TEXT NOT NULL UNIQUE,
+                          created_by INTEGER NOT NULL,
+                        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                          FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE CASCADE
+                        )`, (err) => {
+                          if (err) {
+                          console.error('Error creating custom_tags table:', err);
+                            reject(err);
+                            return;
+                        }
+                        console.log('✅ Custom tags table created/verified');
+
                         // Add database indexes
                         addDatabaseIndexes();
 
@@ -74060,6 +74103,7 @@ async function initializeDatabase() {
 
                         // Handle user table migration
                         handleUserTableMigration(resolve, reject);
+                      });
                       });
                     });
                   });
@@ -74085,7 +74129,9 @@ function addDatabaseIndexes() {
     'CREATE INDEX IF NOT EXISTS idx_files_uploaded_at ON files(uploaded_at)',
     'CREATE INDEX IF NOT EXISTS idx_activity_logs_timestamp ON activity_logs(timestamp)',
     'CREATE INDEX IF NOT EXISTS idx_activity_logs_user_id ON activity_logs(user_id)',
-    'CREATE INDEX IF NOT EXISTS idx_file_comments_file_id ON file_comments(file_id)'
+    'CREATE INDEX IF NOT EXISTS idx_file_comments_file_id ON file_comments(file_id)',
+    'CREATE INDEX IF NOT EXISTS idx_custom_tags_name ON custom_tags(tag_name)',
+    'CREATE INDEX IF NOT EXISTS idx_custom_tags_created_by ON custom_tags(created_by)'
   ];
 
   indexes.forEach(sql => {
@@ -74253,6 +74299,7 @@ const settingsRoutes = __nccwpck_require__(52528);
 const fileViewerRoutes = __nccwpck_require__(93925);
 const { router: notificationsRoutes } = __nccwpck_require__(83565);
 const assignmentsRoutes = __nccwpck_require__(20007);
+const customTagsRoutes = __nccwpck_require__(15111);
 
 const app = express();
 const PORT = process.env.SERVER_PORT || 3001;
@@ -74305,6 +74352,7 @@ app.use('/api/settings', settingsRoutes);
 app.use('/api/file-viewer', fileViewerRoutes);
 app.use('/api/notifications', notificationsRoutes);
 app.use('/api/assignments', assignmentsRoutes);
+app.use('/api/custom-tags', customTagsRoutes);
 
 // Serve static files from the React app build directory
 // In bundled mode, client files are in client-dist, otherwise in ../client/dist
@@ -75106,7 +75154,14 @@ async function runMigrations() {
 
     for (const migration of migrations) {
       console.log(`🚀 Running migration: ${migration.name}...`);
-      const success = await migration.run();
+
+      // Support both function exports and object exports with up() method
+      let runFn = migration.run;
+      if (typeof runFn !== 'function' && runFn && typeof runFn.up === 'function') {
+        runFn = runFn.up;
+      }
+
+      const success = await runFn();
       if (success) {
         console.log(`✅ Migration successful: ${migration.name}`);
       } else {
@@ -75260,6 +75315,31 @@ module.exports = router;
 const express = __nccwpck_require__(85152);
 const router = express.Router();
 const { query, queryOne } = __nccwpck_require__(55364);
+const multer = __nccwpck_require__(98013);
+const path = __nccwpck_require__(16928);
+const fs = __nccwpck_require__(79896);
+const { uploadsDir, moveToUserFolder } = __nccwpck_require__(62489);
+
+// Configure multer for file uploads using existing uploads directory
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    // Upload to temp location first, then move to user folder
+    cb(null, uploadsDir);
+  },
+  filename: (req, file, cb) => {
+    // Use temp filename like regular uploads
+    const timestamp = Date.now();
+    const randomString = Math.random().toString(36).substring(7);
+    cb(null, `temp_${timestamp}_${randomString}`);
+  }
+});
+
+const upload = multer({
+  storage: storage,
+  limits: {
+    fileSize: 100 * 1024 * 1024 // 100MB limit
+  }
+});
 
 router.get('/admin/all', async (req, res) => {
   try {
@@ -75407,17 +75487,17 @@ router.get('/team-leader/:team/all-submissions', async (req, res) => {
         f.status,
         u.username,
         u.fullName,
-        am.submitted_at,
-        am.created_at,
+        asub.submitted_at,
+        asub.submitted_at as created_at,
         a.id as assignment_id,
         a.title as assignment_title,
         a.due_date as assignment_due_date
-      FROM assignment_members am
-      JOIN files f ON am.file_id = f.id
-      JOIN users u ON am.user_id = u.id
-      JOIN assignments a ON am.assignment_id = a.id
-      WHERE a.team = ? AND am.status = 'submitted'
-      ORDER BY am.submitted_at DESC
+      FROM assignment_submissions asub
+      JOIN files f ON asub.file_id = f.id
+      JOIN users u ON asub.user_id = u.id
+      JOIN assignments a ON asub.assignment_id = a.id
+      WHERE a.team = ?
+      ORDER BY asub.submitted_at DESC
     `, [team]);
 
     console.log(`✅ DASHBOARD API: Found ${allSubmissions?.length || 0} submissions for team ${team}`);
@@ -75583,6 +75663,16 @@ router.get('/team-leader/:team', async (req, res) => {
 
       assignment.assigned_member_details = assignedMembers || [];
 
+      // Get attachments for this assignment
+      const attachments = await query(`
+        SELECT id, original_name, filename, file_path, file_size, file_type, created_at
+        FROM assignment_attachments
+        WHERE assignment_id = ?
+        ORDER BY created_at DESC
+      `, [assignment.id]);
+
+      assignment.attachments = attachments || [];
+
       // Get all submissions from assignment_submissions table (includes ALL submitted files)
       const recentSubmissions = await query(`
         SELECT
@@ -75714,8 +75804,8 @@ router.get('/:assignmentId/details', async (req, res) => {
   }
 });
 
-// Create new assignment
-router.post('/create', async (req, res) => {
+// Create new assignment with file attachments
+router.post('/create', upload.array('attachments', 10), async (req, res) => {
   try {
     const {
       title,
@@ -75742,9 +75832,12 @@ router.post('/create', async (req, res) => {
     const finalFileType = fileTypeRequired || file_type_required;
     const finalAssignedTo = assignedTo || assigned_to;
     const finalMaxSize = maxFileSize || max_file_size || 10485760;
-    const finalMembers = assignedMembers || assigned_members;
+    const finalMembers = typeof assignedMembers === 'string' ? JSON.parse(assignedMembers) : (assignedMembers || assigned_members);
     const finalTeamLeaderId = teamLeaderId || team_leader_id;
     const finalTeamLeaderUsername = teamLeaderUsername || team_leader_username;
+
+    // Get uploaded files
+    const uploadedFiles = req.files || [];
 
     // Validate required fields
     if (!title || !team || !finalTeamLeaderId) {
@@ -75783,6 +75876,55 @@ router.post('/create', async (req, res) => {
 
     const assignmentId = assignmentResult.insertId;
     let membersAssigned = 0;
+    let attachmentsCreated = 0;
+
+    // Save attachment file records if any files were uploaded
+    if (uploadedFiles.length > 0) {
+      try {
+        console.log(`📎 Saving ${uploadedFiles.length} attachment(s) for assignment ${assignmentId}`);
+
+        for (const file of uploadedFiles) {
+          // Move file from temp location to team leader's folder
+          let finalPath;
+          try {
+            finalPath = await moveToUserFolder(file.path, finalTeamLeaderUsername, file.originalname);
+            console.log(`✅ Moved attachment to: ${finalPath}`);
+          } catch (moveError) {
+            console.error('⚠️ Failed to move attachment file:', moveError);
+            // If move fails, use the original temp path
+            finalPath = file.path;
+          }
+
+          await query(`
+            INSERT INTO assignment_attachments (
+              assignment_id,
+              original_name,
+              filename,
+              file_path,
+              file_size,
+              file_type,
+              uploaded_by_id,
+              uploaded_by_username
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+          `, [
+            assignmentId,
+            file.originalname,
+            path.basename(finalPath),
+            finalPath,
+            file.size,
+            file.mimetype,
+            finalTeamLeaderId,
+            finalTeamLeaderUsername
+          ]);
+          attachmentsCreated++;
+        }
+
+        console.log(`✅ Saved ${attachmentsCreated} attachment(s) for assignment ${assignmentId}`);
+      } catch (attachmentError) {
+        console.error('⚠️ Failed to save attachments:', attachmentError);
+        // Don't fail the request if attachments fail
+      }
+    }
 
     try {
       // Assign members
@@ -75968,7 +76110,8 @@ router.post('/create', async (req, res) => {
         success: true,
         message: 'Assignment created successfully',
         assignmentId,
-        membersAssigned
+        membersAssigned,
+        attachmentsCreated
       });
 
     } catch (memberError) {
@@ -76065,9 +76208,13 @@ router.get('/user/:userId', async (req, res) => {
           f.file_size,
           f.tag,
           f.description,
-          asub.submitted_at
+          f.status,
+          asub.submitted_at,
+          u.fullName as submitter_name,
+          u.username as submitter_username
         FROM assignment_submissions asub
         JOIN files f ON asub.file_id = f.id
+        JOIN users u ON asub.user_id = u.id
         WHERE asub.assignment_id = ? AND asub.user_id = ?
         ORDER BY asub.submitted_at DESC
       `, [assignment.id, userId]);
@@ -76690,6 +76837,214 @@ router.patch('/:assignmentId/archive', async (req, res) => {
   }
 });
 
+// Mark assignment as done (Team Leader only)
+router.put('/:assignmentId/mark-done', async (req, res) => {
+  try {
+    const { assignmentId } = req.params;
+    const { teamLeaderId, teamLeaderUsername, team } = req.body;
+
+    console.log(`✅ Marking assignment ${assignmentId} as completed by ${teamLeaderUsername}`);
+
+    // Verify assignment exists
+    const assignment = await queryOne(
+      'SELECT * FROM assignments WHERE id = ?',
+      [assignmentId]
+    );
+
+    if (!assignment) {
+      return res.status(404).json({
+        success: false,
+        message: 'Assignment not found'
+      });
+    }
+
+    // Update assignment status to completed
+    const now = new Date().toISOString().slice(0, 19).replace('T', ' ');
+
+    await query(
+      'UPDATE assignments SET status = ?, updated_at = ? WHERE id = ?',
+      ['completed', now, assignmentId]
+    );
+
+    console.log(`✅ Assignment ${assignmentId} marked as completed`);
+
+    res.json({
+      success: true,
+      message: 'Assignment marked as completed',
+      assignment: {
+        ...assignment,
+        status: 'completed',
+        updated_at: now
+      }
+    });
+  } catch (error) {
+    console.error('Error marking assignment as done:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to mark assignment as done',
+      error: error.message
+    });
+  }
+});
+
+// Update assignment (Team Leader only)
+router.put('/:assignmentId', async (req, res) => {
+  try {
+    const { assignmentId } = req.params;
+    const {
+      title,
+      description,
+      dueDate,
+      fileTypeRequired,
+      assignedMembers,
+      teamLeaderId,
+      teamLeaderUsername,
+      team
+    } = req.body;
+
+    console.log(`✏️ Updating assignment ${assignmentId} by ${teamLeaderUsername}`);
+
+    // Verify assignment exists
+    const assignment = await queryOne(
+      'SELECT * FROM assignments WHERE id = ?',
+      [assignmentId]
+    );
+
+    if (!assignment) {
+      return res.status(404).json({
+        success: false,
+        message: 'Assignment not found'
+      });
+    }
+
+    // Update assignment details
+    const now = new Date().toISOString().slice(0, 19).replace('T', ' ');
+
+    await query(`
+      UPDATE assignments
+      SET
+        title = ?,
+        description = ?,
+        due_date = ?,
+        file_type_required = ?,
+        updated_at = ?
+      WHERE id = ?
+    `, [
+      title,
+      description || null,
+      dueDate || null,
+      fileTypeRequired || null,
+      now,
+      assignmentId
+    ]);
+
+    console.log(`✅ Assignment ${assignmentId} details updated`);
+
+    // Update assigned members if provided
+    if (assignedMembers && Array.isArray(assignedMembers)) {
+      // Get current assigned members
+      const currentMembers = await query(
+        'SELECT user_id FROM assignment_members WHERE assignment_id = ?',
+        [assignmentId]
+      );
+
+      const currentMemberIds = currentMembers.map(m => m.user_id);
+      const newMemberIds = assignedMembers;
+
+      // Find members to add and remove
+      const membersToAdd = newMemberIds.filter(id => !currentMemberIds.includes(id));
+      const membersToRemove = currentMemberIds.filter(id => !newMemberIds.includes(id));
+
+      // Remove members that are no longer assigned
+      if (membersToRemove.length > 0) {
+        await query(
+          `DELETE FROM assignment_members WHERE assignment_id = ? AND user_id IN (${membersToRemove.map(() => '?').join(',')})`,
+          [assignmentId, ...membersToRemove]
+        );
+        console.log(`✅ Removed ${membersToRemove.length} member(s) from assignment`);
+      }
+
+      // Add new members
+      if (membersToAdd.length > 0) {
+        const memberValues = membersToAdd.map(userId => [assignmentId, userId]);
+        const placeholders = memberValues.map(() => '(?, ?)').join(', ');
+        const flattenedValues = memberValues.flat();
+
+        await query(
+          `INSERT INTO assignment_members (assignment_id, user_id) VALUES ${placeholders}`,
+          flattenedValues
+        );
+        console.log(`✅ Added ${membersToAdd.length} new member(s) to assignment`);
+
+        // Create notifications for newly added members
+        try {
+          for (const userId of membersToAdd) {
+            await query(`
+              INSERT INTO notifications (
+                user_id,
+                assignment_id,
+                file_id,
+                type,
+                title,
+                message,
+                action_by_id,
+                action_by_username,
+                action_by_role
+              ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            `, [
+              userId,
+              assignmentId,
+              null,
+              'assignment',
+              'Added to Assignment',
+              `${teamLeaderUsername} added you to the task: "${title}"${dueDate ? ` - Due: ${new Date(dueDate).toLocaleDateString()}` : ''}`,
+              teamLeaderId,
+              teamLeaderUsername,
+              'TEAM_LEADER'
+            ]);
+          }
+          console.log(`✅ Created notifications for ${membersToAdd.length} newly added member(s)`);
+        } catch (notifError) {
+          console.error('⚠️ Failed to create notifications for new members:', notifError);
+        }
+      }
+    }
+
+    // Log activity
+    try {
+      await query(`
+        INSERT INTO activity_logs (
+          user_id,
+          username,
+          role,
+          team,
+          activity
+        ) VALUES (?, ?, ?, ?, ?)
+      `, [
+        teamLeaderId,
+        teamLeaderUsername,
+        'TEAM_LEADER',
+        team,
+        `Updated assignment: ${title}`
+      ]);
+    } catch (logError) {
+      console.warn('Activity log insertion failed:', logError.message);
+    }
+
+    res.json({
+      success: true,
+      message: 'Assignment updated successfully'
+    });
+  } catch (error) {
+    console.error('Error updating assignment:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to update assignment',
+      error: error.message
+    });
+  }
+});
+
 // Delete assignment (Admin only - permanent delete)
 router.delete('/:assignmentId', async (req, res) => {
   try {
@@ -76708,32 +77063,21 @@ router.delete('/:assignmentId', async (req, res) => {
       });
     }
 
-    // Get all file IDs associated with this assignment before deleting
+    // Get all file IDs associated with this assignment
     const submittedFiles = await query(
-      'SELECT file_id FROM assignment_members WHERE assignment_id = ? AND file_id IS NOT NULL',
+      'SELECT file_id FROM assignment_submissions WHERE assignment_id = ?',
       [assignmentId]
     );
 
-    console.log(` Assignment ${assignmentId} has ${submittedFiles ? submittedFiles.length : 0} submitted file(s)`);
-
-    // Delete files from the files table if they exist
-    if (submittedFiles && submittedFiles.length > 0) {
-      console.log(` Deleting ${submittedFiles.length} file(s) from files table...`);
-      for (const submission of submittedFiles) {
-        try {
-          await query('DELETE FROM files WHERE id = ?', [submission.file_id]);
-          console.log(` Deleted file ID ${submission.file_id} from files table (associated with assignment ${assignmentId})`);
-        } catch (fileDeleteError) {
-          console.error(` Error deleting file ${submission.file_id}:`, fileDeleteError);
-          // Continue deleting other files even if one fails
-        }
-      }
-      console.log(` Completed file deletion for assignment ${assignmentId}`);
-    } else {
-      console.log(`ℹ No files to delete for assignment ${assignmentId}`);
-    }
+    console.log(`✅ Assignment ${assignmentId} has ${submittedFiles ? submittedFiles.length : 0} submitted file(s)`);
+    console.log('ℹ️ Files will be kept in database and NAS - they will return to users\' "My Files"');
+    
+    // ✅ IMPORTANT: Do NOT delete files from the files table
+    // Files should persist after assignment deletion so users can access them in "My Files"
+    // Only delete the assignment_submissions links (done below via cascade)
 
     // Delete related records (replies will cascade delete when comments are deleted)
+    await query('DELETE FROM assignment_submissions WHERE assignment_id = ?', [assignmentId]);
     await query('DELETE FROM assignment_members WHERE assignment_id = ?', [assignmentId]);
     await query('DELETE FROM assignment_comments WHERE assignment_id = ?', [assignmentId]);
 
@@ -76779,6 +77123,12 @@ router.delete('/:assignmentId/files/:fileId', async (req, res) => {
       });
     }
 
+    // Get file info before deleting to get the physical file path
+    const fileInfo = await queryOne(
+      'SELECT file_path FROM files WHERE id = ?',
+      [fileId]
+    );
+
     // Delete from assignment_submissions table
     await query(
       'DELETE FROM assignment_submissions WHERE assignment_id = ? AND file_id = ? AND user_id = ?',
@@ -76809,9 +77159,11 @@ router.delete('/:assignmentId/files/:fileId', async (req, res) => {
       console.log('✅ Updated assignment_members to point to most recent submission');
     }
 
-    // Delete the file from the files table
-    await query('DELETE FROM files WHERE id = ?', [fileId]);
-    console.log('✅ Deleted file from files table');
+    // ✅ IMPORTANT: Keep file record in database and physical file in NAS
+    // This allows the file to reappear in "My Files" after being removed from assignment
+    // Only the assignment_submissions link is removed above
+    console.log('ℹ️ File record kept in database - file will return to "My Files"');
+    console.log('ℹ️ Physical file kept in NAS at:', fileInfo?.file_path);
 
     res.json({
       success: true,
@@ -77050,6 +77402,225 @@ router.post('/forgot-password', validate(schemas.forgotPassword), asyncHandler(a
     // Don't send error to client for security
   }
 }));
+
+module.exports = router;
+
+
+/***/ }),
+
+/***/ 15111:
+/***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
+
+const express = __nccwpck_require__(85152);
+const { USE_MYSQL } = __nccwpck_require__(5024);
+
+const router = express.Router();
+
+// Get database connection based on mode
+let db;
+if (USE_MYSQL) {
+  db = __nccwpck_require__(55364);
+} else {
+  db = (__nccwpck_require__(5024).db);
+}
+
+// Get all custom tags (shared across all users)
+router.get('/', async (req, res) => {
+  console.log('📋 Getting all custom tags');
+
+  try {
+    let tags;
+    
+    if (USE_MYSQL) {
+      tags = await db.query(
+        `SELECT id, tag_name, created_at, created_by 
+         FROM custom_tags 
+         ORDER BY tag_name ASC`
+      );
+    } else {
+      tags = await new Promise((resolve, reject) => {
+        db.all(
+          `SELECT id, tag_name, created_at, created_by 
+           FROM custom_tags 
+           ORDER BY tag_name ASC`,
+          [],
+          (err, rows) => {
+            if (err) reject(err);
+            else resolve(rows);
+          }
+        );
+      });
+    }
+
+    console.log(`✅ Retrieved ${tags.length} custom tags`);
+    res.json({
+      success: true,
+      tags: tags.map(tag => tag.tag_name) // Return just the tag names
+    });
+  } catch (err) {
+    console.error('❌ Error fetching custom tags:', err);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch custom tags'
+    });
+  }
+});
+
+// Add a new custom tag
+router.post('/', async (req, res) => {
+  const { tagName, userId } = req.body;
+
+  if (!tagName || !tagName.trim()) {
+    return res.status(400).json({
+      success: false,
+      message: 'Tag name is required'
+    });
+  }
+
+  if (!userId) {
+    return res.status(400).json({
+      success: false,
+      message: 'User ID is required'
+    });
+  }
+
+  const trimmedTag = tagName.trim();
+  console.log(`➕ Adding custom tag: "${trimmedTag}" by user ${userId}`);
+
+  try {
+    // Check if tag already exists
+    let existingTag;
+    
+    if (USE_MYSQL) {
+      const results = await db.query(
+        'SELECT id FROM custom_tags WHERE tag_name = ?',
+        [trimmedTag]
+      );
+      existingTag = results.length > 0 ? results[0] : null;
+    } else {
+      existingTag = await new Promise((resolve, reject) => {
+        db.get(
+          'SELECT id FROM custom_tags WHERE tag_name = ?',
+          [trimmedTag],
+          (err, row) => {
+            if (err) reject(err);
+            else resolve(row);
+          }
+        );
+      });
+    }
+
+    if (existingTag) {
+      console.log('⚠️ Tag already exists');
+      return res.json({
+        success: true,
+        message: 'Tag already exists',
+        tagExists: true
+      });
+    }
+
+    // Insert new tag
+    let result;
+    
+    if (USE_MYSQL) {
+      result = await db.query(
+        'INSERT INTO custom_tags (tag_name, created_by) VALUES (?, ?)',
+        [trimmedTag, userId]
+      );
+      console.log(`✅ Custom tag added with ID: ${result.insertId}`);
+      res.json({
+        success: true,
+        message: 'Custom tag added successfully',
+        tag: {
+          id: result.insertId,
+          tag_name: trimmedTag
+        }
+      });
+    } else {
+      result = await new Promise((resolve, reject) => {
+        db.run(
+          'INSERT INTO custom_tags (tag_name, created_by) VALUES (?, ?)',
+          [trimmedTag, userId],
+          function(err) {
+            if (err) reject(err);
+            else resolve({ lastID: this.lastID });
+          }
+        );
+      });
+      console.log(`✅ Custom tag added with ID: ${result.lastID}`);
+      res.json({
+        success: true,
+        message: 'Custom tag added successfully',
+        tag: {
+          id: result.lastID,
+          tag_name: trimmedTag
+        }
+      });
+    }
+  } catch (err) {
+    console.error('❌ Error adding custom tag:', err);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to add custom tag'
+    });
+  }
+});
+
+// Delete a custom tag (optional - for future use)
+router.delete('/:tagId', async (req, res) => {
+  const { tagId } = req.params;
+  const { userId } = req.body;
+
+  console.log(`🗑️ Deleting custom tag ${tagId} by user ${userId}`);
+
+  try {
+    let result;
+    
+    if (USE_MYSQL) {
+      result = await db.query(
+        'DELETE FROM custom_tags WHERE id = ?',
+        [tagId]
+      );
+      
+      if (result.affectedRows === 0) {
+        return res.status(404).json({
+          success: false,
+          message: 'Tag not found'
+        });
+      }
+    } else {
+      result = await new Promise((resolve, reject) => {
+        db.run(
+          'DELETE FROM custom_tags WHERE id = ?',
+          [tagId],
+          function(err) {
+            if (err) reject(err);
+            else resolve({ changes: this.changes });
+          }
+        );
+      });
+      
+      if (result.changes === 0) {
+        return res.status(404).json({
+          success: false,
+          message: 'Tag not found'
+        });
+      }
+    }
+
+    console.log('✅ Custom tag deleted');
+    res.json({
+      success: true,
+      message: 'Custom tag deleted successfully'
+    });
+  } catch (err) {
+    console.error('❌ Error deleting custom tag:', err);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to delete custom tag'
+    });
+  }
+});
 
 module.exports = router;
 
@@ -78068,7 +78639,7 @@ router.post('/check-duplicate', (req, res) => {
 // Upload file (User only)
 router.post('/upload', upload.single('file'), async (req, res) => {
   try {
-    const { description, userId, username, userTeam, tag, replaceExisting } = req.body;
+    const { description, userId, username, userTeam, tag, replaceExisting, isRevision } = req.body;
     if (!req.file) {
       return res.status(400).json({
         success: false,
@@ -78094,15 +78665,35 @@ router.post('/upload', upload.single('file'), async (req, res) => {
     }
 
     console.log(`📁 File upload by ${username} from ${userTeam} team:`, originalFilename);
+    if (isRevision === 'true') {
+      console.log('📝 This is a REVISION file (replacing rejected)');
+    }
 
     // Move file from temp location to user folder
     // FIXED: Now async - doesn't block server during large file moves
+    console.log(`📦 Moving file from temp to user folder...`);
+    console.log(`   Temp path: ${req.file.path}`);
+    console.log(`   Username: ${username}`);
+    console.log(`   Original filename: ${originalFilename}`);
+    console.log(`   File mimetype: ${req.file.mimetype}`);
+    
     try {
       const finalPath = await moveToUserFolder(req.file.path, username, originalFilename);
       req.file.path = finalPath;
       req.file.filename = originalFilename; // Use decoded original filename
       req.file.originalname = originalFilename; // Update originalname with decoded version
       console.log(`✅ File organized successfully to: ${finalPath}`);
+      console.log(`✅ File should now be visible at: ${finalPath}`);
+      
+      // CRITICAL: Verify file actually exists at final location
+      const fs = __nccwpck_require__(79896);
+      if (!fs.existsSync(finalPath)) {
+        console.error('❌ CRITICAL: File was not found at final path after move!');
+        console.error(`   Expected at: ${finalPath}`);
+        throw new Error('File verification failed - file not found at destination');
+      }
+      console.log('✅ File existence verified at final path');
+      
     } catch (moveError) {
       console.error('❌ Error organizing file details:', {
         error: moveError.message,
@@ -78151,34 +78742,115 @@ router.post('/upload', upload.single('file'), async (req, res) => {
         insertFileRecord();
       });
     } else {
-      // Replace existing file - first find and remove the old one
+      // Replace existing file - UPDATE the record instead of deleting it
       db.get('SELECT * FROM files WHERE original_name = ? AND user_id = ?', [req.file.originalname, userId], async (err, existingFile) => {
         if (existingFile) {
-          // Delete old physical file
+          console.log('📝 Found existing file, will UPDATE instead of delete+create');
+          console.log(`   Old file ID: ${existingFile.id}`);
+          console.log(`   Old file path: ${existingFile.file_path}`);
+          
+          // Delete old physical file only
           const oldRelativePath = existingFile.file_path.startsWith('/uploads/') ? existingFile.file_path.substring(8) : existingFile.file_path;
           const oldFilePath = path.join(uploadsDir, oldRelativePath);
           await safeDeleteFile(oldFilePath);
 
-          // Delete old database record
-          db.run('DELETE FROM files WHERE id = ?', [existingFile.id], (deleteErr) => {
-            if (deleteErr) {
-              console.error('❌ Error deleting old file record:', deleteErr);
-            } else {
-              console.log('✅ Old file record deleted');
-              logActivity(db, userId, username, 'USER', userTeam, `File replaced: ${req.file.originalname}`);
+          // Get the relative path for the new file
+          const relativePath = path.relative(uploadsDir, req.file.path).replace(/\\/g, '/');
+          const initialStatus = (isRevision === 'true') ? 'under_revision' : 'uploaded';
+          
+          // UPDATE the existing database record instead of deleting it
+          db.run(`UPDATE files SET 
+            filename = ?,
+            file_path = ?,
+            file_size = ?,
+            file_type = ?,
+            mime_type = ?,
+            description = ?,
+            tag = ?,
+            status = ?,
+            current_stage = ?,
+            uploaded_at = CURRENT_TIMESTAMP
+          WHERE id = ?`,
+          [
+            req.file.filename,
+            `/uploads/${relativePath}`,
+            req.file.size,
+            getFileTypeDescription(req.file.mimetype, req.file.originalname),
+            req.file.mimetype,
+            description || '',
+            tag || '',
+            initialStatus,
+            'pending_team_leader',
+            existingFile.id  // Keep the same ID!
+          ], async function(updateErr) {
+            if (updateErr) {
+              console.error('❌ Error updating file record:', updateErr);
+              await safeDeleteFile(req.file.path);
+              return res.status(500).json({
+                success: false,
+                message: 'Failed to update file information'
+              });
             }
-          });
-        }
+            
+            const fileId = existingFile.id; // Use the same ID
 
-        // Insert new file record
-        insertFileRecord();
+            // Log the file replacement
+            const action = isRevision === 'true' ? 'revised' : 'replaced';
+            logActivity(db, userId, username, 'USER', userTeam, `File ${action}: ${req.file.originalname}`);
+
+            // Log status history
+            logFileStatusChange(
+              db,
+              fileId,
+              existingFile.status,
+              initialStatus,
+              existingFile.current_stage,
+              'pending_team_leader',
+              userId,
+              username,
+              'USER',
+              `File ${action} by user${isRevision === 'true' ? ' (revision of rejected file)' : ''}`
+            );
+
+            console.log(`✅ File ${action} successfully with ID: ${fileId}${isRevision === 'true' ? ' (marked as REVISED)' : ''}`);
+            console.log(`✅ File record UPDATED (not deleted) - will stay in My Files!`);
+            res.json({
+              success: true,
+              message: `File ${action} successfully`,
+              file: {
+                id: fileId,
+                filename: req.file.filename,
+                original_name: req.file.originalname,
+                file_size: req.file.size,
+                file_type: getFileTypeDescription(req.file.mimetype, req.file.originalname),
+                description: description || '',
+                status: initialStatus,
+                current_stage: 'pending_team_leader',
+                uploaded_at: new Date()
+              },
+              replaced: true,
+              isRevision: isRevision === 'true'
+            });
+          });
+        } else {
+          // No existing file, create new one
+          insertFileRecord();
+        }
       });
     }
 
     function insertFileRecord() {
       // Get the relative path from the uploadsDir
       const relativePath = path.relative(uploadsDir, req.file.path).replace(/\\/g, '/');
+      
+      console.log('💾 Database storage info:');
+      console.log(`   Full path: ${req.file.path}`);
+      console.log(`   Relative path: ${relativePath}`);
+      console.log(`   Will be stored as: /uploads/${relativePath}`);
 
+      // Determine initial status based on whether this is a revision
+      const initialStatus = (isRevision === 'true') ? 'under_revision' : 'uploaded';
+      
       // Insert file record into database
       db.run(`INSERT INTO files (
         filename, original_name, file_path, file_size, file_type, mime_type, description, tag,
@@ -78196,7 +78868,7 @@ router.post('/upload', upload.single('file'), async (req, res) => {
         userId,
         username,
         userTeam,
-        'uploaded',
+        initialStatus,
         'pending_team_leader'
       ], async function(err) {
         if (err) {
@@ -78211,7 +78883,7 @@ router.post('/upload', upload.single('file'), async (req, res) => {
         const fileId = this.lastID;
 
         // Log the file upload
-        const action = replaceExisting === 'true' ? 'replaced' : 'uploaded';
+        const action = replaceExisting === 'true' ? 'replaced' : (isRevision === 'true' ? 'revised' : 'uploaded');
         logActivity(db, userId, username, 'USER', userTeam, `File ${action}: ${req.file.originalname}`);
 
         // Log status history
@@ -78219,16 +78891,16 @@ router.post('/upload', upload.single('file'), async (req, res) => {
           db,
           fileId,
           null,
-          'uploaded',
+          initialStatus,
           null,
           'pending_team_leader',
           userId,
           username,
           'USER',
-          `File ${action} by user`
+          `File ${action} by user${isRevision === 'true' ? ' (revision of rejected file)' : ''}`
         );
 
-        console.log(`✅ File ${action} successfully with ID: ${fileId}`);
+        console.log(`✅ File ${action} successfully with ID: ${fileId}${isRevision === 'true' ? ' (marked as REVISED)' : ''}`);
         res.json({
           success: true,
           message: `File ${action} successfully`,
@@ -78239,11 +78911,12 @@ router.post('/upload', upload.single('file'), async (req, res) => {
             file_size: req.file.size,
             file_type: getFileTypeDescription(req.file.mimetype, req.file.originalname),
             description: description || '',
-            status: 'uploaded',
+            status: initialStatus,
             current_stage: 'pending_team_leader',
             uploaded_at: new Date()
           },
-          replaced: replaceExisting === 'true'
+          replaced: replaceExisting === 'true',
+          isRevision: isRevision === 'true'
         });
       });
     }
@@ -80010,6 +80683,88 @@ router.post('/open-file', async (req, res) => {
       error: error.message
     });
   }
+});
+
+// Get file path by ID (for Electron to open files) - MUST BE BEFORE /:fileId
+router.get('/:fileId/path', (req, res) => {
+  const { fileId } = req.params;
+  console.log(`📍 Getting file path for ID: ${fileId}`);
+
+  db.get('SELECT file_path, original_name FROM files WHERE id = ?', [fileId], (err, file) => {
+    if (err) {
+      console.error('❌ Error getting file path:', err);
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to get file path'
+      });
+    }
+
+    if (!file) {
+      console.log('❌ File not found:', fileId);
+      return res.status(404).json({
+        success: false,
+        message: 'File not found'
+      });
+    }
+
+    // Convert relative path to absolute path
+    let filePath = file.file_path;
+    
+    // If it's a relative path starting with /uploads/, resolve it
+    if (filePath.startsWith('/uploads/')) {
+      const relativePath = filePath.substring(8);
+      filePath = path.join(uploadsDir, relativePath);
+    }
+
+    // Normalize path for Windows
+    filePath = path.normalize(filePath);
+
+    console.log('✅ File path resolved:', filePath);
+    res.json({
+      success: true,
+      filePath,
+      fileName: file.original_name
+    });
+  });
+});
+
+// Get file details by ID (for opening files) - CATCH-ALL, MUST BE LAST
+router.get('/:fileId', (req, res) => {
+  const { fileId } = req.params;
+  
+  // Skip if not a numeric ID (avoid catching other routes)
+  if (!/^\d+$/.test(fileId)) {
+    return res.status(400).json({
+      success: false,
+      message: 'Invalid file ID'
+    });
+  }
+  
+  console.log(`📝 Getting file details for ID: ${fileId}`);
+
+  db.get('SELECT * FROM files WHERE id = ?', [fileId], (err, file) => {
+    if (err) {
+      console.error('❌ Error getting file:', err);
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to get file details'
+      });
+    }
+
+    if (!file) {
+      console.log('❌ File not found:', fileId);
+      return res.status(404).json({
+        success: false,
+        message: 'File not found'
+      });
+    }
+
+    console.log('✅ File found:', file.original_name);
+    res.json({
+      success: true,
+      file
+    });
+  });
 });
 
 module.exports = router;
@@ -82236,21 +82991,31 @@ const path = __nccwpck_require__(16928);
  * FIXED: Now async, no blocking, handles race conditions
  */
 async function moveToUserFolder(tempPath, username, originalFilename) {
-  console.log('📦 moveToUserFolder:', { tempPath, username, originalFilename });
+  console.log('📦 moveToUserFolder called with:');
+  console.log('   tempPath:', tempPath);
+  console.log('   username:', username);
+  console.log('   originalFilename:', originalFilename);
 
   const { uploadsDir } = __nccwpck_require__(62489);
   const userDir = path.join(uploadsDir, username);
+  console.log('   uploadsDir:', uploadsDir);
+  console.log('   userDir:', userDir);
 
   // CRITICAL FIX: recursive: true handles race condition
   // If folder already exists from parallel request, this won't throw
-  await fs.mkdir(userDir, { recursive: true });
-  console.log(`✅ User folder ready: ${userDir}`);
+  try {
+    await fs.mkdir(userDir, { recursive: true });
+    console.log(`✅ User folder created/verified: ${userDir}`);
+  } catch (mkdirError) {
+    console.error('❌ Failed to create user folder:', mkdirError);
+    throw new Error(`Failed to create user folder: ${mkdirError.message}`);
+  }
 
   // Decode and sanitize filename
   let decodedFilename = originalFilename;
   try {
     // Check for garbled UTF-8 patterns
-    if (/[Ã¢â¬â¢Ã¤Â¸â¬Ã¦ââÃ¨Â±Â¡]/.test(originalFilename)) {
+    if (/[Ã¢â¬â¢Ã¤Â¸â‚¬Ã¦â€"‡Ã¨Â±Â¡]/.test(originalFilename)) {
       const buffer = Buffer.from(originalFilename, 'binary');
       decodedFilename = buffer.toString('utf8');
       console.log('📝 Fixed UTF-8:', originalFilename, '->', decodedFilename);
@@ -82262,36 +83027,61 @@ async function moveToUserFolder(tempPath, username, originalFilename) {
   // Sanitize for Windows
   const sanitizedFilename = sanitizeFilename(decodedFilename);
   const finalPath = path.join(userDir, sanitizedFilename);
-  console.log('📍 Target path:', finalPath);
+  console.log('📍 Final target path:', finalPath);
 
   // Verify source exists
+  console.log('🔍 Checking if temp file exists...');
   try {
     await fs.access(tempPath);
+    console.log('✅ Temp file exists');
+    
+    // Get file stats for debugging
+    const stats = await fs.stat(tempPath);
+    console.log(`   File size: ${stats.size} bytes`);
+    console.log(`   Is file: ${stats.isFile()}`);
   } catch (error) {
+    console.error('❌ Temp file not found at:', tempPath);
     throw new Error(`Temp file not found: ${tempPath}`);
   }
 
   // CRITICAL FIX: Async move with fallback for cross-device
+  console.log('🚚 Attempting to move file...');
   try {
     // Try rename first (fast, atomic on same filesystem)
     await fs.rename(tempPath, finalPath);
     console.log(`✅ Moved via rename: ${finalPath}`);
   } catch (renameError) {
+    console.log('⚠️ Rename failed:', renameError.code, renameError.message);
     // Handle cross-device link error (EXDEV)
     if (renameError.code === 'EXDEV') {
-      console.log('⚠️ Cross-device detected, using copy+delete');
+      console.log('🔄 Cross-device detected, using copy+delete');
       try {
         await fs.copyFile(tempPath, finalPath);
+        console.log('✅ Copy successful');
         await fs.unlink(tempPath);
+        console.log('✅ Temp file deleted');
         console.log(`✅ Moved via copy: ${finalPath}`);
       } catch (copyError) {
         console.error('❌ Copy failed:', copyError);
         throw new Error(`Failed to copy file: ${copyError.message}`);
       }
     } else {
-      console.error('❌ Rename failed:', renameError);
+      console.error('❌ Rename failed with unexpected error:', renameError);
       throw new Error(`Failed to move file: ${renameError.message}`);
     }
+  }
+
+  // Final verification
+  console.log('🔍 Verifying file exists at final location...');
+  try {
+    await fs.access(finalPath);
+    const stats = await fs.stat(finalPath);
+    console.log('✅ File verified at final location');
+    console.log(`   Final file size: ${stats.size} bytes`);
+  } catch (verifyError) {
+    console.error('❌ CRITICAL: File not found after move operation!');
+    console.error('   Expected at:', finalPath);
+    throw new Error('File verification failed after move');
   }
 
   return finalPath;
@@ -82315,20 +83105,21 @@ function sanitizeFilename(filename) {
 /**
  * Safely delete file with verification
  * FIXED: Now async, doesn't block event loop
+ * Returns object with success status and additional info
  */
 async function safeDeleteFile(filePath) {
   try {
     await fs.access(filePath);
     await fs.unlink(filePath);
     console.log(`✅ Deleted: ${filePath}`);
-    return true;
+    return { success: true, message: 'File deleted successfully' };
   } catch (error) {
     if (error.code === 'ENOENT') {
-      console.log(`ℹ️ File already deleted: ${filePath}`);
-      return true;
+      console.log(`ℹ️ File already deleted or not found: ${filePath}`);
+      return { success: true, notFound: true, message: 'File not found (already deleted)' };
     }
     console.error(`❌ Failed to delete ${filePath}:`, error);
-    return false;
+    return { success: false, error: error, message: error.message };
   }
 }
 
@@ -82486,16 +83277,39 @@ function logActivity(db, userId, username, role, team, action) {
     INSERT INTO activity_logs (user_id, username, role, team, activity, timestamp)
     VALUES (?, ?, ?, ?, ?, ?)
   `;
+  // Check if we're using MySQL or SQLite
+  const USE_MYSQL = (__nccwpck_require__(5024).USE_MYSQL);
 
-  db.run(query, [userId, username, role, team, action, timestamp], (err) => {
-    if (err) {
-      logger.error('Failed to log activity to database', {
+  if (USE_MYSQL) {
+    // MySQL: Use activity column instead of action
+    const mysqlDb = __nccwpck_require__(55364);
+    mysqlDb.query(
+      'INSERT INTO activity_logs (user_id, username, role, team, activity, timestamp) VALUES (?, ?, ?, ?, ?, ?)',
+      [userId, username, role, team, action, timestamp]
+    ).catch(err => {
+      logger.error('Failed to log activity to MySQL database', {
         error: err.message,
         userId,
         action
       });
-    }
-  });
+    });
+  } else {
+    // SQLite: Use action column
+    const query = `
+      INSERT INTO activity_logs (user_id, username, role, team, action, timestamp)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `;
+
+    db.run(query, [userId, username, role, team, action, timestamp], (err) => {
+      if (err) {
+        logger.error('Failed to log activity to database', {
+          error: err.message,
+          userId,
+          action
+        });
+      }
+    });
+  }
 }
 
 /**
@@ -82574,18 +83388,20 @@ function logDebug(message, meta = {}) {
  * Log file status change to database
  * @param {Object} db - Database instance
  * @param {number} fileId - File ID
- * @param {string} oldStatus - Previous status
+ * @param {string} oldStatus - Old status
  * @param {string} newStatus - New status
- * @param {string} oldStage - Previous stage
+ * @param {string} oldStage - Old stage
  * @param {string} newStage - New stage
- * @param {number} userId - User ID who made the change
- * @param {string} username - Username who made the change
+ * @param {number} userId - User ID
+ * @param {string} username - Username
  * @param {string} role - User role
- * @param {string} reason - Optional reason for the change
+ * @param {string} comment - Optional comment
  */
-function logFileStatusChange(db, fileId, oldStatus, newStatus, oldStage, newStage, userId, username, role, reason = '') {
+function logFileStatusChange(db, fileId, oldStatus, newStatus, oldStage, newStage, userId, username, role, comment = '') {
+  const timestamp = new Date().toISOString();
+
   // Log to Winston
-  logger.info('File Status Change', {
+  logger.info('File status change', {
     fileId,
     oldStatus,
     newStatus,
@@ -82594,34 +83410,49 @@ function logFileStatusChange(db, fileId, oldStatus, newStatus, oldStage, newStag
     userId,
     username,
     role,
-    reason
+    comment,
+    timestamp
   });
 
-  // Log to database - use DEFAULT CURRENT_TIMESTAMP for created_at
-  const query = `
-    INSERT INTO file_status_history
-    (file_id, old_status, new_status, old_stage, new_stage, changed_by_id, changed_by_username, changed_by_role, reason)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `;
+  // Check if we're using MySQL or SQLite
+  const USE_MYSQL = (__nccwpck_require__(5024).USE_MYSQL);
 
-  db.run(query, [fileId, oldStatus, newStatus, oldStage, newStage, userId, username, role, reason], (err) => {
-    if (err) {
-      logger.error('Failed to log file status change to database', {
+  if (USE_MYSQL) {
+    // MySQL
+    const mysqlDb = __nccwpck_require__(55364);
+    mysqlDb.query(
+      'INSERT INTO file_status_history (file_id, old_status, new_status, old_stage, new_stage, changed_by_id, changed_by_username, changed_by_role, comment, changed_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [fileId, oldStatus, newStatus, oldStage, newStage, userId, username, role, comment, timestamp]
+    ).catch(err => {
+      logger.error('Failed to log file status change to MySQL database', {
         error: err.message,
         fileId,
-        oldStatus,
         newStatus
       });
-      console.error('❌ Error logging file status change:', err.message);
-    } else {
-      console.log(`✅ File status change logged: ${oldStatus} → ${newStatus}`);
-    }
-  });
+    });
+  } else {
+    // SQLite
+    const query = `
+      INSERT INTO file_status_history (file_id, old_status, new_status, old_stage, new_stage, changed_by_id, changed_by_username, changed_by_role, comment, changed_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `;
+
+    db.run(query, [fileId, oldStatus, newStatus, oldStage, newStage, userId, username, role, comment, timestamp], (err) => {
+      if (err) {
+        logger.error('Failed to log file status change to database', {
+          error: err.message,
+          fileId,
+          newStatus
+        });
+      }
+    });
+  }
 }
 
 module.exports = {
   logger,
   logActivity,
+  logFileStatusChange,
   logFileStatusChange,
   logRequest,
   logError,

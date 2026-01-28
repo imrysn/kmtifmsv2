@@ -1,6 +1,6 @@
 {
   "name": "kmti-file-management",
-  "version": "2.1.10",
+  "version": "2.1.11",
   "description": "Desktop application used for file management, checking, and approval of files.",
   "main": "main.js",
   "scripts": {
@@ -22,7 +22,7 @@
     "build:server": "npm run client:build && ncc build server.js -o dist-server",
     "build:server-standalone": "npm run client:build && ncc build server.js -o dist-server && xcopy client\\dist dist-server\\client-dist /E /I /Y",
     "build:server-exe": "npm run build:server-standalone && pkg server.js --targets node18-win --output dist\\KMTI_FMS_Server.exe",
-    "build:server-installer": "npm run build:server-exe && xcopy database dist\\database /E /I /Y && copy .env dist\\.env && copy start-server.bat dist\\ && copy install-server-startup.bat dist\\ && copy install-server-service.bat dist\\ && copy run-server-hidden.vbs dist\\ && copy KMTI_FMS_Server_Launcher.vbs dist\\ && copy USER_SETUP_GUIDE.md dist\\ && copy SERVER_INSTALLER_README.md dist\\ && xcopy dist-server\\client-dist dist\\client-dist /E /I /Y && echo Server installer created in dist\\",
+    "build:server-installer": "npm run build:server-exe && xcopy database dist\\database /E /I /Y && copy .env dist\\.env && copy start-server.bat dist\\ && copy install-server-startup.bat dist\\ && copy install-server-service.bat dist\\ && copy run-server-hidden.vbs dist\\ && copy USER_SETUP_GUIDE.md dist\\ && xcopy dist-server\\client-dist dist\\client-dist /E /I /Y && echo Server installer created in dist\\",
     "build:service-installer": "npm run build:server-installer && npm run create-service-scripts",
     "create-service-scripts": "echo Creating Windows service scripts...",
     "postinstall": "cd client && npm install",
@@ -66,9 +66,15 @@
     "network:switch-local": "node server/scripts/network/switch-to-local-test.js",
     "network:restore": "node server/scripts/network/restore-network-mode.js",
     "network:create-test-dir": "node server/scripts/network/create-local-test-directory.js",
-    "validate:updates": "node validate-update-system.js"
+    "validate:updates": "node validate-update-system.js",
+    "server:health": "node server-health-check.js",
+    "server:test-mysql": "node test-mysql-connection.js",
+    "server:direct": "node server.js"
   },
   "devDependencies": {
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
+    "@testing-library/user-event": "^14.6.1",
     "@types/jest": "^30.0.0",
     "@vercel/ncc": "^0.38.4",
     "concurrently": "^8.2.2",
@@ -84,6 +90,8 @@
     "wait-on": "^7.0.1"
   },
   "dependencies": {
+    "@tanstack/react-query": "^5.90.19",
+    "@tanstack/react-query-devtools": "^5.91.2",
     "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",
     "dotenv": "^17.2.3",
@@ -93,10 +101,12 @@
     "joi": "^18.0.2",
     "multer": "^1.4.5-lts.1",
     "mysql2": "^3.15.1",
+    "node-cache": "^5.1.2",
     "node-fetch": "^2.7.0",
     "react-hook-form": "^7.68.0",
     "sqlite3": "^5.1.6",
-    "winston": "^3.19.0"
+    "winston": "^3.19.0",
+    "zustand": "^5.0.10"
   },
   "build": {
     "appId": "com.kmti.kmtifms2",

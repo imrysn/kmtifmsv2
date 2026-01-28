@@ -1,10 +1,9 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react'
+import { API_BASE_URL } from '@/config/api'
 
 const NetworkContext = createContext(null)
 
-const API_BASE = process.env.NODE_ENV === 'development'
-  ? 'http://localhost:3001'
-  : 'http://localhost:3001'
+const API_BASE = API_BASE_URL
 
 export const NetworkProvider = ({ children }) => {
   const [isOnline, setIsOnline] = useState(true)
@@ -19,7 +18,7 @@ export const NetworkProvider = ({ children }) => {
         cache: 'no-cache',
         signal: AbortSignal.timeout(5000) // 5 second timeout
       })
-      
+
       const isAvailable = response.ok
       setIsServerAvailable(isAvailable)
       setIsOnline(true)
@@ -51,7 +50,7 @@ export const NetworkProvider = ({ children }) => {
       setIsOnline(true)
       checkNetworkStatus()
     }
-    
+
     const handleOffline = () => {
       setIsOnline(false)
       setIsServerAvailable(false)

@@ -1,4 +1,5 @@
 import { useState, useEffect, Suspense, lazy } from 'react'
+import { API_BASE_URL } from '@/config/api'
 import '../css/TeamLeaderDashboard.css'
 import SkeletonLoader from '../components/common/SkeletonLoader'
 import { AlertMessage } from '../components/shared'
@@ -44,7 +45,7 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
   const [searchQuery, setSearchQuery] = useState('')
   const [fileComments, setFileComments] = useState([])
   const [openMenuId, setOpenMenuId] = useState(null)
-  
+
   // Bulk action states
   const [selectedFileIds, setSelectedFileIds] = useState([])
   const [showBulkActionModal, setShowBulkActionModal] = useState(false)
@@ -74,14 +75,14 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
   const [notifications, setNotifications] = useState([])
   const [notificationCounts, setNotificationCounts] = useState({ overdue: 0, urgent: 0, pending: 0 })
   const [showNotifications, setShowNotifications] = useState(false)
-  
+
   // Team management states
   const [teamMembers, setTeamMembers] = useState([])
   const [selectedMember, setSelectedMember] = useState(null)
   const [memberFiles, setMemberFiles] = useState([])
   const [isLoadingTeam, setIsLoadingTeam] = useState(false)
   const [showMemberFilesModal, setShowMemberFilesModal] = useState(false)
-  
+
   // Analytics data for cards
   const [analyticsData, setAnalyticsData] = useState(null)
   const [selectedStatusFilter, setSelectedStatusFilter] = useState('total')
@@ -161,7 +162,7 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
   const fetchAllSubmissions = async () => {
     setIsLoading(true)
     try {
-      const response = await fetch(`http://localhost:3001/api/assignments/team-leader/${user.team}/all-submissions`)
+      const response = await fetch(`${API_BASE_URL}/api/assignments/team-leader/${user.team}/all-submissions`)
       const data = await response.json()
 
       if (data.success) {
@@ -178,24 +179,23 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
   const fetchPendingFiles = async (status = null) => {
     setIsLoading(true)
     try {
-      let url = `http://localhost:3001/api/files/team-leader/${user.team}?limit=1000`
-
+      let url = `${API_BASE_URL}/api/files/team-leader/${user.team}?limit=1000`
       if (status === 'total') {
-        url = `http://localhost:3001/api/files/team/${user.team}?limit=1000`
+        url = `${API_BASE_URL}/api/files/team/${user.team}?limit=1000`
       }
       else if (status && status !== 'pending') {
         let statusParam = status
-        url = `http://localhost:3001/api/files/team/${user.team}/status/${statusParam}?limit=1000`
+        url = `${API_BASE_URL}/api/files/team/${user.team}/status/${statusParam}?limit=1000`
       }
 
       const response = await fetch(url)
       const data = await response.json()
 
       if (data.success) {
-      setPendingFiles(data.files || [])
-      setFilteredFiles(data.files || [])
+        setPendingFiles(data.files || [])
+        setFilteredFiles(data.files || [])
         setSelectedStatusFilter(status || null)
-    }
+      }
     } catch (error) {
       console.error('Error fetching files:', error)
     } finally {
@@ -211,7 +211,7 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
   const fetchTeamMembers = async () => {
     setIsLoadingTeam(true)
     try {
-      const response = await fetch(`http://localhost:3001/api/team-members/${user.team}`)
+      const response = await fetch(`${API_BASE_URL}/api/team-members/${user.team}`)
       const data = await response.json()
 
       if (data.success && data.members && data.members.length > 0) {
@@ -268,9 +268,9 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
     setSelectedMember({ id: memberId, name: memberName })
     setIsLoading(true)
     try {
-      const response = await fetch(`http://localhost:3001/api/files/member/${memberId}`)
+      const response = await fetch(`${API_BASE_URL}/api/files/member/${memberId}`)
       const data = await response.json()
-      
+
       if (data.success) {
         setMemberFiles(data.files || [])
         setShowMemberFilesModal(true)
@@ -287,9 +287,9 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
 
   const fetchAnalytics = async () => {
     try {
-      const response = await fetch(`http://localhost:3001/api/dashboard/team/${user.team}`)
+      const response = await fetch(`${API_BASE_URL}/api/dashboard/team/${user.team}`)
       const data = await response.json()
-      
+
       if (data.success) {
         setAnalyticsData(data.analytics || {})
       }
@@ -301,14 +301,14 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
   const fetchAssignments = async () => {
     setIsLoadingAssignments(true)
     try {
-      const response = await fetch(`http://localhost:3001/api/assignments/team-leader/${user.team}`)
-      
+      const response = await fetch(`${API_BASE_URL}/api/assignments/team-leader/${user.team}`)
+
       if (response.status === 404) {
         setAssignments([])
         setIsLoadingAssignments(false)
         return
       }
-      
+
       const data = await response.json()
       if (data.success) {
         setAssignments(data.assignments || [])
@@ -338,8 +338,8 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
     try {
       // Check if we're editing or creating
       const url = editingAssignmentId
-        ? `http://localhost:3001/api/assignments/${editingAssignmentId}`
-        : 'http://localhost:3001/api/assignments/create'
+        ? `${API_BASE_URL}/api/assignments/${editingAssignmentId}`
+        : `${API_BASE_URL}/api/assignments/create`
 
       const method = editingAssignmentId ? 'PUT' : 'POST'
 
@@ -422,7 +422,7 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
 
   const deleteAssignment = async (assignmentId, title) => {
     try {
-      const response = await fetch(`http://localhost:3001/api/assignments/${assignmentId}`, {
+      const response = await fetch(`${API_BASE_URL}/api/assignments/${assignmentId}`, {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -446,7 +446,7 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
 
   const markAssignmentAsDone = async (assignmentId, title) => {
     try {
-      const response = await fetch(`http://localhost:3001/api/assignments/${assignmentId}/mark-done`, {
+      const response = await fetch(`${API_BASE_URL}/api/assignments/${assignmentId}/mark-done`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -474,9 +474,9 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
     setReviewAction(action)
     setReviewComments('')
     setShowReviewModal(true)
-    
+
     try {
-      const response = await fetch(`http://localhost:3001/api/files/${file.id}/comments`)
+      const response = await fetch(`${API_BASE_URL}/api/files/${file.id}/comments`)
       const data = await response.json()
       if (data.success) {
         setFileComments(data.comments || [])
@@ -489,7 +489,7 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
 
   const openFileViewModal = async (file) => {
     try {
-      const response = await fetch('http://localhost:3001/api/files/open-file', {
+      const response = await fetch(`${API_BASE_URL}/api/files/open-file`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -520,7 +520,7 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
     setError('')
 
     try {
-      const response = await fetch(`http://localhost:3001/api/files/${selectedFile.id}/team-leader-review`, {
+      const response = await fetch(`${API_BASE_URL}/api/files/${selectedFile.id}/team-leader-review`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -568,7 +568,7 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
     if (!dateString) return 'No date'
     const date = new Date(dateString)
     if (isNaN(date.getTime())) return 'Invalid Date'
-    
+
     return date.toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'short',
@@ -580,7 +580,7 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
     if (!dateString) return 'Invalid Date'
     const date = new Date(dateString)
     if (isNaN(date.getTime())) return 'Invalid Date'
-    
+
     return date.toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'short',
@@ -622,7 +622,7 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
     setError('')
 
     try {
-      const response = await fetch('http://localhost:3001/api/files/bulk-action', {
+      const response = await fetch(`${API_BASE_URL}/api/files/bulk-action`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -662,7 +662,7 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
   const applyFilters = async () => {
     setIsLoading(true)
     try {
-      const response = await fetch(`http://localhost:3001/api/files/team-leader/${user.team}/filter`, {
+      const response = await fetch(`${API_BASE_URL}/api/files/team-leader/${user.team}/filter`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -716,7 +716,7 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
     setError('')
 
     try {
-      const response = await fetch(`http://localhost:3001/api/files/${priorityFileId}/priority`, {
+      const response = await fetch(`${API_BASE_URL}/api/files/${priorityFileId}/priority`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -748,7 +748,7 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
 
   const fetchNotifications = async () => {
     try {
-      const response = await fetch(`http://localhost:3001/api/files/notifications/${user.team}`)
+      const response = await fetch(`${API_BASE_URL}/api/files/notifications/${user.team}`)
       const data = await response.json()
 
       if (data.success) {
@@ -789,7 +789,7 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
   const handleOpenInExplorer = async (filePath, e) => {
     e.stopPropagation()
     try {
-      const response = await fetch('http://localhost:3001/api/files/open-in-explorer', {
+      const response = await fetch(`${API_BASE_URL}/api/files/open-in-explorer`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -918,7 +918,7 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
                 console.log('🎯 Dashboard onNavigate called');
                 console.log('   Tab:', tab);
                 console.log('   Data:', data);
-                
+
                 if (tab === 'assignments') {
                   setActiveTab('assignments')
                   // Ensure assignments are loaded first
@@ -926,7 +926,7 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
                     console.log('   ⏳ Fetching assignments...');
                     await fetchAssignments()
                   }
-                  
+
                   // Handle both object and primitive data formats
                   const assignmentId = typeof data === 'object' ? data.assignmentId : data
                   const shouldOpenComments = typeof data === 'object' ? data.shouldOpenComments : false
@@ -943,13 +943,13 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
                     // Set highlighted assignment for scroll and highlight
                     setHighlightedAssignmentId(assignmentId)
                     console.log('   ✅ Set highlightedAssignmentId:', assignmentId);
-                    
+
                     // If there's a file_id, also highlight the specific file within the task
                     if (fileId) {
                       setHighlightedSubmissionFileId(fileId)
                       console.log('   ✅ Set highlightedSubmissionFileId:', fileId);
                     }
-                    
+
                     if (shouldOpenComments) {
                       // For comment notifications, set context to auto-open comments
                       const context = {

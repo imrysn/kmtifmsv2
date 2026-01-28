@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { API_BASE_URL } from '@/config/api'
 import './css/AssignmentDetailsModal.css'
 import { getDisplayFileType } from '../../../utils/fileTypeUtils'
 import { ConfirmationModal } from '../../shared'
@@ -25,7 +26,7 @@ const ReviewModal = ({
   const handleOpenFile = async () => {
     setIsOpeningFile(true)
     try {
-      const response = await fetch('http://localhost:3001/api/files/open-file', {
+      const response = await fetch(`${API_BASE_URL}/api/files/open-file`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -56,13 +57,13 @@ const ReviewModal = ({
       setShowRejectConfirmation(true)
     } else {
       // If there's a comment, proceed directly
-      handleReviewSubmit({ preventDefault: () => {} }, 'reject')
+      handleReviewSubmit({ preventDefault: () => { } }, 'reject')
     }
   }
 
   const handleConfirmReject = () => {
     setShowRejectConfirmation(false)
-    handleReviewSubmit({ preventDefault: () => {} }, 'reject')
+    handleReviewSubmit({ preventDefault: () => { } }, 'reject')
   }
 
   const getStatusDisplayName = (status) => {
@@ -106,7 +107,7 @@ const ReviewModal = ({
           <h3>File Details</h3>
           <button onClick={handleClose} className="modal-close">×</button>
         </div>
-        
+
         <div className="modal-body">
           {/* File Details Section */}
           <div className="file-details-section">
@@ -163,62 +164,62 @@ const ReviewModal = ({
 
           {/* Comments Section */}
           {selectedFile.status !== 'team_leader_approved' &&
-           selectedFile.status !== 'final_approved' &&
-           selectedFile.status !== 'rejected_by_team_leader' &&
-           selectedFile.status !== 'rejected_by_admin' && (
-            <div className="comments-section" style={{ marginBottom: '20px' }}>
-              <h4 className="section-title">Comments (Optional)</h4>
-              <textarea
-                value={reviewComments}
-                onChange={(e) => setReviewComments(e.target.value)}
-                placeholder="Add optional comments or rejection reason..."
-                rows="3"
-                style={{
-                  width: '100%',
-                  padding: '12px',
-                  border: '1px solid #E5E7EB',
-                  borderRadius: '8px',
-                  fontSize: '14px',
-                  fontFamily: 'inherit',
-                  resize: 'vertical',
-                  minHeight: '80px'
-                }}
-              />
-            </div>
-          )}
+            selectedFile.status !== 'final_approved' &&
+            selectedFile.status !== 'rejected_by_team_leader' &&
+            selectedFile.status !== 'rejected_by_admin' && (
+              <div className="comments-section" style={{ marginBottom: '20px' }}>
+                <h4 className="section-title">Comments (Optional)</h4>
+                <textarea
+                  value={reviewComments}
+                  onChange={(e) => setReviewComments(e.target.value)}
+                  placeholder="Add optional comments or rejection reason..."
+                  rows="3"
+                  style={{
+                    width: '100%',
+                    padding: '12px',
+                    border: '1px solid #E5E7EB',
+                    borderRadius: '8px',
+                    fontSize: '14px',
+                    fontFamily: 'inherit',
+                    resize: 'vertical',
+                    minHeight: '80px'
+                  }}
+                />
+              </div>
+            )}
 
           {/* Already Reviewed Notice */}
           {(selectedFile.status === 'team_leader_approved' || selectedFile.status === 'final_approved' ||
             selectedFile.status === 'rejected_by_team_leader' || selectedFile.status === 'rejected_by_admin') && (
-            <div className="review-notice" style={{
-              padding: '12px 16px',
-              background: selectedFile.status === 'team_leader_approved' ? '#FEF3C7' :
-                        selectedFile.status === 'final_approved' ? '#D1FAE5' : '#FEE2E2',
-              border: '1px solid ' + (selectedFile.status === 'team_leader_approved' ? '#FCD34D' :
-                      selectedFile.status === 'final_approved' ? '#34D399' : '#FCA5A5'),
-              borderRadius: '8px',
-              marginBottom: '16px'
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" style={{
-                  color: selectedFile.status === 'team_leader_approved' ? '#92400E' :
-                        selectedFile.status === 'final_approved' ? '#065F46' : '#991B1B'
-                }}>
-                  <path d="M10 18C14.4183 18 18 14.4183 18 10C18 5.58172 14.4183 2 10 2C5.58172 2 2 5.58172 2 10C2 14.4183 5.58172 18 10 18Z" stroke="currentColor" strokeWidth="2"/>
-                  <path d="M10 6V10M10 14H10.01" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-                </svg>
-                <span style={{
-                  fontWeight: '500',
-                  color: selectedFile.status === 'team_leader_approved' ? '#92400E' :
-                        selectedFile.status === 'final_approved' ? '#065F46' : '#991B1B'
-                }}>
-                  {selectedFile.status === 'team_leader_approved' ? 'This file has been approved by you and is now pending admin review.' :
-                   selectedFile.status === 'final_approved' ? 'This file has been fully approved and published.' :
-                   'This file has been rejected and cannot be re-reviewed.'}
-                </span>
+              <div className="review-notice" style={{
+                padding: '12px 16px',
+                background: selectedFile.status === 'team_leader_approved' ? '#FEF3C7' :
+                  selectedFile.status === 'final_approved' ? '#D1FAE5' : '#FEE2E2',
+                border: '1px solid ' + (selectedFile.status === 'team_leader_approved' ? '#FCD34D' :
+                  selectedFile.status === 'final_approved' ? '#34D399' : '#FCA5A5'),
+                borderRadius: '8px',
+                marginBottom: '16px'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <svg width="20" height="20" viewBox="0 0 20 20" fill="none" style={{
+                    color: selectedFile.status === 'team_leader_approved' ? '#92400E' :
+                      selectedFile.status === 'final_approved' ? '#065F46' : '#991B1B'
+                  }}>
+                    <path d="M10 18C14.4183 18 18 14.4183 18 10C18 5.58172 14.4183 2 10 2C5.58172 2 2 5.58172 2 10C2 14.4183 5.58172 18 10 18Z" stroke="currentColor" strokeWidth="2" />
+                    <path d="M10 6V10M10 14H10.01" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                  </svg>
+                  <span style={{
+                    fontWeight: '500',
+                    color: selectedFile.status === 'team_leader_approved' ? '#92400E' :
+                      selectedFile.status === 'final_approved' ? '#065F46' : '#991B1B'
+                  }}>
+                    {selectedFile.status === 'team_leader_approved' ? 'This file has been approved by you and is now pending admin review.' :
+                      selectedFile.status === 'final_approved' ? 'This file has been fully approved and published.' :
+                        'This file has been rejected and cannot be re-reviewed.'}
+                  </span>
+                </div>
               </div>
-            </div>
-          )}
+            )}
 
           {/* Actions Section */}
           <div className="actions-section">
@@ -228,13 +229,13 @@ const ReviewModal = ({
                 onClick={(e) => {
                   e.preventDefault()
                   // Pass the action directly to handleReviewSubmit
-                  handleReviewSubmit({ preventDefault: () => {} }, 'approve')
+                  handleReviewSubmit({ preventDefault: () => { } }, 'approve')
                 }}
                 className="btn btn-success-large"
                 disabled={isProcessing || selectedFile.status === 'team_leader_approved' || selectedFile.status === 'final_approved' || selectedFile.status === 'rejected_by_team_leader' || selectedFile.status === 'rejected_by_admin'}
               >
                 <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-                  <path d="M16.875 5L7.5 14.375L3.125 10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                  <path d="M16.875 5L7.5 14.375L3.125 10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
                 Approve
               </button>
@@ -245,7 +246,7 @@ const ReviewModal = ({
                 disabled={isProcessing || selectedFile.status === 'team_leader_approved' || selectedFile.status === 'final_approved' || selectedFile.status === 'rejected_by_team_leader' || selectedFile.status === 'rejected_by_admin'}
               >
                 <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-                  <path d="M15 5L5 15M5 5L15 15" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                  <path d="M15 5L5 15M5 5L15 15" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
                 Reject
               </button>
@@ -256,7 +257,7 @@ const ReviewModal = ({
                 disabled={isProcessing || isOpeningFile}
               >
                 <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-                  <path d="M10 2.5V10M10 10V17.5M10 10H17.5M10 10H2.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                  <path d="M10 2.5V10M10 10V17.5M10 10H17.5M10 10H2.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
                 {isOpeningFile ? 'Opening...' : 'Open File'}
               </button>

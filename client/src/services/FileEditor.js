@@ -1,4 +1,5 @@
 import { SecureDirectoryManager } from './SecureDirectoryManager';
+import { API_BASE_URL } from '@/config/api';
 
 /**
  * FileEditor - Handles safe file reading, writing, and editing operations
@@ -6,7 +7,7 @@ import { SecureDirectoryManager } from './SecureDirectoryManager';
  */
 export class FileEditor {
   constructor(apiBase, directoryManager = null) {
-    this.apiBase = apiBase || 'http://localhost:3001';
+    this.apiBase = apiBase || API_BASE_URL;
     this.directoryManager = directoryManager || new SecureDirectoryManager();
     this.maxFileSize = 50 * 1024 * 1024; // 50MB default limit
   }

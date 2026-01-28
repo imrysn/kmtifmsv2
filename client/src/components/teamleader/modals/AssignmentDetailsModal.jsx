@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { API_BASE_URL } from '@/config/api'
 import './css/AssignmentDetailsModal.css'
 import FileIcon from '../../shared/FileIcon'
 
@@ -21,7 +22,7 @@ const AssignmentDetailsModal = ({
   const [isProcessing, setIsProcessing] = useState(false)
   const [submissionComments, setSubmissionComments] = useState([])
   const [isLoadingComments, setIsLoadingComments] = useState(false)
-  
+
   // Assignment comments state
   const [assignmentComments, setAssignmentComments] = useState([])
   const [newAssignmentComment, setNewAssignmentComment] = useState('')
@@ -63,9 +64,9 @@ const AssignmentDetailsModal = ({
   const fetchSubmissionComments = async (fileId) => {
     setIsLoadingComments(true)
     try {
-      const response = await fetch(`http://localhost:3001/api/files/${fileId}/comments`)
+      const response = await fetch(`${API_BASE_URL}/api/files/${fileId}/comments`)
       const data = await response.json()
-      
+
       if (data.success) {
         setSubmissionComments(data.comments || [])
       } else {
@@ -81,11 +82,11 @@ const AssignmentDetailsModal = ({
 
   const fetchAssignmentComments = async () => {
     if (!selectedAssignment) return
-    
+
     try {
-      const response = await fetch(`http://localhost:3001/api/assignments/${selectedAssignment.id}/comments`)
+      const response = await fetch(`${API_BASE_URL}/api/assignments/${selectedAssignment.id}/comments`)
       const data = await response.json()
-      
+
       if (data.success) {
         setAssignmentComments(data.comments || [])
       }
@@ -100,9 +101,9 @@ const AssignmentDetailsModal = ({
     if (!commentText || !selectedAssignment) return
 
     setIsPostingComment(true)
-    
+
     try {
-      const response = await fetch(`http://localhost:3001/api/assignments/${selectedAssignment.id}/comments`, {
+      const response = await fetch(`${API_BASE_URL}/api/assignments/${selectedAssignment.id}/comments`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -115,7 +116,7 @@ const AssignmentDetailsModal = ({
       })
 
       const data = await response.json()
-      
+
       if (data.success) {
         setNewAssignmentComment('')
         fetchAssignmentComments()
@@ -135,9 +136,9 @@ const AssignmentDetailsModal = ({
     if (!replyTextValue || !selectedAssignment) return
 
     setIsPostingReply(true)
-    
+
     try {
-      const response = await fetch(`http://localhost:3001/api/assignments/${selectedAssignment.id}/comments/${commentId}/reply`, {
+      const response = await fetch(`${API_BASE_URL}/api/assignments/${selectedAssignment.id}/comments/${commentId}/reply`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -150,7 +151,7 @@ const AssignmentDetailsModal = ({
       })
 
       const data = await response.json()
-      
+
       if (data.success) {
         setReplyText('')
         setReplyingTo(null)
@@ -170,13 +171,13 @@ const AssignmentDetailsModal = ({
     const date = new Date(dateString)
     const now = new Date()
     const diffInSeconds = Math.floor((now - date) / 1000)
-    
+
     if (diffInSeconds < 60) return 'Just now'
     if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)}m ago`
     if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)}h ago`
     if (diffInSeconds < 604800) return `${Math.floor(diffInSeconds / 86400)}d ago`
     if (diffInSeconds < 2592000) return `${Math.floor(diffInSeconds / 604800)}w ago`
-    
+
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
   }
 
@@ -219,7 +220,7 @@ const AssignmentDetailsModal = ({
 
     setIsProcessing(true)
     try {
-      const response = await fetch(`http://localhost:3001/api/files/${selectedSubmission.id}/team-leader-review`, {
+      const response = await fetch(`${API_BASE_URL}/api/files/${selectedSubmission.id}/team-leader-review`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -259,7 +260,7 @@ const AssignmentDetailsModal = ({
 
   const handleRejectSubmission = async () => {
     if (!selectedSubmission) return
-    
+
     if (!reviewComment.trim()) {
       alert('Please provide a reason for rejection')
       return
@@ -267,7 +268,7 @@ const AssignmentDetailsModal = ({
 
     setIsProcessing(true)
     try {
-      const response = await fetch(`http://localhost:3001/api/files/${selectedSubmission.id}/team-leader-review`, {
+      const response = await fetch(`${API_BASE_URL}/api/files/${selectedSubmission.id}/team-leader-review`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -310,7 +311,7 @@ const AssignmentDetailsModal = ({
 
     setIsProcessing(true)
     try {
-      const response = await fetch(`http://localhost:3001/api/files/${selectedSubmission.id}/comments`, {
+      const response = await fetch(`${API_BASE_URL}/api/files/${selectedSubmission.id}/comments`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -339,24 +340,24 @@ const AssignmentDetailsModal = ({
 
   const renderAssignedTo = () => {
     const assignedTo = selectedAssignment.assigned_to || selectedAssignment.assignedTo
-    
+
     if (assignedTo === 'all') {
       return 'All Members'
     }
-    
+
     const members = selectedAssignment.assigned_member_details || []
     const memberCount = members.length
-    
+
     if (memberCount === 0) {
       return 'Specific Members'
     } else if (memberCount === 1) {
       return members[0].fullName || members[0].username
     } else {
       return (
-        <span 
+        <span
           onClick={handleShowMembers}
-          style={{ 
-            color: 'var(--primary-color)', 
+          style={{
+            color: 'var(--primary-color)',
             cursor: 'pointer',
             textDecoration: 'underline'
           }}
@@ -410,7 +411,7 @@ const AssignmentDetailsModal = ({
             <h3>File Details</h3>
             <button onClick={handleCloseSubmissionModal} className="modal-close">×</button>
           </div>
-          
+
           <div className="modal-body">
             {/* File Details Section */}
             <div className="file-details-section">
@@ -542,7 +543,7 @@ const AssignmentDetailsModal = ({
                   disabled={isProcessing || selectedSubmission.status === 'final_approved' || selectedSubmission.status === 'rejected_by_team_leader' || selectedSubmission.status === 'rejected_by_admin'}
                 >
                   <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-                    <path d="M16.875 5L7.5 14.375L3.125 10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                    <path d="M16.875 5L7.5 14.375L3.125 10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                   </svg>
                   Approve
                 </button>
@@ -553,18 +554,18 @@ const AssignmentDetailsModal = ({
                   disabled={isProcessing || selectedSubmission.status === 'final_approved' || selectedSubmission.status === 'rejected_by_team_leader' || selectedSubmission.status === 'rejected_by_admin'}
                 >
                   <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-                    <path d="M15 5L5 15M5 5L15 15" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                    <path d="M15 5L5 15M5 5L15 15" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                   </svg>
                   Reject
                 </button>
                 <button
                   type="button"
-                  onClick={() => window.open(`http://localhost:3001${selectedSubmission.file_path}`, '_blank')}
+                  onClick={() => window.open(`${API_BASE_URL}${selectedSubmission.file_path}`, '_blank')}
                   className="btn btn-secondary-large"
                   disabled={isProcessing}
                 >
                   <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-                    <path d="M15 10.8333V15.8333C15 16.2754 14.8244 16.6993 14.5118 17.0118C14.1993 17.3244 13.7754 17.5 13.3333 17.5H4.16667C3.72464 17.5 3.30072 17.3244 2.98816 17.0118C2.67559 16.6993 2.5 16.2754 2.5 15.8333V6.66667C2.5 6.22464 2.67559 5.80072 2.98816 5.48816C3.30072 5.17559 3.72464 5 4.16667 5H9.16667M12.5 2.5H17.5M17.5 2.5V7.5M17.5 2.5L8.33333 11.6667" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                    <path d="M15 10.8333V15.8333C15 16.2754 14.8244 16.6993 14.5118 17.0118C14.1993 17.3244 13.7754 17.5 13.3333 17.5H4.16667C3.72464 17.5 3.30072 17.3244 2.98816 17.0118C2.67559 16.6993 2.5 16.2754 2.5 15.8333V6.66667C2.5 6.22464 2.67559 5.80072 2.98816 5.48816C3.30072 5.17559 3.72464 5 4.16667 5H9.16667M12.5 2.5H17.5M17.5 2.5V7.5M17.5 2.5L8.33333 11.6667" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                   </svg>
                   Open
                 </button>
@@ -598,8 +599,8 @@ const AssignmentDetailsModal = ({
                 <div className="detail-item">
                   <span className="detail-label">DUE DATE:</span>
                   <span className="detail-value">
-                    {(selectedAssignment.due_date || selectedAssignment.dueDate) 
-                      ? formatDate(selectedAssignment.due_date || selectedAssignment.dueDate) 
+                    {(selectedAssignment.due_date || selectedAssignment.dueDate)
+                      ? formatDate(selectedAssignment.due_date || selectedAssignment.dueDate)
                       : 'No due date'}
                   </span>
                 </div>
@@ -685,7 +686,7 @@ const AssignmentDetailsModal = ({
                       }}>
                         {comment.comment}
                       </div>
-                      
+
                       {/* Replies */}
                       {comment.replies && comment.replies.length > 0 && (
                         <div style={{ marginLeft: '40px', marginTop: '12px' }}>
@@ -892,8 +893,8 @@ const AssignmentDetailsModal = ({
                       {assignmentSubmissions.map((submission) => {
                         const fileExtension = getFileExtension(submission.original_name, submission.file_type)
                         return (
-                          <tr 
-                            key={submission.id} 
+                          <tr
+                            key={submission.id}
                             className="submission-row"
                             onClick={() => setSelectedSubmission(submission)}
                           >
@@ -937,10 +938,10 @@ const AssignmentDetailsModal = ({
                 </div>
               ) : (
                 <div className="empty-state">
-                  <svg width="64" height="64" viewBox="0 0 64 64" fill="none" style={{marginBottom: '16px', opacity: 0.3}}>
-                    <path d="M24 16H13.3333C11.4924 16 10 17.4924 10 19.3333V50.6667C10 52.5076 11.4924 54 13.3333 54H50.6667C52.5076 54 54 52.5076 54 50.6667V19.3333C54 17.4924 52.5076 16 50.6667 16H40" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                    <path d="M40 10H24V22H40V10Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                    <path d="M32 32V42M32 42L37 37M32 42L27 37" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                  <svg width="64" height="64" viewBox="0 0 64 64" fill="none" style={{ marginBottom: '16px', opacity: 0.3 }}>
+                    <path d="M24 16H13.3333C11.4924 16 10 17.4924 10 19.3333V50.6667C10 52.5076 11.4924 54 13.3333 54H50.6667C52.5076 54 54 52.5076 54 50.6667V19.3333C54 17.4924 52.5076 16 50.6667 16H40" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                    <path d="M40 10H24V22H40V10Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                    <path d="M32 32V42M32 42L37 37M32 42L27 37" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                   </svg>
                   <h3>No submissions yet</h3>
                   <p>Submissions from assigned members will appear here</p>

@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
+import { API_BASE_URL } from '@/config/api';
 import { useTaskbarFlash } from '../../utils/useTaskbarFlash';
 import './css/NotificationTab.css';
 
@@ -16,15 +17,15 @@ const NotificationTab = ({ user, onOpenFile, onNavigateToTasks, onUpdateUnreadCo
 
   useEffect(() => {
     let isMounted = true;
-    
+
     const loadNotifications = async () => {
       if (isMounted) {
         await fetchNotifications();
       }
     };
-    
+
     loadNotifications();
-    
+
     // Poll for new notifications every 5 seconds for real-time updates
     const pollInterval = setInterval(() => {
       if (isMounted) {
@@ -40,9 +41,9 @@ const NotificationTab = ({ user, onOpenFile, onNavigateToTasks, onUpdateUnreadCo
 
   const fetchNotifications = async () => {
     try {
-      const response = await fetch(`http://localhost:3001/api/notifications/user/${user.id}`);
+      const response = await fetch(`${API_BASE_URL}/api/notifications/user/${user.id}`);
       const data = await response.json();
-      
+
       if (data.success) {
         setNotifications(data.notifications || []);
         const newUnreadCount = data.unreadCount || 0;
@@ -65,10 +66,10 @@ const NotificationTab = ({ user, onOpenFile, onNavigateToTasks, onUpdateUnreadCo
     // Mark as read
     if (!notification.is_read) {
       try {
-        await fetch(`http://localhost:3001/api/notifications/${notification.id}/read`, {
+        await fetch(`${API_BASE_URL}/api/notifications/${notification.id}/read`, {
           method: 'PUT'
         });
-        
+
         // Update local state
         setNotifications(prevNotifications =>
           prevNotifications.map(n =>
@@ -115,10 +116,10 @@ const NotificationTab = ({ user, onOpenFile, onNavigateToTasks, onUpdateUnreadCo
   const handleDeleteNotification = useCallback(async (e, notificationId) => {
     e.stopPropagation();
     try {
-      const response = await fetch(`http://localhost:3001/api/notifications/${notificationId}`, {
+      const response = await fetch(`${API_BASE_URL}/api/notifications/${notificationId}`, {
         method: 'DELETE'
       });
-      
+
       const data = await response.json();
       if (data.success) {
         setNotifications(prevNotifications =>
@@ -132,10 +133,10 @@ const NotificationTab = ({ user, onOpenFile, onNavigateToTasks, onUpdateUnreadCo
 
   const handleMarkAllAsRead = useCallback(async () => {
     try {
-      const response = await fetch(`http://localhost:3001/api/notifications/user/${user.id}/read-all`, {
+      const response = await fetch(`${API_BASE_URL}/api/notifications/user/${user.id}/read-all`, {
         method: 'PUT'
       });
-      
+
       const data = await response.json();
       if (data.success) {
         // Update all notifications to read
@@ -160,13 +161,13 @@ const NotificationTab = ({ user, onOpenFile, onNavigateToTasks, onUpdateUnreadCo
   const confirmDeleteAll = useCallback(async () => {
     try {
       console.log('Deleting all notifications for user:', user.id);
-      const response = await fetch(`http://localhost:3001/api/notifications/user/${user.id}/delete-all`, {
+      const response = await fetch(`${API_BASE_URL}/api/notifications/user/${user.id}/delete-all`, {
         method: 'DELETE'
       });
-      
+
       const data = await response.json();
       console.log('Delete response:', data);
-      
+
       if (data.success) {
         setNotifications([]);
         setUnreadCount(0);
@@ -193,37 +194,37 @@ const NotificationTab = ({ user, onOpenFile, onNavigateToTasks, onUpdateUnreadCo
       case 'final_approval':
         return (
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="file-icon-svg">
-            <circle cx="10" cy="10" r="8.5"/>
-            <path d="M6 10l2.5 2.5 5.5-5.5"/>
+            <circle cx="10" cy="10" r="8.5" />
+            <path d="M6 10l2.5 2.5 5.5-5.5" />
           </svg>
         );
       case 'rejection':
       case 'final_rejection':
         return (
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="file-icon-svg">
-            <circle cx="10" cy="10" r="8.5"/>
-            <line x1="4" y1="4" x2="16" y2="16"/>
+            <circle cx="10" cy="10" r="8.5" />
+            <line x1="4" y1="4" x2="16" y2="16" />
           </svg>
         );
       case 'comment':
         return (
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="file-icon-svg">
-            <path d="M3 3h14a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H6l-3 3V4a1 1 0 0 1 1-1z"/>
+            <path d="M3 3h14a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H6l-3 3V4a1 1 0 0 1 1-1z" />
           </svg>
         );
       case 'assignment':
         return (
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="file-icon-svg">
-            <path d="M12 2H4a1.5 1.5 0 0 0-1.5 1.5v13A1.5 1.5 0 0 0 4 18h10a1.5 1.5 0 0 0 1.5-1.5V6l-3.5-4z"/>
-            <path d="M12 2v4h3.5"/>
-            <path d="M6 10h6M6 13h6"/>
+            <path d="M12 2H4a1.5 1.5 0 0 0-1.5 1.5v13A1.5 1.5 0 0 0 4 18h10a1.5 1.5 0 0 0 1.5-1.5V6l-3.5-4z" />
+            <path d="M12 2v4h3.5" />
+            <path d="M6 10h6M6 13h6" />
           </svg>
         );
       default:
         return (
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="file-icon-svg">
-            <path d="M12 2H4a1.5 1.5 0 0 0-1.5 1.5v13A1.5 1.5 0 0 0 4 18h10a1.5 1.5 0 0 0 1.5-1.5V6l-3.5-4z"/>
-            <path d="M12 2v4h3.5"/>
+            <path d="M12 2H4a1.5 1.5 0 0 0-1.5 1.5v13A1.5 1.5 0 0 0 4 18h10a1.5 1.5 0 0 0 1.5-1.5V6l-3.5-4z" />
+            <path d="M12 2v4h3.5" />
           </svg>
         );
     }
@@ -286,7 +287,7 @@ const NotificationTab = ({ user, onOpenFile, onNavigateToTasks, onUpdateUnreadCo
     () => notifications.slice(0, displayCount),
     [notifications, displayCount]
   );
-  
+
   const remainingCount = useMemo(
     () => notifications.length - displayCount,
     [notifications.length, displayCount]
@@ -340,146 +341,146 @@ const NotificationTab = ({ user, onOpenFile, onNavigateToTasks, onUpdateUnreadCo
 
   return (
     <>
-    <div className="user-notification-component notification-section">
-      <div className="page-header">
-        <div className="page-header-content">
-          <div className="page-header-left">
-            <h2>Notifications</h2>
-            <p>Stay updated with your file approvals and system messages</p>
-            <div className="notification-stats">
-              {notifications.length} total • {unreadCount} unread
+      <div className="user-notification-component notification-section">
+        <div className="page-header">
+          <div className="page-header-content">
+            <div className="page-header-left">
+              <h2>Notifications</h2>
+              <p>Stay updated with your file approvals and system messages</p>
+              <div className="notification-stats">
+                {notifications.length} total • {unreadCount} unread
+              </div>
+            </div>
+            <div className="notification-actions">
+              {unreadCount > 0 && (
+                <button
+                  className="mark-all-read-btn"
+                  onClick={handleMarkAllAsRead}
+                  title="Mark all as read"
+                >
+                  Mark All as Read
+                </button>
+              )}
+              {notifications.length > 0 && (
+                <button
+                  className="delete-all-btn"
+                  onClick={handleDeleteAll}
+                  title="Delete all notifications"
+                >
+                  Delete All
+                </button>
+              )}
             </div>
           </div>
-          <div className="notification-actions">
-            {unreadCount > 0 && (
-              <button 
-                className="mark-all-read-btn"
-                onClick={handleMarkAllAsRead}
-                title="Mark all as read"
-              >
-                Mark All as Read
-              </button>
-            )}
-            {notifications.length > 0 && (
-              <button 
-                className="delete-all-btn"
-                onClick={handleDeleteAll}
-                title="Delete all notifications"
-              >
-                Delete All
-              </button>
-            )}
-          </div>
+        </div>
+
+        <div className="notifications-container">
+          {notifications.length > 0 ? (
+            <div className="notifications-list">
+              {displayedNotifications.map((notification) => (
+                <div
+                  key={notification.id}
+                  className={`notification-card clickable ${getNotificationColor(notification.type)} ${!notification.is_read ? 'unread' : ''}`}
+                  onClick={() => handleNotificationClick(notification)}
+                >
+                  <div className="notification-icon">
+                    {getNotificationIcon(notification.type)}
+                  </div>
+                  <div className="notification-content">
+                    <div className="notification-title-row">
+                      <h4 className="notification-title">{notification.title}</h4>
+                      <svg className="arrow-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M7.21 14.77a.75.75 0 01.02-1.06L11.168 10 7.23 6.29a.75.75 0 111.04-1.08l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 01-1.06-.02z" clipRule="evenodd" />
+                      </svg>
+                    </div>
+                    <p className="notification-message">{notification.message}</p>
+                    <div className="notification-footer">
+                      <span className="notification-action-by">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                          <path d="M10 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM3.465 14.493a1.23 1.23 0 0 1 .41-1.108A9.965 9.965 0 0 1 10 11c2.456 0 4.71.886 6.425 2.385.276.24.456.6.41 1.108a9.98 9.98 0 0 1-13.37 0Z" />
+                        </svg>
+                        {notification.action_by_username} ({formatRole(notification.action_by_role)})
+                      </span>
+                      <span className="notification-time">{formatTimeAgo(notification.created_at)}</span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+              {notifications.length > 10 && (
+                <div className="see-more-container">
+                  <button
+                    className="see-more-btn"
+                    onClick={handleSeeMore}
+                  >
+                    {showAll ? 'See less' : `See more (${remainingCount} more notifications)`}
+                  </button>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="empty-notifications">
+              <div className="empty-icon">○</div>
+              <h3>No notifications yet</h3>
+              <p>We'll notify you when there are updates on your files or important system messages.</p>
+            </div>
+          )}
         </div>
       </div>
 
-      <div className="notifications-container">
-        {notifications.length > 0 ? (
-          <div className="notifications-list">
-            {displayedNotifications.map((notification) => (
-              <div 
-                key={notification.id} 
-                className={`notification-card clickable ${getNotificationColor(notification.type)} ${!notification.is_read ? 'unread' : ''}`}
-                onClick={() => handleNotificationClick(notification)}
+      {/* Custom Delete Confirmation Modal */}
+      {showDeleteModal && (
+        <div className="custom-modal-overlay" onClick={() => setShowDeleteModal(false)}>
+          <div className="custom-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="custom-modal-header">
+              <h3>Delete All Notifications?</h3>
+              <button
+                onClick={() => setShowDeleteModal(false)}
+                className="custom-modal-close"
+                type="button"
               >
-                <div className="notification-icon">
-                  {getNotificationIcon(notification.type)}
-                </div>
-                <div className="notification-content">
-                  <div className="notification-title-row">
-                    <h4 className="notification-title">{notification.title}</h4>
-                    <svg className="arrow-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                      <path fillRule="evenodd" d="M7.21 14.77a.75.75 0 01.02-1.06L11.168 10 7.23 6.29a.75.75 0 111.04-1.08l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 01-1.06-.02z" clipRule="evenodd" />
-                    </svg>
+                ×
+              </button>
+            </div>
+
+            <div className="custom-modal-body">
+              <div className="delete-warning">
+                <span className="warning-icon">⚠️</span>
+                <div className="warning-content">
+                  <h4>Are you sure you want to delete all notifications?</h4>
+
+                  <div className="item-info">
+                    <div className="item-name">{notifications.length} notification{notifications.length !== 1 ? 's' : ''}</div>
+                    <div className="item-details">Including {unreadCount} unread notification{unreadCount !== 1 ? 's' : ''}</div>
                   </div>
-                  <p className="notification-message">{notification.message}</p>
-                  <div className="notification-footer">
-                    <span className="notification-action-by">
-                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                        <path d="M10 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM3.465 14.493a1.23 1.23 0 0 1 .41-1.108A9.965 9.965 0 0 1 10 11c2.456 0 4.71.886 6.425 2.385.276.24.456.6.41 1.108a9.98 9.98 0 0 1-13.37 0Z"/>
-                      </svg>
-                      {notification.action_by_username} ({formatRole(notification.action_by_role)})
-                    </span>
-                    <span className="notification-time">{formatTimeAgo(notification.created_at)}</span>
-                  </div>
+
+                  <p className="warning-text">
+                    This action cannot be undone. All notifications will be permanently removed from your account.
+                  </p>
                 </div>
               </div>
-            ))}
-            {notifications.length > 10 && (
-              <div className="see-more-container">
-                <button 
-                  className="see-more-btn"
-                  onClick={handleSeeMore}
+            </div>
+
+            <div className="custom-modal-footer">
+              <div className="modal-actions">
+                <button
+                  type="button"
+                  onClick={() => setShowDeleteModal(false)}
+                  className="modal-cancel-btn"
                 >
-                  {showAll ? 'See less' : `See more (${remainingCount} more notifications)`}
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={confirmDeleteAll}
+                  className="modal-confirm-btn"
+                >
+                  Delete All
                 </button>
               </div>
-            )}
-          </div>
-        ) : (
-          <div className="empty-notifications">
-            <div className="empty-icon">○</div>
-            <h3>No notifications yet</h3>
-            <p>We'll notify you when there are updates on your files or important system messages.</p>
-          </div>
-        )}
-      </div>
-    </div>
-
-    {/* Custom Delete Confirmation Modal */}
-    {showDeleteModal && (
-      <div className="custom-modal-overlay" onClick={() => setShowDeleteModal(false)}>
-        <div className="custom-modal" onClick={(e) => e.stopPropagation()}>
-          <div className="custom-modal-header">
-            <h3>Delete All Notifications?</h3>
-            <button 
-              onClick={() => setShowDeleteModal(false)} 
-              className="custom-modal-close"
-              type="button"
-            >
-              ×
-            </button>
-          </div>
-          
-          <div className="custom-modal-body">
-            <div className="delete-warning">
-              <span className="warning-icon">⚠️</span>
-              <div className="warning-content">
-                <h4>Are you sure you want to delete all notifications?</h4>
-                
-                <div className="item-info">
-                  <div className="item-name">{notifications.length} notification{notifications.length !== 1 ? 's' : ''}</div>
-                  <div className="item-details">Including {unreadCount} unread notification{unreadCount !== 1 ? 's' : ''}</div>
-                </div>
-                
-                <p className="warning-text">
-                  This action cannot be undone. All notifications will be permanently removed from your account.
-                </p>
-              </div>
-            </div>
-          </div>
-          
-          <div className="custom-modal-footer">
-            <div className="modal-actions">
-              <button 
-                type="button" 
-                onClick={() => setShowDeleteModal(false)} 
-                className="modal-cancel-btn"
-              >
-                Cancel
-              </button>
-              <button 
-                type="button" 
-                onClick={confirmDeleteAll}
-                className="modal-confirm-btn"
-              >
-                Delete All
-              </button>
             </div>
           </div>
         </div>
-      </div>
-    )}
+      )}
     </>
   );
 };
