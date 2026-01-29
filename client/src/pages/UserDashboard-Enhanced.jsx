@@ -110,7 +110,7 @@ const UserDashboard = ({ user, onLogout }) => {
     setFilteredFiles(filtered)
   }
 
-  const openFileModal = (file) => {
+  const openFileModal = async (file) => {
     // Open modal immediately without waiting for comments
     setSelectedFile(file)
     setShowFileModal(true)
