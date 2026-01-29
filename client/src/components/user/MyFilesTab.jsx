@@ -25,11 +25,12 @@ const MyFilesTab = ({
     filteredFiles.filter(f =>
       f.status === 'final_approved' || f.status === 'uploaded' ||
       f.status === 'team_leader_approved' || f.status === 'rejected_by_team_leader' ||
-      f.status === 'rejected_by_admin'
+      f.status === 'rejected_by_admin' || f.status === 'under_revision'
     ), [filteredFiles]
   );
 
   // Pagination using custom hook (NOW submittedFiles exists)
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [itemsPerPage, setItemsPerPage] = useState(7);
   const {
     currentPage,
@@ -121,6 +122,8 @@ const MyFilesTab = ({
     switch (dbStatus) {
       case 'uploaded':
         return 'Pending Team Leader';
+      case 'under_revision':
+        return 'Revision';
       case 'team_leader_approved':
         return 'Pending Admin';
       case 'final_approved':
@@ -139,6 +142,8 @@ const MyFilesTab = ({
       case 'uploaded':
       case 'team_leader_approved':
         return 'status-pending';
+      case 'under_revision':
+        return 'status-revised';
       case 'final_approved':
         return 'status-approved';
       case 'rejected_by_team_leader':

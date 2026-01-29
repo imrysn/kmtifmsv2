@@ -49,14 +49,24 @@ const DashboardTab = ({ user, files, setActiveTab, onOpenFile, onNavigateToTasks
         notificationsRes.json()
       ]);
 
-      if (assignmentsData.success) setAssignments(assignmentsData.assignments || []);
-      if (teamTasksData.success) setTeamTasks(teamTasksData.assignments || []);
-      if (notificationsData.success) setNotifications(notificationsData.notifications || []);
-      setLastUpdate(new Date());
+      // Only update state if data has actually changed
+      if (assignmentsData.success) {
+        const newAssignments = assignmentsData.assignments || [];
+        setAssignments(prev => JSON.stringify(prev) !== JSON.stringify(newAssignments) ? newAssignments : prev);
+      }
+      if (teamTasksData.success) {
+        const newTeamTasks = teamTasksData.assignments || [];
+        setTeamTasks(prev => JSON.stringify(prev) !== JSON.stringify(newTeamTasks) ? newTeamTasks : prev);
+      }
+      if (notificationsData.success) {
+        const newNotifications = notificationsData.notifications || [];
+        setNotifications(prev => JSON.stringify(prev) !== JSON.stringify(newNotifications) ? newNotifications : prev);
+      }
+      if (!silent) setLastUpdate(new Date());
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
 

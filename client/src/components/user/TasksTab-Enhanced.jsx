@@ -882,151 +882,155 @@ const TasksTab = ({ user }) => {
                             console.log(`File "${file.original_name || file.filename}" has status: "${file.status}"`);
 
                             return (
-                              <div
-                                key={file.id}
-                                className="submitted-file-card"
-                                onClick={() => confirmOpenFile(file)}
-                                style={{ cursor: 'pointer' }}
-                              >
-                                <div style={{
-                                  display: 'flex',
-                                  alignItems: 'flex-start',
-                                  gap: '12px',
-                                }}>
-                                  <div
+                            <div
+                              key={file.id}
+                              className="submitted-file-card"
+                              onClick={() => confirmOpenFile(file)}
+                              style={{ cursor: 'pointer' }}
+                            >
+                              <div style={{
+                                display: 'flex',
+                                alignItems: 'flex-start',
+                                gap: '12px',
+                              }}>
+                                <div
+                                  style={{
+                                    flexShrink: 0
+                                  }}
+                                >
+                                  <FileIcon
+                                    fileType={(file.original_name || file.filename || 'file').split('.').pop().toLowerCase()}
+                                    isFolder={false}
+                                    size="default"
                                     style={{
-                                      flexShrink: 0
+                                      width: '48px',
+                                      height: '48px'
                                     }}
-                                  >
-                                    <FileIcon
-                                      fileType={(file.original_name || file.filename || 'file').split('.').pop().toLowerCase()}
-                                      isFolder={false}
-                                      size="default"
-                                      style={{
-                                        width: '48px',
-                                        height: '48px'
-                                      }}
-                                    />
-                                  </div>
-                                  <div style={{ flex: 1, minWidth: 0 }}>
-                                    <div style={{
-                                      fontWeight: '500',
-                                      fontSize: '15px',
-                                      color: '#111827',
-                                      marginBottom: '8px',
-                                      overflow: 'hidden',
-                                      textOverflow: 'ellipsis',
-                                      whiteSpace: 'nowrap'
-                                    }}>
-                                      {file.original_name || file.filename}
-                                    </div>
-                                    <div style={{
-                                      fontSize: '13px',
-                                      color: '#6b7280',
-                                      display: 'flex',
-                                      alignItems: 'center',
-                                      gap: '8px',
-                                      flexWrap: 'wrap'
-                                    }}>
-                                      <span>by <span style={{ fontWeight: '500', color: '#2563eb' }}>{file.submitter_name || user.fullName || user.username}</span></span>
-                                      {file.tag && (
-                                        <>
-                                          <span style={{
-                                            backgroundColor: '#eff6ff',
-                                            color: '#1e40af',
-                                            padding: '3px 10px',
-                                            borderRadius: '4px',
-                                            fontSize: '11px',
-                                            fontWeight: '600',
-                                            display: 'inline-flex',
-                                            alignItems: 'center',
-                                            gap: '4px'
-                                          }}>
-                                            <span>🏷️</span> {file.tag}
-                                          </span>
-                                        </>
-                                      )}
-                                      {file.status === 'under_revision' && (
-                                        <span style={{
-                                          backgroundColor: '#fef3c7',
-                                          color: '#92400e',
-                                          padding: '3px 10px',
-                                          borderRadius: '4px',
-                                          fontSize: '11px',
-                                          fontWeight: '600',
-                                          display: 'inline-flex',
-                                          alignItems: 'center',
-                                          gap: '4px'
-                                        }}>
-                                          📝 REVISED
-                                        </span>
-                                      )}
-                                      {file.status === 'approved_by_team_leader' && (
-                                        <span style={{
-                                          backgroundColor: '#dcfce7',
-                                          color: '#166534',
-                                          padding: '3px 10px',
-                                          borderRadius: '4px',
-                                          fontSize: '11px',
-                                          fontWeight: '600',
-                                          display: 'inline-flex',
-                                          alignItems: 'center',
-                                          gap: '4px'
-                                        }}>
-                                          ✓ APPROVED
-                                        </span>
-                                      )}
-                                      {(file.status === 'rejected_by_team_leader' || file.status === 'rejected_by_admin') && (
-                                        <span style={{
-                                          backgroundColor: '#fee2e2',
-                                          color: '#991b1b',
-                                          padding: '3px 10px',
-                                          borderRadius: '4px',
-                                          fontSize: '11px',
-                                          fontWeight: '600',
-                                          display: 'inline-flex',
-                                          alignItems: 'center',
-                                          gap: '4px'
-                                        }}>
-                                          ✗ REJECTED
-                                        </span>
-                                      )}
-                                    </div>
-                                  </div>
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      confirmDeleteFile(assignment.id, file.id, file.original_name || file.filename);
-                                    }}
-                                    style={{
-                                      background: 'transparent',
-                                      color: '#9ca3af',
-                                      border: 'none',
-                                      borderRadius: '6px',
-                                      padding: '6px',
-                                      fontSize: '20px',
-                                      cursor: 'pointer',
-                                      flexShrink: 0,
-                                      display: 'flex',
-                                      alignItems: 'center',
-                                      justifyContent: 'center',
-                                      transition: 'all 0.2s',
-                                      lineHeight: 1
-                                    }}
-                                    onMouseEnter={(e) => {
-                                      e.currentTarget.style.backgroundColor = '#fee2e2';
-                                      e.currentTarget.style.color = '#dc2626';
-                                    }}
-                                    onMouseLeave={(e) => {
-                                      e.currentTarget.style.backgroundColor = 'transparent';
-                                      e.currentTarget.style.color = '#9ca3af';
-                                    }}
-                                    title="Remove file"
-                                  >
-                                    ×
-                                  </button>
+                                  />
                                 </div>
+                                <div style={{ flex: 1, minWidth: 0 }}>
+                                  <div style={{
+                                    fontWeight: '500',
+                                    fontSize: '15px',
+                                    color: '#111827',
+                                    marginBottom: '8px',
+                                    overflow: 'hidden',
+                                    textOverflow: 'ellipsis',
+                                    whiteSpace: 'nowrap'
+                                  }}>
+                                    {file.original_name || file.filename}
+                                  </div>
+                                  <div style={{
+                                    fontSize: '13px',
+                                    color: '#6b7280',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '8px',
+                                    flexWrap: 'wrap'
+                                  }}>
+                                    <span>by <span style={{ fontWeight: '500', color: '#2563eb' }}>{file.submitter_name || user.fullName || user.username}</span></span>
+                                    <span style={{ color: '#9ca3af' }}>•</span>
+                                    <span>{formatDate(file.submitted_at || file.uploaded_at)}</span>
+                                    {file.tag && (
+                                      <>
+                                        <span style={{
+                                          backgroundColor: '#eff6ff',
+                                          color: '#1e40af',
+                                          padding: '3px 10px',
+                                          borderRadius: '4px',
+                                          fontSize: '11px',
+                                          fontWeight: '600',
+                                          display: 'inline-flex',
+                                          alignItems: 'center',
+                                          gap: '4px'
+                                        }}>
+                                          <span>🏷️</span> {file.tag}
+                                        </span>
+                                      </>
+                                    )}
+                                    {file.status === 'under_revision' && (
+                                      <span style={{
+                                        backgroundColor: '#fef3c7',
+                                        color: '#92400e',
+                                        padding: '3px 10px',
+                                        borderRadius: '4px',
+                                        fontSize: '11px',
+                                        fontWeight: '600',
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: '4px'
+                                      }}>
+                                        📝 REVISED
+                                      </span>
+                                    )}
+                                    {file.status === 'approved_by_team_leader' && (
+                                      <span style={{
+                                        backgroundColor: '#dcfce7',
+                                        color: '#166534',
+                                        padding: '3px 10px',
+                                        borderRadius: '4px',
+                                        fontSize: '11px',
+                                        fontWeight: '600',
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: '4px'
+                                      }}>
+                                        ✓ APPROVED
+                                      </span>
+                                    )}
+                                    {(file.status === 'rejected_by_team_leader' || file.status === 'rejected_by_admin') && (
+                                      <span style={{
+                                        backgroundColor: '#fee2e2',
+                                        color: '#991b1b',
+                                        padding: '3px 10px',
+                                        borderRadius: '4px',
+                                        fontSize: '11px',
+                                        fontWeight: '600',
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: '4px'
+                                      }}>
+                                        ✗ REJECTED
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    confirmDeleteFile(assignment.id, file.id, file.original_name || file.filename);
+                                  }}
+                                  style={{
+                                    background: 'transparent',
+                                    color: '#9ca3af',
+                                    border: 'none',
+                                    borderRadius: '8px',
+                                    padding: '8px',
+                                    fontSize: '16px',
+                                    cursor: 'pointer',
+                                    flexShrink: 0,
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    transition: 'all 0.2s',
+                                    lineHeight: 1,
+                                    width: '32px',
+                                    height: '32px'
+                                  }}
+                                  onMouseEnter={(e) => {
+                                    e.currentTarget.style.backgroundColor = '#fee2e2';
+                                    e.currentTarget.style.color = '#dc2626';
+                                  }}
+                                  onMouseLeave={(e) => {
+                                    e.currentTarget.style.backgroundColor = 'transparent';
+                                    e.currentTarget.style.color = '#9ca3af';
+                                  }}
+                                  title="Remove file"
+                                >
+                                  ×
+                                </button>
                               </div>
+                            </div>
                             );
                           })}
 
@@ -1105,21 +1109,19 @@ const TasksTab = ({ user }) => {
                         }}
                       >
                         <span className="submit-button-label" style={{
-                          backgroundColor: assignment.user_status === 'submitted' && assignment.submitted_file_id ? '#10b981' : '#000000',
+                          backgroundColor: assignment.submitted_files && assignment.submitted_files.length > 0 ? '#10b981' : '#000000',
                           padding: '6px 16px',
                           borderRadius: '4px',
                           fontSize: '14px',
                           fontWeight: '500',
                           whiteSpace: 'nowrap'
                         }}>
-                          {assignment.user_status === 'submitted' && assignment.submitted_file_id ? 'Add more files' : 'Submit file'}
+                          {assignment.submitted_files && assignment.submitted_files.length > 0 ? 'Add more files' : 'Submit file'}
                         </span>
                         <span style={{ fontSize: '14px', color: '#6b7280' }}>
-                          {assignment.user_status === 'submitted' && assignment.submitted_file_id
+                          {assignment.submitted_files && assignment.submitted_files.length > 0
                             ? 'Upload additional files'
-                            : (assignment.user_status === 'submitted' && !assignment.submitted_file_id
-                              ? 'File was deleted - resubmit'
-                              : 'No file attached')}
+                            : 'Click to attach files'}
                         </span>
                       </button>
                     </div>
@@ -1483,7 +1485,7 @@ const TasksTab = ({ user }) => {
 
       {/* Submit Modal */}
       {showSubmitModal && currentAssignment && (
-        <div className="tasks-modal-overlay" onClick={() => setShowSubmitModal(false)}>
+        <div className="tasks-modal-overlay">
           <div className="tasks-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '600px' }}>
             <div className="tasks-modal-header" style={{ borderBottom: '1px solid #e5e7eb', paddingBottom: '16px' }}>
               <div style={{ flex: 1, marginRight: '40px' }}>
@@ -1544,15 +1546,45 @@ const TasksTab = ({ user }) => {
                       id="file-upload-input"
                       disabled={isUploading}
                     />
-                    <label htmlFor="file-upload-input" className="file-upload-label" style={{
-                      border: '2px dashed #d1d5db',
-                      borderRadius: '12px',
-                      padding: '32px',
-                      textAlign: 'center',
-                      cursor: 'pointer',
-                      transition: 'all 0.2s',
-                      backgroundColor: '#fafafa'
-                    }}>
+                    <label 
+                      htmlFor="file-upload-input" 
+                      className="file-upload-label" 
+                      style={{
+                        border: '2px dashed #d1d5db',
+                        borderRadius: '12px',
+                        padding: '32px',
+                        textAlign: 'center',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s',
+                        backgroundColor: '#fafafa'
+                      }}
+                      onDragOver={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        e.currentTarget.style.backgroundColor = '#e0e7ff';
+                        e.currentTarget.style.borderColor = '#4f46e5';
+                      }}
+                      onDragLeave={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        e.currentTarget.style.backgroundColor = '#fafafa';
+                        e.currentTarget.style.borderColor = '#d1d5db';
+                      }}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        e.currentTarget.style.backgroundColor = '#fafafa';
+                        e.currentTarget.style.borderColor = '#d1d5db';
+                        
+                        const files = Array.from(e.dataTransfer.files);
+                        if (files.length > 0) {
+                          const newFiles = files.map(file => ({
+                            file: file
+                          }));
+                          setUploadedFiles(prev => [...prev, ...newFiles]);
+                        }
+                      }}
+                    >
                       <div className="file-upload-content" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>
                         <div style={{ fontSize: '48px' }}>📁</div>
                         <div className="upload-text">

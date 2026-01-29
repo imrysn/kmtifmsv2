@@ -42,7 +42,6 @@ const Sidebar = ({ activeTab, setActiveTab, filesCount, notificationCount, onLog
         >
           <span className="nav-icon">{getSidebarIcon('files')}</span>
           <span className="nav-label">My Files</span>
-          {filesCount > 0 && <span className="file-count-badge">{filesCount}</span>}
         </button>
         <button
           className={`nav-item ${activeTab === 'tasks' ? 'active' : ''}`}

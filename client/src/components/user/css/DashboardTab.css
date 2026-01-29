@@ -135,7 +135,7 @@
 }
 
 .stat-card-modern {
-  background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+  background: #ffffff;
   border: 1px solid #e5e7eb;
   border-radius: 12px;
   padding: 20px;
@@ -230,11 +230,16 @@
 
 /* Performance Analytics Card */
 .analytics-card-modern {
-  background: linear-gradient(135deg, #ffffff 0%, #fefefe 100%);
+  background: #ffffff;
   border: 1px solid #e5e7eb;
   border-radius: 12px;
   padding: 24px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  will-change: auto;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  transform: translateZ(0);
+  -webkit-transform: translateZ(0);
 }
 
 .analytics-card-header {
@@ -257,7 +262,7 @@
 /* Overall Score Section - Circular Gauge */
 .overall-score-section {
   padding: 32px;
-  background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
+  background: #f8f9fa;
   border-radius: 16px;
   border: 1px solid #e5e7eb;
 }
@@ -477,7 +482,7 @@
 
 /* Notifications Card */
 .notifications-card-modern {
-  background: linear-gradient(135deg, #ffffff 0%, #fefefe 100%);
+  background: #ffffff;
   border: 1px solid #e5e7eb;
   border-radius: 12px;
   padding: 24px;
