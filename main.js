@@ -285,15 +285,18 @@ function checkViteConnection() {
 
 /*** Create and show splash window - SHOWS IMMEDIATELY, NO BLOCKING */
 function createSplashWindow() {
+  // Get primary display dimensions for fullscreen splash
+  const { width: screenWidth, height: screenHeight } = screen.getPrimaryDisplay().workAreaSize;
+
   splashWindow = new BrowserWindow({
-    width: 400,
-    height: 300,
+    width: screenWidth,
+    height: screenHeight,
     frame: false,
     alwaysOnTop: true,
     center: true,
     resizable: false,
     show: false,
-    backgroundColor: '#667eea',
+    backgroundColor: '#ffffff',
     icon: path.join(__dirname, 'client/src/assets/fms-icon.png'),
     webPreferences: {
       nodeIntegration: false,
@@ -303,6 +306,16 @@ function createSplashWindow() {
     }
   });
 
+  // Load gear icon and convert to base64
+  const gearIconPath = path.join(__dirname, 'client/src/assets/gearicon.png');
+  let gearIconBase64 = '';
+  try {
+    const gearIconBuffer = require('fs').readFileSync(gearIconPath);
+    gearIconBase64 = `data:image/png;base64,${gearIconBuffer.toString('base64')}`;
+  } catch (err) {
+    console.error('Failed to load gear icon:', err);
+  }
+
   const splashHtml = `
     <!DOCTYPE html>
     <html lang="en">
@@ -311,67 +324,181 @@ function createSplashWindow() {
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
       <title>KMTI File Management System - Loading...</title>
       <style>
-        body {
+        * {
           margin: 0;
           padding: 0;
-          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-          color: white;
+          box-sizing: border-box;
+        }
+        
+        body {
+          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', Roboto, sans-serif;
+          background: #ffffff;
           height: 100vh;
           display: flex;
           align-items: center;
           justify-content: center;
           overflow: hidden;
         }
+        
         .container {
           text-align: center;
-          animation: fadeIn 0.3s ease-in-out;
+          animation: fadeIn 0.3s ease-out;
+          width: 100%;
+          max-width: 500px;
+          padding: 40px;
         }
-        .spinner {
-          border: 4px solid rgba(255, 255, 255, 0.3);
-          border-top: 4px solid white;
-          border-radius: 50%;
-          width: 50px;
-          height: 50px;
-          animation: spin 1s linear infinite;
-          margin: 0 auto 30px;
+        
+        .logo-wrapper {
+          margin-bottom: 50px;
         }
+        
         .logo {
-          font-size: 28px;
-          font-weight: bold;
-          margin-bottom: 20px;
-          text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+          font-size: 38px;
+          font-weight: 600;
+          color: #1c1e21;
+          letter-spacing: -0.5px;
+          margin-bottom: 6px;
         }
-        .title {
-          font-size: 18px;
-          margin-bottom: 10px;
-          opacity: 0.9;
+        
+        .subtitle {
+          font-size: 13px;
+          color: #6b7280;
+          font-weight: 500;
+          letter-spacing: 1px;
+          text-transform: uppercase;
         }
-        .message {
+        
+        .gear-wrapper {
+          margin: 40px 0;
+          position: relative;
+          height: 80px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+        
+        .gear {
+          width: 60px;
+          height: 60px;
+          animation: rotate 2s linear infinite;
+        }
+        
+        .progress-section {
+          margin-top: 50px;
+        }
+        
+        .progress-label {
+          font-size: 12px;
+          color: #9ca3af;
+          margin-bottom: 12px;
+          font-weight: 500;
+        }
+        
+        .progress-bar-container {
+          width: 100%;
+          height: 4px;
+          background: #e5e7eb;
+          border-radius: 2px;
+          overflow: hidden;
+          position: relative;
+        }
+        
+        .progress-bar {
+          height: 100%;
+          background: #1c1e21;
+          border-radius: 2px;
+          width: 0%;
+          transition: width 0.3s ease-out;
+        }
+        
+        .progress-percent {
+          margin-top: 8px;
           font-size: 14px;
-          opacity: 0.8;
-          line-height: 1.5;
-          min-height: 20px;
+          color: #1c1e21;
+          font-weight: 600;
         }
-        @keyframes spin {
-          0% { transform: rotate(0deg); }
-          100% { transform: rotate(360deg); }
+        
+        @keyframes rotate {
+          0% { 
+            transform: rotate(0deg); 
+          }
+          100% { 
+            transform: rotate(360deg); 
+          }
         }
+        
         @keyframes fadeIn {
-          from { opacity: 0; transform: scale(0.95); }
-          to { opacity: 1; transform: scale(1); }
+          from { 
+            opacity: 0;
+          }
+          to { 
+            opacity: 1;
+          }
         }
       </style>
     </head>
     <body>
       <div class="container">
-        <div class="logo">KMTI</div>
-        <div class="spinner" id="spinner"></div>
-        <div class="title">File Management System</div>
-        <div class="message" id="message">
-          ${isDev ? 'Starting development server...' : 'Initializing application...'}
+        <div class="logo-wrapper">
+          <div class="logo">KMTI</div>
+          <div class="subtitle">File Management System</div>
+        </div>
+        
+        <div class="gear-wrapper">
+          <img src="${gearIconBase64}" class="gear" alt="Loading">
+        </div>
+        
+        <div class="progress-section">
+          <div class="progress-label">Initializing application...</div>
+          <div class="progress-bar-container">
+            <div class="progress-bar" id="progressBar"></div>
+          </div>
+          <div class="progress-percent" id="progressPercent">0%</div>
         </div>
       </div>
+      
+      <script>
+        // Simulate loading progress
+        let progress = 0;
+        const progressBar = document.getElementById('progressBar');
+        const progressPercent = document.getElementById('progressPercent');
+        const progressLabel = document.querySelector('.progress-label');
+        
+        const stages = [
+          { percent: 20, label: 'Loading resources...' },
+          { percent: 40, label: 'Connecting to database...' },
+          { percent: 60, label: 'Initializing services...' },
+          { percent: 80, label: 'Starting server...' },
+          { percent: 100, label: 'Ready!' }
+        ];
+        
+        let currentStage = 0;
+        
+        const updateProgress = () => {
+          if (currentStage < stages.length) {
+            const stage = stages[currentStage];
+            const targetProgress = stage.percent;
+            
+            const interval = setInterval(() => {
+              if (progress < targetProgress) {
+                progress += 2;
+                if (progress > targetProgress) progress = targetProgress;
+                
+                progressBar.style.width = progress + '%';
+                progressPercent.textContent = progress + '%';
+                progressLabel.textContent = stage.label;
+              } else {
+                clearInterval(interval);
+                currentStage++;
+                setTimeout(updateProgress, 200);
+              }
+            }, 30);
+          }
+        };
+        
+        // Start progress animation after a short delay
+        setTimeout(updateProgress, 300);
+      </script>
     </body>
     </html>`;
 
@@ -442,7 +569,7 @@ function createWindow() {
   mainWindow = new BrowserWindow({
     width: windowWidth,
     height: windowHeight,
-    backgroundColor: '#667eea',
+    backgroundColor: '#ffffff',
     show: false,
     icon: path.join(__dirname, 'client/src/assets/fms-icon.png'),
     center: true,
@@ -475,11 +602,13 @@ function createWindow() {
       splashTimeout = null;
     }
 
-    // Close splash window
-    if (splashWindow && !splashWindow.isDestroyed()) {
-      splashWindow.destroy();
-      log(LogLevel.INFO, 'Splash window closed');
-    }
+    // Close splash window after minimum display time
+    setTimeout(() => {
+      if (splashWindow && !splashWindow.isDestroyed()) {
+        splashWindow.destroy();
+        log(LogLevel.INFO, 'Splash window closed');
+      }
+    }, 3000); // Keep splash visible for 3 seconds
 
     // Register main window with updater for IPC communication
     if (isProduction) {
