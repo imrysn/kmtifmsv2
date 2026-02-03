@@ -15,13 +15,12 @@ if (process.platform === 'win32' && process.pkg) {
   try {
     const { execSync } = require('child_process');
     // Use PowerShell to hide the current console window
-    // eslint-disable-next-line no-useless-escape
+
     execSync('powershell -command "(Get-Process -Id $PID).MainWindowHandle | ForEach-Object { $hwnd = $_; Add-Type -TypeDefinition \'using System; using System.Runtime.InteropServices; public class Win32 { [DllImport(\\"user32.dll\\")] public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow); }\'; [Win32]::ShowWindow($hwnd, 0) }" 2>nul', { stdio: 'ignore' });
-  } catch (_e) {
+  } catch {
     // If PowerShell method fails, try direct API calls
     try {
       const ffi = require('ffi-napi');
-      const _ref = require('ref-napi');
 
       const user32 = ffi.Library('user32', {
         'ShowWindow': ['bool', ['pointer', 'int32']],
@@ -41,7 +40,7 @@ if (process.platform === 'win32' && process.pkg) {
       if (consoleWindow && !consoleWindow.isNull()) {
         user32.ShowWindow(consoleWindow, SW_HIDE);
       }
-    } catch (_e2) {
+    } catch {
       // Continue silently
     }
   }

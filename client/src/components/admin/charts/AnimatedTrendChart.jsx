@@ -1,55 +1,47 @@
 import React, { memo } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import './Charts.css';
+
+const CustomTooltip = memo(({ active, payload }) => {
+    if (active && payload && payload.length) {
+        return (
+            <div className="chart-tooltip">
+                <p className="chart-tooltip-title">{payload[0].payload.month}</p>
+                {payload[0] && (
+                    <p className="chart-tooltip-item approved">
+                        Approved: {payload[0].value}
+                    </p>
+                )}
+                {payload[1] && (
+                    <p className="chart-tooltip-item rejected">
+                        Rejected: {payload[1].value}
+                    </p>
+                )}
+            </div>
+        );
+    }
+    return null;
+});
 
 const AnimatedTrendChart = memo(({ trends, loading }) => {
     if (loading) {
         return (
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', width: '100%' }}>
-                <div style={{ color: 'var(--text-tertiary)' }}>Loading chart...</div>
+            <div className="chart-loading-overlay">
+                <div>Loading chart...</div>
             </div>
         );
     }
 
     if (!trends || trends.length === 0) {
         return (
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', width: '100%' }}>
-                <div style={{ color: 'var(--text-tertiary)' }}>No data available</div>
+            <div className="chart-no-data-overlay">
+                <div>No data available</div>
             </div>
         );
     }
 
-    // Custom tooltip
-    const CustomTooltip = ({ active, payload }) => {
-        if (active && payload && payload.length) {
-            return (
-                <div style={{
-                    background: 'var(--bg-primary)',
-                    border: '1px solid var(--border-color)',
-                    borderRadius: '8px',
-                    padding: '12px',
-                    boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
-                }}>
-                    <p style={{ margin: 0, fontWeight: 600, marginBottom: '8px' }}>
-                        {payload[0].payload.month}
-                    </p>
-                    {payload[0] && (
-                        <p style={{ margin: 0, color: '#10b981', fontSize: '14px' }}>
-                            Approved: {payload[0].value}
-                        </p>
-                    )}
-                    {payload[1] && (
-                        <p style={{ margin: 0, color: '#ef4444', fontSize: '14px', marginTop: '4px' }}>
-                            Rejected: {payload[1].value}
-                        </p>
-                    )}
-                </div>
-            );
-        }
-        return null;
-    };
-
     return (
-        <div style={{ width: '100%', height: 300, display: 'block' }}>
+        <div className="chart-container-wrapper">
             <ResponsiveContainer width="100%" height="100%" minHeight={250}>
                 <LineChart
                     data={trends}
@@ -59,11 +51,11 @@ const AnimatedTrendChart = memo(({ trends, loading }) => {
                     <XAxis
                         dataKey="month"
                         stroke="var(--text-tertiary)"
-                        style={{ fontSize: '12px' }}
+                        className="chart-axis-text"
                     />
                     <YAxis
                         stroke="var(--text-tertiary)"
-                        style={{ fontSize: '12px' }}
+                        className="chart-axis-text"
                     />
                     <Tooltip content={<CustomTooltip />} />
                     <Line
@@ -75,6 +67,7 @@ const AnimatedTrendChart = memo(({ trends, loading }) => {
                         activeDot={{ r: 7 }}
                         animationDuration={800}
                         animationEasing="ease-in-out"
+                        isAnimationActive={true}
                     />
                     <Line
                         type="monotone"
@@ -85,6 +78,7 @@ const AnimatedTrendChart = memo(({ trends, loading }) => {
                         activeDot={{ r: 7 }}
                         animationDuration={800}
                         animationEasing="ease-in-out"
+                        isAnimationActive={true}
                     />
                 </LineChart>
             </ResponsiveContainer>

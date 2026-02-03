@@ -36,12 +36,10 @@ router.get('/', (req, res) => {
   });
 });
 
-// Create new user (Admin only)
 router.post('/', validate(schemas.createUser), asyncHandler(async (req, res) => {
-  let { fullName, username, email, password, role = 'USER', team = 'General', adminId, adminUsername, adminRole, adminTeam } = req.body;
-  // Normalize role and team
-  role = (role || 'USER').toString().trim().toUpperCase();
-  team = (team || 'General').toString().trim();
+  const { fullName, username, email, password, adminId, adminUsername, adminRole, adminTeam } = req.body;
+  const role = (req.body.role || 'USER').toString().trim().toUpperCase();
+  const team = (req.body.team || 'General').toString().trim();
   logInfo('Creating new user', { fullName, username, email, role, team });
 
   // Hash password
@@ -109,10 +107,10 @@ router.post('/', validate(schemas.createUser), asyncHandler(async (req, res) => 
 // Update user (Admin only)
 router.put('/:id', (req, res) => {
   const userId = req.params.id;
-  let { fullName, username, email, role, team, adminId, adminUsername, adminRole, adminTeam } = req.body;
+  const { fullName, username, email, role: rawRole, team: rawTeam, adminId, adminUsername, adminRole, adminTeam } = req.body;
   // Normalize role and team
-  role = (role || '').toString().trim().toUpperCase();
-  team = (team || 'General').toString().trim();
+  const role = (rawRole || '').toString().trim().toUpperCase();
+  const team = (rawTeam || 'General').toString().trim();
   console.log(`✏️ Updating user ${userId}:`, { fullName, username, email, role, team });
 
   // Validation

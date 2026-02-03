@@ -56,7 +56,7 @@ router.post('/upload', upload.single('file'), async (req, res) => {
         originalFilename = buffer.toString('utf8');
         console.log('📝 Fixed UTF-8 encoding for filename:', originalFilename);
       }
-    } catch (e) {
+    } catch {
       console.warn('⚠️ Could not decode filename, using original:', originalFilename);
     }
 
@@ -67,12 +67,12 @@ router.post('/upload', upload.single('file'), async (req, res) => {
 
     // Move file from temp location to user folder
     // FIXED: Now async - doesn't block server during large file moves
-    console.log(`📦 Moving file from temp to user folder...`);
+    console.log('📦 Moving file from temp to user folder...');
     console.log(`   Temp path: ${req.file.path}`);
     console.log(`   Username: ${username}`);
     console.log(`   Original filename: ${originalFilename}`);
     console.log(`   File mimetype: ${req.file.mimetype}`);
-    
+
     try {
       const finalPath = await moveToUserFolder(req.file.path, username, originalFilename);
       req.file.path = finalPath;
@@ -80,7 +80,7 @@ router.post('/upload', upload.single('file'), async (req, res) => {
       req.file.originalname = originalFilename; // Update originalname with decoded version
       console.log(`✅ File organized successfully to: ${finalPath}`);
       console.log(`✅ File should now be visible at: ${finalPath}`);
-      
+
       // CRITICAL: Verify file actually exists at final location
       const fs = require('fs');
       if (!fs.existsSync(finalPath)) {
@@ -89,7 +89,7 @@ router.post('/upload', upload.single('file'), async (req, res) => {
         throw new Error('File verification failed - file not found at destination');
       }
       console.log('✅ File existence verified at final path');
-      
+
     } catch (moveError) {
       console.error('❌ Error organizing file details:', {
         error: moveError.message,
@@ -144,7 +144,7 @@ router.post('/upload', upload.single('file'), async (req, res) => {
           console.log('📝 Found existing file, will UPDATE instead of delete+create');
           console.log(`   Old file ID: ${existingFile.id}`);
           console.log(`   Old file path: ${existingFile.file_path}`);
-          
+
           // Delete old physical file only
           const oldRelativePath = existingFile.file_path.startsWith('/uploads/') ? existingFile.file_path.substring(8) : existingFile.file_path;
           const oldFilePath = path.join(uploadsDir, oldRelativePath);
@@ -153,7 +153,7 @@ router.post('/upload', upload.single('file'), async (req, res) => {
           // Get the relative path for the new file
           const relativePath = path.relative(uploadsDir, req.file.path).replace(/\\/g, '/');
           const initialStatus = (isRevision === 'true') ? 'under_revision' : 'uploaded';
-          
+
           // UPDATE the existing database record instead of deleting it
           db.run(`UPDATE files SET 
             filename = ?,
@@ -178,7 +178,7 @@ router.post('/upload', upload.single('file'), async (req, res) => {
             initialStatus,
             'pending_team_leader',
             existingFile.id  // Keep the same ID!
-          ], async function(updateErr) {
+          ], async function (updateErr) {
             if (updateErr) {
               console.error('❌ Error updating file record:', updateErr);
               await safeDeleteFile(req.file.path);
@@ -187,7 +187,7 @@ router.post('/upload', upload.single('file'), async (req, res) => {
                 message: 'Failed to update file information'
               });
             }
-            
+
             const fileId = existingFile.id; // Use the same ID
 
             // Log the file replacement
@@ -209,7 +209,7 @@ router.post('/upload', upload.single('file'), async (req, res) => {
             );
 
             console.log(`✅ File ${action} successfully with ID: ${fileId}${isRevision === 'true' ? ' (marked as REVISED)' : ''}`);
-            console.log(`✅ File record UPDATED (not deleted) - will stay in My Files!`);
+            console.log('✅ File record UPDATED (not deleted) - will stay in My Files!');
             res.json({
               success: true,
               message: `File ${action} successfully`,
@@ -238,7 +238,7 @@ router.post('/upload', upload.single('file'), async (req, res) => {
     function insertFileRecord() {
       // Get the relative path from the uploadsDir
       const relativePath = path.relative(uploadsDir, req.file.path).replace(/\\/g, '/');
-      
+
       console.log('💾 Database storage info:');
       console.log(`   Full path: ${req.file.path}`);
       console.log(`   Relative path: ${relativePath}`);
@@ -246,7 +246,7 @@ router.post('/upload', upload.single('file'), async (req, res) => {
 
       // Determine initial status based on whether this is a revision
       const initialStatus = (isRevision === 'true') ? 'under_revision' : 'uploaded';
-      
+
       // Insert file record into database
       db.run(`INSERT INTO files (
         filename, original_name, file_path, file_size, file_type, mime_type, description, tag,
@@ -266,7 +266,7 @@ router.post('/upload', upload.single('file'), async (req, res) => {
         userTeam,
         initialStatus,
         'pending_team_leader'
-      ], async function(err) {
+      ], async function (err) {
         if (err) {
           console.error('❌ Error saving file to database:', err);
           // Delete the uploaded file if database save fails
@@ -663,7 +663,7 @@ router.post('/:fileId/team-leader-review', (req, res) => {
 
     // Use MySQL-friendly DATETIME format: YYYY-MM-DD HH:MM:SS
     const now = new Date();
-    const nowSql = now.toISOString().slice(0,19).replace('T', ' ');
+    const nowSql = now.toISOString().slice(0, 19).replace('T', ' ');
     let newStatus, newStage;
     if (action === 'approve') {
       newStatus = 'team_leader_approved';
@@ -690,10 +690,10 @@ router.post('/:fileId/team-leader-review', (req, res) => {
       newStatus, newStage, teamLeaderId, teamLeaderUsername, nowSql, comments, fileId
     ];
 
-    console.log('DEBUG: Executing SQL (team-leader):', tlSql.replace(/\s+/g,' '));
+    console.log('DEBUG: Executing SQL (team-leader):', tlSql.replace(/\s+/g, ' '));
     console.log('DEBUG: Params (team-leader):', tlParams);
 
-    db.run(tlSql, tlParams, function(err) {
+    db.run(tlSql, tlParams, function (err) {
       if (err) {
         console.error('❌ Error updating file status:', err);
         // Return DB error message to client in dev for easier debugging
@@ -950,7 +950,7 @@ router.post('/:fileId/admin-review', async (req, res) => {
 
     // Use MySQL-friendly DATETIME format
     const now = new Date();
-    const nowSql = now.toISOString().slice(0,19).replace('T', ' ');
+    const nowSql = now.toISOString().slice(0, 19).replace('T', ' ');
     let newStatus, newStage, publicNetworkUrl = null;
     if (action === 'approve') {
       newStatus = 'final_approved';
@@ -983,10 +983,10 @@ router.post('/:fileId/admin-review', async (req, res) => {
       newStatus, newStage, adminId, adminUsername, nowSql, comments, fileId
     ];
 
-    console.log('DEBUG: Executing SQL (admin):', adminSql.replace(/\s+/g,' '));
+    console.log('DEBUG: Executing SQL (admin):', adminSql.replace(/\s+/g, ' '));
     console.log('DEBUG: Params (admin):', adminParams);
 
-    db.run(adminSql, adminParams, function(err) {
+    db.run(adminSql, adminParams, function (err) {
       if (err) {
         console.error('❌ Error updating file status (admin):', err);
         return res.status(500).json({
@@ -1265,7 +1265,7 @@ router.post('/:fileId/comments', (req, res) => {
     db.run(
       'INSERT INTO file_comments (file_id, user_id, username, user_role, comment) VALUES (?, ?, ?, ?, ?)',
       [fileId, userId, username, userRole, comment.trim()],
-      function(err) {
+      function (err) {
         if (err) {
           console.error('❌ Error adding comment:', err);
           return res.status(500).json({
@@ -1365,7 +1365,7 @@ router.delete('/:fileId', async (req, res) => {
         db.run(
           'UPDATE assignment_members SET file_id = NULL, status = NULL, submitted_at = NULL WHERE file_id = ?',
           [fileId],
-          function(err) {
+          function (err) {
             if (err) {
               console.error('❌ Error clearing assignment submissions:', err);
               reject(err);
@@ -1409,7 +1409,7 @@ router.delete('/:fileId', async (req, res) => {
           // If not found in user directory, fallback to direct location
           try {
             await fs.access(filePath);
-          } catch (e) {
+          } catch {
             filePath = path.join(uploadsDir, path.basename(file.file_path));
           }
         }
@@ -1431,7 +1431,7 @@ router.delete('/:fileId', async (req, res) => {
 
     // Delete file record from database
     await new Promise((resolve, reject) => {
-      db.run('DELETE FROM files WHERE id = ?', [fileId], function(err) {
+      db.run('DELETE FROM files WHERE id = ?', [fileId], function (err) {
         if (err) {
           reject(err);
         } else {
@@ -1484,15 +1484,13 @@ async function resolveFilePath(storedPath, username = null) {
     if (relativePath.includes('/')) {
       // This is likely a username/filename path
       return path.join(uploadsDir, relativePath);
-    }
-    // If username is provided, check if the file exists in that user's directory
-    else if (username) {
+    } else if (username) {
       // Try the username directory first
       const userPath = path.join(uploadsDir, username, path.basename(storedPath));
       try {
         await fs.access(userPath);
         return userPath;
-      } catch (e) {
+      } catch {
         // File not found in user directory
       }
     }
@@ -1511,7 +1509,7 @@ async function resolveFilePath(storedPath, username = null) {
     try {
       await fs.access(userPath);
       return userPath;
-    } catch (e) {
+    } catch {
       // File not found in user directory
     }
   }
@@ -1540,9 +1538,7 @@ router.post('/:id/delete-file', async (req, res) => {
       if (file.public_network_url) {
         resolved = file.public_network_url;
         console.log(`🗑️ File has been moved to projects, deleting from: ${resolved}`);
-      }
-      // For non-approved files or old records, try to resolve from uploads
-      else {
+      } else {
         const storedPath = file.file_path || file.storage_path || file.filepath || file.path;
 
         // Try to properly resolve the file path using stored information
@@ -1562,7 +1558,7 @@ router.post('/:id/delete-file', async (req, res) => {
               try {
                 await fs.access(userPath);
                 resolved = userPath;
-              } catch (e) {
+              } catch {
                 // Not found in user directory, fallback to direct location
                 resolved = path.join(uploadsDir, path.basename(storedPath));
               }
@@ -1610,10 +1606,9 @@ router.post('/:id/delete-file', async (req, res) => {
 router.delete('/:id', async (req, res) => {
   const id = req.params.id;
   try {
-    const result = await db.query('DELETE FROM files WHERE id = ?', [id]);
-    // mysql2 returns affectedRows in result. If using query that returns array, handle gracefully.
-    // For compatibility, check result.affectedRows or affectedRows in returned object.
-    const affected = (result && result.affectedRows) || (Array.isArray(result) && result[0] && result[0].affectedRows) || null;
+    await db.query('DELETE FROM files WHERE id = ?', [id]);
+    // mysql2 returns affectedRows in result.
+    await db.query('DELETE FROM files WHERE id = ?', [id]);
     // best-effort: consider success if no error thrown
     return res.json({ success: true, message: 'File record deleted' });
   } catch (err) {
@@ -1645,7 +1640,7 @@ router.post('/bulk-action', (req, res) => {
   console.log(`📋 Bulk ${action} for ${fileIds.length} files by ${reviewerUsername}`);
 
   const now = new Date();
-  const nowSql = now.toISOString().slice(0,19).replace('T', ' ');
+  const nowSql = now.toISOString().slice(0, 19).replace('T', ' ');
   const results = { success: [], failed: [] };
   let processed = 0;
 
@@ -1661,7 +1656,7 @@ router.post('/bulk-action', (req, res) => {
       const isTeamLeader = reviewerRole === 'team_leader';
       const isAdmin = reviewerRole === 'admin';
       const correctStage = (isTeamLeader && file.current_stage === 'pending_team_leader') ||
-                          (isAdmin && file.current_stage === 'pending_admin');
+        (isAdmin && file.current_stage === 'pending_admin');
 
       if (!correctStage) {
         results.failed.push({ fileId, reason: 'Incorrect review stage', fileName: file.original_name });
@@ -1699,7 +1694,7 @@ router.post('/bulk-action', (req, res) => {
             [newStatus, newStage, reviewerId, reviewerUsername, nowSql, comments, comments, reviewerUsername, nowSql, fileId] :
             [newStatus, newStage, reviewerId, reviewerUsername, nowSql, comments, fileId]);
 
-      db.run(updateSql, updateParams, function(err) {
+      db.run(updateSql, updateParams, function (err) {
         if (err) {
           console.error(`❌ Error updating file ${fileId}:`, err);
           results.failed.push({ fileId, reason: err.message, fileName: file.original_name });
@@ -1713,7 +1708,7 @@ router.post('/bulk-action', (req, res) => {
           db.run(
             'INSERT INTO file_comments (file_id, user_id, username, user_role, comment, comment_type) VALUES (?, ?, ?, ?, ?, ?)',
             [fileId, reviewerId, reviewerUsername, reviewerRole, comments, action],
-            () => {}
+            () => { }
           );
         }
 
@@ -1869,7 +1864,7 @@ router.patch('/:fileId/priority', (req, res) => {
   params.push(fileId);
   const sql = `UPDATE files SET ${updates.join(', ')} WHERE id = ?`;
 
-  db.run(sql, params, function(err) {
+  db.run(sql, params, function (err) {
     if (err) {
       console.error('❌ Error updating file priority:', err);
       return res.status(500).json({ success: false, message: 'Failed to update priority' });
@@ -2033,7 +2028,7 @@ router.post('/open-file', async (req, res) => {
     // Check if file exists
     try {
       await fs.access(resolvedPath);
-    } catch (error) {
+    } catch {
       console.error('❌ File not found:', resolvedPath);
       return res.status(404).json({
         success: false,
@@ -2105,7 +2100,7 @@ router.get('/:fileId/path', (req, res) => {
 
     // Convert relative path to absolute path
     let filePath = file.file_path;
-    
+
     // If it's a relative path starting with /uploads/, resolve it
     if (filePath.startsWith('/uploads/')) {
       const relativePath = filePath.substring(8);
@@ -2127,7 +2122,7 @@ router.get('/:fileId/path', (req, res) => {
 // Get file details by ID (for opening files) - CATCH-ALL, MUST BE LAST
 router.get('/:fileId', (req, res) => {
   const { fileId } = req.params;
-  
+
   // Skip if not a numeric ID (avoid catching other routes)
   if (!/^\d+$/.test(fileId)) {
     return res.status(400).json({
@@ -2135,7 +2130,7 @@ router.get('/:fileId', (req, res) => {
       message: 'Invalid file ID'
     });
   }
-  
+
   console.log(`📝 Getting file details for ID: ${fileId}`);
 
   db.get('SELECT * FROM files WHERE id = ?', [fileId], (err, file) => {

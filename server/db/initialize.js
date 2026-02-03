@@ -8,7 +8,7 @@ async function verifyUploadsDirectory() {
   try {
     await fs.access(uploadsDir);
     console.log('✅ Network uploads directory found:', uploadsDir);
-  } catch (err) {
+  } catch {
     console.log('⚠️ Network uploads directory not found, attempting to create:', uploadsDir);
     try {
       await fs.mkdir(uploadsDir, { recursive: true });
@@ -298,25 +298,25 @@ async function initializeDatabase() {
                           FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE CASCADE
                         )`, (err) => {
                           if (err) {
-                          console.error('Error creating custom_tags table:', err);
+                            console.error('Error creating custom_tags table:', err);
                             reject(err);
                             return;
-                        }
-                        console.log('✅ Custom tags table created/verified');
+                          }
+                          console.log('✅ Custom tags table created/verified');
 
-                        // Add database indexes
-                        addDatabaseIndexes();
+                          // Add database indexes
+                          addDatabaseIndexes();
 
-                        // Initialize file index table (async)
-                        fileIndexer.initializeIndexTable().then(() => {
-                          console.log('✅ File index table initialized');
-                        }).catch(err => {
-                          console.error('⚠️  Error initializing file index table:', err);
+                          // Initialize file index table (async)
+                          fileIndexer.initializeIndexTable().then(() => {
+                            console.log('✅ File index table initialized');
+                          }).catch(() => {
+                            console.error('⚠️  Error initializing file index table');
+                          });
+
+                          // Handle user table migration
+                          handleUserTableMigration(resolve, reject);
                         });
-
-                        // Handle user table migration
-                        handleUserTableMigration(resolve, reject);
-                      });
                       });
                     });
                   });

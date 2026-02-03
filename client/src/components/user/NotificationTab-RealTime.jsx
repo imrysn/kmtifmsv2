@@ -45,15 +45,25 @@ const NotificationTab = ({ user, onOpenFile, onNavigateToTasks, onUpdateUnreadCo
       const data = await response.json();
 
       if (data.success) {
-        setNotifications(data.notifications || []);
         const newUnreadCount = data.unreadCount || 0;
-        setUnreadCount(newUnreadCount);
-        // Update parent component's unread count
-        if (onUpdateUnreadCount) {
-          onUpdateUnreadCount(newUnreadCount);
+        const newNotifications = data.notifications || [];
+
+        // Deep comparison to prevent unnecessary re-renders (which cause flickering)
+        const hasChanged =
+          newUnreadCount !== unreadCount ||
+          JSON.stringify(newNotifications) !== JSON.stringify(notifications);
+
+        if (hasChanged) {
+          setNotifications(newNotifications);
+          setUnreadCount(newUnreadCount);
+          // Update parent component's unread count
+          if (onUpdateUnreadCount) {
+            onUpdateUnreadCount(newUnreadCount);
+          }
         }
       }
     } catch (error) {
+      // Only log errors if they are not network cancellation errors (optional refinement)
       console.error('❌ Error fetching notifications:', error);
     } finally {
       if (isInitialLoad) {

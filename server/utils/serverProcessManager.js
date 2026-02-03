@@ -4,8 +4,6 @@
  */
 
 const fs = require('fs');
-const os = require('os');
-const { exec } = require('child_process');
 
 /**
  * Clean up any old server processes before starting new one

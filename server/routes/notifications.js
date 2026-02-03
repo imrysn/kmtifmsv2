@@ -72,7 +72,7 @@ router.get('/user/:userId', async (req, res) => {
 
     const notifications = await query(queryStr, [userId]);
 
-    console.log(`✅ Found ${notifications.length} notifications for user ${userId} (page ${pageNum})`);
+    // console.log(`✅ Found ${notifications.length} notifications for user ${userId} (page ${pageNum})`);
 
     // Count unread notifications (total, not just in this page)
     const unreadCountResult = await queryOne(

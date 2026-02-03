@@ -59,7 +59,7 @@ function killProcess(pid) {
       setTimeout(() => {
         try {
           process.kill(pid, 'SIGKILL'); // Force kill
-        } catch (e) {
+        } catch {
           // Already dead, that's fine
         }
         resolve(true);

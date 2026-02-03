@@ -1,7 +1,6 @@
 /* eslint-disable no-undef */
 // Test file - fetch and global are provided by test environment
-const axios = require('axios');
-const path = require('path');
+
 
 console.log('🧪 Testing File Management Network Directory API\n');
 
@@ -183,7 +182,7 @@ async function checkServerHealth() {
       console.log('❌ Server health check failed');
       return false;
     }
-  } catch (error) {
+  } catch {
     console.log('❌ Cannot connect to server. Make sure it\'s running with: npm run dev');
     console.log('   Server should be accessible at: http://localhost:3001\n');
     return false;

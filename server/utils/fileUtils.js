@@ -50,12 +50,12 @@ async function moveToUserFolder(tempPath, username, originalFilename) {
   try {
     await fs.access(tempPath);
     console.log('✅ Temp file exists');
-    
+
     // Get file stats for debugging
     const stats = await fs.stat(tempPath);
     console.log(`   File size: ${stats.size} bytes`);
     console.log(`   Is file: ${stats.isFile()}`);
-  } catch (error) {
+  } catch {
     console.error('❌ Temp file not found at:', tempPath);
     throw new Error(`Temp file not found: ${tempPath}`);
   }
@@ -94,7 +94,7 @@ async function moveToUserFolder(tempPath, username, originalFilename) {
     const stats = await fs.stat(finalPath);
     console.log('✅ File verified at final location');
     console.log(`   Final file size: ${stats.size} bytes`);
-  } catch (verifyError) {
+  } catch {
     console.error('❌ CRITICAL: File not found after move operation!');
     console.error('   Expected at:', finalPath);
     throw new Error('File verification failed after move');
@@ -111,7 +111,7 @@ function sanitizeFilename(filename) {
   // Windows forbidden: < > : " / \ | ? *
   // Control chars: 0x00-0x1F
   const sanitized = filename
-    .replace(/[<>:"/\\|?*\x00-\x1F]/g, '_')
+    .replace(/[<>:"/\\|?*\x00-\x1F]/g, '_') // eslint-disable-line no-control-regex
     .replace(/^\.+|\.+$/g, '_')  // No leading/trailing dots
     .trim();
 
@@ -146,7 +146,7 @@ async function directoryExists(dirPath) {
   try {
     const stats = await fs.stat(dirPath);
     return stats.isDirectory();
-  } catch (error) {
+  } catch {
     return false;
   }
 }

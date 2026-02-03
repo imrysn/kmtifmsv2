@@ -2,13 +2,13 @@ import React, { memo, useCallback, useState } from 'react';
 import './CommentsModal.css';
 
 // Memoized Comment component to prevent unnecessary re-renders
-const CommentItem = memo(({ 
-  comment, 
-  replyingTo, 
-  setReplyingTo, 
-  visibleReplies, 
-  toggleRepliesVisibility, 
-  getInitials, 
+const CommentItem = memo(({
+  comment,
+  replyingTo,
+  setReplyingTo,
+  visibleReplies,
+  toggleRepliesVisibility,
+  getInitials,
   formatTimeAgo,
   replyText,
   setReplyText,
@@ -21,7 +21,7 @@ const CommentItem = memo(({
   const isLongComment = comment.comment.length > MAX_COMMENT_LENGTH;
 
   // Check if this comment should be highlighted
-  const isHighlighted = highlightUsername && 
+  const isHighlighted = highlightUsername &&
     (comment.username === highlightUsername || comment.user_fullname === highlightUsername);
 
   const handleReplyClick = useCallback(() => {
@@ -33,7 +33,7 @@ const CommentItem = memo(({
   }, [comment.id, toggleRepliesVisibility]);
 
   return (
-    <div 
+    <div
       className={`comment-thread ${isHighlighted ? 'highlight-comment' : ''}`}
       data-comment-id={comment.id}
     >
@@ -93,9 +93,9 @@ const CommentItem = memo(({
       {comment.replies && comment.replies.length > 0 && visibleReplies[comment.id] && (
         <div className="replies-thread">
           {comment.replies.map(reply => (
-            <ReplyItem 
-              key={reply.id} 
-              reply={reply} 
+            <ReplyItem
+              key={reply.id}
+              reply={reply}
               getInitials={getInitials}
               formatTimeAgo={formatTimeAgo}
             />
@@ -208,7 +208,7 @@ const CommentsModal = memo(({
   isOpen,
   onClose,
   assignment,
-  comments,
+  comments = [],
   loadingComments,
   newComment,
   setNewComment,

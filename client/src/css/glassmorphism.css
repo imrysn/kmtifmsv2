@@ -1,4 +1,4 @@
-/**
+/* *
  * Glassmorphism UI Effects
  * Modern frosted glass aesthetic with backdrop blur
  */
@@ -12,7 +12,6 @@
     box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.15);
     transition: transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease, background 0.3s ease;
     will-change: transform, box-shadow;
-    /* Hint to browser for optimization */
 }
 
 /* Fallback for browsers that don't support backdrop-filter */
@@ -22,13 +21,13 @@
     }
 }
 
-/* Glass card hover state */
-.glass-card:hover {
+/* Glass card hover state - Removed to prevent performance impact on static elements */
+/* .glass-card:hover {
     background: rgba(255, 255, 255, 0.8);
     border-color: rgba(255, 255, 255, 0.4);
     box-shadow: 0 12px 40px 0 rgba(31, 38, 135, 0.2);
     transform: translateY(-2px);
-}
+} */
 
 /* Stronger glass effect */
 .glass-card-strong {
@@ -108,15 +107,16 @@
     backdrop-filter: blur(10px) saturate(180%);
     -webkit-backdrop-filter: blur(10px) saturate(180%);
     border: 1px solid rgba(255, 255, 255, 0.3);
-    transition: transform 0.3s ease, box-shadow 0.3s ease;
-    will-change: transform, box-shadow;
+    /* transition: transform 0.3s ease, box-shadow 0.3s ease; - Removed for performance */
+    /* will-change: transform, box-shadow; - Removed for performance */
 }
 
-.stat-card:hover,
+/* Hover effects removed for static dashboard cards */
+/* .stat-card:hover,
 .chart-card:hover {
     transform: translateY(-2px);
     box-shadow: 0 12px 40px 0 rgba(31, 38, 135, 0.2);
-}
+} */
 
 @supports not (backdrop-filter: blur(10px)) {
 
@@ -136,10 +136,11 @@
         border-color: rgba(255, 255, 255, 0.1);
     }
 
-    .stat-card:hover,
+    /* Hover effects removed for static cards */
+    /* .stat-card:hover,
     .chart-card:hover {
         box-shadow: 0 12px 40px 0 rgba(0, 0, 0, 0.4);
-    }
+    } */
 
     @supports not (backdrop-filter: blur(10px)) {
 

@@ -68,8 +68,8 @@ function showStatus() {
     } else {
       console.log('   ❌ Network path not accessible');
     }
-  } catch (error) {
-    console.log('   ❌ Error checking network:', error.message);
+  } catch {
+    console.log('❌ Cannot connect to server. Make sure it\'s running with: npm run dev');
   }
 
   console.log('\n💻 Local Status:');
@@ -107,7 +107,7 @@ function runConnectivityTest() {
   try {
     if (fs.existsSync(networkDbPath)) {
       // Test read access
-      const stats = fs.statSync(networkDbPath);
+      fs.statSync(networkDbPath);
       console.log('   ✅ PASS - Database file readable');
 
       // Test write access by checking directory permissions
@@ -115,7 +115,7 @@ function runConnectivityTest() {
         fs.accessSync(networkDataPath, fs.constants.W_OK);
         console.log('   ✅ PASS - Directory has write permissions');
         testsPassed++;
-      } catch (err) {
+      } catch {
         console.log('   ❌ FAIL - No write permissions');
       }
     } else {
@@ -234,7 +234,7 @@ function createLocalBackup() {
     console.log('   3. Update server configuration if needed');
     console.log('   4. Restart the server');
 
-  } catch (error) {
-    console.error('❌ Error creating backup:', error.message);
+  } catch {
+    console.error('❌ Error creating backup.');
   }
 }

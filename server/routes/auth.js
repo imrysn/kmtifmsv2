@@ -1,7 +1,7 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const { db } = require('../config/database');
-const { logActivity, logError, logInfo, logWarn } = require('../utils/logger');
+const { logActivity, logError, logInfo } = require('../utils/logger');
 const { createNotification } = require('./notifications');
 const { validate, schemas } = require('../middleware/validation');
 const { asyncHandler, AuthenticationError } = require('../middleware/errorHandler');
@@ -91,7 +91,8 @@ router.post('/login', validate(schemas.login), asyncHandler(async (req, res) => 
   );
 
   // Remove password from user object before sending response
-  const { password: _password, ...userWithoutPassword } = user;
+  const userWithoutPassword = { ...user };
+  delete userWithoutPassword.password;
   res.json({
     success: true,
     user: {

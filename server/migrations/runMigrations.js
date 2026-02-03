@@ -1,4 +1,4 @@
-const { USE_MYSQL } = require('../config/database');
+
 
 async function runMigrations() {
   try {

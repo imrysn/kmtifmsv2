@@ -17,7 +17,7 @@ router.get('/', async (req, res) => {
 
   try {
     let tags;
-    
+
     if (USE_MYSQL) {
       tags = await db.query(
         `SELECT id, tag_name, created_at, created_by 
@@ -32,8 +32,11 @@ router.get('/', async (req, res) => {
            ORDER BY tag_name ASC`,
           [],
           (err, rows) => {
-            if (err) reject(err);
-            else resolve(rows);
+            if (err) {
+              reject(err);
+            } else {
+              resolve(rows);
+            }
           }
         );
       });
@@ -77,7 +80,7 @@ router.post('/', async (req, res) => {
   try {
     // Check if tag already exists
     let existingTag;
-    
+
     if (USE_MYSQL) {
       const results = await db.query(
         'SELECT id FROM custom_tags WHERE tag_name = ?',
@@ -90,8 +93,11 @@ router.post('/', async (req, res) => {
           'SELECT id FROM custom_tags WHERE tag_name = ?',
           [trimmedTag],
           (err, row) => {
-            if (err) reject(err);
-            else resolve(row);
+            if (err) {
+              reject(err);
+            } else {
+              resolve(row);
+            }
           }
         );
       });
@@ -108,7 +114,7 @@ router.post('/', async (req, res) => {
 
     // Insert new tag
     let result;
-    
+
     if (USE_MYSQL) {
       result = await db.query(
         'INSERT INTO custom_tags (tag_name, created_by) VALUES (?, ?)',
@@ -129,8 +135,11 @@ router.post('/', async (req, res) => {
           'INSERT INTO custom_tags (tag_name, created_by) VALUES (?, ?)',
           [trimmedTag, userId],
           function(err) {
-            if (err) reject(err);
-            else resolve({ lastID: this.lastID });
+            if (err) {
+              reject(err);
+            } else {
+              resolve({ lastID: this.lastID });
+            }
           }
         );
       });
@@ -162,13 +171,13 @@ router.delete('/:tagId', async (req, res) => {
 
   try {
     let result;
-    
+
     if (USE_MYSQL) {
       result = await db.query(
         'DELETE FROM custom_tags WHERE id = ?',
         [tagId]
       );
-      
+
       if (result.affectedRows === 0) {
         return res.status(404).json({
           success: false,
@@ -181,12 +190,15 @@ router.delete('/:tagId', async (req, res) => {
           'DELETE FROM custom_tags WHERE id = ?',
           [tagId],
           function(err) {
-            if (err) reject(err);
-            else resolve({ changes: this.changes });
+            if (err) {
+              reject(err);
+            } else {
+              resolve({ changes: this.changes });
+            }
           }
         );
       });
-      
+
       if (result.changes === 0) {
         return res.status(404).json({
           success: false,

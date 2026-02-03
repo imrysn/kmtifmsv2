@@ -3,7 +3,6 @@ const router = express.Router();
 const { query, queryOne } = require('../../database/config');
 const multer = require('multer');
 const path = require('path');
-const fs = require('fs');
 const { uploadsDir, moveToUserFolder } = require('../config/middleware');
 
 // Configure multer for file uploads using existing uploads directory
@@ -1278,9 +1277,7 @@ router.post('/:assignmentId/comments', async (req, res) => {
         }
 
         console.log(` Successfully created admin comment notifications for team leader + ${assignedMembers.length} member(s)`);
-      }
-      // If team leader commented, notify assigned members
-      else if (user.role === 'TEAM_LEADER') {
+      } else if (user.role === 'TEAM_LEADER') {
         if (assignedMembers.length === 0) {
           console.log(' No members to notify (either no one assigned or only commenter is assigned)');
         }
@@ -1317,9 +1314,7 @@ router.post('/:assignmentId/comments', async (req, res) => {
         }
 
         console.log(` Successfully created ${assignedMembers.length} comment notification(s)`);
-      }
-      // If regular user commented, notify team leader
-      else if (user.role === 'USER' && assignment.team_leader_id && assignment.team_leader_id !== userId) {
+      } else if (user.role === 'USER' && assignment.team_leader_id && assignment.team_leader_id !== userId) {
         console.log(`📤 Creating notification for team leader ID: ${assignment.team_leader_id}`);
 
         const notificationResult = await query(`
@@ -1531,7 +1526,7 @@ router.patch('/:assignmentId/archive', async (req, res) => {
 router.put('/:assignmentId/mark-done', async (req, res) => {
   try {
     const { assignmentId } = req.params;
-    const { teamLeaderId, teamLeaderUsername, team } = req.body;
+    const { teamLeaderUsername } = req.body;
 
     console.log(`✅ Marking assignment ${assignmentId} as completed by ${teamLeaderUsername}`);
 

@@ -183,11 +183,11 @@ class FileIndexer {
           if (stats.isDirectory()) {
             count += await this.countItems(fullPath);
           }
-        } catch (err) {
+        } catch {
           // Skip inaccessible items
         }
       }
-    } catch (err) {
+    } catch {
       // Skip inaccessible directories
     }
 

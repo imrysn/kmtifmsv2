@@ -125,17 +125,13 @@ function setupSQLite() {
 
     console.log('🏠 Using LOCAL storage for uploads');
     console.log(`📁 Uploads directory: ${networkDataPath}`);
-  }
-  // Check if we're in local test mode
-  else if (fs.existsSync(path.join(__dirname, '..', '..', 'local-test', 'data'))) {
+  } else if (fs.existsSync(path.join(__dirname, '..', '..', 'local-test', 'data'))) {
     const localTestPath = path.join(__dirname, '..', '..', 'local-test', 'data');
     networkDataPath = localTestPath;
     networkProjectsPath = path.join(__dirname, '..', '..', 'local-test', 'PROJECTS');
     dbPath = path.join(networkDataPath, 'filemanagement.db');
     console.log('🏠 Using local test database');
-  }
-  // Default: Network Database Configuration
-  else {
+  } else {
     networkDataPath = '\\\\KMTI-NAS\\Shared\\data';
     networkProjectsPath = '\\\\KMTI-NAS\\Shared\\Public\\PROJECTS';
     dbPath = path.join(networkDataPath, 'filemanagement.db');
