@@ -763,6 +763,7 @@ function shutdownServer() {
 
 if (app) {
   // CRITICAL: Disable hardware acceleration to prevent GPU crashes
+  // GPU crashes confirmed on this system - must use software rendering
   app.disableHardwareAcceleration();
   log(LogLevel.INFO, 'Hardware acceleration disabled (prevents GPU crashes)');
 

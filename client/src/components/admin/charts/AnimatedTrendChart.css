@@ -1,0 +1,52 @@
+/* AnimatedTrendChart Styles */
+
+.trend-chart-container {
+    width: 100%;
+    height: 350px;
+    display: block;
+}
+
+.trend-chart-loading,
+.trend-chart-empty {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    width: 100%;
+}
+
+.trend-chart-message {
+    color: var(--text-tertiary);
+}
+
+/* Custom Tooltip */
+.trend-chart-tooltip {
+    background: var(--background-primary, #fff);
+    border: 1px solid var(--border-color, #e5e7eb);
+    border-radius: var(--radius-md, 8px);
+    padding: 12px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.trend-chart-tooltip-label {
+    margin: 0 0 8px 0;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-primary, #1f2937);
+}
+
+.trend-chart-tooltip-item {
+    margin: 4px 0;
+    font-size: 13px;
+    color: var(--text-secondary, #6b7280);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.trend-chart-tooltip-color {
+    width: 12px;
+    height: 12px;
+    border-radius: 2px;
+    flex-shrink: 0;
+}

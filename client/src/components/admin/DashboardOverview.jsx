@@ -125,6 +125,14 @@ const DashboardOverview = ({ user, users }) => {
     }
   }
 
+  // Memoize formatted stat changes to prevent duplicate function calls
+  const formattedStatChanges = useMemo(() => ({
+    pending: formatStatChange(statChanges.pending),
+    approved: formatStatChange(statChanges.approved),
+    rejected: formatStatChange(statChanges.rejected),
+    total: formatStatChange(statChanges.total)
+  }), [statChanges])
+
   // Memoize activity items to prevent re-rendering on every update
   const activityItems = useMemo(() => {
     return summary.recentActivity.map(act => (
@@ -159,8 +167,8 @@ const DashboardOverview = ({ user, users }) => {
               </div>
               <div className="stat-number">{loading ? '—' : pendingCount}</div>
               {!loading && (
-                <div className={`stat-change ${formatStatChange(statChanges.pending).className}`}>
-                  {formatStatChange(statChanges.pending).text}
+                <div className={`stat-change ${formattedStatChanges.pending.className}`}>
+                  {formattedStatChanges.pending.text}
                 </div>
               )}
             </div>
@@ -171,8 +179,8 @@ const DashboardOverview = ({ user, users }) => {
               </div>
               <div className="stat-number">{loading ? '—' : approvedCount.toLocaleString()}</div>
               {!loading && (
-                <div className={`stat-change ${formatStatChange(statChanges.approved).className}`}>
-                  {formatStatChange(statChanges.approved).text}
+                <div className={`stat-change ${formattedStatChanges.approved.className}`}>
+                  {formattedStatChanges.approved.text}
                 </div>
               )}
             </div>
@@ -186,7 +194,7 @@ const DashboardOverview = ({ user, users }) => {
                 <div className={`stat-change ${statChanges.rejected > 0 ? 'negative' :
                   statChanges.rejected < 0 ? 'positive' : 'neutral'
                   }`}>
-                  {formatStatChange(statChanges.rejected).text}
+                  {formattedStatChanges.rejected.text}
                 </div>
               )}
             </div>
@@ -197,8 +205,8 @@ const DashboardOverview = ({ user, users }) => {
               </div>
               <div className="stat-number">{loading ? '—' : totalCount.toLocaleString()}</div>
               {!loading && (
-                <div className={`stat-change ${formatStatChange(statChanges.total).className}`}>
-                  {formatStatChange(statChanges.total).text}
+                <div className={`stat-change ${formattedStatChanges.total.className}`}>
+                  {formattedStatChanges.total.text}
                 </div>
               )}
             </div>
@@ -221,7 +229,7 @@ const DashboardOverview = ({ user, users }) => {
           <div className="chart-card">
             <div className="chart-header">
               <h3>File Types Distribution</h3>
-              <span style={{ fontSize: '12px', color: 'var(--text-tertiary)' }}>All file types tracked</span>
+              <span className="chart-subtitle">All file types tracked</span>
             </div>
             <div className="chart-content">
               <AnimatedPieChart fileTypes={summary.fileTypes} loading={loading} />
@@ -234,8 +242,8 @@ const DashboardOverview = ({ user, users }) => {
             <h3>Recent Activity</h3>
           </div>
           <div className="activity-list">
-            {loading && <div style={{ padding: '1rem' }}>Loading recent activity…</div>}
-            {!loading && summary.recentActivity.length === 0 && <div style={{ padding: '1rem' }}>No recent activity</div>}
+            {loading && <div className="activity-loading">Loading recent activity…</div>}
+            {!loading && summary.recentActivity.length === 0 && <div className="activity-empty">No recent activity</div>}
             {!loading && activityItems}
           </div>
         </div>

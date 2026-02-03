@@ -100,6 +100,7 @@
     transform: scale(1.05);
 }
 
+/* PERFORMANCE: Disabled expensive transitions and will-change for Dashboard cards */
 /* Apply to existing dashboard cards */
 .stat-card,
 .chart-card,
@@ -108,15 +109,16 @@
     backdrop-filter: blur(10px) saturate(180%);
     -webkit-backdrop-filter: blur(10px) saturate(180%);
     border: 1px solid rgba(255, 255, 255, 0.3);
-    transition: transform 0.3s ease, box-shadow 0.3s ease;
-    will-change: transform, box-shadow;
+    /* transition: transform 0.3s ease, box-shadow 0.3s ease;
+    will-change: transform, box-shadow; */
 }
 
-.stat-card:hover,
+/* PERFORMANCE: Disabled card hover effects - causes lag */
+/* .stat-card:hover,
 .chart-card:hover {
     transform: translateY(-2px);
     box-shadow: 0 12px 40px 0 rgba(31, 38, 135, 0.2);
-}
+} */
 
 @supports not (backdrop-filter: blur(10px)) {
 
@@ -136,10 +138,11 @@
         border-color: rgba(255, 255, 255, 0.1);
     }
 
-    .stat-card:hover,
+    /* PERFORMANCE: Disabled dark mode hover effects */
+    /* .stat-card:hover,
     .chart-card:hover {
         box-shadow: 0 12px 40px 0 rgba(0, 0, 0, 0.4);
-    }
+    } */
 
     @supports not (backdrop-filter: blur(10px)) {
 
