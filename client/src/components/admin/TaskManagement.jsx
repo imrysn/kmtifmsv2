@@ -724,16 +724,32 @@ const TaskManagement = ({ error, success, setError, setSuccess, clearMessages, u
                           </div>
                         )}
                       </div>
-                      {assignment.due_date && (
-                        <div className="admin-due-date">
-                          Due: {formatDate(assignment.due_date)}
-                          <span
-                            className="admin-days-left"
-                            style={{ color: getStatusColor(assignment.due_date) }}
-                          >
-                            {' '}({formatDaysLeft(assignment.due_date)})
-                          </span>
+                      {assignment.status === 'completed' ? (
+                        <div style={{
+                          backgroundColor: '#d1fae5',
+                          color: '#059669',
+                          padding: '6px 12px',
+                          borderRadius: '20px',
+                          fontSize: '13px',
+                          fontWeight: '600',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '4px'
+                        }}>
+                          ✓ Completed
                         </div>
+                      ) : (
+                        assignment.due_date && (
+                          <div className="admin-due-date">
+                            Due: {formatDate(assignment.due_date)}
+                            <span
+                              className="admin-days-left"
+                              style={{ color: getStatusColor(assignment.due_date) }}
+                            >
+                              {' '}({formatDaysLeft(assignment.due_date)})
+                            </span>
+                          </div>
+                        )
                       )}
                     </div>
                   </div>
