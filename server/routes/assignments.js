@@ -91,6 +91,16 @@ router.get('/admin/all', async (req, res) => {
 
       assignment.assigned_member_details = assignedMembers || [];
 
+      // Get attachments for this assignment
+      const attachments = await query(`
+        SELECT id, original_name, filename, file_path, file_size, file_type, created_at
+        FROM assignment_attachments
+        WHERE assignment_id = ?
+        ORDER BY created_at DESC
+      `, [assignment.id]);
+
+      assignment.attachments = attachments || [];
+
       // Get recent submissions from assignment_submissions table (includes ALL submitted files)
       const recentSubmissions = await query(`
         SELECT
@@ -263,6 +273,16 @@ router.get('/team/:team/all-tasks', async (req, res) => {
       `, [assignment.id]);
 
       assignment.assigned_member_details = assignedMembers || [];
+
+      // Get attachments for this assignment
+      const attachments = await query(`
+        SELECT id, original_name, filename, file_path, file_size, file_type, created_at
+        FROM assignment_attachments
+        WHERE assignment_id = ?
+        ORDER BY created_at DESC
+      `, [assignment.id]);
+
+      assignment.attachments = attachments || [];
 
       // Get recent submissions from assignment_submissions table (includes ALL submitted files)
       const recentSubmissions = await query(`
@@ -826,6 +846,206 @@ router.post('/create', upload.array('attachments', 10), async (req, res) => {
   }
 });
 
+// Update existing assignment with file attachments
+router.put('/:id', upload.array('attachments', 10), async (req, res) => {
+  try {
+    const { id } = req.params;
+    const {
+      title,
+      description,
+      dueDate,
+      due_date,
+      fileTypeRequired,
+      file_type_required,
+      assignedTo,
+      assigned_to,
+      maxFileSize,
+      max_file_size,
+      assignedMembers,
+      assigned_members,
+      teamLeaderId,
+      team_leader_id,
+      teamLeaderUsername,
+      team_leader_username,
+      team
+    } = req.body;
+
+    // Support both camelCase and snake_case
+    const finalDueDate = dueDate || due_date;
+    const finalFileType = fileTypeRequired || file_type_required;
+    const finalAssignedTo = assignedTo || assigned_to;
+    const finalMaxSize = maxFileSize || max_file_size || 10485760;
+    const finalMembers = typeof assignedMembers === 'string' ? JSON.parse(assignedMembers) : (assignedMembers || assigned_members);
+    const finalTeamLeaderId = teamLeaderId || team_leader_id;
+    const finalTeamLeaderUsername = teamLeaderUsername || team_leader_username;
+
+    // Get uploaded files
+    const uploadedFiles = req.files || [];
+
+    // Validate required fields
+    if (!title) {
+      return res.status(400).json({
+        success: false,
+        message: 'Title is required'
+      });
+    }
+
+    // Check if assignment exists
+    const existingAssignment = await queryOne(
+      'SELECT * FROM assignments WHERE id = ?',
+      [id]
+    );
+
+    if (!existingAssignment) {
+      return res.status(404).json({
+        success: false,
+        message: 'Assignment not found'
+      });
+    }
+
+    // Update assignment
+    await query(`
+      UPDATE assignments SET
+        title = ?,
+        description = ?,
+        due_date = ?,
+        file_type_required = ?,
+        assigned_to = ?,
+        max_file_size = ?
+      WHERE id = ?
+    `, [
+      title,
+      description || null,
+      finalDueDate || null,
+      finalFileType || null,
+      finalAssignedTo || existingAssignment.assigned_to,
+      finalMaxSize,
+      id
+    ]);
+
+    let membersAssigned = 0;
+    let attachmentsCreated = 0;
+
+    // Save new attachment file records if any files were uploaded
+    if (uploadedFiles.length > 0) {
+      try {
+        console.log(`📎 Saving ${uploadedFiles.length} new attachment(s) for assignment ${id}`);
+
+        for (const file of uploadedFiles) {
+          // Move file from temp location to team leader's folder
+          let finalPath;
+          try {
+            finalPath = await moveToUserFolder(file.path, finalTeamLeaderUsername, file.originalname);
+            console.log(`✅ Moved attachment to: ${finalPath}`);
+          } catch (moveError) {
+            console.error('⚠️ Failed to move attachment file:', moveError);
+            // If move fails, use the original temp path
+            finalPath = file.path;
+          }
+
+          await query(`
+            INSERT INTO assignment_attachments (
+              assignment_id,
+              original_name,
+              filename,
+              file_path,
+              file_size,
+              file_type,
+              uploaded_by_id,
+              uploaded_by_username
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+          `, [
+            id,
+            file.originalname,
+            path.basename(finalPath),
+            finalPath,
+            file.size,
+            file.mimetype,
+            finalTeamLeaderId,
+            finalTeamLeaderUsername
+          ]);
+          attachmentsCreated++;
+        }
+
+        console.log(`✅ Saved ${attachmentsCreated} new attachment(s) for assignment ${id}`);
+      } catch (attachmentError) {
+        console.error('⚠️ Failed to save attachments:', attachmentError);
+        // Don't fail the request if attachments fail
+      }
+    }
+
+    try {
+      // Update assigned members if provided
+      if (finalMembers && Array.isArray(finalMembers)) {
+        // Delete existing assignments
+        await query('DELETE FROM assignment_members WHERE assignment_id = ?', [id]);
+
+        // Insert new assignments
+        if (finalMembers.length > 0) {
+          const memberValues = finalMembers.map(userId => [id, userId]);
+          const placeholders = memberValues.map(() => '(?, ?)').join(', ');
+          const flattenedValues = memberValues.flat();
+
+          await query(
+            `INSERT INTO assignment_members (assignment_id, user_id) VALUES ${placeholders}`,
+            flattenedValues
+          );
+          membersAssigned = finalMembers.length;
+        }
+      }
+
+      // Log activity
+      try {
+        await query(`
+          INSERT INTO activity_logs (
+            user_id,
+            username,
+            role,
+            team,
+            activity
+          ) VALUES (?, ?, ?, ?, ?)
+        `, [
+          finalTeamLeaderId || existingAssignment.team_leader_id,
+          finalTeamLeaderUsername || existingAssignment.team_leader_username,
+          'TEAM_LEADER',
+          team || existingAssignment.team,
+          `Updated assignment: ${title}`
+        ]);
+      } catch (logError) {
+        console.warn('Activity log insertion failed:', logError.message);
+      }
+
+      res.json({
+        success: true,
+        message: 'Assignment updated successfully',
+        assignmentId: id,
+        membersAssigned,
+        attachmentsCreated
+      });
+
+    } catch (memberError) {
+      console.error('Error updating members:', memberError);
+      res.json({
+        success: true,
+        message: 'Assignment updated successfully',
+        assignmentId: id,
+        membersAssigned: 0,
+        warning: 'Assignment updated but member assignment failed'
+      });
+    }
+
+  } catch (error) {
+    console.error('Error updating assignment:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to update assignment',
+      error: error.message
+    });
+  }
+});
+
+
+
 // Get assignments for a specific user with all submitted files
 router.get('/user/:userId', async (req, res) => {
   try {
@@ -886,6 +1106,16 @@ router.get('/user/:userId', async (req, res) => {
       `, [assignment.id]);
 
       assignment.assigned_member_details = memberDetails || [];
+
+      // Get attachments for this assignment
+      const attachments = await query(`
+        SELECT id, original_name, filename, file_path, file_size, file_type, created_at
+        FROM assignment_attachments
+        WHERE assignment_id = ?
+        ORDER BY created_at DESC
+      `, [assignment.id]);
+
+      assignment.attachments = attachments || [];
 
       // Fetch ALL submitted files for this assignment by this user
       const submittedFiles = await query(`
