@@ -3,6 +3,7 @@ import { API_BASE_URL } from '@/config/api';
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import SuccessModal from './SuccessModal';
+import FileOpenModal from '../shared/FileOpenModal';
 import { FileIcon } from '../shared';
 import { usePagination } from '../../hooks';
 import { Trash2 } from 'lucide-react';
@@ -18,7 +19,8 @@ const MyFilesTab = ({
   const [successModal, setSuccessModal] = useState({ isOpen: false, title: '', message: '', type: 'success' });
   const [deleteModal, setDeleteModal] = useState({ isOpen: false, fileId: null, fileName: '', isFolder: false, folderName: null, folderFiles: [] });
   const [isDeleting, setIsDeleting] = useState(false);
-  const [expandedFolders, setExpandedFolders] = useState({});
+  const [showOpenFileModal, setShowOpenFileModal] = useState(false);
+  const [fileToOpen, setFileToOpen] = useState(null);
 
   // Calculate submittedFiles FIRST (before pagination hook uses it)
   const submittedFiles = useMemo(() =>
@@ -66,10 +68,7 @@ const MyFilesTab = ({
     resetPagination
   } = usePagination(submittedFiles, itemsPerPage);
 
-  // Double-click detection
-  const clickTimerRef = useRef(null);
-  const lastClickedFileRef = useRef(null);
-  const DOUBLE_CLICK_DELAY = 300; // milliseconds
+
 
   const openFile = useCallback(async (file) => {
     try {
@@ -113,37 +112,17 @@ const MyFilesTab = ({
 
   const handleFileClick = useCallback((file, e) => {
     e.stopPropagation();
-    console.log('📌 handleFileClick called with file:', file);
-
-    // Clear any existing timer
-    if (clickTimerRef.current) {
-      clearTimeout(clickTimerRef.current);
-    }
-
-    // Check if this is a double-click (same file clicked twice quickly)
-    if (lastClickedFileRef.current === file.id) {
-      // Double-click detected - open file
-      console.log('🎯 Double-click detected, opening file:', file.id);
-      lastClickedFileRef.current = null;
-      openFile(file);
-    } else {
-      // Single click - just set the reference, don't open modal
-      lastClickedFileRef.current = file.id;
-      clickTimerRef.current = setTimeout(() => {
-        // Reset after delay
-        lastClickedFileRef.current = null;
-      }, DOUBLE_CLICK_DELAY);
-    }
-  }, [openFile]);
-
-  // Cleanup timer on unmount
-  useEffect(() => {
-    return () => {
-      if (clickTimerRef.current) {
-        clearTimeout(clickTimerRef.current);
-      }
-    };
+    setFileToOpen(file);
+    setShowOpenFileModal(true);
   }, []);
+
+  const handleOpenFile = useCallback(async () => {
+    if (fileToOpen) {
+      await openFile(fileToOpen);
+      setShowOpenFileModal(false);
+      setFileToOpen(null);
+    }
+  }, [fileToOpen, openFile]);
 
   const getStatusDisplayName = useCallback((dbStatus) => {
     if (!dbStatus) return 'Pending';
@@ -526,195 +505,60 @@ const MyFilesTab = ({
               <div className="col-status">STATUS</div>
               <div className="col-actions">ACTIONS</div>
             </div>
-            {(() => {
-              const { folders, individualFiles } = groupFilesByFolder(paginatedFiles);
-              const foldersToShow = Object.keys(folders);
-
+            {paginatedFiles.map((file) => {
+              const { date, time } = formatDateTime(file.uploaded_at);
               return (
-                <>
-                  {/* Display Folders */}
-                  {foldersToShow.map((folderName) => {
-                    const folderFiles = folders[folderName];
-                    const isExpanded = expandedFolders[folderName];
-
-                    return (
-                      <div key={folderName}>
-                        {/* Folder Header */}
-                        <div
-                          className="file-row-new"
-                          onClick={() => {
-                            setExpandedFolders(prev => ({
-                              ...prev,
-                              [folderName]: !prev[folderName]
-                            }));
-                          }}
-                          onDoubleClick={(e) => {
-                            e.stopPropagation();
-                            setExpandedFolders(prev => ({
-                              ...prev,
-                              [folderName]: !prev[folderName]
-                            }));
-                          }}
-                          style={{ cursor: 'pointer', backgroundColor: isExpanded ? '#f9fafb' : '#ffffff' }}
-                          title="Click to expand/collapse folder"
-                        >
-                          <div className="col-filename">
-                            <div style={{ fontSize: '28px', marginRight: '12px' }}>
-                              {isExpanded ? '📂' : '📁'}
-                            </div>
-                            <div className="file-text">
-                              <div className="filename">{folderName}</div>
-                              <div className="filesize">{folderFiles.length} file{folderFiles.length !== 1 ? 's' : ''}</div>
-                            </div>
-                          </div>
-                          <div className="col-datetime">
-                            {(() => {
-                              const mostRecentFile = folderFiles.reduce((latest, current) => 
-                                new Date(current.uploaded_at) > new Date(latest.uploaded_at) ? current : latest
-                              );
-                              const { date, time } = formatDateTime(mostRecentFile.uploaded_at);
-                              return (
-                                <>
-                                  <div className="date-label">{date}</div>
-                                  <div className="time-label">{time}</div>
-                                </>
-                              );
-                            })()}
-                          </div>
-                          <div className="col-team">
-                            <span className="team-text">{folderFiles[0]?.user_team || 'N/A'}</span>
-                          </div>
-                          <div className="col-status" style={{ visibility: 'hidden' }} />
-                          <div className="col-actions">
-                            <button
-                              className="delete-btn"
-                              onClick={(e) => handleFolderDeleteClick(e, folderName, folderFiles)}
-                              title="Delete all files in this folder"
-                              aria-label="Delete folder"
-                            >
-                              <Trash2 size={18} />
-                            </button>
-                          </div>
-                        </div>
-
-                        {/* Folder Contents */}
-                        {isExpanded && folderFiles.map((file) => {
-                          const { date, time } = formatDateTime(file.uploaded_at);
-                          return (
-                            <div
-                              key={file.id}
-                              className="file-row-new"
-                              onClick={(e) => handleFileClick(file, e)}
-                              title="Double click to open file"
-                              style={{ marginLeft: '20px', backgroundColor: '#fafafa' }}
-                            >
-                              <div className="col-filename">
-                                <FileIcon
-                                  fileType={file.original_name.split('.').pop().toLowerCase()}
-                                  isFolder={false}
-                                  size="default"
-                                  altText={`${file.file_type} file`}
-                                  style={{
-                                    width: '44px',
-                                    height: '44px'
-                                  }}
-                                />
-                                <div className="file-text">
-                                  <div className="filename">{file.original_name}</div>
-                                  <div className="filesize">{formatFileSize(file.file_size)}</div>
-                                  <div className="datetime-mobile">
-                                    <div className="date-label">{date}</div>
-                                    <div className="time-label">{time}</div>
-                                  </div>
-                                </div>
-                              </div>
-                              <div className="col-datetime">
-                                <div className="date-label">{date}</div>
-                                <div className="time-label">{time}</div>
-                              </div>
-                              <div className="col-team">
-                                <span className="team-text">{file.user_team}</span>
-                              </div>
-                              <div className="col-status">
-                                <span className={`status-tag ${getStatusClass(file.status)}`}>
-                                  {getStatusDisplayName(file.status)}
-                                </span>
-                              </div>
-                              <div className="col-actions">
-                                <button
-                                  className="delete-btn"
-                                  onClick={(e) => handleDeleteClick(e, file)}
-                                  title="Delete file"
-                                  aria-label="Delete file"
-                                >
-                                  <Trash2 size={18} />
-                                </button>
-                              </div>
-                            </div>
-                          );
-                        })}
+                <div
+                  key={file.id}
+                  className="file-row-new"
+                  onClick={(e) => handleFileClick(file, e)}
+                  title="Click to open file"
+                >
+                  <div className="col-filename">
+                    <FileIcon
+                      fileType={file.original_name.split('.').pop().toLowerCase()}
+                      isFolder={false}
+                      size="default"
+                      altText={`${file.file_type} file`}
+                      style={{
+                        width: '44px',
+                        height: '44px'
+                      }}
+                    />
+                    <div className="file-text">
+                      <div className="filename">{file.original_name}</div>
+                      <div className="filesize">{formatFileSize(file.file_size)}</div>
+                      <div className="datetime-mobile">
+                        <div className="date-label">{date}</div>
+                        <div className="time-label">{time}</div>
                       </div>
-                    );
-                  })}
-
-                  {/* Display Individual Files */}
-                  {individualFiles.map((file) => {
-                    const { date, time } = formatDateTime(file.uploaded_at);
-                    return (
-                      <div
-                        key={file.id}
-                        className="file-row-new"
-                        onClick={(e) => handleFileClick(file, e)}
-                        title="Double click to open file"
-                      >
-                        <div className="col-filename">
-                          <FileIcon
-                            fileType={file.original_name.split('.').pop().toLowerCase()}
-                            isFolder={false}
-                            size="default"
-                            altText={`${file.file_type} file`}
-                            style={{
-                              width: '44px',
-                              height: '44px'
-                            }}
-                          />
-                          <div className="file-text">
-                            <div className="filename">{file.original_name}</div>
-                            <div className="filesize">{formatFileSize(file.file_size)}</div>
-                            <div className="datetime-mobile">
-                              <div className="date-label">{date}</div>
-                              <div className="time-label">{time}</div>
-                            </div>
-                          </div>
-                        </div>
-                        <div className="col-datetime">
-                          <div className="date-label">{date}</div>
-                          <div className="time-label">{time}</div>
-                        </div>
-                        <div className="col-team">
-                          <span className="team-text">{file.user_team}</span>
-                        </div>
-                        <div className="col-status">
-                          <span className={`status-tag ${getStatusClass(file.status)}`}>
-                            {getStatusDisplayName(file.status)}
-                          </span>
-                        </div>
-                        <div className="col-actions">
-                          <button
-                            className="delete-btn"
-                            onClick={(e) => handleDeleteClick(e, file)}
-                            title="Delete file"
-                            aria-label="Delete file"
-                          >
-                            <Trash2 size={18} />
-                          </button>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </>
+                    </div>
+                  </div>
+                  <div className="col-datetime">
+                    <div className="date-label">{date}</div>
+                    <div className="time-label">{time}</div>
+                  </div>
+                  <div className="col-team">
+                    <span className="team-text">{file.user_team}</span>
+                  </div>
+                  <div className="col-status">
+                    <span className={`status-tag ${getStatusClass(file.status)}`}>
+                      {getStatusDisplayName(file.status)}
+                    </span>
+                  </div>
+                  <div className="col-actions">
+                    <button
+                      className="delete-btn"
+                      onClick={(e) => handleDeleteClick(e, file)}
+                      title="Delete file"
+                      aria-label="Delete file"
+                    >
+                      <Trash2 size={18} />
+                    </button>
+                  </div>
+                </div>
               );
-            })()}
+            })}
           </div>
         ) : (
           <div className="empty-state">
@@ -797,6 +641,17 @@ const MyFilesTab = ({
         title={successModal.title}
         message={successModal.message}
         type={successModal.type}
+      />
+
+      {/* File Open Modal */}
+      <FileOpenModal
+        isOpen={showOpenFileModal}
+        onClose={() => {
+          setShowOpenFileModal(false);
+          setFileToOpen(null);
+        }}
+        onConfirm={handleOpenFile}
+        file={fileToOpen}
       />
 
       {/* Custom Delete Confirmation Modal */}

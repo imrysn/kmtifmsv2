@@ -1,40 +1,38 @@
-/* Global Transitions and Animations */
-
+Global Transitions and Animations
+/* PERFORMANCE: Disabled expensive transitions for Dashboard cards to eliminate lag */
 /* Smooth transitions for all interactive elements */
-button,
+/* PERFORMANCE: Disabled all transitions to eliminate lag on CPU rendering */
+/* button,
 .btn,
-.stat-card,
-.chart-card,
-.section-card,
 .activity-item,
 a {
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-}
+} */
 
+/* PERFORMANCE: Disabled card hover effects - causes lag on CPU rendering */
 /* Card hover effects - subtle lift */
-.stat-card:hover,
+/* .stat-card:hover,
 .chart-card:hover,
 .section-card:hover {
-    transform: translateY(-2px);
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-}
+} */
 
 /* Button hover effects */
-button:hover:not(:disabled),
+/* button:hover:not(:disabled),
 .btn:hover:not(:disabled) {
-    transform: translateY(-1px);
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-}
+} */
 
 button:active:not(:disabled),
 .btn:active:not(:disabled) {
     transform: translateY(0);
 }
 
+/* PERFORMANCE: Disabled link hover effects - causes repaint lag */
 /* Link hover effects */
-a:hover {
+/* a:hover {
     opacity: 0.8;
-}
+} */
 
 /* Loading states with pulse animation */
 @keyframes pulse {
@@ -121,10 +119,11 @@ select:disabled {
     animation: shimmer 2s infinite;
 }
 
+/* PERFORMANCE: Disabled smooth scrolling - expensive on CPU */
 /* Smooth scrolling */
-* {
+/* * {
     scroll-behavior: smooth;
-}
+} */
 
 /* Focus visible for accessibility */
 *:focus-visible {

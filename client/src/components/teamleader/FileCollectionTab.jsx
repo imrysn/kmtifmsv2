@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import './css/FileCollectionTab.css'
 import FileIcon from '../shared/FileIcon'
+import FileOpenModal from '../shared/FileOpenModal'
 import { LoadingTable, LoadingCards } from '../common/InlineSkeletonLoader'
 
 const FileCollectionTab = ({
@@ -23,12 +24,14 @@ const FileCollectionTab = ({
   const [searchQuery, setSearchQuery] = useState('')
   const [currentPage, setCurrentPage] = useState(1)
   const [filesPerPage] = useState(7)
-  
+  const [showOpenFileModal, setShowOpenFileModal] = useState(false)
+  const [fileToOpen, setFileToOpen] = useState(null)
+
   // Reset page when filters change
   useEffect(() => {
     setCurrentPage(1)
   }, [searchQuery, fileCollectionFilter, fileCollectionSort])
-  
+
   // Handle file highlighting from notifications
   useEffect(() => {
     if (highlightedFileId && submittedFiles.length > 0) {
@@ -53,7 +56,7 @@ const FileCollectionTab = ({
       }, 300)
     }
   }, [highlightedFileId, submittedFiles])
-  
+
   // Extract file extension helper
   const getFileExtension = (filename, fileType) => {
     if (filename) {
@@ -71,12 +74,12 @@ const FileCollectionTab = ({
   // Calculate statistics from submitted files
   const calculateStats = () => {
     const total = submittedFiles.length
-    const approved = submittedFiles.filter(f => 
+    const approved = submittedFiles.filter(f =>
       f.status === 'approved' || f.status === 'final_approved'
     ).length
-    const rejected = submittedFiles.filter(f => 
-      f.status === 'rejected' || 
-      f.status === 'rejected_by_team_leader' || 
+    const rejected = submittedFiles.filter(f =>
+      f.status === 'rejected' ||
+      f.status === 'rejected_by_team_leader' ||
       f.status === 'rejected_by_admin'
     ).length
     const pending = total - approved - rejected
@@ -86,6 +89,15 @@ const FileCollectionTab = ({
 
   const stats = calculateStats()
 
+  // Handle file opening with modal
+  const handleOpenFile = async () => {
+    if (fileToOpen) {
+      openFileViewModal(fileToOpen)
+      setShowOpenFileModal(false)
+      setFileToOpen(null)
+    }
+  }
+
   // Filter and sort submissions
   const filteredAndSortedFiles = () => {
     let filtered = submittedFiles
@@ -93,7 +105,7 @@ const FileCollectionTab = ({
     // Apply search query
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase()
-      filtered = filtered.filter(file => 
+      filtered = filtered.filter(file =>
         file.original_name?.toLowerCase().includes(query) ||
         file.username?.toLowerCase().includes(query) ||
         file.fullName?.toLowerCase().includes(query) ||
@@ -239,7 +251,7 @@ const FileCollectionTab = ({
           <div className="file-status-card">
             <div className="status-icon total-icon">
               <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-                <path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                <path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
             </div>
             <div className="status-info">
@@ -251,7 +263,7 @@ const FileCollectionTab = ({
           <div className="file-status-card">
             <div className="status-icon pending-icon">
               <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-                <path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                <path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
             </div>
             <div className="status-info">
@@ -263,7 +275,7 @@ const FileCollectionTab = ({
           <div className="file-status-card">
             <div className="status-icon approved-icon">
               <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-                <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
             </div>
             <div className="status-info">
@@ -275,7 +287,7 @@ const FileCollectionTab = ({
           <div className="file-status-card">
             <div className="status-icon rejected-icon">
               <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-                <path d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                <path d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
             </div>
             <div className="status-info">
@@ -297,7 +309,7 @@ const FileCollectionTab = ({
             onChange={(e) => setSearchQuery(e.target.value)}
           />
         </div>
-        
+
         <div className="file-filters">
           <select
             value={fileCollectionFilter}
@@ -309,7 +321,7 @@ const FileCollectionTab = ({
             <option value="approved">Approved</option>
             <option value="rejected">Rejected</option>
           </select>
-          
+
           <select
             value={fileCollectionSort}
             onChange={(e) => setFileCollectionSort(e.target.value)}
@@ -333,22 +345,25 @@ const FileCollectionTab = ({
       ) : currentPageFiles.length > 0 ? (
         <div className="tl-files-list">
           <table className="tl-files-table">
-              <thead>
-                <tr>
-                  <th>File Name</th>
-                  <th>Assignment</th>
-                  <th>Submitted By</th>
-                  <th>Submitted Date</th>
-                  <th>Status</th>
-                  <th style={{width: '80px', textAlign: 'center'}}>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {currentPageFiles.map((submission) => {
-                  const fileExtension = getFileExtension(submission.original_name, submission.file_type)
-                  
-                  return (
-                  <tr key={submission.id} data-file-id={submission.id} className="tl-clickable-row" onClick={() => openFileViewModal(submission)}>
+            <thead>
+              <tr>
+                <th>File Name</th>
+                <th>Assignment</th>
+                <th>Submitted By</th>
+                <th>Submitted Date</th>
+                <th>Status</th>
+                <th style={{ width: '80px', textAlign: 'center' }}>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {currentPageFiles.map((submission) => {
+                const fileExtension = getFileExtension(submission.original_name, submission.file_type)
+
+                return (
+                  <tr key={submission.id} data-file-id={submission.id} className="tl-clickable-row" onClick={() => {
+                    setFileToOpen(submission)
+                    setShowOpenFileModal(true)
+                  }}>
                     <td>
                       <div className="file-cell">
                         <div className="file-icon">
@@ -387,36 +402,35 @@ const FileCollectionTab = ({
                       </div>
                     </td>
                     <td>
-                      <span className={`status-badge status-${
-                        submission.status === 'approved' || submission.status === 'final_approved' ? 'approved' : 
-                        submission.status === 'rejected' || submission.status === 'rejected_by_team_leader' || submission.status === 'rejected_by_admin' ? 'rejected' : 
-                        'pending'
-                      }`}>
+                      <span className={`status-badge status-${submission.status === 'approved' || submission.status === 'final_approved' ? 'approved' :
+                        submission.status === 'rejected' || submission.status === 'rejected_by_team_leader' || submission.status === 'rejected_by_admin' ? 'rejected' :
+                          'pending'
+                        }`}>
                         {
                           submission.status === 'approved' || submission.status === 'final_approved' ? 'Approved' :
-                          submission.status === 'rejected' || submission.status === 'rejected_by_team_leader' || submission.status === 'rejected_by_admin' ? 'Rejected' :
-                          submission.status === 'team_leader_approved' ? 'Pending Admin' :
-                          'Pending Team Leader'
+                            submission.status === 'rejected' || submission.status === 'rejected_by_team_leader' || submission.status === 'rejected_by_admin' ? 'Rejected' :
+                              submission.status === 'team_leader_approved' ? 'Pending Admin' :
+                                'Pending Team Leader'
                         }
                       </span>
                     </td>
-                    <td style={{textAlign: 'center'}}>
+                    <td style={{ textAlign: 'center' }}>
                       <div className="tl-actions-menu-wrapper">
-                        <button 
-                          className="tl-menu-button" 
+                        <button
+                          className="tl-menu-button"
                           onClick={(e) => toggleMenu(submission.id, e)}
                           title="Options"
                         >
                           <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                            <circle cx="3" cy="8" r="1.5" fill="currentColor"/>
-                            <circle cx="8" cy="8" r="1.5" fill="currentColor"/>
-                            <circle cx="13" cy="8" r="1.5" fill="currentColor"/>
+                            <circle cx="3" cy="8" r="1.5" fill="currentColor" />
+                            <circle cx="8" cy="8" r="1.5" fill="currentColor" />
+                            <circle cx="13" cy="8" r="1.5" fill="currentColor" />
                           </svg>
                         </button>
                         {openMenuId === submission.id && (
                           <div className="tl-dropdown-menu">
                             {submission.assignment_id && onNavigateToTask && (
-                              <button 
+                              <button
                                 className="tl-dropdown-item"
                                 onClick={(e) => {
                                   e.stopPropagation()
@@ -424,8 +438,8 @@ const FileCollectionTab = ({
                                 }}
                               >
                                 <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                                  <path d="M5.33333 2.66667H2.66667C2.29848 2.66667 2 2.96514 2 3.33333V13.3333C2 13.7015 2.29848 14 2.66667 14H12.6667C13.0349 14 13.3333 13.7015 13.3333 13.3333V10.6667" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                                  <path d="M12 2L14 4L8.66667 9.33333L6.66667 9.66667L7 7.66667L12 2Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                                  <path d="M5.33333 2.66667H2.66667C2.29848 2.66667 2 2.96514 2 3.33333V13.3333C2 13.7015 2.29848 14 2.66667 14H12.6667C13.0349 14 13.3333 13.7015 13.3333 13.3333V10.6667" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                                  <path d="M12 2L14 4L8.66667 9.33333L6.66667 9.66667L7 7.66667L12 2Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
                                 </svg>
                                 Go to Task
                               </button>
@@ -435,50 +449,61 @@ const FileCollectionTab = ({
                       </div>
                     </td>
                   </tr>
-                  )
-                })}
-                </tbody>
-                </table>
-                  
-                {/* Pagination */}
-                {!isLoading && displayedFiles.length > 0 && (
-                  <div className="pagination-section">
-                  <div className="pagination-info">
-                  Showing {((currentPage - 1) * filesPerPage) + 1} to {Math.min(currentPage * filesPerPage, displayedFiles.length)} of {displayedFiles.length} files
+                )
+              })}
+            </tbody>
+          </table>
+
+          {/* Pagination */}
+          {!isLoading && displayedFiles.length > 0 && (
+            <div className="pagination-section">
+              <div className="pagination-info">
+                Showing {((currentPage - 1) * filesPerPage) + 1} to {Math.min(currentPage * filesPerPage, displayedFiles.length)} of {displayedFiles.length} files
+              </div>
+              {totalPages > 1 && (
+                <div className="pagination-controls">
+                  <button
+                    className="pagination-btn"
+                    onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                    disabled={currentPage === 1}
+                  >
+                    ‹
+                  </button>
+                  {renderPaginationNumbers}
+                  <button
+                    className="pagination-btn"
+                    onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                    disabled={currentPage === totalPages}
+                  >
+                    ›
+                  </button>
                 </div>
-                {totalPages > 1 && (
-                  <div className="pagination-controls">
-                  <button 
-                  className="pagination-btn" 
-                onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-                disabled={currentPage === 1}
-                >
-                  ‹
-                </button>
-                {renderPaginationNumbers}
-                <button 
-                  className="pagination-btn" 
-                onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-                disabled={currentPage === totalPages}
-                >
-                  ›
-                </button>
-                </div>
-                )}
-                </div>
-                )}
-                </div>
+              )}
+            </div>
+          )}
+        </div>
       ) : (
         <div className="tl-empty">
-          <svg width="64" height="64" viewBox="0 0 64 64" fill="none" style={{marginBottom: '16px', opacity: 0.3}}>
-            <path d="M24 16H13.3333C11.4924 16 10 17.4924 10 19.3333V50.6667C10 52.5076 11.4924 54 13.3333 54H50.6667C52.5076 54 54 52.5076 54 50.6667V19.3333C54 17.4924 52.5076 16 50.6667 16H40" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-            <path d="M40 10H24V22H40V10Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-            <path d="M32 32V42M32 42L37 37M32 42L27 37" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+          <svg width="64" height="64" viewBox="0 0 64 64" fill="none" style={{ marginBottom: '16px', opacity: 0.3 }}>
+            <path d="M24 16H13.3333C11.4924 16 10 17.4924 10 19.3333V50.6667C10 52.5076 11.4924 54 13.3333 54H50.6667C52.5076 54 54 52.5076 54 50.6667V19.3333C54 17.4924 52.5076 16 50.6667 16H40" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+            <path d="M40 10H24V22H40V10Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+            <path d="M32 32V42M32 42L37 37M32 42L27 37" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
           <h3>No submissions yet</h3>
           <p>Assignment submissions from your team will appear here</p>
         </div>
       )}
+
+      {/* File Open Modal */}
+      <FileOpenModal
+        isOpen={showOpenFileModal}
+        onClose={() => {
+          setShowOpenFileModal(false)
+          setFileToOpen(null)
+        }}
+        onConfirm={handleOpenFile}
+        file={fileToOpen}
+      />
     </div>
   )
 }

@@ -893,20 +893,36 @@ const TasksTab = ({ user }) => {
                       </div>
                     </div>
                   </div>
-                  {/* Show due date at top right */}
+                  {/* Show completed badge or due date at top right */}
                   <div style={{ textAlign: 'right' }}>
-                    <div style={{ fontSize: '14px', fontWeight: '500', color: '#000000' }}>
-                      Due: {assignment.due_date ? formatDate(assignment.due_date) : 'No due date'}
-                      {daysLeft !== null && (
-                        <span style={{
-                          color: '#DC2626',
-                          fontWeight: '400',
-                          marginLeft: '4px'
-                        }}>
-                          ({Math.abs(daysLeft)} days overdue)
-                        </span>
-                      )}
-                    </div>
+                    {assignment.status === 'completed' ? (
+                      <div style={{
+                        backgroundColor: '#d1fae5',
+                        color: '#059669',
+                        padding: '6px 12px',
+                        borderRadius: '20px',
+                        fontSize: '13px',
+                        fontWeight: '600',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '4px'
+                      }}>
+                        ✓ Completed
+                      </div>
+                    ) : (
+                      <div style={{ fontSize: '14px', fontWeight: '500', color: '#000000' }}>
+                        Due: {assignment.due_date ? formatDate(assignment.due_date) : 'No due date'}
+                        {daysLeft !== null && (
+                          <span style={{
+                            color: '#DC2626',
+                            fontWeight: '400',
+                            marginLeft: '4px'
+                          }}>
+                            ({Math.abs(daysLeft)} days overdue)
+                          </span>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -926,6 +942,58 @@ const TasksTab = ({ user }) => {
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
                   {getStatusBadge(assignment)}
                 </div>
+
+                {/* Attachments Section - Files attached by Team Leader */}
+                {assignment.attachments && assignment.attachments.length > 0 && (
+                  <div style={{ padding: '8px 0px', marginBottom: '16px' }}>
+                    <div style={{
+                      fontSize: '13px',
+                      fontWeight: '600',
+                      color: '#374151',
+                      marginBottom: '8px'
+                    }}>
+                      📎 Attached Files ({assignment.attachments.length})
+                    </div>
+                    {assignment.attachments.map((attachment) => (
+                      <div
+                        key={attachment.id}
+                        onClick={() => confirmOpenFile(attachment)}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          padding: '20px',
+                          gap: '12px',
+                          border: '1px solid #9CA3AF',
+                          borderRadius: '8px',
+                          cursor: 'pointer',
+                          marginBottom: '8px',
+                          transition: 'background-color 0.2s ease',
+                          backgroundColor: 'transparent'
+                        }}
+                        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(156, 163, 175, 0.1)'}
+                        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                      >
+                        <div style={{ flexShrink: 0 }}>
+                          <FileIcon
+                            fileType={attachment.original_name.split('.').pop()}
+                            size="small"
+                          />
+                        </div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontWeight: '500', color: '#1c1e21', marginBottom: '4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {attachment.original_name}
+                          </div>
+                          <div style={{ fontSize: '12px', color: '#65676b', display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                            <span>by <span style={{ color: '#1877f2', fontWeight: '600' }}>
+                              {assignment.team_leader_fullname || assignment.team_leader_username || 'Team Leader'}
+                            </span></span>
+                            <span>{formatFileSize(attachment.file_size)}</span>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
 
                 {/* Submitted Files Display - Show all submitted files */}
                 {assignment.submitted_files && assignment.submitted_files.length > 0 && (

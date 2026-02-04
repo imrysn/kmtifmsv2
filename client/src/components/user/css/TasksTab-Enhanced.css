@@ -48,6 +48,7 @@
     opacity: 0;
     transform: translateY(-10px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -153,7 +154,6 @@
 }
 
 .tasks-stat-card:hover {
-  transform: translateY(-2px);
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.12);
 }
 
@@ -216,7 +216,9 @@
 }
 
 @keyframes tasks-spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 /* Empty State */
@@ -799,7 +801,6 @@
 
 .comment-submit-btn:hover:not(:disabled) {
   background: #166fe5;
-  transform: scale(1.05);
 }
 
 .comment-submit-btn:disabled {
@@ -844,6 +845,7 @@
     opacity: 0;
     transform: scale(0.95);
   }
+
   to {
     opacity: 1;
     transform: scale(1);
@@ -902,8 +904,10 @@
 }
 
 .tasks-modal-body {
-  scrollbar-width: none; /* Firefox */
-  -ms-overflow-style: none; /* IE and Edge */
+  scrollbar-width: none;
+  /* Firefox */
+  -ms-overflow-style: none;
+  /* IE and Edge */
 }
 
 .tasks-assignment-info {

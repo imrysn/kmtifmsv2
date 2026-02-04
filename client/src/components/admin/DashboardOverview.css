@@ -1,14 +1,13 @@
 /* Dashboard Overview Styles - FileFlow Design */
 .dashboard-overview {
   padding: 0;
-  margin-top: 30px;
+  /* margin-top: 30px; */
 }
 
 /* Top Row Layout */
 .top-row {
   display: flex;
   justify-content: flex-end;
-  margin-bottom: 2rem;
 }
 
 /* Stats Section */
@@ -138,7 +137,8 @@
 }
 
 .chart-content {
-  min-height: 300px;
+  height: 280px;
+  min-height: 280px;
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -150,10 +150,14 @@
   border: 1px solid var(--border-color);
   border-radius: var(--radius-lg);
   padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
 }
 
 .activity-section {
-  height: fit-content;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
 }
 
 .section-header {
@@ -172,6 +176,8 @@
   display: flex;
   flex-direction: column;
   gap: 1rem;
+  flex: 1;
+  justify-content: space-between;
 }
 
 .activity-item {
@@ -240,6 +246,19 @@
   color: var(--text-tertiary);
 }
 
+/* Chart subtitle */
+.chart-subtitle {
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+
+/* Activity states */
+.activity-loading,
+.activity-empty {
+  padding: 1rem;
+  color: var(--text-secondary);
+}
+
 /* Responsive Design */
 @media (max-width: 1200px) {
   .bottom-row {
@@ -261,13 +280,14 @@
   .stats-grid {
     grid-template-columns: 1fr;
   }
-  
+
   .stat-number {
     font-size: 28px;
   }
 }
 
 @media (max-width: 844px) {
+
   /* Make all components smaller */
   .dashboard-overview {
     margin-top: 20px;
@@ -361,6 +381,7 @@
 }
 
 @media (max-width: 480px) {
+
   .stat-card,
   .chart-card,
   .section-card {
