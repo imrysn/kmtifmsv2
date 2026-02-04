@@ -29,22 +29,27 @@ async function create(fileData) {
         username,
         user_team,
         status = 'uploaded',
-        current_stage = 'pending_team_leader'
+        current_stage = 'pending_team_leader',
+        folder_name = null,
+        relative_path = null,
+        is_folder = false
     } = fileData;
 
     const query = `
     INSERT INTO files (
       filename, original_name, file_path, file_size, file_type, mime_type,
       description, user_id, username, user_team, status, current_stage,
+      folder_name, relative_path, is_folder,
       uploaded_at, updated_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
   `;
 
     try {
         const result = await db.run(
             query,
             [filename, original_name, file_path, file_size, file_type, mime_type,
-                description, user_id, username, user_team, status, current_stage]
+                description, user_id, username, user_team, status, current_stage,
+                folder_name, relative_path, is_folder ? 1 : 0]
         );
         return result.lastID;
     } catch (err) {

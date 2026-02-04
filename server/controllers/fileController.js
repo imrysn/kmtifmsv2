@@ -17,7 +17,7 @@ class FileController {
             throw new ValidationError('No file uploaded');
         }
 
-        const { description, userId, username, userTeam, tag, replaceExisting } = req.body;
+        const { description, userId, username, userTeam, tag, replaceExisting, folderName, relativePath, isFolder } = req.body;
 
         // Call service layer
         const file = await fileService.uploadFile({
@@ -27,7 +27,10 @@ class FileController {
             username,
             userTeam,
             tag,
-            replaceExisting: replaceExisting === 'true'
+            replaceExisting: replaceExisting === 'true',
+            folderName: folderName || null,
+            relativePath: relativePath || null,
+            isFolder: isFolder === 'true'
         });
 
         res.json(response.created(file, 'File uploaded successfully'));

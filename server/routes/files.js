@@ -35,7 +35,7 @@ router.post('/check-duplicate', (req, res) => {
 // Upload file (User only)
 router.post('/upload', upload.single('file'), async (req, res) => {
   try {
-    const { description, userId, username, userTeam, tag, replaceExisting, isRevision } = req.body;
+    const { description, userId, username, userTeam, tag, replaceExisting, isRevision, folderName, relativePath, isFolder } = req.body;
     if (!req.file) {
       return res.status(400).json({
         success: false,
@@ -191,7 +191,7 @@ router.post('/upload', upload.single('file'), async (req, res) => {
           // This preserves the file in the user's folder and prevents it from disappearing
 
           // Get the relative path for the new file
-          const relativePath = path.relative(uploadsDir, req.file.path).replace(/\\/g, '/');
+          const fileSystemPath = path.relative(uploadsDir, req.file.path).replace(/\\/g, '/');
 
           // WORKFLOW: Determine status based on previous rejection
           let initialStatus;
@@ -214,11 +214,14 @@ router.post('/upload', upload.single('file'), async (req, res) => {
             tag = ?,
             status = ?,
             current_stage = ?,
+            folder_name = ?,
+            relative_path = ?,
+            is_folder = ?,
             uploaded_at = CURRENT_TIMESTAMP
           WHERE id = ?`,
             [
               req.file.filename,
-              `/uploads/${relativePath}`,
+              `/uploads/${fileSystemPath}`,
               req.file.size,
               getFileTypeDescription(req.file.mimetype, req.file.originalname),
               req.file.mimetype,
@@ -226,6 +229,9 @@ router.post('/upload', upload.single('file'), async (req, res) => {
               tag || '',
               initialStatus,
               'pending_team_leader',
+              folderName || null,
+              relativePath || null,
+              isFolder === 'true' ? 1 : 0,
               existingFile.id  // Keep the same ID!
             ], async function (updateErr) {
               if (updateErr) {
@@ -274,7 +280,7 @@ router.post('/upload', upload.single('file'), async (req, res) => {
 
               console.log(`✅ File ${action} successfully with ID: ${fileId} (Status: ${statusLabel})`);
               console.log(`✅ File record UPDATED (not deleted) - will stay in My Files!`);
-              console.log(`💾 Database updated with new file_path: /uploads/${relativePath}`);
+              console.log(`💾 Database updated with new file_path: /uploads/${fileSystemPath}`);
               console.log(`📂 Physical file location: ${req.file.path}`);
 
               if (wasRejected) {
@@ -333,12 +339,14 @@ router.post('/upload', upload.single('file'), async (req, res) => {
 
     function insertFileRecord() {
       // Get the relative path from the uploadsDir
-      const relativePath = path.relative(uploadsDir, req.file.path).replace(/\\/g, '/');
+      const fileSystemPath = path.relative(uploadsDir, req.file.path).replace(/\\/g, '/');
 
       console.log('💾 Database storage info:');
       console.log(`   Full path: ${req.file.path}`);
-      console.log(`   Relative path: ${relativePath}`);
-      console.log(`   Will be stored as: /uploads/${relativePath}`);
+      console.log(`   File system path: ${fileSystemPath}`);
+      console.log(`   Will be stored as: /uploads/${fileSystemPath}`);
+      console.log(`   Folder name: ${folderName || 'none'}`);
+      console.log(`   Relative path in folder: ${relativePath || 'none'}`);
 
       // Determine initial status based on whether this is a revision
       const initialStatus = (isRevision === 'true') ? 'under_revision' : 'uploaded';
@@ -346,12 +354,13 @@ router.post('/upload', upload.single('file'), async (req, res) => {
       // Insert file record into database
       db.run(`INSERT INTO files (
         filename, original_name, file_path, file_size, file_type, mime_type, description, tag,
-        user_id, username, user_team, status, current_stage
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        user_id, username, user_team, status, current_stage,
+        folder_name, relative_path, is_folder
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           req.file.filename,
           req.file.originalname,
-          `/uploads/${relativePath}`,
+          `/uploads/${fileSystemPath}`,
           req.file.size,
           getFileTypeDescription(req.file.mimetype, req.file.originalname),
           req.file.mimetype,
@@ -361,7 +370,10 @@ router.post('/upload', upload.single('file'), async (req, res) => {
           username,
           userTeam,
           initialStatus,
-          'pending_team_leader'
+          'pending_team_leader',
+          folderName || null,
+          relativePath || null,
+          isFolder === 'true' ? 1 : 0
         ], async function (err) {
           if (err) {
             console.error('❌ Error saving file to database:', err);
@@ -1272,46 +1284,6 @@ router.get('/:fileId', (req, res) => {
     res.json({
       success: true,
       file
-    });
-  });
-});
-
-// Get file system path for Electron to open with default app
-router.get('/:fileId/path', (req, res) => {
-  const { fileId } = req.params;
-
-  db.get('SELECT * FROM files WHERE id = ?', [fileId], (err, file) => {
-    if (err || !file) {
-      return res.status(404).json({
-        success: false,
-        message: 'File not found'
-      });
-    }
-
-    // For approved files that have been moved to projects, use the public_network_url
-    // For pending/rejected files, use the original file_path
-    let filePath;
-    if (file.status === 'final_approved' && file.public_network_url) {
-      // File has been moved to projects directory
-      filePath = file.public_network_url;
-      console.log(`📂 Using moved file path for approved file ${fileId}: ${filePath}`);
-    } else {
-      // File is still in uploads directory
-      if (file.file_path.startsWith('/uploads/')) {
-        const relativePath = file.file_path.substring('/uploads/'.length);
-        filePath = path.join(uploadsDir, relativePath);
-      } else {
-        filePath = path.join(uploadsDir, path.basename(file.file_path));
-      }
-      console.log(`📂 Using uploads file path for ${fileId}: ${filePath}`);
-    }
-
-    // Normalize path for Windows
-    filePath = path.normalize(filePath);
-
-    res.json({
-      success: true,
-      filePath: filePath
     });
   });
 });

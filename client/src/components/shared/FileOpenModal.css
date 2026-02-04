@@ -1,23 +1,54 @@
+/* Modal Overlay */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+  padding: 1rem;
+}
+
 /* File Open Modal Styles */
 .file-open-modal {
-    max-width: 480px;
-    border-radius: 12px;
+    max-width: 440px;
+    width: 90%;
+    border-radius: 16px;
     background: #FFFFFF;
+    box-shadow: 0 24px 48px -12px rgba(0, 0, 0, 0.18), 0 12px 24px -8px rgba(0, 0, 0, 0.12);
+    border: none;
+    animation: modalSlideIn 0.2s ease-out;
+}
+
+@keyframes modalSlideIn {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 
 .file-open-modal .modal-header {
-    padding: 20px 24px;
-    border-bottom: 1px solid #E5E7EB;
+    padding: 28px 28px 0 28px;
+    border-bottom: none;
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     justify-content: space-between;
-    border-radius: 12px 12px 0 0;
+    border-radius: 16px 16px 0 0;
+    background: #FFFFFF;
 }
 
 .file-open-modal .modal-header-content {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 16px;
     flex: 1;
     min-width: 0;
 }
@@ -25,22 +56,27 @@
 .file-open-modal .file-icon-svg {
     color: #4F46E5;
     flex-shrink: 0;
-    width: 20px;
-    height: 20px;
+    width: 40px;
+    height: 40px;
+    background: #EEF2FF;
+    padding: 10px;
+    border-radius: 10px;
 }
 
 .file-open-modal .modal-header h3 {
     margin: 0;
-    font-size: 18px;
+    font-size: 20px;
     font-weight: 600;
-    color: #111827;
+    color: #1F2937;
+    letter-spacing: -0.3px;
+    margin-top: 2px;
 }
 
 .file-open-modal .modal-close {
     background: none;
     border: none;
-    font-size: 28px;
-    color: #6B7280;
+    font-size: 24px;
+    color: #9CA3AF;
     cursor: pointer;
     padding: 0;
     width: 32px;
@@ -49,12 +85,15 @@
     align-items: center;
     justify-content: center;
     border-radius: 6px;
-    transition: all 0.2s;
+    transition: all 0.2s ease;
+    margin-left: 8px;
+    position: relative;
+    top: -4px;
 }
 
 .file-open-modal .modal-close:hover {
     background-color: #F3F4F6;
-    color: #111827;
+    color: #374151;
 }
 
 .file-open-modal .modal-close:disabled {
@@ -63,56 +102,71 @@
 }
 
 .file-open-modal .modal-body {
-    padding: 24px;
+    padding: 24px 28px 28px 28px;
 }
 
 .file-open-content {
     display: flex;
     flex-direction: column;
     gap: 20px;
+    align-items: stretch;
 }
 
 .file-open-question {
     font-size: 15px;
-    color: #374151;
+    color: #4B5563;
     margin: 0;
-    font-weight: 500;
+    font-weight: 400;
+    line-height: 1.6;
+    text-align: left;
 }
 
 .file-info-box {
     display: flex;
     align-items: center;
+    justify-content: flex-start;
     gap: 12px;
     padding: 16px;
-    background-color: #F9FAFB;
+    background: #F9FAFB;
     border: 1px solid #E5E7EB;
     border-radius: 8px;
+    transition: all 0.2s ease;
+    width: 100%;
+}
+
+.file-info-box:hover {
+    background: #F3F4F6;
+    border-color: #D1D5DB;
 }
 
 .file-doc-icon {
+    display: block;
     flex-shrink: 0;
 }
 
 .file-name-display {
-    font-size: 14px;
-    color: #4F46E5;
-    font-weight: 500;
+    font-size: 14.5px;
+    color: #111827;
+    font-weight: 600;
     word-break: break-word;
     flex: 1;
+    line-height: 1.4;
+    text-align: left;
 }
 
 .file-open-hint {
     font-size: 13px;
     color: #6B7280;
     margin: 0;
-    text-align: center;
+    text-align: left;
+    line-height: 1.6;
 }
 
 .file-open-modal .modal-footer {
-    padding: 16px 24px;
-    border-top: 1px solid #E5E7EB;
-    background-color: #F9FAFB;
-    border-radius: 0 0 12px 12px;
+    padding: 0 28px 28px 28px;
+    border-top: none;
+    background-color: #FFFFFF;
+    border-radius: 0 0 16px 16px;
 }
 
 .file-open-actions {
@@ -122,36 +176,56 @@
 }
 
 .file-open-actions .btn {
-    padding: 10px 20px;
+    padding: 10px 24px;
     border-radius: 8px;
     font-size: 14px;
-    font-weight: 500;
+    font-weight: 600;
     cursor: pointer;
-    transition: all 0.2s;
+    transition: all 0.15s ease;
     border: none;
     display: flex;
     align-items: center;
-    gap: 8px;
+    justify-content: center;
+    gap: 6px;
+    min-height: 40px;
+    letter-spacing: -0.2px;
+    flex: 1;
 }
 
 .file-open-actions .btn-cancel {
     background-color: #FFFFFF;
     color: #374151;
-    border: 1px solid #D1D5DB;
+    border: 1.5px solid #E5E7EB;
+    padding: 9px 24px;
 }
 
-.file-open-actions .btn-cancel:hover {
+.file-open-actions .btn-cancel:hover:not(:disabled) {
     background-color: #F9FAFB;
-    border-color: #9CA3AF;
+    border-color: #D1D5DB;
+    color: #111827;
+}
+
+.file-open-actions .btn-cancel:active:not(:disabled) {
+    background-color: #F3F4F6;
+    border-color: #6B7280;
 }
 
 .file-open-actions .btn-open-file {
-    background-color: #4F46E5;
+    background: #4F46E5;
     color: #FFFFFF;
+    box-shadow: none;
 }
 
-.file-open-actions .btn-open-file:hover {
-    background-color: #4338CA;
+.file-open-actions .btn-open-file:hover:not(:disabled) {
+    background: #4338CA;
+    box-shadow: none;
+    transform: none;
+}
+
+.file-open-actions .btn-open-file:active:not(:disabled) {
+    transform: none;
+    box-shadow: none;
+    background: #3730A3;
 }
 
 .file-open-actions .btn:disabled {

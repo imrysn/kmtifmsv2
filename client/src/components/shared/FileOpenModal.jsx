@@ -53,7 +53,7 @@ const FileOpenModal = ({
             >
                 <div className="modal-header">
                     <div className="modal-header-content">
-                        <svg className="file-icon-svg" width="20" height="20" viewBox="0 0 24 24" fill="none">
+                        <svg className="file-icon-svg" width="24" height="24" viewBox="0 0 24 24" fill="none">
                             <path d="M9 12H15M9 16H15M17 21H7C5.89543 21 5 20.1046 5 19V5C5 3.89543 5.89543 3 7 3H12.5858C12.851 3 13.1054 3.10536 13.2929 3.29289L18.7071 8.70711C18.8946 8.89464 19 9.149 19 9.41421V19C19 20.1046 18.1046 21 17 21Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                         </svg>
                         <h3>Open File</h3>
@@ -63,6 +63,7 @@ const FileOpenModal = ({
                         className="modal-close"
                         disabled={isLoading}
                         type="button"
+                        aria-label="Close modal"
                     >
                         ×
                     </button>
@@ -73,7 +74,7 @@ const FileOpenModal = ({
                         <p className="file-open-question">Do you want to open this file?</p>
 
                         <div className="file-info-box">
-                            <svg className="file-doc-icon" width="20" height="20" viewBox="0 0 20 20" fill="none">
+                            <svg className="file-doc-icon" width="28" height="28" viewBox="0 0 20 20" fill="none">
                                 <path d="M6 2H14L18 6V16C18 17.1046 17.1046 18 16 18H4C2.89543 18 2 17.1046 2 16V4C2 2.89543 2.89543 2 4 2H6Z" fill="#4F46E5" fillOpacity="0.1" />
                                 <path d="M6 2H14L18 6V16C18 17.1046 17.1046 18 16 18H4C2.89543 18 2 17.1046 2 16V4C2 2.89543 2.89543 2 4 2H6Z" stroke="#4F46E5" strokeWidth="1.5" />
                             </svg>

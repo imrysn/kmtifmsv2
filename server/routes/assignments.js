@@ -899,6 +899,9 @@ router.get('/user/:userId', async (req, res) => {
           f.tag,
           f.description,
           f.status,
+          f.folder_name,
+          f.relative_path,
+          f.is_folder,
           asub.submitted_at,
           u.fullName as submitter_name,
           u.username as submitter_username
@@ -1813,51 +1816,124 @@ router.delete('/:assignmentId/files/:fileId', async (req, res) => {
       });
     }
 
-    // Get file info before deleting to get the physical file path
+    // Get file info before deleting
     const fileInfo = await queryOne(
       'SELECT file_path FROM files WHERE id = ?',
       [fileId]
     );
+    console.log('📄 File to delete:', fileInfo);
 
-    // Delete from assignment_submissions table
+    // Check if there are any OTHER submissions for this assignment by this user
+    const remainingSubmissions = await query(
+      'SELECT file_id, submitted_at FROM assignment_submissions WHERE assignment_id = ? AND user_id = ? AND file_id != ? ORDER BY submitted_at DESC',
+      [assignmentId, userId, fileId]
+    );
+    console.log(`📊 Found ${remainingSubmissions?.length || 0} remaining submission(s) after deleting file ${fileId}`);
+    if (remainingSubmissions && remainingSubmissions.length > 0) {
+      console.log('Remaining files:', remainingSubmissions.map(s => s.file_id));
+    }
+
+    // 🗑️ DELETE EVERYTHING - Start by removing ALL foreign key references
+    console.log('🔗 Step 1: Removing ALL foreign key references...');
+    
+    // 1. CRITICAL: Set file_id = NULL in assignment_members FIRST (before deleting anything)
+    // This clears the foreign key reference to the file we're about to delete
+    console.log(`⚙️ Setting file_id=NULL for assignment ${assignmentId}, user ${userId}, file ${fileId}`);
+    await query(
+      'UPDATE assignment_members SET file_id = NULL WHERE assignment_id = ? AND user_id = ? AND file_id = ?',
+      [assignmentId, userId, fileId]
+    );
+    console.log('✅ Cleared file_id reference in assignment_members');
+    
+    // Now update status based on remaining submissions
+    if (!remainingSubmissions || remainingSubmissions.length === 0) {
+      console.log('🚧 No remaining files - setting status to pending');
+      await query(
+        'UPDATE assignment_members SET status = ?, submitted_at = NULL WHERE assignment_id = ? AND user_id = ?',
+        ['pending', assignmentId, userId]
+      );
+      console.log('✅ Updated assignment_members: status=pending (no more files)');
+    } else {
+      const mostRecentFile = remainingSubmissions[0];
+      console.log(`🔄 Pointing to most recent remaining file: ${mostRecentFile.file_id}`);
+      
+      // Verify the file we're pointing to actually exists and is NOT the one being deleted
+      if (mostRecentFile.file_id === fileId) {
+        console.error('❌❌❌ ERROR: Trying to set file_id to the file being deleted!');
+        throw new Error('Logic error: Cannot set file_id to file being deleted');
+      }
+      
+      await query(
+        'UPDATE assignment_members SET file_id = ?, submitted_at = ?, status = ? WHERE assignment_id = ? AND user_id = ?',
+        [mostRecentFile.file_id, mostRecentFile.submitted_at, 'submitted', assignmentId, userId]
+      );
+      console.log('✅ Updated assignment_members to point to most recent remaining file');
+    }
+
+    // 2. Delete from assignment_submissions
     await query(
       'DELETE FROM assignment_submissions WHERE assignment_id = ? AND file_id = ? AND user_id = ?',
       [assignmentId, fileId, userId]
     );
-    console.log('✅ Removed from assignment_submissions');
+    console.log('✅ Deleted from assignment_submissions');
 
-    // Check if there are any remaining submissions for this assignment by this user
-    const remainingSubmissions = await query(
-      'SELECT * FROM assignment_submissions WHERE assignment_id = ? AND user_id = ?',
-      [assignmentId, userId]
-    );
-
-    // If no more submissions, update assignment_members status to pending
-    if (!remainingSubmissions || remainingSubmissions.length === 0) {
-      await query(
-        'UPDATE assignment_members SET status = ?, submitted_at = NULL, file_id = NULL WHERE assignment_id = ? AND user_id = ?',
-        ['pending', assignmentId, userId]
-      );
-      console.log('✅ Updated assignment_members status to pending (no more submissions)');
-    } else {
-      // If there are remaining submissions, update the file_id to the most recent one
-      const mostRecentFile = remainingSubmissions[0];
-      await query(
-        'UPDATE assignment_members SET file_id = ?, submitted_at = ? WHERE assignment_id = ? AND user_id = ?',
-        [mostRecentFile.file_id, mostRecentFile.submitted_at, assignmentId, userId]
-      );
-      console.log('✅ Updated assignment_members to point to most recent submission');
+    // 3. Delete from notifications (if any reference this file)
+    try {
+      await query('DELETE FROM notifications WHERE file_id = ?', [fileId]);
+      console.log('✅ Deleted notifications');
+    } catch (err) {
+      console.log('⚠️ No notifications to delete');
+    }
+    
+    // 4. Delete from file_comments
+    try {
+      await query('DELETE FROM file_comments WHERE file_id = ?', [fileId]);
+      console.log('✅ Deleted file comments');
+    } catch (err) {
+      console.log('⚠️ No file comments to delete');
+    }
+    
+    // 5. Delete from file_status_history
+    try {
+      await query('DELETE FROM file_status_history WHERE file_id = ?', [fileId]);
+      console.log('✅ Deleted file status history');
+    } catch (err) {
+      console.log('⚠️ No file status history to delete');
+    }
+    
+    // 6. Check for any other references in assignment_attachments
+    try {
+      await query('DELETE FROM assignment_attachments WHERE file_id = ?', [fileId]);
+      console.log('✅ Deleted from assignment_attachments');
+    } catch (err) {
+      console.log('⚠️ No assignment_attachments to delete');
     }
 
-    // ✅ IMPORTANT: Keep file record in database and physical file in NAS
-    // This allows the file to reappear in "My Files" after being removed from assignment
-    // Only the assignment_submissions link is removed above
-    console.log('ℹ️ File record kept in database - file will return to "My Files"');
-    console.log('ℹ️ Physical file kept in NAS at:', fileInfo?.file_path);
+    console.log('💾 Step 2: Deleting physical file...');
+    
+    // 7. Delete physical file from NAS
+    if (fileInfo && fileInfo.file_path) {
+      try {
+        if (fs.existsSync(fileInfo.file_path)) {
+          fs.unlinkSync(fileInfo.file_path);
+          console.log('✅ Physical file deleted from:', fileInfo.file_path);
+        } else {
+          console.log('⚠️ Physical file not found at:', fileInfo.file_path);
+        }
+      } catch (fsError) {
+        console.error('❌ Failed to delete physical file:', fsError);
+      }
+    }
+
+    console.log('📀 Step 3: Deleting file record from database...');
+    
+    // 8. Finally, delete file record from database
+    await query('DELETE FROM files WHERE id = ?', [fileId]);
+    console.log('✅ File record deleted from database');
 
     res.json({
       success: true,
-      message: 'File removed successfully'
+      message: 'File deleted successfully'
     });
 
   } catch (error) {

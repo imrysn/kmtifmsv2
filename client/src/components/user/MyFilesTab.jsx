@@ -15,10 +15,10 @@ const MyFilesTab = ({
   files,
   user
 }) => {
-  const [isUploading, setIsUploading] = useState(false);
   const [successModal, setSuccessModal] = useState({ isOpen: false, title: '', message: '', type: 'success' });
-  const [deleteModal, setDeleteModal] = useState({ isOpen: false, fileId: null, fileName: '' });
+  const [deleteModal, setDeleteModal] = useState({ isOpen: false, fileId: null, fileName: '', isFolder: false, folderName: null, folderFiles: [] });
   const [isDeleting, setIsDeleting] = useState(false);
+  const [expandedFolders, setExpandedFolders] = useState({});
 
   // Calculate submittedFiles FIRST (before pagination hook uses it)
   const submittedFiles = useMemo(() =>
@@ -29,9 +29,31 @@ const MyFilesTab = ({
     ), [filteredFiles]
   );
 
+  // Group files by folder
+  const groupFilesByFolder = (files) => {
+    const folders = {};
+    const individualFiles = [];
+
+    files.forEach(file => {
+      if (file.folder_name) {
+        if (!folders[file.folder_name]) {
+          folders[file.folder_name] = [];
+        }
+        folders[file.folder_name].push(file);
+      } else {
+        individualFiles.push(file);
+      }
+    });
+
+    return { folders, individualFiles };
+  };
+
   // Pagination using custom hook (NOW submittedFiles exists)
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const [itemsPerPage, setItemsPerPage] = useState(7);
+  // Load itemsPerPage from localStorage or use default
+  const [itemsPerPage, setItemsPerPage] = useState(() => {
+    const saved = localStorage.getItem('myFilesItemsPerPage');
+    return saved ? parseInt(saved, 10) : 10;
+  });
   const {
     currentPage,
     paginatedItems: paginatedFiles,
@@ -51,9 +73,13 @@ const MyFilesTab = ({
 
   const openFile = useCallback(async (file) => {
     try {
+      console.log('🔍 openFile called with:', { id: file.id, path: file.file_path, name: file.original_name });
+      
       if (window.electron && window.electron.openFileInApp) {
+        console.log(`📡 Fetching path for file ID: ${file.id}`);
         const response = await fetch(`${API_BASE_URL}/api/files/${file.id}/path`);
         const data = await response.json();
+        console.log('📡 Path response:', data);
 
         if (data.success && data.filePath) {
           const result = await window.electron.openFileInApp(data.filePath);
@@ -71,6 +97,7 @@ const MyFilesTab = ({
         }
       } else {
         const fileUrl = `${API_BASE_URL}${file.file_path}`;
+        console.log(`🌐 Opening in browser: ${fileUrl}`);
         window.open(fileUrl, '_blank', 'noopener,noreferrer');
       }
     } catch (error) {
@@ -86,6 +113,7 @@ const MyFilesTab = ({
 
   const handleFileClick = useCallback((file, e) => {
     e.stopPropagation();
+    console.log('📌 handleFileClick called with file:', file);
 
     // Clear any existing timer
     if (clickTimerRef.current) {
@@ -95,6 +123,7 @@ const MyFilesTab = ({
     // Check if this is a double-click (same file clicked twice quickly)
     if (lastClickedFileRef.current === file.id) {
       // Double-click detected - open file
+      console.log('🎯 Double-click detected, opening file:', file.id);
       lastClickedFileRef.current = null;
       openFile(file);
     } else {
@@ -201,7 +230,9 @@ const MyFilesTab = ({
   }, [goToPage]);
 
   const handleItemsPerPageChange = useCallback((e) => {
-    setItemsPerPage(Number(e.target.value));
+    const newValue = Number(e.target.value);
+    setItemsPerPage(newValue);
+    localStorage.setItem('myFilesItemsPerPage', newValue.toString());
   }, []);
 
   const handleDeleteClick = useCallback((e, file) => {
@@ -209,63 +240,109 @@ const MyFilesTab = ({
     setDeleteModal({
       isOpen: true,
       fileId: file.id,
-      fileName: file.original_name
+      fileName: file.original_name,
+      isFolder: false,
+      folderName: null,
+      folderFiles: []
+    });
+    document.body.style.overflow = 'hidden';
+  }, []);
+
+  const handleFolderDeleteClick = useCallback((e, folderName, folderFiles) => {
+    e.stopPropagation();
+    setDeleteModal({
+      isOpen: true,
+      fileId: null,
+      fileName: null,
+      isFolder: true,
+      folderName,
+      folderFiles
     });
     document.body.style.overflow = 'hidden';
   }, []);
 
   const handleDeleteConfirm = useCallback(async () => {
-    if (!deleteModal.fileId) return;
+    if (!deleteModal.fileId && !deleteModal.isFolder) return;
 
     setIsDeleting(true);
     try {
-      const response = await fetch(`${API_BASE_URL}/api/files/${deleteModal.fileId}`, {
-        method: 'DELETE',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          adminId: user.id,
-          adminUsername: user.username,
-          adminRole: user.role,
-          team: user.team
-        })
-      });
+      if (deleteModal.isFolder) {
+        // Delete all files in folder
+        const deletePromises = deleteModal.folderFiles.map(file =>
+          fetch(`${API_BASE_URL}/api/files/${file.id}`, {
+            method: 'DELETE',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              adminId: user.id,
+              adminUsername: user.username,
+              adminRole: user.role,
+              team: user.team
+            })
+          }).then(res => res.json())
+        );
 
-      const data = await response.json();
+        const results = await Promise.all(deletePromises);
+        const allSuccess = results.every(r => r.success);
 
-      if (data.success) {
-        setSuccessModal({
-          isOpen: true,
-          title: 'File Deleted',
-          message: 'The file has been successfully deleted.',
-          type: 'error'
-        });
-
-        // Refresh the file list
-        if (fetchUserFiles) {
-          await fetchUserFiles();
+        if (allSuccess) {
+          setSuccessModal({
+            isOpen: true,
+            title: 'Folder Deleted',
+            message: `All ${deleteModal.folderFiles.length} file(s) in "${deleteModal.folderName}" have been successfully deleted.`,
+            type: 'success'
+          });
+          if (fetchUserFiles) await fetchUserFiles();
+        } else {
+          throw new Error('Failed to delete some files in the folder');
         }
       } else {
-        throw new Error(data.message || 'Failed to delete file');
+        // Delete single file
+        const response = await fetch(`${API_BASE_URL}/api/files/${deleteModal.fileId}`, {
+          method: 'DELETE',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            adminId: user.id,
+            adminUsername: user.username,
+            adminRole: user.role,
+            team: user.team
+          })
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+          setSuccessModal({
+            isOpen: true,
+            title: 'File Deleted',
+            message: 'The file has been successfully deleted.',
+            type: 'success'
+          });
+          if (fetchUserFiles) await fetchUserFiles();
+        } else {
+          throw new Error(data.message || 'Failed to delete file');
+        }
       }
     } catch (error) {
-      console.error('Error deleting file:', error);
+      console.error('Error deleting:', error);
       setSuccessModal({
         isOpen: true,
         title: 'Error',
-        message: error.message || 'Failed to delete file. Please try again.',
+        message: error.message || 'Failed to delete. Please try again.',
         type: 'error'
       });
     } finally {
       setIsDeleting(false);
-      setDeleteModal({ isOpen: false, fileId: null, fileName: '' });
+      setDeleteModal({ isOpen: false, fileId: null, fileName: '', isFolder: false, folderName: null, folderFiles: [] });
       document.body.style.overflow = '';
     }
-  }, [deleteModal.fileId, user, fetchUserFiles]);
+  }, [deleteModal, user, fetchUserFiles]);
 
   const handleDeleteCancel = useCallback(() => {
-    setDeleteModal({ isOpen: false, fileId: null, fileName: '' });
+    setDeleteModal({ isOpen: false, fileId: null, fileName: '', isFolder: false, folderName: null, folderFiles: [] });
     document.body.style.overflow = '';
   }, []);
 
@@ -283,9 +360,13 @@ const MyFilesTab = ({
             <h2>Delete File</h2>
           </div>
           <div className="delete-modal-body">
-            <p className="delete-warning">Are you sure you want to delete this file?</p>
-            <p className="delete-filename">{deleteModal.fileName}</p>
-            <p className="delete-note">This action cannot be undone. The file will be permanently deleted from the system.</p>
+            <p className="delete-warning">Are you sure you want to delete this {deleteModal.isFolder ? 'folder' : 'file'}?</p>
+            <p className="delete-filename">{deleteModal.isFolder ? deleteModal.folderName : deleteModal.fileName}</p>
+            <p className="delete-note">
+              {deleteModal.isFolder 
+                ? `This will permanently delete all ${deleteModal.folderFiles?.length || 0} file(s) in this folder. This action cannot be undone.`
+                : 'This action cannot be undone. The file will be permanently deleted from the system.'}
+            </p>
           </div>
           <div className="delete-modal-footer">
             <button
@@ -308,7 +389,7 @@ const MyFilesTab = ({
               ) : (
                 <>
                   <Trash2 size={18} />
-                  Delete File
+                  Delete {deleteModal.isFolder ? 'Folder' : 'File'}
                 </>
               )}
             </button>
@@ -317,7 +398,7 @@ const MyFilesTab = ({
       </div>,
       document.body
     );
-  }, [deleteModal.isOpen, deleteModal.fileName, isDeleting, handleDeleteCancel, handleDeleteConfirm]);
+  }, [deleteModal.isOpen, deleteModal.folderName, deleteModal.fileName, deleteModal.isFolder, deleteModal.folderFiles, isDeleting, handleDeleteCancel, handleDeleteConfirm]);
 
   const getPageNumbers = useCallback(() => {
     const pages = [];
@@ -445,60 +526,195 @@ const MyFilesTab = ({
               <div className="col-status">STATUS</div>
               <div className="col-actions">ACTIONS</div>
             </div>
-            {paginatedFiles.map((file) => {
-              const { date, time } = formatDateTime(file.uploaded_at);
+            {(() => {
+              const { folders, individualFiles } = groupFilesByFolder(paginatedFiles);
+              const foldersToShow = Object.keys(folders);
+
               return (
-                <div
-                  key={file.id}
-                  className="file-row-new"
-                  onClick={(e) => handleFileClick(file, e)}
-                  title="Double click to open file"
-                >
-                  <div className="col-filename">
-                    <FileIcon
-                      fileType={file.original_name.split('.').pop().toLowerCase()}
-                      isFolder={false}
-                      size="default"
-                      altText={`${file.file_type} file`}
-                      style={{
-                        width: '44px',
-                        height: '44px'
-                      }}
-                    />
-                    <div className="file-text">
-                      <div className="filename">{file.original_name}</div>
-                      <div className="filesize">{formatFileSize(file.file_size)}</div>
-                      <div className="datetime-mobile">
-                        <div className="date-label">{date}</div>
-                        <div className="time-label">{time}</div>
+                <>
+                  {/* Display Folders */}
+                  {foldersToShow.map((folderName) => {
+                    const folderFiles = folders[folderName];
+                    const isExpanded = expandedFolders[folderName];
+
+                    return (
+                      <div key={folderName}>
+                        {/* Folder Header */}
+                        <div
+                          className="file-row-new"
+                          onClick={() => {
+                            setExpandedFolders(prev => ({
+                              ...prev,
+                              [folderName]: !prev[folderName]
+                            }));
+                          }}
+                          onDoubleClick={(e) => {
+                            e.stopPropagation();
+                            setExpandedFolders(prev => ({
+                              ...prev,
+                              [folderName]: !prev[folderName]
+                            }));
+                          }}
+                          style={{ cursor: 'pointer', backgroundColor: isExpanded ? '#f9fafb' : '#ffffff' }}
+                          title="Click to expand/collapse folder"
+                        >
+                          <div className="col-filename">
+                            <div style={{ fontSize: '28px', marginRight: '12px' }}>
+                              {isExpanded ? '📂' : '📁'}
+                            </div>
+                            <div className="file-text">
+                              <div className="filename">{folderName}</div>
+                              <div className="filesize">{folderFiles.length} file{folderFiles.length !== 1 ? 's' : ''}</div>
+                            </div>
+                          </div>
+                          <div className="col-datetime">
+                            {(() => {
+                              const mostRecentFile = folderFiles.reduce((latest, current) => 
+                                new Date(current.uploaded_at) > new Date(latest.uploaded_at) ? current : latest
+                              );
+                              const { date, time } = formatDateTime(mostRecentFile.uploaded_at);
+                              return (
+                                <>
+                                  <div className="date-label">{date}</div>
+                                  <div className="time-label">{time}</div>
+                                </>
+                              );
+                            })()}
+                          </div>
+                          <div className="col-team">
+                            <span className="team-text">{folderFiles[0]?.user_team || 'N/A'}</span>
+                          </div>
+                          <div className="col-status" style={{ visibility: 'hidden' }} />
+                          <div className="col-actions">
+                            <button
+                              className="delete-btn"
+                              onClick={(e) => handleFolderDeleteClick(e, folderName, folderFiles)}
+                              title="Delete all files in this folder"
+                              aria-label="Delete folder"
+                            >
+                              <Trash2 size={18} />
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Folder Contents */}
+                        {isExpanded && folderFiles.map((file) => {
+                          const { date, time } = formatDateTime(file.uploaded_at);
+                          return (
+                            <div
+                              key={file.id}
+                              className="file-row-new"
+                              onClick={(e) => handleFileClick(file, e)}
+                              title="Double click to open file"
+                              style={{ marginLeft: '20px', backgroundColor: '#fafafa' }}
+                            >
+                              <div className="col-filename">
+                                <FileIcon
+                                  fileType={file.original_name.split('.').pop().toLowerCase()}
+                                  isFolder={false}
+                                  size="default"
+                                  altText={`${file.file_type} file`}
+                                  style={{
+                                    width: '44px',
+                                    height: '44px'
+                                  }}
+                                />
+                                <div className="file-text">
+                                  <div className="filename">{file.original_name}</div>
+                                  <div className="filesize">{formatFileSize(file.file_size)}</div>
+                                  <div className="datetime-mobile">
+                                    <div className="date-label">{date}</div>
+                                    <div className="time-label">{time}</div>
+                                  </div>
+                                </div>
+                              </div>
+                              <div className="col-datetime">
+                                <div className="date-label">{date}</div>
+                                <div className="time-label">{time}</div>
+                              </div>
+                              <div className="col-team">
+                                <span className="team-text">{file.user_team}</span>
+                              </div>
+                              <div className="col-status">
+                                <span className={`status-tag ${getStatusClass(file.status)}`}>
+                                  {getStatusDisplayName(file.status)}
+                                </span>
+                              </div>
+                              <div className="col-actions">
+                                <button
+                                  className="delete-btn"
+                                  onClick={(e) => handleDeleteClick(e, file)}
+                                  title="Delete file"
+                                  aria-label="Delete file"
+                                >
+                                  <Trash2 size={18} />
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        })}
                       </div>
-                    </div>
-                  </div>
-                  <div className="col-datetime">
-                    <div className="date-label">{date}</div>
-                    <div className="time-label">{time}</div>
-                  </div>
-                  <div className="col-team">
-                    <span className="team-text">{file.user_team}</span>
-                  </div>
-                  <div className="col-status">
-                    <span className={`status-tag ${getStatusClass(file.status)}`}>
-                      {getStatusDisplayName(file.status)}
-                    </span>
-                  </div>
-                  <div className="col-actions">
-                    <button
-                      className="delete-btn"
-                      onClick={(e) => handleDeleteClick(e, file)}
-                      title="Delete file"
-                      aria-label="Delete file"
-                    >
-                      <Trash2 size={18} />
-                    </button>
-                  </div>
-                </div>
+                    );
+                  })}
+
+                  {/* Display Individual Files */}
+                  {individualFiles.map((file) => {
+                    const { date, time } = formatDateTime(file.uploaded_at);
+                    return (
+                      <div
+                        key={file.id}
+                        className="file-row-new"
+                        onClick={(e) => handleFileClick(file, e)}
+                        title="Double click to open file"
+                      >
+                        <div className="col-filename">
+                          <FileIcon
+                            fileType={file.original_name.split('.').pop().toLowerCase()}
+                            isFolder={false}
+                            size="default"
+                            altText={`${file.file_type} file`}
+                            style={{
+                              width: '44px',
+                              height: '44px'
+                            }}
+                          />
+                          <div className="file-text">
+                            <div className="filename">{file.original_name}</div>
+                            <div className="filesize">{formatFileSize(file.file_size)}</div>
+                            <div className="datetime-mobile">
+                              <div className="date-label">{date}</div>
+                              <div className="time-label">{time}</div>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="col-datetime">
+                          <div className="date-label">{date}</div>
+                          <div className="time-label">{time}</div>
+                        </div>
+                        <div className="col-team">
+                          <span className="team-text">{file.user_team}</span>
+                        </div>
+                        <div className="col-status">
+                          <span className={`status-tag ${getStatusClass(file.status)}`}>
+                            {getStatusDisplayName(file.status)}
+                          </span>
+                        </div>
+                        <div className="col-actions">
+                          <button
+                            className="delete-btn"
+                            onClick={(e) => handleDeleteClick(e, file)}
+                            title="Delete file"
+                            aria-label="Delete file"
+                          >
+                            <Trash2 size={18} />
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </>
               );
-            })}
+            })()}
           </div>
         ) : (
           <div className="empty-state">
@@ -529,6 +745,7 @@ const MyFilesTab = ({
                 className="items-select"
               >
                 <option value={5}>5</option>
+                <option value={7}>7</option>
                 <option value={10}>10</option>
                 <option value={25}>25</option>
                 <option value={50}>50</option>
