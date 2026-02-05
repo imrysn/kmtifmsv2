@@ -25,6 +25,51 @@ const createNotification = async (userId, fileId, type, title, message, actionBy
   }
 };
 
+// Helper function to notify all admins
+const createAdminNotification = async (fileId, type, title, message, actionById, actionByUsername, actionByRole, assignmentId = null) => {
+  try {
+    console.log('📢 Broadcasting admin notification:', { type, title });
+
+    // 1. Get all admin users
+    const admins = await query('SELECT id FROM users WHERE role = ?', ['ADMIN']);
+
+    if (!admins || admins.length === 0) {
+      console.log('⚠️ No admins found to notify');
+      return 0;
+    }
+
+    console.log(`found ${admins.length} admins to notify`);
+
+    // 2. Create notification for each admin
+    let count = 0;
+    for (const admin of admins) {
+      // Don't notify the admin who performed the action (if applicable)
+      if (actionById && admin.id === actionById) {
+        console.log(`ℹ️ Skipped notifying admin ${admin.id} (${admin.username}) - they performed the action`);
+        continue;
+      }
+
+      console.log(`🔔 Creating notification for admin ${admin.id} (${admin.username || 'unknown'})`);
+      await query(
+        `INSERT INTO notifications (
+          user_id, file_id, type, title, message, assignment_id,
+          action_by_id, action_by_username, action_by_role
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [admin.id, fileId, type, title, message, assignmentId, actionById, actionByUsername, actionByRole]
+      );
+      count++;
+    }
+
+    console.log(`✅ Admin notifications created: ${count}`);
+    return count;
+
+  } catch (error) {
+    console.error('❌ Error creating admin notifications:', error);
+    // Don't throw, just log error so main flow doesn't break
+    return 0;
+  }
+};
+
 // Get all notifications for a user with pagination
 router.get('/user/:userId', async (req, res) => {
   try {
@@ -235,5 +280,6 @@ router.delete('/user/:userId/delete-all', async (req, res) => {
 // Export both the router and the helper function
 module.exports = {
   router,
-  createNotification
+  createNotification,
+  createAdminNotification
 };

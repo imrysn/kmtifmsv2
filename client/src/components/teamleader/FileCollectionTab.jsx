@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import './css/FileCollectionTab.css'
+import '../shared/SmartNavigation/SmartNavigation.css'
 import FileIcon from '../shared/FileIcon'
 import FileOpenModal from '../shared/FileOpenModal'
 import { LoadingTable, LoadingCards } from '../common/InlineSkeletonLoader'

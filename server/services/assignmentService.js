@@ -246,6 +246,154 @@ async function getAssignmentStats(criteria = {}) {
     };
 }
 
+// Import shared notification functions
+const { createNotification, createAdminNotification } = require('../routes/notifications');
+
+/**
+ * Add comment to assignment
+ * @param {number} assignmentId - Assignment ID
+ * @param {number} userId - User ID
+ * @param {string} comment - Comment text
+ * @returns {Promise<Object>} - Created comment
+ */
+async function addComment(assignmentId, userId, comment) {
+    console.log('🐞 DEBUG: addComment called', { assignmentId, userId, comment });
+    const assignment = await assignmentRepository.findById(assignmentId);
+    if (!assignment) throw new NotFoundError('Assignment');
+
+    // Add comment
+    const newComment = await assignmentRepository.addComment(assignmentId, userId, comment);
+    console.log('🐞 DEBUG: Comment added to DB:', newComment);
+
+    // Get user details for logging/notification context
+    const user = await new Promise((resolve, reject) => {
+        db.get('SELECT username, fullName, role, team FROM users WHERE id = ?', [userId], (err, row) => {
+            if (err) reject(err);
+            else resolve(row);
+        });
+    });
+
+    console.log('🐞 DEBUG: User lookup result:', user);
+
+    if (user) {
+        console.log('🐞 DEBUG: User found, attempting to log and notify');
+        // Log activity
+        logActivity(
+            db,
+            user.id || userId,
+            user.username,
+            user.role,
+            user.team,
+            `Added comment to assignment: ${assignment.title}`
+        );
+
+        // 1. Notify Team Leader (if not the one commenting)
+        if (assignment.team_leader_id !== userId) {
+            createNotification(
+                assignment.team_leader_id,
+                null,
+                'comment',
+                'New Comment on Assignment',
+                `${user.fullName || user.username} commented on "${assignment.title}"`,
+                userId,
+                user.username,
+                user.role,
+                assignmentId
+            ).catch(err => console.error('Failed to notify team leader:', err));
+        }
+
+        // 2. Notify Assigned Members (if applicable) - Simplified for now to avoid spam,
+        // typically logic is complex (don't notify self).
+        // Let's focus on Admin Requirement.
+
+        // 3. Notify ALL Admins (Vital Requirement)
+        try {
+            const adminCount = await createAdminNotification(
+                null, // fileId
+                'comment',
+                'New Comment on Assignment',
+                `${user.fullName || user.username} commented on "${assignment.title}" (Team: ${assignment.team})`,
+                userId,
+                user.username,
+                user.role,
+                assignmentId
+            );
+            console.log('🐞 DEBUG: Admin notification result:', adminCount);
+        } catch (err) {
+            console.error('🐞 DEBUG: Failed to notify admins:', err);
+        }
+    } else {
+        console.warn('🐞 DEBUG: User NOT found for ID:', userId);
+    }
+
+    return newComment;
+}
+
+/**
+ * Add reply to comment
+ * @param {number} assignmentId - Assignment ID
+ * @param {number} commentId - Parent Comment ID
+ * @param {number} userId - User ID
+ * @param {string} reply - Reply text
+ * @returns {Promise<Object>} - Created reply
+ */
+async function addReply(assignmentId, commentId, userId, reply) {
+    const assignment = await assignmentRepository.findById(assignmentId);
+    if (!assignment) throw new NotFoundError('Assignment');
+
+    // Add reply
+    const newReply = await assignmentRepository.addReply(assignmentId, commentId, userId, reply);
+
+    // Get user details
+    const user = await new Promise((resolve, reject) => {
+        db.get('SELECT username, fullName, role, team FROM users WHERE id = ?', [userId], (err, row) => {
+            if (err) reject(err);
+            else resolve(row);
+        });
+    });
+
+    if (user) {
+        // Log activity
+        logActivity(
+            db,
+            user.id || userId,
+            user.username,
+            user.role,
+            user.team,
+            `Replied to comment on assignment: ${assignment.title}`
+        );
+
+        // 1. Notify Team Leader (if not commenter)
+        if (assignment.team_leader_id !== userId) {
+            createNotification(
+                assignment.team_leader_id,
+                null,
+                'comment', // Use 'comment' type for compatibility, or 'reply' if standard
+                'New Reply on Assignment',
+                `${user.fullName || user.username} replied to a comment on "${assignment.title}"`,
+                userId,
+                user.username,
+                user.role,
+                assignmentId
+            ).catch(err => console.error('Failed to notify team leader of reply:', err));
+        }
+
+        // 2. Notify ALL Admins (Vital Requirement)
+        createAdminNotification(
+            null,
+            'comment', // Admin dashboard handles 'comment' type well
+            'New Reply on Assignment',
+            `${user.fullName || user.username} replied to a comment on "${assignment.title}" (Team: ${assignment.team})`,
+            userId,
+            user.username,
+            user.role,
+            assignmentId
+        ).catch(err => console.error('Failed to notify admins of reply:', err));
+    }
+
+    return newReply;
+}
+
 module.exports = {
     createAssignment,
     getAssignmentById,
@@ -254,5 +402,7 @@ module.exports = {
     updateAssignment,
     deleteAssignment,
     submitAssignment,
-    getAssignmentStats
+    getAssignmentStats,
+    addComment,
+    addReply
 };

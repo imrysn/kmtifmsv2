@@ -5,6 +5,7 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const { uploadsDir, moveToUserFolder } = require('../config/middleware');
+const assignmentController = require('../controllers/assignmentController');
 
 // Configure multer for file uploads using existing uploads directory
 const storage = multer.diskStorage({
@@ -2213,4 +2214,11 @@ router.get('/debug/:assignmentId/members', async (req, res) => {
   }
 });
 
+// Add comment to assignment
+router.post('/:id/comments', assignmentController.addComment);
+
+// Add reply to comment
+router.post('/:id/comments/:commentId/reply', assignmentController.addReply);
+
+console.log('✅ Assignments routes registered, including comments endpoint');
 module.exports = router;

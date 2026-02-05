@@ -178,30 +178,14 @@ router.post('/upload', upload.single('file'), async (req, res) => {
           console.log(`   Old file ID: ${existingFile.id}`);
           console.log(`   Old file path: ${existingFile.file_path}`);
 
-          // CRITICAL FIX: For rejected file revisions, we KEEP the file in place
-          // The new file has already been moved to the user folder
-          // We just update the database record to reflect the new upload
-          
-          console.log('📝 REVISION MODE: Keeping file in user folder');
-          console.log(`   File location: ${req.file.path}`);
-          console.log(`   This ensures file persists in My Files after revision`);
-          
-          // No deletion needed - the file is already at the correct location
-          // The moveToUserFolder function has already placed it in username/filename.ext
-          // This preserves the file in the user's folder and prevents it from disappearing
+          // Delete old physical file only
+          const oldRelativePath = existingFile.file_path.startsWith('/uploads/') ? existingFile.file_path.substring(8) : existingFile.file_path;
+          const oldFilePath = path.join(uploadsDir, oldRelativePath);
+          await safeDeleteFile(oldFilePath);
 
           // Get the relative path for the new file
-          const fileSystemPath = path.relative(uploadsDir, req.file.path).replace(/\\/g, '/');
-
-          // WORKFLOW: Determine status based on previous rejection
-          let initialStatus;
-          if (autoReplace) {
-            initialStatus = 'under_revision';  // Rejected file being revised
-          } else if (isRevision === 'true') {
-            initialStatus = 'under_revision';  // Manually marked as revision
-          } else {
-            initialStatus = 'uploaded';  // New upload
-          }
+          const relativePath = path.relative(uploadsDir, req.file.path).replace(/\\/g, '/');
+          const initialStatus = (isRevision === 'true') ? 'under_revision' : 'uploaded';
 
           // UPDATE the existing database record instead of deleting it
           db.run(`UPDATE files SET 
@@ -221,7 +205,7 @@ router.post('/upload', upload.single('file'), async (req, res) => {
           WHERE id = ?`,
             [
               req.file.filename,
-              `/uploads/${fileSystemPath}`,
+              `/uploads/${relativePath}`,
               req.file.size,
               getFileTypeDescription(req.file.mimetype, req.file.originalname),
               req.file.mimetype,
@@ -229,9 +213,6 @@ router.post('/upload', upload.single('file'), async (req, res) => {
               tag || '',
               initialStatus,
               'pending_team_leader',
-              folderName || null,
-              relativePath || null,
-              isFolder === 'true' ? 1 : 0,
               existingFile.id  // Keep the same ID!
             ], async function (updateErr) {
               if (updateErr) {
@@ -246,22 +227,10 @@ router.post('/upload', upload.single('file'), async (req, res) => {
               const fileId = existingFile.id; // Use the same ID
 
               // Log the file replacement
-              let action;
-              if (autoReplace) {
-                action = 'revised (auto-detected rejected file)';
-              } else if (isRevision === 'true') {
-                action = 'revised';
-              } else {
-                action = 'replaced';
-              }
-
+              const action = isRevision === 'true' ? 'revised' : 'replaced';
               logActivity(db, userId, username, 'USER', userTeam, `File ${action}: ${req.file.originalname}`);
 
-              // Log status history with rejection info if applicable
-              const historyNote = autoReplace
-                ? `File auto-revised (was ${existingFile.status})`
-                : (isRevision === 'true' ? 'File revised by user' : 'File replaced by user');
-
+              // Log status history
               logFileStatusChange(
                 db,
                 fileId,
@@ -272,46 +241,14 @@ router.post('/upload', upload.single('file'), async (req, res) => {
                 userId,
                 username,
                 'USER',
-                historyNote
+                `File ${action} by user${isRevision === 'true' ? ' (revision of rejected file)' : ''}`
               );
 
-              const wasRejected = autoReplace;
-              const statusLabel = initialStatus === 'under_revision' ? 'REVISED' : initialStatus.toUpperCase();
-
-              console.log(`✅ File ${action} successfully with ID: ${fileId} (Status: ${statusLabel})`);
+              console.log(`✅ File ${action} successfully with ID: ${fileId}${isRevision === 'true' ? ' (marked as REVISED)' : ''}`);
               console.log(`✅ File record UPDATED (not deleted) - will stay in My Files!`);
-              console.log(`💾 Database updated with new file_path: /uploads/${fileSystemPath}`);
-              console.log(`📂 Physical file location: ${req.file.path}`);
-
-              if (wasRejected) {
-                console.log(`✅ WORKFLOW: Rejected file automatically revised - ready for re-review`);
-              }
-
-              // VERIFY: Check if file exists at the expected location
-              const fsSync = require('fs');
-              const expectedPath = req.file.path;
-              if (fsSync.existsSync(expectedPath)) {
-                const stats = fsSync.statSync(expectedPath);
-                console.log(`✅ VERIFIED: File exists at ${expectedPath}`);
-                console.log(`   File size: ${stats.size} bytes`);
-                console.log(`   Modified: ${stats.mtime}`);
-
-                // Also verify in the user folder
-                const userDir = path.join(uploadsDir, username);
-                console.log(`📁 Checking user folder: ${userDir}`);
-                if (fsSync.existsSync(userDir)) {
-                  const filesInDir = fsSync.readdirSync(userDir);
-                  console.log(`   Files in user folder (${filesInDir.length} total):`);
-                  filesInDir.forEach(f => console.log(`     - ${f}`));
-                }
-              } else {
-                console.error(`❌ CRITICAL ERROR: File NOT FOUND at expected location!`);
-                console.error(`   Expected: ${expectedPath}`);
-              }
-
               res.json({
                 success: true,
-                message: `File ${action} successfully${wasRejected ? ' - Previously rejected file has been revised' : ''}`,
+                message: `File ${action} successfully`,
                 file: {
                   id: fileId,
                   filename: req.file.filename,
@@ -321,13 +258,10 @@ router.post('/upload', upload.single('file'), async (req, res) => {
                   description: description || '',
                   status: initialStatus,
                   current_stage: 'pending_team_leader',
-                  uploaded_at: new Date(),
-                  was_rejected: wasRejected,
-                  previous_status: wasRejected ? existingFile.status : null
+                  uploaded_at: new Date()
                 },
                 replaced: true,
-                isRevision: isRevision === 'true' || autoReplace,
-                wasAutoReplaced: autoReplace
+                isRevision: isRevision === 'true'
               });
             });
         } else {
@@ -339,7 +273,7 @@ router.post('/upload', upload.single('file'), async (req, res) => {
 
     function insertFileRecord() {
       // Get the relative path from the uploadsDir
-      const fileSystemPath = path.relative(uploadsDir, req.file.path).replace(/\\/g, '/');
+      const relativePath = path.relative(uploadsDir, req.file.path).replace(/\\/g, '/');
 
       console.log('💾 Database storage info:');
       console.log(`   Full path: ${req.file.path}`);
@@ -354,13 +288,12 @@ router.post('/upload', upload.single('file'), async (req, res) => {
       // Insert file record into database
       db.run(`INSERT INTO files (
         filename, original_name, file_path, file_size, file_type, mime_type, description, tag,
-        user_id, username, user_team, status, current_stage,
-        folder_name, relative_path, is_folder
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        user_id, username, user_team, status, current_stage
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           req.file.filename,
           req.file.originalname,
-          `/uploads/${fileSystemPath}`,
+          `/uploads/${relativePath}`,
           req.file.size,
           getFileTypeDescription(req.file.mimetype, req.file.originalname),
           req.file.mimetype,
@@ -370,10 +303,7 @@ router.post('/upload', upload.single('file'), async (req, res) => {
           username,
           userTeam,
           initialStatus,
-          'pending_team_leader',
-          folderName || null,
-          relativePath || null,
-          isFolder === 'true' ? 1 : 0
+          'pending_team_leader'
         ], async function (err) {
           if (err) {
             console.error('❌ Error saving file to database:', err);
@@ -870,6 +800,10 @@ router.post('/:fileId/team-leader-review', (req, res) => {
         `Team leader ${action}: ${comments || 'No comments'}`
       );
 
+      const { createNotification, createAdminNotification } = require('../routes/notifications'); // Ensure correct path or use standard import if circular
+
+      // ... skipping to handler ...
+
       // Create notification for the file owner
       const notificationType = action === 'approve' ? 'approval' : 'rejection';
       const notificationTitle = action === 'approve'
@@ -878,6 +812,7 @@ router.post('/:fileId/team-leader-review', (req, res) => {
       const notificationMessage = action === 'approve'
         ? `Your file "${file.original_name}" has been approved by ${teamLeaderUsername} and is now pending admin review.`
         : `Your file "${file.original_name}" has been rejected by ${teamLeaderUsername}. ${comments ? 'Reason: ' + comments : 'Please review and resubmit.'}`;
+      // ... (existing code)
 
       createNotification(
         file.user_id,
@@ -891,6 +826,19 @@ router.post('/:fileId/team-leader-review', (req, res) => {
       ).catch(err => {
         console.error('Failed to create notification:', err);
       });
+
+      // NEW: Notify Admins
+      if (action === 'approve') {
+        createAdminNotification(
+          fileId,
+          'team_leader_approved',
+          'File Approved by Team Leader',
+          `${teamLeaderUsername} approved file "${file.original_name}" (Team: ${team.name || file.user_team}). Pending final review.`,
+          teamLeaderId,
+          teamLeaderUsername,
+          teamLeaderRole
+        ).catch(err => console.error('Failed to notify admins:', err));
+      }
 
       console.log(`✅ File ${action}d by team leader: ${file.filename}`);
       res.json({

@@ -187,6 +187,23 @@ class AssignmentController {
     });
 
     /**
+     * Add reply to comment
+     * POST /api/assignments/:id/comments/:commentId/reply
+     */
+    addReply = asyncHandler(async (req, res) => {
+        const { id, commentId } = req.params;
+        const { userId, reply } = req.body;
+
+        const newReply = await assignmentService.addReply(id, commentId, userId, reply);
+
+        res.json({
+            success: true,
+            message: 'Reply added successfully',
+            reply: newReply
+        });
+    });
+
+    /**
      * Add attachment to assignment
      * POST /api/assignments/:id/attachments
      */

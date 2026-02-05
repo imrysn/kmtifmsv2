@@ -3,6 +3,7 @@ import { API_BASE_URL } from '@/config/api';
 import './Notifications.css';
 import FileIcon from '../shared/FileIcon';
 import { useTaskbarFlash } from '../../utils/useTaskbarFlash';
+import { parseNotification } from '../shared/SmartNavigation';
 import { ConfirmationModal } from './modals';
 import { useAuth, useNetwork } from '../../contexts';
 import { withErrorBoundary } from '../common';
@@ -280,74 +281,18 @@ const Notifications = ({ user, onNavigate }) => {
       markAsRead(notification.id);
     }
 
-    console.log('📋 Notification clicked:', notification);
-    console.log('   - Full notification object:', JSON.stringify(notification, null, 2));
-    console.log('   - Type:', notification.type);
-    console.log('   - Type (string):', String(notification.type));
-    console.log('   - Type comparison:', notification.type === 'password_reset_request');
-    console.log('   - Type includes:', String(notification.type).includes('password_reset_request'));
+    console.log('📋 Admin Notification clicked:', notification);
 
-    // Handle password reset request notifications (use includes to handle any encoding issues)
-    if (String(notification.type).includes('password_reset_request')) {
-      console.log('🔑 Password reset request detected');
-      console.log('   - action_by_id:', notification.action_by_id);
-      console.log('   - action_by_username:', notification.action_by_username);
-      console.log('   - file_id:', notification.file_id);
-      console.log('   - onNavigate exists:', !!onNavigate);
+    // Use shared notification parser
+    const { targetTab, context } = parseNotification(notification, 'admin');
 
-      if (onNavigate) {
-        console.log('🔑 Password reset request - Navigating to User Management');
-        const contextData = {
-          userId: notification.action_by_id,  // Use action_by_id (requesting user's ID)
-          action: 'reset-password',
-          username: notification.action_by_username
-        };
-        console.log('   - Context data:', contextData);
-
-        // Navigate to users tab with context to open password reset modal
-        onNavigate('users', contextData);
-      } else {
-        console.error('❌ onNavigate is not defined!');
-      }
-      return;
-    }
-
-    // Navigate based on notification type
-    if (String(notification.type).includes('comment')) {
-      // For comments, open the task modal with the comment highlighted
-      if (notification.assignment_id) {
-        // Store the comment ID to highlight
-        if (notification.comment_id) {
-          setHighlightedCommentId(notification.comment_id);
-        }
-
-        // Navigate to tasks tab with assignment context
-        if (onNavigate) {
-          onNavigate('tasks', {
-            assignmentId: notification.assignment_id,
-            commentId: notification.comment_id,
-            shouldOpenComments: true
-          });
-        }
-      }
-    } else if (notification.assignment_id) {
-      // For other assignment-related notifications
-      if (onNavigate) {
-        onNavigate('tasks', notification.assignment_id);
-      }
-    } else if (notification.file_id) {
-      // Navigate to file approval or file management
-      if (notification.type === 'approval' || notification.type === 'rejection') {
-        if (onNavigate) {
-          onNavigate('file-approval', notification.file_id);
-        }
-      } else {
-        if (onNavigate) {
-          onNavigate('file-management', notification.file_id);
-        }
-      }
+    if (targetTab && onNavigate) {
+      onNavigate(targetTab, context);
+    } else {
+      console.warn('⚠️ Unable to navigate - no target tab determined');
     }
   };
+
 
   // Notification icon component using FileIcon
   const NotificationIcon = ({ type }) => {

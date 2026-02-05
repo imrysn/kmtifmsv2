@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useRef, useCallback, useState, useEffect } from 'react';
 import { API_BASE_URL } from '@/config/api';
 import './css/TasksTab-Enhanced.css';
 import './css/TasksTab-Comments.css';
@@ -6,8 +6,18 @@ import { FileIcon, FileOpenModal } from '../shared';
 import SingleSelectTags from './SingleSelectTags';
 import { LoadingTable, LoadingCards } from '../common/InlineSkeletonLoader';
 import SuccessModal from './SuccessModal';
+import { useSmartNavigation } from '../shared/SmartNavigation';
+import '../shared/SmartNavigation/SmartNavigation.css';
 
-const TasksTab = ({ user }) => {
+const TasksTab = ({
+  user,
+  highlightedAssignmentId,
+  highlightedFileId,
+  notificationCommentContext,
+  onClearHighlight,
+  onClearFileHighlight,
+  onClearNotificationContext
+}) => {
   const [assignments, setAssignments] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [successModal, setSuccessModal] = useState({ isOpen: false, title: '', message: '', type: 'success' });
@@ -89,6 +99,32 @@ const TasksTab = ({ user }) => {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [assignments.length]); // Only re-run when assignments.length changes, not the entire array
+
+  // SMART NAVIGATION HOOK
+  // IMPORTANT: Called after function definitions (will be moved by build, but placed here for clarity)
+  // We need to make sure openCommentsModal and other functions are available.
+  // Since we are inside the component, we can pass the functions we defined.
+
+  // NOTE: In this file, toggleComments acts as openCommentsModal
+  const openCommentsModal = useCallback((assignment) => {
+    toggleComments(assignment);
+  }, []); // Wrapper to match expected interface
+
+  useSmartNavigation({
+    role: 'user',
+    items: assignments,
+    highlightedItemId: highlightedAssignmentId,
+    highlightedFileId,
+    notificationContext: notificationCommentContext,
+    onClearHighlight,
+    onClearFileHighlight,
+    onClearNotificationContext,
+    openCommentsModal: openCommentsModal,
+    setVisibleReplies,
+    showCommentsModal,
+    selectedItem: currentCommentsAssignment, // Note: currentCommentsAssignment instead of selectedItem
+    comments
+  });
 
   useEffect(() => {
     fetchAssignments();

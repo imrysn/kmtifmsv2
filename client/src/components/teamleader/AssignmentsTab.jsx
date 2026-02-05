@@ -3,6 +3,8 @@ import { API_BASE_URL } from '@/config/api'
 import './css/AssignmentsTab.css'
 import { CardSkeleton } from '../common/InlineSkeletonLoader'
 import { ConfirmationModal, CommentsModal, FileIcon, FileOpenModal } from '../shared'
+import { useSmartNavigation } from '../shared/SmartNavigation'
+import '../shared/SmartNavigation/SmartNavigation.css'
 
 const AssignmentsTab = ({
   isLoadingAssignments,
@@ -42,96 +44,6 @@ const AssignmentsTab = ({
   const [showOpenFileConfirmation, setShowOpenFileConfirmation] = useState(false)
   const [fileToOpen, setFileToOpen] = useState(null)
 
-  // Ref to track if we should expand replies (persists between renders)
-  const shouldExpandRepliesRef = useRef(false)
-
-  // Handle notification comment context - automatically open comments modal
-  useEffect(() => {
-    console.log('💬 AssignmentsTab: notificationCommentContext changed:', notificationCommentContext)
-    console.log('   Assignments length:', assignments.length)
-
-    if (notificationCommentContext && assignments.length > 0) {
-      console.log('   🔍 Looking for assignment ID:', notificationCommentContext.assignmentId)
-      const assignment = assignments.find(a => a.id === notificationCommentContext.assignmentId)
-
-      if (assignment) {
-        console.log('   ✅ Found assignment:', assignment.title)
-        console.log('   💡 Opening comments modal...')
-
-        // Store the expand flag in ref so it persists
-        if (notificationCommentContext.expandAllReplies) {
-          shouldExpandRepliesRef.current = true
-          console.log('   📌 Reply notification detected - will expand after modal opens')
-        }
-
-        // Open comments modal for this assignment
-        openCommentsModal(assignment)
-
-        // Clear the context after opening (but keep the expand flag in mind)
-        setTimeout(() => {
-          if (onClearNotificationContext) {
-            console.log('   🧹 Clearing notification context')
-            onClearNotificationContext()
-          }
-        }, 100)
-      } else {
-        console.log('   ❌ Assignment not found!')
-        console.log('   Available assignment IDs:', assignments.map(a => a.id))
-      }
-    } else {
-      if (!notificationCommentContext) {
-        console.log('   ⚠️ No notificationCommentContext')
-      }
-      if (assignments.length === 0) {
-        console.log('   ⚠️ No assignments loaded yet')
-      }
-    }
-  }, [notificationCommentContext, assignments])
-
-  // Handle auto-expanding replies when modal opens from reply notification
-  useEffect(() => {
-    if (showCommentsModal && selectedAssignment && shouldExpandRepliesRef.current) {
-      console.log('   🔓 Modal is open, expanding all replies...')
-
-      // Wait a bit for the modal to render
-      setTimeout(() => {
-        console.log('   📊 Found', comments.length, 'comments')
-
-        if (comments.length > 0) {
-          // Expand all comments that have replies
-          const expandState = {}
-          let firstCommentWithReplies = null
-
-          comments.forEach(comment => {
-            if (comment.replies && comment.replies.length > 0) {
-              expandState[comment.id] = true
-              if (!firstCommentWithReplies) {
-                firstCommentWithReplies = comment.id
-              }
-            }
-          })
-
-          console.log('   ✅ Expanding replies for comments:', Object.keys(expandState))
-          setVisibleReplies(prev => ({ ...prev, ...expandState }))
-
-          // Scroll to the first comment with replies after a short delay
-          if (firstCommentWithReplies) {
-            setTimeout(() => {
-              const commentElement = document.querySelector(`[data-comment-id="${firstCommentWithReplies}"]`)
-              if (commentElement) {
-                console.log('   📜 Scrolling to comment:', firstCommentWithReplies)
-                commentElement.scrollIntoView({ behavior: 'smooth', block: 'center' })
-              }
-            }, 400) // Wait for replies to expand
-          }
-        }
-
-        // Reset the ref after expanding
-        shouldExpandRepliesRef.current = false
-      }, 500) // Wait for modal to render
-    }
-  }, [showCommentsModal, selectedAssignment, comments])
-
   // Handle clicking outside to close menu
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -145,56 +57,6 @@ const AssignmentsTab = ({
       document.removeEventListener('mousedown', handleClickOutside)
     }
   }, [showMenuForAssignment])
-
-  // Handle highlighting and scrolling to specific assignment
-  useEffect(() => {
-    if (highlightedAssignmentId && assignments.length > 0) {
-      // Small delay to ensure DOM is ready
-      setTimeout(() => {
-        const element = document.getElementById(`assignment-card-${highlightedAssignmentId}`)
-        if (element) {
-          // Scroll to element with smooth behavior
-          element.scrollIntoView({ behavior: 'smooth', block: 'center' })
-
-          // Add highlight effect
-          element.classList.add('tl-assignment-highlighted')
-
-          // Remove highlight after animation
-          setTimeout(() => {
-            element.classList.remove('tl-assignment-highlighted')
-            if (onClearHighlight) {
-              onClearHighlight()
-            }
-          }, 1500)
-        }
-      }, 300)
-    }
-  }, [highlightedAssignmentId, assignments])
-
-  // Handle file highlighting within task card
-  useEffect(() => {
-    if (highlightedFileId && highlightedAssignmentId && assignments.length > 0) {
-      // Longer delay to ensure task card is highlighted first and DOM is ready
-      setTimeout(() => {
-        const fileElement = document.querySelector(`[data-file-id="${highlightedFileId}"]`)
-        if (fileElement) {
-          // Scroll to file within the task card
-          fileElement.scrollIntoView({ behavior: 'smooth', block: 'center' })
-
-          // Add highlight effect
-          fileElement.classList.add('tl-assignment-file-highlighted')
-
-          // Remove highlight after animation
-          setTimeout(() => {
-            fileElement.classList.remove('tl-assignment-file-highlighted')
-            if (onClearFileHighlight) {
-              onClearFileHighlight()
-            }
-          }, 1500)
-        }
-      }, 1000) // Wait 1 second after assignment card is highlighted
-    }
-  }, [highlightedFileId, highlightedAssignmentId, assignments])
 
   // Fetch comment counts for all assignments
   useEffect(() => {
@@ -328,6 +190,24 @@ const AssignmentsTab = ({
     setReplyText('')
     setVisibleReplies({})
   }
+
+  // SMART NAVIGATION: Use shared hook for all highlighting and modal effects
+  // IMPORTANT: Must be called AFTER openCommentsModal is defined
+  useSmartNavigation({
+    role: 'teamleader',
+    items: assignments,
+    highlightedItemId: highlightedAssignmentId,
+    highlightedFileId,
+    notificationContext: notificationCommentContext,
+    onClearHighlight,
+    onClearFileHighlight,
+    onClearNotificationContext,
+    openCommentsModal,
+    setVisibleReplies,
+    showCommentsModal,
+    selectedItem: selectedAssignment,
+    comments
+  });
 
   const toggleAttachments = (assignmentId) => {
     setExpandedAttachments(prev => ({
