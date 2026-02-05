@@ -98,7 +98,7 @@ router.post('/upload', upload.single('file'), async (req, res) => {
     console.log(`   File mimetype: ${req.file.mimetype}`);
 
     try {
-      const finalPath = await moveToUserFolder(req.file.path, username, originalFilename);
+      const finalPath = await moveToUserFolder(req.file.path, username, originalFilename, folderName, relativePath);
       req.file.path = finalPath;
       req.file.filename = originalFilename; // Use decoded original filename
       req.file.originalname = originalFilename; // Update originalname with decoded version
@@ -213,6 +213,9 @@ router.post('/upload', upload.single('file'), async (req, res) => {
               tag || '',
               initialStatus,
               'pending_team_leader',
+              folderName || null,
+              req.body.relativePath || null,
+              isFolder === 'true' ? 1 : 0,
               existingFile.id  // Keep the same ID!
             ], async function (updateErr) {
               if (updateErr) {
@@ -273,7 +276,7 @@ router.post('/upload', upload.single('file'), async (req, res) => {
 
     function insertFileRecord() {
       // Get the relative path from the uploadsDir
-      const relativePath = path.relative(uploadsDir, req.file.path).replace(/\\/g, '/');
+      const fileSystemPath = path.relative(uploadsDir, req.file.path).replace(/\\/g, '/');
 
       console.log('💾 Database storage info:');
       console.log(`   Full path: ${req.file.path}`);
@@ -288,12 +291,12 @@ router.post('/upload', upload.single('file'), async (req, res) => {
       // Insert file record into database
       db.run(`INSERT INTO files (
         filename, original_name, file_path, file_size, file_type, mime_type, description, tag,
-        user_id, username, user_team, status, current_stage
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        user_id, username, user_team, status, current_stage, folder_name, relative_path, is_folder
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           req.file.filename,
           req.file.originalname,
-          `/uploads/${relativePath}`,
+          `/uploads/${fileSystemPath}`,
           req.file.size,
           getFileTypeDescription(req.file.mimetype, req.file.originalname),
           req.file.mimetype,
@@ -303,7 +306,10 @@ router.post('/upload', upload.single('file'), async (req, res) => {
           username,
           userTeam,
           initialStatus,
-          'pending_team_leader'
+          'pending_team_leader',
+          folderName || null,
+          relativePath || null,
+          isFolder === 'true' ? 1 : 0
         ], async function (err) {
           if (err) {
             console.error('❌ Error saving file to database:', err);
@@ -2092,6 +2098,58 @@ router.post('/open-file', async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Failed to open file',
+      error: error.message
+    });
+  }
+});
+
+// Delete folder (deletes all files and the folder directory)
+router.post('/folder/delete', async (req, res) => {
+  const { folderName, username, fileIds, userId, userRole, team } = req.body;
+  console.log(`🗑️ Deleting folder "${folderName}" by ${username}`);
+
+  try {
+    // Delete all files from database (frontend already calls DELETE for each file)
+    // After files are deleted, remove the empty folder from NAS
+    const folderPath = path.join(uploadsDir, username, folderName);
+    
+    console.log(`📁 Attempting to delete folder directory: ${folderPath}`);
+    
+    try {
+      // Check if folder exists
+      const folderExists = await fs.access(folderPath).then(() => true).catch(() => false);
+      
+      if (folderExists) {
+        // Remove the folder directory (including any remaining files/subfolders)
+        await fs.rm(folderPath, { recursive: true, force: true });
+        console.log(`✅ Folder directory deleted: ${folderPath}`);
+      } else {
+        console.log(`ℹ️ Folder directory not found: ${folderPath}`);
+      }
+    } catch (folderDeleteError) {
+      console.error(`❌ Error deleting folder directory: ${folderDeleteError.message}`);
+      // Don't fail the request if folder deletion fails
+    }
+
+    // Log activity
+    logActivity(
+      db,
+      userId,
+      username,
+      userRole,
+      team,
+      `Folder deleted: ${folderName} (${fileIds?.length || 0} files)`
+    );
+
+    res.json({
+      success: true,
+      message: `Folder "${folderName}" and all its files have been deleted successfully.`
+    });
+  } catch (error) {
+    console.error('❌ Error deleting folder:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to delete folder',
       error: error.message
     });
   }

@@ -4,16 +4,20 @@ const path = require('path');
 /**
  * Safely move uploaded file to user folder with proper error handling
  * Handles race conditions, cross-device moves, and async operations
+ * NOW SUPPORTS: Folder structure preservation with folderName and relativePath
  * FIXED: Now async, no blocking, handles race conditions
  */
-async function moveToUserFolder(tempPath, username, originalFilename) {
+async function moveToUserFolder(tempPath, username, originalFilename, folderName = null, relativePath = null) {
   console.log('📦 moveToUserFolder called with:');
   console.log('   tempPath:', tempPath);
   console.log('   username:', username);
   console.log('   originalFilename:', originalFilename);
+  console.log('   folderName:', folderName);
+  console.log('   relativePath:', relativePath);
 
   const { uploadsDir } = require('../config/middleware');
-  const userDir = path.join(uploadsDir, username);
+  let userDir = path.join(uploadsDir, username);
+  
   console.log('   uploadsDir:', uploadsDir);
   console.log('   userDir:', userDir);
 
@@ -42,7 +46,28 @@ async function moveToUserFolder(tempPath, username, originalFilename) {
 
   // Sanitize for Windows
   const sanitizedFilename = sanitizeFilename(decodedFilename);
-  const finalPath = path.join(userDir, sanitizedFilename);
+  
+  // Handle folder structure preservation
+  let finalPath;
+  if (folderName && relativePath) {
+    // relativePath already includes the full path from the folder root
+    // e.g., "FolderName/subfolder/file.txt"
+    const relativeDir = path.dirname(relativePath);
+    if (relativeDir && relativeDir !== '.') {
+      const subfolderPath = path.join(userDir, relativeDir);
+      console.log('📁 Creating folder structure:', subfolderPath);
+      await fs.mkdir(subfolderPath, { recursive: true });
+    }
+    finalPath = path.join(userDir, relativePath);
+    console.log('📁 Final path with folder structure:', finalPath);
+  } else if (relativePath) {
+    // Single file with relative path (edge case)
+    finalPath = path.join(userDir, relativePath);
+  } else {
+    // Regular file upload without folder
+    finalPath = path.join(userDir, sanitizedFilename);
+  }
+  
   console.log('📍 Final target path:', finalPath);
 
   // Verify source exists

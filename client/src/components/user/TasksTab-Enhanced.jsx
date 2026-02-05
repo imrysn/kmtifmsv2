@@ -1092,7 +1092,7 @@ const TasksTab = ({
                                         fontSize: '13px',
                                         color: '#6b7280',
                                       }}>
-                                        {folderFiles.length} file{folderFiles.length !== 1 ? 's' : ''}
+                                        by <span style={{ fontWeight: '500' }}>{folderFiles[0].submitter_name || user.fullName || user.username}</span> • {formatDate(folderFiles[0].submitted_at || folderFiles[0].uploaded_at)}
                                       </div>
                                     </div>
                                     <div style={{

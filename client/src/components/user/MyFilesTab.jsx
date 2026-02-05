@@ -19,9 +19,9 @@ const MyFilesTab = ({
   const [deleteModal, setDeleteModal] = useState({ isOpen: false, fileId: null, fileName: '', isFolder: false, folderName: null, folderFiles: [] });
   const [openFileModal, setOpenFileModal] = useState({ isOpen: false, file: null });
   const [isDeleting, setIsDeleting] = useState(false);
-  const [expandedFolders, setExpandedFolders] = useState({}); // Track which folders are expanded
+  const [expandedFolders, setExpandedFolders] = useState({});
 
-  // Calculate submittedFiles FIRST (before pagination hook uses it)
+  // Calculate submittedFiles (files with status)
   const submittedFiles = useMemo(() =>
     filteredFiles.filter(f =>
       f.status === 'final_approved' || f.status === 'uploaded' ||
@@ -31,7 +31,7 @@ const MyFilesTab = ({
   );
 
   // Group files by folder
-  const groupFilesByFolder = (files) => {
+  const groupFilesByFolder = useCallback((files) => {
     const folders = {};
     const individualFiles = [];
 
@@ -47,14 +47,14 @@ const MyFilesTab = ({
     });
 
     return { folders, individualFiles };
-  };
+  }, []);
 
-  // Pagination using custom hook (NOW submittedFiles exists)
-  // Load itemsPerPage from localStorage or use default
+  // Pagination setup
   const [itemsPerPage, setItemsPerPage] = useState(() => {
     const saved = localStorage.getItem('myFilesItemsPerPage');
     return saved ? parseInt(saved, 10) : 10;
   });
+  
   const {
     currentPage,
     paginatedItems: paginatedFiles,
@@ -67,17 +67,14 @@ const MyFilesTab = ({
     resetPagination
   } = usePagination(submittedFiles, itemsPerPage);
 
-
-
+  // File opening handler
   const openFile = useCallback(async (file) => {
     try {
-      console.log('🔍 openFile called with:', { id: file.id, path: file.file_path, name: file.original_name });
+      console.log('🔍 Opening file:', { id: file.id, path: file.file_path, name: file.original_name });
       
-      if (window.electron && window.electron.openFileInApp) {
-        console.log(`📡 Fetching path for file ID: ${file.id}`);
+      if (window.electron?.openFileInApp) {
         const response = await fetch(`${API_BASE_URL}/api/files/${file.id}/path`);
         const data = await response.json();
-        console.log('📡 Path response:', data);
 
         if (data.success && data.filePath) {
           const result = await window.electron.openFileInApp(data.filePath);
@@ -95,7 +92,6 @@ const MyFilesTab = ({
         }
       } else {
         const fileUrl = `${API_BASE_URL}${file.file_path}`;
-        console.log(`🌐 Opening in browser: ${fileUrl}`);
         window.open(fileUrl, '_blank', 'noopener,noreferrer');
       }
     } catch (error) {
@@ -128,42 +124,33 @@ const MyFilesTab = ({
     document.body.style.overflow = '';
   }, []);
 
+  // Status helpers
   const getStatusDisplayName = useCallback((dbStatus) => {
     if (!dbStatus) return 'Pending';
 
-    switch (dbStatus) {
-      case 'uploaded':
-        return 'Pending Team Leader';
-      case 'under_revision':
-        return 'Revision';
-      case 'team_leader_approved':
-        return 'Pending Admin';
-      case 'final_approved':
-        return 'Approved';
-      case 'rejected_by_team_leader':
-        return 'Rejected by Team Leader';
-      case 'rejected_by_admin':
-        return 'Rejected by Admin';
-      default:
-        return 'Pending';
-    }
+    const statusMap = {
+      'uploaded': 'Pending Team Leader',
+      'under_revision': 'Revision',
+      'team_leader_approved': 'Pending Admin',
+      'final_approved': 'Approved',
+      'rejected_by_team_leader': 'Rejected by Team Leader',
+      'rejected_by_admin': 'Rejected by Admin'
+    };
+
+    return statusMap[dbStatus] || 'Pending';
   }, []);
 
   const getStatusClass = useCallback((status) => {
-    switch (status) {
-      case 'uploaded':
-      case 'team_leader_approved':
-        return 'status-pending';
-      case 'under_revision':
-        return 'status-revised';
-      case 'final_approved':
-        return 'status-approved';
-      case 'rejected_by_team_leader':
-      case 'rejected_by_admin':
-        return 'status-rejected';
-      default:
-        return 'status-default';
-    }
+    const classMap = {
+      'uploaded': 'status-pending',
+      'team_leader_approved': 'status-pending',
+      'under_revision': 'status-revised',
+      'final_approved': 'status-approved',
+      'rejected_by_team_leader': 'status-rejected',
+      'rejected_by_admin': 'status-rejected'
+    };
+
+    return classMap[status] || 'status-default';
   }, []);
 
   const formatDateTime = useCallback((dateString) => {
@@ -182,6 +169,7 @@ const MyFilesTab = ({
     return { date: dateStr, time: timeStr };
   }, []);
 
+  // File statistics
   const pendingFiles = useMemo(() =>
     submittedFiles.filter(f => f.status === 'uploaded' || f.status === 'team_leader_approved'),
     [submittedFiles]
@@ -202,7 +190,7 @@ const MyFilesTab = ({
     [submittedFiles]
   );
 
-  // Reset to page 1 when filters change or items per page changes
+  // Reset pagination when filters change
   useEffect(() => {
     resetPagination();
   }, [filteredFiles, itemsPerPage, resetPagination]);
@@ -218,6 +206,7 @@ const MyFilesTab = ({
     localStorage.setItem('myFilesItemsPerPage', newValue.toString());
   }, []);
 
+  // Delete handlers
   const handleDeleteClick = useCallback((e, file) => {
     e.stopPropagation();
     setDeleteModal({
@@ -250,13 +239,10 @@ const MyFilesTab = ({
     setIsDeleting(true);
     try {
       if (deleteModal.isFolder) {
-        // Delete all files in folder
         const deletePromises = deleteModal.folderFiles.map(file =>
           fetch(`${API_BASE_URL}/api/files/${file.id}`, {
             method: 'DELETE',
-            headers: {
-              'Content-Type': 'application/json',
-            },
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               adminId: user.id,
               adminUsername: user.username,
@@ -270,6 +256,23 @@ const MyFilesTab = ({
         const allSuccess = results.every(r => r.success);
 
         if (allSuccess) {
+          try {
+            await fetch(`${API_BASE_URL}/api/files/folder/delete`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                folderName: deleteModal.folderName,
+                username: user.username,
+                fileIds: deleteModal.folderFiles.map(f => f.id),
+                userId: user.id,
+                userRole: user.role,
+                team: user.team
+              })
+            });
+          } catch (folderError) {
+            console.error('⚠️ Error deleting folder directory:', folderError);
+          }
+
           setSuccessModal({
             isOpen: true,
             title: 'Folder Deleted',
@@ -281,12 +284,9 @@ const MyFilesTab = ({
           throw new Error('Failed to delete some files in the folder');
         }
       } else {
-        // Delete single file
         const response = await fetch(`${API_BASE_URL}/api/files/${deleteModal.fileId}`, {
           method: 'DELETE',
-          headers: {
-            'Content-Type': 'application/json',
-          },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             adminId: user.id,
             adminUsername: user.username,
@@ -329,7 +329,11 @@ const MyFilesTab = ({
     document.body.style.overflow = '';
   }, []);
 
-  // Memoize open file modal to prevent re-renders
+  const toggleFolder = useCallback((folderName) => {
+    setExpandedFolders(prev => ({ ...prev, [folderName]: !prev[folderName] }));
+  }, []);
+
+  // Open File Modal
   const OpenFileModal = useMemo(() => {
     if (!openFileModal.isOpen || !openFileModal.file) return null;
 
@@ -372,17 +376,10 @@ const MyFilesTab = ({
             </div>
           </div>
           <div className="delete-modal-footer">
-            <button
-              className="delete-cancel-btn"
-              onClick={handleOpenFileCancel}
-            >
+            <button className="delete-cancel-btn" onClick={handleOpenFileCancel}>
               Cancel
             </button>
-            <button
-              className="delete-confirm-btn"
-              onClick={handleOpenFileConfirm}
-              style={{ backgroundColor: '#3b82f6' }}
-            >
+            <button className="delete-confirm-btn" onClick={handleOpenFileConfirm} style={{ backgroundColor: '#3b82f6' }}>
               Open File
             </button>
           </div>
@@ -392,7 +389,7 @@ const MyFilesTab = ({
     );
   }, [openFileModal.isOpen, openFileModal.file, formatDateTime, formatFileSize, getStatusClass, getStatusDisplayName, handleOpenFileCancel, handleOpenFileConfirm]);
 
-  // Memoize delete modal to prevent re-renders
+  // Delete Modal
   const DeleteModal = useMemo(() => {
     if (!deleteModal.isOpen) return null;
 
@@ -403,7 +400,7 @@ const MyFilesTab = ({
             <div className="delete-icon-wrapper">
               <Trash2 size={28} />
             </div>
-            <h2>Delete File</h2>
+            <h2>Delete {deleteModal.isFolder ? 'Folder' : 'File'}</h2>
           </div>
           <div className="delete-modal-body">
             <p className="delete-warning">Are you sure you want to delete this {deleteModal.isFolder ? 'folder' : 'file'}?</p>
@@ -415,18 +412,10 @@ const MyFilesTab = ({
             </p>
           </div>
           <div className="delete-modal-footer">
-            <button
-              className="delete-cancel-btn"
-              onClick={handleDeleteCancel}
-              disabled={isDeleting}
-            >
+            <button className="delete-cancel-btn" onClick={handleDeleteCancel} disabled={isDeleting}>
               Cancel
             </button>
-            <button
-              className="delete-confirm-btn"
-              onClick={handleDeleteConfirm}
-              disabled={isDeleting}
-            >
+            <button className="delete-confirm-btn" onClick={handleDeleteConfirm} disabled={isDeleting}>
               {isDeleting ? (
                 <>
                   <span className="delete-spinner"></span>
@@ -474,6 +463,184 @@ const MyFilesTab = ({
     return pages;
   }, [currentPage, totalPages]);
 
+  // Render file rows
+  const renderFileRows = useMemo(() => {
+    const { folders, individualFiles } = groupFilesByFolder(paginatedFiles);
+    const items = [];
+
+    // Render folders
+    Object.keys(folders).forEach(folderName => {
+      const folderFiles = folders[folderName];
+      const isExpanded = expandedFolders[folderName];
+      const firstFile = folderFiles[0];
+      const { date, time } = formatDateTime(firstFile.uploaded_at);
+
+      items.push(
+        <div
+          key={`folder-${folderName}`}
+          className="file-row-new folder-row"
+          onClick={() => toggleFolder(folderName)}
+          style={{ cursor: 'pointer', backgroundColor: isExpanded ? '#f9fafb' : '#ffffff' }}
+        >
+          <div className="col-filename">
+            <FileIcon
+              fileType="folder"
+              isFolder={true}
+              size="default"
+              altText="Folder"
+              style={{ width: '48px', height: '48px' }}
+            />
+            <div className="file-text">
+              <div className="filename" style={{ fontWeight: '600', fontSize: '13px' }}>
+                {folderName}
+              </div>
+              <div className="filesize">
+                {folderFiles.length} file{folderFiles.length !== 1 ? 's' : ''}
+              </div>
+            </div>
+          </div>
+          <div className="col-datetime">
+            <div className="date-label">{date}</div>
+            <div className="time-label">{time}</div>
+          </div>
+          <div className="col-team">
+            <span className="team-text">{firstFile.user_team}</span>
+          </div>
+          <div className="col-status">
+            <span style={{ color: '#9ca3af', fontSize: '14px' }}>—</span>
+          </div>
+          <div className="col-actions">
+            <button
+              className="delete-btn"
+              onClick={(e) => handleFolderDeleteClick(e, folderName, folderFiles)}
+              title="Delete folder"
+              aria-label="Delete folder"
+            >
+              <Trash2 size={18} />
+            </button>
+          </div>
+        </div>
+      );
+
+      // Expanded folder files
+      if (isExpanded) {
+        folderFiles.forEach(file => {
+          const { date, time } = formatDateTime(file.uploaded_at);
+          let displayName = file.original_name;
+          if (file.relative_path && file.folder_name) {
+            const pathAfterFolder = file.relative_path.replace(`${file.folder_name}/`, '');
+            displayName = pathAfterFolder;
+          }
+          
+          items.push(
+            <div
+              key={file.id}
+              className="file-row-new nested-file"
+              onClick={(e) => handleFileClick(file, e)}
+              title="Click to open file"
+              style={{ paddingLeft: '60px', backgroundColor: '#fafafa' }}
+            >
+              <div className="col-filename">
+                <FileIcon
+                  fileType={file.original_name.split('.').pop().toLowerCase()}
+                  isFolder={false}
+                  size="default"
+                  altText={`${file.file_type} file`}
+                  style={{ width: '52px', height: '52px' }}
+                />
+                <div className="file-text">
+                  <div className="filename">{displayName}</div>
+                  <div className="filesize">{formatFileSize(file.file_size)}</div>
+                  <div className="datetime-mobile">
+                    <div className="date-label">{date}</div>
+                    <div className="time-label">{time}</div>
+                  </div>
+                </div>
+              </div>
+              <div className="col-datetime">
+                <div className="date-label">{date}</div>
+                <div className="time-label">{time}</div>
+              </div>
+              <div className="col-team">
+                <span className="team-text">{file.user_team}</span>
+              </div>
+              <div className="col-status">
+                <span className={`status-tag ${getStatusClass(file.status)}`}>
+                  {getStatusDisplayName(file.status)}
+                </span>
+              </div>
+              <div className="col-actions">
+                <button
+                  className="delete-btn"
+                  onClick={(e) => handleDeleteClick(e, file)}
+                  title="Delete file"
+                  aria-label="Delete file"
+                >
+                  <Trash2 size={18} />
+                </button>
+              </div>
+            </div>
+          );
+        });
+      }
+    });
+
+    // Render individual files
+    individualFiles.forEach(file => {
+      const { date, time } = formatDateTime(file.uploaded_at);
+      items.push(
+        <div
+          key={file.id}
+          className="file-row-new"
+          onClick={(e) => handleFileClick(file, e)}
+          title="Click to open file"
+        >
+          <div className="col-filename">
+            <FileIcon
+              fileType={file.original_name.split('.').pop().toLowerCase()}
+              isFolder={false}
+              size="default"
+              altText={`${file.file_type} file`}
+              style={{ width: '56px', height: '56px' }}
+            />
+            <div className="file-text">
+              <div className="filename">{file.original_name}</div>
+              <div className="filesize">{formatFileSize(file.file_size)}</div>
+              <div className="datetime-mobile">
+                <div className="date-label">{date}</div>
+                <div className="time-label">{time}</div>
+              </div>
+            </div>
+          </div>
+          <div className="col-datetime">
+            <div className="date-label">{date}</div>
+            <div className="time-label">{time}</div>
+          </div>
+          <div className="col-team">
+            <span className="team-text">{file.user_team}</span>
+          </div>
+          <div className="col-status">
+            <span className={`status-tag ${getStatusClass(file.status)}`}>
+              {getStatusDisplayName(file.status)}
+            </span>
+          </div>
+          <div className="col-actions">
+            <button
+              className="delete-btn"
+              onClick={(e) => handleDeleteClick(e, file)}
+              title="Delete file"
+              aria-label="Delete file"
+            >
+              <Trash2 size={18} />
+            </button>
+          </div>
+        </div>
+      );
+    });
+
+    return items;
+  }, [paginatedFiles, expandedFolders, groupFilesByFolder, formatDateTime, toggleFolder, handleFolderDeleteClick, handleFileClick, formatFileSize, getStatusClass, getStatusDisplayName, handleDeleteClick]);
+
   return (
     <div className="user-my-files-component my-files-wrapper">
       <div className="my-files-header-top">
@@ -485,37 +652,15 @@ const MyFilesTab = ({
             </div>
 
             <div className="stats-row">
-              <div className="stat-box-skeleton">
-                <div className="skeleton-circle" style={{ width: '56px', height: '56px' }} />
-                <div className="stat-text-skeleton">
-                  <div className="skeleton-box-inline" style={{ height: '28px', width: '40px', marginBottom: '8px', borderRadius: '6px' }} />
-                  <div className="skeleton-box-inline" style={{ height: '14px', width: '140px', borderRadius: '6px' }} />
+              {[...Array(4)].map((_, i) => (
+                <div key={i} className="stat-box-skeleton">
+                  <div className="skeleton-circle" style={{ width: '56px', height: '56px' }} />
+                  <div className="stat-text-skeleton">
+                    <div className="skeleton-box-inline" style={{ height: '28px', width: '40px', marginBottom: '8px', borderRadius: '6px' }} />
+                    <div className="skeleton-box-inline" style={{ height: '14px', width: '140px', borderRadius: '6px' }} />
+                  </div>
                 </div>
-              </div>
-
-              <div className="stat-box-skeleton">
-                <div className="skeleton-circle" style={{ width: '56px', height: '56px' }} />
-                <div className="stat-text-skeleton">
-                  <div className="skeleton-box-inline" style={{ height: '28px', width: '40px', marginBottom: '8px', borderRadius: '6px' }} />
-                  <div className="skeleton-box-inline" style={{ height: '14px', width: '140px', borderRadius: '6px' }} />
-                </div>
-              </div>
-
-              <div className="stat-box-skeleton">
-                <div className="skeleton-circle" style={{ width: '56px', height: '56px' }} />
-                <div className="stat-text-skeleton">
-                  <div className="skeleton-box-inline" style={{ height: '28px', width: '40px', marginBottom: '8px', borderRadius: '6px' }} />
-                  <div className="skeleton-box-inline" style={{ height: '14px', width: '140px', borderRadius: '6px' }} />
-                </div>
-              </div>
-
-              <div className="stat-box-skeleton">
-                <div className="skeleton-circle" style={{ width: '56px', height: '56px' }} />
-                <div className="stat-text-skeleton">
-                  <div className="skeleton-box-inline" style={{ height: '28px', width: '40px', marginBottom: '8px', borderRadius: '6px' }} />
-                  <div className="skeleton-box-inline" style={{ height: '14px', width: '140px', borderRadius: '6px' }} />
-                </div>
-              </div>
+              ))}
             </div>
           </>
         ) : (
@@ -572,186 +717,7 @@ const MyFilesTab = ({
               <div className="col-status">STATUS</div>
               <div className="col-actions">ACTIONS</div>
             </div>
-            {(() => {
-              const { folders, individualFiles } = groupFilesByFolder(paginatedFiles);
-              const items = [];
-
-              // Render folders first
-              Object.keys(folders).forEach(folderName => {
-                const folderFiles = folders[folderName];
-                const isExpanded = expandedFolders[folderName];
-                const firstFile = folderFiles[0];
-                const { date, time } = formatDateTime(firstFile.uploaded_at);
-
-                // Folder row
-                items.push(
-                  <div
-                    key={`folder-${folderName}`}
-                    className="file-row-new folder-row"
-                    onClick={() => setExpandedFolders(prev => ({ ...prev, [folderName]: !prev[folderName] }))}
-                    style={{ cursor: 'pointer', backgroundColor: isExpanded ? '#f9fafb' : '#ffffff' }}
-                  >
-                    <div className="col-filename">
-                      <FileIcon
-                        fileType="folder"
-                        isFolder={true}
-                        size="default"
-                        altText="Folder"
-                        style={{
-                          width: '48px',
-                          height: '48px'
-                        }}
-                      />
-                      <div className="file-text">
-                        <div className="filename" style={{ fontWeight: '600', fontSize: '13px' }}>
-                          {folderName}
-                        </div>
-                        <div className="filesize">
-                          by <span style={{ fontWeight: '500' }}>{firstFile.fullName || firstFile.username || user.username}</span> • {date}
-                        </div>
-                      </div>
-                    </div>
-                    <div className="col-datetime">
-                      <div className="date-label">{date}</div>
-                      <div className="time-label">{time}</div>
-                    </div>
-                    <div className="col-team">
-                      <span className="team-text">{firstFile.user_team}</span>
-                    </div>
-                    <div className="col-status">
-                      <span style={{ color: '#9ca3af', fontSize: '14px' }}>—</span>
-                    </div>
-                    <div className="col-actions">
-                      <button
-                        className="delete-btn"
-                        onClick={(e) => handleFolderDeleteClick(e, folderName, folderFiles)}
-                        title="Delete folder"
-                        aria-label="Delete folder"
-                      >
-                        <Trash2 size={18} />
-                      </button>
-                    </div>
-                  </div>
-                );
-
-                // Expanded folder files
-                if (isExpanded) {
-                  folderFiles.forEach(file => {
-                    const { date, time } = formatDateTime(file.uploaded_at);
-                    items.push(
-                      <div
-                        key={file.id}
-                        className="file-row-new nested-file"
-                        onClick={(e) => handleFileClick(file, e)}
-                        title="Click to open file"
-                        style={{ paddingLeft: '60px', backgroundColor: '#fafafa' }}
-                      >
-                        <div className="col-filename">
-                          <FileIcon
-                            fileType={file.original_name.split('.').pop().toLowerCase()}
-                            isFolder={false}
-                            size="default"
-                            altText={`${file.file_type} file`}
-                            style={{
-                              width: '52px',
-                              height: '52px'
-                            }}
-                          />
-                          <div className="file-text">
-                            <div className="filename">{file.relative_path || file.original_name}</div>
-                            <div className="filesize">{formatFileSize(file.file_size)}</div>
-                            <div className="datetime-mobile">
-                              <div className="date-label">{date}</div>
-                              <div className="time-label">{time}</div>
-                            </div>
-                          </div>
-                        </div>
-                        <div className="col-datetime">
-                          <div className="date-label">{date}</div>
-                          <div className="time-label">{time}</div>
-                        </div>
-                        <div className="col-team">
-                          <span className="team-text">{file.user_team}</span>
-                        </div>
-                        <div className="col-status">
-                          <span className={`status-tag ${getStatusClass(file.status)}`}>
-                            {getStatusDisplayName(file.status)}
-                          </span>
-                        </div>
-                        <div className="col-actions">
-                          <button
-                            className="delete-btn"
-                            onClick={(e) => handleDeleteClick(e, file)}
-                            title="Delete file"
-                            aria-label="Delete file"
-                          >
-                            <Trash2 size={18} />
-                          </button>
-                        </div>
-                      </div>
-                    );
-                  });
-                }
-              });
-
-              // Render individual files
-              individualFiles.forEach(file => {
-                const { date, time } = formatDateTime(file.uploaded_at);
-                items.push(
-                  <div
-                    key={file.id}
-                    className="file-row-new"
-                    onClick={(e) => handleFileClick(file, e)}
-                    title="Click to open file"
-                  >
-                    <div className="col-filename">
-                      <FileIcon
-                        fileType={file.original_name.split('.').pop().toLowerCase()}
-                        isFolder={false}
-                        size="default"
-                        altText={`${file.file_type} file`}
-                        style={{
-                          width: '56px',
-                          height: '56px'
-                        }}
-                      />
-                      <div className="file-text">
-                        <div className="filename">{file.original_name}</div>
-                        <div className="filesize">{formatFileSize(file.file_size)}</div>
-                        <div className="datetime-mobile">
-                          <div className="date-label">{date}</div>
-                          <div className="time-label">{time}</div>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="col-datetime">
-                      <div className="date-label">{date}</div>
-                      <div className="time-label">{time}</div>
-                    </div>
-                    <div className="col-team">
-                      <span className="team-text">{file.user_team}</span>
-                    </div>
-                    <div className="col-status">
-                      <span className={`status-tag ${getStatusClass(file.status)}`}>
-                        {getStatusDisplayName(file.status)}
-                      </span>
-                    </div>
-                    <div className="col-actions">
-                      <button
-                        className="delete-btn"
-                        onClick={(e) => handleDeleteClick(e, file)}
-                        title="Delete file"
-                        aria-label="Delete file"
-                      >
-                        <Trash2 size={18} />
-                      </button>
-                    </div>
-                  </div>
-                );
-              });
-
-              return items;
-            })()}
+            {renderFileRows}
           </div>
         ) : (
           <div className="empty-state">
@@ -766,7 +732,6 @@ const MyFilesTab = ({
         )}
       </div>
 
-      {/* Pagination Controls */}
       {submittedFiles.length > 0 && (
         <div className="pagination-wrapper">
           <div className="pagination-info">
@@ -807,8 +772,7 @@ const MyFilesTab = ({
               ) : (
                 <button
                   key={page}
-                  className={`pagination-btn pagination-number ${currentPage === page ? 'active' : ''
-                    }`}
+                  className={`pagination-btn pagination-number ${currentPage === page ? 'active' : ''}`}
                   onClick={() => handlePageChange(page)}
                 >
                   {page}
@@ -836,7 +800,6 @@ const MyFilesTab = ({
         type={successModal.type}
       />
 
-      {/* Custom Modals */}
       {OpenFileModal}
       {DeleteModal}
     </div>
