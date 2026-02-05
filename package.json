@@ -127,6 +127,7 @@
       "client/dist/**/*",
       "client/src/assets/fms-icon.ico",
       "client/src/assets/fms-icon.png",
+      "client/src/assets/gearicon.png",
       "!**/*.log",
       "!**/*.sqlite"
     ],
