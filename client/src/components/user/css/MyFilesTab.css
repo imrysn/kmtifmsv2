@@ -10,6 +10,7 @@
   gap: 16px;
   background: transparent;
   contain: layout style;
+  overflow-x: hidden;
 }
 
 /* Header - TOP */
@@ -246,7 +247,7 @@
   display: grid;
   grid-template-columns: 2fr 200px 140px 200px 80px;
   gap: 20px;
-  padding: 16px 20px;
+  padding: 10px 20px;
   border-bottom: 1px solid #e5e5ea;
   align-items: center;
   transition: background 0.15s ease;
@@ -269,6 +270,31 @@
 /* Visual hint for double-click */
 .file-row-new:active {
   background: #f3f4f6;
+}
+
+/* Folder Row Specific Styles */
+.file-row-new.folder-row {
+  background: #fafafa;
+  font-weight: 600;
+  padding: 10px 20px;
+}
+
+.file-row-new.folder-row:hover {
+  background: #f3f4f6;
+}
+
+.file-row-new.folder-row .col-filename {
+  gap: 10px;
+}
+
+/* Nested File Styles */
+.file-row-new.nested-file {
+  background: #fafafa;
+  border-left: 3px solid #e5e5ea;
+}
+
+.file-row-new.nested-file:hover {
+  background: #f0f0f2;
 }
 
 /* Column - Filename */
