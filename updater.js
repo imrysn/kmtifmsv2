@@ -219,7 +219,12 @@ class AppUpdater {
         version: info.version,
         releaseDate: info.releaseDate
       });
-      // Don't notify main window - the updater window will handle user interaction
+
+      // Also notify main window so the toast shows the Install button
+      this.notifyRenderer('downloaded', {
+        version: info.version,
+        releaseDate: info.releaseDate
+      });
     });
 
     autoUpdater.on('error', (error) => {
