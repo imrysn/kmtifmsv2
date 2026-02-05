@@ -65,6 +65,7 @@ jobs:
         run: npm run build
         env:
           NODE_ENV: production
+          VITE_API_URL: ${{ vars.VITE_API_URL || 'http://192.168.200.105:3001' }}
 
       - name: Verify client build
         shell: bash
