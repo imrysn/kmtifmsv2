@@ -10,8 +10,7 @@
   width: 100vw !important;
   height: 100vh !important;
   background-color: rgba(0, 0, 0, 0.5) !important;
-  backdrop-filter: blur(10px) !important;
-  -webkit-backdrop-filter: blur(10px) !important;
+  /* Removed backdrop-filter for performance */
   display: flex !important;
   align-items: center !important;
   justify-content: center !important;
@@ -19,7 +18,11 @@
   padding: 0 !important;
   margin: 0 !important;
   overflow: hidden !important;
-  animation: fadeIn 0.2s ease-out;
+  /* Faster animation */
+  animation: fadeIn 0.15s ease-out;
+  /* GPU acceleration */
+  will-change: opacity;
+  transform: translateZ(0);
 }
 
 @keyframes fadeIn {
@@ -40,22 +43,26 @@
   max-height: 85vh !important;
   border: 1px solid rgba(0, 0, 0, 0.1) !important;
   transform-origin: center center !important;
-  animation: modalSlideIn 0.3s ease-out !important;
+  /* Faster animation */
+  animation: modalSlideIn 0.15s ease-out !important;
   position: relative !important;
   display: flex !important;
   flex-direction: column !important;
   margin: 0 auto !important;
   overflow: hidden !important;
+  /* GPU acceleration */
+  will-change: transform, opacity;
+  transform: translateZ(0);
 }
 
 @keyframes modalSlideIn {
   from {
     opacity: 0;
-    transform: scale(0.95) translateY(-20px);
+    transform: scale(0.98) translateY(-10px) translateZ(0);
   }
   to {
     opacity: 1;
-    transform: scale(1) translateY(0);
+    transform: scale(1) translateY(0) translateZ(0);
   }
 }
 

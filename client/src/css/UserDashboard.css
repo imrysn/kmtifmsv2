@@ -1,7 +1,7 @@
 /* User Dashboard Container - Minimal styles for layout only */
 .minimal-dashboard.user-dashboard {
   min-height: 100vh;
-  background: #F9FAFB;
+  background: #ffffff;
   position: relative;
   overflow-x: hidden;
   display: flex;

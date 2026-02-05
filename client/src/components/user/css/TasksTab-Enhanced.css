@@ -32,7 +32,7 @@
 /* Modern Alert Styles - Match the design */
 .tasks-alert {
   padding: 16px 20px;
-  border-radius: 12px;
+  borderRadius: 12px;
   margin-bottom: 24px;
   display: flex;
   justify-content: space-between;
@@ -1283,7 +1283,7 @@ textarea:focus {
 }
 
 .submitted-file-card:hover {
-  background-color: rgba(161, 161, 161, 0.1);
+  background-color: #DBEAFE !important;
   border-color: #93c5fd;
 }
 

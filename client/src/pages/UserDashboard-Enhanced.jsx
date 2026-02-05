@@ -1,4 +1,4 @@
-import { useState, useEffect, Suspense, lazy } from 'react'
+import { useState, useEffect, Suspense, lazy, useCallback } from 'react'
 import { API_BASE_URL } from '@/config/api'
 import '../css/UserDashboard.css'
 import SkeletonLoader from '../components/common/SkeletonLoader'
@@ -7,13 +7,13 @@ import { AlertMessage, ToastNotification } from '../components/shared'
 // Eagerly import critical components that are always visible
 import Sidebar from '../components/user/Sidebar'
 import DashboardTab from '../components/user/DashboardTab'
+import FileModal from '../components/user/FileModal' // Load immediately for notifications
 
 // Lazy load tab components - only loaded when user switches to that tab
 const TeamTasksTab = lazy(() => import('../components/user/TeamTasksTab'))
 const MyFilesTab = lazy(() => import('../components/user/MyFilesTab'))
 const NotificationTab = lazy(() => import('../components/user/NotificationTab-RealTime'))
 const TasksTab = lazy(() => import('../components/user/TasksTab-Enhanced'))
-const FileModal = lazy(() => import('../components/user/FileModal'))
 
 const UserDashboard = ({ user, onLogout }) => {
   const [activeTab, setActiveTab] = useState('dashboard')
@@ -116,6 +116,7 @@ const UserDashboard = ({ user, onLogout }) => {
   }
 
   const openFileModal = async (file) => {
+    // Open modal immediately without waiting for comments
     setSelectedFile(file)
     setShowFileModal(true)
 
@@ -145,15 +146,10 @@ const UserDashboard = ({ user, onLogout }) => {
         if (file) {
           // Switch to My Files tab
           setActiveTab('my-files')
-          // Small delay to ensure tab switches before opening modal
-          setTimeout(async () => {
-            await openFileModal(file)
-          }, 100);
+          openFileModal(data.file) // No await needed
         } else {
-          setError('File not found in your files')
+          setError('File not found')
         }
-      } else {
-        setError('Failed to fetch file details')
       }
     } catch (error) {
       console.error('Error fetching file:', error)
@@ -201,13 +197,13 @@ const UserDashboard = ({ user, onLogout }) => {
     }
   }
 
-  const formatFileSize = (bytes) => {
+  const formatFileSize = useCallback((bytes) => {
     if (bytes === 0) return '0 Bytes'
     const k = 1024
     const sizes = ['Bytes', 'KB', 'MB', 'GB']
     const i = Math.floor(Math.log(bytes) / Math.log(k))
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
-  }
+  }, [])
 
   const clearMessages = () => {
     setError('')

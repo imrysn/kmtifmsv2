@@ -35,12 +35,36 @@ router.post('/check-duplicate', (req, res) => {
 // Upload file (User only)
 router.post('/upload', upload.single('file'), async (req, res) => {
   try {
-    const { description, userId, username, userTeam, tag, replaceExisting, isRevision } = req.body;
+    const { description, userId, username, userTeam, tag, replaceExisting, isRevision, folderName, relativePath, isFolder } = req.body;
     if (!req.file) {
       return res.status(400).json({
         success: false,
         message: 'No file uploaded'
       });
+    }
+
+    // WORKFLOW: Check if this filename was previously rejected
+    const checkRejectedQuery = `
+      SELECT * FROM files 
+      WHERE original_name = ? 
+      AND user_id = ? 
+      AND (status = 'rejected_by_team_leader' OR status = 'rejected_by_admin')
+      ORDER BY uploaded_at DESC LIMIT 1
+    `;
+
+    const previouslyRejected = await new Promise((resolve, reject) => {
+      db.get(checkRejectedQuery, [req.file.originalname, userId], (err, row) => {
+        if (err) reject(err);
+        else resolve(row);
+      });
+    });
+
+    // If previously rejected file found, enable automatic replacement
+    const autoReplace = !!previouslyRejected;
+    if (autoReplace) {
+      console.log('📝 AUTO-REPLACE DETECTED: File was previously rejected, will auto-update to "Revised" status');
+      console.log(`   Previous file ID: ${previouslyRejected.id}`);
+      console.log(`   Previous status: ${previouslyRejected.status}`);
     }
 
     // Get the original filename and ensure proper UTF-8 encoding
@@ -74,7 +98,7 @@ router.post('/upload', upload.single('file'), async (req, res) => {
     console.log(`   File mimetype: ${req.file.mimetype}`);
 
     try {
-      const finalPath = await moveToUserFolder(req.file.path, username, originalFilename);
+      const finalPath = await moveToUserFolder(req.file.path, username, originalFilename, folderName, relativePath);
       req.file.path = finalPath;
       req.file.filename = originalFilename; // Use decoded original filename
       req.file.originalname = originalFilename; // Update originalname with decoded version
@@ -107,8 +131,8 @@ router.post('/upload', upload.single('file'), async (req, res) => {
       });
     }
 
-    // Check for duplicate file if replaceExisting is not explicitly set
-    if (replaceExisting !== 'true') {
+    // Check for duplicate file if replaceExisting is not explicitly set AND not auto-replacing rejected
+    if (replaceExisting !== 'true' && !autoReplace) {
       db.get('SELECT * FROM files WHERE original_name = ? AND user_id = ?', [req.file.originalname, userId], async (err, existingFile) => {
         if (err) {
           console.error('❌ Error checking for duplicate:', err);
@@ -139,7 +163,16 @@ router.post('/upload', upload.single('file'), async (req, res) => {
       });
     } else {
       // Replace existing file - UPDATE the record instead of deleting it
-      db.get('SELECT * FROM files WHERE original_name = ? AND user_id = ?', [req.file.originalname, userId], async (err, existingFile) => {
+      // Priority: Auto-replace rejected files, then manual replacement
+      const fileToReplace = previouslyRejected || await new Promise((resolve, reject) => {
+        db.get('SELECT * FROM files WHERE original_name = ? AND user_id = ?', [req.file.originalname, userId], (err, row) => {
+          if (err) reject(err);
+          else resolve(row);
+        });
+      });
+
+      (async () => {
+        const existingFile = fileToReplace;
         if (existingFile) {
           console.log('📝 Found existing file, will UPDATE instead of delete+create');
           console.log(`   Old file ID: ${existingFile.id}`);
@@ -165,6 +198,9 @@ router.post('/upload', upload.single('file'), async (req, res) => {
             tag = ?,
             status = ?,
             current_stage = ?,
+            folder_name = ?,
+            relative_path = ?,
+            is_folder = ?,
             uploaded_at = CURRENT_TIMESTAMP
           WHERE id = ?`,
             [
@@ -177,6 +213,9 @@ router.post('/upload', upload.single('file'), async (req, res) => {
               tag || '',
               initialStatus,
               'pending_team_leader',
+              folderName || null,
+              req.body.relativePath || null,
+              isFolder === 'true' ? 1 : 0,
               existingFile.id  // Keep the same ID!
             ], async function (updateErr) {
               if (updateErr) {
@@ -229,20 +268,22 @@ router.post('/upload', upload.single('file'), async (req, res) => {
               });
             });
         } else {
-          // No existing file, create new one
+          // No existing file found to replace
           insertFileRecord();
         }
-      });
+      })();
     }
 
     function insertFileRecord() {
       // Get the relative path from the uploadsDir
-      const relativePath = path.relative(uploadsDir, req.file.path).replace(/\\/g, '/');
+      const fileSystemPath = path.relative(uploadsDir, req.file.path).replace(/\\/g, '/');
 
       console.log('💾 Database storage info:');
       console.log(`   Full path: ${req.file.path}`);
-      console.log(`   Relative path: ${relativePath}`);
-      console.log(`   Will be stored as: /uploads/${relativePath}`);
+      console.log(`   File system path: ${fileSystemPath}`);
+      console.log(`   Will be stored as: /uploads/${fileSystemPath}`);
+      console.log(`   Folder name: ${folderName || 'none'}`);
+      console.log(`   Relative path in folder: ${relativePath || 'none'}`);
 
       // Determine initial status based on whether this is a revision
       const initialStatus = (isRevision === 'true') ? 'under_revision' : 'uploaded';
@@ -250,12 +291,12 @@ router.post('/upload', upload.single('file'), async (req, res) => {
       // Insert file record into database
       db.run(`INSERT INTO files (
         filename, original_name, file_path, file_size, file_type, mime_type, description, tag,
-        user_id, username, user_team, status, current_stage
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        user_id, username, user_team, status, current_stage, folder_name, relative_path, is_folder
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           req.file.filename,
           req.file.originalname,
-          `/uploads/${relativePath}`,
+          `/uploads/${fileSystemPath}`,
           req.file.size,
           getFileTypeDescription(req.file.mimetype, req.file.originalname),
           req.file.mimetype,
@@ -265,7 +306,10 @@ router.post('/upload', upload.single('file'), async (req, res) => {
           username,
           userTeam,
           initialStatus,
-          'pending_team_leader'
+          'pending_team_leader',
+          folderName || null,
+          relativePath || null,
+          isFolder === 'true' ? 1 : 0
         ], async function (err) {
           if (err) {
             console.error('❌ Error saving file to database:', err);
@@ -1198,46 +1242,6 @@ router.get('/:fileId', (req, res) => {
   });
 });
 
-// Get file system path for Electron to open with default app
-router.get('/:fileId/path', (req, res) => {
-  const { fileId } = req.params;
-
-  db.get('SELECT * FROM files WHERE id = ?', [fileId], (err, file) => {
-    if (err || !file) {
-      return res.status(404).json({
-        success: false,
-        message: 'File not found'
-      });
-    }
-
-    // For approved files that have been moved to projects, use the public_network_url
-    // For pending/rejected files, use the original file_path
-    let filePath;
-    if (file.status === 'final_approved' && file.public_network_url) {
-      // File has been moved to projects directory
-      filePath = file.public_network_url;
-      console.log(`📂 Using moved file path for approved file ${fileId}: ${filePath}`);
-    } else {
-      // File is still in uploads directory
-      if (file.file_path.startsWith('/uploads/')) {
-        const relativePath = file.file_path.substring('/uploads/'.length);
-        filePath = path.join(uploadsDir, relativePath);
-      } else {
-        filePath = path.join(uploadsDir, path.basename(file.file_path));
-      }
-      console.log(`📂 Using uploads file path for ${fileId}: ${filePath}`);
-    }
-
-    // Normalize path for Windows
-    filePath = path.normalize(filePath);
-
-    res.json({
-      success: true,
-      filePath: filePath
-    });
-  });
-});
-
 // Get file comments
 router.get('/:fileId/comments', (req, res) => {
   const { fileId } = req.params;
@@ -2094,6 +2098,58 @@ router.post('/open-file', async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Failed to open file',
+      error: error.message
+    });
+  }
+});
+
+// Delete folder (deletes all files and the folder directory)
+router.post('/folder/delete', async (req, res) => {
+  const { folderName, username, fileIds, userId, userRole, team } = req.body;
+  console.log(`🗑️ Deleting folder "${folderName}" by ${username}`);
+
+  try {
+    // Delete all files from database (frontend already calls DELETE for each file)
+    // After files are deleted, remove the empty folder from NAS
+    const folderPath = path.join(uploadsDir, username, folderName);
+    
+    console.log(`📁 Attempting to delete folder directory: ${folderPath}`);
+    
+    try {
+      // Check if folder exists
+      const folderExists = await fs.access(folderPath).then(() => true).catch(() => false);
+      
+      if (folderExists) {
+        // Remove the folder directory (including any remaining files/subfolders)
+        await fs.rm(folderPath, { recursive: true, force: true });
+        console.log(`✅ Folder directory deleted: ${folderPath}`);
+      } else {
+        console.log(`ℹ️ Folder directory not found: ${folderPath}`);
+      }
+    } catch (folderDeleteError) {
+      console.error(`❌ Error deleting folder directory: ${folderDeleteError.message}`);
+      // Don't fail the request if folder deletion fails
+    }
+
+    // Log activity
+    logActivity(
+      db,
+      userId,
+      username,
+      userRole,
+      team,
+      `Folder deleted: ${folderName} (${fileIds?.length || 0} files)`
+    );
+
+    res.json({
+      success: true,
+      message: `Folder "${folderName}" and all its files have been deleted successfully.`
+    });
+  } catch (error) {
+    console.error('❌ Error deleting folder:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to delete folder',
       error: error.message
     });
   }
