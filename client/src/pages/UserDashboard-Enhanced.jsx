@@ -29,6 +29,11 @@ const UserDashboard = ({ user, onLogout }) => {
   const [notificationCount, setNotificationCount] = useState(0)
   const [notifications, setNotifications] = useState([])
 
+  // Smart Navigation State
+  const [highlightedAssignmentId, setHighlightedAssignmentId] = useState(null);
+  const [highlightedFileId, setHighlightedFileId] = useState(null);
+  const [notificationCommentContext, setNotificationCommentContext] = useState(null);
+
   const fetchUserFiles = async () => {
     setIsLoading(true)
     try {
@@ -158,11 +163,28 @@ const UserDashboard = ({ user, onLogout }) => {
 
   const navigateToTasks = (assignmentId = null) => {
     setActiveTab('tasks')
-    // Store the assignment ID to scroll to after tab switch
     if (assignmentId) {
-      sessionStorage.setItem('scrollToAssignment', assignmentId)
+      setHighlightedAssignmentId(assignmentId);
     }
   }
+
+  // Unified Navigation Handler for Smart Navigation
+  const handleSmartNavigation = (tab, context) => {
+    console.log('🧭 Smart Navigation:', tab, context);
+    setActiveTab(tab);
+
+    if (context) {
+      if (context.assignmentId) setHighlightedAssignmentId(context.assignmentId);
+      if (context.fileId) setHighlightedFileId(context.fileId);
+      if (context.shouldOpenComments) {
+        setNotificationCommentContext(context);
+      }
+      // Handle file opening explicitly if needed (legacy support)
+      if (tab === 'my-files' && context.fileId) {
+        openFileByIdFromNotification(context.fileId);
+      }
+    }
+  };
 
   const handleToastNavigation = async (tabName, contextData) => {
 
@@ -241,6 +263,7 @@ const UserDashboard = ({ user, onLogout }) => {
               user={user}
               onOpenFile={openFileByIdFromNotification}
               onNavigateToTasks={navigateToTasks}
+              onNavigate={handleSmartNavigation}
               onUpdateUnreadCount={setNotificationCount}
             />
           </Suspense>
@@ -248,7 +271,15 @@ const UserDashboard = ({ user, onLogout }) => {
       case 'tasks':
         return (
           <Suspense fallback={<SkeletonLoader type="table" />}>
-            <TasksTab user={user} />
+            <TasksTab
+              user={user}
+              highlightedAssignmentId={highlightedAssignmentId}
+              highlightedFileId={highlightedFileId}
+              notificationCommentContext={notificationCommentContext}
+              onClearHighlight={() => setHighlightedAssignmentId(null)}
+              onClearFileHighlight={() => setHighlightedFileId(null)}
+              onClearNotificationContext={() => setNotificationCommentContext(null)}
+            />
           </Suspense>
         );
       default:

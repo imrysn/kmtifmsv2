@@ -29,6 +29,11 @@ const AdminDashboard = ({ user, onLogout }) => {
   const [contextData, setContextData] = useState(null)
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
+  // Smart Navigation State
+  const [highlightedFileId, setHighlightedFileId] = useState(null)
+  const [highlightedAssignmentId, setHighlightedAssignmentId] = useState(null)
+  const [notificationCommentContext, setNotificationCommentContext] = useState(null)
+
   const sidebarRef = useRef(null)
   const mainContentRef = useRef(null)
 
@@ -99,31 +104,60 @@ const AdminDashboard = ({ user, onLogout }) => {
     clearMessages()
   }
 
-  const handleNotificationNavigation = (tabName, contextData) => {
-    console.log('🔔 Admin Navigation triggered:', { tabName, contextData });
+  const handleNotificationNavigation = (tabName, context) => {
+    console.log('🔔 Admin Navigation triggered:', { tabName, context });
 
     // Close sidebar if open (for mobile view)
     if (sidebarOpen) {
       setSidebarOpen(false);
     }
 
-    // Navigate to the tab with context data
+    // Navigate to the tab
     setActiveTab(tabName);
-    setContextData(contextData);
     clearMessages();
 
-    // Special handling for different navigation types
-    if (contextData) {
+    // SMART NAVIGATION: Process rich context data
+    if (context && typeof context === 'object') {
+      // Handle file highlighting
+      if (context.fileId) {
+        setHighlightedFileId(context.fileId);
+        console.log('📁 Set highlighted file:', context.fileId);
+      }
+
+      // Handle assignment highlighting and comment modal
+      if (context.assignmentId) {
+        setHighlightedAssignmentId(context.assignmentId);
+        console.log('📋 Set highlighted assignment:', context.assignmentId);
+
+        // Handle comment modal auto-opening
+        if (context.shouldOpenComments) {
+          setNotificationCommentContext({
+            assignmentId: context.assignmentId,
+            expandAllReplies: context.expandAllReplies || false
+          });
+          console.log('💬 Set comment context:', {
+            assignmentId: context.assignmentId,
+            expandAllReplies: context.expandAllReplies
+          });
+        }
+      }
+
+      // Store legacy context data for backward compatibility
+      setContextData(context);
+
       // Scroll to top of content area
       const contentArea = document.querySelector('.content-area');
       if (contentArea) {
         contentArea.scrollTop = 0;
       }
 
-      // Log the navigation context for debugging
-      if (contextData.action === 'reset-password') {
-        console.log('🔑 Password reset context:', contextData);
+      // Log special contexts
+      if (context.action === 'reset-password') {
+        console.log('🔑 Password reset context:', context);
       }
+    } else {
+      // Legacy: context is a simple value (file ID or assignment ID)
+      setContextData(context);
     }
   };
 
@@ -152,11 +186,31 @@ const AdminDashboard = ({ user, onLogout }) => {
       case 'activity-logs':
         return <ActivityLogs {...commonProps} />
       case 'file-approval':
-        return <FileApproval {...commonProps} contextFileId={contextData} />
+        return <FileApproval
+          {...commonProps}
+          contextFileId={contextData}
+          highlightedFileId={highlightedFileId}
+          onClearFileHighlight={() => setHighlightedFileId(null)}
+        />
       case 'file-management':
-        return <FileManagement {...commonProps} contextFileId={contextData} />
+        return <FileManagement
+          {...commonProps}
+          contextFileId={contextData}
+          highlightedFileId={highlightedFileId}
+          onClearFileHighlight={() => setHighlightedFileId(null)}
+        />
       case 'tasks':
-        return <TaskManagement {...commonProps} user={user} contextAssignmentId={contextData} />
+        return <TaskManagement
+          {...commonProps}
+          user={user}
+          contextAssignmentId={contextData}
+          highlightedAssignmentId={highlightedAssignmentId}
+          highlightedFileId={highlightedFileId}
+          notificationCommentContext={notificationCommentContext}
+          onClearHighlight={() => setHighlightedAssignmentId(null)}
+          onClearFileHighlight={() => setHighlightedFileId(null)}
+          onClearNotificationContext={() => setNotificationCommentContext(null)}
+        />
       case 'notifications':
         return <Notifications user={user} onNavigate={handleNotificationNavigation} />
       case 'settings':

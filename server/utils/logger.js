@@ -257,8 +257,8 @@ function logFileStatusChange(db, fileId, oldStatus, newStatus, oldStage, newStag
     // MySQL
     const mysqlDb = require('../../database/config');
     mysqlDb.query(
-      'INSERT INTO file_status_history (file_id, old_status, new_status, old_stage, new_stage, changed_by_id, changed_by_username, changed_by_role, comment, changed_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-      [fileId, oldStatus, newStatus, oldStage, newStage, userId, username, role, comment, timestamp]
+      'INSERT INTO file_status_history (file_id, old_status, new_status, old_stage, new_stage, changed_by_id, changed_by_username, changed_by_role, comment) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [fileId, oldStatus, newStatus, oldStage, newStage, userId, username, role, comment]
     ).catch(err => {
       logger.error('Failed to log file status change to MySQL database', {
         error: err.message,
@@ -267,21 +267,18 @@ function logFileStatusChange(db, fileId, oldStatus, newStatus, oldStage, newStag
       });
     });
   } else {
-    // SQLite
-    const query = `
-      INSERT INTO file_status_history (file_id, old_status, new_status, old_stage, new_stage, changed_by_id, changed_by_username, changed_by_role, comment, changed_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `;
-
-    db.run(query, [fileId, oldStatus, newStatus, oldStage, newStage, userId, username, role, comment, timestamp], (err) => {
-      if (err) {
-        logger.error('Failed to log file status change to database', {
-          error: err.message,
-          fileId,
-          newStatus
-        });
+    // SQLite fallback
+    db.run(
+      'INSERT INTO file_status_history (file_id, old_status, new_status, old_stage, new_stage, changed_by_id, changed_by_username, changed_by_role, comment) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [fileId, oldStatus, newStatus, oldStage, newStage, userId, username, role, comment || ''],
+      function (err) {
+        if (err) {
+          console.error('❌ Error logging file status history (SQLite):', err);
+        } else {
+          console.log(`✅ File status history logged for file ${fileId} (SQLite)`);
+        }
       }
-    });
+    );
   }
 }
 

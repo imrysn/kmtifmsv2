@@ -72,7 +72,7 @@ router.post('/upload', upload.single('file'), async (req, res) => {
     console.log(`   Username: ${username}`);
     console.log(`   Original filename: ${originalFilename}`);
     console.log(`   File mimetype: ${req.file.mimetype}`);
-    
+
     try {
       const finalPath = await moveToUserFolder(req.file.path, username, originalFilename);
       req.file.path = finalPath;
@@ -80,7 +80,7 @@ router.post('/upload', upload.single('file'), async (req, res) => {
       req.file.originalname = originalFilename; // Update originalname with decoded version
       console.log(`✅ File organized successfully to: ${finalPath}`);
       console.log(`✅ File should now be visible at: ${finalPath}`);
-      
+
       // CRITICAL: Verify file actually exists at final location
       const fs = require('fs');
       if (!fs.existsSync(finalPath)) {
@@ -89,7 +89,7 @@ router.post('/upload', upload.single('file'), async (req, res) => {
         throw new Error('File verification failed - file not found at destination');
       }
       console.log('✅ File existence verified at final path');
-      
+
     } catch (moveError) {
       console.error('❌ Error organizing file details:', {
         error: moveError.message,
@@ -144,7 +144,7 @@ router.post('/upload', upload.single('file'), async (req, res) => {
           console.log('📝 Found existing file, will UPDATE instead of delete+create');
           console.log(`   Old file ID: ${existingFile.id}`);
           console.log(`   Old file path: ${existingFile.file_path}`);
-          
+
           // Delete old physical file only
           const oldRelativePath = existingFile.file_path.startsWith('/uploads/') ? existingFile.file_path.substring(8) : existingFile.file_path;
           const oldFilePath = path.join(uploadsDir, oldRelativePath);
@@ -153,7 +153,7 @@ router.post('/upload', upload.single('file'), async (req, res) => {
           // Get the relative path for the new file
           const relativePath = path.relative(uploadsDir, req.file.path).replace(/\\/g, '/');
           const initialStatus = (isRevision === 'true') ? 'under_revision' : 'uploaded';
-          
+
           // UPDATE the existing database record instead of deleting it
           db.run(`UPDATE files SET 
             filename = ?,
@@ -167,67 +167,67 @@ router.post('/upload', upload.single('file'), async (req, res) => {
             current_stage = ?,
             uploaded_at = CURRENT_TIMESTAMP
           WHERE id = ?`,
-          [
-            req.file.filename,
-            `/uploads/${relativePath}`,
-            req.file.size,
-            getFileTypeDescription(req.file.mimetype, req.file.originalname),
-            req.file.mimetype,
-            description || '',
-            tag || '',
-            initialStatus,
-            'pending_team_leader',
-            existingFile.id  // Keep the same ID!
-          ], async function(updateErr) {
-            if (updateErr) {
-              console.error('❌ Error updating file record:', updateErr);
-              await safeDeleteFile(req.file.path);
-              return res.status(500).json({
-                success: false,
-                message: 'Failed to update file information'
-              });
-            }
-            
-            const fileId = existingFile.id; // Use the same ID
-
-            // Log the file replacement
-            const action = isRevision === 'true' ? 'revised' : 'replaced';
-            logActivity(db, userId, username, 'USER', userTeam, `File ${action}: ${req.file.originalname}`);
-
-            // Log status history
-            logFileStatusChange(
-              db,
-              fileId,
-              existingFile.status,
+            [
+              req.file.filename,
+              `/uploads/${relativePath}`,
+              req.file.size,
+              getFileTypeDescription(req.file.mimetype, req.file.originalname),
+              req.file.mimetype,
+              description || '',
+              tag || '',
               initialStatus,
-              existingFile.current_stage,
               'pending_team_leader',
-              userId,
-              username,
-              'USER',
-              `File ${action} by user${isRevision === 'true' ? ' (revision of rejected file)' : ''}`
-            );
+              existingFile.id  // Keep the same ID!
+            ], async function (updateErr) {
+              if (updateErr) {
+                console.error('❌ Error updating file record:', updateErr);
+                await safeDeleteFile(req.file.path);
+                return res.status(500).json({
+                  success: false,
+                  message: 'Failed to update file information'
+                });
+              }
 
-            console.log(`✅ File ${action} successfully with ID: ${fileId}${isRevision === 'true' ? ' (marked as REVISED)' : ''}`);
-            console.log(`✅ File record UPDATED (not deleted) - will stay in My Files!`);
-            res.json({
-              success: true,
-              message: `File ${action} successfully`,
-              file: {
-                id: fileId,
-                filename: req.file.filename,
-                original_name: req.file.originalname,
-                file_size: req.file.size,
-                file_type: getFileTypeDescription(req.file.mimetype, req.file.originalname),
-                description: description || '',
-                status: initialStatus,
-                current_stage: 'pending_team_leader',
-                uploaded_at: new Date()
-              },
-              replaced: true,
-              isRevision: isRevision === 'true'
+              const fileId = existingFile.id; // Use the same ID
+
+              // Log the file replacement
+              const action = isRevision === 'true' ? 'revised' : 'replaced';
+              logActivity(db, userId, username, 'USER', userTeam, `File ${action}: ${req.file.originalname}`);
+
+              // Log status history
+              logFileStatusChange(
+                db,
+                fileId,
+                existingFile.status,
+                initialStatus,
+                existingFile.current_stage,
+                'pending_team_leader',
+                userId,
+                username,
+                'USER',
+                `File ${action} by user${isRevision === 'true' ? ' (revision of rejected file)' : ''}`
+              );
+
+              console.log(`✅ File ${action} successfully with ID: ${fileId}${isRevision === 'true' ? ' (marked as REVISED)' : ''}`);
+              console.log(`✅ File record UPDATED (not deleted) - will stay in My Files!`);
+              res.json({
+                success: true,
+                message: `File ${action} successfully`,
+                file: {
+                  id: fileId,
+                  filename: req.file.filename,
+                  original_name: req.file.originalname,
+                  file_size: req.file.size,
+                  file_type: getFileTypeDescription(req.file.mimetype, req.file.originalname),
+                  description: description || '',
+                  status: initialStatus,
+                  current_stage: 'pending_team_leader',
+                  uploaded_at: new Date()
+                },
+                replaced: true,
+                isRevision: isRevision === 'true'
+              });
             });
-          });
         } else {
           // No existing file, create new one
           insertFileRecord();
@@ -238,7 +238,7 @@ router.post('/upload', upload.single('file'), async (req, res) => {
     function insertFileRecord() {
       // Get the relative path from the uploadsDir
       const relativePath = path.relative(uploadsDir, req.file.path).replace(/\\/g, '/');
-      
+
       console.log('💾 Database storage info:');
       console.log(`   Full path: ${req.file.path}`);
       console.log(`   Relative path: ${relativePath}`);
@@ -246,75 +246,75 @@ router.post('/upload', upload.single('file'), async (req, res) => {
 
       // Determine initial status based on whether this is a revision
       const initialStatus = (isRevision === 'true') ? 'under_revision' : 'uploaded';
-      
+
       // Insert file record into database
       db.run(`INSERT INTO files (
         filename, original_name, file_path, file_size, file_type, mime_type, description, tag,
         user_id, username, user_team, status, current_stage
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [
-        req.file.filename,
-        req.file.originalname,
-        `/uploads/${relativePath}`,
-        req.file.size,
-        getFileTypeDescription(req.file.mimetype, req.file.originalname),
-        req.file.mimetype,
-        description || '',
-        tag || '',
-        userId,
-        username,
-        userTeam,
-        initialStatus,
-        'pending_team_leader'
-      ], async function(err) {
-        if (err) {
-          console.error('❌ Error saving file to database:', err);
-          // Delete the uploaded file if database save fails
-          await safeDeleteFile(req.file.path);
-          return res.status(500).json({
-            success: false,
-            message: 'Failed to save file information'
-          });
-        }
-        const fileId = this.lastID;
-
-        // Log the file upload
-        const action = replaceExisting === 'true' ? 'replaced' : (isRevision === 'true' ? 'revised' : 'uploaded');
-        logActivity(db, userId, username, 'USER', userTeam, `File ${action}: ${req.file.originalname}`);
-
-        // Log status history
-        logFileStatusChange(
-          db,
-          fileId,
-          null,
-          initialStatus,
-          null,
-          'pending_team_leader',
+        [
+          req.file.filename,
+          req.file.originalname,
+          `/uploads/${relativePath}`,
+          req.file.size,
+          getFileTypeDescription(req.file.mimetype, req.file.originalname),
+          req.file.mimetype,
+          description || '',
+          tag || '',
           userId,
           username,
-          'USER',
-          `File ${action} by user${isRevision === 'true' ? ' (revision of rejected file)' : ''}`
-        );
+          userTeam,
+          initialStatus,
+          'pending_team_leader'
+        ], async function (err) {
+          if (err) {
+            console.error('❌ Error saving file to database:', err);
+            // Delete the uploaded file if database save fails
+            await safeDeleteFile(req.file.path);
+            return res.status(500).json({
+              success: false,
+              message: 'Failed to save file information'
+            });
+          }
+          const fileId = this.lastID;
 
-        console.log(`✅ File ${action} successfully with ID: ${fileId}${isRevision === 'true' ? ' (marked as REVISED)' : ''}`);
-        res.json({
-          success: true,
-          message: `File ${action} successfully`,
-          file: {
-            id: fileId,
-            filename: req.file.filename,
-            original_name: req.file.originalname,
-            file_size: req.file.size,
-            file_type: getFileTypeDescription(req.file.mimetype, req.file.originalname),
-            description: description || '',
-            status: initialStatus,
-            current_stage: 'pending_team_leader',
-            uploaded_at: new Date()
-          },
-          replaced: replaceExisting === 'true',
-          isRevision: isRevision === 'true'
+          // Log the file upload
+          const action = replaceExisting === 'true' ? 'replaced' : (isRevision === 'true' ? 'revised' : 'uploaded');
+          logActivity(db, userId, username, 'USER', userTeam, `File ${action}: ${req.file.originalname}`);
+
+          // Log status history
+          logFileStatusChange(
+            db,
+            fileId,
+            null,
+            initialStatus,
+            null,
+            'pending_team_leader',
+            userId,
+            username,
+            'USER',
+            `File ${action} by user${isRevision === 'true' ? ' (revision of rejected file)' : ''}`
+          );
+
+          console.log(`✅ File ${action} successfully with ID: ${fileId}${isRevision === 'true' ? ' (marked as REVISED)' : ''}`);
+          res.json({
+            success: true,
+            message: `File ${action} successfully`,
+            file: {
+              id: fileId,
+              filename: req.file.filename,
+              original_name: req.file.originalname,
+              file_size: req.file.size,
+              file_type: getFileTypeDescription(req.file.mimetype, req.file.originalname),
+              description: description || '',
+              status: initialStatus,
+              current_stage: 'pending_team_leader',
+              uploaded_at: new Date()
+            },
+            replaced: replaceExisting === 'true',
+            isRevision: isRevision === 'true'
+          });
         });
-      });
     }
   } catch (error) {
     console.error('❌ Error handling file upload:', error);
@@ -663,7 +663,7 @@ router.post('/:fileId/team-leader-review', (req, res) => {
 
     // Use MySQL-friendly DATETIME format: YYYY-MM-DD HH:MM:SS
     const now = new Date();
-    const nowSql = now.toISOString().slice(0,19).replace('T', ' ');
+    const nowSql = now.toISOString().slice(0, 19).replace('T', ' ');
     let newStatus, newStage;
     if (action === 'approve') {
       newStatus = 'team_leader_approved';
@@ -690,10 +690,10 @@ router.post('/:fileId/team-leader-review', (req, res) => {
       newStatus, newStage, teamLeaderId, teamLeaderUsername, nowSql, comments, fileId
     ];
 
-    console.log('DEBUG: Executing SQL (team-leader):', tlSql.replace(/\s+/g,' '));
+    console.log('DEBUG: Executing SQL (team-leader):', tlSql.replace(/\s+/g, ' '));
     console.log('DEBUG: Params (team-leader):', tlParams);
 
-    db.run(tlSql, tlParams, function(err) {
+    db.run(tlSql, tlParams, function (err) {
       if (err) {
         console.error('❌ Error updating file status:', err);
         // Return DB error message to client in dev for easier debugging
@@ -762,6 +762,10 @@ router.post('/:fileId/team-leader-review', (req, res) => {
         `Team leader ${action}: ${comments || 'No comments'}`
       );
 
+      const { createNotification, createAdminNotification } = require('../routes/notifications'); // Ensure correct path or use standard import if circular
+
+      // ... skipping to handler ...
+
       // Create notification for the file owner
       const notificationType = action === 'approve' ? 'approval' : 'rejection';
       const notificationTitle = action === 'approve'
@@ -770,6 +774,7 @@ router.post('/:fileId/team-leader-review', (req, res) => {
       const notificationMessage = action === 'approve'
         ? `Your file "${file.original_name}" has been approved by ${teamLeaderUsername} and is now pending admin review.`
         : `Your file "${file.original_name}" has been rejected by ${teamLeaderUsername}. ${comments ? 'Reason: ' + comments : 'Please review and resubmit.'}`;
+      // ... (existing code)
 
       createNotification(
         file.user_id,
@@ -783,6 +788,19 @@ router.post('/:fileId/team-leader-review', (req, res) => {
       ).catch(err => {
         console.error('Failed to create notification:', err);
       });
+
+      // NEW: Notify Admins
+      if (action === 'approve') {
+        createAdminNotification(
+          fileId,
+          'team_leader_approved',
+          'File Approved by Team Leader',
+          `${teamLeaderUsername} approved file "${file.original_name}" (Team: ${team.name || file.user_team}). Pending final review.`,
+          teamLeaderId,
+          teamLeaderUsername,
+          teamLeaderRole
+        ).catch(err => console.error('Failed to notify admins:', err));
+      }
 
       console.log(`✅ File ${action}d by team leader: ${file.filename}`);
       res.json({
@@ -950,7 +968,7 @@ router.post('/:fileId/admin-review', async (req, res) => {
 
     // Use MySQL-friendly DATETIME format
     const now = new Date();
-    const nowSql = now.toISOString().slice(0,19).replace('T', ' ');
+    const nowSql = now.toISOString().slice(0, 19).replace('T', ' ');
     let newStatus, newStage, publicNetworkUrl = null;
     if (action === 'approve') {
       newStatus = 'final_approved';
@@ -983,10 +1001,10 @@ router.post('/:fileId/admin-review', async (req, res) => {
       newStatus, newStage, adminId, adminUsername, nowSql, comments, fileId
     ];
 
-    console.log('DEBUG: Executing SQL (admin):', adminSql.replace(/\s+/g,' '));
+    console.log('DEBUG: Executing SQL (admin):', adminSql.replace(/\s+/g, ' '));
     console.log('DEBUG: Params (admin):', adminParams);
 
-    db.run(adminSql, adminParams, function(err) {
+    db.run(adminSql, adminParams, function (err) {
       if (err) {
         console.error('❌ Error updating file status (admin):', err);
         return res.status(500).json({
@@ -1265,7 +1283,7 @@ router.post('/:fileId/comments', (req, res) => {
     db.run(
       'INSERT INTO file_comments (file_id, user_id, username, user_role, comment) VALUES (?, ?, ?, ?, ?)',
       [fileId, userId, username, userRole, comment.trim()],
-      function(err) {
+      function (err) {
         if (err) {
           console.error('❌ Error adding comment:', err);
           return res.status(500).json({
@@ -1365,7 +1383,7 @@ router.delete('/:fileId', async (req, res) => {
         db.run(
           'UPDATE assignment_members SET file_id = NULL, status = NULL, submitted_at = NULL WHERE file_id = ?',
           [fileId],
-          function(err) {
+          function (err) {
             if (err) {
               console.error('❌ Error clearing assignment submissions:', err);
               reject(err);
@@ -1431,7 +1449,7 @@ router.delete('/:fileId', async (req, res) => {
 
     // Delete file record from database
     await new Promise((resolve, reject) => {
-      db.run('DELETE FROM files WHERE id = ?', [fileId], function(err) {
+      db.run('DELETE FROM files WHERE id = ?', [fileId], function (err) {
         if (err) {
           reject(err);
         } else {
@@ -1645,7 +1663,7 @@ router.post('/bulk-action', (req, res) => {
   console.log(`📋 Bulk ${action} for ${fileIds.length} files by ${reviewerUsername}`);
 
   const now = new Date();
-  const nowSql = now.toISOString().slice(0,19).replace('T', ' ');
+  const nowSql = now.toISOString().slice(0, 19).replace('T', ' ');
   const results = { success: [], failed: [] };
   let processed = 0;
 
@@ -1661,7 +1679,7 @@ router.post('/bulk-action', (req, res) => {
       const isTeamLeader = reviewerRole === 'team_leader';
       const isAdmin = reviewerRole === 'admin';
       const correctStage = (isTeamLeader && file.current_stage === 'pending_team_leader') ||
-                          (isAdmin && file.current_stage === 'pending_admin');
+        (isAdmin && file.current_stage === 'pending_admin');
 
       if (!correctStage) {
         results.failed.push({ fileId, reason: 'Incorrect review stage', fileName: file.original_name });
@@ -1699,7 +1717,7 @@ router.post('/bulk-action', (req, res) => {
             [newStatus, newStage, reviewerId, reviewerUsername, nowSql, comments, comments, reviewerUsername, nowSql, fileId] :
             [newStatus, newStage, reviewerId, reviewerUsername, nowSql, comments, fileId]);
 
-      db.run(updateSql, updateParams, function(err) {
+      db.run(updateSql, updateParams, function (err) {
         if (err) {
           console.error(`❌ Error updating file ${fileId}:`, err);
           results.failed.push({ fileId, reason: err.message, fileName: file.original_name });
@@ -1713,7 +1731,7 @@ router.post('/bulk-action', (req, res) => {
           db.run(
             'INSERT INTO file_comments (file_id, user_id, username, user_role, comment, comment_type) VALUES (?, ?, ?, ?, ?, ?)',
             [fileId, reviewerId, reviewerUsername, reviewerRole, comments, action],
-            () => {}
+            () => { }
           );
         }
 
@@ -1869,7 +1887,7 @@ router.patch('/:fileId/priority', (req, res) => {
   params.push(fileId);
   const sql = `UPDATE files SET ${updates.join(', ')} WHERE id = ?`;
 
-  db.run(sql, params, function(err) {
+  db.run(sql, params, function (err) {
     if (err) {
       console.error('❌ Error updating file priority:', err);
       return res.status(500).json({ success: false, message: 'Failed to update priority' });
@@ -2105,7 +2123,7 @@ router.get('/:fileId/path', (req, res) => {
 
     // Convert relative path to absolute path
     let filePath = file.file_path;
-    
+
     // If it's a relative path starting with /uploads/, resolve it
     if (filePath.startsWith('/uploads/')) {
       const relativePath = filePath.substring(8);
@@ -2127,7 +2145,7 @@ router.get('/:fileId/path', (req, res) => {
 // Get file details by ID (for opening files) - CATCH-ALL, MUST BE LAST
 router.get('/:fileId', (req, res) => {
   const { fileId } = req.params;
-  
+
   // Skip if not a numeric ID (avoid catching other routes)
   if (!/^\d+$/.test(fileId)) {
     return res.status(400).json({
@@ -2135,7 +2153,7 @@ router.get('/:fileId', (req, res) => {
       message: 'Invalid file ID'
     });
   }
-  
+
   console.log(`📝 Getting file details for ID: ${fileId}`);
 
   db.get('SELECT * FROM files WHERE id = ?', [fileId], (err, file) => {

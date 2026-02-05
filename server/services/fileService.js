@@ -11,6 +11,7 @@
 
 const fileRepository = require('../repositories/fileRepository');
 const { logActivity, logInfo, logError } = require('../utils/logger');
+const { createNotification, createAdminNotification } = require('../routes/notifications');
 const { db } = require('../config/database');
 const { NotFoundError, ValidationError } = require('../middleware/errorHandler');
 const fs = require('fs').promises;
@@ -112,6 +113,7 @@ async function getTeamFiles(team, options = {}) {
  * @returns {Promise<Object>} - Updated file
  */
 async function approveByTeamLeader(fileId, teamLeader, comments = '') {
+    console.log('🐞 DEBUG: approveByTeamLeader called', { fileId, teamLeaderId: teamLeader.id });
     const file = await fileRepository.findById(fileId);
 
     if (!file) {
@@ -137,6 +139,7 @@ async function approveByTeamLeader(fileId, teamLeader, comments = '') {
     });
 
     // Log activity
+    console.log('🐞 DEBUG: File status updated. Logging activity...');
     logActivity(
         db,
         teamLeader.id,
@@ -146,8 +149,22 @@ async function approveByTeamLeader(fileId, teamLeader, comments = '') {
         `Approved file: ${file.original_name}`
     );
 
-    // TODO: Create notification for admin
-    // await notificationService.notifyAdmin(file, 'team_leader_approved');
+    // Create notification for admin
+    console.log('🐞 DEBUG: Calling createAdminNotification...');
+    try {
+        const adminCount = await createAdminNotification(
+            fileId,
+            'team_leader_approved',
+            'File Approved by Team Leader',
+            `${teamLeader.username} approved file "${file.original_name}" (Team: ${teamLeader.team}). Pending final overview inside file management.`,
+            teamLeader.id,
+            teamLeader.username,
+            teamLeader.role
+        );
+        console.log('🐞 DEBUG: Admin notification result:', adminCount);
+    } catch (err) {
+        console.error('🐞 DEBUG: Failed to notify admins:', err);
+    }
 
     return await fileRepository.findById(fileId);
 }

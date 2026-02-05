@@ -1,12 +1,29 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { API_BASE_URL } from '@/config/api'
 import './TaskManagement.css'
+import './SmartNavigation.css'
 import FileIcon from '../shared/FileIcon.jsx'
 import { AlertMessage, ConfirmationModal, CommentsModal, FileOpenModal } from './modals'
 import { useAuth, useNetwork } from '../../contexts'
 import { withErrorBoundary } from '../common'
+import { useSmartNavigation } from '../shared/SmartNavigation'
 
-const TaskManagement = ({ error, success, setError, setSuccess, clearMessages, user, contextAssignmentId }) => {
+const TaskManagement = ({
+  error,
+  success,
+  setError,
+  setSuccess,
+  clearMessages,
+  user,
+  contextAssignmentId,
+  // Smart Navigation Props
+  highlightedAssignmentId,
+  highlightedFileId,
+  notificationCommentContext,
+  onClearHighlight,
+  onClearFileHighlight,
+  onClearNotificationContext
+}) => {
   const { user: authUser } = useAuth()
   const { isConnected } = useNetwork()
 
@@ -72,6 +89,7 @@ const TaskManagement = ({ error, success, setError, setSuccess, clearMessages, u
       }
     }
   }, [contextAssignmentId, assignments])
+
 
   // Set up intersection observer for infinite scroll
   useEffect(() => {
@@ -219,6 +237,25 @@ const TaskManagement = ({ error, success, setError, setSuccess, clearMessages, u
     setReplyingTo(null)
     setReplyText('')
   }, [])
+
+
+  // SMART NAVIGATION: Use shared hook for all highlighting and modal effects
+  // IMPORTANT: Must be called AFTER openCommentsModal is defined
+  useSmartNavigation({
+    role: 'admin',
+    items: assignments,
+    highlightedItemId: highlightedAssignmentId,
+    highlightedFileId,
+    notificationContext: notificationCommentContext,
+    onClearHighlight,
+    onClearFileHighlight,
+    onClearNotificationContext,
+    openCommentsModal,
+    setVisibleReplies,
+    showCommentsModal,
+    selectedItem: selectedAssignment,
+    comments
+  });
 
   // ⚡ OPTIMIZATION: Optimistic update + memoized handler
   const handlePostComment = useCallback(async (e) => {
@@ -671,7 +708,7 @@ const TaskManagement = ({ error, success, setError, setSuccess, clearMessages, u
           ) : (
             <>
               {assignments.map(assignment => (
-                <div key={assignment.id} className="admin-assignment-card">
+                <div key={assignment.id} id={`admin-assignment-${assignment.id}`} className="admin-assignment-card">
                   {/* Card Header */}
                   <div className="admin-card-header">
                     <div className="admin-header-left">
@@ -791,6 +828,7 @@ const TaskManagement = ({ error, success, setError, setSuccess, clearMessages, u
                         ).map((file, index) => (
                           <div
                             key={file.id}
+                            data-file-id={file.id}
                             className="admin-file-item"
                             onClick={() => {
                               setFileToOpen(file)

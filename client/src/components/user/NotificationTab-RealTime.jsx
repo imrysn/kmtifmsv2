@@ -2,8 +2,9 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { API_BASE_URL } from '@/config/api';
 import { useTaskbarFlash } from '../../utils/useTaskbarFlash';
 import './css/NotificationTab.css';
+import { parseNotification } from '../shared/SmartNavigation';
 
-const NotificationTab = ({ user, onOpenFile, onNavigateToTasks, onUpdateUnreadCount }) => {
+const NotificationTab = ({ user, onOpenFile, onNavigateToTasks, onNavigate, onUpdateUnreadCount }) => {
   const [notifications, setNotifications] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -78,7 +79,6 @@ const NotificationTab = ({ user, onOpenFile, onNavigateToTasks, onUpdateUnreadCo
         );
         const newUnreadCount = Math.max(0, unreadCount - 1);
         setUnreadCount(newUnreadCount);
-        // Update parent component's unread count
         if (onUpdateUnreadCount) {
           onUpdateUnreadCount(newUnreadCount);
         }
@@ -87,31 +87,25 @@ const NotificationTab = ({ user, onOpenFile, onNavigateToTasks, onUpdateUnreadCo
       }
     }
 
-    // Handle navigation based on notification type
-    if (notification.type === 'comment' && notification.assignment_id) {
-      // For comment notifications, navigate to tasks and store assignment ID + commenter name
-      if (onNavigateToTasks) {
-        // Store both assignment ID and the username who made the comment
-        sessionStorage.setItem('scrollToAssignment', notification.assignment_id);
-        sessionStorage.setItem('highlightCommentBy', notification.action_by_username);
-        console.log('📍 Stored comment navigation:', {
-          assignmentId: notification.assignment_id,
-          highlightUser: notification.action_by_username
-        });
-        onNavigateToTasks(notification.assignment_id);
-      }
-    } else if (notification.type === 'assignment') {
-      // Navigate to tasks tab for assignment notifications
-      if (onNavigateToTasks) {
-        onNavigateToTasks();
-      }
-    } else if (notification.file_id) {
-      // Open the file details for file-related notifications
-      if (onOpenFile) {
-        onOpenFile(notification.file_id);
+    // Use shared notification parser
+    const { targetTab, context } = parseNotification(notification, 'user');
+
+    console.log('🧭 Parsed User Notification:', { targetTab, context });
+
+    if (targetTab) {
+      if (onNavigate) {
+        // Use new unified handler
+        onNavigate(targetTab, context);
+      } else {
+        // Fallback for legacy props if onNavigate is missing
+        if (targetTab === 'tasks' && onNavigateToTasks) {
+          onNavigateToTasks(context?.assignmentId);
+        } else if ((targetTab === 'files' || targetTab === 'my-files') && onOpenFile) {
+          onOpenFile(context?.fileId);
+        }
       }
     }
-  }, [onNavigateToTasks, onOpenFile]);
+  }, [onNavigate, onNavigateToTasks, onOpenFile, unreadCount, onUpdateUnreadCount]);
 
   const handleDeleteNotification = useCallback(async (e, notificationId) => {
     e.stopPropagation();
