@@ -378,13 +378,8 @@ function isUpdaterWindowVisible() {
 // IPC handlers for the updater window
 ipcMain.on('updater-window:install', () => {
   // Notify main process to install update
-  const mainWindow = BrowserWindow.getAllWindows().find(win =>
-    win !== updaterWindow && win.getTitle() !== 'KMTI FMS - Updating...'
-  );
-
-  if (mainWindow) {
-    mainWindow.webContents.send('updater:quit-and-install');
-  }
+  const updater = require('./updater');
+  updater.quitAndInstall();
 });
 
 ipcMain.on('updater-window:cancel', () => {
