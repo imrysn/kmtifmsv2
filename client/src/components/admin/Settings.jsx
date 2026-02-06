@@ -32,8 +32,86 @@ const Settings = ({ clearMessages, error, success, setError, setSuccess, users, 
     }
   })
   const [isLoadingSettings, setIsLoadingSettings] = useState(true)
+  // Update state management
+  const [updateStatus, setUpdateStatus] = useState({
+    state: 'idle', // idle, checking, available, downloading, downloaded, error, up-to-date
+    info: null
+  });
 
-  // Fetch app version on mount
+  useEffect(() => {
+    // Listen for updater events
+    if (window.updater) {
+      const unsubscribe = window.updater.onStatus((data) => {
+        console.log('Update status received:', data);
+
+        switch (data.status) {
+          case 'checking':
+            setUpdateStatus(prev => ({ ...prev, state: 'checking' }));
+            break;
+          case 'available':
+            setUpdateStatus({ state: 'available', info: data });
+            break;
+          case 'not-available':
+            setUpdateStatus({ state: 'up-to-date', info: null });
+            // Reset to idle after 3 seconds
+            setTimeout(() => setUpdateStatus({ state: 'idle', info: null }), 3000);
+            break;
+          case 'downloading':
+            setUpdateStatus({
+              state: 'downloading',
+              info: data
+            });
+            break;
+          case 'downloaded':
+            setUpdateStatus({
+              state: 'downloaded',
+              info: data
+            });
+            break;
+          case 'error':
+            setUpdateStatus({ state: 'error', info: data });
+            setTimeout(() => setUpdateStatus({ state: 'idle', info: null }), 5000);
+            break;
+          default:
+            break;
+        }
+      });
+
+      return () => unsubscribe();
+    }
+  }, []);
+
+  const handleUpdateClick = () => {
+    if (!window.updater) return;
+
+    if (updateStatus.state === 'downloaded') {
+      window.updater.restartAndInstall();
+    } else {
+      window.updater.checkForUpdates();
+      setUpdateStatus(prev => ({ ...prev, state: 'checking' }));
+    }
+  };
+
+  const getUpdateButtonText = () => {
+    switch (updateStatus.state) {
+      case 'checking': return 'Checking...';
+      case 'available': return 'Downloading...'; // Auto-download is on
+      case 'downloading':
+        return updateStatus.info?.percent
+          ? `Downloading (${updateStatus.info.percent}%)`
+          : 'Downloading...';
+      case 'downloaded': return 'Restart & Install';
+      case 'up-to-date': return 'Up to Date';
+      case 'error': return 'Error (Retry)';
+      default: return 'Check for Updates'; // idle
+    }
+  };
+
+  const isUpdateActionDisabled = () => {
+    if (!window.updater) return true;
+    return ['checking', 'downloading', 'available', 'up-to-date'].includes(updateStatus.state);
+  };
+
   useEffect(() => {
     const fetchAppVersion = async () => {
       try {
@@ -535,7 +613,19 @@ const Settings = ({ clearMessages, error, success, setError, setSuccess, users, 
             <div className="system-info">
               <div className="info-row">
                 <span className="info-label">Application Version:</span>
-                <span className="info-value">{appVersion}</span>
+                <div className="version-info">
+                  <span className="info-value">{appVersion}</span>
+                  <div className="version-actions">
+                    <button
+                      className={`btn btn-sm ${updateStatus.state === 'downloaded' ? 'btn-success' : 'btn-primary'}`}
+                      onClick={handleUpdateClick}
+                      disabled={isUpdateActionDisabled()}
+                      title={updateStatus.state === 'downloaded' ? 'Click to restart and install update' : 'Check for automatic updates'}
+                    >
+                      {getUpdateButtonText()}
+                    </button>
+                  </div>
+                </div>
               </div>
               <div className="info-row">
                 <span className="info-label">Database Version:</span>
@@ -566,7 +656,8 @@ const Settings = ({ clearMessages, error, success, setError, setSuccess, users, 
         </p>
       </ConfirmationModal>
 
-    </div>
+
+    </div >
   )
 }
 

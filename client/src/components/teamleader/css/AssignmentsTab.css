@@ -916,7 +916,7 @@
 
 .tl-comment-submit-btn:hover:not(:disabled) {
   background: #166fe5;
-  transform: scale(1.05);
+  /* Scale removed */
 }
 
 .tl-comment-submit-btn:disabled {
@@ -1182,6 +1182,7 @@
     border-color: #6b7280;
   }
 }
+
 /* Status Badge */
 .tl-assignment-status-badge {
   display: inline-flex;

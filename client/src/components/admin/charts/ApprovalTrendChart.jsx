@@ -121,7 +121,7 @@ const ApprovalTrendChart = memo(({ trends, loading }) => {
             {data.map((t, i) => {
                 if (i % 5 !== 0 && i !== data.length - 1) return null;
                 const x = padding.left + i * stepX;
-                const label = t.day || t.date || `D${i + 1}`;
+                const label = t.month || t.day || t.date || `D${i + 1}`;
                 return (
                     <text
                         key={`label-${i}`}

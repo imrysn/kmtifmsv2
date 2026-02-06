@@ -743,22 +743,40 @@ const AssignmentsTab = ({
           if (!fileToOpen) return
 
           try {
-            // Use public_network_url if available for approved files
-            let filePathToOpen = fileToOpen.file_path
-            if (fileToOpen.status === 'final_approved' && fileToOpen.public_network_url) {
-              filePathToOpen = fileToOpen.public_network_url
-            }
+            // Check if running in Electron and has capability to open files locally
+            if (window.electron && window.electron.openFileInApp) {
+              // Get the absolute file path from server
+              const response = await fetch(`${API_BASE_URL}/api/files/${fileToOpen.id}/path`);
+              const data = await response.json();
 
-            const response = await fetch(`${API_BASE_URL}/api/files/open-file`, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json'
-              },
-              body: JSON.stringify({ filePath: filePathToOpen })
-            });
-            const data = await response.json();
-            if (!data.success) {
-              alert('Failed to open file: ' + (data.message || 'Unknown error'));
+              if (data.success && data.filePath) {
+                const result = await window.electron.openFileInApp(data.filePath);
+
+                if (!result.success) {
+                  alert('Failed to open file locally: ' + (result.error || 'Unknown error'));
+                }
+              } else {
+                alert('Could not retrieve file path');
+              }
+            } else {
+              // Web fallback: Open file in new tab/download
+              // Use public_network_url if available for approved files, otherwise construct from file_path
+              let fileUrl = fileToOpen.file_path;
+              if (fileToOpen.status === 'final_approved' && fileToOpen.public_network_url) {
+                // If it's a full URL, use it directly, otherwise treat as path
+                if (fileToOpen.public_network_url.startsWith('http')) {
+                  fileUrl = fileToOpen.public_network_url;
+                } else {
+                  // Correctly handle network paths if needed, but for web usually we serve via API
+                  // If we are on web, we likely want to serve it via the server's static files or viewer
+                  fileUrl = `${API_BASE_URL}${fileToOpen.file_path}`;
+                }
+              } else {
+                // Ensure we have the base URL
+                fileUrl = `${API_BASE_URL}${fileToOpen.file_path}`;
+              }
+
+              window.open(fileUrl, '_blank', 'nullable,noreferrer');
             }
           } catch (error) {
             console.error('Error opening file:', error);

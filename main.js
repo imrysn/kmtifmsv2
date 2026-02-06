@@ -1143,3 +1143,11 @@ if (ipcMain) {
     return app.getVersion();
   });
 }
+// Handle opening external links
+ipcMain.handle('app:open-external', async (event, url) => {
+  if (url && (url.startsWith('http://') || url.startsWith('https://'))) {
+    await shell.openExternal(url);
+    return true;
+  }
+  return false;
+});

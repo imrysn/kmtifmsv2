@@ -1710,12 +1710,12 @@ input[type="checkbox"] {
 
 .tl-btn-view-file:hover {
   background: #3b28cc;
-  transform: scale(1.05);
+  /* Scale removed */
 }
 
 .tl-btn-view-file:active {
   background: #2e1fa3;
-  transform: scale(0.98);
+  /* Scale removed */
 }
 
 .tl-status-badge.pending-approved {
@@ -2184,7 +2184,7 @@ input[type="checkbox"] {
 
 .tl-comment-submit-btn-assignment:hover:not(:disabled) {
   background: #3b28cc;
-  transform: scale(1.05);
+  /* Scale removed */
 }
 
 .tl-comment-submit-btn-assignment:disabled {
@@ -2194,7 +2194,7 @@ input[type="checkbox"] {
 }
 
 .tl-comment-submit-btn-assignment:active:not(:disabled) {
-  transform: scale(0.95);
+  /* Scale removed */
 }
 
 /* Scrollbar Styling for Comments List */

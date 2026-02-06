@@ -4,7 +4,7 @@ import './DashboardOverview.css'
 import { SkeletonLoader } from '../common/SkeletonLoader'
 import { useAuth, useNetwork } from '../../contexts'
 import { withErrorBoundary } from '../common'
-import AnimatedTrendChart from './charts/AnimatedTrendChart'
+import ApprovalTrendChart from './charts/ApprovalTrendChart'
 import AnimatedPieChart from './charts/AnimatedPieChart'
 
 const DashboardOverview = ({ user, users }) => {
@@ -44,6 +44,7 @@ const DashboardOverview = ({ user, users }) => {
         const data = await res.json()
         if (!mounted) return
         if (data.success) {
+          console.log('📊 Dashboard Data Received:', data.summary); // DEBUG Log
           setSummary(data.summary)
         } else {
           setError(data.message || 'Failed to load dashboard data')
@@ -222,7 +223,7 @@ const DashboardOverview = ({ user, users }) => {
               <h3>File Approval Trends</h3>
             </div>
             <div className="chart-content">
-              <AnimatedTrendChart trends={summary.approvalTrends} loading={loading} />
+              <ApprovalTrendChart trends={summary.approvalTrends} loading={loading} />
             </div>
           </div>
 

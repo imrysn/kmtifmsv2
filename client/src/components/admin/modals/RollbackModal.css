@@ -1,0 +1,107 @@
+.rollback-modal {
+    width: 600px;
+    max-width: 90vw;
+    max-height: 80vh;
+    display: flex;
+    flex-direction: column;
+}
+
+.modal-title-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.modal-icon {
+    color: var(--primary-color);
+}
+
+.info-banner {
+    background-color: rgba(255, 193, 7, 0.1);
+    border: 1px solid rgba(255, 193, 7, 0.3);
+    color: #fbbf24;
+    padding: 10px;
+    border-radius: 6px;
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 0.9em;
+}
+
+.releases-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    overflow-y: auto;
+    max-height: 400px;
+    padding-right: 5px;
+}
+
+.release-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px;
+    background-color: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    transition: background-color 0.2s;
+}
+
+.release-item:hover {
+    background-color: var(--bg-hover);
+}
+
+.release-item.current {
+    border-color: var(--primary-color);
+    background-color: rgba(var(--primary-rgb), 0.05);
+}
+
+.release-info {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.release-tag {
+    font-weight: 600;
+    font-size: 1.1em;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.tag {
+    font-size: 0.7em;
+    padding: 2px 6px;
+    border-radius: 4px;
+    text-transform: uppercase;
+}
+
+.tag.prerelease {
+    background-color: #fbbf24;
+    color: #000;
+}
+
+.tag.current-tag {
+    background-color: var(--primary-color);
+    color: #fff;
+}
+
+.release-date {
+    font-size: 0.85em;
+    color: var(--text-secondary);
+}
+
+.loading-spinner {
+    text-align: center;
+    padding: 20px;
+    color: var(--text-secondary);
+}
+
+.error-message {
+    color: #ef4444;
+    text-align: center;
+    padding: 10px;
+}
