@@ -8,13 +8,16 @@ try {
   contextBridge.exposeInMainWorld('electron', {
     // Dialog methods
     openDirectoryDialog: (options) => ipcRenderer.invoke('dialog:openDirectory', options),
-    
+
     // File operations - uses Windows default file associations
     openFileInApp: (filePath) => ipcRenderer.invoke('file:openInApp', filePath),
-    
+
+    // Open external links in default browser
+    openExternal: (url) => ipcRenderer.invoke('app:open-external', url),
+
     // Get default network projects path
     getNetworkProjectsPath: () => ipcRenderer.invoke('app:getNetworkProjectsPath'),
-    
+
     // Window flashing for notifications
     flashFrame: (shouldFlash) => ipcRenderer.send('window:flashFrame', shouldFlash)
   });

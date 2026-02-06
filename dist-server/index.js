@@ -34905,6 +34905,1716 @@ if (typeof Object.create === 'function') {
 
 /***/ }),
 
+/***/ 68850:
+/***/ ((__unused_webpack_module, exports) => {
+
+"use strict";
+
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.AddressError = void 0;
+class AddressError extends Error {
+    constructor(message, parseMessage) {
+        super(message);
+        this.name = 'AddressError';
+        this.parseMessage = parseMessage;
+    }
+}
+exports.AddressError = AddressError;
+//# sourceMappingURL=address-error.js.map
+
+/***/ }),
+
+/***/ 45864:
+/***/ ((__unused_webpack_module, exports) => {
+
+"use strict";
+
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.isInSubnet = isInSubnet;
+exports.isCorrect = isCorrect;
+exports.numberToPaddedHex = numberToPaddedHex;
+exports.stringToPaddedHex = stringToPaddedHex;
+exports.testBit = testBit;
+function isInSubnet(address) {
+    if (this.subnetMask < address.subnetMask) {
+        return false;
+    }
+    if (this.mask(address.subnetMask) === address.mask()) {
+        return true;
+    }
+    return false;
+}
+function isCorrect(defaultBits) {
+    return function () {
+        if (this.addressMinusSuffix !== this.correctForm()) {
+            return false;
+        }
+        if (this.subnetMask === defaultBits && !this.parsedSubnet) {
+            return true;
+        }
+        return this.parsedSubnet === String(this.subnetMask);
+    };
+}
+function numberToPaddedHex(number) {
+    return number.toString(16).padStart(2, '0');
+}
+function stringToPaddedHex(numberString) {
+    return numberToPaddedHex(parseInt(numberString, 10));
+}
+/**
+ * @param binaryValue Binary representation of a value (e.g. `10`)
+ * @param position Byte position, where 0 is the least significant bit
+ */
+function testBit(binaryValue, position) {
+    const { length } = binaryValue;
+    if (position > length) {
+        return false;
+    }
+    const positionInString = length - position;
+    return binaryValue.substring(positionInString, positionInString + 1) === '1';
+}
+//# sourceMappingURL=common.js.map
+
+/***/ }),
+
+/***/ 79253:
+/***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
+
+"use strict";
+
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || function (mod) {
+    if (mod && mod.__esModule) return mod;
+    var result = {};
+    if (mod != null) for (var k in mod) if (k !== "default" && Object.prototype.hasOwnProperty.call(mod, k)) __createBinding(result, mod, k);
+    __setModuleDefault(result, mod);
+    return result;
+};
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.v6 = exports.AddressError = exports.Address6 = exports.Address4 = void 0;
+var ipv4_1 = __nccwpck_require__(17946);
+Object.defineProperty(exports, "Address4", ({ enumerable: true, get: function () { return ipv4_1.Address4; } }));
+var ipv6_1 = __nccwpck_require__(38096);
+Object.defineProperty(exports, "Address6", ({ enumerable: true, get: function () { return ipv6_1.Address6; } }));
+var address_error_1 = __nccwpck_require__(68850);
+Object.defineProperty(exports, "AddressError", ({ enumerable: true, get: function () { return address_error_1.AddressError; } }));
+const helpers = __importStar(__nccwpck_require__(20339));
+exports.v6 = { helpers };
+//# sourceMappingURL=ip-address.js.map
+
+/***/ }),
+
+/***/ 17946:
+/***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
+
+"use strict";
+
+/* eslint-disable no-param-reassign */
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || function (mod) {
+    if (mod && mod.__esModule) return mod;
+    var result = {};
+    if (mod != null) for (var k in mod) if (k !== "default" && Object.prototype.hasOwnProperty.call(mod, k)) __createBinding(result, mod, k);
+    __setModuleDefault(result, mod);
+    return result;
+};
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.Address4 = void 0;
+const common = __importStar(__nccwpck_require__(45864));
+const constants = __importStar(__nccwpck_require__(66437));
+const address_error_1 = __nccwpck_require__(68850);
+/**
+ * Represents an IPv4 address
+ * @class Address4
+ * @param {string} address - An IPv4 address string
+ */
+class Address4 {
+    constructor(address) {
+        this.groups = constants.GROUPS;
+        this.parsedAddress = [];
+        this.parsedSubnet = '';
+        this.subnet = '/32';
+        this.subnetMask = 32;
+        this.v4 = true;
+        /**
+         * Returns true if the address is correct, false otherwise
+         * @memberof Address4
+         * @instance
+         * @returns {Boolean}
+         */
+        this.isCorrect = common.isCorrect(constants.BITS);
+        /**
+         * Returns true if the given address is in the subnet of the current address
+         * @memberof Address4
+         * @instance
+         * @returns {boolean}
+         */
+        this.isInSubnet = common.isInSubnet;
+        this.address = address;
+        const subnet = constants.RE_SUBNET_STRING.exec(address);
+        if (subnet) {
+            this.parsedSubnet = subnet[0].replace('/', '');
+            this.subnetMask = parseInt(this.parsedSubnet, 10);
+            this.subnet = `/${this.subnetMask}`;
+            if (this.subnetMask < 0 || this.subnetMask > constants.BITS) {
+                throw new address_error_1.AddressError('Invalid subnet mask.');
+            }
+            address = address.replace(constants.RE_SUBNET_STRING, '');
+        }
+        this.addressMinusSuffix = address;
+        this.parsedAddress = this.parse(address);
+    }
+    static isValid(address) {
+        try {
+            // eslint-disable-next-line no-new
+            new Address4(address);
+            return true;
+        }
+        catch (e) {
+            return false;
+        }
+    }
+    /*
+     * Parses a v4 address
+     */
+    parse(address) {
+        const groups = address.split('.');
+        if (!address.match(constants.RE_ADDRESS)) {
+            throw new address_error_1.AddressError('Invalid IPv4 address.');
+        }
+        return groups;
+    }
+    /**
+     * Returns the correct form of an address
+     * @memberof Address4
+     * @instance
+     * @returns {String}
+     */
+    correctForm() {
+        return this.parsedAddress.map((part) => parseInt(part, 10)).join('.');
+    }
+    /**
+     * Converts a hex string to an IPv4 address object
+     * @memberof Address4
+     * @static
+     * @param {string} hex - a hex string to convert
+     * @returns {Address4}
+     */
+    static fromHex(hex) {
+        const padded = hex.replace(/:/g, '').padStart(8, '0');
+        const groups = [];
+        let i;
+        for (i = 0; i < 8; i += 2) {
+            const h = padded.slice(i, i + 2);
+            groups.push(parseInt(h, 16));
+        }
+        return new Address4(groups.join('.'));
+    }
+    /**
+     * Converts an integer into a IPv4 address object
+     * @memberof Address4
+     * @static
+     * @param {integer} integer - a number to convert
+     * @returns {Address4}
+     */
+    static fromInteger(integer) {
+        return Address4.fromHex(integer.toString(16));
+    }
+    /**
+     * Return an address from in-addr.arpa form
+     * @memberof Address4
+     * @static
+     * @param {string} arpaFormAddress - an 'in-addr.arpa' form ipv4 address
+     * @returns {Adress4}
+     * @example
+     * var address = Address4.fromArpa(42.2.0.192.in-addr.arpa.)
+     * address.correctForm(); // '192.0.2.42'
+     */
+    static fromArpa(arpaFormAddress) {
+        // remove ending ".in-addr.arpa." or just "."
+        const leader = arpaFormAddress.replace(/(\.in-addr\.arpa)?\.$/, '');
+        const address = leader.split('.').reverse().join('.');
+        return new Address4(address);
+    }
+    /**
+     * Converts an IPv4 address object to a hex string
+     * @memberof Address4
+     * @instance
+     * @returns {String}
+     */
+    toHex() {
+        return this.parsedAddress.map((part) => common.stringToPaddedHex(part)).join(':');
+    }
+    /**
+     * Converts an IPv4 address object to an array of bytes
+     * @memberof Address4
+     * @instance
+     * @returns {Array}
+     */
+    toArray() {
+        return this.parsedAddress.map((part) => parseInt(part, 10));
+    }
+    /**
+     * Converts an IPv4 address object to an IPv6 address group
+     * @memberof Address4
+     * @instance
+     * @returns {String}
+     */
+    toGroup6() {
+        const output = [];
+        let i;
+        for (i = 0; i < constants.GROUPS; i += 2) {
+            output.push(`${common.stringToPaddedHex(this.parsedAddress[i])}${common.stringToPaddedHex(this.parsedAddress[i + 1])}`);
+        }
+        return output.join(':');
+    }
+    /**
+     * Returns the address as a `bigint`
+     * @memberof Address4
+     * @instance
+     * @returns {bigint}
+     */
+    bigInt() {
+        return BigInt(`0x${this.parsedAddress.map((n) => common.stringToPaddedHex(n)).join('')}`);
+    }
+    /**
+     * Helper function getting start address.
+     * @memberof Address4
+     * @instance
+     * @returns {bigint}
+     */
+    _startAddress() {
+        return BigInt(`0b${this.mask() + '0'.repeat(constants.BITS - this.subnetMask)}`);
+    }
+    /**
+     * The first address in the range given by this address' subnet.
+     * Often referred to as the Network Address.
+     * @memberof Address4
+     * @instance
+     * @returns {Address4}
+     */
+    startAddress() {
+        return Address4.fromBigInt(this._startAddress());
+    }
+    /**
+     * The first host address in the range given by this address's subnet ie
+     * the first address after the Network Address
+     * @memberof Address4
+     * @instance
+     * @returns {Address4}
+     */
+    startAddressExclusive() {
+        const adjust = BigInt('1');
+        return Address4.fromBigInt(this._startAddress() + adjust);
+    }
+    /**
+     * Helper function getting end address.
+     * @memberof Address4
+     * @instance
+     * @returns {bigint}
+     */
+    _endAddress() {
+        return BigInt(`0b${this.mask() + '1'.repeat(constants.BITS - this.subnetMask)}`);
+    }
+    /**
+     * The last address in the range given by this address' subnet
+     * Often referred to as the Broadcast
+     * @memberof Address4
+     * @instance
+     * @returns {Address4}
+     */
+    endAddress() {
+        return Address4.fromBigInt(this._endAddress());
+    }
+    /**
+     * The last host address in the range given by this address's subnet ie
+     * the last address prior to the Broadcast Address
+     * @memberof Address4
+     * @instance
+     * @returns {Address4}
+     */
+    endAddressExclusive() {
+        const adjust = BigInt('1');
+        return Address4.fromBigInt(this._endAddress() - adjust);
+    }
+    /**
+     * Converts a BigInt to a v4 address object
+     * @memberof Address4
+     * @static
+     * @param {bigint} bigInt - a BigInt to convert
+     * @returns {Address4}
+     */
+    static fromBigInt(bigInt) {
+        return Address4.fromHex(bigInt.toString(16));
+    }
+    /**
+     * Returns the first n bits of the address, defaulting to the
+     * subnet mask
+     * @memberof Address4
+     * @instance
+     * @returns {String}
+     */
+    mask(mask) {
+        if (mask === undefined) {
+            mask = this.subnetMask;
+        }
+        return this.getBitsBase2(0, mask);
+    }
+    /**
+     * Returns the bits in the given range as a base-2 string
+     * @memberof Address4
+     * @instance
+     * @returns {string}
+     */
+    getBitsBase2(start, end) {
+        return this.binaryZeroPad().slice(start, end);
+    }
+    /**
+     * Return the reversed ip6.arpa form of the address
+     * @memberof Address4
+     * @param {Object} options
+     * @param {boolean} options.omitSuffix - omit the "in-addr.arpa" suffix
+     * @instance
+     * @returns {String}
+     */
+    reverseForm(options) {
+        if (!options) {
+            options = {};
+        }
+        const reversed = this.correctForm().split('.').reverse().join('.');
+        if (options.omitSuffix) {
+            return reversed;
+        }
+        return `${reversed}.in-addr.arpa.`;
+    }
+    /**
+     * Returns true if the given address is a multicast address
+     * @memberof Address4
+     * @instance
+     * @returns {boolean}
+     */
+    isMulticast() {
+        return this.isInSubnet(new Address4('224.0.0.0/4'));
+    }
+    /**
+     * Returns a zero-padded base-2 string representation of the address
+     * @memberof Address4
+     * @instance
+     * @returns {string}
+     */
+    binaryZeroPad() {
+        return this.bigInt().toString(2).padStart(constants.BITS, '0');
+    }
+    /**
+     * Groups an IPv4 address for inclusion at the end of an IPv6 address
+     * @returns {String}
+     */
+    groupForV6() {
+        const segments = this.parsedAddress;
+        return this.address.replace(constants.RE_ADDRESS, `<span class="hover-group group-v4 group-6">${segments
+            .slice(0, 2)
+            .join('.')}</span>.<span class="hover-group group-v4 group-7">${segments
+            .slice(2, 4)
+            .join('.')}</span>`);
+    }
+}
+exports.Address4 = Address4;
+//# sourceMappingURL=ipv4.js.map
+
+/***/ }),
+
+/***/ 38096:
+/***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
+
+"use strict";
+
+/* eslint-disable prefer-destructuring */
+/* eslint-disable no-param-reassign */
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || function (mod) {
+    if (mod && mod.__esModule) return mod;
+    var result = {};
+    if (mod != null) for (var k in mod) if (k !== "default" && Object.prototype.hasOwnProperty.call(mod, k)) __createBinding(result, mod, k);
+    __setModuleDefault(result, mod);
+    return result;
+};
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.Address6 = void 0;
+const common = __importStar(__nccwpck_require__(45864));
+const constants4 = __importStar(__nccwpck_require__(66437));
+const constants6 = __importStar(__nccwpck_require__(52899));
+const helpers = __importStar(__nccwpck_require__(20339));
+const ipv4_1 = __nccwpck_require__(17946);
+const regular_expressions_1 = __nccwpck_require__(72016);
+const address_error_1 = __nccwpck_require__(68850);
+const common_1 = __nccwpck_require__(45864);
+function assert(condition) {
+    if (!condition) {
+        throw new Error('Assertion failed.');
+    }
+}
+function addCommas(number) {
+    const r = /(\d+)(\d{3})/;
+    while (r.test(number)) {
+        number = number.replace(r, '$1,$2');
+    }
+    return number;
+}
+function spanLeadingZeroes4(n) {
+    n = n.replace(/^(0{1,})([1-9]+)$/, '<span class="parse-error">$1</span>$2');
+    n = n.replace(/^(0{1,})(0)$/, '<span class="parse-error">$1</span>$2');
+    return n;
+}
+/*
+ * A helper function to compact an array
+ */
+function compact(address, slice) {
+    const s1 = [];
+    const s2 = [];
+    let i;
+    for (i = 0; i < address.length; i++) {
+        if (i < slice[0]) {
+            s1.push(address[i]);
+        }
+        else if (i > slice[1]) {
+            s2.push(address[i]);
+        }
+    }
+    return s1.concat(['compact']).concat(s2);
+}
+function paddedHex(octet) {
+    return parseInt(octet, 16).toString(16).padStart(4, '0');
+}
+function unsignByte(b) {
+    // eslint-disable-next-line no-bitwise
+    return b & 0xff;
+}
+/**
+ * Represents an IPv6 address
+ * @class Address6
+ * @param {string} address - An IPv6 address string
+ * @param {number} [groups=8] - How many octets to parse
+ * @example
+ * var address = new Address6('2001::/32');
+ */
+class Address6 {
+    constructor(address, optionalGroups) {
+        this.addressMinusSuffix = '';
+        this.parsedSubnet = '';
+        this.subnet = '/128';
+        this.subnetMask = 128;
+        this.v4 = false;
+        this.zone = '';
+        // #region Attributes
+        /**
+         * Returns true if the given address is in the subnet of the current address
+         * @memberof Address6
+         * @instance
+         * @returns {boolean}
+         */
+        this.isInSubnet = common.isInSubnet;
+        /**
+         * Returns true if the address is correct, false otherwise
+         * @memberof Address6
+         * @instance
+         * @returns {boolean}
+         */
+        this.isCorrect = common.isCorrect(constants6.BITS);
+        if (optionalGroups === undefined) {
+            this.groups = constants6.GROUPS;
+        }
+        else {
+            this.groups = optionalGroups;
+        }
+        this.address = address;
+        const subnet = constants6.RE_SUBNET_STRING.exec(address);
+        if (subnet) {
+            this.parsedSubnet = subnet[0].replace('/', '');
+            this.subnetMask = parseInt(this.parsedSubnet, 10);
+            this.subnet = `/${this.subnetMask}`;
+            if (Number.isNaN(this.subnetMask) ||
+                this.subnetMask < 0 ||
+                this.subnetMask > constants6.BITS) {
+                throw new address_error_1.AddressError('Invalid subnet mask.');
+            }
+            address = address.replace(constants6.RE_SUBNET_STRING, '');
+        }
+        else if (/\//.test(address)) {
+            throw new address_error_1.AddressError('Invalid subnet mask.');
+        }
+        const zone = constants6.RE_ZONE_STRING.exec(address);
+        if (zone) {
+            this.zone = zone[0];
+            address = address.replace(constants6.RE_ZONE_STRING, '');
+        }
+        this.addressMinusSuffix = address;
+        this.parsedAddress = this.parse(this.addressMinusSuffix);
+    }
+    static isValid(address) {
+        try {
+            // eslint-disable-next-line no-new
+            new Address6(address);
+            return true;
+        }
+        catch (e) {
+            return false;
+        }
+    }
+    /**
+     * Convert a BigInt to a v6 address object
+     * @memberof Address6
+     * @static
+     * @param {bigint} bigInt - a BigInt to convert
+     * @returns {Address6}
+     * @example
+     * var bigInt = BigInt('1000000000000');
+     * var address = Address6.fromBigInt(bigInt);
+     * address.correctForm(); // '::e8:d4a5:1000'
+     */
+    static fromBigInt(bigInt) {
+        const hex = bigInt.toString(16).padStart(32, '0');
+        const groups = [];
+        let i;
+        for (i = 0; i < constants6.GROUPS; i++) {
+            groups.push(hex.slice(i * 4, (i + 1) * 4));
+        }
+        return new Address6(groups.join(':'));
+    }
+    /**
+     * Convert a URL (with optional port number) to an address object
+     * @memberof Address6
+     * @static
+     * @param {string} url - a URL with optional port number
+     * @example
+     * var addressAndPort = Address6.fromURL('http://[ffff::]:8080/foo/');
+     * addressAndPort.address.correctForm(); // 'ffff::'
+     * addressAndPort.port; // 8080
+     */
+    static fromURL(url) {
+        let host;
+        let port = null;
+        let result;
+        // If we have brackets parse them and find a port
+        if (url.indexOf('[') !== -1 && url.indexOf(']:') !== -1) {
+            result = constants6.RE_URL_WITH_PORT.exec(url);
+            if (result === null) {
+                return {
+                    error: 'failed to parse address with port',
+                    address: null,
+                    port: null,
+                };
+            }
+            host = result[1];
+            port = result[2];
+            // If there's a URL extract the address
+        }
+        else if (url.indexOf('/') !== -1) {
+            // Remove the protocol prefix
+            url = url.replace(/^[a-z0-9]+:\/\//, '');
+            // Parse the address
+            result = constants6.RE_URL.exec(url);
+            if (result === null) {
+                return {
+                    error: 'failed to parse address from URL',
+                    address: null,
+                    port: null,
+                };
+            }
+            host = result[1];
+            // Otherwise just assign the URL to the host and let the library parse it
+        }
+        else {
+            host = url;
+        }
+        // If there's a port convert it to an integer
+        if (port) {
+            port = parseInt(port, 10);
+            // squelch out of range ports
+            if (port < 0 || port > 65536) {
+                port = null;
+            }
+        }
+        else {
+            // Standardize `undefined` to `null`
+            port = null;
+        }
+        return {
+            address: new Address6(host),
+            port,
+        };
+    }
+    /**
+     * Create an IPv6-mapped address given an IPv4 address
+     * @memberof Address6
+     * @static
+     * @param {string} address - An IPv4 address string
+     * @returns {Address6}
+     * @example
+     * var address = Address6.fromAddress4('192.168.0.1');
+     * address.correctForm(); // '::ffff:c0a8:1'
+     * address.to4in6(); // '::ffff:192.168.0.1'
+     */
+    static fromAddress4(address) {
+        const address4 = new ipv4_1.Address4(address);
+        const mask6 = constants6.BITS - (constants4.BITS - address4.subnetMask);
+        return new Address6(`::ffff:${address4.correctForm()}/${mask6}`);
+    }
+    /**
+     * Return an address from ip6.arpa form
+     * @memberof Address6
+     * @static
+     * @param {string} arpaFormAddress - an 'ip6.arpa' form address
+     * @returns {Adress6}
+     * @example
+     * var address = Address6.fromArpa(e.f.f.f.3.c.2.6.f.f.f.e.6.6.8.e.1.0.6.7.9.4.e.c.0.0.0.0.1.0.0.2.ip6.arpa.)
+     * address.correctForm(); // '2001:0:ce49:7601:e866:efff:62c3:fffe'
+     */
+    static fromArpa(arpaFormAddress) {
+        // remove ending ".ip6.arpa." or just "."
+        let address = arpaFormAddress.replace(/(\.ip6\.arpa)?\.$/, '');
+        const semicolonAmount = 7;
+        // correct ip6.arpa form with ending removed will be 63 characters
+        if (address.length !== 63) {
+            throw new address_error_1.AddressError("Invalid 'ip6.arpa' form.");
+        }
+        const parts = address.split('.').reverse();
+        for (let i = semicolonAmount; i > 0; i--) {
+            const insertIndex = i * 4;
+            parts.splice(insertIndex, 0, ':');
+        }
+        address = parts.join('');
+        return new Address6(address);
+    }
+    /**
+     * Return the Microsoft UNC transcription of the address
+     * @memberof Address6
+     * @instance
+     * @returns {String} the Microsoft UNC transcription of the address
+     */
+    microsoftTranscription() {
+        return `${this.correctForm().replace(/:/g, '-')}.ipv6-literal.net`;
+    }
+    /**
+     * Return the first n bits of the address, defaulting to the subnet mask
+     * @memberof Address6
+     * @instance
+     * @param {number} [mask=subnet] - the number of bits to mask
+     * @returns {String} the first n bits of the address as a string
+     */
+    mask(mask = this.subnetMask) {
+        return this.getBitsBase2(0, mask);
+    }
+    /**
+     * Return the number of possible subnets of a given size in the address
+     * @memberof Address6
+     * @instance
+     * @param {number} [subnetSize=128] - the subnet size
+     * @returns {String}
+     */
+    // TODO: probably useful to have a numeric version of this too
+    possibleSubnets(subnetSize = 128) {
+        const availableBits = constants6.BITS - this.subnetMask;
+        const subnetBits = Math.abs(subnetSize - constants6.BITS);
+        const subnetPowers = availableBits - subnetBits;
+        if (subnetPowers < 0) {
+            return '0';
+        }
+        return addCommas((BigInt('2') ** BigInt(subnetPowers)).toString(10));
+    }
+    /**
+     * Helper function getting start address.
+     * @memberof Address6
+     * @instance
+     * @returns {bigint}
+     */
+    _startAddress() {
+        return BigInt(`0b${this.mask() + '0'.repeat(constants6.BITS - this.subnetMask)}`);
+    }
+    /**
+     * The first address in the range given by this address' subnet
+     * Often referred to as the Network Address.
+     * @memberof Address6
+     * @instance
+     * @returns {Address6}
+     */
+    startAddress() {
+        return Address6.fromBigInt(this._startAddress());
+    }
+    /**
+     * The first host address in the range given by this address's subnet ie
+     * the first address after the Network Address
+     * @memberof Address6
+     * @instance
+     * @returns {Address6}
+     */
+    startAddressExclusive() {
+        const adjust = BigInt('1');
+        return Address6.fromBigInt(this._startAddress() + adjust);
+    }
+    /**
+     * Helper function getting end address.
+     * @memberof Address6
+     * @instance
+     * @returns {bigint}
+     */
+    _endAddress() {
+        return BigInt(`0b${this.mask() + '1'.repeat(constants6.BITS - this.subnetMask)}`);
+    }
+    /**
+     * The last address in the range given by this address' subnet
+     * Often referred to as the Broadcast
+     * @memberof Address6
+     * @instance
+     * @returns {Address6}
+     */
+    endAddress() {
+        return Address6.fromBigInt(this._endAddress());
+    }
+    /**
+     * The last host address in the range given by this address's subnet ie
+     * the last address prior to the Broadcast Address
+     * @memberof Address6
+     * @instance
+     * @returns {Address6}
+     */
+    endAddressExclusive() {
+        const adjust = BigInt('1');
+        return Address6.fromBigInt(this._endAddress() - adjust);
+    }
+    /**
+     * Return the scope of the address
+     * @memberof Address6
+     * @instance
+     * @returns {String}
+     */
+    getScope() {
+        let scope = constants6.SCOPES[parseInt(this.getBits(12, 16).toString(10), 10)];
+        if (this.getType() === 'Global unicast' && scope !== 'Link local') {
+            scope = 'Global';
+        }
+        return scope || 'Unknown';
+    }
+    /**
+     * Return the type of the address
+     * @memberof Address6
+     * @instance
+     * @returns {String}
+     */
+    getType() {
+        for (const subnet of Object.keys(constants6.TYPES)) {
+            if (this.isInSubnet(new Address6(subnet))) {
+                return constants6.TYPES[subnet];
+            }
+        }
+        return 'Global unicast';
+    }
+    /**
+     * Return the bits in the given range as a BigInt
+     * @memberof Address6
+     * @instance
+     * @returns {bigint}
+     */
+    getBits(start, end) {
+        return BigInt(`0b${this.getBitsBase2(start, end)}`);
+    }
+    /**
+     * Return the bits in the given range as a base-2 string
+     * @memberof Address6
+     * @instance
+     * @returns {String}
+     */
+    getBitsBase2(start, end) {
+        return this.binaryZeroPad().slice(start, end);
+    }
+    /**
+     * Return the bits in the given range as a base-16 string
+     * @memberof Address6
+     * @instance
+     * @returns {String}
+     */
+    getBitsBase16(start, end) {
+        const length = end - start;
+        if (length % 4 !== 0) {
+            throw new Error('Length of bits to retrieve must be divisible by four');
+        }
+        return this.getBits(start, end)
+            .toString(16)
+            .padStart(length / 4, '0');
+    }
+    /**
+     * Return the bits that are set past the subnet mask length
+     * @memberof Address6
+     * @instance
+     * @returns {String}
+     */
+    getBitsPastSubnet() {
+        return this.getBitsBase2(this.subnetMask, constants6.BITS);
+    }
+    /**
+     * Return the reversed ip6.arpa form of the address
+     * @memberof Address6
+     * @param {Object} options
+     * @param {boolean} options.omitSuffix - omit the "ip6.arpa" suffix
+     * @instance
+     * @returns {String}
+     */
+    reverseForm(options) {
+        if (!options) {
+            options = {};
+        }
+        const characters = Math.floor(this.subnetMask / 4);
+        const reversed = this.canonicalForm()
+            .replace(/:/g, '')
+            .split('')
+            .slice(0, characters)
+            .reverse()
+            .join('.');
+        if (characters > 0) {
+            if (options.omitSuffix) {
+                return reversed;
+            }
+            return `${reversed}.ip6.arpa.`;
+        }
+        if (options.omitSuffix) {
+            return '';
+        }
+        return 'ip6.arpa.';
+    }
+    /**
+     * Return the correct form of the address
+     * @memberof Address6
+     * @instance
+     * @returns {String}
+     */
+    correctForm() {
+        let i;
+        let groups = [];
+        let zeroCounter = 0;
+        const zeroes = [];
+        for (i = 0; i < this.parsedAddress.length; i++) {
+            const value = parseInt(this.parsedAddress[i], 16);
+            if (value === 0) {
+                zeroCounter++;
+            }
+            if (value !== 0 && zeroCounter > 0) {
+                if (zeroCounter > 1) {
+                    zeroes.push([i - zeroCounter, i - 1]);
+                }
+                zeroCounter = 0;
+            }
+        }
+        // Do we end with a string of zeroes?
+        if (zeroCounter > 1) {
+            zeroes.push([this.parsedAddress.length - zeroCounter, this.parsedAddress.length - 1]);
+        }
+        const zeroLengths = zeroes.map((n) => n[1] - n[0] + 1);
+        if (zeroes.length > 0) {
+            const index = zeroLengths.indexOf(Math.max(...zeroLengths));
+            groups = compact(this.parsedAddress, zeroes[index]);
+        }
+        else {
+            groups = this.parsedAddress;
+        }
+        for (i = 0; i < groups.length; i++) {
+            if (groups[i] !== 'compact') {
+                groups[i] = parseInt(groups[i], 16).toString(16);
+            }
+        }
+        let correct = groups.join(':');
+        correct = correct.replace(/^compact$/, '::');
+        correct = correct.replace(/(^compact)|(compact$)/, ':');
+        correct = correct.replace(/compact/, '');
+        return correct;
+    }
+    /**
+     * Return a zero-padded base-2 string representation of the address
+     * @memberof Address6
+     * @instance
+     * @returns {String}
+     * @example
+     * var address = new Address6('2001:4860:4001:803::1011');
+     * address.binaryZeroPad();
+     * // '0010000000000001010010000110000001000000000000010000100000000011
+     * //  0000000000000000000000000000000000000000000000000001000000010001'
+     */
+    binaryZeroPad() {
+        return this.bigInt().toString(2).padStart(constants6.BITS, '0');
+    }
+    // TODO: Improve the semantics of this helper function
+    parse4in6(address) {
+        const groups = address.split(':');
+        const lastGroup = groups.slice(-1)[0];
+        const address4 = lastGroup.match(constants4.RE_ADDRESS);
+        if (address4) {
+            this.parsedAddress4 = address4[0];
+            this.address4 = new ipv4_1.Address4(this.parsedAddress4);
+            for (let i = 0; i < this.address4.groups; i++) {
+                if (/^0[0-9]+/.test(this.address4.parsedAddress[i])) {
+                    throw new address_error_1.AddressError("IPv4 addresses can't have leading zeroes.", address.replace(constants4.RE_ADDRESS, this.address4.parsedAddress.map(spanLeadingZeroes4).join('.')));
+                }
+            }
+            this.v4 = true;
+            groups[groups.length - 1] = this.address4.toGroup6();
+            address = groups.join(':');
+        }
+        return address;
+    }
+    // TODO: Make private?
+    parse(address) {
+        address = this.parse4in6(address);
+        const badCharacters = address.match(constants6.RE_BAD_CHARACTERS);
+        if (badCharacters) {
+            throw new address_error_1.AddressError(`Bad character${badCharacters.length > 1 ? 's' : ''} detected in address: ${badCharacters.join('')}`, address.replace(constants6.RE_BAD_CHARACTERS, '<span class="parse-error">$1</span>'));
+        }
+        const badAddress = address.match(constants6.RE_BAD_ADDRESS);
+        if (badAddress) {
+            throw new address_error_1.AddressError(`Address failed regex: ${badAddress.join('')}`, address.replace(constants6.RE_BAD_ADDRESS, '<span class="parse-error">$1</span>'));
+        }
+        let groups = [];
+        const halves = address.split('::');
+        if (halves.length === 2) {
+            let first = halves[0].split(':');
+            let last = halves[1].split(':');
+            if (first.length === 1 && first[0] === '') {
+                first = [];
+            }
+            if (last.length === 1 && last[0] === '') {
+                last = [];
+            }
+            const remaining = this.groups - (first.length + last.length);
+            if (!remaining) {
+                throw new address_error_1.AddressError('Error parsing groups');
+            }
+            this.elidedGroups = remaining;
+            this.elisionBegin = first.length;
+            this.elisionEnd = first.length + this.elidedGroups;
+            groups = groups.concat(first);
+            for (let i = 0; i < remaining; i++) {
+                groups.push('0');
+            }
+            groups = groups.concat(last);
+        }
+        else if (halves.length === 1) {
+            groups = address.split(':');
+            this.elidedGroups = 0;
+        }
+        else {
+            throw new address_error_1.AddressError('Too many :: groups found');
+        }
+        groups = groups.map((group) => parseInt(group, 16).toString(16));
+        if (groups.length !== this.groups) {
+            throw new address_error_1.AddressError('Incorrect number of groups found');
+        }
+        return groups;
+    }
+    /**
+     * Return the canonical form of the address
+     * @memberof Address6
+     * @instance
+     * @returns {String}
+     */
+    canonicalForm() {
+        return this.parsedAddress.map(paddedHex).join(':');
+    }
+    /**
+     * Return the decimal form of the address
+     * @memberof Address6
+     * @instance
+     * @returns {String}
+     */
+    decimal() {
+        return this.parsedAddress.map((n) => parseInt(n, 16).toString(10).padStart(5, '0')).join(':');
+    }
+    /**
+     * Return the address as a BigInt
+     * @memberof Address6
+     * @instance
+     * @returns {bigint}
+     */
+    bigInt() {
+        return BigInt(`0x${this.parsedAddress.map(paddedHex).join('')}`);
+    }
+    /**
+     * Return the last two groups of this address as an IPv4 address string
+     * @memberof Address6
+     * @instance
+     * @returns {Address4}
+     * @example
+     * var address = new Address6('2001:4860:4001::1825:bf11');
+     * address.to4().correctForm(); // '24.37.191.17'
+     */
+    to4() {
+        const binary = this.binaryZeroPad().split('');
+        return ipv4_1.Address4.fromHex(BigInt(`0b${binary.slice(96, 128).join('')}`).toString(16));
+    }
+    /**
+     * Return the v4-in-v6 form of the address
+     * @memberof Address6
+     * @instance
+     * @returns {String}
+     */
+    to4in6() {
+        const address4 = this.to4();
+        const address6 = new Address6(this.parsedAddress.slice(0, 6).join(':'), 6);
+        const correct = address6.correctForm();
+        let infix = '';
+        if (!/:$/.test(correct)) {
+            infix = ':';
+        }
+        return correct + infix + address4.address;
+    }
+    /**
+     * Return an object containing the Teredo properties of the address
+     * @memberof Address6
+     * @instance
+     * @returns {Object}
+     */
+    inspectTeredo() {
+        /*
+        - Bits 0 to 31 are set to the Teredo prefix (normally 2001:0000::/32).
+        - Bits 32 to 63 embed the primary IPv4 address of the Teredo server that
+          is used.
+        - Bits 64 to 79 can be used to define some flags. Currently only the
+          higher order bit is used; it is set to 1 if the Teredo client is
+          located behind a cone NAT, 0 otherwise. For Microsoft's Windows Vista
+          and Windows Server 2008 implementations, more bits are used. In those
+          implementations, the format for these 16 bits is "CRAAAAUG AAAAAAAA",
+          where "C" remains the "Cone" flag. The "R" bit is reserved for future
+          use. The "U" bit is for the Universal/Local flag (set to 0). The "G" bit
+          is Individual/Group flag (set to 0). The A bits are set to a 12-bit
+          randomly generated number chosen by the Teredo client to introduce
+          additional protection for the Teredo node against IPv6-based scanning
+          attacks.
+        - Bits 80 to 95 contains the obfuscated UDP port number. This is the
+          port number that is mapped by the NAT to the Teredo client with all
+          bits inverted.
+        - Bits 96 to 127 contains the obfuscated IPv4 address. This is the
+          public IPv4 address of the NAT with all bits inverted.
+        */
+        const prefix = this.getBitsBase16(0, 32);
+        const bitsForUdpPort = this.getBits(80, 96);
+        // eslint-disable-next-line no-bitwise
+        const udpPort = (bitsForUdpPort ^ BigInt('0xffff')).toString();
+        const server4 = ipv4_1.Address4.fromHex(this.getBitsBase16(32, 64));
+        const bitsForClient4 = this.getBits(96, 128);
+        // eslint-disable-next-line no-bitwise
+        const client4 = ipv4_1.Address4.fromHex((bitsForClient4 ^ BigInt('0xffffffff')).toString(16));
+        const flagsBase2 = this.getBitsBase2(64, 80);
+        const coneNat = (0, common_1.testBit)(flagsBase2, 15);
+        const reserved = (0, common_1.testBit)(flagsBase2, 14);
+        const groupIndividual = (0, common_1.testBit)(flagsBase2, 8);
+        const universalLocal = (0, common_1.testBit)(flagsBase2, 9);
+        const nonce = BigInt(`0b${flagsBase2.slice(2, 6) + flagsBase2.slice(8, 16)}`).toString(10);
+        return {
+            prefix: `${prefix.slice(0, 4)}:${prefix.slice(4, 8)}`,
+            server4: server4.address,
+            client4: client4.address,
+            flags: flagsBase2,
+            coneNat,
+            microsoft: {
+                reserved,
+                universalLocal,
+                groupIndividual,
+                nonce,
+            },
+            udpPort,
+        };
+    }
+    /**
+     * Return an object containing the 6to4 properties of the address
+     * @memberof Address6
+     * @instance
+     * @returns {Object}
+     */
+    inspect6to4() {
+        /*
+        - Bits 0 to 15 are set to the 6to4 prefix (2002::/16).
+        - Bits 16 to 48 embed the IPv4 address of the 6to4 gateway that is used.
+        */
+        const prefix = this.getBitsBase16(0, 16);
+        const gateway = ipv4_1.Address4.fromHex(this.getBitsBase16(16, 48));
+        return {
+            prefix: prefix.slice(0, 4),
+            gateway: gateway.address,
+        };
+    }
+    /**
+     * Return a v6 6to4 address from a v6 v4inv6 address
+     * @memberof Address6
+     * @instance
+     * @returns {Address6}
+     */
+    to6to4() {
+        if (!this.is4()) {
+            return null;
+        }
+        const addr6to4 = [
+            '2002',
+            this.getBitsBase16(96, 112),
+            this.getBitsBase16(112, 128),
+            '',
+            '/16',
+        ].join(':');
+        return new Address6(addr6to4);
+    }
+    /**
+     * Return a byte array
+     * @memberof Address6
+     * @instance
+     * @returns {Array}
+     */
+    toByteArray() {
+        const valueWithoutPadding = this.bigInt().toString(16);
+        const leadingPad = '0'.repeat(valueWithoutPadding.length % 2);
+        const value = `${leadingPad}${valueWithoutPadding}`;
+        const bytes = [];
+        for (let i = 0, length = value.length; i < length; i += 2) {
+            bytes.push(parseInt(value.substring(i, i + 2), 16));
+        }
+        return bytes;
+    }
+    /**
+     * Return an unsigned byte array
+     * @memberof Address6
+     * @instance
+     * @returns {Array}
+     */
+    toUnsignedByteArray() {
+        return this.toByteArray().map(unsignByte);
+    }
+    /**
+     * Convert a byte array to an Address6 object
+     * @memberof Address6
+     * @static
+     * @returns {Address6}
+     */
+    static fromByteArray(bytes) {
+        return this.fromUnsignedByteArray(bytes.map(unsignByte));
+    }
+    /**
+     * Convert an unsigned byte array to an Address6 object
+     * @memberof Address6
+     * @static
+     * @returns {Address6}
+     */
+    static fromUnsignedByteArray(bytes) {
+        const BYTE_MAX = BigInt('256');
+        let result = BigInt('0');
+        let multiplier = BigInt('1');
+        for (let i = bytes.length - 1; i >= 0; i--) {
+            result += multiplier * BigInt(bytes[i].toString(10));
+            multiplier *= BYTE_MAX;
+        }
+        return Address6.fromBigInt(result);
+    }
+    /**
+     * Returns true if the address is in the canonical form, false otherwise
+     * @memberof Address6
+     * @instance
+     * @returns {boolean}
+     */
+    isCanonical() {
+        return this.addressMinusSuffix === this.canonicalForm();
+    }
+    /**
+     * Returns true if the address is a link local address, false otherwise
+     * @memberof Address6
+     * @instance
+     * @returns {boolean}
+     */
+    isLinkLocal() {
+        // Zeroes are required, i.e. we can't check isInSubnet with 'fe80::/10'
+        if (this.getBitsBase2(0, 64) ===
+            '1111111010000000000000000000000000000000000000000000000000000000') {
+            return true;
+        }
+        return false;
+    }
+    /**
+     * Returns true if the address is a multicast address, false otherwise
+     * @memberof Address6
+     * @instance
+     * @returns {boolean}
+     */
+    isMulticast() {
+        return this.getType() === 'Multicast';
+    }
+    /**
+     * Returns true if the address is a v4-in-v6 address, false otherwise
+     * @memberof Address6
+     * @instance
+     * @returns {boolean}
+     */
+    is4() {
+        return this.v4;
+    }
+    /**
+     * Returns true if the address is a Teredo address, false otherwise
+     * @memberof Address6
+     * @instance
+     * @returns {boolean}
+     */
+    isTeredo() {
+        return this.isInSubnet(new Address6('2001::/32'));
+    }
+    /**
+     * Returns true if the address is a 6to4 address, false otherwise
+     * @memberof Address6
+     * @instance
+     * @returns {boolean}
+     */
+    is6to4() {
+        return this.isInSubnet(new Address6('2002::/16'));
+    }
+    /**
+     * Returns true if the address is a loopback address, false otherwise
+     * @memberof Address6
+     * @instance
+     * @returns {boolean}
+     */
+    isLoopback() {
+        return this.getType() === 'Loopback';
+    }
+    // #endregion
+    // #region HTML
+    /**
+     * @returns {String} the address in link form with a default port of 80
+     */
+    href(optionalPort) {
+        if (optionalPort === undefined) {
+            optionalPort = '';
+        }
+        else {
+            optionalPort = `:${optionalPort}`;
+        }
+        return `http://[${this.correctForm()}]${optionalPort}/`;
+    }
+    /**
+     * @returns {String} a link suitable for conveying the address via a URL hash
+     */
+    link(options) {
+        if (!options) {
+            options = {};
+        }
+        if (options.className === undefined) {
+            options.className = '';
+        }
+        if (options.prefix === undefined) {
+            options.prefix = '/#address=';
+        }
+        if (options.v4 === undefined) {
+            options.v4 = false;
+        }
+        let formFunction = this.correctForm;
+        if (options.v4) {
+            formFunction = this.to4in6;
+        }
+        const form = formFunction.call(this);
+        if (options.className) {
+            return `<a href="${options.prefix}${form}" class="${options.className}">${form}</a>`;
+        }
+        return `<a href="${options.prefix}${form}">${form}</a>`;
+    }
+    /**
+     * Groups an address
+     * @returns {String}
+     */
+    group() {
+        if (this.elidedGroups === 0) {
+            // The simple case
+            return helpers.simpleGroup(this.address).join(':');
+        }
+        assert(typeof this.elidedGroups === 'number');
+        assert(typeof this.elisionBegin === 'number');
+        // The elided case
+        const output = [];
+        const [left, right] = this.address.split('::');
+        if (left.length) {
+            output.push(...helpers.simpleGroup(left));
+        }
+        else {
+            output.push('');
+        }
+        const classes = ['hover-group'];
+        for (let i = this.elisionBegin; i < this.elisionBegin + this.elidedGroups; i++) {
+            classes.push(`group-${i}`);
+        }
+        output.push(`<span class="${classes.join(' ')}"></span>`);
+        if (right.length) {
+            output.push(...helpers.simpleGroup(right, this.elisionEnd));
+        }
+        else {
+            output.push('');
+        }
+        if (this.is4()) {
+            assert(this.address4 instanceof ipv4_1.Address4);
+            output.pop();
+            output.push(this.address4.groupForV6());
+        }
+        return output.join(':');
+    }
+    // #endregion
+    // #region Regular expressions
+    /**
+     * Generate a regular expression string that can be used to find or validate
+     * all variations of this address
+     * @memberof Address6
+     * @instance
+     * @param {boolean} substringSearch
+     * @returns {string}
+     */
+    regularExpressionString(substringSearch = false) {
+        let output = [];
+        // TODO: revisit why this is necessary
+        const address6 = new Address6(this.correctForm());
+        if (address6.elidedGroups === 0) {
+            // The simple case
+            output.push((0, regular_expressions_1.simpleRegularExpression)(address6.parsedAddress));
+        }
+        else if (address6.elidedGroups === constants6.GROUPS) {
+            // A completely elided address
+            output.push((0, regular_expressions_1.possibleElisions)(constants6.GROUPS));
+        }
+        else {
+            // A partially elided address
+            const halves = address6.address.split('::');
+            if (halves[0].length) {
+                output.push((0, regular_expressions_1.simpleRegularExpression)(halves[0].split(':')));
+            }
+            assert(typeof address6.elidedGroups === 'number');
+            output.push((0, regular_expressions_1.possibleElisions)(address6.elidedGroups, halves[0].length !== 0, halves[1].length !== 0));
+            if (halves[1].length) {
+                output.push((0, regular_expressions_1.simpleRegularExpression)(halves[1].split(':')));
+            }
+            output = [output.join(':')];
+        }
+        if (!substringSearch) {
+            output = [
+                '(?=^|',
+                regular_expressions_1.ADDRESS_BOUNDARY,
+                '|[^\\w\\:])(',
+                ...output,
+                ')(?=[^\\w\\:]|',
+                regular_expressions_1.ADDRESS_BOUNDARY,
+                '|$)',
+            ];
+        }
+        return output.join('');
+    }
+    /**
+     * Generate a regular expression that can be used to find or validate all
+     * variations of this address.
+     * @memberof Address6
+     * @instance
+     * @param {boolean} substringSearch
+     * @returns {RegExp}
+     */
+    regularExpression(substringSearch = false) {
+        return new RegExp(this.regularExpressionString(substringSearch), 'i');
+    }
+}
+exports.Address6 = Address6;
+//# sourceMappingURL=ipv6.js.map
+
+/***/ }),
+
+/***/ 66437:
+/***/ ((__unused_webpack_module, exports) => {
+
+"use strict";
+
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.RE_SUBNET_STRING = exports.RE_ADDRESS = exports.GROUPS = exports.BITS = void 0;
+exports.BITS = 32;
+exports.GROUPS = 4;
+exports.RE_ADDRESS = /^(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/g;
+exports.RE_SUBNET_STRING = /\/\d{1,2}$/;
+//# sourceMappingURL=constants.js.map
+
+/***/ }),
+
+/***/ 52899:
+/***/ ((__unused_webpack_module, exports) => {
+
+"use strict";
+
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.RE_URL_WITH_PORT = exports.RE_URL = exports.RE_ZONE_STRING = exports.RE_SUBNET_STRING = exports.RE_BAD_ADDRESS = exports.RE_BAD_CHARACTERS = exports.TYPES = exports.SCOPES = exports.GROUPS = exports.BITS = void 0;
+exports.BITS = 128;
+exports.GROUPS = 8;
+/**
+ * Represents IPv6 address scopes
+ * @memberof Address6
+ * @static
+ */
+exports.SCOPES = {
+    0: 'Reserved',
+    1: 'Interface local',
+    2: 'Link local',
+    4: 'Admin local',
+    5: 'Site local',
+    8: 'Organization local',
+    14: 'Global',
+    15: 'Reserved',
+};
+/**
+ * Represents IPv6 address types
+ * @memberof Address6
+ * @static
+ */
+exports.TYPES = {
+    'ff01::1/128': 'Multicast (All nodes on this interface)',
+    'ff01::2/128': 'Multicast (All routers on this interface)',
+    'ff02::1/128': 'Multicast (All nodes on this link)',
+    'ff02::2/128': 'Multicast (All routers on this link)',
+    'ff05::2/128': 'Multicast (All routers in this site)',
+    'ff02::5/128': 'Multicast (OSPFv3 AllSPF routers)',
+    'ff02::6/128': 'Multicast (OSPFv3 AllDR routers)',
+    'ff02::9/128': 'Multicast (RIP routers)',
+    'ff02::a/128': 'Multicast (EIGRP routers)',
+    'ff02::d/128': 'Multicast (PIM routers)',
+    'ff02::16/128': 'Multicast (MLDv2 reports)',
+    'ff01::fb/128': 'Multicast (mDNSv6)',
+    'ff02::fb/128': 'Multicast (mDNSv6)',
+    'ff05::fb/128': 'Multicast (mDNSv6)',
+    'ff02::1:2/128': 'Multicast (All DHCP servers and relay agents on this link)',
+    'ff05::1:2/128': 'Multicast (All DHCP servers and relay agents in this site)',
+    'ff02::1:3/128': 'Multicast (All DHCP servers on this link)',
+    'ff05::1:3/128': 'Multicast (All DHCP servers in this site)',
+    '::/128': 'Unspecified',
+    '::1/128': 'Loopback',
+    'ff00::/8': 'Multicast',
+    'fe80::/10': 'Link-local unicast',
+};
+/**
+ * A regular expression that matches bad characters in an IPv6 address
+ * @memberof Address6
+ * @static
+ */
+exports.RE_BAD_CHARACTERS = /([^0-9a-f:/%])/gi;
+/**
+ * A regular expression that matches an incorrect IPv6 address
+ * @memberof Address6
+ * @static
+ */
+exports.RE_BAD_ADDRESS = /([0-9a-f]{5,}|:{3,}|[^:]:$|^:[^:]|\/$)/gi;
+/**
+ * A regular expression that matches an IPv6 subnet
+ * @memberof Address6
+ * @static
+ */
+exports.RE_SUBNET_STRING = /\/\d{1,3}(?=%|$)/;
+/**
+ * A regular expression that matches an IPv6 zone
+ * @memberof Address6
+ * @static
+ */
+exports.RE_ZONE_STRING = /%.*$/;
+exports.RE_URL = /^\[{0,1}([0-9a-f:]+)\]{0,1}/;
+exports.RE_URL_WITH_PORT = /\[([0-9a-f:]+)\]:([0-9]{1,5})/;
+//# sourceMappingURL=constants.js.map
+
+/***/ }),
+
+/***/ 20339:
+/***/ ((__unused_webpack_module, exports) => {
+
+"use strict";
+
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.spanAllZeroes = spanAllZeroes;
+exports.spanAll = spanAll;
+exports.spanLeadingZeroes = spanLeadingZeroes;
+exports.simpleGroup = simpleGroup;
+/**
+ * @returns {String} the string with all zeroes contained in a <span>
+ */
+function spanAllZeroes(s) {
+    return s.replace(/(0+)/g, '<span class="zero">$1</span>');
+}
+/**
+ * @returns {String} the string with each character contained in a <span>
+ */
+function spanAll(s, offset = 0) {
+    const letters = s.split('');
+    return letters
+        .map((n, i) => `<span class="digit value-${n} position-${i + offset}">${spanAllZeroes(n)}</span>`)
+        .join('');
+}
+function spanLeadingZeroesSimple(group) {
+    return group.replace(/^(0+)/, '<span class="zero">$1</span>');
+}
+/**
+ * @returns {String} the string with leading zeroes contained in a <span>
+ */
+function spanLeadingZeroes(address) {
+    const groups = address.split(':');
+    return groups.map((g) => spanLeadingZeroesSimple(g)).join(':');
+}
+/**
+ * Groups an address
+ * @returns {String} a grouped address
+ */
+function simpleGroup(addressString, offset = 0) {
+    const groups = addressString.split(':');
+    return groups.map((g, i) => {
+        if (/group-v4/.test(g)) {
+            return g;
+        }
+        return `<span class="hover-group group-${i + offset}">${spanLeadingZeroesSimple(g)}</span>`;
+    });
+}
+//# sourceMappingURL=helpers.js.map
+
+/***/ }),
+
+/***/ 72016:
+/***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
+
+"use strict";
+
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || function (mod) {
+    if (mod && mod.__esModule) return mod;
+    var result = {};
+    if (mod != null) for (var k in mod) if (k !== "default" && Object.prototype.hasOwnProperty.call(mod, k)) __createBinding(result, mod, k);
+    __setModuleDefault(result, mod);
+    return result;
+};
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.ADDRESS_BOUNDARY = void 0;
+exports.groupPossibilities = groupPossibilities;
+exports.padGroup = padGroup;
+exports.simpleRegularExpression = simpleRegularExpression;
+exports.possibleElisions = possibleElisions;
+const v6 = __importStar(__nccwpck_require__(52899));
+function groupPossibilities(possibilities) {
+    return `(${possibilities.join('|')})`;
+}
+function padGroup(group) {
+    if (group.length < 4) {
+        return `0{0,${4 - group.length}}${group}`;
+    }
+    return group;
+}
+exports.ADDRESS_BOUNDARY = '[^A-Fa-f0-9:]';
+function simpleRegularExpression(groups) {
+    const zeroIndexes = [];
+    groups.forEach((group, i) => {
+        const groupInteger = parseInt(group, 16);
+        if (groupInteger === 0) {
+            zeroIndexes.push(i);
+        }
+    });
+    // You can technically elide a single 0, this creates the regular expressions
+    // to match that eventuality
+    const possibilities = zeroIndexes.map((zeroIndex) => groups
+        .map((group, i) => {
+        if (i === zeroIndex) {
+            const elision = i === 0 || i === v6.GROUPS - 1 ? ':' : '';
+            return groupPossibilities([padGroup(group), elision]);
+        }
+        return padGroup(group);
+    })
+        .join(':'));
+    // The simplest case
+    possibilities.push(groups.map(padGroup).join(':'));
+    return groupPossibilities(possibilities);
+}
+function possibleElisions(elidedGroups, moreLeft, moreRight) {
+    const left = moreLeft ? '' : ':';
+    const right = moreRight ? '' : ':';
+    const possibilities = [];
+    // 1. elision of everything (::)
+    if (!moreLeft && !moreRight) {
+        possibilities.push('::');
+    }
+    // 2. complete elision of the middle
+    if (moreLeft && moreRight) {
+        possibilities.push('');
+    }
+    if ((moreRight && !moreLeft) || (!moreRight && moreLeft)) {
+        // 3. complete elision of one side
+        possibilities.push(':');
+    }
+    // 4. elision from the left side
+    possibilities.push(`${left}(:0{1,4}){1,${elidedGroups - 1}}`);
+    // 5. elision from the right side
+    possibilities.push(`(0{1,4}:){1,${elidedGroups - 1}}${right}`);
+    // 6. no elision
+    possibilities.push(`(0{1,4}:){${elidedGroups - 1}}0{1,4}`);
+    // 7. elision (including sloppy elision) from the middle
+    for (let groups = 1; groups < elidedGroups - 1; groups++) {
+        for (let position = 1; position < elidedGroups - groups; position++) {
+            possibilities.push(`(0{1,4}:){${position}}:(0{1,4}:){${elidedGroups - position - groups - 1}}0{1,4}`);
+        }
+    }
+    return groupPossibilities(possibilities);
+}
+//# sourceMappingURL=regular-expressions.js.map
+
+/***/ }),
+
 /***/ 60461:
 /***/ (function(module, __unused_webpack_exports, __nccwpck_require__) {
 
@@ -73618,6 +75328,7 @@ module.exports = {
 
 const express = __nccwpck_require__(85152);
 const cors = __nccwpck_require__(24085);
+const helmet = __nccwpck_require__(47432);
 const multer = __nccwpck_require__(98013);
 const path = __nccwpck_require__(16928);
 const fs = __nccwpck_require__(79896);
@@ -73678,15 +75389,33 @@ const storage = multer.diskStorage({
 // Create multer upload middleware with optimizations
 const upload = multer({
   storage: storage,
-  // Optimized limits for better performance
+  // Security limits to prevent DoS attacks
   limits: {
-    // No file size limit - set to undefined
+    fileSize: 500 * 1024 * 1024, // 500MB max file size
     files: 1 // Only one file at a time
   }
 });
 
 function setupMiddleware(app) {
-  // CORS configuration with UTF-8 support
+  // Security Headers with Helmet
+  app.use(helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        styleSrc: ["'self'", "'unsafe-inline'"], // Allow inline styles for React
+        scriptSrc: ["'self'", "'unsafe-inline'"], // Allow inline scripts for React
+        imgSrc: ["'self'", "data:", "blob:"],
+        connectSrc: ["'self'", "http://localhost:*", "http://192.168.*.*"], // Allow local network
+        fontSrc: ["'self'", "data:"],
+        objectSrc: ["'none'"],
+        mediaSrc: ["'self'"],
+        frameSrc: ["'none'"]
+      }
+    },
+    crossOriginEmbedderPolicy: false, // Disable for file uploads
+    crossOriginResourcePolicy: { policy: "cross-origin" } // Allow cross-origin for local network
+  }));
+
   // CORS configuration with UTF-8 support
   app.use(cors({
     origin: function (origin, callback) {
@@ -73778,6 +75507,314 @@ module.exports = {
   uploadsDir,
   moveToUserFolder: moveToUserFolderAsync  // FIXED: Now exports async version
 };
+
+
+/***/ }),
+
+/***/ 5795:
+/***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
+
+const rateLimit = __nccwpck_require__(20991);
+
+const isDevelopment = process.env.NODE_ENV === 'development';
+
+// General API rate limiter - 100 requests per 15 minutes
+const apiLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 100,
+    message: {
+        success: false,
+        message: 'Too many requests from this IP, please try again later.'
+    },
+    standardHeaders: true,
+    legacyHeaders: false,
+    skip: (req) => isDevelopment && req.ip === '::1'
+});
+
+// Strict rate limiter for authentication endpoints - 5 attempts per 15 minutes
+const authLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 5,
+    message: {
+        success: false,
+        message: 'Too many login attempts from this IP, please try again after 15 minutes.'
+    },
+    standardHeaders: true,
+    legacyHeaders: false,
+    skipSuccessfulRequests: true,
+    skip: (req) => isDevelopment && req.ip === '::1'
+});
+
+// File upload rate limiter - 20 uploads per hour
+const uploadLimiter = rateLimit({
+    windowMs: 60 * 60 * 1000,
+    max: 20,
+    message: {
+        success: false,
+        message: 'Too many file uploads from this IP, please try again later.'
+    },
+    standardHeaders: true,
+    legacyHeaders: false,
+    skip: (req) => {
+        if (isDevelopment && req.ip === '::1') return true;
+        return req.method === 'GET';
+    }
+});
+
+module.exports = {
+    apiLimiter,
+    authLimiter,
+    uploadLimiter
+};
+
+
+/***/ }),
+
+/***/ 90319:
+/***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
+
+const assignmentService = __nccwpck_require__(16131);
+const { asyncHandler, ValidationError, NotFoundError } = __nccwpck_require__(5369);
+
+/**
+ * Assignment Controller
+ * Handles HTTP requests for assignment operations
+ * Delegates business logic to assignmentService
+ */
+class AssignmentController {
+    /**
+     * Get all assignments (admin view)
+     * GET /api/assignments/admin/all
+     */
+    getAllAssignments = asyncHandler(async (req, res) => {
+        const { cursor, limit = 20 } = req.query;
+        const parsedLimit = parseInt(limit, 10);
+
+        const result = await assignmentService.getAllAssignments({
+            cursor,
+            limit: parsedLimit
+        });
+
+        res.json({
+            success: true,
+            ...result
+        });
+    });
+
+    /**
+     * Get assignments for a team
+     * GET /api/assignments/team/:team/all-tasks
+     */
+    getTeamAssignments = asyncHandler(async (req, res) => {
+        const { team } = req.params;
+        const { cursor, limit = 20 } = req.query;
+        const parsedLimit = parseInt(limit, 10);
+
+        const result = await assignmentService.getTeamAssignments(team, {
+            cursor,
+            limit: parsedLimit
+        });
+
+        res.json({
+            success: true,
+            ...result
+        });
+    });
+
+    /**
+     * Get assignments for team leader
+     * GET /api/assignments/team-leader/:team
+     */
+    getTeamLeaderAssignments = asyncHandler(async (req, res) => {
+        const { team } = req.params;
+        const { cursor, limit = 20 } = req.query;
+        const parsedLimit = parseInt(limit, 10);
+
+        const result = await assignmentService.getTeamLeaderAssignments(team, {
+            cursor,
+            limit: parsedLimit
+        });
+
+        res.json({
+            success: true,
+            ...result
+        });
+    });
+
+    /**
+     * Get assignments for a specific user
+     * GET /api/assignments/user/:userId
+     */
+    getUserAssignments = asyncHandler(async (req, res) => {
+        const { userId } = req.params;
+        const { cursor, limit = 20 } = req.query;
+        const parsedLimit = parseInt(limit, 10);
+
+        const result = await assignmentService.getUserAssignments(userId, {
+            cursor,
+            limit: parsedLimit
+        });
+
+        res.json({
+            success: true,
+            ...result
+        });
+    });
+
+    /**
+     * Get assignment by ID
+     * GET /api/assignments/:id
+     */
+    getAssignmentById = asyncHandler(async (req, res) => {
+        const { id } = req.params;
+
+        const assignment = await assignmentService.getAssignmentById(id);
+        if (!assignment) {
+            throw new NotFoundError('Assignment');
+        }
+
+        res.json({
+            success: true,
+            assignment
+        });
+    });
+
+    /**
+     * Create new assignment
+     * POST /api/assignments
+     */
+    createAssignment = asyncHandler(async (req, res) => {
+        const assignmentData = req.body;
+
+        const assignment = await assignmentService.createAssignment(assignmentData);
+
+        res.json({
+            success: true,
+            message: 'Assignment created successfully',
+            assignment
+        });
+    });
+
+    /**
+     * Update assignment
+     * PUT /api/assignments/:id
+     */
+    updateAssignment = asyncHandler(async (req, res) => {
+        const { id } = req.params;
+        const updates = req.body;
+
+        const assignment = await assignmentService.updateAssignment(id, updates);
+
+        res.json({
+            success: true,
+            message: 'Assignment updated successfully',
+            assignment
+        });
+    });
+
+    /**
+     * Delete assignment
+     * DELETE /api/assignments/:id
+     */
+    deleteAssignment = asyncHandler(async (req, res) => {
+        const { id } = req.params;
+
+        await assignmentService.deleteAssignment(id);
+
+        res.json({
+            success: true,
+            message: 'Assignment deleted successfully'
+        });
+    });
+
+    /**
+     * Submit assignment
+     * POST /api/assignments/:id/submit
+     */
+    submitAssignment = asyncHandler(async (req, res) => {
+        const { id } = req.params;
+        const { userId, files } = req.body;
+
+        const assignment = await assignmentService.submitAssignment(id, userId, files);
+
+        res.json({
+            success: true,
+            message: 'Assignment submitted successfully',
+            assignment
+        });
+    });
+
+    /**
+     * Add comment to assignment
+     * POST /api/assignments/:id/comments
+     */
+    addComment = asyncHandler(async (req, res) => {
+        const { id } = req.params;
+        const { userId, comment } = req.body;
+
+        const newComment = await assignmentService.addComment(id, userId, comment);
+
+        res.json({
+            success: true,
+            message: 'Comment added successfully',
+            comment: newComment
+        });
+    });
+
+    /**
+     * Add reply to comment
+     * POST /api/assignments/:id/comments/:commentId/reply
+     */
+    addReply = asyncHandler(async (req, res) => {
+        const { id, commentId } = req.params;
+        const { userId, reply } = req.body;
+
+        const newReply = await assignmentService.addReply(id, commentId, userId, reply);
+
+        res.json({
+            success: true,
+            message: 'Reply added successfully',
+            reply: newReply
+        });
+    });
+
+    /**
+     * Add attachment to assignment
+     * POST /api/assignments/:id/attachments
+     */
+    addAttachment = asyncHandler(async (req, res) => {
+        const { id } = req.params;
+
+        if (!req.file) {
+            throw new ValidationError('No file uploaded');
+        }
+
+        const attachment = await assignmentService.addAttachment(id, req.file, req.body.uploadedBy);
+
+        res.json({
+            success: true,
+            message: 'Attachment added successfully',
+            attachment
+        });
+    });
+
+    /**
+     * Get all submitted files for file collection (Team Leader)
+     * GET /api/assignments/team-leader/:team/all-submissions
+     */
+    getAllSubmissions = asyncHandler(async (req, res) => {
+        const { team } = req.params;
+
+        const submissions = await assignmentService.getAllSubmissions(team);
+
+        res.json({
+            success: true,
+            submissions
+        });
+    });
+}
+
+module.exports = new AssignmentController();
 
 
 /***/ }),
@@ -74248,6 +76285,7 @@ const { initializeDatabase, verifyUploadsDirectory } = __nccwpck_require__(74279
 const runMigrations = __nccwpck_require__(96706);
 const { errorHandler, notFoundHandler, handleUnhandledRejection, handleUncaughtException } = __nccwpck_require__(5369);
 const { logRequest, logInfo, logError } = __nccwpck_require__(46534);
+const { apiLimiter, authLimiter, uploadLimiter } = __nccwpck_require__(5795);
 
 // Hide console window on Windows when running as executable - MUST BE FIRST
 if (process.platform === 'win32' && process.pkg) {
@@ -74310,6 +76348,9 @@ setupMiddleware(app);
 // Add request logging
 app.use(logRequest);
 
+// Apply general API rate limiting to all /api routes
+app.use('/api/', apiLimiter);
+
 // Health check endpoint
 app.get('/api/health', (req, res) => {
   res.status(200).json({
@@ -74340,13 +76381,15 @@ app.get('/api/version', (req, res) => {
 });
 
 // Register routes
-app.use('/api/auth', authRoutes);
+// Auth routes with strict rate limiting
+app.use('/api/auth', authLimiter, authRoutes);
 app.use('/api/users', usersRoutes);
 app.use('/api/team-members', usersRoutes); // Alias for team members endpoint
 app.use('/api/teams', teamsRoutes);
 app.use('/api/activity-logs', activityLogsRoutes);
 app.use('/api/file-system', fileSystemRoutes);
-app.use('/api/files', filesRoutes);
+// File routes with upload rate limiting
+app.use('/api/files', uploadLimiter, filesRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/settings', settingsRoutes);
 app.use('/api/file-viewer', fileViewerRoutes);
@@ -74986,63 +77029,76 @@ async function up() {
 
         const indexes = [
             // Users table
-            'CREATE INDEX IF NOT EXISTS idx_users_email ON users(email)',
-            'CREATE INDEX IF NOT EXISTS idx_users_username ON users(username)',
-            'CREATE INDEX IF NOT EXISTS idx_users_role ON users(role)',
-            'CREATE INDEX IF NOT EXISTS idx_users_team ON users(team)',
+            { name: 'idx_users_email', table: 'users', column: 'email' },
+            { name: 'idx_users_username', table: 'users', column: 'username' },
+            { name: 'idx_users_role', table: 'users', column: 'role' },
+            { name: 'idx_users_team', table: 'users', column: 'team' },
 
             // Files table
-            'CREATE INDEX IF NOT EXISTS idx_files_user_id ON files(user_id)',
-            'CREATE INDEX IF NOT EXISTS idx_files_status ON files(status)',
-            'CREATE INDEX IF NOT EXISTS idx_files_uploaded_at ON files(uploaded_at)',
-            'CREATE INDEX IF NOT EXISTS idx_files_user_team ON files(user_team)',
-            'CREATE INDEX IF NOT EXISTS idx_files_current_stage ON files(current_stage)',
+            { name: 'idx_files_user_id', table: 'files', column: 'user_id' },
+            { name: 'idx_files_status', table: 'files', column: 'status' },
+            { name: 'idx_files_uploaded_at', table: 'files', column: 'uploaded_at' },
+            { name: 'idx_files_user_team', table: 'files', column: 'user_team' },
+            { name: 'idx_files_current_stage', table: 'files', column: 'current_stage' },
 
             // Assignments table
-            'CREATE INDEX IF NOT EXISTS idx_assignments_team_leader_id ON assignments(team_leader_id)',
-            'CREATE INDEX IF NOT EXISTS idx_assignments_status ON assignments(status)',
-            'CREATE INDEX IF NOT EXISTS idx_assignments_due_date ON assignments(due_date)',
-            'CREATE INDEX IF NOT EXISTS idx_assignments_team ON assignments(team)',
+            { name: 'idx_assignments_team_leader_id', table: 'assignments', column: 'team_leader_id' },
+            { name: 'idx_assignments_status', table: 'assignments', column: 'status' },
+            { name: 'idx_assignments_due_date', table: 'assignments', column: 'due_date' },
+            { name: 'idx_assignments_team', table: 'assignments', column: 'team' },
 
             // Assignment members table
-            'CREATE INDEX IF NOT EXISTS idx_assignment_members_user_id ON assignment_members(user_id)',
-            'CREATE INDEX IF NOT EXISTS idx_assignment_members_assignment_id ON assignment_members(assignment_id)',
-            'CREATE INDEX IF NOT EXISTS idx_assignment_members_status ON assignment_members(status)',
+            { name: 'idx_assignment_members_user_id', table: 'assignment_members', column: 'user_id' },
+            { name: 'idx_assignment_members_assignment_id', table: 'assignment_members', column: 'assignment_id' },
+            { name: 'idx_assignment_members_status', table: 'assignment_members', column: 'status' },
 
             // Notifications table (if exists)
-            'CREATE INDEX IF NOT EXISTS idx_notifications_user_id ON notifications(user_id)',
-            'CREATE INDEX IF NOT EXISTS idx_notifications_is_read ON notifications(is_read)',
-            'CREATE INDEX IF NOT EXISTS idx_notifications_created_at ON notifications(created_at)',
+            { name: 'idx_notifications_user_id', table: 'notifications', column: 'user_id' },
+            { name: 'idx_notifications_is_read', table: 'notifications', column: 'is_read' },
+            { name: 'idx_notifications_created_at', table: 'notifications', column: 'created_at' },
 
             // Activity logs table
-            'CREATE INDEX IF NOT EXISTS idx_activity_logs_user_id ON activity_logs(user_id)',
-            'CREATE INDEX IF NOT EXISTS idx_activity_logs_timestamp ON activity_logs(timestamp)',
+            { name: 'idx_activity_logs_user_id', table: 'activity_logs', column: 'user_id' },
+            { name: 'idx_activity_logs_timestamp', table: 'activity_logs', column: 'timestamp' },
 
             // File comments table
-            'CREATE INDEX IF NOT EXISTS idx_file_comments_file_id ON file_comments(file_id)',
-            'CREATE INDEX IF NOT EXISTS idx_file_comments_user_id ON file_comments(user_id)',
+            { name: 'idx_file_comments_file_id', table: 'file_comments', column: 'file_id' },
+            { name: 'idx_file_comments_user_id', table: 'file_comments', column: 'user_id' },
 
             // File status history table
-            'CREATE INDEX IF NOT EXISTS idx_file_status_history_file_id ON file_status_history(file_id)',
-            'CREATE INDEX IF NOT EXISTS idx_file_status_history_changed_by_id ON file_status_history(changed_by_id)'
+            { name: 'idx_file_status_history_file_id', table: 'file_status_history', column: 'file_id' },
+            { name: 'idx_file_status_history_changed_by_id', table: 'file_status_history', column: 'changed_by_id' }
         ];
 
         console.log('📊 Adding database indexes for MySQL...');
 
-        for (const sql of indexes) {
+        for (const index of indexes) {
             try {
-                await query(sql);
-                const indexName = sql.match(/idx_\w+/)[0];
-                console.log(`  ✅ Created index: ${indexName}`);
-            } catch (error) {
-                // Ignore if index already exists
-                if (!error.message.includes('Duplicate key name')) {
-                    console.error(`  ❌ Error creating index: ${error.message}`);
+                // Check if index exists
+                const checkSql = `
+                    SELECT COUNT(*) as count 
+                    FROM information_schema.statistics 
+                    WHERE table_schema = DATABASE() 
+                    AND table_name = '${index.table}' 
+                    AND index_name = '${index.name}'
+                `;
+                const result = await query(checkSql);
+
+                if (result[0].count === 0) {
+                    // Index doesn't exist, create it
+                    const createSql = `CREATE INDEX ${index.name} ON ${index.table}(${index.column})`;
+                    await query(createSql);
+                    console.log(`  ✅ Created index: ${index.name}`);
+                } else {
+                    console.log(`  ⏭️  Index already exists: ${index.name}`);
                 }
+            } catch (error) {
+                console.error(`  ⚠️ Server: ❌ Query error: ${error.message}`);
+                console.error(`  ❌ Error creating index: ${error.message}`);
             }
         }
 
-        console.log('✅ MySQL indexes added successfully');
+        console.log('📡 ✅ MySQL indexes added successfully');
 
     } else {
         // SQLite indexes (already handled in initialize.js, but we can add more)
@@ -75183,6 +77239,500 @@ module.exports = runMigrations;
 
 /***/ }),
 
+/***/ 3566:
+/***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
+
+/**
+ * Assignment Repository
+ * 
+ * Handles all database operations for assignments.
+ * This layer is responsible for:
+ * - Database queries
+ * - Data persistence
+ * - No business logic
+ */
+
+const { db } = __nccwpck_require__(5024);
+const { DatabaseError } = __nccwpck_require__(5369);
+
+/**
+ * Create a new assignment
+ * @param {Object} assignmentData - Assignment data
+ * @returns {Promise<number>} - Inserted assignment ID
+ */
+async function create(assignmentData) {
+    const {
+        title,
+        description,
+        due_date,
+        file_type_required,
+        assigned_to = 'all',
+        max_file_size = 10485760,
+        team_leader_id,
+        team_leader_username,
+        team,
+        status = 'active'
+    } = assignmentData;
+
+    const query = `
+    INSERT INTO assignments (
+      title, description, due_date, file_type_required, assigned_to,
+      max_file_size, team_leader_id, team_leader_username, team,
+      status, created_at, updated_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+  `;
+
+    try {
+        const result = await db.run(
+            query,
+            [title, description, due_date, file_type_required, assigned_to,
+                max_file_size, team_leader_id, team_leader_username, team, status]
+        );
+        return result.lastID;
+    } catch (err) {
+        throw new DatabaseError('Failed to create assignment', err);
+    }
+}
+
+/**
+ * Find assignment by ID
+ * @param {number} assignmentId - Assignment ID
+ * @returns {Promise<Object|null>} - Assignment object or null
+ */
+async function findById(assignmentId) {
+    try {
+        const assignment = await db.get('SELECT * FROM assignments WHERE id = ?', [assignmentId]);
+        return assignment || null;
+    } catch (err) {
+        throw new DatabaseError('Failed to find assignment', err);
+    }
+}
+
+/**
+ * Find assignments by team
+ * @param {string} team - Team name
+ * @param {Object} options - Query options
+ * @returns {Promise<Array>} - Array of assignments
+ */
+async function findByTeam(team, options = {}) {
+    const { limit = 100, offset = 0, status } = options;
+
+    let query = 'SELECT * FROM assignments WHERE team = ?';
+    const params = [team];
+
+    if (status) {
+        query += ' AND status = ?';
+        params.push(status);
+    }
+
+    query += ' ORDER BY created_at DESC LIMIT ? OFFSET ?';
+    params.push(limit, offset);
+
+    try {
+        const assignments = await db.all(query, params);
+        return assignments || [];
+    } catch (err) {
+        throw new DatabaseError('Failed to find assignments by team', err);
+    }
+}
+
+/**
+ * Find all assignments
+ * @param {Object} options - Query options
+ * @returns {Promise<Array>} - Array of assignments
+ */
+async function findAll(options = {}) {
+    const { limit = 100, offset = 0, status } = options;
+
+    let query = 'SELECT * FROM assignments WHERE 1=1';
+    const params = [];
+
+    if (status) {
+        query += ' AND status = ?';
+        params.push(status);
+    }
+
+    query += ' ORDER BY created_at DESC LIMIT ? OFFSET ?';
+    params.push(limit, offset);
+
+    try {
+        const assignments = await db.all(query, params);
+        return assignments || [];
+    } catch (err) {
+        throw new DatabaseError('Failed to find assignments', err);
+    }
+}
+
+/**
+ * Update assignment
+ * @param {number} assignmentId - Assignment ID
+ * @param {Object} updates - Updates to apply
+ * @returns {Promise<boolean>} - Success status
+ */
+async function update(assignmentId, updates) {
+    const { title, description, due_date, status } = updates;
+
+    const fields = [];
+    const values = [];
+
+    if (title !== undefined) {
+        fields.push('title = ?');
+        values.push(title);
+    }
+    if (description !== undefined) {
+        fields.push('description = ?');
+        values.push(description);
+    }
+    if (due_date !== undefined) {
+        fields.push('due_date = ?');
+        values.push(due_date);
+    }
+    if (status !== undefined) {
+        fields.push('status = ?');
+        values.push(status);
+    }
+
+    fields.push('updated_at = CURRENT_TIMESTAMP');
+
+    const query = `UPDATE assignments SET ${fields.join(', ')} WHERE id = ?`;
+    values.push(assignmentId);
+
+    try {
+        const result = await db.run(query, values);
+        return result.changes > 0;
+    } catch (err) {
+        throw new DatabaseError('Failed to update assignment', err);
+    }
+}
+
+/**
+ * Delete assignment
+ * @param {number} assignmentId - Assignment ID
+ * @returns {Promise<boolean>} - Success status
+ */
+async function deleteById(assignmentId) {
+    try {
+        const result = await db.run('DELETE FROM assignments WHERE id = ?', [assignmentId]);
+        return result.changes > 0;
+    } catch (err) {
+        throw new DatabaseError('Failed to delete assignment', err);
+    }
+}
+
+/**
+ * Add member to assignment
+ * @param {number} assignmentId - Assignment ID
+ * @param {number} userId - User ID
+ * @returns {Promise<number>} - Inserted member ID
+ */
+async function addMember(assignmentId, userId) {
+    const query = `
+    INSERT INTO assignment_members (assignment_id, user_id, status, created_at)
+    VALUES (?, ?, 'pending', CURRENT_TIMESTAMP)
+  `;
+
+    try {
+        const result = await db.run(query, [assignmentId, userId]);
+        return result.lastID;
+    } catch (err) {
+        throw new DatabaseError('Failed to add assignment member', err);
+    }
+}
+
+/**
+ * Get assignment members
+ * @param {number} assignmentId - Assignment ID
+ * @returns {Promise<Array>} - Array of members
+ */
+async function getMembers(assignmentId) {
+    const query = `
+    SELECT am.*, u.fullName, u.username, u.email
+    FROM assignment_members am
+    JOIN users u ON am.user_id = u.id
+    WHERE am.assignment_id = ?
+  `;
+
+    try {
+        const members = await db.all(query, [assignmentId]);
+        return members || [];
+    } catch (err) {
+        throw new DatabaseError('Failed to get assignment members', err);
+    }
+}
+
+/**
+ * Update member status
+ * @param {number} assignmentId - Assignment ID
+ * @param {number} userId - User ID
+ * @param {string} status - New status
+ * @returns {Promise<boolean>} - Success status
+ */
+async function updateMemberStatus(assignmentId, userId, status) {
+    const query = `
+    UPDATE assignment_members 
+    SET status = ?, submitted_at = CURRENT_TIMESTAMP
+    WHERE assignment_id = ? AND user_id = ?
+  `;
+
+    try {
+        const result = await db.run(query, [status, assignmentId, userId]);
+        return result.changes > 0;
+    } catch (err) {
+        throw new DatabaseError('Failed to update member status', err);
+    }
+}
+
+/**
+ * Find all assignments with full details (OPTIMIZED - Fixes N+1 Query Problem)
+ * This method uses JOINs and batch queries instead of individual queries per assignment
+ * @param {Object} options - Query options
+ * @returns {Promise<Object>} - Assignments with pagination info
+ */
+async function findAllWithDetails(options = {}) {
+    const { cursor, limit = 20, team } = options;
+
+    try {
+        // Build main query with team leader info
+        let query = `
+            SELECT 
+                a.*,
+                tl.fullName as team_leader_fullname,
+                tl.username as team_leader_username,
+                tl.email as team_leader_email
+            FROM assignments a
+            LEFT JOIN users tl ON a.team_leader_id = tl.id
+        `;
+
+        const params = [];
+        const whereConditions = [];
+
+        if (team) {
+            whereConditions.push('a.team = ?');
+            params.push(team);
+        }
+        if (cursor) {
+            whereConditions.push('a.id > ?');
+            params.push(cursor);
+        }
+
+        if (whereConditions.length > 0) {
+            query += ' WHERE ' + whereConditions.join(' AND ');
+        }
+
+        query += ' ORDER BY a.id DESC LIMIT ?';
+        params.push(limit + 1); // Fetch one extra to check if there are more
+
+        const assignments = await db.all(query, params);
+
+        // Check for pagination
+        const hasMore = assignments.length > limit;
+        const assignmentsToReturn = hasMore ? assignments.slice(0, limit) : assignments;
+        const nextCursor = hasMore && assignmentsToReturn.length > 0
+            ? assignmentsToReturn[assignmentsToReturn.length - 1].id
+            : null;
+
+        // If no assignments, return early
+        if (assignmentsToReturn.length === 0) {
+            return { assignments: [], nextCursor: null, hasMore: false };
+        }
+
+        // Fetch all members for all assignments in ONE query (instead of N queries)
+        const assignmentIds = assignmentsToReturn.map(a => a.id);
+        const placeholders = assignmentIds.map(() => '?').join(',');
+
+        const membersQuery = `
+            SELECT 
+                am.assignment_id,
+                am.user_id,
+                am.status as member_status,
+                u.fullName,
+                u.username,
+                u.email
+            FROM assignment_members am
+            JOIN users u ON am.user_id = u.id
+            WHERE am.assignment_id IN (${placeholders})
+        `;
+
+        const members = await db.all(membersQuery, assignmentIds);
+
+        // Group members by assignment_id
+        const membersByAssignment = members.reduce((acc, member) => {
+            if (!acc[member.assignment_id]) {
+                acc[member.assignment_id] = [];
+            }
+            acc[member.assignment_id].push({
+                id: member.user_id,
+                username: member.username,
+                fullName: member.fullName,
+                email: member.email,
+                status: member.member_status
+            });
+            return acc;
+        }, {});
+
+        // Fetch counts for attachments and comments in TWO queries (instead of 2N queries)
+        const attachmentCountsQuery = `
+            SELECT assignment_id, COUNT(*) as count
+            FROM assignment_attachments
+            WHERE assignment_id IN (${placeholders})
+            GROUP BY assignment_id
+        `;
+
+        const commentCountsQuery = `
+            SELECT assignment_id, COUNT(*) as count
+            FROM assignment_comments
+            WHERE assignment_id IN (${placeholders})
+            GROUP BY assignment_id
+        `;
+
+        const [attachmentCounts, commentCounts] = await Promise.all([
+            db.all(attachmentCountsQuery, assignmentIds),
+            db.all(commentCountsQuery, assignmentIds)
+        ]);
+
+        // Create lookup maps
+        const attachmentCountMap = attachmentCounts.reduce((acc, row) => {
+            acc[row.assignment_id] = row.count;
+            return acc;
+        }, {});
+
+        const commentCountMap = commentCounts.reduce((acc, row) => {
+            acc[row.assignment_id] = row.count;
+            return acc;
+        }, {});
+
+        // Attach all related data to assignments
+        const enrichedAssignments = assignmentsToReturn.map(assignment => ({
+            ...assignment,
+            members: membersByAssignment[assignment.id] || [],
+            attachment_count: attachmentCountMap[assignment.id] || 0,
+            comment_count: commentCountMap[assignment.id] || 0
+        }));
+
+        return {
+            assignments: enrichedAssignments,
+            nextCursor,
+            hasMore
+        };
+    } catch (err) {
+        throw new DatabaseError('Failed to fetch assignments with details', err);
+    }
+}
+
+/**
+ * Count assignments by criteria
+ * @param {Object} criteria - Count criteria
+ * @returns {Promise<number>} - Assignment count
+ */
+async function count(criteria = {}) {
+    const { team, status } = criteria;
+
+    let query = 'SELECT COUNT(*) as count FROM assignments WHERE 1=1';
+    const params = [];
+
+    if (team) {
+        query += ' AND team = ?';
+        params.push(team);
+    }
+    if (status) {
+        query += ' AND status = ?';
+        params.push(status);
+    }
+
+    try {
+        const result = await db.get(query, params);
+        return result?.count || 0;
+    } catch (err) {
+        throw new DatabaseError('Failed to count assignments', err);
+    }
+}
+
+module.exports = {
+    create,
+    findById,
+    findByTeam,
+    findAll,
+    findAllWithDetails,
+    update,
+    deleteById,
+    addMember,
+    getMembers,
+    updateMemberStatus,
+    count,
+
+    // Comment methods
+    async addComment(assignmentId, userId, comment) {
+        const query = `
+            INSERT INTO assignment_comments (assignment_id, user_id, comment, created_at)
+            VALUES (?, ?, ?, CURRENT_TIMESTAMP)
+        `;
+        const result = await db.run(query, [assignmentId, userId, comment]);
+        const id = result.lastID;
+
+        // Return the created comment
+        return await db.get(`
+            SELECT ac.*, u.username, u.fullName
+            FROM assignment_comments ac
+            JOIN users u ON ac.user_id = u.id
+            WHERE ac.id = ?
+        `, [id]);
+    },
+
+    async addReply(assignmentId, commentId, userId, reply) {
+        // First check if comment exists
+        const comment = await db.get('SELECT * FROM assignment_comments WHERE id = ?', [commentId]);
+        if (!comment) throw new Error('Comment not found');
+
+        // Store reply as a comment but could have a parent_id if table supports it
+        // Or simpler: append to the comment text or store in a separate replies table?
+        // Based on "assignmentCommentReply" endpoint, let's assume standard comment structure for now
+        // BUT usually replies need a parent_id. Let's check schema/migration if possible.
+        // If no parent_id column, we might just add it as a new comment with a "Replied to..." prefix
+        // OR standard practice: table has parent_id. 
+        // Let's assume broad approach -> just insert as comment for now to be safe, 
+        // OR BETTER: Use the same table structure logic if we don't know schema.
+
+        // WAIT: The user wants "Reply". If the table `assignment_comments` doesn't support nesting,
+        // we might be breaking things. 
+        // Let's check `assignment_comments` table structure via query first.
+
+        // SAFE FALLBACK: Just insert into assignment_comments. 
+        // If client sends commentId, it expects threading.
+
+        const query = `
+            INSERT INTO assignment_comments (assignment_id, user_id, comment, parent_id, created_at)
+            VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
+        `;
+
+        // Try inserting with parent_id. If it fails (column missing), fall back.
+        try {
+            const result = await db.run(query, [assignmentId, userId, reply, commentId]);
+            return await db.get(`
+                SELECT ac.*, u.username, u.fullName
+                FROM assignment_comments ac
+                JOIN users u ON ac.user_id = u.id
+                WHERE ac.id = ?
+            `, [result.lastID]);
+        } catch (e) {
+            // column parent_id might not exist
+            const fallbackQuery = `
+                INSERT INTO assignment_comments (assignment_id, user_id, comment, created_at)
+                VALUES (?, ?, ?, CURRENT_TIMESTAMP)
+            `;
+            const result = await db.run(fallbackQuery, [assignmentId, userId, `[Replying to comment #${commentId}] ${reply}`]);
+            return await db.get(`
+                SELECT ac.*, u.username, u.fullName
+                FROM assignment_comments ac
+                JOIN users u ON ac.user_id = u.id
+                WHERE ac.id = ?
+            `, [result.lastID]);
+        }
+    }
+};
+
+
+/***/ }),
+
 /***/ 70887:
 /***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
 
@@ -75319,6 +77869,7 @@ const multer = __nccwpck_require__(98013);
 const path = __nccwpck_require__(16928);
 const fs = __nccwpck_require__(79896);
 const { uploadsDir, moveToUserFolder } = __nccwpck_require__(62489);
+const assignmentController = __nccwpck_require__(90319);
 
 // Configure multer for file uploads using existing uploads directory
 const storage = multer.diskStorage({
@@ -75405,6 +77956,16 @@ router.get('/admin/all', async (req, res) => {
 
       assignment.assigned_member_details = assignedMembers || [];
 
+      // Get attachments for this assignment
+      const attachments = await query(`
+        SELECT id, original_name, filename, file_path, file_size, file_type, created_at
+        FROM assignment_attachments
+        WHERE assignment_id = ?
+        ORDER BY created_at DESC
+      `, [assignment.id]);
+
+      assignment.attachments = attachments || [];
+
       // Get recent submissions from assignment_submissions table (includes ALL submitted files)
       const recentSubmissions = await query(`
         SELECT
@@ -75413,6 +77974,7 @@ router.get('/admin/all', async (req, res) => {
           f.filename,
           f.file_type,
           f.file_path,
+          f.public_network_url,
           f.file_size,
           f.tag,
           f.description,
@@ -75482,6 +78044,7 @@ router.get('/team-leader/:team/all-submissions', async (req, res) => {
         f.filename,
         f.file_type,
         f.file_path,
+        f.public_network_url,
         f.file_size,
         f.uploaded_at,
         f.status,
@@ -75576,6 +78139,16 @@ router.get('/team/:team/all-tasks', async (req, res) => {
 
       assignment.assigned_member_details = assignedMembers || [];
 
+      // Get attachments for this assignment
+      const attachments = await query(`
+        SELECT id, original_name, filename, file_path, file_size, file_type, created_at
+        FROM assignment_attachments
+        WHERE assignment_id = ?
+        ORDER BY created_at DESC
+      `, [assignment.id]);
+
+      assignment.attachments = attachments || [];
+
       // Get recent submissions from assignment_submissions table (includes ALL submitted files)
       const recentSubmissions = await query(`
         SELECT
@@ -75584,11 +78157,15 @@ router.get('/team/:team/all-tasks', async (req, res) => {
           f.filename,
           f.file_type,
           f.file_path,
+          f.public_network_url,
           f.file_size,
           f.tag,
           f.description,
           f.uploaded_at,
           f.status,
+          f.folder_name,
+          f.relative_path,
+          f.is_folder,
           u.username,
           u.fullName,
           asub.submitted_at,
@@ -75681,11 +78258,15 @@ router.get('/team-leader/:team', async (req, res) => {
           f.filename,
           f.file_type,
           f.file_path,
+          f.public_network_url,
           f.file_size,
           f.tag,
           f.description,
           f.uploaded_at,
           f.status,
+          f.folder_name,
+          f.relative_path,
+          f.is_folder,
           u.username,
           u.fullName,
           asub.submitted_at,
@@ -76136,6 +78717,206 @@ router.post('/create', upload.array('attachments', 10), async (req, res) => {
   }
 });
 
+// Update existing assignment with file attachments
+router.put('/:id', upload.array('attachments', 10), async (req, res) => {
+  try {
+    const { id } = req.params;
+    const {
+      title,
+      description,
+      dueDate,
+      due_date,
+      fileTypeRequired,
+      file_type_required,
+      assignedTo,
+      assigned_to,
+      maxFileSize,
+      max_file_size,
+      assignedMembers,
+      assigned_members,
+      teamLeaderId,
+      team_leader_id,
+      teamLeaderUsername,
+      team_leader_username,
+      team
+    } = req.body;
+
+    // Support both camelCase and snake_case
+    const finalDueDate = dueDate || due_date;
+    const finalFileType = fileTypeRequired || file_type_required;
+    const finalAssignedTo = assignedTo || assigned_to;
+    const finalMaxSize = maxFileSize || max_file_size || 10485760;
+    const finalMembers = typeof assignedMembers === 'string' ? JSON.parse(assignedMembers) : (assignedMembers || assigned_members);
+    const finalTeamLeaderId = teamLeaderId || team_leader_id;
+    const finalTeamLeaderUsername = teamLeaderUsername || team_leader_username;
+
+    // Get uploaded files
+    const uploadedFiles = req.files || [];
+
+    // Validate required fields
+    if (!title) {
+      return res.status(400).json({
+        success: false,
+        message: 'Title is required'
+      });
+    }
+
+    // Check if assignment exists
+    const existingAssignment = await queryOne(
+      'SELECT * FROM assignments WHERE id = ?',
+      [id]
+    );
+
+    if (!existingAssignment) {
+      return res.status(404).json({
+        success: false,
+        message: 'Assignment not found'
+      });
+    }
+
+    // Update assignment
+    await query(`
+      UPDATE assignments SET
+        title = ?,
+        description = ?,
+        due_date = ?,
+        file_type_required = ?,
+        assigned_to = ?,
+        max_file_size = ?
+      WHERE id = ?
+    `, [
+      title,
+      description || null,
+      finalDueDate || null,
+      finalFileType || null,
+      finalAssignedTo || existingAssignment.assigned_to,
+      finalMaxSize,
+      id
+    ]);
+
+    let membersAssigned = 0;
+    let attachmentsCreated = 0;
+
+    // Save new attachment file records if any files were uploaded
+    if (uploadedFiles.length > 0) {
+      try {
+        console.log(`📎 Saving ${uploadedFiles.length} new attachment(s) for assignment ${id}`);
+
+        for (const file of uploadedFiles) {
+          // Move file from temp location to team leader's folder
+          let finalPath;
+          try {
+            finalPath = await moveToUserFolder(file.path, finalTeamLeaderUsername, file.originalname);
+            console.log(`✅ Moved attachment to: ${finalPath}`);
+          } catch (moveError) {
+            console.error('⚠️ Failed to move attachment file:', moveError);
+            // If move fails, use the original temp path
+            finalPath = file.path;
+          }
+
+          await query(`
+            INSERT INTO assignment_attachments (
+              assignment_id,
+              original_name,
+              filename,
+              file_path,
+              file_size,
+              file_type,
+              uploaded_by_id,
+              uploaded_by_username
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+          `, [
+            id,
+            file.originalname,
+            path.basename(finalPath),
+            finalPath,
+            file.size,
+            file.mimetype,
+            finalTeamLeaderId,
+            finalTeamLeaderUsername
+          ]);
+          attachmentsCreated++;
+        }
+
+        console.log(`✅ Saved ${attachmentsCreated} new attachment(s) for assignment ${id}`);
+      } catch (attachmentError) {
+        console.error('⚠️ Failed to save attachments:', attachmentError);
+        // Don't fail the request if attachments fail
+      }
+    }
+
+    try {
+      // Update assigned members if provided
+      if (finalMembers && Array.isArray(finalMembers)) {
+        // Delete existing assignments
+        await query('DELETE FROM assignment_members WHERE assignment_id = ?', [id]);
+
+        // Insert new assignments
+        if (finalMembers.length > 0) {
+          const memberValues = finalMembers.map(userId => [id, userId]);
+          const placeholders = memberValues.map(() => '(?, ?)').join(', ');
+          const flattenedValues = memberValues.flat();
+
+          await query(
+            `INSERT INTO assignment_members (assignment_id, user_id) VALUES ${placeholders}`,
+            flattenedValues
+          );
+          membersAssigned = finalMembers.length;
+        }
+      }
+
+      // Log activity
+      try {
+        await query(`
+          INSERT INTO activity_logs (
+            user_id,
+            username,
+            role,
+            team,
+            activity
+          ) VALUES (?, ?, ?, ?, ?)
+        `, [
+          finalTeamLeaderId || existingAssignment.team_leader_id,
+          finalTeamLeaderUsername || existingAssignment.team_leader_username,
+          'TEAM_LEADER',
+          team || existingAssignment.team,
+          `Updated assignment: ${title}`
+        ]);
+      } catch (logError) {
+        console.warn('Activity log insertion failed:', logError.message);
+      }
+
+      res.json({
+        success: true,
+        message: 'Assignment updated successfully',
+        assignmentId: id,
+        membersAssigned,
+        attachmentsCreated
+      });
+
+    } catch (memberError) {
+      console.error('Error updating members:', memberError);
+      res.json({
+        success: true,
+        message: 'Assignment updated successfully',
+        assignmentId: id,
+        membersAssigned: 0,
+        warning: 'Assignment updated but member assignment failed'
+      });
+    }
+
+  } catch (error) {
+    console.error('Error updating assignment:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to update assignment',
+      error: error.message
+    });
+  }
+});
+
+
+
 // Get assignments for a specific user with all submitted files
 router.get('/user/:userId', async (req, res) => {
   try {
@@ -76197,6 +78978,16 @@ router.get('/user/:userId', async (req, res) => {
 
       assignment.assigned_member_details = memberDetails || [];
 
+      // Get attachments for this assignment
+      const attachments = await query(`
+        SELECT id, original_name, filename, file_path, file_size, file_type, created_at
+        FROM assignment_attachments
+        WHERE assignment_id = ?
+        ORDER BY created_at DESC
+      `, [assignment.id]);
+
+      assignment.attachments = attachments || [];
+
       // Fetch ALL submitted files for this assignment by this user
       const submittedFiles = await query(`
         SELECT 
@@ -76209,6 +79000,9 @@ router.get('/user/:userId', async (req, res) => {
           f.tag,
           f.description,
           f.status,
+          f.folder_name,
+          f.relative_path,
+          f.is_folder,
           asub.submitted_at,
           u.fullName as submitter_name,
           u.username as submitter_username
@@ -77071,7 +79865,7 @@ router.delete('/:assignmentId', async (req, res) => {
 
     console.log(`✅ Assignment ${assignmentId} has ${submittedFiles ? submittedFiles.length : 0} submitted file(s)`);
     console.log('ℹ️ Files will be kept in database and NAS - they will return to users\' "My Files"');
-    
+
     // ✅ IMPORTANT: Do NOT delete files from the files table
     // Files should persist after assignment deletion so users can access them in "My Files"
     // Only delete the assignment_submissions links (done below via cascade)
@@ -77123,51 +79917,124 @@ router.delete('/:assignmentId/files/:fileId', async (req, res) => {
       });
     }
 
-    // Get file info before deleting to get the physical file path
+    // Get file info before deleting
     const fileInfo = await queryOne(
       'SELECT file_path FROM files WHERE id = ?',
       [fileId]
     );
+    console.log('📄 File to delete:', fileInfo);
 
-    // Delete from assignment_submissions table
+    // Check if there are any OTHER submissions for this assignment by this user
+    const remainingSubmissions = await query(
+      'SELECT file_id, submitted_at FROM assignment_submissions WHERE assignment_id = ? AND user_id = ? AND file_id != ? ORDER BY submitted_at DESC',
+      [assignmentId, userId, fileId]
+    );
+    console.log(`📊 Found ${remainingSubmissions?.length || 0} remaining submission(s) after deleting file ${fileId}`);
+    if (remainingSubmissions && remainingSubmissions.length > 0) {
+      console.log('Remaining files:', remainingSubmissions.map(s => s.file_id));
+    }
+
+    // 🗑️ DELETE EVERYTHING - Start by removing ALL foreign key references
+    console.log('🔗 Step 1: Removing ALL foreign key references...');
+    
+    // 1. CRITICAL: Set file_id = NULL in assignment_members FIRST (before deleting anything)
+    // This clears the foreign key reference to the file we're about to delete
+    console.log(`⚙️ Setting file_id=NULL for assignment ${assignmentId}, user ${userId}, file ${fileId}`);
+    await query(
+      'UPDATE assignment_members SET file_id = NULL WHERE assignment_id = ? AND user_id = ? AND file_id = ?',
+      [assignmentId, userId, fileId]
+    );
+    console.log('✅ Cleared file_id reference in assignment_members');
+    
+    // Now update status based on remaining submissions
+    if (!remainingSubmissions || remainingSubmissions.length === 0) {
+      console.log('🚧 No remaining files - setting status to pending');
+      await query(
+        'UPDATE assignment_members SET status = ?, submitted_at = NULL WHERE assignment_id = ? AND user_id = ?',
+        ['pending', assignmentId, userId]
+      );
+      console.log('✅ Updated assignment_members: status=pending (no more files)');
+    } else {
+      const mostRecentFile = remainingSubmissions[0];
+      console.log(`🔄 Pointing to most recent remaining file: ${mostRecentFile.file_id}`);
+      
+      // Verify the file we're pointing to actually exists and is NOT the one being deleted
+      if (mostRecentFile.file_id === fileId) {
+        console.error('❌❌❌ ERROR: Trying to set file_id to the file being deleted!');
+        throw new Error('Logic error: Cannot set file_id to file being deleted');
+      }
+      
+      await query(
+        'UPDATE assignment_members SET file_id = ?, submitted_at = ?, status = ? WHERE assignment_id = ? AND user_id = ?',
+        [mostRecentFile.file_id, mostRecentFile.submitted_at, 'submitted', assignmentId, userId]
+      );
+      console.log('✅ Updated assignment_members to point to most recent remaining file');
+    }
+
+    // 2. Delete from assignment_submissions
     await query(
       'DELETE FROM assignment_submissions WHERE assignment_id = ? AND file_id = ? AND user_id = ?',
       [assignmentId, fileId, userId]
     );
-    console.log('✅ Removed from assignment_submissions');
+    console.log('✅ Deleted from assignment_submissions');
 
-    // Check if there are any remaining submissions for this assignment by this user
-    const remainingSubmissions = await query(
-      'SELECT * FROM assignment_submissions WHERE assignment_id = ? AND user_id = ?',
-      [assignmentId, userId]
-    );
-
-    // If no more submissions, update assignment_members status to pending
-    if (!remainingSubmissions || remainingSubmissions.length === 0) {
-      await query(
-        'UPDATE assignment_members SET status = ?, submitted_at = NULL, file_id = NULL WHERE assignment_id = ? AND user_id = ?',
-        ['pending', assignmentId, userId]
-      );
-      console.log('✅ Updated assignment_members status to pending (no more submissions)');
-    } else {
-      // If there are remaining submissions, update the file_id to the most recent one
-      const mostRecentFile = remainingSubmissions[0];
-      await query(
-        'UPDATE assignment_members SET file_id = ?, submitted_at = ? WHERE assignment_id = ? AND user_id = ?',
-        [mostRecentFile.file_id, mostRecentFile.submitted_at, assignmentId, userId]
-      );
-      console.log('✅ Updated assignment_members to point to most recent submission');
+    // 3. Delete from notifications (if any reference this file)
+    try {
+      await query('DELETE FROM notifications WHERE file_id = ?', [fileId]);
+      console.log('✅ Deleted notifications');
+    } catch (err) {
+      console.log('⚠️ No notifications to delete');
+    }
+    
+    // 4. Delete from file_comments
+    try {
+      await query('DELETE FROM file_comments WHERE file_id = ?', [fileId]);
+      console.log('✅ Deleted file comments');
+    } catch (err) {
+      console.log('⚠️ No file comments to delete');
+    }
+    
+    // 5. Delete from file_status_history
+    try {
+      await query('DELETE FROM file_status_history WHERE file_id = ?', [fileId]);
+      console.log('✅ Deleted file status history');
+    } catch (err) {
+      console.log('⚠️ No file status history to delete');
+    }
+    
+    // 6. Check for any other references in assignment_attachments
+    try {
+      await query('DELETE FROM assignment_attachments WHERE file_id = ?', [fileId]);
+      console.log('✅ Deleted from assignment_attachments');
+    } catch (err) {
+      console.log('⚠️ No assignment_attachments to delete');
     }
 
-    // ✅ IMPORTANT: Keep file record in database and physical file in NAS
-    // This allows the file to reappear in "My Files" after being removed from assignment
-    // Only the assignment_submissions link is removed above
-    console.log('ℹ️ File record kept in database - file will return to "My Files"');
-    console.log('ℹ️ Physical file kept in NAS at:', fileInfo?.file_path);
+    console.log('💾 Step 2: Deleting physical file...');
+    
+    // 7. Delete physical file from NAS
+    if (fileInfo && fileInfo.file_path) {
+      try {
+        if (fs.existsSync(fileInfo.file_path)) {
+          fs.unlinkSync(fileInfo.file_path);
+          console.log('✅ Physical file deleted from:', fileInfo.file_path);
+        } else {
+          console.log('⚠️ Physical file not found at:', fileInfo.file_path);
+        }
+      } catch (fsError) {
+        console.error('❌ Failed to delete physical file:', fsError);
+      }
+    }
+
+    console.log('📀 Step 3: Deleting file record from database...');
+    
+    // 8. Finally, delete file record from database
+    await query('DELETE FROM files WHERE id = ?', [fileId]);
+    console.log('✅ File record deleted from database');
 
     res.json({
       success: true,
-      message: 'File removed successfully'
+      message: 'File deleted successfully'
     });
 
   } catch (error) {
@@ -77211,6 +80078,13 @@ router.get('/debug/:assignmentId/members', async (req, res) => {
   }
 });
 
+// Add comment to assignment
+router.post('/:id/comments', assignmentController.addComment);
+
+// Add reply to comment
+router.post('/:id/comments/:commentId/reply', assignmentController.addReply);
+
+console.log('✅ Assignments routes registered, including comments endpoint');
 module.exports = router;
 
 
@@ -77727,30 +80601,61 @@ router.get('/summary', (req, res) => {
                               };
 
                               // Approval trends - Last 30 days of daily approval/rejection activity
+                              // Fixed: Using SQLite syntax instead of MySQL
+                              const thirtyDaysAgo = new Date();
+                              thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+
+                              // Fix: Use YYYY-MM-DD HH:MM:SS format for SQLite string comparison compatibility
+                              // ISO string (YYYY-MM-DDTHH:MM:SS.sssZ) compares incorrectly with SQLite's default format
+                              const dateStr = thirtyDaysAgo.toISOString().slice(0, 19).replace('T', ' ');
+
                               db.all(
                                 `SELECT 
                                   DATE(uploaded_at) as date,
                                   SUM(CASE WHEN status = 'final_approved' OR current_stage = 'published_to_public' THEN 1 ELSE 0 END) as approved,
                                   SUM(CASE WHEN status LIKE 'rejected%' OR current_stage LIKE 'rejected%' THEN 1 ELSE 0 END) as rejected
                                 FROM files
-                                WHERE uploaded_at >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
+                                WHERE uploaded_at >= ?
                                 GROUP BY DATE(uploaded_at)
                                 ORDER BY date ASC`,
-                                [],
+                                [dateStr],
                                 (err, trends) => {
                                   if (err) {
                                     console.error('Error fetching approval trends:', err);
                                     summary.approvalTrends = [];
                                   } else {
                                     // Format dates for display (e.g., "Oct 1", "Oct 2")
+                                    // DEBUG: Log trends data to help diagnose production issues
+                                    console.log('📊 Raw approval trends data:', JSON.stringify(trends));
+
                                     summary.approvalTrends = (trends || []).map(t => {
-                                      const d = new Date(t.date);
+                                      // Robust date parsing (handles Date object, ISO string, or YYYY-MM-DD)
+                                      let d;
+                                      if (t.date instanceof Date) {
+                                        d = t.date;
+                                      } else {
+                                        // Handle string dates (e.g., "2023-10-25")
+                                        d = new Date(t.date);
+                                      }
+
+                                      // If date is invalid, fail gracefully
+                                      if (isNaN(d.getTime())) {
+                                        console.warn('⚠️ Invalid date in trends:', t.date);
+                                        return {
+                                          month: 'Invalid',
+                                          date: t.date,
+                                          approved: 0,
+                                          rejected: 0
+                                        };
+                                      }
+
                                       const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
                                       return {
-                                        day: `${monthNames[d.getMonth()]} ${d.getDate()}`,
+                                        month: `${monthNames[d.getMonth()]} ${d.getDate()}`,
                                         date: t.date,
-                                        approved: t.approved || 0,
-                                        rejected: t.rejected || 0
+                                        approved: Number(t.approved) || 0, // Ensure numeric type
+                                        rejected: Number(t.rejected) || 0  // Ensure numeric type
                                       };
                                     });
                                   }
@@ -78639,12 +81544,36 @@ router.post('/check-duplicate', (req, res) => {
 // Upload file (User only)
 router.post('/upload', upload.single('file'), async (req, res) => {
   try {
-    const { description, userId, username, userTeam, tag, replaceExisting, isRevision } = req.body;
+    const { description, userId, username, userTeam, tag, replaceExisting, isRevision, folderName, relativePath, isFolder } = req.body;
     if (!req.file) {
       return res.status(400).json({
         success: false,
         message: 'No file uploaded'
       });
+    }
+
+    // WORKFLOW: Check if this filename was previously rejected
+    const checkRejectedQuery = `
+      SELECT * FROM files 
+      WHERE original_name = ? 
+      AND user_id = ? 
+      AND (status = 'rejected_by_team_leader' OR status = 'rejected_by_admin')
+      ORDER BY uploaded_at DESC LIMIT 1
+    `;
+
+    const previouslyRejected = await new Promise((resolve, reject) => {
+      db.get(checkRejectedQuery, [req.file.originalname, userId], (err, row) => {
+        if (err) reject(err);
+        else resolve(row);
+      });
+    });
+
+    // If previously rejected file found, enable automatic replacement
+    const autoReplace = !!previouslyRejected;
+    if (autoReplace) {
+      console.log('📝 AUTO-REPLACE DETECTED: File was previously rejected, will auto-update to "Revised" status');
+      console.log(`   Previous file ID: ${previouslyRejected.id}`);
+      console.log(`   Previous status: ${previouslyRejected.status}`);
     }
 
     // Get the original filename and ensure proper UTF-8 encoding
@@ -78676,15 +81605,15 @@ router.post('/upload', upload.single('file'), async (req, res) => {
     console.log(`   Username: ${username}`);
     console.log(`   Original filename: ${originalFilename}`);
     console.log(`   File mimetype: ${req.file.mimetype}`);
-    
+
     try {
-      const finalPath = await moveToUserFolder(req.file.path, username, originalFilename);
+      const finalPath = await moveToUserFolder(req.file.path, username, originalFilename, folderName, relativePath);
       req.file.path = finalPath;
       req.file.filename = originalFilename; // Use decoded original filename
       req.file.originalname = originalFilename; // Update originalname with decoded version
       console.log(`✅ File organized successfully to: ${finalPath}`);
       console.log(`✅ File should now be visible at: ${finalPath}`);
-      
+
       // CRITICAL: Verify file actually exists at final location
       const fs = __nccwpck_require__(79896);
       if (!fs.existsSync(finalPath)) {
@@ -78693,7 +81622,7 @@ router.post('/upload', upload.single('file'), async (req, res) => {
         throw new Error('File verification failed - file not found at destination');
       }
       console.log('✅ File existence verified at final path');
-      
+
     } catch (moveError) {
       console.error('❌ Error organizing file details:', {
         error: moveError.message,
@@ -78711,8 +81640,8 @@ router.post('/upload', upload.single('file'), async (req, res) => {
       });
     }
 
-    // Check for duplicate file if replaceExisting is not explicitly set
-    if (replaceExisting !== 'true') {
+    // Check for duplicate file if replaceExisting is not explicitly set AND not auto-replacing rejected
+    if (replaceExisting !== 'true' && !autoReplace) {
       db.get('SELECT * FROM files WHERE original_name = ? AND user_id = ?', [req.file.originalname, userId], async (err, existingFile) => {
         if (err) {
           console.error('❌ Error checking for duplicate:', err);
@@ -78743,12 +81672,21 @@ router.post('/upload', upload.single('file'), async (req, res) => {
       });
     } else {
       // Replace existing file - UPDATE the record instead of deleting it
-      db.get('SELECT * FROM files WHERE original_name = ? AND user_id = ?', [req.file.originalname, userId], async (err, existingFile) => {
+      // Priority: Auto-replace rejected files, then manual replacement
+      const fileToReplace = previouslyRejected || await new Promise((resolve, reject) => {
+        db.get('SELECT * FROM files WHERE original_name = ? AND user_id = ?', [req.file.originalname, userId], (err, row) => {
+          if (err) reject(err);
+          else resolve(row);
+        });
+      });
+
+      (async () => {
+        const existingFile = fileToReplace;
         if (existingFile) {
           console.log('📝 Found existing file, will UPDATE instead of delete+create');
           console.log(`   Old file ID: ${existingFile.id}`);
           console.log(`   Old file path: ${existingFile.file_path}`);
-          
+
           // Delete old physical file only
           const oldRelativePath = existingFile.file_path.startsWith('/uploads/') ? existingFile.file_path.substring(8) : existingFile.file_path;
           const oldFilePath = path.join(uploadsDir, oldRelativePath);
@@ -78757,7 +81695,7 @@ router.post('/upload', upload.single('file'), async (req, res) => {
           // Get the relative path for the new file
           const relativePath = path.relative(uploadsDir, req.file.path).replace(/\\/g, '/');
           const initialStatus = (isRevision === 'true') ? 'under_revision' : 'uploaded';
-          
+
           // UPDATE the existing database record instead of deleting it
           db.run(`UPDATE files SET 
             filename = ?,
@@ -78769,156 +81707,167 @@ router.post('/upload', upload.single('file'), async (req, res) => {
             tag = ?,
             status = ?,
             current_stage = ?,
+            folder_name = ?,
+            relative_path = ?,
+            is_folder = ?,
             uploaded_at = CURRENT_TIMESTAMP
           WHERE id = ?`,
-          [
-            req.file.filename,
-            `/uploads/${relativePath}`,
-            req.file.size,
-            getFileTypeDescription(req.file.mimetype, req.file.originalname),
-            req.file.mimetype,
-            description || '',
-            tag || '',
-            initialStatus,
-            'pending_team_leader',
-            existingFile.id  // Keep the same ID!
-          ], async function(updateErr) {
-            if (updateErr) {
-              console.error('❌ Error updating file record:', updateErr);
-              await safeDeleteFile(req.file.path);
-              return res.status(500).json({
-                success: false,
-                message: 'Failed to update file information'
-              });
-            }
-            
-            const fileId = existingFile.id; // Use the same ID
-
-            // Log the file replacement
-            const action = isRevision === 'true' ? 'revised' : 'replaced';
-            logActivity(db, userId, username, 'USER', userTeam, `File ${action}: ${req.file.originalname}`);
-
-            // Log status history
-            logFileStatusChange(
-              db,
-              fileId,
-              existingFile.status,
+            [
+              req.file.filename,
+              `/uploads/${relativePath}`,
+              req.file.size,
+              getFileTypeDescription(req.file.mimetype, req.file.originalname),
+              req.file.mimetype,
+              description || '',
+              tag || '',
               initialStatus,
-              existingFile.current_stage,
               'pending_team_leader',
-              userId,
-              username,
-              'USER',
-              `File ${action} by user${isRevision === 'true' ? ' (revision of rejected file)' : ''}`
-            );
+              folderName || null,
+              req.body.relativePath || null,
+              isFolder === 'true' ? 1 : 0,
+              existingFile.id  // Keep the same ID!
+            ], async function (updateErr) {
+              if (updateErr) {
+                console.error('❌ Error updating file record:', updateErr);
+                await safeDeleteFile(req.file.path);
+                return res.status(500).json({
+                  success: false,
+                  message: 'Failed to update file information'
+                });
+              }
 
-            console.log(`✅ File ${action} successfully with ID: ${fileId}${isRevision === 'true' ? ' (marked as REVISED)' : ''}`);
-            console.log(`✅ File record UPDATED (not deleted) - will stay in My Files!`);
-            res.json({
-              success: true,
-              message: `File ${action} successfully`,
-              file: {
-                id: fileId,
-                filename: req.file.filename,
-                original_name: req.file.originalname,
-                file_size: req.file.size,
-                file_type: getFileTypeDescription(req.file.mimetype, req.file.originalname),
-                description: description || '',
-                status: initialStatus,
-                current_stage: 'pending_team_leader',
-                uploaded_at: new Date()
-              },
-              replaced: true,
-              isRevision: isRevision === 'true'
+              const fileId = existingFile.id; // Use the same ID
+
+              // Log the file replacement
+              const action = isRevision === 'true' ? 'revised' : 'replaced';
+              logActivity(db, userId, username, 'USER', userTeam, `File ${action}: ${req.file.originalname}`);
+
+              // Log status history
+              logFileStatusChange(
+                db,
+                fileId,
+                existingFile.status,
+                initialStatus,
+                existingFile.current_stage,
+                'pending_team_leader',
+                userId,
+                username,
+                'USER',
+                `File ${action} by user${isRevision === 'true' ? ' (revision of rejected file)' : ''}`
+              );
+
+              console.log(`✅ File ${action} successfully with ID: ${fileId}${isRevision === 'true' ? ' (marked as REVISED)' : ''}`);
+              console.log(`✅ File record UPDATED (not deleted) - will stay in My Files!`);
+              res.json({
+                success: true,
+                message: `File ${action} successfully`,
+                file: {
+                  id: fileId,
+                  filename: req.file.filename,
+                  original_name: req.file.originalname,
+                  file_size: req.file.size,
+                  file_type: getFileTypeDescription(req.file.mimetype, req.file.originalname),
+                  description: description || '',
+                  status: initialStatus,
+                  current_stage: 'pending_team_leader',
+                  uploaded_at: new Date()
+                },
+                replaced: true,
+                isRevision: isRevision === 'true'
+              });
             });
-          });
         } else {
-          // No existing file, create new one
+          // No existing file found to replace
           insertFileRecord();
         }
-      });
+      })();
     }
 
     function insertFileRecord() {
       // Get the relative path from the uploadsDir
-      const relativePath = path.relative(uploadsDir, req.file.path).replace(/\\/g, '/');
-      
+      const fileSystemPath = path.relative(uploadsDir, req.file.path).replace(/\\/g, '/');
+
       console.log('💾 Database storage info:');
       console.log(`   Full path: ${req.file.path}`);
-      console.log(`   Relative path: ${relativePath}`);
-      console.log(`   Will be stored as: /uploads/${relativePath}`);
+      console.log(`   File system path: ${fileSystemPath}`);
+      console.log(`   Will be stored as: /uploads/${fileSystemPath}`);
+      console.log(`   Folder name: ${folderName || 'none'}`);
+      console.log(`   Relative path in folder: ${relativePath || 'none'}`);
 
       // Determine initial status based on whether this is a revision
       const initialStatus = (isRevision === 'true') ? 'under_revision' : 'uploaded';
-      
+
       // Insert file record into database
       db.run(`INSERT INTO files (
         filename, original_name, file_path, file_size, file_type, mime_type, description, tag,
-        user_id, username, user_team, status, current_stage
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [
-        req.file.filename,
-        req.file.originalname,
-        `/uploads/${relativePath}`,
-        req.file.size,
-        getFileTypeDescription(req.file.mimetype, req.file.originalname),
-        req.file.mimetype,
-        description || '',
-        tag || '',
-        userId,
-        username,
-        userTeam,
-        initialStatus,
-        'pending_team_leader'
-      ], async function(err) {
-        if (err) {
-          console.error('❌ Error saving file to database:', err);
-          // Delete the uploaded file if database save fails
-          await safeDeleteFile(req.file.path);
-          return res.status(500).json({
-            success: false,
-            message: 'Failed to save file information'
-          });
-        }
-        const fileId = this.lastID;
-
-        // Log the file upload
-        const action = replaceExisting === 'true' ? 'replaced' : (isRevision === 'true' ? 'revised' : 'uploaded');
-        logActivity(db, userId, username, 'USER', userTeam, `File ${action}: ${req.file.originalname}`);
-
-        // Log status history
-        logFileStatusChange(
-          db,
-          fileId,
-          null,
-          initialStatus,
-          null,
-          'pending_team_leader',
+        user_id, username, user_team, status, current_stage, folder_name, relative_path, is_folder
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          req.file.filename,
+          req.file.originalname,
+          `/uploads/${fileSystemPath}`,
+          req.file.size,
+          getFileTypeDescription(req.file.mimetype, req.file.originalname),
+          req.file.mimetype,
+          description || '',
+          tag || '',
           userId,
           username,
-          'USER',
-          `File ${action} by user${isRevision === 'true' ? ' (revision of rejected file)' : ''}`
-        );
+          userTeam,
+          initialStatus,
+          'pending_team_leader',
+          folderName || null,
+          relativePath || null,
+          isFolder === 'true' ? 1 : 0
+        ], async function (err) {
+          if (err) {
+            console.error('❌ Error saving file to database:', err);
+            // Delete the uploaded file if database save fails
+            await safeDeleteFile(req.file.path);
+            return res.status(500).json({
+              success: false,
+              message: 'Failed to save file information'
+            });
+          }
+          const fileId = this.lastID;
 
-        console.log(`✅ File ${action} successfully with ID: ${fileId}${isRevision === 'true' ? ' (marked as REVISED)' : ''}`);
-        res.json({
-          success: true,
-          message: `File ${action} successfully`,
-          file: {
-            id: fileId,
-            filename: req.file.filename,
-            original_name: req.file.originalname,
-            file_size: req.file.size,
-            file_type: getFileTypeDescription(req.file.mimetype, req.file.originalname),
-            description: description || '',
-            status: initialStatus,
-            current_stage: 'pending_team_leader',
-            uploaded_at: new Date()
-          },
-          replaced: replaceExisting === 'true',
-          isRevision: isRevision === 'true'
+          // Log the file upload
+          const action = replaceExisting === 'true' ? 'replaced' : (isRevision === 'true' ? 'revised' : 'uploaded');
+          logActivity(db, userId, username, 'USER', userTeam, `File ${action}: ${req.file.originalname}`);
+
+          // Log status history
+          logFileStatusChange(
+            db,
+            fileId,
+            null,
+            initialStatus,
+            null,
+            'pending_team_leader',
+            userId,
+            username,
+            'USER',
+            `File ${action} by user${isRevision === 'true' ? ' (revision of rejected file)' : ''}`
+          );
+
+          console.log(`✅ File ${action} successfully with ID: ${fileId}${isRevision === 'true' ? ' (marked as REVISED)' : ''}`);
+          res.json({
+            success: true,
+            message: `File ${action} successfully`,
+            file: {
+              id: fileId,
+              filename: req.file.filename,
+              original_name: req.file.originalname,
+              file_size: req.file.size,
+              file_type: getFileTypeDescription(req.file.mimetype, req.file.originalname),
+              description: description || '',
+              status: initialStatus,
+              current_stage: 'pending_team_leader',
+              uploaded_at: new Date()
+            },
+            replaced: replaceExisting === 'true',
+            isRevision: isRevision === 'true'
+          });
         });
-      });
     }
   } catch (error) {
     console.error('❌ Error handling file upload:', error);
@@ -79267,7 +82216,7 @@ router.post('/:fileId/team-leader-review', (req, res) => {
 
     // Use MySQL-friendly DATETIME format: YYYY-MM-DD HH:MM:SS
     const now = new Date();
-    const nowSql = now.toISOString().slice(0,19).replace('T', ' ');
+    const nowSql = now.toISOString().slice(0, 19).replace('T', ' ');
     let newStatus, newStage;
     if (action === 'approve') {
       newStatus = 'team_leader_approved';
@@ -79294,10 +82243,10 @@ router.post('/:fileId/team-leader-review', (req, res) => {
       newStatus, newStage, teamLeaderId, teamLeaderUsername, nowSql, comments, fileId
     ];
 
-    console.log('DEBUG: Executing SQL (team-leader):', tlSql.replace(/\s+/g,' '));
+    console.log('DEBUG: Executing SQL (team-leader):', tlSql.replace(/\s+/g, ' '));
     console.log('DEBUG: Params (team-leader):', tlParams);
 
-    db.run(tlSql, tlParams, function(err) {
+    db.run(tlSql, tlParams, function (err) {
       if (err) {
         console.error('❌ Error updating file status:', err);
         // Return DB error message to client in dev for easier debugging
@@ -79366,6 +82315,10 @@ router.post('/:fileId/team-leader-review', (req, res) => {
         `Team leader ${action}: ${comments || 'No comments'}`
       );
 
+      const { createNotification, createAdminNotification } = __nccwpck_require__(83565); // Ensure correct path or use standard import if circular
+
+      // ... skipping to handler ...
+
       // Create notification for the file owner
       const notificationType = action === 'approve' ? 'approval' : 'rejection';
       const notificationTitle = action === 'approve'
@@ -79374,6 +82327,7 @@ router.post('/:fileId/team-leader-review', (req, res) => {
       const notificationMessage = action === 'approve'
         ? `Your file "${file.original_name}" has been approved by ${teamLeaderUsername} and is now pending admin review.`
         : `Your file "${file.original_name}" has been rejected by ${teamLeaderUsername}. ${comments ? 'Reason: ' + comments : 'Please review and resubmit.'}`;
+      // ... (existing code)
 
       createNotification(
         file.user_id,
@@ -79387,6 +82341,19 @@ router.post('/:fileId/team-leader-review', (req, res) => {
       ).catch(err => {
         console.error('Failed to create notification:', err);
       });
+
+      // NEW: Notify Admins
+      if (action === 'approve') {
+        createAdminNotification(
+          fileId,
+          'team_leader_approved',
+          'File Approved by Team Leader',
+          `${teamLeaderUsername} approved file "${file.original_name}" (Team: ${team.name || file.user_team}). Pending final review.`,
+          teamLeaderId,
+          teamLeaderUsername,
+          teamLeaderRole
+        ).catch(err => console.error('Failed to notify admins:', err));
+      }
 
       console.log(`✅ File ${action}d by team leader: ${file.filename}`);
       res.json({
@@ -79554,7 +82521,7 @@ router.post('/:fileId/admin-review', async (req, res) => {
 
     // Use MySQL-friendly DATETIME format
     const now = new Date();
-    const nowSql = now.toISOString().slice(0,19).replace('T', ' ');
+    const nowSql = now.toISOString().slice(0, 19).replace('T', ' ');
     let newStatus, newStage, publicNetworkUrl = null;
     if (action === 'approve') {
       newStatus = 'final_approved';
@@ -79587,10 +82554,10 @@ router.post('/:fileId/admin-review', async (req, res) => {
       newStatus, newStage, adminId, adminUsername, nowSql, comments, fileId
     ];
 
-    console.log('DEBUG: Executing SQL (admin):', adminSql.replace(/\s+/g,' '));
+    console.log('DEBUG: Executing SQL (admin):', adminSql.replace(/\s+/g, ' '));
     console.log('DEBUG: Params (admin):', adminParams);
 
-    db.run(adminSql, adminParams, function(err) {
+    db.run(adminSql, adminParams, function (err) {
       if (err) {
         console.error('❌ Error updating file status (admin):', err);
         return res.status(500).json({
@@ -79784,46 +82751,6 @@ router.get('/:fileId', (req, res) => {
   });
 });
 
-// Get file system path for Electron to open with default app
-router.get('/:fileId/path', (req, res) => {
-  const { fileId } = req.params;
-
-  db.get('SELECT * FROM files WHERE id = ?', [fileId], (err, file) => {
-    if (err || !file) {
-      return res.status(404).json({
-        success: false,
-        message: 'File not found'
-      });
-    }
-
-    // For approved files that have been moved to projects, use the public_network_url
-    // For pending/rejected files, use the original file_path
-    let filePath;
-    if (file.status === 'final_approved' && file.public_network_url) {
-      // File has been moved to projects directory
-      filePath = file.public_network_url;
-      console.log(`📂 Using moved file path for approved file ${fileId}: ${filePath}`);
-    } else {
-      // File is still in uploads directory
-      if (file.file_path.startsWith('/uploads/')) {
-        const relativePath = file.file_path.substring('/uploads/'.length);
-        filePath = path.join(uploadsDir, relativePath);
-      } else {
-        filePath = path.join(uploadsDir, path.basename(file.file_path));
-      }
-      console.log(`📂 Using uploads file path for ${fileId}: ${filePath}`);
-    }
-
-    // Normalize path for Windows
-    filePath = path.normalize(filePath);
-
-    res.json({
-      success: true,
-      filePath: filePath
-    });
-  });
-});
-
 // Get file comments
 router.get('/:fileId/comments', (req, res) => {
   const { fileId } = req.params;
@@ -79869,7 +82796,7 @@ router.post('/:fileId/comments', (req, res) => {
     db.run(
       'INSERT INTO file_comments (file_id, user_id, username, user_role, comment) VALUES (?, ?, ?, ?, ?)',
       [fileId, userId, username, userRole, comment.trim()],
-      function(err) {
+      function (err) {
         if (err) {
           console.error('❌ Error adding comment:', err);
           return res.status(500).json({
@@ -79969,7 +82896,7 @@ router.delete('/:fileId', async (req, res) => {
         db.run(
           'UPDATE assignment_members SET file_id = NULL, status = NULL, submitted_at = NULL WHERE file_id = ?',
           [fileId],
-          function(err) {
+          function (err) {
             if (err) {
               console.error('❌ Error clearing assignment submissions:', err);
               reject(err);
@@ -80035,7 +82962,7 @@ router.delete('/:fileId', async (req, res) => {
 
     // Delete file record from database
     await new Promise((resolve, reject) => {
-      db.run('DELETE FROM files WHERE id = ?', [fileId], function(err) {
+      db.run('DELETE FROM files WHERE id = ?', [fileId], function (err) {
         if (err) {
           reject(err);
         } else {
@@ -80249,7 +83176,7 @@ router.post('/bulk-action', (req, res) => {
   console.log(`📋 Bulk ${action} for ${fileIds.length} files by ${reviewerUsername}`);
 
   const now = new Date();
-  const nowSql = now.toISOString().slice(0,19).replace('T', ' ');
+  const nowSql = now.toISOString().slice(0, 19).replace('T', ' ');
   const results = { success: [], failed: [] };
   let processed = 0;
 
@@ -80265,7 +83192,7 @@ router.post('/bulk-action', (req, res) => {
       const isTeamLeader = reviewerRole === 'team_leader';
       const isAdmin = reviewerRole === 'admin';
       const correctStage = (isTeamLeader && file.current_stage === 'pending_team_leader') ||
-                          (isAdmin && file.current_stage === 'pending_admin');
+        (isAdmin && file.current_stage === 'pending_admin');
 
       if (!correctStage) {
         results.failed.push({ fileId, reason: 'Incorrect review stage', fileName: file.original_name });
@@ -80303,7 +83230,7 @@ router.post('/bulk-action', (req, res) => {
             [newStatus, newStage, reviewerId, reviewerUsername, nowSql, comments, comments, reviewerUsername, nowSql, fileId] :
             [newStatus, newStage, reviewerId, reviewerUsername, nowSql, comments, fileId]);
 
-      db.run(updateSql, updateParams, function(err) {
+      db.run(updateSql, updateParams, function (err) {
         if (err) {
           console.error(`❌ Error updating file ${fileId}:`, err);
           results.failed.push({ fileId, reason: err.message, fileName: file.original_name });
@@ -80317,7 +83244,7 @@ router.post('/bulk-action', (req, res) => {
           db.run(
             'INSERT INTO file_comments (file_id, user_id, username, user_role, comment, comment_type) VALUES (?, ?, ?, ?, ?, ?)',
             [fileId, reviewerId, reviewerUsername, reviewerRole, comments, action],
-            () => {}
+            () => { }
           );
         }
 
@@ -80473,7 +83400,7 @@ router.patch('/:fileId/priority', (req, res) => {
   params.push(fileId);
   const sql = `UPDATE files SET ${updates.join(', ')} WHERE id = ?`;
 
-  db.run(sql, params, function(err) {
+  db.run(sql, params, function (err) {
     if (err) {
       console.error('❌ Error updating file priority:', err);
       return res.status(500).json({ success: false, message: 'Failed to update priority' });
@@ -80685,6 +83612,58 @@ router.post('/open-file', async (req, res) => {
   }
 });
 
+// Delete folder (deletes all files and the folder directory)
+router.post('/folder/delete', async (req, res) => {
+  const { folderName, username, fileIds, userId, userRole, team } = req.body;
+  console.log(`🗑️ Deleting folder "${folderName}" by ${username}`);
+
+  try {
+    // Delete all files from database (frontend already calls DELETE for each file)
+    // After files are deleted, remove the empty folder from NAS
+    const folderPath = path.join(uploadsDir, username, folderName);
+    
+    console.log(`📁 Attempting to delete folder directory: ${folderPath}`);
+    
+    try {
+      // Check if folder exists
+      const folderExists = await fs.access(folderPath).then(() => true).catch(() => false);
+      
+      if (folderExists) {
+        // Remove the folder directory (including any remaining files/subfolders)
+        await fs.rm(folderPath, { recursive: true, force: true });
+        console.log(`✅ Folder directory deleted: ${folderPath}`);
+      } else {
+        console.log(`ℹ️ Folder directory not found: ${folderPath}`);
+      }
+    } catch (folderDeleteError) {
+      console.error(`❌ Error deleting folder directory: ${folderDeleteError.message}`);
+      // Don't fail the request if folder deletion fails
+    }
+
+    // Log activity
+    logActivity(
+      db,
+      userId,
+      username,
+      userRole,
+      team,
+      `Folder deleted: ${folderName} (${fileIds?.length || 0} files)`
+    );
+
+    res.json({
+      success: true,
+      message: `Folder "${folderName}" and all its files have been deleted successfully.`
+    });
+  } catch (error) {
+    console.error('❌ Error deleting folder:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to delete folder',
+      error: error.message
+    });
+  }
+});
+
 // Get file path by ID (for Electron to open files) - MUST BE BEFORE /:fileId
 router.get('/:fileId/path', (req, res) => {
   const { fileId } = req.params;
@@ -80709,7 +83688,7 @@ router.get('/:fileId/path', (req, res) => {
 
     // Convert relative path to absolute path
     let filePath = file.file_path;
-    
+
     // If it's a relative path starting with /uploads/, resolve it
     if (filePath.startsWith('/uploads/')) {
       const relativePath = filePath.substring(8);
@@ -80731,7 +83710,7 @@ router.get('/:fileId/path', (req, res) => {
 // Get file details by ID (for opening files) - CATCH-ALL, MUST BE LAST
 router.get('/:fileId', (req, res) => {
   const { fileId } = req.params;
-  
+
   // Skip if not a numeric ID (avoid catching other routes)
   if (!/^\d+$/.test(fileId)) {
     return res.status(400).json({
@@ -80739,7 +83718,7 @@ router.get('/:fileId', (req, res) => {
       message: 'Invalid file ID'
     });
   }
-  
+
   console.log(`📝 Getting file details for ID: ${fileId}`);
 
   db.get('SELECT * FROM files WHERE id = ?', [fileId], (err, file) => {
@@ -80798,6 +83777,51 @@ const createNotification = async (userId, fileId, type, title, message, actionBy
     console.error('❌ Error creating notification:', error);
     console.error('Details:', { userId, fileId, assignmentId, type, title, message });
     throw error;
+  }
+};
+
+// Helper function to notify all admins
+const createAdminNotification = async (fileId, type, title, message, actionById, actionByUsername, actionByRole, assignmentId = null) => {
+  try {
+    console.log('📢 Broadcasting admin notification:', { type, title });
+
+    // 1. Get all admin users
+    const admins = await query('SELECT id FROM users WHERE role = ?', ['ADMIN']);
+
+    if (!admins || admins.length === 0) {
+      console.log('⚠️ No admins found to notify');
+      return 0;
+    }
+
+    console.log(`found ${admins.length} admins to notify`);
+
+    // 2. Create notification for each admin
+    let count = 0;
+    for (const admin of admins) {
+      // Don't notify the admin who performed the action (if applicable)
+      if (actionById && admin.id === actionById) {
+        console.log(`ℹ️ Skipped notifying admin ${admin.id} (${admin.username}) - they performed the action`);
+        continue;
+      }
+
+      console.log(`🔔 Creating notification for admin ${admin.id} (${admin.username || 'unknown'})`);
+      await query(
+        `INSERT INTO notifications (
+          user_id, file_id, type, title, message, assignment_id,
+          action_by_id, action_by_username, action_by_role
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [admin.id, fileId, type, title, message, assignmentId, actionById, actionByUsername, actionByRole]
+      );
+      count++;
+    }
+
+    console.log(`✅ Admin notifications created: ${count}`);
+    return count;
+
+  } catch (error) {
+    console.error('❌ Error creating admin notifications:', error);
+    // Don't throw, just log error so main flow doesn't break
+    return 0;
   }
 };
 
@@ -81011,7 +84035,8 @@ router.delete('/user/:userId/delete-all', async (req, res) => {
 // Export both the router and the helper function
 module.exports = {
   router,
-  createNotification
+  createNotification,
+  createAdminNotification
 };
 
 
@@ -82024,6 +85049,421 @@ module.exports = router;
 
 /***/ }),
 
+/***/ 16131:
+/***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
+
+/**
+ * Assignment Service
+ * 
+ * Business logic layer for assignment operations.
+ * This layer is responsible for:
+ * - Business rules and validation
+ * - Orchestrating repository calls
+ * - Handling notifications
+ * - Activity logging
+ */
+
+const assignmentRepository = __nccwpck_require__(3566);
+const { logActivity, logInfo } = __nccwpck_require__(46534);
+const { db } = __nccwpck_require__(5024);
+const { NotFoundError, ValidationError } = __nccwpck_require__(5369);
+
+/**
+ * Create a new assignment
+ * @param {Object} assignmentData - Assignment data
+ * @param {Object} teamLeader - Team leader creating the assignment
+ * @returns {Promise<Object>} - Created assignment
+ */
+async function createAssignment(assignmentData, teamLeader) {
+    logInfo('Creating assignment', {
+        title: assignmentData.title,
+        teamLeaderId: teamLeader.id
+    });
+
+    // Prepare assignment data
+    const data = {
+        ...assignmentData,
+        team_leader_id: teamLeader.id,
+        team_leader_username: teamLeader.username,
+        team: teamLeader.team,
+        status: 'active'
+    };
+
+    // Create assignment
+    const assignmentId = await assignmentRepository.create(data);
+
+    // Log activity
+    logActivity(
+        db,
+        teamLeader.id,
+        teamLeader.username,
+        teamLeader.role,
+        teamLeader.team,
+        `Created assignment: ${assignmentData.title}`
+    );
+
+    // Get the created assignment
+    const assignment = await assignmentRepository.findById(assignmentId);
+
+    // If assigned to specific users, add them as members
+    if (assignmentData.assigned_to && assignmentData.assigned_to !== 'all') {
+        const userIds = assignmentData.assigned_to.split(',').map(id => parseInt(id.trim()));
+        for (const userId of userIds) {
+            await assignmentRepository.addMember(assignmentId, userId);
+        }
+    }
+
+    logInfo('Assignment created successfully', { assignmentId, title: assignmentData.title });
+
+    return assignment;
+}
+
+/**
+ * Get assignment by ID
+ * @param {number} assignmentId - Assignment ID
+ * @param {Object} user - Authenticated user (for authorization)
+ * @returns {Promise<Object>} - Assignment object with members
+ */
+async function getAssignmentById(assignmentId, user) {
+    const assignment = await assignmentRepository.findById(assignmentId);
+
+    if (!assignment) {
+        throw new NotFoundError('Assignment');
+    }
+
+    // Authorization check
+    const canView =
+        user.role === 'ADMIN' ||
+        assignment.team_leader_id === user.id ||
+        assignment.team === user.team;
+
+    if (!canView) {
+        throw new ValidationError('You do not have permission to view this assignment');
+    }
+
+    // Get members
+    const members = await assignmentRepository.getMembers(assignmentId);
+
+    return {
+        ...assignment,
+        members
+    };
+}
+
+/**
+ * Get team assignments
+ * @param {string} team - Team name
+ * @param {Object} options - Query options
+ * @returns {Promise<Array>} - Array of assignments
+ */
+async function getTeamAssignments(team, options = {}) {
+    return await assignmentRepository.findByTeam(team, options);
+}
+
+/**
+ * Get all assignments (admin only)
+ * @param {Object} options - Query options
+ * @returns {Promise<Array>} - Array of assignments
+ */
+async function getAllAssignments(options = {}) {
+    return await assignmentRepository.findAll(options);
+}
+
+/**
+ * Update assignment
+ * @param {number} assignmentId - Assignment ID
+ * @param {Object} updates - Updates to apply
+ * @param {Object} teamLeader - Team leader updating the assignment
+ * @returns {Promise<Object>} - Updated assignment
+ */
+async function updateAssignment(assignmentId, updates, teamLeader) {
+    const assignment = await assignmentRepository.findById(assignmentId);
+
+    if (!assignment) {
+        throw new NotFoundError('Assignment');
+    }
+
+    // Validate team leader owns this assignment
+    if (assignment.team_leader_id !== teamLeader.id && teamLeader.role !== 'ADMIN') {
+        throw new ValidationError('You can only update your own assignments');
+    }
+
+    // Update assignment
+    await assignmentRepository.update(assignmentId, updates);
+
+    // Log activity
+    logActivity(
+        db,
+        teamLeader.id,
+        teamLeader.username,
+        teamLeader.role,
+        teamLeader.team,
+        `Updated assignment: ${assignment.title}`
+    );
+
+    return await assignmentRepository.findById(assignmentId);
+}
+
+/**
+ * Delete assignment
+ * @param {number} assignmentId - Assignment ID
+ * @param {Object} teamLeader - Team leader deleting the assignment
+ * @returns {Promise<boolean>} - Success status
+ */
+async function deleteAssignment(assignmentId, teamLeader) {
+    const assignment = await assignmentRepository.findById(assignmentId);
+
+    if (!assignment) {
+        throw new NotFoundError('Assignment');
+    }
+
+    // Validate team leader owns this assignment
+    if (assignment.team_leader_id !== teamLeader.id && teamLeader.role !== 'ADMIN') {
+        throw new ValidationError('You can only delete your own assignments');
+    }
+
+    // Delete assignment
+    await assignmentRepository.deleteById(assignmentId);
+
+    // Log activity
+    logActivity(
+        db,
+        teamLeader.id,
+        teamLeader.username,
+        teamLeader.role,
+        teamLeader.team,
+        `Deleted assignment: ${assignment.title}`
+    );
+
+    return true;
+}
+
+/**
+ * Submit assignment
+ * @param {number} assignmentId - Assignment ID
+ * @param {number} fileId - Submitted file ID
+ * @param {Object} user - User submitting
+ * @returns {Promise<boolean>} - Success status
+ */
+async function submitAssignment(assignmentId, fileId, user) {
+    const assignment = await assignmentRepository.findById(assignmentId);
+
+    if (!assignment) {
+        throw new NotFoundError('Assignment');
+    }
+
+    // Check if assignment is active
+    if (assignment.status !== 'active') {
+        throw new ValidationError('This assignment is no longer active');
+    }
+
+    // Check if due date has passed
+    if (assignment.due_date && new Date(assignment.due_date) < new Date()) {
+        throw new ValidationError('This assignment is past its due date');
+    }
+
+    // Update member status
+    await assignmentRepository.updateMemberStatus(assignmentId, user.id, 'submitted');
+
+    // Log activity
+    logActivity(
+        db,
+        user.id,
+        user.username,
+        user.role,
+        user.team,
+        `Submitted assignment: ${assignment.title}`
+    );
+
+    // TODO: Create notification for team leader
+    // await notificationService.notifyTeamLeader(assignment.team_leader_id, 'assignment_submitted', assignment);
+
+    return true;
+}
+
+/**
+ * Get assignment statistics
+ * @param {Object} criteria - Statistics criteria
+ * @returns {Promise<Object>} - Assignment statistics
+ */
+async function getAssignmentStats(criteria = {}) {
+    const total = await assignmentRepository.count(criteria);
+    const active = await assignmentRepository.count({ ...criteria, status: 'active' });
+    const completed = await assignmentRepository.count({ ...criteria, status: 'completed' });
+    const archived = await assignmentRepository.count({ ...criteria, status: 'archived' });
+
+    return {
+        total,
+        active,
+        completed,
+        archived
+    };
+}
+
+// Import shared notification functions
+const { createNotification, createAdminNotification } = __nccwpck_require__(83565);
+
+/**
+ * Add comment to assignment
+ * @param {number} assignmentId - Assignment ID
+ * @param {number} userId - User ID
+ * @param {string} comment - Comment text
+ * @returns {Promise<Object>} - Created comment
+ */
+async function addComment(assignmentId, userId, comment) {
+    console.log('🐞 DEBUG: addComment called', { assignmentId, userId, comment });
+    const assignment = await assignmentRepository.findById(assignmentId);
+    if (!assignment) throw new NotFoundError('Assignment');
+
+    // Add comment
+    const newComment = await assignmentRepository.addComment(assignmentId, userId, comment);
+    console.log('🐞 DEBUG: Comment added to DB:', newComment);
+
+    // Get user details for logging/notification context
+    const user = await new Promise((resolve, reject) => {
+        db.get('SELECT username, fullName, role, team FROM users WHERE id = ?', [userId], (err, row) => {
+            if (err) reject(err);
+            else resolve(row);
+        });
+    });
+
+    console.log('🐞 DEBUG: User lookup result:', user);
+
+    if (user) {
+        console.log('🐞 DEBUG: User found, attempting to log and notify');
+        // Log activity
+        logActivity(
+            db,
+            user.id || userId,
+            user.username,
+            user.role,
+            user.team,
+            `Added comment to assignment: ${assignment.title}`
+        );
+
+        // 1. Notify Team Leader (if not the one commenting)
+        if (assignment.team_leader_id !== userId) {
+            createNotification(
+                assignment.team_leader_id,
+                null,
+                'comment',
+                'New Comment on Assignment',
+                `${user.fullName || user.username} commented on "${assignment.title}"`,
+                userId,
+                user.username,
+                user.role,
+                assignmentId
+            ).catch(err => console.error('Failed to notify team leader:', err));
+        }
+
+        // 2. Notify Assigned Members (if applicable) - Simplified for now to avoid spam,
+        // typically logic is complex (don't notify self).
+        // Let's focus on Admin Requirement.
+
+        // 3. Notify ALL Admins (Vital Requirement)
+        try {
+            const adminCount = await createAdminNotification(
+                null, // fileId
+                'comment',
+                'New Comment on Assignment',
+                `${user.fullName || user.username} commented on "${assignment.title}" (Team: ${assignment.team})`,
+                userId,
+                user.username,
+                user.role,
+                assignmentId
+            );
+            console.log('🐞 DEBUG: Admin notification result:', adminCount);
+        } catch (err) {
+            console.error('🐞 DEBUG: Failed to notify admins:', err);
+        }
+    } else {
+        console.warn('🐞 DEBUG: User NOT found for ID:', userId);
+    }
+
+    return newComment;
+}
+
+/**
+ * Add reply to comment
+ * @param {number} assignmentId - Assignment ID
+ * @param {number} commentId - Parent Comment ID
+ * @param {number} userId - User ID
+ * @param {string} reply - Reply text
+ * @returns {Promise<Object>} - Created reply
+ */
+async function addReply(assignmentId, commentId, userId, reply) {
+    const assignment = await assignmentRepository.findById(assignmentId);
+    if (!assignment) throw new NotFoundError('Assignment');
+
+    // Add reply
+    const newReply = await assignmentRepository.addReply(assignmentId, commentId, userId, reply);
+
+    // Get user details
+    const user = await new Promise((resolve, reject) => {
+        db.get('SELECT username, fullName, role, team FROM users WHERE id = ?', [userId], (err, row) => {
+            if (err) reject(err);
+            else resolve(row);
+        });
+    });
+
+    if (user) {
+        // Log activity
+        logActivity(
+            db,
+            user.id || userId,
+            user.username,
+            user.role,
+            user.team,
+            `Replied to comment on assignment: ${assignment.title}`
+        );
+
+        // 1. Notify Team Leader (if not commenter)
+        if (assignment.team_leader_id !== userId) {
+            createNotification(
+                assignment.team_leader_id,
+                null,
+                'comment', // Use 'comment' type for compatibility, or 'reply' if standard
+                'New Reply on Assignment',
+                `${user.fullName || user.username} replied to a comment on "${assignment.title}"`,
+                userId,
+                user.username,
+                user.role,
+                assignmentId
+            ).catch(err => console.error('Failed to notify team leader of reply:', err));
+        }
+
+        // 2. Notify ALL Admins (Vital Requirement)
+        createAdminNotification(
+            null,
+            'comment', // Admin dashboard handles 'comment' type well
+            'New Reply on Assignment',
+            `${user.fullName || user.username} replied to a comment on "${assignment.title}" (Team: ${assignment.team})`,
+            userId,
+            user.username,
+            user.role,
+            assignmentId
+        ).catch(err => console.error('Failed to notify admins of reply:', err));
+    }
+
+    return newReply;
+}
+
+module.exports = {
+    createAssignment,
+    getAssignmentById,
+    getTeamAssignments,
+    getAllAssignments,
+    updateAssignment,
+    deleteAssignment,
+    submitAssignment,
+    getAssignmentStats,
+    addComment,
+    addReply
+};
+
+
+/***/ }),
+
 /***/ 26106:
 /***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
 
@@ -82988,16 +86428,20 @@ const path = __nccwpck_require__(16928);
 /**
  * Safely move uploaded file to user folder with proper error handling
  * Handles race conditions, cross-device moves, and async operations
+ * NOW SUPPORTS: Folder structure preservation with folderName and relativePath
  * FIXED: Now async, no blocking, handles race conditions
  */
-async function moveToUserFolder(tempPath, username, originalFilename) {
+async function moveToUserFolder(tempPath, username, originalFilename, folderName = null, relativePath = null) {
   console.log('📦 moveToUserFolder called with:');
   console.log('   tempPath:', tempPath);
   console.log('   username:', username);
   console.log('   originalFilename:', originalFilename);
+  console.log('   folderName:', folderName);
+  console.log('   relativePath:', relativePath);
 
   const { uploadsDir } = __nccwpck_require__(62489);
-  const userDir = path.join(uploadsDir, username);
+  let userDir = path.join(uploadsDir, username);
+  
   console.log('   uploadsDir:', uploadsDir);
   console.log('   userDir:', userDir);
 
@@ -83026,7 +86470,28 @@ async function moveToUserFolder(tempPath, username, originalFilename) {
 
   // Sanitize for Windows
   const sanitizedFilename = sanitizeFilename(decodedFilename);
-  const finalPath = path.join(userDir, sanitizedFilename);
+  
+  // Handle folder structure preservation
+  let finalPath;
+  if (folderName && relativePath) {
+    // relativePath already includes the full path from the folder root
+    // e.g., "FolderName/subfolder/file.txt"
+    const relativeDir = path.dirname(relativePath);
+    if (relativeDir && relativeDir !== '.') {
+      const subfolderPath = path.join(userDir, relativeDir);
+      console.log('📁 Creating folder structure:', subfolderPath);
+      await fs.mkdir(subfolderPath, { recursive: true });
+    }
+    finalPath = path.join(userDir, relativePath);
+    console.log('📁 Final path with folder structure:', finalPath);
+  } else if (relativePath) {
+    // Single file with relative path (edge case)
+    finalPath = path.join(userDir, relativePath);
+  } else {
+    // Regular file upload without folder
+    finalPath = path.join(userDir, sanitizedFilename);
+  }
+  
   console.log('📍 Final target path:', finalPath);
 
   // Verify source exists
@@ -83046,6 +86511,16 @@ async function moveToUserFolder(tempPath, username, originalFilename) {
 
   // CRITICAL FIX: Async move with fallback for cross-device
   console.log('🚚 Attempting to move file...');
+  
+  // CHECK: If destination file already exists, we're about to overwrite it
+  try {
+    await fs.access(finalPath);
+    console.log('⚠️  WARNING: Destination file already exists and will be OVERWRITTEN');
+    console.log(`   Existing file: ${finalPath}`);
+  } catch (e) {
+    console.log('✅ Destination path is clear (no existing file)');
+  }
+  
   try {
     // Try rename first (fast, atomic on same filesystem)
     await fs.rename(tempPath, finalPath);
@@ -83421,8 +86896,8 @@ function logFileStatusChange(db, fileId, oldStatus, newStatus, oldStage, newStag
     // MySQL
     const mysqlDb = __nccwpck_require__(55364);
     mysqlDb.query(
-      'INSERT INTO file_status_history (file_id, old_status, new_status, old_stage, new_stage, changed_by_id, changed_by_username, changed_by_role, comment, changed_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-      [fileId, oldStatus, newStatus, oldStage, newStage, userId, username, role, comment, timestamp]
+      'INSERT INTO file_status_history (file_id, old_status, new_status, old_stage, new_stage, changed_by_id, changed_by_username, changed_by_role, comment) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [fileId, oldStatus, newStatus, oldStage, newStage, userId, username, role, comment]
     ).catch(err => {
       logger.error('Failed to log file status change to MySQL database', {
         error: err.message,
@@ -83431,21 +86906,18 @@ function logFileStatusChange(db, fileId, oldStatus, newStatus, oldStage, newStag
       });
     });
   } else {
-    // SQLite
-    const query = `
-      INSERT INTO file_status_history (file_id, old_status, new_status, old_stage, new_stage, changed_by_id, changed_by_username, changed_by_role, comment, changed_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `;
-
-    db.run(query, [fileId, oldStatus, newStatus, oldStage, newStage, userId, username, role, comment, timestamp], (err) => {
-      if (err) {
-        logger.error('Failed to log file status change to database', {
-          error: err.message,
-          fileId,
-          newStatus
-        });
+    // SQLite fallback
+    db.run(
+      'INSERT INTO file_status_history (file_id, old_status, new_status, old_stage, new_stage, changed_by_id, changed_by_username, changed_by_role, comment) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [fileId, oldStatus, newStatus, oldStage, newStage, userId, username, role, comment || ''],
+      function (err) {
+        if (err) {
+          console.error('❌ Error logging file status history (SQLite):', err);
+        } else {
+          console.log(`✅ File status history logged for file ${fileId} (SQLite)`);
+        }
       }
-    });
+    );
   }
 }
 
@@ -83566,6 +87038,30 @@ module.exports = require("https");
 
 "use strict";
 module.exports = require("net");
+
+/***/ }),
+
+/***/ 4573:
+/***/ ((module) => {
+
+"use strict";
+module.exports = require("node:buffer");
+
+/***/ }),
+
+/***/ 77598:
+/***/ ((module) => {
+
+"use strict";
+module.exports = require("node:crypto");
+
+/***/ }),
+
+/***/ 77030:
+/***/ ((module) => {
+
+"use strict";
+module.exports = require("node:net");
 
 /***/ }),
 
@@ -102076,6 +105572,1565 @@ class LRUCache {
 }
 
 module.exports = LRUCache
+
+
+/***/ }),
+
+/***/ 20991:
+/***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
+
+"use strict";
+
+var __defProp = Object.defineProperty;
+var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
+var __getOwnPropNames = Object.getOwnPropertyNames;
+var __hasOwnProp = Object.prototype.hasOwnProperty;
+var __export = (target, all) => {
+  for (var name in all)
+    __defProp(target, name, { get: all[name], enumerable: true });
+};
+var __copyProps = (to, from, except, desc) => {
+  if (from && typeof from === "object" || typeof from === "function") {
+    for (let key of __getOwnPropNames(from))
+      if (!__hasOwnProp.call(to, key) && key !== except)
+        __defProp(to, key, { get: () => from[key], enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable });
+  }
+  return to;
+};
+var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
+
+// source/index.ts
+var index_exports = {};
+__export(index_exports, {
+  MemoryStore: () => MemoryStore,
+  default: () => rate_limit_default,
+  ipKeyGenerator: () => ipKeyGenerator,
+  rateLimit: () => rate_limit_default
+});
+module.exports = __toCommonJS(index_exports);
+
+// source/ip-key-generator.ts
+var import_node_net = __nccwpck_require__(77030);
+var import_ip_address = __nccwpck_require__(79253);
+function ipKeyGenerator(ip, ipv6Subnet = 56) {
+  if (ipv6Subnet && (0, import_node_net.isIPv6)(ip)) {
+    return `${new import_ip_address.Address6(`${ip}/${ipv6Subnet}`).startAddress().correctForm()}/${ipv6Subnet}`;
+  }
+  return ip;
+}
+
+// source/memory-store.ts
+var MemoryStore = class {
+  constructor(validations2) {
+    this.validations = validations2;
+    /**
+     * These two maps store usage (requests) and reset time by key (for example, IP
+     * addresses or API keys).
+     *
+     * They are split into two to avoid having to iterate through the entire set to
+     * determine which ones need reset. Instead, `Client`s are moved from `previous`
+     * to `current` as they hit the endpoint. Once `windowMs` has elapsed, all clients
+     * left in `previous`, i.e., those that have not made any recent requests, are
+     * known to be expired and can be deleted in bulk.
+     */
+    this.previous = /* @__PURE__ */ new Map();
+    this.current = /* @__PURE__ */ new Map();
+    /**
+     * Confirmation that the keys incremented in once instance of MemoryStore
+     * cannot affect other instances.
+     */
+    this.localKeys = true;
+  }
+  /**
+   * Method that initializes the store.
+   *
+   * @param options {Options} - The options used to setup the middleware.
+   */
+  init(options) {
+    this.windowMs = options.windowMs;
+    this.validations?.windowMs(this.windowMs);
+    if (this.interval) clearInterval(this.interval);
+    this.interval = setInterval(() => {
+      this.clearExpired();
+    }, this.windowMs);
+    this.interval.unref?.();
+  }
+  /**
+   * Method to fetch a client's hit count and reset time.
+   *
+   * @param key {string} - The identifier for a client.
+   *
+   * @returns {ClientRateLimitInfo | undefined} - The number of hits and reset time for that client.
+   *
+   * @public
+   */
+  async get(key) {
+    return this.current.get(key) ?? this.previous.get(key);
+  }
+  /**
+   * Method to increment a client's hit counter.
+   *
+   * @param key {string} - The identifier for a client.
+   *
+   * @returns {ClientRateLimitInfo} - The number of hits and reset time for that client.
+   *
+   * @public
+   */
+  async increment(key) {
+    const client = this.getClient(key);
+    const now = Date.now();
+    if (client.resetTime.getTime() <= now) {
+      this.resetClient(client, now);
+    }
+    client.totalHits++;
+    return client;
+  }
+  /**
+   * Method to decrement a client's hit counter.
+   *
+   * @param key {string} - The identifier for a client.
+   *
+   * @public
+   */
+  async decrement(key) {
+    const client = this.getClient(key);
+    if (client.totalHits > 0) client.totalHits--;
+  }
+  /**
+   * Method to reset a client's hit counter.
+   *
+   * @param key {string} - The identifier for a client.
+   *
+   * @public
+   */
+  async resetKey(key) {
+    this.current.delete(key);
+    this.previous.delete(key);
+  }
+  /**
+   * Method to reset everyone's hit counter.
+   *
+   * @public
+   */
+  async resetAll() {
+    this.current.clear();
+    this.previous.clear();
+  }
+  /**
+   * Method to stop the timer (if currently running) and prevent any memory
+   * leaks.
+   *
+   * @public
+   */
+  shutdown() {
+    clearInterval(this.interval);
+    void this.resetAll();
+  }
+  /**
+   * Recycles a client by setting its hit count to zero, and reset time to
+   * `windowMs` milliseconds from now.
+   *
+   * NOT to be confused with `#resetKey()`, which removes a client from both the
+   * `current` and `previous` maps.
+   *
+   * @param client {Client} - The client to recycle.
+   * @param now {number} - The current time, to which the `windowMs` is added to get the `resetTime` for the client.
+   *
+   * @return {Client} - The modified client that was passed in, to allow for chaining.
+   */
+  resetClient(client, now = Date.now()) {
+    client.totalHits = 0;
+    client.resetTime.setTime(now + this.windowMs);
+    return client;
+  }
+  /**
+   * Retrieves or creates a client, given a key. Also ensures that the client being
+   * returned is in the `current` map.
+   *
+   * @param key {string} - The key under which the client is (or is to be) stored.
+   *
+   * @returns {Client} - The requested client.
+   */
+  getClient(key) {
+    if (this.current.has(key)) return this.current.get(key);
+    let client;
+    if (this.previous.has(key)) {
+      client = this.previous.get(key);
+      this.previous.delete(key);
+    } else {
+      client = { totalHits: 0, resetTime: /* @__PURE__ */ new Date() };
+      this.resetClient(client);
+    }
+    this.current.set(key, client);
+    return client;
+  }
+  /**
+   * Move current clients to previous, create a new map for current.
+   *
+   * This function is called every `windowMs`.
+   */
+  clearExpired() {
+    this.previous = this.current;
+    this.current = /* @__PURE__ */ new Map();
+  }
+};
+
+// source/rate-limit.ts
+var import_node_net3 = __nccwpck_require__(77030);
+
+// source/headers.ts
+var import_node_buffer = __nccwpck_require__(4573);
+var import_node_crypto = __nccwpck_require__(77598);
+var SUPPORTED_DRAFT_VERSIONS = [
+  "draft-6",
+  "draft-7",
+  "draft-8"
+];
+var getResetSeconds = (windowMs, resetTime) => {
+  let resetSeconds;
+  if (resetTime) {
+    const deltaSeconds = Math.ceil((resetTime.getTime() - Date.now()) / 1e3);
+    resetSeconds = Math.max(0, deltaSeconds);
+  } else {
+    resetSeconds = Math.ceil(windowMs / 1e3);
+  }
+  return resetSeconds;
+};
+var getPartitionKey = (key) => {
+  const hash = (0, import_node_crypto.createHash)("sha256");
+  hash.update(key);
+  const partitionKey = hash.digest("hex").slice(0, 12);
+  return import_node_buffer.Buffer.from(partitionKey).toString("base64");
+};
+var setLegacyHeaders = (response, info) => {
+  if (response.headersSent) return;
+  response.setHeader("X-RateLimit-Limit", info.limit.toString());
+  response.setHeader("X-RateLimit-Remaining", info.remaining.toString());
+  if (info.resetTime instanceof Date) {
+    response.setHeader("Date", (/* @__PURE__ */ new Date()).toUTCString());
+    response.setHeader(
+      "X-RateLimit-Reset",
+      Math.ceil(info.resetTime.getTime() / 1e3).toString()
+    );
+  }
+};
+var setDraft6Headers = (response, info, windowMs) => {
+  if (response.headersSent) return;
+  const windowSeconds = Math.ceil(windowMs / 1e3);
+  const resetSeconds = getResetSeconds(windowMs, info.resetTime);
+  response.setHeader("RateLimit-Policy", `${info.limit};w=${windowSeconds}`);
+  response.setHeader("RateLimit-Limit", info.limit.toString());
+  response.setHeader("RateLimit-Remaining", info.remaining.toString());
+  if (typeof resetSeconds === "number")
+    response.setHeader("RateLimit-Reset", resetSeconds.toString());
+};
+var setDraft7Headers = (response, info, windowMs) => {
+  if (response.headersSent) return;
+  const windowSeconds = Math.ceil(windowMs / 1e3);
+  const resetSeconds = getResetSeconds(windowMs, info.resetTime);
+  response.setHeader("RateLimit-Policy", `${info.limit};w=${windowSeconds}`);
+  response.setHeader(
+    "RateLimit",
+    `limit=${info.limit}, remaining=${info.remaining}, reset=${resetSeconds}`
+  );
+};
+var setDraft8Headers = (response, info, windowMs, name, key) => {
+  if (response.headersSent) return;
+  const windowSeconds = Math.ceil(windowMs / 1e3);
+  const resetSeconds = getResetSeconds(windowMs, info.resetTime);
+  const partitionKey = getPartitionKey(key);
+  const header = `r=${info.remaining}; t=${resetSeconds}`;
+  const policy = `q=${info.limit}; w=${windowSeconds}; pk=:${partitionKey}:`;
+  response.append("RateLimit", `"${name}"; ${header}`);
+  response.append("RateLimit-Policy", `"${name}"; ${policy}`);
+};
+var setRetryAfterHeader = (response, info, windowMs) => {
+  if (response.headersSent) return;
+  const resetSeconds = getResetSeconds(windowMs, info.resetTime);
+  response.setHeader("Retry-After", resetSeconds.toString());
+};
+
+// source/utils.ts
+var omitUndefinedProperties = (passedOptions) => {
+  const omittedOptions = {};
+  for (const k of Object.keys(passedOptions)) {
+    const key = k;
+    if (passedOptions[key] !== void 0) {
+      omittedOptions[key] = passedOptions[key];
+    }
+  }
+  return omittedOptions;
+};
+
+// source/validations.ts
+var import_node_net2 = __nccwpck_require__(77030);
+var ValidationError = class extends Error {
+  /**
+   * The code must be a string, in snake case and all capital, that starts with
+   * the substring `ERR_ERL_`.
+   *
+   * The message must be a string, starting with an uppercase character,
+   * describing the issue in detail.
+   */
+  constructor(code, message) {
+    const url = `https://express-rate-limit.github.io/${code}/`;
+    super(`${message} See ${url} for more information.`);
+    this.name = this.constructor.name;
+    this.code = code;
+    this.help = url;
+  }
+};
+var ChangeWarning = class extends ValidationError {
+};
+var usedStores = /* @__PURE__ */ new Set();
+var singleCountKeys = /* @__PURE__ */ new WeakMap();
+var validations = {
+  enabled: {
+    default: true
+  },
+  // Should be EnabledValidations type, but that's a circular reference
+  disable() {
+    for (const k of Object.keys(this.enabled)) this.enabled[k] = false;
+  },
+  /**
+   * Checks whether the IP address is valid, and that it does not have a port
+   * number in it.
+   *
+   * See https://github.com/express-rate-limit/express-rate-limit/wiki/Error-Codes#err_erl_invalid_ip_address.
+   *
+   * @param ip {string | undefined} - The IP address provided by Express as request.ip.
+   *
+   * @returns {void}
+   */
+  ip(ip) {
+    if (ip === void 0) {
+      throw new ValidationError(
+        "ERR_ERL_UNDEFINED_IP_ADDRESS",
+        `An undefined 'request.ip' was detected. This might indicate a misconfiguration or the connection being destroyed prematurely.`
+      );
+    }
+    if (!(0, import_node_net2.isIP)(ip)) {
+      throw new ValidationError(
+        "ERR_ERL_INVALID_IP_ADDRESS",
+        `An invalid 'request.ip' (${ip}) was detected. Consider passing a custom 'keyGenerator' function to the rate limiter.`
+      );
+    }
+  },
+  /**
+   * Makes sure the trust proxy setting is not set to `true`.
+   *
+   * See https://github.com/express-rate-limit/express-rate-limit/wiki/Error-Codes#err_erl_permissive_trust_proxy.
+   *
+   * @param request {Request} - The Express request object.
+   *
+   * @returns {void}
+   */
+  trustProxy(request) {
+    if (request.app.get("trust proxy") === true) {
+      throw new ValidationError(
+        "ERR_ERL_PERMISSIVE_TRUST_PROXY",
+        `The Express 'trust proxy' setting is true, which allows anyone to trivially bypass IP-based rate limiting.`
+      );
+    }
+  },
+  /**
+   * Makes sure the trust proxy setting is set in case the `X-Forwarded-For`
+   * header is present.
+   *
+   * See https://github.com/express-rate-limit/express-rate-limit/wiki/Error-Codes#err_erl_unset_trust_proxy.
+   *
+   * @param request {Request} - The Express request object.
+   *
+   * @returns {void}
+   */
+  xForwardedForHeader(request) {
+    if (request.headers["x-forwarded-for"] && request.app.get("trust proxy") === false) {
+      throw new ValidationError(
+        "ERR_ERL_UNEXPECTED_X_FORWARDED_FOR",
+        `The 'X-Forwarded-For' header is set but the Express 'trust proxy' setting is false (default). This could indicate a misconfiguration which would prevent express-rate-limit from accurately identifying users.`
+      );
+    }
+  },
+  /**
+   * Alert the user if the Forwarded header is set (standardized version of X-Forwarded-For - not supported by express as of version 5.1.0)
+   *
+   * @param request {Request} - The Express request object.
+   *
+   * @returns {void}
+   */
+  forwardedHeader(request) {
+    if (request.headers.forwarded && request.ip === request.socket?.remoteAddress) {
+      throw new ValidationError(
+        "ERR_ERL_FORWARDED_HEADER",
+        `The 'Forwarded' header (standardized X-Forwarded-For) is set but currently being ignored. Add a custom keyGenerator to use a value from this header.`
+      );
+    }
+  },
+  /**
+   * Ensures totalHits value from store is a positive integer.
+   *
+   * @param hits {any} - The `totalHits` returned by the store.
+   */
+  positiveHits(hits) {
+    if (typeof hits !== "number" || hits < 1 || hits !== Math.round(hits)) {
+      throw new ValidationError(
+        "ERR_ERL_INVALID_HITS",
+        `The totalHits value returned from the store must be a positive integer, got ${hits}`
+      );
+    }
+  },
+  /**
+   * Ensures a single store instance is not used with multiple express-rate-limit instances
+   */
+  unsharedStore(store) {
+    if (usedStores.has(store)) {
+      const maybeUniquePrefix = store?.localKeys ? "" : " (with a unique prefix)";
+      throw new ValidationError(
+        "ERR_ERL_STORE_REUSE",
+        `A Store instance must not be shared across multiple rate limiters. Create a new instance of ${store.constructor.name}${maybeUniquePrefix} for each limiter instead.`
+      );
+    }
+    usedStores.add(store);
+  },
+  /**
+   * Ensures a given key is incremented only once per request.
+   *
+   * @param request {Request} - The Express request object.
+   * @param store {Store} - The store class.
+   * @param key {string} - The key used to store the client's hit count.
+   *
+   * @returns {void}
+   */
+  singleCount(request, store, key) {
+    let storeKeys = singleCountKeys.get(request);
+    if (!storeKeys) {
+      storeKeys = /* @__PURE__ */ new Map();
+      singleCountKeys.set(request, storeKeys);
+    }
+    const storeKey = store.localKeys ? store : store.constructor.name;
+    let keys = storeKeys.get(storeKey);
+    if (!keys) {
+      keys = [];
+      storeKeys.set(storeKey, keys);
+    }
+    const prefixedKey = `${store.prefix ?? ""}${key}`;
+    if (keys.includes(prefixedKey)) {
+      throw new ValidationError(
+        "ERR_ERL_DOUBLE_COUNT",
+        `The hit count for ${key} was incremented more than once for a single request.`
+      );
+    }
+    keys.push(prefixedKey);
+  },
+  /**
+   * Warns the user that the behaviour for `max: 0` / `limit: 0` is
+   * changing in the next major release.
+   *
+   * @param limit {number} - The maximum number of hits per client.
+   *
+   * @returns {void}
+   */
+  limit(limit) {
+    if (limit === 0) {
+      throw new ChangeWarning(
+        "WRN_ERL_MAX_ZERO",
+        "Setting limit or max to 0 disables rate limiting in express-rate-limit v6 and older, but will cause all requests to be blocked in v7"
+      );
+    }
+  },
+  /**
+   * Warns the user that the `draft_polli_ratelimit_headers` option is deprecated
+   * and will be removed in the next major release.
+   *
+   * @param draft_polli_ratelimit_headers {any | undefined} - The now-deprecated setting that was used to enable standard headers.
+   *
+   * @returns {void}
+   */
+  draftPolliHeaders(draft_polli_ratelimit_headers) {
+    if (draft_polli_ratelimit_headers) {
+      throw new ChangeWarning(
+        "WRN_ERL_DEPRECATED_DRAFT_POLLI_HEADERS",
+        `The draft_polli_ratelimit_headers configuration option is deprecated and has been removed in express-rate-limit v7, please set standardHeaders: 'draft-6' instead.`
+      );
+    }
+  },
+  /**
+   * Warns the user that the `onLimitReached` option is deprecated and
+   * will be removed in the next major release.
+   *
+   * @param onLimitReached {any | undefined} - The maximum number of hits per client.
+   *
+   * @returns {void}
+   */
+  onLimitReached(onLimitReached) {
+    if (onLimitReached) {
+      throw new ChangeWarning(
+        "WRN_ERL_DEPRECATED_ON_LIMIT_REACHED",
+        "The onLimitReached configuration option is deprecated and has been removed in express-rate-limit v7."
+      );
+    }
+  },
+  /**
+   * Warns the user when an invalid/unsupported version of the draft spec is passed.
+   *
+   * @param version {any | undefined} - The version passed by the user.
+   *
+   * @returns {void}
+   */
+  headersDraftVersion(version) {
+    if (typeof version !== "string" || // @ts-expect-error This is fine. If version is not in the array, it will just return false.
+    !SUPPORTED_DRAFT_VERSIONS.includes(version)) {
+      const versionString = SUPPORTED_DRAFT_VERSIONS.join(", ");
+      throw new ValidationError(
+        "ERR_ERL_HEADERS_UNSUPPORTED_DRAFT_VERSION",
+        `standardHeaders: only the following versions of the IETF draft specification are supported: ${versionString}.`
+      );
+    }
+  },
+  /**
+   * Warns the user when the selected headers option requires a reset time but
+   * the store does not provide one.
+   *
+   * @param resetTime {Date | undefined} - The timestamp when the client's hit count will be reset.
+   *
+   * @returns {void}
+   */
+  headersResetTime(resetTime) {
+    if (!resetTime) {
+      throw new ValidationError(
+        "ERR_ERL_HEADERS_NO_RESET",
+        `standardHeaders:  'draft-7' requires a 'resetTime', but the store did not provide one. The 'windowMs' value will be used instead, which may cause clients to wait longer than necessary.`
+      );
+    }
+  },
+  knownOptions(passedOptions) {
+    if (!passedOptions) return;
+    const optionsMap = {
+      windowMs: true,
+      limit: true,
+      message: true,
+      statusCode: true,
+      legacyHeaders: true,
+      standardHeaders: true,
+      identifier: true,
+      requestPropertyName: true,
+      skipFailedRequests: true,
+      skipSuccessfulRequests: true,
+      keyGenerator: true,
+      ipv6Subnet: true,
+      handler: true,
+      skip: true,
+      requestWasSuccessful: true,
+      store: true,
+      validate: true,
+      headers: true,
+      max: true,
+      passOnStoreError: true
+    };
+    const validOptions = Object.keys(optionsMap).concat(
+      "draft_polli_ratelimit_headers",
+      // not a valid option anymore, but we have a more specific check for this one, so don't warn for it here
+      // from express-slow-down - https://github.com/express-rate-limit/express-slow-down/blob/main/source/types.ts#L65
+      "delayAfter",
+      "delayMs",
+      "maxDelayMs"
+    );
+    for (const key of Object.keys(passedOptions)) {
+      if (!validOptions.includes(key)) {
+        throw new ValidationError(
+          "ERR_ERL_UNKNOWN_OPTION",
+          `Unexpected configuration option: ${key}`
+          // todo: suggest a valid option with a short levenstein distance?
+        );
+      }
+    }
+  },
+  /**
+   * Checks the options.validate setting to ensure that only recognized
+   * validations are enabled or disabled.
+   *
+   * If any unrecognized values are found, an error is logged that
+   * includes the list of supported validations.
+   */
+  validationsConfig() {
+    const supportedValidations = Object.keys(this).filter(
+      (k) => !["enabled", "disable"].includes(k)
+    );
+    supportedValidations.push("default");
+    for (const key of Object.keys(this.enabled)) {
+      if (!supportedValidations.includes(key)) {
+        throw new ValidationError(
+          "ERR_ERL_UNKNOWN_VALIDATION",
+          `options.validate.${key} is not recognized. Supported validate options are: ${supportedValidations.join(
+            ", "
+          )}.`
+        );
+      }
+    }
+  },
+  /**
+   * Checks to see if the instance was created inside of a request handler,
+   * which would prevent it from working correctly, with the default memory
+   * store (or any other store with localKeys.)
+   */
+  creationStack(store) {
+    const { stack } = new Error(
+      "express-rate-limit validation check (set options.validate.creationStack=false to disable)"
+    );
+    if (stack?.includes("Layer.handle [as handle_request]") || // express v4
+    stack?.includes("Layer.handleRequest")) {
+      if (!store.localKeys) {
+        throw new ValidationError(
+          "ERR_ERL_CREATED_IN_REQUEST_HANDLER",
+          "express-rate-limit instance should *usually* be created at app initialization, not when responding to a request."
+        );
+      }
+      throw new ValidationError(
+        "ERR_ERL_CREATED_IN_REQUEST_HANDLER",
+        "express-rate-limit instance should be created at app initialization, not when responding to a request."
+      );
+    }
+  },
+  ipv6Subnet(ipv6Subnet) {
+    if (ipv6Subnet === false) {
+      return;
+    }
+    if (!Number.isInteger(ipv6Subnet) || ipv6Subnet < 32 || ipv6Subnet > 64) {
+      throw new ValidationError(
+        "ERR_ERL_IPV6_SUBNET",
+        `Unexpected ipv6Subnet value: ${ipv6Subnet}. Expected an integer between 32 and 64 (usually 48-64).`
+      );
+    }
+  },
+  ipv6SubnetOrKeyGenerator(options) {
+    if (options.ipv6Subnet !== void 0 && options.keyGenerator) {
+      throw new ValidationError(
+        "ERR_ERL_IPV6SUBNET_OR_KEYGENERATOR",
+        `Incompatible options: the 'ipv6Subnet' option is ignored when a custom 'keyGenerator' function is also set.`
+      );
+    }
+  },
+  keyGeneratorIpFallback(keyGenerator) {
+    if (!keyGenerator) {
+      return;
+    }
+    const src = keyGenerator.toString();
+    if ((src.includes("req.ip") || src.includes("request.ip")) && !src.includes("ipKeyGenerator")) {
+      throw new ValidationError(
+        "ERR_ERL_KEY_GEN_IPV6",
+        "Custom keyGenerator appears to use request IP without calling the ipKeyGenerator helper function for IPv6 addresses. This could allow IPv6 users to bypass limits."
+      );
+    }
+  },
+  /**
+   * Checks to see if the window duration is greater than 2^32 - 1. This is only
+   * called by the default MemoryStore, since it uses Node's setInterval method.
+   *
+   * See https://nodejs.org/api/timers.html#setintervalcallback-delay-args.
+   */
+  windowMs(windowMs) {
+    const SET_TIMEOUT_MAX = 2 ** 31 - 1;
+    if (typeof windowMs !== "number" || Number.isNaN(windowMs) || windowMs < 1 || windowMs > SET_TIMEOUT_MAX) {
+      throw new ValidationError(
+        "ERR_ERL_WINDOW_MS",
+        `Invalid windowMs value: ${windowMs}${typeof windowMs !== "number" ? ` (${typeof windowMs})` : ""}, must be a number between 1 and ${SET_TIMEOUT_MAX} when using the default MemoryStore`
+      );
+    }
+  }
+};
+var getValidations = (_enabled) => {
+  let enabled;
+  if (typeof _enabled === "boolean") {
+    enabled = {
+      default: _enabled
+    };
+  } else {
+    enabled = {
+      default: true,
+      ..._enabled
+    };
+  }
+  const wrappedValidations = { enabled };
+  for (const [name, validation] of Object.entries(validations)) {
+    if (typeof validation === "function")
+      wrappedValidations[name] = (...args) => {
+        if (!(enabled[name] ?? enabled.default)) {
+          return;
+        }
+        try {
+          ;
+          validation.apply(
+            wrappedValidations,
+            args
+          );
+        } catch (error) {
+          if (error instanceof ChangeWarning) console.warn(error);
+          else console.error(error);
+        }
+      };
+  }
+  return wrappedValidations;
+};
+
+// source/rate-limit.ts
+var isLegacyStore = (store) => (
+  // Check that `incr` exists but `increment` does not - store authors might want
+  // to keep both around for backwards compatibility.
+  typeof store.incr === "function" && typeof store.increment !== "function"
+);
+var promisifyStore = (passedStore) => {
+  if (!isLegacyStore(passedStore)) {
+    return passedStore;
+  }
+  const legacyStore = passedStore;
+  class PromisifiedStore {
+    async increment(key) {
+      return new Promise((resolve, reject) => {
+        legacyStore.incr(
+          key,
+          (error, totalHits, resetTime) => {
+            if (error) reject(error);
+            resolve({ totalHits, resetTime });
+          }
+        );
+      });
+    }
+    async decrement(key) {
+      return legacyStore.decrement(key);
+    }
+    async resetKey(key) {
+      return legacyStore.resetKey(key);
+    }
+    /* istanbul ignore next */
+    async resetAll() {
+      if (typeof legacyStore.resetAll === "function")
+        return legacyStore.resetAll();
+    }
+  }
+  return new PromisifiedStore();
+};
+var getOptionsFromConfig = (config) => {
+  const { validations: validations2, ...directlyPassableEntries } = config;
+  return {
+    ...directlyPassableEntries,
+    validate: validations2.enabled
+  };
+};
+var parseOptions = (passedOptions) => {
+  const notUndefinedOptions = omitUndefinedProperties(passedOptions);
+  const validations2 = getValidations(notUndefinedOptions?.validate ?? true);
+  validations2.validationsConfig();
+  validations2.knownOptions(passedOptions);
+  validations2.draftPolliHeaders(
+    // @ts-expect-error see the note above.
+    notUndefinedOptions.draft_polli_ratelimit_headers
+  );
+  validations2.onLimitReached(notUndefinedOptions.onLimitReached);
+  if (notUndefinedOptions.ipv6Subnet !== void 0 && typeof notUndefinedOptions.ipv6Subnet !== "function") {
+    validations2.ipv6Subnet(notUndefinedOptions.ipv6Subnet);
+  }
+  validations2.keyGeneratorIpFallback(notUndefinedOptions.keyGenerator);
+  validations2.ipv6SubnetOrKeyGenerator(notUndefinedOptions);
+  let standardHeaders = notUndefinedOptions.standardHeaders ?? false;
+  if (standardHeaders === true) standardHeaders = "draft-6";
+  const config = {
+    windowMs: 60 * 1e3,
+    limit: passedOptions.max ?? 5,
+    // `max` is deprecated, but support it anyways.
+    message: "Too many requests, please try again later.",
+    statusCode: 429,
+    legacyHeaders: passedOptions.headers ?? true,
+    identifier(request, _response) {
+      let duration = "";
+      const property = config.requestPropertyName;
+      const { limit } = request[property];
+      const seconds = config.windowMs / 1e3;
+      const minutes = config.windowMs / (1e3 * 60);
+      const hours = config.windowMs / (1e3 * 60 * 60);
+      const days = config.windowMs / (1e3 * 60 * 60 * 24);
+      if (seconds < 60) duration = `${seconds}sec`;
+      else if (minutes < 60) duration = `${minutes}min`;
+      else if (hours < 24) duration = `${hours}hr${hours > 1 ? "s" : ""}`;
+      else duration = `${days}day${days > 1 ? "s" : ""}`;
+      return `${limit}-in-${duration}`;
+    },
+    requestPropertyName: "rateLimit",
+    skipFailedRequests: false,
+    skipSuccessfulRequests: false,
+    requestWasSuccessful: (_request, response) => response.statusCode < 400,
+    skip: (_request, _response) => false,
+    async keyGenerator(request, response) {
+      validations2.ip(request.ip);
+      validations2.trustProxy(request);
+      validations2.xForwardedForHeader(request);
+      validations2.forwardedHeader(request);
+      const ip = request.ip;
+      let subnet = 56;
+      if ((0, import_node_net3.isIPv6)(ip)) {
+        subnet = typeof config.ipv6Subnet === "function" ? await config.ipv6Subnet(request, response) : config.ipv6Subnet;
+        if (typeof config.ipv6Subnet === "function")
+          validations2.ipv6Subnet(subnet);
+      }
+      return ipKeyGenerator(ip, subnet);
+    },
+    ipv6Subnet: 56,
+    async handler(request, response, _next, _optionsUsed) {
+      response.status(config.statusCode);
+      const message = typeof config.message === "function" ? await config.message(
+        request,
+        response
+      ) : config.message;
+      if (!response.writableEnded) response.send(message);
+    },
+    passOnStoreError: false,
+    // Allow the default options to be overridden by the passed options.
+    ...notUndefinedOptions,
+    // `standardHeaders` is resolved into a draft version above, use that.
+    standardHeaders,
+    // Note that this field is declared after the user's options are spread in,
+    // so that this field doesn't get overridden with an un-promisified store!
+    store: promisifyStore(
+      notUndefinedOptions.store ?? new MemoryStore(validations2)
+    ),
+    // Print an error to the console if a few known misconfigurations are detected.
+    validations: validations2
+  };
+  if (typeof config.store.increment !== "function" || typeof config.store.decrement !== "function" || typeof config.store.resetKey !== "function" || config.store.resetAll !== void 0 && typeof config.store.resetAll !== "function" || config.store.init !== void 0 && typeof config.store.init !== "function") {
+    throw new TypeError(
+      "An invalid store was passed. Please ensure that the store is a class that implements the `Store` interface."
+    );
+  }
+  return config;
+};
+var handleAsyncErrors = (fn) => async (request, response, next) => {
+  try {
+    await Promise.resolve(fn(request, response, next)).catch(next);
+  } catch (error) {
+    next(error);
+  }
+};
+var rateLimit = (passedOptions) => {
+  const config = parseOptions(passedOptions ?? {});
+  const options = getOptionsFromConfig(config);
+  config.validations.creationStack(config.store);
+  config.validations.unsharedStore(config.store);
+  if (typeof config.store.init === "function") config.store.init(options);
+  const middleware = handleAsyncErrors(
+    async (request, response, next) => {
+      const skip = await config.skip(request, response);
+      if (skip) {
+        next();
+        return;
+      }
+      const augmentedRequest = request;
+      const key = await config.keyGenerator(request, response);
+      let totalHits = 0;
+      let resetTime;
+      try {
+        const incrementResult = await config.store.increment(key);
+        totalHits = incrementResult.totalHits;
+        resetTime = incrementResult.resetTime;
+      } catch (error) {
+        if (config.passOnStoreError) {
+          console.error(
+            "express-rate-limit: error from store, allowing request without rate-limiting.",
+            error
+          );
+          next();
+          return;
+        }
+        throw error;
+      }
+      config.validations.positiveHits(totalHits);
+      config.validations.singleCount(request, config.store, key);
+      const retrieveLimit = typeof config.limit === "function" ? config.limit(request, response) : config.limit;
+      const limit = await retrieveLimit;
+      config.validations.limit(limit);
+      const info = {
+        limit,
+        used: totalHits,
+        remaining: Math.max(limit - totalHits, 0),
+        resetTime,
+        key
+      };
+      Object.defineProperty(info, "current", {
+        configurable: false,
+        enumerable: false,
+        value: totalHits
+      });
+      augmentedRequest[config.requestPropertyName] = info;
+      if (config.legacyHeaders && !response.headersSent) {
+        setLegacyHeaders(response, info);
+      }
+      if (config.standardHeaders && !response.headersSent) {
+        switch (config.standardHeaders) {
+          case "draft-6": {
+            setDraft6Headers(response, info, config.windowMs);
+            break;
+          }
+          case "draft-7": {
+            config.validations.headersResetTime(info.resetTime);
+            setDraft7Headers(response, info, config.windowMs);
+            break;
+          }
+          case "draft-8": {
+            const retrieveName = typeof config.identifier === "function" ? config.identifier(request, response) : config.identifier;
+            const name = await retrieveName;
+            config.validations.headersResetTime(info.resetTime);
+            setDraft8Headers(response, info, config.windowMs, name, key);
+            break;
+          }
+          default: {
+            config.validations.headersDraftVersion(config.standardHeaders);
+            break;
+          }
+        }
+      }
+      if (config.skipFailedRequests || config.skipSuccessfulRequests) {
+        let decremented = false;
+        const decrementKey = async () => {
+          if (!decremented) {
+            await config.store.decrement(key);
+            decremented = true;
+          }
+        };
+        if (config.skipFailedRequests) {
+          response.on("finish", async () => {
+            if (!await config.requestWasSuccessful(request, response))
+              await decrementKey();
+          });
+          response.on("close", async () => {
+            if (!response.writableEnded) await decrementKey();
+          });
+          response.on("error", async () => {
+            await decrementKey();
+          });
+        }
+        if (config.skipSuccessfulRequests) {
+          response.on("finish", async () => {
+            if (await config.requestWasSuccessful(request, response))
+              await decrementKey();
+          });
+        }
+      }
+      config.validations.disable();
+      if (totalHits > limit) {
+        if (config.legacyHeaders || config.standardHeaders) {
+          setRetryAfterHeader(response, info, config.windowMs);
+        }
+        config.handler(request, response, next, options);
+        return;
+      }
+      next();
+    }
+  );
+  const getThrowFn = () => {
+    throw new Error("The current store does not support the get/getKey method");
+  };
+  middleware.resetKey = config.store.resetKey.bind(config.store);
+  middleware.getKey = typeof config.store.get === "function" ? config.store.get.bind(config.store) : getThrowFn;
+  return middleware;
+};
+var rate_limit_default = rateLimit;
+// Annotate the CommonJS export names for ESM import in node:
+0 && (0);
+module.exports = Object.assign(rateLimit, module.exports);
+
+
+/***/ }),
+
+/***/ 47432:
+/***/ ((module, exports) => {
+
+"use strict";
+
+
+Object.defineProperties(exports, {__esModule: {value: true}, [Symbol.toStringTag]: {value: "Module"}})
+
+const dangerouslyDisableDefaultSrc = Symbol("dangerouslyDisableDefaultSrc")
+const SHOULD_BE_QUOTED = new Set(["none", "self", "strict-dynamic", "report-sample", "inline-speculation-rules", "unsafe-inline", "unsafe-eval", "unsafe-hashes", "wasm-unsafe-eval"])
+const getDefaultDirectives = () => ({
+	"default-src": ["'self'"],
+	"base-uri": ["'self'"],
+	"font-src": ["'self'", "https:", "data:"],
+	"form-action": ["'self'"],
+	"frame-ancestors": ["'self'"],
+	"img-src": ["'self'", "data:"],
+	"object-src": ["'none'"],
+	"script-src": ["'self'"],
+	"script-src-attr": ["'none'"],
+	"style-src": ["'self'", "https:", "'unsafe-inline'"],
+	"upgrade-insecure-requests": []
+})
+const dashify = str => str.replace(/[A-Z]/g, capitalLetter => "-" + capitalLetter.toLowerCase())
+const assertDirectiveValueIsValid = (directiveName, directiveValue) => {
+	if (/;|,/.test(directiveValue)) {
+		throw new Error(`Content-Security-Policy received an invalid directive value for ${JSON.stringify(directiveName)}`)
+	}
+}
+const assertDirectiveValueEntryIsValid = (directiveName, directiveValueEntry) => {
+	if (SHOULD_BE_QUOTED.has(directiveValueEntry) || directiveValueEntry.startsWith("nonce-") || directiveValueEntry.startsWith("sha256-") || directiveValueEntry.startsWith("sha384-") || directiveValueEntry.startsWith("sha512-")) {
+		throw new Error(`Content-Security-Policy received an invalid directive value for ${JSON.stringify(directiveName)}. ${JSON.stringify(directiveValueEntry)} should be quoted`)
+	}
+}
+function normalizeDirectives(options) {
+	const defaultDirectives = getDefaultDirectives()
+	const {useDefaults = true, directives: rawDirectives = defaultDirectives} = options
+	const result = new Map()
+	const directiveNamesSeen = new Set()
+	const directivesExplicitlyDisabled = new Set()
+	for (const rawDirectiveName in rawDirectives) {
+		if (!Object.hasOwn(rawDirectives, rawDirectiveName)) {
+			continue
+		}
+		if (rawDirectiveName.length === 0 || /[^a-zA-Z0-9-]/.test(rawDirectiveName)) {
+			throw new Error(`Content-Security-Policy received an invalid directive name ${JSON.stringify(rawDirectiveName)}`)
+		}
+		const directiveName = dashify(rawDirectiveName)
+		if (directiveNamesSeen.has(directiveName)) {
+			throw new Error(`Content-Security-Policy received a duplicate directive ${JSON.stringify(directiveName)}`)
+		}
+		directiveNamesSeen.add(directiveName)
+		const rawDirectiveValue = rawDirectives[rawDirectiveName]
+		let directiveValue
+		if (rawDirectiveValue === null) {
+			if (directiveName === "default-src") {
+				throw new Error("Content-Security-Policy needs a default-src but it was set to `null`. If you really want to disable it, set it to `contentSecurityPolicy.dangerouslyDisableDefaultSrc`.")
+			}
+			directivesExplicitlyDisabled.add(directiveName)
+			continue
+		} else if (typeof rawDirectiveValue === "string") {
+			directiveValue = [rawDirectiveValue]
+		} else if (!rawDirectiveValue) {
+			throw new Error(`Content-Security-Policy received an invalid directive value for ${JSON.stringify(directiveName)}`)
+		} else if (rawDirectiveValue === dangerouslyDisableDefaultSrc) {
+			if (directiveName === "default-src") {
+				directivesExplicitlyDisabled.add("default-src")
+				continue
+			} else {
+				throw new Error(`Content-Security-Policy: tried to disable ${JSON.stringify(directiveName)} as if it were default-src; simply omit the key`)
+			}
+		} else {
+			directiveValue = rawDirectiveValue
+		}
+		for (const element of directiveValue) {
+			if (typeof element !== "string") continue
+			assertDirectiveValueIsValid(directiveName, element)
+			assertDirectiveValueEntryIsValid(directiveName, element)
+		}
+		result.set(directiveName, directiveValue)
+	}
+	if (useDefaults) {
+		Object.entries(defaultDirectives).forEach(([defaultDirectiveName, defaultDirectiveValue]) => {
+			if (!result.has(defaultDirectiveName) && !directivesExplicitlyDisabled.has(defaultDirectiveName)) {
+				result.set(defaultDirectiveName, defaultDirectiveValue)
+			}
+		})
+	}
+	if (!result.size) {
+		throw new Error("Content-Security-Policy has no directives. Either set some or disable the header")
+	}
+	if (!result.has("default-src") && !directivesExplicitlyDisabled.has("default-src")) {
+		throw new Error("Content-Security-Policy needs a default-src but none was provided. If you really want to disable it, set it to `contentSecurityPolicy.dangerouslyDisableDefaultSrc`.")
+	}
+	return result
+}
+function getHeaderValue(req, res, normalizedDirectives) {
+	const result = []
+	for (const [directiveName, rawDirectiveValue] of normalizedDirectives) {
+		let directiveValue = ""
+		for (const element of rawDirectiveValue) {
+			if (typeof element === "function") {
+				const newElement = element(req, res)
+				assertDirectiveValueEntryIsValid(directiveName, newElement)
+				directiveValue += " " + newElement
+			} else {
+				directiveValue += " " + element
+			}
+		}
+		if (directiveValue) {
+			assertDirectiveValueIsValid(directiveName, directiveValue)
+			result.push(`${directiveName}${directiveValue}`)
+		} else {
+			result.push(directiveName)
+		}
+	}
+	return result.join(";")
+}
+const contentSecurityPolicy = function contentSecurityPolicy(options = {}) {
+	const headerName = options.reportOnly ? "Content-Security-Policy-Report-Only" : "Content-Security-Policy"
+	const normalizedDirectives = normalizeDirectives(options)
+	return function contentSecurityPolicyMiddleware(req, res, next) {
+		const result = getHeaderValue(req, res, normalizedDirectives)
+		if (result instanceof Error) {
+			next(result)
+		} else {
+			res.setHeader(headerName, result)
+			next()
+		}
+	}
+}
+contentSecurityPolicy.getDefaultDirectives = getDefaultDirectives
+contentSecurityPolicy.dangerouslyDisableDefaultSrc = dangerouslyDisableDefaultSrc
+
+const ALLOWED_POLICIES$2 = new Set(["require-corp", "credentialless", "unsafe-none"])
+function getHeaderValueFromOptions$6({policy = "require-corp"}) {
+	if (ALLOWED_POLICIES$2.has(policy)) {
+		return policy
+	} else {
+		throw new Error(`Cross-Origin-Embedder-Policy does not support the ${JSON.stringify(policy)} policy`)
+	}
+}
+function crossOriginEmbedderPolicy(options = {}) {
+	const headerValue = getHeaderValueFromOptions$6(options)
+	return function crossOriginEmbedderPolicyMiddleware(_req, res, next) {
+		res.setHeader("Cross-Origin-Embedder-Policy", headerValue)
+		next()
+	}
+}
+
+const ALLOWED_POLICIES$1 = new Set(["same-origin", "same-origin-allow-popups", "unsafe-none"])
+function getHeaderValueFromOptions$5({policy = "same-origin"}) {
+	if (ALLOWED_POLICIES$1.has(policy)) {
+		return policy
+	} else {
+		throw new Error(`Cross-Origin-Opener-Policy does not support the ${JSON.stringify(policy)} policy`)
+	}
+}
+function crossOriginOpenerPolicy(options = {}) {
+	const headerValue = getHeaderValueFromOptions$5(options)
+	return function crossOriginOpenerPolicyMiddleware(_req, res, next) {
+		res.setHeader("Cross-Origin-Opener-Policy", headerValue)
+		next()
+	}
+}
+
+const ALLOWED_POLICIES = new Set(["same-origin", "same-site", "cross-origin"])
+function getHeaderValueFromOptions$4({policy = "same-origin"}) {
+	if (ALLOWED_POLICIES.has(policy)) {
+		return policy
+	} else {
+		throw new Error(`Cross-Origin-Resource-Policy does not support the ${JSON.stringify(policy)} policy`)
+	}
+}
+function crossOriginResourcePolicy(options = {}) {
+	const headerValue = getHeaderValueFromOptions$4(options)
+	return function crossOriginResourcePolicyMiddleware(_req, res, next) {
+		res.setHeader("Cross-Origin-Resource-Policy", headerValue)
+		next()
+	}
+}
+
+function originAgentCluster() {
+	return function originAgentClusterMiddleware(_req, res, next) {
+		res.setHeader("Origin-Agent-Cluster", "?1")
+		next()
+	}
+}
+
+const ALLOWED_TOKENS = new Set(["no-referrer", "no-referrer-when-downgrade", "same-origin", "origin", "strict-origin", "origin-when-cross-origin", "strict-origin-when-cross-origin", "unsafe-url", ""])
+function getHeaderValueFromOptions$3({policy = ["no-referrer"]}) {
+	const tokens = typeof policy === "string" ? [policy] : policy
+	if (tokens.length === 0) {
+		throw new Error("Referrer-Policy received no policy tokens")
+	}
+	const tokensSeen = new Set()
+	tokens.forEach(token => {
+		if (!ALLOWED_TOKENS.has(token)) {
+			throw new Error(`Referrer-Policy received an unexpected policy token ${JSON.stringify(token)}`)
+		} else if (tokensSeen.has(token)) {
+			throw new Error(`Referrer-Policy received a duplicate policy token ${JSON.stringify(token)}`)
+		}
+		tokensSeen.add(token)
+	})
+	return tokens.join(",")
+}
+function referrerPolicy(options = {}) {
+	const headerValue = getHeaderValueFromOptions$3(options)
+	return function referrerPolicyMiddleware(_req, res, next) {
+		res.setHeader("Referrer-Policy", headerValue)
+		next()
+	}
+}
+
+const DEFAULT_MAX_AGE = 365 * 24 * 60 * 60
+function parseMaxAge(value = DEFAULT_MAX_AGE) {
+	if (value >= 0 && Number.isFinite(value)) {
+		return Math.floor(value)
+	} else {
+		throw new Error(`Strict-Transport-Security: ${JSON.stringify(value)} is not a valid value for maxAge. Please choose a positive integer.`)
+	}
+}
+function getHeaderValueFromOptions$2(options) {
+	if ("maxage" in options) {
+		throw new Error("Strict-Transport-Security received an unsupported property, `maxage`. Did you mean to pass `maxAge`?")
+	}
+	if ("includeSubdomains" in options) {
+		throw new Error('Strict-Transport-Security middleware should use `includeSubDomains` instead of `includeSubdomains`. (The correct one has an uppercase "D".)')
+	}
+	const directives = [`max-age=${parseMaxAge(options.maxAge)}`]
+	if (options.includeSubDomains === undefined || options.includeSubDomains) {
+		directives.push("includeSubDomains")
+	}
+	if (options.preload) {
+		directives.push("preload")
+	}
+	return directives.join("; ")
+}
+function strictTransportSecurity(options = {}) {
+	const headerValue = getHeaderValueFromOptions$2(options)
+	return function strictTransportSecurityMiddleware(_req, res, next) {
+		res.setHeader("Strict-Transport-Security", headerValue)
+		next()
+	}
+}
+
+function xContentTypeOptions() {
+	return function xContentTypeOptionsMiddleware(_req, res, next) {
+		res.setHeader("X-Content-Type-Options", "nosniff")
+		next()
+	}
+}
+
+function xDnsPrefetchControl(options = {}) {
+	const headerValue = options.allow ? "on" : "off"
+	return function xDnsPrefetchControlMiddleware(_req, res, next) {
+		res.setHeader("X-DNS-Prefetch-Control", headerValue)
+		next()
+	}
+}
+
+function xDownloadOptions() {
+	return function xDownloadOptionsMiddleware(_req, res, next) {
+		res.setHeader("X-Download-Options", "noopen")
+		next()
+	}
+}
+
+function getHeaderValueFromOptions$1({action = "sameorigin"}) {
+	const normalizedAction = typeof action === "string" ? action.toUpperCase() : action
+	switch (normalizedAction) {
+		case "SAME-ORIGIN":
+			return "SAMEORIGIN"
+		case "DENY":
+		case "SAMEORIGIN":
+			return normalizedAction
+		default:
+			throw new Error(`X-Frame-Options received an invalid action ${JSON.stringify(action)}`)
+	}
+}
+function xFrameOptions(options = {}) {
+	const headerValue = getHeaderValueFromOptions$1(options)
+	return function xFrameOptionsMiddleware(_req, res, next) {
+		res.setHeader("X-Frame-Options", headerValue)
+		next()
+	}
+}
+
+const ALLOWED_PERMITTED_POLICIES = new Set(["none", "master-only", "by-content-type", "all"])
+function getHeaderValueFromOptions({permittedPolicies = "none"}) {
+	if (ALLOWED_PERMITTED_POLICIES.has(permittedPolicies)) {
+		return permittedPolicies
+	} else {
+		throw new Error(`X-Permitted-Cross-Domain-Policies does not support ${JSON.stringify(permittedPolicies)}`)
+	}
+}
+function xPermittedCrossDomainPolicies(options = {}) {
+	const headerValue = getHeaderValueFromOptions(options)
+	return function xPermittedCrossDomainPoliciesMiddleware(_req, res, next) {
+		res.setHeader("X-Permitted-Cross-Domain-Policies", headerValue)
+		next()
+	}
+}
+
+function xPoweredBy() {
+	return function xPoweredByMiddleware(_req, res, next) {
+		res.removeHeader("X-Powered-By")
+		next()
+	}
+}
+
+function xXssProtection() {
+	return function xXssProtectionMiddleware(_req, res, next) {
+		res.setHeader("X-XSS-Protection", "0")
+		next()
+	}
+}
+
+function getMiddlewareFunctionsFromOptions(options) {
+	const result = []
+	switch (options.contentSecurityPolicy) {
+		case undefined:
+		case true:
+			result.push(contentSecurityPolicy())
+			break
+		case false:
+			break
+		default:
+			result.push(contentSecurityPolicy(options.contentSecurityPolicy))
+			break
+	}
+	switch (options.crossOriginEmbedderPolicy) {
+		case undefined:
+		case false:
+			break
+		case true:
+			result.push(crossOriginEmbedderPolicy())
+			break
+		default:
+			result.push(crossOriginEmbedderPolicy(options.crossOriginEmbedderPolicy))
+			break
+	}
+	switch (options.crossOriginOpenerPolicy) {
+		case undefined:
+		case true:
+			result.push(crossOriginOpenerPolicy())
+			break
+		case false:
+			break
+		default:
+			result.push(crossOriginOpenerPolicy(options.crossOriginOpenerPolicy))
+			break
+	}
+	switch (options.crossOriginResourcePolicy) {
+		case undefined:
+		case true:
+			result.push(crossOriginResourcePolicy())
+			break
+		case false:
+			break
+		default:
+			result.push(crossOriginResourcePolicy(options.crossOriginResourcePolicy))
+			break
+	}
+	switch (options.originAgentCluster) {
+		case undefined:
+		case true:
+			result.push(originAgentCluster())
+			break
+		case false:
+			break
+		default:
+			console.warn("Origin-Agent-Cluster does not take options. Remove the property to silence this warning.")
+			result.push(originAgentCluster())
+			break
+	}
+	switch (options.referrerPolicy) {
+		case undefined:
+		case true:
+			result.push(referrerPolicy())
+			break
+		case false:
+			break
+		default:
+			result.push(referrerPolicy(options.referrerPolicy))
+			break
+	}
+	if ("strictTransportSecurity" in options && "hsts" in options) {
+		throw new Error("Strict-Transport-Security option was specified twice. Remove `hsts` to silence this warning.")
+	}
+	const strictTransportSecurityOption = options.strictTransportSecurity ?? options.hsts
+	switch (strictTransportSecurityOption) {
+		case undefined:
+		case true:
+			result.push(strictTransportSecurity())
+			break
+		case false:
+			break
+		default:
+			result.push(strictTransportSecurity(strictTransportSecurityOption))
+			break
+	}
+	if ("xContentTypeOptions" in options && "noSniff" in options) {
+		throw new Error("X-Content-Type-Options option was specified twice. Remove `noSniff` to silence this warning.")
+	}
+	const xContentTypeOptionsOption = options.xContentTypeOptions ?? options.noSniff
+	switch (xContentTypeOptionsOption) {
+		case undefined:
+		case true:
+			result.push(xContentTypeOptions())
+			break
+		case false:
+			break
+		default:
+			console.warn("X-Content-Type-Options does not take options. Remove the property to silence this warning.")
+			result.push(xContentTypeOptions())
+			break
+	}
+	if ("xDnsPrefetchControl" in options && "dnsPrefetchControl" in options) {
+		throw new Error("X-DNS-Prefetch-Control option was specified twice. Remove `dnsPrefetchControl` to silence this warning.")
+	}
+	const xDnsPrefetchControlOption = options.xDnsPrefetchControl ?? options.dnsPrefetchControl
+	switch (xDnsPrefetchControlOption) {
+		case undefined:
+		case true:
+			result.push(xDnsPrefetchControl())
+			break
+		case false:
+			break
+		default:
+			result.push(xDnsPrefetchControl(xDnsPrefetchControlOption))
+			break
+	}
+	if ("xDownloadOptions" in options && "ieNoOpen" in options) {
+		throw new Error("X-Download-Options option was specified twice. Remove `ieNoOpen` to silence this warning.")
+	}
+	const xDownloadOptionsOption = options.xDownloadOptions ?? options.ieNoOpen
+	switch (xDownloadOptionsOption) {
+		case undefined:
+		case true:
+			result.push(xDownloadOptions())
+			break
+		case false:
+			break
+		default:
+			console.warn("X-Download-Options does not take options. Remove the property to silence this warning.")
+			result.push(xDownloadOptions())
+			break
+	}
+	if ("xFrameOptions" in options && "frameguard" in options) {
+		throw new Error("X-Frame-Options option was specified twice. Remove `frameguard` to silence this warning.")
+	}
+	const xFrameOptionsOption = options.xFrameOptions ?? options.frameguard
+	switch (xFrameOptionsOption) {
+		case undefined:
+		case true:
+			result.push(xFrameOptions())
+			break
+		case false:
+			break
+		default:
+			result.push(xFrameOptions(xFrameOptionsOption))
+			break
+	}
+	if ("xPermittedCrossDomainPolicies" in options && "permittedCrossDomainPolicies" in options) {
+		throw new Error("X-Permitted-Cross-Domain-Policies option was specified twice. Remove `permittedCrossDomainPolicies` to silence this warning.")
+	}
+	const xPermittedCrossDomainPoliciesOption = options.xPermittedCrossDomainPolicies ?? options.permittedCrossDomainPolicies
+	switch (xPermittedCrossDomainPoliciesOption) {
+		case undefined:
+		case true:
+			result.push(xPermittedCrossDomainPolicies())
+			break
+		case false:
+			break
+		default:
+			result.push(xPermittedCrossDomainPolicies(xPermittedCrossDomainPoliciesOption))
+			break
+	}
+	if ("xPoweredBy" in options && "hidePoweredBy" in options) {
+		throw new Error("X-Powered-By option was specified twice. Remove `hidePoweredBy` to silence this warning.")
+	}
+	const xPoweredByOption = options.xPoweredBy ?? options.hidePoweredBy
+	switch (xPoweredByOption) {
+		case undefined:
+		case true:
+			result.push(xPoweredBy())
+			break
+		case false:
+			break
+		default:
+			console.warn("X-Powered-By does not take options. Remove the property to silence this warning.")
+			result.push(xPoweredBy())
+			break
+	}
+	if ("xXssProtection" in options && "xssFilter" in options) {
+		throw new Error("X-XSS-Protection option was specified twice. Remove `xssFilter` to silence this warning.")
+	}
+	const xXssProtectionOption = options.xXssProtection ?? options.xssFilter
+	switch (xXssProtectionOption) {
+		case undefined:
+		case true:
+			result.push(xXssProtection())
+			break
+		case false:
+			break
+		default:
+			console.warn("X-XSS-Protection does not take options. Remove the property to silence this warning.")
+			result.push(xXssProtection())
+			break
+	}
+	return result
+}
+const helmet = Object.assign(
+	function helmet(options = {}) {
+		// People should be able to pass an options object with no prototype,
+		// so we want this optional chaining.
+		// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+		if (options.constructor?.name === "IncomingMessage") {
+			throw new Error("It appears you have done something like `app.use(helmet)`, but it should be `app.use(helmet())`.")
+		}
+		const middlewareFunctions = getMiddlewareFunctionsFromOptions(options)
+		return function helmetMiddleware(req, res, next) {
+			let middlewareIndex = 0
+			;(function internalNext(err) {
+				if (err) {
+					next(err)
+					return
+				}
+				const middlewareFunction = middlewareFunctions[middlewareIndex]
+				if (middlewareFunction) {
+					middlewareIndex++
+					middlewareFunction(req, res, internalNext)
+				} else {
+					next()
+				}
+			})()
+		}
+	},
+	{
+		contentSecurityPolicy,
+		crossOriginEmbedderPolicy,
+		crossOriginOpenerPolicy,
+		crossOriginResourcePolicy,
+		originAgentCluster,
+		referrerPolicy,
+		strictTransportSecurity,
+		xContentTypeOptions,
+		xDnsPrefetchControl,
+		xDownloadOptions,
+		xFrameOptions,
+		xPermittedCrossDomainPolicies,
+		xPoweredBy,
+		xXssProtection,
+		// Legacy aliases
+		dnsPrefetchControl: xDnsPrefetchControl,
+		xssFilter: xXssProtection,
+		permittedCrossDomainPolicies: xPermittedCrossDomainPolicies,
+		ieNoOpen: xDownloadOptions,
+		noSniff: xContentTypeOptions,
+		frameguard: xFrameOptions,
+		hidePoweredBy: xPoweredBy,
+		hsts: strictTransportSecurity
+	}
+)
+
+exports.contentSecurityPolicy = contentSecurityPolicy
+exports.crossOriginEmbedderPolicy = crossOriginEmbedderPolicy
+exports.crossOriginOpenerPolicy = crossOriginOpenerPolicy
+exports.crossOriginResourcePolicy = crossOriginResourcePolicy
+exports["default"] = helmet
+exports.dnsPrefetchControl = xDnsPrefetchControl
+exports.frameguard = xFrameOptions
+exports.hidePoweredBy = xPoweredBy
+exports.hsts = strictTransportSecurity
+exports.ieNoOpen = xDownloadOptions
+exports.noSniff = xContentTypeOptions
+exports.originAgentCluster = originAgentCluster
+exports.permittedCrossDomainPolicies = xPermittedCrossDomainPolicies
+exports.referrerPolicy = referrerPolicy
+exports.strictTransportSecurity = strictTransportSecurity
+exports.xContentTypeOptions = xContentTypeOptions
+exports.xDnsPrefetchControl = xDnsPrefetchControl
+exports.xDownloadOptions = xDownloadOptions
+exports.xFrameOptions = xFrameOptions
+exports.xPermittedCrossDomainPolicies = xPermittedCrossDomainPolicies
+exports.xPoweredBy = xPoweredBy
+exports.xXssProtection = xXssProtection
+exports.xssFilter = xXssProtection
+
+module.exports = exports.default
+module.exports["default"] = module.exports
 
 
 /***/ }),

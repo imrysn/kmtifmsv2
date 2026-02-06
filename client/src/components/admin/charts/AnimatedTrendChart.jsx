@@ -37,6 +37,7 @@ const CustomTooltip = memo(({ active, payload }) => {
 CustomTooltip.displayName = 'CustomTooltip';
 
 const AnimatedTrendChart = memo(({ trends, loading }) => {
+    console.log('📈 Chart Trends Data:', trends); // DEBUG Log
     if (loading) {
         return (
             <div className="trend-chart-loading">

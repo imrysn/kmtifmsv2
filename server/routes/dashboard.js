@@ -99,6 +99,11 @@ router.get('/summary', (req, res) => {
                               const thirtyDaysAgo = new Date();
                               thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
+
+                              // Fix: Use YYYY-MM-DD HH:MM:SS format for SQLite string comparison compatibility
+                              // ISO string (YYYY-MM-DDTHH:MM:SS.sssZ) compares incorrectly with SQLite's default format
+                              const dateStr = thirtyDaysAgo.toISOString().slice(0, 19).replace('T', ' ');
+
                               db.all(
                                 `SELECT 
                                   DATE(uploaded_at) as date,
@@ -108,21 +113,43 @@ router.get('/summary', (req, res) => {
                                 WHERE uploaded_at >= ?
                                 GROUP BY DATE(uploaded_at)
                                 ORDER BY date ASC`,
-                                [thirtyDaysAgo.toISOString()],
+                                [dateStr],
                                 (err, trends) => {
                                   if (err) {
                                     console.error('Error fetching approval trends:', err);
                                     summary.approvalTrends = [];
                                   } else {
                                     // Format dates for display (e.g., "Oct 1", "Oct 2")
+                                    // DEBUG: Log trends data to help diagnose production issues
+                                    console.log('📊 Raw approval trends data:', JSON.stringify(trends));
+
                                     summary.approvalTrends = (trends || []).map(t => {
-                                      const d = new Date(t.date);
+                                      // Robust date parsing (handles Date object, ISO string, or YYYY-MM-DD)
+                                      let d;
+                                      if (t.date instanceof Date) {
+                                        d = t.date;
+                                      } else {
+                                        // Handle string dates (e.g., "2023-10-25")
+                                        d = new Date(t.date);
+                                      }
+
+                                      // If date is invalid, fail gracefully
+                                      if (isNaN(d.getTime())) {
+                                        console.warn('⚠️ Invalid date in trends:', t.date);
+                                        return {
+                                          month: 'Invalid',
+                                          date: t.date,
+                                          approved: 0,
+                                          rejected: 0
+                                        };
+                                      }
+
                                       const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
                                       return {
                                         month: `${monthNames[d.getMonth()]} ${d.getDate()}`,
                                         date: t.date,
-                                        approved: t.approved || 0,
-                                        rejected: t.rejected || 0
+                                        approved: Number(t.approved) || 0, // Ensure numeric type
+                                        rejected: Number(t.rejected) || 0  // Ensure numeric type
                                       };
                                     });
                                   }

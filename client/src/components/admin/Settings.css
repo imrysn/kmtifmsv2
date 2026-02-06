@@ -95,8 +95,8 @@
   font-size: 0.9rem;
 }
 
-.settings-section .form-input, 
-.settings-section .form-select, 
+.settings-section .form-input,
+.settings-section .form-select,
 .settings-section .form-textarea {
   width: 100%;
   padding: 0.75rem;
@@ -109,8 +109,8 @@
   transition: all 0.2s ease;
 }
 
-.settings-section .form-input:focus, 
-.settings-section .form-select:focus, 
+.settings-section .form-input:focus,
+.settings-section .form-select:focus,
 .settings-section .form-textarea:focus {
   outline: none;
   border-color: var(--primary-color);
@@ -280,41 +280,41 @@
     gap: 1rem;
     padding: 0 1rem;
   }
-  
+
   .settings-section .settings-card {
     margin: 0;
   }
-  
+
   .settings-section .settings-card-header {
     padding: 1rem;
   }
-  
+
   .settings-section .settings-card-header h3 {
     font-size: 1rem;
   }
-  
+
   .settings-section .settings-card-body {
     padding: 1rem;
   }
-  
+
   .settings-section .form-group {
     margin-bottom: 1rem;
   }
-  
+
   .settings-section .backup-actions {
     flex-direction: column;
   }
-  
+
   .settings-section .info-row {
     flex-direction: column;
     align-items: flex-start;
     gap: 0.25rem;
   }
-  
+
   .settings-section .info-value {
     font-weight: 600;
   }
-  
+
   .settings-section .btn-large {
     width: 100%;
     max-width: 300px;
@@ -326,26 +326,26 @@
     grid-template-columns: 1fr;
     padding: 0 0.5rem;
   }
-  
+
   .settings-section .page-header h1 {
     font-size: 1.5rem;
   }
-  
+
   .settings-section .settings-card-header {
     flex-direction: column;
     text-align: center;
     gap: 0.75rem;
   }
-  
+
   .settings-section .settings-card-header h3 {
     margin-top: 0.5rem;
   }
-  
+
   .settings-section .checkbox-label {
     align-items: flex-start;
     gap: 0.5rem;
   }
-  
+
   .settings-section .form-checkbox {
     margin-top: 0.25rem !important;
   }
@@ -353,7 +353,8 @@
 
 /* Team Management Styles */
 .settings-section .team-management-card {
-  grid-column: 1 / -1; /* Span full width */
+  grid-column: 1 / -1;
+  /* Span full width */
 }
 
 .settings-section .team-section {
@@ -389,7 +390,7 @@
   width: 100%;
 }
 
-.settings-section .form-input, 
+.settings-section .form-input,
 .settings-section .form-select {
   width: 100%;
 }
@@ -493,11 +494,11 @@
   .settings-section .form-row {
     grid-template-columns: 1fr;
   }
-  
+
   .settings-section .teams-grid {
     grid-template-columns: 1fr;
   }
-  
+
   .settings-section .team-actions {
     justify-content: flex-start;
   }
@@ -509,15 +510,15 @@
     gap: 0.5rem;
     align-items: flex-start;
   }
-  
+
   .settings-section .team-info h5 {
     font-size: 0.9rem;
   }
-  
+
   .settings-section .team-actions {
     width: 100%;
   }
-  
+
   .settings-section .team-actions .btn {
     flex: 1;
     min-width: 0;
@@ -573,4 +574,20 @@
 .settings-section .table-container {
   width: 100%;
   overflow-x: auto;
+}
+
+.version-info {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  flex-wrap: wrap;
+}
+
+.version-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.loading-cursor {
+  cursor: wait;
 }

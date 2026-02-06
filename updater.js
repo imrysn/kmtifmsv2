@@ -150,7 +150,7 @@ class AppUpdater {
     // Configure update behavior
     autoUpdater.autoDownload = true;
     autoUpdater.autoInstallOnAppQuit = true;
-    autoUpdater.allowDowngrade = false;
+    autoUpdater.allowDowngrade = true;
     autoUpdater.allowPrerelease = false;
 
     // Configure logging
