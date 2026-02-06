@@ -3,6 +3,7 @@ import { API_BASE_URL } from '@/config/api'
 import './Settings.css'
 import { AlertMessage, ConfirmationModal } from './modals'
 import { SkeletonLoader } from '../common/SkeletonLoader'
+import MultiSelectDropdown from '../common/MultiSelectDropdown'
 import { useAuth, useNetwork } from '../../contexts'
 import { withErrorBoundary } from '../common'
 
@@ -16,8 +17,7 @@ const Settings = ({ clearMessages, error, success, setError, setSuccess, users, 
   const [appVersion, setAppVersion] = useState('Loading...')
   const [newTeam, setNewTeam] = useState({
     name: '',
-    leaderId: '',
-    leaderUsername: ''
+    leaderIds: []
   })
   const [editingTeam, setEditingTeam] = useState(null)
   const [deleteModal, setDeleteModal] = useState({ isOpen: false, teamId: null, teamName: '' })
@@ -287,14 +287,13 @@ const Settings = ({ clearMessages, error, success, setError, setSuccess, users, 
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           name: newTeam.name,
-          leaderId: newTeam.leaderId,
-          leaderUsername: newTeam.leaderUsername
+          leaderIds: newTeam.leaderIds
         })
       })
       const data = await response.json()
       if (data.success) {
         setSuccess('Team created successfully')
-        setNewTeam({ name: '', leaderId: '', leaderUsername: '' })
+        setNewTeam({ name: '', leaderIds: [] })
         fetchTeams()
       } else {
         setError(data.message || 'Failed to create team')
@@ -314,17 +313,21 @@ const Settings = ({ clearMessages, error, success, setError, setSuccess, users, 
 
     setIsLoading(true)
     try {
+      const payload = {
+        name: editingTeam.name,
+        leaderIds: editingTeam.leaderIds || [],
+        isActive: editingTeam.is_active
+      }
+      console.log('🟡 UPDATE TEAM - Sending payload:', payload)
+      console.log('🟡 UPDATE TEAM - editingTeam state:', editingTeam)
+
       const response = await fetch(`${API_BASE_URL}/api/teams/${editingTeam.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: editingTeam.name,
-          leaderId: editingTeam.leader_id,
-          leaderUsername: editingTeam.leader_username,
-          isActive: editingTeam.is_active
-        })
+        body: JSON.stringify(payload)
       })
       const data = await response.json()
+      console.log('🟡 UPDATE TEAM - Response:', data)
       if (data.success) {
         setSuccess('Team updated successfully')
         setEditingTeam(null)
@@ -368,7 +371,11 @@ const Settings = ({ clearMessages, error, success, setError, setSuccess, users, 
     setDeleteModal({ isOpen: false, teamId: null, teamName: '' })
   }
 
-  const startEditingTeam = (team) => setEditingTeam({ ...team })
+  const startEditingTeam = (team) => {
+    // Convert leaders array to leaderIds array for editing
+    const leaderIds = team.leaders ? team.leaders.map(l => l.user_id) : []
+    setEditingTeam({ ...team, leaderIds })
+  }
   const cancelEditingTeam = () => setEditingTeam(null)
 
   const getTeamLeaderOptions = () => {
@@ -457,26 +464,21 @@ const Settings = ({ clearMessages, error, success, setError, setSuccess, users, 
                   />
                 </div>
                 <div className="form-group">
-                  <label>Team Leader</label>
-                  <select
-                    value={newTeam.leaderId}
-                    onChange={(e) => {
-                      const selectedUser = getTeamLeaderOptions().find(u => u.id == e.target.value)
-                      setNewTeam(prev => ({
-                        ...prev,
-                        leaderId: e.target.value,
-                        leaderUsername: selectedUser ? selectedUser.username : ''
-                      }))
-                    }}
-                    className="form-select"
-                  >
-                    <option value="">No Team Leader</option>
-                    {getTeamLeaderOptions().map(user => (
-                      <option key={user.id} value={user.id}>
-                        {user.fullName} ({user.username}) - {user.role}
-                      </option>
-                    ))}
-                  </select>
+                  <label>Team Leaders</label>
+                  <MultiSelectDropdown
+                    options={getTeamLeaderOptions().map(user => ({
+                      id: user.id,
+                      name: `${user.fullName} (${user.username})`
+                    }))}
+                    selectedIds={newTeam.leaderIds}
+                    onChange={(selectedIds) => setNewTeam(prev => ({ ...prev, leaderIds: selectedIds }))}
+                    placeholder="Select team leaders"
+                    displayKey="name"
+                    valueKey="id"
+                  />
+                  {newTeam.leaderIds.length > 0 && (
+                    <p className="help-text">{newTeam.leaderIds.length} leader(s) selected</p>
+                  )}
                 </div>
                 <button
                   className="btn btn-primary"
@@ -520,25 +522,17 @@ const Settings = ({ clearMessages, error, success, setError, setSuccess, users, 
                                 />
                               </td>
                               <td>
-                                <select
-                                  value={editingTeam.leader_id || ''}
-                                  onChange={(e) => {
-                                    const selectedUser = getTeamLeaderOptions().find(u => u.id == e.target.value)
-                                    setEditingTeam(prev => ({
-                                      ...prev,
-                                      leader_id: e.target.value,
-                                      leader_username: selectedUser ? selectedUser.username : ''
-                                    }))
-                                  }}
-                                  className="form-select"
-                                >
-                                  <option value="">No Team Leader</option>
-                                  {getTeamLeaderOptions().map(user => (
-                                    <option key={user.id} value={user.id}>
-                                      {user.fullName} ({user.username})
-                                    </option>
-                                  ))}
-                                </select>
+                                <MultiSelectDropdown
+                                  options={getTeamLeaderOptions().map(user => ({
+                                    id: user.id,
+                                    name: user.username
+                                  }))}
+                                  selectedIds={editingTeam.leaderIds || []}
+                                  onChange={(selectedIds) => setEditingTeam(prev => ({ ...prev, leaderIds: selectedIds }))}
+                                  placeholder="Select leaders"
+                                  displayKey="name"
+                                  valueKey="id"
+                                />
                               </td>
                               <td>
                                 <select
@@ -571,7 +565,11 @@ const Settings = ({ clearMessages, error, success, setError, setSuccess, users, 
                           ) : (
                             <>
                               <td>{team.name}</td>
-                              <td>{team.leader_username || 'No leader assigned'}</td>
+                              <td>
+                                {team.leaders && team.leaders.length > 0
+                                  ? team.leaders.map(l => l.username).join(', ')
+                                  : 'No leader assigned'}
+                              </td>
                               <td>
                                 <span className={`status ${team.is_active ? 'active' : 'inactive'}`}>
                                   {team.is_active ? 'Active' : 'Inactive'}

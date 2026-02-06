@@ -75,7 +75,7 @@ const CreateAssignmentModal = ({
     const updatedMembers = assignmentForm.assignedMembers.includes(memberId)
       ? assignmentForm.assignedMembers.filter(id => id !== memberId)
       : [...assignmentForm.assignedMembers, memberId]
-    setAssignmentForm({...assignmentForm, assignedMembers: updatedMembers})
+    setAssignmentForm({ ...assignmentForm, assignedMembers: updatedMembers })
   }
 
   const getSelectedMembersText = () => {
@@ -114,7 +114,7 @@ const CreateAssignmentModal = ({
   }
 
   const handleFileTypeSelect = (value) => {
-    setAssignmentForm({...assignmentForm, fileTypeRequired: value})
+    setAssignmentForm({ ...assignmentForm, fileTypeRequired: value })
     setShowFileTypeDropdown(false)
   }
 
@@ -137,7 +137,7 @@ const CreateAssignmentModal = ({
               <input
                 type="text"
                 value={assignmentForm.title}
-                onChange={(e) => setAssignmentForm({...assignmentForm, title: e.target.value})}
+                onChange={(e) => setAssignmentForm({ ...assignmentForm, title: e.target.value })}
                 placeholder="Enter task title..."
                 required
               />
@@ -147,7 +147,7 @@ const CreateAssignmentModal = ({
               <label>Description</label>
               <textarea
                 value={assignmentForm.description}
-                onChange={(e) => setAssignmentForm({...assignmentForm, description: e.target.value})}
+                onChange={(e) => setAssignmentForm({ ...assignmentForm, description: e.target.value })}
                 placeholder="Enter task description..."
                 rows="4"
               />
@@ -159,7 +159,7 @@ const CreateAssignmentModal = ({
                 <input
                   type="date"
                   value={assignmentForm.dueDate}
-                  onChange={(e) => setAssignmentForm({...assignmentForm, dueDate: e.target.value})}
+                  onChange={(e) => setAssignmentForm({ ...assignmentForm, dueDate: e.target.value })}
                 />
               </div>
 
@@ -174,12 +174,12 @@ const CreateAssignmentModal = ({
                   >
                     <span>{getFileTypeLabel()}</span>
                     <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className={showFileTypeDropdown ? 'rotated' : ''}>
-                      <path d="M4 6L8 10L12 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                      <path d="M4 6L8 10L12 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                     </svg>
                   </button>
-                  
+
                   {showFileTypeDropdown && (
-                    <div 
+                    <div
                       className="tl-member-dropdown-menu"
                       style={{
                         top: `${fileTypeDropdownPosition.top}px`,
@@ -188,8 +188,8 @@ const CreateAssignmentModal = ({
                       }}
                     >
                       {fileTypeOptions.map(option => (
-                        <div 
-                          key={option.value} 
+                        <div
+                          key={option.value}
                           className="tl-file-type-dropdown-item"
                           onClick={() => handleFileTypeSelect(option.value)}
                         >
@@ -203,6 +203,41 @@ const CreateAssignmentModal = ({
             </div>
 
             <div className="tl-form-row">
+              {teams && teams.length > 1 && (
+                <div className="tl-form-group">
+                  <label>Assign to Team *</label>
+                  <select
+                    className="tl-form-select" // Ensure you have this class or use inline styles/standard select
+                    style={{
+                      width: '100%',
+                      padding: '10px 12px',
+                      borderRadius: '8px',
+                      border: '1px solid #E5E7EB',
+                      fontSize: '14px',
+                      color: '#1F2937',
+                      backgroundColor: 'white',
+                      height: '42px'
+                    }}
+                    value={assignmentForm.selectedTeam}
+                    onChange={(e) => {
+                      const newTeam = e.target.value;
+                      // When team changes, clear assigned members as they belong to specific teams
+                      setAssignmentForm({
+                        ...assignmentForm,
+                        selectedTeam: newTeam,
+                        assignedMembers: []
+                      });
+                    }}
+                    required
+                  >
+                    <option value="">Select a team...</option>
+                    {teams.map(team => (
+                      <option key={team} value={team}>{team}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
               <div className="tl-form-group">
                 <label>Assign To Members *</label>
                 <div className="tl-member-dropdown-wrapper">
@@ -211,10 +246,11 @@ const CreateAssignmentModal = ({
                     type="button"
                     className="tl-member-dropdown-button"
                     onClick={handleDropdownToggle}
+                    disabled={teams && teams.length > 1 && !assignmentForm.selectedTeam}
                   >
                     <span>{getSelectedMembersText()}</span>
                     <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className={showMemberDropdown ? 'rotated' : ''}>
-                      <path d="M4 6L8 10L12 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                      <path d="M4 6L8 10L12 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                     </svg>
                   </button>
 
@@ -227,39 +263,54 @@ const CreateAssignmentModal = ({
                         width: `${dropdownPosition.width}px`
                       }}
                     >
-                      {teamMembers.length > 0 ? (
-                        teamMembers.map(member => (
-                          <label key={member.id} className="tl-member-dropdown-item">
-                            <input
-                              type="checkbox"
-                              checked={assignmentForm.assignedMembers.includes(member.id)}
-                              onChange={() => toggleMemberSelection(member.id)}
-                            />
-                            <span>
-                              {member.name}
-                              {member.id === currentUserId && (
-                                <span style={{
-                                  marginLeft: '6px',
-                                  fontSize: '12px',
-                                  color: '#6B7280',
-                                  fontWeight: '500'
-                                }}>
-                                  (You)
-                                </span>
-                              )}
-                            </span>
-                          </label>
-                        ))
+                      {teamMembers.filter(m => {
+                        // If multiple teams exist, filter by selected team.
+                        // If no team selected yet (and multiple exist), show none (disabled above) or all?
+                        // If only 1 team exists, show all.
+                        if (teams && teams.length > 1) {
+                          return m.team === assignmentForm.selectedTeam;
+                        }
+                        return true;
+                      }).length > 0 ? (
+                        teamMembers
+                          .filter(m => {
+                            if (teams && teams.length > 1) {
+                              return m.team === assignmentForm.selectedTeam;
+                            }
+                            return true;
+                          })
+                          .map(member => (
+                            <label key={member.id} className="tl-member-dropdown-item">
+                              <input
+                                type="checkbox"
+                                checked={assignmentForm.assignedMembers.includes(member.id)}
+                                onChange={() => toggleMemberSelection(member.id)}
+                              />
+                              <span>
+                                {member.name}
+                                {member.id === currentUserId && (
+                                  <span style={{
+                                    marginLeft: '6px',
+                                    fontSize: '12px',
+                                    color: '#6B7280',
+                                    fontWeight: '500'
+                                  }}>
+                                    (You)
+                                  </span>
+                                )}
+                              </span>
+                            </label>
+                          ))
                       ) : (
-                        <div className="tl-member-dropdown-empty">No team members available</div>
+                        <div className="tl-member-dropdown-empty">
+                          {teams && teams.length > 1 && !assignmentForm.selectedTeam
+                            ? "Please select a team first"
+                            : "No team members available"}
+                        </div>
                       )}
                     </div>
                   )}
                 </div>
-              </div>
-
-              <div className="tl-form-group">
-                {/* Empty column for alignment */}
               </div>
             </div>
 
@@ -286,7 +337,7 @@ const CreateAssignmentModal = ({
                   }}
                 >
                   <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-                    <path d="M10 4V16M4 10H16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                    <path d="M10 4V16M4 10H16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                   </svg>
                   Attach Files
                 </button>
@@ -313,7 +364,7 @@ const CreateAssignmentModal = ({
                       }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1 }}>
                           <svg width="16" height="16" viewBox="0 0 16 16" fill="none" style={{ color: '#6B7280' }}>
-                            <path d="M9 2H3C2.44772 2 2 2.44772 2 3V13C2 13.5523 2.44772 14 3 14H13C13.5523 14 14 13.5523 14 13V7M9 2L14 7M9 2V7H14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                            <path d="M9 2H3C2.44772 2 2 2.44772 2 3V13C2 13.5523 2.44772 14 3 14H13C13.5523 14 14 13.5523 14 13V7M9 2L14 7M9 2V7H14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
                           </svg>
                           <div style={{ flex: 1, minWidth: 0 }}>
                             <div style={{ fontSize: '14px', fontWeight: '500', color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -339,7 +390,7 @@ const CreateAssignmentModal = ({
                           }}
                         >
                           <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                            <path d="M12 4L4 12M4 4L12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                            <path d="M12 4L4 12M4 4L12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                           </svg>
                         </button>
                       </div>

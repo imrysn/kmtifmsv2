@@ -81,16 +81,36 @@ router.post('/', validate(schemas.createUser), asyncHandler(async (req, res) => 
       );
 
       // If the new user is a Team Leader and a team is specified, set the team's leader
-      if (role === 'TEAM LEADER' && team) {
+      if (role === 'TEAM_LEADER' && team) {
         db.get('SELECT id FROM teams WHERE name = ?', [team], (err, teamRow) => {
           if (!err && teamRow) {
-            db.run('UPDATE teams SET leader_id = ?, leader_username = ? WHERE id = ?', [newUserId, username, teamRow.id], (err) => {
-              if (err) {
-                console.error('❌ Error assigning team leader to team:', err);
-              } else {
-                console.log(`✅ Assigned ${username} (ID: ${newUserId}) as leader for team '${team}'`);
+            // Insert into team_leaders table
+            db.run('INSERT INTO team_leaders (team_id, user_id, username) VALUES (?, ?, ?)',
+              [teamRow.id, newUserId, username],
+              (err) => {
+                if (err) {
+                  console.error('❌ Error assigning team leader to team_leaders table:', err);
+                } else {
+                  console.log(`✅ Assigned ${username} (ID: ${newUserId}) as leader for team '${team}' in team_leaders table`);
+
+                  // Also update teams.leader_id for backward compatibility if no leader exists
+                  db.get('SELECT leader_id FROM teams WHERE id = ?', [teamRow.id], (err, currentTeam) => {
+                    if (!err && (!currentTeam.leader_id || currentTeam.leader_id === null)) {
+                      db.run('UPDATE teams SET leader_id = ?, leader_username = ? WHERE id = ?',
+                        [newUserId, username, teamRow.id],
+                        (err) => {
+                          if (err) {
+                            console.error('❌ Error updating team leader_id:', err);
+                          } else {
+                            console.log(`✅ Set ${username} as primary leader for team '${team}'`);
+                          }
+                        }
+                      );
+                    }
+                  });
+                }
               }
-            });
+            );
           } else {
             console.log(`⚠️ Team '${team}' not found; skipping leader assignment`);
           }
@@ -176,28 +196,84 @@ router.put('/:id', (req, res) => {
 
         // If role changed to TEAM LEADER, assign to team; if role changed away from TEAM LEADER, clear previous team leader entries
         try {
-          if (role === 'TEAM LEADER') {
+          if (role === 'TEAM_LEADER') {
             db.get('SELECT id FROM teams WHERE name = ?', [team], (err, teamRow) => {
               if (!err && teamRow) {
-                db.run('UPDATE teams SET leader_id = ?, leader_username = ? WHERE id = ?', [userId, username, teamRow.id], (err) => {
-                  if (err) {
-                    console.error('❌ Error assigning team leader during user update:', err);
-                  } else {
-                    console.log(`✅ Assigned ${username} (ID: ${userId}) as leader for team '${team}'`);
+                // Insert into team_leaders table (ignore if already exists)
+                db.run('INSERT OR IGNORE INTO team_leaders (team_id, user_id, username) VALUES (?, ?, ?)',
+                  [teamRow.id, userId, username],
+                  (err) => {
+                    if (err) {
+                      console.error('❌ Error assigning team leader during user update:', err);
+                    } else {
+                      console.log(`✅ Assigned ${username} (ID: ${userId}) as leader for team '${team}' in team_leaders table`);
+
+                      // Update teams.leader_id for backward compatibility if no leader exists
+                      db.get('SELECT leader_id FROM teams WHERE id = ?', [teamRow.id], (err, currentTeam) => {
+                        if (!err && (!currentTeam.leader_id || currentTeam.leader_id === null)) {
+                          db.run('UPDATE teams SET leader_id = ?, leader_username = ? WHERE id = ?',
+                            [userId, username, teamRow.id],
+                            (err) => {
+                              if (err) {
+                                console.error('❌ Error updating team leader_id:', err);
+                              } else {
+                                console.log(`✅ Set ${username} as primary leader for team '${team}'`);
+                              }
+                            }
+                          );
+                        }
+                      });
+                    }
                   }
-                });
+                );
               } else {
                 console.log(`⚠️ Team '${team}' not found; skipping leader assignment`);
               }
             });
           }
 
-          if (currentUser.role === 'TEAM LEADER' && role !== 'TEAM LEADER') {
-            db.run('UPDATE teams SET leader_id = NULL, leader_username = NULL WHERE leader_id = ?', [userId], (err) => {
+          if (currentUser.role === 'TEAM_LEADER' && role !== 'TEAM_LEADER') {
+            // Remove from team_leaders table
+            db.run('DELETE FROM team_leaders WHERE user_id = ?', [userId], (err) => {
               if (err) {
-                console.error('❌ Error clearing leader assignment:', err);
+                console.error('❌ Error clearing leader assignment from team_leaders:', err);
               } else {
-                console.log(`✅ Cleared leader assignment for user ID ${userId}`);
+                console.log(`✅ Cleared leader assignment for user ID ${userId} from team_leaders table`);
+
+                // Update teams.leader_id if this user was the primary leader
+                db.run(`UPDATE teams SET leader_id = NULL, leader_username = NULL WHERE leader_id = ?`,
+                  [userId],
+                  (err) => {
+                    if (err) {
+                      console.error('❌ Error clearing team leader_id:', err);
+                    } else {
+                      console.log(`✅ Cleared primary leader assignment for user ID ${userId}`);
+
+                      // Set new primary leader if team has other leaders
+                      db.get(`SELECT t.id as team_id, tl.user_id, tl.username 
+                              FROM teams t 
+                              LEFT JOIN team_leaders tl ON t.id = tl.team_id 
+                              WHERE t.leader_id IS NULL AND tl.user_id IS NOT NULL 
+                              LIMIT 1`,
+                        [],
+                        (err, newLeader) => {
+                          if (!err && newLeader) {
+                            db.run('UPDATE teams SET leader_id = ?, leader_username = ? WHERE id = ?',
+                              [newLeader.user_id, newLeader.username, newLeader.team_id],
+                              (err) => {
+                                if (err) {
+                                  console.error('❌ Error setting new primary leader:', err);
+                                } else {
+                                  console.log(`✅ Set new primary leader: ${newLeader.username}`);
+                                }
+                              }
+                            );
+                          }
+                        }
+                      );
+                    }
+                  }
+                );
               }
             });
           }
@@ -461,6 +537,86 @@ router.get('/search', (req, res) => {
         success: true,
         users
       });
+    }
+  );
+});
+
+// Get team members for a team leader (across all led teams)
+router.get('/team-leader/:userId', (req, res) => {
+  const { userId } = req.params;
+  console.log(`👥 Getting team members for team leader: ${userId}`);
+
+  // First, get all teams this user leads
+  db.all(
+    `SELECT DISTINCT t.name
+     FROM team_leaders tl
+     JOIN teams t ON tl.team_id = t.id
+     WHERE tl.user_id = ?`,
+    [userId],
+    (err, ledTeams) => {
+      if (err) {
+        console.error('❌ Error getting led teams:', err);
+        return res.status(500).json({
+          success: false,
+          message: 'Failed to fetch team members'
+        });
+      }
+
+      if (!ledTeams || ledTeams.length === 0) {
+        console.log(`⚠️ User ${userId} is not a leader of any teams`);
+        return res.json({
+          success: true,
+          members: []
+        });
+      }
+
+      const teamNames = ledTeams.map(t => t.name);
+      console.log(`✅ User ${userId} leads teams:`, teamNames);
+
+      // Get members from ALL teams this user leads
+      const placeholders = teamNames.map(() => '?').join(',');
+      db.all(
+        `SELECT id, fullName, username, email, role, team, created_at
+         FROM users
+         WHERE team IN (${placeholders}) AND role != ?
+         ORDER BY fullName`,
+        [...teamNames, 'TEAM LEADER'],
+        (err, members) => {
+          if (err) {
+            console.error('❌ Error getting team members:', err);
+            return res.status(500).json({
+              success: false,
+              message: 'Failed to fetch team members'
+            });
+          }
+          console.log(`✅ Retrieved ${members.length} members across teams: ${teamNames.join(', ')}`);
+
+          // Get file counts for each member
+          const memberPromises = members.map(member => {
+            return new Promise((resolve) => {
+              db.get(
+                'SELECT COUNT(*) as totalFiles FROM files WHERE user_id = ?',
+                [member.id],
+                (err, result) => {
+                  if (!err && result) {
+                    member.totalFiles = result.totalFiles || 0;
+                  } else {
+                    member.totalFiles = 0;
+                  }
+                  resolve(member);
+                }
+              );
+            });
+          });
+
+          Promise.all(memberPromises).then(membersWithFiles => {
+            res.json({
+              success: true,
+              members: membersWithFiles
+            });
+          });
+        }
+      );
     }
   );
 });

@@ -487,7 +487,14 @@ const AssignmentsTab = ({
                 </div>
 
                 <div className="tl-assignment-task-title-section">
-                  <h3 className="tl-assignment-title">{assignment.title}</h3>
+                  <div className="tl-assignment-title-with-team">
+                    <h3 className="tl-assignment-title">{assignment.title}</h3>
+                    {assignment.team && (
+                      <span className="tl-assignment-team-badge" data-team={assignment.team}>
+                        {assignment.team}
+                      </span>
+                    )}
+                  </div>
                 </div>
 
                 {assignment.description ? (

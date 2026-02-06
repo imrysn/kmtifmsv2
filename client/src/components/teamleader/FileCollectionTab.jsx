@@ -27,11 +27,22 @@ const FileCollectionTab = ({
   const [filesPerPage] = useState(7)
   const [showOpenFileModal, setShowOpenFileModal] = useState(false)
   const [fileToOpen, setFileToOpen] = useState(null)
+  const [teamFilter, setTeamFilter] = useState('all')
+
+  // Calculate unique teams from submitted files
+  const uniqueTeams = useMemo(() => {
+    const teams = new Set()
+    submittedFiles.forEach(file => {
+      const team = file.user_team || file.team
+      if (team) teams.add(team)
+    })
+    return Array.from(teams).sort()
+  }, [submittedFiles])
 
   // Reset page when filters change
   useEffect(() => {
     setCurrentPage(1)
-  }, [searchQuery, fileCollectionFilter, fileCollectionSort])
+  }, [searchQuery, fileCollectionFilter, fileCollectionSort, teamFilter])
 
   // Handle file highlighting from notifications
   useEffect(() => {
@@ -129,6 +140,14 @@ const FileCollectionTab = ({
           default:
             return true
         }
+      })
+    }
+
+    // Apply team filter
+    if (teamFilter !== 'all') {
+      filtered = filtered.filter(file => {
+        const fileTeam = file.user_team || file.team
+        return fileTeam === teamFilter
       })
     }
 
@@ -335,6 +354,19 @@ const FileCollectionTab = ({
             <option value="user-asc">User A-Z</option>
             <option value="user-desc">User Z-A</option>
           </select>
+
+          {uniqueTeams.length > 1 && (
+            <select
+              value={teamFilter}
+              onChange={(e) => setTeamFilter(e.target.value)}
+              className="form-select"
+            >
+              <option value="all">All Teams</option>
+              {uniqueTeams.map(team => (
+                <option key={team} value={team}>{team}</option>
+              ))}
+            </select>
+          )}
         </div>
       </div>
 
@@ -350,6 +382,7 @@ const FileCollectionTab = ({
               <tr>
                 <th>File Name</th>
                 <th>Assignment</th>
+                <th>Team</th>
                 <th>Submitted By</th>
                 <th>Submitted Date</th>
                 <th>Status</th>
@@ -389,6 +422,13 @@ const FileCollectionTab = ({
                             Due: {new Date(submission.assignment_due_date).toLocaleDateString()}
                           </span>
                         )}
+                      </div>
+                    </td>
+                    <td>
+                      <div className="team-cell">
+                        <span className="team-badge" data-team={submission.user_team || submission.team}>
+                          {submission.user_team || submission.team || 'N/A'}
+                        </span>
                       </div>
                     </td>
                     <td>

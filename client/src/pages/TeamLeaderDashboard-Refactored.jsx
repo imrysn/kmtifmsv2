@@ -96,7 +96,8 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
     description: '',
     dueDate: '',
     fileTypeRequired: '',
-    assignedMembers: []
+    assignedMembers: [],
+    selectedTeam: '' // Add selectedTeam to state
   })
   const [editingAssignmentId, setEditingAssignmentId] = useState(null)
   const [notificationCommentContext, setNotificationCommentContext] = useState(null)
@@ -162,7 +163,7 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
   const fetchAllSubmissions = async () => {
     setIsLoading(true)
     try {
-      const response = await fetch(`${API_BASE_URL}/api/assignments/team-leader/${user.team}/all-submissions`)
+      const response = await fetch(`${API_BASE_URL}/api/assignments/team-leader/${user.id}/all-submissions`)
       const data = await response.json()
 
       if (data.success) {
@@ -211,7 +212,8 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
   const fetchTeamMembers = async () => {
     setIsLoadingTeam(true)
     try {
-      const response = await fetch(`${API_BASE_URL}/api/team-members/${user.team}`)
+      // Use new team-leader endpoint to get members from ALL teams
+      const response = await fetch(`${API_BASE_URL}/api/team-members/team-leader/${user.id}`)
       const data = await response.json()
 
       if (data.success && data.members && data.members.length > 0) {
@@ -264,6 +266,23 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
     }
   }
 
+  const uniqueTeams = React.useMemo(() => {
+    if (!teamMembers || teamMembers.length === 0) return []
+    // Filter out the current user (team leader) entry which might have a specific team
+    // or just collect all unique teams from members
+    const teams = new Set()
+    teamMembers.forEach(m => {
+      if (m.team && m.role !== 'TEAM LEADER') {
+        teams.add(m.team)
+      }
+    })
+
+    // If user leads teams but has no members yet, we might miss them.
+    // But typically we fetch members based on led teams.
+    // If no members, we can't assign anyway.
+    return Array.from(teams).sort()
+  }, [teamMembers])
+
   const fetchMemberFiles = async (memberId, memberName) => {
     setSelectedMember({ id: memberId, name: memberName })
     setIsLoading(true)
@@ -287,7 +306,8 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
 
   const fetchAnalytics = async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/dashboard/team/${user.team}`)
+      // Use new team-leader endpoint to get analytics aggregated from ALL teams
+      const response = await fetch(`${API_BASE_URL}/api/dashboard/team-leader/${user.id}`)
       const data = await response.json()
 
       if (data.success) {
@@ -301,7 +321,7 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
   const fetchAssignments = async () => {
     setIsLoadingAssignments(true)
     try {
-      const response = await fetch(`${API_BASE_URL}/api/assignments/team-leader/${user.team}`)
+      const response = await fetch(`${API_BASE_URL}/api/assignments/team-leader/${user.id}`)
 
       if (response.status === 404) {
         setAssignments([])
@@ -353,7 +373,8 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
       formData.append('assignedMembers', JSON.stringify(assignmentForm.assignedMembers))
       formData.append('teamLeaderId', user.id)
       formData.append('teamLeaderUsername', user.username)
-      formData.append('team', user.team)
+      // Use selected team from form, or fallback to user.team if single team
+      formData.append('team', assignmentForm.selectedTeam || user.team)
 
       // Append files if any
       if (attachedFiles && attachedFiles.length > 0) {
@@ -1099,6 +1120,7 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
               isProcessing={isProcessing}
               createAssignment={createAssignment}
               currentUserId={user.id}
+              teams={uniqueTeams} // Pass unique teams to modal
               isEditMode={!!editingAssignmentId}
               onClose={() => {
                 setShowCreateAssignmentModal(false)
