@@ -26,6 +26,8 @@ const TeamTasksTab = ({ user }) => {
   const [showOpenFileConfirmation, setShowOpenFileConfirmation] = useState(false)
   const [fileToOpen, setFileToOpen] = useState(null)
   const [expandedFolders, setExpandedFolders] = useState({}) // Track which folders are expanded
+  const [showAllSubmittedFiles, setShowAllSubmittedFiles] = useState({}) // Track which assignments show all submitted files
+  const INITIAL_FILE_DISPLAY_LIMIT = 5; // Show first 5 files/folders initially
 
   // Pagination state
   const [nextCursor, setNextCursor] = useState(null)
@@ -853,7 +855,45 @@ const TeamTasksTab = ({ user }) => {
                           );
                         });
 
-                        return items;
+                        // Calculate if we need to show "See more" button
+                        const totalItems = items.length;
+                        const isShowingAll = showAllSubmittedFiles[assignment.id];
+                        const itemsToShow = isShowingAll ? items : items.slice(0, INITIAL_FILE_DISPLAY_LIMIT);
+                        const remainingCount = totalItems - INITIAL_FILE_DISPLAY_LIMIT;
+
+                        return (
+                          <>
+                            {itemsToShow}
+                            {totalItems > INITIAL_FILE_DISPLAY_LIMIT && (
+                              <div
+                                style={{
+                                  padding: '12px 16px',
+                                  textAlign: 'center',
+                                  cursor: 'pointer'
+                                }}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setShowAllSubmittedFiles(prev => ({
+                                    ...prev,
+                                    [assignment.id]: !prev[assignment.id]
+                                  }));
+                                }}
+                              >
+                                <span style={{
+                                  color: '#0066cc',
+                                  fontSize: '14px',
+                                  fontWeight: '500',
+                                  textDecoration: 'underline',
+                                  cursor: 'pointer'
+                                }}>
+                                  {isShowingAll
+                                    ? 'See less'
+                                    : `See more (${remainingCount} more)`}
+                                </span>
+                              </div>
+                            )}
+                          </>
+                        );
                       })()}
                     </div>
                   ) : (
