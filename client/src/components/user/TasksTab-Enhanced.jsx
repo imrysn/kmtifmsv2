@@ -614,57 +614,54 @@ const TasksTab = ({
 
     setIsUploading(true);
     try {
-      const replacedRejectedFiles = []; // Track which rejected files we're replacing
+      const replacedFiles = []; // Track which files we're replacing
 
-      // First, check for rejected files with the same name and delete them
+      // First, check for ANY existing files with the same name and delete them AUTOMATICALLY (regardless of status)
+      // This implements automatic file replacement on upload
       if (currentAssignment.submitted_files && currentAssignment.submitted_files.length > 0) {
-        const rejectedFiles = currentAssignment.submitted_files.filter(
-          file => file.status === 'rejected_by_team_leader' || file.status === 'rejected_by_admin'
-        );
+        console.log(`🔍 Checking for duplicate files among ${currentAssignment.submitted_files.length} existing file(s)...`);
+        console.log(`🔄 AUTO-REPLACE MODE: Any matching files will be automatically replaced`);
 
-        if (rejectedFiles.length > 0) {
-          console.log(`🔍 Found ${rejectedFiles.length} rejected file(s), checking for same names...`);
+        // Check each new file against ALL existing files
+        for (const fileObj of uploadedFiles) {
+          const newFileName = fileObj.file.name;
 
-          // Check each new file against rejected files
-          for (const fileObj of uploadedFiles) {
-            const newFileName = fileObj.file.name;
+          // Find ANY existing file with the same name (regardless of status - APPROVED, PENDING, REJECTED, etc.)
+          const matchingExistingFile = currentAssignment.submitted_files.find(
+            existingFile => existingFile.original_name === newFileName || existingFile.filename === newFileName
+          );
 
-            // Find rejected file with the same name
-            const matchingRejectedFile = rejectedFiles.find(
-              rejectedFile => rejectedFile.original_name === newFileName || rejectedFile.filename === newFileName
-            );
+          if (matchingExistingFile) {
+            console.log(`🔄 AUTO-REPLACING: Found existing file "${matchingExistingFile.original_name}" (status: ${matchingExistingFile.status}) - deleting to replace with new version`);
+            replacedFiles.push(newFileName); // Track this as a replacement
 
-            if (matchingRejectedFile) {
-              console.log(`🗑️ Found matching rejected file: ${matchingRejectedFile.original_name} - will replace it`);
-              replacedRejectedFiles.push(newFileName); // Track this as a revision
-
-              try {
-                const deleteResponse = await fetch(
-                  `${API_BASE_URL}/api/assignments/${currentAssignment.id}/files/${matchingRejectedFile.id}`,
-                  {
-                    method: 'DELETE',
-                    headers: {
-                      'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                      userId: user.id
-                    })
-                  }
-                );
-
-                const deleteData = await deleteResponse.json();
-                if (deleteData.success) {
-                  console.log(`✅ Deleted rejected file: ${matchingRejectedFile.original_name}`);
-                } else {
-                  console.warn(`⚠️ Could not delete rejected file ${matchingRejectedFile.original_name}:`, deleteData.message);
+            try {
+              const deleteResponse = await fetch(
+                `${API_BASE_URL}/api/assignments/${currentAssignment.id}/files/${matchingExistingFile.id}`,
+                {
+                  method: 'DELETE',
+                  headers: {
+                    'Content-Type': 'application/json',
+                  },
+                  body: JSON.stringify({
+                    userId: user.id
+                  })
                 }
-              } catch (deleteError) {
-                console.error(`❌ Error deleting rejected file ${matchingRejectedFile.id}:`, deleteError);
-                // Continue with upload even if delete fails
+              );
+
+              const deleteData = await deleteResponse.json();
+              if (deleteData.success) {
+                console.log(`✅ Successfully deleted existing file: ${matchingExistingFile.original_name}`);
+              } else {
+                console.warn(`⚠️ Could not delete existing file ${matchingExistingFile.original_name}:`, deleteData.message);
+                // Continue with upload - the server will handle the duplicate
               }
-            } else {
-              console.log(`ℹ️ No matching rejected file found for: ${newFileName}`);
+            } catch (deleteError) {
+              console.error(`❌ Error deleting existing file ${matchingExistingFile.id}:`, deleteError);
+              // Continue with upload - the server will handle the duplicate
             }
+          } else {
+            console.log(`ℹ️ No existing file found with name: ${newFileName} - will upload as new file`);
           }
         }
       }
@@ -692,14 +689,21 @@ const TasksTab = ({
           formData.append('isFolder', 'false');
         }
 
-        // Mark as revision if this file replaced a rejected one
-        const isRevision = replacedRejectedFiles.includes(fileObj.file.name);
+        // Check if this file is replacing a REJECTED file (only then mark as revision)
+        const existingRejectedFile = currentAssignment.submitted_files?.find(
+          f => (f.original_name === fileObj.file.name || f.filename === fileObj.file.name) &&
+               (f.status === 'rejected_by_team_leader' || f.status === 'rejected_by_admin')
+        );
+        
+        const isRevision = existingRejectedFile ? true : false;
         formData.append('isRevision', isRevision.toString());
         // IMPORTANT: Set replaceExisting=true to automatically replace duplicate files
         formData.append('replaceExisting', 'true');
 
         if (isRevision) {
-          console.log(`📝 Marking ${fileObj.file.name} as REVISION`);
+          console.log(`📝 Marking ${fileObj.file.name} as REVISION (replacing rejected file)`);
+        } else if (replacedFiles.includes(fileObj.file.name)) {
+          console.log(`🔄 Replacing ${fileObj.file.name} (normal replacement, NOT a revision)`);
         }
 
         const uploadResponse = await fetch(`${API_BASE_URL}/api/files/upload`, {
@@ -1173,6 +1177,7 @@ const TasksTab = ({
                                                   🏷️ {file.tag}
                                                 </span>
                                               )}
+                                              {/* Only show status badges for REJECTED or REVISED (after rejection) files */}
                                               {file.status === 'under_revision' && (
                                                 <span style={{
                                                   backgroundColor: '#fef3c7',
@@ -1183,18 +1188,6 @@ const TasksTab = ({
                                                   fontWeight: '600',
                                                 }}>
                                                   📝 REVISED
-                                                </span>
-                                              )}
-                                              {file.status === 'approved_by_team_leader' && (
-                                                <span style={{
-                                                  backgroundColor: '#dcfce7',
-                                                  color: '#166534',
-                                                  padding: '2px 8px',
-                                                  borderRadius: '3px',
-                                                  fontSize: '10px',
-                                                  fontWeight: '600',
-                                                }}>
-                                                  ✓ APPROVED
                                                 </span>
                                               )}
                                               {(file.status === 'rejected_by_team_leader' || file.status === 'rejected_by_admin') && (
@@ -1312,6 +1305,7 @@ const TasksTab = ({
                                         <span>🏷️</span> {file.tag}
                                       </span>
                                     )}
+                                    {/* Only show status badges for REJECTED or REVISED (after rejection) files */}
                                     {file.status === 'under_revision' && (
                                       <span style={{
                                         backgroundColor: '#fef3c7',
@@ -1325,21 +1319,6 @@ const TasksTab = ({
                                         gap: '4px'
                                       }}>
                                         📝 REVISED
-                                      </span>
-                                    )}
-                                    {file.status === 'approved_by_team_leader' && (
-                                      <span style={{
-                                        backgroundColor: '#dcfce7',
-                                        color: '#166534',
-                                        padding: '3px 10px',
-                                        borderRadius: '4px',
-                                        fontSize: '11px',
-                                        fontWeight: '600',
-                                        display: 'inline-flex',
-                                        alignItems: 'center',
-                                        gap: '4px'
-                                      }}>
-                                        ✓ APPROVED
                                       </span>
                                     )}
                                     {(file.status === 'rejected_by_team_leader' || file.status === 'rejected_by_admin') && (
