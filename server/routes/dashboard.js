@@ -175,6 +175,186 @@ router.get('/summary', (req, res) => {
 
 // GET /api/dashboard/team/:teamName
 // Returns team-specific analytics for team leader dashboard
+router.get('/team-leader/:userId', (req, res) => {
+  const { userId } = req.params;
+  console.log(`📊 Getting analytics for team leader user: ${userId}`);
+
+  // First, get all teams this user leads
+  db.all(
+    `SELECT DISTINCT t.name
+     FROM team_leaders tl
+     JOIN teams t ON tl.team_id = t.id
+     WHERE tl.user_id = ?`,
+    [userId],
+    (err, ledTeams) => {
+      if (err) {
+        console.error('❌ Error getting led teams for analytics:', err);
+        return res.status(500).json({
+          success: false,
+          message: 'Failed to fetch analytics'
+        });
+      }
+
+      const teamNames = (ledTeams || []).map(t => t.name);
+
+      if (teamNames.length === 0) {
+        console.log(`⚠️ User ${userId} is not a leader of any teams for analytics`);
+        // Return empty analytics structure
+        return res.json({
+          success: true,
+          analytics: {
+            totalFiles: 0,
+            approvedFiles: 0,
+            pendingTeamLeaderReview: 0,
+            pendingAdminReview: 0,
+            rejectedFiles: 0,
+            teamMembers: 0,
+            fileTypes: [],
+            topContributors: [],
+            approvalRate: 0,
+            avgReviewTime: 0,
+            stageBreakdown: [],
+            recentActivity: []
+          }
+        });
+      }
+
+      console.log(`✅ Analytics for team leader ${userId} across teams:`, teamNames);
+      const placeholders = teamNames.map(() => '?').join(',');
+      const analytics = {};
+
+      // Helper function to handle errors
+      const handleError = (err, msg) => {
+        console.error(`❌ ${msg}:`, err);
+        return res.status(500).json({ success: false, message: 'Failed to fetch analytics' });
+      };
+
+      // 1. Total files for ALL led teams
+      db.get(`SELECT COUNT(*) as total FROM files WHERE user_team IN (${placeholders})`, teamNames, (err, totalResult) => {
+        if (err) return handleError(err, 'Error getting total files');
+        analytics.totalFiles = totalResult.total || 0;
+
+        // 2. Approved files
+        db.get(`SELECT COUNT(*) as approved FROM files WHERE user_team IN (${placeholders}) AND status = 'final_approved'`, teamNames, (err, approvedResult) => {
+          if (err) return handleError(err, 'Error getting approved files');
+          analytics.approvedFiles = approvedResult.approved || 0;
+
+          // 3. Pending team leader review
+          db.get(`SELECT COUNT(*) as pending FROM files WHERE user_team IN (${placeholders}) AND current_stage = 'pending_team_leader'`, teamNames, (err, pendingTLResult) => {
+            if (err) return handleError(err, 'Error getting pending TL files');
+            analytics.pendingTeamLeaderReview = pendingTLResult.pending || 0;
+
+            // 4. Pending admin review
+            db.get(`SELECT COUNT(*) as pending FROM files WHERE user_team IN (${placeholders}) AND current_stage = 'pending_admin'`, teamNames, (err, pendingAdminResult) => {
+              if (err) return handleError(err, 'Error getting pending admin files');
+              analytics.pendingAdminReview = pendingAdminResult.pending || 0;
+
+              // 5. Rejected files
+              db.get(`SELECT COUNT(*) as rejected FROM files WHERE user_team IN (${placeholders}) AND current_stage LIKE 'rejected%'`, teamNames, (err, rejectedResult) => {
+                if (err) return handleError(err, 'Error getting rejected files');
+                analytics.rejectedFiles = rejectedResult.rejected || 0;
+
+                // 6. Team members count (excluding Team Leaders to avoid double counting if they are in multiple teams, though typically unique users)
+                // Actually we just want count of unique users across these teams who are NOT team leaders
+                db.get(`SELECT COUNT(DISTINCT id) as total FROM users WHERE team IN (${placeholders}) AND role != ?`, [...teamNames, 'TEAM LEADER'], (err, membersResult) => {
+                  if (err) return handleError(err, 'Error getting team members count');
+                  analytics.teamMembers = membersResult.total || 0;
+
+                  // 7. File types breakdown
+                  db.all(`SELECT file_type, COUNT(*) as count FROM files WHERE user_team IN (${placeholders}) GROUP BY file_type ORDER BY count DESC`, teamNames, (err, fileTypes) => {
+                    if (err) {
+                      console.error('❌ Error getting file types:', err);
+                      analytics.fileTypes = [];
+                    } else {
+                      analytics.fileTypes = categorizeFileTypes(fileTypes || []);
+                    }
+
+                    // 8. Top contributors
+                    db.all(
+                      `SELECT u.id, u.fullName, u.username, COUNT(f.id) as fileCount
+                       FROM users u
+                       LEFT JOIN files f ON u.id = f.user_id
+                       WHERE u.team IN (${placeholders}) AND u.role != ?
+                       GROUP BY u.id, u.fullName, u.username
+                       ORDER BY fileCount DESC
+                       LIMIT 5`,
+                      [...teamNames, 'TEAM LEADER'],
+                      (err, topContributors) => {
+                        if (err) {
+                          console.error('❌ Error getting top contributors:', err);
+                          analytics.topContributors = [];
+                        } else {
+                          analytics.topContributors = topContributors || [];
+                        }
+
+                        // 9. Approval rate
+                        const approvalRate = analytics.totalFiles > 0
+                          ? (analytics.approvedFiles / analytics.totalFiles) * 100
+                          : 0;
+                        analytics.approvalRate = Math.round(approvalRate * 10) / 10;
+
+                        // 10. Average review time
+                        db.get(
+                          `SELECT AVG(DATEDIFF(team_leader_reviewed_at, uploaded_at)) as avgDays
+                           FROM files
+                           WHERE user_team IN (${placeholders}) AND team_leader_reviewed_at IS NOT NULL`,
+                          teamNames,
+                          (err, avgTimeResult) => {
+                            if (err) {
+                              console.error('❌ Error getting average review time:', err);
+                              analytics.avgReviewTime = 0;
+                            } else {
+                              analytics.avgReviewTime = avgTimeResult && avgTimeResult.avgDays ? Math.round(avgTimeResult.avgDays * 10) / 10 : 0;
+                            }
+
+                            // 11. Files by stage
+                            db.all(
+                              `SELECT current_stage, COUNT(*) as count FROM files WHERE user_team IN (${placeholders}) GROUP BY current_stage`,
+                              teamNames,
+                              (err, stageBreakdown) => {
+                                if (err) {
+                                  console.error('❌ Error getting stage breakdown:', err);
+                                  analytics.stageBreakdown = [];
+                                } else {
+                                  analytics.stageBreakdown = stageBreakdown || [];
+                                }
+
+                                // 12. Recent activity
+                                db.all(
+                                  `SELECT username, role, activity, timestamp FROM activity_logs
+                                   WHERE team IN (${placeholders}) ORDER BY timestamp DESC LIMIT 10`,
+                                  teamNames,
+                                  (err, recentActivity) => {
+                                    if (err) {
+                                      console.error('❌ Error getting recent activity:', err);
+                                      analytics.recentActivity = [];
+                                    } else {
+                                      analytics.recentActivity = recentActivity || [];
+                                    }
+
+                                    console.log(`✅ Retrieved aggregated analytics for team leader ${userId}`);
+                                    res.json({ success: true, analytics });
+                                  }
+                                );
+                              }
+                            );
+                          }
+                        );
+                      }
+                    );
+                  });
+                });
+              });
+            });
+          });
+        });
+      });
+    }
+  );
+});
+
+// GET /api/dashboard/team/:teamName
+// Returns team-specific analytics for team leader dashboard
 router.get('/team/:teamName', (req, res) => {
   const { teamName } = req.params;
   console.log(`📊 Getting analytics for team: ${teamName}`);

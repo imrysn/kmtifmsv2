@@ -357,6 +357,13 @@
   display: inline-block;
 }
 
+/* Team Cell */
+.team-cell {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+}
+
 /* Loading and Empty States - Exact Copy from Admin */
 .tl-loading,
 .tl-empty {
@@ -383,7 +390,7 @@
     align-items: flex-start;
     gap: 1rem;
   }
-  
+
   .file-status-cards {
     width: 100%;
     justify-content: flex-start;
@@ -395,36 +402,36 @@
     flex-direction: column;
     align-items: stretch;
   }
-  
+
   .file-filters {
     flex-wrap: wrap;
     gap: 0.5rem;
   }
-  
+
   .file-search {
     max-width: none;
   }
-  
+
   .tl-files-table thead th,
   .tl-files-table tbody td {
     padding: 0.75rem 0.5rem;
     font-size: 0.85rem;
   }
-  
+
   .file-status-cards {
     justify-content: center;
     flex-direction: column;
   }
-  
+
   .file-status-card {
     border-right: none;
     border-bottom: 1px solid var(--border-color);
   }
-  
+
   .file-status-card:last-child {
     border-bottom: none;
   }
-  
+
   .file-cell {
     gap: 0.5rem;
   }
@@ -435,12 +442,12 @@
     min-width: auto;
     width: 100%;
   }
-  
+
   .status-badge {
     min-width: auto;
     padding: 0.25rem 0.625rem;
   }
-  
+
   .team-badge {
     width: auto;
     min-width: 100px;
@@ -458,9 +465,12 @@
 }
 
 @keyframes fileHighlightPulse {
-  0%, 100% {
+
+  0%,
+  100% {
     background: rgba(156, 163, 175, 0.15);
   }
+
   50% {
     background: rgba(156, 163, 175, 0.25);
   }

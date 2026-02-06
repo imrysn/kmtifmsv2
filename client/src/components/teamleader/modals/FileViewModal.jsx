@@ -86,7 +86,7 @@ const FileViewModal = ({
               <div className="detail-item">
                 <span className="detail-label">TEAM:</span>
                 <span className="detail-value team-badge-inline">
-                  {selectedFile.team || user.team}
+                  {selectedFile.user_team || selectedFile.team || user.team}
                 </span>
               </div>
               <div className="detail-item">

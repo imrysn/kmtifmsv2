@@ -7,7 +7,8 @@ async function runMigrations() {
     // List of migrations to run in order
     const migrations = [
       { name: 'Add Tag Column', run: require('./001-add-tag-column') },
-      { name: 'Add Database Indexes', run: require('./002-add-database-indexes') }
+      { name: 'Add Database Indexes', run: require('./002-add-database-indexes') },
+      { name: 'Add Team Leaders Table', run: require('./003-add-team-leaders-table') }
     ];
 
     for (const migration of migrations) {

@@ -171,11 +171,32 @@ router.get('/admin/all', async (req, res) => {
 });
 
 // Get all submitted files for file collection (Team Leader view)
-router.get('/team-leader/:team/all-submissions', async (req, res) => {
+router.get('/team-leader/:userId/all-submissions', async (req, res) => {
   try {
-    const { team } = req.params;
-    console.log(`🔍 DASHBOARD API: Fetching all submissions for team: ${team}`);
+    const { userId } = req.params;
+    console.log(`🔍 DASHBOARD API: Fetching all submissions for team leader user ID: ${userId}`);
 
+    // First, get all teams this user leads
+    const ledTeams = await query(`
+      SELECT DISTINCT t.name
+      FROM team_leaders tl
+      JOIN teams t ON tl.team_id = t.id
+      WHERE tl.user_id = ?
+    `, [userId]);
+
+    if (!ledTeams || ledTeams.length === 0) {
+      console.log(`⚠️ User ${userId} is not a leader of any teams`);
+      return res.json({
+        success: true,
+        submissions: []
+      });
+    }
+
+    const teamNames = ledTeams.map(t => t.name);
+    console.log(`✅ User ${userId} leads teams:`, teamNames);
+
+    // Get all submissions from ALL teams this user leads
+    const placeholders = teamNames.map(() => '?').join(',');
     const allSubmissions = await query(`
       SELECT
         f.id,
@@ -187,6 +208,7 @@ router.get('/team-leader/:team/all-submissions', async (req, res) => {
         f.file_size,
         f.uploaded_at,
         f.status,
+        f.user_team,
         f.folder_name,
         f.relative_path,
         f.is_folder,
@@ -196,16 +218,17 @@ router.get('/team-leader/:team/all-submissions', async (req, res) => {
         asub.submitted_at as created_at,
         a.id as assignment_id,
         a.title as assignment_title,
-        a.due_date as assignment_due_date
+        a.due_date as assignment_due_date,
+        a.team
       FROM assignment_submissions asub
       JOIN files f ON asub.file_id = f.id
       JOIN users u ON asub.user_id = u.id
       JOIN assignments a ON asub.assignment_id = a.id
-      WHERE a.team = ?
+      WHERE a.team IN (${placeholders})
       ORDER BY asub.submitted_at DESC
-    `, [team]);
+    `, teamNames);
 
-    console.log(`✅ DASHBOARD API: Found ${allSubmissions?.length || 0} submissions for team ${team}`);
+    console.log(`✅ DASHBOARD API: Found ${allSubmissions?.length || 0} submissions across ${teamNames.length} teams`);
 
     res.json({
       success: true,
@@ -353,10 +376,32 @@ router.get('/team/:team/all-tasks', async (req, res) => {
 });
 
 // Get all assignments for a team leader
-router.get('/team-leader/:team', async (req, res) => {
+router.get('/team-leader/:userId', async (req, res) => {
   try {
-    const { team } = req.params;
+    const { userId } = req.params;
+    console.log(`🔍 Fetching assignments for team leader user ID: ${userId}`);
 
+    // First, get all teams this user leads
+    const ledTeams = await query(`
+      SELECT DISTINCT t.name
+      FROM team_leaders tl
+      JOIN teams t ON tl.team_id = t.id
+      WHERE tl.user_id = ?
+    `, [userId]);
+
+    if (!ledTeams || ledTeams.length === 0) {
+      console.log(`⚠️ User ${userId} is not a leader of any teams`);
+      return res.json({
+        success: true,
+        assignments: []
+      });
+    }
+
+    const teamNames = ledTeams.map(t => t.name);
+    console.log(`✅ User ${userId} leads teams:`, teamNames);
+
+    // Get all assignments from ALL teams this user leads
+    const placeholders = teamNames.map(() => '?').join(',');
     const assignments = await query(`
       SELECT
         a.*,
@@ -365,10 +410,12 @@ router.get('/team-leader/:team', async (req, res) => {
       FROM assignments a
       LEFT JOIN assignment_members am ON a.id = am.assignment_id
       LEFT JOIN assignment_submissions asub ON a.id = asub.assignment_id
-      WHERE a.team = ?
+      WHERE a.team IN (${placeholders})
       GROUP BY a.id
       ORDER BY a.created_at DESC
-    `, [team]);
+    `, teamNames);
+
+    console.log(`✅ Found ${assignments.length} assignments across ${teamNames.length} teams`);
 
     // Get recent submissions for each assignment
     for (const assignment of assignments) {
@@ -409,6 +456,7 @@ router.get('/team-leader/:team', async (req, res) => {
           f.folder_name,
           f.relative_path,
           f.is_folder,
+          f.user_team,
           u.username,
           u.fullName,
           asub.submitted_at,
@@ -2078,7 +2126,7 @@ router.delete('/:assignmentId/files/:fileId', async (req, res) => {
 
     // 🗑️ DELETE EVERYTHING - Start by removing ALL foreign key references
     console.log('🔗 Step 1: Removing ALL foreign key references...');
-    
+
     // 1. CRITICAL: Set file_id = NULL in assignment_members FIRST (before deleting anything)
     // This clears the foreign key reference to the file we're about to delete
     console.log(`⚙️ Setting file_id=NULL for assignment ${assignmentId}, user ${userId}, file ${fileId}`);
@@ -2087,7 +2135,7 @@ router.delete('/:assignmentId/files/:fileId', async (req, res) => {
       [assignmentId, userId, fileId]
     );
     console.log('✅ Cleared file_id reference in assignment_members');
-    
+
     // Now update status based on remaining submissions
     if (!remainingSubmissions || remainingSubmissions.length === 0) {
       console.log('🚧 No remaining files - setting status to pending');
@@ -2099,13 +2147,13 @@ router.delete('/:assignmentId/files/:fileId', async (req, res) => {
     } else {
       const mostRecentFile = remainingSubmissions[0];
       console.log(`🔄 Pointing to most recent remaining file: ${mostRecentFile.file_id}`);
-      
+
       // Verify the file we're pointing to actually exists and is NOT the one being deleted
       if (mostRecentFile.file_id === fileId) {
         console.error('❌❌❌ ERROR: Trying to set file_id to the file being deleted!');
         throw new Error('Logic error: Cannot set file_id to file being deleted');
       }
-      
+
       await query(
         'UPDATE assignment_members SET file_id = ?, submitted_at = ?, status = ? WHERE assignment_id = ? AND user_id = ?',
         [mostRecentFile.file_id, mostRecentFile.submitted_at, 'submitted', assignmentId, userId]
@@ -2127,7 +2175,7 @@ router.delete('/:assignmentId/files/:fileId', async (req, res) => {
     } catch (err) {
       console.log('⚠️ No notifications to delete');
     }
-    
+
     // 4. Delete from file_comments
     try {
       await query('DELETE FROM file_comments WHERE file_id = ?', [fileId]);
@@ -2135,7 +2183,7 @@ router.delete('/:assignmentId/files/:fileId', async (req, res) => {
     } catch (err) {
       console.log('⚠️ No file comments to delete');
     }
-    
+
     // 5. Delete from file_status_history
     try {
       await query('DELETE FROM file_status_history WHERE file_id = ?', [fileId]);
@@ -2143,7 +2191,7 @@ router.delete('/:assignmentId/files/:fileId', async (req, res) => {
     } catch (err) {
       console.log('⚠️ No file status history to delete');
     }
-    
+
     // 6. Check for any other references in assignment_attachments
     try {
       await query('DELETE FROM assignment_attachments WHERE file_id = ?', [fileId]);
@@ -2153,7 +2201,7 @@ router.delete('/:assignmentId/files/:fileId', async (req, res) => {
     }
 
     console.log('💾 Step 2: Deleting physical file...');
-    
+
     // 7. Delete physical file from NAS
     if (fileInfo && fileInfo.file_path) {
       try {
@@ -2169,7 +2217,7 @@ router.delete('/:assignmentId/files/:fileId', async (req, res) => {
     }
 
     console.log('📀 Step 3: Deleting file record from database...');
-    
+
     // 8. Finally, delete file record from database
     await query('DELETE FROM files WHERE id = ?', [fileId]);
     console.log('✅ File record deleted from database');
