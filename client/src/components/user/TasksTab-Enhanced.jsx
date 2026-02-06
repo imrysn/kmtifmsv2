@@ -51,6 +51,8 @@ const TasksTab = ({
   const [expandedFolders, setExpandedFolders] = useState({}); // Track which folders are expanded
   const [expandedCommentTexts, setExpandedCommentTexts] = useState({}); // Track which comment texts are expanded
   const [expandedReplyTexts, setExpandedReplyTexts] = useState({}); // Track which reply texts are expanded
+  const [showAllSubmittedFiles, setShowAllSubmittedFiles] = useState({}); // Track which assignments show all submitted files
+  const INITIAL_FILE_DISPLAY_LIMIT = 5; // Show first 5 files/folders initially
 
   // Check for sessionStorage when component mounts - run ONCE when assignments first load
   useEffect(() => {
@@ -402,6 +404,9 @@ const TasksTab = ({
 
     const dueDate = new Date(assignment.due_date)
     const now = new Date()
+    // Set both dates to start of day for accurate comparison
+    dueDate.setHours(0, 0, 0, 0)
+    now.setHours(0, 0, 0, 0)
     const daysUntilDue = Math.ceil((dueDate - now) / (1000 * 60 * 60 * 24))
 
     // Check if marked as submitted but no files - show MISSING
@@ -465,6 +470,9 @@ const TasksTab = ({
 
     const dueDate = new Date(assignment.due_date)
     const now = new Date()
+    // Set both dates to start of day for accurate comparison
+    dueDate.setHours(0, 0, 0, 0)
+    now.setHours(0, 0, 0, 0)
     const daysUntilDue = Math.ceil((dueDate - now) / (1000 * 60 * 60 * 24))
 
     if (daysUntilDue < 0) {
@@ -954,11 +962,11 @@ const TasksTab = ({
                         Due: {assignment.due_date ? formatDate(assignment.due_date) : 'No due date'}
                         {daysLeft !== null && (
                           <span style={{
-                            color: '#DC2626',
+                            color: daysLeft < 0 ? '#DC2626' : '#16A34A',
                             fontWeight: '400',
                             marginLeft: '4px'
                           }}>
-                            ({Math.abs(daysLeft)} days overdue)
+                            {daysLeft < 0 ? `(${Math.abs(daysLeft)} days overdue)` : `(${daysLeft} days left)`}
                           </span>
                         )}
                       </div>
@@ -1051,11 +1059,33 @@ const TasksTab = ({
                       // Group files by folder
                       const { folders, individualFiles } = groupFilesByFolder(sortedFiles);
                       const foldersToShow = Object.keys(folders);
+                      
+                      // Check if we should show all files for this assignment
+                      const showAll = showAllSubmittedFiles[assignment.id];
+                      const totalItems = foldersToShow.length + individualFiles.length;
+                      const shouldShowSeeMore = totalItems > INITIAL_FILE_DISPLAY_LIMIT;
+                      
+                      // Limit items if not showing all
+                      let displayFolders = foldersToShow;
+                      let displayIndividualFiles = individualFiles;
+                      
+                      if (!showAll && shouldShowSeeMore) {
+                        const foldersCount = foldersToShow.length;
+                        if (foldersCount >= INITIAL_FILE_DISPLAY_LIMIT) {
+                          // Show only folders up to limit
+                          displayFolders = foldersToShow.slice(0, INITIAL_FILE_DISPLAY_LIMIT);
+                          displayIndividualFiles = [];
+                        } else {
+                          // Show all folders + remaining individual files up to limit
+                          const remainingSlots = INITIAL_FILE_DISPLAY_LIMIT - foldersCount;
+                          displayIndividualFiles = individualFiles.slice(0, remainingSlots);
+                        }
+                      }
 
                       return (
                         <>
                           {/* Display Folders */}
-                          {foldersToShow.map((folderName) => {
+                          {displayFolders.map((folderName) => {
                             const folderFiles = folders[folderName];
                             const isExpanded = expandedFolders[`${assignment.id}-${folderName}`];
                             
@@ -1247,7 +1277,7 @@ const TasksTab = ({
                           })}
 
                           {/* Display Individual Files */}
-                          {individualFiles.map((file) => (
+                          {displayIndividualFiles.map((file) => (
                             <div
                               key={file.id}
                               className="submitted-file-card"
@@ -1375,6 +1405,36 @@ const TasksTab = ({
                               </div>
                             </div>
                           ))}
+                          
+                          {/* See more button */}
+                          {shouldShowSeeMore && (
+                            <div style={{ marginTop: '12px', textAlign: 'center' }}>
+                              <button
+                                onClick={() => setShowAllSubmittedFiles(prev => ({
+                                  ...prev,
+                                  [assignment.id]: !prev[assignment.id]
+                                }))}
+                                style={{
+                                  background: 'none',
+                                  border: 'none',
+                                  color: '#2563eb',
+                                  fontSize: '14px',
+                                  fontWeight: '500',
+                                  cursor: 'pointer',
+                                  padding: '8px 16px',
+                                  textDecoration: 'underline',
+                                  transition: 'color 0.2s'
+                                }}
+                                onMouseEnter={(e) => e.currentTarget.style.color = '#1d4ed8'}
+                                onMouseLeave={(e) => e.currentTarget.style.color = '#2563eb'}
+                              >
+                                {showAll 
+                                  ? 'See less' 
+                                  : `See more (${totalItems - INITIAL_FILE_DISPLAY_LIMIT} more)`
+                                }
+                              </button>
+                            </div>
+                          )}
                         </>
                       );
                     })()}
