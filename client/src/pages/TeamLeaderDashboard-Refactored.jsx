@@ -489,22 +489,32 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
 
   const openFileViewModal = async (file) => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/files/open-file`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ filePath: file.file_path })
-      })
-      const data = await response.json()
-      if (data.success) {
-        setSuccess('File opened successfully')
+      // Check if running in Electron and has capability to open files locally
+      if (window.electron && window.electron.openFileInApp) {
+        // Get the absolute file path from server
+        const response = await fetch(`${API_BASE_URL}/api/files/${file.id}/path`);
+        const data = await response.json();
+
+        if (data.success && data.filePath) {
+          const result = await window.electron.openFileInApp(data.filePath);
+
+          if (!result.success) {
+            setError('Failed to open file locally: ' + (result.error || 'Unknown error'));
+          } else {
+            setSuccess('File opened successfully');
+          }
+        } else {
+          setError('Could not retrieve file path');
+        }
       } else {
-        setError('Failed to open file')
+        // Web fallback
+        const fileUrl = `${API_BASE_URL}${file.file_path}`;
+        window.open(fileUrl, '_blank', 'noopener,noreferrer');
+        setSuccess('File opened in new tab');
       }
     } catch (error) {
-      console.error('Error opening file:', error)
-      setError('Failed to open file')
+      console.error('Error opening file:', error);
+      setError('Failed to open file');
     }
   }
 
