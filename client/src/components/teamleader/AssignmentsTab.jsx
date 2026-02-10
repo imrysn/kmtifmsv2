@@ -675,37 +675,18 @@ const AssignmentsTab = ({
               <button onClick={() => setShowMembersModal(false)}>×</button>
             </div>
             <div className="tl-modal-body">
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <div className="tl-modal-members-list">
                 {selectedMembers.map((member) => (
-                  <div key={member.id} style={{
-                    padding: '12px',
-                    background: 'var(--background-primary)',
-                    borderRadius: 'var(--radius-md)',
-                    border: '1px solid var(--border-color)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '12px'
-                  }}>
-                    <div style={{
-                      width: '32px',
-                      height: '32px',
-                      borderRadius: '50%',
-                      background: 'var(--primary-color)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      color: 'white',
-                      fontWeight: '600',
-                      fontSize: '14px'
-                    }}>
+                  <div key={member.id} className="tl-modal-member-item">
+                    <div className="tl-modal-member-avatar">
                       {(member.fullName || member.username).charAt(0).toUpperCase()}
                     </div>
-                    <div>
-                      <div style={{ fontWeight: '500', color: 'var(--text-primary)' }}>
+                    <div className="tl-member-info">
+                      <div className="tl-member-name">
                         {member.fullName || member.username}
                       </div>
                       {member.fullName && (
-                        <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
+                        <div className="tl-member-username">
                           @{member.username}
                         </div>
                       )}
