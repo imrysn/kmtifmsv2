@@ -872,6 +872,7 @@ const TasksTab = ({
             return (
               <div
                 key={assignment.id}
+                id={`user-assignment-${assignment.id}`}
                 style={{
                   backgroundColor: 'white',
                   borderRadius: '12px',
