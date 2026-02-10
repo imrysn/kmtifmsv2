@@ -2502,7 +2502,7 @@ input[type="checkbox"] {
 
 .tl-dashboard-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+  grid-template-columns: repeat(6, 1fr);
   gap: var(--spacing-lg);
   margin-bottom: var(--spacing-lg);
 }
@@ -2513,10 +2513,11 @@ input[type="checkbox"] {
   border-radius: var(--radius-lg);
   overflow: hidden;
   transition: all 0.2s ease;
+  grid-column: span 2;
 }
 
 .tl-dashboard-card.large {
-  grid-column: span 2;
+  grid-column: span 4;
   display: flex;
   flex-direction: column;
   min-height: 450px;
@@ -2524,17 +2525,26 @@ input[type="checkbox"] {
 }
 
 .tl-dashboard-card.large.tall {
-  grid-column: span 2;
+  grid-column: span 4;
   min-height: 800px;
 }
 
 .tl-dashboard-card.tall {
   grid-row: span 2;
-  grid-column: span 1;
+  grid-column: span 3;
   display: flex;
   flex-direction: column;
   min-height: 450px;
   max-height: 450px;
+}
+
+.tl-dashboard-card.wide {
+  grid-column: span 4;
+}
+
+.tl-dashboard-card.tall.wide {
+  grid-row: span 2;
+  grid-column: span 4;
 }
 
 @media (max-width: 1200px) {
@@ -2884,5 +2894,45 @@ input[type="checkbox"] {
 
   .tl-activity-list {
     max-height: 250px;
+  }
+
+  .tl-dashboard-card.tall {
+    grid-row: span 1;
+  }
+}
+
+/* Priority Grid Styles */
+.tl-priority-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--spacing-md);
+  height: calc(100% - 70px);
+  overflow: hidden;
+}
+
+.tl-priority-list {
+  overflow-y: auto;
+}
+
+.tl-priority-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.tl-priority-list::-webkit-scrollbar-track {
+  background: var(--background-primary);
+}
+
+.tl-priority-list::-webkit-scrollbar-thumb {
+  background: var(--border-color);
+  border-radius: 3px;
+}
+
+.tl-priority-list::-webkit-scrollbar-thumb:hover {
+  background: var(--text-tertiary);
+}
+
+@media (max-width: 1024px) {
+  .tl-priority-grid {
+    grid-template-columns: 1fr;
   }
 }

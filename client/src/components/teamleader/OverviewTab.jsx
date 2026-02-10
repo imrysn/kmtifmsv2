@@ -63,10 +63,15 @@ const OverviewTab = ({
   // Get tasks with nearest due dates
   const getNearestDueTasks = () => {
     const now = new Date()
-    
+
     // Filter active assignments with due dates
     const tasksWithDueDates = assignments.filter(a => a.status === 'active' && a.due_date)
-    
+
+    // Filter active assignments without due dates
+    const tasksWithoutDueDates = assignments
+      .filter(a => a.status === 'active' && !a.due_date)
+      .map(task => ({ ...task, daysUntilDue: null, dueDate: null }))
+
     // Sort by due date (nearest first) and calculate days until due
     const sortedTasks = tasksWithDueDates
       .map(task => {
@@ -75,15 +80,15 @@ const OverviewTab = ({
         return { ...task, daysUntilDue, dueDate }
       })
       .sort((a, b) => a.dueDate - b.dueDate)
-    
+
     // Categorize tasks
     const overdueTasks = sortedTasks.filter(t => t.daysUntilDue < 0)
     const dueTodayTasks = sortedTasks.filter(t => t.daysUntilDue === 0)
     const upcomingTasks = sortedTasks.filter(t => t.daysUntilDue > 0 && t.daysUntilDue <= 7)
     const futureTasks = sortedTasks.filter(t => t.daysUntilDue > 7)
-    
-    // Return top 6 tasks prioritized by urgency
-    return [...overdueTasks, ...dueTodayTasks, ...upcomingTasks, ...futureTasks].slice(0, 6)
+
+    // Return all tasks prioritized by urgency (nearest deadline first), then tasks without deadlines
+    return [...overdueTasks, ...dueTodayTasks, ...upcomingTasks, ...futureTasks, ...tasksWithoutDueDates]
   }
 
   const fileStats = calculateFilesStats()
@@ -108,7 +113,7 @@ const OverviewTab = ({
             <h3>File Collection</h3>
             <div className="tl-card-icon">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+                <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
               </svg>
             </div>
           </div>
@@ -138,8 +143,8 @@ const OverviewTab = ({
             <h3>Tasks</h3>
             <div className="tl-card-icon">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M9 11l3 3L22 4"/>
-                <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
+                <path d="M9 11l3 3L22 4" />
+                <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
               </svg>
             </div>
           </div>
@@ -165,10 +170,10 @@ const OverviewTab = ({
             <h3>Team Management</h3>
             <div className="tl-card-icon">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
-                <circle cx="9" cy="7" r="4"/>
-                <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
-                <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                <circle cx="9" cy="7" r="4" />
+                <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+                <path d="M16 3.13a4 4 0 0 1 0 7.75" />
               </svg>
             </div>
           </div>
@@ -189,13 +194,13 @@ const OverviewTab = ({
         </div>
 
         {/* Recent Activity */}
-        <div className="tl-dashboard-card large">
+        <div className="tl-dashboard-card tall">
           <div className="tl-card-header">
             <h3>Recent Activity</h3>
             <div className="tl-card-icon">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <circle cx="12" cy="12" r="10"/>
-                <polyline points="12,6 12,12 16,14"/>
+                <circle cx="12" cy="12" r="10" />
+                <polyline points="12,6 12,12 16,14" />
               </svg>
             </div>
           </div>
@@ -204,7 +209,7 @@ const OverviewTab = ({
               <div key={file.id} className="tl-activity-item">
                 <div className="tl-activity-icon">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+                    <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
                   </svg>
                 </div>
                 <div className="tl-activity-content">
@@ -215,16 +220,15 @@ const OverviewTab = ({
                     {new Date(file.submitted_at || file.uploaded_at).toLocaleDateString()}
                   </div>
                 </div>
-                <span className={`status-badge status-${
-                  file.status === 'approved' || file.status === 'final_approved' ? 'approved' :
+                <span className={`status-badge status-${file.status === 'approved' || file.status === 'final_approved' ? 'approved' :
                   file.status === 'rejected' || file.status === 'rejected_by_team_leader' || file.status === 'rejected_by_admin' ? 'rejected' :
-                  'pending'
-                }`}>
+                    'pending'
+                  }`}>
                   {
                     file.status === 'approved' || file.status === 'final_approved' ? 'Approved' :
-                    file.status === 'rejected' || file.status === 'rejected_by_team_leader' || file.status === 'rejected_by_admin' ? 'Rejected' :
-                    file.status === 'team_leader_approved' ? 'Pending Admin' :
-                    'Pending Team Leader'
+                      file.status === 'rejected' || file.status === 'rejected_by_team_leader' || file.status === 'rejected_by_admin' ? 'Rejected' :
+                        file.status === 'team_leader_approved' ? 'Pending Admin' :
+                          'Pending Team Leader'
                   }
                 </span>
               </div>
@@ -232,8 +236,8 @@ const OverviewTab = ({
             {submittedFiles.length === 0 && (
               <div className="tl-activity-empty">
                 <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" opacity="0.3">
-                  <circle cx="12" cy="12" r="10"/>
-                  <polyline points="12,6 12,12 16,14"/>
+                  <circle cx="12" cy="12" r="10" />
+                  <polyline points="12,6 12,12 16,14" />
                 </svg>
                 <p>No recent activity</p>
               </div>
@@ -243,69 +247,92 @@ const OverviewTab = ({
 
         {/* Priority Items */}
         <div className="tl-dashboard-card tall">
-          <div className="tl-card-header">
-            <h3>Priority Items</h3>
-            <div className="tl-card-icon">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <circle cx="12" cy="12" r="10"/>
-                <circle cx="12" cy="12" r="4"/>
-              </svg>
-            </div>
+          <div className="tl-card-header" style={{ display: 'flex', justifyContent: 'space-between' }}>
+            <h3 style={{ flex: 1, paddingLeft: 'var(--spacing-md)' }}>Upcoming Tasks</h3>
+            <h3 style={{ flex: 1, paddingLeft: 'var(--spacing-md)' }}>Overdues</h3>
           </div>
-          <div className="tl-priority-list">
-            {nearestDueTasks.length > 0 ? (
-              nearestDueTasks.map((task) => {
-                const isOverdue = task.daysUntilDue < 0
-                const isDueToday = task.daysUntilDue === 0
-                const isDueSoon = task.daysUntilDue > 0 && task.daysUntilDue <= 7
-                
-                return (
-                  <div
-                    key={task.id}
-                    className={`tl-priority-item ${
-                      isOverdue ? 'overdue' :
-                      isDueToday ? 'urgent' :
-                      isDueSoon ? 'due-soon' : ''
-                    }`}
-                    onClick={() => onNavigateToTask && onNavigateToTask(task.id)}
-                    style={{ cursor: 'pointer' }}
-                  >
-                    <div className="tl-priority-icon">
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        {isOverdue ? (
-                          <>
-                            <circle cx="12" cy="12" r="10"/>
-                            <line x1="12" y1="8" x2="12" y2="12"/>
-                            <line x1="12" y1="16" x2="12" y2="16"/>
-                          </>
-                        ) : (
-                          <>
-                            <circle cx="12" cy="12" r="10"/>
-                            <polyline points="12,6 12,12 16,14"/>
-                          </>
-                        )}
-                      </svg>
+          <div className="tl-priority-grid">
+            {/* Upcoming Tasks Column */}
+            <div className="tl-priority-list">
+              {nearestDueTasks.filter(task => task.daysUntilDue >= 0).length > 0 ? (
+                nearestDueTasks
+                  .filter(task => task.daysUntilDue >= 0)
+                  .map((task) => {
+                    const isDueToday = task.daysUntilDue === 0
+                    const isDueSoon = task.daysUntilDue > 0 && task.daysUntilDue <= 7
+
+                    return (
+                      <div
+                        key={task.id}
+                        className={`tl-priority-item ${isDueToday ? 'urgent' :
+                          isDueSoon ? 'due-soon' : ''
+                          }`}
+                        onClick={() => onNavigateToTask && onNavigateToTask(task.id)}
+                        style={{ cursor: 'pointer' }}
+                      >
+                        <div className="tl-priority-icon">
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <circle cx="12" cy="12" r="10" />
+                            <polyline points="12,6 12,12 16,14" />
+                          </svg>
+                        </div>
+                        <div className="tl-priority-content">
+                          <span className="tl-priority-label">{task.title}</span>
+                        </div>
+                        <span className="tl-priority-count">
+                          {task.daysUntilDue === null ? 'No deadline' : (isDueToday ? 'Due today' : `${task.daysUntilDue}d left`)}
+                        </span>
+                      </div>
+                    )
+                  })
+              ) : (
+                <div className="tl-priority-empty">
+                  <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" opacity="0.3">
+                    <circle cx="12" cy="12" r="10" />
+                    <path d="M9 12l2 2 4-4" />
+                  </svg>
+                  <p>No upcoming tasks</p>
+                </div>
+              )}
+            </div>
+
+            {/* Overdues Column */}
+            <div className="tl-priority-list">
+              {nearestDueTasks.filter(task => task.daysUntilDue < 0).length > 0 ? (
+                nearestDueTasks
+                  .filter(task => task.daysUntilDue < 0)
+                  .map((task) => (
+                    <div
+                      key={task.id}
+                      className="tl-priority-item overdue"
+                      onClick={() => onNavigateToTask && onNavigateToTask(task.id)}
+                      style={{ cursor: 'pointer' }}
+                    >
+                      <div className="tl-priority-icon">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <circle cx="12" cy="12" r="10" />
+                          <line x1="12" y1="8" x2="12" y2="12" />
+                          <line x1="12" y1="16" x2="12" y2="16" />
+                        </svg>
+                      </div>
+                      <div className="tl-priority-content">
+                        <span className="tl-priority-label">{task.title}</span>
+                      </div>
+                      <span className="tl-priority-count">
+                        {Math.abs(task.daysUntilDue)}d overdue
+                      </span>
                     </div>
-                    <div className="tl-priority-content">
-                      <span className="tl-priority-label">{task.title}</span>
-                    </div>
-                    <span className="tl-priority-count">
-                      {isOverdue ? `${Math.abs(task.daysUntilDue)}d overdue` : 
-                       isDueToday ? 'Due today' : 
-                       `${task.daysUntilDue}d left`}
-                    </span>
-                  </div>
-                )
-              })
-            ) : (
-              <div className="tl-priority-empty">
-                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" opacity="0.3">
-                  <circle cx="12" cy="12" r="10"/>
-                  <path d="M9 12l2 2 4-4"/>
-                </svg>
-                <p>No upcoming deadlines</p>
-              </div>
-            )}
+                  ))
+              ) : (
+                <div className="tl-priority-empty">
+                  <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" opacity="0.3">
+                    <circle cx="12" cy="12" r="10" />
+                    <path d="M9 12l2 2 4-4" />
+                  </svg>
+                  <p>No overdue tasks</p>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>
