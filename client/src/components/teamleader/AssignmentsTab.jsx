@@ -399,7 +399,7 @@ const AssignmentsTab = ({
             {assignments.map((assignment) => (
               <div
                 key={assignment.id}
-                id={`assignment-card-${assignment.id}`}
+                id={`tl-assignment-${assignment.id}`}
                 className="tl-assignment-card"
               >
                 <div className="tl-assignment-card-header">

@@ -8,6 +8,15 @@ import { useAuth, useNetwork } from '../../contexts'
 import { withErrorBoundary } from '../common'
 import { useSmartNavigation } from '../shared/SmartNavigation'
 
+// Utility function to format file size
+const formatFileSize = (bytes) => {
+  if (bytes === 0) return '0 Bytes'
+  const k = 1024
+  const sizes = ['Bytes', 'KB', 'MB', 'GB']
+  const i = Math.floor(Math.log(bytes) / Math.log(k))
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
+}
+
 const TaskManagement = ({
   error,
   success,
@@ -817,11 +826,46 @@ const TaskManagement = ({
                     </div>
                   )}
 
-                  {/* Attachment */}
+                  {/* Attachments - Files attached by Team Leader */}
+                  {assignment.attachments && assignment.attachments.length > 0 && (
+                    <div className="admin-attachment-section" style={{ marginBottom: '16px' }}>
+                      <div className="admin-attached-file">
+                        <div className="admin-file-label">📎 Attachments ({assignment.attachments.length}):</div>
+                        {assignment.attachments.map((attachment, index) => (
+                          <div
+                            key={attachment.id}
+                            className="admin-file-item"
+                            onClick={() => {
+                              setFileToOpen(attachment)
+                              setShowOpenFileConfirmation(true)
+                            }}
+                            style={{
+                              cursor: 'pointer',
+                              marginBottom: index < assignment.attachments.length - 1 ? '8px' : '0'
+                            }}
+                          >
+                            <FileIcon
+                              fileType={attachment.original_name.split('.').pop()}
+                              size="small"
+                              className="admin-file-icon"
+                            />
+                            <div className="admin-file-details">
+                              <div className="admin-file-name">{attachment.original_name}</div>
+                              <div className="admin-file-meta">
+                                Uploaded by <span className="admin-file-submitter">Team Leader</span> • {formatFileSize(attachment.file_size)}
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Submitted Files */}
                   <div className="admin-attachment-section">
                     {assignment.recent_submissions && assignment.recent_submissions.length > 0 ? (
-                      <div className="admin-attached-file">
-                        <div className="admin-file-label">📎 Attachment{assignment.recent_submissions.length > 1 ? 's' : ''} ({assignment.recent_submissions.length}):</div>
+                      <div className="admin-submitted-file">
+                        <div className="admin-file-label admin-submitted-label">📎 Submitted Files ({assignment.recent_submissions.length}):</div>
                         {(expandedAttachments[assignment.id]
                           ? assignment.recent_submissions
                           : assignment.recent_submissions.slice(0, 5)
