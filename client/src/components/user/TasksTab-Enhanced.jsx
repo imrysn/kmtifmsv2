@@ -1102,7 +1102,7 @@ const TasksTab = ({
                                   }}
                                   style={{ 
                                     cursor: 'pointer',
-                                    backgroundColor: isExpanded ? '#f9fafb' : '#ffffff'
+                                    backgroundColor: isExpanded ? '#BFDBFE' : '#DBEAFE'
                                   }}
                                 >
                                   <div style={{

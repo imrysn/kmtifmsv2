@@ -1269,8 +1269,8 @@ textarea:focus {
 }
 
 .submitted-file-card {
-  background: #EFF6FF;
-  border: 1px solid #BFDBFE;
+  background: #DBEAFE;
+  border: 1px solid #93C5FD;
   border-radius: 10px;
   padding: 16px;
   margin-bottom: 12px;
@@ -1283,8 +1283,9 @@ textarea:focus {
 }
 
 .submitted-file-card:hover {
-  background-color: #DBEAFE !important;
-  border-color: #93c5fd;
+  background-color: #BFDBFE !important;
+  border-color: #60A5FA;
+  box-shadow: 0 2px 4px rgba(59, 130, 246, 0.15);
 }
 
 /* ============================================

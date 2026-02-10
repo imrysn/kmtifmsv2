@@ -660,7 +660,7 @@ const TeamTasksTab = ({ user }) => {
                                   [`${assignment.id}-${folderName}`]: !prev[`${assignment.id}-${folderName}`]
                                 }));
                               }}
-                              style={{ cursor: 'pointer', backgroundColor: isExpanded ? '#f9fafb' : '#ffffff' }}
+                              style={{ cursor: 'pointer', backgroundColor: isExpanded ? '#BFDBFE' : '#DBEAFE' }}
                             >
                               <div style={{
                                 display: 'flex',
