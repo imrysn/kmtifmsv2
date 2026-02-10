@@ -279,6 +279,35 @@
   background: rgba(0, 0, 0, 0.03);
 }
 
+/* Folder row styles */
+.file-approval-section .folder-row {
+  font-weight: 600;
+  background: #ffffff;
+}
+
+.file-approval-section .folder-row:hover {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+/* Nested file styles */
+.file-approval-section .file-row td:first-child {
+  position: relative;
+}
+
+.file-approval-section .file-row.nested-file td:first-child {
+  padding-left: 60px;
+}
+
+.file-approval-section .file-row.nested-file td:first-child::before {
+  content: '';
+  position: absolute;
+  left: 30px;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: #e5e7eb;
+}
+
 .file-approval-section .file-cell {
   display: flex;
   align-items: center;
