@@ -785,9 +785,9 @@
 
 .delete-modal-content {
   background: white;
-  border-radius: 16px;
+  border-radius: 12px;
   width: 90%;
-  max-width: 480px;
+  max-width: 400px;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(0, 0, 0, 0.05);
   animation: slideUp 0.2s cubic-bezier(0.16, 1, 0.3, 1);
   position: relative;
@@ -799,16 +799,16 @@
 .delete-modal-header {
   display: flex;
   align-items: center;
-  gap: 16px;
-  padding: 24px 24px 16px 24px;
+  gap: 12px;
+  padding: 20px 20px 14px 20px;
   border-bottom: 1px solid #f5f5f7;
 }
 
 .delete-icon-wrapper {
-  width: 56px;
-  height: 56px;
+  width: 44px;
+  height: 44px;
   background: #fee2e2;
-  border-radius: 12px;
+  border-radius: 10px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -818,28 +818,28 @@
 
 .delete-modal-header h2 {
   color: #1d1d1f;
-  font-size: 20px;
+  font-size: 18px;
   font-weight: 600;
   margin: 0;
 }
 
 .delete-modal-body {
-  padding: 24px;
+  padding: 20px;
 }
 
 .delete-warning {
   color: #1d1d1f;
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 500;
-  margin: 0 0 12px 0;
+  margin: 0 0 10px 0;
 }
 
 .delete-filename {
   color: #1d1d1f;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 600;
-  margin: 0 0 16px 0;
-  padding: 12px;
+  margin: 0 0 12px 0;
+  padding: 10px;
   background: #f5f5f7;
   border-radius: 8px;
   border: 1px solid #e5e5ea;
@@ -848,22 +848,22 @@
 
 .delete-note {
   color: #86868b;
-  font-size: 13px;
+  font-size: 12px;
   margin: 0;
   line-height: 1.5;
 }
 
 .delete-modal-footer {
   display: flex;
-  gap: 12px;
-  padding: 20px 24px 24px 24px;
+  gap: 10px;
+  padding: 16px 20px 20px 20px;
   border-top: 1px solid #f5f5f7;
 }
 
 .delete-cancel-btn,
 .delete-confirm-btn {
   flex: 1;
-  height: 44px;
+  height: 40px;
   border-radius: 8px;
   font-size: 14px;
   font-weight: 600;

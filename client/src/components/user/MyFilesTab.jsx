@@ -21,7 +21,6 @@ const MyFilesTab = ({
   const [isDeleting, setIsDeleting] = useState(false);
   const [expandedFolders, setExpandedFolders] = useState({});
 
-  // Calculate submittedFiles (files with status)
   const submittedFiles = useMemo(() =>
     filteredFiles.filter(f =>
       f.status === 'final_approved' || f.status === 'uploaded' ||
@@ -30,7 +29,6 @@ const MyFilesTab = ({
     ), [filteredFiles]
   );
 
-  // Group files by folder
   const groupFilesByFolder = useCallback((files) => {
     const folders = {};
     const individualFiles = [];
@@ -49,7 +47,6 @@ const MyFilesTab = ({
     return { folders, individualFiles };
   }, []);
 
-  // Pagination setup
   const [itemsPerPage, setItemsPerPage] = useState(() => {
     const saved = localStorage.getItem('myFilesItemsPerPage');
     return saved ? parseInt(saved, 10) : 10;
@@ -67,7 +64,6 @@ const MyFilesTab = ({
     resetPagination
   } = usePagination(submittedFiles, itemsPerPage);
 
-  // File opening handler
   const openFile = useCallback(async (file) => {
     try {
       console.log('🔍 Opening file:', { id: file.id, path: file.file_path, name: file.original_name });
@@ -124,7 +120,6 @@ const MyFilesTab = ({
     document.body.style.overflow = '';
   }, []);
 
-  // Status helpers
   const getStatusDisplayName = useCallback((dbStatus) => {
     if (!dbStatus) return 'Pending';
 
@@ -169,7 +164,6 @@ const MyFilesTab = ({
     return { date: dateStr, time: timeStr };
   }, []);
 
-  // File statistics
   const pendingFiles = useMemo(() =>
     submittedFiles.filter(f => f.status === 'uploaded' || f.status === 'team_leader_approved'),
     [submittedFiles]
@@ -190,7 +184,6 @@ const MyFilesTab = ({
     [submittedFiles]
   );
 
-  // Reset pagination when filters change
   useEffect(() => {
     resetPagination();
   }, [filteredFiles, itemsPerPage, resetPagination]);
@@ -206,7 +199,6 @@ const MyFilesTab = ({
     localStorage.setItem('myFilesItemsPerPage', newValue.toString());
   }, []);
 
-  // Delete handlers
   const handleDeleteClick = useCallback((e, file) => {
     e.stopPropagation();
     setDeleteModal({
@@ -333,12 +325,10 @@ const MyFilesTab = ({
     setExpandedFolders(prev => ({ ...prev, [folderName]: !prev[folderName] }));
   }, []);
 
-  // Open File Modal
   const OpenFileModal = useMemo(() => {
     if (!openFileModal.isOpen || !openFileModal.file) return null;
 
     const file = openFileModal.file;
-    const { date, time } = formatDateTime(file.uploaded_at);
 
     return createPortal(
       <div className="delete-modal-overlay" onClick={handleOpenFileCancel}>
@@ -356,30 +346,15 @@ const MyFilesTab = ({
             <h2>Open File</h2>
           </div>
           <div className="delete-modal-body">
-            <p className="delete-warning">Are you sure you want to open this file?</p>
+            <p className="delete-warning">Do you want to open this file?</p>
             <p className="delete-filename">{file.original_name}</p>
-            <div style={{ marginTop: '16px', fontSize: '14px', color: '#6b7280' }}>
-              <div style={{ marginBottom: '8px' }}>
-                <strong>Size:</strong> {formatFileSize(file.file_size)}
-              </div>
-              <div style={{ marginBottom: '8px' }}>
-                <strong>Team:</strong> {file.user_team}
-              </div>
-              <div style={{ marginBottom: '8px' }}>
-                <strong>Status:</strong> <span className={`status-tag ${getStatusClass(file.status)}`}>
-                  {getStatusDisplayName(file.status)}
-                </span>
-              </div>
-              <div>
-                <strong>Uploaded:</strong> {date} at {time}
-              </div>
-            </div>
+            <p className="delete-note" style={{ marginTop: '12px' }}>The file will open in your default application.</p>
           </div>
           <div className="delete-modal-footer">
             <button className="delete-cancel-btn" onClick={handleOpenFileCancel}>
               Cancel
             </button>
-            <button className="delete-confirm-btn" onClick={handleOpenFileConfirm} style={{ backgroundColor: '#3b82f6' }}>
+            <button className="delete-confirm-btn" onClick={handleOpenFileConfirm} style={{ backgroundColor: '#3b82f6', borderColor: '#3b82f6' }}>
               Open File
             </button>
           </div>
@@ -387,9 +362,8 @@ const MyFilesTab = ({
       </div>,
       document.body
     );
-  }, [openFileModal.isOpen, openFileModal.file, formatDateTime, formatFileSize, getStatusClass, getStatusDisplayName, handleOpenFileCancel, handleOpenFileConfirm]);
+  }, [openFileModal.isOpen, openFileModal.file, handleOpenFileCancel, handleOpenFileConfirm]);
 
-  // Delete Modal
   const DeleteModal = useMemo(() => {
     if (!deleteModal.isOpen) return null;
 
@@ -463,12 +437,10 @@ const MyFilesTab = ({
     return pages;
   }, [currentPage, totalPages]);
 
-  // Render file rows
   const renderFileRows = useMemo(() => {
     const { folders, individualFiles } = groupFilesByFolder(paginatedFiles);
     const items = [];
 
-    // Render folders
     Object.keys(folders).forEach(folderName => {
       const folderFiles = folders[folderName];
       const isExpanded = expandedFolders[folderName];
@@ -522,7 +494,6 @@ const MyFilesTab = ({
         </div>
       );
 
-      // Expanded folder files
       if (isExpanded) {
         folderFiles.forEach(file => {
           const { date, time } = formatDateTime(file.uploaded_at);
@@ -585,7 +556,6 @@ const MyFilesTab = ({
       }
     });
 
-    // Render individual files
     individualFiles.forEach(file => {
       const { date, time } = formatDateTime(file.uploaded_at);
       items.push(
