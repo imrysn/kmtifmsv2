@@ -445,14 +445,14 @@
   text-decoration: underline;
 }
 
-/* Attachments */
+/* Attachments - Plain white with black outline (team leader files) */
 .admin-attachment-section {
   padding: 12px 18px;
 }
 
 .admin-attached-file {
-  background: #f0f9ff;
-  padding: 32px 20px;
+  background: transparent;
+  padding: 0;
   border-radius: 6px;
   margin-bottom: 16px;
 }
@@ -482,7 +482,7 @@
 .admin-file-label {
   font-size: 13px;
   font-weight: 600;
-  color: #1e40af;
+  color: #374151;
   margin-bottom: 8px;
 }
 
@@ -492,12 +492,35 @@
   padding: 20px;
   gap: 10px;
   transition: background-color 0.2s ease;
-  border: 1px solid #dbeafe;
+  border: 1px solid #000000;
   border-radius: 8px;
+  background: white;
 }
 
 .admin-file-item:hover {
   background-color: rgba(161, 161, 161, 0.1);
+}
+
+/* Submitted Files - Blue background for user submissions */
+.admin-submitted-file {
+  background: #f0f9ff;
+  padding: 32px 20px;
+  border-radius: 6px;
+  margin-bottom: 16px;
+}
+
+.admin-submitted-label {
+  color: #1e40af;
+}
+
+/* File items inside submitted files section should have blue styling */
+.admin-submitted-file .admin-file-item {
+  background: white;
+  border: 1px solid #dbeafe;
+}
+
+.admin-submitted-file .admin-file-item:hover {
+  background-color: #e0f2fe;
 }
 
 .admin-file-details {

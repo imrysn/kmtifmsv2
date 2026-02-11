@@ -8,6 +8,15 @@ import { useAuth, useNetwork } from '../../contexts'
 import { withErrorBoundary } from '../common'
 import { useSmartNavigation } from '../shared/SmartNavigation'
 
+// Utility function to format file size
+const formatFileSize = (bytes) => {
+  if (bytes === 0) return '0 Bytes'
+  const k = 1024
+  const sizes = ['Bytes', 'KB', 'MB', 'GB']
+  const i = Math.floor(Math.log(bytes) / Math.log(k))
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
+}
+
 const TaskManagement = ({
   error,
   success,
@@ -849,198 +858,126 @@ const TaskManagement = ({
                       </div>
                     )}
 
-                    {/* Attachment */}
-                    <div className="admin-attachment-section">
-                      {assignment.recent_submissions && assignment.recent_submissions.length > 0 ? (
-                        <div className="admin-attached-file">
-                          <div className="admin-file-label">📎 Attachment{assignment.recent_submissions.length > 1 ? 's' : ''} ({assignment.recent_submissions.length}):</div>
-                          {(expandedAttachments[assignment.id] ? allItems : allItems.slice(0, 5)).map((item, index) => {
-                            if (item.type === 'folder') {
-                              const folderName = item.name
-                              const folderFiles = folders[folderName]
-                              const folderKey = `${assignment.id}-${folderName}`
-                              const isExpanded = expandedFolders[folderKey]
-
-                              return (
-                                <div key={`folder-${folderName}`} style={{ marginBottom: '8px' }}>
-                                  <div
-                                    className="admin-folder-row"
-                                    onClick={() => toggleFolder(assignment.id, folderName)}
-                                    style={{
-                                      cursor: 'pointer',
-                                      padding: '12px',
-                                      backgroundColor: isExpanded ? '#f8fafc' : '#ffffff',
-                                      border: '1px solid #e2e8f0',
-                                      borderRadius: '8px',
-                                      display: 'flex',
-                                      alignItems: 'center',
-                                      gap: '12px',
-                                      transition: 'all 0.2s ease'
-                                    }}
-                                  >
-                                    <div style={{ fontSize: '24px' }}>
-                                      {isExpanded ? '📂' : '📁'}
-                                    </div>
-                                    <div style={{ flex: 1 }}>
-                                      <div style={{ fontWeight: '600', color: '#1e293b', fontSize: '14px' }}>
-                                        {folderName}
-                                      </div>
-                                      <div style={{ fontSize: '12px', color: '#64748b', marginTop: '2px' }}>
-                                        {folderFiles.length} file{folderFiles.length !== 1 ? 's' : ''}
-                                      </div>
-                                    </div>
-                                    <div style={{ fontSize: '12px', color: '#94a3b8' }}>
-                                      {isExpanded ? '▼' : '▶'}
-                                    </div>
-                                  </div>
-
-                                  {isExpanded && (
-                                    <div style={{ marginTop: '8px', marginLeft: '20px', borderLeft: '2px solid #e2e8f0', paddingLeft: '16px' }}>
-                                      {folderFiles.map((file, fileIndex) => (
-                                        <div
-                                          key={file.id}
-                                          data-file-id={file.id}
-                                          className="admin-file-item admin-nested-file"
-                                          onClick={(e) => {
-                                            e.stopPropagation()
-                                            setFileToOpen(file)
-                                            setShowOpenFileConfirmation(true)
-                                          }}
-                                          style={{
-                                            cursor: 'pointer',
-                                            marginBottom: fileIndex < folderFiles.length - 1 ? '8px' : '0'
-                                          }}
-                                        >
-                                          <FileIcon
-                                            fileType={file.original_name.split('.').pop()}
-                                            size="small"
-                                            className="admin-file-icon"
-                                          />
-                                          <div className="admin-file-details">
-                                            <div className="admin-file-name">{file.relative_path || file.original_name}</div>
-                                            <div className="admin-file-meta">
-                                              Submitted by <span className="admin-file-submitter">{file.fullName || file.username}</span> on {formatDate(file.submitted_at)}
-                                              {file.tag && (
-                                                <span style={{
-                                                  backgroundColor: '#dbeafe',
-                                                  color: '#1e40af',
-                                                  padding: '4px 10px',
-                                                  borderRadius: '12px',
-                                                  fontSize: '11px',
-                                                  fontWeight: '600',
-                                                  border: '1px solid #93c5fd',
-                                                  display: 'inline-flex',
-                                                  alignItems: 'center',
-                                                  gap: '4px',
-                                                  marginLeft: '8px'
-                                                }}>
-                                                  🏷️ {file.tag}
-                                                </span>
-                                              )}
-                                              <span className={`admin-file-status ${
-                                                file.status === 'uploaded' ? 'uploaded' :
-                                                file.status === 'team_leader_approved' ? 'team-leader-approved' :
-                                                  file.status === 'final_approved' ? 'final-approved' :
-                                                    file.status === 'rejected_by_team_leader' || file.status === 'rejected_by_admin' ? 'rejected' :
-                                                      'uploaded'
-                                                }`}>
-                                                {file.status === 'uploaded' ? 'PENDING TEAM LEADER' :
-                                                  file.status === 'team_leader_approved' ? 'PENDING ADMIN' :
-                                                    file.status === 'final_approved' ? '✓ APPROVED' :
-                                                      file.status === 'rejected_by_team_leader' ? '✗ REJECTED' :
-                                                        file.status === 'rejected_by_admin' ? '✗ REJECTED' :
-                                                          'DELETED by user'}
-                                              </span>
-                                            </div>
-                                          </div>
-                                        </div>
-                                      ))}
-                                    </div>
-                                  )}
-                                </div>
-                              )
-                            } else {
-                              const file = item.file
-                              return (
-                                <div
-                                  key={file.id}
-                                  data-file-id={file.id}
-                                  className="admin-file-item"
-                                  onClick={() => {
-                                    setFileToOpen(file)
-                                    setShowOpenFileConfirmation(true)
-                                  }}
-                                  style={{
-                                    cursor: 'pointer',
-                                    marginBottom: index < (expandedAttachments[assignment.id] ? allItems.length : Math.min(5, allItems.length)) - 1 ? '8px' : '0'
-                                  }}
-                                >
-                                  <FileIcon
-                                    fileType={file.original_name.split('.').pop()}
-                                    size="small"
-                                    className="admin-file-icon"
-                                  />
-                                  <div className="admin-file-details">
-                                    <div className="admin-file-name">{file.original_name}</div>
-                                    <div className="admin-file-meta">
-                                      Submitted by <span className="admin-file-submitter">{file.fullName || file.username}</span> on {formatDate(file.submitted_at)}
-                                      {file.tag && (
-                                        <span style={{
-                                          backgroundColor: '#dbeafe',
-                                          color: '#1e40af',
-                                          padding: '4px 10px',
-                                          borderRadius: '12px',
-                                          fontSize: '11px',
-                                          fontWeight: '600',
-                                          border: '1px solid #93c5fd',
-                                          display: 'inline-flex',
-                                          alignItems: 'center',
-                                          gap: '4px',
-                                          marginLeft: '8px'
-                                        }}>
-                                          🏷️ {file.tag}
-                                        </span>
-                                      )}
-                                      <span className={`admin-file-status ${
-                                        file.status === 'uploaded' ? 'uploaded' :
-                                        file.status === 'team_leader_approved' ? 'team-leader-approved' :
-                                          file.status === 'final_approved' ? 'final-approved' :
-                                            file.status === 'rejected_by_team_leader' || file.status === 'rejected_by_admin' ? 'rejected' :
-                                              'uploaded'
-                                        }`}>
-                                        {file.status === 'uploaded' ? 'PENDING TEAM LEADER' :
-                                          file.status === 'team_leader_approved' ? 'PENDING ADMIN' :
-                                            file.status === 'final_approved' ? '✓ APPROVED' :
-                                              file.status === 'rejected_by_team_leader' ? '✗ REJECTED' :
-                                                file.status === 'rejected_by_admin' ? '✗ REJECTED' :
-                                                  'DELETED by user'}
-                                      </span>
-                                    </div>
-                                  </div>
-                                </div>
-                              )
-                            }
-                          })}
-                          {allItems.length > 5 && (
-                            <button
-                              className="admin-attachment-toggle-btn"
-                              onClick={() => toggleAttachments(assignment.id)}
-                            >
-                              {expandedAttachments[assignment.id]
-                                ? 'See less'
-                                : `See more (${allItems.length - 5} more)`}
-                            </button>
-                          )}
-                        </div>
-                      ) : (
-                        <div className="admin-no-attachment">
-                          <span className="admin-no-attachment-icon">📄</span>
-                          <span className="admin-no-attachment-text">
-                            No attachments yet
-                          </span>
-                        </div>
-                      )}
+                  {/* Attachments - Files attached by Team Leader */}
+                  {assignment.attachments && assignment.attachments.length > 0 && (
+                    <div className="admin-attachment-section" style={{ marginBottom: '16px' }}>
+                      <div className="admin-attached-file">
+                        <div className="admin-file-label">📎 Attachments ({assignment.attachments.length}):</div>
+                        {assignment.attachments.map((attachment, index) => (
+                          <div
+                            key={attachment.id}
+                            className="admin-file-item"
+                            onClick={() => {
+                              setFileToOpen(attachment)
+                              setShowOpenFileConfirmation(true)
+                            }}
+                            style={{
+                              cursor: 'pointer',
+                              marginBottom: index < assignment.attachments.length - 1 ? '8px' : '0'
+                            }}
+                          >
+                            <FileIcon
+                              fileType={attachment.original_name.split('.').pop()}
+                              size="small"
+                              className="admin-file-icon"
+                            />
+                            <div className="admin-file-details">
+                              <div className="admin-file-name">{attachment.original_name}</div>
+                              <div className="admin-file-meta">
+                                Uploaded by <span className="admin-file-submitter">Team Leader</span> • {formatFileSize(attachment.file_size)}
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
                     </div>
+                  )}
+
+                  {/* Submitted Files */}
+                  <div className="admin-attachment-section">
+                    {assignment.recent_submissions && assignment.recent_submissions.length > 0 ? (
+                      <div className="admin-submitted-file">
+                        <div className="admin-file-label admin-submitted-label">📎 Submitted Files ({assignment.recent_submissions.length}):</div>
+                        {(expandedAttachments[assignment.id]
+                          ? assignment.recent_submissions
+                          : assignment.recent_submissions.slice(0, 5)
+                        ).map((file, index) => (
+                          <div
+                            key={file.id}
+                            data-file-id={file.id}
+                            className="admin-file-item"
+                            onClick={() => {
+                              setFileToOpen(file)
+                              setShowOpenFileConfirmation(true)
+                            }}
+                            style={{
+                              cursor: 'pointer',
+                              marginBottom: index < (expandedAttachments[assignment.id] ? assignment.recent_submissions.length : Math.min(5, assignment.recent_submissions.length)) - 1 ? '8px' : '0'
+                            }}
+                          >
+                            <FileIcon
+                              fileType={file.original_name.split('.').pop()}
+                              size="small"
+                              className="admin-file-icon"
+                            />
+                            <div className="admin-file-details">
+                              <div className="admin-file-name">{file.original_name}</div>
+                              <div className="admin-file-meta">
+                                Submitted by <span className="admin-file-submitter">{file.fullName || file.username}</span> on {formatDate(file.submitted_at)}
+                                {file.tag && (
+                                  <span style={{
+                                    backgroundColor: '#dbeafe',
+                                    color: '#1e40af',
+                                    padding: '4px 10px',
+                                    borderRadius: '12px',
+                                    fontSize: '11px',
+                                    fontWeight: '600',
+                                    border: '1px solid #93c5fd',
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '4px',
+                                    marginLeft: '8px'
+                                  }}>
+                                    🏷️ {file.tag}
+                                  </span>
+                                )}
+                                <span className={`admin-file-status ${file.status === 'uploaded' ? 'uploaded' :
+                                  file.status === 'team_leader_approved' ? 'team-leader-approved' :
+                                    file.status === 'final_approved' ? 'final-approved' :
+                                      file.status === 'rejected_by_team_leader' || file.status === 'rejected_by_admin' ? 'rejected' :
+                                        'uploaded'
+                                  }`}>
+                                  {file.status === 'uploaded' ? 'PENDING TEAM LEADER' :
+                                    file.status === 'team_leader_approved' ? 'PENDING ADMIN' :
+                                      file.status === 'final_approved' ? '✓ APPROVED' :
+                                        file.status === 'rejected_by_team_leader' ? '✗ REJECTED' :
+                                          file.status === 'rejected_by_admin' ? '✗ REJECTED' :
+                                            'DELETED by user'}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                        {assignment.recent_submissions.length > 5 && (
+                          <button
+                            className="admin-attachment-toggle-btn"
+                            onClick={() => toggleAttachments(assignment.id)}
+                          >
+                            {expandedAttachments[assignment.id]
+                              ? 'See less'
+                              : `See more (${assignment.recent_submissions.length - 5} more)`}
+                          </button>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="admin-no-attachment">
+                        <span className="admin-no-attachment-icon">📄</span>
+                        <span className="admin-no-attachment-text">
+                          No attachments yet
+                        </span>
+                      </div>
+                    )}
+                  </div>
 
                     {/* Comments */}
                     <div className="admin-comments-section">
