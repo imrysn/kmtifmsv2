@@ -10,6 +10,12 @@
     "testMatch": [
         "**/tests/**/*.test.js"
     ],
+    "modulePathIgnorePatterns": [
+        "<rootDir>/dist/",
+        "<rootDir>/dist-server/",
+        "<rootDir>/build/",
+        "<rootDir>/client/"
+    ],
     "verbose": true,
     "testTimeout": 10000
 }

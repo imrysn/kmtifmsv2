@@ -42,4 +42,5 @@ jobs:
 
     - name: Test Client
       working-directory: ./client
-      run: npm test
+      run: npm test -- --run
+
