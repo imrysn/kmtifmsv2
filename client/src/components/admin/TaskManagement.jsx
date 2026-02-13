@@ -56,6 +56,7 @@ const TaskManagement = ({
   const [expandedAttachments, setExpandedAttachments] = useState({})
   const [showOpenFileConfirmation, setShowOpenFileConfirmation] = useState(false)
   const [fileToOpen, setFileToOpen] = useState(null)
+  const [expandedFolders, setExpandedFolders] = useState({})
 
   // Pagination state
   const [nextCursor, setNextCursor] = useState(null)
@@ -413,6 +414,32 @@ const TaskManagement = ({
     }))
   }
 
+  const toggleFolder = (assignmentId, folderName) => {
+    const key = `${assignmentId}-${folderName}`
+    setExpandedFolders(prev => ({
+      ...prev,
+      [key]: !prev[key]
+    }))
+  }
+
+  const groupFilesByFolder = (files) => {
+    const folders = {}
+    const individualFiles = []
+
+    files.forEach(file => {
+      if (file.folder_name && file.folder_name.trim() !== '') {
+        if (!folders[file.folder_name]) {
+          folders[file.folder_name] = []
+        }
+        folders[file.folder_name].push(file)
+      } else {
+        individualFiles.push(file)
+      }
+    })
+
+    return { folders, individualFiles }
+  }
+
   // ⚡ OPTIMIZATION: Memoized utility function
   const getInitials = useCallback((name) => {
     if (!name) return '?'
@@ -716,115 +743,120 @@ const TaskManagement = ({
             </div>
           ) : (
             <>
-              {assignments.map(assignment => (
-                <div key={assignment.id} id={`admin-assignment-${assignment.id}`} className="admin-assignment-card">
-                  {/* Card Header */}
-                  <div className="admin-card-header">
-                    <div className="admin-header-left">
-                      <div className="admin-avatar">
-                        {getInitials(assignment.team_leader_fullname || assignment.team_leader_username)}
-                      </div>
-                      <div className="admin-header-info">
-                        <div className="admin-assignment-assigned">
-                          <span className="admin-team-leader-name">
-                            {assignment.team_leader_fullname || assignment.team_leader_username}
-                          </span>
-                          <span className="role-badge team-leader">TEAM LEADER</span>
-                          assigned to{' '}
-                          <span className="admin-assigned-user">
-                            {assignment.assigned_member_details && assignment.assigned_member_details.length > 0
-                              ? assignment.assigned_member_details.length === 1
-                                ? (assignment.assigned_member_details[0].fullName || assignment.assigned_member_details[0].username)
-                                : `${assignment.assigned_member_details.length} members (${assignment.assigned_member_details.map(m => m.fullName || m.username).join(', ')})`
-                              : assignment.assigned_to === 'all'
-                                ? 'All team members'
-                                : 'Unknown User'}
-                          </span>
+              {assignments.map(assignment => {
+                const { folders, individualFiles } = groupFilesByFolder(assignment.recent_submissions || [])
+                const folderEntries = Object.entries(folders)
+                const allItems = [...folderEntries.map(([name]) => ({ type: 'folder', name })), ...individualFiles.map(file => ({ type: 'file', file }))]
+
+                return (
+                  <div key={assignment.id} id={`admin-assignment-${assignment.id}`} className="admin-assignment-card">
+                    {/* Card Header */}
+                    <div className="admin-card-header">
+                      <div className="admin-header-left">
+                        <div className="admin-avatar">
+                          {getInitials(assignment.team_leader_fullname || assignment.team_leader_username)}
                         </div>
-                        <div className="admin-assignment-created">
-                          {assignment.created_at ? formatDateTime(assignment.created_at) : 'Unknown creation date'}
-                        </div>
-                      </div>
-                    </div>
-                    <div className="admin-header-right">
-                      <div className="admin-card-menu">
-                        <button
-                          className="admin-menu-btn"
-                          onClick={() => setShowMenuForAssignment(showMenuForAssignment === assignment.id ? null : assignment.id)}
-                          title="More options"
-                        >
-                          ⋮
-                        </button>
-                        {showMenuForAssignment === assignment.id && (
-                          <div className="admin-menu-dropdown">
-                            <button
-                              className="admin-menu-item admin-delete-menu-item"
-                              onClick={() => {
-                                setAssignmentToDelete(assignment)
-                                setShowDeleteModal(true)
-                                setShowMenuForAssignment(null)
-                              }}
-                            >
-                              Delete
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                      {assignment.status === 'completed' ? (
-                        <div style={{
-                          backgroundColor: '#d1fae5',
-                          color: '#059669',
-                          padding: '6px 12px',
-                          borderRadius: '20px',
-                          fontSize: '13px',
-                          fontWeight: '600',
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: '4px'
-                        }}>
-                          ✓ Completed
-                        </div>
-                      ) : (
-                        assignment.due_date && (
-                          <div className="admin-due-date">
-                            Due: {formatDate(assignment.due_date)}
-                            <span
-                              className="admin-days-left"
-                              style={{ color: getStatusColor(assignment.due_date) }}
-                            >
-                              {' '}({formatDaysLeft(assignment.due_date)})
+                        <div className="admin-header-info">
+                          <div className="admin-assignment-assigned">
+                            <span className="admin-team-leader-name">
+                              {assignment.team_leader_fullname || assignment.team_leader_username}
+                            </span>
+                            <span className="role-badge team-leader">TEAM LEADER</span>
+                            assigned to{' '}
+                            <span className="admin-assigned-user">
+                              {assignment.assigned_member_details && assignment.assigned_member_details.length > 0
+                                ? assignment.assigned_member_details.length === 1
+                                  ? (assignment.assigned_member_details[0].fullName || assignment.assigned_member_details[0].username)
+                                  : `${assignment.assigned_member_details.length} members (${assignment.assigned_member_details.map(m => m.fullName || m.username).join(', ')})`
+                                : assignment.assigned_to === 'all'
+                                  ? 'All team members'
+                                  : 'Unknown User'}
                             </span>
                           </div>
-                        )
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Task Title */}
-                  <div className="admin-task-title-section">
-                    <h3 className="admin-assignment-title">{assignment.title}</h3>
-                  </div>
-
-                  {/* Task Description */}
-                  {assignment.description && (
-                    <div className="admin-task-description-section">
-                      <p className="admin-assignment-description">
-                        {expandedAssignments[assignment.id]
-                          ? assignment.description
-                          : assignment.description.length > 200
-                            ? `${assignment.description.substring(0, 200)}...`
-                            : assignment.description}
-                        {assignment.description.length > 200 && (
+                          <div className="admin-assignment-created">
+                            {assignment.created_at ? formatDateTime(assignment.created_at) : 'Unknown creation date'}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="admin-header-right">
+                        <div className="admin-card-menu">
                           <button
-                            className="admin-expand-btn"
-                            onClick={() => toggleExpand(assignment.id)}
+                            className="admin-menu-btn"
+                            onClick={() => setShowMenuForAssignment(showMenuForAssignment === assignment.id ? null : assignment.id)}
+                            title="More options"
                           >
-                            {expandedAssignments[assignment.id] ? 'Show less' : 'Show more'}
+                            ⋮
                           </button>
+                          {showMenuForAssignment === assignment.id && (
+                            <div className="admin-menu-dropdown">
+                              <button
+                                className="admin-menu-item admin-delete-menu-item"
+                                onClick={() => {
+                                  setAssignmentToDelete(assignment)
+                                  setShowDeleteModal(true)
+                                  setShowMenuForAssignment(null)
+                                }}
+                              >
+                                Delete
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                        {assignment.status === 'completed' ? (
+                          <div style={{
+                            backgroundColor: '#d1fae5',
+                            color: '#059669',
+                            padding: '6px 12px',
+                            borderRadius: '20px',
+                            fontSize: '13px',
+                            fontWeight: '600',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '4px'
+                          }}>
+                            ✓ Completed
+                          </div>
+                        ) : (
+                          assignment.due_date && (
+                            <div className="admin-due-date">
+                              Due: {formatDate(assignment.due_date)}
+                              <span
+                                className="admin-days-left"
+                                style={{ color: getStatusColor(assignment.due_date) }}
+                              >
+                                {' '}({formatDaysLeft(assignment.due_date)})
+                              </span>
+                            </div>
+                          )
                         )}
-                      </p>
+                      </div>
                     </div>
-                  )}
+
+                    {/* Task Title */}
+                    <div className="admin-task-title-section">
+                      <h3 className="admin-assignment-title">{assignment.title}</h3>
+                    </div>
+
+                    {/* Task Description */}
+                    {assignment.description && (
+                      <div className="admin-task-description-section">
+                        <p className="admin-assignment-description">
+                          {expandedAssignments[assignment.id]
+                            ? assignment.description
+                            : assignment.description.length > 200
+                              ? `${assignment.description.substring(0, 200)}...`
+                              : assignment.description}
+                          {assignment.description.length > 200 && (
+                            <button
+                              className="admin-expand-btn"
+                              onClick={() => toggleExpand(assignment.id)}
+                            >
+                              {expandedAssignments[assignment.id] ? 'Show less' : 'Show more'}
+                            </button>
+                          )}
+                        </p>
+                      </div>
+                    )}
 
                   {/* Attachments - Files attached by Team Leader */}
                   {assignment.attachments && assignment.attachments.length > 0 && (
@@ -947,14 +979,15 @@ const TaskManagement = ({
                     )}
                   </div>
 
-                  {/* Comments */}
-                  <div className="admin-comments-section">
-                    <div className="admin-comments-text" onClick={() => openCommentsModal(assignment)}>
-                      Comments ({assignment.comment_count || 0})
+                    {/* Comments */}
+                    <div className="admin-comments-section">
+                      <div className="admin-comments-text" onClick={() => openCommentsModal(assignment)}>
+                        Comments ({assignment.comment_count || 0})
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                )
+              })}
 
               {/* Inline Skeleton Loader for Loading More */}
               {loadingMore && (

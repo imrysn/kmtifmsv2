@@ -166,20 +166,58 @@ const UserDashboard = ({ user, onLogout }) => {
 
   // Unified Navigation Handler for Smart Navigation
   const handleSmartNavigation = (tab, context) => {
-    console.log('🧭 Smart Navigation:', tab, context);
+    console.log('🧭 User Smart Navigation called:', { tab, context });
+    
+    // Check for sessionStorage data (from notification clicks)
+    const storedAssignmentId = sessionStorage.getItem('highlightAssignmentId');
+    const storedFileId = sessionStorage.getItem('highlightFileId');
+    const storedContext = sessionStorage.getItem('notificationContext');
+    
+    console.log('💾 SessionStorage data:', {
+      storedAssignmentId,
+      storedFileId,
+      storedContext
+    });
+
+    // Merge context from props and sessionStorage
+    const mergedContext = {
+      ...context,
+      assignmentId: context?.assignmentId || (storedAssignmentId ? parseInt(storedAssignmentId) : null),
+      fileId: context?.fileId || (storedFileId ? parseInt(storedFileId) : null),
+      ...(storedContext ? JSON.parse(storedContext) : {})
+    };
+
+    console.log('🔀 Merged context:', mergedContext);
+
     setActiveTab(tab);
 
-    if (context) {
-      if (context.assignmentId) setHighlightedAssignmentId(context.assignmentId);
-      if (context.fileId) setHighlightedFileId(context.fileId);
-      if (context.shouldOpenComments) {
-        setNotificationCommentContext(context);
+    // Apply highlighting context
+    if (mergedContext) {
+      if (mergedContext.assignmentId) {
+        setHighlightedAssignmentId(mergedContext.assignmentId);
+        console.log('✅ Set highlightedAssignmentId:', mergedContext.assignmentId);
       }
+      if (mergedContext.fileId) {
+        setHighlightedFileId(mergedContext.fileId);
+        console.log('✅ Set highlightedFileId:', mergedContext.fileId);
+      }
+      if (mergedContext.shouldOpenComments || mergedContext.expandAllReplies) {
+        setNotificationCommentContext(mergedContext);
+        console.log('✅ Set notificationCommentContext:', mergedContext);
+      }
+      
       // Handle file opening explicitly if needed (legacy support)
-      if (tab === 'my-files' && context.fileId) {
-        openFileByIdFromNotification(context.fileId);
+      if (tab === 'my-files' && mergedContext.fileId) {
+        openFileByIdFromNotification(mergedContext.fileId);
       }
     }
+
+    // Clear sessionStorage after use
+    sessionStorage.removeItem('highlightAssignmentId');
+    sessionStorage.removeItem('highlightFileId');
+    sessionStorage.removeItem('notificationContext');
+    sessionStorage.removeItem('fromNotificationId');
+    console.log('🧹 Cleared sessionStorage');
   };
 
   const handleToastNavigation = async (tabName, contextData) => {

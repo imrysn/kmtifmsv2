@@ -253,10 +253,20 @@
   font-size: 14px;
 }
 
+/* Center align the Actions column header */
+.file-approval-section .files-table th:last-child {
+  text-align: center;
+}
+
 .file-approval-section .files-table td {
   padding: 1rem;
   border-bottom: 1px solid var(--border-light);
   vertical-align: middle;
+}
+
+/* Center align the Actions column */
+.file-approval-section .files-table td:last-child {
+  text-align: center;
 }
 
 /* Optimized hover effect - uses will-change for better performance */
@@ -267,6 +277,35 @@
 
 .file-approval-section .file-row:hover {
   background: rgba(0, 0, 0, 0.03);
+}
+
+/* Folder row styles */
+.file-approval-section .folder-row {
+  font-weight: 600;
+  background: #ffffff;
+}
+
+.file-approval-section .folder-row:hover {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+/* Nested file styles */
+.file-approval-section .file-row td:first-child {
+  position: relative;
+}
+
+.file-approval-section .file-row.nested-file td:first-child {
+  padding-left: 60px;
+}
+
+.file-approval-section .file-row.nested-file td:first-child::before {
+  content: '';
+  position: absolute;
+  left: 30px;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: #e5e7eb;
 }
 
 .file-approval-section .file-cell {

@@ -64,6 +64,8 @@ const NotificationTab = ({ user, onOpenFile, onNavigateToTasks, onNavigate, onUp
   };
 
   const handleNotificationClick = useCallback(async (notification) => {
+    console.log('🔔 User Notification clicked:', notification);
+
     // Mark as read
     if (!notification.is_read) {
       try {
@@ -91,6 +93,24 @@ const NotificationTab = ({ user, onOpenFile, onNavigateToTasks, onNavigate, onUp
     const { targetTab, context } = parseNotification(notification, 'user');
 
     console.log('🧭 Parsed User Notification:', { targetTab, context });
+
+    // Store highlighting context in sessionStorage for TasksTab to read
+    if (context) {
+      if (context.assignmentId) {
+        sessionStorage.setItem('highlightAssignmentId', context.assignmentId.toString());
+        console.log('💾 Stored highlightAssignmentId:', context.assignmentId);
+      }
+      if (context.fileId) {
+        sessionStorage.setItem('highlightFileId', context.fileId.toString());
+        console.log('💾 Stored highlightFileId:', context.fileId);
+      }
+      if (context.shouldOpenComments || context.expandAllReplies) {
+        sessionStorage.setItem('notificationContext', JSON.stringify(context));
+        console.log('💾 Stored notificationContext:', context);
+      }
+      // Store the notification ID for reference
+      sessionStorage.setItem('fromNotificationId', notification.id.toString());
+    }
 
     if (targetTab) {
       if (onNavigate) {

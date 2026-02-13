@@ -360,21 +360,24 @@
   border-radius: 8px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   z-index: 1000;
-  min-width: 120px;
+  min-width: 140px;
   margin-top: 4px;
 }
 
 .admin-menu-item {
-  display: block;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   width: 100%;
   background: none;
   border: none;
-  padding: 10px 16px;
-  text-align: left;
+  padding: 12px 20px;
+  text-align: center;
   font-size: 14px;
-  color: #1c1e21;
+  font-weight: 500;
+  color: white;
   cursor: pointer;
-  transition: background-color 0.2s;
+  transition: all 0.2s;
   border-radius: 0;
 }
 
@@ -395,11 +398,12 @@
 }
 
 .admin-delete-menu-item {
-  color: #dc2626;
+  background-color: #dc2626;
+  color: white;
 }
 
 .admin-delete-menu-item:hover {
-  background-color: #fef2f2;
+  background-color: #b91c1c;
 }
 
 /* Task Sections */
@@ -451,6 +455,28 @@
   padding: 0;
   border-radius: 6px;
   margin-bottom: 16px;
+}
+
+/* Folder Row Styles */
+.admin-folder-row {
+  cursor: pointer;
+  padding: 12px;
+  background-color: #f0f9ff !important;
+  border: 1px solid #dbeafe;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  transition: all 0.2s ease;
+}
+
+.admin-folder-row:hover {
+  background-color: #e0f2fe !important;
+  border-color: #bae6fd;
+}
+
+.admin-nested-file {
+  background-color: #ffffff !important;
 }
 
 .admin-file-label {

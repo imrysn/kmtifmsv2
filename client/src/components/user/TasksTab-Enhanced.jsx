@@ -872,6 +872,7 @@ const TasksTab = ({
             return (
               <div
                 key={assignment.id}
+                id={`user-assignment-${assignment.id}`}
                 style={{
                   backgroundColor: 'white',
                   borderRadius: '12px',
@@ -1102,7 +1103,7 @@ const TasksTab = ({
                                   }}
                                   style={{ 
                                     cursor: 'pointer',
-                                    backgroundColor: isExpanded ? '#f9fafb' : '#ffffff'
+                                    backgroundColor: isExpanded ? '#BFDBFE' : '#DBEAFE'
                                   }}
                                 >
                                   <div style={{
