@@ -4,7 +4,7 @@
  */
 
 // Get API base URL from Vite config
-// In production, fallback to NAS server if env var is missing
+// In production, use NAS server if env var is missing
 export const API_BASE_URL = import.meta.env.VITE_API_URL ||
   (import.meta.env.PROD ? 'http://192.168.200.105:3001' : 'http://localhost:3001');
 
