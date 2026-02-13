@@ -10,7 +10,8 @@ const CreateAssignmentModal = ({
   createAssignment,
   currentUserId,
   isEditMode = false,
-  onClose
+  onClose,
+  teams
 }) => {
   const [showMemberDropdown, setShowMemberDropdown] = React.useState(false)
   const [showFileTypeDropdown, setShowFileTypeDropdown] = React.useState(false)
@@ -275,6 +276,8 @@ const CreateAssignmentModal = ({
                         teamMembers
                           .filter(m => {
                             if (teams && teams.length > 1) {
+                              // Always include the current user (Team Leader) in the options
+                              if (m.id === currentUserId) return true;
                               return m.team === assignmentForm.selectedTeam;
                             }
                             return true;
