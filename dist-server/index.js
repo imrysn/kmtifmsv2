@@ -1,7 +1,7 @@
 const express = require('express');
 const path = require('path');
 const fs = require('fs');
-const { dbPath, networkDataPath, USE_MYSQL, closeDatabase } = require('./config/database');
+const { dbPath, networkDataPath, closeDatabase } = require('./config/database');
 const { setupMiddleware } = require('./config/middleware');
 const { initializeDatabase, verifyUploadsDirectory } = require('./db/initialize');
 const runMigrations = require('./migrations/runMigrations');
@@ -165,7 +165,7 @@ async function startServer() {
     app.listen(PORT, () => {
       console.log('\n' + '='.repeat(70));
       console.log(`🚀 Express server running on http://localhost:${PORT}`);
-      console.log(`🗄️  Database Type: ${USE_MYSQL ? 'MySQL' : 'SQLite'}`);
+      console.log(`🗄️  Database Type: MySQL`);
       console.log(`📊 Database: ${dbPath}`);
       console.log(`🌐 Network Data Path: ${networkDataPath}`);
       console.log('='.repeat(70));
@@ -177,31 +177,21 @@ async function startServer() {
       console.log('   ❌ Any stage can reject → Back to User with comments');
       console.log('='.repeat(70));
 
-      if (USE_MYSQL) {
-        console.log('\n✨ MySQL Benefits:');
-        console.log('   • Supports multiple concurrent users');
-        console.log('   • No database corruption over network');
-        console.log('   • Better performance and reliability');
-        console.log('   • ACID compliant transactions\n');
-      } else {
-        console.log('\n⚠️  Running with SQLite:');
-        console.log('   • Limited to 1-2 concurrent users');
-        console.log('   • Risk of corruption over network');
-        console.log('   • Recommended: Switch to MySQL for production');
-        console.log('   • To enable MySQL: Set USE_MYSQL=true or configure DB_HOST\n');
-      }
+      console.log('\n✨ MySQL Benefits:');
+      console.log('   • Supports multiple concurrent users');
+      console.log('   • No database corruption over network');
+      console.log('   • Better performance and reliability');
+      console.log('   • ACID compliant transactions\n');
     });
   } catch (error) {
     console.error('\n❌ Failed to start server:', error.message);
     console.error('Stack trace:', error.stack);
 
-    if (USE_MYSQL) {
-      console.error('\n💡 MySQL Troubleshooting:');
-      console.error('   1. Ensure MySQL server is running');
-      console.error('   2. Check credentials in database/config.js');
-      console.error('   3. Verify database exists: npm run db:init');
-      console.error('   4. Test connection: npm run db:test');
-    }
+    console.error('\n💡 MySQL Troubleshooting:');
+    console.error('   1. Ensure MySQL server is running');
+    console.error('   2. Check credentials in .env file');
+    console.error('   3. Verify database exists: npm run db:init');
+    console.error('   4. Test connection: npm run db:test');
 
     process.exit(1);
   }

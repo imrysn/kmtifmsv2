@@ -1,4 +1,7 @@
-const { USE_MYSQL } = require('../config/database');
+/**
+ * Migration Runner (MySQL Only)
+ * Runs all database migrations in order
+ */
 
 async function runMigrations() {
   try {
@@ -21,10 +24,10 @@ async function runMigrations() {
       }
 
       const success = await runFn();
-      if (success) {
+      if (success || success === undefined) {
         console.log(`✅ Migration successful: ${migration.name}`);
       } else {
-        console.warn(`⚠️ Migration failed or skipped: ${migration.name}`);
+        console.warn(`⚠️  Migration failed or skipped: ${migration.name}`);
       }
     }
 

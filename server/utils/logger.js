@@ -108,44 +108,18 @@ function logActivity(db, userId, username, role, team, action) {
     timestamp
   });
 
-  // Log to database
-  const query = `
-    INSERT INTO activity_logs (user_id, username, role, team, activity, timestamp)
-    VALUES (?, ?, ?, ?, ?, ?)
-  `;
-  // Check if we're using MySQL or SQLite
-  const USE_MYSQL = require('../config/database').USE_MYSQL;
-
-  if (USE_MYSQL) {
-    // MySQL: Use activity column instead of action
-    const mysqlDb = require('../../database/config');
-    mysqlDb.query(
-      'INSERT INTO activity_logs (user_id, username, role, team, activity, timestamp) VALUES (?, ?, ?, ?, ?, ?)',
-      [userId, username, role, team, action, timestamp]
-    ).catch(err => {
-      logger.error('Failed to log activity to MySQL database', {
-        error: err.message,
-        userId,
-        action
-      });
+  // Log to database (MySQL)
+  const mysqlDb = require('../../database/config');
+  mysqlDb.query(
+    'INSERT INTO activity_logs (user_id, username, role, team, activity, timestamp) VALUES (?, ?, ?, ?, ?, ?)',
+    [userId, username, role, team, action, timestamp]
+  ).catch(err => {
+    logger.error('Failed to log activity to MySQL database', {
+      error: err.message,
+      userId,
+      action
     });
-  } else {
-    // SQLite: Use action column
-    const query = `
-      INSERT INTO activity_logs (user_id, username, role, team, action, timestamp)
-      VALUES (?, ?, ?, ?, ?, ?)
-    `;
-
-    db.run(query, [userId, username, role, team, action, timestamp], (err) => {
-      if (err) {
-        logger.error('Failed to log activity to database', {
-          error: err.message,
-          userId,
-          action
-        });
-      }
-    });
-  }
+  });
 }
 
 /**
@@ -250,36 +224,18 @@ function logFileStatusChange(db, fileId, oldStatus, newStatus, oldStage, newStag
     timestamp
   });
 
-  // Check if we're using MySQL or SQLite
-  const USE_MYSQL = require('../config/database').USE_MYSQL;
-
-  if (USE_MYSQL) {
-    // MySQL
-    const mysqlDb = require('../../database/config');
-    mysqlDb.query(
-      'INSERT INTO file_status_history (file_id, old_status, new_status, old_stage, new_stage, changed_by_id, changed_by_username, changed_by_role, comment) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-      [fileId, oldStatus, newStatus, oldStage, newStage, userId, username, role, comment]
-    ).catch(err => {
-      logger.error('Failed to log file status change to MySQL database', {
-        error: err.message,
-        fileId,
-        newStatus
-      });
+  // Log to database (My SQL)
+  const mysqlDb = require('../../database/config');
+  mysqlDb.query(
+    'INSERT INTO file_status_history (file_id, old_status, new_status, old_stage, new_stage, changed_by_id, changed_by_username, changed_by_role, comment) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+    [fileId, oldStatus, newStatus, oldStage, newStage, userId, username, role, comment]
+  ).catch(err => {
+    logger.error('Failed to log file status change to MySQL database', {
+      error: err.message,
+      fileId,
+      newStatus
     });
-  } else {
-    // SQLite fallback
-    db.run(
-      'INSERT INTO file_status_history (file_id, old_status, new_status, old_stage, new_stage, changed_by_id, changed_by_username, changed_by_role, comment) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-      [fileId, oldStatus, newStatus, oldStage, newStage, userId, username, role, comment || ''],
-      function (err) {
-        if (err) {
-          console.error('❌ Error logging file status history (SQLite):', err);
-        } else {
-          console.log(`✅ File status history logged for file ${fileId} (SQLite)`);
-        }
-      }
-    );
-  }
+  });
 }
 
 module.exports = {

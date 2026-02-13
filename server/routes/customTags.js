@@ -1,43 +1,18 @@
 const express = require('express');
-const { USE_MYSQL } = require('../config/database');
+const db = require('../../database/config');
 
 const router = express.Router();
-
-// Get database connection based on mode
-let db;
-if (USE_MYSQL) {
-  db = require('../../database/config');
-} else {
-  db = require('../config/database').db;
-}
 
 // Get all custom tags (shared across all users)
 router.get('/', async (req, res) => {
   console.log('📋 Getting all custom tags');
 
   try {
-    let tags;
-    
-    if (USE_MYSQL) {
-      tags = await db.query(
-        `SELECT id, tag_name, created_at, created_by 
-         FROM custom_tags 
-         ORDER BY tag_name ASC`
-      );
-    } else {
-      tags = await new Promise((resolve, reject) => {
-        db.all(
-          `SELECT id, tag_name, created_at, created_by 
-           FROM custom_tags 
-           ORDER BY tag_name ASC`,
-          [],
-          (err, rows) => {
-            if (err) reject(err);
-            else resolve(rows);
-          }
-        );
-      });
-    }
+    const tags = await db.query(
+      `SELECT id, tag_name, created_at, created_by 
+       FROM custom_tags 
+       ORDER BY tag_name ASC`
+    );
 
     console.log(`✅ Retrieved ${tags.length} custom tags`);
     res.json({
@@ -76,29 +51,14 @@ router.post('/', async (req, res) => {
 
   try {
     // Check if tag already exists
-    let existingTag;
-    
-    if (USE_MYSQL) {
-      const results = await db.query(
-        'SELECT id FROM custom_tags WHERE tag_name = ?',
-        [trimmedTag]
-      );
-      existingTag = results.length > 0 ? results[0] : null;
-    } else {
-      existingTag = await new Promise((resolve, reject) => {
-        db.get(
-          'SELECT id FROM custom_tags WHERE tag_name = ?',
-          [trimmedTag],
-          (err, row) => {
-            if (err) reject(err);
-            else resolve(row);
-          }
-        );
-      });
-    }
+    const results = await db.query(
+      'SELECT id FROM custom_tags WHERE tag_name = ?',
+      [trimmedTag]
+    );
+    const existingTag = results.length > 0 ? results[0] : null;
 
     if (existingTag) {
-      console.log('⚠️ Tag already exists');
+      console.log('⚠️  Tag already exists');
       return res.json({
         success: true,
         message: 'Tag already exists',
@@ -107,43 +67,20 @@ router.post('/', async (req, res) => {
     }
 
     // Insert new tag
-    let result;
-    
-    if (USE_MYSQL) {
-      result = await db.query(
-        'INSERT INTO custom_tags (tag_name, created_by) VALUES (?, ?)',
-        [trimmedTag, userId]
-      );
-      console.log(`✅ Custom tag added with ID: ${result.insertId}`);
-      res.json({
-        success: true,
-        message: 'Custom tag added successfully',
-        tag: {
-          id: result.insertId,
-          tag_name: trimmedTag
-        }
-      });
-    } else {
-      result = await new Promise((resolve, reject) => {
-        db.run(
-          'INSERT INTO custom_tags (tag_name, created_by) VALUES (?, ?)',
-          [trimmedTag, userId],
-          function(err) {
-            if (err) reject(err);
-            else resolve({ lastID: this.lastID });
-          }
-        );
-      });
-      console.log(`✅ Custom tag added with ID: ${result.lastID}`);
-      res.json({
-        success: true,
-        message: 'Custom tag added successfully',
-        tag: {
-          id: result.lastID,
-          tag_name: trimmedTag
-        }
-      });
-    }
+    const result = await db.query(
+      'INSERT INTO custom_tags (tag_name, created_by) VALUES (?, ?)',
+      [trimmedTag, userId]
+    );
+
+    console.log(`✅ Custom tag added with ID: ${result.insertId}`);
+    res.json({
+      success: true,
+      message: 'Custom tag added successfully',
+      tag: {
+        id: result.insertId,
+        tag_name: trimmedTag
+      }
+    });
   } catch (err) {
     console.error('❌ Error adding custom tag:', err);
     res.status(500).json({
@@ -158,41 +95,19 @@ router.delete('/:tagId', async (req, res) => {
   const { tagId } = req.params;
   const { userId } = req.body;
 
-  console.log(`🗑️ Deleting custom tag ${tagId} by user ${userId}`);
+  console.log(`🗑️  Deleting custom tag ${tagId} by user ${userId}`);
 
   try {
-    let result;
-    
-    if (USE_MYSQL) {
-      result = await db.query(
-        'DELETE FROM custom_tags WHERE id = ?',
-        [tagId]
-      );
-      
-      if (result.affectedRows === 0) {
-        return res.status(404).json({
-          success: false,
-          message: 'Tag not found'
-        });
-      }
-    } else {
-      result = await new Promise((resolve, reject) => {
-        db.run(
-          'DELETE FROM custom_tags WHERE id = ?',
-          [tagId],
-          function(err) {
-            if (err) reject(err);
-            else resolve({ changes: this.changes });
-          }
-        );
+    const result = await db.query(
+      'DELETE FROM custom_tags WHERE id = ?',
+      [tagId]
+    );
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'Tag not found'
       });
-      
-      if (result.changes === 0) {
-        return res.status(404).json({
-          success: false,
-          message: 'Tag not found'
-        });
-      }
     }
 
     console.log('✅ Custom tag deleted');
