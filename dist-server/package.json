@@ -19,7 +19,7 @@
     "electron:pack": "electron-builder",
     "build": "npm run client:build && npm run build:server && npm run electron:pack",
     "build:installer": "npm run client:build && npm run build:server && npm run electron:pack",
-    "build:server": "npm run client:build && ncc build server.js -o dist-server",
+    "build:server": "npm run client:build && node build-server.js",
     "build:server-standalone": "npm run client:build && ncc build server.js -o dist-server && xcopy client\\dist dist-server\\client-dist /E /I /Y",
     "build:server-exe": "npm run build:server-standalone && pkg server.js --targets node18-win --output dist\\KMTI_FMS_Server.exe",
     "build:server-installer": "npm run build:server-exe && xcopy database dist\\database /E /I /Y && copy .env dist\\.env && copy start-server.bat dist\\ && copy install-server-startup.bat dist\\ && copy install-server-service.bat dist\\ && copy run-server-hidden.vbs dist\\ && copy USER_SETUP_GUIDE.md dist\\ && xcopy dist-server\\client-dist dist\\client-dist /E /I /Y && echo Server installer created in dist\\",

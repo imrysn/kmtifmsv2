@@ -10,7 +10,8 @@ const { networkDataPath } = require('./database');
 const { moveToUserFolder: moveToUserFolderAsync } = require('../utils/fileUtils');
 
 // Network Uploads Configuration
-const uploadsDir = path.join(networkDataPath, 'uploads');
+// IMPORTANT: Keep as simple path.join for NCC bundler compatibility
+const uploadsDir = path.join(networkDataPath, String('uploads'));
 
 // Ensure uploads directory exists with detailed error logging
 if (!fs.existsSync(uploadsDir)) {
