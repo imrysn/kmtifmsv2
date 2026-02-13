@@ -1,7 +1,8 @@
 {
   "name": "kmti-file-management",
-  "version": "2.1.14",
+  "version": "2.2.0",
   "description": "Desktop application used for file management, checking, and approval of files.",
+  "author": "OJT Team",
   "main": "main.js",
   "scripts": {
     "start": "node start-dev.js",
