@@ -1,4 +1,4 @@
-const { db, USE_MYSQL } = require('../config/database');
+const { db } = require('../config/database');
 
 /**
  * Migration: Add Team Leaders Junction Table
@@ -23,43 +23,27 @@ async function up() {
             return true;
         }
 
+
         // Create team_leaders junction table
         console.log('📝 Creating team_leaders table...');
-        const createTableSQL = USE_MYSQL ? `
-      CREATE TABLE team_leaders (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        team_id INT NOT NULL,
-        user_id INT NOT NULL,
-        username VARCHAR(100) NOT NULL,
-        assigned_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (team_id) REFERENCES teams(id) ON DELETE CASCADE,
-        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-        UNIQUE KEY unique_team_user (team_id, user_id),
-        INDEX idx_team_leaders_team (team_id),
-        INDEX idx_team_leaders_user (user_id)
-      ) ENGINE=InnoDB
-    ` : `
-      CREATE TABLE team_leaders (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        team_id INTEGER NOT NULL,
-        user_id INTEGER NOT NULL,
-        username TEXT NOT NULL,
-        assigned_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (team_id) REFERENCES teams(id) ON DELETE CASCADE,
-        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-        UNIQUE (team_id, user_id)
-      )
-    `;
+        const createTableSQL = `
+          CREATE TABLE team_leaders (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            team_id INT NOT NULL,
+            user_id INT NOT NULL,
+            username VARCHAR(100) NOT NULL,
+            assigned_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (team_id) REFERENCES teams(id) ON DELETE CASCADE,
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+            UNIQUE KEY unique_team_user (team_id, user_id),
+            INDEX idx_team_leaders_team (team_id),
+            INDEX idx_team_leaders_user (user_id)
+          ) ENGINE=InnoDB
+        `;
 
         await executeSQL(createTableSQL);
         console.log('✅ team_leaders table created');
 
-        // Create indexes for SQLite (MySQL creates them in table definition)
-        if (!USE_MYSQL) {
-            await executeSQL('CREATE INDEX idx_team_leaders_team ON team_leaders(team_id)');
-            await executeSQL('CREATE INDEX idx_team_leaders_user ON team_leaders(user_id)');
-            console.log('✅ Indexes created');
-        }
 
         // Migrate existing team leader assignments
         console.log('📝 Migrating existing team leader assignments...');
@@ -109,30 +93,13 @@ async function down() {
         }
 
         // Restore single leader to teams table from first entry in team_leaders
-        console.log('📝 Restoring single leader assignments to teams table...');
-        const restoreSQL = USE_MYSQL ? `
-      UPDATE teams t
-      LEFT JOIN (
-        SELECT team_id, user_id, username,
-               ROW_NUMBER() OVER (PARTITION BY team_id ORDER BY assigned_at) as rn
-        FROM team_leaders
-      ) tl ON t.id = tl.team_id AND tl.rn = 1
-      SET t.leader_id = tl.user_id,
-          t.leader_username = tl.username
-    ` : `
-      UPDATE teams
-      SET leader_id = (
-        SELECT user_id FROM team_leaders 
-        WHERE team_leaders.team_id = teams.id 
-        ORDER BY assigned_at LIMIT 1
-      ),
-      leader_username = (
-        SELECT username FROM team_leaders 
-        WHERE team_leaders.team_id = teams.id 
-        ORDER BY assigned_at LIMIT 1
-      )
-      WHERE id IN (SELECT DISTINCT team_id FROM team_leaders)
-    `;
+        console.log('📝 Restoring leader assignments to teams...');
+        const restoreSQL = `
+          UPDATE teams t
+          INNER JOIN team_leaders tl ON t.id = tl.team_id
+          SET t.leader_id = tl.user_id,
+              t.leader_username = tl.username
+        `;
 
         await executeSQL(restoreSQL);
         console.log('✅ Restored single leader assignments');
@@ -165,34 +132,18 @@ function executeSQL(sql) {
     });
 }
 
-function checkTableExists(tableName) {
-    return new Promise((resolve, reject) => {
-        const sql = USE_MYSQL
-            ? `SELECT COUNT(*) as count FROM information_schema.tables 
-         WHERE table_schema = DATABASE() AND table_name = ?`
-            : `SELECT COUNT(*) as count FROM sqlite_master 
-         WHERE type='table' AND name=?`;
-
-        db.get(sql, [tableName], (err, row) => {
-            if (err) {
-                reject(err);
-            } else {
-                resolve(row.count > 0);
-            }
-        });
-    });
+async function checkTableExists(tableName) {
+    const result = await db.query(
+        `SELECT COUNT(*) as count FROM information_schema.tables 
+         WHERE table_schema = DATABASE() AND table_name = ?`,
+        [tableName]
+    );
+    return result[0].count > 0;
 }
 
-function getCount(tableName) {
-    return new Promise((resolve, reject) => {
-        db.get(`SELECT COUNT(*) as count FROM ${tableName}`, [], (err, row) => {
-            if (err) {
-                reject(err);
-            } else {
-                resolve(row.count);
-            }
-        });
-    });
+async function getCount(tableName) {
+    const result = await db.query(`SELECT COUNT(*) as count FROM ${tableName}`);
+    return result[0].count;
 }
 
 // Export both up and down for flexibility

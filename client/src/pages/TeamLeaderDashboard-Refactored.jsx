@@ -237,7 +237,8 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
           status: 'Active',
           fullName: user.fullName,
           username: user.username,
-          role: user.role
+          role: user.role,
+          team: user.team
         }
 
         // Add team leader at the beginning of the array

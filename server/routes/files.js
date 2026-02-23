@@ -369,6 +369,88 @@ router.post('/upload', upload.single('file'), async (req, res) => {
   }
 });
 
+// Get local file path for Electron (All authenticated users)
+router.get('/:id/path', (req, res) => {
+  const { id } = req.params;
+  console.log(`📄 Getting file path for file ${id}`);
+
+  db.get('SELECT file_path, original_name FROM files WHERE id = ?', [id], (err, file) => {
+    if (err) {
+      console.error('❌ Error getting file path:', err);
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to fetch file path'
+      });
+    }
+
+    if (!file) {
+      // Not found in files table, check assignment_attachments
+      console.log(`   File ${id} not found in 'files' table, checking 'assignment_attachments'...`);
+      return db.get('SELECT file_path, original_name FROM assignment_attachments WHERE id = ?', [id], (err2, attachment) => {
+        if (err2) {
+          console.error('❌ Error checking attachment:', err2);
+          return res.status(500).json({
+            success: false,
+            message: 'Failed to check attachments'
+          });
+        }
+
+        if (!attachment) {
+          return res.status(404).json({
+            success: false,
+            message: 'File not found'
+          });
+        }
+
+        // Found in attachments - resolve path
+        console.log(`   Found in 'assignment_attachments' table`);
+        let absolutePath = attachment.file_path;
+
+        if (attachment.file_path && attachment.file_path.startsWith('/uploads/')) {
+          const relativePath = attachment.file_path.replace(/^\/uploads\//, '');
+          absolutePath = path.join(uploadsDir, relativePath);
+        } else if (attachment.file_path && !path.isAbsolute(attachment.file_path)) {
+          absolutePath = path.join(uploadsDir, attachment.file_path);
+        }
+
+        absolutePath = path.resolve(absolutePath);
+        console.log(`✅ File path resolved (attachment) for ID ${id}: ${absolutePath}`);
+
+        return res.json({
+          success: true,
+          filePath: absolutePath,
+          originalName: attachment.original_name
+        });
+      });
+    }
+
+    // Construct absolute path for Electron
+    let absolutePath = file.file_path;
+
+    // If it's a relative path stored in DB (e.g. starting with /uploads/), make it absolute
+    if (file.file_path && file.file_path.startsWith('/uploads/')) {
+      // Remove '/uploads/' prefix to get path relative to uploadsDir
+      const relativePath = file.file_path.replace(/^\/uploads\//, '');
+      absolutePath = path.join(uploadsDir, relativePath);
+    }
+    // Handle case where it might just be the filename or other relative path format
+    else if (file.file_path && !path.isAbsolute(file.file_path)) {
+      absolutePath = path.join(uploadsDir, file.file_path);
+    }
+
+    // Normalize path separators for the OS
+    absolutePath = path.resolve(absolutePath);
+
+    console.log(`✅ File path resolved for ID ${id}: ${absolutePath}`);
+
+    res.json({
+      success: true,
+      filePath: absolutePath,
+      originalName: file.original_name
+    });
+  });
+});
+
 // Get files for a specific team member (Team Leader only)
 router.get('/member/:memberId', (req, res) => {
   const { memberId } = req.params;
@@ -2112,13 +2194,13 @@ router.post('/folder/delete', async (req, res) => {
     // Delete all files from database (frontend already calls DELETE for each file)
     // After files are deleted, remove the empty folder from NAS
     const folderPath = path.join(uploadsDir, username, folderName);
-    
+
     console.log(`📁 Attempting to delete folder directory: ${folderPath}`);
-    
+
     try {
       // Check if folder exists
       const folderExists = await fs.access(folderPath).then(() => true).catch(() => false);
-      
+
       if (folderExists) {
         // Remove the folder directory (including any remaining files/subfolders)
         await fs.rm(folderPath, { recursive: true, force: true });

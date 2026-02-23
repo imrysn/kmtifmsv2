@@ -167,8 +167,9 @@ class AppUpdater {
   setupEventHandlers() {
     autoUpdater.on('checking-for-update', () => {
       console.log('🔍 Checking for updates...');
-      updaterWindow.showUpdaterWindow('checking');
-      this.notifyRenderer('checking'); // Keep for backward compatibility with main app
+      // REMOVED: updaterWindow.showUpdaterWindow('checking');
+      // Using toast notifications only
+      this.notifyRenderer('checking');
     });
 
     autoUpdater.on('update-available', (info) => {
@@ -176,11 +177,7 @@ class AppUpdater {
       console.log(`   Current: ${app.getVersion()}`);
       console.log(`   Release date: ${info.releaseDate}`);
 
-      updaterWindow.updateStatus('available', {
-        version: info.version,
-        releaseDate: info.releaseDate,
-        releaseNotes: info.releaseNotes
-      });
+      // REMOVED: updaterWindow.updateStatus - using toast only
       this.notifyRenderer('available', {
         version: info.version,
         releaseDate: info.releaseDate,
@@ -190,7 +187,7 @@ class AppUpdater {
 
     autoUpdater.on('update-not-available', (info) => {
       console.log('✅ Application is up to date');
-      updaterWindow.closeUpdaterWindow();
+      // REMOVED: updaterWindow.closeUpdaterWindow - no window to close
       this.notifyRenderer('not-available');
     });
 
@@ -198,13 +195,8 @@ class AppUpdater {
       const percent = Math.round(progressObj.percent);
       console.log(`⬇️  Downloading update: ${percent}% (${this.formatBytes(progressObj.transferred)}/${this.formatBytes(progressObj.total)})`);
 
-      updaterWindow.updateStatus('downloading', {
-        percent,
-        transferred: progressObj.transferred,
-        total: progressObj.total,
-        bytesPerSecond: progressObj.bytesPerSecond
-      });
-      // Don't notify main window during download to keep it silent
+      // REMOVED: updaterWindow.updateStatus - silent background download
+      // No UI notifications during download to keep it clean
     });
 
     autoUpdater.on('update-downloaded', (info) => {
@@ -215,12 +207,8 @@ class AppUpdater {
       this.stateManager.state.updateDownloaded = true;
       this.stateManager.saveState();
 
-      updaterWindow.updateStatus('downloaded', {
-        version: info.version,
-        releaseDate: info.releaseDate
-      });
-
-      // Also notify main window so the toast shows the Install button
+      // REMOVED: updaterWindow.updateStatus - using toast with action button
+      // Toast will show with Install & Restart button
       this.notifyRenderer('downloaded', {
         version: info.version,
         releaseDate: info.releaseDate
@@ -230,9 +218,7 @@ class AppUpdater {
     autoUpdater.on('error', (error) => {
       console.error('❌ Update error:', error.message);
 
-      updaterWindow.updateStatus('error', {
-        message: error.message
-      });
+      // REMOVED: updaterWindow.updateStatus - using toast for errors
       this.notifyRenderer('error', {
         message: error.message
       });

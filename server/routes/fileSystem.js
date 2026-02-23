@@ -2,7 +2,7 @@ const express = require('express');
 const fs = require('fs').promises;
 const path = require('path');
 const { truncateName, formatFileSize, getParentPath } = require('../utils/fileHelpers');
-const { db, USE_MYSQL } = require('../config/database');
+const { db } = require('../config/database');
 
 const router = express.Router();
 
@@ -12,31 +12,12 @@ const networkProjectsPath = '\\\\KMTI-NAS\\Shared\\Public\\PROJECTS';
 // Function to get current root directory from settings
 async function getRootDirectory() {
   try {
-    if (USE_MYSQL) {
-      const settings = await db.query(
-        'SELECT setting_value FROM settings WHERE setting_key = ?',
-        ['root_directory']
-      );
-      if (settings && settings.length > 0 && settings[0].setting_value) {
-        return settings[0].setting_value;
-      }
-    } else {
-      const setting = await new Promise((resolve, reject) => {
-        db.get(
-          'SELECT setting_value FROM settings WHERE setting_key = ?',
-          ['root_directory'],
-          (err, row) => {
-            if (err) {
-              reject(err);
-            } else {
-              resolve(row);
-            }
-          }
-        );
-      });
-      if (setting && setting.setting_value) {
-        return setting.setting_value;
-      }
+    const settings = await db.query(
+      'SELECT setting_value FROM settings WHERE setting_key = ?',
+      ['root_directory']
+    );
+    if (settings && settings.length > 0 && settings[0].setting_value) {
+      return settings[0].setting_value;
     }
   } catch (error) {
     console.error('Error fetching root directory from settings:', error);

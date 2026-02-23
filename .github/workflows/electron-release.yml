@@ -16,7 +16,7 @@ on:
 
 # Environment variables for the entire workflow
 env:
-  NODE_VERSION: '18.x'
+  NODE_VERSION: '20.x'
 
 jobs:
   build-windows:

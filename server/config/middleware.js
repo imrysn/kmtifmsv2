@@ -10,7 +10,8 @@ const { networkDataPath } = require('./database');
 const { moveToUserFolder: moveToUserFolderAsync } = require('../utils/fileUtils');
 
 // Network Uploads Configuration
-const uploadsDir = path.join(networkDataPath, 'uploads');
+// IMPORTANT: Keep as simple path.join for NCC bundler compatibility
+const uploadsDir = path.join(networkDataPath, String('uploads'));
 
 // Ensure uploads directory exists with detailed error logging
 if (!fs.existsSync(uploadsDir)) {
@@ -63,7 +64,7 @@ const upload = multer({
   storage: storage,
   // Security limits to prevent DoS attacks
   limits: {
-    fileSize: 500 * 1024 * 1024, // 500MB max file size
+    fileSize: 50 * 1024 * 1024 * 1024, // 50GB max file size (effectively limitless)
     files: 1 // Only one file at a time
   }
 });
@@ -125,12 +126,12 @@ function setupMiddleware(app) {
   // JSON parsing with extended options to handle UTF-8 special characters
   app.use(express.json({
     extended: true,
-    limit: '50mb' // Increase limit for larger payloads
+    limit: '50gb' // Increase limit for larger payloads
   }));
 
   app.use(express.urlencoded({
     extended: true,
-    limit: '50mb',
+    limit: '50gb',
     parameterLimit: 50000
   }));
 

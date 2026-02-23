@@ -185,7 +185,7 @@ This project is proprietary software for KMTI use.
 - Electron for desktop app framework
 - React for user interface
 - Express.js for backend API
-- MySQL/SQLite for database
+- MySQL for database
 - All contributors and testers
 
 ---

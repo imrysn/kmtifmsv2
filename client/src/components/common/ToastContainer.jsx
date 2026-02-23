@@ -1,6 +1,5 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { CheckCircle, AlertCircle, Info, X } from 'lucide-react';
-import AlertMessage from '../../components/shared/AlertMessage';
 import './UpdateAlert.css';
 
 /**
@@ -82,7 +81,7 @@ const Toast = ({ id, type, title, message, duration = 5000, onClose, action }) =
             {action && (
               <button
                 onClick={action.onClick}
-                className="mt-2 px-3 py-1 bg-blue-500 text-white text-xs rounded hover:bg-blue-600 transition-colors"
+                className="mt-2 px-3 py-1 bg-green-600 text-white text-xs rounded hover:bg-green-700 transition-colors font-medium"
               >
                 {action.label}
               </button>
@@ -101,47 +100,14 @@ const Toast = ({ id, type, title, message, duration = 5000, onClose, action }) =
 };
 
 /**
- * Update Alert Modal Component
- * Shows when an update is downloaded and ready to install
- */
-const UpdateAlert = ({ version, onInstall, onClose }) => {
-  return (
-    <div className="update-alert-overlay">
-      <div className="update-alert-modal">
-        <AlertMessage
-          type="success"
-          message={`Update ${version} has been downloaded and is ready to install. The application will restart to apply the update.`}
-          onClose={onClose}
-        />
-        <div className="update-alert-buttons">
-          <button
-            onClick={onInstall}
-            className="update-install-btn"
-          >
-            Install & Restart
-          </button>
-          <button
-            onClick={onClose}
-            className="update-cancel-btn"
-          >
-            Cancel
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-/**
  * ToastContainer Component
- * Manages all toast notifications and update alerts
+ * Manages all toast notifications - TOAST ONLY, NO MODALS/BANNERS
  * - Handles automatic update notifications
  * - Provides toast API for general notifications
  * - Manages toast lifecycle and positioning
  */
 const ToastContainer = () => {
   const [toasts, setToasts] = useState([]);
-  const [updateAlert, setUpdateAlert] = useState(null);
 
   const addToast = useCallback((toast) => {
     const id = Date.now() + Math.random();
@@ -152,17 +118,6 @@ const ToastContainer = () => {
 
   const removeToast = useCallback((id) => {
     setToasts(prev => prev.filter(toast => toast.id !== id));
-  }, []);
-
-  const handleUpdateInstall = useCallback(() => {
-    if (window.updater) {
-      window.updater.restartAndInstall();
-    }
-    setUpdateAlert(null);
-  }, []);
-
-  const handleAlertClose = useCallback(() => {
-    setUpdateAlert(null);
   }, []);
 
   const showUpdateToast = useCallback((status, data) => {
@@ -177,12 +132,25 @@ const ToastContainer = () => {
         break;
 
       case 'downloading':
-        // Removed downloading toast - runs in background
+        // Silent background download - no toast
         break;
 
       case 'downloaded':
-        // Show custom update alert using AlertMessage component
-        setUpdateAlert({ version: data.version });
+        // Show toast with install action button - NO MODAL
+        addToast({
+          type: 'success',
+          title: 'Update Ready',
+          message: `Update ${data.version} has been downloaded and is ready to install. This application will restart to apply the update.`,
+          duration: 0, // Don't auto-dismiss - let user decide
+          action: {
+            label: 'Install & Restart',
+            onClick: () => {
+              if (window.updater) {
+                window.updater.restartAndInstall();
+              }
+            }
+          }
+        });
         break;
 
       case 'error':
@@ -231,34 +199,23 @@ const ToastContainer = () => {
   }, [addToast, showUpdateToast]);
 
   return (
-    <>
-      <div className="fixed top-0 right-0 z-50 pointer-events-none">
-        {toasts.map((toast, index) => (
-          <div
-            key={toast.id}
-            className="pointer-events-auto mb-2"
-            style={{
-              transform: `translateY(${index * 10}px)`,
-              zIndex: 50 + index
-            }}
-          >
-            <Toast
-              {...toast}
-              onClose={removeToast}
-            />
-          </div>
-        ))}
-      </div>
-
-      {/* Update Alert Modal */}
-      {updateAlert && (
-        <UpdateAlert
-          version={updateAlert.version}
-          onInstall={handleUpdateInstall}
-          onClose={handleAlertClose}
-        />
-      )}
-    </>
+    <div className="fixed top-0 right-0 z-50 pointer-events-none">
+      {toasts.map((toast, index) => (
+        <div
+          key={toast.id}
+          className="pointer-events-auto mb-2"
+          style={{
+            transform: `translateY(${index * 10}px)`,
+            zIndex: 50 + index
+          }}
+        >
+          <Toast
+            {...toast}
+            onClose={removeToast}
+          />
+        </div>
+      ))}
+    </div>
   );
 };
 

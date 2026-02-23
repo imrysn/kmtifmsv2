@@ -1,4 +1,4 @@
-const { USE_MYSQL } = require('../config/database');
+// Migration: Add tag column to files table
 
 async function migrate() {
     try {

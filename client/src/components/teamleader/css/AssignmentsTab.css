@@ -1220,21 +1220,48 @@
   border: 1px solid #34D399;
 }
 
-/* Folder Styling in Assignments */
-.tl-folder-item {
-  background-color: #f0f9ff !important;
-  transition: background-color 0.2s ease;
+/* Members Modal Styles */
+.tl-modal-members-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }
 
-.tl-folder-item:hover {
-  background-color: rgba(59, 130, 246, 0.1) !important;
+.tl-modal-member-item {
+  padding: 12px;
+  background: var(--background-primary, #ffffff);
+  border-radius: 8px;
+  /* var(--radius-md) might not be defined globally, fallback to 8px */
+  border: 1px solid var(--border-color, #e5e7eb);
+  display: flex;
+  align-items: center;
+  gap: 12px;
 }
 
-.tl-folder-file-item {
-  background-color: #fafafa !important;
-  margin-left: 40px;
+.tl-modal-member-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--primary-color, #4f46e5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-weight: 600;
+  font-size: 14px;
 }
 
-.tl-folder-file-item:hover {
-  background-color: #f3f4f6 !important;
+.tl-member-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.tl-member-name {
+  font-weight: 500;
+  color: var(--text-primary, #1c1e21);
+}
+
+.tl-member-username {
+  font-size: 12px;
+  color: var(--text-secondary, #65676b);
 }
