@@ -89,6 +89,7 @@ const UserDashboard = ({ user, onLogout }) => {
 
   useEffect(() => {
     applyFilters()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [files, filterStatus])
 
   const applyFilters = () => {
@@ -146,7 +147,7 @@ const UserDashboard = ({ user, onLogout }) => {
         if (file) {
           // Switch to My Files tab
           setActiveTab('my-files')
-          openFileModal(data.file) // No await needed
+          openFileModal(file) // No await needed
         } else {
           setError('File not found')
         }

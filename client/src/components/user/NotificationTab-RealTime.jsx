@@ -130,6 +130,10 @@ const NotificationTab = ({ user, onOpenFile, onNavigateToTasks, onNavigate, onUp
   const handleDeleteNotification = useCallback(async (e, notificationId) => {
     e.stopPropagation();
     try {
+      // Find the notification to check if it's unread
+      const notificationToDelete = notifications.find(n => n.id === notificationId);
+      const wasUnread = notificationToDelete && !notificationToDelete.is_read;
+
       const response = await fetch(`${API_BASE_URL}/api/notifications/${notificationId}`, {
         method: 'DELETE'
       });
@@ -139,11 +143,20 @@ const NotificationTab = ({ user, onOpenFile, onNavigateToTasks, onNavigate, onUp
         setNotifications(prevNotifications =>
           prevNotifications.filter(n => n.id !== notificationId)
         );
+
+        // Update unread count if the deleted notification was unread
+        if (wasUnread) {
+          const newUnreadCount = Math.max(0, unreadCount - 1);
+          setUnreadCount(newUnreadCount);
+          if (onUpdateUnreadCount) {
+            onUpdateUnreadCount(newUnreadCount);
+          }
+        }
       }
     } catch (error) {
       console.error('❌ Error deleting notification:', error);
     }
-  }, []);
+  }, [notifications, unreadCount, onUpdateUnreadCount]);
 
   const handleMarkAllAsRead = useCallback(async () => {
     try {
@@ -202,7 +215,6 @@ const NotificationTab = ({ user, onOpenFile, onNavigateToTasks, onNavigate, onUp
   }, [user.id, onUpdateUnreadCount]);
 
   const getNotificationIcon = useCallback((type) => {
-    console.log('🔄 UPDATED VERSION - Using specific user dashboard icons');
     switch (type) {
       case 'approval':
       case 'final_approval':
@@ -403,9 +415,14 @@ const NotificationTab = ({ user, onOpenFile, onNavigateToTasks, onNavigate, onUp
                   <div className="notification-content">
                     <div className="notification-title-row">
                       <h4 className="notification-title">{notification.title}</h4>
-                      <svg className="arrow-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                        <path fillRule="evenodd" d="M7.21 14.77a.75.75 0 01.02-1.06L11.168 10 7.23 6.29a.75.75 0 111.04-1.08l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 01-1.06-.02z" clipRule="evenodd" />
-                      </svg>
+                      <button
+                        className="notification-delete-btn"
+                        onClick={(e) => handleDeleteNotification(e, notification.id)}
+                        title="Delete notification"
+                        aria-label="Delete notification"
+                      >
+                        ×
+                      </button>
                     </div>
                     <p className="notification-message">{notification.message}</p>
                     <div className="notification-footer">

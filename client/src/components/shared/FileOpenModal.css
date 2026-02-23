@@ -13,18 +13,8 @@
   align-items: center;
   z-index: 10000;
   padding: 20px;
-  animation: fadeIn 0.15s ease;
   overflow-y: auto;
   overflow-x: hidden;
-}
-
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
 }
 
 /* Modal Container */
@@ -80,7 +70,6 @@
   font-size: 20px;
   color: #6b7280;
   cursor: pointer;
-  transition: all 0.15s ease;
   flex-shrink: 0;
 }
 
@@ -153,7 +142,6 @@
   font-size: 14px;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.15s ease;
   border: none;
   display: flex;
   align-items: center;

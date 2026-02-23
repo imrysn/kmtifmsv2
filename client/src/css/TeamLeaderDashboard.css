@@ -16,7 +16,7 @@
   --text-tertiary: #9CA3AF;
 
   /* Background Colors */
-  --background-primary: #F9FAFB;
+  --background-primary: #FFFFFF;
   --background-secondary: #FFFFFF;
   --sidebar-bg: #FFFFFF;
 
@@ -282,9 +282,9 @@ body {
   margin-left: var(--sidebar-collapsed-width);
   width: calc(100% - var(--sidebar-collapsed-width));
   height: 100vh;
-  overflow-y: auto;
+  overflow-y: scroll;
+  overflow-x: hidden;
   opacity: 1;
-  transition: opacity var(--transition-speed) var(--transition-easing);
   position: relative;
   z-index: 1;
 }
@@ -1589,7 +1589,6 @@ input[type="checkbox"] {
   padding: 20px;
   border-radius: 10px;
   border: 1px solid #E5E7EB;
-  transition: all 0.2s ease;
 }
 
 .tl-detail-card:hover {
@@ -1670,7 +1669,6 @@ input[type="checkbox"] {
 }
 
 .tl-submissions-table tbody tr {
-  transition: background 0.2s ease;
 }
 
 .tl-submissions-table tbody tr:hover {
@@ -2456,13 +2454,8 @@ input[type="checkbox"] {
   align-items: center;
   gap: var(--spacing-md);
   cursor: pointer;
-  transition: all 0.2s ease;
   text-decoration: none;
   color: inherit;
-}
-
-.tl-quick-action-card {
-  transition: all 0.2s ease;
 }
 
 .tl-quick-action-icon {
@@ -2512,7 +2505,6 @@ input[type="checkbox"] {
   border: 1px solid var(--border-color);
   border-radius: var(--radius-lg);
   overflow: hidden;
-  transition: all 0.2s ease;
   grid-column: span 2;
 }
 
@@ -2638,7 +2630,6 @@ input[type="checkbox"] {
   display: flex;
   align-items: flex-start;
   gap: var(--spacing-md);
-  transition: background 0.2s ease;
 }
 
 .tl-activity-item:last-child {
@@ -2740,7 +2731,6 @@ input[type="checkbox"] {
   gap: var(--spacing-md);
   padding: var(--spacing-sm) 0;
   border-bottom: 1px solid var(--border-light);
-  transition: all 0.2s ease;
   cursor: pointer;
 }
 

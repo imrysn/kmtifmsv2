@@ -1,4 +1,4 @@
-import { useState, useEffect, Suspense, lazy } from 'react'
+import React, { useState, useEffect, Suspense, lazy } from 'react'
 import { API_BASE_URL } from '@/config/api'
 import '../css/TeamLeaderDashboard.css'
 import SkeletonLoader from '../components/common/SkeletonLoader'
@@ -401,7 +401,8 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
           description: '',
           dueDate: '',
           fileTypeRequired: '',
-          assignedMembers: []
+          assignedMembers: [],
+          selectedTeam: ''
         })
         fetchAssignments()
       } else {
@@ -435,7 +436,8 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
       description: assignment.description || '',
       dueDate: formattedDueDate,
       fileTypeRequired: assignment.file_type_required || assignment.fileTypeRequired || '',
-      assignedMembers: assignedMemberIds
+      assignedMembers: assignedMemberIds,
+      selectedTeam: assignment.team || ''
     })
 
     setShowCreateAssignmentModal(true)
@@ -1130,7 +1132,8 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
                   description: '',
                   dueDate: '',
                   fileTypeRequired: '',
-                  assignedMembers: []
+                  assignedMembers: [],
+                  selectedTeam: ''
                 })
               }}
             />

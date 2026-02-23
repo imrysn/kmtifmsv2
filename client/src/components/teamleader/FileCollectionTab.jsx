@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+import React, { useState, useEffect, useMemo, useCallback } from 'react'
 import './css/FileCollectionTab.css'
 import '../shared/SmartNavigation/SmartNavigation.css'
 import FileIcon from '../shared/FileIcon'
@@ -28,6 +28,7 @@ const FileCollectionTab = ({
   const [showOpenFileModal, setShowOpenFileModal] = useState(false)
   const [fileToOpen, setFileToOpen] = useState(null)
   const [teamFilter, setTeamFilter] = useState('all')
+  const [expandedFolders, setExpandedFolders] = useState({}) // Track which folders are expanded
 
   // Calculate unique teams from submitted files
   const uniqueTeams = useMemo(() => {
@@ -38,6 +39,27 @@ const FileCollectionTab = ({
     })
     return Array.from(teams).sort()
   }, [submittedFiles])
+
+  // Helper function to group files by folder
+  const groupFilesByFolder = useCallback((files) => {
+    const folders = {}
+    const individualFiles = []
+
+    files.forEach(file => {
+      if (file.folder_name) {
+        // File is part of a folder
+        if (!folders[file.folder_name]) {
+          folders[file.folder_name] = []
+        }
+        folders[file.folder_name].push(file)
+      } else {
+        // Individual file
+        individualFiles.push(file)
+      }
+    })
+
+    return { folders, individualFiles }
+  }, [])
 
   // Reset page when filters change
   useEffect(() => {
@@ -110,8 +132,8 @@ const FileCollectionTab = ({
     }
   }
 
-  // Filter and sort submissions
-  const filteredAndSortedFiles = () => {
+  // Filter and sort submissions - memoized to avoid recomputing on every render
+  const filteredAndSortedFiles = useMemo(() => {
     let filtered = submittedFiles
 
     // Apply search query
@@ -172,16 +194,17 @@ const FileCollectionTab = ({
     })
 
     return sorted
-  }
+  }, [submittedFiles, searchQuery, fileCollectionFilter, teamFilter, fileCollectionSort])
 
-  const displayedFiles = filteredAndSortedFiles()
+  const displayedFiles = filteredAndSortedFiles
 
-  // Get current page files
+  // Get current page files with folder grouping
   const currentPageFiles = useMemo(() => {
     const startIndex = (currentPage - 1) * filesPerPage
     const endIndex = startIndex + filesPerPage
-    return displayedFiles.slice(startIndex, endIndex)
-  }, [displayedFiles, currentPage, filesPerPage])
+    const paginatedFiles = displayedFiles.slice(startIndex, endIndex)
+    return groupFilesByFolder(paginatedFiles)
+  }, [displayedFiles, currentPage, filesPerPage, groupFilesByFolder])
 
   // Calculate total pages
   const totalPages = useMemo(() => {
@@ -375,7 +398,7 @@ const FileCollectionTab = ({
         <div className="tl-files-list">
           <LoadingTable rows={8} columns={6} />
         </div>
-      ) : currentPageFiles.length > 0 ? (
+      ) : displayedFiles.length > 0 ? (
         <div className="tl-files-list">
           <table className="tl-files-table">
             <thead>
@@ -390,7 +413,157 @@ const FileCollectionTab = ({
               </tr>
             </thead>
             <tbody>
-              {currentPageFiles.map((submission) => {
+              {/* Render Folders */}
+              {currentPageFiles.folders && Object.keys(currentPageFiles.folders).map((folderName) => {
+                const folderFiles = currentPageFiles.folders[folderName]
+                const isExpanded = expandedFolders[folderName]
+                const firstFile = folderFiles[0]
+
+                return (
+                  <React.Fragment key={`folder-${folderName}`}>
+                    <tr
+                      className="tl-clickable-row tl-folder-row"
+                      onClick={() => {
+                        setExpandedFolders(prev => ({
+                          ...prev,
+                          [folderName]: !prev[folderName]
+                        }))
+                      }}
+                    >
+                      <td>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                          <div style={{ fontSize: '32px' }}>
+                            {isExpanded ? '📂' : '📁'}
+                          </div>
+                          <div>
+                            <div style={{ fontWeight: '600', color: '#111827' }}>{folderName}</div>
+                            <div style={{ fontSize: '12px', color: '#6b7280' }}>{folderFiles.length} files</div>
+                          </div>
+                        </div>
+                      </td>
+                      <td>{firstFile.assignment_title || '-'}</td>
+                      <td>{firstFile.user_team || firstFile.team || '-'}</td>
+                      <td>{firstFile.fullName || firstFile.username || '-'}</td>
+                      <td>{new Date(firstFile.submitted_at || firstFile.uploaded_at).toLocaleDateString()}</td>
+                      <td></td>
+                      <td style={{ textAlign: 'center' }}>
+                      </td>
+                    </tr>
+                    {/* Folder Contents */}
+                    {isExpanded && folderFiles.map((submission) => {
+                      const fileExtension = getFileExtension(submission.original_name, submission.file_type)
+
+                      return (
+                        <tr
+                          key={submission.id}
+                          data-file-id={submission.id}
+                          className="tl-clickable-row tl-folder-file-row"
+                          onClick={() => {
+                            setFileToOpen(submission)
+                            setShowOpenFileModal(true)
+                          }}
+                          style={{ backgroundColor: '#fafafa' }}
+                        >
+                          <td>
+                            <div className="file-cell" style={{ paddingLeft: '44px' }}>
+                              <div className="file-icon">
+                                <FileIcon
+                                  fileType={fileExtension}
+                                  isFolder={false}
+                                  altText={`Icon for ${submission.original_name}`}
+                                  size="medium"
+                                />
+                              </div>
+                              <div className="file-details">
+                                <span className="file-name">{submission.relative_path || submission.original_name}</span>
+                                <span className="file-size">{formatFileSize(submission.file_size)}</span>
+                              </div>
+                            </div>
+                          </td>
+                          <td>
+                            <div className="assignment-cell">
+                              <span className="assignment-title">{submission.assignment_title}</span>
+                              {submission.assignment_due_date && (
+                                <span className="assignment-due-date">
+                                  Due: {new Date(submission.assignment_due_date).toLocaleDateString()}
+                                </span>
+                              )}
+                            </div>
+                          </td>
+                          <td>
+                            <div className="team-cell">
+                              <span className="team-badge" data-team={submission.user_team || submission.team}>
+                                {submission.user_team || submission.team || 'N/A'}
+                              </span>
+                            </div>
+                          </td>
+                          <td>
+                            <div className="user-cell">
+                              <span className="user-name">{submission.fullName || submission.username}</span>
+                            </div>
+                          </td>
+                          <td>
+                            <div className="datetime-cell">
+                              <div className="date">{new Date(submission.submitted_at || submission.uploaded_at).toLocaleDateString()}</div>
+                              <div className="time">{new Date(submission.submitted_at || submission.uploaded_at).toLocaleTimeString()}</div>
+                            </div>
+                          </td>
+                          <td>
+                            <span className={`status-badge status-${submission.status === 'approved' || submission.status === 'final_approved' ? 'approved' :
+                              submission.status === 'rejected' || submission.status === 'rejected_by_team_leader' || submission.status === 'rejected_by_admin' ? 'rejected' :
+                                'pending'
+                              }`}>
+                              {
+                                submission.status === 'approved' || submission.status === 'final_approved' ? 'Approved' :
+                                  submission.status === 'rejected' || submission.status === 'rejected_by_team_leader' || submission.status === 'rejected_by_admin' ? 'Rejected' :
+                                    submission.status === 'team_leader_approved' ? 'Pending Admin' :
+                                      'Pending Team Leader'
+                              }
+                            </span>
+                          </td>
+                          <td style={{ textAlign: 'center' }}>
+                            <div className="tl-actions-menu-wrapper">
+                              <button
+                                className="tl-menu-button"
+                                onClick={(e) => toggleMenu(submission.id, e)}
+                                title="Options"
+                              >
+                                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                                  <circle cx="3" cy="8" r="1.5" fill="currentColor" />
+                                  <circle cx="8" cy="8" r="1.5" fill="currentColor" />
+                                  <circle cx="13" cy="8" r="1.5" fill="currentColor" />
+                                </svg>
+                              </button>
+                              {openMenuId === submission.id && (
+                                <div className="tl-dropdown-menu">
+                                  {submission.assignment_id && onNavigateToTask && (
+                                    <button
+                                      className="tl-dropdown-item"
+                                      onClick={(e) => {
+                                        e.stopPropagation()
+                                        onNavigateToTask(submission.assignment_id, submission.id)
+                                      }}
+                                    >
+                                      <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                                        <path d="M5.33333 2.66667H2.66667C2.29848 2.66667 2 2.96514 2 3.33333V13.3333C2 13.7015 2.29848 14 2.66667 14H12.6667C13.0349 14 13.3333 13.7015 13.3333 13.3333V10.6667" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                                        <path d="M12 2L14 4L8.66667 9.33333L6.66667 9.66667L7 7.66667L12 2Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                                      </svg>
+                                      Go to Task
+                                    </button>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </React.Fragment>
+                )
+              })}
+              
+              {/* Render Individual Files */}
+              {currentPageFiles.individualFiles && currentPageFiles.individualFiles.map((submission) => {
                 const fileExtension = getFileExtension(submission.original_name, submission.file_type)
 
                 return (

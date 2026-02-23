@@ -156,10 +156,12 @@ export function useSmartNavigation({
         }
     }, [highlightedItemId, items, onClearHighlight, prefix, idPrefix]);
 
-    // EFFECT 4: Highlight file within item (cascading effect)
+    // EFFECT 4: Highlight file within item (cascading or standalone effect)
+    // Fires when highlightedFileId is set, with or without highlightedItemId
     useEffect(() => {
-        if (highlightedFileId && highlightedItemId && items.length > 0) {
-            // Wait 1 second for item to be highlighted first
+        if (highlightedFileId && items.length > 0) {
+            // Delay longer if we also need to scroll to the parent item first
+            const delay = highlightedItemId ? 1000 : 400;
             setTimeout(() => {
                 const fileElement = document.querySelector(`[data-file-id="${highlightedFileId}"]`);
                 if (fileElement) {
@@ -177,7 +179,7 @@ export function useSmartNavigation({
                         }
                     }, 1500);
                 }
-            }, 1000);  // Longer delay for cascading effect
+            }, delay);
         }
     }, [highlightedFileId, highlightedItemId, items, onClearFileHighlight, prefix]);
 

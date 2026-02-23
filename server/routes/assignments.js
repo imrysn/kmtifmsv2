@@ -28,6 +28,64 @@ const upload = multer({
   }
 });
 
+// Batch submission tracker to group multiple file submissions into single notification
+const pendingBatchSubmissions = new Map();
+
+// Function to create grouped notification
+async function createBatchedSubmissionNotification(teamLeaderId, assignmentId, submissions) {
+  try {
+    const assignment = await queryOne('SELECT title FROM assignments WHERE id = ?', [assignmentId]);
+    const firstSubmission = submissions[0];
+
+    // Check if this is a folder upload by looking at folder_name
+    const folderName = firstSubmission.folderName;
+    const isFolder = folderName && submissions.length > 1;
+
+    let message;
+    let title = 'New File Submitted for Review';
+
+    if (isFolder) {
+      // Folder upload - create a single notification for the entire folder
+      title = 'New Folder Submitted for Review';
+      message = `${firstSubmission.submitterName} submitted folder "${folderName}" (${submissions.length} files) for the assignment "${assignment.title}"`;
+    } else if (submissions.length === 1) {
+      // Single file
+      message = `${firstSubmission.submitterName} submitted "${firstSubmission.fileName}" for the assignment "${assignment.title}"`;
+    } else {
+      // Multiple individual files
+      message = `${firstSubmission.submitterName} submitted ${submissions.length} files for the assignment "${assignment.title}"`;
+    }
+
+    await query(`
+      INSERT INTO notifications (
+        user_id,
+        assignment_id,
+        file_id,
+        type,
+        title,
+        message,
+        action_by_id,
+        action_by_username,
+        action_by_role
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `, [
+      teamLeaderId,
+      assignmentId,
+      firstSubmission.fileId, // Link to first file
+      'submission',
+      title,
+      message,
+      firstSubmission.userId,
+      firstSubmission.username,
+      'USER'
+    ]);
+
+    console.log(`✅ Created batched notification for team leader ${teamLeaderId}: ${isFolder ? `folder "${folderName}"` : `${submissions.length} file(s)`}`);
+  } catch (error) {
+    console.error('⚠️ Failed to create batched submission notification:', error);
+  }
+}
+
 router.get('/admin/all', async (req, res) => {
   try {
     console.log('🔍 Admin assignments route called');
@@ -1221,7 +1279,7 @@ router.get('/user/:userId', async (req, res) => {
   }
 });
 
-// Submit assignment (supports multiple file submissions)
+// Submit assignment (supports multiple file submissions with BATCHED notifications)
 router.post('/submit', async (req, res) => {
   try {
     const { assignmentId, userId, fileId } = req.body;
@@ -1300,64 +1358,62 @@ router.post('/submit', async (req, res) => {
       console.log(`✅ Assignment ${assignmentId} additional file submitted by user ${userId} with file ${fileId}`);
     }
 
-    // Create notification for team leader about the submission
-    try {
-      console.log('🔔 Creating submission notification for team leader');
+    // BATCHED NOTIFICATION SYSTEM
+    // Get user details for notification
+    const submitter = await queryOne(
+      'SELECT username, fullName FROM users WHERE id = ?',
+      [userId]
+    );
 
-      // Get user details for notification
-      const submitter = await queryOne(
-        'SELECT username, fullName FROM users WHERE id = ?',
-        [userId]
-      );
+    // Get file details for notification
+    const file = await queryOne(
+      'SELECT original_name, folder_name FROM files WHERE id = ?',
+      [fileId]
+    );
 
-      // Get file details for notification
-      const file = await queryOne(
-        'SELECT original_name FROM files WHERE id = ?',
-        [fileId]
-      );
+    // Create batch key: assignmentId-userId-teamLeaderId
+    const batchKey = `${assignmentId}-${userId}-${assignment.team_leader_id}`;
 
-      const notificationData = {
-        user_id: assignment.team_leader_id,
-        assignment_id: assignmentId,
-        file_id: fileId,
-        type: 'submission',
-        title: 'New File Submitted for Review',
-        message: `${submitter.fullName} submitted "${file.original_name}" for the assignment "${assignment.title}"`,
-        action_by_id: userId,
-        action_by_username: submitter.username,
-        action_by_role: 'USER'
-      };
-
-      console.log('Creating submission notification:', notificationData);
-
-      await query(`
-        INSERT INTO notifications (
-          user_id,
-          assignment_id,
-          file_id,
-          type,
-          title,
-          message,
-          action_by_id,
-          action_by_username,
-          action_by_role
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `, [
-        notificationData.user_id,
-        notificationData.assignment_id,
-        notificationData.file_id,
-        notificationData.type,
-        notificationData.title,
-        notificationData.message,
-        notificationData.action_by_id,
-        notificationData.action_by_username,
-        notificationData.action_by_role
-      ]);
-
-      console.log(`✅ Submission notification created for team leader ${assignment.team_leader_id}`);
-    } catch (notificationError) {
-      console.error('⚠️ Failed to create submission notification:', notificationError);
+    // If batch doesn't exist, create it
+    if (!pendingBatchSubmissions.has(batchKey)) {
+      pendingBatchSubmissions.set(batchKey, {
+        teamLeaderId: assignment.team_leader_id,
+        assignmentId: assignmentId,
+        submissions: []
+      });
     }
+
+    // Add this submission to the batch
+    const batch = pendingBatchSubmissions.get(batchKey);
+    batch.submissions.push({
+      fileId: fileId,
+      fileName: file.original_name,
+      folderName: file.folder_name,
+      userId: userId,
+      username: submitter.username,
+      submitterName: submitter.fullName
+    });
+
+    console.log(`📦 Added file to batch: ${file.original_name} (${batch.submissions.length} files total)`);
+
+    // Clear existing timeout if any
+    if (batch.timeoutId) {
+      clearTimeout(batch.timeoutId);
+    }
+
+    // Set timeout to send batched notification after 5 seconds of no new submissions
+    batch.timeoutId = setTimeout(async () => {
+      const batchToSend = pendingBatchSubmissions.get(batchKey);
+      if (batchToSend) {
+        console.log(`🔔 Sending batched notification for ${batchToSend.submissions.length} file(s)`);
+        await createBatchedSubmissionNotification(
+          batchToSend.teamLeaderId,
+          batchToSend.assignmentId,
+          batchToSend.submissions
+        );
+        pendingBatchSubmissions.delete(batchKey);
+      }
+    }, 5000); // Wait 5 seconds after last submission to accommodate folder uploads
 
     res.json({
       success: true,
@@ -1472,15 +1528,15 @@ router.post('/:assignmentId/comments', async (req, res) => {
 
     // Create notifications for assigned members
     try {
-      console.log(` Comment posted by ${user.role}: ${user.fullName} (ID: ${userId})`);
-      console.log(` Assignment ID: ${assignmentId}`);
+      console.log(`💬 Comment posted by ${user.role}: ${user.fullName} (ID: ${userId})`);
+      console.log(`📋 Assignment ID: ${assignmentId}`);
 
       // Get assignment details
       const assignment = await queryOne(
         'SELECT title, team_leader_id FROM assignments WHERE id = ?',
         [assignmentId]
       );
-      console.log(` Assignment title: ${assignment?.title}`);
+      console.log(`📝 Assignment title: ${assignment?.title}`);
 
       // Get all members assigned to this task (except the commenter)
       const assignedMembers = await query(
@@ -1488,7 +1544,7 @@ router.post('/:assignmentId/comments', async (req, res) => {
         [assignmentId, userId]
       );
 
-      console.log(` Found ${assignedMembers.length} assigned members (excluding commenter):`);
+      console.log(`👥 Found ${assignedMembers.length} assigned members (excluding commenter):`);
       console.log(assignedMembers);
 
       // If admin commented, notify both team leader AND assigned members
@@ -1532,17 +1588,17 @@ router.post('/:assignmentId/comments', async (req, res) => {
             user.role
           ]);
 
-          console.log(` Notification created for team leader with ID: ${teamLeaderNotification.insertId}`);
+          console.log(`✅ Notification created for team leader with ID: ${teamLeaderNotification.insertId}`);
         }
 
         // Then notify assigned members (except if any of them are team leaders who already got notified)
         if (assignedMembers.length === 0) {
-          console.log(' No members to notify (either no one assigned or only commenter is assigned)');
+          console.log('ℹ️ No members to notify (either no one assigned or only commenter is assigned)');
         }
 
         // Create notification for each assigned member
         for (const member of assignedMembers) {
-          console.log(` Creating notification for user ID: ${member.user_id}`);
+          console.log(`📤 Creating notification for user ID: ${member.user_id}`);
 
           const notificationResult = await query(`
             INSERT INTO notifications (
@@ -1568,20 +1624,20 @@ router.post('/:assignmentId/comments', async (req, res) => {
             user.role
           ]);
 
-          console.log(` Notification created with ID: ${notificationResult.insertId}`);
+          console.log(`✅ Notification created with ID: ${notificationResult.insertId}`);
         }
 
-        console.log(` Successfully created admin comment notifications for team leader + ${assignedMembers.length} member(s)`);
+        console.log(`✅ Successfully created admin comment notifications for team leader + ${assignedMembers.length} member(s)`);
       }
       // If team leader commented, notify assigned members
       else if (user.role === 'TEAM_LEADER') {
         if (assignedMembers.length === 0) {
-          console.log(' No members to notify (either no one assigned or only commenter is assigned)');
+          console.log('ℹ️ No members to notify (either no one assigned or only commenter is assigned)');
         }
 
         // Create notification for each assigned member
         for (const member of assignedMembers) {
-          console.log(` Creating notification for user ID: ${member.user_id}`);
+          console.log(`📤 Creating notification for user ID: ${member.user_id}`);
 
           const notificationResult = await query(`
             INSERT INTO notifications (
@@ -1607,10 +1663,10 @@ router.post('/:assignmentId/comments', async (req, res) => {
             user.role
           ]);
 
-          console.log(` Notification created with ID: ${notificationResult.insertId}`);
+          console.log(`✅ Notification created with ID: ${notificationResult.insertId}`);
         }
 
-        console.log(` Successfully created ${assignedMembers.length} comment notification(s)`);
+        console.log(`✅ Successfully created ${assignedMembers.length} comment notification(s)`);
       }
       // If regular user commented, notify team leader
       else if (user.role === 'USER' && assignment.team_leader_id && assignment.team_leader_id !== userId) {
@@ -1640,9 +1696,9 @@ router.post('/:assignmentId/comments', async (req, res) => {
           user.role
         ]);
 
-        console.log(` Notification created for team leader with ID: ${notificationResult.insertId}`);
+        console.log(`✅ Notification created for team leader with ID: ${notificationResult.insertId}`);
       } else {
-        console.log(`ℹ User ${user.fullName} (${user.role}) posted comment - no additional notifications needed`);
+        console.log(`ℹ️ User ${user.fullName} (${user.role}) posted comment - no additional notifications needed`);
       }
     } catch (notifError) {
       console.error('⚠️ Failed to create comment notifications:', notifError);
@@ -1759,9 +1815,9 @@ router.post('/:assignmentId/comments/:commentId/reply', async (req, res) => {
           user.role
         ]);
 
-        console.log(` Created reply notification for user ${comment.user_id}`);
+        console.log(`✅ Created reply notification for user ${comment.user_id}`);
       } catch (notifError) {
-        console.error(' Failed to create reply notification:', notifError);
+        console.error('⚠️ Failed to create reply notification:', notifError);
         // Don't fail the request if notifications fail
       }
     }
@@ -1871,8 +1927,10 @@ router.put('/:assignmentId/mark-done', async (req, res) => {
   }
 });
 
-// Update assignment (Team Leader only)
-router.put('/:assignmentId', async (req, res) => {
+// Update assignment (Team Leader only) - NON-MULTIPART fallback (no file uploads)
+// Note: The main update route above (PUT /:id with multer) handles file uploads.
+// This route handles plain JSON updates (e.g., member reassignment without new files).
+router.put('/:assignmentId/update-members', async (req, res) => {
   try {
     const { assignmentId } = req.params;
     const {
@@ -2068,7 +2126,7 @@ router.delete('/:assignmentId', async (req, res) => {
     // Delete the assignment
     await query('DELETE FROM assignments WHERE id = ?', [assignmentId]);
 
-    console.log(` Assignment ${assignmentId} deleted successfully with all related data`);
+    console.log(`✅ Assignment ${assignmentId} deleted successfully with all related data`);
 
     res.json({
       success: true,
@@ -2268,11 +2326,8 @@ router.get('/debug/:assignmentId/members', async (req, res) => {
   }
 });
 
-// Add comment to assignment
-router.post('/:id/comments', assignmentController.addComment);
-
-// Add reply to comment
-router.post('/:id/comments/:commentId/reply', assignmentController.addReply);
+// NOTE: Comment and reply routes are already registered above with full inline logic.
+// The assignmentController duplicates are intentionally removed to prevent route conflicts.
 
 console.log('✅ Assignments routes registered, including comments endpoint');
 module.exports = router;

@@ -44,8 +44,8 @@ const createAdminNotification = async (fileId, type, title, message, actionById,
     let count = 0;
     for (const admin of admins) {
       // Don't notify the admin who performed the action (if applicable)
-      if (actionById && admin.id === actionById) {
-        console.log(`ℹ️ Skipped notifying admin ${admin.id} (${admin.username}) - they performed the action`);
+      if (actionById && admin.id === parseInt(actionById, 10)) {
+        console.log(`ℹ️ Skipped notifying admin ${admin.id} (${admin.username || 'unknown'}) - they performed the action`);
         continue;
       }
 

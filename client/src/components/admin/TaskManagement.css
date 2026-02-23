@@ -721,3 +721,25 @@
 .task-management-container.file-opening-cursor * {
   cursor: wait !important;
 }
+
+/* =================================================================
+   FOLDER STYLING FOR ADMIN
+   ================================================================= */
+
+.admin-folder-item {
+  background-color: #DBEAFE !important;
+  transition: background-color 0.2s ease;
+}
+
+.admin-folder-item:hover {
+  background-color: #BFDBFE !important;
+}
+
+.admin-folder-file-item {
+  background-color: #fafafa !important;
+  margin-left: 40px;
+}
+
+.admin-folder-file-item:hover {
+  background-color: #f3f4f6 !important;
+}

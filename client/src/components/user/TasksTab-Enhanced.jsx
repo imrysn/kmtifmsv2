@@ -41,7 +41,6 @@ const TasksTab = ({
   const fileInputRef = useRef(null);
   const folderInputRef = useRef(null);
   const [uploadMode, setUploadMode] = useState('files'); // 'files' or 'folder'
-  const [showReplies, setShowReplies] = useState({}); // Track which comments have visible replies renamed to visibleReplies
   const [visibleReplies, setVisibleReplies] = useState({});
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [fileToDelete, setFileToDelete] = useState(null);
@@ -107,10 +106,13 @@ const TasksTab = ({
   // We need to make sure openCommentsModal and other functions are available.
   // Since we are inside the component, we can pass the functions we defined.
 
-  // NOTE: In this file, toggleComments acts as openCommentsModal
+  // NOTE: openCommentsModal is the stable interface for useSmartNavigation.
+  // Uses state setters directly (stable refs) so the callback never changes reference.
   const openCommentsModal = useCallback((assignment) => {
-    toggleComments(assignment);
-  }, []); // Wrapper to match expected interface
+    console.log('🔵 openCommentsModal called for:', assignment.title);
+    setCurrentCommentsAssignment(assignment);
+    setShowCommentsModal(true);
+  }, []); // empty deps — setters are stable React guarantees
 
   useSmartNavigation({
     role: 'user',
@@ -124,8 +126,9 @@ const TasksTab = ({
     openCommentsModal: openCommentsModal,
     setVisibleReplies,
     showCommentsModal,
-    selectedItem: currentCommentsAssignment, // Note: currentCommentsAssignment instead of selectedItem
-    comments
+    selectedItem: currentCommentsAssignment,
+    // Pass the comments array for the currently open assignment (not the whole object)
+    comments: comments[currentCommentsAssignment?.id] || []
   });
 
   useEffect(() => {
@@ -224,11 +227,11 @@ const TasksTab = ({
     }
   };
 
-  const toggleComments = (assignment) => {
+  function toggleComments(assignment) {
     console.log('🔵 toggleComments called for:', assignment.title);
     setCurrentCommentsAssignment(assignment);
     setShowCommentsModal(true);
-  };
+  }
 
   const postReply = async (assignmentId, commentId) => {
     const replyTextValue = replyText[commentId]?.trim();
@@ -1106,37 +1109,17 @@ const TasksTab = ({
                                     backgroundColor: isExpanded ? '#BFDBFE' : '#DBEAFE'
                                   }}
                                 >
-                                  <div style={{
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: '12px',
-                                  }}>
-                                    <div style={{ fontSize: '48px', flexShrink: 0 }}>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                    <div style={{ fontSize: '32px', flexShrink: 0 }}>
                                       {isExpanded ? '📂' : '📁'}
                                     </div>
                                     <div style={{ flex: 1, minWidth: 0 }}>
-                                      <div style={{
-                                        fontWeight: '600',
-                                        fontSize: '15px',
-                                        color: '#111827',
-                                        marginBottom: '4px',
-                                      }}>
+                                      <div style={{ fontWeight: '600', fontSize: '14px', color: '#111827' }}>
                                         {folderName}
                                       </div>
-                                      <div style={{
-                                        fontSize: '13px',
-                                        color: '#6b7280',
-                                      }}>
-                                        by <span style={{ fontWeight: '500' }}>{folderFiles[0].submitter_name || user.fullName || user.username}</span> • {formatDate(folderFiles[0].submitted_at || folderFiles[0].uploaded_at)}
+                                      <div style={{ fontSize: '12px', color: '#6b7280' }}>
+                                        Submitted by <span style={{ fontWeight: '500' }}>{folderFiles[0].submitter_name || user.fullName || user.username}</span> • {folderFiles.length} files
                                       </div>
-                                    </div>
-                                    <div style={{
-                                      fontSize: '20px',
-                                      color: '#9ca3af',
-                                      transform: isExpanded ? 'rotate(90deg)' : 'rotate(0deg)',
-                                      transition: 'transform 0.2s'
-                                    }}>
-                                      ▶
                                     </div>
                                   </div>
                                 </div>

@@ -898,66 +898,162 @@ const TaskManagement = ({
                     {assignment.recent_submissions && assignment.recent_submissions.length > 0 ? (
                       <div className="admin-submitted-file">
                         <div className="admin-file-label admin-submitted-label">📎 Submitted Files ({assignment.recent_submissions.length}):</div>
-                        {(expandedAttachments[assignment.id]
-                          ? assignment.recent_submissions
-                          : assignment.recent_submissions.slice(0, 5)
-                        ).map((file, index) => (
-                          <div
-                            key={file.id}
-                            data-file-id={file.id}
-                            className="admin-file-item"
-                            onClick={() => {
-                              setFileToOpen(file)
-                              setShowOpenFileConfirmation(true)
-                            }}
-                            style={{
-                              cursor: 'pointer',
-                              marginBottom: index < (expandedAttachments[assignment.id] ? assignment.recent_submissions.length : Math.min(5, assignment.recent_submissions.length)) - 1 ? '8px' : '0'
-                            }}
-                          >
-                            <FileIcon
-                              fileType={file.original_name.split('.').pop()}
-                              size="small"
-                              className="admin-file-icon"
-                            />
-                            <div className="admin-file-details">
-                              <div className="admin-file-name">{file.original_name}</div>
-                              <div className="admin-file-meta">
-                                Submitted by <span className="admin-file-submitter">{file.fullName || file.username}</span> on {formatDate(file.submitted_at)}
-                                {file.tag && (
-                                  <span style={{
-                                    backgroundColor: '#dbeafe',
-                                    color: '#1e40af',
-                                    padding: '4px 10px',
-                                    borderRadius: '12px',
-                                    fontSize: '11px',
-                                    fontWeight: '600',
-                                    border: '1px solid #93c5fd',
-                                    display: 'inline-flex',
-                                    alignItems: 'center',
-                                    gap: '4px',
-                                    marginLeft: '8px'
-                                  }}>
-                                    🏷️ {file.tag}
-                                  </span>
-                                )}
-                                <span className={`admin-file-status ${file.status === 'uploaded' ? 'uploaded' :
-                                  file.status === 'team_leader_approved' ? 'team-leader-approved' :
-                                    file.status === 'final_approved' ? 'final-approved' :
-                                      file.status === 'rejected_by_team_leader' || file.status === 'rejected_by_admin' ? 'rejected' :
-                                        'uploaded'
-                                  }`}>
-                                  {file.status === 'uploaded' ? 'PENDING TEAM LEADER' :
-                                    file.status === 'team_leader_approved' ? 'PENDING ADMIN' :
-                                      file.status === 'final_approved' ? '✓ APPROVED' :
-                                        file.status === 'rejected_by_team_leader' ? '✗ REJECTED' :
-                                          file.status === 'rejected_by_admin' ? '✗ REJECTED' :
-                                            'DELETED by user'}
-                                </span>
-                              </div>
-                            </div>
-                          </div>
-                        ))}
+                        {(() => {
+                          const submissionsToDisplay = expandedAttachments[assignment.id]
+                            ? assignment.recent_submissions
+                            : assignment.recent_submissions.slice(0, 5)
+                          const { folders, individualFiles } = groupFilesByFolder(submissionsToDisplay)
+                          
+                          return (
+                            <>
+                              {Object.keys(folders).map((folderName) => {
+                                const folderFiles = folders[folderName]
+                                const isExpanded = expandedFolders[`${assignment.id}-${folderName}`]
+                                
+                                return (
+                                  <div key={`folder-${folderName}`}>
+                                    <div
+                                      className="admin-file-item admin-folder-item"
+                                      onClick={(e) => {
+                                        e.stopPropagation()
+                                        toggleFolder(assignment.id, folderName)
+                                      }}
+                                      style={{ cursor: 'pointer', backgroundColor: isExpanded ? '#f3f4f6' : '#f9fafb', marginBottom: '8px' }}
+                                    >
+                                      <div style={{ fontSize: '32px' }}>
+                                        {isExpanded ? '📂' : '📁'}
+                                      </div>
+                                      <div className="admin-file-details">
+                                        <div className="admin-file-name" style={{ fontWeight: '600' }}>
+                                          {folderName}
+                                        </div>
+                                        <div className="admin-file-meta">
+                                          Submitted by <span className="admin-file-submitter">{folderFiles[0].fullName || folderFiles[0].username}</span> • {folderFiles.length} files
+                                        </div>
+                                      </div>
+                                    </div>
+                                    
+                                    {isExpanded && folderFiles.map((file) => (
+                                      <div
+                                        key={file.id}
+                                        data-file-id={file.id}
+                                        className="admin-file-item admin-folder-file-item"
+                                        onClick={(e) => {
+                                          e.stopPropagation()
+                                          setFileToOpen(file)
+                                          setShowOpenFileConfirmation(true)
+                                        }}
+                                        style={{ marginLeft: '40px', backgroundColor: '#fafafa', cursor: 'pointer', marginBottom: '8px' }}
+                                      >
+                                        <FileIcon
+                                          fileType={file.original_name.split('.').pop()}
+                                          size="small"
+                                          className="admin-file-icon"
+                                        />
+                                        <div className="admin-file-details">
+                                          <div className="admin-file-name">{file.relative_path || file.original_name}</div>
+                                          <div className="admin-file-meta">
+                                            Submitted by <span className="admin-file-submitter">{file.fullName || file.username}</span> on {formatDate(file.submitted_at)}
+                                            {file.tag && (
+                                              <span style={{
+                                                backgroundColor: '#dbeafe',
+                                                color: '#1e40af',
+                                                padding: '4px 10px',
+                                                borderRadius: '12px',
+                                                fontSize: '11px',
+                                                fontWeight: '600',
+                                                border: '1px solid #93c5fd',
+                                                display: 'inline-flex',
+                                                alignItems: 'center',
+                                                gap: '4px',
+                                                marginLeft: '8px'
+                                              }}>
+                                                🏷️ {file.tag}
+                                              </span>
+                                            )}
+                                            <span className={`admin-file-status ${
+                                              file.status === 'uploaded' ? 'uploaded' :
+                                                file.status === 'team_leader_approved' ? 'team-leader-approved' :
+                                                  file.status === 'final_approved' ? 'final-approved' :
+                                                    file.status === 'rejected_by_team_leader' || file.status === 'rejected_by_admin' ? 'rejected' :
+                                                      'uploaded'
+                                              }`}>
+                                              {file.status === 'uploaded' ? 'PENDING TEAM LEADER' :
+                                                file.status === 'team_leader_approved' ? 'PENDING ADMIN' :
+                                                  file.status === 'final_approved' ? '✓ APPROVED' :
+                                                    file.status === 'rejected_by_team_leader' ? '✗ REJECTED' :
+                                                      file.status === 'rejected_by_admin' ? '✗ REJECTED' :
+                                                        'DELETED by user'}
+                                            </span>
+                                          </div>
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                )
+                              })}
+                              
+                              {individualFiles.map((file, index) => (
+                                <div
+                                  key={file.id}
+                                  data-file-id={file.id}
+                                  className="admin-file-item"
+                                  onClick={() => {
+                                    setFileToOpen(file)
+                                    setShowOpenFileConfirmation(true)
+                                  }}
+                                  style={{
+                                    cursor: 'pointer',
+                                    marginBottom: index < individualFiles.length - 1 ? '8px' : '0'
+                                  }}
+                                >
+                                  <FileIcon
+                                    fileType={file.original_name.split('.').pop()}
+                                    size="small"
+                                    className="admin-file-icon"
+                                  />
+                                  <div className="admin-file-details">
+                                    <div className="admin-file-name">{file.original_name}</div>
+                                    <div className="admin-file-meta">
+                                      Submitted by <span className="admin-file-submitter">{file.fullName || file.username}</span> on {formatDate(file.submitted_at)}
+                                      {file.tag && (
+                                        <span style={{
+                                          backgroundColor: '#dbeafe',
+                                          color: '#1e40af',
+                                          padding: '4px 10px',
+                                          borderRadius: '12px',
+                                          fontSize: '11px',
+                                          fontWeight: '600',
+                                          border: '1px solid #93c5fd',
+                                          display: 'inline-flex',
+                                          alignItems: 'center',
+                                          gap: '4px',
+                                          marginLeft: '8px'
+                                        }}>
+                                          🏷️ {file.tag}
+                                        </span>
+                                      )}
+                                      <span className={`admin-file-status ${
+                                        file.status === 'uploaded' ? 'uploaded' :
+                                          file.status === 'team_leader_approved' ? 'team-leader-approved' :
+                                            file.status === 'final_approved' ? 'final-approved' :
+                                              file.status === 'rejected_by_team_leader' || file.status === 'rejected_by_admin' ? 'rejected' :
+                                                'uploaded'
+                                        }`}>
+                                        {file.status === 'uploaded' ? 'PENDING TEAM LEADER' :
+                                          file.status === 'team_leader_approved' ? 'PENDING ADMIN' :
+                                            file.status === 'final_approved' ? '✓ APPROVED' :
+                                              file.status === 'rejected_by_team_leader' ? '✗ REJECTED' :
+                                                file.status === 'rejected_by_admin' ? '✗ REJECTED' :
+                                                  'DELETED by user'}
+                                      </span>
+                                    </div>
+                                  </div>
+                                </div>
+                              ))}
+                            </>
+                          )
+                        })()}
                         {assignment.recent_submissions.length > 5 && (
                           <button
                             className="admin-attachment-toggle-btn"

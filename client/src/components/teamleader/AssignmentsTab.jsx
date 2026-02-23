@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import React, { useState, useEffect, useRef, useCallback } from 'react'
 import { API_BASE_URL } from '@/config/api'
 import './css/AssignmentsTab.css'
 import { CardSkeleton } from '../common/InlineSkeletonLoader'
@@ -43,6 +43,7 @@ const AssignmentsTab = ({
   const [commentCounts, setCommentCounts] = useState({}) // Track comment counts per assignment
   const [showOpenFileConfirmation, setShowOpenFileConfirmation] = useState(false)
   const [fileToOpen, setFileToOpen] = useState(null)
+  const [expandedAssignmentFolders, setExpandedAssignmentFolders] = useState({}) // Track which folders are expanded in assignments
 
   // Handle clicking outside to close menu
   useEffect(() => {
@@ -58,11 +59,19 @@ const AssignmentsTab = ({
     }
   }, [showMenuForAssignment])
 
-  // Fetch comment counts for all assignments
+  // Seed comment counts from pre-loaded assignment data to avoid redundant API calls.
+  // fetchCommentCount is still called after posting to keep counts fresh.
   useEffect(() => {
+    const initial = {}
     assignments.forEach(assignment => {
-      fetchCommentCount(assignment.id)
+      // Use server-provided comment_count if available, otherwise fetch
+      if (assignment.comment_count !== undefined) {
+        initial[assignment.id] = assignment.comment_count
+      } else {
+        fetchCommentCount(assignment.id)
+      }
     })
+    setCommentCounts(prev => ({ ...prev, ...initial }))
   }, [assignments])
 
   const fetchCommentCount = async (assignmentId) => {
@@ -334,6 +343,27 @@ const AssignmentsTab = ({
     return name.substring(0, 2).toUpperCase()
   }
 
+  // Helper function to group files by folder
+  const groupFilesByFolder = useCallback((files) => {
+    const folders = {}
+    const individualFiles = []
+
+    files.forEach(file => {
+      if (file.folder_name) {
+        // File is part of a folder
+        if (!folders[file.folder_name]) {
+          folders[file.folder_name] = []
+        }
+        folders[file.folder_name].push(file)
+      } else {
+        // Individual file
+        individualFiles.push(file)
+      }
+    })
+
+    return { folders, individualFiles }
+  }, [])
+
   const formatFileSize = (bytes) => {
     if (!bytes || bytes === 0) return '0 Bytes'
     const k = 1024
@@ -553,10 +583,114 @@ const AssignmentsTab = ({
                       <div className="tl-assignment-file-label">
                         📎 Submitted Files ({assignment.recent_submissions.length})
                       </div>
-                      {(expandedAttachments[assignment.id]
-                        ? assignment.recent_submissions
-                        : assignment.recent_submissions.slice(0, 5)
-                      ).map((submission) => (
+                      {(() => {
+                        // Group files by folder
+                        const submissionsToDisplay = expandedAttachments[assignment.id]
+                          ? assignment.recent_submissions
+                          : assignment.recent_submissions.slice(0, 5)
+                        const { folders, individualFiles } = groupFilesByFolder(submissionsToDisplay)
+                        
+                        return (
+                          <>
+                            {/* Render Folders */}
+                            {Object.keys(folders).map((folderName) => {
+                              const folderFiles = folders[folderName]
+                              const isExpanded = expandedAssignmentFolders[`${assignment.id}-${folderName}`]
+                              
+                              return (
+                                <React.Fragment key={`folder-${folderName}`}>
+                                  {/* Folder Header */}
+                                  <div
+                                    className="tl-assignment-file-item tl-folder-item"
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      setExpandedAssignmentFolders(prev => ({
+                                        ...prev,
+                                        [`${assignment.id}-${folderName}`]: !prev[`${assignment.id}-${folderName}`]
+                                      }))
+                                    }}
+                                    style={{ cursor: 'pointer', backgroundColor: isExpanded ? '#BFDBFE' : '#DBEAFE' }}
+                                  >
+                                    <div style={{ fontSize: '32px' }}>
+                                      {isExpanded ? '📂' : '📁'}
+                                    </div>
+                                    <div className="tl-assignment-file-details">
+                                      <div className="tl-assignment-file-name" style={{ fontWeight: '600' }}>
+                                        {folderName}
+                                      </div>
+                                      <div className="tl-assignment-file-meta">
+                                        <span>
+                                          by <span className="tl-assignment-file-submitter">
+                                            {folderFiles[0].fullName || folderFiles[0].username || 'Unknown'}
+                                          </span>
+                                        </span>
+                                        <span>{folderFiles.length} files</span>
+                                      </div>
+                                    </div>
+                                  </div>
+                                  
+                                  {/* Folder Contents */}
+                                  {isExpanded && folderFiles.map((file) => (
+                                    <div
+                                      key={file.id}
+                                      data-file-id={file.id}
+                                      className="tl-assignment-file-item tl-folder-file-item"
+                                      onClick={(e) => {
+                                        e.stopPropagation()
+                                        if (openReviewModal && file.id) {
+                                          openReviewModal(file, null)
+                                        }
+                                      }}
+                                      style={{ marginLeft: '40px', backgroundColor: '#fafafa' }}
+                                    >
+                                      <FileIcon
+                                        fileType={(file.original_name || file.file_name).split('.').pop()}
+                                        size="small"
+                                        className="tl-assignment-file-icon"
+                                      />
+                                      <div className="tl-assignment-file-details">
+                                        <div className="tl-assignment-file-name">
+                                          {file.relative_path || file.original_name || file.file_name}
+                                        </div>
+                                        <div className="tl-assignment-file-meta">
+                                          <span>
+                                            by <span className="tl-assignment-file-submitter">
+                                              {file.fullName || file.username || 'Unknown'}
+                                            </span>
+                                          </span>
+                                          {file.tag && (
+                                            <span className="tl-assignment-file-tag">
+                                              🏷️ {file.tag}
+                                            </span>
+                                          )}
+                                          {file.description && (
+                                            <span className="tl-assignment-file-description">
+                                              {file.description}
+                                            </span>
+                                          )}
+                                          <span className={`tl-assignment-file-status ${file.status === 'uploaded' ? 'uploaded' :
+                                            file.status === 'team_leader_approved' ? 'team-leader-approved' :
+                                              file.status === 'final_approved' ? 'final-approved' :
+                                                file.status === 'rejected_by_team_leader' || file.status === 'rejected_by_admin' ? 'rejected' :
+                                                  'uploaded'
+                                            }`}>
+                                            {file.status === 'uploaded' ? 'NEW' :
+                                              file.status === 'team_leader_approved' ? 'PENDING ADMIN' :
+                                                file.status === 'final_approved' ? '✓ APPROVED' :
+                                                  file.status === 'rejected_by_team_leader' ? '✗ REJECTED' :
+                                                    file.status === 'rejected_by_admin' ? '✗ REJECTED' :
+                                                      'PENDING'}
+                                          </span>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  ))}
+                                </React.Fragment>
+                              )
+                            })}
+                            
+                            {/* Render Individual Files */}
+                            {individualFiles.map((submission) => (
                         <div
                           key={submission.id}
                           data-file-id={submission.id}
@@ -610,6 +744,9 @@ const AssignmentsTab = ({
                           </div>
                         </div>
                       ))}
+                          </>
+                        )
+                      })()}
                       {assignment.recent_submissions.length > 5 && (
                         <button
                           className="tl-attachment-toggle-btn"
@@ -783,7 +920,7 @@ const AssignmentsTab = ({
                 fileUrl = `${API_BASE_URL}${fileToOpen.file_path}`;
               }
 
-              window.open(fileUrl, '_blank', 'nullable,noreferrer');
+              window.open(fileUrl, '_blank', 'noopener,noreferrer');
             }
           } catch (error) {
             console.error('Error opening file:', error);
