@@ -546,8 +546,26 @@ const TasksTab = ({
       console.log('Response data:', data);
 
       if (data.success) {
-        console.log('✅ Server confirmed deletion');
-        setSuccessModal({ isOpen: true, title: 'Success', message: 'File deleted successfully', type: 'success' });
+        console.log('✅ Server confirmed assignment unlink, now deleting file from My Files...');
+        
+        // Also delete the actual file from the files table + storage
+        try {
+          const fileDeleteResponse = await fetch(`${API_BASE_URL}/api/files/${fileId}`, {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ adminId: user.id, adminUsername: user.username, adminRole: user.role, team: user.team })
+          });
+          const fileDeleteData = await fileDeleteResponse.json();
+          if (fileDeleteData.success) {
+            console.log('✅ File also deleted from My Files');
+          } else {
+            console.warn('⚠️ File unlinked from task but could not delete from My Files:', fileDeleteData.message);
+          }
+        } catch (fileDeleteErr) {
+          console.warn('⚠️ Error deleting file from My Files:', fileDeleteErr);
+        }
+
+        setSuccessModal({ isOpen: true, title: 'Removed', message: 'File removed successfully', type: 'error' });
         
         // Refresh user files after a short delay to ensure server has processed
         setTimeout(() => {
@@ -1121,6 +1139,41 @@ const TasksTab = ({
                                         Submitted by <span style={{ fontWeight: '500' }}>{folderFiles[0].submitter_name || user.fullName || user.username}</span> • {folderFiles.length} files
                                       </div>
                                     </div>
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setFileToDelete({ assignmentId: assignment.id, fileId: null, fileName: folderName, isFolderDelete: true, folderFiles });
+                                        setShowDeleteModal(true);
+                                      }}
+                                      style={{
+                                        background: 'transparent',
+                                        color: '#9ca3af',
+                                        border: 'none',
+                                        borderRadius: '8px',
+                                        padding: '8px',
+                                        fontSize: '16px',
+                                        cursor: 'pointer',
+                                        flexShrink: 0,
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        transition: 'all 0.2s',
+                                        lineHeight: 1,
+                                        width: '32px',
+                                        height: '32px'
+                                      }}
+                                      onMouseEnter={(e) => {
+                                        e.currentTarget.style.backgroundColor = '#fee2e2';
+                                        e.currentTarget.style.color = '#dc2626';
+                                      }}
+                                      onMouseLeave={(e) => {
+                                        e.currentTarget.style.backgroundColor = 'transparent';
+                                        e.currentTarget.style.color = '#9ca3af';
+                                      }}
+                                      title={`Remove folder "${folderName}"`}
+                                    >
+                                      ×
+                                    </button>
                                   </div>
                                 </div>
 
@@ -1755,7 +1808,7 @@ const TasksTab = ({
             <div className="tasks-modal-header">
               <h3 style={{ color: '#dc2626', display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <span style={{ fontSize: '24px' }}>⚠️</span>
-                Delete File
+                {fileToDelete.isFolderDelete ? 'Delete Folder' : 'Delete File'}
               </h3>
               <button className="tasks-modal-close" onClick={() => setShowDeleteModal(false)}>×</button>
             </div>
@@ -1763,7 +1816,10 @@ const TasksTab = ({
             <div className="tasks-modal-body">
               <div style={{ padding: '20px 0' }}>
                 <p style={{ fontSize: '15px', color: '#374151', marginBottom: '16px', lineHeight: '1.6' }}>
-                  Are you sure you want to permanently delete this file?
+                  {fileToDelete.isFolderDelete
+                    ? `Are you sure you want to delete all ${fileToDelete.folderFiles?.length} files in this folder?`
+                    : 'Are you sure you want to permanently delete this file?'
+                  }
                 </p>
                 <div style={{
                   backgroundColor: '#fee2e2',
@@ -1773,14 +1829,14 @@ const TasksTab = ({
                   marginBottom: '16px'
                 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <span style={{ fontSize: '16px' }}>📄</span>
+                    <span style={{ fontSize: '16px' }}>{fileToDelete.isFolderDelete ? '📁' : '📄'}</span>
                     <span style={{ fontSize: '14px', fontWeight: '500', color: '#991b1b' }}>
                       {fileToDelete.fileName}
                     </span>
                   </div>
                 </div>
                 <p style={{ fontSize: '13px', color: '#6b7280', margin: 0 }}>
-                  This action will permanently delete the file from the database and storage. This cannot be undone.
+                  This action will permanently delete {fileToDelete.isFolderDelete ? 'all files in the folder' : 'the file'} from the database and storage. This cannot be undone.
                 </p>
               </div>
             </div>
@@ -1805,7 +1861,39 @@ const TasksTab = ({
                 Cancel
               </button>
               <button
-                onClick={() => handleRemoveSubmittedFile(fileToDelete.assignmentId, fileToDelete.fileId)}
+                onClick={async () => {
+                  if (fileToDelete.isFolderDelete) {
+                    const { assignmentId, folderFiles } = fileToDelete;
+                    setShowDeleteModal(false);
+                    setFileToDelete(null);
+                    // Remove all folder files from UI immediately
+                    setAssignments(prev => prev.map(a => {
+                      if (a.id !== assignmentId) return a;
+                      const folderFileIds = new Set(folderFiles.map(f => f.id));
+                      return { ...a, submitted_files: a.submitted_files.filter(f => !folderFileIds.has(f.id)) };
+                    }));
+                    // Delete each file from assignment AND from My Files
+                    for (const file of folderFiles) {
+                      try {
+                        await fetch(`${API_BASE_URL}/api/assignments/${assignmentId}/files/${file.id}`, {
+                          method: 'DELETE',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ userId: user.id })
+                        });
+                        // Also delete the actual file record
+                        await fetch(`${API_BASE_URL}/api/files/${file.id}`, {
+                          method: 'DELETE',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ adminId: user.id, adminUsername: user.username, adminRole: user.role, team: user.team })
+                        });
+                      } catch (e) { console.error('Error deleting folder file:', e); }
+                    }
+                    setSuccessModal({ isOpen: true, title: 'Removed', message: 'Folder removed successfully', type: 'error' });
+                    setTimeout(() => fetchUserFiles(), 500);
+                  } else {
+                    handleRemoveSubmittedFile(fileToDelete.assignmentId, fileToDelete.fileId);
+                  }
+                }}
                 style={{
                   padding: '10px 20px',
                   borderRadius: '8px',
@@ -1824,7 +1912,7 @@ const TasksTab = ({
                 onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#dc2626'}
               >
                 <span>🗑️</span>
-                Delete File
+                {fileToDelete.isFolderDelete ? 'Delete Folder' : 'Delete File'}
               </button>
             </div>
           </div>

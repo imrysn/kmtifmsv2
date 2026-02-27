@@ -11,8 +11,7 @@ const CreateAssignmentModal = ({
   createAssignment,
   currentUserId,
   isEditMode = false,
-  onClose,
-  teams
+  onClose
 }) => {
   const [showMemberDropdown, setShowMemberDropdown] = React.useState(false)
   const [showFileTypeDropdown, setShowFileTypeDropdown] = React.useState(false)
@@ -266,9 +265,6 @@ const CreateAssignmentModal = ({
                       }}
                     >
                       {teamMembers.filter(m => {
-                        // If multiple teams exist, filter by selected team.
-                        // If no team selected yet (and multiple exist), show none (disabled above) or all?
-                        // If only 1 team exists, show all.
                         if (teams && teams.length > 1) {
                           return m.team === assignmentForm.selectedTeam;
                         }
@@ -277,7 +273,6 @@ const CreateAssignmentModal = ({
                         teamMembers
                           .filter(m => {
                             if (teams && teams.length > 1) {
-                              // Always include the current user (Team Leader) in the options
                               if (m.id === currentUserId) return true;
                               return m.team === assignmentForm.selectedTeam;
                             }
@@ -305,15 +300,13 @@ const CreateAssignmentModal = ({
                               </span>
                             </label>
                           ))
-                        }
-                        return (
-                          <div className="tl-member-dropdown-empty">
-                            {teams && teams.length > 1 && !assignmentForm.selectedTeam
-                              ? 'Please select a team first'
-                              : 'No team members available'}
-                          </div>
-                        )
-                      })()}
+                      ) : (
+                        <div className="tl-member-dropdown-empty">
+                          {teams && teams.length > 1 && !assignmentForm.selectedTeam
+                            ? 'Please select a team first'
+                            : 'No team members available'}
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
