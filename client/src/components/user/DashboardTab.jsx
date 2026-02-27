@@ -43,6 +43,10 @@ const DashboardTab = ({ user, files, setActiveTab, onOpenFile, onNavigateToTasks
         fetch(`${API_BASE_URL}/api/notifications/user/${user.id}`)
       ]);
 
+      if (!assignmentsRes.ok || !teamTasksRes.ok || !notificationsRes.ok) {
+        throw new Error('One or more API requests failed');
+      }
+
       const [assignmentsData, teamTasksData, notificationsData] = await Promise.all([
         assignmentsRes.json(),
         teamTasksRes.json(),

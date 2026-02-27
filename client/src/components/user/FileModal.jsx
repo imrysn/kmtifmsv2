@@ -36,9 +36,10 @@ const FileModal = memo(({
   if (!showFileModal || !selectedFile) return null;
 
   const getStatusBadgeClass = (status, currentStage) => {
+    if (!status) return 'status-uploaded';
     if (status === 'final_approved') return 'status-approved';
     if (status.includes('rejected')) return 'status-rejected';
-    if (currentStage.includes('pending')) return 'status-pending';
+    if (currentStage && currentStage.includes('pending')) return 'status-pending';
     return 'status-uploaded';
   };
 
@@ -55,7 +56,7 @@ const FileModal = memo(({
       case 'rejected_by_admin':
         return 'Rejected by Admin';
       default:
-        return status.charAt(0).toUpperCase() + status.slice(1).replace('_', ' ');
+        return status ? status.charAt(0).toUpperCase() + status.slice(1).replace('_', ' ') : 'Unknown';
     }
   };
 
@@ -72,7 +73,7 @@ const FileModal = memo(({
       case 'rejected_by_admin':
         return 'Rejected by Admin';
       default:
-        return currentStage.charAt(0).toUpperCase() + currentStage.slice(1).replace('_', ' ');
+        return currentStage ? currentStage.charAt(0).toUpperCase() + currentStage.slice(1).replace('_', ' ') : 'Unknown';
     }
   };
 

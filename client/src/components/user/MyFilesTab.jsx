@@ -184,7 +184,7 @@ const MyFilesTab = ({
   );
 
   const totalSize = useMemo(() =>
-    submittedFiles.reduce((total, file) => total + file.file_size, 0),
+    submittedFiles.reduce((total, file) => total + (file.file_size || 0), 0),
     [submittedFiles]
   );
 

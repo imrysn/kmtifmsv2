@@ -405,6 +405,8 @@ const TasksTab = ({
       )
     }
 
+    if (!assignment.due_date) return null;
+
     const dueDate = new Date(assignment.due_date)
     const now = new Date()
     // Set both dates to start of day for accurate comparison
