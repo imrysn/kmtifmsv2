@@ -929,12 +929,12 @@
 
 @keyframes slideUp {
   from {
-    transform: translateY(10px) scale(0.98);
+    transform: translateY(8px);
     opacity: 0;
   }
 
   to {
-    transform: translateY(0) scale(1);
+    transform: translateY(0);
     opacity: 1;
   }
 }

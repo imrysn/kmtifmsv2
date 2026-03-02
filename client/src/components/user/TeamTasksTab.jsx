@@ -571,11 +571,10 @@ const TeamTasksTab = ({ user }) => {
                       </div>
                       <div className="team-task-created">
                         {assignment.created_at ? formatDateTime(assignment.created_at) : 'Unknown creation date'}
-                      </div>
-                    </div>
-                  </div>
-
-                </div>
+                        </div>
+                        </div>
+                        </div>
+              </div>
 
                 {/* Task Title */}
                 <div className="team-task-title-section">
@@ -662,43 +661,17 @@ const TeamTasksTab = ({ user }) => {
                               }}
                               style={{ cursor: 'pointer', backgroundColor: isExpanded ? '#BFDBFE' : '#DBEAFE' }}
                             >
-                              <div style={{
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '12px',
-                                justifyContent: 'space-between',
-                                width: '100%'
-                              }}>
-                                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', flex: 1 }}>
-                                  <div style={{ fontSize: '48px', flexShrink: 0 }}>
-                                    {isExpanded ? '📂' : '📁'}
-                                  </div>
-                                  <div style={{ flex: 1, minWidth: 0 }}>
-                                    <div style={{
-                                      fontWeight: '600',
-                                      fontSize: '15px',
-                                      color: '#111827',
-                                      marginBottom: '6px'
-                                    }}>
-                                      {folderName}
-                                    </div>
-                                    <div style={{
-                                      fontSize: '13px',
-                                      color: '#6b7280'
-                                    }}>
-                                      {folderFiles.length} file{folderFiles.length !== 1 ? 's' : ''}
-                                    </div>
-                                  </div>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                <div style={{ fontSize: '32px', flexShrink: 0 }}>
+                                  {isExpanded ? '📂' : '📁'}
                                 </div>
-                                <div style={{
-                                  fontSize: '20px',
-                                  color: '#9ca3af',
-                                  flexShrink: 0,
-                                  transition: 'transform 0.2s ease',
-                                  transform: isExpanded ? 'rotate(90deg)' : 'rotate(0deg)',
-                                  marginRight: '8px'
-                                }}>
-                                  ▶
+                                <div style={{ flex: 1, minWidth: 0 }}>
+                                  <div style={{ fontWeight: '600', fontSize: '14px', color: '#111827' }}>
+                                    {folderName}
+                                  </div>
+                                  <div style={{ fontSize: '12px', color: '#6b7280' }}>
+                                    Submitted by <span style={{ fontWeight: '500' }}>{firstFile.fullName || firstFile.username}</span> • {folderFiles.length} files
+                                  </div>
                                 </div>
                               </div>
                             </div>
@@ -990,11 +963,11 @@ const TeamTasksTab = ({ user }) => {
                       {/* Main Comment */}
                       <div className="comment-item">
                         <div className="comment-avatar">
-                          {getInitials(comment.fullName || comment.username)}
+                        {getInitials(comment.user_fullname || comment.fullName || comment.username)}
                         </div>
                         <div className="comment-content">
-                          <div className="comment-header">
-                            <span className="comment-author">{comment.fullName || comment.username}</span>
+                        <div className="comment-header">
+                        <span className="comment-author">{comment.user_fullname || comment.fullName || comment.username}</span>
                             <span className={`role-badge ${comment.user_role ? comment.user_role.toLowerCase().replace(' ', '-').replace('_', '-') : 'user'}`}>
                               {comment.user_role || 'USER'}
                             </span>
@@ -1031,11 +1004,11 @@ const TeamTasksTab = ({ user }) => {
                           {comment.replies.map(reply => (
                             <div key={reply.id} className="reply-item">
                               <div className="reply-avatar">
-                                {getInitials(reply.fullName || reply.username)}
+                                {getInitials(reply.user_fullname || reply.fullName || reply.username)}
                               </div>
                               <div className="reply-content">
                                 <div className="reply-header">
-                                  <span className="reply-author">{reply.fullName || reply.username}</span>
+                                  <span className="reply-author">{reply.user_fullname || reply.fullName || reply.username}</span>
                                   <span className={`role-badge ${reply.user_role ? reply.user_role.toLowerCase().replace(' ', '-').replace('_', '-') : 'user'}`}>
                                     {reply.user_role || 'USER'}
                                   </span>

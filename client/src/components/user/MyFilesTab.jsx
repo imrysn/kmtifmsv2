@@ -19,6 +19,7 @@ const MyFilesTab = ({
   const [deleteModal, setDeleteModal] = useState({ isOpen: false, fileId: null, fileName: '', isFolder: false, folderName: null, folderFiles: [] });
   const [openFileModal, setOpenFileModal] = useState({ isOpen: false, file: null });
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isOpeningFile, setIsOpeningFile] = useState(false);
   const [expandedFolders, setExpandedFolders] = useState({});
 
   const submittedFiles = useMemo(() =>
@@ -108,17 +109,20 @@ const MyFilesTab = ({
   }, []);
 
   const handleOpenFileConfirm = useCallback(async () => {
-    if (openFileModal.file) {
+    if (openFileModal.file && !isOpeningFile) {
+      setIsOpeningFile(true);
       await openFile(openFileModal.file);
+      setIsOpeningFile(false);
       setOpenFileModal({ isOpen: false, file: null });
       document.body.style.overflow = '';
     }
-  }, [openFileModal.file, openFile]);
+  }, [openFileModal.file, openFile, isOpeningFile]);
 
   const handleOpenFileCancel = useCallback(() => {
+    if (isOpeningFile) return;
     setOpenFileModal({ isOpen: false, file: null });
     document.body.style.overflow = '';
-  }, []);
+  }, [isOpeningFile]);
 
   const getStatusDisplayName = useCallback((dbStatus) => {
     if (!dbStatus) return 'Pending';
@@ -180,13 +184,20 @@ const MyFilesTab = ({
   );
 
   const totalSize = useMemo(() =>
-    submittedFiles.reduce((total, file) => total + file.file_size, 0),
+    submittedFiles.reduce((total, file) => total + (file.file_size || 0), 0),
     [submittedFiles]
   );
 
   useEffect(() => {
     resetPagination();
   }, [filteredFiles, itemsPerPage, resetPagination]);
+
+  // Cleanup: ensure body overflow is restored if component unmounts with modal open
+  useEffect(() => {
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, []);
 
   const handlePageChange = useCallback((page) => {
     goToPage(page);
@@ -351,11 +362,15 @@ const MyFilesTab = ({
             <p className="delete-note" style={{ marginTop: '12px' }}>The file will open in your default application.</p>
           </div>
           <div className="delete-modal-footer">
-            <button className="delete-cancel-btn" onClick={handleOpenFileCancel}>
+            <button className="delete-cancel-btn" onClick={handleOpenFileCancel} disabled={isOpeningFile}>
               Cancel
             </button>
-            <button className="delete-confirm-btn" onClick={handleOpenFileConfirm} style={{ backgroundColor: '#3b82f6', borderColor: '#3b82f6' }}>
-              Open File
+            <button className="delete-confirm-btn" onClick={handleOpenFileConfirm} disabled={isOpeningFile} style={{ backgroundColor: '#3b82f6', borderColor: '#3b82f6' }}>
+              {isOpeningFile ? (
+                <><span className="delete-spinner"></span>Opening...</>
+              ) : (
+                'Open File'
+              )}
             </button>
           </div>
         </div>

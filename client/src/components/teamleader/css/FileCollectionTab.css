@@ -105,14 +105,21 @@
   margin-top: 0;
 }
 
-/* Clickable Rows - Exact Copy from Admin */
+/* Clickable Rows */
 .tl-clickable-row {
   cursor: pointer;
-  will-change: background-color;
 }
 
 .tl-clickable-row:hover {
-  background: rgba(0, 0, 0, 0.03);
+  background: rgba(99, 102, 241, 0.04);
+}
+
+.tl-clickable-row:active {
+  background: rgba(99, 102, 241, 0.1);
+}
+
+.tl-clickable-row:active td {
+  color: #4f46e5;
 }
 
 /* File Controls - Exact Copy from Admin */
@@ -170,14 +177,21 @@
   vertical-align: middle;
 }
 
-/* Clickable Rows - Exact Copy from Admin */
+/* Clickable Rows */
 .tl-clickable-row {
   cursor: pointer;
-  will-change: background-color;
 }
 
 .tl-clickable-row:hover {
-  background: rgba(0, 0, 0, 0.03);
+  background: rgba(99, 102, 241, 0.04);
+}
+
+.tl-clickable-row:active {
+  background: rgba(99, 102, 241, 0.1);
+}
+
+.tl-clickable-row:active td {
+  color: #4f46e5;
 }
 
 /* Search Input - Exact Copy from Admin */
@@ -557,6 +571,26 @@
   color: var(--text-tertiary);
   font-size: 1rem;
   font-weight: 500;
+}
+
+/* Folder Rows Styling */
+.tl-folder-row {
+  background-color: #ffffff !important;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.tl-folder-row:hover {
+  background-color: #f9fafb !important;
+}
+
+.tl-folder-file-row {
+  background-color: #ffffff !important;
+}
+
+.tl-folder-file-row:hover {
+  background-color: #f9fafb !important;
 }
 
 /* Responsive Pagination */

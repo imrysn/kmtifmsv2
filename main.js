@@ -595,6 +595,39 @@ function createWindow() {
 
   mainWindow.setMenuBarVisibility(false);
 
+  // ── ZOOM LOCK ── Prevent any zoom in the entire app window
+  mainWindow.webContents.setVisualZoomLevelLimits(1, 1);
+  mainWindow.webContents.setZoomFactor(1);
+
+  // Block Ctrl+Plus / Ctrl+Minus / Ctrl+0 / Ctrl+scroll keyboard shortcuts
+  mainWindow.webContents.on('before-input-event', (event, input) => {
+    if (input.control && (input.key === '+' || input.key === '-' || input.key === '=' || input.key === '0')) {
+      event.preventDefault();
+    }
+  });
+
+  // Re-lock after every navigation (SPA route changes, hot reloads in dev, etc.)
+  mainWindow.webContents.on('did-finish-load', () => {
+    mainWindow.webContents.setVisualZoomLevelLimits(1, 1);
+    mainWindow.webContents.setZoomFactor(1);
+    // Block Ctrl+wheel zoom from inside the renderer process
+    mainWindow.webContents.executeJavaScript(`
+      (function() {
+        if (window.__zoomLocked) return;
+        window.__zoomLocked = true;
+        window.addEventListener('wheel', function(e) {
+          if (e.ctrlKey) e.preventDefault();
+        }, { passive: false, capture: true });
+        window.addEventListener('gesturestart', function(e) {
+          e.preventDefault();
+        }, { passive: false, capture: true });
+        window.addEventListener('gesturechange', function(e) {
+          e.preventDefault();
+        }, { passive: false, capture: true });
+      })()
+    `).catch(() => {});
+  });
+
   mainWindow.once('ready-to-show', () => {
     // Clear splash timeout
     if (splashTimeout) {

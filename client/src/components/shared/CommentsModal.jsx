@@ -225,15 +225,16 @@ const CommentsModal = memo(({
   user,
   highlightUsername = null
 }) => {
-  // Early return for better performance
-  if (!isOpen || !assignment) return null;
-
+  // Must call hooks before any conditional return (Rules of Hooks)
   const handleKeyPress = useCallback((e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       onPostComment(e);
     }
   }, [onPostComment]);
+
+  // Early return after hooks
+  if (!isOpen || !assignment) return null;
 
   return (
     <div className="comments-modal-overlay" onClick={onClose}>

@@ -102,11 +102,18 @@
 /* Clickable Rows */
 .tl-clickable-row {
   cursor: pointer;
-  transition: background-color 0.15s ease;
 }
 
 .tl-clickable-row:hover {
-  background: rgba(0, 0, 0, 0.03);
+  background: rgba(99, 102, 241, 0.04);
+}
+
+.tl-clickable-row:active {
+  background: rgba(99, 102, 241, 0.1);
+}
+
+.tl-clickable-row:active td {
+  color: #4f46e5;
 }
 
 /* Toolbar Styling */
