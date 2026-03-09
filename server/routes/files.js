@@ -1747,6 +1747,7 @@ router.post('/bulk-action', (req, res) => {
   }
 
   console.log(`📋 Bulk ${action} for ${fileIds.length} files by ${reviewerUsername}`);
+  console.log(`🔍 DEBUG bulk-action: reviewerRole='${reviewerRole}', reviewerId=${reviewerId}, fileIds=${JSON.stringify(fileIds)}`);
 
   const now = new Date();
   const nowSql = now.toISOString().slice(0, 19).replace('T', ' ');
@@ -1762,13 +1763,16 @@ router.post('/bulk-action', (req, res) => {
         return;
       }
 
-      const isTeamLeader = reviewerRole === 'team_leader';
-      const isAdmin = reviewerRole === 'admin';
+      const normalizedRole = (reviewerRole || '').toLowerCase().replace(/[^a-z]/g, '_');
+      const isTeamLeader = normalizedRole === 'team_leader';
+      const isAdmin = normalizedRole === 'admin';
       const correctStage = (isTeamLeader && file.current_stage === 'pending_team_leader') ||
         (isAdmin && file.current_stage === 'pending_admin');
 
+      console.log(`🔍 DEBUG file ${fileId}: normalizedRole='${normalizedRole}', isTeamLeader=${isTeamLeader}, file.current_stage='${file.current_stage}', correctStage=${correctStage}`);
+
       if (!correctStage) {
-        results.failed.push({ fileId, reason: 'Incorrect review stage', fileName: file.original_name });
+        results.failed.push({ fileId, reason: `Incorrect review stage: role=${normalizedRole}, stage=${file.current_stage}`, fileName: file.original_name });
         processed++;
         checkComplete();
         return;

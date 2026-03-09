@@ -1147,6 +1147,32 @@ if (ipcMain) {
     }
   });
 
+  ipcMain.handle('folder:openInExplorer', async (event, folderPath) => {
+    try {
+      if (!folderPath || typeof folderPath !== 'string') {
+        return { success: false, error: 'Invalid folder path' };
+      }
+
+      const normalizedPath = path.normalize(folderPath);
+
+      if (!fs.existsSync(normalizedPath)) {
+        return { success: false, error: 'Folder not found' };
+      }
+
+      // If it's a file path, get the parent directory
+      const stats = fs.statSync(normalizedPath);
+      const targetPath = stats.isDirectory() ? normalizedPath : path.dirname(normalizedPath);
+
+      log(LogLevel.DEBUG, `Opening folder in Explorer: ${targetPath}`);
+      // showItemInFolder highlights the item inside explorer
+      shell.showItemInFolder(targetPath);
+      return { success: true };
+    } catch (error) {
+      log(LogLevel.ERROR, 'Error opening folder:', error.message);
+      return { success: false, error: error.message };
+    }
+  });
+
   // Handle window flashing for notifications - DISABLED to prevent blinking
   ipcMain.on('window:flashFrame', (event, shouldFlash) => {
     // DISABLED: Window flashing was causing the entire app to blink

@@ -357,37 +357,59 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
 
     setIsProcessing(true)
     try {
-      // Check if we're editing or creating
-      const url = editingAssignmentId
-        ? `${API_BASE_URL}/api/assignments/${editingAssignmentId}`
-        : `${API_BASE_URL}/api/assignments/create`
+      const hasAttachments = attachedFiles && attachedFiles.length > 0
 
-      const method = editingAssignmentId ? 'PUT' : 'POST'
+      let response
 
-      // Use FormData to handle file uploads
-      const formData = new FormData()
-      formData.append('title', assignmentForm.title)
-      formData.append('description', assignmentForm.description || '')
-      formData.append('dueDate', assignmentForm.dueDate || '')
-      formData.append('fileTypeRequired', assignmentForm.fileTypeRequired || '')
-      formData.append('assignedTo', assignmentForm.assignedMembers.length > 0 ? 'specific' : 'all')
-      formData.append('assignedMembers', JSON.stringify(assignmentForm.assignedMembers))
-      formData.append('teamLeaderId', user.id)
-      formData.append('teamLeaderUsername', user.username)
-      // Use selected team from form, or fallback to user.team if single team
-      formData.append('team', assignmentForm.selectedTeam || user.team)
+      if (hasAttachments) {
+        // Request a one-time nonce from the server before uploading.
+        // This prevents Electron's multipart cache from replaying old uploads.
+        const nonceRes = await fetch(`${API_BASE_URL}/api/assignments/upload-nonce`, { method: 'POST' })
+        const nonceData = await nonceRes.json()
+        if (!nonceData.success) throw new Error('Failed to get upload nonce')
 
-      // Append files if any
-      if (attachedFiles && attachedFiles.length > 0) {
-        attachedFiles.forEach((file) => {
-          formData.append('attachments', file)
+        const url = editingAssignmentId
+          ? `${API_BASE_URL}/api/assignments/${editingAssignmentId}`
+          : `${API_BASE_URL}/api/assignments/create`
+        const method = editingAssignmentId ? 'PUT' : 'POST'
+
+        const formData = new FormData()
+        formData.append('title', assignmentForm.title)
+        formData.append('description', assignmentForm.description || '')
+        formData.append('dueDate', assignmentForm.dueDate || '')
+        formData.append('fileTypeRequired', assignmentForm.fileTypeRequired || '')
+        formData.append('assignedTo', 'specific')
+        formData.append('assignedMembers', JSON.stringify(assignmentForm.assignedMembers))
+        formData.append('teamLeaderId', user.id)
+        formData.append('teamLeaderUsername', user.username)
+        formData.append('team', assignmentForm.selectedTeam || user.team)
+        formData.append('hasAttachments', 'true')
+        formData.append('uploadNonce', nonceData.nonce)
+        attachedFiles.forEach((file) => formData.append('attachments', file))
+
+        response = await fetch(url, { method, body: formData })
+      } else {
+        // No files — send plain JSON to completely bypass multer and avoid Electron cache replay
+        const url = editingAssignmentId
+          ? `${API_BASE_URL}/api/assignments/${editingAssignmentId}/update-members`
+          : `${API_BASE_URL}/api/assignments/create-json`
+
+        response = await fetch(url, {
+          method: editingAssignmentId ? 'PUT' : 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            title: assignmentForm.title,
+            description: assignmentForm.description || '',
+            dueDate: assignmentForm.dueDate || '',
+            fileTypeRequired: assignmentForm.fileTypeRequired || '',
+            assignedTo: 'specific',
+            assignedMembers: assignmentForm.assignedMembers,
+            teamLeaderId: user.id,
+            teamLeaderUsername: user.username,
+            team: assignmentForm.selectedTeam || user.team
+          })
         })
       }
-
-      const response = await fetch(url, {
-        method,
-        body: formData // Don't set Content-Type header, let browser handle it for FormData
-      })
 
       const data = await response.json()
       if (data.success) {
@@ -940,6 +962,7 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
               onClearFileHighlight={() => setHighlightedSubmissionFileId(null)}
               markAssignmentAsDone={markAssignmentAsDone}
               handleEditAssignment={handleEditAssignment}
+              onRefreshAssignments={fetchAssignments}
             />
           </Suspense>
         )
@@ -1108,6 +1131,7 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
               setMemberFiles={setMemberFiles}
               isLoading={isLoading}
               formatFileSize={formatFileSize}
+              user={user}
             />
           </Suspense>
         )}
@@ -1115,6 +1139,7 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
         {showCreateAssignmentModal && (
           <Suspense fallback={<div />}>
             <CreateAssignmentModal
+              key={editingAssignmentId || 'new'}
               showCreateAssignmentModal={showCreateAssignmentModal}
               setShowCreateAssignmentModal={setShowCreateAssignmentModal}
               assignmentForm={assignmentForm}
