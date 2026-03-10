@@ -700,54 +700,33 @@ router.get('/admin', (req, res) => {
   });
 });
 
-// Get all files (Admin only - for comprehensive view) with pagination
+// Get all files (Admin only - for comprehensive view) - no server-side limit so frontend can paginate fully
 router.get('/all', (req, res) => {
-  const page = parseInt(req.query.page) || 1;
-  const limit = parseInt(req.query.limit) || 50;
-  const offset = (page - 1) * limit;
+  console.log(`📁 Getting all files (admin view)`);
 
-  console.log(`📁 Getting all files (admin view) - Page ${page}, Limit ${limit}`);
-
-  // Get total count
-  db.get('SELECT COUNT(*) as total FROM files', [], (err, countResult) => {
-    if (err) {
-      console.error('❌ Error getting all file count:', err);
-      return res.status(500).json({
-        success: false,
-        message: 'Failed to fetch all files'
-      });
-    }
-
-    db.all(
-      `SELECT f.*, fc.comment as latest_comment
-       FROM files f
-       LEFT JOIN file_comments fc ON f.id = fc.file_id AND fc.id = (
-         SELECT MAX(id) FROM file_comments WHERE file_id = f.id
-       )
-       ORDER BY f.uploaded_at DESC LIMIT ? OFFSET ?`,
-      [limit, offset],
-      (err, files) => {
-        if (err) {
-          console.error('❌ Error getting all files:', err);
-          return res.status(500).json({
-            success: false,
-            message: 'Failed to fetch all files'
-          });
-        }
-        console.log(`✅ Retrieved ${files.length} files (all files view)`);
-        res.json({
-          success: true,
-          files,
-          pagination: {
-            page,
-            limit,
-            total: countResult.total,
-            pages: Math.ceil(countResult.total / limit)
-          }
+  db.all(
+    `SELECT f.*, fc.comment as latest_comment
+     FROM files f
+     LEFT JOIN file_comments fc ON f.id = fc.file_id AND fc.id = (
+       SELECT MAX(id) FROM file_comments WHERE file_id = f.id
+     )
+     ORDER BY f.uploaded_at DESC`,
+    [],
+    (err, files) => {
+      if (err) {
+        console.error('❌ Error getting all files:', err);
+        return res.status(500).json({
+          success: false,
+          message: 'Failed to fetch all files'
         });
       }
-    );
-  });
+      console.log(`✅ Retrieved ${files.length} files (all files view)`);
+      res.json({
+        success: true,
+        files
+      });
+    }
+  );
 });
 
 // Team leader approve/reject file

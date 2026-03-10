@@ -617,11 +617,20 @@ const AssignmentsTab = ({
                         📎 Submitted Files ({assignment.recent_submissions.length})
                       </div>
                       {(() => {
-                        // Group files by folder
-                        const submissionsToDisplay = expandedAttachments[assignment.id]
-                          ? assignment.recent_submissions
-                          : assignment.recent_submissions.slice(0, 5)
-                        const { folders, individualFiles } = groupFilesByFolder(submissionsToDisplay)
+                        // Group all files first, then paginate by top-level items (folder = 1 item)
+                        const { folders: allFolders, individualFiles: allIndividualFiles } = groupFilesByFolder(assignment.recent_submissions)
+                        const allTopLevelItems = [
+                          ...Object.keys(allFolders).map(name => ({ type: 'folder', name })),
+                          ...allIndividualFiles.map(f => ({ type: 'file', file: f }))
+                        ]
+                        const totalTopLevel = allTopLevelItems.length
+                        const visibleItems = expandedAttachments[assignment.id]
+                          ? allTopLevelItems
+                          : allTopLevelItems.slice(0, 5)
+                        const visibleFolderNames = new Set(visibleItems.filter(i => i.type === 'folder').map(i => i.name))
+                        const visibleIndividualFiles = visibleItems.filter(i => i.type === 'file').map(i => i.file)
+                        const folders = Object.fromEntries(Object.entries(allFolders).filter(([k]) => visibleFolderNames.has(k)))
+                        const individualFiles = visibleIndividualFiles
                         
                         return (
                           <>
@@ -853,19 +862,19 @@ const AssignmentsTab = ({
                           </div>
                         </div>
                       ))}
+                            {totalTopLevel > 5 && (
+                              <button
+                                className="tl-attachment-toggle-btn"
+                                onClick={() => toggleAttachments(assignment.id)}
+                              >
+                                {expandedAttachments[assignment.id]
+                                  ? 'See less'
+                                  : `See more (${totalTopLevel - 5} more)`}
+                              </button>
+                            )}
                           </>
                         )
                       })()}
-                      {assignment.recent_submissions.length > 5 && (
-                        <button
-                          className="tl-attachment-toggle-btn"
-                          onClick={() => toggleAttachments(assignment.id)}
-                        >
-                          {expandedAttachments[assignment.id]
-                            ? 'See less'
-                            : `See more (${assignment.recent_submissions.length - 5} more)`}
-                        </button>
-                      )}
                     </div>
                   ) : (
                     <div className="tl-assignment-no-attachment">
