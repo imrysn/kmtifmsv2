@@ -980,8 +980,8 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
                 <tr>
                   <td colSpan="6">
                     <div className="empty-state">
-                      <h3>No files found</h3>
-                      <p>No files match your current search and filter criteria.</p>
+                    <h3>Loading...</h3>
+                    <p>Please wait while files are being loaded.</p>
                     </div>
                   </td>
                 </tr>
