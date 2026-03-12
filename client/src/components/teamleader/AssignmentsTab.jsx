@@ -21,7 +21,8 @@ const AssignmentsTab = ({
   highlightedFileId,
   onClearFileHighlight,
   markAssignmentAsDone,
-  handleEditAssignment
+  handleEditAssignment,
+  onRefreshAssignments
 }) => {
   const [showMembersModal, setShowMembersModal] = useState(false)
   const [selectedMembers, setSelectedMembers] = useState([])
@@ -44,12 +45,19 @@ const AssignmentsTab = ({
   const [showOpenFileConfirmation, setShowOpenFileConfirmation] = useState(false)
   const [fileToOpen, setFileToOpen] = useState(null)
   const [expandedAssignmentFolders, setExpandedAssignmentFolders] = useState({}) // Track which folders are expanded in assignments
+  const [openFolderMenuId, setOpenFolderMenuId] = useState(null) // Track which folder's 3-dot menu is open
+  const [folderReviewModal, setFolderReviewModal] = useState(null) // { folderName, folderFiles, assignmentId }
+  const [folderReviewComment, setFolderReviewComment] = useState('')
+  const [isFolderProcessing, setIsFolderProcessing] = useState(false)
 
   // Handle clicking outside to close menu
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (showMenuForAssignment && !event.target.closest('.tl-assignment-card-menu')) {
         setShowMenuForAssignment(null)
+      }
+      if (openFolderMenuId && !event.target.closest('.tl-folder-menu-wrapper')) {
+        setOpenFolderMenuId(null)
       }
     }
 
@@ -548,6 +556,7 @@ const AssignmentsTab = ({
                         <div
                           key={attachment.id}
                           className="tl-assignment-tl-file-item"
+                          style={{ position: 'relative' }}
                           onClick={() => {
                             setFileToOpen(attachment)
                             setShowOpenFileConfirmation(true)
@@ -571,6 +580,30 @@ const AssignmentsTab = ({
                               <span>{formatFileSize(attachment.file_size)}</span>
                             </div>
                           </div>
+                          {/* Delete attachment button */}
+                          <button
+                            onClick={async (e) => {
+                              e.stopPropagation()
+                              if (!window.confirm(`Remove "${attachment.original_name}" from this task?`)) return
+                              try {
+                                const res = await fetch(`${API_BASE_URL}/api/assignments/${assignment.id}/attachments/${attachment.id}`, { method: 'DELETE' })
+                                const data = await res.json()
+                                if (data.success && onRefreshAssignments) onRefreshAssignments()
+                              } catch (err) { console.error('Failed to delete attachment:', err) }
+                            }}
+                            title="Remove attachment"
+                            style={{
+                              position: 'absolute', right: '8px', top: '50%', transform: 'translateY(-50%)',
+                              background: 'transparent', border: 'none', cursor: 'pointer',
+                              color: '#9ca3af', fontSize: '18px', lineHeight: 1,
+                              width: '28px', height: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                              borderRadius: '6px', transition: 'all 0.2s'
+                            }}
+                            onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#fee2e2'; e.currentTarget.style.color = '#dc2626' }}
+                            onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = '#9ca3af' }}
+                          >
+                            ×
+                          </button>
                         </div>
                       ))}
                     </div>
@@ -584,11 +617,20 @@ const AssignmentsTab = ({
                         📎 Submitted Files ({assignment.recent_submissions.length})
                       </div>
                       {(() => {
-                        // Group files by folder
-                        const submissionsToDisplay = expandedAttachments[assignment.id]
-                          ? assignment.recent_submissions
-                          : assignment.recent_submissions.slice(0, 5)
-                        const { folders, individualFiles } = groupFilesByFolder(submissionsToDisplay)
+                        // Group all files first, then paginate by top-level items (folder = 1 item)
+                        const { folders: allFolders, individualFiles: allIndividualFiles } = groupFilesByFolder(assignment.recent_submissions)
+                        const allTopLevelItems = [
+                          ...Object.keys(allFolders).map(name => ({ type: 'folder', name })),
+                          ...allIndividualFiles.map(f => ({ type: 'file', file: f }))
+                        ]
+                        const totalTopLevel = allTopLevelItems.length
+                        const visibleItems = expandedAttachments[assignment.id]
+                          ? allTopLevelItems
+                          : allTopLevelItems.slice(0, 5)
+                        const visibleFolderNames = new Set(visibleItems.filter(i => i.type === 'folder').map(i => i.name))
+                        const visibleIndividualFiles = visibleItems.filter(i => i.type === 'file').map(i => i.file)
+                        const folders = Object.fromEntries(Object.entries(allFolders).filter(([k]) => visibleFolderNames.has(k)))
+                        const individualFiles = visibleIndividualFiles
                         
                         return (
                           <>
@@ -609,7 +651,7 @@ const AssignmentsTab = ({
                                         [`${assignment.id}-${folderName}`]: !prev[`${assignment.id}-${folderName}`]
                                       }))
                                     }}
-                                    style={{ cursor: 'pointer', backgroundColor: isExpanded ? '#BFDBFE' : '#DBEAFE' }}
+                                    style={{ cursor: 'pointer', backgroundColor: isExpanded ? '#BFDBFE' : '#DBEAFE', position: 'relative' }}
                                   >
                                     <div style={{ fontSize: '32px' }}>
                                       {isExpanded ? '📂' : '📁'}
@@ -625,7 +667,83 @@ const AssignmentsTab = ({
                                           </span>
                                         </span>
                                         <span>{folderFiles.length} files</span>
+                                        {(() => {
+                                          const approved = folderFiles.filter(f => f.status === 'final_approved').length
+                                          const tlApproved = folderFiles.filter(f => f.status === 'team_leader_approved').length
+                                          const rejected = folderFiles.filter(f => f.status === 'rejected_by_team_leader' || f.status === 'rejected_by_admin').length
+                                          const pending = folderFiles.filter(f => f.status === 'uploaded' || !f.status).length
+                                          if (approved === folderFiles.length) return <span style={{ background: '#d1fae5', color: '#065f46', padding: '2px 8px', borderRadius: '10px', fontSize: '11px', fontWeight: '600' }}>✓ All Approved</span>
+                                          if (rejected === folderFiles.length) return <span style={{ background: '#fee2e2', color: '#991b1b', padding: '2px 8px', borderRadius: '10px', fontSize: '11px', fontWeight: '600' }}>✗ All Rejected</span>
+                                          if (tlApproved + approved === folderFiles.length) return <span style={{ background: '#fef3c7', color: '#92400e', padding: '2px 8px', borderRadius: '10px', fontSize: '11px', fontWeight: '600' }}>Pending Admin</span>
+                                          if (rejected > 0) return <span style={{ background: '#fee2e2', color: '#991b1b', padding: '2px 8px', borderRadius: '10px', fontSize: '11px', fontWeight: '600' }}>{rejected} Rejected</span>
+                                          if (pending === folderFiles.length) return <span style={{ background: '#e0e7ff', color: '#3730a3', padding: '2px 8px', borderRadius: '10px', fontSize: '11px', fontWeight: '600' }}>Pending Review</span>
+                                          return <span style={{ background: '#e0e7ff', color: '#3730a3', padding: '2px 8px', borderRadius: '10px', fontSize: '11px', fontWeight: '600' }}>{pending} Pending</span>
+                                        })()}
                                       </div>
+                                    </div>
+                                    {/* 3-dot menu */}
+                                    <div
+                                      className="tl-folder-menu-wrapper"
+                                      style={{ marginLeft: 'auto', position: 'relative' }}
+                                      onClick={(e) => e.stopPropagation()}
+                                    >
+                                      <button
+                                        className="tl-assignment-menu-btn"
+                                        style={{ fontSize: '13px', padding: '2px 6px', letterSpacing: '1px' }}
+                                        onClick={(e) => {
+                                          e.stopPropagation()
+                                          const menuId = `${assignment.id}-${folderName}`
+                                          setOpenFolderMenuId(prev => prev === menuId ? null : menuId)
+                                        }}
+                                        title="More options"
+                                      >
+                                        •••
+                                      </button>
+                                      {openFolderMenuId === `${assignment.id}-${folderName}` && (
+                                        <div className="tl-assignment-menu-dropdown" style={{ right: 0, left: 'auto', minWidth: '180px', whiteSpace: 'nowrap' }}>
+                                          <button
+                                            className="tl-assignment-menu-item"
+                                            onClick={async (e) => {
+                                              e.stopPropagation()
+                                              setOpenFolderMenuId(null)
+                                              if (!window.electron || !window.electron.openFolderInExplorer) {
+                                                alert('Open Folder Path is only available in the desktop app.')
+                                                return
+                                              }
+                                              const firstFile = folderFiles[0]
+                                              try {
+                                                const response = await fetch(`${API_BASE_URL}/api/files/${firstFile.id}/path`)
+                                                const data = await response.json()
+                                                if (data.success && data.filePath) {
+                                                  const result = await window.electron.openFolderInExplorer(data.filePath)
+                                                  if (!result.success) {
+                                                    alert('Could not open folder: ' + (result.error || 'Unknown error'))
+                                                  }
+                                                } else {
+                                                  alert('Could not retrieve folder path.')
+                                                }
+                                              } catch (err) {
+                                                console.error('Error opening folder:', err)
+                                                alert('Failed to open folder path.')
+                                              }
+                                            }}
+                                          >
+                                            📂 Open Folder Path
+                                          </button>
+                                          <button
+                                            className="tl-assignment-menu-item"
+                                            style={{ color: '#16a34a' }}
+                                            onClick={(e) => {
+                                              e.stopPropagation()
+                                              setOpenFolderMenuId(null)
+                                              setFolderReviewComment('')
+                                              setFolderReviewModal({ folderName, folderFiles })
+                                            }}
+                                          >
+                                            ✅ Approve / Reject Folder
+                                          </button>
+                                        </div>
+                                      )}
                                     </div>
                                   </div>
                                   
@@ -744,19 +862,19 @@ const AssignmentsTab = ({
                           </div>
                         </div>
                       ))}
+                            {totalTopLevel > 5 && (
+                              <button
+                                className="tl-attachment-toggle-btn"
+                                onClick={() => toggleAttachments(assignment.id)}
+                              >
+                                {expandedAttachments[assignment.id]
+                                  ? 'See less'
+                                  : `See more (${totalTopLevel - 5} more)`}
+                              </button>
+                            )}
                           </>
                         )
                       })()}
-                      {assignment.recent_submissions.length > 5 && (
-                        <button
-                          className="tl-attachment-toggle-btn"
-                          onClick={() => toggleAttachments(assignment.id)}
-                        >
-                          {expandedAttachments[assignment.id]
-                            ? 'See less'
-                            : `See more (${assignment.recent_submissions.length - 5} more)`}
-                        </button>
-                      )}
                     </div>
                   ) : (
                     <div className="tl-assignment-no-attachment">
@@ -856,6 +974,166 @@ const AssignmentsTab = ({
         cancelText="Cancel"
         variant="danger"
       />
+
+      {/* Folder Review Modal */}
+      {folderReviewModal && (
+        <div className="modal-overlay" onClick={() => { if (!isFolderProcessing) setFolderReviewModal(null) }}>
+          <div className="file-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: '480px' }}>
+            <div className="modal-header">
+              <h3>Review Folder</h3>
+              <button className="modal-close" onClick={() => setFolderReviewModal(null)} disabled={isFolderProcessing}>×</button>
+            </div>
+            <div className="modal-body">
+              <div className="file-details-section">
+                <h4 className="section-title">Folder Details</h4>
+                <div className="file-details-grid">
+                  <div className="detail-item">
+                    <span className="detail-label">FOLDER NAME:</span>
+                    <span className="detail-value">📁 {folderReviewModal.folderName}</span>
+                  </div>
+                  <div className="detail-item">
+                    <span className="detail-label">SUBMITTED BY:</span>
+                    <span className="detail-value">{folderReviewModal.folderFiles[0]?.fullName || folderReviewModal.folderFiles[0]?.username || 'Unknown'}</span>
+                  </div>
+                  <div className="detail-item">
+                    <span className="detail-label">TOTAL FILES:</span>
+                    <span className="detail-value">{folderReviewModal.folderFiles.length} files</span>
+                  </div>
+                  <div className="detail-item">
+                    <span className="detail-label">PENDING REVIEW:</span>
+                    <span className="detail-value">
+                      {folderReviewModal.folderFiles.filter(f => f.status === 'uploaded' || f.current_stage === 'pending_team_leader').length} files
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="comments-section" style={{ marginBottom: '20px', backgroundColor: 'white' }}>
+                <h4 className="section-title">Comments (Optional)</h4>
+                <textarea
+                  value={folderReviewComment}
+                  onChange={e => setFolderReviewComment(e.target.value)}
+                  placeholder="Add optional comments or rejection reason..."
+                  rows="3"
+                  disabled={isFolderProcessing}
+                  style={{
+                    width: '100%',
+                    padding: '12px',
+                    border: '1px solid #E5E7EB',
+                    color: '#000',
+                    background: '#fff',
+                    borderRadius: '8px',
+                    fontSize: '14px',
+                    fontFamily: 'inherit',
+                    resize: 'vertical',
+                    minHeight: '80px',
+                    boxSizing: 'border-box'
+                  }}
+                />
+              </div>
+
+              <div className="actions-section">
+                <div className="action-buttons-large">
+                  <button
+                    className="btn btn-success-large"
+                    disabled={isFolderProcessing}
+                    onClick={async () => {
+                      const approvable = folderReviewModal.folderFiles.filter(f =>
+                        f.status === 'uploaded' || f.current_stage === 'pending_team_leader'
+                      )
+                      if (approvable.length === 0) {
+                        alert('No files are pending team leader approval.')
+                        return
+                      }
+                      setIsFolderProcessing(true)
+                      try {
+                        const response = await fetch(`${API_BASE_URL}/api/files/bulk-action`, {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({
+                            fileIds: approvable.map(f => f.id),
+                            action: 'approve',
+                            comments: folderReviewComment.trim(),
+                            reviewerId: user.id,
+                            reviewerUsername: user.username,
+                            reviewerRole: user.role,
+                            team: user.team
+                          })
+                        })
+                        const data = await response.json()
+                        console.log('Bulk approve response:', JSON.stringify(data, null, 2))
+                        if (data.success) {
+                          if (data.results?.failed?.length > 0) {
+                            alert(`⚠️ ${data.results.failed.length} file(s) could not be approved:\n${data.results.failed.map(f => `${f.fileName}: ${f.reason}`).join('\n')}`)
+                          }
+                          setFolderReviewModal(null)
+                          if (onRefreshAssignments) onRefreshAssignments()
+                        } else {
+                          alert('Failed to approve: ' + (data.message || 'Unknown error'))
+                        }
+                      } catch (err) {
+                        alert('Failed to approve folder: ' + err.message)
+                      } finally {
+                        setIsFolderProcessing(false)
+                      }
+                    }}
+                  >
+                    <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                      <path d="M16.875 5L7.5 14.375L3.125 10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                    {isFolderProcessing ? 'Processing...' : 'Approve All'}
+                  </button>
+                  <button
+                    className="btn btn-danger-large"
+                    disabled={isFolderProcessing}
+                    onClick={async () => {
+                      const rejectable = folderReviewModal.folderFiles.filter(f =>
+                        f.status === 'uploaded' || f.current_stage === 'pending_team_leader'
+                      )
+                      if (rejectable.length === 0) {
+                        alert('No files are pending team leader approval.')
+                        return
+                      }
+                      setIsFolderProcessing(true)
+                      try {
+                        const response = await fetch(`${API_BASE_URL}/api/files/bulk-action`, {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({
+                            fileIds: rejectable.map(f => f.id),
+                            action: 'reject',
+                            comments: folderReviewComment.trim(),
+                            reviewerId: user.id,
+                            reviewerUsername: user.username,
+                            reviewerRole: user.role,
+                            team: user.team
+                          })
+                        })
+                        const data = await response.json()
+                        if (data.success) {
+                          setFolderReviewModal(null)
+                          if (onRefreshAssignments) onRefreshAssignments()
+                        } else {
+                          alert('Failed to reject: ' + (data.message || 'Unknown error'))
+                        }
+                      } catch (err) {
+                        alert('Failed to reject folder.')
+                      } finally {
+                        setIsFolderProcessing(false)
+                      }
+                    }}
+                  >
+                    <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                      <path d="M15 5L5 15M5 5L15 15" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                    {isFolderProcessing ? 'Processing...' : 'Reject All'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* File Open Modal */}
       <FileOpenModal

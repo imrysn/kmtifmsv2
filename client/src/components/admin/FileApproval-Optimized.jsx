@@ -32,6 +32,25 @@ const FileRowSkeleton = memo(() => (
   </tr>
 ))
 
+// Helper: compute folder-level status
+// Rule: keep as 'Pending Team Leader' unless ALL files are team_leader_approved (or beyond).
+// Only set to 'Pending Admin' once every file has been approved by the team leader.
+const getFolderStatus = (folderFiles) => {
+  const statuses = folderFiles.map(f => f.status)
+  const allFinalApproved = statuses.every(s => s === 'final_approved')
+  if (allFinalApproved) return { status: 'final_approved', label: 'Approved', cls: 'approved' }
+
+  const allRejected = statuses.every(s => s === 'rejected_by_team_leader' || s === 'rejected_by_admin')
+  if (allRejected) return { status: 'rejected', label: 'Rejected', cls: 'rejected' }
+
+  // If ALL files have passed team leader review (approved or final_approved) → Pending Admin
+  const allPassedTL = statuses.every(s => s === 'team_leader_approved' || s === 'final_approved')
+  if (allPassedTL) return { status: 'team_leader_approved', label: 'Pending Admin', cls: 'pending' }
+
+  // Otherwise (even one file is still 'uploaded') → Pending Team Leader
+  return { status: 'uploaded', label: 'Pending Team Leader', cls: 'pending' }
+}
+
 // Folder Row Component
 const FolderRow = memo(({
   folderName,
@@ -53,6 +72,7 @@ const FolderRow = memo(({
   const firstFile = folderFiles[0]
   const formattedDate = useMemo(() => new Date(firstFile.uploaded_at).toLocaleDateString(), [firstFile.uploaded_at])
   const formattedTime = useMemo(() => new Date(firstFile.uploaded_at).toLocaleTimeString(), [firstFile.uploaded_at])
+  const folderStatus = useMemo(() => getFolderStatus(folderFiles), [folderFiles])
 
   return (
     <tr 
@@ -95,7 +115,9 @@ const FolderRow = memo(({
         <span className="team-badge">{firstFile.user_team}</span>
       </td>
       <td>
-        <span style={{ color: '#9ca3af' }}>—</span>
+        <span className={`status-badge status-${folderStatus.cls}`}>
+          {folderStatus.label}
+        </span>
       </td>
       <td>
         <button
@@ -958,8 +980,8 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
                 <tr>
                   <td colSpan="6">
                     <div className="empty-state">
-                      <h3>No files found</h3>
-                      <p>No files match your current search and filter criteria.</p>
+                    <h3>Loading...</h3>
+                    <p>Please wait while files are being loaded.</p>
                     </div>
                   </td>
                 </tr>

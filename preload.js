@@ -15,6 +15,9 @@ try {
     // Open external links in default browser
     openExternal: (url) => ipcRenderer.invoke('app:open-external', url),
 
+    // Open folder in Windows Explorer
+    openFolderInExplorer: (folderPath) => ipcRenderer.invoke('folder:openInExplorer', folderPath),
+
     // Get default network projects path
     getNetworkProjectsPath: () => ipcRenderer.invoke('app:getNetworkProjectsPath'),
 

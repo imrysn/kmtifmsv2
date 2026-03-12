@@ -633,7 +633,95 @@ router.get('/:assignmentId/details', async (req, res) => {
   }
 });
 
+// One-time nonce store: prevents Electron multipart cache replay on /create
+// Client requests a nonce before each upload, uses it once, then it's deleted.
+const uploadNonces = new Map(); // nonce -> { used: bool, expiresAt: number }
+
+// Clean up expired nonces every 5 minutes
+setInterval(() => {
+  const now = Date.now();
+  for (const [k, v] of uploadNonces.entries()) {
+    if (now > v.expiresAt) uploadNonces.delete(k);
+  }
+}, 5 * 60 * 1000);
+
+// Issue a one-time upload nonce (must be called right before the real upload)
+router.post('/upload-nonce', (req, res) => {
+  const nonce = `${Date.now()}-${Math.random().toString(36).substring(2)}`;
+  uploadNonces.set(nonce, { used: false, expiresAt: Date.now() + 2 * 60 * 1000 }); // valid 2 min
+  res.json({ success: true, nonce });
+});
+
+// Create assignment via plain JSON (no file uploads) — bypasses multer entirely
+// Used by client when no attachments are selected, to avoid Electron multipart cache replay
+router.post('/create-json', async (req, res) => {
+  try {
+    const {
+      title, description, dueDate, fileTypeRequired,
+      assignedTo, assignedMembers, teamLeaderId, teamLeaderUsername, team
+    } = req.body
+
+    if (!title || !team || !teamLeaderId) {
+      return res.status(400).json({ success: false, message: 'Missing required fields' })
+    }
+
+    const finalMembers = Array.isArray(assignedMembers) ? assignedMembers : JSON.parse(assignedMembers || '[]')
+
+    const assignmentResult = await query(`
+      INSERT INTO assignments (
+        title, description, due_date, file_type_required,
+        assigned_to, max_file_size, team_leader_id, team_leader_username, team, created_at, status
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), 'active')
+    `, [title, description || null, dueDate || null, fileTypeRequired || null,
+        assignedTo || 'specific', 10485760, teamLeaderId, teamLeaderUsername, team])
+
+    const assignmentId = assignmentResult.insertId
+    let membersAssigned = 0
+
+    if (finalMembers.length > 0) {
+      const placeholders = finalMembers.map(() => '(?, ?)').join(', ')
+      await query(
+        `INSERT INTO assignment_members (assignment_id, user_id) VALUES ${placeholders}`,
+        finalMembers.flatMap(uid => [assignmentId, uid])
+      )
+      membersAssigned = finalMembers.length
+
+      for (const uid of finalMembers) {
+        try {
+          await query(`INSERT INTO notifications (user_id,assignment_id,file_id,type,title,message,action_by_id,action_by_username,action_by_role) VALUES (?,?,?,?,?,?,?,?,?)`,
+            [uid, assignmentId, null, 'assignment', 'New Assignment',
+             `${teamLeaderUsername} assigned you a new task: "${title}"${dueDate ? ` - Due: ${new Date(dueDate).toLocaleDateString()}` : ''}`,
+             teamLeaderId, teamLeaderUsername, 'TEAM_LEADER'])
+        } catch (e) { console.warn('Notification failed for user', uid, e.message) }
+      }
+    } else if (assignedTo === 'all') {
+      const teamMembers = await query('SELECT id FROM users WHERE team = ? AND role = ?', [team, 'USER'])
+      if (teamMembers.length > 0) {
+        const placeholders = teamMembers.map(() => '(?, ?)').join(', ')
+        await query(
+          `INSERT INTO assignment_members (assignment_id, user_id) VALUES ${placeholders}`,
+          teamMembers.flatMap(m => [assignmentId, m.id])
+        )
+        membersAssigned = teamMembers.length
+      }
+    }
+
+    try {
+      await query(`INSERT INTO activity_logs (user_id,username,role,team,activity) VALUES (?,?,?,?,?)`,
+        [teamLeaderId, teamLeaderUsername, 'TEAM_LEADER', team, `Created assignment: ${title}`])
+    } catch (e) { /* ignore */ }
+
+    console.log(`✅ Assignment ${assignmentId} created via JSON (no attachments)`)
+    res.json({ success: true, message: 'Assignment created successfully', assignmentId, membersAssigned, attachmentsCreated: 0 })
+  } catch (error) {
+    console.error('Error creating assignment (JSON):', error)
+    res.status(500).json({ success: false, message: 'Failed to create assignment', error: error.message })
+  }
+});
+
 // Create new assignment with file attachments
+// NOTE: If client sends no files, it should use /create-json instead.
+// This route still cleans up any stray multer files if hasAttachments is false.
 router.post('/create', upload.array('attachments', 10), async (req, res) => {
   try {
     const {
@@ -665,8 +753,45 @@ router.post('/create', upload.array('attachments', 10), async (req, res) => {
     const finalTeamLeaderId = teamLeaderId || team_leader_id;
     const finalTeamLeaderUsername = teamLeaderUsername || team_leader_username;
 
-    // Get uploaded files
-    const uploadedFiles = req.files || [];
+    // NONCE VALIDATION: Reject any request that doesn't have a fresh one-time nonce.
+    // This is the definitive fix for Electron's multipart cache replay bug:
+    // A cached/replayed request will not have a valid unused nonce, so it gets rejected.
+    const requestNonce = req.body.uploadNonce;
+    const rawFiles = req.files || [];
+
+    if (!requestNonce || !uploadNonces.has(requestNonce)) {
+      // No valid nonce = replayed or stale request — discard all files and reject
+      console.warn(`⚠️ /create rejected: missing or invalid uploadNonce. Discarding ${rawFiles.length} file(s).`);
+      for (const f of rawFiles) {
+        try { fs.unlinkSync(f.path); } catch (e) { /* ignore */ }
+      }
+      return res.status(400).json({ success: false, message: 'Invalid or missing upload nonce. Please try again.' });
+    }
+
+    const nonceEntry = uploadNonces.get(requestNonce);
+    if (nonceEntry.used) {
+      // Already-used nonce = definitely a replay attack
+      console.warn(`⚠️ /create rejected: nonce already used. Discarding ${rawFiles.length} file(s).`);
+      for (const f of rawFiles) {
+        try { fs.unlinkSync(f.path); } catch (e) { /* ignore */ }
+      }
+      return res.status(400).json({ success: false, message: 'Upload nonce already used. Please try again.' });
+    }
+
+    // Mark nonce as used immediately (one-time use)
+    nonceEntry.used = true;
+
+    const clientSentAttachments = req.body.hasAttachments === 'true';
+
+    // Even with a valid nonce, if client says no attachments, discard any stray files
+    if (!clientSentAttachments && rawFiles.length > 0) {
+      console.warn(`⚠️ Discarding ${rawFiles.length} unexpected temp file(s) — client did not flag hasAttachments`);
+      for (const f of rawFiles) {
+        try { fs.unlinkSync(f.path); } catch (e) { /* ignore */ }
+      }
+    }
+
+    const uploadedFiles = clientSentAttachments ? rawFiles : [];
 
     // Validate required fields
     if (!title || !team || !finalTeamLeaderId) {
@@ -998,8 +1123,38 @@ router.put('/:id', upload.array('attachments', 10), async (req, res) => {
     const finalTeamLeaderId = teamLeaderId || team_leader_id;
     const finalTeamLeaderUsername = teamLeaderUsername || team_leader_username;
 
-    // Get uploaded files
-    const uploadedFiles = req.files || [];
+    // NONCE VALIDATION for PUT (edit with attachments)
+    const requestNonce = req.body.uploadNonce;
+    const rawFiles = req.files || [];
+
+    if (!requestNonce || !uploadNonces.has(requestNonce)) {
+      console.warn(`⚠️ [PUT] rejected: missing or invalid uploadNonce. Discarding ${rawFiles.length} file(s).`);
+      for (const f of rawFiles) {
+        try { fs.unlinkSync(f.path); } catch (e) { /* ignore */ }
+      }
+      return res.status(400).json({ success: false, message: 'Invalid or missing upload nonce. Please try again.' });
+    }
+
+    const nonceEntry = uploadNonces.get(requestNonce);
+    if (nonceEntry.used) {
+      console.warn(`⚠️ [PUT] rejected: nonce already used. Discarding ${rawFiles.length} file(s).`);
+      for (const f of rawFiles) {
+        try { fs.unlinkSync(f.path); } catch (e) { /* ignore */ }
+      }
+      return res.status(400).json({ success: false, message: 'Upload nonce already used. Please try again.' });
+    }
+    nonceEntry.used = true;
+
+    const clientSentAttachments = req.body.hasAttachments === 'true';
+
+    if (!clientSentAttachments && rawFiles.length > 0) {
+      console.warn(`⚠️ [PUT] Discarding ${rawFiles.length} unexpected temp file(s) — client did not flag hasAttachments`);
+      for (const f of rawFiles) {
+        try { fs.unlinkSync(f.path); } catch (e) { /* ignore */ }
+      }
+    }
+
+    const uploadedFiles = clientSentAttachments ? rawFiles : [];
 
     // Validate required fields
     if (!title) {
@@ -2323,6 +2478,40 @@ router.get('/debug/:assignmentId/members', async (req, res) => {
       message: 'Failed to fetch debug data',
       error: error.message
     });
+  }
+});
+
+// Delete a single assignment attachment (Team Leader only)
+router.delete('/:assignmentId/attachments/:attachmentId', async (req, res) => {
+  try {
+    const { assignmentId, attachmentId } = req.params;
+
+    const attachment = await queryOne(
+      'SELECT * FROM assignment_attachments WHERE id = ? AND assignment_id = ?',
+      [attachmentId, assignmentId]
+    );
+
+    if (!attachment) {
+      return res.status(404).json({ success: false, message: 'Attachment not found' });
+    }
+
+    // Delete physical file
+    if (attachment.file_path) {
+      try {
+        const filePath = attachment.file_path.startsWith('/uploads/')
+          ? require('path').join(uploadsDir, attachment.file_path.substring(9))
+          : attachment.file_path;
+        if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+      } catch (e) { console.warn('⚠️ Could not delete physical attachment file:', e.message); }
+    }
+
+    await query('DELETE FROM assignment_attachments WHERE id = ?', [attachmentId]);
+
+    console.log(`✅ Attachment ${attachmentId} deleted from assignment ${assignmentId}`);
+    res.json({ success: true, message: 'Attachment deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting attachment:', error);
+    res.status(500).json({ success: false, message: 'Failed to delete attachment', error: error.message });
   }
 });
 
