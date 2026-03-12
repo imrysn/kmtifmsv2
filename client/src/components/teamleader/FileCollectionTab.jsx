@@ -145,9 +145,15 @@ const FileCollectionTab = ({
   const displayItems = useMemo(() => {
     const { folders, individualFiles } = groupFilesByFolder(displayedFiles)
     const items = []
-    Object.keys(folders).sort().forEach(folderName => {
-      items.push({ type: 'folder', folderName, files: folders[folderName] })
-    })
+    Object.keys(folders)
+      .sort((a, b) => {
+        const latestA = Math.max(...folders[a].map(f => new Date(f.submitted_at || f.uploaded_at)))
+        const latestB = Math.max(...folders[b].map(f => new Date(f.submitted_at || f.uploaded_at)))
+        return latestB - latestA
+      })
+      .forEach(folderName => {
+        items.push({ type: 'folder', folderName, files: folders[folderName] })
+      })
     individualFiles.forEach(file => {
       items.push({ type: 'file', file })
     })
@@ -183,6 +189,27 @@ const FileCollectionTab = ({
     }
     return pageNumbers
   }, [totalPages, currentPage])
+
+  const getFolderStatusBadge = (folderFiles) => {
+    const allApproved = folderFiles.every(f => f.status === 'approved' || f.status === 'final_approved')
+    const anyRejected = folderFiles.some(f => f.status === 'rejected' || f.status === 'rejected_by_team_leader' || f.status === 'rejected_by_admin')
+    const allAtLeastTLApproved = folderFiles.every(f => f.status === 'team_leader_approved' || f.status === 'approved' || f.status === 'final_approved')
+    const anyPendingTL = folderFiles.some(f => f.status === 'uploaded')
+
+    if (anyPendingTL) {
+      return <span className="status-badge status-pending">Pending Team Leader</span>
+    }
+    if (allApproved) {
+      return <span className="status-badge status-approved">Approved</span>
+    }
+    if (anyRejected) {
+      return <span className="status-badge status-rejected">Rejected</span>
+    }
+    if (allAtLeastTLApproved) {
+      return <span className="status-badge status-pending">Pending Admin</span>
+    }
+    return <span className="status-badge status-pending">Pending Team Leader</span>
+  }
 
   const getStatusBadge = (submission) => {
     const cls = submission.status === 'approved' || submission.status === 'final_approved' ? 'approved'
@@ -352,9 +379,10 @@ const FileCollectionTab = ({
                     <React.Fragment key={`folder-${folderName}`}>
                       <tr
                         className="tl-clickable-row tl-folder-row"
+                        style={{ verticalAlign: 'middle' }}
                         onClick={() => setExpandedFolders(prev => ({ ...prev, [folderName]: !prev[folderName] }))}
                       >
-                        <td>
+                        <td style={{ verticalAlign: 'middle' }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                             <div style={{ fontSize: '32px' }}>{isExpanded ? '📂' : '📁'}</div>
                             <div>
@@ -363,12 +391,39 @@ const FileCollectionTab = ({
                             </div>
                           </div>
                         </td>
-                        <td>{firstFile.assignment_title || '-'}</td>
-                        <td>{firstFile.user_team || firstFile.team || '-'}</td>
-                        <td>{firstFile.fullName || firstFile.username || '-'}</td>
-                        <td>{new Date(firstFile.submitted_at || firstFile.uploaded_at).toLocaleDateString()}</td>
-                        <td></td>
-                        <td style={{ textAlign: 'center' }}></td>
+                        <td style={{ verticalAlign: 'middle' }}>{firstFile.assignment_title || '-'}</td>
+                        <td style={{ verticalAlign: 'middle' }}>
+                          <div className="team-cell">
+                            <span className="team-badge" data-team={firstFile.user_team || firstFile.team}>{firstFile.user_team || firstFile.team || 'N/A'}</span>
+                          </div>
+                        </td>
+                        <td style={{ verticalAlign: 'middle' }}>{firstFile.fullName || firstFile.username || '-'}</td>
+                        <td style={{ verticalAlign: 'middle' }}>{new Date(firstFile.submitted_at || firstFile.uploaded_at).toLocaleDateString()}</td>
+                        <td style={{ verticalAlign: 'middle' }}>{getFolderStatusBadge(folderFiles)}</td>
+                        <td style={{ textAlign: 'center', verticalAlign: 'middle' }}>
+                          <div className="tl-actions-menu-wrapper">
+                            <button className="tl-menu-button" onClick={(e) => { e.stopPropagation(); toggleMenu(`folder-${folderName}`, e) }} title="Options">
+                              <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                                <circle cx="3" cy="8" r="1.5" fill="currentColor" />
+                                <circle cx="8" cy="8" r="1.5" fill="currentColor" />
+                                <circle cx="13" cy="8" r="1.5" fill="currentColor" />
+                              </svg>
+                            </button>
+                            {openMenuId === `folder-${folderName}` && (
+                              <div className="tl-dropdown-menu">
+                                {firstFile.assignment_id && onNavigateToTask && (
+                                  <button className="tl-dropdown-item" onClick={(e) => { e.stopPropagation(); onNavigateToTask(firstFile.assignment_id, firstFile.id) }}>
+                                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                                      <path d="M5.33333 2.66667H2.66667C2.29848 2.66667 2 2.96514 2 3.33333V13.3333C2 13.7015 2.29848 14 2.66667 14H12.6667C13.0349 14 13.3333 13.7015 13.3333 13.3333V10.6667" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                                      <path d="M12 2L14 4L8.66667 9.33333L6.66667 9.66667L7 7.66667L12 2Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                                    </svg>
+                                    Go to Task
+                                  </button>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        </td>
                       </tr>
                       {isExpanded && folderFiles.map(f => renderFileRow(f, true))}
                     </React.Fragment>

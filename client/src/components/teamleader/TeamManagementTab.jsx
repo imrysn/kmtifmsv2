@@ -31,6 +31,7 @@ const TeamManagementTab = ({
               <tr>
                 <th>NAME</th>
                 <th>EMAIL</th>
+                <th>TEAM</th>
                 <th>JOINED</th>
                 <th>FILES</th>
                 <th>STATUS</th>
@@ -44,6 +45,11 @@ const TeamManagementTab = ({
                     <strong>{member.name}</strong>
                   </td>
                   <td style={{color: 'var(--text-secondary)'}}>{member.email}</td>
+                  <td>
+                    <span style={{ background: '#f0f4ff', color: '#3b5bdb', padding: '4px 10px', borderRadius: '6px', fontSize: '12px', fontWeight: '600' }}>
+                      {member.team || '—'}
+                    </span>
+                  </td>
                   <td style={{color: 'var(--text-secondary)'}}>{member.joined}</td>
                   <td>
                     <span className="tl-badge" style={{background: '#E0E7FF', color: 'var(--primary-color)'}}>

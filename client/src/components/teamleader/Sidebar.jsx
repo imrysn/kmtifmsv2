@@ -4,7 +4,8 @@ const Sidebar = ({
   clearMessages, 
   setSidebarOpen, 
   sidebarOpen, 
-  onLogout 
+  onLogout,
+  user
 }) => {
   const handleTabChange = (tab) => {
     setActiveTab(tab)
@@ -17,7 +18,25 @@ const Sidebar = ({
       {/* Brand */}
       <div className="tl-brand">
         <div className="tl-brand-logo">TL</div>
-        <span className="tl-brand-name">Team Leader</span>
+        <div className="tl-brand-name" style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+          <span>Team Leader</span>
+          {user?.team && (
+            <span style={{
+              backgroundColor: 'transparent',
+              color: '#374151',
+              fontSize: '12px',
+              fontWeight: '600',
+              padding: '3px 10px',
+              borderRadius: '20px',
+              border: '1.5px solid #6b7280',
+              whiteSpace: 'nowrap',
+              display: 'inline-block',
+              textAlign: 'center'
+            }}>
+              {user.team}
+            </span>
+          )}
+        </div>
       </div>
 
       {/* Navigation */}

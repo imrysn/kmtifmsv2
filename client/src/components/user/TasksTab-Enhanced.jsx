@@ -24,7 +24,6 @@ const TasksTab = ({
   const [showSubmitModal, setShowSubmitModal] = useState(false);
   const [currentAssignment, setCurrentAssignment] = useState(null);
   const [userFiles, setUserFiles] = useState([]);
-  const [expandedComments, setExpandedComments] = useState({});
   const [comments, setComments] = useState({});
   const [newComment, setNewComment] = useState({});
   const [isPostingComment, setIsPostingComment] = useState({});
@@ -33,7 +32,7 @@ const TasksTab = ({
   const [isPostingReply, setIsPostingReply] = useState({});
   const [showCommentsModal, setShowCommentsModal] = useState(false);
   const [currentCommentsAssignment, setCurrentCommentsAssignment] = useState(null);
-  const [highlightCommentBy, setHighlightCommentBy] = useState(null); // Track who to highlight
+  const [highlightCommentBy, setHighlightCommentBy] = useState(null);
   const [uploadedFiles, setUploadedFiles] = useState([]);
   const [fileDescription, setFileDescription] = useState('');
   const [fileTag, setFileTag] = useState(''); // Add tag state
@@ -46,7 +45,6 @@ const TasksTab = ({
   const [fileToDelete, setFileToDelete] = useState(null);
   const [showOpenFileModal, setShowOpenFileModal] = useState(false);
   const [fileToOpen, setFileToOpen] = useState(null);
-  const [showAllFiles, setShowAllFiles] = useState({}); // Track which assignments show all files
   const [expandedFolders, setExpandedFolders] = useState({}); // Track which folders are expanded
   const [expandedCommentTexts, setExpandedCommentTexts] = useState({}); // Track which comment texts are expanded
   const [expandedReplyTexts, setExpandedReplyTexts] = useState({}); // Track which reply texts are expanded
@@ -383,6 +381,25 @@ const TasksTab = ({
     const diffTime = due - now;
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
     return diffDays;
+  };
+
+  // Returns a styled badge for an individual file's review status
+  const getFileStatusBadge = (status) => {
+    switch (status) {
+      case 'uploaded':
+        return <span style={{ backgroundColor: '#1d4ed8', color: '#ffffff', padding: '3px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: '500', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>New</span>;
+      case 'team_leader_approved':
+        return <span style={{ backgroundColor: '#fef9c3', color: '#92400e', padding: '3px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: '500', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>Pending Admin</span>;
+      case 'final_approved':
+        return <span style={{ backgroundColor: '#d1fae5', color: '#065f46', padding: '3px 10px', borderRadius: '4px', fontSize: '11px', fontWeight: '600', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>✓ APPROVED</span>;
+      case 'rejected_by_team_leader':
+      case 'rejected_by_admin':
+        return <span style={{ backgroundColor: '#ffe4e6', color: '#be123c', padding: '3px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: '500', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>Rejected</span>;
+      case 'under_revision':
+        return <span style={{ backgroundColor: '#fef3c7', color: '#92400e', padding: '3px 10px', borderRadius: '4px', fontSize: '11px', fontWeight: '600', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>📝 REVISED</span>;
+      default:
+        return <span style={{ backgroundColor: '#1d4ed8', color: '#ffffff', padding: '3px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: '500', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>New</span>;
+    }
   };
 
   const getStatusBadge = (assignment) => {
@@ -842,15 +859,6 @@ const TasksTab = ({
     return { folders, individualFiles };
   };
 
-  // Treat assignments with deleted files as pending (allow resubmission)
-  const pendingAssignments = assignments.filter(assignment =>
-    assignment.user_status !== 'submitted' ||
-    (assignment.user_status === 'submitted' && !assignment.submitted_file_id)
-  );
-  const submittedAssignments = assignments.filter(assignment =>
-    assignment.user_status === 'submitted' && assignment.submitted_file_id
-  );
-
   // Sort assignments by created date (newest first)
   const sortedAssignments = [...assignments].sort((a, b) => {
     const dateA = new Date(a.created_at)
@@ -890,7 +898,6 @@ const TasksTab = ({
           {sortedAssignments.map((assignment) => {
             const daysLeft = getDaysUntilDue(assignment.due_date);
             const assignmentComments = comments[assignment.id] || [];
-            const isCommentsExpanded = expandedComments[assignment.id];
 
             return (
               <div
@@ -1137,8 +1144,32 @@ const TasksTab = ({
                                       <div style={{ fontWeight: '600', fontSize: '14px', color: '#111827' }}>
                                         {folderName}
                                       </div>
-                                      <div style={{ fontSize: '12px', color: '#6b7280' }}>
-                                        Submitted by <span style={{ fontWeight: '500' }}>{folderFiles[0].submitter_name || user.fullName || user.username}</span> • {folderFiles.length} files
+                                      <div style={{ fontSize: '12px', color: '#6b7280', display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                                        <span>Submitted by <span style={{ fontWeight: '500' }}>{folderFiles[0].submitter_name || user.fullName || user.username}</span> • {folderFiles.length} files</span>
+                                        {(() => {
+                                          const total = folderFiles.length;
+                                          const approved = folderFiles.filter(f => f.status === 'final_approved').length;
+                                          const tlApproved = folderFiles.filter(f => f.status === 'team_leader_approved').length;
+                                          const rejected = folderFiles.filter(f => f.status === 'rejected_by_team_leader' || f.status === 'rejected_by_admin').length;
+                                          const pending = folderFiles.filter(f => f.status === 'uploaded' || !f.status).length;
+                                          const badges = [];
+                                          if (approved === total) return <span style={{ background: '#d1fae5', color: '#065f46', padding: '2px 8px', borderRadius: '10px', fontSize: '11px', fontWeight: '600' }}>✓ All Approved</span>;
+                                          if (rejected === total) return <span style={{ background: '#ffe4e6', color: '#be123c', padding: '2px 8px', borderRadius: '20px', fontSize: '11px', fontWeight: '500' }}>All Rejected</span>;
+                                          const pendingAdmin = tlApproved;
+                                          if (pendingAdmin > 0 || (approved > 0 && pending === 0 && rejected === 0)) {
+                                            badges.push(<span key="pa" style={{ background: '#fef9c3', color: '#92400e', padding: '2px 8px', borderRadius: '10px', fontSize: '11px', fontWeight: '500', marginRight: '4px' }}>Pending Admin</span>);
+                                          }
+                                          if (pending > 0) {
+                                            badges.push(<span key="pt" style={{ background: '#e0e7ff', color: '#3730a3', padding: '2px 8px', borderRadius: '10px', fontSize: '11px', fontWeight: '600', marginRight: '4px' }}>Pending Review</span>);
+                                          }
+                                          if (rejected > 0) {
+                                            badges.push(<span key="rj" style={{ background: '#ffe4e6', color: '#be123c', padding: '2px 8px', borderRadius: '20px', fontSize: '11px', fontWeight: '500', marginRight: '4px' }}>{rejected} Rejected</span>);
+                                          }
+                                          if (approved > 0 && approved < total) {
+                                            badges.push(<span key="ap" style={{ background: '#d1fae5', color: '#065f46', padding: '2px 8px', borderRadius: '10px', fontSize: '11px', fontWeight: '600' }}>{approved} Approved</span>);
+                                          }
+                                          return badges.length > 0 ? <>{badges}</> : <span style={{ background: '#e0e7ff', color: '#3730a3', padding: '2px 8px', borderRadius: '10px', fontSize: '11px', fontWeight: '600' }}>Pending Review</span>;
+                                        })()}
                                       </div>
                                     </div>
                                     <button
@@ -1235,42 +1266,18 @@ const TasksTab = ({
                                               <span style={{ color: '#9ca3af' }}>•</span>
                                               <span>{formatDate(file.submitted_at || file.uploaded_at)}</span>
                                               {file.tag && (
-                                                <span style={{
-                                                  backgroundColor: '#eff6ff',
-                                                  color: '#1e40af',
-                                                  padding: '2px 8px',
-                                                  borderRadius: '3px',
-                                                  fontSize: '10px',
-                                                  fontWeight: '600',
-                                                }}>
-                                                  🏷️ {file.tag}
-                                                </span>
+                                              <span style={{
+                                              backgroundColor: '#eff6ff',
+                                              color: '#1e40af',
+                                              padding: '2px 8px',
+                                              borderRadius: '3px',
+                                              fontSize: '10px',
+                                              fontWeight: '600',
+                                              }}>
+                                              🏷️ {file.tag}
+                                              </span>
                                               )}
-                                              {/* Only show status badges for REJECTED or REVISED (after rejection) files */}
-                                              {file.status === 'under_revision' && (
-                                                <span style={{
-                                                  backgroundColor: '#fef3c7',
-                                                  color: '#92400e',
-                                                  padding: '2px 8px',
-                                                  borderRadius: '3px',
-                                                  fontSize: '10px',
-                                                  fontWeight: '600',
-                                                }}>
-                                                  📝 REVISED
-                                                </span>
-                                              )}
-                                              {(file.status === 'rejected_by_team_leader' || file.status === 'rejected_by_admin') && (
-                                                <span style={{
-                                                  backgroundColor: '#fee2e2',
-                                                  color: '#991b1b',
-                                                  padding: '2px 8px',
-                                                  borderRadius: '3px',
-                                                  fontSize: '10px',
-                                                  fontWeight: '600',
-                                                }}>
-                                                  ✗ REJECTED
-                                                </span>
-                                              )}
+                                              {getFileStatusBadge(file.status)}
                                             </div>
                                           </div>
                                           <button
@@ -1374,37 +1381,7 @@ const TasksTab = ({
                                         <span>🏷️</span> {file.tag}
                                       </span>
                                     )}
-                                    {/* Only show status badges for REJECTED or REVISED (after rejection) files */}
-                                    {file.status === 'under_revision' && (
-                                      <span style={{
-                                        backgroundColor: '#fef3c7',
-                                        color: '#92400e',
-                                        padding: '3px 10px',
-                                        borderRadius: '4px',
-                                        fontSize: '11px',
-                                        fontWeight: '600',
-                                        display: 'inline-flex',
-                                        alignItems: 'center',
-                                        gap: '4px'
-                                      }}>
-                                        📝 REVISED
-                                      </span>
-                                    )}
-                                    {(file.status === 'rejected_by_team_leader' || file.status === 'rejected_by_admin') && (
-                                      <span style={{
-                                        backgroundColor: '#fee2e2',
-                                        color: '#991b1b',
-                                        padding: '3px 10px',
-                                        borderRadius: '4px',
-                                        fontSize: '11px',
-                                        fontWeight: '600',
-                                        display: 'inline-flex',
-                                        alignItems: 'center',
-                                        gap: '4px'
-                                      }}>
-                                        ✗ REJECTED
-                                      </span>
-                                    )}
+                                    {getFileStatusBadge(file.status)}
                                   </div>
                                 </div>
                                 <button

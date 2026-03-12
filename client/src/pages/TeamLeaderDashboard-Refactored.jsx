@@ -386,6 +386,8 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
         formData.append('hasAttachments', 'true')
         formData.append('uploadNonce', nonceData.nonce)
         attachedFiles.forEach((file) => formData.append('attachments', file))
+        // Send relative paths so server can group files into folders
+        formData.append('relativePaths', JSON.stringify(attachedFiles.map(f => f.webkitRelativePath || f.name)))
 
         response = await fetch(url, { method, body: formData })
       } else {
@@ -594,13 +596,19 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
       const data = await response.json()
 
       if (data.success) {
-        setSuccess(`File ${actionToUse}d successfully!`)
+        if (actionToUse === 'reject') {
+          setError(`File rejected successfully!`)
+        } else {
+          setSuccess(`File ${actionToUse}d successfully!`)
+        }
         setShowReviewModal(false)
         setSelectedFile(null)
         setReviewComments('')
         setReviewAction(null)
         setFileComments([])
         fetchPendingFiles()
+        fetchAssignments()
+        fetchAllSubmissions()
       } else {
         setError(data.message || `Failed to ${actionToUse} file`)
       }
@@ -1059,6 +1067,7 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
           setSidebarOpen={setSidebarOpen}
           sidebarOpen={sidebarOpen}
           onLogout={onLogout}
+          user={user}
         />
 
         <main className="tl-main">

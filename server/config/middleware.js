@@ -64,8 +64,8 @@ const upload = multer({
   storage: storage,
   // Security limits to prevent DoS attacks
   limits: {
-    fileSize: 50 * 1024 * 1024 * 1024, // 50GB max file size (effectively limitless)
-    files: 1 // Only one file at a time
+    fileSize: 50 * 1024 * 1024 * 1024 // 50GB max file size (effectively limitless)
+    // No files limit — supports folder uploads with unlimited file count
   }
 });
 

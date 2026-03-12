@@ -21,6 +21,7 @@ const CreateAssignmentModal = ({
   const buttonRef = React.useRef(null)
   const fileTypeButtonRef = React.useRef(null)
   const fileInputRef = React.useRef(null)
+  const folderInputRef = React.useRef(null)
 
   const fileTypeOptions = [
     { value: '', label: 'Any file type' },
@@ -57,6 +58,21 @@ const CreateAssignmentModal = ({
     const files = Array.from(e.target.files)
     if (files.length > 0) {
       setAttachedFiles(prevFiles => [...prevFiles, ...files])
+    }
+  }
+
+  const handleFolderSelect = (e) => {
+    const files = Array.from(e.target.files)
+    if (files.length > 0) {
+      // Tag each file with its relative path for folder structure
+      const tagged = files.map(file => {
+        Object.defineProperty(file, 'relativeFolderPath', {
+          value: file.webkitRelativePath || file.name,
+          writable: true
+        })
+        return file
+      })
+      setAttachedFiles(prevFiles => [...prevFiles, ...tagged])
     }
   }
 
@@ -323,23 +339,53 @@ const CreateAssignmentModal = ({
                   onChange={handleFileSelect}
                   style={{ display: 'none' }}
                 />
-                <button
-                  type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  className="tl-btn secondary"
-                  style={{
-                    padding: '10px 16px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '8px',
-                    justifyContent: 'center'
-                  }}
-                >
-                  <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-                    <path d="M10 4V16M4 10H16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                  </svg>
-                  Attach Files
-                </button>
+                <input
+                  ref={folderInputRef}
+                  type="file"
+                  webkitdirectory="true"
+                  directory="true"
+                  multiple
+                  onChange={handleFolderSelect}
+                  style={{ display: 'none' }}
+                />
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="tl-btn secondary"
+                    style={{
+                      flex: 1,
+                      padding: '10px 16px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      justifyContent: 'center'
+                    }}
+                  >
+                    <svg width="18" height="18" viewBox="0 0 20 20" fill="none">
+                      <path d="M10 4V16M4 10H16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                    Attach Files
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => folderInputRef.current?.click()}
+                    className="tl-btn secondary"
+                    style={{
+                      flex: 1,
+                      padding: '10px 16px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      justifyContent: 'center'
+                    }}
+                  >
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                      <path d="M3 7C3 5.89543 3.89543 5 5 5H9.58579C9.851 5 10.1054 5.10536 10.2929 5.29289L11.7071 6.70711C11.8946 6.89464 12.149 7 12.4142 7H19C20.1046 7 21 7.89543 21 9V17C21 18.1046 20.1046 19 19 19H5C3.89543 19 3 18.1046 3 17V7Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                    Attach Folder
+                  </button>
+                </div>
 
                 {attachedFiles.length > 0 && (
                   <div style={{
@@ -366,12 +412,12 @@ const CreateAssignmentModal = ({
                             <path d="M9 2H3C2.44772 2 2 2.44772 2 3V13C2 13.5523 2.44772 14 3 14H13C13.5523 14 14 13.5523 14 13V7M9 2L14 7M9 2V7H14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
                           </svg>
                           <div style={{ flex: 1, minWidth: 0 }}>
-                            <div style={{ fontSize: '14px', fontWeight: '500', color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                              {file.name}
-                            </div>
-                            <div style={{ fontSize: '12px', color: '#6B7280' }}>
-                              {formatFileSize(file.size)}
-                            </div>
+                          <div style={{ fontSize: '14px', fontWeight: '500', color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {file.webkitRelativePath || file.name}
+                          </div>
+                          <div style={{ fontSize: '12px', color: '#6B7280' }}>
+                          {formatFileSize(file.size)}
+                          </div>
                           </div>
                         </div>
                         <button

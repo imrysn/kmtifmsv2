@@ -152,10 +152,10 @@ router.get('/admin/all', async (req, res) => {
 
       // Get attachments for this assignment
       const attachments = await query(`
-        SELECT id, original_name, filename, file_path, file_size, file_type, created_at
+        SELECT id, original_name, filename, file_path, file_size, file_type, folder_name, relative_path, created_at
         FROM assignment_attachments
         WHERE assignment_id = ?
-        ORDER BY created_at DESC
+        ORDER BY COALESCE(folder_name, ''), created_at DESC
       `, [assignment.id]);
 
       assignment.attachments = attachments || [];
@@ -364,10 +364,10 @@ router.get('/team/:team/all-tasks', async (req, res) => {
 
       // Get attachments for this assignment
       const attachments = await query(`
-        SELECT id, original_name, filename, file_path, file_size, file_type, created_at
+        SELECT id, original_name, filename, file_path, file_size, file_type, folder_name, relative_path, created_at
         FROM assignment_attachments
         WHERE assignment_id = ?
-        ORDER BY created_at DESC
+        ORDER BY COALESCE(folder_name, ''), created_at DESC
       `, [assignment.id]);
 
       assignment.attachments = attachments || [];
@@ -489,10 +489,10 @@ router.get('/team-leader/:userId', async (req, res) => {
 
       // Get attachments for this assignment
       const attachments = await query(`
-        SELECT id, original_name, filename, file_path, file_size, file_type, created_at
+        SELECT id, original_name, filename, file_path, file_size, file_type, folder_name, relative_path, created_at
         FROM assignment_attachments
         WHERE assignment_id = ?
-        ORDER BY created_at DESC
+        ORDER BY COALESCE(folder_name, ''), created_at DESC
       `, [assignment.id]);
 
       assignment.attachments = attachments || [];
@@ -722,7 +722,7 @@ router.post('/create-json', async (req, res) => {
 // Create new assignment with file attachments
 // NOTE: If client sends no files, it should use /create-json instead.
 // This route still cleans up any stray multer files if hasAttachments is false.
-router.post('/create', upload.array('attachments', 10), async (req, res) => {
+router.post('/create', upload.array('attachments', 10000), async (req, res) => {
   try {
     const {
       title,
@@ -837,6 +837,16 @@ router.post('/create', upload.array('attachments', 10), async (req, res) => {
       try {
         console.log(`📎 Saving ${uploadedFiles.length} attachment(s) for assignment ${assignmentId}`);
 
+        // Parse relative paths sent by the client ONCE before the loop
+        let relativePaths = []
+        try {
+          relativePaths = JSON.parse(req.body.relativePaths || '[]')
+          console.log(`📂 relativePaths received: ${JSON.stringify(relativePaths)}`)
+        } catch (e) {
+          console.warn('⚠️ Could not parse relativePaths:', e.message)
+          relativePaths = []
+        }
+
         for (const file of uploadedFiles) {
           // Move file from temp location to team leader's folder
           let finalPath;
@@ -849,6 +859,11 @@ router.post('/create', upload.array('attachments', 10), async (req, res) => {
             finalPath = file.path;
           }
 
+          const fileIndex = uploadedFiles.indexOf(file)
+          const relPath = relativePaths[fileIndex] || file.originalname
+          const folderName = relPath.includes('/') ? relPath.split('/')[0] : null
+          console.log(`📎 File ${fileIndex}: ${file.originalname} → relPath: ${relPath}, folderName: ${folderName}`)
+
           await query(`
             INSERT INTO assignment_attachments (
               assignment_id,
@@ -858,8 +873,10 @@ router.post('/create', upload.array('attachments', 10), async (req, res) => {
               file_size,
               file_type,
               uploaded_by_id,
-              uploaded_by_username
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+              uploaded_by_username,
+              folder_name,
+              relative_path
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
           `, [
             assignmentId,
             file.originalname,
@@ -868,7 +885,9 @@ router.post('/create', upload.array('attachments', 10), async (req, res) => {
             file.size,
             file.mimetype,
             finalTeamLeaderId,
-            finalTeamLeaderUsername
+            finalTeamLeaderUsername,
+            folderName,
+            relPath !== file.originalname ? relPath : null
           ]);
           attachmentsCreated++;
         }
@@ -1091,7 +1110,7 @@ router.post('/create', upload.array('attachments', 10), async (req, res) => {
 });
 
 // Update existing assignment with file attachments
-router.put('/:id', upload.array('attachments', 10), async (req, res) => {
+router.put('/:id', upload.array('attachments', 10000), async (req, res) => {
   try {
     const { id } = req.params;
     const {
@@ -1383,10 +1402,10 @@ router.get('/user/:userId', async (req, res) => {
 
       // Get attachments for this assignment
       const attachments = await query(`
-        SELECT id, original_name, filename, file_path, file_size, file_type, created_at
+        SELECT id, original_name, filename, file_path, file_size, file_type, folder_name, relative_path, created_at
         FROM assignment_attachments
         WHERE assignment_id = ?
-        ORDER BY created_at DESC
+        ORDER BY COALESCE(folder_name, ''), created_at DESC
       `, [assignment.id]);
 
       assignment.attachments = attachments || [];
