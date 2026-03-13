@@ -7,7 +7,7 @@ const { upload, uploadsDir, moveToUserFolder } = require('../config/middleware')
 const { logActivity, logFileStatusChange } = require('../utils/logger');
 const { getFileTypeDescription } = require('../utils/fileHelpers');
 const { safeDeleteFile } = require('../utils/fileUtils');
-const { createNotification } = require('./notifications');
+const { createNotification, createAdminNotification } = require('./notifications');
 
 const router = express.Router();
 
@@ -288,7 +288,7 @@ router.post('/check-duplicate', (req, res) => {
 // Upload file (User only)
 router.post('/upload', upload.single('file'), async (req, res) => {
   try {
-    const { description, userId, username, userTeam, tag, replaceExisting, isRevision, folderName, relativePath, isFolder } = req.body;
+    const { description, userId, username, userTeam, userRole, tag, replaceExisting, isRevision, folderName, relativePath, isFolder } = req.body;
     if (!req.file) {
       return res.status(400).json({
         success: false,
@@ -502,6 +502,18 @@ router.post('/upload', upload.single('file'), async (req, res) => {
 
               console.log(`✅ File ${action} successfully with ID: ${fileId}${isRevision === 'true' ? ' (marked as REVISED)' : ''}`);
               console.log(`✅ File record UPDATED (not deleted) - will stay in My Files!`);
+
+              // Notify admins if uploader is a Team Leader
+              if (userRole && userRole.toUpperCase().includes('TEAM_LEADER')) {
+                createAdminNotification(
+                  fileId,
+                  'new_upload',
+                  `Team Leader ${isRevision === 'true' ? 'Revised' : 'Uploaded'} a File`,
+                  `${username} (Team Leader) ${isRevision === 'true' ? 'revised' : 'uploaded'} "${req.file.originalname}" — pending review.`,
+                  userId, username, userRole
+                ).catch(err => console.error('Failed to notify admins of TL upload:', err));
+              }
+
               res.json({
                 success: true,
                 message: `File ${action} successfully`,
@@ -594,6 +606,18 @@ router.post('/upload', upload.single('file'), async (req, res) => {
           );
 
           console.log(`✅ File ${action} successfully with ID: ${fileId}${isRevision === 'true' ? ' (marked as REVISED)' : ''}`);
+
+          // Notify admins if uploader is a Team Leader
+          if (userRole && userRole.toUpperCase().includes('TEAM_LEADER')) {
+            createAdminNotification(
+              fileId,
+              'new_upload',
+              `Team Leader ${isRevision === 'true' ? 'Revised' : 'Uploaded'} a File`,
+              `${username} (Team Leader) ${isRevision === 'true' ? 'revised' : 'uploaded'} "${req.file.originalname}" — pending review.`,
+              userId, username, userRole
+            ).catch(err => console.error('Failed to notify admins of TL upload:', err));
+          }
+
           res.json({
             success: true,
             message: `File ${action} successfully`,

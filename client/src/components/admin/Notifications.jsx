@@ -149,7 +149,7 @@ const Notifications = ({ user, onNavigate }) => {
         // Debug: Log password reset notifications
         const passwordResetNotifs = newNotifications.filter(n => n.type === 'password_reset_request');
         if (passwordResetNotifs.length > 0) {
-          console.log('🔍 Password reset notifications found:', passwordResetNotifs.length);
+          console.log('Password reset notifications found:', passwordResetNotifs.length);
           passwordResetNotifs.forEach(n => {
             console.log('  - Notification:', {
               id: n.id,
@@ -284,7 +284,7 @@ const Notifications = ({ user, onNavigate }) => {
       markAsRead(notification.id);
     }
 
-    console.log('📋 Admin Notification clicked:', notification);
+    console.log('Admin Notification clicked:', notification);
 
     // Use shared notification parser
     const { targetTab, context } = parseNotification(notification, 'admin');
@@ -292,7 +292,7 @@ const Notifications = ({ user, onNavigate }) => {
     if (targetTab && onNavigate) {
       onNavigate(targetTab, context);
     } else {
-      console.warn('⚠️ Unable to navigate - no target tab determined');
+      console.warn('Unable to navigate - no target tab determined');
     }
   };
 

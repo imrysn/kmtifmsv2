@@ -593,23 +593,27 @@ const AssignmentsTab = ({
                                   </div>
                                 </div>
                               </div>
-                              {isExpanded && files.map(att => (
+                              {isExpanded && (
+                              <div style={{ marginLeft: '8px', paddingLeft: '8px', marginTop: '4px' }}>
+                                {files.map(att => (
                                 <div
                                   key={att.id}
                                   className="tl-assignment-tl-file-item"
-                                  style={{ position: 'relative', paddingLeft: '28px', backgroundColor: '#f0f9ff' }}
+                                  style={{ cursor: 'pointer', marginBottom: '4px' }}
                                   onClick={() => { setFileToOpen(att); setShowOpenFileConfirmation(true) }}
                                 >
                                   <FileIcon fileType={att.original_name.split('.').pop()} size="small" className="tl-assignment-file-icon" />
                                   <div className="tl-assignment-file-details">
                                     <div className="tl-assignment-file-name">
-                                    {att.relative_path && att.relative_path !== att.original_name ? att.relative_path : att.original_name}
-                                  </div>
+                                      {att.original_name}
+                                    </div>
                                     <div className="tl-assignment-file-meta"><span>{formatFileSize(att.file_size)}</span></div>
                                   </div>
                                   <button onClick={(e) => { e.stopPropagation(); setRemoveAttachmentModal({ isOpen: true, attachmentId: att.id, attachmentName: att.original_name, assignmentId: assignment.id }) }} title="Remove" style={{ position:'absolute', right:'8px', top:'50%', transform:'translateY(-50%)', background:'transparent', border:'none', cursor:'pointer', color:'#9ca3af', fontSize:'18px', width:'28px', height:'28px', display:'flex', alignItems:'center', justifyContent:'center', borderRadius:'6px' }} onMouseEnter={e=>{e.currentTarget.style.backgroundColor='#fee2e2';e.currentTarget.style.color='#dc2626'}} onMouseLeave={e=>{e.currentTarget.style.backgroundColor='transparent';e.currentTarget.style.color='#9ca3af'}}>×</button>
                                 </div>
                               ))}
+                                </div>
+                              )}
                             </React.Fragment>
                           )
                         })}
@@ -817,7 +821,9 @@ const AssignmentsTab = ({
                                   </div>
                                   
                                   {/* Folder Contents */}
-                                  {isExpanded && folderFiles.map((file) => (
+                                  {isExpanded && (
+                                    <div style={{ marginLeft: '8px', paddingLeft: '8px', marginTop: '4px' }}>
+                                    {folderFiles.map((file) => (
                                     <div
                                       key={file.id}
                                       data-file-id={file.id}
@@ -828,7 +834,7 @@ const AssignmentsTab = ({
                                           openReviewModal(file, null)
                                         }
                                       }}
-                                      style={{ marginLeft: '40px', backgroundColor: '#fafafa' }}
+                                      style={{ cursor: 'pointer', marginBottom: '4px' }}
                                     >
                                       <FileIcon
                                         fileType={(file.original_name || file.file_name).split('.').pop()}
@@ -837,7 +843,7 @@ const AssignmentsTab = ({
                                       />
                                       <div className="tl-assignment-file-details">
                                         <div className="tl-assignment-file-name">
-                                          {file.relative_path || file.original_name || file.file_name}
+                                          {file.original_name || file.file_name}
                                         </div>
                                         <div className="tl-assignment-file-meta">
                                           <span>
@@ -872,6 +878,8 @@ const AssignmentsTab = ({
                                       </div>
                                     </div>
                                   ))}
+                                    </div>
+                                  )}
                                 </React.Fragment>
                               )
                             })}

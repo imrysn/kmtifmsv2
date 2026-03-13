@@ -67,7 +67,7 @@ const MyFilesTab = ({
 
   const openFile = useCallback(async (file) => {
     try {
-      console.log('🔍 Opening file:', { id: file.id, path: file.file_path, name: file.original_name });
+      console.log('Opening file:', { id: file.id, path: file.file_path, name: file.original_name });
       
       if (window.electron?.openFileInApp) {
         const response = await fetch(`${API_BASE_URL}/api/files/${file.id}/path`);
@@ -305,7 +305,7 @@ const MyFilesTab = ({
               })
             });
           } catch (folderError) {
-            console.error('⚠️ Error deleting folder directory:', folderError);
+            console.error('Error deleting folder directory:', folderError);
           }
 
           setSuccessModal({

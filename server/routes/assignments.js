@@ -6,6 +6,7 @@ const path = require('path');
 const fs = require('fs');
 const { uploadsDir, moveToUserFolder } = require('../config/middleware');
 const assignmentController = require('../controllers/assignmentController');
+const { createAdminNotification } = require('./notifications');
 
 // Configure multer for file uploads using existing uploads directory
 const storage = multer.diskStorage({
@@ -1100,6 +1101,18 @@ router.post('/create', upload.array('attachments', 10000), async (req, res) => {
         // Don't fail the request if notifications fail
       }
 
+      // Notify admins if team leader attached files to this assignment
+      if (attachmentsCreated > 0) {
+        const attachTitle = req.body.title || 'Assignment';
+        createAdminNotification(
+          null,
+          'new_upload',
+          'Team Leader Uploaded Attachment(s)',
+          `${finalTeamLeaderUsername} (Team Leader) uploaded ${attachmentsCreated} file${attachmentsCreated !== 1 ? 's' : ''} as attachment(s) for assignment "${attachTitle}".`,
+          finalTeamLeaderId, finalTeamLeaderUsername, 'TEAM_LEADER', assignmentId
+        ).catch(err => console.error('Failed to notify admins of TL attachment upload:', err));
+      }
+
       res.json({
         success: true,
         message: 'Assignment created successfully',
@@ -1387,6 +1400,19 @@ router.put('/:id', upload.array('attachments', 10000), async (req, res) => {
         ]);
       } catch (logError) {
         console.warn('Activity log insertion failed:', logError.message);
+      }
+
+      // Notify admins if team leader added attachments while editing
+      if (attachmentsCreated > 0) {
+        const tlId = finalTeamLeaderId || existingAssignment.team_leader_id;
+        const tlUsername = finalTeamLeaderUsername || existingAssignment.team_leader_username;
+        createAdminNotification(
+          null,
+          'new_upload',
+          'Team Leader Uploaded Attachment(s)',
+          `${tlUsername} (Team Leader) uploaded ${attachmentsCreated} file${attachmentsCreated !== 1 ? 's' : ''} as attachment(s) for assignment "${title}".`,
+          tlId, tlUsername, 'TEAM_LEADER', id
+        ).catch(err => console.error('Failed to notify admins of TL attachment upload (edit):', err));
       }
 
       res.json({
