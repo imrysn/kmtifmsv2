@@ -44,7 +44,7 @@ const DashboardOverview = ({ user, users }) => {
         const data = await res.json()
         if (!mounted) return
         if (data.success) {
-          console.log('📊 Dashboard Data Received:', data.summary); // DEBUG Log
+          console.log('Dashboard Data Received:', data.summary); // DEBUG Log
           setSummary(data.summary)
         } else {
           setError(data.message || 'Failed to load dashboard data')

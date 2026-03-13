@@ -177,6 +177,11 @@
   vertical-align: middle;
 }
 
+.tl-files-table td:nth-child(6) {
+  text-align: left;
+  vertical-align: middle;
+}
+
 /* Clickable Rows */
 .tl-clickable-row {
   cursor: pointer;
@@ -329,14 +334,17 @@
 
 /* Status Badges - Matching Admin Exactly */
 .status-badge {
-  padding: 0.25rem 0.6rem;
-  border-radius: 12px;
+  padding: 0.35rem 0.6rem;
+  border-radius: 20px;
   font-size: 0.72rem;
   font-weight: 500;
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   text-align: center;
   white-space: nowrap;
   border: 1px solid transparent;
+  width: 155px;
   max-width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -583,12 +591,25 @@
   transition: background-color 0.2s ease;
 }
 
+.tl-folder-row,
+.tl-folder-row td {
+  vertical-align: middle !important;
+}
+
+.tl-folder-row:active td {
+  color: inherit !important;
+}
+
 .tl-folder-row:hover {
   background-color: #f9fafb !important;
 }
 
 .tl-folder-file-row {
   background-color: #ffffff !important;
+}
+
+.tl-folder-file-row td {
+  vertical-align: middle !important;
 }
 
 .tl-folder-file-row:hover {

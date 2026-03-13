@@ -24,7 +24,6 @@ const TasksTab = ({
   const [showSubmitModal, setShowSubmitModal] = useState(false);
   const [currentAssignment, setCurrentAssignment] = useState(null);
   const [userFiles, setUserFiles] = useState([]);
-  const [expandedComments, setExpandedComments] = useState({});
   const [comments, setComments] = useState({});
   const [newComment, setNewComment] = useState({});
   const [isPostingComment, setIsPostingComment] = useState({});
@@ -33,7 +32,7 @@ const TasksTab = ({
   const [isPostingReply, setIsPostingReply] = useState({});
   const [showCommentsModal, setShowCommentsModal] = useState(false);
   const [currentCommentsAssignment, setCurrentCommentsAssignment] = useState(null);
-  const [highlightCommentBy, setHighlightCommentBy] = useState(null); // Track who to highlight
+  const [highlightCommentBy, setHighlightCommentBy] = useState(null);
   const [uploadedFiles, setUploadedFiles] = useState([]);
   const [fileDescription, setFileDescription] = useState('');
   const [fileTag, setFileTag] = useState(''); // Add tag state
@@ -46,7 +45,6 @@ const TasksTab = ({
   const [fileToDelete, setFileToDelete] = useState(null);
   const [showOpenFileModal, setShowOpenFileModal] = useState(false);
   const [fileToOpen, setFileToOpen] = useState(null);
-  const [showAllFiles, setShowAllFiles] = useState({}); // Track which assignments show all files
   const [expandedFolders, setExpandedFolders] = useState({}); // Track which folders are expanded
   const [expandedCommentTexts, setExpandedCommentTexts] = useState({}); // Track which comment texts are expanded
   const [expandedReplyTexts, setExpandedReplyTexts] = useState({}); // Track which reply texts are expanded
@@ -60,8 +58,8 @@ const TasksTab = ({
 
     // Only run if we have both the session data AND assignments have loaded
     if (assignmentId && assignments.length > 0) {
-      console.log('📍 Found assignment to open:', assignmentId);
-      console.log('📍 Found user to highlight:', highlightUser);
+      console.log('Found assignment to open:', assignmentId);
+      console.log('Found user to highlight:', highlightUser);
 
       // Clear the session storage immediately to prevent re-triggering
       sessionStorage.removeItem('scrollToAssignment');
@@ -70,7 +68,7 @@ const TasksTab = ({
       // Find the assignment
       const assignment = assignments.find(a => a.id === parseInt(assignmentId));
       if (assignment) {
-        console.log('✅ Assignment found, opening comments...');
+        console.log('Assignment found, opening comments...');
 
         // Set highlight user if provided
         if (highlightUser) {
@@ -95,7 +93,7 @@ const TasksTab = ({
           }, 100);
         }, 500);
       } else {
-        console.log('❌ Assignment not found in list');
+        console.log('Assignment not found in list');
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -109,7 +107,7 @@ const TasksTab = ({
   // NOTE: openCommentsModal is the stable interface for useSmartNavigation.
   // Uses state setters directly (stable refs) so the callback never changes reference.
   const openCommentsModal = useCallback((assignment) => {
-    console.log('🔵 openCommentsModal called for:', assignment.title);
+    console.log('openCommentsModal called for:', assignment.title);
     setCurrentCommentsAssignment(assignment);
     setShowCommentsModal(true);
   }, []); // empty deps — setters are stable React guarantees
@@ -152,9 +150,9 @@ const TasksTab = ({
           // Check each assignment for submitted files
           data.assignments.forEach(a => {
             if (a.submitted_files && a.submitted_files.length > 0) {
-              console.log(`📁 Assignment "${a.title}" has ${a.submitted_files.length} submitted file(s):`, a.submitted_files);
+              console.log(`Assignment "${a.title}" has ${a.submitted_files.length} submitted file(s):`, a.submitted_files);
             } else {
-              console.log(`ℹ️ Assignment "${a.title}" has no submitted files`);
+              console.log(`Assignment "${a.title}" has no submitted files`);
             }
           });
         }
@@ -228,7 +226,7 @@ const TasksTab = ({
   };
 
   function toggleComments(assignment) {
-    console.log('🔵 toggleComments called for:', assignment.title);
+    console.log('toggleComments called for:', assignment.title);
     setCurrentCommentsAssignment(assignment);
     setShowCommentsModal(true);
   }
@@ -292,7 +290,7 @@ const TasksTab = ({
       const data = await response.json();
 
       if (data.success) {
-        console.log('📁 All user files:', data.files);
+        console.log('All user files:', data.files);
 
         // Get all file IDs that are currently in ACTIVE assignment submissions
         const activeSubmittedFileIds = new Set();
@@ -304,7 +302,7 @@ const TasksTab = ({
           }
         });
 
-        console.log('🔒 Files currently in active assignments:', Array.from(activeSubmittedFileIds));
+        console.log('Files currently in active assignments:', Array.from(activeSubmittedFileIds));
 
         // Filter out ONLY files that are currently in active assignment submissions
         // This means completed/finished assignment files will show up again in "My Files"
@@ -312,7 +310,7 @@ const TasksTab = ({
           !activeSubmittedFileIds.has(file.id)
         );
 
-        console.log('📂 Available files (excluding active submissions):', unsubmittedFiles);
+        console.log('Available files (excluding active submissions):', unsubmittedFiles);
         setUserFiles(unsubmittedFiles || []);
       }
     } catch (error) {
@@ -385,6 +383,25 @@ const TasksTab = ({
     return diffDays;
   };
 
+  // Returns a styled badge for an individual file's review status
+  const getFileStatusBadge = (status) => {
+    switch (status) {
+      case 'uploaded':
+        return <span style={{ backgroundColor: '#1d4ed8', color: '#ffffff', padding: '3px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: '500', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>New</span>;
+      case 'team_leader_approved':
+        return <span style={{ backgroundColor: '#fef9c3', color: '#92400e', padding: '3px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: '500', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>Pending Admin</span>;
+      case 'final_approved':
+        return <span style={{ backgroundColor: '#d1fae5', color: '#065f46', padding: '3px 10px', borderRadius: '4px', fontSize: '11px', fontWeight: '600', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>✓ APPROVED</span>;
+      case 'rejected_by_team_leader':
+      case 'rejected_by_admin':
+        return <span style={{ backgroundColor: '#ffe4e6', color: '#be123c', padding: '3px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: '500', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>Rejected</span>;
+      case 'under_revision':
+        return <span style={{ backgroundColor: '#fef3c7', color: '#92400e', padding: '3px 10px', borderRadius: '4px', fontSize: '11px', fontWeight: '600', display: 'inline-flex', alignItems: 'center', gap: '4px' }}><svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{marginRight:'3px'}}><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg> REVISED</span>;
+      default:
+        return <span style={{ backgroundColor: '#1d4ed8', color: '#ffffff', padding: '3px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: '500', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>New</span>;
+    }
+  };
+
   const getStatusBadge = (assignment) => {
     // If assignment has submitted files, show SUBMITTED status regardless of due date
     if (assignment.submitted_files && assignment.submitted_files.length > 0) {
@@ -428,7 +445,7 @@ const TasksTab = ({
           alignItems: 'center',
           gap: '4px'
         }}>
-          ⚠️ MISSING
+          <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg> MISSING
         </span>
       )
     } else if (daysUntilDue < 0) {
@@ -444,7 +461,7 @@ const TasksTab = ({
           alignItems: 'center',
           gap: '4px'
         }}>
-          ⚠️ OVERDUE
+          <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg> OVERDUE
         </span>
       )
     } else if (daysUntilDue <= 4) {
@@ -460,7 +477,7 @@ const TasksTab = ({
           alignItems: 'center',
           gap: '4px'
         }}>
-          ⏰ PENDING
+          <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> PENDING
         </span>
       )
     }
@@ -514,7 +531,7 @@ const TasksTab = ({
     setFileToDelete(null);
 
     // Immediately update UI BEFORE making the API call
-    console.log('🗑️ Removing file from UI immediately:', { assignmentId, fileId });
+    console.log('Removing file from UI immediately:', { assignmentId, fileId });
     setAssignments(prevAssignments => 
       prevAssignments.map(assignment => {
         if (assignment.id === assignmentId) {
@@ -548,7 +565,7 @@ const TasksTab = ({
       console.log('Response data:', data);
 
       if (data.success) {
-        console.log('✅ Server confirmed assignment unlink, now deleting file from My Files...');
+        console.log('Server confirmed assignment unlink, now deleting file from My Files...');
         
         // Also delete the actual file from the files table + storage
         try {
@@ -559,12 +576,12 @@ const TasksTab = ({
           });
           const fileDeleteData = await fileDeleteResponse.json();
           if (fileDeleteData.success) {
-            console.log('✅ File also deleted from My Files');
+            console.log('File also deleted from My Files');
           } else {
-            console.warn('⚠️ File unlinked from task but could not delete from My Files:', fileDeleteData.message);
+            console.warn('File unlinked from task but could not delete from My Files:', fileDeleteData.message);
           }
         } catch (fileDeleteErr) {
-          console.warn('⚠️ Error deleting file from My Files:', fileDeleteErr);
+          console.warn('Error deleting file from My Files:', fileDeleteErr);
         }
 
         setSuccessModal({ isOpen: true, title: 'Removed', message: 'File removed successfully', type: 'error' });
@@ -574,13 +591,13 @@ const TasksTab = ({
           fetchUserFiles();
         }, 500);
       } else {
-        console.error('❌ Server returned error:', data.message);
+        console.error('Server returned error:', data.message);
         // Revert the optimistic update
         fetchAssignments();
         setSuccessModal({ isOpen: true, title: 'Error', message: data.message || 'Failed to remove file', type: 'error' });
       }
     } catch (error) {
-      console.error('❌ Error removing file:', error);
+      console.error('Error removing file:', error);
       // Revert the optimistic update
       fetchAssignments();
       setSuccessModal({ isOpen: true, title: 'Error', message: 'Failed to remove file. Please try again.', type: 'error' });
@@ -650,8 +667,8 @@ const TasksTab = ({
       // First, check for ANY existing files with the same name and delete them AUTOMATICALLY (regardless of status)
       // This implements automatic file replacement on upload
       if (currentAssignment.submitted_files && currentAssignment.submitted_files.length > 0) {
-        console.log(`🔍 Checking for duplicate files among ${currentAssignment.submitted_files.length} existing file(s)...`);
-        console.log(`🔄 AUTO-REPLACE MODE: Any matching files will be automatically replaced`);
+        console.log(`Checking for duplicate files among ${currentAssignment.submitted_files.length} existing file(s)...`);
+        console.log(`AUTO-REPLACE MODE: Any matching files will be automatically replaced`);
 
         // Check each new file against ALL existing files
         for (const fileObj of uploadedFiles) {
@@ -663,7 +680,7 @@ const TasksTab = ({
           );
 
           if (matchingExistingFile) {
-            console.log(`🔄 AUTO-REPLACING: Found existing file "${matchingExistingFile.original_name}" (status: ${matchingExistingFile.status}) - deleting to replace with new version`);
+            console.log(`AUTO-REPLACING: Found existing file "${matchingExistingFile.original_name}" (status: ${matchingExistingFile.status}) - deleting to replace with new version`);
             replacedFiles.push(newFileName); // Track this as a replacement
 
             try {
@@ -682,17 +699,17 @@ const TasksTab = ({
 
               const deleteData = await deleteResponse.json();
               if (deleteData.success) {
-                console.log(`✅ Successfully deleted existing file: ${matchingExistingFile.original_name}`);
+                console.log(`Successfully deleted existing file: ${matchingExistingFile.original_name}`);
               } else {
-                console.warn(`⚠️ Could not delete existing file ${matchingExistingFile.original_name}:`, deleteData.message);
+                console.warn(`Could not delete existing file ${matchingExistingFile.original_name}:`, deleteData.message);
                 // Continue with upload - the server will handle the duplicate
               }
             } catch (deleteError) {
-              console.error(`❌ Error deleting existing file ${matchingExistingFile.id}:`, deleteError);
+              console.error(`Error deleting existing file ${matchingExistingFile.id}:`, deleteError);
               // Continue with upload - the server will handle the duplicate
             }
           } else {
-            console.log(`ℹ️ No existing file found with name: ${newFileName} - will upload as new file`);
+            console.log(`No existing file found with name: ${newFileName} - will upload as new file`);
           }
         }
       }
@@ -708,6 +725,7 @@ const TasksTab = ({
         formData.append('username', user.username);
         formData.append('fullName', user.fullName);
         formData.append('userTeam', user.team);
+        formData.append('userRole', user.role || '');
         formData.append('description', fileDescription || '');
         formData.append('tag', fileTag || '');
         
@@ -732,9 +750,9 @@ const TasksTab = ({
         formData.append('replaceExisting', 'true');
 
         if (isRevision) {
-          console.log(`📝 Marking ${fileObj.file.name} as REVISION (replacing rejected file)`);
+          console.log(`Marking ${fileObj.file.name} as REVISION (replacing rejected file)`);
         } else if (replacedFiles.includes(fileObj.file.name)) {
-          console.log(`🔄 Replacing ${fileObj.file.name} (normal replacement, NOT a revision)`);
+          console.log(`Replacing ${fileObj.file.name} (normal replacement, NOT a revision)`);
         }
 
         const uploadResponse = await fetch(`${API_BASE_URL}/api/files/upload`, {
@@ -746,10 +764,10 @@ const TasksTab = ({
 
         if (uploadData.success) {
           uploadedFileIds.push(uploadData.file.id);
-          console.log(`✅ Uploaded file: ${fileObj.file.name} with ID: ${uploadData.file.id}`);
+          console.log(`Uploaded file: ${fileObj.file.name} with ID: ${uploadData.file.id}`);
         } else {
           uploadErrors.push(`${fileObj.file.name}: ${uploadData.message}`);
-          console.error(`❌ Failed to upload ${fileObj.file.name}:`, uploadData.message);
+          console.error(`Failed to upload ${fileObj.file.name}:`, uploadData.message);
         }
       }
 
@@ -776,10 +794,10 @@ const TasksTab = ({
         const submitData = await submitResponse.json();
 
         if (submitData.success) {
-          console.log(`✅ Submitted file ID ${fileId} to assignment ${currentAssignment.id}`);
+          console.log(`Submitted file ID ${fileId} to assignment ${currentAssignment.id}`);
         } else {
           submissionErrors.push(`File ID ${fileId}: ${submitData.message}`);
-          console.error(`❌ Failed to submit file ID ${fileId}:`, submitData.message);
+          console.error(`Failed to submit file ID ${fileId}:`, submitData.message);
         }
       }
 
@@ -842,15 +860,6 @@ const TasksTab = ({
     return { folders, individualFiles };
   };
 
-  // Treat assignments with deleted files as pending (allow resubmission)
-  const pendingAssignments = assignments.filter(assignment =>
-    assignment.user_status !== 'submitted' ||
-    (assignment.user_status === 'submitted' && !assignment.submitted_file_id)
-  );
-  const submittedAssignments = assignments.filter(assignment =>
-    assignment.user_status === 'submitted' && assignment.submitted_file_id
-  );
-
   // Sort assignments by created date (newest first)
   const sortedAssignments = [...assignments].sort((a, b) => {
     const dateA = new Date(a.created_at)
@@ -890,7 +899,6 @@ const TasksTab = ({
           {sortedAssignments.map((assignment) => {
             const daysLeft = getDaysUntilDue(assignment.due_date);
             const assignmentComments = comments[assignment.id] || [];
-            const isCommentsExpanded = expandedComments[assignment.id];
 
             return (
               <div
@@ -1016,56 +1024,90 @@ const TasksTab = ({
                 </div>
 
                 {/* Attachments Section - Files attached by Team Leader */}
-                {assignment.attachments && assignment.attachments.length > 0 && (
-                  <div style={{ padding: '8px 0px', marginBottom: '16px' }}>
-                    <div style={{
-                      fontSize: '13px',
-                      fontWeight: '600',
-                      color: '#374151',
-                      marginBottom: '8px'
-                    }}>
-                      📎 Attached Files ({assignment.attachments.length})
-                    </div>
-                    {assignment.attachments.map((attachment) => (
-                      <div
-                        key={attachment.id}
-                        onClick={() => confirmOpenFile(attachment)}
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          padding: '20px',
-                          gap: '12px',
-                          border: '1px solid #9CA3AF',
-                          borderRadius: '8px',
-                          cursor: 'pointer',
-                          marginBottom: '8px',
-                          transition: 'background-color 0.2s ease',
-                          backgroundColor: 'transparent'
-                        }}
-                        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(156, 163, 175, 0.1)'}
-                        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-                      >
-                        <div style={{ flexShrink: 0 }}>
-                          <FileIcon
-                            fileType={attachment.original_name.split('.').pop()}
-                            size="small"
-                          />
-                        </div>
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ fontWeight: '500', color: '#1c1e21', marginBottom: '4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                            {attachment.original_name}
-                          </div>
-                          <div style={{ fontSize: '12px', color: '#65676b', display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                            <span>by <span style={{ color: '#1877f2', fontWeight: '600' }}>
-                              {assignment.team_leader_fullname || assignment.team_leader_username || 'Team Leader'}
-                            </span></span>
-                            <span>{formatFileSize(attachment.file_size)}</span>
-                          </div>
-                        </div>
+                {assignment.attachments && assignment.attachments.length > 0 && (() => {
+                  const { folders: attFolders, individualFiles: attIndividual } = groupFilesByFolder(assignment.attachments);
+                  const folderNames = Object.keys(attFolders);
+                  const totalItems = folderNames.length + attIndividual.length;
+                  return (
+                    <div style={{ padding: '8px 0px', marginBottom: '16px' }}>
+                      <div style={{ fontSize: '13px', fontWeight: '600', color: '#374151', marginBottom: '8px' }}>
+                        📎 Attached Files ({totalItems === 1 ? '1 item' : `${folderNames.length} folder${folderNames.length !== 1 ? 's' : ''}${attIndividual.length > 0 ? `, ${attIndividual.length} file${attIndividual.length !== 1 ? 's' : ''}` : ''}`})
                       </div>
-                    ))}
-                  </div>
-                )}
+
+                      {/* Folder attachments */}
+                      {folderNames.map(folderName => {
+                        const folderFiles = attFolders[folderName];
+                        const isExpanded = expandedFolders[`att-${assignment.id}-${folderName}`];
+                        return (
+                          <div key={folderName} style={{ marginBottom: '8px' }}>
+                            <div
+                              className="submitted-file-card"
+                              onClick={() => setExpandedFolders(prev => ({ ...prev, [`att-${assignment.id}-${folderName}`]: !prev[`att-${assignment.id}-${folderName}`] }))}
+                              style={{ cursor: 'pointer', backgroundColor: isExpanded ? '#BFDBFE' : '#DBEAFE' }}
+                            >
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                <div style={{ fontSize: '32px', flexShrink: 0 }}>
+                                  {isExpanded ? '📂' : '📁'}
+                                </div>
+                                <div style={{ flex: 1, minWidth: 0 }}>
+                                  <div style={{ fontWeight: '600', fontSize: '14px', color: '#111827' }}>{folderName}</div>
+                                  <div style={{ fontSize: '12px', color: '#6b7280' }}>
+                                    {assignment.team_leader_fullname || assignment.team_leader_username || 'Team Leader'} • {folderFiles.length} file{folderFiles.length !== 1 ? 's' : ''}
+                                  </div>
+                                </div>
+                                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" style={{ transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s', flexShrink: 0 }}>
+                                  <path d="M4 6L8 10L12 6" stroke="#6B7280" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                </svg>
+                              </div>
+                            </div>
+                            {isExpanded && (
+                              <div style={{ marginLeft: '8px', paddingLeft: '8px', marginTop: '4px' }}>
+                                {folderFiles.map(file => (
+                                  <div
+                                    key={file.id}
+                                    onClick={() => confirmOpenFile(file)}
+                                    className="submitted-file-card"
+                                    style={{ cursor: 'pointer', marginBottom: '4px' }}
+                                  >
+                                    <FileIcon fileType={file.original_name.split('.').pop()} size="small" />
+                                    <div style={{ flex: 1, minWidth: 0 }}>
+                                      <div style={{ fontWeight: '500', fontSize: '14px', color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{file.original_name}</div>
+                                      <div style={{ fontSize: '12px', color: '#6B7280', marginTop: '2px' }}>{formatFileSize(file.file_size)}</div>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+
+                      {/* Individual file attachments */}
+                      {attIndividual.map(attachment => (
+                        <div
+                          key={attachment.id}
+                          onClick={() => confirmOpenFile(attachment)}
+                          style={{ display: 'flex', alignItems: 'center', padding: '12px 16px', gap: '12px', border: '1px solid #9CA3AF', borderRadius: '8px', cursor: 'pointer', marginBottom: '8px', transition: 'background-color 0.2s ease', backgroundColor: 'transparent' }}
+                          onMouseEnter={e => e.currentTarget.style.backgroundColor = 'rgba(156, 163, 175, 0.1)'}
+                          onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
+                        >
+                          <div style={{ flexShrink: 0 }}>
+                            <FileIcon fileType={attachment.original_name.split('.').pop()} size="small" />
+                          </div>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontWeight: '500', color: '#1c1e21', marginBottom: '4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              {attachment.original_name}
+                            </div>
+                            <div style={{ fontSize: '12px', color: '#65676b', display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                              <span>by <span style={{ color: '#1877f2', fontWeight: '600' }}>{assignment.team_leader_fullname || assignment.team_leader_username || 'Team Leader'}</span></span>
+                              <span>{formatFileSize(attachment.file_size)}</span>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  );
+                })()}
 
                 {/* Submitted Files Display - Show all submitted files */}
                 {assignment.submitted_files && assignment.submitted_files.length > 0 && (
@@ -1137,8 +1179,32 @@ const TasksTab = ({
                                       <div style={{ fontWeight: '600', fontSize: '14px', color: '#111827' }}>
                                         {folderName}
                                       </div>
-                                      <div style={{ fontSize: '12px', color: '#6b7280' }}>
-                                        Submitted by <span style={{ fontWeight: '500' }}>{folderFiles[0].submitter_name || user.fullName || user.username}</span> • {folderFiles.length} files
+                                      <div style={{ fontSize: '12px', color: '#6b7280', display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                                        <span>Submitted by <span style={{ fontWeight: '500' }}>{folderFiles[0].submitter_name || user.fullName || user.username}</span> • {folderFiles.length} files</span>
+                                        {(() => {
+                                          const total = folderFiles.length;
+                                          const approved = folderFiles.filter(f => f.status === 'final_approved').length;
+                                          const tlApproved = folderFiles.filter(f => f.status === 'team_leader_approved').length;
+                                          const rejected = folderFiles.filter(f => f.status === 'rejected_by_team_leader' || f.status === 'rejected_by_admin').length;
+                                          const pending = folderFiles.filter(f => f.status === 'uploaded' || !f.status).length;
+                                          const badges = [];
+                                          if (approved === total) return <span style={{ background: '#d1fae5', color: '#065f46', padding: '2px 8px', borderRadius: '10px', fontSize: '11px', fontWeight: '600' }}>✓ All Approved</span>;
+                                          if (rejected === total) return <span style={{ background: '#ffe4e6', color: '#be123c', padding: '2px 8px', borderRadius: '20px', fontSize: '11px', fontWeight: '500' }}>All Rejected</span>;
+                                          const pendingAdmin = tlApproved;
+                                          if (pendingAdmin > 0 || (approved > 0 && pending === 0 && rejected === 0)) {
+                                            badges.push(<span key="pa" style={{ background: '#fef9c3', color: '#92400e', padding: '2px 8px', borderRadius: '10px', fontSize: '11px', fontWeight: '500', marginRight: '4px' }}>Pending Admin</span>);
+                                          }
+                                          if (pending > 0) {
+                                            badges.push(<span key="pt" style={{ background: '#e0e7ff', color: '#3730a3', padding: '2px 8px', borderRadius: '10px', fontSize: '11px', fontWeight: '600', marginRight: '4px' }}>Pending Review</span>);
+                                          }
+                                          if (rejected > 0) {
+                                            badges.push(<span key="rj" style={{ background: '#ffe4e6', color: '#be123c', padding: '2px 8px', borderRadius: '20px', fontSize: '11px', fontWeight: '500', marginRight: '4px' }}>{rejected} Rejected</span>);
+                                          }
+                                          if (approved > 0 && approved < total) {
+                                            badges.push(<span key="ap" style={{ background: '#d1fae5', color: '#065f46', padding: '2px 8px', borderRadius: '10px', fontSize: '11px', fontWeight: '600' }}>{approved} Approved</span>);
+                                          }
+                                          return badges.length > 0 ? <>{badges}</> : <span style={{ background: '#e0e7ff', color: '#3730a3', padding: '2px 8px', borderRadius: '10px', fontSize: '11px', fontWeight: '600' }}>Pending Review</span>;
+                                        })()}
                                       </div>
                                     </div>
                                     <button
@@ -1182,21 +1248,16 @@ const TasksTab = ({
                                 {/* Folder Contents - Expandable */}
                                 {isExpanded && (
                                   <div style={{
-                                    marginLeft: '20px',
-                                    marginTop: '8px',
-                                    paddingLeft: '16px',
-                                    borderLeft: '2px solid #e5e7eb'
+                                    marginLeft: '8px',
+                                    marginTop: '4px',
+                                    paddingLeft: '8px'
                                   }}>
                                     {folderFiles.map((file) => (
                                       <div
                                         key={file.id}
                                         className="submitted-file-card"
                                         onClick={() => confirmOpenFile(file)}
-                                        style={{ 
-                                          cursor: 'pointer',
-                                          marginBottom: '8px',
-                                          backgroundColor: '#fafafa'
-                                        }}
+                                        style={{ cursor: 'pointer', marginBottom: '4px' }}
                                       >
                                         <div style={{
                                           display: 'flex',
@@ -1221,7 +1282,7 @@ const TasksTab = ({
                                               textOverflow: 'ellipsis',
                                               whiteSpace: 'nowrap'
                                             }}>
-                                              {file.relative_path || file.original_name || file.filename}
+                                              {file.original_name || file.filename}
                                             </div>
                                             <div style={{
                                               fontSize: '12px',
@@ -1235,42 +1296,18 @@ const TasksTab = ({
                                               <span style={{ color: '#9ca3af' }}>•</span>
                                               <span>{formatDate(file.submitted_at || file.uploaded_at)}</span>
                                               {file.tag && (
-                                                <span style={{
-                                                  backgroundColor: '#eff6ff',
-                                                  color: '#1e40af',
-                                                  padding: '2px 8px',
-                                                  borderRadius: '3px',
-                                                  fontSize: '10px',
-                                                  fontWeight: '600',
-                                                }}>
-                                                  🏷️ {file.tag}
-                                                </span>
+                                              <span style={{
+                                              backgroundColor: '#eff6ff',
+                                              color: '#1e40af',
+                                              padding: '2px 8px',
+                                              borderRadius: '3px',
+                                              fontSize: '10px',
+                                              fontWeight: '600',
+                                              }}>
+                                              🏷️ {file.tag}
+                                              </span>
                                               )}
-                                              {/* Only show status badges for REJECTED or REVISED (after rejection) files */}
-                                              {file.status === 'under_revision' && (
-                                                <span style={{
-                                                  backgroundColor: '#fef3c7',
-                                                  color: '#92400e',
-                                                  padding: '2px 8px',
-                                                  borderRadius: '3px',
-                                                  fontSize: '10px',
-                                                  fontWeight: '600',
-                                                }}>
-                                                  📝 REVISED
-                                                </span>
-                                              )}
-                                              {(file.status === 'rejected_by_team_leader' || file.status === 'rejected_by_admin') && (
-                                                <span style={{
-                                                  backgroundColor: '#fee2e2',
-                                                  color: '#991b1b',
-                                                  padding: '2px 8px',
-                                                  borderRadius: '3px',
-                                                  fontSize: '10px',
-                                                  fontWeight: '600',
-                                                }}>
-                                                  ✗ REJECTED
-                                                </span>
-                                              )}
+                                              {getFileStatusBadge(file.status)}
                                             </div>
                                           </div>
                                           <button
@@ -1371,40 +1408,10 @@ const TasksTab = ({
                                         alignItems: 'center',
                                         gap: '4px'
                                       }}>
-                                        <span>🏷️</span> {file.tag}
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg> {file.tag}
                                       </span>
                                     )}
-                                    {/* Only show status badges for REJECTED or REVISED (after rejection) files */}
-                                    {file.status === 'under_revision' && (
-                                      <span style={{
-                                        backgroundColor: '#fef3c7',
-                                        color: '#92400e',
-                                        padding: '3px 10px',
-                                        borderRadius: '4px',
-                                        fontSize: '11px',
-                                        fontWeight: '600',
-                                        display: 'inline-flex',
-                                        alignItems: 'center',
-                                        gap: '4px'
-                                      }}>
-                                        📝 REVISED
-                                      </span>
-                                    )}
-                                    {(file.status === 'rejected_by_team_leader' || file.status === 'rejected_by_admin') && (
-                                      <span style={{
-                                        backgroundColor: '#fee2e2',
-                                        color: '#991b1b',
-                                        padding: '3px 10px',
-                                        borderRadius: '4px',
-                                        fontSize: '11px',
-                                        fontWeight: '600',
-                                        display: 'inline-flex',
-                                        alignItems: 'center',
-                                        gap: '4px'
-                                      }}>
-                                        ✗ REJECTED
-                                      </span>
-                                    )}
+                                    {getFileStatusBadge(file.status)}
                                   </div>
                                 </div>
                                 <button
@@ -1492,7 +1499,7 @@ const TasksTab = ({
                     alignItems: 'flex-start',
                     gap: '10px'
                   }}>
-                    <span style={{ fontSize: '20px', flexShrink: 0 }}>ℹ️</span>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#92400E" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{flexShrink:0}}><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
                     <div style={{ fontSize: '14px', color: '#92400E', lineHeight: '1.5' }}>
                       <strong>No files found.</strong>
                       <br />
@@ -1567,7 +1574,7 @@ const TasksTab = ({
         </div>
       ) : (
         <div className="tasks-empty">
-          <div className="tasks-empty-icon">📋</div>
+          <div className="tasks-empty-icon"><svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M16 4h2a2 2 0 012 2v14a2 2 0 01-2 2H6a2 2 0 01-2-2V6a2 2 0 012-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg></div>
           <h3>No assignments</h3>
           <p>You don't have any assignments at this time.</p>
         </div>
@@ -1760,7 +1767,7 @@ const TasksTab = ({
                 </div>
               ) : (
                 <div className="no-comments">
-                  <p>💬 No comments yet. Be the first to comment!</p>
+                  <p><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{marginRight:'6px',verticalAlign:'middle'}}><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg> No comments yet. Be the first to comment!</p>
                 </div>
               )}
             </div>
@@ -1809,7 +1816,7 @@ const TasksTab = ({
           <div className="tasks-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '500px' }}>
             <div className="tasks-modal-header">
               <h3 style={{ color: '#dc2626', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span style={{ fontSize: '24px' }}>⚠️</span>
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#dc2626" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
                 {fileToDelete.isFolderDelete ? 'Delete Folder' : 'Delete File'}
               </h3>
               <button className="tasks-modal-close" onClick={() => setShowDeleteModal(false)}>×</button>
@@ -1831,7 +1838,7 @@ const TasksTab = ({
                   marginBottom: '16px'
                 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <span style={{ fontSize: '16px' }}>{fileToDelete.isFolderDelete ? '📁' : '📄'}</span>
+                    {fileToDelete.isFolderDelete ? <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#991b1b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg> : <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#991b1b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M13 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V9z"/><polyline points="13 2 13 9 20 9"/></svg>}
                     <span style={{ fontSize: '14px', fontWeight: '500', color: '#991b1b' }}>
                       {fileToDelete.fileName}
                     </span>
@@ -1913,7 +1920,7 @@ const TasksTab = ({
                 onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#b91c1c'}
                 onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#dc2626'}
               >
-                <span>🗑️</span>
+                <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a1 1 0 011-1h4a1 1 0 011 1v2"/></svg>
                 {fileToDelete.isFolderDelete ? 'Delete Folder' : 'Delete File'}
               </button>
             </div>
@@ -2068,7 +2075,7 @@ const TasksTab = ({
                       }}
                     >
                       <div className="file-upload-content" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px' }}>
-                        <div style={{ fontSize: '48px' }}>📁</div>
+                        <div><svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="#bfdbfe" stroke="#3b82f6" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg></div>
                         <div className="upload-text">
                           <p style={{ fontSize: '15px', fontWeight: '500', color: '#111827', margin: '0 0 8px 0' }}>Drag and drop files or folders here</p>
                           <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', flexWrap: 'wrap' }}>
@@ -2099,7 +2106,7 @@ const TasksTab = ({
                                 e.currentTarget.style.backgroundColor = '#ffffff';
                               }}
                             >
-                              📄 Browse Files
+                              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{marginRight:'4px'}}><path d="M13 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V9z"/><polyline points="13 2 13 9 20 9"/></svg> Browse Files
                             </button>
                             <button
                               type="button"
@@ -2130,7 +2137,7 @@ const TasksTab = ({
                                 }
                               }}
                             >
-                              📁 Browse Folder
+                              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{marginRight:'4px'}}><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg> Browse Folder
                             </button>
                           </div>
                         </div>
@@ -2149,8 +2156,8 @@ const TasksTab = ({
                     }}>
                       <label style={{ fontSize: '14px', fontWeight: '600', color: '#111827' }}>
                         {uploadMode === 'folder' && uploadedFiles.length > 0
-                          ? `📁 Folder: ${uploadedFiles[0].folderName} (${uploadedFiles.length} files)`
-                          : `📎 Selected Files (${uploadedFiles.length})`
+                          ? `Folder: ${uploadedFiles[0].folderName} (${uploadedFiles.length} files)`
+                          : `Selected Files (${uploadedFiles.length})`
                         }
                       </label>
                     </div>
@@ -2170,7 +2177,7 @@ const TasksTab = ({
                           gap: '12px',
                           marginBottom: '12px'
                         }}>
-                          <div style={{ fontSize: '48px' }}>📁</div>
+                          <div><svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="#bfdbfe" stroke="#3b82f6" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg></div>
                           <div style={{ flex: 1 }}>
                             <div style={{
                               fontWeight: '600',
@@ -2327,7 +2334,7 @@ const TasksTab = ({
                     {/* Single Tag field for all files */}
                     <div style={{ marginTop: '24px', marginBottom: '16px', padding: '16px', backgroundColor: '#f9fafb', borderRadius: '10px', border: '1px solid #e5e7eb' }}>
                       <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', marginBottom: '8px', color: '#111827' }}>
-                        🏷️ Tag
+                        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{marginRight:'5px',verticalAlign:'middle'}}><path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg> Tag
                       </label>
                       <SingleSelectTags
                         selectedTag={fileTag}
@@ -2337,7 +2344,7 @@ const TasksTab = ({
                       />
 
                       <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', marginBottom: '8px', color: '#111827', marginTop: '16px' }}>
-                        📝 Description (optional)
+                        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{marginRight:'5px',verticalAlign:'middle'}}><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg> Description (optional)
                       </label>
                       <textarea
                         value={fileDescription}
@@ -2423,7 +2430,7 @@ const TasksTab = ({
               >
                 {isUploading ? (
                   <>
-                    <span style={{ display: 'inline-block', animation: 'spin 1s linear infinite' }}>⏳</span>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{display:'inline-block',animation:'spin 1s linear infinite'}}><path d="M21 12a9 9 0 11-6.219-8.56"/></svg>
                     Uploading...
                   </>
                 ) : (

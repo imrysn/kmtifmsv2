@@ -6,7 +6,6 @@ import { parseNotification } from '../shared/SmartNavigation';
 
 const NotificationTab = ({ user, onOpenFile, onNavigateToTasks, onNavigate, onUpdateUnreadCount }) => {
   const [notifications, setNotifications] = useState([]);
-  const [isLoading, setIsLoading] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [displayCount, setDisplayCount] = useState(10);
@@ -63,69 +62,55 @@ const NotificationTab = ({ user, onOpenFile, onNavigateToTasks, onNavigate, onUp
     }
   };
 
-  const handleNotificationClick = useCallback(async (notification) => {
-    console.log('🔔 User Notification clicked:', notification);
+  // Check if a notification is folder-level (grouped) based on its title
+  const isFolderNotification = useCallback((notification) => {
+    const folderKeywords = ['Folder Approved', 'Folder Rejected', 'Folder Partially', 'Folder Mostly'];
+    return !notification.file_id && folderKeywords.some(kw => notification.title?.startsWith(kw));
+  }, []);
 
+  const handleNotificationClick = useCallback(async (notification) => {
     // Mark as read
     if (!notification.is_read) {
       try {
         await fetch(`${API_BASE_URL}/api/notifications/${notification.id}/read`, {
           method: 'PUT'
         });
-
-        // Update local state
-        setNotifications(prevNotifications =>
-          prevNotifications.map(n =>
-            n.id === notification.id ? { ...n, is_read: 1 } : n
-          )
-        );
+        setNotifications(prev => prev.map(n => n.id === notification.id ? { ...n, is_read: 1 } : n));
         const newUnreadCount = Math.max(0, unreadCount - 1);
         setUnreadCount(newUnreadCount);
-        if (onUpdateUnreadCount) {
-          onUpdateUnreadCount(newUnreadCount);
-        }
+        if (onUpdateUnreadCount) onUpdateUnreadCount(newUnreadCount);
       } catch (error) {
         console.error('❌ Error marking notification as read:', error);
       }
     }
 
-    // Use shared notification parser
+    // Folder-level notifications (no file_id) — navigate to My Files tab only
+    if (isFolderNotification(notification)) {
+      if (onNavigate) onNavigate('my-files', null);
+      return;
+    }
+
+    // Use shared notification parser for file/task notifications
     const { targetTab, context } = parseNotification(notification, 'user');
 
-    console.log('🧭 Parsed User Notification:', { targetTab, context });
-
-    // Store highlighting context in sessionStorage for TasksTab to read
     if (context) {
-      if (context.assignmentId) {
-        sessionStorage.setItem('highlightAssignmentId', context.assignmentId.toString());
-        console.log('💾 Stored highlightAssignmentId:', context.assignmentId);
-      }
-      if (context.fileId) {
-        sessionStorage.setItem('highlightFileId', context.fileId.toString());
-        console.log('💾 Stored highlightFileId:', context.fileId);
-      }
+      if (context.assignmentId) sessionStorage.setItem('highlightAssignmentId', context.assignmentId.toString());
+      if (context.fileId) sessionStorage.setItem('highlightFileId', context.fileId.toString());
       if (context.shouldOpenComments || context.expandAllReplies) {
         sessionStorage.setItem('notificationContext', JSON.stringify(context));
-        console.log('💾 Stored notificationContext:', context);
       }
-      // Store the notification ID for reference
       sessionStorage.setItem('fromNotificationId', notification.id.toString());
     }
 
     if (targetTab) {
       if (onNavigate) {
-        // Use new unified handler
         onNavigate(targetTab, context);
       } else {
-        // Fallback for legacy props if onNavigate is missing
-        if (targetTab === 'tasks' && onNavigateToTasks) {
-          onNavigateToTasks(context?.assignmentId);
-        } else if ((targetTab === 'files' || targetTab === 'my-files') && onOpenFile) {
-          onOpenFile(context?.fileId);
-        }
+        if (targetTab === 'tasks' && onNavigateToTasks) onNavigateToTasks(context?.assignmentId);
+        else if ((targetTab === 'files' || targetTab === 'my-files') && onOpenFile) onOpenFile(context?.fileId);
       }
     }
-  }, [onNavigate, onNavigateToTasks, onOpenFile, unreadCount, onUpdateUnreadCount]);
+  }, [onNavigate, onNavigateToTasks, onOpenFile, unreadCount, onUpdateUnreadCount, isFolderNotification]);
 
   const handleDeleteNotification = useCallback(async (e, notificationId) => {
     e.stopPropagation();
@@ -214,7 +199,22 @@ const NotificationTab = ({ user, onOpenFile, onNavigateToTasks, onNavigate, onUp
     }
   }, [user.id, onUpdateUnreadCount]);
 
-  const getNotificationIcon = useCallback((type) => {
+  const getNotificationIcon = useCallback((type, notification) => {
+    const isFolder = isFolderNotification(notification);
+
+    if (isFolder) {
+      // Folder icon with checkmark or X overlay
+      const isApproval = type === 'final_approval';
+      return (
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="file-icon-svg">
+          <path d="M2 6a2 2 0 0 1 2-2h4l2 2h6a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6z" />
+          {isApproval
+            ? <path d="M7 11l2 2 4-4" strokeWidth="1.5" />
+            : <><line x1="7" y1="9" x2="13" y2="15" strokeWidth="1.5" /><line x1="13" y1="9" x2="7" y2="15" strokeWidth="1.5" /></>}
+        </svg>
+      );
+    }
+
     switch (type) {
       case 'approval':
       case 'final_approval':
@@ -254,7 +254,7 @@ const NotificationTab = ({ user, onOpenFile, onNavigateToTasks, onNavigate, onUp
           </svg>
         );
     }
-  }, []);
+  }, [isFolderNotification]);
 
   const getStatusDisplayName = useCallback((dbStatus) => {
     switch (dbStatus) {
@@ -410,7 +410,7 @@ const NotificationTab = ({ user, onOpenFile, onNavigateToTasks, onNavigate, onUp
                   onClick={() => handleNotificationClick(notification)}
                 >
                   <div className="notification-icon">
-                    {getNotificationIcon(notification.type)}
+                    {getNotificationIcon(notification.type, notification)}
                   </div>
                   <div className="notification-content">
                     <div className="notification-title-row">
@@ -475,7 +475,13 @@ const NotificationTab = ({ user, onOpenFile, onNavigateToTasks, onNavigate, onUp
 
             <div className="custom-modal-body">
               <div className="delete-warning">
-                <span className="warning-icon">⚠️</span>
+                <span className="warning-icon">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="24" height="24">
+                    <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                    <line x1="12" y1="9" x2="12" y2="13"/>
+                    <line x1="12" y1="17" x2="12.01" y2="17"/>
+                  </svg>
+                </span>
                 <div className="warning-content">
                   <h4>Are you sure you want to delete all notifications?</h4>
 

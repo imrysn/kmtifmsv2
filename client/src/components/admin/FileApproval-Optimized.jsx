@@ -51,6 +51,18 @@ const getFolderStatus = (folderFiles) => {
   return { status: 'uploaded', label: 'Pending Team Leader', cls: 'pending' }
 }
 
+// Hook to compute fixed dropdown position
+const useDropdownPosition = (btnRef, isOpen) => {
+  const [pos, setPos] = React.useState({ top: 0, left: 0 })
+  useEffect(() => {
+    if (isOpen && btnRef.current) {
+      const rect = btnRef.current.getBoundingClientRect()
+      setPos({ top: rect.bottom + window.scrollY + 4, left: rect.right + window.scrollX - 145 })
+    }
+  }, [isOpen, btnRef])
+  return pos
+}
+
 // Folder Row Component
 const FolderRow = memo(({
   folderName,
@@ -58,21 +70,38 @@ const FolderRow = memo(({
   isExpanded,
   onToggle,
   onDelete,
+  onApproveFolder,
+  onRejectFolder,
+  onOpenFolderPath,
   formatFileSize
 }) => {
+  const [dropdownOpen, setDropdownOpen] = useState(false)
+  const dropdownRef = useRef(null)
+  const btnRef = useRef(null)
+  const dropdownPos = useDropdownPosition(btnRef, dropdownOpen)
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target) &&
+          btnRef.current && !btnRef.current.contains(event.target)) {
+        setDropdownOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
   const handleClick = useCallback(() => {
     onToggle(folderName)
   }, [folderName, onToggle])
-
-  const handleDeleteClick = useCallback((e) => {
-    e.stopPropagation()
-    onDelete(folderName, folderFiles)
-  }, [folderName, folderFiles, onDelete])
 
   const firstFile = folderFiles[0]
   const formattedDate = useMemo(() => new Date(firstFile.uploaded_at).toLocaleDateString(), [firstFile.uploaded_at])
   const formattedTime = useMemo(() => new Date(firstFile.uploaded_at).toLocaleTimeString(), [firstFile.uploaded_at])
   const folderStatus = useMemo(() => getFolderStatus(folderFiles), [folderFiles])
+
+  const canApprove = folderStatus.status === 'team_leader_approved'
+  const canReject = folderStatus.status !== 'final_approved' && folderStatus.status !== 'rejected'
 
   return (
     <tr 
@@ -120,13 +149,49 @@ const FolderRow = memo(({
         </span>
       </td>
       <td>
-        <button
-          className="action-btn delete-btn"
-          onClick={handleDeleteClick}
-          title="Delete Folder"
-        >
-          Delete
-        </button>
+        <div className="action-dropdown-wrapper">
+          <button
+            ref={btnRef}
+            className="action-dots-btn"
+            onClick={(e) => { e.stopPropagation(); setDropdownOpen(prev => !prev) }}
+            title="Actions"
+          >
+            ⋮
+          </button>
+          {dropdownOpen && (
+            <div ref={dropdownRef} className="action-dropdown-menu" style={{ position: 'fixed', top: dropdownPos.top, left: dropdownPos.left, zIndex: 9999 }}>
+              {(canApprove || canReject) && (
+                <button
+                  className="dropdown-item dropdown-approve-reject"
+                  onClick={(e) => { e.stopPropagation(); setDropdownOpen(false); onApproveFolder(folderName, folderFiles) }}
+                >
+                  <svg className="dropdown-svg-icon" width="15" height="15" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M10 2C5.58172 2 2 5.58172 2 10C2 14.4183 5.58172 18 10 18C14.4183 18 18 14.4183 18 10C18 5.58172 14.4183 2 10 2Z" fill="#16a34a" opacity="0.15"/>
+                    <path d="M10 2C5.58172 2 2 5.58172 2 10C2 14.4183 5.58172 18 10 18C14.4183 18 18 14.4183 18 10C18 5.58172 14.4183 2 10 2Z" stroke="#16a34a" strokeWidth="1.5"/>
+                    <path d="M6.5 10L9 12.5L13.5 7.5" stroke="#16a34a" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                  <span className="dropdown-approve-text">Approve</span>
+                  <span className="dropdown-slash"> / </span>
+                  <span className="dropdown-reject-text">Reject</span>
+                  <span className="dropdown-folder-text"> Folder</span>
+                </button>
+              )}
+              <button
+                className="dropdown-item dropdown-open"
+                onClick={(e) => { e.stopPropagation(); setDropdownOpen(false); onOpenFolderPath(folderFiles[0]) }}
+              >
+                <span className="dropdown-icon">📂</span> Open Folder Path
+              </button>
+              <div className="dropdown-divider" />
+              <button
+                className="dropdown-item dropdown-delete"
+                onClick={(e) => { e.stopPropagation(); setDropdownOpen(false); onDelete(folderName, folderFiles) }}
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style={{color:'#ef4444',flexShrink:0}}><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg> Delete
+              </button>
+            </div>
+          )}
+        </div>
       </td>
     </tr>
   )
@@ -139,16 +204,28 @@ const FileRow = memo(({
   getStatusDisplayName,
   onOpenModal,
   onDelete,
+  onOpenFilePath,
   isNested = false
 }) => {
+  const [dropdownOpen, setDropdownOpen] = useState(false)
+  const dropdownRef = useRef(null)
+  const btnRef = useRef(null)
+  const dropdownPos = useDropdownPosition(btnRef, dropdownOpen)
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target) &&
+          btnRef.current && !btnRef.current.contains(event.target)) {
+        setDropdownOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
   const handleRowClick = useCallback(() => {
     onOpenModal(file)
   }, [file, onOpenModal])
-
-  const handleDeleteClick = useCallback((e) => {
-    e.stopPropagation()
-    onDelete(file)
-  }, [file, onDelete])
 
   // Extract file extension from filename or file_type
   const getFileExtension = useCallback((filename, fileType) => {
@@ -220,13 +297,33 @@ const FileRow = memo(({
         </span>
       </td>
       <td>
-        <button
-          className="action-btn delete-btn"
-          onClick={handleDeleteClick}
-          title="Delete File"
-        >
-          Delete
-        </button>
+        <div className="action-dropdown-wrapper">
+          <button
+            ref={btnRef}
+            className="action-dots-btn"
+            onClick={(e) => { e.stopPropagation(); setDropdownOpen(prev => !prev) }}
+            title="Actions"
+          >
+            ⋮
+          </button>
+          {dropdownOpen && (
+            <div ref={dropdownRef} className="action-dropdown-menu" style={{ position: 'fixed', top: dropdownPos.top, left: dropdownPos.left, zIndex: 9999 }}>
+              <button
+                className="dropdown-item dropdown-open"
+                onClick={(e) => { e.stopPropagation(); setDropdownOpen(false); onOpenFilePath(file) }}
+              >
+                <span className="dropdown-icon">📂</span> Open File Path
+              </button>
+              <div className="dropdown-divider" />
+              <button
+                className="dropdown-item dropdown-delete"
+                onClick={(e) => { e.stopPropagation(); setDropdownOpen(false); onDelete(file) }}
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style={{color:'#ef4444',flexShrink:0}}><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg> Delete
+              </button>
+            </div>
+          )}
+        </div>
       </td>
     </tr>
   )
@@ -256,6 +353,9 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
   const [isOpeningFile, setIsOpeningFile] = useState(false)
   const [expandedFolders, setExpandedFolders] = useState({})
   const [folderToDelete, setFolderToDelete] = useState(null)
+  const [folderReviewModal, setFolderReviewModal] = useState(null) // { folderName, folderFiles, action: 'approve'|'reject' }
+  const [folderReviewComment, setFolderReviewComment] = useState('')
+  const [deleteAlert, setDeleteAlert] = useState(null)
 
   // Refs
   const statusCardsRef = useRef(null)
@@ -572,7 +672,7 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
           )
           setShowDeleteModal(false)
           setFolderToDelete(null)
-          setSuccess(`Folder "${folderToDelete.folderName}" with ${folderToDelete.folderFiles.length} file(s) deleted successfully`)
+          setDeleteAlert(`Folder "${folderToDelete.folderName}" with ${folderToDelete.folderFiles.length} file(s) deleted successfully`)
         } else {
           throw new Error('Failed to delete some files in the folder')
         }
@@ -608,7 +708,7 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
           setFiles(prevFiles => prevFiles.filter(file => file.id !== fileToDelete.id))
           setShowDeleteModal(false)
           setFileToDelete(null)
-          setSuccess('File deleted successfully')
+          setDeleteAlert('File deleted successfully')
         } else {
           setError(data.message || 'Failed to delete file')
         }
@@ -621,22 +721,39 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
     }
   }, [fileToDelete, folderToDelete, authUser, setError, setSuccess])
 
-  const openFile = useCallback(async (file) => {
+  const openFilePath = useCallback(async (file) => {
     if (!file) return
-
     setIsOpeningFile(true)
     try {
       const pathResp = await fetch(`${API_BASE}/files/${file.id}/path`)
       const pathData = await pathResp.json()
       if (!pathData.success) throw new Error('Failed to get file path')
-
       const filePath = pathData.filePath
+      if (window.electron && typeof window.electron.openFolderInExplorer === 'function') {
+        const result = await window.electron.openFolderInExplorer(filePath)
+        if (!result.success) throw new Error(result.error || 'Failed to open folder path')
+      } else {
+        setError('Folder path opening not available in browser mode')
+      }
+    } catch (err) {
+      console.error('Error opening folder path:', err)
+      setError(err.message || 'Failed to open folder path')
+    } finally {
+      setIsOpeningFile(false)
+    }
+  }, [setError])
 
+  const openFile = useCallback(async (file) => {
+    if (!file) return
+    setIsOpeningFile(true)
+    try {
+      const pathResp = await fetch(`${API_BASE}/files/${file.id}/path`)
+      const pathData = await pathResp.json()
+      if (!pathData.success) throw new Error('Failed to get file path')
+      const filePath = pathData.filePath
       if (window.electron && typeof window.electron.openFileInApp === 'function') {
         const result = await window.electron.openFileInApp(filePath)
-        if (!result.success) {
-          throw new Error(result.error || 'Failed to open file')
-        }
+        if (!result.success) throw new Error(result.error || 'Failed to open file')
       } else {
         setError('File opening not available')
       }
@@ -647,6 +764,126 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
       setIsOpeningFile(false)
     }
   }, [setError])
+
+  const openFolderReviewModal = useCallback((folderName, folderFiles, action = 'approve') => {
+    setFolderReviewModal({ folderName, folderFiles, action })
+    setFolderReviewComment('')
+  }, [])
+
+  const confirmApproveFolder = useCallback(async () => {
+    if (!folderReviewModal) return
+    setIsLoading(true)
+    try {
+      let destinationPath = null
+      if (window.electron && typeof window.electron.openDirectoryDialog === 'function') {
+        const options = {}
+        try {
+          if (typeof window.electron.getNetworkProjectsPath === 'function') {
+            const dp = await window.electron.getNetworkProjectsPath()
+            if (dp) options.defaultPath = dp
+          }
+        } catch (err) {
+          console.warn('Could not get default path', err)
+        }
+        const result = await window.electron.openDirectoryDialog(options)
+        if (!result || result.canceled || !result.filePaths || result.filePaths.length === 0) {
+          setIsLoading(false)
+          return
+        }
+        destinationPath = result.filePaths[0]
+      } else {
+        throw new Error('File system access not available')
+      }
+
+      // Single API call: copy the whole folder structure to NAS and approve all files at once
+      const resp = await fetch(`${API_BASE}/files/folder/move-to-nas`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          folderName: folderReviewModal.folderName,
+          username: folderReviewModal.folderFiles[0].username,
+          fileIds: folderReviewModal.folderFiles.map(f => f.id),
+          destinationPath,
+          adminId: authUser.id,
+          adminUsername: authUser.username,
+          adminRole: authUser.role,
+          team: authUser.team,
+          comments: folderReviewComment.trim() || null
+        })
+      })
+      const data = await resp.json()
+      if (!data.success) throw new Error(data.message || 'Failed to move folder to NAS')
+
+      setFiles(prevFiles =>
+        prevFiles.map(f =>
+          folderReviewModal.folderFiles.some(ff => ff.id === f.id)
+            ? { ...f, status: 'final_approved' }
+            : f
+        )
+      )
+      const approvedFolderName = folderReviewModal.folderName
+      setFolderReviewModal(null)
+      setFolderReviewComment('')
+      setSuccess(`Folder "${approvedFolderName}" approved and uploaded to NAS successfully`)
+      fetchFiles()
+    } catch (err) {
+      console.error('Folder approval error:', err)
+      setError(err.message || 'Failed to approve folder')
+    } finally {
+      setIsLoading(false)
+    }
+  }, [folderReviewModal, folderReviewComment, authUser, setError, setSuccess, fetchFiles])
+
+  const confirmRejectFolder = useCallback(async () => {
+    if (!folderReviewModal) return
+    setIsLoading(true)
+    try {
+      for (const file of folderReviewModal.folderFiles) {
+        try {
+          const resp = await fetch(`${API_BASE}/files/${file.id}/admin-review`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              action: 'reject',
+              comments: folderReviewComment.trim() || null,
+              adminId: authUser.id,
+              adminUsername: authUser.username,
+              adminRole: authUser.role,
+              team: authUser.team
+            })
+          })
+          const data = await resp.json()
+          if (data.success) {
+            await fetch(`${API_BASE}/files/${file.id}/delete-file`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ adminId: authUser.id, adminUsername: authUser.username, adminRole: authUser.role })
+            }).catch(() => {})
+          }
+        } catch (err) {
+          console.warn(`Failed to reject file ${file.id}:`, err)
+        }
+      }
+
+      setFiles(prevFiles =>
+        prevFiles.map(f =>
+          folderReviewModal.folderFiles.some(ff => ff.id === f.id)
+            ? { ...f, status: 'rejected_by_admin' }
+            : f
+        )
+      )
+      const rejectedFolderName = folderReviewModal.folderName
+      setFolderReviewModal(null)
+      setFolderReviewComment('')
+      setSuccess(`Folder "${rejectedFolderName}" rejected successfully`)
+      fetchFiles()
+    } catch (err) {
+      console.error('Folder rejection error:', err)
+      setError(err.message || 'Failed to reject folder')
+    } finally {
+      setIsLoading(false)
+    }
+  }, [folderReviewModal, folderReviewComment, authUser, setError, setSuccess, fetchFiles])
 
   const approveFile = useCallback(async () => {
     if (!selectedFile) return
@@ -794,6 +1031,9 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
             isExpanded={isExpanded}
             onToggle={toggleFolder}
             onDelete={openFolderDeleteModal}
+            onApproveFolder={(name, files) => openFolderReviewModal(name, files, 'approve')}
+            onRejectFolder={(name, files) => openFolderReviewModal(name, files, 'reject')}
+            onOpenFolderPath={openFilePath}
             formatFileSize={formatFileSize}
           />
         )
@@ -809,6 +1049,7 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
                 getStatusDisplayName={getStatusDisplayName}
                 onOpenModal={openFileModal}
                 onDelete={openDeleteModal}
+                onOpenFilePath={openFilePath}
                 isNested={true}
               />
             )
@@ -824,6 +1065,7 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
             getStatusDisplayName={getStatusDisplayName}
             onOpenModal={openFileModal}
             onDelete={openDeleteModal}
+            onOpenFilePath={openFilePath}
             isNested={false}
           />
         )
@@ -831,7 +1073,7 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
     })
 
     return rows
-  }, [currentPageItems, expandedFolders, toggleFolder, openFolderDeleteModal, openDeleteModal, openFileModal, formatFileSize, mapFileStatus, getStatusDisplayName])
+  }, [currentPageItems, expandedFolders, toggleFolder, openFolderDeleteModal, openFolderReviewModal, openFilePath, openDeleteModal, openFileModal, formatFileSize, mapFileStatus, getStatusDisplayName])
 
   const renderPaginationNumbers = useMemo(() => {
     const pageNumbers = []
@@ -909,6 +1151,7 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
     <div className={`file-approval-section ${isOpeningFile ? 'file-opening-cursor' : ''}`}>
       {error && <AlertMessage type="error" message={error} onClose={clearMessages} />}
       {success && <AlertMessage type="success" message={success} onClose={clearMessages} />}
+      {deleteAlert && <AlertMessage type="error" message={deleteAlert} onClose={() => setDeleteAlert(null)} />}
 
       <div className="file-status-cards" ref={statusCardsRef}>
         <StatusCard icon="TL" label="Pending Team Leader" count={statusCounts.pendingTeamLeader} className="pending" />
@@ -1070,6 +1313,72 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
           The user who submitted this file will be notified that their file has been rejected. The file will be deleted from the uploads folder.
         </p>
       </ConfirmationModal>
+
+      {/* Folder Review Modal */}
+      {folderReviewModal && (
+        <div className="file-details-modal-component">
+          <div className="modal-overlay" onClick={() => { if (!isLoading) { setFolderReviewModal(null); setFolderReviewComment('') } }}>
+            <div className="modal file-modal" onClick={e => e.stopPropagation()}>
+              <div className="modal-header">
+                <h3>Folder Details</h3>
+                <button className="modal-close" onClick={() => { setFolderReviewModal(null); setFolderReviewComment('') }} disabled={isLoading}>×</button>
+              </div>
+              <div className="modal-body">
+                <div className="file-details-section">
+                  <h4 className="section-title">FOLDER DETAILS</h4>
+                  <div className="file-details-grid">
+                    <div className="detail-item">
+                      <span className="detail-label">FOLDER NAME:</span>
+                      <span className="detail-value">📁 {folderReviewModal.folderName}</span>
+                    </div>
+                    <div className="detail-item">
+                      <span className="detail-label">SUBMITTED BY:</span>
+                      <span className="detail-value">{folderReviewModal.folderFiles[0]?.fullName || folderReviewModal.folderFiles[0]?.username || 'Unknown'}</span>
+                    </div>
+                    <div className="detail-item">
+                      <span className="detail-label">TEAM:</span>
+                      <span className="detail-value team-badge-inline">{folderReviewModal.folderFiles[0]?.user_team || 'N/A'}</span>
+                    </div>
+                    <div className="detail-item">
+                      <span className="detail-label">UPLOAD DATE:</span>
+                      <span className="detail-value">{new Date(folderReviewModal.folderFiles[0]?.uploaded_at).toLocaleString()}</span>
+                    </div>
+                    <div className="detail-item">
+                      <span className="detail-label">TOTAL FILES:</span>
+                      <span className="detail-value">{folderReviewModal.folderFiles.length} files</span>
+                    </div>
+                    <div className="detail-item">
+                      <span className="detail-label">PENDING REVIEW:</span>
+                      <span className="detail-value">{folderReviewModal.folderFiles.filter(f => f.status === 'team_leader_approved').length} files</span>
+                    </div>
+                    <div className="detail-item">
+                      <span className="detail-label">STATUS:</span>
+                      <span className="detail-value status-badge status-pending">Pending Admin</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="actions-section">
+                  <div className="action-buttons-large">
+                    <button className="btn btn-success-large" disabled={isLoading} onClick={confirmApproveFolder}>
+                      <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                        <path d="M16.875 5L7.5 14.375L3.125 10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
+                      {isLoading ? 'Processing...' : 'Approve All'}
+                    </button>
+                    <button className="btn btn-danger-large" disabled={isLoading} onClick={confirmRejectFolder}>
+                      <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                        <path d="M15 5L5 15M5 5L15 15" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
+                      {isLoading ? 'Processing...' : 'Reject All'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

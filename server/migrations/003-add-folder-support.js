@@ -1,7 +1,7 @@
 const path = require('path');
 
 /**
- * Migration: Add folder support to files table (MySQL Only)
+ * Migration: Add folder support to files table AND assignment_attachments table (MySQL Only)
  * Adds columns: folder_name, relative_path, is_folder
  */
 
@@ -37,6 +37,26 @@ async function addFolderColumns() {
         ADD COLUMN is_folder BOOLEAN DEFAULT 0 AFTER relative_path
       `);
       console.log('✅ Added is_folder column');
+    }
+
+    // Also add folder_name and relative_path to assignment_attachments
+    const attachCols = await mysqlConfig.query('SHOW COLUMNS FROM assignment_attachments');
+    const attachColNames = attachCols.map(col => col.Field);
+
+    if (!attachColNames.includes('folder_name')) {
+      await mysqlConfig.query(`
+        ALTER TABLE assignment_attachments
+        ADD COLUMN folder_name VARCHAR(255) DEFAULT NULL
+      `);
+      console.log('✅ Added folder_name to assignment_attachments');
+    }
+
+    if (!attachColNames.includes('relative_path')) {
+      await mysqlConfig.query(`
+        ALTER TABLE assignment_attachments
+        ADD COLUMN relative_path VARCHAR(500) DEFAULT NULL
+      `);
+      console.log('✅ Added relative_path to assignment_attachments');
     }
 
     console.log('✅ Folder support migration completed');
