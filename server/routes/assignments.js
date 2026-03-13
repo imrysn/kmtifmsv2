@@ -781,6 +781,25 @@ router.post('/create', upload.array('attachments', 10000), async (req, res) => {
     // Mark nonce as used immediately (one-time use)
     nonceEntry.used = true;
 
+    // parse list of attachment IDs the client wants removed
+    let removeAttachmentIds = [];
+    if (typeof req.body.removeAttachmentIds === 'string') {
+      try {
+        removeAttachmentIds = JSON.parse(req.body.removeAttachmentIds || '[]');
+        if (!Array.isArray(removeAttachmentIds)) removeAttachmentIds = [];
+      } catch (e) {
+        console.warn('⚠️ [CREATE] Could not parse removeAttachmentIds:', e.message);
+        removeAttachmentIds = [];
+      }
+    } else if (Array.isArray(req.body.removeAttachmentIds)) {
+      removeAttachmentIds = req.body.removeAttachmentIds;
+    }
+
+    if (removeAttachmentIds.length > 0) {
+      // nothing to actually delete on create, just log
+      console.log(`🗑️ Ignoring removeAttachmentIds on create:`, removeAttachmentIds);
+    }
+
     const clientSentAttachments = req.body.hasAttachments === 'true';
 
     // Even with a valid nonce, if client says no attachments, discard any stray files
@@ -847,7 +866,10 @@ router.post('/create', upload.array('attachments', 10000), async (req, res) => {
           relativePaths = []
         }
 
-        for (const file of uploadedFiles) {
+        // iterate with index to ensure the correct relativePath maps to each file
+        for (let fileIndex = 0; fileIndex < uploadedFiles.length; fileIndex++) {
+          const file = uploadedFiles[fileIndex];
+
           // Move file from temp location to team leader's folder
           let finalPath;
           try {
@@ -859,10 +881,9 @@ router.post('/create', upload.array('attachments', 10000), async (req, res) => {
             finalPath = file.path;
           }
 
-          const fileIndex = uploadedFiles.indexOf(file)
-          const relPath = relativePaths[fileIndex] || file.originalname
-          const folderName = relPath.includes('/') ? relPath.split('/')[0] : null
-          console.log(`📎 File ${fileIndex}: ${file.originalname} → relPath: ${relPath}, folderName: ${folderName}`)
+          const relPath = relativePaths[fileIndex] || file.originalname;
+          const folderName = relPath.includes('/') ? relPath.split('/')[0] : null;
+          console.log(`📎 File ${fileIndex}: ${file.originalname} → relPath: ${relPath}, folderName: ${folderName}`);
 
           await query(`
             INSERT INTO assignment_attachments (
@@ -1164,6 +1185,46 @@ router.put('/:id', upload.array('attachments', 10000), async (req, res) => {
     }
     nonceEntry.used = true;
 
+    // parse list of attachment IDs the client wants removed
+    let removeAttachmentIds = [];
+    if (typeof req.body.removeAttachmentIds === 'string') {
+      try {
+        removeAttachmentIds = JSON.parse(req.body.removeAttachmentIds || '[]');
+        if (!Array.isArray(removeAttachmentIds)) removeAttachmentIds = [];
+      } catch (e) {
+        console.warn('⚠️ [PUT] Could not parse removeAttachmentIds:', e.message);
+        removeAttachmentIds = [];
+      }
+    } else if (Array.isArray(req.body.removeAttachmentIds)) {
+      removeAttachmentIds = req.body.removeAttachmentIds;
+    }
+
+    if (removeAttachmentIds.length > 0) {
+      console.log(`🗑️ [PUT] Removing ${removeAttachmentIds.length} existing attachment(s) for assignment ${id}:`, removeAttachmentIds);
+      for (const attId of removeAttachmentIds) {
+        try {
+          const attachment = await queryOne(
+            'SELECT * FROM assignment_attachments WHERE id = ? AND assignment_id = ?',
+            [attId, id]
+          );
+          if (attachment) {
+            if (attachment.file_path) {
+              try {
+                const filePath = attachment.file_path.startsWith('/uploads/')
+                  ? require('path').join(uploadsDir, attachment.file_path.substring(9))
+                  : attachment.file_path;
+                if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+              } catch (e) { console.warn('⚠️ Could not delete physical attachment file during removal:', e.message); }
+            }
+            await query('DELETE FROM assignment_attachments WHERE id = ?', [attId]);
+            console.log(`✅ Removed attachment ${attId}`);
+          }
+        } catch (e) {
+          console.warn('⚠️ Failed to remove attachment', attId, e.message);
+        }
+      }
+    }
+
     const clientSentAttachments = req.body.hasAttachments === 'true';
 
     if (!clientSentAttachments && rawFiles.length > 0) {
@@ -1224,7 +1285,19 @@ router.put('/:id', upload.array('attachments', 10000), async (req, res) => {
       try {
         console.log(`📎 Saving ${uploadedFiles.length} new attachment(s) for assignment ${id}`);
 
-        for (const file of uploadedFiles) {
+        // parse relative paths from client if present
+        let relativePaths = [];
+        try {
+          relativePaths = JSON.parse(req.body.relativePaths || '[]');
+          console.log(`📂 [PUT] relativePaths received: ${JSON.stringify(relativePaths)}`);
+        } catch (e) {
+          console.warn('⚠️ [PUT] Could not parse relativePaths:', e.message);
+          relativePaths = [];
+        }
+
+        for (let fileIndex = 0; fileIndex < uploadedFiles.length; fileIndex++) {
+          const file = uploadedFiles[fileIndex];
+
           // Move file from temp location to team leader's folder
           let finalPath;
           try {
@@ -1236,6 +1309,10 @@ router.put('/:id', upload.array('attachments', 10000), async (req, res) => {
             finalPath = file.path;
           }
 
+          const relPath = relativePaths[fileIndex] || file.originalname;
+          const folderName = relPath.includes('/') ? relPath.split('/')[0] : null;
+          console.log(`📎 [PUT] File ${fileIndex}: ${file.originalname} → relPath: ${relPath}, folderName: ${folderName}`);
+
           await query(`
             INSERT INTO assignment_attachments (
               assignment_id,
@@ -1245,8 +1322,10 @@ router.put('/:id', upload.array('attachments', 10000), async (req, res) => {
               file_size,
               file_type,
               uploaded_by_id,
-              uploaded_by_username
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+              uploaded_by_username,
+              folder_name,
+              relative_path
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
           `, [
             id,
             file.originalname,
@@ -1255,7 +1334,9 @@ router.put('/:id', upload.array('attachments', 10000), async (req, res) => {
             file.size,
             file.mimetype,
             finalTeamLeaderId,
-            finalTeamLeaderUsername
+            finalTeamLeaderUsername,
+            folderName,
+            relPath !== file.originalname ? relPath : null
           ]);
           attachmentsCreated++;
         }

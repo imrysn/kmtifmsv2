@@ -1,4 +1,5 @@
 import React from 'react'
+import { FileIcon } from '../../shared';
 
 const CreateAssignmentModal = ({
   showCreateAssignmentModal,
@@ -11,13 +12,33 @@ const CreateAssignmentModal = ({
   createAssignment,
   currentUserId,
   isEditMode = false,
-  onClose
+  onClose,
+  initialAttachments = [] // array of existing attachment objects when editing
 }) => {
   const [showMemberDropdown, setShowMemberDropdown] = React.useState(false)
   const [showFileTypeDropdown, setShowFileTypeDropdown] = React.useState(false)
   const [dropdownPosition, setDropdownPosition] = React.useState({ top: 0, left: 0, width: 0 })
   const [fileTypeDropdownPosition, setFileTypeDropdownPosition] = React.useState({ top: 0, left: 0, width: 0 })
   const [attachedFiles, setAttachedFiles] = React.useState([])
+  // track files that are already stored on server when editing
+  const [existingAttachments, setExistingAttachments] = React.useState([])
+  const [attachmentsToRemove, setAttachmentsToRemove] = React.useState([])
+  const [showRemoveConfirmation, setShowRemoveConfirmation] = React.useState(false)
+  const [fileToRemove, setFileToRemove] = React.useState(null)
+
+  // populate existing attachments when modal is opened in edit mode
+  React.useEffect(() => {
+    if (isEditMode && Array.isArray(initialAttachments)) {
+      setExistingAttachments(initialAttachments);
+    }
+
+    // entering edit mode should clear any previously added new files and removals
+    if (isEditMode) {
+      setAttachedFiles([]);
+      setAttachmentsToRemove([]);
+    }
+  }, [isEditMode, initialAttachments]);
+
   const buttonRef = React.useRef(null)
   const fileTypeButtonRef = React.useRef(null)
   const fileInputRef = React.useRef(null)
@@ -36,6 +57,13 @@ const CreateAssignmentModal = ({
 
   if (!showCreateAssignmentModal) return null
 
+  // if user has only one team we should auto-select it when creating a new task
+  React.useEffect(() => {
+    if (!isEditMode && teams && teams.length === 1 && !assignmentForm.selectedTeam) {
+      setAssignmentForm(prev => ({ ...prev, selectedTeam: teams[0] }))
+    }
+  }, [teams, isEditMode, assignmentForm.selectedTeam, setAssignmentForm]);
+
   const handleClose = () => {
     if (onClose) {
       onClose()
@@ -52,6 +80,8 @@ const CreateAssignmentModal = ({
     setShowMemberDropdown(false)
     setShowFileTypeDropdown(false)
     setAttachedFiles([])
+    setExistingAttachments([])
+    setAttachmentsToRemove([])
   }
 
   const handleFileSelect = (e) => {
@@ -78,6 +108,32 @@ const CreateAssignmentModal = ({
 
   const handleRemoveFile = (index) => {
     setAttachedFiles(prevFiles => prevFiles.filter((_, i) => i !== index))
+  }
+
+  const handleRemoveExisting = (index) => {
+    const file = existingAttachments[index];
+    setFileToRemove({ file, index });
+    setShowRemoveConfirmation(true);
+  }
+
+  const confirmRemoveExisting = () => {
+    if (fileToRemove) {
+      const { file, index } = fileToRemove;
+      setExistingAttachments(prev => {
+        const removed = prev[index];
+        if (removed && removed.id) {
+          setAttachmentsToRemove(ids => [...ids, removed.id]);
+        }
+        return prev.filter((_, i) => i !== index);
+      });
+    }
+    setShowRemoveConfirmation(false);
+    setFileToRemove(null);
+  }
+
+  const cancelRemoveExisting = () => {
+    setShowRemoveConfirmation(false);
+    setFileToRemove(null);
   }
 
   const formatFileSize = (bytes) => {
@@ -143,8 +199,15 @@ const CreateAssignmentModal = ({
   return (
     <div className="tl-modal-overlay" onClick={handleClose}>
       <div className="tl-modal-large" onClick={e => e.stopPropagation()}>
-        <div className="tl-modal-header">
-          <h3>{isEditMode ? 'Edit Task' : 'Create New Task'}</h3>
+        <div className="tl-modal-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <h3 style={{ margin: 0 }}>{isEditMode ? 'Edit Task' : 'Create New Task'}</h3>
+            {assignmentForm.selectedTeam && (!teams || teams.length <= 1) && (
+              <span style={{ fontWeight: 400, fontSize: '0.85rem', color: '#6B7280' }}>
+                ({assignmentForm.selectedTeam})
+              </span>
+            )}
+          </div>
           <button onClick={handleClose}>×</button>
         </div>
         <div className="tl-modal-body-large">
@@ -221,33 +284,20 @@ const CreateAssignmentModal = ({
 
             <div className="tl-form-row">
               {teams && teams.length > 1 && (
-                <div className="tl-form-group">
-                  <label>Assign to Team *</label>
+                <div className="tl-form-group" style={{ flex: 1 }}>
+                  <label>Assign To Team *</label>
                   <select
-                    className="tl-form-select" // Ensure you have this class or use inline styles/standard select
+                    value={assignmentForm.selectedTeam}
+                    onChange={e => setAssignmentForm({ ...assignmentForm, selectedTeam: e.target.value })}
                     style={{
                       width: '100%',
-                      padding: '10px 12px',
-                      borderRadius: '8px',
-                      border: '1px solid #E5E7EB',
-                      fontSize: '14px',
-                      color: '#1F2937',
-                      backgroundColor: 'white',
-                      height: '42px'
+                      padding: '8px 12px',
+                      borderRadius: '4px',
+                      border: '1px solid #D1D5DB',
+                      background: 'white'
                     }}
-                    value={assignmentForm.selectedTeam}
-                    onChange={(e) => {
-                      const newTeam = e.target.value;
-                      // When team changes, clear assigned members as they belong to specific teams
-                      setAssignmentForm({
-                        ...assignmentForm,
-                        selectedTeam: newTeam,
-                        assignedMembers: []
-                      });
-                    }}
-                    required
                   >
-                    <option value="">Select a team...</option>
+                    <option value="">Select team</option>
                     {teams.map(team => (
                       <option key={team} value={team}>{team}</option>
                     ))}
@@ -255,7 +305,7 @@ const CreateAssignmentModal = ({
                 </div>
               )}
 
-              <div className="tl-form-group">
+              <div className="tl-form-group" style={{ flex: 1 }}>
                 <label>Assign To Members *</label>
                 <div className="tl-member-dropdown-wrapper">
                   <button
@@ -387,6 +437,65 @@ const CreateAssignmentModal = ({
                   </button>
                 </div>
 
+                {/* existing attachments from server when editing */}
+                {existingAttachments.length > 0 && (
+                  <div style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '8px',
+                    padding: '12px',
+                    background: '#F9FAFB',
+                    borderRadius: '8px',
+                    border: '1px solid #E5E7EB'
+                  }}>
+                    {existingAttachments.map((file, index) => (
+                      <div key={`existing-${file.id || index}`} style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        padding: '8px 12px',
+                        background: 'white',
+                        borderRadius: '6px',
+                        border: '1px solid #E5E7EB'
+                      }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1 }}>
+                          <FileIcon
+                            fileType={(file.original_name || '').split('.').pop()}
+                            size="small"
+                            style={{ color: '#6B7280' }}
+                          />
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontSize: '14px', fontWeight: '500', color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              {file.original_name}
+                            </div>
+                            <div style={{ fontSize: '12px', color: '#6B7280' }}>
+                              {formatFileSize(file.file_size)}
+                            </div>
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveExisting(index)}
+                          style={{
+                            padding: '4px',
+                            background: 'transparent',
+                            border: 'none',
+                            cursor: 'pointer',
+                            color: '#EF4444',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center'
+                          }}
+                        >
+                          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                            <path d="M12 4L4 12M4 4L12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                          </svg>
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
                 {attachedFiles.length > 0 && (
                   <div style={{
                     display: 'flex',
@@ -408,16 +517,19 @@ const CreateAssignmentModal = ({
                         border: '1px solid #E5E7EB'
                       }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1 }}>
-                          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" style={{ color: '#6B7280' }}>
-                            <path d="M9 2H3C2.44772 2 2 2.44772 2 3V13C2 13.5523 2.44772 14 3 14H13C13.5523 14 14 13.5523 14 13V7M9 2L14 7M9 2V7H14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                          </svg>
+                          {/* file icon based on type */}
+                          <FileIcon
+                            fileType={(file.name || file.webkitRelativePath || '').split('.').pop()}
+                            size="small"
+                            style={{ color: '#6B7280' }}
+                          />
                           <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ fontSize: '14px', fontWeight: '500', color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                          {file.webkitRelativePath || file.name}
-                          </div>
-                          <div style={{ fontSize: '12px', color: '#6B7280' }}>
-                          {formatFileSize(file.size)}
-                          </div>
+                            <div style={{ fontSize: '14px', fontWeight: '500', color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              {file.webkitRelativePath || file.name}
+                            </div>
+                            <div style={{ fontSize: '12px', color: '#6B7280' }}>
+                              {formatFileSize(file.size)}
+                            </div>
                           </div>
                         </div>
                         <button
@@ -456,7 +568,7 @@ const CreateAssignmentModal = ({
               <button
                 type="button"
                 className="tl-btn success"
-                onClick={() => createAssignment(attachedFiles)}
+                onClick={() => createAssignment(attachedFiles, attachmentsToRemove)}
                 disabled={isProcessing || !assignmentForm.title.trim() || assignmentForm.assignedMembers.length === 0}
               >
                 {isProcessing
@@ -468,6 +580,39 @@ const CreateAssignmentModal = ({
           </form>
         </div>
       </div>
+
+      {/* Remove Confirmation Modal */}
+      {showRemoveConfirmation && fileToRemove && (
+        <div className="tl-modal-overlay" style={{ zIndex: 1001 }}>
+          <div className="tl-modal-small" onClick={e => e.stopPropagation()}>
+            <div className="tl-modal-header">
+              <h3>Remove File</h3>
+            </div>
+            <div className="tl-modal-body">
+              <p style={{ margin: 0, color: '#374151' }}>
+                Are you sure you want to remove <strong>{fileToRemove.file.original_name}</strong> from this task?
+                This action cannot be undone.
+              </p>
+            </div>
+            <div className="tl-modal-footer">
+              <button
+                type="button"
+                className="tl-btn secondary"
+                onClick={cancelRemoveExisting}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="tl-btn danger"
+                onClick={confirmRemoveExisting}
+              >
+                Remove File
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

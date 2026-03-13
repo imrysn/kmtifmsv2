@@ -100,6 +100,7 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
     selectedTeam: '' // Add selectedTeam to state
   })
   const [editingAssignmentId, setEditingAssignmentId] = useState(null)
+  const [modalInitialAttachments, setModalInitialAttachments] = useState([])
   const [notificationCommentContext, setNotificationCommentContext] = useState(null)
   const [highlightedAssignmentId, setHighlightedAssignmentId] = useState(null)
   const [highlightedFileId, setHighlightedFileId] = useState(null)
@@ -130,6 +131,31 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
       fetchAssignments()
     }
   }, [user.team, activeTab])
+
+  // derive list of unique teams from fetched members
+  const uniqueTeams = React.useMemo(() => {
+    if (!teamMembers || teamMembers.length === 0) return []
+    // Filter out the current user (team leader) entry which might have a specific team
+    // or just collect all unique teams from members
+    const teams = new Set()
+    teamMembers.forEach(m => {
+      if (m.team && m.role !== 'TEAM LEADER') {
+        teams.add(m.team)
+      }
+    })
+
+    // If user leads teams but has no members yet, we might miss them.
+    // But typically we fetch members based on led teams.
+    // If no members, we can't assign anyway.
+    return Array.from(teams).sort()
+  }, [teamMembers])
+
+  // if the current user only has one team, automatically pre-select it when preparing a new assignment
+  useEffect(() => {
+    if (uniqueTeams && uniqueTeams.length === 1 && !assignmentForm.selectedTeam) {
+      setAssignmentForm(prev => ({ ...prev, selectedTeam: uniqueTeams[0] }))
+    }
+  }, [uniqueTeams, assignmentForm.selectedTeam])
 
   useEffect(() => {
     const interval = setInterval(fetchNotifications, 30000)
@@ -267,22 +293,7 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
     }
   }
 
-  const uniqueTeams = React.useMemo(() => {
-    if (!teamMembers || teamMembers.length === 0) return []
-    // Filter out the current user (team leader) entry which might have a specific team
-    // or just collect all unique teams from members
-    const teams = new Set()
-    teamMembers.forEach(m => {
-      if (m.team && m.role !== 'TEAM LEADER') {
-        teams.add(m.team)
-      }
-    })
 
-    // If user leads teams but has no members yet, we might miss them.
-    // But typically we fetch members based on led teams.
-    // If no members, we can't assign anyway.
-    return Array.from(teams).sort()
-  }, [teamMembers])
 
   const fetchMemberFiles = async (memberId, memberName) => {
     setSelectedMember({ id: memberId, name: memberName })
@@ -344,7 +355,11 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
     }
   }
 
-  const createAssignment = async (attachedFiles = []) => {
+  const createAssignment = async (attachedFiles = [], removedAttachmentIds = []) => {
+    const removeAttachmentIds = removedAttachmentIds || [];
+    if (removeAttachmentIds.length > 0) {
+      console.log('📤 Sending removedAttachmentIds to server:', removeAttachmentIds);
+    }
     if (!assignmentForm.title.trim()) {
       setError('Please enter assignment title')
       return
@@ -355,84 +370,104 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
       return
     }
 
+    // require team selection if multiple teams exist
+    if (uniqueTeams && uniqueTeams.length > 1 && !assignmentForm.selectedTeam) {
+      setError('Please select a team')
+      return
+    }
+
     setIsProcessing(true)
     try {
       const hasAttachments = attachedFiles && attachedFiles.length > 0
 
       let response
 
-      if (hasAttachments) {
-        // Request a one-time nonce from the server before uploading.
-        // This prevents Electron's multipart cache from replaying old uploads.
-        const nonceRes = await fetch(`${API_BASE_URL}/api/assignments/upload-nonce`, { method: 'POST' })
-        const nonceData = await nonceRes.json()
-        if (!nonceData.success) throw new Error('Failed to get upload nonce')
-
+        // choose url/method for both create and update using main endpoint so we can handle removals
         const url = editingAssignmentId
           ? `${API_BASE_URL}/api/assignments/${editingAssignmentId}`
           : `${API_BASE_URL}/api/assignments/create`
         const method = editingAssignmentId ? 'PUT' : 'POST'
 
-        const formData = new FormData()
-        formData.append('title', assignmentForm.title)
-        formData.append('description', assignmentForm.description || '')
-        formData.append('dueDate', assignmentForm.dueDate || '')
-        formData.append('fileTypeRequired', assignmentForm.fileTypeRequired || '')
-        formData.append('assignedTo', 'specific')
-        formData.append('assignedMembers', JSON.stringify(assignmentForm.assignedMembers))
-        formData.append('teamLeaderId', user.id)
-        formData.append('teamLeaderUsername', user.username)
-        formData.append('team', assignmentForm.selectedTeam || user.team)
-        formData.append('hasAttachments', 'true')
-        formData.append('uploadNonce', nonceData.nonce)
-        attachedFiles.forEach((file) => formData.append('attachments', file))
-        // Send relative paths so server can group files into folders
-        formData.append('relativePaths', JSON.stringify(attachedFiles.map(f => f.webkitRelativePath || f.name)))
+        if (hasAttachments || (removedAttachmentIds && removedAttachmentIds.length > 0)) {
+          // Request a one-time nonce from the server before uploading.
+          // This prevents Electron's multipart cache from replaying old uploads.
+          const nonceRes = await fetch(`${API_BASE_URL}/api/assignments/upload-nonce`, { method: 'POST' })
+          const nonceData = await nonceRes.json()
+          if (!nonceData.success) throw new Error('Failed to get upload nonce')
 
-        response = await fetch(url, { method, body: formData })
-      } else {
-        // No files — send plain JSON to completely bypass multer and avoid Electron cache replay
-        const url = editingAssignmentId
-          ? `${API_BASE_URL}/api/assignments/${editingAssignmentId}/update-members`
-          : `${API_BASE_URL}/api/assignments/create-json`
+          const formData = new FormData()
+          formData.append('title', assignmentForm.title)
+          formData.append('description', assignmentForm.description || '')
+          formData.append('dueDate', assignmentForm.dueDate || '')
+          formData.append('fileTypeRequired', assignmentForm.fileTypeRequired || '')
+          formData.append('assignedTo', 'specific')
+          formData.append('assignedMembers', JSON.stringify(assignmentForm.assignedMembers))
+          formData.append('teamLeaderId', user.id)
+          formData.append('teamLeaderUsername', user.username)
+          formData.append('team', assignmentForm.selectedTeam || user.team)
+          formData.append('hasAttachments', 'true')
+          formData.append('uploadNonce', nonceData.nonce)
+          attachedFiles.forEach((file) => formData.append('attachments', file))
+          // Send relative paths so server can group files into folders
+          formData.append('relativePaths', JSON.stringify(attachedFiles.map(f => f.webkitRelativePath || f.name)))
+          // tell server which existing attachment ids to delete
+          if (removedAttachmentIds && removedAttachmentIds.length > 0) {
+            formData.append('removeAttachmentIds', JSON.stringify(removedAttachmentIds));
+          }
 
-        response = await fetch(url, {
-          method: editingAssignmentId ? 'PUT' : 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            title: assignmentForm.title,
-            description: assignmentForm.description || '',
-            dueDate: assignmentForm.dueDate || '',
-            fileTypeRequired: assignmentForm.fileTypeRequired || '',
-            assignedTo: 'specific',
-            assignedMembers: assignmentForm.assignedMembers,
-            teamLeaderId: user.id,
-            teamLeaderUsername: user.username,
-            team: assignmentForm.selectedTeam || user.team
+          response = await fetch(url, { method, body: formData })
+        } else {
+          // No file changes; still call main endpoint but send JSON (for members update)
+          response = await fetch(url, {
+            method,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              title: assignmentForm.title,
+              description: assignmentForm.description || '',
+              dueDate: assignmentForm.dueDate || '',
+              fileTypeRequired: assignmentForm.fileTypeRequired || '',
+              assignedTo: 'specific',
+              assignedMembers: assignmentForm.assignedMembers,
+              teamLeaderId: user.id,
+              teamLeaderUsername: user.username,
+              team: assignmentForm.selectedTeam || user.team,
+              removeAttachmentIds // may be []
+            })
           })
-        })
-      }
+        }
 
-      const data = await response.json()
-      if (data.success) {
-        setSuccess(editingAssignmentId
-          ? 'Task updated successfully!'
-          : `Assignment created! ${data.membersAssigned} members assigned.`
-        )
-        setShowCreateAssignmentModal(false)
-        setEditingAssignmentId(null)
-        setAssignmentForm({
-          title: '',
-          description: '',
-          dueDate: '',
-          fileTypeRequired: '',
-          assignedMembers: [],
-          selectedTeam: ''
-        })
-        fetchAssignments()
-      } else {
-        setError(data.message || `Failed to ${editingAssignmentId ? 'update' : 'create'} assignment`)
-      }
+        const data = await response.json()
+        if (data.success) {
+          setSuccess(editingAssignmentId
+            ? 'Task updated successfully!'
+            : `Assignment created! ${data.membersAssigned} members assigned.`
+          )
+          // immediately remove attachments locally so UI reflects change even before server refetch
+          if (editingAssignmentId && removeAttachmentIds.length > 0) {
+            setAssignments(prev => prev.map(a => {
+              if (a.id === editingAssignmentId) {
+                return {
+                  ...a,
+                  attachments: (a.attachments || []).filter(att => !removeAttachmentIds.includes(att.id))
+                }
+              }
+              return a
+            }))
+          }
+          setShowCreateAssignmentModal(false)
+          setEditingAssignmentId(null)
+          setAssignmentForm({
+            title: '',
+            description: '',
+            dueDate: '',
+            fileTypeRequired: '',
+            assignedMembers: [],
+            selectedTeam: uniqueTeams && uniqueTeams.length === 1 ? uniqueTeams[0] : ''
+          })
+          fetchAssignments()
+        } else {
+          setError(data.message || `Failed to ${editingAssignmentId ? 'update' : 'create'} assignment`)
+        }
     } catch (error) {
       console.error(`Error ${editingAssignmentId ? 'updating' : 'creating'} assignment:`, error)
       setError(`Failed to ${editingAssignmentId ? 'update' : 'create'} assignment`)
@@ -442,7 +477,24 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
   }
 
   const handleEditAssignment = async (assignment) => {
+    // fetch fresh details (including attachments) in case list data is minimal
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/assignments/${assignment.id}`)
+      if (res.ok) {
+        const data = await res.json()
+        if (data.success && data.assignment) {
+          assignment = data.assignment
+        }
+      }
+    } catch (e) {
+      console.warn('Failed to load full assignment details for edit', e)
+      // fall back to passed object
+    }
+
     setEditingAssignmentId(assignment.id)
+
+    // keep copy of attachments so modal can show them
+    setModalInitialAttachments(assignment.attachments || [])
 
     // Format the due date for the input field (YYYY-MM-DD format)
     let formattedDueDate = ''
@@ -1159,16 +1211,18 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
               currentUserId={user.id}
               teams={uniqueTeams} // Pass unique teams to modal
               isEditMode={!!editingAssignmentId}
+              initialAttachments={modalInitialAttachments}
               onClose={() => {
                 setShowCreateAssignmentModal(false)
                 setEditingAssignmentId(null)
+                setModalInitialAttachments([])
                 setAssignmentForm({
                   title: '',
                   description: '',
                   dueDate: '',
                   fileTypeRequired: '',
                   assignedMembers: [],
-                  selectedTeam: ''
+                  selectedTeam: uniqueTeams && uniqueTeams.length === 1 ? uniqueTeams[0] : ''
                 })
               }}
             />

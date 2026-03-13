@@ -602,7 +602,9 @@ const AssignmentsTab = ({
                                 >
                                   <FileIcon fileType={att.original_name.split('.').pop()} size="small" className="tl-assignment-file-icon" />
                                   <div className="tl-assignment-file-details">
-                                    <div className="tl-assignment-file-name">{att.original_name}</div>
+                                    <div className="tl-assignment-file-name">
+                                    {att.relative_path && att.relative_path !== att.original_name ? att.relative_path : att.original_name}
+                                  </div>
                                     <div className="tl-assignment-file-meta"><span>{formatFileSize(att.file_size)}</span></div>
                                   </div>
                                   <button onClick={(e) => { e.stopPropagation(); setRemoveAttachmentModal({ isOpen: true, attachmentId: att.id, attachmentName: att.original_name, assignmentId: assignment.id }) }} title="Remove" style={{ position:'absolute', right:'8px', top:'50%', transform:'translateY(-50%)', background:'transparent', border:'none', cursor:'pointer', color:'#9ca3af', fontSize:'18px', width:'28px', height:'28px', display:'flex', alignItems:'center', justifyContent:'center', borderRadius:'6px' }} onMouseEnter={e=>{e.currentTarget.style.backgroundColor='#fee2e2';e.currentTarget.style.color='#dc2626'}} onMouseLeave={e=>{e.currentTarget.style.backgroundColor='transparent';e.currentTarget.style.color='#9ca3af'}}>×</button>
@@ -622,7 +624,9 @@ const AssignmentsTab = ({
                           >
                             <FileIcon fileType={attachment.original_name.split('.').pop()} size="small" className="tl-assignment-file-icon" />
                             <div className="tl-assignment-file-details">
-                              <div className="tl-assignment-file-name">{attachment.original_name}</div>
+                              <div className="tl-assignment-file-name">
+                                {attachment.relative_path && attachment.relative_path !== attachment.original_name ? attachment.relative_path : attachment.original_name}
+                              </div>
                               <div className="tl-assignment-file-meta">
                                 <span>by <span className="tl-assignment-file-submitter">{tlName}</span></span>
                                 <span>{formatFileSize(attachment.file_size)}</span>
