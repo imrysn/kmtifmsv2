@@ -14,72 +14,60 @@ const router = express.Router();
 // Move whole folder to NAS and approve all files inside it
 router.post('/folder/move-to-nas', async (req, res) => {
   const { folderName, username, fileIds, destinationPath, adminId, adminUsername, adminRole, team, comments } = req.body
-  console.log(`📦 Moving folder "${folderName}" by ${username} to NAS: ${destinationPath}`)
-  console.log(`📦 uploadsDir = ${uploadsDir}`)
-  console.log(`📦 fileIds = ${JSON.stringify(fileIds)}`)
+
+  if (!folderName || !username || !fileIds?.length || !destinationPath) {
+    return res.status(400).json({ success: false, message: 'Missing required fields: folderName, username, fileIds, destinationPath' })
+  }
 
   try {
-    // Load all files from DB first so we know the actual stored paths
-    const dbFiles = []
-    for (const fileId of fileIds) {
-      const file = await new Promise((resolve, reject) => {
+    // Load all files from DB
+    const dbFiles = await Promise.all(
+      fileIds.map(fileId => new Promise((resolve, reject) => {
         db.get('SELECT * FROM files WHERE id = ?', [fileId], (err, row) => {
           if (err) reject(err); else resolve(row)
         })
-      })
-      if (file) dbFiles.push(file)
-    }
-    console.log(`📦 Loaded ${dbFiles.length} files from DB`)
-    if (dbFiles[0]) console.log(`📦 First file_path: ${dbFiles[0].file_path}, relative_path: ${dbFiles[0].relative_path}, folder_name: ${dbFiles[0].folder_name}`)
+      }))
+    ).then(rows => rows.filter(Boolean))
 
-    // Build source folder path: uploads/<username>/<folderName>
-    // Also try to derive from actual file_path stored in DB
+    if (dbFiles.length === 0) {
+      return res.status(404).json({ success: false, message: 'No files found in database for provided IDs' })
+    }
+
+    // Build source/dest paths
     let sourceFolderPath = path.join(uploadsDir, username, folderName)
-    // Build destination folder path: <destinationPath>/<folderName>
     const destFolderPath = path.join(destinationPath, folderName)
 
-    console.log(`📦 Expected sourceFolderPath: ${sourceFolderPath}`)
-    console.log(`📦 destFolderPath: ${destFolderPath}`)
-
-    // Verify source exists — also try deriving from the first file's file_path as fallback
+    // Check primary source path
     let sourceExists = await fs.access(sourceFolderPath).then(() => true).catch(() => false)
-    console.log(`📦 sourceExists (primary): ${sourceExists}`)
 
-    if (!sourceExists && dbFiles.length > 0) {
-      const firstFile = dbFiles[0]
-      if (firstFile.file_path) {
-        // file_path is like /uploads/username/FolderName/file.ext
-        const relPart = firstFile.file_path.startsWith('/uploads/') ? firstFile.file_path.substring(9) : firstFile.file_path
-        const parts = relPart.replace(/\\/g, '/').split('/')
-        console.log(`📦 Trying alt path from file_path parts: ${JSON.stringify(parts)}`)
-        if (parts.length >= 2) {
-          const altFolderPath = path.join(uploadsDir, parts[0], parts[1])
-          const altExists = await fs.access(altFolderPath).then(() => true).catch(() => false)
-          console.log(`📦 Alt path: ${altFolderPath} exists: ${altExists}`)
-          if (altExists) {
-            sourceFolderPath = altFolderPath
-            sourceExists = true
-          }
+    // Fallback: derive source folder from first file's stored file_path
+    if (!sourceExists && dbFiles[0]?.file_path) {
+      const firstFilePath = dbFiles[0].file_path
+      const relPart = firstFilePath.startsWith('/uploads/') ? firstFilePath.substring(9) : firstFilePath
+      const parts = relPart.replace(/\\/g, '/').split('/')
+      // parts[0]=username, parts[1]=folderName
+      if (parts.length >= 2) {
+        const altFolderPath = path.join(uploadsDir, parts[0], parts[1])
+        if (await fs.access(altFolderPath).then(() => true).catch(() => false)) {
+          sourceFolderPath = altFolderPath
+          sourceExists = true
         }
-        // Also try: maybe file_path already includes full absolute path
-        if (!sourceExists) {
-          // Try the path from uploadsDir + relative_path dirname
-          const relPath = firstFile.relative_path || ''
-          const folderInRelPath = relPath.replace(/\\/g, '/').split('/')[0]
-          if (folderInRelPath) {
-            const alt2 = path.join(uploadsDir, username, folderInRelPath)
-            const alt2Exists = await fs.access(alt2).then(() => true).catch(() => false)
-            console.log(`📦 Alt2 path: ${alt2} exists: ${alt2Exists}`)
-            if (alt2Exists) {
-              sourceFolderPath = alt2
-              sourceExists = true
-            }
+      }
+      // Fallback 2: use relative_path's top-level folder
+      if (!sourceExists) {
+        const topFolder = (dbFiles[0].relative_path || '').replace(/\\/g, '/').split('/')[0]
+        if (topFolder) {
+          const alt2 = path.join(uploadsDir, username, topFolder)
+          if (await fs.access(alt2).then(() => true).catch(() => false)) {
+            sourceFolderPath = alt2
+            sourceExists = true
           }
         }
       }
     }
+
     if (!sourceExists) {
-      console.warn(`⚠️ Source folder not found at ${sourceFolderPath}, will copy file-by-file`)
+      console.warn(`⚠️ Source folder not found at ${sourceFolderPath}, will copy file-by-file from DB paths`)
     }
 
     // Create destination folder
@@ -105,7 +93,7 @@ router.post('/folder/move-to-nas', async (req, res) => {
       await fs.rm(sourceFolderPath, { recursive: true, force: true })
       console.log(`✅ Folder copied to NAS and source deleted: ${destFolderPath}`)
     } else {
-      console.log('📋 Falling back to individual file copy')
+      console.log('📋 Source folder not found — will copy files individually using DB paths')
     }
 
     const now = new Date()
@@ -119,21 +107,36 @@ router.post('/folder/move-to-nas', async (req, res) => {
       // relative_path is like "folderName/subfolder/file.ext" or "folderName/file.ext"
       let nasFilePath
       if (file.relative_path) {
-        // Strip the top-level folderName prefix from relative_path
-        const relativeInFolder = file.relative_path.replace(/^[^\/\\]+[\/\\]/, '')
-        nasFilePath = path.join(destFolderPath, relativeInFolder)
+        // Strip ONLY the top-level folderName prefix from relative_path
+        // e.g. "MyFolder/subdir/file.txt" -> "subdir/file.txt"
+        // e.g. "MyFolder/file.txt" -> "file.txt"
+        const relParts = file.relative_path.replace(/\\/g, '/').split('/')
+        // relParts[0] is the folderName, rest is the path inside the folder
+        const relativeInFolder = relParts.slice(1).join('/')
+        if (relativeInFolder) {
+          nasFilePath = path.join(destFolderPath, relativeInFolder)
+        } else {
+          nasFilePath = path.join(destFolderPath, file.original_name)
+        }
       } else {
         nasFilePath = path.join(destFolderPath, file.original_name)
       }
 
       if (!sourceExists) {
-        const relSrc = file.file_path.startsWith('/uploads/') ? file.file_path.substring(9) : file.file_path
+        // Resolve source path from DB (strip leading /uploads/ prefix)
+        const relSrc = file.file_path.startsWith('/uploads/')
+          ? file.file_path.substring(9)  // remove '/uploads/'
+          : file.file_path
         const srcFilePath = path.join(uploadsDir, relSrc)
+        // Ensure destination subdirectory exists (preserves subfolder structure)
         await fs.mkdir(path.dirname(nasFilePath), { recursive: true })
         const srcOk = await fs.access(srcFilePath).then(() => true).catch(() => false)
         if (srcOk) {
           await fs.copyFile(srcFilePath, nasFilePath)
           await safeDeleteFile(srcFilePath)
+          console.log(`✅ Copied file to NAS: ${nasFilePath}`)
+        } else {
+          console.warn(`⚠️ Source file not found, skipping: ${srcFilePath}`)
         }
       }
 
@@ -315,72 +318,35 @@ router.post('/upload', upload.single('file'), async (req, res) => {
     // If previously rejected file found, enable automatic replacement
     const autoReplace = !!previouslyRejected;
     if (autoReplace) {
-      console.log('📝 AUTO-REPLACE DETECTED: File was previously rejected, will auto-update to "Revised" status');
-      console.log(`   Previous file ID: ${previouslyRejected.id}`);
-      console.log(`   Previous status: ${previouslyRejected.status}`);
+      console.log(`📝 Auto-replacing previously rejected file (ID: ${previouslyRejected.id})`);
     }
 
     // Get the original filename and ensure proper UTF-8 encoding
     let originalFilename = req.file.originalname;
 
-    // Fix common UTF-8 encoding issues (garbled Japanese/Chinese characters)
+    // Fix garbled UTF-8 filenames (latin1 mis-decoded as binary)
     try {
-      // Check if the filename contains typical garbled UTF-8 patterns
-      if (/[Ã¢â¬â¢Ã¤Â¸â‚¬Ã¦â€"‡Ã¨Â±Â¡]/.test(originalFilename)) {
-        // The filename was decoded as latin1/binary instead of utf8
-        // Re-encode as binary bytes, then decode as utf8
+      if (/[\xC3\xC4\xC6\xC8]/.test(originalFilename)) {
         const buffer = Buffer.from(originalFilename, 'binary');
-        originalFilename = buffer.toString('utf8');
-        console.log('📝 Fixed UTF-8 encoding for filename:', originalFilename);
+        const utf8Attempt = buffer.toString('utf8');
+        if (utf8Attempt !== originalFilename) originalFilename = utf8Attempt;
       }
-    } catch (e) {
-      console.warn('⚠️ Could not decode filename, using original:', originalFilename);
-    }
+    } catch (e) { /* keep original */ }
 
-    console.log(`📁 File upload by ${username} from ${userTeam} team:`, originalFilename);
-    if (isRevision === 'true') {
-      console.log('📝 This is a REVISION file (replacing rejected)');
-    }
+    console.log(`📁 Upload by ${username} (${userTeam}): ${originalFilename}${isRevision === 'true' ? ' [REVISION]' : ''}`);
 
-    // Move file from temp location to user folder
-    // FIXED: Now async - doesn't block server during large file moves
-    console.log(`📦 Moving file from temp to user folder...`);
-    console.log(`   Temp path: ${req.file.path}`);
-    console.log(`   Username: ${username}`);
-    console.log(`   Original filename: ${originalFilename}`);
-    console.log(`   File mimetype: ${req.file.mimetype}`);
-
+    // Move file from temp location to user's folder on NAS
     try {
       const finalPath = await moveToUserFolder(req.file.path, username, originalFilename, folderName, relativePath);
       req.file.path = finalPath;
-      req.file.filename = originalFilename; // Use decoded original filename
-      req.file.originalname = originalFilename; // Update originalname with decoded version
-      console.log(`✅ File organized successfully to: ${finalPath}`);
-      console.log(`✅ File should now be visible at: ${finalPath}`);
-
-      // CRITICAL: Verify file actually exists at final location
-      const fs = require('fs');
-      if (!fs.existsSync(finalPath)) {
-        console.error('❌ CRITICAL: File was not found at final path after move!');
-        console.error(`   Expected at: ${finalPath}`);
-        throw new Error('File verification failed - file not found at destination');
-      }
-      console.log('✅ File existence verified at final path');
-
+      req.file.filename = originalFilename;
+      req.file.originalname = originalFilename;
     } catch (moveError) {
-      console.error('❌ Error organizing file details:', {
-        error: moveError.message,
-        tempPath: req.file.path,
-        username: username,
-        originalFilename: originalFilename,
-        stack: moveError.stack
-      });
-      // Safely delete the temp file if it exists
+      console.error('❌ Error moving file to user folder:', moveError.message);
       await safeDeleteFile(req.file.path);
       return res.status(500).json({
         success: false,
-        message: 'Failed to organize uploaded file: ' + moveError.message,
-        debug: moveError.message
+        message: 'Failed to organize uploaded file: ' + moveError.message
       });
     }
 
@@ -427,17 +393,13 @@ router.post('/upload', upload.single('file'), async (req, res) => {
       (async () => {
         const existingFile = fileToReplace;
         if (existingFile) {
-          console.log('📝 Found existing file, will UPDATE instead of delete+create');
-          console.log(`   Old file ID: ${existingFile.id}`);
-          console.log(`   Old file path: ${existingFile.file_path}`);
-
-          // Delete old physical file only
-          const oldRelativePath = existingFile.file_path.startsWith('/uploads/') ? existingFile.file_path.substring(8) : existingFile.file_path;
+          // Delete old physical file only (substring(9) strips '/uploads/')
+          const oldRelativePath = existingFile.file_path.startsWith('/uploads/') ? existingFile.file_path.substring(9) : existingFile.file_path;
           const oldFilePath = path.join(uploadsDir, oldRelativePath);
           await safeDeleteFile(oldFilePath);
 
-          // Get the relative path for the new file
-          const relativePath = path.relative(uploadsDir, req.file.path).replace(/\\/g, '/');
+          // Get the relative path for the new file (renamed to avoid shadowing req.body.relativePath)
+          const fileSystemRelPath = path.relative(uploadsDir, req.file.path).replace(/\\/g, '/');
           const initialStatus = (isRevision === 'true') ? 'under_revision' : 'uploaded';
 
           // UPDATE the existing database record instead of deleting it
@@ -458,7 +420,7 @@ router.post('/upload', upload.single('file'), async (req, res) => {
           WHERE id = ?`,
             [
               req.file.filename,
-              `/uploads/${relativePath}`,
+              `/uploads/${fileSystemRelPath}`,
               req.file.size,
               getFileTypeDescription(req.file.mimetype, req.file.originalname),
               req.file.mimetype,
@@ -467,7 +429,7 @@ router.post('/upload', upload.single('file'), async (req, res) => {
               initialStatus,
               'pending_team_leader',
               folderName || null,
-              req.body.relativePath || null,
+              relativePath || null,
               isFolder === 'true' ? 1 : 0,
               existingFile.id  // Keep the same ID!
             ], async function (updateErr) {
@@ -500,8 +462,7 @@ router.post('/upload', upload.single('file'), async (req, res) => {
                 `File ${action} by user${isRevision === 'true' ? ' (revision of rejected file)' : ''}`
               );
 
-              console.log(`✅ File ${action} successfully with ID: ${fileId}${isRevision === 'true' ? ' (marked as REVISED)' : ''}`);
-              console.log(`✅ File record UPDATED (not deleted) - will stay in My Files!`);
+              console.log(`✅ File ${action} (ID: ${fileId})`);
 
               // Notify admins if uploader is a Team Leader
               if (userRole && userRole.toUpperCase().includes('TEAM_LEADER')) {
@@ -540,17 +501,7 @@ router.post('/upload', upload.single('file'), async (req, res) => {
     }
 
     function insertFileRecord() {
-      // Get the relative path from the uploadsDir
       const fileSystemPath = path.relative(uploadsDir, req.file.path).replace(/\\/g, '/');
-
-      console.log('💾 Database storage info:');
-      console.log(`   Full path: ${req.file.path}`);
-      console.log(`   File system path: ${fileSystemPath}`);
-      console.log(`   Will be stored as: /uploads/${fileSystemPath}`);
-      console.log(`   Folder name: ${folderName || 'none'}`);
-      console.log(`   Relative path in folder: ${relativePath || 'none'}`);
-
-      // Determine initial status based on whether this is a revision
       const initialStatus = (isRevision === 'true') ? 'under_revision' : 'uploaded';
 
       // Insert file record into database
@@ -605,7 +556,7 @@ router.post('/upload', upload.single('file'), async (req, res) => {
             `File ${action} by user${isRevision === 'true' ? ' (revision of rejected file)' : ''}`
           );
 
-          console.log(`✅ File ${action} successfully with ID: ${fileId}${isRevision === 'true' ? ' (marked as REVISED)' : ''}`);
+          console.log(`✅ File ${action} (ID: ${fileId})`);
 
           // Notify admins if uploader is a Team Leader
           if (userRole && userRole.toUpperCase().includes('TEAM_LEADER')) {
@@ -2467,210 +2418,6 @@ router.post('/open-file', async (req, res) => {
     });
   }
 });
-
-// Move whole folder to NAS and approve all files inside it
-router.post('/folder/move-to-nas', async (req, res) => {
-  const { folderName, username, fileIds, destinationPath, adminId, adminUsername, adminRole, team, comments } = req.body
-  console.log(`📦 Moving folder "${folderName}" by ${username} to NAS: ${destinationPath}`)
-
-  try {
-    // Build source folder path: uploads/<username>/<folderName>
-    const sourceFolderPath = path.join(uploadsDir, username, folderName)
-    // Build destination folder path: <destinationPath>/<folderName>
-    const destFolderPath = path.join(destinationPath, folderName)
-
-    // Verify source exists
-    const sourceExists = await fs.access(sourceFolderPath).then(() => true).catch(() => false)
-    if (!sourceExists) {
-      // Fallback: maybe files are flat in uploads/<username>/
-      console.warn(`⚠️ Source folder not found at ${sourceFolderPath}, will copy file-by-file`)
-    }
-
-    // Create destination folder
-    await fs.mkdir(destFolderPath, { recursive: true })
-
-    // Recursive copy helper
-    async function copyDir(src, dest) {
-      const entries = await fs.readdir(src, { withFileTypes: true })
-      for (const entry of entries) {
-        const srcPath = path.join(src, entry.name)
-        const destPath = path.join(dest, entry.name)
-        if (entry.isDirectory()) {
-          await fs.mkdir(destPath, { recursive: true })
-          await copyDir(srcPath, destPath)
-        } else {
-          await fs.copyFile(srcPath, destPath)
-        }
-      }
-    }
-
-    if (sourceExists) {
-      // Copy entire folder structure
-      await copyDir(sourceFolderPath, destFolderPath)
-      // Delete source folder after successful copy
-      await fs.rm(sourceFolderPath, { recursive: true, force: true })
-      console.log(`✅ Folder copied to NAS and source deleted: ${destFolderPath}`)
-    } else {
-      // Fallback: copy files individually using their stored paths
-      console.log('📋 Falling back to individual file copy')
-    }
-
-    // Approve all files in DB and update public_network_url
-    const now = new Date()
-    const nowSql = now.toISOString().slice(0, 19).replace('T', ' ')
-
-    for (const fileId of fileIds) {
-      // Get file record
-      const file = await new Promise((resolve, reject) => {
-        db.get('SELECT * FROM files WHERE id = ?', [fileId], (err, row) => {
-          if (err) reject(err); else resolve(row)
-        })
-      })
-      if (!file) continue
-
-      // Determine where file landed on NAS
-      let nasFilePath
-      if (file.relative_path) {
-        // relative_path is like "folderName/subdir/file.ext" — strip leading folderName
-        const relAfterFolder = file.relative_path.replace(new RegExp(`^${folderName}/?`), '')
-        nasFilePath = relAfterFolder
-          ? path.join(destFolderPath, relAfterFolder)
-          : path.join(destFolderPath, file.original_name)
-      } else {
-        nasFilePath = path.join(destFolderPath, file.original_name)
-      }
-
-      // If fallback mode, copy the file now
-      if (!sourceExists) {
-        const relSrc = file.file_path.startsWith('/uploads/') ? file.file_path.substring(8) : file.file_path
-        const srcFilePath = path.join(uploadsDir, relSrc)
-        await fs.mkdir(path.dirname(nasFilePath), { recursive: true })
-        const srcOk = await fs.access(srcFilePath).then(() => true).catch(() => false)
-        if (srcOk) {
-          await fs.copyFile(srcFilePath, nasFilePath)
-          await safeDeleteFile(srcFilePath)
-        }
-      }
-
-      // Update DB: final_approved + public_network_url
-      await new Promise((resolve, reject) => {
-        db.run(`UPDATE files SET
-          status = 'final_approved',
-          current_stage = 'published_to_public',
-          admin_id = ?,
-          admin_username = ?,
-          admin_reviewed_at = ?,
-          admin_comments = ?,
-          public_network_url = ?,
-          final_approved_at = ?
-          WHERE id = ?`,
-          [adminId, adminUsername, nowSql, comments || null, nasFilePath, nowSql, fileId],
-          (err) => { if (err) reject(err); else resolve() }
-        )
-      })
-
-      // Log status change
-      logFileStatusChange(db, fileId, file.status, 'final_approved', file.current_stage,
-        'published_to_public', adminId, adminUsername, adminRole,
-        `Folder approved & moved to NAS: ${comments || 'No comments'}`)
-
-    }
-
-    // --- Smart folder notification logic ---
-    const userFileMapB = {};
-    for (const fileId of fileIds) {
-      const file = await new Promise((resolve, reject) => {
-        db.get('SELECT * FROM files WHERE id = ?', [fileId], (err, row) => {
-          if (err) reject(err); else resolve(row);
-        });
-      });
-      if (!file) continue;
-      if (!userFileMapB[file.user_id]) userFileMapB[file.user_id] = { approved: [], rejected: [] };
-      userFileMapB[file.user_id].approved.push(file);
-    }
-
-    for (const [userId, { approved, rejected }] of Object.entries(userFileMapB)) {
-      const totalFiles = approved.length + rejected.length;
-      const approvedCount = approved.length;
-      const rejectedCount = rejected.length;
-
-      if (rejectedCount === 0) {
-        createNotification(
-          userId, null, 'final_approval',
-          `Folder Approved: "${folderName}"`,
-          `All ${approvedCount} file${approvedCount !== 1 ? 's' : ''} in your folder "${folderName}" have been approved and saved to the NAS.`,
-          adminId, adminUsername, adminRole
-        ).catch(() => {});
-      } else if (approvedCount === 0) {
-        createNotification(
-          userId, null, 'final_rejection',
-          `Folder Rejected: "${folderName}"`,
-          `All ${rejectedCount} file${rejectedCount !== 1 ? 's' : ''} in your folder "${folderName}" have been rejected. Please review and resubmit.`,
-          adminId, adminUsername, adminRole
-        ).catch(() => {});
-      } else if (approvedCount <= 2) {
-        for (const file of approved) {
-          createNotification(
-            userId, file.id, 'final_approval', 'File Approved',
-            `Your file "${file.original_name}" in folder "${folderName}" has been approved and saved to the NAS.`,
-            adminId, adminUsername, adminRole
-          ).catch(() => {});
-        }
-        createNotification(
-          userId, null, 'final_rejection',
-          `Folder Partially Rejected: "${folderName}"`,
-          `${rejectedCount} file${rejectedCount !== 1 ? 's' : ''} in your folder "${folderName}" have been rejected. Please review and resubmit.`,
-          adminId, adminUsername, adminRole
-        ).catch(() => {});
-      } else if (rejectedCount <= 2) {
-        for (const file of rejected) {
-          createNotification(
-            userId, file.id, 'final_rejection', 'File Rejected',
-            `Your file "${file.original_name}" in folder "${folderName}" has been rejected. Please review and resubmit.`,
-            adminId, adminUsername, adminRole
-          ).catch(() => {});
-        }
-        createNotification(
-          userId, null, 'final_approval',
-          `Folder Mostly Approved: "${folderName}"`,
-          `${approvedCount} file${approvedCount !== 1 ? 's' : ''} in your folder "${folderName}" have been approved and saved to the NAS.`,
-          adminId, adminUsername, adminRole
-        ).catch(() => {});
-      } else {
-        createNotification(
-          userId, null, 'final_approval',
-          `Folder Partially Approved: "${folderName}"`,
-          `${approvedCount} of ${totalFiles} file${totalFiles !== 1 ? 's' : ''} in your folder "${folderName}" have been approved and saved to the NAS.`,
-          adminId, adminUsername, adminRole
-        ).catch(() => {});
-        createNotification(
-          userId, null, 'final_rejection',
-          `Folder Partially Rejected: "${folderName}"`,
-          `${rejectedCount} of ${totalFiles} file${totalFiles !== 1 ? 's' : ''} in your folder "${folderName}" have been rejected. Please review and resubmit.`,
-          adminId, adminUsername, adminRole
-        ).catch(() => {});
-      }
-    }
-    // --- End smart folder notification logic ---
-
-    // Log activity
-    logActivity(db, adminId, adminUsername, adminRole, team,
-      `Folder approved & moved to NAS: ${folderName} (${fileIds.length} files) -> ${destFolderPath}`)
-
-    console.log(`✅ Folder "${folderName}" fully approved and on NAS`)
-    res.json({
-      success: true,
-      message: `Folder "${folderName}" approved and uploaded to NAS successfully`,
-      nasPath: destFolderPath
-    })
-  } catch (error) {
-    console.error('❌ Error moving folder to NAS:', error)
-    res.status(500).json({
-      success: false,
-      message: 'Failed to move folder to NAS: ' + error.message
-    })
-  }
-})
 
 // Delete folder (deletes all files and the folder directory)
 router.post('/folder/delete', async (req, res) => {

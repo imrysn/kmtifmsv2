@@ -599,7 +599,7 @@ const AssignmentsTab = ({
                                 <div
                                   key={att.id}
                                   className="tl-assignment-tl-file-item"
-                                  style={{ cursor: 'pointer', marginBottom: '4px' }}
+                                  style={{ cursor: 'pointer', marginBottom: '4px', position: 'relative' }}
                                   onClick={() => { setFileToOpen(att); setShowOpenFileConfirmation(true) }}
                                 >
                                   <FileIcon fileType={att.original_name.split('.').pop()} size="small" className="tl-assignment-file-icon" />
@@ -609,7 +609,7 @@ const AssignmentsTab = ({
                                     </div>
                                     <div className="tl-assignment-file-meta"><span>{formatFileSize(att.file_size)}</span></div>
                                   </div>
-                                  <button onClick={(e) => { e.stopPropagation(); setRemoveAttachmentModal({ isOpen: true, attachmentId: att.id, attachmentName: att.original_name, assignmentId: assignment.id }) }} title="Remove" style={{ position:'absolute', right:'8px', top:'50%', transform:'translateY(-50%)', background:'transparent', border:'none', cursor:'pointer', color:'#9ca3af', fontSize:'18px', width:'28px', height:'28px', display:'flex', alignItems:'center', justifyContent:'center', borderRadius:'6px' }} onMouseEnter={e=>{e.currentTarget.style.backgroundColor='#fee2e2';e.currentTarget.style.color='#dc2626'}} onMouseLeave={e=>{e.currentTarget.style.backgroundColor='transparent';e.currentTarget.style.color='#9ca3af'}}>×</button>
+                                  <button onClick={(e) => { e.stopPropagation(); setRemoveAttachmentModal({ isOpen: true, attachmentId: att.id, attachmentName: att.original_name, assignmentId: assignment.id }) }} title="Remove" style={{ marginLeft: 'auto', background:'transparent', border:'none', cursor:'pointer', color:'#9ca3af', fontSize:'18px', width:'28px', height:'28px', display:'flex', alignItems:'center', justifyContent:'center', borderRadius:'6px' }} onMouseEnter={e=>{e.currentTarget.style.backgroundColor='#fee2e2';e.currentTarget.style.color='#dc2626'}} onMouseLeave={e=>{e.currentTarget.style.backgroundColor='transparent';e.currentTarget.style.color='#9ca3af'}}>×</button>
                                 </div>
                               ))}
                                 </div>
@@ -642,7 +642,7 @@ const AssignmentsTab = ({
                                 setRemoveAttachmentModal({ isOpen: true, attachmentId: attachment.id, attachmentName: attachment.original_name, assignmentId: assignment.id })
                               }}
                               title="Remove attachment"
-                              style={{ position:'absolute', right:'8px', top:'50%', transform:'translateY(-50%)', background:'transparent', border:'none', cursor:'pointer', color:'#9ca3af', fontSize:'18px', lineHeight:1, width:'28px', height:'28px', display:'flex', alignItems:'center', justifyContent:'center', borderRadius:'6px', transition:'all 0.2s' }}
+                              style={{ marginLeft: 'auto', background:'transparent', border:'none', cursor:'pointer', color:'#9ca3af', fontSize:'18px', lineHeight:1, width:'28px', height:'28px', display:'flex', alignItems:'center', justifyContent:'center', borderRadius:'6px', transition:'all 0.2s' }}
                               onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#fee2e2'; e.currentTarget.style.color = '#dc2626' }}
                               onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = '#9ca3af' }}
                             >×</button>

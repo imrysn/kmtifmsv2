@@ -452,25 +452,23 @@ const CreateAssignmentModal = ({
                       <div key={`existing-${file.id || index}`} style={{
                         display: 'flex',
                         alignItems: 'center',
-                        justifyContent: 'space-between',
+                        gap: '12px',
                         padding: '8px 12px',
                         background: 'white',
                         borderRadius: '6px',
                         border: '1px solid #E5E7EB'
                       }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1 }}>
-                          <FileIcon
-                            fileType={(file.original_name || '').split('.').pop()}
-                            size="small"
-                            style={{ color: '#6B7280' }}
-                          />
-                          <div style={{ flex: 1, minWidth: 0 }}>
-                            <div style={{ fontSize: '14px', fontWeight: '500', color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                              {file.original_name}
-                            </div>
-                            <div style={{ fontSize: '12px', color: '#6B7280' }}>
-                              {formatFileSize(file.file_size)}
-                            </div>
+                        <FileIcon
+                          fileType={(file.original_name || '').split('.').pop()}
+                          size="small"
+                          style={{ color: '#6B7280' }}
+                        />
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: '14px', fontWeight: '500', color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {file.original_name}
+                          </div>
+                          <div style={{ fontSize: '12px', color: '#6B7280' }}>
+                            {formatFileSize(file.file_size)}
                           </div>
                         </div>
                         <button
