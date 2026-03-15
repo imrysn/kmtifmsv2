@@ -242,11 +242,9 @@ module.exports = {
   logger,
   logActivity,
   logFileStatusChange,
-  logFileStatusChange,
   logRequest,
   logError,
   logInfo,
   logWarn,
-  logDebug,
-  logFileStatusChange
+  logDebug
 };

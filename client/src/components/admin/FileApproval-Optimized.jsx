@@ -8,7 +8,6 @@ import { useAuth, useNetwork } from '../../contexts'
 import { withErrorBoundary } from '../common'
 
 const API_BASE = `${API_BASE_URL}/api`
-const SERVER_BASE = API_BASE.replace(/\/api$/, '')
 
 
 const StatusCard = memo(({ icon, label, count, className }) => (
@@ -358,9 +357,6 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
   const [deleteAlert, setDeleteAlert] = useState(null)
 
   // Refs
-  const statusCardsRef = useRef(null)
-  const searchInputRef = useRef(null)
-  const filterSelectRef = useRef(null)
   const fetchAbortController = useRef(null)
 
   // Auto-clear messages
@@ -914,6 +910,9 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
+            // selectedPath is the base NAS directory chosen by the admin.
+            // If this file belongs to a folder upload, the server will automatically
+            // create a sub-folder (file.folder_name) inside selectedPath.
             destinationPath: selectedPath,
             adminId: authUser.id,
             adminUsername: authUser.username,
@@ -1223,8 +1222,8 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
                 <tr>
                   <td colSpan="6">
                     <div className="empty-state">
-                    <h3>Loading...</h3>
-                    <p>Please wait while files are being loaded.</p>
+                      <h3>No files found</h3>
+                      <p>No files match the current filter or search query.</p>
                     </div>
                   </td>
                 </tr>

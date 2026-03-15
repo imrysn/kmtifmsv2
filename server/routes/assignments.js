@@ -886,6 +886,19 @@ router.post('/create', upload.array('attachments', 10000), async (req, res) => {
           const folderName = relPath.includes('/') ? relPath.split('/')[0] : null;
           console.log(`📎 File ${fileIndex}: ${file.originalname} → relPath: ${relPath}, folderName: ${folderName}`);
 
+          // Re-move the file now that we know the folder structure.
+          // moveToUserFolder will create username/folderName/subpath on disk.
+          if (folderName) {
+            try {
+              const movedPath = await moveToUserFolder(finalPath, finalTeamLeaderUsername, file.originalname, folderName, relPath);
+              finalPath = movedPath;
+              console.log(`✅ Re-moved into folder structure: ${finalPath}`);
+            } catch (reMoveError) {
+              console.error('⚠️ Failed to re-move file into folder structure:', reMoveError.message);
+              // keep finalPath as the flat location — file is still saved, just not folderized
+            }
+          }
+
           await query(`
             INSERT INTO assignment_attachments (
               assignment_id,
@@ -1325,6 +1338,17 @@ router.put('/:id', upload.array('attachments', 10000), async (req, res) => {
           const relPath = relativePaths[fileIndex] || file.originalname;
           const folderName = relPath.includes('/') ? relPath.split('/')[0] : null;
           console.log(`📎 [PUT] File ${fileIndex}: ${file.originalname} → relPath: ${relPath}, folderName: ${folderName}`);
+
+          // Re-move the file into the correct folder structure now that we know it.
+          if (folderName) {
+            try {
+              const movedPath = await moveToUserFolder(finalPath, finalTeamLeaderUsername, file.originalname, folderName, relPath);
+              finalPath = movedPath;
+              console.log(`✅ [PUT] Re-moved into folder structure: ${finalPath}`);
+            } catch (reMoveError) {
+              console.error('⚠️ [PUT] Failed to re-move file into folder structure:', reMoveError.message);
+            }
+          }
 
           await query(`
             INSERT INTO assignment_attachments (

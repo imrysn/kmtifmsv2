@@ -1095,10 +1095,6 @@ router.post('/:fileId/team-leader-review', (req, res) => {
         `Team leader ${action}: ${comments || 'No comments'}`
       );
 
-      const { createNotification, createAdminNotification } = require('../routes/notifications'); // Ensure correct path or use standard import if circular
-
-      // ... skipping to handler ...
-
       // Create notification for the file owner
       const notificationType = action === 'approve' ? 'approval' : 'rejection';
       const notificationTitle = action === 'approve'
@@ -1193,15 +1189,38 @@ router.post('/:fileId/move-to-projects', async (req, res) => {
     // destinationPath now comes as full Windows path from file picker
     // e.g., "C:\\Users\\...\\PROJECTS\\Engineering\\2025"
     // or "\\\\KMTI-NAS\\Shared\\Public\\PROJECTS\\Engineering\\2025"
-    const fullDestinationPath = destinationPath;
+    //
+    // Folderize logic:
+    //   1. If the file belongs to a folder upload → wrap in that folder name
+    //   2. If uploaded by a TEAM_LEADER without a folder → wrap in their username folder
+    //      (keeps NAS organised; avoids flat files mixed with other users' work)
+    //   3. Otherwise (regular user, no folder) → place directly in destinationPath
+    let effectiveDestPath;
+    if (file.folder_name) {
+      effectiveDestPath = path.join(destinationPath, file.folder_name);
+    } else if (file.username) {
+      // Wrap lone files in a per-username subfolder on the NAS so they are never flat
+      effectiveDestPath = path.join(destinationPath, file.username);
+    } else {
+      effectiveDestPath = destinationPath;
+    }
 
-    console.log('📂 Destination path:', fullDestinationPath);
+    console.log('📂 Destination path:', effectiveDestPath);
 
     // Ensure destination directory exists
-    await fs.mkdir(fullDestinationPath, { recursive: true });
+    await fs.mkdir(effectiveDestPath, { recursive: true });
 
-    // Construct destination file path with original name
-    const destinationFilePath = path.join(fullDestinationPath, file.original_name);
+    // Preserve subfolder structure within the folder (relative_path without top-level folder prefix)
+    let relativeInFolder = file.original_name;
+    if (file.folder_name && file.relative_path) {
+      const relParts = file.relative_path.replace(/\\/g, '/').split('/');
+      const innerPath = relParts.slice(1).join('/');
+      if (innerPath) relativeInFolder = innerPath;
+    }
+
+    const destinationFilePath = path.join(effectiveDestPath, relativeInFolder);
+    // Ensure any intermediate sub-directories exist
+    await fs.mkdir(path.dirname(destinationFilePath), { recursive: true });
 
     // Check if destination file already exists
     const destExists = await fs.access(destinationFilePath).then(() => true).catch(() => false);
@@ -1249,7 +1268,7 @@ router.post('/:fileId/move-to-projects', async (req, res) => {
       adminUsername,
       adminRole,
       team,
-      `File moved to projects: ${file.original_name} -> ${fullDestinationPath}${deleteFromUploads ? ' (deleted from uploads)' : ''}`
+      `File moved to projects: ${file.original_name} -> ${effectiveDestPath}${deleteFromUploads ? ' (deleted from uploads)' : ''}`
     );
 
     console.log(`✅ File moved successfully: ${file.original_name}`);
@@ -1916,47 +1935,9 @@ router.post('/:id/delete-file', async (req, res) => {
   }
 });
 
-// DELETE /api/files/:id
-// Delete DB record and physical file.
-router.delete('/:id', async (req, res) => {
-  const id = req.params.id;
-  try {
-    // Get file info first so we can delete the physical file
-    const file = await new Promise((resolve, reject) => {
-      db.get('SELECT * FROM files WHERE id = ?', [id], (err, row) => {
-        if (err) reject(err); else resolve(row);
-      });
-    });
+// REMOVED: Duplicate DELETE /:id route — handled by DELETE /:fileId above (full audit trail).
+// REMOVED: Duplicate admin-review comment that referenced a removed route.
 
-    if (!file) {
-      return res.status(404).json({ success: false, message: 'File not found' });
-    }
-
-    // Delete physical file
-    if (file.file_path) {
-      const relPath = file.file_path.startsWith('/uploads/')
-        ? file.file_path.substring(9)
-        : file.file_path;
-      const absPath = path.join(uploadsDir, relPath);
-      await safeDeleteFile(absPath);
-    }
-
-    // Delete DB record
-    await new Promise((resolve, reject) => {
-      db.run('DELETE FROM files WHERE id = ?', [id], function (err) {
-        if (err) reject(err); else resolve(this.changes);
-      });
-    });
-
-    console.log(`✅ File ${id} deleted from DB and storage`);
-    return res.json({ success: true, message: 'File record deleted' });
-  } catch (err) {
-    console.error('Error deleting DB record:', err);
-    return res.status(500).json({ success: false, message: 'Failed to delete file record', detail: err.message });
-  }
-});
-
-// REMOVED: Duplicate admin-review endpoint that was conflicting with the main one above
 
 // HIGH PRIORITY FEATURE: Bulk Actions - Approve/Reject multiple files
 router.post('/bulk-action', (req, res) => {
@@ -2379,20 +2360,22 @@ router.post('/open-file', async (req, res) => {
       });
     }
 
-    // Platform-specific command to open file with default application
-    let command;
-    if (process.platform === 'win32') {
-      // Windows: use start command
-      command = `start "" "${resolvedPath}"`;
-    } else if (process.platform === 'darwin') {
-      // macOS: use open command
-      command = `open "${resolvedPath}"`;
-    } else {
-      // Linux: use xdg-open command
-      command = `xdg-open "${resolvedPath}"`;
+    // Sanitize path to prevent shell injection — reject any path containing shell metacharacters
+    if (/[&;`|<>$!\r\n]/.test(resolvedPath)) {
+      return res.status(400).json({ success: false, message: 'Invalid file path' });
     }
 
-    // Execute the command
+    // Platform-specific command to open file with default application
+    let command;
+    const escapedPath = resolvedPath.replace(/"/g, '\\"');
+    if (process.platform === 'win32') {
+      command = `start "" "${escapedPath}"`;
+    } else if (process.platform === 'darwin') {
+      command = `open "${escapedPath}"`;
+    } else {
+      command = `xdg-open "${escapedPath}"`;
+    }
+
     exec(command, (error) => {
       if (error) {
         console.error('❌ Error opening file:', error);
@@ -2402,12 +2385,8 @@ router.post('/open-file', async (req, res) => {
           error: error.message
         });
       }
-
       console.log('✅ File opened successfully with default application');
-      res.json({
-        success: true,
-        message: 'File opened successfully'
-      });
+      res.json({ success: true, message: 'File opened successfully' });
     });
   } catch (error) {
     console.error('❌ Error processing file open request:', error);
@@ -2469,49 +2448,6 @@ router.post('/folder/delete', async (req, res) => {
       error: error.message
     });
   }
-});
-
-// Get file path by ID (for Electron to open files) - MUST BE BEFORE /:fileId
-router.get('/:fileId/path', (req, res) => {
-  const { fileId } = req.params;
-  console.log(`📍 Getting file path for ID: ${fileId}`);
-
-  db.get('SELECT file_path, original_name FROM files WHERE id = ?', [fileId], (err, file) => {
-    if (err) {
-      console.error('❌ Error getting file path:', err);
-      return res.status(500).json({
-        success: false,
-        message: 'Failed to get file path'
-      });
-    }
-
-    if (!file) {
-      console.log('❌ File not found:', fileId);
-      return res.status(404).json({
-        success: false,
-        message: 'File not found'
-      });
-    }
-
-    // Convert relative path to absolute path
-    let filePath = file.file_path;
-
-    // If it's a relative path starting with /uploads/, resolve it
-    if (filePath.startsWith('/uploads/')) {
-      const relativePath = filePath.substring(8);
-      filePath = path.join(uploadsDir, relativePath);
-    }
-
-    // Normalize path for Windows
-    filePath = path.normalize(filePath);
-
-    console.log('✅ File path resolved:', filePath);
-    res.json({
-      success: true,
-      filePath,
-      fileName: file.original_name
-    });
-  });
 });
 
 // Get file details by ID (for opening files) - CATCH-ALL, MUST BE LAST

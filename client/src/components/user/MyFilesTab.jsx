@@ -167,12 +167,11 @@ const MyFilesTab = ({
     const anyPendingTL      = statuses.some(s => s === 'uploaded' || s === 'under_revision');
     const allTLApproved     = statuses.every(s => s === 'team_leader_approved' || s === 'final_approved');
 
-    const anyTLApproved = statuses.some(s => s === 'team_leader_approved');
-
     if (allFinalApproved)  return { label: 'Approved',            cls: 'status-approved' };
     if (anyPendingTL)      return { label: 'Pending Team Leader',  cls: 'status-pending'  };
     if (allTLApproved)     return { label: 'Pending Admin',        cls: 'status-pending'  };
-    if (anyTLApproved)     return { label: 'Pending Admin',        cls: 'status-pending'  };
+    // At least one file passed TL but not all — still show Pending Admin
+    if (statuses.some(s => s === 'team_leader_approved')) return { label: 'Pending Admin', cls: 'status-pending' };
     if (anyRejected) {
       // Show the most severe rejection label to match individual file tag sizing
       const hasTLRejection = statuses.some(s => s === 'rejected_by_team_leader');
