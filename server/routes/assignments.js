@@ -2631,8 +2631,85 @@ router.get('/debug/:assignmentId/members', async (req, res) => {
   }
 });
 
+// Delete an entire attachment folder by folder_name (Team Leader only)
+router.delete('/:assignmentId/attachments/folder/:folderName', async (req, res) => {
+  try {
+    const { assignmentId, folderName } = req.params;
+    const decodedFolderName = decodeURIComponent(folderName);
+
+    // Get all attachments in this folder for this assignment
+    const folderAttachments = await query(
+      'SELECT * FROM assignment_attachments WHERE assignment_id = ? AND folder_name = ?',
+      [assignmentId, decodedFolderName]
+    );
+
+    if (!folderAttachments || folderAttachments.length === 0) {
+      return res.status(404).json({ success: false, message: 'Folder not found' });
+    }
+
+    console.log(`🗑️ Deleting folder "${decodedFolderName}" with ${folderAttachments.length} file(s) from assignment ${assignmentId}`);
+
+    // Get the folder directory path from the first file
+    let folderDirPath = null;
+    for (const att of folderAttachments) {
+      if (att.file_path) {
+        const candidate = path.dirname(att.file_path);
+        if (candidate && candidate !== '.') {
+          folderDirPath = candidate;
+          break;
+        }
+      }
+    }
+
+    // Delete physical folder (and all contents) using recursive rm
+    if (folderDirPath) {
+      try {
+        if (fs.existsSync(folderDirPath)) {
+          // Node 14.14+ supports fs.rmSync with recursive
+          if (fs.rmSync) {
+            fs.rmSync(folderDirPath, { recursive: true, force: true });
+          } else {
+            // Fallback: delete each file individually then rmdir
+            for (const att of folderAttachments) {
+              try {
+                if (att.file_path && fs.existsSync(att.file_path)) {
+                  fs.unlinkSync(att.file_path);
+                }
+              } catch (e) { console.warn('⚠️ Could not delete file:', e.message); }
+            }
+            try { fs.rmdirSync(folderDirPath); } catch (e) { console.warn('⚠️ Could not remove folder dir:', e.message); }
+          }
+          console.log(`✅ Physical folder deleted: ${folderDirPath}`);
+        } else {
+          console.log(`⚠️ Physical folder not found at: ${folderDirPath} — skipping filesystem delete`);
+        }
+      } catch (fsErr) {
+        console.warn(`⚠️ Could not delete physical folder: ${fsErr.message}`);
+      }
+    }
+
+    // Delete all DB records for this folder
+    await query(
+      'DELETE FROM assignment_attachments WHERE assignment_id = ? AND folder_name = ?',
+      [assignmentId, decodedFolderName]
+    );
+
+    console.log(`✅ Folder "${decodedFolderName}" deleted from assignment ${assignmentId}`);
+    res.json({ success: true, message: 'Folder deleted successfully', deletedCount: folderAttachments.length });
+  } catch (error) {
+    console.error('Error deleting attachment folder:', error);
+    res.status(500).json({ success: false, message: 'Failed to delete folder', error: error.message });
+  }
+});
+
 // Delete a single assignment attachment (Team Leader only)
+// NOTE: This must stay BELOW the /folder/:folderName route to avoid shadowing it
 router.delete('/:assignmentId/attachments/:attachmentId', async (req, res) => {
+  // Guard: reject if attachmentId is literally "folder" (means the folder route didn't match)
+  if (req.params.attachmentId === 'folder') {
+    return res.status(404).json({ success: false, message: 'Route not found' });
+  }
+
   try {
     const { assignmentId, attachmentId } = req.params;
 
@@ -2649,9 +2726,12 @@ router.delete('/:assignmentId/attachments/:attachmentId', async (req, res) => {
     if (attachment.file_path) {
       try {
         const filePath = attachment.file_path.startsWith('/uploads/')
-          ? require('path').join(uploadsDir, attachment.file_path.substring(9))
+          ? path.join(uploadsDir, attachment.file_path.substring(9))
           : attachment.file_path;
-        if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+        if (fs.existsSync(filePath)) {
+          fs.unlinkSync(filePath);
+          console.log(`✅ Physical file deleted: ${filePath}`);
+        }
       } catch (e) { console.warn('⚠️ Could not delete physical attachment file:', e.message); }
     }
 

@@ -55,6 +55,29 @@ const AssignmentsTab = ({
   // Remove attachment confirmation modal
   const [removeAttachmentModal, setRemoveAttachmentModal] = useState({ isOpen: false, attachmentId: null, attachmentName: '', assignmentId: null })
 
+  // Remove entire folder via dedicated folder-delete endpoint
+  const handleRemoveAttachmentFolder = async (assignmentId, folderFiles) => {
+    setOpenFolderMenuId(null)
+    if (!folderFiles || folderFiles.length === 0) return
+    const folderName = folderFiles[0].folder_name
+    try {
+      const res = await fetch(
+        `${API_BASE_URL}/api/assignments/${assignmentId}/attachments/folder/${encodeURIComponent(folderName)}`,
+        { method: 'DELETE' }
+      )
+      const data = await res.json()
+      if (data.success) {
+        setToast({ isOpen: true, title: 'Removed', message: 'Folder removed successfully', type: 'error' })
+        if (onRefreshAssignments) onRefreshAssignments()
+      } else {
+        setToast({ isOpen: true, title: 'Error', message: data.message || 'Failed to remove folder', type: 'error' })
+      }
+    } catch (err) {
+      console.error('Error removing folder:', err)
+      setToast({ isOpen: true, title: 'Error', message: 'Failed to remove folder', type: 'error' })
+    }
+  }
+
   // Toast notification
   const [toast, setToast] = useState({ isOpen: false, title: '', message: '', type: 'error' })
 
@@ -569,28 +592,60 @@ const AssignmentsTab = ({
                   const tlName = assignment.team_leader_fullname || assignment.teamLeaderUsername || 'Team Leader'
                   return (
                     <div className="tl-assignment-attachment-section">
-                      <div className="tl-assignment-tl-attached-file">
-                        <div className="tl-assignment-tl-file-label">
+                      <div className="tl-assignment-attached-file">
+                        <div className="tl-assignment-file-label">
                           📎 Attached Files ({assignment.attachments.length})
                         </div>
 
                         {/* Folder attachments */}
                         {Object.entries(attFolders).map(([folderName, files]) => {
                           const isExpanded = expandedAttachments[`attfolder-${assignment.id}-${folderName}`]
+                          const attFolderMenuId = `attfolder-${assignment.id}-${folderName}`
                           return (
                             <React.Fragment key={`attfolder-${folderName}`}>
                               <div
-                                className="tl-assignment-tl-file-item"
+                                className="tl-assignment-file-item tl-folder-item"
                                 style={{ cursor: 'pointer', backgroundColor: isExpanded ? '#BFDBFE' : '#DBEAFE', position: 'relative' }}
                                 onClick={() => setExpandedAttachments(prev => ({ ...prev, [`attfolder-${assignment.id}-${folderName}`]: !prev[`attfolder-${assignment.id}-${folderName}`] }))}
                               >
-                                <div style={{ fontSize: '28px' }}>{isExpanded ? '📂' : '📁'}</div>
+                                <div style={{ fontSize: '32px' }}>{isExpanded ? '📂' : '📁'}</div>
                                 <div className="tl-assignment-file-details">
                                   <div className="tl-assignment-file-name" style={{ fontWeight: '600' }}>{folderName}</div>
                                   <div className="tl-assignment-file-meta">
                                     <span>by <span className="tl-assignment-file-submitter">{tlName}</span></span>
-                                    <span>{files.length} files</span>
+                                    <span>{files.length} file{files.length !== 1 ? 's' : ''}</span>
                                   </div>
+                                </div>
+                                {/* 3-dot menu for folder */}
+                                <div
+                                  className="tl-folder-menu-wrapper"
+                                  style={{ marginLeft: 'auto', position: 'relative' }}
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  <button
+                                    className="tl-assignment-menu-btn"
+                                    style={{ fontSize: '13px', padding: '2px 6px', letterSpacing: '1px' }}
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      setOpenFolderMenuId(prev => prev === attFolderMenuId ? null : attFolderMenuId)
+                                    }}
+                                    title="More options"
+                                  >
+                                    •••
+                                  </button>
+                                  {openFolderMenuId === attFolderMenuId && (
+                                    <div className="tl-assignment-menu-dropdown" style={{ right: 0, left: 'auto', minWidth: '180px', whiteSpace: 'nowrap' }}>
+                                      <button
+                                        className="tl-assignment-menu-item tl-assignment-delete-menu-item"
+                                        onClick={(e) => {
+                                          e.stopPropagation()
+                                          handleRemoveAttachmentFolder(assignment.id, files)
+                                        }}
+                                      >
+                                        🗑️ Remove Folder
+                                      </button>
+                                    </div>
+                                  )}
                                 </div>
                               </div>
                               {isExpanded && (
@@ -598,7 +653,7 @@ const AssignmentsTab = ({
                                 {files.map(att => (
                                 <div
                                   key={att.id}
-                                  className="tl-assignment-tl-file-item"
+                                  className="tl-assignment-file-item tl-folder-file-item"
                                   style={{ cursor: 'pointer', marginBottom: '4px', position: 'relative' }}
                                   onClick={() => { setFileToOpen(att); setShowOpenFileConfirmation(true) }}
                                 >
@@ -607,7 +662,10 @@ const AssignmentsTab = ({
                                     <div className="tl-assignment-file-name">
                                       {att.original_name}
                                     </div>
-                                    <div className="tl-assignment-file-meta"><span>{formatFileSize(att.file_size)}</span></div>
+                                    <div className="tl-assignment-file-meta">
+                                      <span>by <span className="tl-assignment-file-submitter">{tlName}</span></span>
+                                      <span>{formatFileSize(att.file_size)}</span>
+                                    </div>
                                   </div>
                                   <button onClick={(e) => { e.stopPropagation(); setRemoveAttachmentModal({ isOpen: true, attachmentId: att.id, attachmentName: att.original_name, assignmentId: assignment.id }) }} title="Remove" style={{ marginLeft: 'auto', background:'transparent', border:'none', cursor:'pointer', color:'#9ca3af', fontSize:'18px', width:'28px', height:'28px', display:'flex', alignItems:'center', justifyContent:'center', borderRadius:'6px' }} onMouseEnter={e=>{e.currentTarget.style.backgroundColor='#fee2e2';e.currentTarget.style.color='#dc2626'}} onMouseLeave={e=>{e.currentTarget.style.backgroundColor='transparent';e.currentTarget.style.color='#9ca3af'}}>×</button>
                                 </div>
@@ -622,8 +680,8 @@ const AssignmentsTab = ({
                         {attIndividual.map((attachment) => (
                           <div
                             key={attachment.id}
-                            className="tl-assignment-tl-file-item"
-                            style={{ position: 'relative' }}
+                            className="tl-assignment-file-item"
+                            style={{ position: 'relative', cursor: 'pointer' }}
                             onClick={() => { setFileToOpen(attachment); setShowOpenFileConfirmation(true) }}
                           >
                             <FileIcon fileType={attachment.original_name.split('.').pop()} size="small" className="tl-assignment-file-icon" />
@@ -867,12 +925,12 @@ const AssignmentsTab = ({
                                                 file.status === 'rejected_by_team_leader' || file.status === 'rejected_by_admin' ? 'rejected' :
                                                   'uploaded'
                                             }`}>
-                                            {file.status === 'uploaded' ? 'NEW' :
-                                              file.status === 'team_leader_approved' ? 'PENDING ADMIN' :
-                                                file.status === 'final_approved' ? '✓ APPROVED' :
-                                                  file.status === 'rejected_by_team_leader' ? '✗ REJECTED' :
-                                                    file.status === 'rejected_by_admin' ? '✗ REJECTED' :
-                                                      'PENDING'}
+                                            {file.status === 'uploaded' ? 'New' :
+                                              file.status === 'team_leader_approved' ? 'Pending Admin' :
+                                                file.status === 'final_approved' ? '✓ Approved' :
+                                                  file.status === 'rejected_by_team_leader' ? 'X Rejected' :
+                                                    file.status === 'rejected_by_admin' ? 'X Rejected' :
+                                                      'Pending'}
                                           </span>
                                         </div>
                                       </div>
@@ -928,12 +986,12 @@ const AssignmentsTab = ({
                                     submission.status === 'rejected_by_team_leader' || submission.status === 'rejected_by_admin' ? 'rejected' :
                                       'uploaded'
                                 }`}>
-                                {submission.status === 'uploaded' ? 'NEW' :
-                                  submission.status === 'team_leader_approved' ? 'PENDING ADMIN' :
-                                    submission.status === 'final_approved' ? '✓ APPROVED' :
-                                      submission.status === 'rejected_by_team_leader' ? '✗ REJECTED' :
-                                        submission.status === 'rejected_by_admin' ? '✗ REJECTED' :
-                                          'PENDING'}
+                                {submission.status === 'uploaded' ? 'New' :
+                                  submission.status === 'team_leader_approved' ? 'Pending Admin' :
+                                    submission.status === 'final_approved' ? '✓ Approved' :
+                                      submission.status === 'rejected_by_team_leader' ? 'X Rejected' :
+                                        submission.status === 'rejected_by_admin' ? 'X Rejected' :
+                                          'Pending'}
                               </span>
                             </div>
                           </div>
