@@ -106,6 +106,7 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
   const [highlightedFileId, setHighlightedFileId] = useState(null)
   const [highlightedSubmissionFileId, setHighlightedSubmissionFileId] = useState(null)
 
+
   useEffect(() => {
     // Only fetch files for tabs that need them
     if (activeTab === 'overview') {

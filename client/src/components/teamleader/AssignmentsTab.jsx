@@ -610,12 +610,22 @@ const AssignmentsTab = ({
                               >
                                 <div style={{ fontSize: '32px' }}>{isExpanded ? '📂' : '📁'}</div>
                                 <div className="tl-assignment-file-details">
-                                  <div className="tl-assignment-file-name" style={{ fontWeight: '600' }}>{folderName}</div>
-                                  <div className="tl-assignment-file-meta">
-                                    <span>by <span className="tl-assignment-file-submitter">{tlName}</span></span>
-                                    <span>{files.length} file{files.length !== 1 ? 's' : ''}</span>
+                                <div className="tl-assignment-file-name" style={{ fontWeight: '600' }}>{folderName}</div>
+                                <div className="tl-assignment-file-meta">
+                                <span>by <span className="tl-assignment-file-submitter">{tlName}</span></span>
+                                <span>{files.length} file{files.length !== 1 ? 's' : ''}</span>
+                                  {(() => {
+                                      const statuses = files.map(f => f.status || 'team_leader_approved')
+                                        const allApproved = statuses.every(s => s === 'final_approved')
+                                        const allRejected = statuses.every(s => s === 'rejected_by_admin')
+                                        const anyPendingAdmin = statuses.some(s => s === 'team_leader_approved')
+                                        if (allApproved) return <span style={{marginLeft:'8px',padding:'2px 8px',borderRadius:'12px',fontSize:'11px',fontWeight:'600',background:'#d1fae5',color:'#059669'}}>✓ Approved</span>
+                                        if (allRejected) return <span style={{marginLeft:'8px',padding:'2px 8px',borderRadius:'12px',fontSize:'11px',fontWeight:'600',background:'#fee2e2',color:'#dc2626'}}>✗ Rejected</span>
+                                        if (anyPendingAdmin) return <span style={{marginLeft:'8px',padding:'2px 8px',borderRadius:'12px',fontSize:'11px',fontWeight:'600',background:'#fef3c7',color:'#92400e'}}>Pending Admin</span>
+                                        return <span style={{marginLeft:'8px',padding:'2px 8px',borderRadius:'12px',fontSize:'11px',fontWeight:'600',background:'#e0e7ff',color:'#3730a3'}}>Pending</span>
+                                      })()}
+                                    </div>
                                   </div>
-                                </div>
                                 {/* 3-dot menu for folder */}
                                 <div
                                   className="tl-folder-menu-wrapper"
@@ -665,6 +675,9 @@ const AssignmentsTab = ({
                                     <div className="tl-assignment-file-meta">
                                       <span>by <span className="tl-assignment-file-submitter">{tlName}</span></span>
                                       <span>{formatFileSize(att.file_size)}</span>
+                                      {att.status === 'final_approved' && <span style={{marginLeft:'8px',padding:'2px 8px',borderRadius:'12px',fontSize:'11px',fontWeight:'600',background:'#d1fae5',color:'#059669'}}>✓ Approved</span>}
+                                      {(att.status === 'rejected_by_admin' || att.status === 'rejected_by_team_leader') && <span style={{marginLeft:'8px',padding:'2px 8px',borderRadius:'12px',fontSize:'11px',fontWeight:'600',background:'#fee2e2',color:'#dc2626'}}>✗ Rejected</span>}
+                                      {(!att.status || att.status === 'team_leader_approved' || att.status === 'uploaded') && <span style={{marginLeft:'8px',padding:'2px 8px',borderRadius:'12px',fontSize:'11px',fontWeight:'600',background:'#fef3c7',color:'#92400e'}}>Pending Admin</span>}
                                     </div>
                                   </div>
                                   <button onClick={(e) => { e.stopPropagation(); setRemoveAttachmentModal({ isOpen: true, attachmentId: att.id, attachmentName: att.original_name, assignmentId: assignment.id }) }} title="Remove" style={{ marginLeft: 'auto', background:'transparent', border:'none', cursor:'pointer', color:'#9ca3af', fontSize:'18px', width:'28px', height:'28px', display:'flex', alignItems:'center', justifyContent:'center', borderRadius:'6px' }} onMouseEnter={e=>{e.currentTarget.style.backgroundColor='#fee2e2';e.currentTarget.style.color='#dc2626'}} onMouseLeave={e=>{e.currentTarget.style.backgroundColor='transparent';e.currentTarget.style.color='#9ca3af'}}>×</button>
@@ -692,6 +705,9 @@ const AssignmentsTab = ({
                               <div className="tl-assignment-file-meta">
                                 <span>by <span className="tl-assignment-file-submitter">{tlName}</span></span>
                                 <span>{formatFileSize(attachment.file_size)}</span>
+                                {attachment.status === 'final_approved' && <span style={{marginLeft:'8px',padding:'2px 8px',borderRadius:'12px',fontSize:'11px',fontWeight:'600',background:'#d1fae5',color:'#059669'}}>✓ Approved</span>}
+                                {(attachment.status === 'rejected_by_admin' || attachment.status === 'rejected_by_team_leader') && <span style={{marginLeft:'8px',padding:'2px 8px',borderRadius:'12px',fontSize:'11px',fontWeight:'600',background:'#fee2e2',color:'#dc2626'}}>✗ Rejected</span>}
+                                {(!attachment.status || attachment.status === 'team_leader_approved' || attachment.status === 'uploaded') && <span style={{marginLeft:'8px',padding:'2px 8px',borderRadius:'12px',fontSize:'11px',fontWeight:'600',background:'#fef3c7',color:'#92400e'}}>Pending Admin</span>}
                               </div>
                             </div>
                             <button

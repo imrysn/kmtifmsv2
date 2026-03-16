@@ -153,7 +153,9 @@ router.get('/admin/all', async (req, res) => {
 
       // Get attachments for this assignment
       const attachments = await query(`
-        SELECT id, original_name, filename, file_path, file_size, file_type, folder_name, relative_path, created_at
+        SELECT id, original_name, filename, file_path, file_size, file_type, folder_name, relative_path, created_at,
+               COALESCE(status, 'team_leader_approved') AS status,
+               COALESCE(current_stage, 'pending_admin') AS current_stage
         FROM assignment_attachments
         WHERE assignment_id = ?
         ORDER BY COALESCE(folder_name, ''), created_at DESC
@@ -243,20 +245,47 @@ router.get('/team-leader/:userId/all-submissions', async (req, res) => {
       WHERE tl.user_id = ?
     `, [userId]);
 
-    if (!ledTeams || ledTeams.length === 0) {
-      console.log(`⚠️ User ${userId} is not a leader of any teams`);
-      return res.json({
-        success: true,
-        submissions: []
-      });
-    }
-
-    const teamNames = ledTeams.map(t => t.name);
+    const teamNames = (ledTeams || []).map(t => t.name);
     console.log(`✅ User ${userId} leads teams:`, teamNames);
 
-    // Get all submissions from ALL teams this user leads
-    const placeholders = teamNames.map(() => '?').join(',');
-    const allSubmissions = await query(`
+    // Get all submissions from ALL teams this user leads (team member files)
+    let memberSubmissions = [];
+    if (teamNames.length > 0) {
+      const placeholders = teamNames.map(() => '?').join(',');
+      memberSubmissions = await query(`
+        SELECT
+          f.id,
+          f.original_name,
+          f.filename,
+          f.file_type,
+          f.file_path,
+          f.public_network_url,
+          f.file_size,
+          f.uploaded_at,
+          f.status,
+          f.user_team,
+          f.folder_name,
+          f.relative_path,
+          f.is_folder,
+          u.username,
+          u.fullName,
+          asub.submitted_at,
+          asub.submitted_at as created_at,
+          a.id as assignment_id,
+          a.title as assignment_title,
+          a.due_date as assignment_due_date,
+          a.team
+        FROM assignment_submissions asub
+        JOIN files f ON asub.file_id = f.id
+        JOIN users u ON asub.user_id = u.id
+        JOIN assignments a ON asub.assignment_id = a.id
+        WHERE a.team IN (${placeholders})
+        ORDER BY asub.submitted_at DESC
+      `, teamNames);
+    }
+
+    // Also get files uploaded directly by the Team Leader (from the files table)
+    const tlFiles = await query(`
       SELECT
         f.id,
         f.original_name,
@@ -273,25 +302,63 @@ router.get('/team-leader/:userId/all-submissions', async (req, res) => {
         f.is_folder,
         u.username,
         u.fullName,
-        asub.submitted_at,
-        asub.submitted_at as created_at,
+        f.uploaded_at as submitted_at,
+        f.uploaded_at as created_at,
+        NULL as assignment_id,
+        NULL as assignment_title,
+        NULL as assignment_due_date,
+        f.user_team as team
+      FROM files f
+      JOIN users u ON f.user_id = u.id
+      WHERE f.user_id = ?
+      ORDER BY f.uploaded_at DESC
+    `, [userId]);
+
+    // Also get TL attachment files (uploaded via assignment attachments)
+    const tlAttachments = await query(`
+      SELECT
+        aa.id,
+        aa.original_name,
+        aa.filename,
+        aa.file_type,
+        aa.file_path,
+        COALESCE(aa.public_network_url, NULL) as public_network_url,
+        aa.file_size,
+        aa.created_at as uploaded_at,
+        COALESCE(aa.status, 'team_leader_approved') as status,
+        u.team as user_team,
+        aa.folder_name,
+        aa.relative_path,
+        0 as is_folder,
+        aa.uploaded_by_username as username,
+        u.fullName,
+        aa.created_at as submitted_at,
+        aa.created_at as created_at,
         a.id as assignment_id,
         a.title as assignment_title,
         a.due_date as assignment_due_date,
-        a.team
-      FROM assignment_submissions asub
-      JOIN files f ON asub.file_id = f.id
-      JOIN users u ON asub.user_id = u.id
-      JOIN assignments a ON asub.assignment_id = a.id
-      WHERE a.team IN (${placeholders})
-      ORDER BY asub.submitted_at DESC
-    `, teamNames);
+        u.team as team,
+        'assignment_attachment' as source_type
+      FROM assignment_attachments aa
+      JOIN assignments a ON aa.assignment_id = a.id
+      JOIN users u ON aa.uploaded_by_id = u.id
+      WHERE aa.uploaded_by_id = ?
+      ORDER BY aa.created_at DESC
+    `, [userId]);
 
-    console.log(`✅ DASHBOARD API: Found ${allSubmissions?.length || 0} submissions across ${teamNames.length} teams`);
+    // Merge — avoid duplicates across all sources
+    const memberFileIds = new Set(memberSubmissions.map(f => String(f.id)));
+    const uniqueTLFiles = tlFiles.filter(f => !memberFileIds.has(String(f.id)));
+    const allExistingIds = new Set([...memberFileIds, ...uniqueTLFiles.map(f => String(f.id))]);
+    const uniqueAttachments = tlAttachments.filter(f => !allExistingIds.has(String(f.id)));
+
+    const allSubmissions = [...memberSubmissions, ...uniqueTLFiles, ...uniqueAttachments];
+
+    console.log(`✅ DASHBOARD API: Found ${memberSubmissions.length} member submissions + ${uniqueTLFiles.length} TL files + ${uniqueAttachments.length} TL attachments = ${allSubmissions.length} total`);
 
     res.json({
       success: true,
-      submissions: allSubmissions || []
+      submissions: allSubmissions
     });
   } catch (error) {
     console.error('❌ DASHBOARD API: Error fetching all submissions:', error);
@@ -365,7 +432,9 @@ router.get('/team/:team/all-tasks', async (req, res) => {
 
       // Get attachments for this assignment
       const attachments = await query(`
-        SELECT id, original_name, filename, file_path, file_size, file_type, folder_name, relative_path, created_at
+        SELECT id, original_name, filename, file_path, file_size, file_type, folder_name, relative_path, created_at,
+               COALESCE(status, 'team_leader_approved') AS status,
+               COALESCE(current_stage, 'pending_admin') AS current_stage
         FROM assignment_attachments
         WHERE assignment_id = ?
         ORDER BY COALESCE(folder_name, ''), created_at DESC
@@ -490,7 +559,9 @@ router.get('/team-leader/:userId', async (req, res) => {
 
       // Get attachments for this assignment
       const attachments = await query(`
-        SELECT id, original_name, filename, file_path, file_size, file_type, folder_name, relative_path, created_at
+        SELECT id, original_name, filename, file_path, file_size, file_type, folder_name, relative_path, created_at,
+               COALESCE(status, 'team_leader_approved') AS status,
+               COALESCE(current_stage, 'pending_admin') AS current_stage
         FROM assignment_attachments
         WHERE assignment_id = ?
         ORDER BY COALESCE(folder_name, ''), created_at DESC
