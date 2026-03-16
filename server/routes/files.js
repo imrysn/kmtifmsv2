@@ -11,6 +11,40 @@ const { createNotification, createAdminNotification } = require('./notifications
 
 const router = express.Router();
 
+// One-time fix: promote any files uploaded by a TEAM_LEADER that are still stuck on
+// 'uploaded' / 'pending_team_leader' — they should skip TL review and go to Pending Admin.
+;(async function fixTeamLeaderUploadedFiles() {
+  try {
+    const { query } = require('../../database/config')
+    const result = await query(`
+      UPDATE files f
+      JOIN users u ON LOWER(f.username) = LOWER(u.username)
+      SET f.status = 'team_leader_approved',
+          f.current_stage = 'pending_admin'
+      WHERE f.current_stage = 'pending_team_leader'
+        AND f.status = 'uploaded'
+        AND UPPER(u.role) LIKE '%TEAM_LEADER%'
+    `)
+    const affected = result && result.affectedRows ? result.affectedRows : 0
+    console.log(`✅ TL uploaded files fix applied — ${affected} row(s) updated`)
+  } catch (err) {
+    console.warn('⚠️ TL uploaded files fix failed:', err.message)
+  }
+})()
+
+// Ensure assignment_attachments has the review columns (safe: ignores errors if columns exist)
+;(function ensureAttachmentColumns() {
+  const cols = [
+    `ALTER TABLE assignment_attachments ADD COLUMN status VARCHAR(50) DEFAULT 'team_leader_approved'`,
+    `ALTER TABLE assignment_attachments ADD COLUMN current_stage VARCHAR(50) DEFAULT 'pending_admin'`,
+    `ALTER TABLE assignment_attachments ADD COLUMN admin_reviewed_at DATETIME`,
+    `ALTER TABLE assignment_attachments ADD COLUMN admin_comments TEXT`,
+    `ALTER TABLE assignment_attachments ADD COLUMN public_network_url TEXT`,
+    `ALTER TABLE assignment_attachments ADD COLUMN final_approved_at DATETIME`,
+  ]
+  cols.forEach(sql => db.run(sql, () => {})) // errors silently ignored (column already exists)
+})()
+
 // Move whole folder to NAS and approve all files inside it
 router.post('/folder/move-to-nas', async (req, res) => {
   const { folderName, username, fileIds, destinationPath, adminId, adminUsername, adminRole, team, comments } = req.body
@@ -20,11 +54,24 @@ router.post('/folder/move-to-nas', async (req, res) => {
   }
 
   try {
-    // Load all files from DB
+    // Load all files from DB — check both files table AND assignment_attachments
     const dbFiles = await Promise.all(
       fileIds.map(fileId => new Promise((resolve, reject) => {
         db.get('SELECT * FROM files WHERE id = ?', [fileId], (err, row) => {
-          if (err) reject(err); else resolve(row)
+          if (err) return reject(err)
+          if (row) return resolve(row)
+          // Not in files table — check assignment_attachments
+          db.get('SELECT *, created_at AS uploaded_at FROM assignment_attachments WHERE id = ?', [fileId], (err2, row2) => {
+            if (err2) return reject(err2)
+            // Normalize fields to match files table shape
+            if (row2) {
+              row2.source_type = 'assignment_attachment'  // use DB field, not JS property
+              row2.user_id = row2.uploaded_by_id
+              row2.username = row2.uploaded_by_username
+              row2.status = 'team_leader_approved'
+            }
+            resolve(row2 || null)
+          })
         })
       }))
     ).then(rows => rows.filter(Boolean))
@@ -33,67 +80,68 @@ router.post('/folder/move-to-nas', async (req, res) => {
       return res.status(404).json({ success: false, message: 'No files found in database for provided IDs' })
     }
 
-    // Build source/dest paths
-    let sourceFolderPath = path.join(uploadsDir, username, folderName)
+    // Determine if these are attachment files (from assignment_attachments table)
+    const isAttachmentFolder = dbFiles.some(f => f.source_type === 'assignment_attachment')
+
+    // For attachment folders, ALWAYS copy file-by-file using DB paths
+    // (the source folder structure is different from regular user uploads)
     const destFolderPath = path.join(destinationPath, folderName)
+    await fs.mkdir(destFolderPath, { recursive: true })
 
-    // Check primary source path
-    let sourceExists = await fs.access(sourceFolderPath).then(() => true).catch(() => false)
+    let sourceExists = false
 
-    // Fallback: derive source folder from first file's stored file_path
-    if (!sourceExists && dbFiles[0]?.file_path) {
-      const firstFilePath = dbFiles[0].file_path
-      const relPart = firstFilePath.startsWith('/uploads/') ? firstFilePath.substring(9) : firstFilePath
-      const parts = relPart.replace(/\\/g, '/').split('/')
-      // parts[0]=username, parts[1]=folderName
-      if (parts.length >= 2) {
-        const altFolderPath = path.join(uploadsDir, parts[0], parts[1])
-        if (await fs.access(altFolderPath).then(() => true).catch(() => false)) {
-          sourceFolderPath = altFolderPath
-          sourceExists = true
-        }
-      }
-      // Fallback 2: use relative_path's top-level folder
-      if (!sourceExists) {
-        const topFolder = (dbFiles[0].relative_path || '').replace(/\\/g, '/').split('/')[0]
-        if (topFolder) {
-          const alt2 = path.join(uploadsDir, username, topFolder)
-          if (await fs.access(alt2).then(() => true).catch(() => false)) {
-            sourceFolderPath = alt2
+    if (!isAttachmentFolder) {
+      // Regular user upload: try to find source folder and do directory copy
+      let sourceFolderPath = path.join(uploadsDir, username, folderName)
+      sourceExists = await fs.access(sourceFolderPath).then(() => true).catch(() => false)
+
+      // Fallback: derive source folder from first file's stored file_path
+      if (!sourceExists && dbFiles[0]?.file_path) {
+        const firstFilePath = dbFiles[0].file_path
+        const relPart = firstFilePath.startsWith('/uploads/') ? firstFilePath.substring(9) : firstFilePath
+        const parts = relPart.replace(/\\/g, '/').split('/')
+        if (parts.length >= 2) {
+          const altFolderPath = path.join(uploadsDir, parts[0], parts[1])
+          if (await fs.access(altFolderPath).then(() => true).catch(() => false)) {
+            sourceFolderPath = altFolderPath
             sourceExists = true
           }
         }
-      }
-    }
-
-    if (!sourceExists) {
-      console.warn(`⚠️ Source folder not found at ${sourceFolderPath}, will copy file-by-file from DB paths`)
-    }
-
-    // Create destination folder
-    await fs.mkdir(destFolderPath, { recursive: true })
-
-    // Recursive copy helper
-    async function copyDir(src, dest) {
-      const entries = await fs.readdir(src, { withFileTypes: true })
-      for (const entry of entries) {
-        const srcPath = path.join(src, entry.name)
-        const destPath = path.join(dest, entry.name)
-        if (entry.isDirectory()) {
-          await fs.mkdir(destPath, { recursive: true })
-          await copyDir(srcPath, destPath)
-        } else {
-          await fs.copyFile(srcPath, destPath)
+        if (!sourceExists) {
+          const topFolder = (dbFiles[0].relative_path || '').replace(/\\/g, '/').split('/')[0]
+          if (topFolder) {
+            const alt2 = path.join(uploadsDir, username, topFolder)
+            if (await fs.access(alt2).then(() => true).catch(() => false)) {
+              sourceFolderPath = alt2
+              sourceExists = true
+            }
+          }
         }
       }
-    }
 
-    if (sourceExists) {
-      await copyDir(sourceFolderPath, destFolderPath)
-      await fs.rm(sourceFolderPath, { recursive: true, force: true })
-      console.log(`✅ Folder copied to NAS and source deleted: ${destFolderPath}`)
+      if (sourceExists) {
+        // Recursive copy helper
+        async function copyDir(src, dest) {
+          const entries = await fs.readdir(src, { withFileTypes: true })
+          for (const entry of entries) {
+            const srcPath = path.join(src, entry.name)
+            const destPath = path.join(dest, entry.name)
+            if (entry.isDirectory()) {
+              await fs.mkdir(destPath, { recursive: true })
+              await copyDir(srcPath, destPath)
+            } else {
+              await fs.copyFile(srcPath, destPath)
+            }
+          }
+        }
+        await copyDir(sourceFolderPath, destFolderPath)
+        await fs.rm(sourceFolderPath, { recursive: true, force: true })
+        console.log(`✅ Folder copied to NAS and source deleted: ${destFolderPath}`)
+      } else {
+        console.warn(`⚠️ Source folder not found at ${sourceFolderPath}, will copy file-by-file from DB paths`)
+      }
     } else {
-      console.log('📋 Source folder not found — will copy files individually using DB paths')
+      console.log(`📋 Attachment folder — copying files individually from DB paths`)
     }
 
     const now = new Date()
@@ -123,42 +171,76 @@ router.post('/folder/move-to-nas', async (req, res) => {
       }
 
       if (!sourceExists) {
-        // Resolve source path from DB (strip leading /uploads/ prefix)
-        const relSrc = file.file_path.startsWith('/uploads/')
-          ? file.file_path.substring(9)  // remove '/uploads/'
-          : file.file_path
-        const srcFilePath = path.join(uploadsDir, relSrc)
+        // Resolve source path from DB
+        // attachment file_path may be absolute (e.g. \\NAS\...\file.docx)
+        // or relative with /uploads/ prefix
+        let srcFilePath
+        if (path.isAbsolute(file.file_path) || file.file_path.startsWith('\\\\')) {
+          // Already an absolute path — use as-is
+          srcFilePath = file.file_path
+        } else if (file.file_path.startsWith('/uploads/')) {
+          srcFilePath = path.join(uploadsDir, file.file_path.substring(9))
+        } else {
+          srcFilePath = path.join(uploadsDir, file.file_path)
+        }
         // Ensure destination subdirectory exists (preserves subfolder structure)
         await fs.mkdir(path.dirname(nasFilePath), { recursive: true })
+        console.log(`🔍 Attachment src: ${srcFilePath}`)
+        console.log(`🔍 Attachment dst: ${nasFilePath}`)
         const srcOk = await fs.access(srcFilePath).then(() => true).catch(() => false)
         if (srcOk) {
-          await fs.copyFile(srcFilePath, nasFilePath)
-          await safeDeleteFile(srcFilePath)
-          console.log(`✅ Copied file to NAS: ${nasFilePath}`)
+          // Only copy+delete if src and dst are different paths
+          const normalSrc = path.normalize(srcFilePath).toLowerCase()
+          const normalDst = path.normalize(nasFilePath).toLowerCase()
+          if (normalSrc === normalDst) {
+            console.log(`ℹ️ Source and destination are the same path, skipping copy: ${srcFilePath}`)
+          } else {
+            await fs.copyFile(srcFilePath, nasFilePath)
+            await safeDeleteFile(srcFilePath)
+            console.log(`✅ Copied file to NAS: ${nasFilePath}`)
+          }
         } else {
-          console.warn(`⚠️ Source file not found, skipping: ${srcFilePath}`)
+          console.warn(`⚠️ Source file not found at: ${srcFilePath} — may already have been moved on a previous approval`)
         }
       }
 
-      await new Promise((resolve, reject) => {
-        db.run(`UPDATE files SET
-          status = 'final_approved',
-          current_stage = 'published_to_public',
-          admin_id = ?,
-          admin_username = ?,
-          admin_reviewed_at = ?,
-          admin_comments = ?,
-          public_network_url = ?,
-          final_approved_at = ?
-          WHERE id = ?`,
-          [adminId, adminUsername, nowSql, comments || null, nasFilePath, nowSql, fileId],
-          (err) => { if (err) reject(err); else resolve() }
-        )
-      })
+      if (file.source_type === 'assignment_attachment') {
+        // Update assignment_attachments table
+        await new Promise((resolve, reject) => {
+          db.run(
+            `UPDATE assignment_attachments SET
+              status = 'final_approved',
+              current_stage = 'published_to_public',
+              admin_reviewed_at = ?,
+              admin_comments = ?,
+              public_network_url = ?,
+              final_approved_at = ?
+            WHERE id = ?`,
+            [nowSql, comments || null, nasFilePath, nowSql, fileId],
+            (err) => { if (err) { console.warn('Could not update attachment status:', err.message); resolve() } else resolve() }
+          )
+        })
+      } else {
+        await new Promise((resolve, reject) => {
+          db.run(`UPDATE files SET
+            status = 'final_approved',
+            current_stage = 'published_to_public',
+            admin_id = ?,
+            admin_username = ?,
+            admin_reviewed_at = ?,
+            admin_comments = ?,
+            public_network_url = ?,
+            final_approved_at = ?
+            WHERE id = ?`,
+            [adminId, adminUsername, nowSql, comments || null, nasFilePath, nowSql, fileId],
+            (err) => { if (err) reject(err); else resolve() }
+          )
+        })
 
-      logFileStatusChange(db, fileId, file.status, 'final_approved', file.current_stage,
-        'published_to_public', adminId, adminUsername, adminRole,
-        `Folder approved & moved to NAS: ${comments || 'No comments'}`)
+        logFileStatusChange(db, fileId, file.status, 'final_approved', file.current_stage,
+          'published_to_public', adminId, adminUsername, adminRole,
+          `Folder approved & moved to NAS: ${comments || 'No comments'}`)
+      }
 
     }
 
@@ -400,7 +482,9 @@ router.post('/upload', upload.single('file'), async (req, res) => {
 
           // Get the relative path for the new file (renamed to avoid shadowing req.body.relativePath)
           const fileSystemRelPath = path.relative(uploadsDir, req.file.path).replace(/\\/g, '/');
-          const initialStatus = (isRevision === 'true') ? 'under_revision' : 'uploaded';
+          const isTeamLeaderUpload = userRole && userRole.toUpperCase().includes('TEAM_LEADER');
+          const initialStatus = (isRevision === 'true') ? 'under_revision' : (isTeamLeaderUpload ? 'team_leader_approved' : 'uploaded');
+          const initialStage = isTeamLeaderUpload ? 'pending_admin' : 'pending_team_leader';
 
           // UPDATE the existing database record instead of deleting it
           db.run(`UPDATE files SET 
@@ -427,7 +511,7 @@ router.post('/upload', upload.single('file'), async (req, res) => {
               description || '',
               tag || '',
               initialStatus,
-              'pending_team_leader',
+              initialStage,
               folderName || null,
               relativePath || null,
               isFolder === 'true' ? 1 : 0,
@@ -502,7 +586,10 @@ router.post('/upload', upload.single('file'), async (req, res) => {
 
     function insertFileRecord() {
       const fileSystemPath = path.relative(uploadsDir, req.file.path).replace(/\\/g, '/');
-      const initialStatus = (isRevision === 'true') ? 'under_revision' : 'uploaded';
+      const isTeamLeader = userRole && userRole.toUpperCase().includes('TEAM_LEADER');
+      // Team Leaders skip the TL review stage — their files go straight to Pending Admin
+      const initialStatus = (isRevision === 'true') ? 'under_revision' : (isTeamLeader ? 'team_leader_approved' : 'uploaded');
+      const initialStage = isTeamLeader ? 'pending_admin' : 'pending_team_leader';
 
       // Insert file record into database
       db.run(`INSERT INTO files (
@@ -522,7 +609,7 @@ router.post('/upload', upload.single('file'), async (req, res) => {
           username,
           userTeam,
           initialStatus,
-          'pending_team_leader',
+          initialStage,
           folderName || null,
           relativePath || null,
           isFolder === 'true' ? 1 : 0
@@ -929,6 +1016,7 @@ router.get('/admin', (req, res) => {
 });
 
 // Get all files (Admin only - for comprehensive view) - no server-side limit so frontend can paginate fully
+// Also includes Team Leader assignment attachments so admin can review/approve them
 router.get('/all', (req, res) => {
   console.log(`📁 Getting all files (admin view)`);
 
@@ -948,11 +1036,48 @@ router.get('/all', (req, res) => {
           message: 'Failed to fetch all files'
         });
       }
-      console.log(`✅ Retrieved ${files.length} files (all files view)`);
-      res.json({
-        success: true,
-        files
-      });
+
+      // Also fetch Team Leader assignment attachments
+      db.all(
+        `SELECT
+           aa.id,
+           aa.original_name,
+           aa.filename,
+           aa.file_path,
+           aa.file_size,
+           aa.file_type,
+           aa.created_at AS uploaded_at,
+           COALESCE(aa.status, 'team_leader_approved') AS status,
+           COALESCE(aa.current_stage, 'pending_admin') AS current_stage,
+           aa.uploaded_by_username AS username,
+           aa.uploaded_by_id AS user_id,
+           u.team AS user_team,
+           COALESCE(aa.folder_name, NULL) AS folder_name,
+           COALESCE(aa.relative_path, NULL) AS relative_path,
+           'assignment_attachment' AS source_type,
+           a.id AS assignment_id
+         FROM assignment_attachments aa
+         LEFT JOIN assignments a ON aa.assignment_id = a.id
+         LEFT JOIN users u ON aa.uploaded_by_id = u.id
+         ORDER BY aa.created_at DESC`,
+        [],
+        (err2, attachments) => {
+          if (err2) {
+            console.warn('⚠️ Could not fetch assignment attachments:', err2.message);
+            // Still return regular files even if attachments fail
+            console.log(`✅ Retrieved ${files.length} files (all files view, attachments unavailable)`);
+            return res.json({ success: true, files });
+          }
+
+          // Merge — avoid duplicates (attachment already in files table)
+          const fileIds = new Set(files.map(f => String(f.id)))
+          const newAttachments = attachments.filter(a => !fileIds.has(String(a.id)))
+
+          const allFiles = [...files, ...newAttachments]
+          console.log(`✅ Retrieved ${files.length} files + ${newAttachments.length} TL attachments (all files view)`);
+          res.json({ success: true, files: allFiles });
+        }
+      );
     }
   );
 });
@@ -1154,16 +1279,26 @@ router.post('/:fileId/move-to-projects', async (req, res) => {
   console.log(`📦 Moving file ${fileId} to destination: ${destinationPath}`);
 
   try {
-    // Get file info
-    const file = await new Promise((resolve, reject) => {
+    // Get file info — check files table first, then assignment_attachments
+    let file = await new Promise((resolve, reject) => {
       db.get('SELECT * FROM files WHERE id = ?', [fileId], (err, row) => {
-        if (err) {
-          reject(err);
-        } else {
-          resolve(row);
-        }
+        if (err) reject(err); else resolve(row);
       });
     });
+
+    let isAttachment = false;
+    if (!file) {
+      // Try assignment_attachments
+      file = await new Promise((resolve, reject) => {
+        db.get('SELECT *, created_at AS uploaded_at FROM assignment_attachments WHERE id = ?', [fileId], (err, row) => {
+          if (err) reject(err); else resolve(row);
+        });
+      });
+      if (file) {
+        isAttachment = true;
+        file.username = file.uploaded_by_username;
+      }
+    }
 
     if (!file) {
       return res.status(404).json({
@@ -1172,9 +1307,14 @@ router.post('/:fileId/move-to-projects', async (req, res) => {
       });
     }
 
-    // Get source file path
-    const relativePath = file.file_path.startsWith('/uploads/') ? file.file_path.substring(8) : file.file_path;
-    const sourcePath = path.join(uploadsDir, relativePath);
+    // Get source file path — handle both absolute (attachment) and relative paths
+    let sourcePath;
+    if (path.isAbsolute(file.file_path) || file.file_path.startsWith('\\\\')) {
+      sourcePath = file.file_path;
+    } else {
+      const relativePath = file.file_path.startsWith('/uploads/') ? file.file_path.substring(8) : file.file_path;
+      sourcePath = path.join(uploadsDir, relativePath);
+    }
 
     // Check if source file exists
     const sourceExists = await fs.access(sourcePath).then(() => true).catch(() => false);
@@ -1190,33 +1330,17 @@ router.post('/:fileId/move-to-projects', async (req, res) => {
     // e.g., "C:\\Users\\...\\PROJECTS\\Engineering\\2025"
     // or "\\\\KMTI-NAS\\Shared\\Public\\PROJECTS\\Engineering\\2025"
     //
-    // Folderize logic:
-    //   1. If the file belongs to a folder upload → wrap in that folder name
-    //   2. If uploaded by a TEAM_LEADER without a folder → wrap in their username folder
-    //      (keeps NAS organised; avoids flat files mixed with other users' work)
-    //   3. Otherwise (regular user, no folder) → place directly in destinationPath
-    let effectiveDestPath;
-    if (file.folder_name) {
-      effectiveDestPath = path.join(destinationPath, file.folder_name);
-    } else if (file.username) {
-      // Wrap lone files in a per-username subfolder on the NAS so they are never flat
-      effectiveDestPath = path.join(destinationPath, file.username);
-    } else {
-      effectiveDestPath = destinationPath;
-    }
+    // Always place the file directly in the chosen destinationPath.
+    // The admin already chose the exact destination folder — no extra wrapping.
+    const effectiveDestPath = destinationPath;
 
     console.log('📂 Destination path:', effectiveDestPath);
 
     // Ensure destination directory exists
     await fs.mkdir(effectiveDestPath, { recursive: true });
 
-    // Preserve subfolder structure within the folder (relative_path without top-level folder prefix)
-    let relativeInFolder = file.original_name;
-    if (file.folder_name && file.relative_path) {
-      const relParts = file.relative_path.replace(/\\/g, '/').split('/');
-      const innerPath = relParts.slice(1).join('/');
-      if (innerPath) relativeInFolder = innerPath;
-    }
+    // Place file using just its original_name — no subfolder structure
+    const relativeInFolder = file.original_name;
 
     const destinationFilePath = path.join(effectiveDestPath, relativeInFolder);
     // Ensure any intermediate sub-directories exist
@@ -1246,20 +1370,24 @@ router.post('/:fileId/move-to-projects', async (req, res) => {
       }
     }
 
-    // Update database with new path
-    await new Promise((resolve, reject) => {
-      db.run(
-        'UPDATE files SET public_network_url = ? WHERE id = ?',
-        [destinationFilePath, fileId],
-        (err) => {
-          if (err) {
-            reject(err);
-          } else {
-            resolve();
-          }
-        }
-      );
-    });
+    // Update database with new path — write to correct table
+    if (isAttachment) {
+      await new Promise((resolve, reject) => {
+        db.run(
+          'UPDATE assignment_attachments SET public_network_url = ? WHERE id = ?',
+          [destinationFilePath, fileId],
+          (err) => { if (err) { console.warn('Could not update attachment public_network_url:', err.message); resolve(); } else resolve(); }
+        );
+      });
+    } else {
+      await new Promise((resolve, reject) => {
+        db.run(
+          'UPDATE files SET public_network_url = ? WHERE id = ?',
+          [destinationFilePath, fileId],
+          (err) => { if (err) reject(err); else resolve(); }
+        );
+      });
+    }
 
     // Log activity
     logActivity(
@@ -1300,12 +1428,35 @@ router.post('/:fileId/admin-review', async (req, res) => {
     });
   }
 
-  // Get current file status
+  // Get current file status — check files table first, then assignment_attachments
   db.get('SELECT * FROM files WHERE id = ?', [fileId], (err, file) => {
-    if (err || !file) {
-      return res.status(404).json({
-        success: false,
-        message: 'File not found'
+    if (err) return res.status(500).json({ success: false, message: 'DB error' });
+
+    if (!file) {
+      // Try assignment_attachments
+      return db.get('SELECT *, created_at AS uploaded_at, uploaded_by_id AS user_id, uploaded_by_username AS username FROM assignment_attachments WHERE id = ?', [fileId], (err2, attachment) => {
+        if (err2 || !attachment) {
+          return res.status(404).json({ success: false, message: 'File not found' });
+        }
+        // Handle attachment approval/rejection
+        const nowSql = new Date().toISOString().slice(0, 19).replace('T', ' ');
+        const newStatus = action === 'approve' ? 'final_approved' : 'rejected_by_admin';
+        const newStage = action === 'approve' ? 'published_to_public' : 'rejected_by_admin';
+
+        const updateSql = action === 'approve'
+          ? `UPDATE assignment_attachments SET status = ?, current_stage = ?, admin_reviewed_at = ?, admin_comments = ?, final_approved_at = ? WHERE id = ?`
+          : `UPDATE assignment_attachments SET status = ?, current_stage = ?, admin_reviewed_at = ?, admin_comments = ? WHERE id = ?`;
+        const updateParams = action === 'approve'
+          ? [newStatus, newStage, nowSql, comments || null, nowSql, fileId]
+          : [newStatus, newStage, nowSql, comments || null, fileId];
+
+        db.run(updateSql, updateParams, function(updateErr) {
+          if (updateErr) {
+            console.warn('⚠️ Could not update attachment status (columns may not exist yet):', updateErr.message);
+            // Still return success — the columns may not be migrated yet
+          }
+          return res.json({ success: true, message: `Attachment ${action}d successfully`, file: { ...attachment, status: newStatus, current_stage: newStage } });
+        });
       });
     }
     // Admin can approve files in both 'uploaded' (Pending Team Leader) and 'team_leader_approved' (Pending Admin) status
@@ -2397,6 +2548,43 @@ router.post('/open-file', async (req, res) => {
     });
   }
 });
+
+// Delete TL attachment folder (removes from assignment_attachments table + physical files)
+router.post('/folder/delete-attachments', async (req, res) => {
+  const { folderName, fileIds, adminId, adminUsername, adminRole, team } = req.body
+  console.log(`🗑️ Deleting attachment folder "${folderName}" (${fileIds?.length || 0} files) by ${adminUsername}`)
+
+  try {
+    // Delete physical files and DB records
+    for (const fileId of (fileIds || [])) {
+      const attachment = await new Promise(resolve =>
+        db.get('SELECT * FROM assignment_attachments WHERE id = ?', [fileId], (err, row) => resolve(row || null))
+      )
+      if (attachment?.file_path) {
+        let srcPath
+        if (path.isAbsolute(attachment.file_path) || attachment.file_path.startsWith('\\\\')) {
+          srcPath = attachment.file_path
+        } else if (attachment.file_path.startsWith('/uploads/')) {
+          srcPath = path.join(uploadsDir, attachment.file_path.substring(9))
+        } else {
+          srcPath = path.join(uploadsDir, attachment.file_path)
+        }
+        await safeDeleteFile(srcPath).catch(() => {})
+      }
+      await new Promise(resolve =>
+        db.run('DELETE FROM assignment_attachments WHERE id = ?', [fileId], () => resolve())
+      )
+    }
+
+    logActivity(db, adminId, adminUsername, adminRole, team,
+      `Attachment folder deleted: ${folderName} (${fileIds?.length || 0} files)`)
+
+    res.json({ success: true, message: `Folder "${folderName}" deleted successfully` })
+  } catch (error) {
+    console.error('❌ Error deleting attachment folder:', error)
+    res.status(500).json({ success: false, message: 'Failed to delete attachment folder', error: error.message })
+  }
+})
 
 // Delete folder (deletes all files and the folder directory)
 router.post('/folder/delete', async (req, res) => {

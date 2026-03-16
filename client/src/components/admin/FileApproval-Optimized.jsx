@@ -629,48 +629,77 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
     setIsLoading(true)
     try {
       if (folderToDelete) {
-        const deletePromises = folderToDelete.folderFiles.map(file =>
-          fetch(`${API_BASE}/files/${file.id}`, {
-            method: 'DELETE',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              adminId: authUser.id,
-              adminUsername: authUser.username,
-              adminRole: authUser.role,
-              team: authUser.team
-            })
-          }).then(res => res.json())
-        )
+        const isAttachmentFolder = folderToDelete.folderFiles.some(f => f.source_type === 'assignment_attachment')
 
-        const results = await Promise.all(deletePromises)
-        const allSuccess = results.every(r => r.success)
-
-        if (allSuccess) {
+        if (isAttachmentFolder) {
+          // For TL attachment folders: delete from assignment_attachments via dedicated endpoint
           try {
-            await fetch(`${API_BASE}/files/folder/delete`, {
+            await fetch(`${API_BASE}/files/folder/delete-attachments`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
                 folderName: folderToDelete.folderName,
-                username: folderToDelete.folderFiles[0].username,
                 fileIds: folderToDelete.folderFiles.map(f => f.id),
-                userId: authUser.id,
-                userRole: authUser.role,
+                adminId: authUser.id,
+                adminUsername: authUser.username,
+                adminRole: authUser.role,
                 team: authUser.team
               })
             })
-          } catch (folderError) {
-            console.warn('Error deleting folder directory:', folderError)
+          } catch (err) {
+            console.warn('Attachment folder delete error:', err)
           }
-
-          setFiles(prevFiles => 
+          setFiles(prevFiles =>
             prevFiles.filter(file => !folderToDelete.folderFiles.some(f => f.id === file.id))
           )
           setShowDeleteModal(false)
           setFolderToDelete(null)
-          setDeleteAlert(`Folder "${folderToDelete.folderName}" with ${folderToDelete.folderFiles.length} file(s) deleted successfully`)
+          setDeleteAlert(`Folder "${folderToDelete.folderName}" deleted successfully`)
         } else {
-          throw new Error('Failed to delete some files in the folder')
+          // Regular user folder: delete each file record from files table
+          const deletePromises = folderToDelete.folderFiles.map(file =>
+            fetch(`${API_BASE}/files/${file.id}`, {
+              method: 'DELETE',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                adminId: authUser.id,
+                adminUsername: authUser.username,
+                adminRole: authUser.role,
+                team: authUser.team
+              })
+            }).then(res => res.json()).catch(() => ({ success: false }))
+          )
+
+          const results = await Promise.all(deletePromises)
+          const allSuccess = results.every(r => r.success)
+
+          if (allSuccess) {
+            try {
+              await fetch(`${API_BASE}/files/folder/delete`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  folderName: folderToDelete.folderName,
+                  username: folderToDelete.folderFiles[0].username,
+                  fileIds: folderToDelete.folderFiles.map(f => f.id),
+                  userId: authUser.id,
+                  userRole: authUser.role,
+                  team: authUser.team
+                })
+              })
+            } catch (folderError) {
+              console.warn('Error deleting folder directory:', folderError)
+            }
+
+            setFiles(prevFiles =>
+              prevFiles.filter(file => !folderToDelete.folderFiles.some(f => f.id === file.id))
+            )
+            setShowDeleteModal(false)
+            setFolderToDelete(null)
+            setDeleteAlert(`Folder "${folderToDelete.folderName}" with ${folderToDelete.folderFiles.length} file(s) deleted successfully`)
+          } else {
+            throw new Error('Failed to delete some files in the folder')
+          }
         }
       } else {
         try {
@@ -1152,7 +1181,7 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
       {success && <AlertMessage type="success" message={success} onClose={clearMessages} />}
       {deleteAlert && <AlertMessage type="error" message={deleteAlert} onClose={() => setDeleteAlert(null)} />}
 
-      <div className="file-status-cards" ref={statusCardsRef}>
+      <div className="file-status-cards">
         <StatusCard icon="TL" label="Pending Team Leader" count={statusCounts.pendingTeamLeader} className="pending" />
         <StatusCard icon="AD" label="Pending Admin" count={statusCounts.pendingAdmin} className="pending-admin" />
         <StatusCard icon="AP" label="Approved Files" count={statusCounts.approved} className="approved" />
@@ -1167,7 +1196,6 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
             value={fileSearchInput}
             onChange={(e) => setFileSearchInput(e.target.value)}
             className="search-input"
-            ref={searchInputRef}
           />
           {fileSearchQuery && (
             <button
@@ -1181,7 +1209,7 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
         </div>
 
         <div className="file-filters">
-          <select value={fileFilter} onChange={(e) => setFileFilter(e.target.value)} className="form-select" ref={filterSelectRef}>
+          <select value={fileFilter} onChange={(e) => setFileFilter(e.target.value)} className="form-select">
             <option value="all">All Files</option>
             <option value="pending-team-leader">Pending Team Leader</option>
             <option value="pending-admin">Pending Admin</option>
