@@ -426,10 +426,12 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
     files.forEach(file => {
       // Only group if folder_name exists and is not empty
       if (file.folder_name && file.folder_name.trim() !== '') {
-        if (!folders[file.folder_name]) {
-          folders[file.folder_name] = []
+        // Key by folder_name + user_id so different users' same-named folders stay separate
+        const key = `${file.folder_name}||${file.user_id || file.username || ''}`
+        if (!folders[key]) {
+          folders[key] = []
         }
-        folders[file.folder_name].push(file)
+        folders[key].push(file)
       } else {
         individualFiles.push(file)
       }
@@ -508,11 +510,14 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
     const items = []
     
     // Add folders as single items
-    Object.keys(groupedData.folders).forEach(folderName => {
+    Object.keys(groupedData.folders).forEach(folderKey => {
+      // folderKey is "folderName||username" — strip user part for display only
+      const folderName = folderKey.includes('||') ? folderKey.split('||')[0] : folderKey
       items.push({
         type: 'folder',
+        folderKey,
         name: folderName,
-        files: groupedData.folders[folderName]
+        files: groupedData.folders[folderKey]
       })
     })
     
@@ -1049,15 +1054,17 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
 
     currentPageItems.forEach(item => {
       if (item.type === 'folder') {
-        const isExpanded = expandedFolders[item.name]
+        // Use folderKey for state tracking, item.name is the clean display name
+        const folderKey = item.folderKey || item.name
+        const isExpanded = expandedFolders[folderKey]
         
         rows.push(
           <FolderRow
-            key={`folder-${item.name}`}
+            key={`folder-${folderKey}`}
             folderName={item.name}
             folderFiles={item.files}
             isExpanded={isExpanded}
-            onToggle={toggleFolder}
+            onToggle={() => toggleFolder(folderKey)}
             onDelete={openFolderDeleteModal}
             onApproveFolder={(name, files) => openFolderReviewModal(name, files, 'approve')}
             onRejectFolder={(name, files) => openFolderReviewModal(name, files, 'reject')}

@@ -730,9 +730,11 @@ const TasksTab = ({
         formData.append('tag', fileTag || '');
         
         // Add folder information if uploading a folder
-        if (uploadMode === 'folder' && fileObj.folderName) {
+        // Always use the file's own folderName property — do NOT rely on uploadMode
+        // because uploadMode can be overridden (e.g. user adds individual files after a folder)
+        if (fileObj.folderName) {
           formData.append('folderName', fileObj.folderName);
-          formData.append('relativePath', fileObj.relativePath);
+          formData.append('relativePath', fileObj.relativePath || fileObj.file.name);
           formData.append('isFolder', 'true');
         } else {
           formData.append('isFolder', 'false');

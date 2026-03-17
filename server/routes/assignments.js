@@ -825,33 +825,36 @@ router.post('/create', upload.array('attachments', 10000), async (req, res) => {
     const finalTeamLeaderId = teamLeaderId || team_leader_id;
     const finalTeamLeaderUsername = teamLeaderUsername || team_leader_username;
 
-    // NONCE VALIDATION: Reject any request that doesn't have a fresh one-time nonce.
-    // This is the definitive fix for Electron's multipart cache replay bug:
-    // A cached/replayed request will not have a valid unused nonce, so it gets rejected.
+    // NONCE VALIDATION: Only enforce for multipart (file upload) requests.
+    // Plain JSON requests (no files) skip nonce — this allows task creation without attachments.
+    // The nonce guards against Electron's multipart cache replay bug on file uploads only.
+    const isMultipartCreate = req.is('multipart/form-data');
     const requestNonce = req.body.uploadNonce;
     const rawFiles = req.files || [];
 
-    if (!requestNonce || !uploadNonces.has(requestNonce)) {
-      // No valid nonce = replayed or stale request — discard all files and reject
-      console.warn(`⚠️ /create rejected: missing or invalid uploadNonce. Discarding ${rawFiles.length} file(s).`);
-      for (const f of rawFiles) {
-        try { fs.unlinkSync(f.path); } catch (e) { /* ignore */ }
+    if (isMultipartCreate) {
+      if (!requestNonce || !uploadNonces.has(requestNonce)) {
+        // No valid nonce = replayed or stale multipart request — discard all files and reject
+        console.warn(`⚠️ /create rejected: missing or invalid uploadNonce. Discarding ${rawFiles.length} file(s).`);
+        for (const f of rawFiles) {
+          try { fs.unlinkSync(f.path); } catch (e) { /* ignore */ }
+        }
+        return res.status(400).json({ success: false, message: 'Invalid or missing upload nonce. Please try again.' });
       }
-      return res.status(400).json({ success: false, message: 'Invalid or missing upload nonce. Please try again.' });
-    }
 
-    const nonceEntry = uploadNonces.get(requestNonce);
-    if (nonceEntry.used) {
-      // Already-used nonce = definitely a replay attack
-      console.warn(`⚠️ /create rejected: nonce already used. Discarding ${rawFiles.length} file(s).`);
-      for (const f of rawFiles) {
-        try { fs.unlinkSync(f.path); } catch (e) { /* ignore */ }
+      const nonceEntry = uploadNonces.get(requestNonce);
+      if (nonceEntry.used) {
+        // Already-used nonce = definitely a replay attack
+        console.warn(`⚠️ /create rejected: nonce already used. Discarding ${rawFiles.length} file(s).`);
+        for (const f of rawFiles) {
+          try { fs.unlinkSync(f.path); } catch (e) { /* ignore */ }
+        }
+        return res.status(400).json({ success: false, message: 'Upload nonce already used. Please try again.' });
       }
-      return res.status(400).json({ success: false, message: 'Upload nonce already used. Please try again.' });
-    }
 
-    // Mark nonce as used immediately (one-time use)
-    nonceEntry.used = true;
+      // Mark nonce as used immediately (one-time use)
+      nonceEntry.used = true;
+    }
 
     // parse list of attachment IDs the client wants removed
     let removeAttachmentIds = [];
@@ -1261,26 +1264,30 @@ router.put('/:id', upload.array('attachments', 10000), async (req, res) => {
     const finalTeamLeaderUsername = teamLeaderUsername || team_leader_username;
 
     // NONCE VALIDATION for PUT (edit with attachments)
+    // Only enforce nonce for multipart requests — plain JSON updates (no file changes) skip this check.
+    const isMultipart = req.is('multipart/form-data');
     const requestNonce = req.body.uploadNonce;
     const rawFiles = req.files || [];
 
-    if (!requestNonce || !uploadNonces.has(requestNonce)) {
-      console.warn(`⚠️ [PUT] rejected: missing or invalid uploadNonce. Discarding ${rawFiles.length} file(s).`);
-      for (const f of rawFiles) {
-        try { fs.unlinkSync(f.path); } catch (e) { /* ignore */ }
+    if (isMultipart) {
+      if (!requestNonce || !uploadNonces.has(requestNonce)) {
+        console.warn(`⚠️ [PUT] rejected: missing or invalid uploadNonce. Discarding ${rawFiles.length} file(s).`);
+        for (const f of rawFiles) {
+          try { fs.unlinkSync(f.path); } catch (e) { /* ignore */ }
+        }
+        return res.status(400).json({ success: false, message: 'Invalid or missing upload nonce. Please try again.' });
       }
-      return res.status(400).json({ success: false, message: 'Invalid or missing upload nonce. Please try again.' });
-    }
 
-    const nonceEntry = uploadNonces.get(requestNonce);
-    if (nonceEntry.used) {
-      console.warn(`⚠️ [PUT] rejected: nonce already used. Discarding ${rawFiles.length} file(s).`);
-      for (const f of rawFiles) {
-        try { fs.unlinkSync(f.path); } catch (e) { /* ignore */ }
+      const nonceEntry = uploadNonces.get(requestNonce);
+      if (nonceEntry.used) {
+        console.warn(`⚠️ [PUT] rejected: nonce already used. Discarding ${rawFiles.length} file(s).`);
+        for (const f of rawFiles) {
+          try { fs.unlinkSync(f.path); } catch (e) { /* ignore */ }
+        }
+        return res.status(400).json({ success: false, message: 'Upload nonce already used. Please try again.' });
       }
-      return res.status(400).json({ success: false, message: 'Upload nonce already used. Please try again.' });
+      nonceEntry.used = true;
     }
-    nonceEntry.used = true;
 
     // parse list of attachment IDs the client wants removed
     let removeAttachmentIds = [];

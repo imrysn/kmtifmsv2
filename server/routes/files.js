@@ -433,8 +433,16 @@ router.post('/upload', upload.single('file'), async (req, res) => {
     }
 
     // Check for duplicate file if replaceExisting is not explicitly set AND not auto-replacing rejected
+    // IMPORTANT: Match on folder_name too — a file inside a folder and a standalone file with the same
+    // name are NOT duplicates of each other. Without this, folder uploads create phantom individual records.
     if (replaceExisting !== 'true' && !autoReplace) {
-      db.get('SELECT * FROM files WHERE original_name = ? AND user_id = ?', [req.file.originalname, userId], async (err, existingFile) => {
+      const dupQuery = folderName
+        ? 'SELECT * FROM files WHERE original_name = ? AND user_id = ? AND folder_name = ?'
+        : 'SELECT * FROM files WHERE original_name = ? AND user_id = ? AND (folder_name IS NULL OR folder_name = "")';
+      const dupParams = folderName
+        ? [req.file.originalname, userId, folderName]
+        : [req.file.originalname, userId];
+      db.get(dupQuery, dupParams, async (err, existingFile) => {
         if (err) {
           console.error('❌ Error checking for duplicate:', err);
           await safeDeleteFile(req.file.path);
@@ -465,8 +473,15 @@ router.post('/upload', upload.single('file'), async (req, res) => {
     } else {
       // Replace existing file - UPDATE the record instead of deleting it
       // Priority: Auto-replace rejected files, then manual replacement
+      // Match on folder_name so folder files don’t replace standalone files with the same name
       const fileToReplace = previouslyRejected || await new Promise((resolve, reject) => {
-        db.get('SELECT * FROM files WHERE original_name = ? AND user_id = ?', [req.file.originalname, userId], (err, row) => {
+        const repQuery = folderName
+          ? 'SELECT * FROM files WHERE original_name = ? AND user_id = ? AND folder_name = ?'
+          : 'SELECT * FROM files WHERE original_name = ? AND user_id = ? AND (folder_name IS NULL OR folder_name = "")';
+        const repParams = folderName
+          ? [req.file.originalname, userId, folderName]
+          : [req.file.originalname, userId];
+        db.get(repQuery, repParams, (err, row) => {
           if (err) reject(err);
           else resolve(row);
         });

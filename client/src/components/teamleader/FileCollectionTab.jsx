@@ -44,8 +44,10 @@ const FileCollectionTab = ({
     const individualFiles = []
     files.forEach(file => {
       if (file.folder_name) {
-        if (!folders[file.folder_name]) folders[file.folder_name] = []
-        folders[file.folder_name].push(file)
+        // Key by folder_name + user so different users' same-named folders stay separate
+        const key = `${file.folder_name}||${file.user_id || file.username || ''}`
+        if (!folders[key]) folders[key] = []
+        folders[key].push(file)
       } else {
         individualFiles.push(file)
       }
@@ -151,8 +153,10 @@ const FileCollectionTab = ({
         const latestB = Math.max(...folders[b].map(f => new Date(f.submitted_at || f.uploaded_at)))
         return latestB - latestA
       })
-      .forEach(folderName => {
-        items.push({ type: 'folder', folderName, files: folders[folderName] })
+      .forEach(folderKey => {
+        // folderKey is "folderName||username" — strip the user part for display
+        const folderName = folderKey.includes('||') ? folderKey.split('||')[0] : folderKey
+        items.push({ type: 'folder', folderKey, folderName, files: folders[folderKey] })
       })
     individualFiles.forEach(file => {
       items.push({ type: 'file', file })
@@ -372,15 +376,15 @@ const FileCollectionTab = ({
             <tbody>
               {currentPageItems.map((item) => {
                 if (item.type === 'folder') {
-                  const { folderName, files: folderFiles } = item
-                  const isExpanded = expandedFolders[folderName]
+                  const { folderKey, folderName, files: folderFiles } = item
+                  const isExpanded = expandedFolders[folderKey]
                   const firstFile = folderFiles[0]
                   return (
-                    <React.Fragment key={`folder-${folderName}`}>
+                    <React.Fragment key={`folder-${folderKey}`}>
                       <tr
                         className="tl-clickable-row tl-folder-row"
                         style={{ verticalAlign: 'middle' }}
-                        onClick={() => setExpandedFolders(prev => ({ ...prev, [folderName]: !prev[folderName] }))}
+                        onClick={() => setExpandedFolders(prev => ({ ...prev, [folderKey]: !prev[folderKey] }))}
                       >
                         <td style={{ verticalAlign: 'middle' }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -402,14 +406,14 @@ const FileCollectionTab = ({
                         <td style={{ verticalAlign: 'middle' }}>{getFolderStatusBadge(folderFiles)}</td>
                         <td style={{ textAlign: 'center', verticalAlign: 'middle' }}>
                           <div className="tl-actions-menu-wrapper">
-                            <button className="tl-menu-button" onClick={(e) => { e.stopPropagation(); toggleMenu(`folder-${folderName}`, e) }} title="Options">
+                            <button className="tl-menu-button" onClick={(e) => { e.stopPropagation(); toggleMenu(`folder-${folderKey}`, e) }} title="Options">
                               <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
                                 <circle cx="3" cy="8" r="1.5" fill="currentColor" />
                                 <circle cx="8" cy="8" r="1.5" fill="currentColor" />
                                 <circle cx="13" cy="8" r="1.5" fill="currentColor" />
                               </svg>
                             </button>
-                            {openMenuId === `folder-${folderName}` && (
+                            {openMenuId === `folder-${folderKey}` && (
                               <div className="tl-dropdown-menu">
                                 {firstFile.assignment_id && onNavigateToTask && (
                                   <button className="tl-dropdown-item" onClick={(e) => { e.stopPropagation(); onNavigateToTask(firstFile.assignment_id, firstFile.id) }}>

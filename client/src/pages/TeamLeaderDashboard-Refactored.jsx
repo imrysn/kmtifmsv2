@@ -406,7 +406,8 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
           formData.append('teamLeaderId', user.id)
           formData.append('teamLeaderUsername', user.username)
           formData.append('team', assignmentForm.selectedTeam || user.team)
-          formData.append('hasAttachments', 'true')
+          // Only flag hasAttachments=true when there are actual new files to upload
+          formData.append('hasAttachments', hasAttachments ? 'true' : 'false')
           formData.append('uploadNonce', nonceData.nonce)
           attachedFiles.forEach((file) => formData.append('attachments', file))
           // Send relative paths so server can group files into folders
@@ -417,10 +418,45 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
           }
 
           response = await fetch(url, { method, body: formData })
+
+          // If server rejected due to a stale/replayed nonce (Electron cache replay bug),
+          // fall back to a plain JSON request which doesn't carry attachments.
+          if (response.status === 400) {
+            const errData = await response.clone().json().catch(() => ({}))
+            if (errData.message && errData.message.toLowerCase().includes('nonce')) {
+              console.warn('⚠️ Nonce rejected — falling back to JSON request (no attachments)')
+              // For new assignments, fall back to /create-json; for edits, fall back to PUT /:id with JSON
+              const fallbackUrl = editingAssignmentId
+                ? url
+                : `${API_BASE_URL}/api/assignments/create-json`
+              const fallbackMethod = editingAssignmentId ? 'PUT' : 'POST'
+              response = await fetch(fallbackUrl, {
+                method: fallbackMethod,
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  title: assignmentForm.title,
+                  description: assignmentForm.description || '',
+                  dueDate: assignmentForm.dueDate || '',
+                  fileTypeRequired: assignmentForm.fileTypeRequired || '',
+                  assignedTo: 'specific',
+                  assignedMembers: assignmentForm.assignedMembers,
+                  teamLeaderId: user.id,
+                  teamLeaderUsername: user.username,
+                  team: assignmentForm.selectedTeam || user.team,
+                  removeAttachmentIds
+                })
+              })
+            }
+          }
         } else {
-          // No file changes; still call main endpoint but send JSON (for members update)
-          response = await fetch(url, {
-            method,
+          // No file changes — use JSON-only endpoints (no nonce needed)
+          // New assignments → /create-json; edits → PUT /:id with JSON
+          const jsonUrl = editingAssignmentId
+            ? url
+            : `${API_BASE_URL}/api/assignments/create-json`
+          const jsonMethod = editingAssignmentId ? 'PUT' : 'POST'
+          response = await fetch(jsonUrl, {
+            method: jsonMethod,
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               title: assignmentForm.title,
