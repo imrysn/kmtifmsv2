@@ -1857,27 +1857,43 @@ router.delete('/:fileId', async (req, res) => {
     // IMPORTANT: Clear assignment submissions that reference this file
     // This allows users to resubmit the task
     try {
-      await new Promise((resolve, reject) => {
-        db.run(
-          'UPDATE assignment_members SET file_id = NULL, status = NULL, submitted_at = NULL WHERE file_id = ?',
+      // Step 1: Find which assignment+user rows are linked to this file
+      const submissions = await new Promise((resolve, reject) => {
+        db.all(
+          'SELECT assignment_id, user_id FROM assignment_submissions WHERE file_id = ?',
           [fileId],
-          function (err) {
-            if (err) {
-              console.error('❌ Error clearing assignment submissions:', err);
-              reject(err);
-            } else {
-              if (this.changes > 0) {
-                console.log(`✅ Cleared ${this.changes} assignment submission(s) for file ${fileId}`);
-                console.log('   User can now resubmit the assignment');
-              }
-              resolve();
-            }
-          }
+          (err, rows) => { if (err) reject(err); else resolve(rows || []); }
         );
       });
+
+      // Step 2: Reset assignment_members status so the user can resubmit
+      for (const sub of submissions) {
+        await new Promise((resolve) => {
+          db.run(
+            'UPDATE assignment_members SET status = ?, submitted_at = NULL WHERE assignment_id = ? AND user_id = ?',
+            ['pending', sub.assignment_id, sub.user_id],
+            (err) => {
+              if (err) console.warn('⚠️ Could not reset assignment_members status:', err.message);
+              resolve();
+            }
+          );
+        });
+      }
+
+      // Step 3: Delete the submission record(s) that pointed to this file
+      const deletedCount = await new Promise((resolve, reject) => {
+        db.run(
+          'DELETE FROM assignment_submissions WHERE file_id = ?',
+          [fileId],
+          function (err) { if (err) reject(err); else resolve(this.changes); }
+        );
+      });
+
+      if (deletedCount > 0) {
+        console.log(`✅ Cleared ${deletedCount} assignment submission(s) for file ${fileId} — user can resubmit`);
+      }
     } catch (clearError) {
       console.error('⚠️ CRITICAL: Failed to clear assignment submissions:', clearError.message);
-      // This is critical - return error instead of continuing
       return res.status(500).json({
         success: false,
         message: 'Failed to clear assignment references. File cannot be deleted.',
@@ -1886,23 +1902,23 @@ router.delete('/:fileId', async (req, res) => {
     }
 
     // Delete file from filesystem
-    // First, properly resolve the file path using stored information
+    // IMPORTANT: Check public_network_url FIRST — approved files are moved to NAS and their
+    // public_network_url holds the real NAS path (e.g. X:\user_approvals\JC087\file.pdf).
+    // file_path still holds the old /uploads/ relative path and will NOT find the file on NAS.
     let filePath;
 
-    if (file.file_path) {
-      // For paths stored in database, we need to handle user subdirectories
+    if (file.public_network_url && !file.public_network_url.startsWith('http')) {
+      // File was approved and moved to NAS — use the NAS path directly
+      filePath = file.public_network_url;
+      console.log(`📁 File is on NAS, using public_network_url: ${filePath}`);
+    } else if (file.file_path) {
+      // File is still in uploads staging area — resolve relative path
       if (file.file_path.startsWith('/uploads/')) {
-        // Check if the path already includes the username directory
         const relativePath = file.file_path.substring('/uploads/'.length);
-
         if (relativePath.includes('/')) {
-          // Already has subdirectory - use as is
           filePath = path.join(uploadsDir, relativePath);
         } else {
-          // Try to find in user's directory
           filePath = path.join(uploadsDir, file.username, path.basename(file.file_path));
-
-          // If not found in user directory, fallback to direct location
           try {
             await fs.access(filePath);
           } catch (e) {
@@ -1910,11 +1926,9 @@ router.delete('/:fileId', async (req, res) => {
           }
         }
       } else {
-        // Direct path or already absolute
         filePath = await resolveFilePath(file.file_path, file.username);
       }
     } else {
-      // Fallback to basic resolution
       filePath = path.join(uploadsDir, path.basename(file.file_path || ''));
     }
 
@@ -2607,26 +2621,78 @@ router.post('/folder/delete', async (req, res) => {
   console.log(`🗑️ Deleting folder "${folderName}" by ${username}`);
 
   try {
-    // Delete all files from database (frontend already calls DELETE for each file)
-    // After files are deleted, remove the empty folder from NAS
-    const folderPath = path.join(uploadsDir, username, folderName);
+    // Step 1: Fetch all file records from DB so we know the REAL physical paths
+    // (files may have been moved to NAS after approval — file_path/public_network_url reflects that)
+    const deletedPaths = new Set();
 
-    console.log(`📁 Attempting to delete folder directory: ${folderPath}`);
+    // Collect directories to delete BEFORE removing DB records
+    const dirsToDelete = new Set();
+    // Always include the uploads staging path
+    dirsToDelete.add(path.join(uploadsDir, username, folderName));
 
-    try {
-      // Check if folder exists
-      const folderExists = await fs.access(folderPath).then(() => true).catch(() => false);
+    if (fileIds && fileIds.length > 0) {
+      const placeholders = fileIds.map(() => '?').join(',');
 
-      if (folderExists) {
-        // Remove the folder directory (including any remaining files/subfolders)
-        await fs.rm(folderPath, { recursive: true, force: true });
-        console.log(`✅ Folder directory deleted: ${folderPath}`);
-      } else {
-        console.log(`ℹ️ Folder directory not found: ${folderPath}`);
+      // Step 1a: Fetch all records FIRST so we have paths before deleting from DB
+      const fileRecords = await new Promise((resolve, reject) => {
+        db.all(
+          `SELECT id, file_path, public_network_url, filename, original_name FROM files WHERE id IN (${placeholders})`,
+          fileIds,
+          (err, rows) => { if (err) reject(err); else resolve(rows || []); }
+        );
+      });
+
+      // Step 1b: Collect physical paths and NAS parent directories before any deletion
+      for (const file of fileRecords) {
+        const physicalPath = file.public_network_url && !file.public_network_url.startsWith('http')
+          ? file.public_network_url
+          : await resolveFilePath(file.file_path, username);
+
+        if (physicalPath && !deletedPaths.has(physicalPath)) {
+          deletedPaths.add(physicalPath);
+          // Collect parent directory so we can delete the folder itself later
+          dirsToDelete.add(path.dirname(physicalPath));
+        }
       }
-    } catch (folderDeleteError) {
-      console.error(`❌ Error deleting folder directory: ${folderDeleteError.message}`);
-      // Don't fail the request if folder deletion fails
+
+      // Step 1c: Delete each physical file
+      for (const physicalPath of deletedPaths) {
+        const result = await safeDeleteFile(physicalPath);
+        if (result.success) {
+          console.log(`✅ Deleted physical file: ${physicalPath}`);
+        } else if (!result.notFound) {
+          console.warn(`⚠️ Could not delete: ${physicalPath} — ${result.message}`);
+        }
+      }
+
+      // Step 1d: Delete DB records AFTER collecting all paths
+      for (const file of fileRecords) {
+        await new Promise((resolve) => {
+          db.run('DELETE FROM files WHERE id = ?', [file.id], () => resolve());
+        });
+      }
+
+      // Clean up assignment_submissions
+      await new Promise((resolve) => {
+        db.run(`DELETE FROM assignment_submissions WHERE file_id IN (${placeholders})`, fileIds, () => resolve());
+      });
+    }
+
+    // Step 2: Delete all collected folder directories (NAS + uploads staging)
+    // Also add a direct path using folderName in case fileRecords was empty (files already deleted from DB)
+    dirsToDelete.add(path.join(uploadsDir, username, folderName));
+    for (const dirPath of dirsToDelete) {
+      try {
+        const exists = await fs.access(dirPath).then(() => true).catch(() => false);
+        if (exists) {
+          await fs.rm(dirPath, { recursive: true, force: true });
+          console.log(`✅ Deleted folder directory: ${dirPath}`);
+        } else {
+          console.log(`ℹ️ Folder directory not found (already gone): ${dirPath}`);
+        }
+      } catch (dirErr) {
+        console.warn(`⚠️ Could not delete directory ${dirPath}: ${dirErr.message}`);
+      }
     }
 
     // Log activity

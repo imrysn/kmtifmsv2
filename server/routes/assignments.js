@@ -2548,9 +2548,10 @@ router.delete('/:assignmentId/files/:fileId', async (req, res) => {
       });
     }
 
-    // Get file info before deleting
+    // Get file info before deleting — fetch BOTH file_path AND public_network_url
+    // public_network_url holds the real NAS path for approved files
     const fileInfo = await queryOne(
-      'SELECT file_path FROM files WHERE id = ?',
+      'SELECT file_path, public_network_url, username FROM files WHERE id = ?',
       [fileId]
     );
     console.log('📄 File to delete:', fileInfo);
@@ -2643,17 +2644,38 @@ router.delete('/:assignmentId/files/:fileId', async (req, res) => {
 
     console.log('💾 Step 2: Deleting physical file...');
 
-    // 7. Delete physical file from NAS
-    if (fileInfo && fileInfo.file_path) {
+    // 7. Delete physical file — check public_network_url FIRST (NAS final path for approved files)
+    // file_path holds the old /uploads/ relative path which won’t exist on NAS after approval
+    if (fileInfo) {
       try {
-        if (fs.existsSync(fileInfo.file_path)) {
-          fs.unlinkSync(fileInfo.file_path);
-          console.log('✅ Physical file deleted from:', fileInfo.file_path);
-        } else {
-          console.log('⚠️ Physical file not found at:', fileInfo.file_path);
+        let physicalPath = null;
+
+        if (fileInfo.public_network_url && !fileInfo.public_network_url.startsWith('http')) {
+          // Approved file — use NAS path directly
+          physicalPath = fileInfo.public_network_url;
+          console.log('📁 Approved file on NAS, using public_network_url:', physicalPath);
+        } else if (fileInfo.file_path) {
+          // Pending file still in uploads staging area
+          if (fileInfo.file_path.startsWith('/uploads/')) {
+            const { uploadsDir } = require('../config/middleware');
+            const relativePath = fileInfo.file_path.substring('/uploads/'.length);
+            physicalPath = require('path').join(uploadsDir, relativePath);
+          } else {
+            physicalPath = fileInfo.file_path;
+          }
+          console.log('📁 Pending file in uploads, using file_path:', physicalPath);
+        }
+
+        if (physicalPath) {
+          if (fs.existsSync(physicalPath)) {
+            fs.unlinkSync(physicalPath);
+            console.log('✅ Physical file deleted from:', physicalPath);
+          } else {
+            console.log('⚠️ Physical file not found at:', physicalPath);
+          }
         }
       } catch (fsError) {
-        console.error('❌ Failed to delete physical file:', fsError);
+        console.error('❌ Failed to delete physical file:', fsError.message);
       }
     }
 

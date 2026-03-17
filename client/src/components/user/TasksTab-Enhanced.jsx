@@ -1884,6 +1884,8 @@ const TasksTab = ({
                       return { ...a, submitted_files: a.submitted_files.filter(f => !folderFileIds.has(f.id)) };
                     }));
                     // Delete each file from assignment AND from My Files
+                    const folderName = fileToDelete.fileName;
+                    const fileIds = folderFiles.map(f => f.id);
                     for (const file of folderFiles) {
                       try {
                         await fetch(`${API_BASE_URL}/api/assignments/${assignmentId}/files/${file.id}`, {
@@ -1899,6 +1901,21 @@ const TasksTab = ({
                         });
                       } catch (e) { console.error('Error deleting folder file:', e); }
                     }
+                    // Delete the physical folder directory from NAS
+                    try {
+                      await fetch(`${API_BASE_URL}/api/files/folder/delete`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                          folderName,
+                          username: user.username,
+                          fileIds,
+                          userId: user.id,
+                          userRole: user.role,
+                          team: user.team
+                        })
+                      });
+                    } catch (e) { console.error('Error deleting folder directory:', e); }
                     setSuccessModal({ isOpen: true, title: 'Removed', message: 'Folder removed successfully', type: 'error' });
                     setTimeout(() => fetchUserFiles(), 500);
                   } else {
