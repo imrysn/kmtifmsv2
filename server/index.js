@@ -249,16 +249,7 @@ async function shutdown(signal) {
 // Handle various shutdown signals
 process.on('SIGINT', () => shutdown('SIGINT'));
 process.on('SIGTERM', () => shutdown('SIGTERM'));
-
-// Handle uncaught errors
-process.on('uncaughtException', (error) => {
-  console.error('❌ Uncaught Exception:', error);
-  shutdown('UNCAUGHT_EXCEPTION');
-});
-
-process.on('unhandledRejection', (reason, promise) => {
-  console.error('❌ Unhandled Rejection at:', promise, 'reason:', reason);
-  shutdown('UNHANDLED_REJECTION');
-});
+// Note: uncaughtException and unhandledRejection are handled by
+// handleUnhandledRejection() / handleUncaughtException() called above.
 
 module.exports = app;

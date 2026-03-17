@@ -82,15 +82,12 @@ export function parseNotification(notification, role) {
         notification.type === 'final_approval' ||
         notification.type === 'final_rejection'
     ) {
-        if (notification.file_id) {
-            return {
-                targetTab: role === 'admin' ? tabs.fileApproval : tabs.files,
-                context: {
-                    fileId: notification.file_id
-                },
-                notificationType: 'approval'
-            };
-        }
+        // Always navigate to files/approval tab even for folder-level notifications (file_id may be null)
+        return {
+            targetTab: role === 'admin' ? tabs.fileApproval : tabs.files,
+            context: notification.file_id ? { fileId: notification.file_id } : {},
+            notificationType: 'approval'
+        };
     }
 
     // PASSWORD RESET (Admin only)

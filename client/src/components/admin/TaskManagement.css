@@ -516,11 +516,15 @@
 /* File items inside submitted files section should have blue styling */
 .admin-submitted-file .admin-file-item {
   background: white;
-  border: 1px solid #dbeafe;
+  border: 1px solid #dbeafe !important;
 }
 
 .admin-submitted-file .admin-file-item:hover {
   background-color: #e0f2fe;
+}
+
+.admin-submitted-file .admin-folder-item {
+  border: 1px solid #93c5fd !important;
 }
 
 .admin-file-details {

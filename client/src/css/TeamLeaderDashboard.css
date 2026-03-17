@@ -605,7 +605,8 @@ body {
 }
 
 .tl-modal,
-.tl-modal-large {
+.tl-modal-large,
+.tl-modal-small {
   background: white;
   border-radius: var(--radius-lg);
   box-shadow: 0 20px 32px rgba(0, 0, 0, 0.15);
@@ -619,6 +620,10 @@ body {
 
 .tl-modal-large {
   max-width: 1400px;
+}
+
+.tl-modal-small {
+  max-width: 400px;
 }
 
 .tl-modal-header {

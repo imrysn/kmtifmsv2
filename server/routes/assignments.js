@@ -6,6 +6,7 @@ const path = require('path');
 const fs = require('fs');
 const { uploadsDir, moveToUserFolder } = require('../config/middleware');
 const assignmentController = require('../controllers/assignmentController');
+const { createAdminNotification } = require('./notifications');
 
 // Configure multer for file uploads using existing uploads directory
 const storage = multer.diskStorage({
@@ -152,10 +153,12 @@ router.get('/admin/all', async (req, res) => {
 
       // Get attachments for this assignment
       const attachments = await query(`
-        SELECT id, original_name, filename, file_path, file_size, file_type, created_at
+        SELECT id, original_name, filename, file_path, file_size, file_type, folder_name, relative_path, created_at,
+               COALESCE(status, 'team_leader_approved') AS status,
+               COALESCE(current_stage, 'pending_admin') AS current_stage
         FROM assignment_attachments
         WHERE assignment_id = ?
-        ORDER BY created_at DESC
+        ORDER BY COALESCE(folder_name, ''), created_at DESC
       `, [assignment.id]);
 
       assignment.attachments = attachments || [];
@@ -242,20 +245,47 @@ router.get('/team-leader/:userId/all-submissions', async (req, res) => {
       WHERE tl.user_id = ?
     `, [userId]);
 
-    if (!ledTeams || ledTeams.length === 0) {
-      console.log(`⚠️ User ${userId} is not a leader of any teams`);
-      return res.json({
-        success: true,
-        submissions: []
-      });
-    }
-
-    const teamNames = ledTeams.map(t => t.name);
+    const teamNames = (ledTeams || []).map(t => t.name);
     console.log(`✅ User ${userId} leads teams:`, teamNames);
 
-    // Get all submissions from ALL teams this user leads
-    const placeholders = teamNames.map(() => '?').join(',');
-    const allSubmissions = await query(`
+    // Get all submissions from ALL teams this user leads (team member files)
+    let memberSubmissions = [];
+    if (teamNames.length > 0) {
+      const placeholders = teamNames.map(() => '?').join(',');
+      memberSubmissions = await query(`
+        SELECT
+          f.id,
+          f.original_name,
+          f.filename,
+          f.file_type,
+          f.file_path,
+          f.public_network_url,
+          f.file_size,
+          f.uploaded_at,
+          f.status,
+          f.user_team,
+          f.folder_name,
+          f.relative_path,
+          f.is_folder,
+          u.username,
+          u.fullName,
+          asub.submitted_at,
+          asub.submitted_at as created_at,
+          a.id as assignment_id,
+          a.title as assignment_title,
+          a.due_date as assignment_due_date,
+          a.team
+        FROM assignment_submissions asub
+        JOIN files f ON asub.file_id = f.id
+        JOIN users u ON asub.user_id = u.id
+        JOIN assignments a ON asub.assignment_id = a.id
+        WHERE a.team IN (${placeholders})
+        ORDER BY asub.submitted_at DESC
+      `, teamNames);
+    }
+
+    // Also get files uploaded directly by the Team Leader (from the files table)
+    const tlFiles = await query(`
       SELECT
         f.id,
         f.original_name,
@@ -272,25 +302,63 @@ router.get('/team-leader/:userId/all-submissions', async (req, res) => {
         f.is_folder,
         u.username,
         u.fullName,
-        asub.submitted_at,
-        asub.submitted_at as created_at,
+        f.uploaded_at as submitted_at,
+        f.uploaded_at as created_at,
+        NULL as assignment_id,
+        NULL as assignment_title,
+        NULL as assignment_due_date,
+        f.user_team as team
+      FROM files f
+      JOIN users u ON f.user_id = u.id
+      WHERE f.user_id = ?
+      ORDER BY f.uploaded_at DESC
+    `, [userId]);
+
+    // Also get TL attachment files (uploaded via assignment attachments)
+    const tlAttachments = await query(`
+      SELECT
+        aa.id,
+        aa.original_name,
+        aa.filename,
+        aa.file_type,
+        aa.file_path,
+        COALESCE(aa.public_network_url, NULL) as public_network_url,
+        aa.file_size,
+        aa.created_at as uploaded_at,
+        COALESCE(aa.status, 'team_leader_approved') as status,
+        u.team as user_team,
+        aa.folder_name,
+        aa.relative_path,
+        0 as is_folder,
+        aa.uploaded_by_username as username,
+        u.fullName,
+        aa.created_at as submitted_at,
+        aa.created_at as created_at,
         a.id as assignment_id,
         a.title as assignment_title,
         a.due_date as assignment_due_date,
-        a.team
-      FROM assignment_submissions asub
-      JOIN files f ON asub.file_id = f.id
-      JOIN users u ON asub.user_id = u.id
-      JOIN assignments a ON asub.assignment_id = a.id
-      WHERE a.team IN (${placeholders})
-      ORDER BY asub.submitted_at DESC
-    `, teamNames);
+        u.team as team,
+        'assignment_attachment' as source_type
+      FROM assignment_attachments aa
+      JOIN assignments a ON aa.assignment_id = a.id
+      JOIN users u ON aa.uploaded_by_id = u.id
+      WHERE aa.uploaded_by_id = ?
+      ORDER BY aa.created_at DESC
+    `, [userId]);
 
-    console.log(`✅ DASHBOARD API: Found ${allSubmissions?.length || 0} submissions across ${teamNames.length} teams`);
+    // Merge — avoid duplicates across all sources
+    const memberFileIds = new Set(memberSubmissions.map(f => String(f.id)));
+    const uniqueTLFiles = tlFiles.filter(f => !memberFileIds.has(String(f.id)));
+    const allExistingIds = new Set([...memberFileIds, ...uniqueTLFiles.map(f => String(f.id))]);
+    const uniqueAttachments = tlAttachments.filter(f => !allExistingIds.has(String(f.id)));
+
+    const allSubmissions = [...memberSubmissions, ...uniqueTLFiles, ...uniqueAttachments];
+
+    console.log(`✅ DASHBOARD API: Found ${memberSubmissions.length} member submissions + ${uniqueTLFiles.length} TL files + ${uniqueAttachments.length} TL attachments = ${allSubmissions.length} total`);
 
     res.json({
       success: true,
-      submissions: allSubmissions || []
+      submissions: allSubmissions
     });
   } catch (error) {
     console.error('❌ DASHBOARD API: Error fetching all submissions:', error);
@@ -364,10 +432,12 @@ router.get('/team/:team/all-tasks', async (req, res) => {
 
       // Get attachments for this assignment
       const attachments = await query(`
-        SELECT id, original_name, filename, file_path, file_size, file_type, created_at
+        SELECT id, original_name, filename, file_path, file_size, file_type, folder_name, relative_path, created_at,
+               COALESCE(status, 'team_leader_approved') AS status,
+               COALESCE(current_stage, 'pending_admin') AS current_stage
         FROM assignment_attachments
         WHERE assignment_id = ?
-        ORDER BY created_at DESC
+        ORDER BY COALESCE(folder_name, ''), created_at DESC
       `, [assignment.id]);
 
       assignment.attachments = attachments || [];
@@ -489,10 +559,12 @@ router.get('/team-leader/:userId', async (req, res) => {
 
       // Get attachments for this assignment
       const attachments = await query(`
-        SELECT id, original_name, filename, file_path, file_size, file_type, created_at
+        SELECT id, original_name, filename, file_path, file_size, file_type, folder_name, relative_path, created_at,
+               COALESCE(status, 'team_leader_approved') AS status,
+               COALESCE(current_stage, 'pending_admin') AS current_stage
         FROM assignment_attachments
         WHERE assignment_id = ?
-        ORDER BY created_at DESC
+        ORDER BY COALESCE(folder_name, ''), created_at DESC
       `, [assignment.id]);
 
       assignment.attachments = attachments || [];
@@ -722,7 +794,7 @@ router.post('/create-json', async (req, res) => {
 // Create new assignment with file attachments
 // NOTE: If client sends no files, it should use /create-json instead.
 // This route still cleans up any stray multer files if hasAttachments is false.
-router.post('/create', upload.array('attachments', 10), async (req, res) => {
+router.post('/create', upload.array('attachments', 10000), async (req, res) => {
   try {
     const {
       title,
@@ -753,33 +825,55 @@ router.post('/create', upload.array('attachments', 10), async (req, res) => {
     const finalTeamLeaderId = teamLeaderId || team_leader_id;
     const finalTeamLeaderUsername = teamLeaderUsername || team_leader_username;
 
-    // NONCE VALIDATION: Reject any request that doesn't have a fresh one-time nonce.
-    // This is the definitive fix for Electron's multipart cache replay bug:
-    // A cached/replayed request will not have a valid unused nonce, so it gets rejected.
+    // NONCE VALIDATION: Only enforce for multipart (file upload) requests.
+    // Plain JSON requests (no files) skip nonce — this allows task creation without attachments.
+    // The nonce guards against Electron's multipart cache replay bug on file uploads only.
+    const isMultipartCreate = req.is('multipart/form-data');
     const requestNonce = req.body.uploadNonce;
     const rawFiles = req.files || [];
 
-    if (!requestNonce || !uploadNonces.has(requestNonce)) {
-      // No valid nonce = replayed or stale request — discard all files and reject
-      console.warn(`⚠️ /create rejected: missing or invalid uploadNonce. Discarding ${rawFiles.length} file(s).`);
-      for (const f of rawFiles) {
-        try { fs.unlinkSync(f.path); } catch (e) { /* ignore */ }
+    if (isMultipartCreate) {
+      if (!requestNonce || !uploadNonces.has(requestNonce)) {
+        // No valid nonce = replayed or stale multipart request — discard all files and reject
+        console.warn(`⚠️ /create rejected: missing or invalid uploadNonce. Discarding ${rawFiles.length} file(s).`);
+        for (const f of rawFiles) {
+          try { fs.unlinkSync(f.path); } catch (e) { /* ignore */ }
+        }
+        return res.status(400).json({ success: false, message: 'Invalid or missing upload nonce. Please try again.' });
       }
-      return res.status(400).json({ success: false, message: 'Invalid or missing upload nonce. Please try again.' });
+
+      const nonceEntry = uploadNonces.get(requestNonce);
+      if (nonceEntry.used) {
+        // Already-used nonce = definitely a replay attack
+        console.warn(`⚠️ /create rejected: nonce already used. Discarding ${rawFiles.length} file(s).`);
+        for (const f of rawFiles) {
+          try { fs.unlinkSync(f.path); } catch (e) { /* ignore */ }
+        }
+        return res.status(400).json({ success: false, message: 'Upload nonce already used. Please try again.' });
+      }
+
+      // Mark nonce as used immediately (one-time use)
+      nonceEntry.used = true;
     }
 
-    const nonceEntry = uploadNonces.get(requestNonce);
-    if (nonceEntry.used) {
-      // Already-used nonce = definitely a replay attack
-      console.warn(`⚠️ /create rejected: nonce already used. Discarding ${rawFiles.length} file(s).`);
-      for (const f of rawFiles) {
-        try { fs.unlinkSync(f.path); } catch (e) { /* ignore */ }
+    // parse list of attachment IDs the client wants removed
+    let removeAttachmentIds = [];
+    if (typeof req.body.removeAttachmentIds === 'string') {
+      try {
+        removeAttachmentIds = JSON.parse(req.body.removeAttachmentIds || '[]');
+        if (!Array.isArray(removeAttachmentIds)) removeAttachmentIds = [];
+      } catch (e) {
+        console.warn('⚠️ [CREATE] Could not parse removeAttachmentIds:', e.message);
+        removeAttachmentIds = [];
       }
-      return res.status(400).json({ success: false, message: 'Upload nonce already used. Please try again.' });
+    } else if (Array.isArray(req.body.removeAttachmentIds)) {
+      removeAttachmentIds = req.body.removeAttachmentIds;
     }
 
-    // Mark nonce as used immediately (one-time use)
-    nonceEntry.used = true;
+    if (removeAttachmentIds.length > 0) {
+      // nothing to actually delete on create, just log
+      console.log(`🗑️ Ignoring removeAttachmentIds on create:`, removeAttachmentIds);
+    }
 
     const clientSentAttachments = req.body.hasAttachments === 'true';
 
@@ -837,7 +931,20 @@ router.post('/create', upload.array('attachments', 10), async (req, res) => {
       try {
         console.log(`📎 Saving ${uploadedFiles.length} attachment(s) for assignment ${assignmentId}`);
 
-        for (const file of uploadedFiles) {
+        // Parse relative paths sent by the client ONCE before the loop
+        let relativePaths = []
+        try {
+          relativePaths = JSON.parse(req.body.relativePaths || '[]')
+          console.log(`📂 relativePaths received: ${JSON.stringify(relativePaths)}`)
+        } catch (e) {
+          console.warn('⚠️ Could not parse relativePaths:', e.message)
+          relativePaths = []
+        }
+
+        // iterate with index to ensure the correct relativePath maps to each file
+        for (let fileIndex = 0; fileIndex < uploadedFiles.length; fileIndex++) {
+          const file = uploadedFiles[fileIndex];
+
           // Move file from temp location to team leader's folder
           let finalPath;
           try {
@@ -849,6 +956,23 @@ router.post('/create', upload.array('attachments', 10), async (req, res) => {
             finalPath = file.path;
           }
 
+          const relPath = relativePaths[fileIndex] || file.originalname;
+          const folderName = relPath.includes('/') ? relPath.split('/')[0] : null;
+          console.log(`📎 File ${fileIndex}: ${file.originalname} → relPath: ${relPath}, folderName: ${folderName}`);
+
+          // Re-move the file now that we know the folder structure.
+          // moveToUserFolder will create username/folderName/subpath on disk.
+          if (folderName) {
+            try {
+              const movedPath = await moveToUserFolder(finalPath, finalTeamLeaderUsername, file.originalname, folderName, relPath);
+              finalPath = movedPath;
+              console.log(`✅ Re-moved into folder structure: ${finalPath}`);
+            } catch (reMoveError) {
+              console.error('⚠️ Failed to re-move file into folder structure:', reMoveError.message);
+              // keep finalPath as the flat location — file is still saved, just not folderized
+            }
+          }
+
           await query(`
             INSERT INTO assignment_attachments (
               assignment_id,
@@ -858,8 +982,10 @@ router.post('/create', upload.array('attachments', 10), async (req, res) => {
               file_size,
               file_type,
               uploaded_by_id,
-              uploaded_by_username
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+              uploaded_by_username,
+              folder_name,
+              relative_path
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
           `, [
             assignmentId,
             file.originalname,
@@ -868,7 +994,9 @@ router.post('/create', upload.array('attachments', 10), async (req, res) => {
             file.size,
             file.mimetype,
             finalTeamLeaderId,
-            finalTeamLeaderUsername
+            finalTeamLeaderUsername,
+            folderName,
+            relPath !== file.originalname ? relPath : null
           ]);
           attachmentsCreated++;
         }
@@ -1060,6 +1188,18 @@ router.post('/create', upload.array('attachments', 10), async (req, res) => {
         // Don't fail the request if notifications fail
       }
 
+      // Notify admins if team leader attached files to this assignment
+      if (attachmentsCreated > 0) {
+        const attachTitle = req.body.title || 'Assignment';
+        createAdminNotification(
+          null,
+          'new_upload',
+          'Team Leader Uploaded Attachment(s)',
+          `${finalTeamLeaderUsername} (Team Leader) uploaded ${attachmentsCreated} file${attachmentsCreated !== 1 ? 's' : ''} as attachment(s) for assignment "${attachTitle}".`,
+          finalTeamLeaderId, finalTeamLeaderUsername, 'TEAM_LEADER', assignmentId
+        ).catch(err => console.error('Failed to notify admins of TL attachment upload:', err));
+      }
+
       res.json({
         success: true,
         message: 'Assignment created successfully',
@@ -1091,7 +1231,7 @@ router.post('/create', upload.array('attachments', 10), async (req, res) => {
 });
 
 // Update existing assignment with file attachments
-router.put('/:id', upload.array('attachments', 10), async (req, res) => {
+router.put('/:id', upload.array('attachments', 10000), async (req, res) => {
   try {
     const { id } = req.params;
     const {
@@ -1124,26 +1264,70 @@ router.put('/:id', upload.array('attachments', 10), async (req, res) => {
     const finalTeamLeaderUsername = teamLeaderUsername || team_leader_username;
 
     // NONCE VALIDATION for PUT (edit with attachments)
+    // Only enforce nonce for multipart requests — plain JSON updates (no file changes) skip this check.
+    const isMultipart = req.is('multipart/form-data');
     const requestNonce = req.body.uploadNonce;
     const rawFiles = req.files || [];
 
-    if (!requestNonce || !uploadNonces.has(requestNonce)) {
-      console.warn(`⚠️ [PUT] rejected: missing or invalid uploadNonce. Discarding ${rawFiles.length} file(s).`);
-      for (const f of rawFiles) {
-        try { fs.unlinkSync(f.path); } catch (e) { /* ignore */ }
+    if (isMultipart) {
+      if (!requestNonce || !uploadNonces.has(requestNonce)) {
+        console.warn(`⚠️ [PUT] rejected: missing or invalid uploadNonce. Discarding ${rawFiles.length} file(s).`);
+        for (const f of rawFiles) {
+          try { fs.unlinkSync(f.path); } catch (e) { /* ignore */ }
+        }
+        return res.status(400).json({ success: false, message: 'Invalid or missing upload nonce. Please try again.' });
       }
-      return res.status(400).json({ success: false, message: 'Invalid or missing upload nonce. Please try again.' });
+
+      const nonceEntry = uploadNonces.get(requestNonce);
+      if (nonceEntry.used) {
+        console.warn(`⚠️ [PUT] rejected: nonce already used. Discarding ${rawFiles.length} file(s).`);
+        for (const f of rawFiles) {
+          try { fs.unlinkSync(f.path); } catch (e) { /* ignore */ }
+        }
+        return res.status(400).json({ success: false, message: 'Upload nonce already used. Please try again.' });
+      }
+      nonceEntry.used = true;
     }
 
-    const nonceEntry = uploadNonces.get(requestNonce);
-    if (nonceEntry.used) {
-      console.warn(`⚠️ [PUT] rejected: nonce already used. Discarding ${rawFiles.length} file(s).`);
-      for (const f of rawFiles) {
-        try { fs.unlinkSync(f.path); } catch (e) { /* ignore */ }
+    // parse list of attachment IDs the client wants removed
+    let removeAttachmentIds = [];
+    if (typeof req.body.removeAttachmentIds === 'string') {
+      try {
+        removeAttachmentIds = JSON.parse(req.body.removeAttachmentIds || '[]');
+        if (!Array.isArray(removeAttachmentIds)) removeAttachmentIds = [];
+      } catch (e) {
+        console.warn('⚠️ [PUT] Could not parse removeAttachmentIds:', e.message);
+        removeAttachmentIds = [];
       }
-      return res.status(400).json({ success: false, message: 'Upload nonce already used. Please try again.' });
+    } else if (Array.isArray(req.body.removeAttachmentIds)) {
+      removeAttachmentIds = req.body.removeAttachmentIds;
     }
-    nonceEntry.used = true;
+
+    if (removeAttachmentIds.length > 0) {
+      console.log(`🗑️ [PUT] Removing ${removeAttachmentIds.length} existing attachment(s) for assignment ${id}:`, removeAttachmentIds);
+      for (const attId of removeAttachmentIds) {
+        try {
+          const attachment = await queryOne(
+            'SELECT * FROM assignment_attachments WHERE id = ? AND assignment_id = ?',
+            [attId, id]
+          );
+          if (attachment) {
+            if (attachment.file_path) {
+              try {
+                const filePath = attachment.file_path.startsWith('/uploads/')
+                  ? require('path').join(uploadsDir, attachment.file_path.substring(9))
+                  : attachment.file_path;
+                if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+              } catch (e) { console.warn('⚠️ Could not delete physical attachment file during removal:', e.message); }
+            }
+            await query('DELETE FROM assignment_attachments WHERE id = ?', [attId]);
+            console.log(`✅ Removed attachment ${attId}`);
+          }
+        } catch (e) {
+          console.warn('⚠️ Failed to remove attachment', attId, e.message);
+        }
+      }
+    }
 
     const clientSentAttachments = req.body.hasAttachments === 'true';
 
@@ -1205,7 +1389,19 @@ router.put('/:id', upload.array('attachments', 10), async (req, res) => {
       try {
         console.log(`📎 Saving ${uploadedFiles.length} new attachment(s) for assignment ${id}`);
 
-        for (const file of uploadedFiles) {
+        // parse relative paths from client if present
+        let relativePaths = [];
+        try {
+          relativePaths = JSON.parse(req.body.relativePaths || '[]');
+          console.log(`📂 [PUT] relativePaths received: ${JSON.stringify(relativePaths)}`);
+        } catch (e) {
+          console.warn('⚠️ [PUT] Could not parse relativePaths:', e.message);
+          relativePaths = [];
+        }
+
+        for (let fileIndex = 0; fileIndex < uploadedFiles.length; fileIndex++) {
+          const file = uploadedFiles[fileIndex];
+
           // Move file from temp location to team leader's folder
           let finalPath;
           try {
@@ -1217,6 +1413,21 @@ router.put('/:id', upload.array('attachments', 10), async (req, res) => {
             finalPath = file.path;
           }
 
+          const relPath = relativePaths[fileIndex] || file.originalname;
+          const folderName = relPath.includes('/') ? relPath.split('/')[0] : null;
+          console.log(`📎 [PUT] File ${fileIndex}: ${file.originalname} → relPath: ${relPath}, folderName: ${folderName}`);
+
+          // Re-move the file into the correct folder structure now that we know it.
+          if (folderName) {
+            try {
+              const movedPath = await moveToUserFolder(finalPath, finalTeamLeaderUsername, file.originalname, folderName, relPath);
+              finalPath = movedPath;
+              console.log(`✅ [PUT] Re-moved into folder structure: ${finalPath}`);
+            } catch (reMoveError) {
+              console.error('⚠️ [PUT] Failed to re-move file into folder structure:', reMoveError.message);
+            }
+          }
+
           await query(`
             INSERT INTO assignment_attachments (
               assignment_id,
@@ -1226,8 +1437,10 @@ router.put('/:id', upload.array('attachments', 10), async (req, res) => {
               file_size,
               file_type,
               uploaded_by_id,
-              uploaded_by_username
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+              uploaded_by_username,
+              folder_name,
+              relative_path
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
           `, [
             id,
             file.originalname,
@@ -1236,7 +1449,9 @@ router.put('/:id', upload.array('attachments', 10), async (req, res) => {
             file.size,
             file.mimetype,
             finalTeamLeaderId,
-            finalTeamLeaderUsername
+            finalTeamLeaderUsername,
+            folderName,
+            relPath !== file.originalname ? relPath : null
           ]);
           attachmentsCreated++;
         }
@@ -1287,6 +1502,19 @@ router.put('/:id', upload.array('attachments', 10), async (req, res) => {
         ]);
       } catch (logError) {
         console.warn('Activity log insertion failed:', logError.message);
+      }
+
+      // Notify admins if team leader added attachments while editing
+      if (attachmentsCreated > 0) {
+        const tlId = finalTeamLeaderId || existingAssignment.team_leader_id;
+        const tlUsername = finalTeamLeaderUsername || existingAssignment.team_leader_username;
+        createAdminNotification(
+          null,
+          'new_upload',
+          'Team Leader Uploaded Attachment(s)',
+          `${tlUsername} (Team Leader) uploaded ${attachmentsCreated} file${attachmentsCreated !== 1 ? 's' : ''} as attachment(s) for assignment "${title}".`,
+          tlId, tlUsername, 'TEAM_LEADER', id
+        ).catch(err => console.error('Failed to notify admins of TL attachment upload (edit):', err));
       }
 
       res.json({
@@ -1383,10 +1611,10 @@ router.get('/user/:userId', async (req, res) => {
 
       // Get attachments for this assignment
       const attachments = await query(`
-        SELECT id, original_name, filename, file_path, file_size, file_type, created_at
+        SELECT id, original_name, filename, file_path, file_size, file_type, folder_name, relative_path, created_at
         FROM assignment_attachments
         WHERE assignment_id = ?
-        ORDER BY created_at DESC
+        ORDER BY COALESCE(folder_name, ''), created_at DESC
       `, [assignment.id]);
 
       assignment.attachments = attachments || [];
@@ -2320,9 +2548,10 @@ router.delete('/:assignmentId/files/:fileId', async (req, res) => {
       });
     }
 
-    // Get file info before deleting
+    // Get file info before deleting — fetch BOTH file_path AND public_network_url
+    // public_network_url holds the real NAS path for approved files
     const fileInfo = await queryOne(
-      'SELECT file_path FROM files WHERE id = ?',
+      'SELECT file_path, public_network_url, username FROM files WHERE id = ?',
       [fileId]
     );
     console.log('📄 File to delete:', fileInfo);
@@ -2415,17 +2644,38 @@ router.delete('/:assignmentId/files/:fileId', async (req, res) => {
 
     console.log('💾 Step 2: Deleting physical file...');
 
-    // 7. Delete physical file from NAS
-    if (fileInfo && fileInfo.file_path) {
+    // 7. Delete physical file — check public_network_url FIRST (NAS final path for approved files)
+    // file_path holds the old /uploads/ relative path which won’t exist on NAS after approval
+    if (fileInfo) {
       try {
-        if (fs.existsSync(fileInfo.file_path)) {
-          fs.unlinkSync(fileInfo.file_path);
-          console.log('✅ Physical file deleted from:', fileInfo.file_path);
-        } else {
-          console.log('⚠️ Physical file not found at:', fileInfo.file_path);
+        let physicalPath = null;
+
+        if (fileInfo.public_network_url && !fileInfo.public_network_url.startsWith('http')) {
+          // Approved file — use NAS path directly
+          physicalPath = fileInfo.public_network_url;
+          console.log('📁 Approved file on NAS, using public_network_url:', physicalPath);
+        } else if (fileInfo.file_path) {
+          // Pending file still in uploads staging area
+          if (fileInfo.file_path.startsWith('/uploads/')) {
+            const { uploadsDir } = require('../config/middleware');
+            const relativePath = fileInfo.file_path.substring('/uploads/'.length);
+            physicalPath = require('path').join(uploadsDir, relativePath);
+          } else {
+            physicalPath = fileInfo.file_path;
+          }
+          console.log('📁 Pending file in uploads, using file_path:', physicalPath);
+        }
+
+        if (physicalPath) {
+          if (fs.existsSync(physicalPath)) {
+            fs.unlinkSync(physicalPath);
+            console.log('✅ Physical file deleted from:', physicalPath);
+          } else {
+            console.log('⚠️ Physical file not found at:', physicalPath);
+          }
         }
       } catch (fsError) {
-        console.error('❌ Failed to delete physical file:', fsError);
+        console.error('❌ Failed to delete physical file:', fsError.message);
       }
     }
 
@@ -2481,8 +2731,85 @@ router.get('/debug/:assignmentId/members', async (req, res) => {
   }
 });
 
+// Delete an entire attachment folder by folder_name (Team Leader only)
+router.delete('/:assignmentId/attachments/folder/:folderName', async (req, res) => {
+  try {
+    const { assignmentId, folderName } = req.params;
+    const decodedFolderName = decodeURIComponent(folderName);
+
+    // Get all attachments in this folder for this assignment
+    const folderAttachments = await query(
+      'SELECT * FROM assignment_attachments WHERE assignment_id = ? AND folder_name = ?',
+      [assignmentId, decodedFolderName]
+    );
+
+    if (!folderAttachments || folderAttachments.length === 0) {
+      return res.status(404).json({ success: false, message: 'Folder not found' });
+    }
+
+    console.log(`🗑️ Deleting folder "${decodedFolderName}" with ${folderAttachments.length} file(s) from assignment ${assignmentId}`);
+
+    // Get the folder directory path from the first file
+    let folderDirPath = null;
+    for (const att of folderAttachments) {
+      if (att.file_path) {
+        const candidate = path.dirname(att.file_path);
+        if (candidate && candidate !== '.') {
+          folderDirPath = candidate;
+          break;
+        }
+      }
+    }
+
+    // Delete physical folder (and all contents) using recursive rm
+    if (folderDirPath) {
+      try {
+        if (fs.existsSync(folderDirPath)) {
+          // Node 14.14+ supports fs.rmSync with recursive
+          if (fs.rmSync) {
+            fs.rmSync(folderDirPath, { recursive: true, force: true });
+          } else {
+            // Fallback: delete each file individually then rmdir
+            for (const att of folderAttachments) {
+              try {
+                if (att.file_path && fs.existsSync(att.file_path)) {
+                  fs.unlinkSync(att.file_path);
+                }
+              } catch (e) { console.warn('⚠️ Could not delete file:', e.message); }
+            }
+            try { fs.rmdirSync(folderDirPath); } catch (e) { console.warn('⚠️ Could not remove folder dir:', e.message); }
+          }
+          console.log(`✅ Physical folder deleted: ${folderDirPath}`);
+        } else {
+          console.log(`⚠️ Physical folder not found at: ${folderDirPath} — skipping filesystem delete`);
+        }
+      } catch (fsErr) {
+        console.warn(`⚠️ Could not delete physical folder: ${fsErr.message}`);
+      }
+    }
+
+    // Delete all DB records for this folder
+    await query(
+      'DELETE FROM assignment_attachments WHERE assignment_id = ? AND folder_name = ?',
+      [assignmentId, decodedFolderName]
+    );
+
+    console.log(`✅ Folder "${decodedFolderName}" deleted from assignment ${assignmentId}`);
+    res.json({ success: true, message: 'Folder deleted successfully', deletedCount: folderAttachments.length });
+  } catch (error) {
+    console.error('Error deleting attachment folder:', error);
+    res.status(500).json({ success: false, message: 'Failed to delete folder', error: error.message });
+  }
+});
+
 // Delete a single assignment attachment (Team Leader only)
+// NOTE: This must stay BELOW the /folder/:folderName route to avoid shadowing it
 router.delete('/:assignmentId/attachments/:attachmentId', async (req, res) => {
+  // Guard: reject if attachmentId is literally "folder" (means the folder route didn't match)
+  if (req.params.attachmentId === 'folder') {
+    return res.status(404).json({ success: false, message: 'Route not found' });
+  }
+
   try {
     const { assignmentId, attachmentId } = req.params;
 
@@ -2499,9 +2826,12 @@ router.delete('/:assignmentId/attachments/:attachmentId', async (req, res) => {
     if (attachment.file_path) {
       try {
         const filePath = attachment.file_path.startsWith('/uploads/')
-          ? require('path').join(uploadsDir, attachment.file_path.substring(9))
+          ? path.join(uploadsDir, attachment.file_path.substring(9))
           : attachment.file_path;
-        if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+        if (fs.existsSync(filePath)) {
+          fs.unlinkSync(filePath);
+          console.log(`✅ Physical file deleted: ${filePath}`);
+        }
       } catch (e) { console.warn('⚠️ Could not delete physical attachment file:', e.message); }
     }
 

@@ -1,10 +1,57 @@
 import { LoadingTable } from '../common/InlineSkeletonLoader'
+import { useState, useMemo } from 'react'
 
 const TeamManagementTab = ({
   isLoadingTeam,
   teamMembers,
   fetchMemberFiles
 }) => {
+  const [searchQuery, setSearchQuery] = useState('')
+  const [statusFilter, setStatusFilter] = useState('all')
+  const [sortOrder, setSortOrder] = useState('name-asc')
+
+  const uniqueTeams = useMemo(() => {
+    const teams = new Set(teamMembers.map(m => m.team).filter(Boolean))
+    return Array.from(teams).sort()
+  }, [teamMembers])
+
+  const [teamFilter, setTeamFilter] = useState('all')
+
+  const filteredMembers = useMemo(() => {
+    let result = [...teamMembers]
+
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase()
+      result = result.filter(m =>
+        (m.name || '').toLowerCase().includes(q) ||
+        (m.email || '').toLowerCase().includes(q) ||
+        (m.team || '').toLowerCase().includes(q)
+      )
+    }
+
+    if (statusFilter !== 'all') {
+      result = result.filter(m => m.status?.toLowerCase() === statusFilter)
+    }
+
+    if (teamFilter !== 'all') {
+      result = result.filter(m => m.team === teamFilter)
+    }
+
+    result.sort((a, b) => {
+      switch (sortOrder) {
+        case 'name-asc':  return (a.name || '').localeCompare(b.name || '')
+        case 'name-desc': return (b.name || '').localeCompare(a.name || '')
+        case 'files-desc': return (b.files || 0) - (a.files || 0)
+        case 'files-asc':  return (a.files || 0) - (b.files || 0)
+        case 'joined-desc': return new Date(b.joined || 0) - new Date(a.joined || 0)
+        case 'joined-asc':  return new Date(a.joined || 0) - new Date(b.joined || 0)
+        default: return 0
+      }
+    })
+
+    return result
+  }, [teamMembers, searchQuery, statusFilter, teamFilter, sortOrder])
+
   return (
     <div className="tl-content">
       {/* Page Header - EXACT Admin Match */}
@@ -23,7 +70,41 @@ const TeamManagementTab = ({
       ) : teamMembers.length > 0 ? (
         <div className="tl-table-container">
           <div className="tl-table-header">
-            <h2>Team Members ({teamMembers.length})</h2>
+            <h2>Team Members ({filteredMembers.length}{filteredMembers.length !== teamMembers.length ? ` of ${teamMembers.length}` : ''})</h2>
+          </div>
+
+          {/* Search + Filter + Sort Controls */}
+          <div className="file-controls">
+            <div className="file-search">
+              <input
+                type="text"
+                placeholder="Search by name, email, or team..."
+                className="search-input"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+            </div>
+            <div className="file-filters">
+              <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="form-select">
+                <option value="all">All Status</option>
+                <option value="active">Active</option>
+                <option value="inactive">Inactive</option>
+              </select>
+              <select value={sortOrder} onChange={(e) => setSortOrder(e.target.value)} className="form-select">
+                <option value="name-asc">Name A-Z</option>
+                <option value="name-desc">Name Z-A</option>
+                <option value="files-desc">Most Files</option>
+                <option value="files-asc">Least Files</option>
+                <option value="joined-desc">Latest Joined</option>
+                <option value="joined-asc">Earliest Joined</option>
+              </select>
+              {uniqueTeams.length > 1 && (
+                <select value={teamFilter} onChange={(e) => setTeamFilter(e.target.value)} className="form-select">
+                  <option value="all">All Teams</option>
+                  {uniqueTeams.map(team => <option key={team} value={team}>{team}</option>)}
+                </select>
+              )}
+            </div>
           </div>
 
           <table className="tl-table tl-team-members-table">
@@ -31,6 +112,7 @@ const TeamManagementTab = ({
               <tr>
                 <th>NAME</th>
                 <th>EMAIL</th>
+                <th>TEAM</th>
                 <th>JOINED</th>
                 <th>FILES</th>
                 <th>STATUS</th>
@@ -38,12 +120,17 @@ const TeamManagementTab = ({
               </tr>
             </thead>
             <tbody>
-              {teamMembers.map((member) => (
+              {filteredMembers.map((member) => (
                 <tr key={member.id}>
                   <td>
                     <strong>{member.name}</strong>
                   </td>
                   <td style={{color: 'var(--text-secondary)'}}>{member.email}</td>
+                  <td>
+                    <span style={{ background: '#f0f4ff', color: '#3b5bdb', padding: '4px 10px', borderRadius: '6px', fontSize: '12px', fontWeight: '600' }}>
+                      {member.team || '—'}
+                    </span>
+                  </td>
                   <td style={{color: 'var(--text-secondary)'}}>{member.joined}</td>
                   <td>
                     <span className="tl-badge" style={{background: '#E0E7FF', color: 'var(--primary-color)'}}>
@@ -77,6 +164,14 @@ const TeamManagementTab = ({
         <div className="tl-empty">
           <h3>No team members</h3>
           <p>Your team currently has no members.</p>
+        </div>
+      )}
+
+      {/* No results after filtering */}
+      {!isLoadingTeam && teamMembers.length > 0 && filteredMembers.length === 0 && (
+        <div className="tl-empty" style={{marginTop: '1rem'}}>
+          <h3>No results found</h3>
+          <p>Try adjusting your search or filters.</p>
         </div>
       )}
     </div>

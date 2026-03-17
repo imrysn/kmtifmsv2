@@ -67,7 +67,7 @@ const MyFilesTab = ({
 
   const openFile = useCallback(async (file) => {
     try {
-      console.log('🔍 Opening file:', { id: file.id, path: file.file_path, name: file.original_name });
+      console.log('Opening file:', { id: file.id, path: file.file_path, name: file.original_name });
       
       if (window.electron?.openFileInApp) {
         const response = await fetch(`${API_BASE_URL}/api/files/${file.id}/path`);
@@ -150,6 +150,37 @@ const MyFilesTab = ({
     };
 
     return classMap[status] || 'status-default';
+  }, []);
+
+  // Compute the folder-level status from all its files
+  // Rules:
+  //   - All final_approved                        → "Approved"
+  //   - ALL files are team_leader_approved (none still pending TL) → "Pending Admin"
+  //   - Any file still uploaded / under_revision  → "Pending Team Leader"
+  //   - Any rejected (and not all approved)       → "Rejected" (show the worst)
+  const getFolderStatus = useCallback((folderFiles) => {
+    if (!folderFiles || folderFiles.length === 0) return { label: 'Pending Team Leader', cls: 'status-pending' };
+
+    const statuses = folderFiles.map(f => f.status);
+    const allFinalApproved  = statuses.every(s => s === 'final_approved');
+    const anyRejected       = statuses.some(s => s === 'rejected_by_team_leader' || s === 'rejected_by_admin');
+    const anyPendingTL      = statuses.some(s => s === 'uploaded' || s === 'under_revision');
+    const allTLApproved     = statuses.every(s => s === 'team_leader_approved' || s === 'final_approved');
+
+    if (allFinalApproved)  return { label: 'Approved',            cls: 'status-approved' };
+    if (anyPendingTL)      return { label: 'Pending Team Leader',  cls: 'status-pending'  };
+    if (allTLApproved)     return { label: 'Pending Admin',        cls: 'status-pending'  };
+    // At least one file passed TL but not all — still show Pending Admin
+    if (statuses.some(s => s === 'team_leader_approved')) return { label: 'Pending Admin', cls: 'status-pending' };
+    if (anyRejected) {
+      // Show the most severe rejection label to match individual file tag sizing
+      const hasTLRejection = statuses.some(s => s === 'rejected_by_team_leader');
+      return hasTLRejection
+        ? { label: 'Rejected by Team Leader', cls: 'status-rejected' }
+        : { label: 'Rejected by Admin',       cls: 'status-rejected' };
+    }
+
+    return { label: 'Pending Team Leader', cls: 'status-pending' };
   }, []);
 
   const formatDateTime = useCallback((dateString) => {
@@ -273,7 +304,7 @@ const MyFilesTab = ({
               })
             });
           } catch (folderError) {
-            console.error('⚠️ Error deleting folder directory:', folderError);
+            console.error('Error deleting folder directory:', folderError);
           }
 
           setSuccessModal({
@@ -494,7 +525,10 @@ const MyFilesTab = ({
             <span className="team-text">{firstFile.user_team}</span>
           </div>
           <div className="col-status">
-            <span style={{ color: '#9ca3af', fontSize: '14px' }}>—</span>
+            {(() => {
+              const { label, cls } = getFolderStatus(folderFiles);
+              return <span className={`status-tag ${cls}`}>{label}</span>;
+            })()}
           </div>
           <div className="col-actions">
             <button
@@ -624,7 +658,7 @@ const MyFilesTab = ({
     });
 
     return items;
-  }, [paginatedFiles, expandedFolders, groupFilesByFolder, formatDateTime, toggleFolder, handleFolderDeleteClick, handleFileClick, formatFileSize, getStatusClass, getStatusDisplayName, handleDeleteClick]);
+  }, [paginatedFiles, expandedFolders, groupFilesByFolder, formatDateTime, toggleFolder, handleFolderDeleteClick, handleFileClick, formatFileSize, getStatusClass, getStatusDisplayName, handleDeleteClick, getFolderStatus]);
 
   return (
     <div className="user-my-files-component my-files-wrapper">

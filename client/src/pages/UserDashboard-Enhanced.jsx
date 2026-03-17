@@ -100,18 +100,16 @@ const UserDashboard = ({ user, onLogout }) => {
       filtered = filtered.filter(file => {
         switch (filterStatus) {
           case 'pending':
-            return file.current_stage.includes('pending')
+            return (file.current_stage || '').includes('pending')
           case 'approved':
             return file.status === 'final_approved'
           case 'rejected':
-            return file.status.includes('rejected')
+            return (file.status || '').includes('rejected')
           default:
             return true
         }
       })
     }
-
-    // Apply search filter - REMOVED since search bar is removed
 
     setFilteredFiles(filtered)
   }
