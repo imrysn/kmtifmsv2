@@ -508,30 +508,34 @@
 }
 
 .tl-assignment-file-status {
-  padding: 2px 8px;
-  border-radius: 4px;
+  padding: 3px 10px;
+  border-radius: 20px;
   font-size: 11px;
-  font-weight: 600;
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
 }
 
 .tl-assignment-file-status.uploaded {
-  background: #E0E7FF;
-  color: #4f46e5;
+  background: #e0e7ff;
+  color: #4338ca;
 }
 
 .tl-assignment-file-status.team-leader-approved {
-  background: #FEF3C7;
-  color: #92400E;
+  background: #fef9c3;
+  color: #92400e;
 }
 
 .tl-assignment-file-status.final-approved {
-  background: #d1fae5;
-  color: #059669;
+  background: #dcfce7;
+  color: #15803d;
 }
 
 .tl-assignment-file-status.rejected {
-  background: #fee2e2;
-  color: #dc2626;
+  background: #ffe4e6;
+  color: #be123c;
 }
 
 .tl-assignment-more-files {

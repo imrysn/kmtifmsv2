@@ -48530,7 +48530,7 @@
         // Upload file (User only)
         router.post('/upload', upload.single('file'), async (req, res) => {
           try {
-            const { description, userId, username, userTeam, tag, replaceExisting } = req.body;
+            const { description, userId, username, userTeam, tag, replaceExisting, folderName, relativePath, isFolder } = req.body;
             if (!req.file) {
               return res.status(400).json({
                 success: false,
@@ -48559,7 +48559,7 @@
 
             // Move file from temp location to user folder
             try {
-              const finalPath = moveToUserFolder(req.file.path, username, originalFilename);
+              const finalPath = moveToUserFolder(req.file.path, username, originalFilename, folderName, relativePath);
               req.file.path = finalPath;
               req.file.filename = originalFilename; // Use decoded original filename
               req.file.originalname = originalFilename; // Update originalname with decoded version

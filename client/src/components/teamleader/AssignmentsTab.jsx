@@ -1,10 +1,12 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react'
 import { API_BASE_URL } from '@/config/api'
 import './css/AssignmentsTab.css'
+import './modals/css/AssignmentDetailsModal.css'
 import { CardSkeleton } from '../common/InlineSkeletonLoader'
 import { ConfirmationModal, CommentsModal, FileIcon, FileOpenModal } from '../shared'
 import { useSmartNavigation } from '../shared/SmartNavigation'
 import '../shared/SmartNavigation/SmartNavigation.css'
+import SuccessModal from '../user/SuccessModal'
 
 const AssignmentsTab = ({
   isLoadingAssignments,
@@ -49,6 +51,35 @@ const AssignmentsTab = ({
   const [folderReviewModal, setFolderReviewModal] = useState(null) // { folderName, folderFiles, assignmentId }
   const [folderReviewComment, setFolderReviewComment] = useState('')
   const [isFolderProcessing, setIsFolderProcessing] = useState(false)
+
+  // Remove attachment confirmation modal
+  const [removeAttachmentModal, setRemoveAttachmentModal] = useState({ isOpen: false, attachmentId: null, attachmentName: '', assignmentId: null })
+
+  // Remove entire folder via dedicated folder-delete endpoint
+  const handleRemoveAttachmentFolder = async (assignmentId, folderFiles) => {
+    setOpenFolderMenuId(null)
+    if (!folderFiles || folderFiles.length === 0) return
+    const folderName = folderFiles[0].folder_name
+    try {
+      const res = await fetch(
+        `${API_BASE_URL}/api/assignments/${assignmentId}/attachments/folder/${encodeURIComponent(folderName)}`,
+        { method: 'DELETE' }
+      )
+      const data = await res.json()
+      if (data.success) {
+        setToast({ isOpen: true, title: 'Removed', message: 'Folder removed successfully', type: 'error' })
+        if (onRefreshAssignments) onRefreshAssignments()
+      } else {
+        setToast({ isOpen: true, title: 'Error', message: data.message || 'Failed to remove folder', type: 'error' })
+      }
+    } catch (err) {
+      console.error('Error removing folder:', err)
+      setToast({ isOpen: true, title: 'Error', message: 'Failed to remove folder', type: 'error' })
+    }
+  }
+
+  // Toast notification
+  const [toast, setToast] = useState({ isOpen: false, title: '', message: '', type: 'error' })
 
   // Handle clicking outside to close menu
   useEffect(() => {
@@ -546,69 +577,155 @@ const AssignmentsTab = ({
                 )}
 
                 {/* Attachments Section */}
-                {assignment.attachments && assignment.attachments.length > 0 && (
-                  <div className="tl-assignment-attachment-section">
-                    <div className="tl-assignment-tl-attached-file">
-                      <div className="tl-assignment-tl-file-label">
-                        📎 Attached Files ({assignment.attachments.length})
-                      </div>
-                      {assignment.attachments.map((attachment) => (
-                        <div
-                          key={attachment.id}
-                          className="tl-assignment-tl-file-item"
-                          style={{ position: 'relative' }}
-                          onClick={() => {
-                            setFileToOpen(attachment)
-                            setShowOpenFileConfirmation(true)
-                          }}
-                        >
-                          <FileIcon
-                            fileType={attachment.original_name.split('.').pop()}
-                            size="small"
-                            className="tl-assignment-file-icon"
-                          />
-                          <div className="tl-assignment-file-details">
-                            <div className="tl-assignment-file-name">
-                              {attachment.original_name}
-                            </div>
-                            <div className="tl-assignment-file-meta">
-                              <span>
-                                by <span className="tl-assignment-file-submitter">
-                                  {assignment.team_leader_fullname || assignment.teamLeaderUsername || 'Team Leader'}
-                                </span>
-                              </span>
-                              <span>{formatFileSize(attachment.file_size)}</span>
-                            </div>
-                          </div>
-                          {/* Delete attachment button */}
-                          <button
-                            onClick={async (e) => {
-                              e.stopPropagation()
-                              if (!window.confirm(`Remove "${attachment.original_name}" from this task?`)) return
-                              try {
-                                const res = await fetch(`${API_BASE_URL}/api/assignments/${assignment.id}/attachments/${attachment.id}`, { method: 'DELETE' })
-                                const data = await res.json()
-                                if (data.success && onRefreshAssignments) onRefreshAssignments()
-                              } catch (err) { console.error('Failed to delete attachment:', err) }
-                            }}
-                            title="Remove attachment"
-                            style={{
-                              position: 'absolute', right: '8px', top: '50%', transform: 'translateY(-50%)',
-                              background: 'transparent', border: 'none', cursor: 'pointer',
-                              color: '#9ca3af', fontSize: '18px', lineHeight: 1,
-                              width: '28px', height: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                              borderRadius: '6px', transition: 'all 0.2s'
-                            }}
-                            onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#fee2e2'; e.currentTarget.style.color = '#dc2626' }}
-                            onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = '#9ca3af' }}
-                          >
-                            ×
-                          </button>
+                {assignment.attachments && assignment.attachments.length > 0 && (() => {
+                  // Group attachments by folder_name
+                  const attFolders = {}
+                  const attIndividual = []
+                  assignment.attachments.forEach(att => {
+                    if (att.folder_name) {
+                      if (!attFolders[att.folder_name]) attFolders[att.folder_name] = []
+                      attFolders[att.folder_name].push(att)
+                    } else {
+                      attIndividual.push(att)
+                    }
+                  })
+                  const tlName = assignment.team_leader_fullname || assignment.teamLeaderUsername || 'Team Leader'
+                  return (
+                    <div className="tl-assignment-attachment-section">
+                      <div className="tl-assignment-attached-file">
+                        <div className="tl-assignment-file-label">
+                          📎 Attached Files ({assignment.attachments.length})
                         </div>
-                      ))}
+
+                        {/* Folder attachments */}
+                        {Object.entries(attFolders).map(([folderName, files]) => {
+                          const isExpanded = expandedAttachments[`attfolder-${assignment.id}-${folderName}`]
+                          const attFolderMenuId = `attfolder-${assignment.id}-${folderName}`
+                          return (
+                            <React.Fragment key={`attfolder-${folderName}`}>
+                              <div
+                                className="tl-assignment-file-item tl-folder-item"
+                                style={{ cursor: 'pointer', backgroundColor: isExpanded ? '#BFDBFE' : '#DBEAFE', position: 'relative' }}
+                                onClick={() => setExpandedAttachments(prev => ({ ...prev, [`attfolder-${assignment.id}-${folderName}`]: !prev[`attfolder-${assignment.id}-${folderName}`] }))}
+                              >
+                                <div style={{ fontSize: '32px' }}>{isExpanded ? '📂' : '📁'}</div>
+                                <div className="tl-assignment-file-details">
+                                <div className="tl-assignment-file-name" style={{ fontWeight: '600' }}>{folderName}</div>
+                                <div className="tl-assignment-file-meta">
+                                <span>by <span className="tl-assignment-file-submitter">{tlName}</span></span>
+                                <span>{files.length} file{files.length !== 1 ? 's' : ''}</span>
+                                  {(() => {
+                                      const statuses = files.map(f => f.status || 'team_leader_approved')
+                                        const allApproved = statuses.every(s => s === 'final_approved')
+                                        const allRejected = statuses.every(s => s === 'rejected_by_admin')
+                                        const anyPendingAdmin = statuses.some(s => s === 'team_leader_approved')
+                                        if (allApproved) return <span style={{marginLeft:'8px',padding:'2px 8px',borderRadius:'12px',fontSize:'11px',fontWeight:'600',background:'#d1fae5',color:'#059669'}}>✓ Approved</span>
+                                        if (allRejected) return <span style={{marginLeft:'8px',padding:'2px 8px',borderRadius:'12px',fontSize:'11px',fontWeight:'600',background:'#fee2e2',color:'#dc2626'}}>✗ Rejected</span>
+                                        if (anyPendingAdmin) return <span style={{marginLeft:'8px',padding:'2px 8px',borderRadius:'12px',fontSize:'11px',fontWeight:'600',background:'#fef3c7',color:'#92400e'}}>Pending Admin</span>
+                                        return <span style={{marginLeft:'8px',padding:'2px 8px',borderRadius:'12px',fontSize:'11px',fontWeight:'600',background:'#e0e7ff',color:'#3730a3'}}>Pending</span>
+                                      })()}
+                                    </div>
+                                  </div>
+                                {/* 3-dot menu for folder */}
+                                <div
+                                  className="tl-folder-menu-wrapper"
+                                  style={{ marginLeft: 'auto', position: 'relative' }}
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  <button
+                                    className="tl-assignment-menu-btn"
+                                    style={{ fontSize: '13px', padding: '2px 6px', letterSpacing: '1px' }}
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      setOpenFolderMenuId(prev => prev === attFolderMenuId ? null : attFolderMenuId)
+                                    }}
+                                    title="More options"
+                                  >
+                                    •••
+                                  </button>
+                                  {openFolderMenuId === attFolderMenuId && (
+                                    <div className="tl-assignment-menu-dropdown" style={{ right: 0, left: 'auto', minWidth: '180px', whiteSpace: 'nowrap' }}>
+                                      <button
+                                        className="tl-assignment-menu-item tl-assignment-delete-menu-item"
+                                        onClick={(e) => {
+                                          e.stopPropagation()
+                                          handleRemoveAttachmentFolder(assignment.id, files)
+                                        }}
+                                      >
+                                        🗑️ Remove Folder
+                                      </button>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                              {isExpanded && (
+                              <div style={{ marginLeft: '8px', paddingLeft: '8px', marginTop: '4px' }}>
+                                {files.map(att => (
+                                <div
+                                  key={att.id}
+                                  className="tl-assignment-file-item tl-folder-file-item"
+                                  style={{ cursor: 'pointer', marginBottom: '4px', position: 'relative' }}
+                                  onClick={() => { setFileToOpen(att); setShowOpenFileConfirmation(true) }}
+                                >
+                                  <FileIcon fileType={att.original_name.split('.').pop()} size="small" className="tl-assignment-file-icon" />
+                                  <div className="tl-assignment-file-details">
+                                    <div className="tl-assignment-file-name">
+                                      {att.original_name}
+                                    </div>
+                                    <div className="tl-assignment-file-meta">
+                                      <span>by <span className="tl-assignment-file-submitter">{tlName}</span></span>
+                                      <span>{formatFileSize(att.file_size)}</span>
+                                      {att.status === 'final_approved' && <span style={{marginLeft:'8px',padding:'2px 8px',borderRadius:'12px',fontSize:'11px',fontWeight:'600',background:'#d1fae5',color:'#059669'}}>✓ Approved</span>}
+                                      {(att.status === 'rejected_by_admin' || att.status === 'rejected_by_team_leader') && <span style={{marginLeft:'8px',padding:'2px 8px',borderRadius:'12px',fontSize:'11px',fontWeight:'600',background:'#fee2e2',color:'#dc2626'}}>✗ Rejected</span>}
+                                      {(!att.status || att.status === 'team_leader_approved' || att.status === 'uploaded') && <span style={{marginLeft:'8px',padding:'2px 8px',borderRadius:'12px',fontSize:'11px',fontWeight:'600',background:'#fef3c7',color:'#92400e'}}>Pending Admin</span>}
+                                    </div>
+                                  </div>
+                                  <button onClick={(e) => { e.stopPropagation(); setRemoveAttachmentModal({ isOpen: true, attachmentId: att.id, attachmentName: att.original_name, assignmentId: assignment.id }) }} title="Remove" style={{ marginLeft: 'auto', background:'transparent', border:'none', cursor:'pointer', color:'#9ca3af', fontSize:'18px', width:'28px', height:'28px', display:'flex', alignItems:'center', justifyContent:'center', borderRadius:'6px' }} onMouseEnter={e=>{e.currentTarget.style.backgroundColor='#fee2e2';e.currentTarget.style.color='#dc2626'}} onMouseLeave={e=>{e.currentTarget.style.backgroundColor='transparent';e.currentTarget.style.color='#9ca3af'}}>×</button>
+                                </div>
+                              ))}
+                                </div>
+                              )}
+                            </React.Fragment>
+                          )
+                        })}
+
+                        {/* Individual file attachments */}
+                        {attIndividual.map((attachment) => (
+                          <div
+                            key={attachment.id}
+                            className="tl-assignment-file-item"
+                            style={{ position: 'relative', cursor: 'pointer' }}
+                            onClick={() => { setFileToOpen(attachment); setShowOpenFileConfirmation(true) }}
+                          >
+                            <FileIcon fileType={attachment.original_name.split('.').pop()} size="small" className="tl-assignment-file-icon" />
+                            <div className="tl-assignment-file-details">
+                              <div className="tl-assignment-file-name">
+                                {attachment.relative_path && attachment.relative_path !== attachment.original_name ? attachment.relative_path : attachment.original_name}
+                              </div>
+                              <div className="tl-assignment-file-meta">
+                                <span>by <span className="tl-assignment-file-submitter">{tlName}</span></span>
+                                <span>{formatFileSize(attachment.file_size)}</span>
+                                {attachment.status === 'final_approved' && <span style={{marginLeft:'8px',padding:'2px 8px',borderRadius:'12px',fontSize:'11px',fontWeight:'600',background:'#d1fae5',color:'#059669'}}>✓ Approved</span>}
+                                {(attachment.status === 'rejected_by_admin' || attachment.status === 'rejected_by_team_leader') && <span style={{marginLeft:'8px',padding:'2px 8px',borderRadius:'12px',fontSize:'11px',fontWeight:'600',background:'#fee2e2',color:'#dc2626'}}>✗ Rejected</span>}
+                                {(!attachment.status || attachment.status === 'team_leader_approved' || attachment.status === 'uploaded') && <span style={{marginLeft:'8px',padding:'2px 8px',borderRadius:'12px',fontSize:'11px',fontWeight:'600',background:'#fef3c7',color:'#92400e'}}>Pending Admin</span>}
+                              </div>
+                            </div>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                setRemoveAttachmentModal({ isOpen: true, attachmentId: attachment.id, attachmentName: attachment.original_name, assignmentId: assignment.id })
+                              }}
+                              title="Remove attachment"
+                              style={{ marginLeft: 'auto', background:'transparent', border:'none', cursor:'pointer', color:'#9ca3af', fontSize:'18px', lineHeight:1, width:'28px', height:'28px', display:'flex', alignItems:'center', justifyContent:'center', borderRadius:'6px', transition:'all 0.2s' }}
+                              onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#fee2e2'; e.currentTarget.style.color = '#dc2626' }}
+                              onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = '#9ca3af' }}
+                            >×</button>
+                          </div>
+                        ))}
+                      </div>
                     </div>
-                  </div>
-                )}
+                  )
+                })()}
 
                 <div className="tl-assignment-attachment-section">
                   {assignment.recent_submissions && assignment.recent_submissions.length > 0 ? (
@@ -668,16 +785,38 @@ const AssignmentsTab = ({
                                         </span>
                                         <span>{folderFiles.length} files</span>
                                         {(() => {
+                                          const total = folderFiles.length
                                           const approved = folderFiles.filter(f => f.status === 'final_approved').length
                                           const tlApproved = folderFiles.filter(f => f.status === 'team_leader_approved').length
                                           const rejected = folderFiles.filter(f => f.status === 'rejected_by_team_leader' || f.status === 'rejected_by_admin').length
                                           const pending = folderFiles.filter(f => f.status === 'uploaded' || !f.status).length
-                                          if (approved === folderFiles.length) return <span style={{ background: '#d1fae5', color: '#065f46', padding: '2px 8px', borderRadius: '10px', fontSize: '11px', fontWeight: '600' }}>✓ All Approved</span>
-                                          if (rejected === folderFiles.length) return <span style={{ background: '#fee2e2', color: '#991b1b', padding: '2px 8px', borderRadius: '10px', fontSize: '11px', fontWeight: '600' }}>✗ All Rejected</span>
-                                          if (tlApproved + approved === folderFiles.length) return <span style={{ background: '#fef3c7', color: '#92400e', padding: '2px 8px', borderRadius: '10px', fontSize: '11px', fontWeight: '600' }}>Pending Admin</span>
-                                          if (rejected > 0) return <span style={{ background: '#fee2e2', color: '#991b1b', padding: '2px 8px', borderRadius: '10px', fontSize: '11px', fontWeight: '600' }}>{rejected} Rejected</span>
-                                          if (pending === folderFiles.length) return <span style={{ background: '#e0e7ff', color: '#3730a3', padding: '2px 8px', borderRadius: '10px', fontSize: '11px', fontWeight: '600' }}>Pending Review</span>
-                                          return <span style={{ background: '#e0e7ff', color: '#3730a3', padding: '2px 8px', borderRadius: '10px', fontSize: '11px', fontWeight: '600' }}>{pending} Pending</span>
+                                          const badges = []
+
+                                          // All approved
+                                          if (approved === total) return <span style={{ background: '#d1fae5', color: '#065f46', padding: '2px 8px', borderRadius: '10px', fontSize: '11px', fontWeight: '600' }}>✓ All Approved</span>
+
+                                          // All rejected
+                                          if (rejected === total) return <span style={{ background: '#fee2e2', color: '#991b1b', padding: '2px 8px', borderRadius: '10px', fontSize: '11px', fontWeight: '600' }}>✗ All Rejected</span>
+
+                                          // Build composite badges
+                                          // Pending Admin badge: files waiting for admin (team_leader_approved or final_approved)
+                                          const pendingAdmin = tlApproved
+                                          const pendingTeam = pending
+
+                                          if (pendingAdmin > 0 || (approved > 0 && pending === 0 && rejected === 0)) {
+                                            badges.push(<span key="pa" style={{ background: '#fef3c7', color: '#92400e', padding: '2px 8px', borderRadius: '10px', fontSize: '11px', fontWeight: '600', marginRight: '4px' }}>Pending Admin</span>)
+                                          }
+                                          if (pendingTeam > 0) {
+                                            badges.push(<span key="pt" style={{ background: '#e0e7ff', color: '#3730a3', padding: '2px 8px', borderRadius: '10px', fontSize: '11px', fontWeight: '600', marginRight: '4px' }}>Pending Team</span>)
+                                          }
+                                          if (rejected > 0) {
+                                            badges.push(<span key="rj" style={{ background: '#fee2e2', color: '#991b1b', padding: '2px 8px', borderRadius: '10px', fontSize: '11px', fontWeight: '600', marginRight: '4px' }}>{rejected} Rejected</span>)
+                                          }
+                                          if (approved > 0 && approved < total) {
+                                            badges.push(<span key="ap" style={{ background: '#d1fae5', color: '#065f46', padding: '2px 8px', borderRadius: '10px', fontSize: '11px', fontWeight: '600' }}>{approved} Approved</span>)
+                                          }
+
+                                          return badges.length > 0 ? <>{badges}</> : <span style={{ background: '#e0e7ff', color: '#3730a3', padding: '2px 8px', borderRadius: '10px', fontSize: '11px', fontWeight: '600' }}>Pending Review</span>
                                         })()}
                                       </div>
                                     </div>
@@ -703,6 +842,7 @@ const AssignmentsTab = ({
                                         <div className="tl-assignment-menu-dropdown" style={{ right: 0, left: 'auto', minWidth: '180px', whiteSpace: 'nowrap' }}>
                                           <button
                                             className="tl-assignment-menu-item"
+                                            style={{ fontWeight: '600' }}
                                             onClick={async (e) => {
                                               e.stopPropagation()
                                               setOpenFolderMenuId(null)
@@ -732,7 +872,7 @@ const AssignmentsTab = ({
                                           </button>
                                           <button
                                             className="tl-assignment-menu-item"
-                                            style={{ color: '#16a34a' }}
+                                            style={{ fontWeight: '600', display: 'flex', alignItems: 'center', gap: '6px' }}
                                             onClick={(e) => {
                                               e.stopPropagation()
                                               setOpenFolderMenuId(null)
@@ -740,7 +880,14 @@ const AssignmentsTab = ({
                                               setFolderReviewModal({ folderName, folderFiles })
                                             }}
                                           >
-                                            ✅ Approve / Reject Folder
+                                            <svg width="15" height="15" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ flexShrink: 0 }}>
+                                              <path d="M10 2C5.58172 2 2 5.58172 2 10C2 14.4183 5.58172 18 10 18C14.4183 18 18 14.4183 18 10C18 5.58172 14.4183 2 10 2Z" fill="#16a34a" opacity="0.15"/>
+                                              <path d="M10 2C5.58172 2 2 5.58172 2 10C2 14.4183 5.58172 18 10 18C14.4183 18 18 14.4183 18 10C18 5.58172 14.4183 2 10 2Z" stroke="#16a34a" strokeWidth="1.5"/>
+                                              <path d="M6.5 10L9 12.5L13.5 7.5" stroke="#16a34a" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+                                            </svg>
+                                            <span style={{ color: '#16a34a' }}>Approve</span>
+                                            <span style={{ color: '#9ca3af' }}> / </span>
+                                            <span style={{ color: '#dc2626' }}>Reject Folder</span>
                                           </button>
                                         </div>
                                       )}
@@ -748,7 +895,9 @@ const AssignmentsTab = ({
                                   </div>
                                   
                                   {/* Folder Contents */}
-                                  {isExpanded && folderFiles.map((file) => (
+                                  {isExpanded && (
+                                    <div style={{ marginLeft: '8px', paddingLeft: '8px', marginTop: '4px' }}>
+                                    {folderFiles.map((file) => (
                                     <div
                                       key={file.id}
                                       data-file-id={file.id}
@@ -759,7 +908,7 @@ const AssignmentsTab = ({
                                           openReviewModal(file, null)
                                         }
                                       }}
-                                      style={{ marginLeft: '40px', backgroundColor: '#fafafa' }}
+                                      style={{ cursor: 'pointer', marginBottom: '4px' }}
                                     >
                                       <FileIcon
                                         fileType={(file.original_name || file.file_name).split('.').pop()}
@@ -768,7 +917,7 @@ const AssignmentsTab = ({
                                       />
                                       <div className="tl-assignment-file-details">
                                         <div className="tl-assignment-file-name">
-                                          {file.relative_path || file.original_name || file.file_name}
+                                          {file.original_name || file.file_name}
                                         </div>
                                         <div className="tl-assignment-file-meta">
                                           <span>
@@ -792,17 +941,19 @@ const AssignmentsTab = ({
                                                 file.status === 'rejected_by_team_leader' || file.status === 'rejected_by_admin' ? 'rejected' :
                                                   'uploaded'
                                             }`}>
-                                            {file.status === 'uploaded' ? 'NEW' :
-                                              file.status === 'team_leader_approved' ? 'PENDING ADMIN' :
-                                                file.status === 'final_approved' ? '✓ APPROVED' :
-                                                  file.status === 'rejected_by_team_leader' ? '✗ REJECTED' :
-                                                    file.status === 'rejected_by_admin' ? '✗ REJECTED' :
-                                                      'PENDING'}
+                                            {file.status === 'uploaded' ? 'New' :
+                                              file.status === 'team_leader_approved' ? 'Pending Admin' :
+                                                file.status === 'final_approved' ? '✓ Approved' :
+                                                  file.status === 'rejected_by_team_leader' ? 'X Rejected' :
+                                                    file.status === 'rejected_by_admin' ? 'X Rejected' :
+                                                      'Pending'}
                                           </span>
                                         </div>
                                       </div>
                                     </div>
                                   ))}
+                                    </div>
+                                  )}
                                 </React.Fragment>
                               )
                             })}
@@ -851,12 +1002,12 @@ const AssignmentsTab = ({
                                     submission.status === 'rejected_by_team_leader' || submission.status === 'rejected_by_admin' ? 'rejected' :
                                       'uploaded'
                                 }`}>
-                                {submission.status === 'uploaded' ? 'NEW' :
-                                  submission.status === 'team_leader_approved' ? 'PENDING ADMIN' :
-                                    submission.status === 'final_approved' ? '✓ APPROVED' :
-                                      submission.status === 'rejected_by_team_leader' ? '✗ REJECTED' :
-                                        submission.status === 'rejected_by_admin' ? '✗ REJECTED' :
-                                          'PENDING'}
+                                {submission.status === 'uploaded' ? 'New' :
+                                  submission.status === 'team_leader_approved' ? 'Pending Admin' :
+                                    submission.status === 'final_approved' ? '✓ Approved' :
+                                      submission.status === 'rejected_by_team_leader' ? 'X Rejected' :
+                                        submission.status === 'rejected_by_admin' ? 'X Rejected' :
+                                          'Pending'}
                               </span>
                             </div>
                           </div>
@@ -978,9 +1129,9 @@ const AssignmentsTab = ({
       {/* Folder Review Modal */}
       {folderReviewModal && (
         <div className="modal-overlay" onClick={() => { if (!isFolderProcessing) setFolderReviewModal(null) }}>
-          <div className="file-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: '480px' }}>
+          <div className="file-modal" onClick={e => e.stopPropagation()}>
             <div className="modal-header">
-              <h3>Review Folder</h3>
+              <h3>Folder Details</h3>
               <button className="modal-close" onClick={() => setFolderReviewModal(null)} disabled={isFolderProcessing}>×</button>
             </div>
             <div className="modal-body">
@@ -992,43 +1143,48 @@ const AssignmentsTab = ({
                     <span className="detail-value">📁 {folderReviewModal.folderName}</span>
                   </div>
                   <div className="detail-item">
-                    <span className="detail-label">SUBMITTED BY:</span>
-                    <span className="detail-value">{folderReviewModal.folderFiles[0]?.fullName || folderReviewModal.folderFiles[0]?.username || 'Unknown'}</span>
-                  </div>
-                  <div className="detail-item">
                     <span className="detail-label">TOTAL FILES:</span>
                     <span className="detail-value">{folderReviewModal.folderFiles.length} files</span>
                   </div>
                   <div className="detail-item">
-                    <span className="detail-label">PENDING REVIEW:</span>
+                    <span className="detail-label">SUBMITTED BY:</span>
+                    <span className="detail-value">{folderReviewModal.folderFiles[0]?.fullName || folderReviewModal.folderFiles[0]?.username || 'Unknown'}</span>
+                  </div>
+                  <div className="detail-item">
+                    <span className="detail-label">UPLOAD DATE:</span>
+                    <span className="detail-value">{folderReviewModal.folderFiles[0]?.uploaded_at ? new Date(folderReviewModal.folderFiles[0].uploaded_at).toLocaleString() : 'Unknown'}</span>
+                  </div>
+                  <div className="detail-item">
+                    <span className="detail-label">TEAM:</span>
+                    <span className="detail-value team-badge-inline">{folderReviewModal.folderFiles[0]?.user_team || folderReviewModal.folderFiles[0]?.team || 'Unknown'}</span>
+                  </div>
+                  <div className="detail-item">
+                    <span className="detail-label">STATUS:</span>
                     <span className="detail-value">
-                      {folderReviewModal.folderFiles.filter(f => f.status === 'uploaded' || f.current_stage === 'pending_team_leader').length} files
+                      {(() => {
+                        const files = folderReviewModal.folderFiles
+                        const approved = files.filter(f => f.status === 'final_approved').length
+                        const tlApproved = files.filter(f => f.status === 'team_leader_approved').length
+                        const rejected = files.filter(f => f.status === 'rejected_by_team_leader' || f.status === 'rejected_by_admin').length
+                        if (approved === files.length) return <span className="status-badge status-approved">All Approved</span>
+                        if (rejected === files.length) return <span className="status-badge status-rejected">All Rejected</span>
+                        if (tlApproved + approved === files.length) return <span className="status-badge status-pending">Pending Admin</span>
+                        return <span className="status-badge status-pending">Pending Team Leader</span>
+                      })()}
                     </span>
                   </div>
                 </div>
               </div>
 
-              <div className="comments-section" style={{ marginBottom: '20px', backgroundColor: 'white' }}>
+              <div className="comments-section">
                 <h4 className="section-title">Comments (Optional)</h4>
                 <textarea
+                  className="comment-textarea"
                   value={folderReviewComment}
                   onChange={e => setFolderReviewComment(e.target.value)}
                   placeholder="Add optional comments or rejection reason..."
-                  rows="3"
+                  rows="4"
                   disabled={isFolderProcessing}
-                  style={{
-                    width: '100%',
-                    padding: '12px',
-                    border: '1px solid #E5E7EB',
-                    color: '#000',
-                    background: '#fff',
-                    borderRadius: '8px',
-                    fontSize: '14px',
-                    fontFamily: 'inherit',
-                    resize: 'vertical',
-                    minHeight: '80px',
-                    boxSizing: 'border-box'
-                  }}
                 />
               </div>
 
@@ -1128,12 +1284,86 @@ const AssignmentsTab = ({
                     </svg>
                     {isFolderProcessing ? 'Processing...' : 'Reject All'}
                   </button>
+
                 </div>
               </div>
             </div>
           </div>
         </div>
       )}
+
+      {/* Remove Attachment Confirmation Modal */}
+      {removeAttachmentModal.isOpen && (
+        <div
+          style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 }}
+          onClick={() => setRemoveAttachmentModal({ isOpen: false, attachmentId: null, attachmentName: '', assignmentId: null })}
+        >
+          <div
+            style={{ background: '#fff', borderRadius: '16px', boxShadow: '0 10px 40px rgba(0,0,0,0.15)', maxWidth: '480px', width: '90%' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ padding: '1.5rem', borderBottom: '1px solid #e5e7eb', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <h3 style={{ margin: 0, color: '#dc2626', fontSize: '1.25rem', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span>⚠️</span> Delete File
+              </h3>
+              <button
+                onClick={() => setRemoveAttachmentModal({ isOpen: false, attachmentId: null, attachmentName: '', assignmentId: null })}
+                style={{ background: 'none', border: 'none', fontSize: '1.5rem', cursor: 'pointer', color: '#6b7280', width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '6px' }}
+              >×</button>
+            </div>
+            <div style={{ padding: '1.5rem' }}>
+              <p style={{ fontSize: '15px', color: '#374151', marginBottom: '16px', lineHeight: 1.6 }}>
+                Are you sure you want to permanently delete this file?
+              </p>
+              <div style={{ backgroundColor: '#fee2e2', border: '1px solid #fecaca', borderRadius: '8px', padding: '12px 16px', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '16px' }}>📄</span>
+                <span style={{ fontSize: '14px', fontWeight: '500', color: '#991b1b' }}>{removeAttachmentModal.attachmentName}</span>
+              </div>
+              <p style={{ fontSize: '13px', color: '#6b7280', margin: 0 }}>
+                This action will permanently delete the file from the database and storage. This cannot be undone.
+              </p>
+            </div>
+            <div style={{ padding: '1rem 1.5rem', borderTop: '1px solid #e5e7eb', display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
+              <button
+                onClick={() => setRemoveAttachmentModal({ isOpen: false, attachmentId: null, attachmentName: '', assignmentId: null })}
+                style={{ padding: '10px 20px', borderRadius: '8px', border: '1px solid #d1d5db', backgroundColor: '#fff', color: '#374151', fontSize: '14px', fontWeight: '500', cursor: 'pointer' }}
+                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f9fafb'}
+                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#fff'}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={async () => {
+                  const { attachmentId, assignmentId, attachmentName } = removeAttachmentModal
+                  setRemoveAttachmentModal({ isOpen: false, attachmentId: null, attachmentName: '', assignmentId: null })
+                  try {
+                    const res = await fetch(`${API_BASE_URL}/api/assignments/${assignmentId}/attachments/${attachmentId}`, { method: 'DELETE' })
+                    const data = await res.json()
+                    if (data.success) {
+                      setToast({ isOpen: true, title: 'Removed', message: 'File removed successfully', type: 'error' })
+                      if (onRefreshAssignments) onRefreshAssignments()
+                    }
+                  } catch (err) { console.error('Failed to delete attachment:', err) }
+                }}
+                style={{ padding: '10px 20px', borderRadius: '8px', border: 'none', backgroundColor: '#dc2626', color: '#fff', fontSize: '14px', fontWeight: '500', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}
+                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#b91c1c'}
+                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#dc2626'}
+              >
+                <span>🗑️</span> Delete File
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Toast Notification */}
+      <SuccessModal
+        isOpen={toast.isOpen}
+        onClose={() => setToast({ isOpen: false, title: '', message: '', type: 'error' })}
+        title={toast.title}
+        message={toast.message}
+        type={toast.type}
+      />
 
       {/* File Open Modal */}
       <FileOpenModal
