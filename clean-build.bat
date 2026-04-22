@@ -47,17 +47,18 @@ if "%ERRORLEVEL%"=="0" (
 
 REM Kill any KMTI FMS application instances
 echo Checking for KMTI FMS application...
-tasklist /FI "IMAGENAME eq KMTI File Management.exe" 2>NUL | find /I /N "KMTI File Management.exe">NUL
-if "%ERRORLEVEL%"=="0" (
-    echo   - Killing KMTI FMS application...
-    taskkill /F /IM "KMTI File Management.exe" >NUL 2>&1
-    echo   - KMTI FMS application terminated
-) else (
-    echo   - No KMTI FMS application found
-)
+taskkill /F /IM "KMTI File Management.exe" >NUL 2>&1
+taskkill /F /FI "WINDOWTITLE eq KMTI*" >NUL 2>&1
 
-REM Wait a moment for processes to fully terminate
-timeout /t 2 /nobreak >NUL
+REM Force-kill by image name variants
+taskkill /F /IM "KMTI*" >NUL 2>&1
+taskkill /F /IM "electron.exe" >NUL 2>&1
+taskkill /F /IM "node.exe" >NUL 2>&1
+
+REM Wait for file handles to release
+echo   - Waiting for file handles to release...
+timeout /t 5 /nobreak >NUL
+echo   - Process cleanup done
 
 echo.
 echo   ✓ Process cleanup complete
@@ -135,10 +136,10 @@ echo [3/5] Building React client...
 echo.
 
 cd client
-call npm run build
+call npx vite build
 if %ERRORLEVEL% NEQ 0 (
     echo.
-    echo   ✗ Client build failed!
+    echo   Client build failed!
     echo   Please check the error messages above.
     cd ..
     pause
@@ -176,6 +177,26 @@ REM ============================================================================
 
 echo [5/5] Building Electron application...
 echo.
+
+REM Ensure app.asar is not locked before building
+if exist "dist\win-unpacked\resources\app.asar" (
+    echo   - Removing old app.asar...
+    del /f /q "dist\win-unpacked\resources\app.asar" >NUL 2>&1
+    if exist "dist\win-unpacked\resources\app.asar" (
+        echo   ! app.asar still locked - waiting 10 more seconds...
+        timeout /t 10 /nobreak >NUL
+        del /f /q "dist\win-unpacked\resources\app.asar" >NUL 2>&1
+    )
+    if exist "dist\win-unpacked\resources\app.asar" (
+        echo.
+        echo   ERROR: app.asar is still locked by another process.
+        echo   Please open Task Manager, kill any KMTI or Electron process,
+        echo   then run this script again.
+        pause
+        exit /b 1
+    )
+    echo   - app.asar cleared
+)
 
 call npm run electron:pack
 if %ERRORLEVEL% NEQ 0 (

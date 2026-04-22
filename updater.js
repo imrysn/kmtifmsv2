@@ -281,20 +281,10 @@ class AppUpdater {
   }
 
   startPeriodicUpdateCheck() {
-    if (isDev) return;
-
-    // Check for updates on app startup (after 5 seconds to let app initialize)
-    setTimeout(() => {
-      console.log('🔍 Checking for updates on app startup...');
-      this.checkForUpdates();
-    }, 5000);
-
-    // Periodic checks every 4 hours
-    this.updateCheckInterval = setInterval(() => {
-      this.checkForUpdates();
-    }, UPDATE_CHECK_INTERVAL);
-
-    console.log(`🔄 Automatic updates enabled (checks on startup + every ${UPDATE_CHECK_INTERVAL / 3600000} hours)`);
+    // Auto-update disabled — GitHub releases are not in sync with current version.
+    // Remove this block and configure a proper publish/release pipeline before re-enabling.
+    console.log('⏭️  Auto-updater disabled (version mismatch prevention)');
+    return;
   }
 
   stopPeriodicUpdateCheck() {

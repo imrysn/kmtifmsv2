@@ -32,17 +32,19 @@ const router = express.Router();
   }
 })()
 
-// Ensure assignment_attachments has the review columns (safe: ignores errors if columns exist)
-;(function ensureAttachmentColumns() {
+// Ensure assignment_attachments has the review columns (safe: IF NOT EXISTS prevents dup errors)
+;(async function ensureAttachmentColumns() {
   const cols = [
-    `ALTER TABLE assignment_attachments ADD COLUMN status VARCHAR(50) DEFAULT 'team_leader_approved'`,
-    `ALTER TABLE assignment_attachments ADD COLUMN current_stage VARCHAR(50) DEFAULT 'pending_admin'`,
-    `ALTER TABLE assignment_attachments ADD COLUMN admin_reviewed_at DATETIME`,
-    `ALTER TABLE assignment_attachments ADD COLUMN admin_comments TEXT`,
-    `ALTER TABLE assignment_attachments ADD COLUMN public_network_url TEXT`,
-    `ALTER TABLE assignment_attachments ADD COLUMN final_approved_at DATETIME`,
-  ]
-  cols.forEach(sql => db.run(sql, () => {})) // errors silently ignored (column already exists)
+    `ALTER TABLE assignment_attachments ADD COLUMN IF NOT EXISTS status VARCHAR(50) DEFAULT 'team_leader_approved'`,
+    `ALTER TABLE assignment_attachments ADD COLUMN IF NOT EXISTS current_stage VARCHAR(50) DEFAULT 'pending_admin'`,
+    `ALTER TABLE assignment_attachments ADD COLUMN IF NOT EXISTS admin_reviewed_at DATETIME`,
+    `ALTER TABLE assignment_attachments ADD COLUMN IF NOT EXISTS admin_comments TEXT`,
+    `ALTER TABLE assignment_attachments ADD COLUMN IF NOT EXISTS public_network_url TEXT`,
+    `ALTER TABLE assignment_attachments ADD COLUMN IF NOT EXISTS final_approved_at DATETIME`,
+  ];
+  for (const sql of cols) {
+    try { await db.run(sql); } catch (_) { /* already exists — safe to ignore */ }
+  }
 })()
 
 // Move whole folder to NAS and approve all files inside it

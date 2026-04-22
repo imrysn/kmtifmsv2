@@ -4,7 +4,7 @@ import anime from 'animejs'
 import '../css/AdminDashboard.css'
 import SkeletonLoader from '../components/common/SkeletonLoader'
 import { getSidebarIcon } from '../components/shared/FileIcon'
-import { AuthProvider, NetworkProvider, NotificationProvider } from '../contexts'
+import { AuthProvider, NetworkProvider } from '../contexts'
 import { ToastNotification } from '../components/shared'
 
 // Import admin tab components
@@ -60,7 +60,7 @@ const AdminDashboard = ({ user, onLogout }) => {
     fetchUsers()
     fetchNotifications()
     // Poll for notifications every 30 seconds
-    const interval = setInterval(fetchNotifications, 10000)
+    const interval = setInterval(fetchNotifications, 30000)
     return () => clearInterval(interval)
   }, [])
 
@@ -78,7 +78,8 @@ const AdminDashboard = ({ user, onLogout }) => {
 
   const fetchNotifications = async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/notifications/user/${user.id}`)
+      // Lightweight call — only fetch page 1 to get unreadCount and toast notifications
+      const response = await fetch(`${API_BASE_URL}/api/notifications/user/${user.id}?page=1&limit=20`)
       const data = await response.json()
       if (data.success) {
         setNotifications(data.notifications || [])
@@ -212,7 +213,7 @@ const AdminDashboard = ({ user, onLogout }) => {
           onClearNotificationContext={() => setNotificationCommentContext(null)}
         />
       case 'notifications':
-        return <Notifications user={user} onNavigate={handleNotificationNavigation} />
+        return <Notifications user={user} onNavigate={handleNotificationNavigation} onRead={() => setUnreadCount(0)} />
       case 'settings':
         return <Settings {...commonProps} users={users} user={user} />
       default:
@@ -228,7 +229,6 @@ const AdminDashboard = ({ user, onLogout }) => {
   return (
     <AuthProvider initialUser={user}>
       <NetworkProvider>
-        <NotificationProvider userId={user?.id}>
           <Suspense fallback={<SkeletonLoader type="admin" />}>
             <div className="minimal-admin-dashboard">
               {/* Burger Menu Button */}
@@ -374,7 +374,6 @@ const AdminDashboard = ({ user, onLogout }) => {
               />
             </div>
           </Suspense>
-        </NotificationProvider>
       </NetworkProvider>
     </AuthProvider>
   )

@@ -422,6 +422,11 @@ const TasksTab = ({
       )
     }
 
+    // Completed by team leader but no files from user yet
+    if (assignment.status === 'completed') {
+      return null
+    }
+
     if (!assignment.due_date) return null;
 
     const dueDate = new Date(assignment.due_date)
@@ -807,7 +812,13 @@ const TasksTab = ({
       if (submissionErrors.length === 0) {
         setSuccessModal({ isOpen: true, title: 'Success', message: `${uploadedFileIds.length} file(s) uploaded and submitted successfully!`, type: 'success' });
       } else if (submissionErrors.length < uploadedFileIds.length) {
-        setSuccessModal({ isOpen: true, title: 'Success', message: `${uploadedFileIds.length - submissionErrors.length} file(s) submitted successfully. Some files had errors.`, type: 'success' });
+        const successCount = uploadedFileIds.length - submissionErrors.length;
+        setSuccessModal({
+          isOpen: true,
+          title: 'Partially Submitted',
+          message: `${successCount} of ${uploadedFileIds.length} file(s) submitted successfully.\n\nFailed files:\n${submissionErrors.join('\n')}`,
+          type: 'error'
+        });
       } else {
         throw new Error('Failed to submit files: ' + submissionErrors.join(', '));
       }
@@ -977,7 +988,7 @@ const TasksTab = ({
                   </div>
                   {/* Show completed badge or due date at top right */}
                   <div style={{ textAlign: 'right' }}>
-                    {assignment.status === 'completed' ? (
+                    {assignment.status === 'completed' && assignment.submitted_files && assignment.submitted_files.length > 0 ? (
                       <div style={{
                         backgroundColor: '#d1fae5',
                         color: '#059669',
@@ -1071,10 +1082,18 @@ const TasksTab = ({
                                     className="submitted-file-card"
                                     style={{ cursor: 'pointer', marginBottom: '4px' }}
                                   >
-                                    <FileIcon fileType={file.original_name.split('.').pop()} size="small" />
-                                    <div style={{ flex: 1, minWidth: 0 }}>
-                                      <div style={{ fontWeight: '500', fontSize: '14px', color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{file.original_name}</div>
-                                      <div style={{ fontSize: '12px', color: '#6B7280', marginTop: '2px' }}>{formatFileSize(file.file_size)}</div>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                      <div style={{ flexShrink: 0 }}>
+                                        <FileIcon fileType={file.original_name.split('.').pop()} size="small" />
+                                      </div>
+                                      <div style={{ flex: 1, minWidth: 0 }}>
+                                        <div style={{ fontWeight: '500', fontSize: '14px', color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{file.original_name}</div>
+                                        <div style={{ fontSize: '12px', color: '#6b7280', display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap', marginTop: '2px' }}>
+                                          <span>by <span style={{ fontWeight: '500', color: '#2563eb' }}>{assignment.team_leader_fullname || assignment.team_leader_username || 'Team Leader'}</span></span>
+                                          <span style={{ color: '#9ca3af' }}>•</span>
+                                          <span>{formatFileSize(file.file_size)}</span>
+                                        </div>
+                                      </div>
                                     </div>
                                   </div>
                                 ))}
@@ -1089,20 +1108,22 @@ const TasksTab = ({
                         <div
                           key={attachment.id}
                           onClick={() => confirmOpenFile(attachment)}
-                          style={{ display: 'flex', alignItems: 'center', padding: '12px 16px', gap: '12px', border: '1px solid #9CA3AF', borderRadius: '8px', cursor: 'pointer', marginBottom: '8px', transition: 'background-color 0.2s ease', backgroundColor: 'transparent' }}
-                          onMouseEnter={e => e.currentTarget.style.backgroundColor = 'rgba(156, 163, 175, 0.1)'}
-                          onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
+                          className="submitted-file-card"
+                          style={{ cursor: 'pointer', marginBottom: '8px' }}
                         >
-                          <div style={{ flexShrink: 0 }}>
-                            <FileIcon fileType={attachment.original_name.split('.').pop()} size="small" />
-                          </div>
-                          <div style={{ flex: 1, minWidth: 0 }}>
-                            <div style={{ fontWeight: '500', color: '#1c1e21', marginBottom: '4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                              {attachment.original_name}
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                            <div style={{ flexShrink: 0 }}>
+                              <FileIcon fileType={attachment.original_name.split('.').pop()} size="small" />
                             </div>
-                            <div style={{ fontSize: '12px', color: '#65676b', display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                              <span>by <span style={{ color: '#1877f2', fontWeight: '600' }}>{assignment.team_leader_fullname || assignment.team_leader_username || 'Team Leader'}</span></span>
-                              <span>{formatFileSize(attachment.file_size)}</span>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{ fontWeight: '500', fontSize: '14px', color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                {attachment.original_name}
+                              </div>
+                              <div style={{ fontSize: '12px', color: '#6b7280', display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap', marginTop: '2px' }}>
+                                <span>by <span style={{ fontWeight: '500', color: '#2563eb' }}>{assignment.team_leader_fullname || assignment.team_leader_username || 'Team Leader'}</span></span>
+                                <span style={{ color: '#9ca3af' }}>•</span>
+                                <span>{formatFileSize(attachment.file_size)}</span>
+                              </div>
                             </div>
                           </div>
                         </div>
@@ -1489,8 +1510,8 @@ const TasksTab = ({
                   </div>
                 )}
 
-                {/* Message when no files submitted yet but marked as submitted */}
-                {assignment.user_status === 'submitted' && (!assignment.submitted_files || assignment.submitted_files.length === 0) && (
+                {/* Message when no files submitted yet but marked as submitted or completed */}
+                {(assignment.user_status === 'submitted' || assignment.status === 'completed') && (!assignment.submitted_files || assignment.submitted_files.length === 0) && (
                   <div style={{
                     backgroundColor: '#FEF3C7',
                     border: '1px solid #F59E0B',

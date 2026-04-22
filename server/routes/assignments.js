@@ -38,23 +38,43 @@ async function createBatchedSubmissionNotification(teamLeaderId, assignmentId, s
     const assignment = await queryOne('SELECT title FROM assignments WHERE id = ?', [assignmentId]);
     const firstSubmission = submissions[0];
 
-    // Check if this is a folder upload by looking at folder_name
+    // Get the REAL total count of files submitted for this assignment by this user from DB
+    // This ensures the count is accurate even if some files were skipped as duplicates
+    const realCount = await queryOne(
+      'SELECT COUNT(*) as total FROM assignment_submissions WHERE assignment_id = ? AND user_id = ?',
+      [assignmentId, firstSubmission.userId]
+    );
+    const totalFileCount = realCount ? realCount.total : submissions.length;
+
+    // Get folder name — use DB data for accuracy
     const folderName = firstSubmission.folderName;
-    const isFolder = folderName && submissions.length > 1;
+    const isFolder = folderName && totalFileCount > 1;
 
     let message;
     let title = 'New File Submitted for Review';
 
     if (isFolder) {
-      // Folder upload - create a single notification for the entire folder
       title = 'New Folder Submitted for Review';
-      message = `${firstSubmission.submitterName} submitted folder "${folderName}" (${submissions.length} files) for the assignment "${assignment.title}"`;
-    } else if (submissions.length === 1) {
-      // Single file
+      message = `${firstSubmission.submitterName} submitted folder "${folderName}" (${totalFileCount} files) for the assignment "${assignment.title}"`;
+    } else if (totalFileCount === 1) {
       message = `${firstSubmission.submitterName} submitted "${firstSubmission.fileName}" for the assignment "${assignment.title}"`;
     } else {
-      // Multiple individual files
-      message = `${firstSubmission.submitterName} submitted ${submissions.length} files for the assignment "${assignment.title}"`;
+      message = `${firstSubmission.submitterName} submitted ${totalFileCount} files for the assignment "${assignment.title}"`;
+    }
+
+    // Find the team leader — first try assignment.team_leader_id, then look up by team
+    let finalTeamLeaderId = teamLeaderId;
+    if (!finalTeamLeaderId) {
+      const tl = await queryOne(
+        'SELECT u.id FROM users u JOIN team_leaders tl ON u.id = tl.user_id JOIN teams t ON tl.team_id = t.id JOIN assignments a ON a.team = t.name WHERE a.id = ? LIMIT 1',
+        [assignmentId]
+      );
+      finalTeamLeaderId = tl ? tl.id : null;
+    }
+
+    if (!finalTeamLeaderId) {
+      console.warn(`⚠️ No team leader found for assignment ${assignmentId} — skipping notification`);
+      return;
     }
 
     await query(`
@@ -70,9 +90,9 @@ async function createBatchedSubmissionNotification(teamLeaderId, assignmentId, s
         action_by_role
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     `, [
-      teamLeaderId,
+      finalTeamLeaderId,
       assignmentId,
-      firstSubmission.fileId, // Link to first file
+      firstSubmission.fileId,
       'submission',
       title,
       message,
@@ -81,7 +101,7 @@ async function createBatchedSubmissionNotification(teamLeaderId, assignmentId, s
       'USER'
     ]);
 
-    console.log(`✅ Created batched notification for team leader ${teamLeaderId}: ${isFolder ? `folder "${folderName}"` : `${submissions.length} file(s)`}`);
+    console.log(`✅ Created batched notification for team leader ${finalTeamLeaderId}: ${isFolder ? `folder "${folderName}" (${totalFileCount} files)` : `${totalFileCount} file(s)`}`);
   } catch (error) {
     console.error('⚠️ Failed to create batched submission notification:', error);
   }
@@ -1705,9 +1725,11 @@ router.post('/submit', async (req, res) => {
     );
 
     if (existingFileSubmission) {
-      return res.status(400).json({
-        success: false,
-        message: 'This file has already been submitted for this assignment'
+      // Already submitted — treat as success so client doesn't show errors on re-upload
+      console.log(`ℹ️ File ${fileId} already submitted for assignment ${assignmentId} — skipping duplicate`);
+      return res.json({
+        success: true,
+        message: 'File already submitted for this assignment'
       });
     }
 

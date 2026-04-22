@@ -75,6 +75,7 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
   const [notifications, setNotifications] = useState([])
   const [notificationCounts, setNotificationCounts] = useState({ overdue: 0, urgent: 0, pending: 0 })
   const [showNotifications, setShowNotifications] = useState(false)
+  const [unreadCount, setUnreadCount] = useState(0)
 
   // Team management states
   const [teamMembers, setTeamMembers] = useState([])
@@ -911,6 +912,17 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
     } catch (error) {
       console.error('Error fetching notifications:', error)
     }
+
+    // Also fetch unread count from the dedicated notifications endpoint
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/notifications/user/${user.id}?page=1&limit=1`)
+      const d = await res.json()
+      if (d.success) {
+        setUnreadCount(d.unreadCount || 0)
+      }
+    } catch (e) {
+      // non-critical, ignore
+    }
   }
 
   const hasActiveFilters = () => {
@@ -1068,6 +1080,7 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
           <Suspense fallback={<SkeletonLoader type="list" />}>
             <NotificationTab
               user={user}
+              onRead={() => setUnreadCount(0)}
               onNavigate={async (tab, data) => {
                 console.log('🎯 Dashboard onNavigate called');
                 console.log('   Tab:', tab);
@@ -1157,6 +1170,7 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
           sidebarOpen={sidebarOpen}
           onLogout={onLogout}
           user={user}
+          unreadCount={unreadCount}
         />
 
         <main className="tl-main">
