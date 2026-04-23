@@ -706,7 +706,7 @@ router.get('/:id/path', (req, res) => {
   const { id } = req.params;
   console.log(`📄 Getting file path for file ${id}`);
 
-  db.get('SELECT file_path, original_name FROM files WHERE id = ?', [id], (err, file) => {
+  db.get('SELECT file_path, original_name, public_network_url, status FROM files WHERE id = ?', [id], (err, file) => {
     if (err) {
       console.error('❌ Error getting file path:', err);
       return res.status(500).json({
@@ -759,19 +759,25 @@ router.get('/:id/path', (req, res) => {
     // Construct absolute path for Electron
     let absolutePath = file.file_path;
 
-    // If it's a relative path stored in DB (e.g. starting with /uploads/), make it absolute
-    if (file.file_path && file.file_path.startsWith('/uploads/')) {
-      // Remove '/uploads/' prefix to get path relative to uploadsDir
-      const relativePath = file.file_path.replace(/^\/uploads\//, '');
-      absolutePath = path.join(uploadsDir, relativePath);
-    }
-    // Handle case where it might just be the filename or other relative path format
-    else if (file.file_path && !path.isAbsolute(file.file_path)) {
-      absolutePath = path.join(uploadsDir, file.file_path);
-    }
+    // Use network URL if file is approved and published
+    if (file.status === 'final_approved' && file.public_network_url) {
+      absolutePath = file.public_network_url;
+      console.log(`📡 Using public network URL for approved file: ${absolutePath}`);
+    } else {
+      // If it's a relative path stored in DB (e.g. starting with /uploads/), make it absolute
+      if (file.file_path && file.file_path.startsWith('/uploads/')) {
+        // Remove '/uploads/' prefix to get path relative to uploadsDir
+        const relativePath = file.file_path.replace(/^\/uploads\//, '');
+        absolutePath = path.join(uploadsDir, relativePath);
+      }
+      // Handle case where it might just be the filename or other relative path format
+      else if (file.file_path && !path.isAbsolute(file.file_path)) {
+        absolutePath = path.join(uploadsDir, file.file_path);
+      }
 
-    // Normalize path separators for the OS
-    absolutePath = path.resolve(absolutePath);
+      // Normalize path separators for the OS
+      absolutePath = path.resolve(absolutePath);
+    }
 
     console.log(`✅ File path resolved for ID ${id}: ${absolutePath}`);
 
@@ -1324,13 +1330,20 @@ router.post('/:fileId/move-to-projects', async (req, res) => {
       });
     }
 
-    // Get source file path — handle both absolute (attachment) and relative paths
+    // Get source file path — handle both absolute (attachment) and relative paths.
+    // IMPORTANT: Check /uploads/ prefix FIRST. On Windows, path.isAbsolute('/uploads/...')
+    // returns true (leading / = rooted to current drive), so we must handle these relative
+    // DB paths before reaching the isAbsolute branch.
     let sourcePath;
-    if (path.isAbsolute(file.file_path) || file.file_path.startsWith('\\\\')) {
+    if (file.file_path && file.file_path.startsWith('/uploads/')) {
+      // Relative path stored in DB — resolve against the NAS uploads directory
+      sourcePath = path.join(uploadsDir, file.file_path.substring(9));
+    } else if (file.file_path && (file.file_path.startsWith('\\\\') || /^[a-zA-Z]:[\\/]/.test(file.file_path))) {
+      // Already a real absolute path (UNC or Windows drive letter)
       sourcePath = file.file_path;
     } else {
-      const relativePath = file.file_path.startsWith('/uploads/') ? file.file_path.substring(8) : file.file_path;
-      sourcePath = path.join(uploadsDir, relativePath);
+      // Fallback: join with uploadsDir as-is
+      sourcePath = path.join(uploadsDir, file.file_path || '');
     }
 
     // Check if source file exists
@@ -2524,7 +2537,7 @@ router.post('/open-file', async (req, res) => {
 
     // If it's a relative path starting with /uploads/, resolve it
     if (filePath.startsWith('/uploads/')) {
-      const relativePath = filePath.substring(8);
+      const relativePath = filePath.substring(9);
       resolvedPath = path.join(uploadsDir, relativePath);
     }
 
