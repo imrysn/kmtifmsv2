@@ -59,7 +59,6 @@ body {
   align-items: center;
   justify-content: center;
   padding: 48px;
-  animation: slideInLeft 0.4s ease-out 0.3s both;
   border-right: 1px solid #E5E7EB;
 }
 
@@ -122,7 +121,6 @@ body {
   align-items: center;
   justify-content: center;
   padding: 48px;
-  animation: slideInRight 0.4s ease-out 0.4s both;
 }
 
 @keyframes slideInRight {

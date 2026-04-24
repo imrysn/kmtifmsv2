@@ -179,7 +179,6 @@ const FileReviewTab = ({
                       </div>
                       <div className="file-details">
                         <span className="file-name">{file.original_name}</span>
-                        <span className="file-size">{formatFileSize(file.file_size)}</span>
                       </div>
                     </div>
                   </td>

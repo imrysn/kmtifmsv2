@@ -608,24 +608,8 @@ function createWindow() {
 
   // Re-lock after every navigation (SPA route changes, hot reloads in dev, etc.)
   mainWindow.webContents.on('did-finish-load', () => {
-    mainWindow.webContents.setVisualZoomLevelLimits(1, 1);
-    mainWindow.webContents.setZoomFactor(1);
-    // Block Ctrl+wheel zoom from inside the renderer process
-    mainWindow.webContents.executeJavaScript(`
-      (function() {
-        if (window.__zoomLocked) return;
-        window.__zoomLocked = true;
-        window.addEventListener('wheel', function(e) {
-          if (e.ctrlKey) e.preventDefault();
-        }, { passive: false, capture: true });
-        window.addEventListener('gesturestart', function(e) {
-          e.preventDefault();
-        }, { passive: false, capture: true });
-        window.addEventListener('gesturechange', function(e) {
-          e.preventDefault();
-        }, { passive: false, capture: true });
-      })()
-    `).catch(() => {});
+  mainWindow.webContents.setVisualZoomLevelLimits(1, 1);
+  mainWindow.webContents.setZoomFactor(1);
   });
 
   mainWindow.once('ready-to-show', () => {
@@ -1286,8 +1270,23 @@ if (ipcMain) {
       // Normalize the path for Windows
       const normalizedPath = path.normalize(filePath);
 
-      // SECURITY: Check if file exists before attempting to open
-      // This prevents attempting to open non-existent or invalid paths
+      // Determine if this is a UNC/network path (\\server\share\...)
+      const isUNCPath = normalizedPath.startsWith('\\\\') || filePath.startsWith('\\\\');
+
+      if (isUNCPath) {
+        // For UNC/network paths, skip fs.existsSync (unreliable on network drives)
+        // and go straight to shell.openPath — Windows will handle the error if missing
+        log(LogLevel.DEBUG, `Opening UNC/network file directly: ${normalizedPath}`);
+        const result = await shell.openPath(normalizedPath);
+        if (result) {
+          log(LogLevel.ERROR, 'Error opening UNC file:', result);
+          return { success: false, error: result };
+        }
+        log(LogLevel.INFO, 'UNC file opened successfully');
+        return { success: true, method: 'system-default-unc' };
+      }
+
+      // For local paths: check existence first
       if (!fs.existsSync(normalizedPath)) {
         log(LogLevel.WARN, 'File not found:', normalizedPath);
         return { success: false, error: 'File not found or has been deleted/moved' };

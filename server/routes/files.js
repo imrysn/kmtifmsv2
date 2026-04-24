@@ -718,7 +718,7 @@ router.get('/:id/path', (req, res) => {
     if (!file) {
       // Not found in files table, check assignment_attachments
       console.log(`   File ${id} not found in 'files' table, checking 'assignment_attachments'...`);
-      return db.get('SELECT file_path, original_name FROM assignment_attachments WHERE id = ?', [id], (err2, attachment) => {
+      return db.get('SELECT file_path, original_name, public_network_url, status FROM assignment_attachments WHERE id = ?', [id], (err2, attachment) => {
         if (err2) {
           console.error('❌ Error checking attachment:', err2);
           return res.status(500).json({
@@ -736,16 +736,30 @@ router.get('/:id/path', (req, res) => {
 
         // Found in attachments - resolve path
         console.log(`   Found in 'assignment_attachments' table`);
-        let absolutePath = attachment.file_path;
 
-        if (attachment.file_path && attachment.file_path.startsWith('/uploads/')) {
-          const relativePath = attachment.file_path.replace(/^\/uploads\//, '');
-          absolutePath = path.join(uploadsDir, relativePath);
-        } else if (attachment.file_path && !path.isAbsolute(attachment.file_path)) {
-          absolutePath = path.join(uploadsDir, attachment.file_path);
+        // Prefer public_network_url (NAS final path) if available
+        if (attachment.public_network_url && !attachment.public_network_url.startsWith('http')) {
+          console.log(`✅ Using public_network_url for attachment: ${attachment.public_network_url}`);
+          return res.json({
+            success: true,
+            filePath: attachment.public_network_url,
+            originalName: attachment.original_name
+          });
         }
 
-        absolutePath = path.resolve(absolutePath);
+        let absolutePath = attachment.file_path;
+
+        // If it's already a UNC path (\\server\...) or absolute Windows path, use as-is
+        // Do NOT call path.resolve() on UNC paths — it corrupts them
+        if (absolutePath && (absolutePath.startsWith('\\\\') || /^[A-Za-z]:[\\/]/.test(absolutePath))) {
+          console.log(`✅ File path is already absolute (attachment): ${absolutePath}`);
+        } else if (absolutePath && absolutePath.startsWith('/uploads/')) {
+          const relativePath = absolutePath.replace(/^\/uploads\//, '');
+          absolutePath = path.join(uploadsDir, relativePath);
+        } else if (absolutePath) {
+          absolutePath = path.join(uploadsDir, absolutePath);
+        }
+
         console.log(`✅ File path resolved (attachment) for ID ${id}: ${absolutePath}`);
 
         return res.json({
@@ -760,23 +774,20 @@ router.get('/:id/path', (req, res) => {
     let absolutePath = file.file_path;
 
     // Use network URL if file is approved and published
-    if (file.status === 'final_approved' && file.public_network_url) {
+    if (file.public_network_url && !file.public_network_url.startsWith('http')) {
       absolutePath = file.public_network_url;
-      console.log(`📡 Using public network URL for approved file: ${absolutePath}`);
+      console.log(`📡 Using public network URL for file: ${absolutePath}`);
     } else {
-      // If it's a relative path stored in DB (e.g. starting with /uploads/), make it absolute
-      if (file.file_path && file.file_path.startsWith('/uploads/')) {
-        // Remove '/uploads/' prefix to get path relative to uploadsDir
+      // If it's already a UNC path (\\server\...) or absolute Windows path, use as-is
+      // Do NOT call path.resolve() on UNC paths — it corrupts them
+      if (absolutePath && (absolutePath.startsWith('\\\\') || /^[A-Za-z]:[\\/]/.test(absolutePath))) {
+        console.log(`✅ File path is already absolute: ${absolutePath}`);
+      } else if (file.file_path && file.file_path.startsWith('/uploads/')) {
         const relativePath = file.file_path.replace(/^\/uploads\//, '');
         absolutePath = path.join(uploadsDir, relativePath);
-      }
-      // Handle case where it might just be the filename or other relative path format
-      else if (file.file_path && !path.isAbsolute(file.file_path)) {
+      } else if (file.file_path && !path.isAbsolute(file.file_path)) {
         absolutePath = path.join(uploadsDir, file.file_path);
       }
-
-      // Normalize path separators for the OS
-      absolutePath = path.resolve(absolutePath);
     }
 
     console.log(`✅ File path resolved for ID ${id}: ${absolutePath}`);
@@ -1863,10 +1874,43 @@ router.delete('/:fileId', async (req, res) => {
     });
 
     if (!file) {
-      return res.status(404).json({
-        success: false,
-        message: 'File not found'
+      // Not in files table — check assignment_attachments (old TL-attached files)
+      const attachment = await new Promise((resolve, reject) => {
+        db.get('SELECT * FROM assignment_attachments WHERE id = ?', [fileId], (err, row) => {
+          if (err) reject(err); else resolve(row);
+        });
       });
+
+      if (!attachment) {
+        return res.status(404).json({ success: false, message: 'File not found' });
+      }
+
+      // Delete physical file for attachment
+      let attPath = attachment.public_network_url && !attachment.public_network_url.startsWith('http')
+        ? attachment.public_network_url
+        : null;
+      if (!attPath) {
+        const fp = attachment.file_path || '';
+        if (fp.startsWith('\\\\') || /^[A-Za-z]:[\\//]/.test(fp)) {
+          attPath = fp;
+        } else if (fp.startsWith('/uploads/')) {
+          attPath = path.join(uploadsDir, fp.substring(9));
+        } else if (fp) {
+          attPath = path.join(uploadsDir, fp);
+        }
+      }
+      if (attPath) await safeDeleteFile(attPath).catch(() => {});
+
+      // Delete DB record
+      await new Promise((resolve) => {
+        db.run('DELETE FROM assignment_attachments WHERE id = ?', [fileId], () => resolve());
+      });
+
+      logActivity(db, adminId, adminUsername, adminRole, team,
+        `Attachment deleted: ${attachment.original_name} (Admin Action)`);
+
+      console.log(`✅ Attachment deleted: ${attachment.original_name}`);
+      return res.json({ success: true, message: 'File deleted successfully.' });
     }
 
     // IMPORTANT: Clear assignment submissions that reference this file
@@ -2734,7 +2778,102 @@ router.post('/folder/delete', async (req, res) => {
   }
 });
 
+// Stream a file by ID — reads from NAS/local path and serves inline to the browser
+// This allows any client to open files even if they don't have direct NAS access
+router.get('/:fileId/stream', async (req, res) => {
+  const { fileId } = req.params;
+  if (!/^\d+$/.test(fileId)) return res.status(400).send('Invalid file ID');
+
+  try {
+    // Resolve the physical path using the same logic as /:id/path
+    const lookupFile = await new Promise((resolve) =>
+      db.get('SELECT file_path, original_name, public_network_url, status FROM files WHERE id = ?',
+        [fileId], (err, row) => resolve(row || null))
+    );
+
+    let filePath, originalName;
+
+    if (lookupFile) {
+      originalName = lookupFile.original_name;
+      if (lookupFile.public_network_url && !lookupFile.public_network_url.startsWith('http')) {
+        filePath = lookupFile.public_network_url;
+      } else if (lookupFile.file_path && (lookupFile.file_path.startsWith('\\\\') || /^[A-Za-z]:[\\/]/.test(lookupFile.file_path))) {
+        filePath = lookupFile.file_path;
+      } else if (lookupFile.file_path && lookupFile.file_path.startsWith('/uploads/')) {
+        filePath = path.join(uploadsDir, lookupFile.file_path.replace(/^\/uploads\//, ''));
+      } else if (lookupFile.file_path) {
+        filePath = path.join(uploadsDir, lookupFile.file_path);
+      }
+    } else {
+      // Check assignment_attachments
+      const att = await new Promise((resolve) =>
+        db.get('SELECT file_path, original_name, public_network_url FROM assignment_attachments WHERE id = ?',
+          [fileId], (err, row) => resolve(row || null))
+      );
+      if (!att) return res.status(404).send('File not found');
+      originalName = att.original_name;
+      if (att.public_network_url && !att.public_network_url.startsWith('http')) {
+        filePath = att.public_network_url;
+      } else if (att.file_path && (att.file_path.startsWith('\\\\') || /^[A-Za-z]:[\\/]/.test(att.file_path))) {
+        filePath = att.file_path;
+      } else if (att.file_path && att.file_path.startsWith('/uploads/')) {
+        filePath = path.join(uploadsDir, att.file_path.replace(/^\/uploads\//, ''));
+      } else if (att.file_path) {
+        filePath = path.join(uploadsDir, att.file_path);
+      }
+    }
+
+    if (!filePath) return res.status(404).send('File path not resolved');
+
+    // Use fs.promises to read from UNC/NAS paths (works where static serve cannot)
+    const fsSync = require('fs');
+    if (!fsSync.existsSync(filePath)) {
+      // For UNC paths existsSync can lie — try reading anyway
+      try {
+        const stat = fsSync.statSync(filePath);
+        if (!stat) return res.status(404).send('File not found on storage');
+      } catch (e) {
+        return res.status(404).send('File not found on storage: ' + e.message);
+      }
+    }
+
+    const ext = path.extname(filePath).toLowerCase();
+    const contentTypes = {
+      '.pdf': 'application/pdf', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg',
+      '.png': 'image/png', '.gif': 'image/gif', '.svg': 'image/svg+xml',
+      '.webp': 'image/webp', '.txt': 'text/plain', '.html': 'text/html',
+      '.css': 'text/css', '.js': 'text/javascript', '.json': 'application/json',
+      '.doc': 'application/msword',
+      '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      '.xls': 'application/vnd.ms-excel',
+      '.xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      '.ppt': 'application/vnd.ms-powerpoint',
+      '.pptx': 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+      '.zip': 'application/zip', '.mp4': 'video/mp4', '.mp3': 'audio/mpeg',
+    };
+    const contentType = contentTypes[ext] || 'application/octet-stream';
+    const stat = fsSync.statSync(filePath);
+
+    res.setHeader('Content-Type', contentType);
+    res.setHeader('Content-Length', stat.size);
+    res.setHeader('Content-Disposition', `inline; filename="${encodeURIComponent(originalName || path.basename(filePath))}"`); 
+    res.setHeader('Cache-Control', 'no-cache');
+
+    console.log(`📡 Streaming file to client: ${filePath}`);
+    const stream = fsSync.createReadStream(filePath);
+    stream.on('error', (err) => {
+      console.error('❌ Stream error:', err);
+      if (!res.headersSent) res.status(500).send('Error reading file');
+    });
+    stream.pipe(res);
+  } catch (error) {
+    console.error('❌ Error streaming file:', error);
+    if (!res.headersSent) res.status(500).send('Server error');
+  }
+});
+
 // Get file details by ID (for opening files) - CATCH-ALL, MUST BE LAST
+// Also checks assignment_attachments so TL-attached files can be opened by users
 router.get('/:fileId', (req, res) => {
   const { fileId } = req.params;
 
@@ -2748,6 +2887,7 @@ router.get('/:fileId', (req, res) => {
 
   console.log(`📝 Getting file details for ID: ${fileId}`);
 
+  // First check the files table
   db.get('SELECT * FROM files WHERE id = ?', [fileId], (err, file) => {
     if (err) {
       console.error('❌ Error getting file:', err);
@@ -2757,19 +2897,34 @@ router.get('/:fileId', (req, res) => {
       });
     }
 
-    if (!file) {
-      console.log('❌ File not found:', fileId);
-      return res.status(404).json({
-        success: false,
-        message: 'File not found'
-      });
+    if (file) {
+      console.log('✅ File found in files table:', file.original_name);
+      return res.json({ success: true, file });
     }
 
-    console.log('✅ File found:', file.original_name);
-    res.json({
-      success: true,
-      file
-    });
+    // Not in files table — check assignment_attachments (TL-attached files)
+    console.log(`📎 File ${fileId} not in files table, checking assignment_attachments...`);
+    db.get(
+      `SELECT id, file_path, original_name, filename, file_size, file_type,
+              uploaded_by_username AS username, created_at AS uploaded_at,
+              'team_leader_approved' AS status
+       FROM assignment_attachments WHERE id = ?`,
+      [fileId],
+      (err2, attachment) => {
+        if (err2) {
+          console.error('❌ Error checking assignment_attachments:', err2);
+          return res.status(500).json({ success: false, message: 'Failed to get file details' });
+        }
+
+        if (!attachment) {
+          console.log('❌ File not found in either table:', fileId);
+          return res.status(404).json({ success: false, message: 'File not found' });
+        }
+
+        console.log('✅ File found in assignment_attachments:', attachment.original_name);
+        return res.json({ success: true, file: attachment });
+      }
+    );
   });
 });
 

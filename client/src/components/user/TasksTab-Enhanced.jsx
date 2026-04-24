@@ -622,38 +622,40 @@ const TasksTab = ({
   const handleOpenFile = async () => {
     if (!fileToOpen) return;
 
-    // Close modal first
     setShowOpenFileModal(false);
     const file = fileToOpen;
     setFileToOpen(null);
 
     try {
-      // Check if running in Electron
+      const pathRes = await fetch(`${API_BASE_URL}/api/files/${file.id}/path`);
+      const pathData = await pathRes.json();
+
+      if (!pathData.success || !pathData.filePath) {
+        throw new Error(pathData.message || 'Could not resolve file path');
+      }
+
+      const resolvedPath = pathData.filePath;
+      console.log('Resolved file path:', resolvedPath);
+
+      // Always use Electron openFileInApp — it runs on the server machine
+      // which has NAS access, so UNC paths work fine
       if (window.electron && window.electron.openFileInApp) {
-        // Get the actual file path from server
-        const response = await fetch(`${API_BASE_URL}/api/files/${file.id}/path`);
-        const data = await response.json();
-
-        if (data.success && data.filePath) {
-          // Open file with system default application
-          const result = await window.electron.openFileInApp(data.filePath);
-
-          if (!result.success) {
-            setSuccessModal({ isOpen: true, title: 'Error', message: result.error || 'Failed to open file with system application', type: 'error' });
-          }
-        } else {
-          throw new Error('Could not get file path');
+        const result = await window.electron.openFileInApp(resolvedPath);
+        if (!result.success) {
+          setSuccessModal({ isOpen: true, title: 'Error', message: result.error || 'Failed to open file', type: 'error' });
         }
       } else {
-        // In browser - get file path and open in new tab
-        const response = await fetch(`${API_BASE_URL}/api/files/${file.id}`);
-        const fileData = await response.json();
-
-        if (fileData.success && fileData.file) {
-          const fileUrl = `${API_BASE_URL}${fileData.file.file_path}`;
-          window.open(fileUrl, '_blank', 'noopener,noreferrer');
+        // Non-Electron fallback: stream only for browser-viewable types (images, PDFs, text)
+        const ext = (resolvedPath.split('.').pop() || '').toLowerCase();
+        const browserViewable = ['pdf', 'png', 'jpg', 'jpeg', 'gif', 'svg', 'webp', 'txt', 'html', 'css', 'js', 'json', 'xml', 'mp4', 'mp3'];
+        if (browserViewable.includes(ext)) {
+          window.open(`${API_BASE_URL}/api/files/${file.id}/stream`, '_blank', 'noopener,noreferrer');
         } else {
-          throw new Error('Could not get file information');
+          // For Office files etc., trigger a download
+          const a = document.createElement('a');
+          a.href = `${API_BASE_URL}/api/files/${file.id}/stream`;
+          a.download = file.original_name || 'file';
+          a.click();
         }
       }
     } catch (error) {
@@ -1333,6 +1335,7 @@ const TasksTab = ({
                                               {getFileStatusBadge(file.status)}
                                             </div>
                                           </div>
+                                          {file.status !== 'final_approved' && (
                                           <button
                                             onClick={(e) => {
                                               e.stopPropagation();
@@ -1366,6 +1369,7 @@ const TasksTab = ({
                                           >
                                             ×
                                           </button>
+                                          )}
                                         </div>
                                       </div>
                                     ))}
@@ -1437,6 +1441,7 @@ const TasksTab = ({
                                     {getFileStatusBadge(file.status)}
                                   </div>
                                 </div>
+                                {file.status !== 'final_approved' && (
                                 <button
                                   onClick={(e) => {
                                     e.stopPropagation();
@@ -1471,6 +1476,7 @@ const TasksTab = ({
                                 >
                                   ×
                                 </button>
+                                )}
                               </div>
                             </div>
                           ))}
@@ -1605,11 +1611,15 @@ const TasksTab = ({
 
       {/* Comments Modal - Admin Style */}
       {showCommentsModal && currentCommentsAssignment && (
-        <div className="comments-modal-overlay" onClick={() => setShowCommentsModal(false)}>
+        <div className="comments-modal-overlay" onClick={() => { setShowCommentsModal(false); setReplyingTo({}); setReplyText({}); }}>
           <div className="comments-modal" onClick={(e) => e.stopPropagation()}>
             <div className="comments-modal-header">
               <h3>Comments - {currentCommentsAssignment.title}</h3>
-              <button className="close-modal-btn" onClick={() => setShowCommentsModal(false)}>
+              <button className="close-modal-btn" onClick={() => {
+                setShowCommentsModal(false)
+                setReplyingTo({})
+                setReplyText({})
+              }}>
                 ✕
               </button>
             </div>
@@ -1673,7 +1683,7 @@ const TasksTab = ({
                           <div className="comment-actions">
                             <button
                               className="reply-button"
-                              onClick={() => setReplyingTo(prev => ({ ...prev, [comment.id]: true }))}
+                              onClick={() => toggleReplyBox(comment.id)}
                             >
                               Reply
                             </button>
@@ -1750,6 +1760,7 @@ const TasksTab = ({
                         </div>
                       )}
 
+
                       {/* Reply Input Box */}
                       {replyingTo[comment.id] && (
                         <div className="reply-input-box">
@@ -1762,18 +1773,15 @@ const TasksTab = ({
                               className="comment-input"
                               placeholder="Write a reply..."
                               value={replyText[comment.id] || ''}
-                              onChange={(e) => setReplyText(prev => ({
-                                ...prev,
-                                [comment.id]: e.target.value
-                              }))}
+                              onChange={(e) => setReplyText(prev => ({ ...prev, [comment.id]: e.target.value }))}
                               onKeyPress={(e) => {
                                 if (e.key === 'Enter' && !e.shiftKey) {
                                   e.preventDefault();
                                   postReply(currentCommentsAssignment.id, comment.id);
                                 }
                               }}
-                              disabled={isPostingReply[comment.id]}
                               autoFocus
+                              disabled={isPostingReply[comment.id]}
                             />
                             <button
                               className="comment-submit-btn"
@@ -1785,6 +1793,7 @@ const TasksTab = ({
                           </div>
                         </div>
                       )}
+
                     </div>
                   ))}
                 </div>

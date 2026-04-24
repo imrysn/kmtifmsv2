@@ -115,7 +115,6 @@ const FileCard = ({ file, formatFileSize, onFileClick }) => {
         <div className="file-details-section">
           <div className="file-main-info">
             <h3 className="file-name">{file.original_name}</h3>
-            <p className="file-size">{formatFileSize(file.file_size)}</p>
           </div>
           
           {/* Category Display */}

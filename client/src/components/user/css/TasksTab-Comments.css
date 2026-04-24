@@ -399,7 +399,8 @@
   align-items: flex-start;
 }
 
-.comment-input-wrapper {
+.comments-modal .comment-input-wrapper,
+.reply-input-box .comment-input-wrapper {
   flex: 1;
   display: flex;
   gap: 8px;
@@ -411,7 +412,8 @@
   transition: border-color 0.2s;
 }
 
-.comment-input-wrapper:focus-within {
+.comments-modal .comment-input-wrapper:focus-within,
+.reply-input-box .comment-input-wrapper:focus-within {
   border-color: #667eea;
 }
 

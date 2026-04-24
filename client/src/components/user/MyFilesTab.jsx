@@ -570,7 +570,6 @@ const MyFilesTab = ({
                 />
                 <div className="file-text">
                   <div className="filename">{displayName}</div>
-                  <div className="filesize">{formatFileSize(file.file_size)}</div>
                   <div className="datetime-mobile">
                     <div className="date-label">{date}</div>
                     <div className="time-label">{time}</div>
@@ -624,7 +623,6 @@ const MyFilesTab = ({
             />
             <div className="file-text">
               <div className="filename">{file.original_name}</div>
-              <div className="filesize">{formatFileSize(file.file_size)}</div>
               <div className="datetime-mobile">
                 <div className="date-label">{date}</div>
                 <div className="time-label">{time}</div>
