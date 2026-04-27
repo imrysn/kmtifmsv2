@@ -39,6 +39,7 @@ const TasksTab = memo(({
   const fileInputRef = useRef(null);
   const folderInputRef = useRef(null);
   const [uploadMode, setUploadMode] = useState('files'); // 'files' or 'folder'
+  const [targetFolder, setTargetFolder] = useState(null); // folder name to add files into
   const [visibleReplies, setVisibleReplies] = useState({});
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [fileToDelete, setFileToDelete] = useState(null);
@@ -523,8 +524,9 @@ const TasksTab = memo(({
     setCurrentAssignment(assignment);
     setUploadedFiles([]);
     setFileDescription('');
-    setFileTag(''); // Reset tag
-    setUploadMode('files'); // Reset upload mode
+    setFileTag('');
+    setUploadMode('files');
+    setTargetFolder(null);
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
@@ -702,11 +704,11 @@ const TasksTab = memo(({
         formData.append('tag', fileTag || '');
         
         // Add folder information if uploading a folder
-        // Always use the file's own folderName property — do NOT rely on uploadMode
-        // because uploadMode can be overridden (e.g. user adds individual files after a folder)
-        if (fileObj.folderName) {
-          formData.append('folderName', fileObj.folderName);
-          formData.append('relativePath', fileObj.relativePath || fileObj.file.name);
+        // If targetFolder is set (adding to existing folder), always use that
+        const effectiveFolderName = targetFolder || fileObj.folderName;
+        if (effectiveFolderName) {
+          formData.append('folderName', effectiveFolderName);
+          formData.append('relativePath', effectiveFolderName + '/' + (fileObj.file.name));
           formData.append('isFolder', 'true');
         } else {
           formData.append('isFolder', 'false');
@@ -785,13 +787,10 @@ const TasksTab = memo(({
       setUploadedFiles([]);
       setFileDescription('');
       setFileTag('');
-      setCurrentAssignment(null);
-      if (fileInputRef.current) {
-        fileInputRef.current.value = '';
-      }
-      if (folderInputRef.current) {
-        folderInputRef.current.value = '';
-      }
+      setUploadMode('files');
+      setTargetFolder(null);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      if (folderInputRef.current) folderInputRef.current.value = '';
       fetchAssignments();
       fetchUserFiles();
     } catch (error) {
@@ -1936,6 +1935,42 @@ const TasksTab = memo(({
             <div className="tasks-modal-body">
               <div className="tasks-file-selection">
                 <div className="upload-section">
+                {/* Existing folders picker — shown when assignment already has submitted folders */}
+                {(() => {
+                  const existingFolders = currentAssignment?.submitted_files
+                    ? [...new Set(currentAssignment.submitted_files
+                        .filter(f => f.folder_name)
+                        .map(f => f.folder_name))]
+                    : [];
+                  if (existingFolders.length === 0) return null;
+                  return (
+                    <div style={{ marginBottom: '16px', padding: '14px 16px', backgroundColor: '#f0f4ff', borderRadius: '10px', border: '1px solid #c7d7fe' }}>
+                      <label style={{ fontSize: '13px', fontWeight: '600', color: '#1e40af', marginBottom: '8px', display: 'block' }}>
+                        📁 Add files to an existing folder (optional)
+                      </label>
+                      <select
+                        value={targetFolder || ''}
+                        onChange={e => setTargetFolder(e.target.value || null)}
+                        style={{
+                          width: '100%', padding: '8px 12px', borderRadius: '8px',
+                          border: '1px solid #93c5fd', fontSize: '14px',
+                          backgroundColor: '#ffffff', color: '#111827', cursor: 'pointer',
+                          outline: 'none'
+                        }}
+                      >
+                        <option value=''>— Upload as separate files —</option>
+                        {existingFolders.map(fn => (
+                          <option key={fn} value={fn}>📁 {fn}</option>
+                        ))}
+                      </select>
+                      {targetFolder && (
+                        <p style={{ fontSize: '12px', color: '#1e40af', marginTop: '6px', margin: '6px 0 0' }}>
+                          ✓ Selected files will be added into <strong>{targetFolder}</strong>
+                        </p>
+                      )}
+                    </div>
+                  );
+                })()}
                 <div className="file-upload-wrapper">
                     {/* Hidden file input for individual files */}
                     <input
@@ -2013,18 +2048,59 @@ const TasksTab = memo(({
                         e.currentTarget.style.backgroundColor = '#fafafa';
                         e.currentTarget.style.borderColor = '#d1d5db';
                       }}
-                      onDrop={(e) => {
+                      onDrop={async (e) => {
                         e.preventDefault();
                         e.stopPropagation();
                         e.currentTarget.style.backgroundColor = '#fafafa';
                         e.currentTarget.style.borderColor = '#d1d5db';
-                        
-                        const files = Array.from(e.dataTransfer.files);
-                        if (files.length > 0) {
-                          const newFiles = files.map(file => ({
-                            file: file
-                          }));
-                          setUploadedFiles(prev => [...prev, ...newFiles]);
+
+                        const items = Array.from(e.dataTransfer.items || []);
+
+                        // Helper: recursively read all files from a directory entry
+                        const readAllFiles = (entry, basePath = '') => new Promise((resolve) => {
+                          if (entry.isFile) {
+                            entry.file(file => {
+                              resolve([{ file, relativePath: basePath + file.name, folderName: basePath ? basePath.split('/')[0] : null }]);
+                            }, () => resolve([]));
+                          } else if (entry.isDirectory) {
+                            const reader = entry.createReader();
+                            const allEntries = [];
+                            const readBatch = () => {
+                              reader.readEntries(async (batch) => {
+                                if (batch.length === 0) {
+                                  const results = await Promise.all(
+                                    allEntries.map(e => readAllFiles(e, basePath + entry.name + '/'))
+                                  );
+                                  resolve(results.flat());
+                                } else {
+                                  allEntries.push(...batch);
+                                  readBatch();
+                                }
+                              }, () => resolve([]));
+                            };
+                            readBatch();
+                          } else {
+                            resolve([]);
+                          }
+                        });
+
+                        const allFiles = (await Promise.all(
+                          items
+                            .filter(item => item.kind === 'file')
+                            .map(item => {
+                              const entry = item.webkitGetAsEntry ? item.webkitGetAsEntry() : null;
+                              if (entry) return readAllFiles(entry);
+                              // Fallback: no entry API
+                              const file = item.getAsFile();
+                              return file ? [{ file, relativePath: file.name, folderName: null }] : [];
+                            })
+                        )).flat();
+
+                        if (allFiles.length > 0) {
+                          // Detect if it's a folder drop (any file has a folderName)
+                          const isFolder = allFiles.some(f => f.folderName);
+                          setUploadedFiles(prev => [...prev, ...allFiles]);
+                          if (isFolder) setUploadMode('folder');
                         }
                       }}
                     >
@@ -2331,12 +2407,9 @@ const TasksTab = memo(({
                   setFileDescription('');
                   setFileTag('');
                   setUploadMode('files');
-                  if (fileInputRef.current) {
-                    fileInputRef.current.value = '';
-                  }
-                  if (folderInputRef.current) {
-                    folderInputRef.current.value = '';
-                  }
+                  setTargetFolder(null);
+                  if (fileInputRef.current) fileInputRef.current.value = '';
+                  if (folderInputRef.current) folderInputRef.current.value = '';
                 }}
                 style={{
                   padding: '10px 20px',

@@ -80,7 +80,31 @@
   cursor: default;
 }
 
-.file-management-section .file-controls-right {
+.file-management-section .sync-deleted-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  background: #f0f4ff;
+  color: #3b5bdb;
+  border: 1px solid #c5d0f0;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.2s, border-color 0.2s;
+}
+.sync-deleted-btn:hover:not(:disabled) {
+  background: #dce4ff;
+  border-color: #3b5bdb;
+}
+.sync-deleted-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.file-controls-right {
   display: flex;
   gap: 1rem;
   align-items: center;

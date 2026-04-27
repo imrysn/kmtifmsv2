@@ -73,6 +73,16 @@ app.use(logRequest);
 // Apply general API rate limiting to all /api routes
 app.use('/api/', apiLimiter);
 
+// Watcher status debug endpoint
+app.get('/api/watcher-status', (req, res) => {
+  try {
+    const { getWatcherStatus } = require('./services/fileWatcher');
+    res.json(getWatcherStatus());
+  } catch (e) {
+    res.json({ error: e.message });
+  }
+});
+
 // Health check endpoint — always responds (even before DB is ready)
 app.get('/api/health', (req, res) => {
   res.status(200).json({
@@ -272,6 +282,21 @@ async function initDbWithRetry(attempt = 1) {
     console.log(`✅ Database connected: ${dbPath}`);
     console.log(`🌐 Network Data Path: ${networkDataPath}`);
     console.log('='.repeat(70) + '\n');
+
+    // ── Start file system watcher ─────────────────────────────────────────
+    // Watch uploads dir + NAS approved dirs for deletions
+    try {
+      const { startWatcher } = require('./services/fileWatcher');
+      const { uploadsDir } = require('./config/middleware');
+      const watchPaths = [
+        uploadsDir,                                          // pending uploads
+        require('path').join(networkDataPath, 'user_approvals'), // approved files
+        require('path').join(networkDataPath, 'PROJECTS'),       // moved-to-projects files
+      ].filter(Boolean);
+      startWatcher(watchPaths);
+    } catch (watchErr) {
+      console.warn('⚠️  File watcher could not start:', watchErr.message);
+    }
   } catch (error) {
     const delay = Math.min(30000, attempt * 5000); // 5s, 10s, 15s … max 30s
     console.error(`❌ DB init attempt ${attempt} failed: ${error.message}`);
@@ -333,6 +358,11 @@ async function shutdown(signal) {
   console.log(`\n⏹️  Received ${signal}, shutting down gracefully...`);
 
   try {
+    // Stop file watcher
+    try {
+      const { stopWatcher } = require('./services/fileWatcher');
+      await stopWatcher();
+    } catch (_) {}
     // Close database connection
     await closeDatabase();
     console.log('✅ Database connection closed');
