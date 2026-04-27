@@ -47,6 +47,7 @@ const TasksTab = memo(({
   const [expandedFolders, setExpandedFolders] = useState({}); // Track which folders are expanded
   const [showAllSubmittedFiles, setShowAllSubmittedFiles] = useState({}); // Track which assignments show all submitted files
   const INITIAL_FILE_DISPLAY_LIMIT = 5; // Show first 5 files/folders initially
+  const [downloadToast, setDownloadToast] = useState({ show: false, fileName: '' });
 
   // Check for sessionStorage when component mounts - run ONCE when assignments first load
   useEffect(() => {
@@ -246,6 +247,78 @@ const TasksTab = memo(({
       [commentId]: !prev[commentId]
     }));
   }, []);
+
+  const editComment = useCallback(async (assignmentId, commentId, newText) => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/assignments/${assignmentId}/comments/${commentId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: user.id, comment: newText })
+      });
+      const data = await res.json();
+      if (data.success) {
+        fetchComments(assignmentId);
+      } else {
+        setSuccessModal({ isOpen: true, title: 'Error', message: data.message || 'Failed to edit comment', type: 'error' });
+      }
+    } catch {
+      setSuccessModal({ isOpen: true, title: 'Error', message: 'Failed to edit comment', type: 'error' });
+    }
+  }, [user.id, fetchComments]);
+
+  const deleteComment = useCallback(async (assignmentId, commentId) => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/assignments/${assignmentId}/comments/${commentId}`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: user.id })
+      });
+      const data = await res.json();
+      if (data.success) {
+        fetchComments(assignmentId);
+      } else {
+        setSuccessModal({ isOpen: true, title: 'Error', message: data.message || 'Failed to delete comment', type: 'error' });
+      }
+    } catch {
+      setSuccessModal({ isOpen: true, title: 'Error', message: 'Failed to delete comment', type: 'error' });
+    }
+  }, [user.id, fetchComments]);
+
+  const editReply = useCallback(async (assignmentId, commentId, replyId, newText) => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/assignments/${assignmentId}/comments/${commentId}/reply/${replyId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: user.id, reply: newText })
+      });
+      const data = await res.json();
+      if (data.success) {
+        fetchComments(assignmentId);
+      } else {
+        setSuccessModal({ isOpen: true, title: 'Error', message: data.message || 'Failed to edit reply', type: 'error' });
+      }
+    } catch {
+      setSuccessModal({ isOpen: true, title: 'Error', message: 'Failed to edit reply', type: 'error' });
+    }
+  }, [user.id, fetchComments]);
+
+  const deleteReply = useCallback(async (assignmentId, commentId, replyId) => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/assignments/${assignmentId}/comments/${commentId}/reply/${replyId}`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: user.id })
+      });
+      const data = await res.json();
+      if (data.success) {
+        fetchComments(assignmentId);
+      } else {
+        setSuccessModal({ isOpen: true, title: 'Error', message: data.message || 'Failed to delete reply', type: 'error' });
+      }
+    } catch {
+      setSuccessModal({ isOpen: true, title: 'Error', message: 'Failed to delete reply', type: 'error' });
+    }
+  }, [user.id, fetchComments]);
 
   const fetchUserFiles = useCallback(async (currentAssignments = assignments) => {
     try {
@@ -757,8 +830,132 @@ const TasksTab = memo(({
     return { folders, individualFiles };
   };
 
+  // ─── File/Folder three-dot menu ──────────────────────────────────────────
+  const handleDownloadFile = useCallback(async (file) => {
+    const fileUrl = `${API_BASE_URL}/api/files/${file.id}/download`;
+    const fileName = file.original_name || file.filename || 'file';
+    if (window.electron && window.electron.downloadFile) {
+      const result = await window.electron.downloadFile(fileUrl, fileName);
+      if (result && !result.success && !result.canceled) {
+        setSuccessModal({ isOpen: true, title: 'Error', message: result.error || 'Download failed', type: 'error' });
+      } else if (result && result.success) {
+        setDownloadToast({ show: true, fileName });
+        setTimeout(() => setDownloadToast({ show: false, fileName: '' }), 3500);
+      }
+    } else {
+      // Fallback for non-Electron (browser)
+      const a = document.createElement('a');
+      a.href = fileUrl;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setDownloadToast({ show: true, fileName });
+      setTimeout(() => setDownloadToast({ show: false, fileName: '' }), 3500);
+    }
+  }, []);
+
+  const handleDownloadFolder = useCallback(async (folderFiles, folderName) => {
+    const fileIds = folderFiles.map(f => f.id).join(',');
+    const fileUrl = `${API_BASE_URL}/api/files/folder/zip?fileIds=${fileIds}&folderName=${encodeURIComponent(folderName)}`;
+    const fileName = `${folderName}.zip`;
+    if (window.electron && window.electron.downloadFile) {
+      const result = await window.electron.downloadFile(fileUrl, fileName);
+      if (result && !result.success && !result.canceled) {
+        setSuccessModal({ isOpen: true, title: 'Error', message: result.error || 'Folder download failed', type: 'error' });
+      }
+    } else {
+      const a = document.createElement('a');
+      a.href = fileUrl;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    }
+  }, []);
+
   // Keep ref in sync on every render
   currentAssignmentIdRef.current = currentCommentsAssignment?.id;
+
+  // ─── Inline three-dot menu for files/folders ─────────────────────────────
+  function FileMoreMenuInline({ onDownload, onDelete, isFolder = false }) {
+    const [open, setOpen] = useState(false);
+    const ref = useRef(null);
+    useEffect(() => {
+      if (!open) return;
+      const close = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+      document.addEventListener('mousedown', close);
+      return () => document.removeEventListener('mousedown', close);
+    }, [open]);
+    return (
+      <div ref={ref} style={{ position: 'relative' }}>
+        <button
+          onClick={(e) => { e.stopPropagation(); setOpen(v => !v); }}
+          style={{
+            background: 'transparent', border: 'none', borderRadius: '6px',
+            width: '28px', height: '28px', display: 'flex', alignItems: 'center',
+            justifyContent: 'center', cursor: 'pointer', color: '#9ca3af', padding: 0,
+            transition: 'all 0.15s',
+          }}
+          onMouseEnter={e => { e.currentTarget.style.backgroundColor = '#f3f4f6'; e.currentTarget.style.color = '#374151'; }}
+          onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = '#9ca3af'; }}
+          title="More options"
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+            <circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/>
+          </svg>
+        </button>
+        {open && (
+          <div
+            style={{
+              position: 'absolute', right: 0, top: '100%', marginTop: '4px',
+              background: '#fff', border: '1px solid #e5e7eb', borderRadius: '8px',
+              boxShadow: '0 4px 12px rgba(0,0,0,0.12)', zIndex: 100,
+              minWidth: '150px', padding: '4px',
+            }}
+            onClick={e => e.stopPropagation()}
+          >
+            <button
+              onClick={() => { setOpen(false); onDownload(); }}
+              style={{
+                display: 'flex', alignItems: 'center', gap: '8px', width: '100%',
+                padding: '8px 12px', background: 'transparent', border: 'none',
+                borderRadius: '6px', cursor: 'pointer', fontSize: '13px',
+                color: '#374151', textAlign: 'left',
+              }}
+              onMouseEnter={e => e.currentTarget.style.backgroundColor = '#f3f4f6'}
+              onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+                <polyline points="7 10 12 15 17 10"/>
+                <line x1="12" y1="15" x2="12" y2="3"/>
+              </svg>
+              {isFolder ? 'Download Folder' : 'Download'}
+            </button>
+            {onDelete && (
+              <button
+                onClick={() => { setOpen(false); onDelete(); }}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: '8px', width: '100%',
+                  padding: '8px 12px', background: 'transparent', border: 'none',
+                  borderRadius: '6px', cursor: 'pointer', fontSize: '13px',
+                  color: '#dc2626', textAlign: 'left',
+                }}
+                onMouseEnter={e => e.currentTarget.style.backgroundColor = '#fee2e2'}
+                onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a1 1 0 011-1h4a1 1 0 011 1v2"/>
+                </svg>
+                {isFolder ? 'Delete Folder' : 'Delete'}
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+    );
+  }
 
   const handleCloseCommentsModal = useCallback(() => setShowCommentsModal(false), []);
 
@@ -1141,41 +1338,16 @@ const TasksTab = memo(({
                                         })()}
                                       </div>
                                     </div>
-                                    <button
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        setFileToDelete({ assignmentId: assignment.id, fileId: null, fileName: folderName, isFolderDelete: true, folderFiles });
-                                        setShowDeleteModal(true);
-                                      }}
-                                      style={{
-                                        background: 'transparent',
-                                        color: '#9ca3af',
-                                        border: 'none',
-                                        borderRadius: '8px',
-                                        padding: '8px',
-                                        fontSize: '16px',
-                                        cursor: 'pointer',
-                                        flexShrink: 0,
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'center',
-                                        transition: 'all 0.2s',
-                                        lineHeight: 1,
-                                        width: '32px',
-                                        height: '32px'
-                                      }}
-                                      onMouseEnter={(e) => {
-                                        e.currentTarget.style.backgroundColor = '#fee2e2';
-                                        e.currentTarget.style.color = '#dc2626';
-                                      }}
-                                      onMouseLeave={(e) => {
-                                        e.currentTarget.style.backgroundColor = 'transparent';
-                                        e.currentTarget.style.color = '#9ca3af';
-                                      }}
-                                      title={`Remove folder "${folderName}"`}
-                                    >
-                                      ×
-                                    </button>
+                                    <div style={{ position: 'relative', flexShrink: 0 }} onClick={e => e.stopPropagation()}>
+                                      <FileMoreMenuInline
+                                        onDownload={() => handleDownloadFolder(folderFiles, folderName)}
+                                        onDelete={() => {
+                                          setFileToDelete({ assignmentId: assignment.id, fileId: null, fileName: folderName, isFolderDelete: true, folderFiles });
+                                          setShowDeleteModal(true);
+                                        }}
+                                        isFolder
+                                      />
+                                    </div>
                                   </div>
                                 </div>
 
@@ -1244,40 +1416,19 @@ const TasksTab = memo(({
                                               {getFileStatusBadge(file.status)}
                                             </div>
                                           </div>
-                                          {file.status !== 'final_approved' && (
-                                          <button
-                                            onClick={(e) => {
-                                              e.stopPropagation();
-                                              confirmDeleteFile(assignment.id, file.id, file.original_name || file.filename);
-                                            }}
-                                            style={{
-                                              background: 'transparent',
-                                              color: '#9ca3af',
-                                              border: 'none',
-                                              borderRadius: '6px',
-                                              padding: '6px',
-                                              fontSize: '14px',
-                                              cursor: 'pointer',
-                                              flexShrink: 0,
-                                              display: 'flex',
-                                              alignItems: 'center',
-                                              justifyContent: 'center',
-                                              transition: 'all 0.2s',
-                                              width: '28px',
-                                              height: '28px'
-                                            }}
-                                            onMouseEnter={(e) => {
-                                              e.currentTarget.style.backgroundColor = '#fee2e2';
-                                              e.currentTarget.style.color = '#dc2626';
-                                            }}
-                                            onMouseLeave={(e) => {
-                                              e.currentTarget.style.backgroundColor = 'transparent';
-                                              e.currentTarget.style.color = '#9ca3af';
-                                            }}
-                                            title="Remove file"
-                                          >
-                                            ×
-                                          </button>
+                                          {file.status !== 'final_approved' ? (
+                                          <div style={{ position: 'relative' }} onClick={e => e.stopPropagation()}>
+                                            <FileMoreMenuInline
+                                              onDownload={() => handleDownloadFile(file)}
+                                              onDelete={() => confirmDeleteFile(assignment.id, file.id, file.original_name || file.filename)}
+                                            />
+                                          </div>
+                                          ) : (
+                                          <div style={{ position: 'relative' }} onClick={e => e.stopPropagation()}>
+                                            <FileMoreMenuInline
+                                              onDownload={() => handleDownloadFile(file)}
+                                            />
+                                          </div>
                                           )}
                                         </div>
                                       </div>
@@ -1350,41 +1501,19 @@ const TasksTab = memo(({
                                     {getFileStatusBadge(file.status)}
                                   </div>
                                 </div>
-                                {file.status !== 'final_approved' && (
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    confirmDeleteFile(assignment.id, file.id, file.original_name || file.filename);
-                                  }}
-                                  style={{
-                                    background: 'transparent',
-                                    color: '#9ca3af',
-                                    border: 'none',
-                                    borderRadius: '8px',
-                                    padding: '8px',
-                                    fontSize: '16px',
-                                    cursor: 'pointer',
-                                    flexShrink: 0,
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    transition: 'all 0.2s',
-                                    lineHeight: 1,
-                                    width: '32px',
-                                    height: '32px'
-                                  }}
-                                  onMouseEnter={(e) => {
-                                    e.currentTarget.style.backgroundColor = '#fee2e2';
-                                    e.currentTarget.style.color = '#dc2626';
-                                  }}
-                                  onMouseLeave={(e) => {
-                                    e.currentTarget.style.backgroundColor = 'transparent';
-                                    e.currentTarget.style.color = '#9ca3af';
-                                  }}
-                                  title="Remove file"
-                                >
-                                  ×
-                                </button>
+                                {file.status !== 'final_approved' ? (
+                                <div style={{ position: 'relative', flexShrink: 0 }} onClick={e => e.stopPropagation()}>
+                                  <FileMoreMenuInline
+                                    onDownload={() => handleDownloadFile(file)}
+                                    onDelete={() => confirmDeleteFile(assignment.id, file.id, file.original_name || file.filename)}
+                                  />
+                                </div>
+                                ) : (
+                                <div style={{ position: 'relative', flexShrink: 0 }} onClick={e => e.stopPropagation()}>
+                                  <FileMoreMenuInline
+                                    onDownload={() => handleDownloadFile(file)}
+                                  />
+                                </div>
                                 )}
                               </div>
                             </div>
@@ -1530,6 +1659,10 @@ const TasksTab = memo(({
           setNewComment={handleSetNewComment}
           onPostComment={handlePostComment}
           onPostReply={postReply}
+          onEditComment={editComment}
+          onDeleteComment={deleteComment}
+          onEditReply={editReply}
+          onDeleteReply={deleteReply}
           visibleReplies={visibleReplies}
           toggleRepliesVisibility={toggleRepliesVisibility}
           getInitials={getInitials}
@@ -1538,6 +1671,7 @@ const TasksTab = memo(({
           highlightUsername={highlightCommentBy}
         />
       )}
+
 
       {/* Delete Confirmation Modal */}
       {showDeleteModal && fileToDelete && (
@@ -1684,6 +1818,80 @@ const TasksTab = memo(({
         onConfirm={handleOpenFile}
         file={fileToOpen}
       />
+
+      {/* Download Success Toast */}
+      {downloadToast.show && (
+        <div
+          style={{
+            position: 'fixed',
+            top: '28px',
+            right: '28px',
+            zIndex: 9999,
+            background: '#fff',
+            border: '1px solid #bbf7d0',
+            borderRadius: '16px',
+            boxShadow: '0 8px 32px rgba(0,0,0,0.13)',
+            padding: '18px 22px 14px 18px',
+            display: 'flex',
+            alignItems: 'flex-start',
+            gap: '14px',
+            minWidth: '280px',
+            maxWidth: '380px',
+            animation: 'slideInRight 0.25s ease',
+          }}
+        >
+          {/* Green circle check — matches SuccessModal style */}
+          <div style={{
+            width: '40px', height: '40px', borderRadius: '50%',
+            background: '#dcfce7', border: '2px solid #86efac',
+            display: 'flex', alignItems: 'center',
+            justifyContent: 'center', flexShrink: 0, marginTop: '1px'
+          }}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M20 6L9 17l-5-5"/>
+            </svg>
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: '15px', fontWeight: '700', color: '#15803d', marginBottom: '4px' }}>
+              Success
+            </div>
+            <div style={{ fontSize: '13px', color: '#374151', lineHeight: '1.4' }}>
+              {downloadToast.fileName
+                ? `"${downloadToast.fileName}" downloaded successfully!`
+                : 'File downloaded successfully!'}
+            </div>
+            {/* Green progress bar at bottom */}
+            <div style={{ marginTop: '10px', height: '4px', borderRadius: '2px', background: '#dcfce7', overflow: 'hidden' }}>
+              <div style={{
+                height: '100%', borderRadius: '2px', background: '#22c55e',
+                animation: 'shrinkBar 3.5s linear forwards'
+              }} />
+            </div>
+          </div>
+          <button
+            onClick={() => setDownloadToast({ show: false, fileName: '' })}
+            style={{
+              background: 'transparent', border: 'none', cursor: 'pointer',
+              color: '#9ca3af', fontSize: '20px', lineHeight: 1,
+              padding: '0', flexShrink: 0, borderRadius: '4px',
+              marginTop: '-2px'
+            }}
+            onMouseEnter={e => e.currentTarget.style.color = '#374151'}
+            onMouseLeave={e => e.currentTarget.style.color = '#9ca3af'}
+          >×</button>
+        </div>
+      )}
+
+      <style>{`
+        @keyframes slideInRight {
+          from { opacity: 0; transform: translateX(40px); }
+          to   { opacity: 1; transform: translateX(0); }
+        }
+        @keyframes shrinkBar {
+          from { width: 100%; }
+          to   { width: 0%; }
+        }
+      `}</style>
 
       {/* Submit Modal */}
       {showSubmitModal && currentAssignment && (

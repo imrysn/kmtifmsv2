@@ -2778,6 +2778,274 @@ router.post('/folder/delete', async (req, res) => {
   }
 });
 
+// Download a file by ID — same path resolution as /stream but forces browser download
+router.get('/:fileId/download', async (req, res) => {
+  const { fileId } = req.params;
+  if (!/^\d+$/.test(fileId)) return res.status(400).send('Invalid file ID');
+
+  try {
+    const lookupFile = await new Promise((resolve) =>
+      db.get('SELECT file_path, original_name, public_network_url FROM files WHERE id = ?',
+        [fileId], (err, row) => resolve(row || null))
+    );
+
+    let filePath, originalName;
+
+    if (lookupFile) {
+      originalName = lookupFile.original_name;
+      if (lookupFile.public_network_url && !lookupFile.public_network_url.startsWith('http')) {
+        filePath = lookupFile.public_network_url;
+      } else if (lookupFile.file_path && (lookupFile.file_path.startsWith('\\\\') || /^[A-Za-z]:[\\/]/.test(lookupFile.file_path))) {
+        filePath = lookupFile.file_path;
+      } else if (lookupFile.file_path && lookupFile.file_path.startsWith('/uploads/')) {
+        filePath = path.join(uploadsDir, lookupFile.file_path.replace(/^\/uploads\//, ''));
+      } else if (lookupFile.file_path) {
+        filePath = path.join(uploadsDir, lookupFile.file_path);
+      }
+    } else {
+      const att = await new Promise((resolve) =>
+        db.get('SELECT file_path, original_name, public_network_url FROM assignment_attachments WHERE id = ?',
+          [fileId], (err, row) => resolve(row || null))
+      );
+      if (!att) return res.status(404).send('File not found');
+      originalName = att.original_name;
+      if (att.public_network_url && !att.public_network_url.startsWith('http')) {
+        filePath = att.public_network_url;
+      } else if (att.file_path && (att.file_path.startsWith('\\\\') || /^[A-Za-z]:[\\/]/.test(att.file_path))) {
+        filePath = att.file_path;
+      } else if (att.file_path && att.file_path.startsWith('/uploads/')) {
+        filePath = path.join(uploadsDir, att.file_path.replace(/^\/uploads\//, ''));
+      } else if (att.file_path) {
+        filePath = path.join(uploadsDir, att.file_path);
+      }
+    }
+
+    if (!filePath) return res.status(404).send('File path not resolved');
+
+    const fsSync = require('fs');
+    if (!fsSync.existsSync(filePath)) {
+      try { fsSync.statSync(filePath); } catch (e) {
+        return res.status(404).send('File not found on storage: ' + e.message);
+      }
+    }
+
+    // Determine the correct MIME type so Windows knows the file type on save
+    const ext = path.extname(originalName || path.basename(filePath)).toLowerCase();
+    const mimeTypes = {
+      '.pdf': 'application/pdf',
+      '.doc': 'application/msword',
+      '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      '.xls': 'application/vnd.ms-excel',
+      '.xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      '.ppt': 'application/vnd.ms-powerpoint',
+      '.pptx': 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+      '.png': 'image/png',
+      '.jpg': 'image/jpeg',
+      '.jpeg': 'image/jpeg',
+      '.gif': 'image/gif',
+      '.webp': 'image/webp',
+      '.svg': 'image/svg+xml',
+      '.txt': 'text/plain',
+      '.csv': 'text/csv',
+      '.zip': 'application/zip',
+      '.mp4': 'video/mp4',
+      '.mp3': 'audio/mpeg',
+    };
+    const contentMime = mimeTypes[ext] || 'application/octet-stream';
+
+    // Always ensure the filename has its extension
+    const finalName = originalName || path.basename(filePath);
+    const safeFilename = encodeURIComponent(finalName);
+    res.setHeader('Content-Disposition', `attachment; filename="${finalName}"; filename*=UTF-8''${safeFilename}`);
+    res.setHeader('Content-Type', contentMime);
+    res.setHeader('Cache-Control', 'no-cache');
+
+    console.log(`⬇️ Downloading file to client: ${filePath}`);
+    const stream = fsSync.createReadStream(filePath);
+    stream.on('error', (err) => {
+      console.error('❌ Download stream error:', err);
+      if (!res.headersSent) res.status(500).send('Error reading file');
+    });
+    stream.pipe(res);
+  } catch (error) {
+    console.error('❌ Error downloading file:', error);
+    if (!res.headersSent) res.status(500).send('Server error');
+  }
+});
+
+// Zip and download a whole folder by fileIds
+router.get('/folder/zip', async (req, res) => {
+  const { fileIds: fileIdsStr, folderName } = req.query;
+  if (!fileIdsStr || !folderName) return res.status(400).send('Missing fileIds or folderName');
+
+  const fileIds = fileIdsStr.split(',').map(id => parseInt(id.trim())).filter(Boolean);
+  if (!fileIds.length) return res.status(400).send('No valid file IDs');
+
+  const os = require('os');
+  const fsSync = require('fs');
+  const tmpDir = path.join(os.tmpdir(), `kmti-folder-${Date.now()}`);
+  const zipPath = path.join(os.tmpdir(), `${folderName}-${Date.now()}.zip`);
+
+  try {
+    fsSync.mkdirSync(tmpDir, { recursive: true });
+
+    // Resolve physical path for each file and copy to temp dir
+    for (const fileId of fileIds) {
+      const record = await new Promise((resolve) =>
+        db.get('SELECT file_path, original_name, public_network_url, relative_path FROM files WHERE id = ?',
+          [fileId], (err, row) => resolve(row || null))
+      );
+      if (!record) continue;
+
+      let srcPath;
+      if (record.public_network_url && !record.public_network_url.startsWith('http')) {
+        srcPath = record.public_network_url;
+      } else if (record.file_path && (record.file_path.startsWith('\\\\') || /^[A-Za-z]:[\\/]/.test(record.file_path))) {
+        srcPath = record.file_path;
+      } else if (record.file_path && record.file_path.startsWith('/uploads/')) {
+        srcPath = path.join(uploadsDir, record.file_path.replace(/^\/uploads\//, ''));
+      } else if (record.file_path) {
+        srcPath = path.join(uploadsDir, record.file_path);
+      }
+      if (!srcPath || !fsSync.existsSync(srcPath)) continue;
+
+      // Preserve relative path structure inside zip
+      let relPath = record.relative_path
+        ? record.relative_path.replace(/\\/g, '/').split('/').slice(1).join('/')
+        : record.original_name;
+      if (!relPath) relPath = record.original_name;
+
+      const destFile = path.join(tmpDir, relPath);
+      fsSync.mkdirSync(path.dirname(destFile), { recursive: true });
+      fsSync.copyFileSync(srcPath, destFile);
+    }
+
+    // Zip using PowerShell Compress-Archive (Windows)
+    await new Promise((resolve, reject) => {
+      const cmd = `powershell -NoProfile -Command "Compress-Archive -Path '${tmpDir}\\*' -DestinationPath '${zipPath}' -Force"`;
+      exec(cmd, (err) => {
+        if (err) reject(err); else resolve();
+      });
+    });
+
+    if (!fsSync.existsSync(zipPath)) return res.status(500).send('Failed to create zip');
+
+    const stat = fsSync.statSync(zipPath);
+    const safeZipName = encodeURIComponent(`${folderName}.zip`);
+    res.setHeader('Content-Disposition', `attachment; filename="${folderName}.zip"; filename*=UTF-8''${safeZipName}`);
+    res.setHeader('Content-Type', 'application/zip');
+    res.setHeader('Content-Length', stat.size);
+    res.setHeader('Cache-Control', 'no-cache');
+
+    console.log(`📦 Streaming folder zip: ${zipPath}`);
+    const zipStream = fsSync.createReadStream(zipPath);
+    zipStream.on('close', () => {
+      // Cleanup temp files after streaming
+      try { fsSync.rmSync(tmpDir, { recursive: true, force: true }); } catch (_) {}
+      try { fsSync.unlinkSync(zipPath); } catch (_) {}
+    });
+    zipStream.on('error', (err) => {
+      console.error('❌ Zip stream error:', err);
+      if (!res.headersSent) res.status(500).send('Error streaming zip');
+    });
+    zipStream.pipe(res);
+  } catch (error) {
+    console.error('❌ Error creating folder zip:', error);
+    try { require('fs').rmSync(tmpDir, { recursive: true, force: true }); } catch (_) {}
+    try { require('fs').unlinkSync(zipPath); } catch (_) {}
+    if (!res.headersSent) res.status(500).send('Failed to zip folder: ' + error.message);
+  }
+});
+
+// Force-download a file by ID — identical path resolution to /stream but sends Content-Disposition: attachment
+router.get('/:fileId/download', async (req, res) => {
+  const { fileId } = req.params;
+  if (!/^\d+$/.test(fileId)) return res.status(400).send('Invalid file ID');
+
+  try {
+    const lookupFile = await new Promise((resolve) =>
+      db.get('SELECT file_path, original_name, public_network_url, status FROM files WHERE id = ?',
+        [fileId], (err, row) => resolve(row || null))
+    );
+
+    let filePath, originalName;
+
+    if (lookupFile) {
+      originalName = lookupFile.original_name;
+      if (lookupFile.public_network_url && !lookupFile.public_network_url.startsWith('http')) {
+        filePath = lookupFile.public_network_url;
+      } else if (lookupFile.file_path && (lookupFile.file_path.startsWith('\\\\') || /^[A-Za-z]:[\\\\]/.test(lookupFile.file_path))) {
+        filePath = lookupFile.file_path;
+      } else if (lookupFile.file_path && lookupFile.file_path.startsWith('/uploads/')) {
+        filePath = path.join(uploadsDir, lookupFile.file_path.replace(/^\/uploads\//, ''));
+      } else if (lookupFile.file_path) {
+        filePath = path.join(uploadsDir, lookupFile.file_path);
+      }
+    } else {
+      const att = await new Promise((resolve) =>
+        db.get('SELECT file_path, original_name, public_network_url FROM assignment_attachments WHERE id = ?',
+          [fileId], (err, row) => resolve(row || null))
+      );
+      if (!att) return res.status(404).send('File not found');
+      originalName = att.original_name;
+      if (att.public_network_url && !att.public_network_url.startsWith('http')) {
+        filePath = att.public_network_url;
+      } else if (att.file_path && (att.file_path.startsWith('\\\\') || /^[A-Za-z]:[\\\\]/.test(att.file_path))) {
+        filePath = att.file_path;
+      } else if (att.file_path && att.file_path.startsWith('/uploads/')) {
+        filePath = path.join(uploadsDir, att.file_path.replace(/^\/uploads\//, ''));
+      } else if (att.file_path) {
+        filePath = path.join(uploadsDir, att.file_path);
+      }
+    }
+
+    if (!filePath) return res.status(404).send('File path not resolved');
+
+    const fsSync = require('fs');
+    if (!fsSync.existsSync(filePath)) {
+      try {
+        fsSync.statSync(filePath);
+      } catch (e) {
+        return res.status(404).send('File not found on storage: ' + e.message);
+      }
+    }
+
+    const ext = path.extname(filePath).toLowerCase();
+    const contentTypes = {
+      '.pdf': 'application/pdf', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg',
+      '.png': 'image/png', '.gif': 'image/gif', '.svg': 'image/svg+xml',
+      '.webp': 'image/webp', '.txt': 'text/plain', '.html': 'text/html',
+      '.css': 'text/css', '.js': 'text/javascript', '.json': 'application/json',
+      '.doc': 'application/msword',
+      '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      '.xls': 'application/vnd.ms-excel',
+      '.xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      '.ppt': 'application/vnd.ms-powerpoint',
+      '.pptx': 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+      '.zip': 'application/zip', '.mp4': 'video/mp4', '.mp3': 'audio/mpeg',
+    };
+    const contentType = contentTypes[ext] || 'application/octet-stream';
+    const stat = fsSync.statSync(filePath);
+    const safeFileName = (originalName || path.basename(filePath)).replace(/["\\]/g, '_');
+
+    res.setHeader('Content-Type', contentType);
+    res.setHeader('Content-Length', stat.size);
+    res.setHeader('Content-Disposition', `attachment; filename="${safeFileName}"; filename*=UTF-8''${encodeURIComponent(safeFileName)}`);
+    res.setHeader('Cache-Control', 'no-cache');
+
+    console.log(`⬇️ Force-downloading file: ${filePath}`);
+    const stream = fsSync.createReadStream(filePath);
+    stream.on('error', (err) => {
+      console.error('❌ Download stream error:', err);
+      if (!res.headersSent) res.status(500).send('Error reading file');
+    });
+    stream.pipe(res);
+  } catch (error) {
+    console.error('❌ Error in download route:', error);
+    if (!res.headersSent) res.status(500).send('Server error');
+  }
+});
+
 // Stream a file by ID — reads from NAS/local path and serves inline to the browser
 // This allows any client to open files even if they don't have direct NAS access
 router.get('/:fileId/stream', async (req, res) => {

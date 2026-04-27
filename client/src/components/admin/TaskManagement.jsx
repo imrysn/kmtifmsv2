@@ -57,6 +57,7 @@ const TaskManagement = ({
   const [showOpenFileConfirmation, setShowOpenFileConfirmation] = useState(false)
   const [fileToOpen, setFileToOpen] = useState(null)
   const [expandedFolders, setExpandedFolders] = useState({})
+  const [downloadToast, setDownloadToast] = useState({ show: false, fileName: '' })
 
   // Pagination state
   const [nextCursor, setNextCursor] = useState(null)
@@ -441,6 +442,54 @@ const TaskManagement = ({
     return { folders, individualFiles }
   }
 
+  const triggerDownloadToast = (fileName) => {
+    setDownloadToast({ show: true, fileName })
+    setTimeout(() => setDownloadToast({ show: false, fileName: '' }), 3500)
+  }
+
+  const handleDownloadFile = async (file) => {
+    const fileUrl = `${API_BASE_URL}/api/files/${file.id}/download`
+    const fileName = file.original_name || file.filename || 'file'
+    if (window.electron && window.electron.downloadFile) {
+      const result = await window.electron.downloadFile(fileUrl, fileName)
+      if (result && !result.success && !result.canceled) {
+        setError(result.error || 'Download failed')
+      } else if (result && result.success) {
+        triggerDownloadToast(fileName)
+      }
+    } else {
+      const a = document.createElement('a')
+      a.href = fileUrl
+      a.download = fileName
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      triggerDownloadToast(fileName)
+    }
+  }
+
+  const handleDownloadFolder = async (folderFiles, folderName) => {
+    const fileIds = folderFiles.map(f => f.id).join(',')
+    const fileUrl = `${API_BASE_URL}/api/files/folder/zip?fileIds=${fileIds}&folderName=${encodeURIComponent(folderName)}`
+    const fileName = `${folderName}.zip`
+    if (window.electron && window.electron.downloadFile) {
+      const result = await window.electron.downloadFile(fileUrl, fileName)
+      if (result && !result.success && !result.canceled) {
+        setError(result.error || 'Folder download failed')
+      } else if (result && result.success) {
+        triggerDownloadToast(fileName)
+      }
+    } else {
+      const a = document.createElement('a')
+      a.href = fileUrl
+      a.download = fileName
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      triggerDownloadToast(fileName)
+    }
+  }
+
   // ⚡ OPTIMIZATION: Memoized utility function
   const getInitials = useCallback((name) => {
     if (!name) return '?'
@@ -780,29 +829,6 @@ const TaskManagement = ({
                         </div>
                       </div>
                       <div className="admin-header-right">
-                        <div className="admin-card-menu">
-                          <button
-                            className="admin-menu-btn"
-                            onClick={() => setShowMenuForAssignment(showMenuForAssignment === assignment.id ? null : assignment.id)}
-                            title="More options"
-                          >
-                            ⋮
-                          </button>
-                          {showMenuForAssignment === assignment.id && (
-                            <div className="admin-menu-dropdown">
-                              <button
-                                className="admin-menu-item admin-delete-menu-item"
-                                onClick={() => {
-                                  setAssignmentToDelete(assignment)
-                                  setShowDeleteModal(true)
-                                  setShowMenuForAssignment(null)
-                                }}
-                              >
-                                Delete
-                              </button>
-                            </div>
-                          )}
-                        </div>
                         {assignment.status === 'completed' ? (
                           <div style={{
                             backgroundColor: '#d1fae5',
@@ -889,16 +915,32 @@ const TaskManagement = ({
                                       Submitted by <span className="admin-file-submitter">KMTI User</span> • {folderFiles.length} file{folderFiles.length !== 1 ? 's' : ''}
                                     </div>
                                   </div>
-                                  <svg width="14" height="14" viewBox="0 0 16 16" fill="none" style={{ transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s', flexShrink: 0 }}>
-                                    <path d="M4 6L8 10L12 6" stroke="#6B7280" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                                  </svg>
+                                  {/* Download folder button */}
+                                  <button
+                                    onClick={(e) => { e.stopPropagation(); handleDownloadFolder(folderFiles, folderName) }}
+                                    title="Download folder as ZIP"
+                                    style={{
+                                      background: 'transparent', border: 'none', borderRadius: '6px',
+                                      width: '32px', height: '32px', display: 'flex', alignItems: 'center',
+                                      justifyContent: 'center', cursor: 'pointer', color: '#6b7280',
+                                      flexShrink: 0, transition: 'all 0.15s'
+                                    }}
+                                    onMouseEnter={e => { e.currentTarget.style.backgroundColor = '#dbeafe'; e.currentTarget.style.color = '#1d4ed8' }}
+                                    onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = '#6b7280' }}
+                                  >
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                      <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+                                      <polyline points="7 10 12 15 17 10"/>
+                                      <line x1="12" y1="15" x2="12" y2="3"/>
+                                    </svg>
+                                  </button>
                                 </div>
                                 {isExpanded && (
                                   <div style={{ marginLeft: '8px', paddingLeft: '8px', marginTop: '4px' }}>
                                     {folderFiles.map(file => (
                                       <div
                                         key={file.id}
-                                        onClick={() => { setFileToOpen(file); setShowOpenFileConfirmation(true) }}
+                                        onClick={(e) => { e.stopPropagation(); setFileToOpen(file); setShowOpenFileConfirmation(true) }}
                                         className="admin-file-item admin-folder-file-item"
                                         style={{ cursor: 'pointer', marginBottom: '4px' }}
                                       >
@@ -940,6 +982,24 @@ const TaskManagement = ({
                                             </span>
                                           </div>
                                         </div>
+                                        <button
+                                          onClick={(e) => { e.stopPropagation(); handleDownloadFile(file) }}
+                                          title="Download file"
+                                          style={{
+                                            background: 'transparent', border: 'none', borderRadius: '6px',
+                                            width: '30px', height: '30px', display: 'flex', alignItems: 'center',
+                                            justifyContent: 'center', cursor: 'pointer', color: '#9ca3af',
+                                            flexShrink: 0, transition: 'all 0.15s'
+                                          }}
+                                          onMouseEnter={e => { e.currentTarget.style.backgroundColor = '#dbeafe'; e.currentTarget.style.color = '#1d4ed8' }}
+                                          onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = '#9ca3af' }}
+                                        >
+                                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                            <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+                                            <polyline points="7 10 12 15 17 10"/>
+                                            <line x1="12" y1="15" x2="12" y2="3"/>
+                                          </svg>
+                                        </button>
                                       </div>
                                     ))}
                                   </div>
@@ -953,7 +1013,7 @@ const TaskManagement = ({
                             <div
                               key={attachment.id}
                               className="admin-file-item"
-                              onClick={() => { setFileToOpen(attachment); setShowOpenFileConfirmation(true) }}
+                              onClick={(e) => { e.stopPropagation(); setFileToOpen(attachment); setShowOpenFileConfirmation(true) }}
                               style={{ cursor: 'pointer', marginBottom: index < attIndividual.length - 1 ? '8px' : '0' }}
                             >
                               <FileIcon fileType={attachment.original_name.split('.').pop()} size="small" className="admin-file-icon" />
@@ -994,6 +1054,24 @@ const TaskManagement = ({
                                   </span>
                                 </div>
                               </div>
+                              <button
+                                onClick={(e) => { e.stopPropagation(); handleDownloadFile(attachment) }}
+                                title="Download file"
+                                style={{
+                                  background: 'transparent', border: 'none', borderRadius: '6px',
+                                  width: '30px', height: '30px', display: 'flex', alignItems: 'center',
+                                  justifyContent: 'center', cursor: 'pointer', color: '#9ca3af',
+                                  flexShrink: 0, transition: 'all 0.15s'
+                                }}
+                                onMouseEnter={e => { e.currentTarget.style.backgroundColor = '#dbeafe'; e.currentTarget.style.color = '#1d4ed8' }}
+                                onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = '#9ca3af' }}
+                              >
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                  <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+                                  <polyline points="7 10 12 15 17 10"/>
+                                  <line x1="12" y1="15" x2="12" y2="3"/>
+                                </svg>
+                              </button>
                             </div>
                           ))}
                         </div>
@@ -1047,6 +1125,25 @@ const TaskManagement = ({
                                           Submitted by <span className="admin-file-submitter">{folderFiles[0].fullName || folderFiles[0].username}</span> • {folderFiles.length} files
                                         </div>
                                       </div>
+                                      {/* Download folder button */}
+                                      <button
+                                        onClick={(e) => { e.stopPropagation(); handleDownloadFolder(folderFiles, folderName) }}
+                                        title="Download folder as ZIP"
+                                        style={{
+                                          background: 'transparent', border: 'none', borderRadius: '6px',
+                                          width: '32px', height: '32px', display: 'flex', alignItems: 'center',
+                                          justifyContent: 'center', cursor: 'pointer', color: '#6b7280',
+                                          flexShrink: 0, transition: 'all 0.15s'
+                                        }}
+                                        onMouseEnter={e => { e.currentTarget.style.backgroundColor = '#dbeafe'; e.currentTarget.style.color = '#1d4ed8' }}
+                                        onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = '#6b7280' }}
+                                      >
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                          <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+                                          <polyline points="7 10 12 15 17 10"/>
+                                          <line x1="12" y1="15" x2="12" y2="3"/>
+                                        </svg>
+                                      </button>
                                     </div>
                                     
                                     {isExpanded && (
@@ -1105,6 +1202,25 @@ const TaskManagement = ({
                                             </span>
                                           </div>
                                         </div>
+                                        {/* Download icon */}
+                                        <button
+                                          onClick={(e) => { e.stopPropagation(); handleDownloadFile(file) }}
+                                          title="Download file"
+                                          style={{
+                                            background: 'transparent', border: 'none', borderRadius: '6px',
+                                            width: '30px', height: '30px', display: 'flex', alignItems: 'center',
+                                            justifyContent: 'center', cursor: 'pointer', color: '#9ca3af',
+                                            flexShrink: 0, transition: 'all 0.15s'
+                                          }}
+                                          onMouseEnter={e => { e.currentTarget.style.backgroundColor = '#dbeafe'; e.currentTarget.style.color = '#1d4ed8' }}
+                                          onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = '#9ca3af' }}
+                                        >
+                                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                            <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+                                            <polyline points="7 10 12 15 17 10"/>
+                                            <line x1="12" y1="15" x2="12" y2="3"/>
+                                          </svg>
+                                        </button>
                                       </div>
                                       ))}
                                       </div>
@@ -1169,6 +1285,25 @@ const TaskManagement = ({
                                       </span>
                                     </div>
                                   </div>
+                                  {/* Download icon */}
+                                  <button
+                                    onClick={(e) => { e.stopPropagation(); handleDownloadFile(file) }}
+                                    title="Download file"
+                                    style={{
+                                      background: 'transparent', border: 'none', borderRadius: '6px',
+                                      width: '30px', height: '30px', display: 'flex', alignItems: 'center',
+                                      justifyContent: 'center', cursor: 'pointer', color: '#9ca3af',
+                                      flexShrink: 0, transition: 'all 0.15s'
+                                    }}
+                                    onMouseEnter={e => { e.currentTarget.style.backgroundColor = '#dbeafe'; e.currentTarget.style.color = '#1d4ed8' }}
+                                    onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = '#9ca3af' }}
+                                  >
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                      <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+                                      <polyline points="7 10 12 15 17 10"/>
+                                      <line x1="12" y1="15" x2="12" y2="3"/>
+                                    </svg>
+                                  </button>
                                 </div>
                               ))}
                             </>
@@ -1199,10 +1334,73 @@ const TaskManagement = ({
                     )}
                   </div>
 
-                    {/* Comments */}
-                    <div className="admin-comments-section">
+                    {/* Comments + 3-dot menu row */}
+                    <div className="admin-comments-section" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                       <div className="admin-comments-text" onClick={() => openCommentsModal(assignment)}>
                         Comments ({assignment.comment_count || 0})
+                      </div>
+                      {/* 3-dot menu */}
+                      <div className="admin-card-menu" style={{ position: 'relative' }}>
+                        <button
+                          className="admin-menu-btn"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            setShowMenuForAssignment(prev => prev === assignment.id ? null : assignment.id)
+                          }}
+                          title="More options"
+                          style={{
+                            background: 'transparent', border: 'none', cursor: 'pointer',
+                            padding: '6px 8px', borderRadius: '8px', color: '#6b7280',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            transition: 'background 0.15s'
+                          }}
+                          onMouseEnter={e => e.currentTarget.style.background = '#f3f4f6'}
+                          onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                        >
+                          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                            <circle cx="5" cy="12" r="2"/>
+                            <circle cx="12" cy="12" r="2"/>
+                            <circle cx="19" cy="12" r="2"/>
+                          </svg>
+                        </button>
+                        {showMenuForAssignment === assignment.id && (
+                          <div
+                            className="admin-menu-dropdown"
+                            style={{
+                              position: 'absolute', bottom: '110%', right: 0,
+                              background: '#fff', border: '1px solid #e5e7eb',
+                              borderRadius: '10px', boxShadow: '0 4px 20px rgba(0,0,0,0.12)',
+                              minWidth: '140px', zIndex: 9999, overflow: 'hidden'
+                            }}
+                          >
+                            <button
+                              className="admin-menu-item admin-delete-menu-item"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                setShowMenuForAssignment(null)
+                                setAssignmentToDelete(assignment)
+                                setShowDeleteModal(true)
+                              }}
+                              style={{
+                                display: 'flex', alignItems: 'center', gap: '8px',
+                                width: '100%', padding: '10px 14px', background: 'transparent',
+                                border: 'none', cursor: 'pointer', color: '#dc2626',
+                                fontSize: '13px', fontWeight: '500', textAlign: 'left',
+                                transition: 'background 0.15s'
+                              }}
+                              onMouseEnter={e => e.currentTarget.style.background = '#fee2e2'}
+                              onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                            >
+                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <polyline points="3 6 5 6 21 6"/>
+                                <path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/>
+                                <path d="M10 11v6M14 11v6"/>
+                                <path d="M9 6V4h6v2"/>
+                              </svg>
+                              Delete
+                            </button>
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -1301,6 +1499,77 @@ const TaskManagement = ({
           }}
           file={fileToOpen}
         />
+
+        {/* Download Success Toast */}
+        {downloadToast.show && (
+          <div
+            style={{
+              position: 'fixed',
+              top: '28px',
+              right: '28px',
+              zIndex: 9999,
+              background: '#fff',
+              border: '1px solid #bbf7d0',
+              borderRadius: '16px',
+              boxShadow: '0 8px 32px rgba(0,0,0,0.13)',
+              padding: '18px 22px 14px 18px',
+              display: 'flex',
+              alignItems: 'flex-start',
+              gap: '14px',
+              minWidth: '280px',
+              maxWidth: '380px',
+              animation: 'adminSlideInRight 0.25s ease',
+            }}
+          >
+            <div style={{
+              width: '40px', height: '40px', borderRadius: '50%',
+              background: '#dcfce7', border: '2px solid #86efac',
+              display: 'flex', alignItems: 'center',
+              justifyContent: 'center', flexShrink: 0, marginTop: '1px'
+            }}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M20 6L9 17l-5-5"/>
+              </svg>
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: '15px', fontWeight: '700', color: '#15803d', marginBottom: '4px' }}>
+                Success
+              </div>
+              <div style={{ fontSize: '13px', color: '#374151', lineHeight: '1.4' }}>
+                {downloadToast.fileName
+                  ? `"${downloadToast.fileName}" downloaded successfully!`
+                  : 'File downloaded successfully!'}
+              </div>
+              <div style={{ marginTop: '10px', height: '4px', borderRadius: '2px', background: '#dcfce7', overflow: 'hidden' }}>
+                <div style={{
+                  height: '100%', borderRadius: '2px', background: '#22c55e',
+                  animation: 'adminShrinkBar 3.5s linear forwards'
+                }} />
+              </div>
+            </div>
+            <button
+              onClick={() => setDownloadToast({ show: false, fileName: '' })}
+              style={{
+                background: 'transparent', border: 'none', cursor: 'pointer',
+                color: '#9ca3af', fontSize: '20px', lineHeight: 1,
+                padding: '0', flexShrink: 0, borderRadius: '4px', marginTop: '-2px'
+              }}
+              onMouseEnter={e => e.currentTarget.style.color = '#374151'}
+              onMouseLeave={e => e.currentTarget.style.color = '#9ca3af'}
+            >×</button>
+          </div>
+        )}
+
+        <style>{`
+          @keyframes adminSlideInRight {
+            from { opacity: 0; transform: translateX(40px); }
+            to   { opacity: 1; transform: translateX(0); }
+          }
+          @keyframes adminShrinkBar {
+            from { width: 100%; }
+            to   { width: 0%; }
+          }
+        `}</style>
       </div>
     </div>
   )

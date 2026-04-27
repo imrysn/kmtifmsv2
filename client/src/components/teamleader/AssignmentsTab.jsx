@@ -55,6 +55,56 @@ const AssignmentsTab = ({
   // Remove attachment confirmation modal
   const [removeAttachmentModal, setRemoveAttachmentModal] = useState({ isOpen: false, attachmentId: null, attachmentName: '', assignmentId: null })
 
+  // Download success toast
+  const [downloadToast, setDownloadToast] = useState({ show: false, fileName: '' })
+
+  const triggerDownloadToast = (fileName) => {
+    setDownloadToast({ show: true, fileName })
+    setTimeout(() => setDownloadToast({ show: false, fileName: '' }), 3500)
+  }
+
+  const handleDownloadFile = async (fileId, fileName) => {
+    const fileUrl = `${API_BASE_URL}/api/files/${fileId}/download`
+    if (window.electron && window.electron.downloadFile) {
+      const result = await window.electron.downloadFile(fileUrl, fileName)
+      if (result && !result.success && !result.canceled) {
+        alert('Download failed: ' + (result.error || 'Unknown error'))
+      } else if (result && result.success) {
+        triggerDownloadToast(fileName)
+      }
+    } else {
+      const a = document.createElement('a')
+      a.href = fileUrl
+      a.download = fileName
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      triggerDownloadToast(fileName)
+    }
+  }
+
+  const handleDownloadFolder = async (folderFiles, folderName) => {
+    const fileIds = folderFiles.map(f => f.id).join(',')
+    const fileUrl = `${API_BASE_URL}/api/files/folder/zip?fileIds=${fileIds}&folderName=${encodeURIComponent(folderName)}`
+    const fileName = `${folderName}.zip`
+    if (window.electron && window.electron.downloadFile) {
+      const result = await window.electron.downloadFile(fileUrl, fileName)
+      if (result && !result.success && !result.canceled) {
+        alert('Download failed: ' + (result.error || 'Unknown error'))
+      } else if (result && result.success) {
+        triggerDownloadToast(fileName)
+      }
+    } else {
+      const a = document.createElement('a')
+      a.href = fileUrl
+      a.download = fileName
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      triggerDownloadToast(fileName)
+    }
+  }
+
   // Remove entire folder via dedicated folder-delete endpoint
   const handleRemoveAttachmentFolder = async (assignmentId, folderFiles) => {
     setOpenFolderMenuId(null)
@@ -840,36 +890,52 @@ const AssignmentsTab = ({
                                         •••
                                       </button>
                                       {openFolderMenuId === `${assignment.id}-${folderName}` && (
-                                        <div className="tl-assignment-menu-dropdown" style={{ right: 0, left: 'auto', minWidth: '180px', whiteSpace: 'nowrap' }}>
-                                          <button
-                                            className="tl-assignment-menu-item"
-                                            style={{ fontWeight: '600' }}
-                                            onClick={async (e) => {
-                                              e.stopPropagation()
-                                              setOpenFolderMenuId(null)
-                                              if (!window.electron || !window.electron.openFolderInExplorer) {
-                                                alert('Open Folder Path is only available in the desktop app.')
-                                                return
-                                              }
-                                              const firstFile = folderFiles[0]
-                                              try {
-                                                const response = await fetch(`${API_BASE_URL}/api/files/${firstFile.id}/path`)
-                                                const data = await response.json()
-                                                if (data.success && data.filePath) {
-                                                  const result = await window.electron.openFolderInExplorer(data.filePath)
-                                                  if (!result.success) {
-                                                    alert('Could not open folder: ' + (result.error || 'Unknown error'))
-                                                  }
-                                                } else {
-                                                  alert('Could not retrieve folder path.')
-                                                }
-                                              } catch (err) {
-                                                console.error('Error opening folder:', err)
-                                                alert('Failed to open folder path.')
-                                              }
+                                      <div className="tl-assignment-menu-dropdown" style={{ right: 0, left: 'auto', minWidth: '190px', whiteSpace: 'nowrap' }}>
+                                      <button
+                                      className="tl-assignment-menu-item"
+                                      style={{ fontWeight: '600' }}
+                                      onClick={async (e) => {
+                                      e.stopPropagation()
+                                      setOpenFolderMenuId(null)
+                                      if (!window.electron || !window.electron.openFolderInExplorer) {
+                                      alert('Open Folder Path is only available in the desktop app.')
+                                      return
+                                      }
+                                      const firstFile = folderFiles[0]
+                                      try {
+                                      const response = await fetch(`${API_BASE_URL}/api/files/${firstFile.id}/path`)
+                                      const data = await response.json()
+                                      if (data.success && data.filePath) {
+                                      const result = await window.electron.openFolderInExplorer(data.filePath)
+                                      if (!result.success) {
+                                      alert('Could not open folder: ' + (result.error || 'Unknown error'))
+                                      }
+                                      } else {
+                                      alert('Could not retrieve folder path.')
+                                      }
+                                      } catch (err) {
+                                      console.error('Error opening folder:', err)
+                                      alert('Failed to open folder path.')
+                                      }
+                                      }}
+                                      >
+                                      📂 Open Folder Path
+                                      </button>
+                                      <button
+                                      className="tl-assignment-menu-item"
+                                      style={{ fontWeight: '600', display: 'flex', alignItems: 'center', gap: '8px' }}
+                                      onClick={async (e) => {
+                                      e.stopPropagation()
+                                      setOpenFolderMenuId(null)
+                                      await handleDownloadFolder(folderFiles, folderName)
                                             }}
                                           >
-                                            📂 Open Folder Path
+                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                              <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+                                              <polyline points="7 10 12 15 17 10"/>
+                                              <line x1="12" y1="15" x2="12" y2="3"/>
+                                            </svg>
+                                            Download Folder
                                           </button>
                                           <button
                                             className="tl-assignment-menu-item"
@@ -951,6 +1017,23 @@ const AssignmentsTab = ({
                                           </span>
                                         </div>
                                       </div>
+                                      {/* Download icon */}
+                                      <button
+                                        onClick={async (e) => {
+                                          e.stopPropagation()
+                                          await handleDownloadFile(file.id, file.original_name || file.file_name || 'file')
+                                        }}
+                                        title="Download file"
+                                        style={{ marginLeft: 'auto', flexShrink: 0, background: 'transparent', border: 'none', cursor: 'pointer', color: '#9ca3af', width: '28px', height: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '6px', transition: 'all 0.2s' }}
+                                        onMouseEnter={e => { e.currentTarget.style.backgroundColor = '#dbeafe'; e.currentTarget.style.color = '#2563eb' }}
+                                        onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = '#9ca3af' }}
+                                      >
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                          <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+                                          <polyline points="7 10 12 15 17 10"/>
+                                          <line x1="12" y1="15" x2="12" y2="3"/>
+                                        </svg>
+                                      </button>
                                     </div>
                                   ))}
                                     </div>
@@ -1012,6 +1095,23 @@ const AssignmentsTab = ({
                               </span>
                             </div>
                           </div>
+                          {/* Download icon */}
+                          <button
+                            onClick={async (e) => {
+                              e.stopPropagation()
+                              await handleDownloadFile(submission.id, submission.original_name || submission.file_name || 'file')
+                            }}
+                            title="Download file"
+                            style={{ marginLeft: 'auto', flexShrink: 0, background: 'transparent', border: 'none', cursor: 'pointer', color: '#9ca3af', width: '28px', height: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '6px', transition: 'all 0.2s' }}
+                            onMouseEnter={e => { e.currentTarget.style.backgroundColor = '#dbeafe'; e.currentTarget.style.color = '#2563eb' }}
+                            onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = '#9ca3af' }}
+                          >
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+                              <polyline points="7 10 12 15 17 10"/>
+                              <line x1="12" y1="15" x2="12" y2="3"/>
+                            </svg>
+                          </button>
                         </div>
                       ))}
                             {totalTopLevel > 5 && (
@@ -1365,6 +1465,78 @@ const AssignmentsTab = ({
         message={toast.message}
         type={toast.type}
       />
+
+      {/* Download Success Toast */}
+      {downloadToast.show && (
+        <div
+          style={{
+            position: 'fixed',
+            top: '28px',
+            right: '28px',
+            zIndex: 9999,
+            background: '#fff',
+            border: '1px solid #bbf7d0',
+            borderRadius: '16px',
+            boxShadow: '0 8px 32px rgba(0,0,0,0.13)',
+            padding: '18px 22px 14px 18px',
+            display: 'flex',
+            alignItems: 'flex-start',
+            gap: '14px',
+            minWidth: '280px',
+            maxWidth: '380px',
+            animation: 'tlSlideInRight 0.25s ease',
+          }}
+        >
+          <div style={{
+            width: '40px', height: '40px', borderRadius: '50%',
+            background: '#dcfce7', border: '2px solid #86efac',
+            display: 'flex', alignItems: 'center',
+            justifyContent: 'center', flexShrink: 0, marginTop: '1px'
+          }}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M20 6L9 17l-5-5"/>
+            </svg>
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: '15px', fontWeight: '700', color: '#15803d', marginBottom: '4px' }}>
+              Success
+            </div>
+            <div style={{ fontSize: '13px', color: '#374151', lineHeight: '1.4' }}>
+              {downloadToast.fileName
+                ? `"${downloadToast.fileName}" downloaded successfully!`
+                : 'File downloaded successfully!'}
+            </div>
+            <div style={{ marginTop: '10px', height: '4px', borderRadius: '2px', background: '#dcfce7', overflow: 'hidden' }}>
+              <div style={{
+                height: '100%', borderRadius: '2px', background: '#22c55e',
+                animation: 'tlShrinkBar 3.5s linear forwards'
+              }} />
+            </div>
+          </div>
+          <button
+            onClick={() => setDownloadToast({ show: false, fileName: '' })}
+            style={{
+              background: 'transparent', border: 'none', cursor: 'pointer',
+              color: '#9ca3af', fontSize: '20px', lineHeight: 1,
+              padding: '0', flexShrink: 0, borderRadius: '4px',
+              marginTop: '-2px'
+            }}
+            onMouseEnter={e => e.currentTarget.style.color = '#374151'}
+            onMouseLeave={e => e.currentTarget.style.color = '#9ca3af'}
+          >×</button>
+        </div>
+      )}
+
+      <style>{`
+        @keyframes tlSlideInRight {
+          from { opacity: 0; transform: translateX(40px); }
+          to   { opacity: 1; transform: translateX(0); }
+        }
+        @keyframes tlShrinkBar {
+          from { width: 100%; }
+          to   { width: 0%; }
+        }
+      `}</style>
 
       {/* File Open Modal */}
       <FileOpenModal

@@ -222,7 +222,7 @@
 .comment-bubble {
   display: inline-block;
   background: #f0f2f5;
-  border-radius: 12px; /* smaller radius = cheaper to paint on scroll */
+  border-radius: 12px;
   padding: 8px 14px 10px;
   max-width: 100%;
   word-break: break-word;
@@ -600,3 +600,151 @@
   .replies-thread { margin-left: 36px; }
   .reply-input-box { margin-left: 36px; }
 }
+
+/* =================================================================
+   THREE-DOT MORE MENU
+   ================================================================= */
+
+/* Wrapper that sits inline inside the bubble header */
+.bubble-menu-wrap {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.more-menu-wrapper {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.more-menu-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #65676b;
+  padding: 2px 6px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s, color 0.15s;
+  line-height: 1;
+}
+
+.more-menu-btn:hover {
+  background: #e4e6eb;
+  color: #050505;
+}
+
+/* Dropdown portaled to document.body — never clipped by scroll containers */
+.more-menu-dropdown {
+  position: fixed;
+  background: #fff;
+  border-radius: 10px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  border: 1px solid #e5e7eb;
+  min-width: 130px;
+  z-index: 10001;
+  padding: 4px 0;
+  overflow: hidden;
+}
+
+.more-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 9px 14px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 13.5px;
+  font-weight: 500;
+  color: #050505;
+  text-align: left;
+  transition: background 0.1s;
+  font-family: inherit;
+}
+
+.more-menu-item:hover {
+  background: #f0f2f5;
+}
+
+.more-menu-item--danger {
+  color: #dc2626;
+}
+
+.more-menu-item--danger:hover {
+  background: #fee2e2;
+}
+
+/* =================================================================
+   INLINE EDIT INPUT
+   ================================================================= */
+
+.edit-input-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+}
+
+.edit-input {
+  flex: 1;
+  width: 100%;
+  padding: 8px 12px;
+  border: 1.5px solid #1877f2;
+  border-radius: 10px;
+  font-size: 14px;
+  font-family: inherit;
+  color: #050505;
+  background: #fff;
+  outline: none;
+  box-sizing: border-box;
+}
+
+.edit-input-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.edit-save-btn {
+  padding: 4px 14px;
+  background: #1877f2;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 0.15s;
+}
+
+.edit-save-btn:hover:not(:disabled) {
+  background: #166fe5;
+}
+
+.edit-save-btn:disabled {
+  background: #bec3c9;
+  cursor: not-allowed;
+}
+
+.edit-cancel-btn {
+  padding: 4px 12px;
+  background: #e4e6eb;
+  color: #050505;
+  border: none;
+  border-radius: 6px;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 0.15s;
+}
+
+.edit-cancel-btn:hover {
+  background: #d8dadf;
+}
+

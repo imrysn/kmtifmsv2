@@ -2016,6 +2016,120 @@ router.post('/:assignmentId/comments/:commentId/reply', async (req, res) => {
   }
 });
 
+// ── Edit a comment ──────────────────────────────────────────────────────────
+router.put('/:assignmentId/comments/:commentId', async (req, res) => {
+  try {
+    const { assignmentId, commentId } = req.params;
+    const { userId, comment } = req.body;
+
+    if (!userId || !comment?.trim()) {
+      return res.status(400).json({ success: false, message: 'Missing required fields' });
+    }
+
+    const existing = await queryOne(
+      'SELECT * FROM assignment_comments WHERE id = ? AND assignment_id = ?',
+      [commentId, assignmentId]
+    );
+    if (!existing) return res.status(404).json({ success: false, message: 'Comment not found' });
+    if (String(existing.user_id) !== String(userId)) {
+      return res.status(403).json({ success: false, message: 'You can only edit your own comments' });
+    }
+
+    await query(
+      'UPDATE assignment_comments SET comment = ?, updated_at = NOW() WHERE id = ?',
+      [comment.trim(), commentId]
+    );
+
+    res.json({ success: true, message: 'Comment updated successfully' });
+  } catch (error) {
+    console.error('Error editing comment:', error);
+    res.status(500).json({ success: false, message: 'Failed to edit comment', error: error.message });
+  }
+});
+
+// ── Delete a comment (also deletes its replies via CASCADE) ─────────────────
+router.delete('/:assignmentId/comments/:commentId', async (req, res) => {
+  try {
+    const { assignmentId, commentId } = req.params;
+    const { userId } = req.body;
+
+    if (!userId) {
+      return res.status(400).json({ success: false, message: 'Missing userId' });
+    }
+
+    const existing = await queryOne(
+      'SELECT * FROM assignment_comments WHERE id = ? AND assignment_id = ?',
+      [commentId, assignmentId]
+    );
+    if (!existing) return res.status(404).json({ success: false, message: 'Comment not found' });
+    if (String(existing.user_id) !== String(userId)) {
+      return res.status(403).json({ success: false, message: 'You can only delete your own comments' });
+    }
+
+    // Delete replies first, then the comment
+    await query('DELETE FROM comment_replies WHERE comment_id = ?', [commentId]);
+    await query('DELETE FROM assignment_comments WHERE id = ?', [commentId]);
+
+    res.json({ success: true, message: 'Comment deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting comment:', error);
+    res.status(500).json({ success: false, message: 'Failed to delete comment', error: error.message });
+  }
+});
+
+// ── Edit a reply ─────────────────────────────────────────────────────────────
+router.put('/:assignmentId/comments/:commentId/reply/:replyId', async (req, res) => {
+  try {
+    const { replyId } = req.params;
+    const { userId, reply } = req.body;
+
+    if (!userId || !reply?.trim()) {
+      return res.status(400).json({ success: false, message: 'Missing required fields' });
+    }
+
+    const existing = await queryOne('SELECT * FROM comment_replies WHERE id = ?', [replyId]);
+    if (!existing) return res.status(404).json({ success: false, message: 'Reply not found' });
+    if (String(existing.user_id) !== String(userId)) {
+      return res.status(403).json({ success: false, message: 'You can only edit your own replies' });
+    }
+
+    await query(
+      'UPDATE comment_replies SET reply = ?, updated_at = NOW() WHERE id = ?',
+      [reply.trim(), replyId]
+    );
+
+    res.json({ success: true, message: 'Reply updated successfully' });
+  } catch (error) {
+    console.error('Error editing reply:', error);
+    res.status(500).json({ success: false, message: 'Failed to edit reply', error: error.message });
+  }
+});
+
+// ── Delete a reply ───────────────────────────────────────────────────────────
+router.delete('/:assignmentId/comments/:commentId/reply/:replyId', async (req, res) => {
+  try {
+    const { replyId } = req.params;
+    const { userId } = req.body;
+
+    if (!userId) {
+      return res.status(400).json({ success: false, message: 'Missing userId' });
+    }
+
+    const existing = await queryOne('SELECT * FROM comment_replies WHERE id = ?', [replyId]);
+    if (!existing) return res.status(404).json({ success: false, message: 'Reply not found' });
+    if (String(existing.user_id) !== String(userId)) {
+      return res.status(403).json({ success: false, message: 'You can only delete your own replies' });
+    }
+
+    await query('DELETE FROM comment_replies WHERE id = ?', [replyId]);
+
+    res.json({ success: true, message: 'Reply deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting reply:', error);
+    res.status(500).json({ success: false, message: 'Failed to delete reply', error: error.message });
+  }
+});
+
 // Archive assignment (Admin only)
 router.patch('/:assignmentId/archive', async (req, res) => {
   try {

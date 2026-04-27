@@ -1259,6 +1259,67 @@ if (ipcMain) {
     }
   });
 
+  // Handle file downloads — show native Save dialog
+  ipcMain.handle('file:download', async (event, { fileUrl, fileName }) => {
+    try {
+      // Ensure the save dialog defaultPath always includes the correct extension
+      const downloadsDir = app.getPath('downloads');
+      const safeFileName = fileName || 'download';
+      // Extract extension from fileName — if missing, try to get it from the URL
+      const hasExt = path.extname(safeFileName).length > 1;
+      let finalName = safeFileName;
+      if (!hasExt) {
+        // Try to extract extension from URL path
+        const urlPath = fileUrl.split('?')[0];
+        const urlExt = path.extname(urlPath);
+        if (urlExt.length > 1) finalName = safeFileName + urlExt;
+      }
+
+      const result = await dialog.showSaveDialog(mainWindow, {
+        defaultPath: path.join(downloadsDir, finalName),
+        title: 'Save File',
+        filters: [
+          { name: 'All Files', extensions: ['*'] }
+        ]
+      });
+      if (result.canceled || !result.filePath) return { success: false, canceled: true };
+
+      // Ensure saved path keeps the extension if user didn't type one
+      let savePath = result.filePath;
+      const savedExt = path.extname(savePath);
+      const expectedExt = path.extname(finalName);
+      if (!savedExt && expectedExt) {
+        savePath = savePath + expectedExt;
+      }
+
+      const https = require('https');
+      const httpModule = fileUrl.startsWith('https') ? https : http;
+      await new Promise((resolve, reject) => {
+        const dest = fs.createWriteStream(savePath);
+        httpModule.get(fileUrl, (response) => {
+          // Follow redirects
+          if (response.statusCode === 301 || response.statusCode === 302) {
+            const redirectUrl = response.headers.location;
+            const redirectModule = redirectUrl.startsWith('https') ? https : http;
+            redirectModule.get(redirectUrl, (r2) => {
+              r2.pipe(dest);
+              dest.on('finish', () => { dest.close(); resolve(); });
+              dest.on('error', reject);
+            }).on('error', reject);
+            return;
+          }
+          response.pipe(dest);
+          dest.on('finish', () => { dest.close(); resolve(); });
+          dest.on('error', reject);
+        }).on('error', reject);
+      });
+      return { success: true, savedTo: savePath };
+    } catch (err) {
+      log(LogLevel.ERROR, 'Download failed:', err.message);
+      return { success: false, error: err.message };
+    }
+  });
+
   ipcMain.handle('file:openInApp', async (event, filePath) => {
     try {
       // SECURITY: Validate input
