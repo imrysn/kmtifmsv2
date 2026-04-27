@@ -1081,18 +1081,10 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
             <NotificationTab
               user={user}
               onRead={() => setUnreadCount(0)}
-              onNavigate={async (tab, data) => {
-                console.log('🎯 Dashboard onNavigate called');
-                console.log('   Tab:', tab);
-                console.log('   Data:', data);
-
+              onNavigate={(tab, data) => {
                 if (tab === 'assignments') {
+                  // Switch tab immediately — don't await fetch, assignments load via useEffect
                   setActiveTab('assignments')
-                  // Ensure assignments are loaded first
-                  if (assignments.length === 0) {
-                    console.log('   ⏳ Fetching assignments...');
-                    await fetchAssignments()
-                  }
 
                   // Handle both object and primitive data formats
                   const assignmentId = typeof data === 'object' ? data.assignmentId : data
@@ -1100,43 +1092,22 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
                   const expandAllReplies = typeof data === 'object' ? data.expandAllReplies : false
                   const fileId = typeof data === 'object' ? data.fileId : null
 
-                  console.log('   📋 Extracted data:');
-                  console.log('      assignmentId:', assignmentId);
-                  console.log('      shouldOpenComments:', shouldOpenComments);
-                  console.log('      expandAllReplies:', expandAllReplies);
-                  console.log('      fileId:', fileId);
-
                   if (assignmentId) {
-                    // Set highlighted assignment for scroll and highlight
                     setHighlightedAssignmentId(assignmentId)
-                    console.log('   ✅ Set highlightedAssignmentId:', assignmentId);
 
-                    // If there's a file_id, also highlight the specific file within the task
                     if (fileId) {
                       setHighlightedSubmissionFileId(fileId)
-                      console.log('   ✅ Set highlightedSubmissionFileId:', fileId);
                     }
 
                     if (shouldOpenComments) {
-                      // For comment notifications, set context to auto-open comments
-                      const context = {
+                      setNotificationCommentContext({
                         assignmentId: assignmentId,
-                        expandAllReplies: expandAllReplies  // Pass the expand flag
-                      };
-                      console.log('   ✅ Setting notificationCommentContext:', context);
-                      setNotificationCommentContext(context)
-                    } else {
-                      console.log('   ⚠️ Not opening comments - shouldOpenComments:', shouldOpenComments);
+                        expandAllReplies: expandAllReplies
+                      })
                     }
                   }
                 } else if (tab === 'file-collection') {
-                  // For file approval/rejection notifications, navigate to file collection
                   setActiveTab('file-collection')
-                  // Ensure submissions are loaded first
-                  if (submittedFiles.length === 0) {
-                    await fetchAllSubmissions()
-                  }
-                  // Highlight the specific file
                   if (data) {
                     const fileId = typeof data === 'object' ? data.fileId : data
                     setHighlightedFileId(fileId)

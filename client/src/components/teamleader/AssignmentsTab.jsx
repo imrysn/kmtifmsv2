@@ -185,9 +185,9 @@ const AssignmentsTab = ({
     }
   }
 
-  const postReply = async (e, commentId) => {
+  const postReply = async (e, commentId, replyTextArg, onSuccess) => {
     e.preventDefault()
-    const replyTextValue = replyText.trim()
+    const replyTextValue = (replyTextArg ?? replyText).trim()
     if (!replyTextValue || !selectedAssignment) return
 
     try {
@@ -208,6 +208,7 @@ const AssignmentsTab = ({
       if (data.success) {
         setReplyText('')
         setReplyingTo(null)
+        if (onSuccess) onSuccess()
         fetchComments(selectedAssignment.id)
         fetchCommentCount(selectedAssignment.id) // Update count after posting reply
       }

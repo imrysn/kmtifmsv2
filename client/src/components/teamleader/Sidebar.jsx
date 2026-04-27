@@ -1,4 +1,6 @@
-const Sidebar = ({ 
+import { memo, useCallback } from 'react'
+
+const Sidebar = memo(({ 
   activeTab, 
   setActiveTab, 
   clearMessages, 
@@ -8,11 +10,11 @@ const Sidebar = ({
   user,
   unreadCount = 0
 }) => {
-  const handleTabChange = (tab) => {
+  const handleTabChange = useCallback((tab) => {
     setActiveTab(tab)
     clearMessages()
     setSidebarOpen(false)
-  }
+  }, [setActiveTab, clearMessages, setSidebarOpen])
 
   return (
     <aside className={`tl-sidebar ${sidebarOpen ? 'open' : ''}`}>
@@ -136,6 +138,8 @@ const Sidebar = ({
       </div>
     </aside>
   )
-}
+})
+
+Sidebar.displayName = 'Sidebar'
 
 export default Sidebar

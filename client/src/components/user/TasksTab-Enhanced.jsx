@@ -1,15 +1,16 @@
-import { useRef, useCallback, useState, useEffect } from 'react';
+import { useRef, useCallback, useState, useEffect, startTransition, useMemo, memo } from 'react';
 import { API_BASE_URL } from '@/config/api';
 import './css/TasksTab-Enhanced.css';
 import './css/TasksTab-Comments.css';
 import { FileIcon, FileOpenModal } from '../shared';
+import CommentsModal from '../shared/CommentsModal';
 import SingleSelectTags from './SingleSelectTags';
 import { LoadingTable, LoadingCards } from '../common/InlineSkeletonLoader';
 import SuccessModal from './SuccessModal';
 import { useSmartNavigation } from '../shared/SmartNavigation';
 import '../shared/SmartNavigation/SmartNavigation.css';
 
-const TasksTab = ({
+const TasksTab = memo(({
   user,
   highlightedAssignmentId,
   highlightedFileId,
@@ -27,12 +28,10 @@ const TasksTab = ({
   const [comments, setComments] = useState({});
   const [newComment, setNewComment] = useState({});
   const [isPostingComment, setIsPostingComment] = useState({});
-  const [replyingTo, setReplyingTo] = useState({});
-  const [replyText, setReplyText] = useState({});
-  const [isPostingReply, setIsPostingReply] = useState({});
   const [showCommentsModal, setShowCommentsModal] = useState(false);
   const [currentCommentsAssignment, setCurrentCommentsAssignment] = useState(null);
   const [highlightCommentBy, setHighlightCommentBy] = useState(null);
+  const [loadingComments, setLoadingComments] = useState(false);
   const [uploadedFiles, setUploadedFiles] = useState([]);
   const [fileDescription, setFileDescription] = useState('');
   const [fileTag, setFileTag] = useState(''); // Add tag state
@@ -46,8 +45,6 @@ const TasksTab = ({
   const [showOpenFileModal, setShowOpenFileModal] = useState(false);
   const [fileToOpen, setFileToOpen] = useState(null);
   const [expandedFolders, setExpandedFolders] = useState({}); // Track which folders are expanded
-  const [expandedCommentTexts, setExpandedCommentTexts] = useState({}); // Track which comment texts are expanded
-  const [expandedReplyTexts, setExpandedReplyTexts] = useState({}); // Track which reply texts are expanded
   const [showAllSubmittedFiles, setShowAllSubmittedFiles] = useState({}); // Track which assignments show all submitted files
   const INITIAL_FILE_DISPLAY_LIMIT = 5; // Show first 5 files/folders initially
 
@@ -58,9 +55,6 @@ const TasksTab = ({
 
     // Only run if we have both the session data AND assignments have loaded
     if (assignmentId && assignments.length > 0) {
-      console.log('Found assignment to open:', assignmentId);
-      console.log('Found user to highlight:', highlightUser);
-
       // Clear the session storage immediately to prevent re-triggering
       sessionStorage.removeItem('scrollToAssignment');
       sessionStorage.removeItem('highlightCommentBy');
@@ -68,8 +62,6 @@ const TasksTab = ({
       // Find the assignment
       const assignment = assignments.find(a => a.id === parseInt(assignmentId));
       if (assignment) {
-        console.log('Assignment found, opening comments...');
-
         // Set highlight user if provided
         if (highlightUser) {
           setHighlightCommentBy(highlightUser);
@@ -92,25 +84,47 @@ const TasksTab = ({
             }, 3000);
           }, 100);
         }, 500);
-      } else {
-        console.log('Assignment not found in list');
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [assignments.length]); // Only re-run when assignments.length changes, not the entire array
 
-  // SMART NAVIGATION HOOK
-  // IMPORTANT: Called after function definitions (will be moved by build, but placed here for clarity)
-  // We need to make sure openCommentsModal and other functions are available.
-  // Since we are inside the component, we can pass the functions we defined.
+  // fetchComments must be declared BEFORE openCommentsModal (which depends on it)
+  const fetchComments = useCallback(async (assignmentId) => {
+    setLoadingComments(true);
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/assignments/${assignmentId}/comments`);
+      const data = await response.json();
+      if (data.success) {
+        setComments(prev => ({
+          ...prev,
+          [assignmentId]: data.comments || []
+        }));
+        // Keep the card comment count in sync with fetched data
+        setAssignments(prev => prev.map(a =>
+          a.id === assignmentId ? { ...a, comment_count: (data.comments || []).length } : a
+        ));
+      }
+    } catch {
+      // silent
+    } finally {
+      setLoadingComments(false);
+    }
+  }, []);
 
-  // NOTE: openCommentsModal is the stable interface for useSmartNavigation.
-  // Uses state setters directly (stable refs) so the callback never changes reference.
+  // Stable ref — always holds the current open assignment id
+  // Declared here so postReply and other callbacks can use it without deps
+  const currentAssignmentIdRef = useRef(null);
+
+  // SMART NAVIGATION HOOK
   const openCommentsModal = useCallback((assignment) => {
-    console.log('openCommentsModal called for:', assignment.title);
     setCurrentCommentsAssignment(assignment);
     setShowCommentsModal(true);
-  }, []); // empty deps — setters are stable React guarantees
+    startTransition(() => {
+      setComments(prev => ({ ...prev, [assignment.id]: [] }));
+    });
+    setTimeout(() => fetchComments(assignment.id), 0);
+  }, [fetchComments]);
 
   useSmartNavigation({
     role: 'user',
@@ -142,57 +156,22 @@ const TasksTab = ({
       const data = await response.json();
 
       if (data.success) {
-        console.log('Fetched assignments:', data.assignments);
-        console.log('Current user ID:', user.id);
-        if (data.assignments.length > 0) {
-          console.log('First assignment data:', data.assignments[0]);
-          console.log('First assignment submitted_files:', data.assignments[0].submitted_files);
-          // Check each assignment for submitted files
-          data.assignments.forEach(a => {
-            if (a.submitted_files && a.submitted_files.length > 0) {
-              console.log(`Assignment "${a.title}" has ${a.submitted_files.length} submitted file(s):`, a.submitted_files);
-            } else {
-              console.log(`Assignment "${a.title}" has no submitted files`);
-            }
-          });
-        }
         setAssignments(data.assignments || []);
-        // Fetch comments for each assignment
-        data.assignments.forEach(assignment => {
-          fetchComments(assignment.id);
-        });
         // Fetch user files after assignments are loaded - pass the fresh data
         fetchUserFiles(data.assignments);
+        // NOTE: Comments are fetched on-demand when user opens the modal, NOT here.
       } else {
         setSuccessModal({ isOpen: true, title: 'Error', message: 'Failed to fetch assignments', type: 'error' });
       }
-    } catch (error) {
-      console.error('Error fetching assignments:', error);
+    } catch {
       setSuccessModal({ isOpen: true, title: 'Error', message: 'Failed to connect to server', type: 'error' });
     } finally {
       setIsLoading(false);
     }
   };
 
-  const fetchComments = async (assignmentId) => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/assignments/${assignmentId}/comments`);
-      const data = await response.json();
-
-      if (data.success) {
-        setComments(prev => ({
-          ...prev,
-          [assignmentId]: data.comments || []
-        }));
-      }
-    } catch (error) {
-      console.error('Error fetching comments:', error);
-    }
-  };
-
-  const postComment = async (assignmentId) => {
-    const commentText = newComment[assignmentId]?.trim();
-    if (!commentText) return;
+  const postComment = async (assignmentId, commentText) => {
+    if (!commentText?.trim()) return;
 
     setIsPostingComment(prev => ({ ...prev, [assignmentId]: true }));
 
@@ -205,7 +184,7 @@ const TasksTab = ({
         body: JSON.stringify({
           userId: user.id,
           username: user.username || user.fullName,
-          comment: commentText
+          comment: commentText.trim()
         })
       });
 
@@ -217,8 +196,7 @@ const TasksTab = ({
       } else {
         setSuccessModal({ isOpen: true, title: 'Error', message: 'Failed to post comment', type: 'error' });
       }
-    } catch (error) {
-      console.error('Error posting comment:', error);
+    } catch {
       setSuccessModal({ isOpen: true, title: 'Error', message: 'Failed to post comment', type: 'error' });
     } finally {
       setIsPostingComment(prev => ({ ...prev, [assignmentId]: false }));
@@ -226,63 +204,48 @@ const TasksTab = ({
   };
 
   function toggleComments(assignment) {
-    console.log('toggleComments called for:', assignment.title);
+    // Batch all state updates — show modal instantly, fetch after
     setCurrentCommentsAssignment(assignment);
     setShowCommentsModal(true);
+    // Clear stale comments and start fetch in background
+    startTransition(() => {
+      setComments(prev => ({ ...prev, [assignment.id]: [] }));
+    });
+    setTimeout(() => fetchComments(assignment.id), 0);
   }
 
-  const postReply = async (assignmentId, commentId) => {
-    const replyTextValue = replyText[commentId]?.trim();
-    if (!replyTextValue) return;
-
-    setIsPostingReply(prev => ({ ...prev, [commentId]: true }));
-
+  const postReply = useCallback(async (e, commentId, replyTextValue, onSuccess) => {
+    const assignmentId = currentAssignmentIdRef.current;
+    if (!assignmentId || !commentId || !replyTextValue?.trim()) return;
     try {
-      console.log('Posting reply:', { assignmentId, commentId, replyTextValue });
       const response = await fetch(`${API_BASE_URL}/api/assignments/${assignmentId}/comments/${commentId}/reply`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           userId: user.id,
           username: user.username || user.fullName,
-          reply: replyTextValue
+          reply: replyTextValue.trim()
         })
       });
-
       const data = await response.json();
-      console.log('Reply response:', data);
-
       if (data.success) {
-        setReplyText(prev => ({ ...prev, [commentId]: '' }));
-        setReplyingTo(prev => ({ ...prev, [commentId]: false }));
+        onSuccess && onSuccess();
         fetchComments(assignmentId);
-        setSuccessModal({ isOpen: true, title: 'Success', message: 'Reply posted successfully', type: 'success' });
       } else {
         setSuccessModal({ isOpen: true, title: 'Error', message: data.message || 'Failed to post reply', type: 'error' });
       }
-    } catch (error) {
-      console.error('Error posting reply:', error);
-      setSuccessModal({ isOpen: true, title: 'Error', message: 'Failed to post reply: ' + error.message, type: 'error' });
-    } finally {
-      setIsPostingReply(prev => ({ ...prev, [commentId]: false }));
+    } catch {
+      setSuccessModal({ isOpen: true, title: 'Error', message: 'Failed to post reply', type: 'error' });
     }
-  };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user.id, user.username, user.fullName, fetchComments]);
 
-  const toggleReplyBox = (commentId) => {
-    setReplyingTo(prev => ({
-      ...prev,
-      [commentId]: !prev[commentId]
-    }));
-  };
-
-  const toggleRepliesVisibility = (commentId) => {
+  const toggleRepliesVisibility = useCallback((commentId) => {
     setVisibleReplies(prev => ({
       ...prev,
       [commentId]: !prev[commentId]
     }));
-  };
+  }, []);
 
   const fetchUserFiles = useCallback(async (currentAssignments = assignments) => {
     try {
@@ -290,8 +253,6 @@ const TasksTab = ({
       const data = await response.json();
 
       if (data.success) {
-        console.log('All user files:', data.files);
-
         // Get all file IDs that are currently in ACTIVE assignment submissions
         const activeSubmittedFileIds = new Set();
         currentAssignments.forEach(assignment => {
@@ -302,19 +263,13 @@ const TasksTab = ({
           }
         });
 
-        console.log('Files currently in active assignments:', Array.from(activeSubmittedFileIds));
-
-        // Filter out ONLY files that are currently in active assignment submissions
-        // This means completed/finished assignment files will show up again in "My Files"
         const unsubmittedFiles = data.files.filter(file =>
           !activeSubmittedFileIds.has(file.id)
         );
-
-        console.log('Available files (excluding active submissions):', unsubmittedFiles);
         setUserFiles(unsubmittedFiles || []);
       }
-    } catch (error) {
-      console.error('Error fetching user files:', error);
+    } catch {
+      // silent
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user.id]);
@@ -340,48 +295,28 @@ const TasksTab = ({
     });
   };
 
-  const formatRelativeTime = (dateString) => {
+  const formatRelativeTime = useCallback((dateString) => {
     const date = new Date(dateString);
     const now = new Date();
     const diffInSeconds = Math.floor((now - date) / 1000);
-
     if (diffInSeconds < 60) return 'Just now';
     if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)}m ago`;
     if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)}h ago`;
     if (diffInSeconds < 604800) return `${Math.floor(diffInSeconds / 86400)}d ago`;
     if (diffInSeconds < 2592000) return `${Math.floor(diffInSeconds / 604800)}w ago`;
+    return new Date(dateString).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  }, []);
 
-    return formatDate(dateString);
-  };
-
-  const getInitials = (name) => {
+  const getInitials = useCallback((name) => {
     if (!name) return '?';
     if (name.includes('.')) {
       const parts = name.split('.');
-      if (parts.length >= 2) {
-        return (parts[0][0] + parts[1][0]).toUpperCase();
-      }
+      if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
     }
     const parts = name.split(' ');
-    if (parts.length >= 2) {
-      return (parts[0][0] + parts[1][0]).toUpperCase();
-    }
+    if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
     return name.substring(0, 2).toUpperCase();
-  };
-
-  const isOverdue = (dueDate) => {
-    if (!dueDate) return false;
-    return new Date(dueDate) < new Date();
-  };
-
-  const getDaysUntilDue = (dueDate) => {
-    if (!dueDate) return null;
-    const now = new Date();
-    const due = new Date(dueDate);
-    const diffTime = due - now;
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    return diffDays;
-  };
+  }, []);
 
   // Returns a styled badge for an individual file's review status
   const getFileStatusBadge = (status) => {
@@ -535,17 +470,13 @@ const TasksTab = ({
     setShowDeleteModal(false);
     setFileToDelete(null);
 
-    // Immediately update UI BEFORE making the API call
-    console.log('Removing file from UI immediately:', { assignmentId, fileId });
+    // Immediately update UI BEFORE making the API call (optimistic update)
     setAssignments(prevAssignments => 
       prevAssignments.map(assignment => {
         if (assignment.id === assignmentId) {
-          console.log('Found assignment, filtering out file:', fileId);
-          const newFiles = assignment.submitted_files.filter(file => file.id !== fileId);
-          console.log('Files before:', assignment.submitted_files.length, 'Files after:', newFiles.length);
           return {
             ...assignment,
-            submitted_files: newFiles
+            submitted_files: assignment.submitted_files.filter(file => file.id !== fileId)
           };
         }
         return assignment;
@@ -553,8 +484,6 @@ const TasksTab = ({
     );
 
     try {
-      console.log('📡 Now calling server to delete:', { assignmentId, fileId, userId: user.id });
-      
       const response = await fetch(`${API_BASE_URL}/api/assignments/${assignmentId}/files/${fileId}`, {
         method: 'DELETE',
         headers: {
@@ -565,28 +494,18 @@ const TasksTab = ({
         })
       });
 
-      console.log('Response status:', response.status);
       const data = await response.json();
-      console.log('Response data:', data);
 
       if (data.success) {
-        console.log('Server confirmed assignment unlink, now deleting file from My Files...');
-        
         // Also delete the actual file from the files table + storage
         try {
-          const fileDeleteResponse = await fetch(`${API_BASE_URL}/api/files/${fileId}`, {
+          await fetch(`${API_BASE_URL}/api/files/${fileId}`, {
             method: 'DELETE',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ adminId: user.id, adminUsername: user.username, adminRole: user.role, team: user.team })
           });
-          const fileDeleteData = await fileDeleteResponse.json();
-          if (fileDeleteData.success) {
-            console.log('File also deleted from My Files');
-          } else {
-            console.warn('File unlinked from task but could not delete from My Files:', fileDeleteData.message);
-          }
-        } catch (fileDeleteErr) {
-          console.warn('Error deleting file from My Files:', fileDeleteErr);
+        } catch {
+          // File unlink succeeded; storage cleanup failure is non-critical
         }
 
         setSuccessModal({ isOpen: true, title: 'Removed', message: 'File removed successfully', type: 'error' });
@@ -596,13 +515,11 @@ const TasksTab = ({
           fetchUserFiles();
         }, 500);
       } else {
-        console.error('Server returned error:', data.message);
         // Revert the optimistic update
         fetchAssignments();
         setSuccessModal({ isOpen: true, title: 'Error', message: data.message || 'Failed to remove file', type: 'error' });
       }
-    } catch (error) {
-      console.error('Error removing file:', error);
+    } catch {
       // Revert the optimistic update
       fetchAssignments();
       setSuccessModal({ isOpen: true, title: 'Error', message: 'Failed to remove file. Please try again.', type: 'error' });
@@ -635,7 +552,6 @@ const TasksTab = ({
       }
 
       const resolvedPath = pathData.filePath;
-      console.log('Resolved file path:', resolvedPath);
 
       // Always use Electron openFileInApp — it runs on the server machine
       // which has NAS access, so UNC paths work fine
@@ -658,8 +574,7 @@ const TasksTab = ({
           a.click();
         }
       }
-    } catch (error) {
-      console.error('Error opening file:', error);
+    } catch {
       setSuccessModal({ isOpen: true, title: 'Error', message: 'Failed to open file. Please try again.', type: 'error' });
     }
   };
@@ -674,49 +589,26 @@ const TasksTab = ({
       // First, check for ANY existing files with the same name and delete them AUTOMATICALLY (regardless of status)
       // This implements automatic file replacement on upload
       if (currentAssignment.submitted_files && currentAssignment.submitted_files.length > 0) {
-        console.log(`Checking for duplicate files among ${currentAssignment.submitted_files.length} existing file(s)...`);
-        console.log(`AUTO-REPLACE MODE: Any matching files will be automatically replaced`);
-
-        // Check each new file against ALL existing files
         for (const fileObj of uploadedFiles) {
           const newFileName = fileObj.file.name;
-
-          // Find ANY existing file with the same name (regardless of status - APPROVED, PENDING, REJECTED, etc.)
           const matchingExistingFile = currentAssignment.submitted_files.find(
             existingFile => existingFile.original_name === newFileName || existingFile.filename === newFileName
           );
 
           if (matchingExistingFile) {
-            console.log(`AUTO-REPLACING: Found existing file "${matchingExistingFile.original_name}" (status: ${matchingExistingFile.status}) - deleting to replace with new version`);
-            replacedFiles.push(newFileName); // Track this as a replacement
-
+            replacedFiles.push(newFileName);
             try {
-              const deleteResponse = await fetch(
+              await fetch(
                 `${API_BASE_URL}/api/assignments/${currentAssignment.id}/files/${matchingExistingFile.id}`,
                 {
                   method: 'DELETE',
-                  headers: {
-                    'Content-Type': 'application/json',
-                  },
-                  body: JSON.stringify({
-                    userId: user.id
-                  })
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ userId: user.id })
                 }
               );
-
-              const deleteData = await deleteResponse.json();
-              if (deleteData.success) {
-                console.log(`Successfully deleted existing file: ${matchingExistingFile.original_name}`);
-              } else {
-                console.warn(`Could not delete existing file ${matchingExistingFile.original_name}:`, deleteData.message);
-                // Continue with upload - the server will handle the duplicate
-              }
-            } catch (deleteError) {
-              console.error(`Error deleting existing file ${matchingExistingFile.id}:`, deleteError);
-              // Continue with upload - the server will handle the duplicate
+            } catch {
+              // Continue — server will handle the duplicate
             }
-          } else {
-            console.log(`No existing file found with name: ${newFileName} - will upload as new file`);
           }
         }
       }
@@ -758,12 +650,6 @@ const TasksTab = ({
         // IMPORTANT: Set replaceExisting=true to automatically replace duplicate files
         formData.append('replaceExisting', 'true');
 
-        if (isRevision) {
-          console.log(`Marking ${fileObj.file.name} as REVISION (replacing rejected file)`);
-        } else if (replacedFiles.includes(fileObj.file.name)) {
-          console.log(`Replacing ${fileObj.file.name} (normal replacement, NOT a revision)`);
-        }
-
         const uploadResponse = await fetch(`${API_BASE_URL}/api/files/upload`, {
           method: 'POST',
           body: formData
@@ -773,10 +659,8 @@ const TasksTab = ({
 
         if (uploadData.success) {
           uploadedFileIds.push(uploadData.file.id);
-          console.log(`Uploaded file: ${fileObj.file.name} with ID: ${uploadData.file.id}`);
         } else {
           uploadErrors.push(`${fileObj.file.name}: ${uploadData.message}`);
-          console.error(`Failed to upload ${fileObj.file.name}:`, uploadData.message);
         }
       }
 
@@ -803,10 +687,9 @@ const TasksTab = ({
         const submitData = await submitResponse.json();
 
         if (submitData.success) {
-          console.log(`Submitted file ID ${fileId} to assignment ${currentAssignment.id}`);
+          // submitted
         } else {
           submissionErrors.push(`File ID ${fileId}: ${submitData.message}`);
-          console.error(`Failed to submit file ID ${fileId}:`, submitData.message);
         }
       }
 
@@ -839,7 +722,6 @@ const TasksTab = ({
       fetchAssignments();
       fetchUserFiles();
     } catch (error) {
-      console.error('Error uploading files:', error);
       setSuccessModal({ isOpen: true, title: 'Error', message: error.message || 'Failed to upload files', type: 'error' });
     } finally {
       setIsUploading(false);
@@ -875,12 +757,37 @@ const TasksTab = ({
     return { folders, individualFiles };
   };
 
-  // Sort assignments by created date (newest first)
-  const sortedAssignments = [...assignments].sort((a, b) => {
-    const dateA = new Date(a.created_at)
-    const dateB = new Date(b.created_at)
-    return dateB - dateA
-  })
+  // Keep ref in sync on every render
+  currentAssignmentIdRef.current = currentCommentsAssignment?.id;
+
+  const handleCloseCommentsModal = useCallback(() => setShowCommentsModal(false), []);
+
+  const handleSetNewComment = useCallback((val) => {
+    setNewComment(prev => ({ ...prev, [currentAssignmentIdRef.current]: val }));
+  }, []);
+
+  // newComment ref so handlePostComment never needs newComment in its dep array
+  const newCommentRef = useRef(newComment);
+  newCommentRef.current = newComment;
+
+  const handlePostComment = useCallback(() => {
+    const id = currentAssignmentIdRef.current;
+    if (!id) return;
+    // Read from ref — always up-to-date, avoids stale closure over newComment state
+    const commentText = newCommentRef.current[id]?.trim();
+    if (!commentText) return;
+    postComment(id, commentText);
+  // postComment only uses its parameters + stable setters, so no dep needed
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+
+
+
+  // Sort assignments by created date (newest first) — memoized so it only re-sorts when assignments change
+  const sortedAssignments = useMemo(() => [...assignments].sort((a, b) => {
+    return new Date(b.created_at) - new Date(a.created_at);
+  }), [assignments]);
 
   return (
     <div className="tasks-container">
@@ -912,7 +819,9 @@ const TasksTab = ({
       ) : assignments.length > 0 ? (
         <div style={{ maxWidth: '1400px', margin: '0 auto', padding: '0 20px' }}>
           {sortedAssignments.map((assignment) => {
-            const daysLeft = getDaysUntilDue(assignment.due_date);
+            const daysLeft = assignment.due_date
+              ? Math.ceil((new Date(assignment.due_date) - new Date()) / (1000 * 60 * 60 * 24))
+              : null;
             const assignmentComments = comments[assignment.id] || [];
 
             return (
@@ -1594,7 +1503,7 @@ const TasksTab = ({
                       padding: '0'
                     }}
                   >
-                    Comment ({assignmentComments.length})
+                    Comment ({assignmentComments.length > 0 ? assignmentComments.length : (assignment.comment_count || 0)})
                   </button>
                 </div>
               </div>
@@ -1609,237 +1518,25 @@ const TasksTab = ({
         </div>
       )}
 
-      {/* Comments Modal - Admin Style */}
+      {/* Comments Modal */}
       {showCommentsModal && currentCommentsAssignment && (
-        <div className="comments-modal-overlay" onClick={() => { setShowCommentsModal(false); setReplyingTo({}); setReplyText({}); }}>
-          <div className="comments-modal" onClick={(e) => e.stopPropagation()}>
-            <div className="comments-modal-header">
-              <h3>Comments - {currentCommentsAssignment.title}</h3>
-              <button className="close-modal-btn" onClick={() => {
-                setShowCommentsModal(false)
-                setReplyingTo({})
-                setReplyText({})
-              }}>
-                ✕
-              </button>
-            </div>
-
-            <div className="comments-modal-body">
-              {comments[currentCommentsAssignment.id]?.length > 0 ? (
-                <div className="comments-list">
-                  {comments[currentCommentsAssignment.id].map((comment) => (
-                    <div key={comment.id} className="comment-thread">
-                      {/* Main Comment */}
-                      <div className="comment-item">
-                        <div className="comment-avatar">
-                          {getInitials(comment.user_fullname || comment.fullName || comment.username)}
-                        </div>
-                        <div className="comment-content">
-                          <div className="comment-header">
-                            <span className="comment-author">{comment.user_fullname || comment.fullName || comment.username}</span>
-                            <span className={`role-badge ${comment.user_role ? comment.user_role.toLowerCase().replace(' ', '-').replace('_', '-') : 'user'}`}>
-                              {comment.user_role || 'USER'}
-                            </span>
-                            <span className="comment-time">{formatRelativeTime(comment.created_at)}</span>
-                          </div>
-                          <div className="comment-text">
-                            {(() => {
-                              const MAX_LENGTH = 150;
-                              const isLong = comment.comment.length > MAX_LENGTH;
-                              const isExpanded = expandedCommentTexts[comment.id];
-
-                              return (
-                                <>
-                                  {isLong && !isExpanded
-                                    ? comment.comment.substring(0, MAX_LENGTH) + '...'
-                                    : comment.comment}
-                                  {isLong && (
-                                    <button
-                                      className="see-more-btn"
-                                      onClick={() => setExpandedCommentTexts(prev => ({
-                                        ...prev,
-                                        [comment.id]: !prev[comment.id]
-                                      }))}
-                                      style={{
-                                        background: 'none',
-                                        border: 'none',
-                                        color: '#3b82f6',
-                                        fontSize: '13px',
-                                        fontWeight: '500',
-                                        cursor: 'pointer',
-                                        padding: '0',
-                                        marginLeft: '4px'
-                                      }}
-                                    >
-                                      {isExpanded ? 'See less' : 'See more'}
-                                    </button>
-                                  )}
-                                </>
-                              );
-                            })()}
-                          </div>
-
-                          {/* Action Buttons */}
-                          <div className="comment-actions">
-                            <button
-                              className="reply-button"
-                              onClick={() => toggleReplyBox(comment.id)}
-                            >
-                              Reply
-                            </button>
-
-                            {/* View Replies Button */}
-                            {comment.replies && comment.replies.length > 0 && (
-                              <button
-                                className="view-replies-button"
-                                onClick={() => toggleRepliesVisibility(comment.id)}
-                              >
-                                {visibleReplies[comment.id] ? 'Hide' : 'View'} {comment.replies.length}{' '}
-                                {comment.replies.length === 1 ? 'reply' : 'replies'}
-                              </button>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Replies Thread */}
-                      {comment.replies && comment.replies.length > 0 && visibleReplies[comment.id] && (
-                        <div className="replies-thread">
-                          {comment.replies.map(reply => (
-                            <div key={reply.id} className="reply-item">
-                              <div className="reply-avatar">
-                                {getInitials(reply.user_fullname || reply.fullName || reply.username)}
-                              </div>
-                              <div className="reply-content">
-                                <div className="reply-header">
-                                  <span className="reply-author">{reply.user_fullname || reply.fullName || reply.username}</span>
-                                  <span className={`role-badge ${reply.user_role ? reply.user_role.toLowerCase().replace(' ', '-').replace('_', '-') : 'user'}`}>
-                                    {reply.user_role || 'USER'}
-                                  </span>
-                                  <span className="reply-time">{formatRelativeTime(reply.created_at)}</span>
-                                </div>
-                                <div className="reply-text">
-                                  {(() => {
-                                    const MAX_LENGTH = 150;
-                                    const isLong = reply.reply.length > MAX_LENGTH;
-                                    const isExpanded = expandedReplyTexts[reply.id];
-
-                                    return (
-                                      <>
-                                        {isLong && !isExpanded
-                                          ? reply.reply.substring(0, MAX_LENGTH) + '...'
-                                          : reply.reply}
-                                        {isLong && (
-                                          <button
-                                            className="see-more-btn"
-                                            onClick={() => setExpandedReplyTexts(prev => ({
-                                              ...prev,
-                                              [reply.id]: !prev[reply.id]
-                                            }))}
-                                            style={{
-                                              background: 'none',
-                                              border: 'none',
-                                              color: '#3b82f6',
-                                              fontSize: '12px',
-                                              fontWeight: '500',
-                                              cursor: 'pointer',
-                                              padding: '0',
-                                              marginLeft: '4px'
-                                            }}
-                                          >
-                                            {isExpanded ? 'See less' : 'See more'}
-                                          </button>
-                                        )}
-                                      </>
-                                    );
-                                  })()}
-                                </div>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-
-
-                      {/* Reply Input Box */}
-                      {replyingTo[comment.id] && (
-                        <div className="reply-input-box">
-                          <div className="comment-avatar reply-avatar">
-                            {getInitials(user.username || user.fullName)}
-                          </div>
-                          <div className="comment-input-wrapper">
-                            <input
-                              type="text"
-                              className="comment-input"
-                              placeholder="Write a reply..."
-                              value={replyText[comment.id] || ''}
-                              onChange={(e) => setReplyText(prev => ({ ...prev, [comment.id]: e.target.value }))}
-                              onKeyPress={(e) => {
-                                if (e.key === 'Enter' && !e.shiftKey) {
-                                  e.preventDefault();
-                                  postReply(currentCommentsAssignment.id, comment.id);
-                                }
-                              }}
-                              autoFocus
-                              disabled={isPostingReply[comment.id]}
-                            />
-                            <button
-                              className="comment-submit-btn"
-                              onClick={() => postReply(currentCommentsAssignment.id, comment.id)}
-                              disabled={!replyText[comment.id]?.trim() || isPostingReply[comment.id]}
-                            >
-                              {isPostingReply[comment.id] ? '...' : '➤'}
-                            </button>
-                          </div>
-                        </div>
-                      )}
-
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="no-comments">
-                  <p><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{marginRight:'6px',verticalAlign:'middle'}}><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg> No comments yet. Be the first to comment!</p>
-                </div>
-              )}
-            </div>
-
-            {/* Comment Form */}
-            <div className="comments-modal-footer">
-              <div className="add-comment">
-                <div className="comment-avatar">
-                  {getInitials(user.username || user.fullName)}
-                </div>
-                <div className="comment-input-wrapper">
-                  <input
-                    type="text"
-                    className="comment-input"
-                    placeholder="Write a comment..."
-                    value={newComment[currentCommentsAssignment.id] || ''}
-                    onChange={(e) => setNewComment(prev => ({
-                      ...prev,
-                      [currentCommentsAssignment.id]: e.target.value
-                    }))}
-                    onKeyPress={(e) => {
-                      if (e.key === 'Enter' && !e.shiftKey) {
-                        e.preventDefault();
-                        postComment(currentCommentsAssignment.id);
-                      }
-                    }}
-                    disabled={isPostingComment[currentCommentsAssignment.id]}
-                  />
-                  <button
-                    className="comment-submit-btn"
-                    onClick={() => postComment(currentCommentsAssignment.id)}
-                    disabled={!newComment[currentCommentsAssignment.id]?.trim() || isPostingComment[currentCommentsAssignment.id]}
-                  >
-                    {isPostingComment[currentCommentsAssignment.id] ? '...' : '➤'}
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
+        <CommentsModal
+          isOpen={showCommentsModal}
+          onClose={handleCloseCommentsModal}
+          assignment={currentCommentsAssignment}
+          comments={comments[currentCommentsAssignment.id] || []}
+          loadingComments={loadingComments}
+          newComment={newComment[currentCommentsAssignment.id] || ''}
+          setNewComment={handleSetNewComment}
+          onPostComment={handlePostComment}
+          onPostReply={postReply}
+          visibleReplies={visibleReplies}
+          toggleRepliesVisibility={toggleRepliesVisibility}
+          getInitials={getInitials}
+          formatTimeAgo={formatRelativeTime}
+          user={user}
+          highlightUsername={highlightCommentBy}
+        />
       )}
 
       {/* Delete Confirmation Modal */}
@@ -2494,6 +2191,7 @@ const TasksTab = ({
       )}
     </div>
   );
-};
+});
 
+TasksTab.displayName = 'TasksTab';
 export default TasksTab;

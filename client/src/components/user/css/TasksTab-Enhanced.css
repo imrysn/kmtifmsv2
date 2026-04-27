@@ -825,6 +825,8 @@
   justify-content: center;
   z-index: 1000;
   padding: 20px;
+  /* Prevent the overlay itself from scrolling */
+  overflow: hidden;
 }
 
 .tasks-modal {

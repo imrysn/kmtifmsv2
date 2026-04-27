@@ -328,10 +328,11 @@ const TaskManagement = ({
   }, [newComment, user, selectedAssignment, fetchComments, setError, setSuccess])
 
   // ⚡ OPTIMIZATION: Optimistic update + memoized handler
-  const handlePostReply = useCallback(async (e, commentId) => {
+  const handlePostReply = useCallback(async (e, commentId, replyTextArg, onSuccess) => {
     e.preventDefault()
 
-    if (!replyText.trim()) return
+    const replyMessage = (replyTextArg ?? replyText).trim()
+    if (!replyMessage) return
 
     try {
       if (!user || !user.id) {
@@ -340,7 +341,6 @@ const TaskManagement = ({
       }
 
       const currentUser = user
-      const replyMessage = replyText
 
       // ⚡ OPTIMIZATION: Optimistic update - add reply to UI immediately
       const optimisticReply = {
@@ -360,6 +360,7 @@ const TaskManagement = ({
       ))
       setReplyText('')
       setReplyingTo(null)
+      if (onSuccess) onSuccess()
 
       const response = await fetch(
         `${API_BASE_URL}/api/assignments/${selectedAssignment.id}/comments/${commentId}/reply`,

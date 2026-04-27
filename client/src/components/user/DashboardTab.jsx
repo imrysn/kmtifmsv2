@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, startTransition } from 'react';
 import { API_BASE_URL } from '@/config/api';
 import './css/DashboardTab.css';
 import { LoadingCards } from '../common/InlineSkeletonLoader';
@@ -6,6 +6,8 @@ import { LoadingCards } from '../common/InlineSkeletonLoader';
 const DashboardTab = ({ user, files, setActiveTab, onOpenFile, onNavigateToTasks }) => {
   const [assignments, setAssignments] = useState([]);
   const [teamTasks, setTeamTasks] = useState([]);
+  // Notifications are fetched once on mount — no need to poll every 30s
+  // (NotificationTab already polls; DashboardTab just needs a recent snapshot)
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
   const [lastUpdate, setLastUpdate] = useState(new Date());
@@ -21,7 +23,7 @@ const DashboardTab = ({ user, files, setActiveTab, onOpenFile, onNavigateToTasks
 
     loadData();
 
-    // Auto-refresh every 30 seconds for real-time updates (silent)
+    // Poll assignments + team tasks every 30s (skip notifications — NotificationTab owns that)
     const refreshInterval = setInterval(() => {
       if (isMounted) {
         fetchDashboardData(true);
@@ -37,36 +39,46 @@ const DashboardTab = ({ user, files, setActiveTab, onOpenFile, onNavigateToTasks
   const fetchDashboardData = async (silent = false) => {
     try {
       if (!silent) setLoading(true);
-      const [assignmentsRes, teamTasksRes, notificationsRes] = await Promise.all([
+
+      // Only fetch notifications on first load (not on silent 30s polls)
+      const requests = [
         fetch(`${API_BASE_URL}/api/assignments/user/${user.id}`),
         fetch(`${API_BASE_URL}/api/assignments/team/${user.team}/all-tasks?limit=5`),
-        fetch(`${API_BASE_URL}/api/notifications/user/${user.id}`)
-      ]);
+      ];
+      if (!silent) {
+        requests.push(fetch(`${API_BASE_URL}/api/notifications/user/${user.id}`));
+      }
 
-      if (!assignmentsRes.ok || !teamTasksRes.ok || !notificationsRes.ok) {
+      const responses = await Promise.all(requests);
+
+      if (responses.some(r => !r.ok)) {
         throw new Error('One or more API requests failed');
       }
 
-      const [assignmentsData, teamTasksData, notificationsData] = await Promise.all([
-        assignmentsRes.json(),
-        teamTasksRes.json(),
-        notificationsRes.json()
-      ]);
+      const [assignmentsData, teamTasksData, notificationsData] = await Promise.all(
+        responses.map(r => r.json())
+      );
 
-      // Only update state if data has actually changed
-      if (assignmentsData.success) {
-        const newAssignments = assignmentsData.assignments || [];
-        setAssignments(prev => JSON.stringify(prev) !== JSON.stringify(newAssignments) ? newAssignments : prev);
+      // Use startTransition for silent polls so React deprioritises these
+      // re-renders and never blocks user interaction (scrolling, typing, etc.)
+      const applyUpdates = () => {
+        if (assignmentsData.success) {
+          setAssignments(assignmentsData.assignments || []);
+        }
+        if (teamTasksData.success) {
+          setTeamTasks(teamTasksData.assignments || []);
+        }
+        if (notificationsData?.success) {
+          setNotifications(notificationsData.notifications || []);
+        }
+        if (!silent) setLastUpdate(new Date());
+      };
+
+      if (silent) {
+        startTransition(applyUpdates);
+      } else {
+        applyUpdates();
       }
-      if (teamTasksData.success) {
-        const newTeamTasks = teamTasksData.assignments || [];
-        setTeamTasks(prev => JSON.stringify(prev) !== JSON.stringify(newTeamTasks) ? newTeamTasks : prev);
-      }
-      if (notificationsData.success) {
-        const newNotifications = notificationsData.notifications || [];
-        setNotifications(prev => JSON.stringify(prev) !== JSON.stringify(newNotifications) ? newNotifications : prev);
-      }
-      if (!silent) setLastUpdate(new Date());
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
     } finally {

@@ -109,11 +109,8 @@ async function createBatchedSubmissionNotification(teamLeaderId, assignmentId, s
 
 router.get('/admin/all', async (req, res) => {
   try {
-    console.log('🔍 Admin assignments route called');
     const { cursor, limit = 20 } = req.query;
     const parsedLimit = parseInt(limit, 10);
-
-    console.log('Admin fetching assignments with pagination:', { cursor, limit: parsedLimit });
 
     let queryStr = `
       SELECT
@@ -150,8 +147,6 @@ router.get('/admin/all', async (req, res) => {
 
     const assignments = await query(queryStr, queryParams);
 
-    console.log(`Found ${assignments.length} assignments for this batch`);
-
     // Check if there are more results
     const hasMore = assignments.length > parsedLimit;
     const assignmentsToReturn = hasMore ? assignments.slice(0, parsedLimit) : assignments;
@@ -161,7 +156,6 @@ router.get('/admin/all', async (req, res) => {
 
     // Get additional details for each assignment
     for (const assignment of assignmentsToReturn) {
-      // Get assigned member details
       const assignedMembers = await query(`
         SELECT u.id, u.username, u.fullName
         FROM assignment_members am
@@ -225,14 +219,6 @@ router.get('/admin/all', async (req, res) => {
         assignment.team_leader_username = teamLeader.username;
         assignment.team_leader_email = teamLeader.email;
       }
-    }
-
-    console.log(`Returning ${assignmentsToReturn.length} assignments to admin, hasMore: ${hasMore}`);
-
-    // Debug: Check comment_count in assignments
-    if (assignmentsToReturn.length > 0) {
-      console.log('First assignment comment_count:', assignmentsToReturn[0].comment_count, 'type:', typeof assignmentsToReturn[0].comment_count);
-      console.log('First assignment keys:', Object.keys(assignmentsToReturn[0]));
     }
 
     res.json({
@@ -393,12 +379,9 @@ router.get('/team-leader/:userId/all-submissions', async (req, res) => {
 // Get all tasks for team members view (similar to admin view but filtered by team)
 router.get('/team/:team/all-tasks', async (req, res) => {
   try {
-    console.log('🔍 Team tasks route called for team:', req.params.team);
     const { team } = req.params;
     const { cursor, limit = 20 } = req.query;
     const parsedLimit = parseInt(limit, 10);
-
-    console.log('Fetching team tasks with pagination:', { team, cursor, limit: parsedLimit });
 
     let queryStr = `
       SELECT
@@ -429,8 +412,6 @@ router.get('/team/:team/all-tasks', async (req, res) => {
 
     const assignments = await query(queryStr, queryParams);
 
-    console.log(`Found ${assignments.length} assignments for team ${team}`);
-
     // Check if there are more results
     const hasMore = assignments.length > parsedLimit;
     const assignmentsToReturn = hasMore ? assignments.slice(0, parsedLimit) : assignments;
@@ -440,7 +421,6 @@ router.get('/team/:team/all-tasks', async (req, res) => {
 
     // Get additional details for each assignment
     for (const assignment of assignmentsToReturn) {
-      // Get assigned member details
       const assignedMembers = await query(`
         SELECT u.id, u.username, u.fullName
         FROM assignment_members am
@@ -527,7 +507,6 @@ router.get('/team/:team/all-tasks', async (req, res) => {
 router.get('/team-leader/:userId', async (req, res) => {
   try {
     const { userId } = req.params;
-    console.log(`🔍 Fetching assignments for team leader user ID: ${userId}`);
 
     // First, get all teams this user leads
     const ledTeams = await query(`
@@ -538,7 +517,6 @@ router.get('/team-leader/:userId', async (req, res) => {
     `, [userId]);
 
     if (!ledTeams || ledTeams.length === 0) {
-      console.log(`⚠️ User ${userId} is not a leader of any teams`);
       return res.json({
         success: true,
         assignments: []
@@ -546,11 +524,10 @@ router.get('/team-leader/:userId', async (req, res) => {
     }
 
     const teamNames = ledTeams.map(t => t.name);
-    console.log(`✅ User ${userId} leads teams:`, teamNames);
 
     // Get all assignments from ALL teams this user leads
     const placeholders = teamNames.map(() => '?').join(',');
-    const assignments = await query(`
+    const tlAssignments = await query(`
       SELECT
         a.*,
         COUNT(DISTINCT asub.id) as submission_count,
@@ -563,11 +540,8 @@ router.get('/team-leader/:userId', async (req, res) => {
       ORDER BY a.created_at DESC
     `, teamNames);
 
-    console.log(`✅ Found ${assignments.length} assignments across ${teamNames.length} teams`);
-
     // Get recent submissions for each assignment
-    for (const assignment of assignments) {
-      // Get assigned member details
+    for (const assignment of tlAssignments) {
       const assignedMembers = await query(`
         SELECT u.id, u.username, u.fullName
         FROM assignment_members am
@@ -633,21 +607,15 @@ router.get('/team-leader/:userId', async (req, res) => {
         assignment.team_leader_email = teamLeader.email;
       }
 
-      // Debug log
+      // Debug log: warn if submission_count says files exist but none were fetched
       if (assignment.submission_count > 0 && (!recentSubmissions || recentSubmissions.length === 0)) {
-        console.log(`WARNING: Assignment ${assignment.id} has submission_count ${assignment.submission_count} but no recent_submissions`);
-        // Try to debug what's in assignment_members
-        const debugData = await query(
-          'SELECT * FROM assignment_members WHERE assignment_id = ?',
-          [assignment.id]
-        );
-        console.log(`Debug assignment_members for assignment ${assignment.id}:`, debugData);
+        console.warn(`⚠️ Assignment ${assignment.id} has submission_count ${assignment.submission_count} but fetched no submissions`);
       }
     }
 
     res.json({
       success: true,
-      assignments: assignments || []
+      assignments: tlAssignments || []
     });
   } catch (error) {
     console.error('Error in fetchAssignments route:', error);
@@ -1086,125 +1054,47 @@ router.post('/create', upload.array('attachments', 10000), async (req, res) => {
 
       // Create notifications for assigned members
       try {
-        console.log('🔔 Creating notifications for assignment:', assignmentId);
-        console.log('Assigned to:', finalAssignedTo);
-        console.log('Members:', finalMembers);
-        console.log('Team:', team);
-        console.log('Team Leader:', finalTeamLeaderUsername, '(ID:', finalTeamLeaderId, ')');
-
         if (finalAssignedTo === 'specific' && finalMembers && finalMembers.length > 0) {
-          // Notify specific members
-          console.log('Creating notifications for specific members:', finalMembers);
           for (const userId of finalMembers) {
             try {
-              const notificationData = {
-                user_id: userId,
-                assignment_id: assignmentId,
-                file_id: null,
-                type: 'assignment',
-                title: 'New Assignment',
-                message: `${finalTeamLeaderUsername} assigned you a new task: "${title}"${finalDueDate ? ` - Due: ${new Date(finalDueDate).toLocaleDateString()}` : ''}`,
-                action_by_id: finalTeamLeaderId,
-                action_by_username: finalTeamLeaderUsername,
-                action_by_role: 'TEAM_LEADER'
-              };
-
-              console.log('Inserting notification:', notificationData);
-
               await query(`
                 INSERT INTO notifications (
-                  user_id,
-                  assignment_id,
-                  file_id,
-                  type,
-                  title,
-                  message,
-                  action_by_id,
-                  action_by_username,
-                  action_by_role
+                  user_id, assignment_id, file_id, type, title, message,
+                  action_by_id, action_by_username, action_by_role
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
               `, [
-                notificationData.user_id,
-                notificationData.assignment_id,
-                notificationData.file_id,
-                notificationData.type,
-                notificationData.title,
-                notificationData.message,
-                notificationData.action_by_id,
-                notificationData.action_by_username,
-                notificationData.action_by_role
+                userId, assignmentId, null, 'assignment', 'New Assignment',
+                `${finalTeamLeaderUsername} assigned you a new task: "${title}"${finalDueDate ? ` - Due: ${new Date(finalDueDate).toLocaleDateString()}` : ''}`,
+                finalTeamLeaderId, finalTeamLeaderUsername, 'TEAM_LEADER'
               ]);
-              console.log(`✅ Notification created successfully for user ${userId}`);
             } catch (err) {
-              console.error(`❌ Failed to create notification for user ${userId}:`, err);
-              console.error('Error details:', err.message);
-              console.error('SQL State:', err.sqlState);
-              console.error('SQL Message:', err.sqlMessage);
+              console.error(`Failed to create notification for user ${userId}:`, err.message);
             }
           }
-          console.log(`✅ Completed creating ${finalMembers.length} notification(s) for specific members`);
         } else if (finalAssignedTo === 'all') {
-          // Notify all team members
-          console.log('Creating notifications for all team members in team:', team);
           const teamMembers = await query(
             'SELECT id FROM users WHERE team = ? AND role = ?',
             [team, 'USER']
           );
-
-          console.log(`Found ${teamMembers.length} team members to notify`);
           for (const member of teamMembers) {
             try {
-              const notificationData = {
-                user_id: member.id,
-                assignment_id: assignmentId,
-                file_id: null,
-                type: 'assignment',
-                title: 'New Assignment',
-                message: `${finalTeamLeaderUsername} assigned a new task to all team members: "${title}"${finalDueDate ? ` - Due: ${new Date(finalDueDate).toLocaleDateString()}` : ''}`,
-                action_by_id: finalTeamLeaderId,
-                action_by_username: finalTeamLeaderUsername,
-                action_by_role: 'TEAM_LEADER'
-              };
-
-              console.log('Inserting notification for member:', member.id, notificationData);
-
               await query(`
                 INSERT INTO notifications (
-                  user_id,
-                  assignment_id,
-                  file_id,
-                  type,
-                  title,
-                  message,
-                  action_by_id,
-                  action_by_username,
-                  action_by_role
+                  user_id, assignment_id, file_id, type, title, message,
+                  action_by_id, action_by_username, action_by_role
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
               `, [
-                notificationData.user_id,
-                notificationData.assignment_id,
-                notificationData.file_id,
-                notificationData.type,
-                notificationData.title,
-                notificationData.message,
-                notificationData.action_by_id,
-                notificationData.action_by_username,
-                notificationData.action_by_role
+                member.id, assignmentId, null, 'assignment', 'New Assignment',
+                `${finalTeamLeaderUsername} assigned a new task to all team members: "${title}"${finalDueDate ? ` - Due: ${new Date(finalDueDate).toLocaleDateString()}` : ''}`,
+                finalTeamLeaderId, finalTeamLeaderUsername, 'TEAM_LEADER'
               ]);
-              console.log(`✅ Notification created successfully for user ${member.id}`);
             } catch (err) {
-              console.error(`❌ Failed to create notification for user ${member.id}:`, err);
-              console.error('Error details:', err.message);
-              console.error('SQL State:', err.sqlState);
-              console.error('SQL Message:', err.sqlMessage);
+              console.error(`Failed to create notification for user ${member.id}:`, err.message);
             }
           }
-          console.log(`✅ Completed creating ${teamMembers.length} notification(s) for all team members`);
         }
       } catch (notificationError) {
-        console.error('⚠️ Failed to create notifications:', notificationError.message);
-        console.error('Full error:', notificationError);
-        console.error('Stack:', notificationError.stack);
+        console.error('Failed to create notifications:', notificationError.message);
         // Don't fail the request if notifications fail
       }
 
@@ -1573,7 +1463,6 @@ router.get('/user/:userId', async (req, res) => {
   try {
     const { userId } = req.params;
 
-    // First get the current user's info
     const currentUser = await queryOne(
       'SELECT username, fullName, team FROM users WHERE id = ?',
       [userId]
@@ -1586,9 +1475,7 @@ router.get('/user/:userId', async (req, res) => {
       });
     }
 
-    console.log('Current user:', currentUser);
-
-    const assignments = await query(`
+    const userAssignments = await query(`
       SELECT
         a.*,
         am.status as user_status,
@@ -1601,7 +1488,8 @@ router.get('/user/:userId', async (req, res) => {
         tl.username as team_leader_username,
         tl.role as team_leader_role,
         ? as assigned_user_fullname,
-        ? as assigned_user_username
+        ? as assigned_user_username,
+        (SELECT COUNT(*) FROM assignment_comments ac WHERE ac.assignment_id = a.id) as comment_count
       FROM assignments a
       LEFT JOIN assignment_members am ON a.id = am.assignment_id AND am.user_id = ?
       LEFT JOIN files fs ON am.file_id = fs.id
@@ -1613,13 +1501,8 @@ router.get('/user/:userId', async (req, res) => {
       ORDER BY a.created_at DESC
     `, [currentUser.fullName, currentUser.username, userId, currentUser.team, userId]);
 
-    console.log('Assignments found:', assignments.length);
-    if (assignments.length > 0) {
-      console.log('First assignment:', assignments[0]);
-    }
-
     // Fetch assigned member details and all submitted files for each assignment
-    for (const assignment of assignments) {
+    for (const assignment of userAssignments) {
       const memberDetails = await query(`
         SELECT u.id, u.username, u.fullName
         FROM assignment_members am
@@ -1665,12 +1548,11 @@ router.get('/user/:userId', async (req, res) => {
       `, [assignment.id, userId]);
 
       assignment.submitted_files = submittedFiles || [];
-      console.log(`Assignment ${assignment.id} has ${submittedFiles ? submittedFiles.length : 0} submitted file(s)`);
     }
 
     res.json({
       success: true,
-      assignments: assignments || []
+      assignments: userAssignments || []
     });
   } catch (error) {
     console.error('Error in user assignments route:', error);
@@ -1933,181 +1815,73 @@ router.post('/:assignmentId/comments', async (req, res) => {
 
     // Create notifications for assigned members
     try {
-      console.log(`💬 Comment posted by ${user.role}: ${user.fullName} (ID: ${userId})`);
-      console.log(`📋 Assignment ID: ${assignmentId}`);
-
-      // Get assignment details
       const assignment = await queryOne(
         'SELECT title, team_leader_id FROM assignments WHERE id = ?',
         [assignmentId]
       );
-      console.log(`📝 Assignment title: ${assignment?.title}`);
 
-      // Get all members assigned to this task (except the commenter)
       const assignedMembers = await query(
         'SELECT user_id FROM assignment_members WHERE assignment_id = ? AND user_id != ?',
         [assignmentId, userId]
       );
 
-      console.log(`👥 Found ${assignedMembers.length} assigned members (excluding commenter):`);
-      console.log(assignedMembers);
-
-      // If admin commented, notify both team leader AND assigned members
       if (user.role === 'ADMIN') {
-        console.log('🏗️ Admin commented - notifying both team leader and assigned members');
-        console.log('📊 Assignment details:', {
-          assignmentId,
-          team_leader_id: assignment.team_leader_id,
-          teamLeaderId: assignment.teamLeaderId,
-          userId,
-          userRole: user.role,
-          title: assignment.title
-        });
-
-        // Always notify the team leader if they exist (including if admin is also team leader)
         const teamLeaderId = assignment.team_leader_id || assignment.teamLeaderId;
         if (teamLeaderId) {
-          console.log(`📤 Creating notification for team leader ID: ${teamLeaderId}`);
-
-          const teamLeaderNotification = await query(`
+          await query(`
             INSERT INTO notifications (
-              user_id,
-              assignment_id,
-              file_id,
-              type,
-              title,
-              message,
-              action_by_id,
-              action_by_username,
-              action_by_role
+              user_id, assignment_id, file_id, type, title, message,
+              action_by_id, action_by_username, action_by_role
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
           `, [
-            assignment.team_leader_id,
-            assignmentId,
-            null,
-            'comment',
+            assignment.team_leader_id, assignmentId, null, 'comment',
             'New Admin Comment on Assignment',
             `Admin ${user.fullName} commented on "${assignment.title}": ${comment.substring(0, 100)}${comment.length > 100 ? '...' : ''}`,
-            userId,
-            username,
-            user.role
+            userId, username, user.role
           ]);
-
-          console.log(`✅ Notification created for team leader with ID: ${teamLeaderNotification.insertId}`);
         }
-
-        // Then notify assigned members (except if any of them are team leaders who already got notified)
-        if (assignedMembers.length === 0) {
-          console.log('ℹ️ No members to notify (either no one assigned or only commenter is assigned)');
-        }
-
-        // Create notification for each assigned member
         for (const member of assignedMembers) {
-          console.log(`📤 Creating notification for user ID: ${member.user_id}`);
-
-          const notificationResult = await query(`
+          await query(`
             INSERT INTO notifications (
-              user_id,
-              assignment_id,
-              file_id,
-              type,
-              title,
-              message,
-              action_by_id,
-              action_by_username,
-              action_by_role
+              user_id, assignment_id, file_id, type, title, message,
+              action_by_id, action_by_username, action_by_role
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
           `, [
-            member.user_id,
-            assignmentId,
-            null,
-            'comment',
+            member.user_id, assignmentId, null, 'comment',
             'New Admin Comment on Assignment',
             `Admin ${user.fullName} commented on "${assignment.title}": ${comment.substring(0, 100)}${comment.length > 100 ? '...' : ''}`,
-            userId,
-            username,
-            user.role
+            userId, username, user.role
           ]);
-
-          console.log(`✅ Notification created with ID: ${notificationResult.insertId}`);
         }
-
-        console.log(`✅ Successfully created admin comment notifications for team leader + ${assignedMembers.length} member(s)`);
-      }
-      // If team leader commented, notify assigned members
-      else if (user.role === 'TEAM_LEADER') {
-        if (assignedMembers.length === 0) {
-          console.log('ℹ️ No members to notify (either no one assigned or only commenter is assigned)');
-        }
-
-        // Create notification for each assigned member
+      } else if (user.role === 'TEAM_LEADER') {
         for (const member of assignedMembers) {
-          console.log(`📤 Creating notification for user ID: ${member.user_id}`);
-
-          const notificationResult = await query(`
+          await query(`
             INSERT INTO notifications (
-              user_id,
-              assignment_id,
-              file_id,
-              type,
-              title,
-              message,
-              action_by_id,
-              action_by_username,
-              action_by_role
+              user_id, assignment_id, file_id, type, title, message,
+              action_by_id, action_by_username, action_by_role
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
           `, [
-            member.user_id,
-            assignmentId,
-            null,
-            'comment',
+            member.user_id, assignmentId, null, 'comment',
             'New Comment on Assignment',
             `${user.fullName} commented on "${assignment.title}": ${comment.substring(0, 100)}${comment.length > 100 ? '...' : ''}`,
-            userId,
-            username,
-            user.role
+            userId, username, user.role
           ]);
-
-          console.log(`✅ Notification created with ID: ${notificationResult.insertId}`);
         }
-
-        console.log(`✅ Successfully created ${assignedMembers.length} comment notification(s)`);
-      }
-      // If regular user commented, notify team leader
-      else if (user.role === 'USER' && assignment.team_leader_id && assignment.team_leader_id !== userId) {
-        console.log(`📤 Creating notification for team leader ID: ${assignment.team_leader_id}`);
-
-        const notificationResult = await query(`
+      } else if (user.role === 'USER' && assignment.team_leader_id && assignment.team_leader_id !== userId) {
+        await query(`
           INSERT INTO notifications (
-            user_id,
-            assignment_id,
-            file_id,
-            type,
-            title,
-            message,
-            action_by_id,
-            action_by_username,
-            action_by_role
+            user_id, assignment_id, file_id, type, title, message,
+            action_by_id, action_by_username, action_by_role
           ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         `, [
-          assignment.team_leader_id,
-          assignmentId,
-          null,
-          'comment',
+          assignment.team_leader_id, assignmentId, null, 'comment',
           'New Comment on Assignment',
           `${user.fullName} commented on "${assignment.title}": ${comment.substring(0, 100)}${comment.length > 100 ? '...' : ''}`,
-          userId,
-          username,
-          user.role
+          userId, username, user.role
         ]);
-
-        console.log(`✅ Notification created for team leader with ID: ${notificationResult.insertId}`);
-      } else {
-        console.log(`ℹ️ User ${user.fullName} (${user.role}) posted comment - no additional notifications needed`);
       }
     } catch (notifError) {
-      console.error('⚠️ Failed to create comment notifications:', notifError);
-      console.error('Error stack:', notifError.stack);
+      console.error('Failed to create comment notifications:', notifError.message);
       // Don't fail the request if notifications fail
     }
 

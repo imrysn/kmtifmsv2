@@ -1,198 +1,147 @@
-import React, { memo, useCallback, useState } from 'react';
+import React, { memo, useCallback, useState, useEffect, useRef, useMemo } from 'react';
 import './CommentsModal.css';
 
-// Memoized Comment component to prevent unnecessary re-renders
-const CommentItem = memo(({ 
-  comment, 
-  replyingTo, 
-  setReplyingTo, 
-  visibleReplies, 
-  toggleRepliesVisibility, 
-  getInitials, 
-  formatTimeAgo,
-  replyText,
-  setReplyText,
-  onPostReply,
-  user,
-  highlightUsername
-}) => {
-  const MAX_COMMENT_LENGTH = 150;
+// Renders text with @mention highlights — memoized outside components so it's stable
+const renderTextWithMentions = (text) => {
+  if (!text) return null;
+  const mentionRegex = /(@[A-Za-z0-9_.]+)/g;
+  const segments = [];
+  let lastIndex = 0;
+  let match;
+  while ((match = mentionRegex.exec(text)) !== null) {
+    if (match.index > lastIndex) {
+      segments.push(text.slice(lastIndex, match.index));
+    }
+    segments.push(
+      <span key={match.index} className="mention-highlight">{match[0]}</span>
+    );
+    lastIndex = match.index + match[0].length;
+  }
+  if (lastIndex < text.length) segments.push(text.slice(lastIndex));
+  return segments.length > 0 ? segments : text;
+};
+
+// Pre-compute initials outside render — pure function, safe to call at module level
+const computeInitials = (name) => {
+  if (!name) return '?';
+  const parts = name.trim().split(/\s+/);
+  if (parts.length === 1) return parts[0][0].toUpperCase();
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+};
+
+// ─── ReplyItem ────────────────────────────────────────────────────────────────
+const ReplyItem = memo(({ reply, parentCommentId, onReplyToReply, usesMention }) => {
+  const MAX_REPLY_LENGTH = 150;
   const [isExpanded, setIsExpanded] = useState(false);
-  const isLongComment = comment.comment.length > MAX_COMMENT_LENGTH;
+  const isLong = reply.reply.length > MAX_REPLY_LENGTH;
 
-  // Check if this comment should be highlighted
-  const isHighlighted = highlightUsername && 
-    (comment.username === highlightUsername || comment.user_fullname === highlightUsername);
+  // Stable initials — only recompute when name changes
+  const initials = useMemo(
+    () => computeInitials(reply.user_fullname || reply.fullName || reply.username),
+    [reply.user_fullname, reply.fullName, reply.username]
+  );
 
-  const handleReplyClick = useCallback(() => {
-    setReplyingTo(comment.id);
-  }, [comment.id, setReplyingTo]);
+  // Memoize display name and role class — avoid string ops every render
+  const displayName = useMemo(
+    () => reply.user_fullname || reply.fullName || reply.username,
+    [reply.user_fullname, reply.fullName, reply.username]
+  );
 
-  const handleToggleReplies = useCallback(() => {
-    toggleRepliesVisibility(comment.id);
-  }, [comment.id, toggleRepliesVisibility]);
+  const roleCls = useMemo(
+    () => `role-badge ${reply.user_role
+      ? reply.user_role.toLowerCase().replace(/[\s_]/g, '-')
+      : 'user'}`,
+    [reply.user_role]
+  );
+
+  // Memoized text so it doesn't re-parse on unrelated re-renders
+  const renderedText = useMemo(() => {
+    const content = isLong && !isExpanded
+      ? reply.reply.substring(0, MAX_REPLY_LENGTH) + '...'
+      : reply.reply;
+    return renderTextWithMentions(content);
+  }, [reply.reply, isLong, isExpanded]);
+
+  const handleReply = useCallback(() => {
+    if (usesMention) onReplyToReply(parentCommentId, displayName);
+    else onReplyToReply(parentCommentId);
+  }, [displayName, usesMention, onReplyToReply, parentCommentId]);
+
+  const handleToggleExpand = useCallback(() => setIsExpanded(v => !v), []);
 
   return (
-    <div 
-      className={`comment-thread ${isHighlighted ? 'highlight-comment' : ''}`}
-      data-comment-id={comment.id}
-    >
-      {/* Main Comment */}
-      <div className="comment-item">
-        <div className="comment-avatar">
-          {getInitials(comment.user_fullname || comment.fullName || comment.username)}
-        </div>
-        <div className="comment-content">
-          <div className="comment-header">
-            <span className="comment-author">
-              {comment.user_fullname || comment.fullName || comment.username}
-            </span>
-            <span className={`role-badge ${comment.user_role ? comment.user_role.toLowerCase().replace(' ', '-').replace('_', '-') : 'user'}`}>
-              {comment.user_role || 'USER'}
-            </span>
-            <span className="comment-time">{formatTimeAgo(comment.created_at)}</span>
+    <div className="reply-item">
+      <div className="reply-avatar">{initials}</div>
+      <div className="reply-content">
+        <div className="reply-bubble">
+          <div className="reply-header">
+            <span className="reply-author">{displayName}</span>
+            <span className={roleCls}>{reply.user_role || 'USER'}</span>
           </div>
-          <div className="comment-text">
-            {isLongComment && !isExpanded
-              ? comment.comment.substring(0, MAX_COMMENT_LENGTH) + '...'
-              : comment.comment}
-            {isLongComment && (
-              <button
-                className="see-more-btn"
-                onClick={() => setIsExpanded(!isExpanded)}
-              >
+          <div className="reply-text">
+            {renderedText}
+            {isLong && (
+              <button className="see-more-btn" onClick={handleToggleExpand}>
                 {isExpanded ? 'See less' : 'See more'}
               </button>
             )}
           </div>
-
-          {/* Action Buttons */}
-          <div className="comment-actions">
-            <button
-              className="reply-button"
-              onClick={handleReplyClick}
-            >
-              Reply
-            </button>
-
-            {/* View Replies Button */}
-            {comment.replies && comment.replies.length > 0 && (
-              <button
-                className="view-replies-button"
-                onClick={handleToggleReplies}
-              >
-                {visibleReplies[comment.id] ? 'Hide' : 'View'} {comment.replies.length}{' '}
-                {comment.replies.length === 1 ? 'reply' : 'replies'}
-              </button>
-            )}
-          </div>
         </div>
-      </div>
-
-      {/* Replies Thread */}
-      {comment.replies && comment.replies.length > 0 && visibleReplies[comment.id] && (
-        <div className="replies-thread">
-          {comment.replies.map(reply => (
-            <ReplyItem 
-              key={reply.id} 
-              reply={reply} 
-              getInitials={getInitials}
-              formatTimeAgo={formatTimeAgo}
-            />
-          ))}
-        </div>
-      )}
-
-      {/* Reply Input Box */}
-      {replyingTo === comment.id && (
-        <ReplyInputBox
-          comment={comment}
-          replyText={replyText}
-          setReplyText={setReplyText}
-          onPostReply={onPostReply}
-          getInitials={getInitials}
-          user={user}
-        />
-      )}
-    </div>
-  );
-});
-
-CommentItem.displayName = 'CommentItem';
-
-// Memoized Reply component
-const ReplyItem = memo(({ reply, getInitials, formatTimeAgo }) => {
-  const MAX_REPLY_LENGTH = 150;
-  const [isExpanded, setIsExpanded] = useState(false);
-  const isLongReply = reply.reply.length > MAX_REPLY_LENGTH;
-
-  return (
-    <div className="reply-item">
-      <div className="reply-avatar">
-        {getInitials(reply.user_fullname || reply.fullName || reply.username)}
-      </div>
-      <div className="reply-content">
-        <div className="reply-header">
-          <span className="reply-author">
-            {reply.user_fullname || reply.fullName || reply.username}
-          </span>
-          <span className={`role-badge ${reply.user_role ? reply.user_role.toLowerCase().replace(' ', '-').replace('_', '-') : 'user'}`}>
-            {reply.user_role || 'USER'}
-          </span>
-          <span className="reply-time">{formatTimeAgo(reply.created_at)}</span>
-        </div>
-        <div className="reply-text">
-          {isLongReply && !isExpanded
-            ? reply.reply.substring(0, MAX_REPLY_LENGTH) + '...'
-            : reply.reply}
-          {isLongReply && (
-            <button
-              className="see-more-btn"
-              onClick={() => setIsExpanded(!isExpanded)}
-            >
-              {isExpanded ? 'See less' : 'See more'}
-            </button>
+        <div className="reply-meta-row">
+          <span className="reply-time">{reply._timeAgo}</span>
+          {onReplyToReply && (
+            <button className="reply-button" onClick={handleReply}>Reply</button>
           )}
         </div>
       </div>
     </div>
   );
 });
-
 ReplyItem.displayName = 'ReplyItem';
 
-// Memoized Reply Input component
-const ReplyInputBox = memo(({ comment, replyText, setReplyText, onPostReply, getInitials, user }) => {
-  const handleSubmit = useCallback((e) => {
-    onPostReply(e, comment.id);
-  }, [onPostReply, comment.id]);
+// ─── ReplyInputBox ────────────────────────────────────────────────────────────
+// Owns its own text state — typing here never re-renders sibling comments
+const ReplyInputBox = memo(({ comment, initialText, onPostReply, userInitials }) => {
+  const [text, setText] = useState(initialText || '');
+  const prevInitial = useRef(initialText);
 
-  const handleKeyPress = useCallback((e) => {
+  useEffect(() => {
+    if (initialText !== prevInitial.current) {
+      setText(initialText || '');
+      prevInitial.current = initialText;
+    }
+  }, [initialText]);
+
+  const handleSubmit = useCallback((e) => {
+    onPostReply(e, comment.id, text, () => setText(''));
+  }, [onPostReply, comment.id, text]);
+
+  const handleKeyDown = useCallback((e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSubmit(e);
     }
   }, [handleSubmit]);
 
+  const handleChange = useCallback((e) => setText(e.target.value), []);
+
   return (
     <div className="reply-input-box">
-      <div className="comment-avatar reply-avatar">
-        {getInitials(user.username || user.fullName)}
-      </div>
+      <div className="reply-avatar">{userInitials}</div>
       <div className="comment-input-wrapper">
         <input
           type="text"
           className="comment-input"
           placeholder="Write a reply..."
-          value={replyText}
-          onChange={(e) => setReplyText(e.target.value)}
-          onKeyPress={handleKeyPress}
+          value={text}
+          onChange={handleChange}
+          onKeyDown={handleKeyDown}
           autoFocus
         />
         <button
           className="comment-submit-btn"
           onClick={handleSubmit}
-          disabled={!replyText.trim()}
+          disabled={!text.trim()}
         >
           ➤
         </button>
@@ -200,10 +149,138 @@ const ReplyInputBox = memo(({ comment, replyText, setReplyText, onPostReply, get
     </div>
   );
 });
-
 ReplyInputBox.displayName = 'ReplyInputBox';
 
-// Main modal component with React.memo
+// ─── CommentItem ──────────────────────────────────────────────────────────────
+const CommentItem = memo(({
+  comment,
+  isReplying,        // boolean — only true for the one comment being replied to
+  mentionText,       // string — only non-empty for the one comment being replied to
+  repliesVisible,    // boolean — only for this comment's replies
+  onReply,
+  onToggleReplies,   // (commentId) => void — stable ref from parent
+  onPostReply,
+  userInitials,
+  highlightUsername,
+}) => {
+  const MAX_LEN = 150;
+  const [isExpanded, setIsExpanded] = useState(false);
+  const isLong = comment.comment.length > MAX_LEN;
+
+  const initials = useMemo(
+    () => computeInitials(comment.user_fullname || comment.fullName || comment.username),
+    [comment.user_fullname, comment.fullName, comment.username]
+  );
+
+  // Memoize display name, role class, and highlight check — all stable per comment
+  const displayName = useMemo(
+    () => comment.user_fullname || comment.fullName || comment.username,
+    [comment.user_fullname, comment.fullName, comment.username]
+  );
+
+  const roleCls = useMemo(
+    () => `role-badge ${comment.user_role
+      ? comment.user_role.toLowerCase().replace(/[\s_]/g, '-')
+      : 'user'}`,
+    [comment.user_role]
+  );
+
+  const isHighlighted = useMemo(
+    () => !!(highlightUsername &&
+      (comment.username === highlightUsername || comment.user_fullname === highlightUsername)),
+    [highlightUsername, comment.username, comment.user_fullname]
+  );
+
+  const threadCls = useMemo(
+    () => isHighlighted ? 'comment-thread highlight-comment' : 'comment-thread',
+    [isHighlighted]
+  );
+
+  // Memoize rendered text — only re-parse when comment text or expand state changes
+  const renderedText = useMemo(() => {
+    const content = isLong && !isExpanded
+      ? comment.comment.substring(0, MAX_LEN) + '...'
+      : comment.comment;
+    return renderTextWithMentions(content);
+  }, [comment.comment, isLong, isExpanded]);
+
+  const replyCount = useMemo(() => comment.replies?.length ?? 0, [comment.replies]);
+
+  const handleReplyClick = useCallback(() => {
+    onReply(comment.id, displayName);
+  }, [comment.id, displayName, onReply]);
+
+  const handleToggleReplies = useCallback(() => {
+    onToggleReplies(comment.id);
+  }, [comment.id, onToggleReplies]);
+
+  const handleToggleExpand = useCallback(() => setIsExpanded(v => !v), []);
+
+  return (
+    <div
+      className={threadCls}
+      data-comment-id={comment.id}
+    >
+      <div className="comment-item">
+        <div className="comment-avatar">{initials}</div>
+        <div className="comment-content">
+          <div className="comment-bubble">
+            <div className="comment-header">
+              <span className="comment-author">{displayName}</span>
+              <span className={roleCls}>{comment.user_role || 'USER'}</span>
+            </div>
+            <div className="comment-text">
+              {renderedText}
+              {isLong && (
+                <button className="see-more-btn" onClick={handleToggleExpand}>
+                  {isExpanded ? 'See less' : 'See more'}
+                </button>
+              )}
+            </div>
+          </div>
+          <div className="comment-actions">
+              <span className="comment-time">{comment._timeAgo}</span>
+              <button className="reply-button" onClick={handleReplyClick}>Reply</button>
+            {replyCount > 0 && (
+              <button className="view-replies-button" onClick={handleToggleReplies}>
+                {repliesVisible ? 'Hide' : 'View'} {replyCount}{' '}
+                {replyCount === 1 ? 'reply' : 'replies'}
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Replies — only rendered when visible */}
+      {replyCount > 0 && repliesVisible && (
+        <div className="replies-thread">
+          {comment.replies.map(reply => (
+            <ReplyItem
+              key={reply.id}
+              reply={reply}
+              parentCommentId={comment.id}
+              onReplyToReply={onReply}
+              usesMention={true}
+            />
+          ))}
+        </div>
+      )}
+
+      {/* Reply input — only mounted for the one active comment */}
+      {isReplying && (
+        <ReplyInputBox
+          comment={comment}
+          initialText={mentionText}
+          onPostReply={onPostReply}
+          userInitials={userInitials}
+        />
+      )}
+    </div>
+  );
+});
+CommentItem.displayName = 'CommentItem';
+
+// ─── CommentsModal ────────────────────────────────────────────────────────────
 const CommentsModal = memo(({
   isOpen,
   onClose,
@@ -213,65 +290,95 @@ const CommentsModal = memo(({
   newComment,
   setNewComment,
   onPostComment,
-  replyingTo,
-  setReplyingTo,
-  replyText,
-  setReplyText,
   onPostReply,
   visibleReplies,
   toggleRepliesVisibility,
   getInitials,
   formatTimeAgo,
   user,
-  highlightUsername = null
+  highlightUsername = null,
 }) => {
-  // Must call hooks before any conditional return (Rules of Hooks)
-  const handleKeyPress = useCallback((e) => {
+  const [replyingTo, setReplyingTo] = useState(null);
+  const [replyMentionText, setReplyMentionText] = useState('');
+
+  // Pre-stamp each comment/reply with its formatted time so formatTimeAgo
+  // is NOT called inside every CommentItem render
+  const stampedComments = useMemo(() => {
+    if (!comments?.length) return comments;
+    return comments.map(c => ({
+      ...c,
+      _timeAgo: formatTimeAgo(c.created_at),
+      replies: c.replies?.map(r => ({
+        ...r,
+        _timeAgo: formatTimeAgo(r.created_at),
+      })),
+    }));
+  }, [comments, formatTimeAgo]);
+
+  const userInitials = useMemo(
+    () => computeInitials(user.username || user.fullName),
+    [user.username, user.fullName]
+  );
+
+  const handleSetReplyingTo = useCallback((commentId, authorName) => {
+    setReplyingTo(commentId);
+    const token = authorName ? authorName.replace(/\s+/g, '_') : null;
+    setReplyMentionText(token ? `@${token} ` : '');
+  }, []);
+
+  const handlePostReply = useCallback((e, commentId, replyText, onInputClear) => {
+    onPostReply(e, commentId, replyText, () => {
+      setReplyingTo(null);
+      setReplyMentionText('');
+      if (onInputClear) onInputClear();
+    });
+  }, [onPostReply]);
+
+  const handleKeyDown = useCallback((e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       onPostComment(e);
     }
   }, [onPostComment]);
 
-  // Early return after hooks
+  // Stable stopPropagation handler — prevents new function allocation on every render
+  const handleModalClick = useCallback((e) => e.stopPropagation(), []);
+
+  const handleCommentChange = useCallback((e) => setNewComment(e.target.value), [setNewComment]);
+
   if (!isOpen || !assignment) return null;
 
   return (
     <div className="comments-modal-overlay" onClick={onClose}>
-      <div className="comments-modal" onClick={(e) => e.stopPropagation()}>
+      <div className="comments-modal" onClick={handleModalClick}>
         <div className="comments-modal-header">
           <h3>Comments - {assignment.title}</h3>
-          <button className="close-modal-btn" onClick={onClose}>
-            ✕
-          </button>
+          <button className="close-modal-btn" onClick={onClose}>✕</button>
         </div>
 
         <div className="comments-modal-body">
           {loadingComments ? (
             <div className="loading-comments">
-              <div className="spinner"></div>
+              <div className="spinner" />
               <p>Loading comments...</p>
             </div>
-          ) : comments.length === 0 ? (
+          ) : !stampedComments?.length ? (
             <div className="no-comments">
               <p>💬 No comments yet. Be the first to comment!</p>
             </div>
           ) : (
             <div className="comments-list">
-              {comments.map(comment => (
+              {stampedComments.map(comment => (
                 <CommentItem
                   key={comment.id}
                   comment={comment}
-                  replyingTo={replyingTo}
-                  setReplyingTo={setReplyingTo}
-                  visibleReplies={visibleReplies}
-                  toggleRepliesVisibility={toggleRepliesVisibility}
-                  getInitials={getInitials}
-                  formatTimeAgo={formatTimeAgo}
-                  replyText={replyText}
-                  setReplyText={setReplyText}
-                  onPostReply={onPostReply}
-                  user={user}
+                  isReplying={replyingTo === comment.id}
+                  mentionText={replyingTo === comment.id ? replyMentionText : ''}
+                  repliesVisible={!!visibleReplies[comment.id]}
+                  onReply={handleSetReplyingTo}
+                  onToggleReplies={toggleRepliesVisibility}
+                  onPostReply={handlePostReply}
+                  userInitials={userInitials}
                   highlightUsername={highlightUsername}
                 />
               ))}
@@ -279,20 +386,17 @@ const CommentsModal = memo(({
           )}
         </div>
 
-        {/* Comment Form */}
         <div className="comments-modal-footer">
           <div className="add-comment">
-            <div className="comment-avatar">
-              {getInitials(user.username || user.fullName)}
-            </div>
+            <div className="comment-avatar">{userInitials}</div>
             <div className="comment-input-wrapper">
               <input
                 type="text"
                 className="comment-input"
                 placeholder="Write a comment..."
                 value={newComment}
-                onChange={(e) => setNewComment(e.target.value)}
-                onKeyPress={handleKeyPress}
+                onChange={handleCommentChange}
+                onKeyDown={handleKeyDown}
               />
               <button
                 className="comment-submit-btn"
@@ -308,7 +412,6 @@ const CommentsModal = memo(({
     </div>
   );
 });
-
 CommentsModal.displayName = 'CommentsModal';
 
 export default CommentsModal;

@@ -1,15 +1,15 @@
-import { useState, useEffect, Suspense, lazy, useCallback } from 'react'
+import { useState, useEffect, Suspense, lazy, useCallback, useMemo, memo, startTransition } from 'react'
 import { API_BASE_URL } from '@/config/api'
 import '../css/UserDashboard.css'
 import SkeletonLoader from '../components/common/SkeletonLoader'
-import { AlertMessage, ToastNotification } from '../components/shared'
+import { AlertMessage } from '../components/shared'
 
 // Eagerly import critical components that are always visible
 import Sidebar from '../components/user/Sidebar'
 import DashboardTab from '../components/user/DashboardTab'
-import FileModal from '../components/user/FileModal' // Load immediately for notifications
+import FileModal from '../components/user/FileModal'
 
-// Lazy load tab components - only loaded when user switches to that tab
+// Lazy load tab components
 const TeamTasksTab = lazy(() => import('../components/user/TeamTasksTab'))
 const MyFilesTab = lazy(() => import('../components/user/MyFilesTab'))
 const NotificationTab = lazy(() => import('../components/user/NotificationTab-RealTime'))
@@ -27,19 +27,22 @@ const UserDashboard = ({ user, onLogout }) => {
   const [fileComments, setFileComments] = useState([])
   const [filterStatus, setFilterStatus] = useState('all')
   const [notificationCount, setNotificationCount] = useState(0)
-  const [notifications, setNotifications] = useState([])
+
+  // Wrap in startTransition so badge updates never block scroll/interaction
+  const handleUpdateUnreadCount = useCallback((count) => {
+    startTransition(() => setNotificationCount(count))
+  }, [])
 
   // Smart Navigation State
-  const [highlightedAssignmentId, setHighlightedAssignmentId] = useState(null);
-  const [highlightedFileId, setHighlightedFileId] = useState(null);
-  const [notificationCommentContext, setNotificationCommentContext] = useState(null);
+  const [highlightedAssignmentId, setHighlightedAssignmentId] = useState(null)
+  const [highlightedFileId, setHighlightedFileId] = useState(null)
+  const [notificationCommentContext, setNotificationCommentContext] = useState(null)
 
-  const fetchUserFiles = async () => {
+  const fetchUserFiles = useCallback(async () => {
     setIsLoading(true)
     try {
       const response = await fetch(`${API_BASE_URL}/api/files/user/${user.id}`)
       const data = await response.json()
-
       if (data.success) {
         setFiles(data.files || [])
       } else {
@@ -51,53 +54,45 @@ const UserDashboard = ({ user, onLogout }) => {
     } finally {
       setIsLoading(false)
     }
-  }
-
-  const handleTabChange = (tab) => {
-    setActiveTab(tab);
-  };
-
-  useEffect(() => {
-    // Fetch notifications only once on mount
-    const fetchNotifications = async () => {
-      try {
-        const response = await fetch(`${API_BASE_URL}/api/notifications/user/${user.id}`)
-        const data = await response.json()
-        if (data.success) {
-          setNotificationCount(data.unreadCount || 0)
-          setNotifications(data.notifications || [])
-        }
-      } catch (error) {
-        console.error('Error fetching notifications:', error)
-      }
-    }
-
-    fetchNotifications()
-    // Removed the polling interval - notifications will update when user visits the notification tab
   }, [user.id])
 
+  const handleTabChange = useCallback((tab) => {
+    setActiveTab(tab)
+  }, [])
+
+  const clearMessages = useCallback(() => {
+    setError('')
+    setSuccess('')
+  }, [])
+
+  const handleLogout = useCallback(() => {
+    onLogout()
+  }, [onLogout])
+
+  const onUploadSuccess = useCallback((message) => {
+    setSuccess(message)
+  }, [])
+
+  const formatFileSize = useCallback((bytes) => {
+    if (bytes === 0) return '0 Bytes'
+    const k = 1024
+    const sizes = ['Bytes', 'KB', 'MB', 'GB']
+    const i = Math.floor(Math.log(bytes) / Math.log(k))
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
+  }, [])
+
+  // Notification count is updated by NotificationTab via onUpdateUnreadCount
+  // No polling here — avoids duplicate requests running in parallel
+
   useEffect(() => {
-    // Fetch files on component mount
     fetchUserFiles()
-  }, [user.id])
+  }, [fetchUserFiles])
+
 
   useEffect(() => {
-    if (activeTab === 'my-files') {
-      fetchUserFiles()
-    }
-  }, [activeTab, user.id])
-
-  useEffect(() => {
-    applyFilters()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [files, filterStatus])
-
-  const applyFilters = () => {
     let filtered = files
-
-    // Apply status filter
     if (filterStatus !== 'all') {
-      filtered = filtered.filter(file => {
+      filtered = files.filter(file => {
         switch (filterStatus) {
           case 'pending':
             return (file.current_stage || '').includes('pending')
@@ -110,16 +105,12 @@ const UserDashboard = ({ user, onLogout }) => {
         }
       })
     }
-
     setFilteredFiles(filtered)
-  }
+  }, [files, filterStatus])
 
-  const openFileModal = async (file) => {
-    // Open modal immediately without waiting for comments
+  const openFileModal = useCallback(async (file) => {
     setSelectedFile(file)
     setShowFileModal(true)
-
-    // Fetch comments for this file
     try {
       const response = await fetch(`${API_BASE_URL}/api/files/${file.id}/comments`)
       const data = await response.json()
@@ -130,22 +121,17 @@ const UserDashboard = ({ user, onLogout }) => {
       console.error('Error fetching comments:', error)
       setFileComments([])
     }
-  }
+  }, [])
 
-  const openFileByIdFromNotification = async (fileId) => {
+  const openFileByIdFromNotification = useCallback(async (fileId) => {
     try {
-      // Fetch the specific file
       const response = await fetch(`${API_BASE_URL}/api/files/user/${user.id}`)
       const data = await response.json()
-
-
       if (data.success && data.files) {
         const file = data.files.find(f => f.id === parseInt(fileId))
-
         if (file) {
-          // Switch to My Files tab
           setActiveTab('my-files')
-          openFileModal(file) // No await needed
+          openFileModal(file)
         } else {
           setError('File not found')
         }
@@ -154,106 +140,70 @@ const UserDashboard = ({ user, onLogout }) => {
       console.error('Error fetching file:', error)
       setError('Failed to connect to server')
     }
-  }
+  }, [user.id, openFileModal])
 
-  const navigateToTasks = (assignmentId = null) => {
+  const navigateToTasks = useCallback((assignmentId = null) => {
     setActiveTab('tasks')
     if (assignmentId) {
-      setHighlightedAssignmentId(assignmentId);
+      setHighlightedAssignmentId(assignmentId)
     }
-  }
+  }, [])
 
-  // Unified Navigation Handler for Smart Navigation
-  const handleSmartNavigation = (tab, context) => {
-    console.log('🧭 User Smart Navigation called:', { tab, context });
-    
-    // Check for sessionStorage data (from notification clicks)
-    const storedAssignmentId = sessionStorage.getItem('highlightAssignmentId');
-    const storedFileId = sessionStorage.getItem('highlightFileId');
-    const storedContext = sessionStorage.getItem('notificationContext');
-    
-    console.log('💾 SessionStorage data:', {
-      storedAssignmentId,
-      storedFileId,
-      storedContext
-    });
+  const handleSmartNavigation = useCallback((tab, context) => {
+    const storedAssignmentId = sessionStorage.getItem('highlightAssignmentId')
+    const storedFileId = sessionStorage.getItem('highlightFileId')
+    const storedContext = sessionStorage.getItem('notificationContext')
 
-    // Merge context from props and sessionStorage
     const mergedContext = {
       ...context,
       assignmentId: context?.assignmentId || (storedAssignmentId ? parseInt(storedAssignmentId) : null),
       fileId: context?.fileId || (storedFileId ? parseInt(storedFileId) : null),
       ...(storedContext ? JSON.parse(storedContext) : {})
-    };
+    }
 
-    console.log('🔀 Merged context:', mergedContext);
+    setActiveTab(tab)
 
-    setActiveTab(tab);
-
-    // Apply highlighting context
     if (mergedContext) {
-      if (mergedContext.assignmentId) {
-        setHighlightedAssignmentId(mergedContext.assignmentId);
-        console.log('✅ Set highlightedAssignmentId:', mergedContext.assignmentId);
-      }
-      if (mergedContext.fileId) {
-        setHighlightedFileId(mergedContext.fileId);
-        console.log('✅ Set highlightedFileId:', mergedContext.fileId);
-      }
+      if (mergedContext.assignmentId) setHighlightedAssignmentId(mergedContext.assignmentId)
+      if (mergedContext.fileId) setHighlightedFileId(mergedContext.fileId)
       if (mergedContext.shouldOpenComments || mergedContext.expandAllReplies) {
-        setNotificationCommentContext(mergedContext);
-        console.log('✅ Set notificationCommentContext:', mergedContext);
+        setNotificationCommentContext(mergedContext)
       }
-      
-      // Handle file opening explicitly if needed (legacy support)
       if (tab === 'my-files' && mergedContext.fileId) {
-        openFileByIdFromNotification(mergedContext.fileId);
+        openFileByIdFromNotification(mergedContext.fileId)
       }
     }
 
-    // Clear sessionStorage after use
-    sessionStorage.removeItem('highlightAssignmentId');
-    sessionStorage.removeItem('highlightFileId');
-    sessionStorage.removeItem('notificationContext');
-    sessionStorage.removeItem('fromNotificationId');
-    console.log('🧹 Cleared sessionStorage');
-  };
+    sessionStorage.removeItem('highlightAssignmentId')
+    sessionStorage.removeItem('highlightFileId')
+    sessionStorage.removeItem('notificationContext')
+    sessionStorage.removeItem('fromNotificationId')
+  }, [openFileByIdFromNotification])
 
-  const handleToastNavigation = async (tabName, contextData) => {
-
+  const handleToastNavigation = useCallback(async (tabName, contextData) => {
     if (tabName === 'my-files' && contextData) {
-      // For file notifications, open the file modal directly
-      await openFileByIdFromNotification(contextData);
+      await openFileByIdFromNotification(contextData)
     } else if (tabName === 'tasks' && contextData) {
-      // For task/assignment notifications
-      setActiveTab('tasks');
-      sessionStorage.setItem('scrollToAssignment', contextData);
+      setActiveTab('tasks')
+      sessionStorage.setItem('scrollToAssignment', contextData)
     } else {
-      // Default tab navigation
-      setActiveTab(tabName);
+      setActiveTab(tabName)
     }
-  }
+  }, [openFileByIdFromNotification])
 
-  const formatFileSize = useCallback((bytes) => {
-    if (bytes === 0) return '0 Bytes'
-    const k = 1024
-    const sizes = ['Bytes', 'KB', 'MB', 'GB']
-    const i = Math.floor(Math.log(bytes) / Math.log(k))
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
-  }, [])
+  // Stable callbacks for clearing highlights — created once
+  const clearHighlight = useCallback(() => setHighlightedAssignmentId(null), [])
+  const clearFileHighlight = useCallback(() => setHighlightedFileId(null), [])
+  const clearNotificationContext = useCallback(() => setNotificationCommentContext(null), [])
 
-  const clearMessages = () => {
-    setError('')
-    setSuccess('')
-  }
-
-  const handleLogout = () => {
-    onLogout()
-  }
-
-  const onUploadSuccess = (message) => {
-    setSuccess(message)
-  }
+  // filesCount derived without recreating on every render
+  const filesCount = useMemo(() =>
+    files.filter(f =>
+      f.status === 'uploaded' ||
+      f.status === 'team_leader_approved' ||
+      f.status === 'final_approved'
+    ).length
+  , [files])
 
   const renderActiveTab = () => {
     switch (activeTab) {
@@ -264,13 +214,13 @@ const UserDashboard = ({ user, onLogout }) => {
             files={files}
             setActiveTab={setActiveTab}
           />
-        );
+        )
       case 'team-files':
         return (
           <Suspense fallback={<SkeletonLoader type="table" />}>
             <TeamTasksTab user={user} />
           </Suspense>
-        );
+        )
       case 'my-files':
         return (
           <Suspense fallback={<SkeletonLoader type="myfiles" />}>
@@ -288,7 +238,7 @@ const UserDashboard = ({ user, onLogout }) => {
               onUploadSuccess={onUploadSuccess}
             />
           </Suspense>
-        );
+        )
       case 'notification':
         return (
           <Suspense fallback={<SkeletonLoader type="list" />}>
@@ -297,10 +247,10 @@ const UserDashboard = ({ user, onLogout }) => {
               onOpenFile={openFileByIdFromNotification}
               onNavigateToTasks={navigateToTasks}
               onNavigate={handleSmartNavigation}
-              onUpdateUnreadCount={setNotificationCount}
+              onUpdateUnreadCount={handleUpdateUnreadCount}
             />
           </Suspense>
-        );
+        )
       case 'tasks':
         return (
           <Suspense fallback={<SkeletonLoader type="table" />}>
@@ -309,12 +259,12 @@ const UserDashboard = ({ user, onLogout }) => {
               highlightedAssignmentId={highlightedAssignmentId}
               highlightedFileId={highlightedFileId}
               notificationCommentContext={notificationCommentContext}
-              onClearHighlight={() => setHighlightedAssignmentId(null)}
-              onClearFileHighlight={() => setHighlightedFileId(null)}
-              onClearNotificationContext={() => setNotificationCommentContext(null)}
+              onClearHighlight={clearHighlight}
+              onClearFileHighlight={clearFileHighlight}
+              onClearNotificationContext={clearNotificationContext}
             />
           </Suspense>
-        );
+        )
       default:
         return (
           <DashboardTab
@@ -324,9 +274,9 @@ const UserDashboard = ({ user, onLogout }) => {
             onOpenFile={openFileByIdFromNotification}
             onNavigateToTasks={navigateToTasks}
           />
-        );
+        )
     }
-  };
+  }
 
   return (
     <Suspense fallback={<SkeletonLoader type="dashboard" />}>
@@ -334,7 +284,7 @@ const UserDashboard = ({ user, onLogout }) => {
         <Sidebar
           activeTab={activeTab}
           setActiveTab={handleTabChange}
-          filesCount={files.filter(f => f.status === 'uploaded' || f.status === 'team_leader_approved' || f.status === 'final_approved').length}
+          filesCount={filesCount}
           notificationCount={notificationCount}
           onLogout={handleLogout}
           user={user}
@@ -343,7 +293,6 @@ const UserDashboard = ({ user, onLogout }) => {
         {/* Main Content */}
         <div className="main-content">
           <div className="dashboard-content">
-            {/* Alert Messages */}
             <AlertMessage
               type="error"
               message={error}
@@ -355,7 +304,6 @@ const UserDashboard = ({ user, onLogout }) => {
               onClose={clearMessages}
             />
 
-            {/* Render Active Tab */}
             {renderActiveTab()}
           </div>
         </div>
@@ -373,12 +321,7 @@ const UserDashboard = ({ user, onLogout }) => {
           </Suspense>
         )}
 
-        {/* Toast Notifications */}
-        <ToastNotification
-          notifications={notifications}
-          onNavigate={handleToastNavigation}
-          role="user"
-        />
+        {/* Toast notifications handled inside NotificationTab */}
       </div>
     </Suspense>
   )
