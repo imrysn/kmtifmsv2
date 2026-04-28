@@ -1019,3 +1019,30 @@
   overflow-x: auto;
   font-size: 0.85rem;
 }
+
+/* By Date view — date header rows */
+.date-header-row td {
+  padding: 6px 16px 4px;
+  background: transparent;
+  border-bottom: none;
+}
+
+.date-header-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: #6b7280;
+  padding: 3px 10px;
+  background: #f3f4f6;
+  border-radius: 20px;
+  border: 1px solid #e5e7eb;
+  margin-top: 6px;
+}
+
+.date-header-icon {
+  font-size: 0.8rem;
+}

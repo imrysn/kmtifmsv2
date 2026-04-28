@@ -11,27 +11,8 @@
  * Extracted from Team Leader implementation for reuse across all dashboards.
  */
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, startTransition } from 'react';
 
-/**
- * Smart navigation hook for handling notification-driven navigation
- * 
- * @param {Object} config - Configuration object
- * @param {string} config.role - User role ('admin' | 'teamleader' | 'user')
- * @param {Array} config.items - Array of items (assignments or files)
- * @param {number} config.highlightedItemId - ID of item to highlight
- * @param {number} config.highlightedFileId - ID of file to highlight (for cascading)
- * @param {Object} config.notificationContext - Context for comment modal
- * @param {Function} config.onClearHighlight - Callback to clear item highlight
- * @param {Function} config.onClearFileHighlight - Callback to clear file highlight
- * @param {Function} config.onClearNotificationContext - Callback to clear notification context
- * @param {Function} config.openCommentsModal - Function to open comments modal
- * @param {Function} config.setVisibleReplies - Function to set visible replies
- * @param {boolean} config.showCommentsModal - Whether comments modal is open
- * @param {Object} config.selectedItem - Currently selected item
- * @param {Array} config.comments - Array of comments
- * @returns {Object} { shouldExpandRepliesRef }
- */
 export function useSmartNavigation({
     role,
     items = [],
@@ -47,141 +28,120 @@ export function useSmartNavigation({
     selectedItem,
     comments = []
 }) {
-    // Ref to track if we should expand replies
     const shouldExpandRepliesRef = useRef(false);
+    const pendingContextRef = useRef(null);
 
-    // CSS class prefix based on role
-    const CLASS_PREFIX = {
-        admin: 'admin',
-        teamleader: 'tl',
-        user: 'user'
-    };
+    const CLASS_PREFIX = { admin: 'admin', teamleader: 'tl', user: 'user' };
     const prefix = CLASS_PREFIX[role] || 'sn';
 
-    // ID prefix for DOM elements
-    const ID_PREFIX = {
-        admin: 'admin-assignment',
-        teamleader: 'tl-assignment',
-        user: 'user-assignment'
-    };
+    const ID_PREFIX = { admin: 'admin-assignment', teamleader: 'tl-assignment', user: 'user-assignment' };
     const idPrefix = ID_PREFIX[role] || 'assignment';
 
-    // EFFECT 1: Auto-open comments modal with reply expansion
+    // EFFECT 1: Auto-open comments modal from notification
+    // Stores context when it arrives, then opens modal once items are available.
     useEffect(() => {
-        if (notificationContext && items.length > 0) {
-            const item = items.find(i => i.id === notificationContext.assignmentId);
+        if (!notificationContext) return;
+        // Save context so Effect 1b can act once items load
+        pendingContextRef.current = notificationContext;
+        if (onClearNotificationContext) {
+            onClearNotificationContext();
+        }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [notificationContext]);
 
-            if (item) {
-                // Store expand flag for reply notifications
-                if (notificationContext.expandAllReplies) {
-                    shouldExpandRepliesRef.current = true;
+    // EFFECT 1b: Open modal once both pendingContext and items are available
+    useEffect(() => {
+        if (!pendingContextRef.current || items.length === 0) return;
+
+        const ctx = pendingContextRef.current;
+        const item = items.find(i => i.id === ctx.assignmentId);
+        if (!item) return;
+
+        pendingContextRef.current = null;
+
+        if (ctx.expandAllReplies) {
+            shouldExpandRepliesRef.current = true;
+        }
+
+        if (openCommentsModal) {
+            openCommentsModal(item);
+        }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [items, openCommentsModal]);
+
+    // EFFECT 2: Auto-expand replies when modal + comments are ready
+    useEffect(() => {
+        if (!showCommentsModal || !selectedItem || !shouldExpandRepliesRef.current) return;
+        if (comments.length === 0) return;
+
+        // Expand all reply threads — low priority, defer so modal paint goes first
+        startTransition(() => {
+            const expandState = {};
+            let firstWithReplies = null;
+
+            comments.forEach(comment => {
+                if (comment.replies && comment.replies.length > 0) {
+                    expandState[comment.id] = true;
+                    if (!firstWithReplies) firstWithReplies = comment.id;
                 }
+            });
 
-                // Open comments modal
-                if (openCommentsModal) {
-                    openCommentsModal(item);
-                }
-
-                // Clear context after opening
-                setTimeout(() => {
-                    if (onClearNotificationContext) {
-                        onClearNotificationContext();
-                    }
-                }, 100);
+            if (setVisibleReplies) {
+                setVisibleReplies(prev => ({ ...prev, ...expandState }));
             }
-        }
-    }, [notificationContext, items, openCommentsModal, onClearNotificationContext]);
 
-    // EFFECT 2: Auto-expand replies when modal opens
-    useEffect(() => {
-        if (showCommentsModal && selectedItem && shouldExpandRepliesRef.current) {
-            setTimeout(() => {
-                if (comments.length > 0 && setVisibleReplies) {
-                    // Expand all comments with replies
-                    const expandState = {};
-                    let firstCommentWithReplies = null;
+            // Scroll after expansion paint — single short delay
+            if (firstWithReplies) {
+                setTimeout(() => {
+                    const el = document.querySelector(`[data-comment-id="${firstWithReplies}"]`);
+                    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }, 150);
+            }
+        });
 
-                    comments.forEach(comment => {
-                        if (comment.replies && comment.replies.length > 0) {
-                            expandState[comment.id] = true;
-                            if (!firstCommentWithReplies) {
-                                firstCommentWithReplies = comment.id;
-                            }
-                        }
-                    });
-
-                    // Apply expansion
-                    setVisibleReplies(prev => ({ ...prev, ...expandState }));
-
-                    // Scroll to first comment with replies
-                    if (firstCommentWithReplies) {
-                        setTimeout(() => {
-                            const commentElement = document.querySelector(
-                                `[data-comment-id="${firstCommentWithReplies}"]`
-                            );
-                            if (commentElement) {
-                                commentElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                            }
-                        }, 400);
-                    }
-                }
-
-                // Reset flag
-                shouldExpandRepliesRef.current = false;
-            }, 500);
-        }
+        shouldExpandRepliesRef.current = false;
     }, [showCommentsModal, selectedItem, comments, setVisibleReplies]);
 
-    // EFFECT 3: Highlight item (assignment/file)
+    // EFFECT 3: Highlight item (scroll to assignment card)
     useEffect(() => {
-        if (highlightedItemId && items.length > 0) {
-            setTimeout(() => {
-                const element = document.getElementById(`${idPrefix}-${highlightedItemId}`);
-                if (element) {
-                    // Scroll to item
-                    element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        if (!highlightedItemId || items.length === 0) return;
 
-                    // Add highlight effect
-                    element.classList.add(`${prefix}-assignment-highlighted`);
+        const element = document.getElementById(`${idPrefix}-${highlightedItemId}`);
+        if (!element) return;
 
-                    // Remove highlight after 1.5s
-                    setTimeout(() => {
-                        element.classList.remove(`${prefix}-assignment-highlighted`);
-                        if (onClearHighlight) {
-                            onClearHighlight();
-                        }
-                    }, 1500);
-                }
-            }, 300);
-        }
-    }, [highlightedItemId, items, onClearHighlight, prefix, idPrefix]);
+        element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        element.classList.add(`${prefix}-assignment-highlighted`);
 
-    // EFFECT 4: Highlight file within item (cascading or standalone effect)
-    // Fires when highlightedFileId is set, with or without highlightedItemId
+        const timer = setTimeout(() => {
+            element.classList.remove(`${prefix}-assignment-highlighted`);
+            if (onClearHighlight) onClearHighlight();
+        }, 1500);
+
+        return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [highlightedItemId, items]);
+
+    // EFFECT 4: Highlight file within item
     useEffect(() => {
-        if (highlightedFileId && items.length > 0) {
-            // Delay longer if we also need to scroll to the parent item first
-            const delay = highlightedItemId ? 1000 : 400;
+        if (!highlightedFileId || items.length === 0) return;
+
+        const delay = highlightedItemId ? 600 : 200;
+        const timer = setTimeout(() => {
+            const el = document.querySelector(`[data-file-id="${highlightedFileId}"]`);
+            if (!el) return;
+
+            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            el.classList.add(`${prefix}-assignment-file-highlighted`);
+
             setTimeout(() => {
-                const fileElement = document.querySelector(`[data-file-id="${highlightedFileId}"]`);
-                if (fileElement) {
-                    // Scroll to file within item
-                    fileElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                el.classList.remove(`${prefix}-assignment-file-highlighted`);
+                if (onClearFileHighlight) onClearFileHighlight();
+            }, 1500);
+        }, delay);
 
-                    // Add file highlight
-                    fileElement.classList.add(`${prefix}-assignment-file-highlighted`);
-
-                    // Remove after 1.5s
-                    setTimeout(() => {
-                        fileElement.classList.remove(`${prefix}-assignment-file-highlighted`);
-                        if (onClearFileHighlight) {
-                            onClearFileHighlight();
-                        }
-                    }, 1500);
-                }
-            }, delay);
-        }
-    }, [highlightedFileId, highlightedItemId, items, onClearFileHighlight, prefix]);
+        return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [highlightedFileId, highlightedItemId, items]);
 
     return { shouldExpandRepliesRef };
 }

@@ -1,10 +1,10 @@
-import { useState, useEffect, useRef, Suspense } from 'react'
+import { useState, useEffect, useRef, Suspense, memo, useCallback } from 'react'
 import { API_BASE_URL } from '@/config/api'
 import anime from 'animejs'
 import '../css/AdminDashboard.css'
 import SkeletonLoader from '../components/common/SkeletonLoader'
 import { getSidebarIcon } from '../components/shared/FileIcon'
-import { AuthProvider, NetworkProvider, NotificationProvider } from '../contexts'
+import { AuthProvider, NetworkProvider } from '../contexts'
 import { ToastNotification } from '../components/shared'
 
 // Import admin tab components
@@ -18,6 +18,92 @@ import {
   TaskManagement,
   Notifications
 } from '../components/admin'
+
+// Memoized sidebar so state changes in the main dashboard don't re-render it
+const AdminSidebar = memo(({ sidebarRef, activeTab, sidebarOpen, unreadCount, user, handleTabChange, closeSidebar, handleLogout }) => (
+  <div className={`admin-sidebar ${sidebarOpen ? 'open' : ''}`} ref={sidebarRef}>
+    <div className="sidebar-header">
+      <div className="admin-info">
+        <div className="admin-name">{user.fullName || 'Admin User'}</div>
+        <div className="admin-role">{user.role || 'Administrator'}</div>
+      </div>
+    </div>
+
+    <nav className="sidebar-nav">
+      <button
+        className={`nav-item ${activeTab === 'dashboard' ? 'active' : ''}`}
+        onClick={() => { handleTabChange('dashboard'); closeSidebar() }}
+      >
+        <span className="nav-icon">{getSidebarIcon('dashboard')}</span>
+        <span className="nav-label">Dashboard</span>
+      </button>
+      <button
+        className={`nav-item ${activeTab === 'notifications' ? 'active' : ''}`}
+        onClick={() => { handleTabChange('notifications'); closeSidebar() }}
+      >
+        <span className="nav-icon nav-icon-with-badge">
+          {getSidebarIcon('notifications')}
+          {unreadCount > 0 && (
+            <span className="sidebar-notification-badge">
+              {unreadCount > 99 ? '99+' : unreadCount}
+            </span>
+          )}
+        </span>
+        <span className="nav-label">Notifications</span>
+      </button>
+      <button
+        className={`nav-item ${activeTab === 'file-management' ? 'active' : ''}`}
+        onClick={() => { handleTabChange('file-management'); closeSidebar() }}
+      >
+        <span className="nav-icon">{getSidebarIcon('files')}</span>
+        <span className="nav-label">Files</span>
+      </button>
+      <button
+        className={`nav-item ${activeTab === 'users' ? 'active' : ''}`}
+        onClick={() => { handleTabChange('users'); closeSidebar() }}
+      >
+        <span className="nav-icon">{getSidebarIcon('users')}</span>
+        <span className="nav-label">Users</span>
+      </button>
+      <button
+        className={`nav-item ${activeTab === 'activity-logs' ? 'active' : ''}`}
+        onClick={() => { handleTabChange('activity-logs'); closeSidebar() }}
+      >
+        <span className="nav-icon">{getSidebarIcon('activityLogs')}</span>
+        <span className="nav-label">Activity Logs</span>
+      </button>
+      <button
+        className={`nav-item ${activeTab === 'file-approval' ? 'active' : ''}`}
+        onClick={() => { handleTabChange('file-approval'); closeSidebar() }}
+      >
+        <span className="nav-icon">{getSidebarIcon('fileApproval')}</span>
+        <span className="nav-label">File Approval</span>
+      </button>
+      <button
+        className={`nav-item ${activeTab === 'tasks' ? 'active' : ''}`}
+        onClick={() => { handleTabChange('tasks'); closeSidebar() }}
+      >
+        <span className="nav-icon">{getSidebarIcon('tasks')}</span>
+        <span className="nav-label">Tasks</span>
+      </button>
+      <button
+        className={`nav-item ${activeTab === 'settings' ? 'active' : ''}`}
+        onClick={() => { handleTabChange('settings'); closeSidebar() }}
+      >
+        <span className="nav-icon">{getSidebarIcon('settings')}</span>
+        <span className="nav-label">Settings</span>
+      </button>
+    </nav>
+
+    <div className="sidebar-footer">
+      <button onClick={handleLogout} className="logout-btn">
+        <span className="nav-icon">{getSidebarIcon('logout')}</span>
+        <span className="logout-btn-text">Logout</span>
+      </button>
+    </div>
+  </div>
+))
+AdminSidebar.displayName = 'AdminSidebar'
 
 const AdminDashboard = ({ user, onLogout }) => {
   const [activeTab, setActiveTab] = useState('dashboard')
@@ -60,7 +146,7 @@ const AdminDashboard = ({ user, onLogout }) => {
     fetchUsers()
     fetchNotifications()
     // Poll for notifications every 30 seconds
-    const interval = setInterval(fetchNotifications, 10000)
+    const interval = setInterval(fetchNotifications, 30000)
     return () => clearInterval(interval)
   }, [])
 
@@ -78,7 +164,8 @@ const AdminDashboard = ({ user, onLogout }) => {
 
   const fetchNotifications = async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/notifications/user/${user.id}`)
+      // Lightweight call — only fetch page 1 to get unreadCount and toast notifications
+      const response = await fetch(`${API_BASE_URL}/api/notifications/user/${user.id}?page=1&limit=20`)
       const data = await response.json()
       if (data.success) {
         setNotifications(data.notifications || [])
@@ -89,87 +176,61 @@ const AdminDashboard = ({ user, onLogout }) => {
     }
   }
 
-  const handleLogout = () => {
+  const handleLogout = useCallback(() => {
     onLogout()
-  }
+  }, [onLogout])
 
-  const clearMessages = () => {
+  const clearMessages = useCallback(() => {
     setError('')
     setSuccess('')
-  }
+  }, [])
 
-  const handleTabChange = (tabName, data = null) => {
+  const handleTabChange = useCallback((tabName, data = null) => {
     setActiveTab(tabName)
     setContextData(data)
-    clearMessages()
-  }
+    setError('')
+    setSuccess('')
+  }, [])
 
-  const handleNotificationNavigation = (tabName, context) => {
+  const closeSidebar = useCallback(() => {
+    setSidebarOpen(false)
+  }, [])
+
+  const toggleSidebar = useCallback(() => {
+    setSidebarOpen(prev => !prev)
+  }, [])
+
+  const handleNotificationNavigation = useCallback((tabName, context) => {
     console.log('🔔 Admin Navigation triggered:', { tabName, context });
 
-    // Close sidebar if open (for mobile view)
-    if (sidebarOpen) {
-      setSidebarOpen(false);
-    }
-
-    // Navigate to the tab
+    setSidebarOpen(false);
     setActiveTab(tabName);
-    clearMessages();
+    setError('')
+    setSuccess('')
 
-    // SMART NAVIGATION: Process rich context data
     if (context && typeof context === 'object') {
-      // Handle file highlighting
       if (context.fileId) {
         setHighlightedFileId(context.fileId);
-        console.log('📁 Set highlighted file:', context.fileId);
       }
-
-      // Handle assignment highlighting and comment modal
       if (context.assignmentId) {
         setHighlightedAssignmentId(context.assignmentId);
-        console.log('📋 Set highlighted assignment:', context.assignmentId);
-
-        // Handle comment modal auto-opening
         if (context.shouldOpenComments) {
           setNotificationCommentContext({
             assignmentId: context.assignmentId,
             expandAllReplies: context.expandAllReplies || false
           });
-          console.log('💬 Set comment context:', {
-            assignmentId: context.assignmentId,
-            expandAllReplies: context.expandAllReplies
-          });
         }
       }
-
-      // Store legacy context data for backward compatibility
       setContextData(context);
 
-      // Scroll to top of content area
       const contentArea = document.querySelector('.content-area');
-      if (contentArea) {
-        contentArea.scrollTop = 0;
-      }
-
-      // Log special contexts
-      if (context.action === 'reset-password') {
-        console.log('🔑 Password reset context:', context);
-      }
+      if (contentArea) contentArea.scrollTop = 0;
     } else {
-      // Legacy: context is a simple value (file ID or assignment ID)
       setContextData(context);
     }
-  };
+  }, [])
 
-  const toggleSidebar = () => {
-    setSidebarOpen(!sidebarOpen)
-  }
-
-  const closeSidebar = () => {
-    setSidebarOpen(false)
-  }
-
-  const renderActiveTab = () => {
+  const renderActiveTab = useCallback(() => {
     const commonProps = {
       clearMessages,
       error,
@@ -212,23 +273,17 @@ const AdminDashboard = ({ user, onLogout }) => {
           onClearNotificationContext={() => setNotificationCommentContext(null)}
         />
       case 'notifications':
-        return <Notifications user={user} onNavigate={handleNotificationNavigation} />
+        return <Notifications user={user} onNavigate={handleNotificationNavigation} onRead={() => setUnreadCount(0)} />
       case 'settings':
         return <Settings {...commonProps} users={users} user={user} />
       default:
         return <DashboardOverview user={user} users={users} />
     }
-  }
-
-  const getInitials = (name) => {
-    if (!name) return 'A'
-    return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
-  }
+  }, [activeTab, users, contextData, highlightedFileId, highlightedAssignmentId, notificationCommentContext, error, success, clearMessages, handleNotificationNavigation, user])
 
   return (
     <AuthProvider initialUser={user}>
       <NetworkProvider>
-        <NotificationProvider userId={user?.id}>
           <Suspense fallback={<SkeletonLoader type="admin" />}>
             <div className="minimal-admin-dashboard">
               {/* Burger Menu Button */}
@@ -250,112 +305,17 @@ const AdminDashboard = ({ user, onLogout }) => {
                 onClick={closeSidebar}
               ></div>
 
-              {/* Sidebar */}
-              <div className={`admin-sidebar ${sidebarOpen ? 'open' : ''}`} ref={sidebarRef}>
-                <div className="sidebar-header">
-                  <div className="admin-info">
-                    <div className="admin-name">{user.fullName || 'Admin User'}</div>
-                    <div className="admin-role">{user.role || 'Administrator'}</div>
-                  </div>
-                </div>
-
-                <nav className="sidebar-nav">
-                  <button
-                    className={`nav-item ${activeTab === 'dashboard' ? 'active' : ''}`}
-                    onClick={() => {
-                      handleTabChange('dashboard')
-                      closeSidebar()
-                    }}
-                  >
-                    <span className="nav-icon">{getSidebarIcon('dashboard')}</span>
-                    <span className="nav-label">Dashboard</span>
-                  </button>
-                  <button
-                    className={`nav-item ${activeTab === 'notifications' ? 'active' : ''}`}
-                    onClick={() => {
-                      handleTabChange('notifications')
-                      closeSidebar()
-                    }}
-                  >
-                    <span className="nav-icon nav-icon-with-badge">
-                      {getSidebarIcon('notifications')}
-                      {unreadCount > 0 && (
-                        <span className="sidebar-notification-badge">
-                          {unreadCount > 99 ? '99+' : unreadCount}
-                        </span>
-                      )}
-                    </span>
-                    <span className="nav-label">Notifications</span>
-                  </button>
-                  <button
-                    className={`nav-item ${activeTab === 'file-management' ? 'active' : ''}`}
-                    onClick={() => {
-                      handleTabChange('file-management')
-                      closeSidebar()
-                    }}
-                  >
-                    <span className="nav-icon">{getSidebarIcon('files')}</span>
-                    <span className="nav-label">Files</span>
-                  </button>
-                  <button
-                    className={`nav-item ${activeTab === 'users' ? 'active' : ''}`}
-                    onClick={() => {
-                      handleTabChange('users')
-                      closeSidebar()
-                    }}
-                  >
-                    <span className="nav-icon">{getSidebarIcon('users')}</span>
-                    <span className="nav-label">Users</span>
-                  </button>
-                  <button
-                    className={`nav-item ${activeTab === 'activity-logs' ? 'active' : ''}`}
-                    onClick={() => {
-                      handleTabChange('activity-logs')
-                      closeSidebar()
-                    }}
-                  >
-                    <span className="nav-icon">{getSidebarIcon('activityLogs')}</span>
-                    <span className="nav-label">Activity Logs</span>
-                  </button>
-                  <button
-                    className={`nav-item ${activeTab === 'file-approval' ? 'active' : ''}`}
-                    onClick={() => {
-                      handleTabChange('file-approval')
-                      closeSidebar()
-                    }}
-                  >
-                    <span className="nav-icon">{getSidebarIcon('fileApproval')}</span>
-                    <span className="nav-label">File Approval</span>
-                  </button>
-                  <button
-                    className={`nav-item ${activeTab === 'tasks' ? 'active' : ''}`}
-                    onClick={() => {
-                      handleTabChange('tasks')
-                      closeSidebar()
-                    }}
-                  >
-                    <span className="nav-icon">{getSidebarIcon('tasks')}</span>
-                    <span className="nav-label">Tasks</span>
-                  </button>
-                  <button
-                    className={`nav-item ${activeTab === 'settings' ? 'active' : ''}`}
-                    onClick={() => {
-                      handleTabChange('settings')
-                      closeSidebar()
-                    }}
-                  >
-                    <span className="nav-icon">{getSidebarIcon('settings')}</span>
-                    <span className="nav-label">Settings</span>
-                  </button>
-                </nav>
-
-                <div className="sidebar-footer">
-                  <button onClick={handleLogout} className="logout-btn">
-                    <span className="nav-icon">{getSidebarIcon('logout')}</span>
-                    <span className="logout-btn-text">Logout</span>
-                  </button>
-                </div>
-              </div>
+              {/* Memoized Sidebar */}
+              <AdminSidebar
+                sidebarRef={sidebarRef}
+                activeTab={activeTab}
+                sidebarOpen={sidebarOpen}
+                unreadCount={unreadCount}
+                user={user}
+                handleTabChange={handleTabChange}
+                closeSidebar={closeSidebar}
+                handleLogout={handleLogout}
+              />
 
               {/* Main Content */}
               <div className="admin-main-content" ref={mainContentRef}>
@@ -374,7 +334,6 @@ const AdminDashboard = ({ user, onLogout }) => {
               />
             </div>
           </Suspense>
-        </NotificationProvider>
       </NetworkProvider>
     </AuthProvider>
   )

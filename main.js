@@ -608,24 +608,8 @@ function createWindow() {
 
   // Re-lock after every navigation (SPA route changes, hot reloads in dev, etc.)
   mainWindow.webContents.on('did-finish-load', () => {
-    mainWindow.webContents.setVisualZoomLevelLimits(1, 1);
-    mainWindow.webContents.setZoomFactor(1);
-    // Block Ctrl+wheel zoom from inside the renderer process
-    mainWindow.webContents.executeJavaScript(`
-      (function() {
-        if (window.__zoomLocked) return;
-        window.__zoomLocked = true;
-        window.addEventListener('wheel', function(e) {
-          if (e.ctrlKey) e.preventDefault();
-        }, { passive: false, capture: true });
-        window.addEventListener('gesturestart', function(e) {
-          e.preventDefault();
-        }, { passive: false, capture: true });
-        window.addEventListener('gesturechange', function(e) {
-          e.preventDefault();
-        }, { passive: false, capture: true });
-      })()
-    `).catch(() => {});
+  mainWindow.webContents.setVisualZoomLevelLimits(1, 1);
+  mainWindow.webContents.setZoomFactor(1);
   });
 
   mainWindow.once('ready-to-show', () => {
@@ -768,99 +752,272 @@ function checkExpressServer() {
 }
 
 /*** Start Express server */
-function startServer() {
-  return new Promise((resolve, reject) => {
-    log(LogLevel.INFO, 'Starting Express server...');
+async function startServer() {
+  log(LogLevel.INFO, 'Starting Express server...');
 
-    let serverPath;
-    let spawnCommand;
-    let spawnArgs;
+  // Load .env from resources (packaged) or project root (dev) explicitly
+  const envFilePath = app.isPackaged && process.resourcesPath
+    ? path.join(process.resourcesPath, '.env')
+    : path.join(__dirname, '.env');
 
-    // 1. Determine the correct path based on environment
-    if (app.isPackaged) {
-      // In production (installed app), try to use the standalone server executable first
-      const exePath = path.join(path.dirname(process.execPath), 'KMTI_FMS_Server.exe');
-
-      if (require('fs').existsSync(exePath)) {
-        // Use the standalone server executable
-        serverPath = exePath;
-        spawnCommand = exePath;
-        spawnArgs = [];
-        log(LogLevel.INFO, `Using standalone server executable: ${exePath}`);
-      } else {
-        // Fallback to bundled server
-        serverPath = path.join(process.resourcesPath, 'app-server', 'index.js');
-        spawnCommand = 'node';
-        spawnArgs = [serverPath];
-        log(LogLevel.INFO, `Using bundled server: ${serverPath}`);
-      }
+  let dotenvVars = {};
+  try {
+    if (fs.existsSync(envFilePath)) {
+      const envContent = fs.readFileSync(envFilePath, 'utf8');
+      envContent.split('\n').forEach(line => {
+        const trimmed = line.trim();
+        if (trimmed && !trimmed.startsWith('#')) {
+          const eqIdx = trimmed.indexOf('=');
+          if (eqIdx > 0) {
+            const key = trimmed.substring(0, eqIdx).trim();
+            const value = trimmed.substring(eqIdx + 1).trim();
+            dotenvVars[key] = value;
+          }
+        }
+      });
+      log(LogLevel.INFO, `Loaded .env from: ${envFilePath}`);
     } else {
-      // In development or "npm run prod" (source mode), run the source file directly
-      serverPath = path.join(__dirname, 'server.js');
-      spawnCommand = 'node';
-      spawnArgs = [serverPath];
-      log(LogLevel.INFO, `Using source server file: ${serverPath}`);
+      log(LogLevel.WARN, `.env not found at: ${envFilePath}`);
+    }
+  } catch (e) {
+    log(LogLevel.WARN, 'Could not read .env file:', e.message);
+  }
+
+  // Always inject env vars into process.env
+  Object.assign(process.env, dotenvVars);
+  process.env.NODE_ENV = isProduction ? 'production' : 'development';
+  process.env.PORT = String(SERVER_PORT);
+  process.env.SERVER_PORT = String(SERVER_PORT);
+  if (app.isPackaged && process.resourcesPath) {
+    process.env.DB_BASE_PATH = path.join(process.resourcesPath, 'database');
+  }
+
+  if (app.isPackaged) {
+    // PRODUCTION: Run server IN-PROCESS inside Electron's Node.js runtime.
+    log(LogLevel.INFO, 'Using in-process server (packaged mode)');
+
+    const serverModulePath = path.join(process.resourcesPath, 'app-server', 'index.js');
+    log(LogLevel.INFO, `Server module path: ${serverModulePath}`);
+    log(LogLevel.INFO, `resourcesPath: ${process.resourcesPath}`);
+
+    // Debug log file for production server errors
+    const debugLogPath = path.join(app.getPath('userData'), 'server-debug.log');
+    function writeDebugLog(msg) {
+      try {
+        const timestamp = new Date().toISOString();
+        fs.appendFileSync(debugLogPath, `[${timestamp}] ${msg}\n`);
+      } catch (_) {}
+    }
+    writeDebugLog(`=== Server startup attempt ===`);
+    writeDebugLog(`resourcesPath: ${process.resourcesPath}`);
+    writeDebugLog(`serverModulePath: ${serverModulePath}`);
+    writeDebugLog(`Server module exists: ${fs.existsSync(serverModulePath)}`);
+    writeDebugLog(`ENV DB_HOST: ${process.env.DB_HOST}`);
+    writeDebugLog(`ENV DB_NAME: ${process.env.DB_NAME}`);
+
+    // Check if the server module actually exists
+    if (!fs.existsSync(serverModulePath)) {
+      const errMsg = `Server module NOT FOUND at: ${serverModulePath}`;
+      writeDebugLog(`FATAL: ${errMsg}`);
+      log(LogLevel.ERROR, errMsg);
+      // List what IS in app-server to help debug
+      const appServerDir = path.join(process.resourcesPath, 'app-server');
+      if (fs.existsSync(appServerDir)) {
+        const files = fs.readdirSync(appServerDir);
+        writeDebugLog(`app-server contents: ${files.join(', ')}`);
+        log(LogLevel.ERROR, `app-server dir contents: ${files.join(', ')}`);
+      } else {
+        writeDebugLog(`app-server dir does NOT exist!`);
+        log(LogLevel.ERROR, 'app-server directory does not exist!');
+      }
+      throw new Error(errMsg);
     }
 
-    // 2. Prepare Environment Variables
-    const serverEnv = {
-      ...process.env,
-      NODE_ENV: isProduction ? 'production' : 'development',
-      PORT: SERVER_PORT,
-      // Tell the server where the database is
-      DB_BASE_PATH: app.isPackaged && process.resourcesPath
-        ? path.join(process.resourcesPath, 'database')
-        : path.join(__dirname, 'database'),
+    // Capture console output from the in-process server
+    const _origConsoleLog = console.log;
+    const _origConsoleError = console.error;
+    const _origConsoleWarn = console.warn;
+    console.log = (...args) => { _origConsoleLog(...args); writeDebugLog('[SERVER LOG] ' + args.join(' ')); };
+    console.error = (...args) => { _origConsoleError(...args); writeDebugLog('[SERVER ERR] ' + args.join(' ')); };
+    console.warn = (...args) => { _origConsoleWarn(...args); writeDebugLog('[SERVER WARN] ' + args.join(' ')); };
+
+    // Temporarily patch process.exit so server startup failures don't kill Electron
+    let serverExitError = null;
+    const _originalExit = process.exit.bind(process);
+    process.exit = (code) => {
+      if (code !== 0) {
+        const exitMsg = `Server called process.exit(${code}) — captured for debugging`;
+        writeDebugLog(`FATAL EXIT: ${exitMsg}`);
+        log(LogLevel.ERROR, exitMsg);
+        serverExitError = new Error(`Server exited with code ${code}`);
+      } else {
+        _originalExit(code);
+      }
     };
 
-    // 3. Spawn the process
-    serverProcess = spawn(spawnCommand, spawnArgs, {
-      stdio: 'pipe',
-      env: serverEnv,
-      cwd: path.dirname(serverPath) // Important for relative paths inside the server
+    // Free port before loading server module (prevents EADDRINUSE)
+    await new Promise((resolvePort) => {
+      const { exec } = require('child_process');
+      const net = require('net');
+
+      function getPids(cb) {
+        exec(`netstat -ano | findstr :${SERVER_PORT}`, (err, stdout) => {
+          if (err || !stdout) { cb(new Set()); return; }
+          const pids = new Set();
+          stdout.split('\n').forEach(line => {
+            if (line.toUpperCase().includes('LISTENING')) {
+              const parts = line.trim().split(/\s+/);
+              const pid = parseInt(parts[parts.length - 1]);
+              if (!isNaN(pid) && pid !== process.pid) pids.add(pid);
+            }
+          });
+          cb(pids);
+        });
+      }
+
+      function isPortFree(cb) {
+        const tester = net.createServer();
+        tester.once('error', () => cb(false));
+        tester.once('listening', () => { tester.close(); cb(true); });
+        tester.listen(SERVER_PORT, '127.0.0.1');
+      }
+
+      function killAndWait(attempt) {
+        if (attempt > 10) { log(LogLevel.WARN, `Port ${SERVER_PORT} still busy after retries — proceeding anyway`); resolvePort(); return; }
+        getPids((pids) => {
+          const killAll = (cb) => {
+            if (pids.size === 0) { cb(); return; }
+            let n = pids.size;
+            pids.forEach(pid => exec(`taskkill /PID ${pid} /F`, () => { if (--n === 0) cb(); }));
+          };
+          killAll(() => {
+            setTimeout(() => {
+              isPortFree((free) => {
+                if (free) { resolvePort(); }
+                else { killAndWait(attempt + 1); }
+              });
+            }, 500);
+          });
+        });
+      }
+
+      killAndWait(1);
+    });
+    log(LogLevel.INFO, `Port ${SERVER_PORT} cleared`);
+    writeDebugLog(`Port ${SERVER_PORT} cleared, loading server module...`);
+
+    try {
+      require(serverModulePath);
+      log(LogLevel.INFO, 'Server module loaded in-process successfully');
+      writeDebugLog('Server module require() completed (async startup continuing...)');
+    } catch (e) {
+      process.exit = _originalExit;
+      console.log = _origConsoleLog;
+      console.error = _origConsoleError;
+      console.warn = _origConsoleWarn;
+      writeDebugLog(`FATAL: require() threw: ${e.message}\n${e.stack}`);
+      log(LogLevel.ERROR, 'Failed to load server module in-process:', e.message);
+      throw e;
+    }
+
+    // Restore real process.exit after server has had time to initialize
+    setTimeout(() => {
+      process.exit = _originalExit;
+      console.log = _origConsoleLog;
+      console.error = _origConsoleError;
+      console.warn = _origConsoleWarn;
+    }, 20000);
+
+    // Poll localhost until the server is actually responding
+    await new Promise((resolveReady, rejectReady) => {
+      let attempts = 0;
+      const maxAttempts = 60; // 30 seconds max
+      const pollInterval = setInterval(async () => {
+        attempts++;
+        try {
+          const ready = await checkExpressServer();
+          if (ready) {
+            clearInterval(pollInterval);
+            writeDebugLog(`Server ready after ${attempts * 500}ms`);
+            log(LogLevel.INFO, `In-process server ready after ${attempts * 500}ms`);
+            resolveReady();
+            return;
+          }
+        } catch (_e) { /* keep polling */ }
+
+        if (attempts >= maxAttempts) {
+          clearInterval(pollInterval);
+          const timeoutMsg = `Server did NOT respond on port ${SERVER_PORT} after 30s. Check server-debug.log at: ${debugLogPath}`;
+          writeDebugLog(`TIMEOUT: ${timeoutMsg}`);
+          log(LogLevel.ERROR, timeoutMsg);
+          // Show dialog with the debug log path so user can report it
+          dialog.showMessageBox({
+            type: 'error',
+            title: 'Server Startup Failed',
+            message: 'The application server failed to start.',
+            detail: `The server did not respond after 30 seconds.\n\nDebug log saved at:\n${debugLogPath}\n\nCommon causes:\n• Cannot connect to MySQL (${process.env.DB_HOST}:${process.env.DB_PORT})\n• Missing server files\n• Port conflict on ${SERVER_PORT}`,
+            buttons: ['OK']
+          }).catch(() => {});
+          resolveReady(); // Don't reject — still show the app
+        }
+      }, 500);
     });
 
-    // ... (Keep the rest of your logging/event listener logic from here down) ...
-    let serverReady = false;
-    let startTimeout;
+  } else {
+    // DEVELOPMENT: spawn a separate node process
+    await new Promise((resolve, reject) => {
+      // DEVELOPMENT: spawn a separate node process (existing behavior)
+      const serverPath = path.join(__dirname, 'server.js');
+      log(LogLevel.INFO, `Spawning dev server: ${serverPath}`);
 
-    serverProcess.stdout.on('data', (data) => {
-      // ... keep existing code ...
-      const output = data.toString().trim();
-      if (output) {
-        if (currentLogLevel >= LogLevel.DEBUG) console.log(`📡 ${output}`);
-        if ((output.includes('running') || output.includes('listening')) && !serverReady) {
-          serverReady = true;
-          clearTimeout(startTimeout);
-          log(LogLevel.INFO, 'Express server is ready!');
+      const serverEnv = { ...process.env };
+      const serverCwd = __dirname;
+
+      serverProcess = spawn('node', [serverPath], {
+        stdio: 'pipe',
+        env: serverEnv,
+        cwd: serverCwd
+      });
+
+      let serverReady = false;
+      let startTimeout;
+
+      serverProcess.stdout.on('data', (data) => {
+        const output = data.toString().trim();
+        if (output) {
+          if (currentLogLevel >= LogLevel.DEBUG) console.log(`📡 ${output}`);
+          if ((output.includes('running') || output.includes('listening')) && !serverReady) {
+            serverReady = true;
+            clearTimeout(startTimeout);
+            log(LogLevel.INFO, 'Express server is ready!');
+            resolve();
+          }
+        }
+      });
+
+      serverProcess.stderr.on('data', (data) => {
+        const error = data.toString().trim();
+        if (error && !error.includes('Warning')) log(LogLevel.WARN, `Server: ${error}`);
+      });
+
+      serverProcess.on('error', (error) => {
+        clearTimeout(startTimeout);
+        log(LogLevel.ERROR, 'Failed to start server:', error.message);
+        reject(error);
+      });
+
+      serverProcess.on('exit', (code) => {
+        if (code !== 0) log(LogLevel.WARN, `Server exited with code ${code}`);
+      });
+
+      startTimeout = setTimeout(() => {
+        if (!serverReady) {
+          log(LogLevel.WARN, 'Server startup timeout, proceeding anyway...');
           resolve();
         }
-      }
-    });
-
-    serverProcess.stderr.on('data', (data) => {
-      // ... keep existing code ...
-      const error = data.toString().trim();
-      if (error && !error.includes('Warning')) log(LogLevel.WARN, `Server: ${error}`);
-    });
-
-    serverProcess.on('error', (error) => {
-      clearTimeout(startTimeout);
-      log(LogLevel.ERROR, 'Failed to start server:', error.message);
-      reject(error);
-    });
-
-    serverProcess.on('exit', (code) => {
-      if (code !== 0) log(LogLevel.WARN, `Server exited with code ${code}`);
-    });
-
-    startTimeout = setTimeout(() => {
-      if (!serverReady) {
-        log(LogLevel.WARN, 'Server startup timeout, proceeding anyway...');
-        resolve();
-      }
-    }, MAX_EXPRESS_WAIT);
-  });
+      }, MAX_EXPRESS_WAIT);
+    }); // end dev Promise
+  } // end else (dev mode)
 }
 
 /*** Wait for Vite server - FASTER with early bailout */
@@ -1102,6 +1259,67 @@ if (ipcMain) {
     }
   });
 
+  // Handle file downloads — show native Save dialog
+  ipcMain.handle('file:download', async (event, { fileUrl, fileName }) => {
+    try {
+      // Ensure the save dialog defaultPath always includes the correct extension
+      const downloadsDir = app.getPath('downloads');
+      const safeFileName = fileName || 'download';
+      // Extract extension from fileName — if missing, try to get it from the URL
+      const hasExt = path.extname(safeFileName).length > 1;
+      let finalName = safeFileName;
+      if (!hasExt) {
+        // Try to extract extension from URL path
+        const urlPath = fileUrl.split('?')[0];
+        const urlExt = path.extname(urlPath);
+        if (urlExt.length > 1) finalName = safeFileName + urlExt;
+      }
+
+      const result = await dialog.showSaveDialog(mainWindow, {
+        defaultPath: path.join(downloadsDir, finalName),
+        title: 'Save File',
+        filters: [
+          { name: 'All Files', extensions: ['*'] }
+        ]
+      });
+      if (result.canceled || !result.filePath) return { success: false, canceled: true };
+
+      // Ensure saved path keeps the extension if user didn't type one
+      let savePath = result.filePath;
+      const savedExt = path.extname(savePath);
+      const expectedExt = path.extname(finalName);
+      if (!savedExt && expectedExt) {
+        savePath = savePath + expectedExt;
+      }
+
+      const https = require('https');
+      const httpModule = fileUrl.startsWith('https') ? https : http;
+      await new Promise((resolve, reject) => {
+        const dest = fs.createWriteStream(savePath);
+        httpModule.get(fileUrl, (response) => {
+          // Follow redirects
+          if (response.statusCode === 301 || response.statusCode === 302) {
+            const redirectUrl = response.headers.location;
+            const redirectModule = redirectUrl.startsWith('https') ? https : http;
+            redirectModule.get(redirectUrl, (r2) => {
+              r2.pipe(dest);
+              dest.on('finish', () => { dest.close(); resolve(); });
+              dest.on('error', reject);
+            }).on('error', reject);
+            return;
+          }
+          response.pipe(dest);
+          dest.on('finish', () => { dest.close(); resolve(); });
+          dest.on('error', reject);
+        }).on('error', reject);
+      });
+      return { success: true, savedTo: savePath };
+    } catch (err) {
+      log(LogLevel.ERROR, 'Download failed:', err.message);
+      return { success: false, error: err.message };
+    }
+  });
+
   ipcMain.handle('file:openInApp', async (event, filePath) => {
     try {
       // SECURITY: Validate input
@@ -1113,8 +1331,23 @@ if (ipcMain) {
       // Normalize the path for Windows
       const normalizedPath = path.normalize(filePath);
 
-      // SECURITY: Check if file exists before attempting to open
-      // This prevents attempting to open non-existent or invalid paths
+      // Determine if this is a UNC/network path (\\server\share\...)
+      const isUNCPath = normalizedPath.startsWith('\\\\') || filePath.startsWith('\\\\');
+
+      if (isUNCPath) {
+        // For UNC/network paths, skip fs.existsSync (unreliable on network drives)
+        // and go straight to shell.openPath — Windows will handle the error if missing
+        log(LogLevel.DEBUG, `Opening UNC/network file directly: ${normalizedPath}`);
+        const result = await shell.openPath(normalizedPath);
+        if (result) {
+          log(LogLevel.ERROR, 'Error opening UNC file:', result);
+          return { success: false, error: result };
+        }
+        log(LogLevel.INFO, 'UNC file opened successfully');
+        return { success: true, method: 'system-default-unc' };
+      }
+
+      // For local paths: check existence first
       if (!fs.existsSync(normalizedPath)) {
         log(LogLevel.WARN, 'File not found:', normalizedPath);
         return { success: false, error: 'File not found or has been deleted/moved' };

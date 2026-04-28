@@ -24,15 +24,34 @@ router.post('/login', validate(schemas.login), asyncHandler(async (req, res) => 
     ? 'SELECT * FROM users WHERE email = ?'
     : 'SELECT * FROM users WHERE username = ?';
 
-  const user = await new Promise((resolve, reject) => {
-    db.get(query, [email], (err, row) => {
-      if (err) {
-        reject(err);
-      } else {
-        resolve(row);
-      }
+  let user;
+  try {
+    user = await new Promise((resolve, reject) => {
+      db.get(query, [email], (err, row) => {
+        if (err) reject(err);
+        else resolve(row);
+      });
     });
-  });
+  } catch (dbErr) {
+    // Provide a friendlier message for DB connectivity issues
+    const msg = (dbErr.message || '').toLowerCase();
+    if (
+      msg.includes('econnrefused') ||
+      msg.includes('enotfound') ||
+      msg.includes('etimedout') ||
+      msg.includes('econnreset') ||
+      msg.includes('connect') ||
+      msg.includes('pool') ||
+      msg.includes('mysql')
+    ) {
+      logError(dbErr, { context: 'login-db-connect' });
+      return res.status(503).json({
+        success: false,
+        message: 'Cannot reach the database server (KMTI-NAS). Please make sure you are connected to the office network and try again.'
+      });
+    }
+    throw dbErr; // re-throw unexpected errors
+  }
 
   if (!user) {
     logInfo('Login failed - user not found', { email });

@@ -44,12 +44,6 @@ export default defineConfig({
             'react-router-dom'
           ],
 
-          // UI components bundle
-          'ui-components': [
-            './src/components/common',
-            './src/components/shared'
-          ],
-
           // Zustand store
           'store': [
             'zustand'

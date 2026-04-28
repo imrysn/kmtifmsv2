@@ -1,10 +1,63 @@
 // MySQL Database Configuration
 // This replaces the SQLite configuration to solve multi-user corruption issues
 
-// Load environment variables from .env file
-require('dotenv').config();
+// ── PACKAGED MODE: inject app-server/node_modules into require search path ──
+// database/config.js is copied to resources/database/ at build time, outside
+// app-server/node_modules, so bare require('mysql2') etc. would fail.
+// We push the app-server node_modules path so all dependencies resolve.
+// ── PACKAGED MODE: resolve modules with explicit paths ──
+const _resolveFrom = (() => {
+  const _p = require('path');
+  const _fs = require('fs');
+  const candidates = [
+    _p.join(__dirname, '../app-server/node_modules'),
+    _p.join(__dirname, '../node_modules'),
+    _p.join(__dirname, 'node_modules'),
+  ];
+  return function(mod) {
+    for (const c of candidates) {
+      try {
+        const full = _p.join(c, mod);
+        if (_fs.existsSync(full)) return full;
+        return require.resolve(mod, { paths: [c] });
+      } catch(_) {}
+    }
+    return mod;
+  };
+})();
 
-const mysql = require('mysql2/promise');
+// Load environment variables from .env file
+// Search multiple candidate paths so this works in both dev and packaged Electron
+const _fs0 = require('fs');
+const _path0 = require('path');
+const _envPaths = [
+  _path0.join(__dirname, '../.env'),             // dev: project root
+  _path0.join(__dirname, '../../.env'),           // packaged: resources/
+  _path0.join(process.resourcesPath || '', '.env') // packaged: explicit resourcesPath
+];
+const _envFile = _envPaths.find(p => { try { return _fs0.existsSync(p); } catch(_){return false;} });
+// Load dotenv safely — in packaged Electron, dotenv lives in app-server/node_modules
+// so we search for it relative to this file's location, then fall back to require().
+try {
+  // Try loading dotenv from multiple candidate locations
+  const _dotenvPaths = [
+    _path0.join(__dirname, '../app-server/node_modules/dotenv'),  // packaged: resources/app-server/node_modules
+    _path0.join(__dirname, '../node_modules/dotenv'),             // dev: project root
+    _path0.join(__dirname, 'node_modules/dotenv'),               // local
+    'dotenv'                                                      // standard require
+  ];
+  let _dotenv = null;
+  for (const _dp of _dotenvPaths) {
+    try { _dotenv = require(_dp); break; } catch(_) {}
+  }
+  if (_dotenv && _envFile) {
+    _dotenv.config({ path: _envFile });
+  }
+} catch (_e) {
+  // dotenv not available — env vars must already be set by the parent process
+}
+
+const mysql = require(_resolveFrom('mysql2/promise'));
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
@@ -32,6 +85,7 @@ const MYSQL_CONFIG = {
   connectionLimit: 20,        // FIXED: Increased for better concurrency
   queueLimit: 50,             // FIXED: Prevent memory overflow from unlimited queue
   acquireTimeout: 10000,      // FIXED: Timeout after 10s instead of hanging forever
+  connectTimeout: 5000,       // FIXED: Fail fast if host is unreachable
   enableKeepAlive: true,
   keepAliveInitialDelay: 0,
   // Connection health checks

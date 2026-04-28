@@ -1,6 +1,8 @@
-/* Modern Comment Design - Admin Style for User Panel */
+/* ============================================================
+   Facebook-Style Comments — KMTI FMS
+   ============================================================ */
 
-/* Specific styles without global wildcards */
+/* ── Border-left resets (keep) ── */
 .tasks-container .comments-modal-body,
 .tasks-container .comments-list,
 .tasks-container .comment-thread,
@@ -15,7 +17,6 @@
   border-left-color: transparent !important;
 }
 
-/* Remove all pseudo-elements that could create lines */
 .tasks-container .comments-modal-body::before,
 .tasks-container .comments-modal-body::after,
 .tasks-container .comments-list::before,
@@ -42,50 +43,130 @@
   opacity: 0 !important;
 }
 
-/* Comment Thread - Contains main comment and all its replies in one card */
-.comment-thread {
-  background: #ffffff;
+/* ── Modal overlay ── */
+.comments-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  /* backdrop-filter: blur removed — forces full-page repaint on every scroll frame */
+}
+
+/* ── Modal container — FB white card ── */
+.comments-modal {
+  background: #fff;
   border-radius: 12px;
-  border: 1px solid #e5e7eb;
-  margin-bottom: 12px;
+  width: 90%;
+  max-width: 680px;
+  max-height: 88vh;
+  display: flex;
+  flex-direction: column;
+  /* Reduced shadow spread — large blur radius is expensive to composite */
+  box-shadow: 0 4px 16px rgba(0,0,0,0.22);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  /* Promote modal to its own compositor layer */
+  transform: translateZ(0);
 }
 
-/* See More Button */
-.see-more-btn {
-  background: none;
+/* ── Modal header ── */
+.comments-modal-header {
+  padding: 16px 20px;
+  border-bottom: 1px solid #e4e6eb;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  position: relative;
+}
+
+.comments-modal-header h3 {
+  font-size: 20px;
+  font-weight: 700;
+  color: #050505;
+  margin: 0;
+  flex: 1;
+  text-align: center;
+}
+
+.close-modal-btn {
+  background: #e4e6eb;
   border: none;
-  color: #3b82f6;
-  font-size: 13px;
-  fontWeight: 500;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   cursor: pointer;
-  padding: 0;
-  margin-left: 4px;
-  transition: color 0.15s ease;
+  font-size: 18px;
+  color: #050505;
+  transition: background 0.15s;
+  position: absolute;
+  right: 16px;
+  top: 50%;
+  transform: translateY(-50%);
 }
 
-.see-more-btn:hover {
-  color: #2563eb;
-  text-decoration: underline;
+.close-modal-btn:hover {
+  background: #d8dadf;
 }
 
-.reply-text .see-more-btn {
-  font-size: 12px;
+/* ── Modal body (scrollable) ── */
+.comments-modal-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px 16px 4px;
+  border-left: none !important;
+  border-right: none !important;
+  background: #fff;
+  /* GPU compositing hint — scroll happens on its own layer */
+  will-change: transform;
+  transform: translateZ(0);
+  -webkit-overflow-scrolling: touch;
 }
 
-.comment-thread:hover {
-  /* Hover animation removed */
+.comments-modal-body::-webkit-scrollbar {
+  width: 6px;
+}
+.comments-modal-body::-webkit-scrollbar-track {
+  background: transparent;
+}
+.comments-modal-body::-webkit-scrollbar-thumb {
+  background: #ccc;
+  border-radius: 3px;
 }
 
-/* Comment Item - Card Style */
+/* ── No comments state ── */
+.no-comments {
+  text-align: center;
+  padding: 48px 20px;
+  color: #65676b;
+}
+.no-comments p {
+  font-size: 15px;
+  margin: 0;
+}
+
+/* ── Comment thread — no card border, FB uses flat layout ── */
+.comment-thread {
+  background: transparent;
+  border: none !important;
+  border-radius: 0;
+  margin-bottom: 2px;
+  padding-bottom: 0;
+}
+
+/* ── Main comment row ── */
 .comment-item {
   display: flex;
-  gap: 16px;
-  padding: 20px;
-  background: #ffffff;
-  border-radius: 0;
+  gap: 8px;
+  padding: 2px 0 2px;
+  background: transparent;
   border: none !important;
   margin-bottom: 0;
-  transition: none;
+  align-items: flex-start;
 }
 
 .comment-item::before,
@@ -93,117 +174,169 @@
   display: none !important;
 }
 
-.comment-item:hover {
-  box-shadow: none;
-  border-color: transparent;
-}
-
-/* Comment Avatar */
+/* ── Avatars ── */
 .comment-avatar {
-  width: 44px;
-  height: 44px;
+  width: 40px;
+  height: 40px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
+  background: #1877f2;
+  color: #fff;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 700;
   flex-shrink: 0;
   text-transform: uppercase;
-  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+  letter-spacing: 0.5px;
 }
 
-/* Comment Content */
+.reply-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: #1877f2;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 700;
+  flex-shrink: 0;
+  text-transform: uppercase;
+}
+
+/* ── Comment bubble (FB grey pill) ── */
 .comment-content {
   flex: 1;
   min-width: 0;
   border-left: none !important;
 }
 
+.comment-bubble {
+  display: inline-block;
+  background: #f0f2f5;
+  border-radius: 12px; /* smaller radius = cheaper GPU clip on scroll */
+  padding: 8px 14px 10px;
+  max-width: 100%;
+  word-break: break-word;
+}
+
 .comment-header {
   display: flex;
   align-items: center;
-  gap: 10px;
-  margin-bottom: 12px;
+  gap: 6px;
+  margin-bottom: 3px;
   flex-wrap: wrap;
 }
 
 .comment-author {
-  font-weight: 700;
-  font-size: 15px;
-  color: #111827;
+  font-weight: 600;
+  font-size: 13.5px;
+  color: #050505;
 }
 
 .comment-time {
-  color: #9ca3af;
-  font-size: 13px;
+  color: #65676b;
+  font-size: 12px;
   font-weight: 400;
+  margin-left: 2px;
+  padding-top: 1px;
+  display: block;
 }
 
-/* Comment Text - No Background */
+/* Comment text — inside bubble ── */
 .comment-text {
   background: transparent;
   padding: 0;
   font-size: 14px;
-  color: #374151;
-  line-height: 1.6;
-  margin-bottom: 12px;
-  white-space: pre-wrap;
-  word-wrap: break-word;
+  color: #050505;
+  line-height: 1.5;
+  margin: 0;
+  overflow-wrap: break-word;
+  word-break: break-word;
 }
 
-/* Comment Actions */
+/* ── FB-style action row: Like · Reply · time ── */
 .comment-actions {
   display: flex;
-  gap: 16px;
-  margin-bottom: 0;
+  align-items: center;
+  gap: 12px;
+  margin-top: 4px;
+  padding-left: 4px;
 }
 
 .reply-button {
   background: none;
   border: none;
-  color: #6b7280;
-  font-size: 14px;
-  font-weight: 500;
+  color: #65676b;
+  font-size: 12.5px;
+  font-weight: 700;
   cursor: pointer;
   padding: 0;
-  transition: color 0.2s;
+  transition: color 0.15s;
+  font-family: inherit;
 }
 
 .reply-button:hover {
-  color: #111827;
+  color: #050505;
+  text-decoration: underline;
 }
 
 .view-replies-button {
   background: none;
   border: none;
-  color: #3b82f6;
-  font-size: 14px;
-  font-weight: 600;
+  color: #65676b;
+  font-size: 12.5px;
+  font-weight: 700;
   cursor: pointer;
   padding: 0;
-  transition: color 0.2s;
+  transition: color 0.15s;
+  font-family: inherit;
+  display: flex;
+  align-items: center;
+  gap: 4px;
 }
 
 .view-replies-button:hover {
-  color: #2563eb;
+  color: #050505;
+  text-decoration: underline;
 }
 
-/* Replies Thread - NO BORDER LINE */
+/* ── See More link ── */
+.see-more-btn {
+  background: none;
+  border: none;
+  color: #65676b;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0;
+  margin-left: 4px;
+  transition: color 0.15s;
+  font-family: inherit;
+}
+.see-more-btn:hover {
+  text-decoration: underline;
+  color: #050505;
+}
+.reply-text .see-more-btn {
+  font-size: 12px;
+}
+
+/* ── Replies thread — indented, no border line ── */
 .replies-thread {
-  margin-left: 76px;
-  margin-right: 20px;
-  margin-bottom: 20px;
-  padding-top: 12px;
+  margin-left: 48px;
+  margin-right: 0;
+  margin-top: 4px;
+  margin-bottom: 4px;
+  padding-top: 0;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 6px;
   border: none !important;
   border-left: none !important;
   padding-left: 0 !important;
-  border-top: 1px solid #f3f4f6 !important;
 }
 
 .replies-thread::before,
@@ -216,15 +349,17 @@
   height: 0 !important;
 }
 
+/* ── Reply item row ── */
 .reply-item {
   display: flex;
-  gap: 12px;
-  padding: 12px;
-  background: #f9fafb;
-  border-radius: 8px;
-  border: 1px solid #e5e7eb !important;
-  border-left: 1px solid #e5e7eb !important;
-  transition: none;
+  gap: 8px;
+  padding: 2px 0;
+  background: transparent;
+  border: none !important;
+  border-radius: 0;
+  align-items: flex-start;
+  /* Isolate paint per reply */
+  contain: layout style;
 }
 
 .reply-item::before,
@@ -232,23 +367,14 @@
   display: none !important;
 }
 
-.reply-item:hover {
-  /* Hover animation removed */
-}
-
-.reply-avatar {
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-  color: white;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 13px;
-  font-weight: 600;
-  flex-shrink: 0;
-  text-transform: uppercase;
+/* ── Reply bubble (same grey pill, slightly smaller) ── */
+.reply-bubble {
+  display: inline-block;
+  background: #f0f2f5;
+  border-radius: 12px; /* smaller radius = cheaper GPU clip */
+  padding: 7px 12px 8px;
+  max-width: 100%;
+  word-break: break-word;
 }
 
 .reply-content {
@@ -259,41 +385,44 @@
 .reply-header {
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin-bottom: 8px;
+  gap: 6px;
+  margin-bottom: 2px;
   flex-wrap: wrap;
 }
 
 .reply-author {
   font-weight: 600;
-  font-size: 14px;
-  color: #111827;
+  font-size: 13px;
+  color: #050505;
 }
 
 .reply-time {
-  color: #9ca3af;
-  font-size: 12px;
+  color: #65676b;
+  font-size: 11.5px;
+  display: block;
+  padding-top: 1px;
 }
 
 .reply-text {
   background: transparent;
   padding: 0;
-  font-size: 13px;
-  color: #374151;
-  line-height: 1.5;
-  white-space: pre-wrap;
-  word-wrap: break-word;
+  font-size: 13.5px;
+  color: #050505;
+  line-height: 1.45;
+  overflow-wrap: break-word;
+  word-break: break-word;
+  margin: 0;
 }
 
-/* Reply Input Box - NO LINES */
+/* ── Reply input box ── */
 .reply-input-box {
-  margin-top: 12px;
-  margin-left: 76px;
-  margin-right: 20px;
-  margin-bottom: 20px;
+  margin-top: 6px;
+  margin-left: 48px;
+  margin-right: 0;
+  margin-bottom: 8px;
   display: flex;
-  gap: 12px;
-  align-items: flex-start;
+  gap: 8px;
+  align-items: center;
   border: none !important;
   border-left: none !important;
 }
@@ -308,111 +437,37 @@
   height: 0 !important;
 }
 
-/* Modal Styles */
-.comments-modal-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-}
-
-.comments-modal {
-  background: white;
-  border-radius: 16px;
-  width: 90%;
-  max-width: 700px;
-  max-height: 85vh;
-  display: flex;
-  flex-direction: column;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-}
-
-.comments-modal-header {
-  padding: 24px;
-  border-bottom: 1px solid #e5e7eb;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.comments-modal-header h3 {
-  font-size: 20px;
-  font-weight: 600;
-  color: #111827;
-  margin: 0;
-}
-
-.close-modal-btn {
-  background: #f3f4f6;
-  border: none;
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  font-size: 20px;
-  color: #6b7280;
-  transition: all 0.2s;
-}
-
-.close-modal-btn:hover {
-  background: #e5e7eb;
-  color: #111827;
-}
-
-.comments-modal-body {
-  flex: 1;
-  overflow-y: auto;
-  padding: 24px;
-  border-left: none !important;
-  border-right: none !important;
-}
-
-.no-comments {
-  text-align: center;
-  padding: 60px 20px;
-  color: #9ca3af;
-}
-
-.no-comments p {
-  font-size: 16px;
-  margin: 0;
-}
-
+/* ── Modal footer (post comment bar) ── */
 .comments-modal-footer {
-  padding: 24px;
-  border-top: 1px solid #e5e7eb;
-  background: #ffffff;
+  padding: 10px 16px 14px;
+  border-top: 1px solid #e4e6eb;
+  background: #fff;
+  border-radius: 0 0 12px 12px;
 }
 
 .add-comment {
   display: flex;
-  gap: 12px;
-  align-items: flex-start;
-}
-
-.comment-input-wrapper {
-  flex: 1;
-  display: flex;
   gap: 8px;
   align-items: center;
-  background: #ffffff;
-  border-radius: 20px;
-  padding: 8px 12px;
-  border: 1px solid #e4e6eb;
-  transition: border-color 0.2s;
 }
 
-.comment-input-wrapper:focus-within {
-  border-color: #667eea;
+/* ── Input wrapper — FB rounded pill ── */
+.comments-modal .comment-input-wrapper,
+.reply-input-box .comment-input-wrapper {
+  flex: 1;
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  background: #f0f2f5;
+  border-radius: 20px;
+  padding: 8px 14px;
+  border: none;
+  transition: background 0.15s;
+}
+
+.comments-modal .comment-input-wrapper:focus-within,
+.reply-input-box .comment-input-wrapper:focus-within {
+  background: #e4e6eb;
 }
 
 .comment-input {
@@ -420,153 +475,98 @@
   border: none;
   outline: none;
   font-size: 15px;
-  color: #1a1a1a;
+  color: #050505;
   background: transparent;
   padding: 0;
+  font-family: inherit;
 }
 
 .comment-input::placeholder {
-  color: #9ca3af;
+  color: #65676b;
+  font-size: 15px;
 }
 
+/* ── Send button — FB blue ── */
 .comment-submit-btn {
   width: 32px;
   height: 32px;
   border-radius: 50%;
-  background: #667eea;
-  color: white;
+  background: #1877f2;
+  color: #fff;
   border: none;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  font-size: 16px;
-  transition: all 0.2s;
+  font-size: 15px;
+  transition: background 0.15s, transform 0.1s;
   flex-shrink: 0;
 }
 
 .comment-submit-btn:hover:not(:disabled) {
-  background: #5568d3;
-  transform: scale(1.05);
+  background: #166fe5;
+  transform: scale(1.08);
 }
 
 .comment-submit-btn:disabled {
-  background: #e4e6eb;
-  color: #bcc0c4;
+  background: #bec3c9;
+  color: #fff;
   cursor: not-allowed;
+  transform: none;
 }
 
-/* Role badges */
+/* ── Role badges — subtle FB style ── */
 .role-badge {
-  padding: 4px 10px;
-  border-radius: 12px;
-  font-size: 11px;
-  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: 4px;
+  font-size: 10.5px;
+  font-weight: 700;
   text-transform: uppercase;
-  border: 1px solid;
-  margin-left: 8px;
+  letter-spacing: 0.3px;
+  border: none;
   background: transparent !important;
   background-color: transparent !important;
 }
 
 .role-badge.user {
-  border-color: #059669;
-  color: #059669;
-  background: transparent !important;
-  background-color: transparent !important;
+  color: #1a7f37;
+  background: #d3f1d8 !important;
 }
 
 .role-badge.team-leader {
-  border-color: #1d4ed8;
-  color: #1d4ed8;
-  background: transparent !important;
-  background-color: transparent !important;
+  color: #1877f2;
+  background: #dbeafe !important;
 }
 
-/* Force remove any background from team-leader badge */
 .comment-header .role-badge.team-leader,
-.reply-header .role-badge.team-leader,
-.post-header .role-badge.team-leader,
-.author-info .role-badge.team-leader {
-  background: transparent !important;
-  background-color: transparent !important;
+.reply-header .role-badge.team-leader {
+  color: #1877f2;
+  background: #dbeafe !important;
 }
 
 .role-badge.admin {
-  border-color: #dc2626;
   color: #dc2626;
-  background: transparent !important;
-  background-color: transparent !important;
+  background: #fee2e2 !important;
 }
 
-/* Responsive Design for Comments */
+/* ── Responsive ── */
 @media (max-width: 844px) {
-  .comment-item {
-    padding: 16px;
-    gap: 12px;
-  }
-
-  .comment-avatar {
-    width: 40px;
-    height: 40px;
-    font-size: 14px;
-  }
-
-  .comment-author {
-    font-size: 14px;
-  }
-
-  .comment-time {
-    font-size: 12px;
-  }
-
-  .comment-text {
-    font-size: 13px;
-  }
-
-  .replies-thread {
-    margin-left: 52px;
-  }
-
-  .reply-item {
-    padding: 14px;
-    gap: 10px;
-  }
-
-  .reply-avatar {
-    width: 32px;
-    height: 32px;
-    font-size: 11px;
-  }
-
-  .reply-author {
-    font-size: 13px;
-  }
-
-  .reply-time {
-    font-size: 11px;
-  }
-
-  .reply-text {
-    font-size: 12px;
-  }
-
-  .reply-input-box {
-    margin-left: 52px;
-  }
+  .comment-item { gap: 6px; }
+  .comment-avatar { width: 36px; height: 36px; font-size: 13px; }
+  .comment-author { font-size: 13px; }
+  .comment-time { font-size: 11px; }
+  .comment-text { font-size: 13px; }
+  .replies-thread { margin-left: 44px; }
+  .reply-item { gap: 6px; }
+  .reply-avatar { width: 28px; height: 28px; font-size: 10px; }
+  .reply-author { font-size: 12px; }
+  .reply-time { font-size: 11px; }
+  .reply-text { font-size: 12.5px; }
+  .reply-input-box { margin-left: 44px; }
 }
 
 @media (max-width: 768px) {
-  .replies-thread {
-    margin-left: 16px;
-  }
-
-  .reply-input-box {
-    margin-left: 16px;
-  }
-  
-  .comments-modal {
-    width: 95%;
-    max-height: 90vh;
-  }
+  .replies-thread { margin-left: 36px; }
+  .reply-input-box { margin-left: 36px; }
+  .comments-modal { width: 95%; max-height: 92vh; }
 }
