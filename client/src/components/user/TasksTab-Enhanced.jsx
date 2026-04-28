@@ -877,7 +877,7 @@ const TasksTab = memo(({
   currentAssignmentIdRef.current = currentCommentsAssignment?.id;
 
   // ─── Inline three-dot menu for files/folders ─────────────────────────────
-  function FileMoreMenuInline({ onDownload, onDelete, isFolder = false }) {
+  function FileMoreMenuInline({ onDownload, onDelete, onCopyPath, isFolder = false }) {
     const [open, setOpen] = useState(false);
     const ref = useRef(null);
     useEffect(() => {
@@ -914,6 +914,22 @@ const TasksTab = memo(({
             }}
             onClick={e => e.stopPropagation()}
           >
+            {onCopyPath && (
+              <button
+                onClick={() => { onCopyPath(); setOpen(false); }}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: '8px', width: '100%',
+                  padding: '8px 12px', background: 'transparent', border: 'none',
+                  borderRadius: '6px', cursor: 'pointer', fontSize: '13px',
+                  color: '#374151', textAlign: 'left',
+                }}
+                onMouseEnter={e => e.currentTarget.style.backgroundColor = '#f3f4f6'}
+                onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>
+                {isFolder ? 'Open Folder Path' : 'Open File Path'}
+              </button>
+            )}
             <button
               onClick={() => { setOpen(false); onDownload(); }}
               style={{
@@ -1340,6 +1356,17 @@ const TasksTab = memo(({
                                     <div style={{ position: 'relative', flexShrink: 0 }} onClick={e => e.stopPropagation()}>
                                       <FileMoreMenuInline
                                         onDownload={() => handleDownloadFolder(folderFiles, folderName)}
+                                        onCopyPath={async () => {
+                                          if (!window.electron?.openFolderInExplorer) return;
+                                          const firstFile = folderFiles[0];
+                                          try {
+                                            const res = await fetch(`${API_BASE_URL}/api/files/${firstFile.id}/path`);
+                                            const data = await res.json();
+                                            if (data.success && data.filePath) {
+                                              await window.electron.openFolderInExplorer(data.filePath);
+                                            }
+                                          } catch (e) { console.error('Open folder path error:', e); }
+                                        }}
                                         onDelete={() => {
                                           setFileToDelete({ assignmentId: assignment.id, fileId: null, fileName: folderName, isFolderDelete: true, folderFiles });
                                           setShowDeleteModal(true);
@@ -1419,6 +1446,16 @@ const TasksTab = memo(({
                                           <div style={{ position: 'relative' }} onClick={e => e.stopPropagation()}>
                                             <FileMoreMenuInline
                                               onDownload={() => handleDownloadFile(file)}
+                                              onCopyPath={async () => {
+                                              if (!window.electron?.openFolderInExplorer) return;
+                                              try {
+                                                const res = await fetch(`${API_BASE_URL}/api/files/${file.id}/path`);
+                                                const data = await res.json();
+                                                if (data.success && data.filePath) {
+                                                  await window.electron.openFolderInExplorer(data.filePath);
+                                                }
+                                              } catch (e) { console.error('Open path error:', e); }
+                                              }}
                                               onDelete={() => confirmDeleteFile(assignment.id, file.id, file.original_name || file.filename)}
                                             />
                                           </div>
@@ -1426,6 +1463,16 @@ const TasksTab = memo(({
                                           <div style={{ position: 'relative' }} onClick={e => e.stopPropagation()}>
                                             <FileMoreMenuInline
                                               onDownload={() => handleDownloadFile(file)}
+                                              onCopyPath={async () => {
+                                              if (!window.electron?.openFolderInExplorer) return;
+                                              try {
+                                                const res = await fetch(`${API_BASE_URL}/api/files/${file.id}/path`);
+                                                const data = await res.json();
+                                                if (data.success && data.filePath) {
+                                                  await window.electron.openFolderInExplorer(data.filePath);
+                                                }
+                                              } catch (e) { console.error('Open path error:', e); }
+                                              }}
                                             />
                                           </div>
                                           )}
@@ -1504,6 +1551,16 @@ const TasksTab = memo(({
                                 <div style={{ position: 'relative', flexShrink: 0 }} onClick={e => e.stopPropagation()}>
                                   <FileMoreMenuInline
                                     onDownload={() => handleDownloadFile(file)}
+                                    onCopyPath={async () => {
+                                    if (!window.electron?.openFolderInExplorer) return;
+                                    try {
+                                      const res = await fetch(`${API_BASE_URL}/api/files/${file.id}/path`);
+                                      const data = await res.json();
+                                      if (data.success && data.filePath) {
+                                        await window.electron.openFolderInExplorer(data.filePath);
+                                      }
+                                    } catch (e) { console.error('Open path error:', e); }
+                                    }}
                                     onDelete={() => confirmDeleteFile(assignment.id, file.id, file.original_name || file.filename)}
                                   />
                                 </div>
@@ -1511,6 +1568,16 @@ const TasksTab = memo(({
                                 <div style={{ position: 'relative', flexShrink: 0 }} onClick={e => e.stopPropagation()}>
                                   <FileMoreMenuInline
                                     onDownload={() => handleDownloadFile(file)}
+                                    onCopyPath={async () => {
+                                    if (!window.electron?.openFolderInExplorer) return;
+                                    try {
+                                      const res = await fetch(`${API_BASE_URL}/api/files/${file.id}/path`);
+                                      const data = await res.json();
+                                      if (data.success && data.filePath) {
+                                        await window.electron.openFolderInExplorer(data.filePath);
+                                      }
+                                    } catch (e) { console.error('Open path error:', e); }
+                                    }}
                                   />
                                 </div>
                                 )}

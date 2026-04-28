@@ -96,7 +96,7 @@
   flex: 1;
   overflow-y: scroll; /* 'scroll' reserves scrollbar space — avoids layout shift on show/hide */
   overflow-x: hidden;
-  padding: 12px 16px 4px;
+  padding: 8px 16px 4px;
   background: #fff;
   -webkit-overflow-scrolling: touch;
   /* Promote to own compositor layer — eliminates repaint on scroll */
@@ -169,7 +169,7 @@
 .comments-list {
   display: flex;
   flex-direction: column;
-  gap: 0;
+  gap: 2px;
 }
 
 .comment-thread {
@@ -177,10 +177,8 @@
   flex-direction: column;
   background: transparent;
   border: none !important;
-  margin-bottom: 4px;
-  padding-bottom: 4px;
-  /* Isolate paint — changes inside don't trigger full-list repaint */
-  contain: layout style;
+  margin-bottom: 2px;
+  padding-bottom: 0;
 }
 
 /* =================================================================
@@ -190,7 +188,7 @@
 .comment-item {
   display: flex;
   gap: 8px;
-  padding: 4px 0 2px;
+  padding: 2px 0 2px;
   background: transparent;
   border: none !important;
   margin-bottom: 0;

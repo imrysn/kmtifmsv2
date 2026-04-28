@@ -154,17 +154,15 @@
   background: transparent;
   border: none !important;
   border-radius: 0;
-  margin-bottom: 4px;
-  padding-bottom: 4px;
-  /* Isolate each thread — changes inside don't trigger list-wide repaint */
-  contain: layout style;
+  margin-bottom: 2px;
+  padding-bottom: 0;
 }
 
 /* ── Main comment row ── */
 .comment-item {
   display: flex;
   gap: 8px;
-  padding: 4px 0 2px;
+  padding: 2px 0 2px;
   background: transparent;
   border: none !important;
   margin-bottom: 0;
