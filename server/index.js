@@ -73,10 +73,21 @@ app.use(logRequest);
 // Apply general API rate limiting to all /api routes
 app.use('/api/', apiLimiter);
 
-// Health check endpoint
+// Watcher status debug endpoint
+app.get('/api/watcher-status', (req, res) => {
+  try {
+    const { getWatcherStatus } = require('./services/fileWatcher');
+    res.json(getWatcherStatus());
+  } catch (e) {
+    res.json({ error: e.message });
+  }
+});
+
+// Health check endpoint — always responds (even before DB is ready)
 app.get('/api/health', (req, res) => {
   res.status(200).json({
-    status: 'healthy',
+    status: _dbReady ? 'healthy' : 'starting',
+    dbReady: _dbReady,
     timestamp: new Date().toISOString(),
     uptime: process.uptime()
   });
@@ -181,47 +192,161 @@ function cleanupTempFiles() {
   }
 }
 
-// Start server
-async function startServer() {
-  try {
-    await verifyUploadsDirectory();
-    await initializeDatabase();
-    cleanupTempFiles();
+// Kill any process already using our port (Windows-safe, with retry)
+async function freePort(port) {
+  if (process.platform !== 'win32') return;
 
-    // Run database migrations
+  const { exec } = require('child_process');
+
+  // Helper: get all PIDs listening on the port
+  function getPidsOnPort() {
+    return new Promise((resolve) => {
+      exec(`netstat -ano | findstr :${port}`, (err, stdout) => {
+        if (err || !stdout) { resolve(new Set()); return; }
+        const pids = new Set();
+        stdout.split('\n').forEach(line => {
+          // Only kill LISTENING processes, not TIME_WAIT / CLOSE_WAIT
+          if (line.toUpperCase().includes('LISTENING')) {
+            const parts = line.trim().split(/\s+/);
+            const pid = parseInt(parts[parts.length - 1]);
+            if (!isNaN(pid) && pid !== process.pid) pids.add(pid);
+          }
+        });
+        resolve(pids);
+      });
+    });
+  }
+
+  // Helper: wait N ms
+  const wait = (ms) => new Promise(r => setTimeout(r, ms));
+
+  // Helper: check if port is free by trying to bind it
+  function isPortFree() {
+    return new Promise((resolve) => {
+      const net = require('net');
+      const tester = net.createServer();
+      tester.once('error', () => resolve(false));
+      tester.once('listening', () => { tester.close(); resolve(true); });
+      tester.listen(port, '127.0.0.1');
+    });
+  }
+
+  // Kill all PIDs currently occupying the port
+  const pids = await getPidsOnPort();
+  if (pids.size > 0) {
+    console.log(`⚠️  Port ${port} in use by PID(s): ${[...pids].join(', ')} — killing...`);
+    await Promise.all([...pids].map(pid =>
+      new Promise(resolve => exec(`taskkill /PID ${pid} /F`, () => resolve()))
+    ));
+  }
+
+  // Wait up to 5 seconds for the port to actually become free
+  for (let i = 0; i < 10; i++) {
+    await wait(500);
+    if (await isPortFree()) {
+      console.log(`✅ Port ${port} is now free.`);
+      return;
+    }
+    // Retry kill in case the process didn't die fast enough
+    const remaining = await getPidsOnPort();
+    if (remaining.size > 0) {
+      await Promise.all([...remaining].map(pid =>
+        new Promise(resolve => exec(`taskkill /PID ${pid} /F`, () => resolve()))
+      ));
+    }
+  }
+
+  console.warn(`⚠️  Port ${port} may still be in use — attempting to start anyway.`);
+}
+
+// ── DB initialisation with background retry ────────────────────────────────
+let _dbReady = false;
+
+async function initDbWithRetry(attempt = 1) {
+  try {
+    // Try uploads dir (non-fatal if NAS unreachable)
+    await verifyUploadsDirectory().catch(err =>
+      console.warn('⚠️  Uploads directory not ready:', err.message)
+    );
+
+    const ok = await initializeDatabase();
+    if (ok === false) {
+      throw new Error('initializeDatabase returned false — MySQL unreachable');
+    }
+
+    cleanupTempFiles();
     await runMigrations();
 
-    app.listen(PORT, () => {
-      console.log('\n' + '='.repeat(70));
-      console.log(`🚀 Express server running on http://localhost:${PORT}`);
-      console.log(`🗄️  Database Type: MySQL`);
-      console.log(`📊 Database: ${dbPath}`);
-      console.log(`🌐 Network Data Path: ${networkDataPath}`);
-      console.log('='.repeat(70));
-      console.log('\n✅ Notifications API routes registered');
-      console.log('\n🔄 File Approval Workflow:');
-      console.log('   1. User uploads file → Pending Team Leader Review');
-      console.log('   2. Team Leader approves → Pending Admin Review');
-      console.log('   3. Admin approves → Published to Public Network');
-      console.log('   ❌ Any stage can reject → Back to User with comments');
-      console.log('='.repeat(70));
+    _dbReady = true;
+    console.log('\n' + '='.repeat(70));
+    console.log(`✅ Database connected: ${dbPath}`);
+    console.log(`🌐 Network Data Path: ${networkDataPath}`);
+    console.log('='.repeat(70) + '\n');
 
-      console.log('\n✨ MySQL Benefits:');
-      console.log('   • Supports multiple concurrent users');
-      console.log('   • No database corruption over network');
-      console.log('   • Better performance and reliability');
-      console.log('   • ACID compliant transactions\n');
-    });
+    // ── Start file system watcher ─────────────────────────────────────────
+    // Watch uploads dir + NAS approved dirs for deletions
+    try {
+      const { startWatcher } = require('./services/fileWatcher');
+      const { uploadsDir } = require('./config/middleware');
+      const watchPaths = [
+        uploadsDir,                                          // pending uploads
+        require('path').join(networkDataPath, 'user_approvals'), // approved files
+        require('path').join(networkDataPath, 'PROJECTS'),       // moved-to-projects files
+      ].filter(Boolean);
+      startWatcher(watchPaths);
+    } catch (watchErr) {
+      console.warn('⚠️  File watcher could not start:', watchErr.message);
+    }
   } catch (error) {
-    console.error('\n❌ Failed to start server:', error.message);
+    const delay = Math.min(30000, attempt * 5000); // 5s, 10s, 15s … max 30s
+    console.error(`❌ DB init attempt ${attempt} failed: ${error.message}`);
+    console.warn(`🔄 Retrying database connection in ${delay / 1000}s…`);
+    setTimeout(() => initDbWithRetry(attempt + 1), delay);
+  }
+}
+
+// Start server — Express binds FIRST so the client never gets
+// "Unable to connect to server". DB connects in the background.
+async function startServer() {
+  try {
+    // 1. Free the port first
+    await freePort(PORT);
+
+    // 2. Bind Express immediately (retry up to 10 times)
+    await new Promise((resolve, reject) => {
+      let attempts = 0;
+      const MAX_ATTEMPTS = 10;
+      const RETRY_DELAY = 1000;
+
+      function tryListen() {
+        attempts++;
+        const server = app.listen(PORT);
+        server.once('listening', () => {
+          console.log('\n' + '='.repeat(70));
+          console.log(`🚀 Express server running on http://localhost:${PORT}`);
+          console.log(`🗄️  Database Type: MySQL (connecting in background…)`);
+          console.log('='.repeat(70) + '\n');
+          resolve(server);
+        });
+        server.once('error', (err) => {
+          if (err.code === 'EADDRINUSE' && attempts < MAX_ATTEMPTS) {
+            console.warn(`⚠️  Port ${PORT} busy (attempt ${attempts}/${MAX_ATTEMPTS}), retrying in ${RETRY_DELAY}ms…`);
+            server.close();
+            setTimeout(tryListen, RETRY_DELAY);
+          } else {
+            reject(err);
+          }
+        });
+      }
+      tryListen();
+    });
+
+    // 3. Start DB init in background — does NOT block server startup
+    initDbWithRetry();
+
+  } catch (error) {
+    console.error('\n❌ Failed to bind Express server:', error.message);
     console.error('Stack trace:', error.stack);
-
-    console.error('\n💡 MySQL Troubleshooting:');
-    console.error('   1. Ensure MySQL server is running');
-    console.error('   2. Check credentials in .env file');
-    console.error('   3. Verify database exists: npm run db:init');
-    console.error('   4. Test connection: npm run db:test');
-
     process.exit(1);
   }
 }
@@ -233,6 +358,11 @@ async function shutdown(signal) {
   console.log(`\n⏹️  Received ${signal}, shutting down gracefully...`);
 
   try {
+    // Stop file watcher
+    try {
+      const { stopWatcher } = require('./services/fileWatcher');
+      await stopWatcher();
+    } catch (_) {}
     // Close database connection
     await closeDatabase();
     console.log('✅ Database connection closed');

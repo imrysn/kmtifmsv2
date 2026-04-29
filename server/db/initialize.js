@@ -65,10 +65,12 @@ async function initializeDatabase() {
   } catch (error) {
     console.error('❌ MySQL initialization error:', error.message);
     console.error('💡 Please ensure:');
-    console.error('   1. MySQL server is running');
-    console.error('   2. Database credentials are correct in database/config.js');
-    console.error('   3. Database has been initialized: npm run db:init');
-    throw error;
+    console.error('   1. MySQL server is running on the NAS');
+    console.error('   2. Network connection to KMTI-NAS is available');
+    console.error('   3. Database credentials are correct in database/config.js');
+    console.error('   4. Database has been initialized: npm run db:init');
+    // Return false so the server can still start and retry later
+    return false;
   }
 }
 

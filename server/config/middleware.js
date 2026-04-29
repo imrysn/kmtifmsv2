@@ -13,42 +13,23 @@ const { moveToUserFolder: moveToUserFolderAsync } = require('../utils/fileUtils'
 // IMPORTANT: Keep as simple path.join for NCC bundler compatibility
 const uploadsDir = path.join(networkDataPath, String('uploads'));
 
-// Ensure uploads directory exists with detailed error logging
-if (!fs.existsSync(uploadsDir)) {
-  try {
-    fs.mkdirSync(uploadsDir, { recursive: true });
-    console.log(`✅ Created uploads directory: ${uploadsDir}`);
-  } catch (mkdirError) {
-    console.error('❌ CRITICAL: Cannot create uploads directory!');
-    console.error('   Path:', uploadsDir);
-    console.error('   Error:', mkdirError.message);
-    console.error('   💡 Solution:');
-    console.error('      1. Check network connection to NAS');
-    console.error('      2. Verify folder permissions');
-    console.error('      3. Or enable local storage: USE_LOCAL_STORAGE=true in .env');
-    console.error('   ⚠️  File uploads will FAIL until this is resolved!');
-  }
-} else {
-  console.log(`✅ Uploads directory ready: ${uploadsDir}`);
-
-  // Test write permission
-  const testFile = path.join(uploadsDir, '.test-write-' + Date.now());
-  try {
-    fs.writeFileSync(testFile, 'test');
-    fs.unlinkSync(testFile);
-    console.log('✅ Uploads directory is writable');
-  } catch (writeError) {
-    console.error('❌ WARNING: Uploads directory exists but is NOT writable!');
-    console.error('   Error:', writeError.message);
-    console.error('   💡 Check folder permissions on the NAS');
-  }
-}
+// NOTE: NAS directory check is deferred to upload time to avoid
+// blocking server startup when the NAS is temporarily unreachable.
+console.log(`📁 Uploads directory configured: ${uploadsDir}`);
 
 // Configure multer storage with optimizations for large files
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
-    // Save to uploads root first
-    cb(null, uploadsDir);
+    // Lazily create uploads directory at upload time (not at server startup)
+    // This avoids blocking when NAS is temporarily unreachable on startup
+    fs.mkdir(uploadsDir, { recursive: true }, (mkdirErr) => {
+      if (mkdirErr && mkdirErr.code !== 'EEXIST') {
+        console.error('❌ Cannot create uploads directory:', mkdirErr.message);
+        console.error('   Path:', uploadsDir);
+        console.error('   💡 Check network connection to NAS and folder permissions.');
+      }
+      cb(null, uploadsDir);
+    });
   },
   filename: function (req, file, cb) {
     // Save with a simple temp name (no special characters)

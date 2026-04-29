@@ -124,7 +124,6 @@ const FolderRow = memo(({
           </div>
           <div className="file-details">
             <span className="file-name">{folderName}</span>
-            <span className="file-size">{folderFiles.length} file{folderFiles.length !== 1 ? 's' : ''}</span>
           </div>
         </div>
       </td>
@@ -272,7 +271,6 @@ const FileRow = memo(({
           </div>
           <div className="file-details">
             <span className="file-name">{displayName}</span>
-            <span className="file-size">{formattedFileSize}</span>
           </div>
         </div>
       </td>
@@ -340,6 +338,7 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
   const [fileSearchInput, setFileSearchInput] = useState('')
   const [fileFilter, setFileFilter] = useState('all')
   const [fileSortBy, setFileSortBy] = useState('date-desc')
+  const [viewMode, setViewMode] = useState('all') // 'all' | 'files' | 'folders' | 'by-date'
   const [currentPage, setCurrentPage] = useState(1)
   const [filesPerPage] = useState(7)
   const [selectedFile, setSelectedFile] = useState(null)
@@ -416,7 +415,7 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
 
   useEffect(() => {
     setCurrentPage(1)
-  }, [fileSearchQuery, fileFilter, fileSortBy])
+  }, [fileSearchQuery, fileFilter, fileSortBy, viewMode])
 
   // Group files by folder BEFORE filtering/sorting
   const groupFilesByFolder = useCallback((files) => {
@@ -505,32 +504,85 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
     return groupFilesByFolder(filteredFiles)
   }, [filteredFiles, groupFilesByFolder])
 
+  // Helper: get a date-group label for an item's date
+  const getDateLabel = useCallback((dateStr) => {
+    const date = new Date(dateStr)
+    const now = new Date()
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+    const itemDay = new Date(date.getFullYear(), date.getMonth(), date.getDate())
+    const diffDays = Math.round((today - itemDay) / (1000 * 60 * 60 * 24))
+    if (diffDays === 0) return 'Today'
+    if (diffDays === 1) return 'Yesterday'
+    if (diffDays <= 7) return 'This Week'
+    if (diffDays <= 30) return 'This Month'
+    // Older: show Month Year
+    return date.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })
+  }, [])
+
   // Create items array for pagination (folders + individual files)
   const paginationItems = useMemo(() => {
     const items = []
-    
-    // Add folders as single items
-    Object.keys(groupedData.folders).forEach(folderKey => {
-      // folderKey is "folderName||username" — strip user part for display only
-      const folderName = folderKey.includes('||') ? folderKey.split('||')[0] : folderKey
-      items.push({
-        type: 'folder',
-        folderKey,
-        name: folderName,
-        files: groupedData.folders[folderKey]
+
+    if (viewMode === 'by-date') {
+      // Merge all items (folders + files) into a flat list sorted by date desc
+      const allItems = []
+      Object.keys(groupedData.folders).forEach(folderKey => {
+        const folderName = folderKey.includes('||') ? folderKey.split('||')[0] : folderKey
+        const files = groupedData.folders[folderKey]
+        allItems.push({ type: 'folder', folderKey, name: folderName, files, _date: new Date(files[0].uploaded_at) })
       })
-    })
-    
-    // Add individual files
-    groupedData.individualFiles.forEach(file => {
-      items.push({
-        type: 'file',
-        file: file
+      groupedData.individualFiles.forEach(file => {
+        allItems.push({ type: 'file', file, _date: new Date(file.uploaded_at) })
       })
-    })
+      allItems.sort((a, b) => b._date - a._date)
+
+      // Insert date-header rows before each new group
+      let lastLabel = null
+      allItems.forEach(item => {
+        const label = getDateLabel(item._date)
+        if (label !== lastLabel) {
+          items.push({ type: 'date-header', label })
+          lastLabel = label
+        }
+        items.push(item)
+      })
+      return items
+    }
     
-    return items
-  }, [groupedData])
+    // Build a flat mixed list of folders + files, then sort together
+    const allItems = []
+
+    if (viewMode !== 'files') {
+      Object.keys(groupedData.folders).forEach(folderKey => {
+        const folderName = folderKey.includes('||') ? folderKey.split('||')[0] : folderKey
+        const files = groupedData.folders[folderKey]
+        // Use the most recent file date as the folder's sort date
+        const latestDate = Math.max(...files.map(f => new Date(f.uploaded_at).getTime()))
+        allItems.push({ type: 'folder', folderKey, name: folderName, files, _date: latestDate, _name: folderName, _user: files[0]?.username || '' })
+      })
+    }
+
+    if (viewMode !== 'folders') {
+      groupedData.individualFiles.forEach(file => {
+        allItems.push({ type: 'file', file, _date: new Date(file.uploaded_at).getTime(), _name: file.original_name, _user: file.username })
+      })
+    }
+
+    // Sort the mixed list using the same fileSortBy setting
+    allItems.sort((a, b) => {
+      switch (fileSortBy) {
+        case 'date-desc': return b._date - a._date
+        case 'date-asc':  return a._date - b._date
+        case 'filename-asc':  return a._name.localeCompare(b._name)
+        case 'filename-desc': return b._name.localeCompare(a._name)
+        case 'user-asc':  return a._user.localeCompare(b._user)
+        case 'user-desc': return b._user.localeCompare(a._user)
+        default: return b._date - a._date
+      }
+    })
+
+    return allItems
+  }, [groupedData, viewMode, fileSortBy, getDateLabel])
 
   // Paginate items
   const currentPageItems = useMemo(() => {
@@ -1053,7 +1105,18 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
     const rows = []
 
     currentPageItems.forEach(item => {
-      if (item.type === 'folder') {
+      if (item.type === 'date-header') {
+        rows.push(
+          <tr key={`date-header-${item.label}`} className="date-header-row">
+            <td colSpan="6">
+              <div className="date-header-label">
+                <span className="date-header-icon">📅</span>
+                {item.label}
+              </div>
+            </td>
+          </tr>
+        )
+      } else if (item.type === 'folder') {
         // Use folderKey for state tracking, item.name is the clean display name
         const folderKey = item.folderKey || item.name
         const isExpanded = expandedFolders[folderKey]
@@ -1231,6 +1294,13 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
             <option value="filename-desc">Filename Z-A</option>
             <option value="user-asc">User A-Z</option>
             <option value="user-desc">User Z-A</option>
+          </select>
+
+          <select value={viewMode} onChange={(e) => setViewMode(e.target.value)} className="form-select">
+            <option value="all">All Items</option>
+            <option value="files">Files Only</option>
+            <option value="folders">Folders Only</option>
+
           </select>
         </div>
       </div>

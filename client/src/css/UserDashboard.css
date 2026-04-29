@@ -1,4 +1,4 @@
-/* User Dashboard Container - Minimal styles for layout only */
+/* User Dashboard Container */
 .minimal-dashboard.user-dashboard {
   min-height: 100vh;
   background: #ffffff;
@@ -13,25 +13,10 @@
   margin-left: 75px;
   width: calc(100% - 75px);
   height: 100vh;
-  overflow-y: auto;
+  overflow-y: scroll;
   overflow-x: hidden;
   position: relative;
   isolation: isolate;
-}
-
-/* Responsive Sidebar */
-@media (max-width: 1024px) {
-  .user-dashboard .main-content {
-    margin-left: 75px;
-    width: calc(100% - 75px);
-  }
-}
-
-@media (max-width: 768px) {
-  .user-dashboard .main-content {
-    margin-left: 75px;
-    width: calc(100% - 75px);
-  }
 }
 
 @media (max-width: 480px) {
@@ -41,7 +26,6 @@
   }
 }
 
-/* Performance optimizations */
 @media (prefers-reduced-motion: reduce) {
   .user-dashboard * {
     animation-duration: 0.01ms !important;

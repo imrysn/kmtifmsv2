@@ -1,4 +1,9 @@
-const nodemailer = require('nodemailer');
+let nodemailer;
+try {
+  nodemailer = require('nodemailer');
+} catch (_e) {
+  nodemailer = null;
+}
 
 // Email configuration
 const emailConfig = {
@@ -15,6 +20,7 @@ const emailConfig = {
 let transporter = null;
 
 function getTransporter() {
+  if (!nodemailer) return null;
   if (!transporter) {
     transporter = nodemailer.createTransport(emailConfig);
   }
@@ -29,6 +35,12 @@ function getTransporter() {
  */
 async function sendPasswordResetEmail(userEmail, userName, adminName) {
   try {
+    // Check if nodemailer is available
+    if (!nodemailer) {
+      console.log('⚠️ nodemailer not installed - skipping email notification');
+      return { success: false, message: 'Email module not available' };
+    }
+
     // Check if email is configured
     if (!process.env.EMAIL_USER || !process.env.EMAIL_PASSWORD) {
       console.log('⚠️ Email not configured - skipping email notification');
@@ -122,6 +134,12 @@ This is an automated message. Please do not reply to this email.
  */
 async function sendPasswordResetLinkEmail(userEmail, userName, resetToken) {
   try {
+    // Check if nodemailer is available
+    if (!nodemailer) {
+      console.log('⚠️ nodemailer not installed - skipping reset link email');
+      return { success: false, message: 'Email module not available' };
+    }
+
     // Check if email is configured
     if (!process.env.EMAIL_USER || !process.env.EMAIL_PASSWORD) {
       console.log('⚠️ Email not configured - skipping reset link email');

@@ -12,7 +12,8 @@ async function runMigrations() {
       { name: 'Add Tag Column', run: require('./001-add-tag-column') },
       { name: 'Add Database Indexes', run: require('./002-add-database-indexes') },
       { name: 'Add Team Leaders Table', run: require('./003-add-team-leaders-table') },
-      { name: 'Add Folder Support', run: require('./003-add-folder-support') }
+      { name: 'Add Folder Support', run: require('./003-add-folder-support') },
+      { name: 'Fix Schema Bugs (notifications nullable, activity_logs column)', run: require('./004-fix-schema-bugs') }
     ];
 
     for (const migration of migrations) {

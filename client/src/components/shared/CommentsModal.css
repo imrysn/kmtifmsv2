@@ -1,9 +1,7 @@
-/* ⚡ SHARED Comments Modal - Optimized for Performance */
-
-/* Import from admin modal CSS - all optimizations already applied */
+/* ⚡ SHARED Comments Modal - Facebook Style */
 
 /* =================================================================
-   MODAL OVERLAY - CRITICAL PERFORMANCE OPTIMIZATIONS
+   MODAL OVERLAY
    ================================================================= */
 
 .comments-modal-overlay {
@@ -17,99 +15,92 @@
   align-items: center;
   justify-content: center;
   z-index: 10000;
-  will-change: opacity;
-  transform: translateZ(0);
 }
 
 /* =================================================================
-   MODAL CONTAINER - OPTIMIZED
+   MODAL CONTAINER
    ================================================================= */
 
 .comments-modal {
-  background: #ffffff;
+  background: #fff;
   border-radius: 16px;
   width: 90%;
-  max-width: 700px;
-  max-height: 85vh;
+  max-width: 680px;
+  max-height: 88vh;
   display: flex;
   flex-direction: column;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
-  will-change: transform, opacity;
+  /* Isolate this layer — scroll inside won't repaint elements outside */
   transform: translateZ(0);
-  animation: modalFadeIn 0.15s ease-out;
-}
-
-@keyframes modalFadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(-10px) translateZ(0);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateY(0) translateZ(0);
-  }
+  /* Cheaper shadow — no blur spread, just a thin border */
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
 }
 
 /* =================================================================
-   MODAL HEADER - OPTIMIZED
+   MODAL HEADER
    ================================================================= */
 
 .comments-modal-header {
-  padding: 1.25rem 1.5rem;
-  border-bottom: 1px solid #e5e7eb;
+  padding: 16px 20px;
+  border-bottom: 1px solid #e4e6eb;
   display: flex;
   align-items: center;
   justify-content: space-between;
   flex-shrink: 0;
-  background: #ffffff;
+  background: #fff;
   border-radius: 16px 16px 0 0;
+  position: relative;
 }
 
 .comments-modal-header h3 {
   margin: 0;
-  font-size: 17px;
-  font-weight: 600;
-  color: #111827;
+  font-size: 20px;
+  font-weight: 700;
+  color: #050505;
   flex: 1;
+  text-align: center;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .close-modal-btn {
-  background: none;
+  background: #e4e6eb;
   border: none;
-  font-size: 22px;
-  color: #9ca3af;
-  cursor: pointer;
-  padding: 4px;
-  width: 30px;
-  height: 30px;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 6px;
-  transition: background-color 0.15s ease;
+  cursor: pointer;
+  font-size: 18px;
+  color: #050505;
+  transition: background 0.15s;
+  position: absolute;
+  right: 16px;
+  top: 50%;
+  transform: translateY(-50%);
   flex-shrink: 0;
 }
 
 .close-modal-btn:hover {
-  color: #111827;
+  background: #d8dadf;
 }
 
 /* =================================================================
-   MODAL BODY - SCROLL PERFORMANCE OPTIMIZED
+   MODAL BODY
    ================================================================= */
 
 .comments-modal-body {
   flex: 1;
-  overflow-y: auto;
+  overflow-y: scroll; /* 'scroll' reserves scrollbar space — avoids layout shift on show/hide */
   overflow-x: hidden;
-  padding: 1.25rem 1.5rem;
-  background: #f9fafb;
+  padding: 8px 16px 4px;
+  background: #fff;
   -webkit-overflow-scrolling: touch;
-  will-change: scroll-position;
+  /* Promote to own compositor layer — eliminates repaint on scroll */
+  will-change: transform;
   transform: translateZ(0);
 }
 
@@ -122,16 +113,16 @@
 }
 
 .comments-modal-body::-webkit-scrollbar-thumb {
-  background: #d1d5db;
+  background: #ccc;
   border-radius: 3px;
 }
 
 .comments-modal-body::-webkit-scrollbar-thumb:hover {
-  background: #9ca3af;
+  background: #aaa;
 }
 
 /* =================================================================
-   LOADING & EMPTY STATES - OPTIMIZED
+   LOADING & EMPTY STATES
    ================================================================= */
 
 .loading-comments,
@@ -140,90 +131,84 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 2.5rem 1.5rem;
-  color: #6b7280;
+  padding: 48px 20px;
+  color: #65676b;
 }
 
 .loading-comments .spinner {
   width: 32px;
   height: 32px;
-  border: 2px solid #e5e7eb;
-  border-top-color: #3b82f6;
+  border: 2px solid #e4e6eb;
+  border-top-color: #1877f2;
   border-radius: 50%;
-  animation: spin 0.6s linear infinite;
-  margin-bottom: 0.75rem;
-  will-change: transform;
-  transform: translateZ(0);
+  animation: spin 0.7s linear infinite;
+  margin-bottom: 12px;
 }
 
 @keyframes spin {
-  
-  to {
-    transform: rotate(360deg) translateZ(0);
-  }
+  to { transform: rotate(360deg); }
 }
 
 .loading-comments p {
   margin: 0;
   font-size: 14px;
   font-weight: 500;
-  color: #6b7280;
+  color: #65676b;
 }
 
 .no-comments p {
   margin: 0;
   font-size: 15px;
-  font-weight: 500;
-  color: #6b7280;
+  color: #65676b;
 }
 
 /* =================================================================
-   COMMENTS LIST - PERFORMANCE OPTIMIZED
+   COMMENTS LIST
    ================================================================= */
 
 .comments-list {
   display: flex;
   flex-direction: column;
-  gap: 1rem;
-  transform: translateZ(0);
+  gap: 2px;
 }
 
 .comment-thread {
   display: flex;
   flex-direction: column;
-  gap: 0.625rem;
-  transform: translateZ(0);
+  background: transparent;
+  border: none !important;
+  margin-bottom: 2px;
+  padding-bottom: 0;
 }
 
 /* =================================================================
-   COMMENT ITEM - CRITICAL OPTIMIZATIONS
+   COMMENT ITEM - Facebook style
    ================================================================= */
 
 .comment-item {
   display: flex;
-  gap: 0.75rem;
-  padding: 0.875rem;
-  background: #ffffff;
-  border-radius: 8px;
-  will-change: transform;
-  transform: translateZ(0);
-  transition: box-shadow 0.15s ease;
+  gap: 8px;
+  padding: 2px 0 2px;
+  background: transparent;
+  border: none !important;
+  margin-bottom: 0;
+  align-items: flex-start;
 }
 
 .comment-avatar {
-  width: 38px;
-  height: 38px;
+  width: 40px;
+  height: 40px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: #ffffff;
+  background: #1877f2;
+  color: #fff;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 14px;
-  font-weight: 600;
+  font-size: 15px;
+  font-weight: 700;
   flex-shrink: 0;
   text-transform: uppercase;
-  transform: translateZ(0);
+  letter-spacing: 0.5px;
 }
 
 .comment-content {
@@ -231,148 +216,191 @@
   min-width: 0;
 }
 
+/* Comment bubble - FB grey pill */
+.comment-bubble {
+  display: inline-block;
+  background: #f0f2f5;
+  border-radius: 12px;
+  padding: 8px 14px 10px;
+  max-width: 100%;
+  word-break: break-word;
+}
+
 .comment-header {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  margin-bottom: 0.5rem;
+  gap: 6px;
+  margin-bottom: 3px;
   flex-wrap: wrap;
 }
 
 .comment-author {
-  font-size: 14px;
-  font-weight: 600;
-  color: #111827;
+  font-size: 13.5px;
+  font-weight: 700;
+  color: #050505;
 }
 
 .role-badge {
-  font-size: 10px;
-  font-weight: 600;
-  padding: 3px 7px;
-  border-radius: 12px;
+  padding: 2px 7px;
+  border-radius: 4px;
+  font-size: 10.5px;
+  font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.3px;
-  border: 1px solid;
+  border: none;
   background: transparent !important;
   background-color: transparent !important;
   display: inline-block;
 }
 
 .role-badge.admin {
-  color: #991b1b;
-  border-color: #991b1b;
+  color: #dc2626;
+  background: #fee2e2 !important;
 }
 
 .role-badge.team-leader {
-  color: #1e40af;
-  border-color: #1e40af;
+  color: #1877f2;
+  background: #dbeafe !important;
 }
 
 .role-badge.user {
-  color: #374151;
-  border-color: #9ca3af;
+  color: #1a7f37;
+  background: #d3f1d8 !important;
 }
 
 .comment-time {
+  color: #65676b;
   font-size: 12px;
-  color: #9ca3af;
-  margin-left: auto;
+  font-weight: 400;
+  margin-left: 2px;
 }
 
 .comment-text {
+  background: transparent;
+  padding: 0;
   font-size: 14px;
-  color: #374151;
+  color: #050505;
   line-height: 1.5;
-  margin-bottom: 0.5rem;
-  word-wrap: break-word;
-  white-space: pre-wrap;
+  margin: 0;
+  overflow-wrap: break-word;
+  word-break: break-word;
 }
 
 .see-more-btn {
   background: none;
   border: none;
-  color: #3b82f6;
+  color: #65676b;
   font-size: 13px;
-  font-weight: 500;
+  font-weight: 600;
   cursor: pointer;
   padding: 0;
   margin-left: 4px;
-  transition: color 0.15s ease;
+  transition: color 0.15s;
+  font-family: inherit;
 }
 
 .see-more-btn:hover {
-  color: #2563eb;
   text-decoration: underline;
+  color: #050505;
 }
 
+/* FB-style action row: Reply · View replies */
 .comment-actions {
   display: flex;
-  gap: 0.875rem;
-  margin-top: 0.25rem;
-}
-
-.reply-button,
-.view-replies-button {
-  background: none;
-  border: none;
-  font-size: 13px;
-  font-weight: 500;
-  cursor: pointer;
-  padding: 0;
-  transition: color 0.15s ease;
+  align-items: center;
+  gap: 12px;
+  margin-top: 4px;
+  padding-left: 4px;
 }
 
 .reply-button {
-  color: #6b7280;
+  background: none;
+  border: none;
+  color: #65676b;
+  font-size: 12.5px;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 0;
+  transition: color 0.15s;
+  font-family: inherit;
+}
+
+.reply-button:hover {
+  color: #050505;
+  text-decoration: underline;
 }
 
 .view-replies-button {
-  color: #3b82f6;
+  background: none;
+  border: none;
+  color: #65676b;
+  font-size: 12.5px;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 0;
+  transition: color 0.15s;
+  font-family: inherit;
+  display: flex;
+  align-items: center;
+  gap: 4px;
 }
 
-.reply-button:hover,
 .view-replies-button:hover {
-  color: #2563eb;
+  color: #050505;
+  text-decoration: underline;
 }
 
 /* =================================================================
-   REPLIES THREAD - OPTIMIZED
+   REPLIES THREAD - Facebook indented, no border line
    ================================================================= */
 
 .replies-thread {
-  margin-left: 2.5rem;
-  margin-top: 0.625rem;
+  margin-left: 48px;
+  margin-top: 4px;
+  margin-bottom: 4px;
   display: flex;
   flex-direction: column;
-  gap: 0.625rem;
-  padding-left: 0.875rem;
-  border-left: 2px solid #e5e7eb;
-  transform: translateZ(0);
+  gap: 6px;
+  border: none !important;
+  border-left: none !important;
+  padding-left: 0 !important;
 }
 
 .reply-item {
   display: flex;
-  gap: 0.625rem;
-  padding: 0.75rem;
-  background: #ffffff;
-  border-radius: 6px;
-  transform: translateZ(0);
+  gap: 8px;
+  padding: 2px 0;
+  background: transparent;
+  border: none !important;
+  border-radius: 0;
+  align-items: flex-start;
+  /* Isolate paint per reply */
+  contain: layout style;
 }
 
 .reply-avatar {
   width: 32px;
   height: 32px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-  color: #ffffff;
+  background: #1877f2;
+  color: #fff;
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 12px;
-  font-weight: 600;
+  font-weight: 700;
   flex-shrink: 0;
   text-transform: uppercase;
-  transform: translateZ(0);
+}
+
+/* Reply bubble */
+.reply-bubble {
+  display: inline-block;
+  background: #f0f2f5;
+  border-radius: 12px;
+  padding: 7px 12px 8px;
+  max-width: 100%;
+  word-break: break-word;
 }
 
 .reply-content {
@@ -383,29 +411,41 @@
 .reply-header {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  margin-bottom: 0.375rem;
+  gap: 6px;
+  margin-bottom: 2px;
   flex-wrap: wrap;
 }
 
 .reply-author {
   font-size: 13px;
-  font-weight: 600;
-  color: #111827;
+  font-weight: 700;
+  color: #050505;
 }
 
 .reply-time {
-  font-size: 11px;
-  color: #9ca3af;
-  margin-left: auto;
+  color: #65676b;
+  font-size: 11.5px;
+  display: block;
+  padding-top: 1px;
 }
 
 .reply-text {
-  font-size: 13px;
-  color: #374151;
-  line-height: 1.5;
-  word-wrap: break-word;
-  white-space: pre-wrap;
+  background: transparent;
+  padding: 0;
+  font-size: 13.5px;
+  color: #050505;
+  line-height: 1.45;
+  overflow-wrap: break-word;
+  word-break: break-word;
+  margin: 0;
+}
+
+/* Replaces the inline style that was generating a new object every render */
+.reply-meta-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 2px;
 }
 
 .reply-text .see-more-btn {
@@ -413,94 +453,108 @@
 }
 
 /* =================================================================
-   REPLY INPUT BOX - OPTIMIZED
+   REPLY INPUT BOX
    ================================================================= */
 
 .reply-input-box {
-  margin-left: 2.5rem;
-  margin-top: 0.625rem;
+  margin-top: 6px;
+  margin-left: 48px;
+  margin-bottom: 8px;
   display: flex;
-  gap: 0.625rem;
-  padding-left: 0.875rem;
+  gap: 8px;
+  align-items: center;
+  border: none !important;
+  border-left: none !important;
 }
 
 /* =================================================================
-   MODAL FOOTER - OPTIMIZED
+   MODAL FOOTER
    ================================================================= */
 
 .comments-modal-footer {
-  padding: 1.25rem 1.5rem;
-  border-top: 1px solid #e5e7eb;
-  background: #ffffff;
+  padding: 10px 16px 14px;
+  border-top: 1px solid #e4e6eb;
+  background: #fff;
   flex-shrink: 0;
   border-radius: 0 0 16px 16px;
 }
 
 .add-comment {
   display: flex;
-  gap: 0.75rem;
-  align-items: flex-start;
+  gap: 8px;
+  align-items: center;
 }
 
+/* FB rounded pill input wrapper */
 .comment-input-wrapper {
   flex: 1;
   display: flex;
-  gap: 0.5rem;
+  gap: 6px;
   align-items: center;
+  background: #f0f2f5;
+  border-radius: 20px;
+  padding: 8px 14px;
+  border: none;
+  /* No transition — not in scroll area but keeps CSS paint budget low */
+}
+
+.comment-input-wrapper:focus-within {
+  background: #e4e6eb;
 }
 
 .comment-input {
   flex: 1;
-  padding: 0.625rem 0.875rem;
-  border: 1px solid #e5e7eb;
-  border-radius: 8px;
-  font-size: 14px;
-  background: #ffffff;
-  color: #111827;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  border: none;
+  outline: none;
+  font-size: 15px;
+  color: #050505;
+  background: transparent;
+  padding: 0;
+  font-family: inherit;
 }
 
-.comment-input:focus {
-  outline: none;
-  border-color: #000000;
+.comment-input::placeholder {
+  color: #65676b;
+  font-size: 15px;
 }
 
 .comment-submit-btn {
-  width: 38px;
-  height: 38px;
-  border-radius: 20px;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
   border: none;
-  padding-left: 2px;
-  background: #3b82f6;
-  color: #ffffff;
-  font-size: 16px;
+  background: #1877f2;
+  color: #fff;
+  font-size: 15px;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: background-color 0.15s ease, transform 0.15s ease;
+  transition: background 0.15s;
   flex-shrink: 0;
-  will-change: transform;
-  transform: translateZ(0);
 }
 
 .comment-submit-btn:hover:not(:disabled) {
-  background: #2563eb;
-  transform: translateY(-1px) translateZ(0);
-}
-
-.comment-submit-btn:active:not(:disabled) {
-  transform: translateY(0) translateZ(0);
+  background: #166fe5;
 }
 
 .comment-submit-btn:disabled {
-  opacity: 0.5;
+  background: #bec3c9;
   cursor: not-allowed;
-  background: #d1d5db;
 }
 
 /* =================================================================
-   HIGHLIGHT ANIMATION - OPTIMIZED
+   MENTION HIGHLIGHT - @username in blue like Facebook
+   ================================================================= */
+
+.mention-highlight {
+  color: #1877f2;
+  font-weight: 600;
+  /* No transition — hover transitions repaint during scroll */
+}
+
+/* =================================================================
+   HIGHLIGHT ANIMATION
    ================================================================= */
 
 .highlight-comment .comment-item {
@@ -508,33 +562,187 @@
 }
 
 @keyframes highlightFlash {
-
-  0%,
-  100% {
-    background: #ffffff;
+  0%, 100% {
+    background: transparent;
   }
-
   50% {
-    background: #fef3c7;
+    background: #fff3cd;
   }
 }
 
 /* =================================================================
-   RESPONSIVE - OPTIMIZED
+   RESPONSIVE
    ================================================================= */
+
+@media (max-width: 844px) {
+  .comment-item { gap: 6px; }
+  .comment-avatar { width: 36px; height: 36px; font-size: 13px; }
+  .comment-author { font-size: 13px; }
+  .comment-time { font-size: 11px; }
+  .comment-text { font-size: 13px; }
+  .replies-thread { margin-left: 44px; }
+  .reply-item { gap: 6px; }
+  .reply-avatar { width: 28px; height: 28px; font-size: 10px; }
+  .reply-author { font-size: 12px; }
+  .reply-time { font-size: 11px; }
+  .reply-text { font-size: 12.5px; }
+  .reply-input-box { margin-left: 44px; }
+}
 
 @media (max-width: 768px) {
   .comments-modal {
     width: 95%;
     max-width: none;
-    max-height: 90vh;
+    max-height: 92vh;
   }
-
-  .replies-thread {
-    margin-left: 1.5rem;
-  }
-
-  .reply-input-box {
-    margin-left: 1.5rem;
-  }
+  .replies-thread { margin-left: 36px; }
+  .reply-input-box { margin-left: 36px; }
 }
+
+/* =================================================================
+   THREE-DOT MORE MENU
+   ================================================================= */
+
+/* Wrapper that sits inline inside the bubble header */
+.bubble-menu-wrap {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.more-menu-wrapper {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.more-menu-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #65676b;
+  padding: 2px 6px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s, color 0.15s;
+  line-height: 1;
+}
+
+.more-menu-btn:hover {
+  background: #e4e6eb;
+  color: #050505;
+}
+
+/* Dropdown portaled to document.body — never clipped by scroll containers */
+.more-menu-dropdown {
+  position: fixed;
+  background: #fff;
+  border-radius: 10px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  border: 1px solid #e5e7eb;
+  min-width: 130px;
+  z-index: 10001;
+  padding: 4px 0;
+  overflow: hidden;
+}
+
+.more-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 9px 14px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 13.5px;
+  font-weight: 500;
+  color: #050505;
+  text-align: left;
+  transition: background 0.1s;
+  font-family: inherit;
+}
+
+.more-menu-item:hover {
+  background: #f0f2f5;
+}
+
+.more-menu-item--danger {
+  color: #dc2626;
+}
+
+.more-menu-item--danger:hover {
+  background: #fee2e2;
+}
+
+/* =================================================================
+   INLINE EDIT INPUT
+   ================================================================= */
+
+.edit-input-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+}
+
+.edit-input {
+  flex: 1;
+  width: 100%;
+  padding: 8px 12px;
+  border: 1.5px solid #1877f2;
+  border-radius: 10px;
+  font-size: 14px;
+  font-family: inherit;
+  color: #050505;
+  background: #fff;
+  outline: none;
+  box-sizing: border-box;
+}
+
+.edit-input-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.edit-save-btn {
+  padding: 4px 14px;
+  background: #1877f2;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 0.15s;
+}
+
+.edit-save-btn:hover:not(:disabled) {
+  background: #166fe5;
+}
+
+.edit-save-btn:disabled {
+  background: #bec3c9;
+  cursor: not-allowed;
+}
+
+.edit-cancel-btn {
+  padding: 4px 12px;
+  background: #e4e6eb;
+  color: #050505;
+  border: none;
+  border-radius: 6px;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 0.15s;
+}
+
+.edit-cancel-btn:hover {
+  background: #d8dadf;
+}
+

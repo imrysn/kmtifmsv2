@@ -107,6 +107,26 @@ const FileManagement = ({ clearMessages, error, success, setError, setSuccess })
     }
   }, [])
 
+  const [isSyncing, setIsSyncing] = useState(false)
+
+  const handleSyncDeleted = async () => {
+    setIsSyncing(true)
+    try {
+      const res = await fetch(`${API_BASE}/api/files/sync-deleted`, { method: 'POST' })
+      const data = await res.json()
+      if (data.success) {
+        setSuccess(data.message)
+        fetchFileSystemItems() // refresh the file list
+      } else {
+        setError(data.error || 'Sync failed')
+      }
+    } catch (e) {
+      setError('Sync failed: ' + e.message)
+    } finally {
+      setIsSyncing(false)
+    }
+  }
+
   const checkNetworkAccess = async () => {
     // FIX: Removed manual health check since useNetwork handles it.
     // We only check for specific File System info here.
@@ -346,7 +366,15 @@ const FileManagement = ({ clearMessages, error, success, setError, setSuccess })
         </div>
 
         <div className="file-controls-right">
-          <div className="file-search">
+        <button
+              className="sync-deleted-btn"
+              onClick={handleSyncDeleted}
+              disabled={isSyncing}
+              title="Remove database records for files deleted from disk"
+            >
+              {isSyncing ? '⏳ Syncing...' : '🔄 Sync Deleted Files'}
+            </button>
+            <div className="file-search">
             <input
               type="text"
               placeholder="Search..."

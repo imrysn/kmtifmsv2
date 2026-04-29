@@ -67,7 +67,7 @@ const NotificationItem = memo(({ notification, onNotificationClick, onDeleteNoti
 
 NotificationItem.displayName = 'NotificationItem';
 
-const NotificationTab = ({ user, onNavigate }) => {
+const NotificationTab = ({ user, onNavigate, onRead }) => {
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -157,6 +157,7 @@ const NotificationTab = ({ user, onNavigate }) => {
         }
 
         setUnreadCount(data.unreadCount || 0);
+        if ((data.unreadCount || 0) === 0) onRead?.();
         setTotalCount(data.totalCount || 0);
         setHasMore(data.hasMore || false);
       } else {
@@ -206,6 +207,7 @@ const NotificationTab = ({ user, onNavigate }) => {
         // Update local state
         setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
         setUnreadCount(0);
+        onRead?.();
       }
     } catch (error) {
       console.error('Error marking all as read:', error);

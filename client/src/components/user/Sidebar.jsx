@@ -1,15 +1,15 @@
+import { memo, useCallback } from 'react';
 import { getSidebarIcon } from '../shared/FileIcon';
 import './css/Sidebar.css';
 
-const Sidebar = ({ activeTab, setActiveTab, filesCount, notificationCount, onLogout, user }) => {
-  const getInitials = (name) => {
-    if (!name) return 'U';
-    return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
-  };
+const Sidebar = memo(({ activeTab, setActiveTab, filesCount, notificationCount, onLogout, user }) => {
+  const handleTabChange = useCallback((tab) => {
+    setActiveTab(tab);
+  }, [setActiveTab]);
 
   return (
     <div className="user-sidebar">
-      {/* User Profile Section - Matching Admin Header */}
+      {/* User Profile Section */}
       <div className="sidebar-header">
         <div className="user-info">
           <div className="user-name">{user?.fullName || 'User'}</div>
@@ -17,18 +17,18 @@ const Sidebar = ({ activeTab, setActiveTab, filesCount, notificationCount, onLog
         </div>
       </div>
 
-      {/* Navigation - Matching Admin Nav */}
+      {/* Navigation */}
       <nav className="sidebar-nav">
         <button
           className={`nav-item ${activeTab === 'dashboard' ? 'active' : ''}`}
-          onClick={() => setActiveTab('dashboard')}
+          onClick={() => handleTabChange('dashboard')}
         >
           <span className="nav-icon">{getSidebarIcon('dashboard')}</span>
           <span className="nav-label">Dashboard</span>
         </button>
         <button
           className={`nav-item ${activeTab === 'notification' ? 'active' : ''}`}
-          onClick={() => setActiveTab('notification')}
+          onClick={() => handleTabChange('notification')}
         >
           <span className="nav-icon notification-icon-wrapper">
             {getSidebarIcon('notifications')}
@@ -38,28 +38,28 @@ const Sidebar = ({ activeTab, setActiveTab, filesCount, notificationCount, onLog
         </button>
         <button
           className={`nav-item ${activeTab === 'my-files' ? 'active' : ''}`}
-          onClick={() => setActiveTab('my-files')}
+          onClick={() => handleTabChange('my-files')}
         >
           <span className="nav-icon">{getSidebarIcon('files')}</span>
           <span className="nav-label">My Files</span>
         </button>
         <button
           className={`nav-item ${activeTab === 'tasks' ? 'active' : ''}`}
-          onClick={() => setActiveTab('tasks')}
+          onClick={() => handleTabChange('tasks')}
         >
           <span className="nav-icon">{getSidebarIcon('tasks')}</span>
           <span className="nav-label">Tasks</span>
         </button>
         <button
           className={`nav-item ${activeTab === 'team-files' ? 'active' : ''}`}
-          onClick={() => setActiveTab('team-files')}
+          onClick={() => handleTabChange('team-files')}
         >
           <span className="nav-icon">{getSidebarIcon('users')}</span>
           <span className="nav-label">Team Tasks</span>
         </button>
       </nav>
 
-      {/* Logout Button - Matching Admin Footer */}
+      {/* Logout */}
       <div className="sidebar-footer">
         <button className="logout-btn" onClick={onLogout}>
           <span className="nav-icon">{getSidebarIcon('logout')}</span>
@@ -68,6 +68,7 @@ const Sidebar = ({ activeTab, setActiveTab, filesCount, notificationCount, onLog
       </div>
     </div>
   );
-};
+});
 
+Sidebar.displayName = 'Sidebar';
 export default Sidebar;
