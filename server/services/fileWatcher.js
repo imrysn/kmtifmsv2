@@ -58,7 +58,7 @@ async function handleFileDeletion(deletedPath) {
     // Pull ALL rows whose original_name or filename matches — then filter
     // by path so we don't accidentally delete a same-named file in another folder.
     const fileRows = await query(
-      `SELECT id, original_name, filename, file_path, public_network_url
+      `SELECT id, original_name, filename, file_path, public_network_url, status
        FROM files
        WHERE LOWER(TRIM(original_name)) = ?
           OR LOWER(TRIM(filename))      = ?`,
@@ -78,6 +78,13 @@ async function handleFileDeletion(deletedPath) {
     });
 
     for (const file of matchedFiles) {
+      // NEVER delete records for approved files — they have been moved to NAS.
+      // The deletion event from the staging folder (uploads/) is expected.
+      if (file.status === 'final_approved') {
+        console.log(`ℹ️  [Watcher] Skipping deletion for approved file: ${file.original_name} (ID: ${file.id})`);
+        continue;
+      }
+
       console.log(`  ↳ Removing file ID ${file.id} (${file.original_name})`);
 
       // Nullify any assignment_members references first (FK)
@@ -138,13 +145,18 @@ async function handleDirectoryDeletion(dirPath) {
   try {
     // Match any file whose stored relative path starts with this folder segment
     const fileRows = await query(
-      `SELECT id FROM files
+      `SELECT id, original_name, status FROM files
        WHERE LOWER(REPLACE(COALESCE(file_path,''), '\\\\', '/'))         LIKE ?
           OR LOWER(REPLACE(COALESCE(public_network_url,''), '\\\\', '/')) LIKE ?`,
       [`%${relDir}%`, `%${relDir}%`]
     );
 
     for (const file of (fileRows || [])) {
+      // Skip approved files
+      if (file.status === 'final_approved') {
+        console.log(`ℹ️  [Watcher] Skipping folder deletion for approved file: ${file.original_name} (ID: ${file.id})`);
+        continue;
+      }
       await query(`UPDATE assignment_members SET file_id = NULL, status = 'pending', submitted_at = NULL WHERE file_id = ?`, [file.id]).catch(() => {});
       await query(`DELETE FROM assignment_submissions  WHERE file_id = ?`, [file.id]).catch(() => {});
       await query(`DELETE FROM notifications           WHERE file_id = ?`, [file.id]).catch(() => {});
