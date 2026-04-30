@@ -66,7 +66,7 @@ async function syncDeletedFiles(uploadsDir, networkDataPath) {
 
   // ── 1. Sync files table ───────────────────────────────────────────
   const files = await query(
-    `SELECT id, original_name, filename, file_path, public_network_url FROM files`
+    `SELECT id, original_name, filename, file_path, public_network_url, status FROM files`
   );
 
   for (const row of (files || [])) {
@@ -88,6 +88,10 @@ async function syncDeletedFiles(uploadsDir, networkDataPath) {
     }
 
     if (!exists) {
+      if (row.status === 'final_approved') {
+        console.log(`ℹ️  [Sync] Skipping approved file (NAS): ${row.original_name}`);
+        continue;
+      }
       try {
         await deleteFileRecord(row.id);
         summary.removed++;

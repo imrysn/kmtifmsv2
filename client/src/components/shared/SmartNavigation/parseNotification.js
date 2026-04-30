@@ -40,8 +40,8 @@ export function parseNotification(notification, role) {
 
     const tabs = TAB_MAPPING[role];
 
-    // COMMENT/REPLY NOTIFICATIONS
-    if (notification.type === 'comment' || isReplyNotification) {
+    // COMMENT/REPLY/MENTION NOTIFICATIONS
+    if (notification.type === 'comment' || notification.type === 'mention' || isReplyNotification) {
         if (notification.assignment_id) {
             return {
                 targetTab: tabs.tasks,
@@ -50,7 +50,7 @@ export function parseNotification(notification, role) {
                     shouldOpenComments: true,
                     expandAllReplies: isReplyNotification
                 },
-                notificationType: isReplyNotification ? 'reply' : 'comment'
+                notificationType: notification.type === 'mention' ? 'mention' : (isReplyNotification ? 'reply' : 'comment')
             };
         }
     }

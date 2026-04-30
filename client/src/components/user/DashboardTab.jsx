@@ -6,9 +6,8 @@ import { LoadingCards } from '../common/InlineSkeletonLoader';
 const DashboardTab = ({ user, files, setActiveTab, onOpenFile, onNavigateToTasks }) => {
   const [assignments, setAssignments] = useState([]);
   const [teamTasks, setTeamTasks] = useState([]);
-  // Notifications are fetched once on mount — no need to poll every 30s
-  // (NotificationTab already polls; DashboardTab just needs a recent snapshot)
   const [notifications, setNotifications] = useState([]);
+  const [performance, setPerformance] = useState(null);
   const [loading, setLoading] = useState(true);
   const [lastUpdate, setLastUpdate] = useState(new Date());
 
@@ -23,7 +22,7 @@ const DashboardTab = ({ user, files, setActiveTab, onOpenFile, onNavigateToTasks
 
     loadData();
 
-    // Poll assignments + team tasks every 30s (skip notifications — NotificationTab owns that)
+    // Poll every 30s for real-time updates
     const refreshInterval = setInterval(() => {
       if (isMounted) {
         fetchDashboardData(true);
@@ -40,33 +39,29 @@ const DashboardTab = ({ user, files, setActiveTab, onOpenFile, onNavigateToTasks
     try {
       if (!silent) setLoading(true);
 
-      // Only fetch notifications on first load (not on silent 30s polls)
       const requests = [
         fetch(`${API_BASE_URL}/api/assignments/user/${user.id}`),
         fetch(`${API_BASE_URL}/api/assignments/team/${user.team}/all-tasks?limit=5`),
+        fetch(`${API_BASE_URL}/api/dashboard/user-performance/${user.id}`),
       ];
       if (!silent) {
         requests.push(fetch(`${API_BASE_URL}/api/notifications/user/${user.id}`));
       }
 
       const responses = await Promise.all(requests);
-
-      if (responses.some(r => !r.ok)) {
-        throw new Error('One or more API requests failed');
-      }
-
-      const [assignmentsData, teamTasksData, notificationsData] = await Promise.all(
+      const [assignmentsData, teamTasksData, performanceData, notificationsData] = await Promise.all(
         responses.map(r => r.json())
       );
 
-      // Use startTransition for silent polls so React deprioritises these
-      // re-renders and never blocks user interaction (scrolling, typing, etc.)
       const applyUpdates = () => {
         if (assignmentsData.success) {
           setAssignments(assignmentsData.assignments || []);
         }
         if (teamTasksData.success) {
           setTeamTasks(teamTasksData.assignments || []);
+        }
+        if (performanceData?.success) {
+          setPerformance(performanceData.performance);
         }
         if (notificationsData?.success) {
           setNotifications(notificationsData.notifications || []);
@@ -153,38 +148,36 @@ const DashboardTab = ({ user, files, setActiveTab, onOpenFile, onNavigateToTasks
     recent: notifications.slice(0, 3)
   }), [notifications]);
 
-  const taskCompletionRate = useMemo(() =>
+  // Use server-computed performance metrics (accurate) with frontend fallback
+  const taskCompletionRate = performance?.taskCompletionRate ?? (
+    myTasksStats.total > 0 ? Math.round((myTasksStats.submitted / myTasksStats.total) * 100) : 0
+  );
+  const fileApprovalRate = performance?.fileApprovalRate ?? (
+    filesStats.total > 0 ? Math.round((filesStats.approved / filesStats.total) * 100) : 0
+  );
+  const fileRejectionRate = performance?.fileRejectionRate ?? (
+    filesStats.total > 0 ? Math.round((filesStats.rejected / filesStats.total) * 100) : 0
+  );
+  const onTimeRate = performance?.onTimeRate ?? (
     myTasksStats.total > 0
-      ? Math.round((myTasksStats.submitted / myTasksStats.total) * 100) : 0,
-    [myTasksStats]
+      ? Math.round(((myTasksStats.total - myTasksStats.overdue) / myTasksStats.total) * 100) : 100
   );
-
-  const fileApprovalRate = useMemo(() =>
-    filesStats.total > 0
-      ? Math.round((filesStats.approved / filesStats.total) * 100) : 0,
-    [filesStats]
-  );
-
-  const fileRejectionRate = useMemo(() =>
-    filesStats.total > 0
-      ? Math.round((filesStats.rejected / filesStats.total) * 100) : 0,
-    [filesStats]
-  );
-
-  const onTimeRate = useMemo(() =>
-    myTasksStats.total > 0
-      ? Math.round(((myTasksStats.total - myTasksStats.overdue) / myTasksStats.total) * 100) : 100,
-    [myTasksStats]
-  );
-
-  const overallScore = useMemo(() => {
+  const overallScore = performance?.overallScore ?? (() => {
     const taskScore = myTasksStats.total > 0 ? (myTasksStats.submitted / myTasksStats.total) * 100 : 0;
     const fileScore = filesStats.total > 0 ? (filesStats.approved / filesStats.total) * 100 : 0;
-    const rejectionPenalty = filesStats.total > 0 ? (filesStats.rejected / filesStats.total) * 20 : 0;
     const timeScore = myTasksStats.total > 0 ? ((myTasksStats.total - myTasksStats.overdue) / myTasksStats.total) * 100 : 100;
-    const rawScore = (taskScore * 0.4) + (fileScore * 0.3) + (timeScore * 0.3);
-    return Math.max(0, Math.round(rawScore - rejectionPenalty));
-  }, [myTasksStats, filesStats]);
+    return Math.max(0, Math.round((taskScore * 0.4) + (timeScore * 0.3) + (fileScore * 0.3)));
+  })();
+
+  // Use server values for accurate display counts
+  const displayTaskTotal = performance?.taskTotal ?? myTasksStats.total;
+  const displayTaskSubmitted = performance?.taskSubmitted ?? myTasksStats.submitted;
+  const displayTaskPending = performance?.taskPending ?? myTasksStats.pending;
+  const displayOverdue = performance?.overdue ?? myTasksStats.overdue;
+  const displayOnTimeCount = performance?.onTimeCount ?? (myTasksStats.total - myTasksStats.overdue);
+  const displayFileTotal = performance?.fileTotal ?? filesStats.total;
+  const displayFileApproved = performance?.fileApproved ?? filesStats.approved;
+  const displayFileRejected = performance?.fileRejected ?? filesStats.rejected;
 
   if (loading) {
     return (
@@ -376,7 +369,7 @@ const DashboardTab = ({ user, files, setActiveTab, onOpenFile, onNavigateToTasks
                 <div className="metric-content">
                   <div className="metric-label">Task Completion</div>
                   <div className="metric-value">{taskCompletionRate}%</div>
-                  <div className="metric-detail">{myTasksStats.submitted}/{myTasksStats.total} completed</div>
+                  <div className="metric-detail">{displayTaskSubmitted}/{displayTaskTotal} completed</div>
                 </div>
               </div>
 
@@ -390,7 +383,7 @@ const DashboardTab = ({ user, files, setActiveTab, onOpenFile, onNavigateToTasks
                 <div className="metric-content">
                   <div className="metric-label">On-Time Delivery</div>
                   <div className="metric-value">{onTimeRate}%</div>
-                  <div className="metric-detail">{myTasksStats.total - myTasksStats.overdue}/{myTasksStats.total} on time</div>
+                  <div className="metric-detail">{displayOnTimeCount}/{displayTaskTotal} on time</div>
                 </div>
               </div>
 
@@ -404,7 +397,7 @@ const DashboardTab = ({ user, files, setActiveTab, onOpenFile, onNavigateToTasks
                 <div className="metric-content">
                   <div className="metric-label">File Approval Rate</div>
                   <div className="metric-value">{fileApprovalRate}%</div>
-                  <div className="metric-detail">{filesStats.approved}/{filesStats.total} approved</div>
+                  <div className="metric-detail">{displayFileApproved}/{displayFileTotal} approved</div>
                 </div>
               </div>
 
@@ -419,7 +412,7 @@ const DashboardTab = ({ user, files, setActiveTab, onOpenFile, onNavigateToTasks
                 <div className="metric-content">
                   <div className="metric-label">File Rejection Rate</div>
                   <div className="metric-value">{fileRejectionRate}%</div>
-                  <div className="metric-detail">{filesStats.rejected}/{filesStats.total} rejected</div>
+                  <div className="metric-detail">{displayFileRejected}/{displayFileTotal} rejected</div>
                 </div>
               </div>
 
@@ -433,7 +426,7 @@ const DashboardTab = ({ user, files, setActiveTab, onOpenFile, onNavigateToTasks
                 </div>
                 <div className="metric-content">
                   <div className="metric-label">Overdue Tasks</div>
-                  <div className="metric-value">{myTasksStats.overdue}</div>
+                  <div className="metric-value">{displayOverdue}</div>
                   <div className="metric-detail">Tasks awaiting attention</div>
                 </div>
               </div>
