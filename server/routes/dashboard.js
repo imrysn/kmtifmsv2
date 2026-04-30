@@ -501,4 +501,134 @@ router.get('/team/:teamName', (req, res) => {
   });
 });
 
+// GET /api/dashboard/user-performance/:userId
+// Returns accurate real-time performance analytics for a specific user
+router.get('/user-performance/:userId', async (req, res) => {
+  const { userId } = req.params;
+
+  try {
+    // 1. Task completion: how many assignments assigned to user, how many submitted
+    const taskStats = await new Promise((resolve, reject) => {
+      db.get(`
+        SELECT
+          COUNT(DISTINCT a.id) as total,
+          SUM(CASE WHEN am.status = 'submitted' THEN 1 ELSE 0 END) as submitted
+        FROM assignments a
+        LEFT JOIN assignment_members am ON a.id = am.assignment_id AND am.user_id = ?
+        JOIN users u ON u.id = ?
+        WHERE (a.assigned_to = 'all' AND a.team = u.team)
+           OR (a.assigned_to = 'specific' AND am.user_id = ?)
+      `, [userId, userId, userId], (err, row) => {
+        if (err) reject(err);
+        else resolve(row || { total: 0, submitted: 0 });
+      });
+    });
+
+    // 2. On-time delivery: submitted before or on due_date (or no due_date = on time)
+    const onTimeStats = await new Promise((resolve, reject) => {
+      db.get(`
+        SELECT
+          COUNT(DISTINCT a.id) as total_with_deadline,
+          SUM(CASE
+            WHEN am.status = 'submitted'
+              AND a.due_date IS NOT NULL
+              AND am.submitted_at <= a.due_date
+            THEN 1
+            ELSE 0
+          END) as on_time
+        FROM assignments a
+        JOIN assignment_members am ON a.id = am.assignment_id AND am.user_id = ?
+        JOIN users u ON u.id = ?
+        WHERE a.due_date IS NOT NULL
+          AND ((a.assigned_to = 'all' AND a.team = u.team)
+            OR (a.assigned_to = 'specific' AND am.user_id = ?))
+      `, [userId, userId, userId], (err, row) => {
+        if (err) reject(err);
+        else resolve(row || { total_with_deadline: 0, on_time: 0 });
+      });
+    });
+
+    // 3. Overdue tasks: not submitted AND past due_date
+    const overdueStats = await new Promise((resolve, reject) => {
+      db.get(`
+        SELECT COUNT(DISTINCT a.id) as overdue
+        FROM assignments a
+        LEFT JOIN assignment_members am ON a.id = am.assignment_id AND am.user_id = ?
+        JOIN users u ON u.id = ?
+        WHERE a.due_date IS NOT NULL
+          AND (am.status IS NULL OR am.status != 'submitted')
+          AND a.due_date < NOW()
+          AND ((a.assigned_to = 'all' AND a.team = u.team)
+            OR (a.assigned_to = 'specific' AND am.user_id = ?))
+      `, [userId, userId, userId], (err, row) => {
+        if (err) reject(err);
+        else resolve(row || { overdue: 0 });
+      });
+    });
+
+    // 4. File stats: total, approved, rejected for this user
+    const fileStats = await new Promise((resolve, reject) => {
+      db.get(`
+        SELECT
+          COUNT(*) as total,
+          SUM(CASE WHEN status = 'final_approved' THEN 1 ELSE 0 END) as approved,
+          SUM(CASE WHEN status LIKE 'rejected%' OR current_stage LIKE 'rejected%' THEN 1 ELSE 0 END) as rejected
+        FROM files
+        WHERE user_id = ?
+      `, [userId], (err, row) => {
+        if (err) reject(err);
+        else resolve(row || { total: 0, approved: 0, rejected: 0 });
+      });
+    });
+
+    // Compute derived metrics
+    const taskTotal = taskStats.total || 0;
+    const taskSubmitted = taskStats.submitted || 0;
+    const taskCompletionRate = taskTotal > 0 ? Math.round((taskSubmitted / taskTotal) * 100) : 0;
+
+    const deadlineTotal = onTimeStats.total_with_deadline || 0;
+    const onTimeCount = onTimeStats.on_time || 0;
+    // For on-time rate: tasks with no deadline count as on-time
+    const tasksWithoutDeadline = taskTotal - deadlineTotal;
+    const effectiveOnTime = onTimeCount + tasksWithoutDeadline;
+    const onTimeRate = taskTotal > 0 ? Math.round((effectiveOnTime / taskTotal) * 100) : 100;
+
+    const overdue = overdueStats.overdue || 0;
+
+    const fileTotal = fileStats.total || 0;
+    const fileApproved = fileStats.approved || 0;
+    const fileRejected = fileStats.rejected || 0;
+    const fileApprovalRate = fileTotal > 0 ? Math.round((fileApproved / fileTotal) * 100) : 0;
+    const fileRejectionRate = fileTotal > 0 ? Math.round((fileRejected / fileTotal) * 100) : 0;
+
+    // Overall score: weighted average — task completion 40%, on-time 30%, file approval 30%
+    const taskScore = taskCompletionRate;
+    const timeScore = onTimeRate;
+    const fileScore = fileApprovalRate;
+    const overallScore = Math.max(0, Math.round((taskScore * 0.4) + (timeScore * 0.3) + (fileScore * 0.3)));
+
+    res.json({
+      success: true,
+      performance: {
+        taskTotal,
+        taskSubmitted,
+        taskPending: taskTotal - taskSubmitted,
+        taskCompletionRate,
+        onTimeCount: effectiveOnTime,
+        onTimeRate,
+        overdue,
+        fileTotal,
+        fileApproved,
+        fileRejected,
+        fileApprovalRate,
+        fileRejectionRate,
+        overallScore
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching user performance:', error);
+    res.status(500).json({ success: false, message: 'Failed to fetch performance data' });
+  }
+});
+
 module.exports = router;
