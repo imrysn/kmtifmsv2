@@ -597,8 +597,32 @@ router.get('/team-leader/:userId', (req, res) => {
   );
 });
 
-// Get team members - Direct route (supports /api/team-members/:teamName)
-// IMPORTANT: This must be LAST to avoid conflicts with other routes
+// Get all mentionable users for @mention dropdown in comments
+// NOTE: Defined before /:teamName to prevent the catch-all from swallowing this route
+router.get('/mentionable', (req, res) => {
+  db.all(
+    `SELECT id, username, fullName, role FROM users
+     WHERE role IN ('ADMIN', 'TEAM_LEADER', 'USER')
+     ORDER BY
+       CASE role
+         WHEN 'ADMIN'       THEN 1
+         WHEN 'TEAM_LEADER' THEN 2
+         ELSE 3
+       END,
+       fullName ASC`,
+    [],
+    (err, users) => {
+      if (err) {
+        console.error('❌ Error fetching mentionable users:', err);
+        return res.status(500).json({ success: false, message: 'Failed to fetch users' });
+      }
+      res.json({ success: true, users: users || [] });
+    }
+  );
+});
+
+// Get team members - Direct route (supports /api/users/:teamName)
+// IMPORTANT: This must be LAST to avoid conflicts with other named routes
 router.get('/:teamName', (req, res) => {
   const { teamName } = req.params;
   console.log(`👥 Getting team members for team: ${teamName}`);

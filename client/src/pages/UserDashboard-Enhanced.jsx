@@ -1,4 +1,4 @@
-import { useState, useEffect, Suspense, lazy, useCallback, useMemo, memo, startTransition } from 'react'
+import { useState, useEffect, Suspense, lazy, useCallback, useMemo, startTransition } from 'react'
 import { API_BASE_URL } from '@/config/api'
 import '../css/UserDashboard.css'
 import SkeletonLoader from '../components/common/SkeletonLoader'
@@ -18,14 +18,11 @@ const TasksTab = lazy(() => import('../components/user/TasksTab-Enhanced'))
 const UserDashboard = ({ user, onLogout }) => {
   const [activeTab, setActiveTab] = useState('dashboard')
   const [files, setFiles] = useState([])
-  const [filteredFiles, setFilteredFiles] = useState([])
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
-  const [success, setSuccess] = useState('')
   const [selectedFile, setSelectedFile] = useState(null)
   const [showFileModal, setShowFileModal] = useState(false)
   const [fileComments, setFileComments] = useState([])
-  const [filterStatus, setFilterStatus] = useState('all')
   const [notificationCount, setNotificationCount] = useState(0)
 
   // Wrap in startTransition so badge updates never block scroll/interaction
@@ -62,16 +59,11 @@ const UserDashboard = ({ user, onLogout }) => {
 
   const clearMessages = useCallback(() => {
     setError('')
-    setSuccess('')
   }, [])
 
   const handleLogout = useCallback(() => {
     onLogout()
   }, [onLogout])
-
-  const onUploadSuccess = useCallback((message) => {
-    setSuccess(message)
-  }, [])
 
   const formatFileSize = useCallback((bytes) => {
     if (bytes === 0) return '0 Bytes'
@@ -87,26 +79,6 @@ const UserDashboard = ({ user, onLogout }) => {
   useEffect(() => {
     fetchUserFiles()
   }, [fetchUserFiles])
-
-
-  useEffect(() => {
-    let filtered = files
-    if (filterStatus !== 'all') {
-      filtered = files.filter(file => {
-        switch (filterStatus) {
-          case 'pending':
-            return (file.current_stage || '').includes('pending')
-          case 'approved':
-            return file.status === 'final_approved'
-          case 'rejected':
-            return (file.status || '').includes('rejected')
-          default:
-            return true
-        }
-      })
-    }
-    setFilteredFiles(filtered)
-  }, [files, filterStatus])
 
   const openFileModal = useCallback(async (file) => {
     setSelectedFile(file)
@@ -225,17 +197,12 @@ const UserDashboard = ({ user, onLogout }) => {
         return (
           <Suspense fallback={<SkeletonLoader type="myfiles" />}>
             <MyFilesTab
-              filteredFiles={filteredFiles}
+              filteredFiles={files}
               isLoading={isLoading}
-              filterStatus={filterStatus}
-              setFilterStatus={setFilterStatus}
-              setActiveTab={setActiveTab}
               fetchUserFiles={fetchUserFiles}
               formatFileSize={formatFileSize}
-              openFileModal={openFileModal}
               files={files}
               user={user}
-              onUploadSuccess={onUploadSuccess}
             />
           </Suspense>
         )
@@ -296,11 +263,6 @@ const UserDashboard = ({ user, onLogout }) => {
             <AlertMessage
               type="error"
               message={error}
-              onClose={clearMessages}
-            />
-            <AlertMessage
-              type="success"
-              message={success}
               onClose={clearMessages}
             />
 

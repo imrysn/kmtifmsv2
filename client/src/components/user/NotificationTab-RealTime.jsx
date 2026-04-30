@@ -180,7 +180,7 @@ const NotificationTab = ({ user, onOpenFile, onNavigateToTasks, onNavigate, onUp
         return <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="file-icon-svg"><circle cx="10" cy="10" r="8.5" /><path d="M6 10l2.5 2.5 5.5-5.5" /></svg>;
       case 'rejection': case 'final_rejection':
         return <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="file-icon-svg"><circle cx="10" cy="10" r="8.5" /><line x1="4" y1="4" x2="16" y2="16" /></svg>;
-      case 'comment':
+      case 'comment': case 'mention':
         return <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="file-icon-svg"><path d="M3 3h14a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H6l-3 3V4a1 1 0 0 1 1-1z" /></svg>;
       case 'assignment':
         return <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="file-icon-svg"><path d="M12 2H4a1.5 1.5 0 0 0-1.5 1.5v13A1.5 1.5 0 0 0 4 18h10a1.5 1.5 0 0 0 1.5-1.5V6l-3.5-4z" /><path d="M12 2v4h3.5" /><path d="M6 10h6M6 13h6" /></svg>;
@@ -193,7 +193,7 @@ const NotificationTab = ({ user, onOpenFile, onNavigateToTasks, onNavigate, onUp
     switch (type) {
       case 'approval': case 'final_approval': return 'notification-success';
       case 'rejection': case 'final_rejection': return 'notification-error';
-      case 'comment': return 'notification-info';
+      case 'comment': case 'mention': return 'notification-info';
       case 'assignment': return 'notification-assignment';
       default: return 'notification-default';
     }

@@ -29,6 +29,18 @@ const upload = multer({
   }
 });
 
+// Helper: fix garbled UTF-8 filenames that multer/busboy decoded as latin1.
+// Japanese, Chinese, Korean and other multibyte filenames arrive as latin1-garbled
+// strings. Re-encoding to latin1 bytes and decoding as UTF-8 recovers the real name.
+function fixFilename(name) {
+  if (!name) return name;
+  try {
+    const reDecoded = Buffer.from(name, 'latin1').toString('utf8');
+    if (reDecoded !== name && !reDecoded.includes('\uFFFD')) return reDecoded;
+  } catch (_) {}
+  return name;
+}
+
 // Batch submission tracker to group multiple file submissions into single notification
 const pendingBatchSubmissions = new Map();
 
@@ -167,7 +179,7 @@ router.get('/admin/all', async (req, res) => {
 
       // Get attachments for this assignment
       const attachments = await query(`
-        SELECT id, original_name, filename, file_path, file_size, file_type, folder_name, relative_path, created_at,
+        SELECT id, original_name, filename, file_path, public_network_url, file_size, file_type, folder_name, relative_path, created_at,
                COALESCE(status, 'team_leader_approved') AS status,
                COALESCE(current_stage, 'pending_admin') AS current_stage
         FROM assignment_attachments
@@ -432,7 +444,7 @@ router.get('/team/:team/all-tasks', async (req, res) => {
 
       // Get attachments for this assignment
       const attachments = await query(`
-        SELECT id, original_name, filename, file_path, file_size, file_type, folder_name, relative_path, created_at,
+        SELECT id, original_name, filename, file_path, public_network_url, file_size, file_type, folder_name, relative_path, created_at,
                COALESCE(status, 'team_leader_approved') AS status,
                COALESCE(current_stage, 'pending_admin') AS current_stage
         FROM assignment_attachments
@@ -553,7 +565,7 @@ router.get('/team-leader/:userId', async (req, res) => {
 
       // Get attachments for this assignment
       const attachments = await query(`
-        SELECT id, original_name, filename, file_path, file_size, file_type, folder_name, relative_path, created_at,
+        SELECT id, original_name, filename, file_path, public_network_url, file_size, file_type, folder_name, relative_path, created_at,
                COALESCE(status, 'team_leader_approved') AS status,
                COALESCE(current_stage, 'pending_admin') AS current_stage
         FROM assignment_attachments
@@ -935,8 +947,9 @@ router.post('/create', upload.array('attachments', 10000), async (req, res) => {
 
           // Move file from temp location to team leader's folder
           let finalPath;
+          const fixedOriginalname = fixFilename(file.originalname);
           try {
-            finalPath = await moveToUserFolder(file.path, finalTeamLeaderUsername, file.originalname);
+            finalPath = await moveToUserFolder(file.path, finalTeamLeaderUsername, fixedOriginalname);
             console.log(`✅ Moved attachment to: ${finalPath}`);
           } catch (moveError) {
             console.error('⚠️ Failed to move attachment file:', moveError);
@@ -944,15 +957,15 @@ router.post('/create', upload.array('attachments', 10000), async (req, res) => {
             finalPath = file.path;
           }
 
-          const relPath = relativePaths[fileIndex] || file.originalname;
+          const relPath = relativePaths[fileIndex] || fixedOriginalname;
           const folderName = relPath.includes('/') ? relPath.split('/')[0] : null;
-          console.log(`📎 File ${fileIndex}: ${file.originalname} → relPath: ${relPath}, folderName: ${folderName}`);
+          console.log(`📎 File ${fileIndex}: ${fixedOriginalname} → relPath: ${relPath}, folderName: ${folderName}`);
 
           // Re-move the file now that we know the folder structure.
           // moveToUserFolder will create username/folderName/subpath on disk.
           if (folderName) {
             try {
-              const movedPath = await moveToUserFolder(finalPath, finalTeamLeaderUsername, file.originalname, folderName, relPath);
+              const movedPath = await moveToUserFolder(finalPath, finalTeamLeaderUsername, fixedOriginalname, folderName, relPath);
               finalPath = movedPath;
               console.log(`✅ Re-moved into folder structure: ${finalPath}`);
             } catch (reMoveError) {
@@ -976,7 +989,7 @@ router.post('/create', upload.array('attachments', 10000), async (req, res) => {
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
           `, [
             assignmentId,
-            file.originalname,
+            fixedOriginalname,
             path.basename(finalPath),
             finalPath,
             file.size,
@@ -984,7 +997,7 @@ router.post('/create', upload.array('attachments', 10000), async (req, res) => {
             finalTeamLeaderId,
             finalTeamLeaderUsername,
             folderName,
-            relPath !== file.originalname ? relPath : null
+            relPath !== fixedOriginalname ? relPath : null
           ]);
           attachmentsCreated++;
         }
@@ -1314,8 +1327,9 @@ router.put('/:id', upload.array('attachments', 10000), async (req, res) => {
 
           // Move file from temp location to team leader's folder
           let finalPath;
+          const fixedOriginalname = fixFilename(file.originalname);
           try {
-            finalPath = await moveToUserFolder(file.path, finalTeamLeaderUsername, file.originalname);
+            finalPath = await moveToUserFolder(file.path, finalTeamLeaderUsername, fixedOriginalname);
             console.log(`✅ Moved attachment to: ${finalPath}`);
           } catch (moveError) {
             console.error('⚠️ Failed to move attachment file:', moveError);
@@ -1323,14 +1337,14 @@ router.put('/:id', upload.array('attachments', 10000), async (req, res) => {
             finalPath = file.path;
           }
 
-          const relPath = relativePaths[fileIndex] || file.originalname;
+          const relPath = relativePaths[fileIndex] || fixedOriginalname;
           const folderName = relPath.includes('/') ? relPath.split('/')[0] : null;
-          console.log(`📎 [PUT] File ${fileIndex}: ${file.originalname} → relPath: ${relPath}, folderName: ${folderName}`);
+          console.log(`📎 [PUT] File ${fileIndex}: ${fixedOriginalname} → relPath: ${relPath}, folderName: ${folderName}`);
 
           // Re-move the file into the correct folder structure now that we know it.
           if (folderName) {
             try {
-              const movedPath = await moveToUserFolder(finalPath, finalTeamLeaderUsername, file.originalname, folderName, relPath);
+              const movedPath = await moveToUserFolder(finalPath, finalTeamLeaderUsername, fixedOriginalname, folderName, relPath);
               finalPath = movedPath;
               console.log(`✅ [PUT] Re-moved into folder structure: ${finalPath}`);
             } catch (reMoveError) {
@@ -1353,7 +1367,7 @@ router.put('/:id', upload.array('attachments', 10000), async (req, res) => {
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
           `, [
             id,
-            file.originalname,
+            fixedOriginalname,
             path.basename(finalPath),
             finalPath,
             file.size,
@@ -1361,7 +1375,7 @@ router.put('/:id', upload.array('attachments', 10000), async (req, res) => {
             finalTeamLeaderId,
             finalTeamLeaderUsername,
             folderName,
-            relPath !== file.originalname ? relPath : null
+            relPath !== fixedOriginalname ? relPath : null
           ]);
           attachmentsCreated++;
         }
@@ -1482,6 +1496,8 @@ router.get('/user/:userId', async (req, res) => {
         am.submitted_at as user_submitted_at,
         fs.original_name as submitted_file_name,
         fs.file_path as submitted_file_path,
+        fs.public_network_url as submitted_file_nas_path,
+        fs.status as submitted_file_status,
         fs.id as submitted_file_id,
         fs.tag as submitted_file_tag,
         tl.fullName as team_leader_fullname,
@@ -1514,7 +1530,9 @@ router.get('/user/:userId', async (req, res) => {
 
       // Get attachments for this assignment
       const attachments = await query(`
-        SELECT id, original_name, filename, file_path, file_size, file_type, folder_name, relative_path, created_at
+        SELECT id, original_name, filename, file_path, public_network_url, file_size, file_type, folder_name, relative_path, created_at,
+               COALESCE(status, 'team_leader_approved') AS status,
+               COALESCE(current_stage, 'pending_admin') AS current_stage
         FROM assignment_attachments
         WHERE assignment_id = ?
         ORDER BY COALESCE(folder_name, ''), created_at DESC
@@ -1529,6 +1547,7 @@ router.get('/user/:userId', async (req, res) => {
           f.original_name,
           f.filename,
           f.file_path,
+          f.public_network_url,
           f.file_type,
           f.file_size,
           f.tag,
@@ -1814,11 +1833,28 @@ router.post('/:assignmentId/comments', async (req, res) => {
     `, [result.insertId]);
 
     // Create notifications for assigned members
+    // NOTE: We pre-scan for @mentions first so mentioned users only get the
+    // mention notification — not both a generic comment AND a mention.
     try {
       const assignment = await queryOne(
         'SELECT title, team_leader_id FROM assignments WHERE id = ?',
         [assignmentId]
       );
+
+      // Pre-collect all mentioned user IDs so we can skip generic notif for them
+      const mentionedUserIds = new Set();
+      const preScanRegex = /@([A-Za-z0-9_.]+)/g;
+      let preScanMatch;
+      while ((preScanMatch = preScanRegex.exec(comment)) !== null) {
+        const token = preScanMatch[1].replace(/_/g, ' ').toLowerCase();
+        const mentioned = await queryOne(
+          `SELECT id FROM users WHERE LOWER(username) = ? OR LOWER(REPLACE(fullName,' ','_')) = ? OR LOWER(fullName) = ? LIMIT 1`,
+          [token, token, token]
+        );
+        if (mentioned && String(mentioned.id) !== String(userId)) {
+          mentionedUserIds.add(mentioned.id);
+        }
+      }
 
       const assignedMembers = await query(
         'SELECT user_id FROM assignment_members WHERE assignment_id = ? AND user_id != ?',
@@ -1827,7 +1863,7 @@ router.post('/:assignmentId/comments', async (req, res) => {
 
       if (user.role === 'ADMIN') {
         const teamLeaderId = assignment.team_leader_id || assignment.teamLeaderId;
-        if (teamLeaderId) {
+        if (teamLeaderId && !mentionedUserIds.has(teamLeaderId)) {
           await query(`
             INSERT INTO notifications (
               user_id, assignment_id, file_id, type, title, message,
@@ -1841,48 +1877,85 @@ router.post('/:assignmentId/comments', async (req, res) => {
           ]);
         }
         for (const member of assignedMembers) {
-          await query(`
-            INSERT INTO notifications (
-              user_id, assignment_id, file_id, type, title, message,
-              action_by_id, action_by_username, action_by_role
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-          `, [
-            member.user_id, assignmentId, null, 'comment',
-            'New Admin Comment on Assignment',
-            `Admin ${user.fullName} commented on "${assignment.title}": ${comment.substring(0, 100)}${comment.length > 100 ? '...' : ''}`,
-            userId, username, user.role
-          ]);
+          if (!mentionedUserIds.has(member.user_id)) {
+            await query(`
+              INSERT INTO notifications (
+                user_id, assignment_id, file_id, type, title, message,
+                action_by_id, action_by_username, action_by_role
+              ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            `, [
+              member.user_id, assignmentId, null, 'comment',
+              'New Admin Comment on Assignment',
+              `Admin ${user.fullName} commented on "${assignment.title}": ${comment.substring(0, 100)}${comment.length > 100 ? '...' : ''}`,
+              userId, username, user.role
+            ]);
+          }
         }
       } else if (user.role === 'TEAM_LEADER') {
         for (const member of assignedMembers) {
+          if (!mentionedUserIds.has(member.user_id)) {
+            await query(`
+              INSERT INTO notifications (
+                user_id, assignment_id, file_id, type, title, message,
+                action_by_id, action_by_username, action_by_role
+              ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            `, [
+              member.user_id, assignmentId, null, 'comment',
+              'New Comment on Assignment',
+              `${user.fullName} commented on "${assignment.title}": ${comment.substring(0, 100)}${comment.length > 100 ? '...' : ''}`,
+              userId, username, user.role
+            ]);
+          }
+        }
+      } else if (user.role === 'USER' && assignment.team_leader_id && assignment.team_leader_id !== userId) {
+        if (!mentionedUserIds.has(assignment.team_leader_id)) {
           await query(`
             INSERT INTO notifications (
               user_id, assignment_id, file_id, type, title, message,
               action_by_id, action_by_username, action_by_role
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
           `, [
-            member.user_id, assignmentId, null, 'comment',
+            assignment.team_leader_id, assignmentId, null, 'comment',
             'New Comment on Assignment',
             `${user.fullName} commented on "${assignment.title}": ${comment.substring(0, 100)}${comment.length > 100 ? '...' : ''}`,
             userId, username, user.role
           ]);
         }
-      } else if (user.role === 'USER' && assignment.team_leader_id && assignment.team_leader_id !== userId) {
-        await query(`
-          INSERT INTO notifications (
-            user_id, assignment_id, file_id, type, title, message,
-            action_by_id, action_by_username, action_by_role
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-        `, [
-          assignment.team_leader_id, assignmentId, null, 'comment',
-          'New Comment on Assignment',
-          `${user.fullName} commented on "${assignment.title}": ${comment.substring(0, 100)}${comment.length > 100 ? '...' : ''}`,
-          userId, username, user.role
-        ]);
       }
     } catch (notifError) {
       console.error('Failed to create comment notifications:', notifError.message);
       // Don't fail the request if notifications fail
+    }
+
+    // ── @mention notifications ─────────────────────────────────────────────
+    try {
+      const mentionRegex = /@([A-Za-z0-9_.]+)/g;
+      let match;
+      const notifiedIds = new Set([userId]); // don't notify self
+      while ((match = mentionRegex.exec(comment)) !== null) {
+        const token = match[1].replace(/_/g, ' ').toLowerCase();
+        // Match by username OR fullName (spaces replaced with underscores in mentions)
+        const mentioned = await queryOne(
+          `SELECT id, fullName FROM users WHERE LOWER(username) = ? OR LOWER(REPLACE(fullName,' ','_')) = ? OR LOWER(fullName) = ? LIMIT 1`,
+          [token, token, token]
+        );
+        if (mentioned && !notifiedIds.has(mentioned.id)) {
+          notifiedIds.add(mentioned.id);
+          const assignmentInfo = await queryOne('SELECT title FROM assignments WHERE id = ?', [assignmentId]);
+          await query(`
+            INSERT INTO notifications (user_id, assignment_id, file_id, type, title, message, action_by_id, action_by_username, action_by_role)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+          `, [
+            mentioned.id, assignmentId, null, 'mention',
+            `${user.fullName} mentioned you`,
+            `${user.fullName} mentioned you in a comment on "${assignmentInfo?.title || 'an assignment'}": ${comment.substring(0, 100)}${comment.length > 100 ? '...' : ''}`,
+            userId, username, user.role
+          ]);
+          console.log(`🔔 Mention notification sent to user ${mentioned.id} (${mentioned.fullName})`);
+        }
+      }
+    } catch (mentionErr) {
+      console.error('⚠️ Failed to send mention notifications:', mentionErr.message);
     }
 
     res.json({
@@ -1999,6 +2072,35 @@ router.post('/:assignmentId/comments/:commentId/reply', async (req, res) => {
         console.error('⚠️ Failed to create reply notification:', notifError);
         // Don't fail the request if notifications fail
       }
+    }
+
+    // ── @mention notifications for reply ───────────────────────────────────
+    try {
+      const mentionRegex = /@([A-Za-z0-9_.]+)/g;
+      let match;
+      const notifiedIds = new Set([userId, comment.user_id]);
+      while ((match = mentionRegex.exec(reply)) !== null) {
+        const token = match[1].replace(/_/g, ' ').toLowerCase();
+        const mentioned = await queryOne(
+          `SELECT id, fullName FROM users WHERE LOWER(username) = ? OR LOWER(REPLACE(fullName,' ','_')) = ? OR LOWER(fullName) = ? LIMIT 1`,
+          [token, token, token]
+        );
+        if (mentioned && !notifiedIds.has(mentioned.id)) {
+          notifiedIds.add(mentioned.id);
+          const assignmentInfo = await queryOne('SELECT title FROM assignments WHERE id = ?', [assignmentId]);
+          await query(`
+            INSERT INTO notifications (user_id, assignment_id, file_id, type, title, message, action_by_id, action_by_username, action_by_role)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+          `, [
+            mentioned.id, assignmentId, null, 'mention',
+            `${user.fullName} mentioned you`,
+            `${user.fullName} mentioned you in a reply on "${assignmentInfo?.title || 'an assignment'}": ${reply.substring(0, 100)}${reply.length > 100 ? '...' : ''}`,
+            userId, username, user.role
+          ]);
+        }
+      }
+    } catch (mentionErr) {
+      console.error('⚠️ Failed to send mention notifications for reply:', mentionErr.message);
     }
 
     res.json({

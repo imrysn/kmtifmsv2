@@ -51,8 +51,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 1000;
-  /* backdrop-filter: blur removed — forces full-page repaint on every scroll frame */
+  z-index: 10000;
+  animation: cmOverlayIn 0.18s ease-out forwards;
 }
 
 /* ── Modal container — FB white card ── */
@@ -64,11 +64,10 @@
   max-height: 88vh;
   display: flex;
   flex-direction: column;
-  /* Reduced shadow spread — large blur radius is expensive to composite */
   box-shadow: 0 4px 16px rgba(0,0,0,0.22);
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-  /* Promote modal to its own compositor layer */
-  transform: translateZ(0);
+  animation: cmModalIn 0.22s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  transform-origin: center center;
 }
 
 /* ── Modal header ── */
@@ -463,6 +462,8 @@
   padding: 8px 14px;
   border: none;
   transition: background 0.15s;
+  overflow: visible;
+  position: relative;
 }
 
 .comments-modal .comment-input-wrapper:focus-within,
