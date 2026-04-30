@@ -4,6 +4,16 @@
    MODAL OVERLAY
    ================================================================= */
 
+@keyframes cmOverlayIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes cmModalIn {
+  from { opacity: 0; transform: scale(0.95) translateY(10px); }
+  to   { opacity: 1; transform: scale(1)    translateY(0); }
+}
+
 .comments-modal-overlay {
   position: fixed;
   top: 0;
@@ -15,6 +25,7 @@
   align-items: center;
   justify-content: center;
   z-index: 10000;
+  animation: cmOverlayIn 0.18s ease-out forwards;
 }
 
 /* =================================================================
@@ -29,11 +40,10 @@
   max-height: 88vh;
   display: flex;
   flex-direction: column;
-  /* Isolate this layer — scroll inside won't repaint elements outside */
-  transform: translateZ(0);
-  /* Cheaper shadow — no blur spread, just a thin border */
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  animation: cmModalIn 0.22s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  transform-origin: center center;
 }
 
 /* =================================================================

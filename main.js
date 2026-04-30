@@ -1392,13 +1392,10 @@ if (ipcMain) {
         return { success: false, error: 'Folder not found' };
       }
 
-      // If it's a file path, get the parent directory
-      const stats = fs.statSync(normalizedPath);
-      const targetPath = stats.isDirectory() ? normalizedPath : path.dirname(normalizedPath);
-
-      log(LogLevel.DEBUG, `Opening folder in Explorer: ${targetPath}`);
-      // showItemInFolder highlights the item inside explorer
-      shell.showItemInFolder(targetPath);
+      log(LogLevel.DEBUG, `Opening in Explorer: ${normalizedPath}`);
+      // shell.showItemInFolder opens Explorer with the item highlighted in its parent.
+      // Works correctly for both files AND folders — no need to dirname first.
+      shell.showItemInFolder(normalizedPath);
       return { success: true };
     } catch (error) {
       log(LogLevel.ERROR, 'Error opening folder:', error.message);

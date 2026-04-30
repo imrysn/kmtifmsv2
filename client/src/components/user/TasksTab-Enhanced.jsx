@@ -876,99 +876,36 @@ const TasksTab = memo(({
   // Keep ref in sync on every render
   currentAssignmentIdRef.current = currentCommentsAssignment?.id;
 
-  // ─── Inline three-dot menu for files/folders ─────────────────────────────
-  function FileMoreMenuInline({ onDownload, onDelete, onCopyPath, isFolder = false }) {
-    const [open, setOpen] = useState(false);
-    const ref = useRef(null);
-    useEffect(() => {
-      if (!open) return;
-      const close = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
-      document.addEventListener('mousedown', close);
-      return () => document.removeEventListener('mousedown', close);
-    }, [open]);
+  // ─── Direct delete icon button for files/folders ─────────────────────────
+  function FileMoreMenuInline({ onDelete, isFolder = false }) {
+    if (!onDelete) return null;
     return (
-      <div ref={ref} style={{ position: 'relative' }}>
-        <button
-          onClick={(e) => { e.stopPropagation(); setOpen(v => !v); }}
-          style={{
-            background: 'transparent', border: 'none', borderRadius: '6px',
-            width: '28px', height: '28px', display: 'flex', alignItems: 'center',
-            justifyContent: 'center', cursor: 'pointer', color: '#9ca3af', padding: 0,
-            transition: 'all 0.15s',
-          }}
-          onMouseEnter={e => { e.currentTarget.style.backgroundColor = '#f3f4f6'; e.currentTarget.style.color = '#374151'; }}
-          onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = '#9ca3af'; }}
-          title="More options"
-        >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-            <circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/>
-          </svg>
-        </button>
-        {open && (
-          <div
-            style={{
-              position: 'absolute', right: 0, top: '100%', marginTop: '4px',
-              background: '#fff', border: '1px solid #e5e7eb', borderRadius: '8px',
-              boxShadow: '0 4px 12px rgba(0,0,0,0.12)', zIndex: 100,
-              minWidth: '150px', padding: '4px',
-            }}
-            onClick={e => e.stopPropagation()}
-          >
-            {onCopyPath && (
-              <button
-                onClick={() => { onCopyPath(); setOpen(false); }}
-                style={{
-                  display: 'flex', alignItems: 'center', gap: '8px', width: '100%',
-                  padding: '8px 12px', background: 'transparent', border: 'none',
-                  borderRadius: '6px', cursor: 'pointer', fontSize: '13px',
-                  color: '#374151', textAlign: 'left',
-                }}
-                onMouseEnter={e => e.currentTarget.style.backgroundColor = '#f3f4f6'}
-                onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
-              >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>
-                {isFolder ? 'Open Folder Path' : 'Open File Path'}
-              </button>
-            )}
-            <button
-              onClick={() => { setOpen(false); onDownload(); }}
-              style={{
-                display: 'flex', alignItems: 'center', gap: '8px', width: '100%',
-                padding: '8px 12px', background: 'transparent', border: 'none',
-                borderRadius: '6px', cursor: 'pointer', fontSize: '13px',
-                color: '#374151', textAlign: 'left',
-              }}
-              onMouseEnter={e => e.currentTarget.style.backgroundColor = '#f3f4f6'}
-              onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
-            >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
-                <polyline points="7 10 12 15 17 10"/>
-                <line x1="12" y1="15" x2="12" y2="3"/>
-              </svg>
-              {isFolder ? 'Download Folder' : 'Download'}
-            </button>
-            {onDelete && (
-              <button
-                onClick={() => { setOpen(false); onDelete(); }}
-                style={{
-                  display: 'flex', alignItems: 'center', gap: '8px', width: '100%',
-                  padding: '8px 12px', background: 'transparent', border: 'none',
-                  borderRadius: '6px', cursor: 'pointer', fontSize: '13px',
-                  color: '#dc2626', textAlign: 'left',
-                }}
-                onMouseEnter={e => e.currentTarget.style.backgroundColor = '#fee2e2'}
-                onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
-              >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a1 1 0 011-1h4a1 1 0 011 1v2"/>
-                </svg>
-                {isFolder ? 'Delete Folder' : 'Delete'}
-              </button>
-            )}
-          </div>
-        )}
-      </div>
+      <button
+        onClick={(e) => { e.stopPropagation(); onDelete(); }}
+        title={isFolder ? 'Delete Folder' : 'Delete File'}
+        style={{
+          background: 'transparent',
+          border: 'none',
+          borderRadius: '6px',
+          width: '30px',
+          height: '30px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          cursor: 'pointer',
+          color: '#9ca3af',
+          padding: 0,
+          flexShrink: 0,
+          transition: 'all 0.15s',
+        }}
+        onMouseEnter={e => { e.currentTarget.style.backgroundColor = '#fee2e2'; e.currentTarget.style.color = '#dc2626'; }}
+        onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = '#9ca3af'; }}
+      >
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <line x1="18" y1="6" x2="6" y2="18"/>
+          <line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
     );
   }
 

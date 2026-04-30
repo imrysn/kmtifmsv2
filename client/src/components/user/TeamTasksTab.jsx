@@ -4,6 +4,82 @@ import { createPortal } from 'react-dom'
 import './css/TeamTasksTab.css'
 import { FileIcon, FileOpenModal } from '../shared'
 
+// ── Read-only three-dot menu (Download + Open Folder Path, NO delete) ────────
+function FileMoreMenu({ onDownload, onOpenPath, isFolder = false }) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef(null)
+
+  useEffect(() => {
+    if (!open) return
+    const close = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false) }
+    document.addEventListener('mousedown', close)
+    return () => document.removeEventListener('mousedown', close)
+  }, [open])
+
+  return (
+    <div ref={ref} style={{ position: 'relative', flexShrink: 0 }} onClick={e => e.stopPropagation()}>
+      <button
+        onClick={e => { e.stopPropagation(); setOpen(v => !v) }}
+        style={{
+          background: 'transparent', border: 'none', borderRadius: '6px',
+          width: '28px', height: '28px', display: 'flex', alignItems: 'center',
+          justifyContent: 'center', cursor: 'pointer', color: '#9ca3af', padding: 0,
+        }}
+        onMouseEnter={e => { e.currentTarget.style.backgroundColor = '#f3f4f6'; e.currentTarget.style.color = '#374151' }}
+        onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = '#9ca3af' }}
+        title="More options"
+      >
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+          <circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/>
+        </svg>
+      </button>
+      {open && (
+        <div style={{
+          position: 'absolute', right: 0, top: '100%', marginTop: '4px',
+          background: '#fff', border: '1px solid #e5e7eb', borderRadius: '8px',
+          boxShadow: '0 4px 12px rgba(0,0,0,0.12)', zIndex: 200,
+          minWidth: '160px', padding: '4px',
+        }}>
+          {onOpenPath && (
+            <button
+              onClick={() => { onOpenPath(); setOpen(false) }}
+              style={{
+                display: 'flex', alignItems: 'center', gap: '8px', width: '100%',
+                padding: '8px 12px', background: 'transparent', border: 'none',
+                borderRadius: '6px', cursor: 'pointer', fontSize: '13px', color: '#374151', textAlign: 'left',
+              }}
+              onMouseEnter={e => e.currentTarget.style.backgroundColor = '#f3f4f6'}
+              onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/>
+              </svg>
+              {isFolder ? 'Open Folder Path' : 'Open File Path'}
+            </button>
+          )}
+          <button
+            onClick={() => { onDownload(); setOpen(false) }}
+            style={{
+              display: 'flex', alignItems: 'center', gap: '8px', width: '100%',
+              padding: '8px 12px', background: 'transparent', border: 'none',
+              borderRadius: '6px', cursor: 'pointer', fontSize: '13px', color: '#374151', textAlign: 'left',
+            }}
+            onMouseEnter={e => e.currentTarget.style.backgroundColor = '#f3f4f6'}
+            onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+              <polyline points="7 10 12 15 17 10"/>
+              <line x1="12" y1="15" x2="12" y2="3"/>
+            </svg>
+            {isFolder ? 'Download Folder' : 'Download'}
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}
+
 const TeamTasksTab = ({ user }) => {
   const [assignments, setAssignments] = useState([])
   const [loading, setLoading] = useState(true)
@@ -321,6 +397,51 @@ const TeamTasksTab = ({ user }) => {
   const clearMessages = () => {
     setError('')
     setSuccess('')
+  }
+
+  // Download a single file
+  const handleDownloadFile = async (file) => {
+    const fileUrl = `${API_BASE_URL}/api/files/${file.id}/download`
+    const fileName = file.original_name || file.filename || 'file'
+    if (window.electron?.downloadFile) {
+      await window.electron.downloadFile(fileUrl, fileName)
+    } else {
+      const a = document.createElement('a')
+      a.href = fileUrl
+      a.download = fileName
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+    }
+  }
+
+  // Download all files in a folder as a zip
+  const handleDownloadFolder = async (folderFiles, folderName) => {
+    const fileIds = folderFiles.map(f => f.id).join(',')
+    const fileUrl = `${API_BASE_URL}/api/files/folder/zip?fileIds=${fileIds}&folderName=${encodeURIComponent(folderName)}`
+    const fileName = `${folderName}.zip`
+    if (window.electron?.downloadFile) {
+      await window.electron.downloadFile(fileUrl, fileName)
+    } else {
+      const a = document.createElement('a')
+      a.href = fileUrl
+      a.download = fileName
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+    }
+  }
+
+  // Open the folder containing a file in Windows Explorer
+  const handleOpenFolderPath = async (fileId) => {
+    if (!window.electron?.openFolderInExplorer) return
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/files/${fileId}/path`)
+      const data = await res.json()
+      if (data.success && data.filePath) {
+        await window.electron.openFolderInExplorer(data.filePath)
+      }
+    } catch (e) { console.error('Open folder path error:', e) }
   }
 
   // Fetch comments for an assignment
@@ -661,7 +782,7 @@ const TeamTasksTab = ({ user }) => {
                               }}
                               style={{ cursor: 'pointer', backgroundColor: isExpanded ? '#BFDBFE' : '#DBEAFE' }}
                             >
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1 }}>
                                 <div style={{ fontSize: '32px', flexShrink: 0 }}>
                                   {isExpanded ? '📂' : '📁'}
                                 </div>
@@ -673,6 +794,11 @@ const TeamTasksTab = ({ user }) => {
                                     Submitted by <span style={{ fontWeight: '500' }}>{firstFile.fullName || firstFile.username}</span> • {folderFiles.length} files
                                   </div>
                                 </div>
+                                <FileMoreMenu
+                                  isFolder
+                                  onDownload={() => handleDownloadFolder(folderFiles, folderName)}
+                                  onOpenPath={() => handleOpenFolderPath(firstFile.id)}
+                                />
                               </div>
                             </div>
                           );
@@ -691,61 +817,23 @@ const TeamTasksTab = ({ user }) => {
                                   }}
                                   style={{ paddingLeft: '40px', backgroundColor: '#fafafa' }}
                                 >
-                                  <div style={{
-                                    display: 'flex',
-                                    alignItems: 'flex-start',
-                                    gap: '12px'
-                                  }}>
-                                    <FileIcon
-                                      fileType={file.original_name.split('.').pop()}
-                                      size="small"
-                                      style={{
-                                        width: '40px',
-                                        height: '40px',
-                                        flexShrink: 0
-                                      }}
-                                    />
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1 }}>
+                                    <FileIcon fileType={file.original_name.split('.').pop()} size="small" style={{ width: '40px', height: '40px', flexShrink: 0 }} />
                                     <div style={{ flex: 1, minWidth: 0 }}>
-                                      <div style={{
-                                        fontWeight: '500',
-                                        fontSize: '14px',
-                                        color: '#111827',
-                                        marginBottom: '6px',
-                                        overflow: 'hidden',
-                                        textOverflow: 'ellipsis',
-                                        whiteSpace: 'nowrap'
-                                      }}>
+                                      <div style={{ fontWeight: '500', fontSize: '14px', color: '#111827', marginBottom: '6px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                         {file.relative_path || file.original_name}
                                       </div>
-                                      <div style={{
-                                      fontSize: '12px',
-                                      color: '#6b7280',
-                                      display: 'flex',
-                                      alignItems: 'center',
-                                      gap: '6px',
-                                      flexWrap: 'wrap'
-                                      }}>
-                                      <span>by <span style={{ fontWeight: '500', color: '#374151' }}>{file.fullName || file.username}</span></span>
-                                      <span style={{ color: '#d1d5db' }}>•</span>
-                                      <span>{formatDate(file.submitted_at)}</span>
-                                      {file.tag && (
-                                      <>
-                                      <span style={{ color: '#d1d5db' }}>•</span>
-                                      <span style={{
-                                        backgroundColor: '#eff6ff',
-                                        color: '#1e40af',
-                                          padding: '2px 10px',
-                                        borderRadius: '12px',
-                                          fontSize: '11px',
-                                            fontWeight: '600',
-                                              border: '1px solid #bfdbfe'
-                                            }}>
-                                              🏷️ {file.tag}
-                                            </span>
-                                          </>
-                                        )}
+                                      <div style={{ fontSize: '12px', color: '#6b7280', display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                                        <span>by <span style={{ fontWeight: '500', color: '#374151' }}>{file.fullName || file.username}</span></span>
+                                        <span style={{ color: '#d1d5db' }}>•</span>
+                                        <span>{formatDate(file.submitted_at)}</span>
+                                        {file.tag && (<><span style={{ color: '#d1d5db' }}>•</span><span style={{ backgroundColor: '#eff6ff', color: '#1e40af', padding: '2px 10px', borderRadius: '12px', fontSize: '11px', fontWeight: '600', border: '1px solid #bfdbfe' }}>🏷️ {file.tag}</span></>)}
                                       </div>
                                     </div>
+                                    <FileMoreMenu
+                                      onDownload={() => handleDownloadFile(file)}
+                                      onOpenPath={() => handleOpenFolderPath(file.id)}
+                                    />
                                   </div>
                                 </div>
                               );
@@ -767,8 +855,9 @@ const TeamTasksTab = ({ user }) => {
                             >
                               <div style={{
                                 display: 'flex',
-                                alignItems: 'flex-start',
-                                gap: '12px'
+                                alignItems: 'center',
+                                gap: '12px',
+                                flex: 1
                               }}>
                                 <FileIcon
                                   fileType={file.original_name.split('.').pop()}
@@ -823,6 +912,10 @@ const TeamTasksTab = ({ user }) => {
                                     )}
                                   </div>
                                 </div>
+                                <FileMoreMenu
+                                  onDownload={() => handleDownloadFile(file)}
+                                  onOpenPath={() => handleOpenFolderPath(file.id)}
+                                />
                               </div>
                             </div>
                           );
