@@ -2,11 +2,6 @@
 
 async function migrate() {
     try {
-        if (!USE_MYSQL) {
-            // In SQLite, we handle this in initialize.js usually, but let's be safe
-            return true;
-        }
-
         const mysqlConfig = require('../../database/config');
 
         // Check if tag column exists

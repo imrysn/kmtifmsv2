@@ -2,20 +2,20 @@
 @import './variables.css';
 
 .user-file-card-component.file-card {
-  background: var(--macos-card-bg);
-  backdrop-filter: var(--macos-blur);
-  -webkit-backdrop-filter: var(--macos-blur);
+  background: transparent;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
   border: var(--macos-border);
   border-radius: var(--radius-lg);
   padding: var(--spacing-lg);
-  box-shadow: var(--macos-shadow);
+  box-shadow: none;
   cursor: pointer;
   transition: all 0.2s ease;
 }
 
 .user-file-card-component.file-card:hover {
   transform: translateY(-2px);
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  box-shadow: none;
 }
 
 /* Horizontal Layout Container */

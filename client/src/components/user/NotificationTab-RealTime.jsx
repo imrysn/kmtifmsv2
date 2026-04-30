@@ -1,288 +1,207 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef, startTransition } from 'react';
 import { API_BASE_URL } from '@/config/api';
-import { useTaskbarFlash } from '../../utils/useTaskbarFlash';
 import './css/NotificationTab.css';
 import { parseNotification } from '../shared/SmartNavigation';
 
+const POLL_INTERVAL = 30000; // 30s — was 5s, causing constant re-renders & server load
+
 const NotificationTab = ({ user, onOpenFile, onNavigateToTasks, onNavigate, onUpdateUnreadCount }) => {
   const [notifications, setNotifications] = useState([]);
-  const [isLoading, setIsLoading] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [displayCount, setDisplayCount] = useState(10);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [showAll, setShowAll] = useState(false);
 
-  // Enable taskbar flashing for new notifications
-  useTaskbarFlash(unreadCount);
+  // Keep latest onUpdateUnreadCount in a ref so the poll closure never goes stale
+  const onUpdateUnreadCountRef = useRef(onUpdateUnreadCount);
+  useEffect(() => { onUpdateUnreadCountRef.current = onUpdateUnreadCount; }, [onUpdateUnreadCount]);
 
-  useEffect(() => {
-    let isMounted = true;
+  const applyNotifications = useCallback((data) => {
+    if (!data.success) return;
+    // startTransition so poll re-renders never block user scrolling
+    startTransition(() => {
+      setNotifications(data.notifications || []);
+      const count = data.unreadCount || 0;
+      setUnreadCount(count);
+      if (onUpdateUnreadCountRef.current) onUpdateUnreadCountRef.current(count);
+    });
+  }, []);
 
-    const loadNotifications = async () => {
-      if (isMounted) {
-        await fetchNotifications();
-      }
-    };
-
-    loadNotifications();
-
-    // Poll for new notifications every 5 seconds for real-time updates
-    const pollInterval = setInterval(() => {
-      if (isMounted) {
-        fetchNotifications();
-      }
-    }, 5000);
-
-    return () => {
-      isMounted = false;
-      clearInterval(pollInterval);
-    };
-  }, [user.id]);
-
-  const fetchNotifications = async () => {
+  // Single stable fetch function — defined once, used by both initial load and poll
+  const fetchNotifications = useCallback(async () => {
     try {
       const response = await fetch(`${API_BASE_URL}/api/notifications/user/${user.id}`);
       const data = await response.json();
-
-      if (data.success) {
-        setNotifications(data.notifications || []);
-        const newUnreadCount = data.unreadCount || 0;
-        setUnreadCount(newUnreadCount);
-        // Update parent component's unread count
-        if (onUpdateUnreadCount) {
-          onUpdateUnreadCount(newUnreadCount);
-        }
-      }
+      applyNotifications(data);
     } catch (error) {
       console.error('❌ Error fetching notifications:', error);
     } finally {
-      if (isInitialLoad) {
-        setIsInitialLoad(false);
-      }
+      setIsInitialLoad(false);
     }
-  };
+  }, [user.id, applyNotifications]);
+
+  // Initial load + polling — single effect, single interval, proper cleanup
+  useEffect(() => {
+    let cancelled = false;
+
+    const poll = async () => {
+      if (!cancelled) await fetchNotifications();
+    };
+
+    poll(); // immediate first fetch
+    const interval = setInterval(poll, POLL_INTERVAL);
+
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [fetchNotifications]);
+
+  const isFolderNotification = useCallback((notification) => {
+    const folderKeywords = ['Folder Approved', 'Folder Rejected', 'Folder Partially', 'Folder Mostly'];
+    return !notification.file_id && folderKeywords.some(kw => notification.title?.startsWith(kw));
+  }, []);
 
   const handleNotificationClick = useCallback(async (notification) => {
-    console.log('🔔 User Notification clicked:', notification);
-
-    // Mark as read
     if (!notification.is_read) {
       try {
-        await fetch(`${API_BASE_URL}/api/notifications/${notification.id}/read`, {
-          method: 'PUT'
+        await fetch(`${API_BASE_URL}/api/notifications/${notification.id}/read`, { method: 'PUT' });
+        setNotifications(prev => prev.map(n => n.id === notification.id ? { ...n, is_read: 1 } : n));
+        setUnreadCount(prev => {
+          const next = Math.max(0, prev - 1);
+          if (onUpdateUnreadCountRef.current) onUpdateUnreadCountRef.current(next);
+          return next;
         });
-
-        // Update local state
-        setNotifications(prevNotifications =>
-          prevNotifications.map(n =>
-            n.id === notification.id ? { ...n, is_read: 1 } : n
-          )
-        );
-        const newUnreadCount = Math.max(0, unreadCount - 1);
-        setUnreadCount(newUnreadCount);
-        if (onUpdateUnreadCount) {
-          onUpdateUnreadCount(newUnreadCount);
-        }
       } catch (error) {
         console.error('❌ Error marking notification as read:', error);
       }
     }
 
-    // Use shared notification parser
+    if (isFolderNotification(notification)) {
+      if (onNavigate) onNavigate('my-files', null);
+      return;
+    }
+
     const { targetTab, context } = parseNotification(notification, 'user');
 
-    console.log('🧭 Parsed User Notification:', { targetTab, context });
-
-    // Store highlighting context in sessionStorage for TasksTab to read
     if (context) {
-      if (context.assignmentId) {
-        sessionStorage.setItem('highlightAssignmentId', context.assignmentId.toString());
-        console.log('💾 Stored highlightAssignmentId:', context.assignmentId);
-      }
-      if (context.fileId) {
-        sessionStorage.setItem('highlightFileId', context.fileId.toString());
-        console.log('💾 Stored highlightFileId:', context.fileId);
-      }
+      if (context.assignmentId) sessionStorage.setItem('highlightAssignmentId', context.assignmentId.toString());
+      if (context.fileId) sessionStorage.setItem('highlightFileId', context.fileId.toString());
       if (context.shouldOpenComments || context.expandAllReplies) {
         sessionStorage.setItem('notificationContext', JSON.stringify(context));
-        console.log('💾 Stored notificationContext:', context);
       }
-      // Store the notification ID for reference
       sessionStorage.setItem('fromNotificationId', notification.id.toString());
     }
 
     if (targetTab) {
       if (onNavigate) {
-        // Use new unified handler
         onNavigate(targetTab, context);
       } else {
-        // Fallback for legacy props if onNavigate is missing
-        if (targetTab === 'tasks' && onNavigateToTasks) {
-          onNavigateToTasks(context?.assignmentId);
-        } else if ((targetTab === 'files' || targetTab === 'my-files') && onOpenFile) {
-          onOpenFile(context?.fileId);
-        }
+        if (targetTab === 'tasks' && onNavigateToTasks) onNavigateToTasks(context?.assignmentId);
+        else if ((targetTab === 'files' || targetTab === 'my-files') && onOpenFile) onOpenFile(context?.fileId);
       }
     }
-  }, [onNavigate, onNavigateToTasks, onOpenFile, unreadCount, onUpdateUnreadCount]);
+  }, [isFolderNotification, onNavigate, onNavigateToTasks, onOpenFile]);
 
   const handleDeleteNotification = useCallback(async (e, notificationId) => {
     e.stopPropagation();
     try {
-      const response = await fetch(`${API_BASE_URL}/api/notifications/${notificationId}`, {
-        method: 'DELETE'
-      });
+      const notif = notifications.find(n => n.id === notificationId);
+      const wasUnread = notif && !notif.is_read;
 
+      const response = await fetch(`${API_BASE_URL}/api/notifications/${notificationId}`, { method: 'DELETE' });
       const data = await response.json();
+
       if (data.success) {
-        setNotifications(prevNotifications =>
-          prevNotifications.filter(n => n.id !== notificationId)
-        );
+        setNotifications(prev => prev.filter(n => n.id !== notificationId));
+        if (wasUnread) {
+          setUnreadCount(prev => {
+            const next = Math.max(0, prev - 1);
+            if (onUpdateUnreadCountRef.current) onUpdateUnreadCountRef.current(next);
+            return next;
+          });
+        }
       }
     } catch (error) {
       console.error('❌ Error deleting notification:', error);
     }
-  }, []);
+  }, [notifications]);
 
   const handleMarkAllAsRead = useCallback(async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/notifications/user/${user.id}/read-all`, {
-        method: 'PUT'
-      });
-
+      const response = await fetch(`${API_BASE_URL}/api/notifications/user/${user.id}/read-all`, { method: 'PUT' });
       const data = await response.json();
       if (data.success) {
-        // Update all notifications to read
-        setNotifications(prevNotifications =>
-          prevNotifications.map(n => ({ ...n, is_read: 1 }))
-        );
+        setNotifications(prev => prev.map(n => ({ ...n, is_read: 1 })));
         setUnreadCount(0);
-        // Update parent component's unread count
-        if (onUpdateUnreadCount) {
-          onUpdateUnreadCount(0);
-        }
+        if (onUpdateUnreadCountRef.current) onUpdateUnreadCountRef.current(0);
       }
     } catch (error) {
       console.error('Error marking all as read:', error);
     }
-  }, [user.id, onUpdateUnreadCount]);
+  }, [user.id]);
 
-  const handleDeleteAll = useCallback(() => {
-    setShowDeleteModal(true);
-  }, []);
+  const handleDeleteAll = useCallback(() => setShowDeleteModal(true), []);
 
   const confirmDeleteAll = useCallback(async () => {
     try {
-      console.log('Deleting all notifications for user:', user.id);
-      const response = await fetch(`${API_BASE_URL}/api/notifications/user/${user.id}/delete-all`, {
-        method: 'DELETE'
-      });
-
+      const response = await fetch(`${API_BASE_URL}/api/notifications/user/${user.id}/delete-all`, { method: 'DELETE' });
       const data = await response.json();
-      console.log('Delete response:', data);
-
       if (data.success) {
         setNotifications([]);
         setUnreadCount(0);
         setShowDeleteModal(false);
-        // Update parent component's unread count
-        if (onUpdateUnreadCount) {
-          onUpdateUnreadCount(0);
-        }
-        console.log('✅ All notifications deleted successfully');
+        if (onUpdateUnreadCountRef.current) onUpdateUnreadCountRef.current(0);
       } else {
-        console.error('❌ Delete failed:', data.message);
         alert('Failed to delete notifications. Please try again.');
       }
     } catch (error) {
       console.error('❌ Error deleting all notifications:', error);
       alert('An error occurred while deleting notifications.');
     }
-  }, [user.id, onUpdateUnreadCount]);
+  }, [user.id]);
 
-  const getNotificationIcon = useCallback((type) => {
-    console.log('🔄 UPDATED VERSION - Using specific user dashboard icons');
+  const getNotificationIcon = useCallback((type, notification) => {
+    const isFolder = isFolderNotification(notification);
+    if (isFolder) {
+      const isApproval = type === 'final_approval';
+      return (
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="file-icon-svg">
+          <path d="M2 6a2 2 0 0 1 2-2h4l2 2h6a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6z" />
+          {isApproval
+            ? <path d="M7 11l2 2 4-4" strokeWidth="1.5" />
+            : <><line x1="7" y1="9" x2="13" y2="15" strokeWidth="1.5" /><line x1="13" y1="9" x2="7" y2="15" strokeWidth="1.5" /></>}
+        </svg>
+      );
+    }
     switch (type) {
-      case 'approval':
-      case 'final_approval':
-        return (
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="file-icon-svg">
-            <circle cx="10" cy="10" r="8.5" />
-            <path d="M6 10l2.5 2.5 5.5-5.5" />
-          </svg>
-        );
-      case 'rejection':
-      case 'final_rejection':
-        return (
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="file-icon-svg">
-            <circle cx="10" cy="10" r="8.5" />
-            <line x1="4" y1="4" x2="16" y2="16" />
-          </svg>
-        );
+      case 'approval': case 'final_approval':
+        return <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="file-icon-svg"><circle cx="10" cy="10" r="8.5" /><path d="M6 10l2.5 2.5 5.5-5.5" /></svg>;
+      case 'rejection': case 'final_rejection':
+        return <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="file-icon-svg"><circle cx="10" cy="10" r="8.5" /><line x1="4" y1="4" x2="16" y2="16" /></svg>;
       case 'comment':
-        return (
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="file-icon-svg">
-            <path d="M3 3h14a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H6l-3 3V4a1 1 0 0 1 1-1z" />
-          </svg>
-        );
+        return <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="file-icon-svg"><path d="M3 3h14a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H6l-3 3V4a1 1 0 0 1 1-1z" /></svg>;
       case 'assignment':
-        return (
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="file-icon-svg">
-            <path d="M12 2H4a1.5 1.5 0 0 0-1.5 1.5v13A1.5 1.5 0 0 0 4 18h10a1.5 1.5 0 0 0 1.5-1.5V6l-3.5-4z" />
-            <path d="M12 2v4h3.5" />
-            <path d="M6 10h6M6 13h6" />
-          </svg>
-        );
+        return <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="file-icon-svg"><path d="M12 2H4a1.5 1.5 0 0 0-1.5 1.5v13A1.5 1.5 0 0 0 4 18h10a1.5 1.5 0 0 0 1.5-1.5V6l-3.5-4z" /><path d="M12 2v4h3.5" /><path d="M6 10h6M6 13h6" /></svg>;
       default:
-        return (
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="file-icon-svg">
-            <path d="M12 2H4a1.5 1.5 0 0 0-1.5 1.5v13A1.5 1.5 0 0 0 4 18h10a1.5 1.5 0 0 0 1.5-1.5V6l-3.5-4z" />
-            <path d="M12 2v4h3.5" />
-          </svg>
-        );
+        return <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="file-icon-svg"><path d="M12 2H4a1.5 1.5 0 0 0-1.5 1.5v13A1.5 1.5 0 0 0 4 18h10a1.5 1.5 0 0 0 1.5-1.5V6l-3.5-4z" /><path d="M12 2v4h3.5" /></svg>;
     }
-  }, []);
-
-  const getStatusDisplayName = useCallback((dbStatus) => {
-    switch (dbStatus) {
-      case 'uploaded':
-        return 'PENDING TEAM LEADER';
-      case 'team_leader_approved':
-        return 'PENDING ADMIN';
-      case 'final_approved':
-        return 'FINAL APPROVED';
-      case 'rejected_by_team_leader':
-        return 'REJECTED BY TEAM LEADER';
-      case 'rejected_by_admin':
-        return 'REJECTED BY ADMIN';
-      default:
-        return dbStatus ? dbStatus.replace(/_/g, ' ').toUpperCase() : 'UNKNOWN';
-    }
-  }, []);
+  }, [isFolderNotification]);
 
   const getNotificationColor = useCallback((type) => {
     switch (type) {
-      case 'approval':
-      case 'final_approval':
-        return 'notification-success';
-      case 'rejection':
-      case 'final_rejection':
-        return 'notification-error';
-      case 'comment':
-        return 'notification-info';
-      case 'assignment':
-        return 'notification-assignment';
-      default:
-        return 'notification-default';
+      case 'approval': case 'final_approval': return 'notification-success';
+      case 'rejection': case 'final_rejection': return 'notification-error';
+      case 'comment': return 'notification-info';
+      case 'assignment': return 'notification-assignment';
+      default: return 'notification-default';
     }
   }, []);
 
   const formatTimeAgo = useCallback((dateString) => {
     const date = new Date(dateString);
-    const now = new Date();
-    const seconds = Math.floor((now - date) / 1000);
-
+    const seconds = Math.floor((Date.now() - date) / 1000);
     if (seconds < 60) return 'Just now';
     if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
     if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
@@ -290,20 +209,15 @@ const NotificationTab = ({ user, onOpenFile, onNavigateToTasks, onNavigate, onUp
     return date.toLocaleDateString();
   }, []);
 
-  const formatRole = useCallback((role) => {
-    if (!role) return '';
-    // Convert "TEAM LEADER" to "TEAM LEADER", "ADMIN" to "ADMIN", "USER" to "USER"
-    return role.toUpperCase();
-  }, []);
+  const formatRole = useCallback((role) => role ? role.toUpperCase() : '', []);
 
-  // Memoize computed values
   const displayedNotifications = useMemo(
     () => notifications.slice(0, displayCount),
     [notifications, displayCount]
   );
 
   const remainingCount = useMemo(
-    () => notifications.length - displayCount,
+    () => Math.max(0, notifications.length - displayCount),
     [notifications.length, displayCount]
   );
 
@@ -312,14 +226,14 @@ const NotificationTab = ({ user, onOpenFile, onNavigateToTasks, onNavigate, onUp
       setDisplayCount(10);
       setShowAll(false);
     } else {
-      setDisplayCount(prev => prev + 10);
-      if (displayCount + 10 >= notifications.length) {
-        setShowAll(true);
-      }
+      setDisplayCount(prev => {
+        const next = prev + 10;
+        if (next >= notifications.length) setShowAll(true);
+        return next;
+      });
     }
-  }, [showAll, displayCount, notifications.length]);
+  }, [showAll, notifications.length]);
 
-  // Show minimal skeleton only on very first load
   if (isInitialLoad && notifications.length === 0) {
     return (
       <div className="user-notification-component notification-section">
@@ -331,7 +245,6 @@ const NotificationTab = ({ user, onOpenFile, onNavigateToTasks, onNavigate, onUp
             </div>
           </div>
         </div>
-
         <div className="notifications-container">
           <div className="notifications-list">
             {[1, 2, 3].map((item) => (
@@ -367,20 +280,12 @@ const NotificationTab = ({ user, onOpenFile, onNavigateToTasks, onNavigate, onUp
             </div>
             <div className="notification-actions">
               {unreadCount > 0 && (
-                <button
-                  className="mark-all-read-btn"
-                  onClick={handleMarkAllAsRead}
-                  title="Mark all as read"
-                >
+                <button className="mark-all-read-btn" onClick={handleMarkAllAsRead} title="Mark all as read">
                   Mark All as Read
                 </button>
               )}
               {notifications.length > 0 && (
-                <button
-                  className="delete-all-btn"
-                  onClick={handleDeleteAll}
-                  title="Delete all notifications"
-                >
+                <button className="delete-all-btn" onClick={handleDeleteAll} title="Delete all notifications">
                   Delete All
                 </button>
               )}
@@ -398,14 +303,19 @@ const NotificationTab = ({ user, onOpenFile, onNavigateToTasks, onNavigate, onUp
                   onClick={() => handleNotificationClick(notification)}
                 >
                   <div className="notification-icon">
-                    {getNotificationIcon(notification.type)}
+                    {getNotificationIcon(notification.type, notification)}
                   </div>
                   <div className="notification-content">
                     <div className="notification-title-row">
                       <h4 className="notification-title">{notification.title}</h4>
-                      <svg className="arrow-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                        <path fillRule="evenodd" d="M7.21 14.77a.75.75 0 01.02-1.06L11.168 10 7.23 6.29a.75.75 0 111.04-1.08l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 01-1.06-.02z" clipRule="evenodd" />
-                      </svg>
+                      <button
+                        className="notification-delete-btn"
+                        onClick={(e) => handleDeleteNotification(e, notification.id)}
+                        title="Delete notification"
+                        aria-label="Delete notification"
+                      >
+                        ×
+                      </button>
                     </div>
                     <p className="notification-message">{notification.message}</p>
                     <div className="notification-footer">
@@ -422,10 +332,7 @@ const NotificationTab = ({ user, onOpenFile, onNavigateToTasks, onNavigate, onUp
               ))}
               {notifications.length > 10 && (
                 <div className="see-more-container">
-                  <button
-                    className="see-more-btn"
-                    onClick={handleSeeMore}
-                  >
+                  <button className="see-more-btn" onClick={handleSeeMore}>
                     {showAll ? 'See less' : `See more (${remainingCount} more notifications)`}
                   </button>
                 </div>
@@ -441,55 +348,36 @@ const NotificationTab = ({ user, onOpenFile, onNavigateToTasks, onNavigate, onUp
         </div>
       </div>
 
-      {/* Custom Delete Confirmation Modal */}
       {showDeleteModal && (
         <div className="custom-modal-overlay" onClick={() => setShowDeleteModal(false)}>
           <div className="custom-modal" onClick={(e) => e.stopPropagation()}>
             <div className="custom-modal-header">
               <h3>Delete All Notifications?</h3>
-              <button
-                onClick={() => setShowDeleteModal(false)}
-                className="custom-modal-close"
-                type="button"
-              >
-                ×
-              </button>
+              <button onClick={() => setShowDeleteModal(false)} className="custom-modal-close" type="button">×</button>
             </div>
-
             <div className="custom-modal-body">
               <div className="delete-warning">
-                <span className="warning-icon">⚠️</span>
+                <span className="warning-icon">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="24" height="24">
+                    <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                    <line x1="12" y1="9" x2="12" y2="13"/>
+                    <line x1="12" y1="17" x2="12.01" y2="17"/>
+                  </svg>
+                </span>
                 <div className="warning-content">
                   <h4>Are you sure you want to delete all notifications?</h4>
-
                   <div className="item-info">
                     <div className="item-name">{notifications.length} notification{notifications.length !== 1 ? 's' : ''}</div>
                     <div className="item-details">Including {unreadCount} unread notification{unreadCount !== 1 ? 's' : ''}</div>
                   </div>
-
-                  <p className="warning-text">
-                    This action cannot be undone. All notifications will be permanently removed from your account.
-                  </p>
+                  <p className="warning-text">This action cannot be undone. All notifications will be permanently removed from your account.</p>
                 </div>
               </div>
             </div>
-
             <div className="custom-modal-footer">
               <div className="modal-actions">
-                <button
-                  type="button"
-                  onClick={() => setShowDeleteModal(false)}
-                  className="modal-cancel-btn"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  onClick={confirmDeleteAll}
-                  className="modal-confirm-btn"
-                >
-                  Delete All
-                </button>
+                <button type="button" onClick={() => setShowDeleteModal(false)} className="modal-cancel-btn">Cancel</button>
+                <button type="button" onClick={confirmDeleteAll} className="modal-confirm-btn">Delete All</button>
               </div>
             </div>
           </div>

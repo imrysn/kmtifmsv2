@@ -1,4 +1,4 @@
-import { useState, useEffect, Suspense, lazy } from 'react'
+import React, { useState, useEffect, Suspense, lazy } from 'react'
 import { API_BASE_URL } from '@/config/api'
 import '../css/TeamLeaderDashboard.css'
 import SkeletonLoader from '../components/common/SkeletonLoader'
@@ -75,6 +75,7 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
   const [notifications, setNotifications] = useState([])
   const [notificationCounts, setNotificationCounts] = useState({ overdue: 0, urgent: 0, pending: 0 })
   const [showNotifications, setShowNotifications] = useState(false)
+  const [unreadCount, setUnreadCount] = useState(0)
 
   // Team management states
   const [teamMembers, setTeamMembers] = useState([])
@@ -100,10 +101,12 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
     selectedTeam: '' // Add selectedTeam to state
   })
   const [editingAssignmentId, setEditingAssignmentId] = useState(null)
+  const [modalInitialAttachments, setModalInitialAttachments] = useState([])
   const [notificationCommentContext, setNotificationCommentContext] = useState(null)
   const [highlightedAssignmentId, setHighlightedAssignmentId] = useState(null)
   const [highlightedFileId, setHighlightedFileId] = useState(null)
   const [highlightedSubmissionFileId, setHighlightedSubmissionFileId] = useState(null)
+
 
   useEffect(() => {
     // Only fetch files for tabs that need them
@@ -130,6 +133,31 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
       fetchAssignments()
     }
   }, [user.team, activeTab])
+
+  // derive list of unique teams from fetched members
+  const uniqueTeams = React.useMemo(() => {
+    if (!teamMembers || teamMembers.length === 0) return []
+    // Filter out the current user (team leader) entry which might have a specific team
+    // or just collect all unique teams from members
+    const teams = new Set()
+    teamMembers.forEach(m => {
+      if (m.team && m.role !== 'TEAM LEADER') {
+        teams.add(m.team)
+      }
+    })
+
+    // If user leads teams but has no members yet, we might miss them.
+    // But typically we fetch members based on led teams.
+    // If no members, we can't assign anyway.
+    return Array.from(teams).sort()
+  }, [teamMembers])
+
+  // if the current user only has one team, automatically pre-select it when preparing a new assignment
+  useEffect(() => {
+    if (uniqueTeams && uniqueTeams.length === 1 && !assignmentForm.selectedTeam) {
+      setAssignmentForm(prev => ({ ...prev, selectedTeam: uniqueTeams[0] }))
+    }
+  }, [uniqueTeams, assignmentForm.selectedTeam])
 
   useEffect(() => {
     const interval = setInterval(fetchNotifications, 30000)
@@ -267,22 +295,7 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
     }
   }
 
-  const uniqueTeams = React.useMemo(() => {
-    if (!teamMembers || teamMembers.length === 0) return []
-    // Filter out the current user (team leader) entry which might have a specific team
-    // or just collect all unique teams from members
-    const teams = new Set()
-    teamMembers.forEach(m => {
-      if (m.team && m.role !== 'TEAM LEADER') {
-        teams.add(m.team)
-      }
-    })
 
-    // If user leads teams but has no members yet, we might miss them.
-    // But typically we fetch members based on led teams.
-    // If no members, we can't assign anyway.
-    return Array.from(teams).sort()
-  }, [teamMembers])
 
   const fetchMemberFiles = async (memberId, memberName) => {
     setSelectedMember({ id: memberId, name: memberName })
@@ -344,7 +357,11 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
     }
   }
 
-  const createAssignment = async (attachedFiles = []) => {
+  const createAssignment = async (attachedFiles = [], removedAttachmentIds = []) => {
+    const removeAttachmentIds = removedAttachmentIds || [];
+    if (removeAttachmentIds.length > 0) {
+      console.log('📤 Sending removedAttachmentIds to server:', removeAttachmentIds);
+    }
     if (!assignmentForm.title.trim()) {
       setError('Please enter assignment title')
       return
@@ -355,59 +372,140 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
       return
     }
 
+    // require team selection if multiple teams exist
+    if (uniqueTeams && uniqueTeams.length > 1 && !assignmentForm.selectedTeam) {
+      setError('Please select a team')
+      return
+    }
+
     setIsProcessing(true)
     try {
-      // Check if we're editing or creating
-      const url = editingAssignmentId
-        ? `${API_BASE_URL}/api/assignments/${editingAssignmentId}`
-        : `${API_BASE_URL}/api/assignments/create`
+      const hasAttachments = attachedFiles && attachedFiles.length > 0
 
-      const method = editingAssignmentId ? 'PUT' : 'POST'
+      let response
 
-      // Use FormData to handle file uploads
-      const formData = new FormData()
-      formData.append('title', assignmentForm.title)
-      formData.append('description', assignmentForm.description || '')
-      formData.append('dueDate', assignmentForm.dueDate || '')
-      formData.append('fileTypeRequired', assignmentForm.fileTypeRequired || '')
-      formData.append('assignedTo', assignmentForm.assignedMembers.length > 0 ? 'specific' : 'all')
-      formData.append('assignedMembers', JSON.stringify(assignmentForm.assignedMembers))
-      formData.append('teamLeaderId', user.id)
-      formData.append('teamLeaderUsername', user.username)
-      // Use selected team from form, or fallback to user.team if single team
-      formData.append('team', assignmentForm.selectedTeam || user.team)
+        // choose url/method for both create and update using main endpoint so we can handle removals
+        const url = editingAssignmentId
+          ? `${API_BASE_URL}/api/assignments/${editingAssignmentId}`
+          : `${API_BASE_URL}/api/assignments/create`
+        const method = editingAssignmentId ? 'PUT' : 'POST'
 
-      // Append files if any
-      if (attachedFiles && attachedFiles.length > 0) {
-        attachedFiles.forEach((file) => {
-          formData.append('attachments', file)
-        })
-      }
+        if (hasAttachments || (removedAttachmentIds && removedAttachmentIds.length > 0)) {
+          // Request a one-time nonce from the server before uploading.
+          // This prevents Electron's multipart cache from replaying old uploads.
+          const nonceRes = await fetch(`${API_BASE_URL}/api/assignments/upload-nonce`, { method: 'POST' })
+          const nonceData = await nonceRes.json()
+          if (!nonceData.success) throw new Error('Failed to get upload nonce')
 
-      const response = await fetch(url, {
-        method,
-        body: formData // Don't set Content-Type header, let browser handle it for FormData
-      })
+          const formData = new FormData()
+          formData.append('title', assignmentForm.title)
+          formData.append('description', assignmentForm.description || '')
+          formData.append('dueDate', assignmentForm.dueDate || '')
+          formData.append('fileTypeRequired', assignmentForm.fileTypeRequired || '')
+          formData.append('assignedTo', 'specific')
+          formData.append('assignedMembers', JSON.stringify(assignmentForm.assignedMembers))
+          formData.append('teamLeaderId', user.id)
+          formData.append('teamLeaderUsername', user.username)
+          formData.append('team', assignmentForm.selectedTeam || user.team)
+          // Only flag hasAttachments=true when there are actual new files to upload
+          formData.append('hasAttachments', hasAttachments ? 'true' : 'false')
+          formData.append('uploadNonce', nonceData.nonce)
+          attachedFiles.forEach((file) => formData.append('attachments', file))
+          // Send relative paths so server can group files into folders
+          formData.append('relativePaths', JSON.stringify(attachedFiles.map(f => f.webkitRelativePath || f.name)))
+          // tell server which existing attachment ids to delete
+          if (removedAttachmentIds && removedAttachmentIds.length > 0) {
+            formData.append('removeAttachmentIds', JSON.stringify(removedAttachmentIds));
+          }
 
-      const data = await response.json()
-      if (data.success) {
-        setSuccess(editingAssignmentId
-          ? 'Task updated successfully!'
-          : `Assignment created! ${data.membersAssigned} members assigned.`
-        )
-        setShowCreateAssignmentModal(false)
-        setEditingAssignmentId(null)
-        setAssignmentForm({
-          title: '',
-          description: '',
-          dueDate: '',
-          fileTypeRequired: '',
-          assignedMembers: []
-        })
-        fetchAssignments()
-      } else {
-        setError(data.message || `Failed to ${editingAssignmentId ? 'update' : 'create'} assignment`)
-      }
+          response = await fetch(url, { method, body: formData })
+
+          // If server rejected due to a stale/replayed nonce (Electron cache replay bug),
+          // fall back to a plain JSON request which doesn't carry attachments.
+          if (response.status === 400) {
+            const errData = await response.clone().json().catch(() => ({}))
+            if (errData.message && errData.message.toLowerCase().includes('nonce')) {
+              console.warn('⚠️ Nonce rejected — falling back to JSON request (no attachments)')
+              // For new assignments, fall back to /create-json; for edits, fall back to PUT /:id with JSON
+              const fallbackUrl = editingAssignmentId
+                ? url
+                : `${API_BASE_URL}/api/assignments/create-json`
+              const fallbackMethod = editingAssignmentId ? 'PUT' : 'POST'
+              response = await fetch(fallbackUrl, {
+                method: fallbackMethod,
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  title: assignmentForm.title,
+                  description: assignmentForm.description || '',
+                  dueDate: assignmentForm.dueDate || '',
+                  fileTypeRequired: assignmentForm.fileTypeRequired || '',
+                  assignedTo: 'specific',
+                  assignedMembers: assignmentForm.assignedMembers,
+                  teamLeaderId: user.id,
+                  teamLeaderUsername: user.username,
+                  team: assignmentForm.selectedTeam || user.team,
+                  removeAttachmentIds
+                })
+              })
+            }
+          }
+        } else {
+          // No file changes — use JSON-only endpoints (no nonce needed)
+          // New assignments → /create-json; edits → PUT /:id with JSON
+          const jsonUrl = editingAssignmentId
+            ? url
+            : `${API_BASE_URL}/api/assignments/create-json`
+          const jsonMethod = editingAssignmentId ? 'PUT' : 'POST'
+          response = await fetch(jsonUrl, {
+            method: jsonMethod,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              title: assignmentForm.title,
+              description: assignmentForm.description || '',
+              dueDate: assignmentForm.dueDate || '',
+              fileTypeRequired: assignmentForm.fileTypeRequired || '',
+              assignedTo: 'specific',
+              assignedMembers: assignmentForm.assignedMembers,
+              teamLeaderId: user.id,
+              teamLeaderUsername: user.username,
+              team: assignmentForm.selectedTeam || user.team,
+              removeAttachmentIds // may be []
+            })
+          })
+        }
+
+        const data = await response.json()
+        if (data.success) {
+          setSuccess(editingAssignmentId
+            ? 'Task updated successfully!'
+            : `Assignment created! ${data.membersAssigned} members assigned.`
+          )
+          // immediately remove attachments locally so UI reflects change even before server refetch
+          if (editingAssignmentId && removeAttachmentIds.length > 0) {
+            setAssignments(prev => prev.map(a => {
+              if (a.id === editingAssignmentId) {
+                return {
+                  ...a,
+                  attachments: (a.attachments || []).filter(att => !removeAttachmentIds.includes(att.id))
+                }
+              }
+              return a
+            }))
+          }
+          setShowCreateAssignmentModal(false)
+          setEditingAssignmentId(null)
+          setAssignmentForm({
+            title: '',
+            description: '',
+            dueDate: '',
+            fileTypeRequired: '',
+            assignedMembers: [],
+            selectedTeam: uniqueTeams && uniqueTeams.length === 1 ? uniqueTeams[0] : ''
+          })
+          fetchAssignments()
+        } else {
+          setError(data.message || `Failed to ${editingAssignmentId ? 'update' : 'create'} assignment`)
+        }
     } catch (error) {
       console.error(`Error ${editingAssignmentId ? 'updating' : 'creating'} assignment:`, error)
       setError(`Failed to ${editingAssignmentId ? 'update' : 'create'} assignment`)
@@ -417,7 +515,24 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
   }
 
   const handleEditAssignment = async (assignment) => {
+    // fetch fresh details (including attachments) in case list data is minimal
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/assignments/${assignment.id}`)
+      if (res.ok) {
+        const data = await res.json()
+        if (data.success && data.assignment) {
+          assignment = data.assignment
+        }
+      }
+    } catch (e) {
+      console.warn('Failed to load full assignment details for edit', e)
+      // fall back to passed object
+    }
+
     setEditingAssignmentId(assignment.id)
+
+    // keep copy of attachments so modal can show them
+    setModalInitialAttachments(assignment.attachments || [])
 
     // Format the due date for the input field (YYYY-MM-DD format)
     let formattedDueDate = ''
@@ -436,7 +551,8 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
       description: assignment.description || '',
       dueDate: formattedDueDate,
       fileTypeRequired: assignment.file_type_required || assignment.fileTypeRequired || '',
-      assignedMembers: assignedMemberIds
+      assignedMembers: assignedMemberIds,
+      selectedTeam: assignment.team || ''
     })
 
     setShowCreateAssignmentModal(true)
@@ -570,13 +686,19 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
       const data = await response.json()
 
       if (data.success) {
-        setSuccess(`File ${actionToUse}d successfully!`)
+        if (actionToUse === 'reject') {
+          setError(`File rejected successfully!`)
+        } else {
+          setSuccess(`File ${actionToUse}d successfully!`)
+        }
         setShowReviewModal(false)
         setSelectedFile(null)
         setReviewComments('')
         setReviewAction(null)
         setFileComments([])
         fetchPendingFiles()
+        fetchAssignments()
+        fetchAllSubmissions()
       } else {
         setError(data.message || `Failed to ${actionToUse} file`)
       }
@@ -790,6 +912,17 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
     } catch (error) {
       console.error('Error fetching notifications:', error)
     }
+
+    // Also fetch unread count from the dedicated notifications endpoint
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/notifications/user/${user.id}?page=1&limit=1`)
+      const d = await res.json()
+      if (d.success) {
+        setUnreadCount(d.unreadCount || 0)
+      }
+    } catch (e) {
+      // non-critical, ignore
+    }
   }
 
   const hasActiveFilters = () => {
@@ -938,6 +1071,7 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
               onClearFileHighlight={() => setHighlightedSubmissionFileId(null)}
               markAssignmentAsDone={markAssignmentAsDone}
               handleEditAssignment={handleEditAssignment}
+              onRefreshAssignments={fetchAssignments}
             />
           </Suspense>
         )
@@ -946,18 +1080,11 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
           <Suspense fallback={<SkeletonLoader type="list" />}>
             <NotificationTab
               user={user}
-              onNavigate={async (tab, data) => {
-                console.log('🎯 Dashboard onNavigate called');
-                console.log('   Tab:', tab);
-                console.log('   Data:', data);
-
+              onRead={() => setUnreadCount(0)}
+              onNavigate={(tab, data) => {
                 if (tab === 'assignments') {
+                  // Switch tab immediately — don't await fetch, assignments load via useEffect
                   setActiveTab('assignments')
-                  // Ensure assignments are loaded first
-                  if (assignments.length === 0) {
-                    console.log('   ⏳ Fetching assignments...');
-                    await fetchAssignments()
-                  }
 
                   // Handle both object and primitive data formats
                   const assignmentId = typeof data === 'object' ? data.assignmentId : data
@@ -965,43 +1092,22 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
                   const expandAllReplies = typeof data === 'object' ? data.expandAllReplies : false
                   const fileId = typeof data === 'object' ? data.fileId : null
 
-                  console.log('   📋 Extracted data:');
-                  console.log('      assignmentId:', assignmentId);
-                  console.log('      shouldOpenComments:', shouldOpenComments);
-                  console.log('      expandAllReplies:', expandAllReplies);
-                  console.log('      fileId:', fileId);
-
                   if (assignmentId) {
-                    // Set highlighted assignment for scroll and highlight
                     setHighlightedAssignmentId(assignmentId)
-                    console.log('   ✅ Set highlightedAssignmentId:', assignmentId);
 
-                    // If there's a file_id, also highlight the specific file within the task
                     if (fileId) {
                       setHighlightedSubmissionFileId(fileId)
-                      console.log('   ✅ Set highlightedSubmissionFileId:', fileId);
                     }
 
                     if (shouldOpenComments) {
-                      // For comment notifications, set context to auto-open comments
-                      const context = {
+                      setNotificationCommentContext({
                         assignmentId: assignmentId,
-                        expandAllReplies: expandAllReplies  // Pass the expand flag
-                      };
-                      console.log('   ✅ Setting notificationCommentContext:', context);
-                      setNotificationCommentContext(context)
-                    } else {
-                      console.log('   ⚠️ Not opening comments - shouldOpenComments:', shouldOpenComments);
+                        expandAllReplies: expandAllReplies
+                      })
                     }
                   }
                 } else if (tab === 'file-collection') {
-                  // For file approval/rejection notifications, navigate to file collection
                   setActiveTab('file-collection')
-                  // Ensure submissions are loaded first
-                  if (submittedFiles.length === 0) {
-                    await fetchAllSubmissions()
-                  }
-                  // Highlight the specific file
                   if (data) {
                     const fileId = typeof data === 'object' ? data.fileId : data
                     setHighlightedFileId(fileId)
@@ -1034,6 +1140,8 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
           setSidebarOpen={setSidebarOpen}
           sidebarOpen={sidebarOpen}
           onLogout={onLogout}
+          user={user}
+          unreadCount={unreadCount}
         />
 
         <main className="tl-main">
@@ -1106,6 +1214,7 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
               setMemberFiles={setMemberFiles}
               isLoading={isLoading}
               formatFileSize={formatFileSize}
+              user={user}
             />
           </Suspense>
         )}
@@ -1113,6 +1222,7 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
         {showCreateAssignmentModal && (
           <Suspense fallback={<div />}>
             <CreateAssignmentModal
+              key={editingAssignmentId || 'new'}
               showCreateAssignmentModal={showCreateAssignmentModal}
               setShowCreateAssignmentModal={setShowCreateAssignmentModal}
               assignmentForm={assignmentForm}
@@ -1123,15 +1233,18 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
               currentUserId={user.id}
               teams={uniqueTeams} // Pass unique teams to modal
               isEditMode={!!editingAssignmentId}
+              initialAttachments={modalInitialAttachments}
               onClose={() => {
                 setShowCreateAssignmentModal(false)
                 setEditingAssignmentId(null)
+                setModalInitialAttachments([])
                 setAssignmentForm({
                   title: '',
                   description: '',
                   dueDate: '',
                   fileTypeRequired: '',
-                  assignedMembers: []
+                  assignedMembers: [],
+                  selectedTeam: uniqueTeams && uniqueTeams.length === 1 ? uniqueTeams[0] : ''
                 })
               }}
             />

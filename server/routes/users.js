@@ -8,6 +8,24 @@ const { asyncHandler, DatabaseError, NotFoundError } = require('../middleware/er
 
 const router = express.Router();
 
+// Shared helper: attach file counts to an array of user/member objects
+function attachFileCounts(db, members) {
+  return Promise.all(
+    members.map(member =>
+      new Promise(resolve => {
+        db.get(
+          'SELECT COUNT(*) as totalFiles FROM files WHERE user_id = ?',
+          [member.id],
+          (err, result) => {
+            member.totalFiles = (!err && result) ? (result.totalFiles || 0) : 0;
+            resolve(member);
+          }
+        );
+      })
+    )
+  );
+}
+
 // Get all users (Admin only) with caching
 router.get('/', (req, res) => {
   const cacheKey = 'all_users';
@@ -479,29 +497,8 @@ router.get('/team/:teamName', (req, res) => {
       }
       console.log(`✅ Retrieved ${members.length} members for team ${teamName}`);
 
-      // Get file counts for each member
-      const memberPromises = members.map(member => {
-        return new Promise((resolve) => {
-          db.get(
-            'SELECT COUNT(*) as totalFiles FROM files WHERE user_id = ?',
-            [member.id],
-            (err, result) => {
-              if (!err && result) {
-                member.totalFiles = result.totalFiles || 0;
-              } else {
-                member.totalFiles = 0;
-              }
-              resolve(member);
-            }
-          );
-        });
-      });
-
-      Promise.all(memberPromises).then(membersWithFiles => {
-        res.json({
-          success: true,
-          members: membersWithFiles
-        });
+      attachFileCounts(db, members).then(membersWithFiles => {
+        res.json({ success: true, members: membersWithFiles });
       });
     }
   );
@@ -591,29 +588,8 @@ router.get('/team-leader/:userId', (req, res) => {
           }
           console.log(`✅ Retrieved ${members.length} members across teams: ${teamNames.join(', ')}`);
 
-          // Get file counts for each member
-          const memberPromises = members.map(member => {
-            return new Promise((resolve) => {
-              db.get(
-                'SELECT COUNT(*) as totalFiles FROM files WHERE user_id = ?',
-                [member.id],
-                (err, result) => {
-                  if (!err && result) {
-                    member.totalFiles = result.totalFiles || 0;
-                  } else {
-                    member.totalFiles = 0;
-                  }
-                  resolve(member);
-                }
-              );
-            });
-          });
-
-          Promise.all(memberPromises).then(membersWithFiles => {
-            res.json({
-              success: true,
-              members: membersWithFiles
-            });
+          attachFileCounts(db, members).then(membersWithFiles => {
+            res.json({ success: true, members: membersWithFiles });
           });
         }
       );
@@ -633,36 +609,11 @@ router.get('/:teamName', (req, res) => {
     (err, members) => {
       if (err) {
         console.error('❌ Error getting team members:', err);
-        return res.status(500).json({
-          success: false,
-          message: 'Failed to fetch team members'
-        });
+        return res.status(500).json({ success: false, message: 'Failed to fetch team members' });
       }
       console.log(`✅ Retrieved ${members.length} members for team ${teamName}`);
-
-      // Get file counts for each member
-      const memberPromises = members.map(member => {
-        return new Promise((resolve) => {
-          db.get(
-            'SELECT COUNT(*) as totalFiles FROM files WHERE user_id = ?',
-            [member.id],
-            (err, result) => {
-              if (!err && result) {
-                member.totalFiles = result.totalFiles || 0;
-              } else {
-                member.totalFiles = 0;
-              }
-              resolve(member);
-            }
-          );
-        });
-      });
-
-      Promise.all(memberPromises).then(membersWithFiles => {
-        res.json({
-          success: true,
-          members: membersWithFiles
-        });
+      attachFileCounts(db, members).then(membersWithFiles => {
+        res.json({ success: true, members: membersWithFiles });
       });
     }
   );

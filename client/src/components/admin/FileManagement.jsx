@@ -107,6 +107,26 @@ const FileManagement = ({ clearMessages, error, success, setError, setSuccess })
     }
   }, [])
 
+  const [isSyncing, setIsSyncing] = useState(false)
+
+  const handleSyncDeleted = async () => {
+    setIsSyncing(true)
+    try {
+      const res = await fetch(`${API_BASE}/api/files/sync-deleted`, { method: 'POST' })
+      const data = await res.json()
+      if (data.success) {
+        setSuccess(data.message)
+        fetchFileSystemItems() // refresh the file list
+      } else {
+        setError(data.error || 'Sync failed')
+      }
+    } catch (e) {
+      setError('Sync failed: ' + e.message)
+    } finally {
+      setIsSyncing(false)
+    }
+  }
+
   const checkNetworkAccess = async () => {
     // FIX: Removed manual health check since useNetwork handles it.
     // We only check for specific File System info here.
@@ -182,7 +202,7 @@ const FileManagement = ({ clearMessages, error, success, setError, setSuccess })
 
       // Show performance message if search was very fast
       if (searchTime < 100 && results.files.length > 0) {
-        setSuccess(`⚡ Found ${results.files.length} results in ${searchTime.toFixed(0)}ms ${results.cached ? '(cached)' : results.indexed ? '(indexed)' : ''}`)
+        setSuccess(`Found ${results.files.length} results in ${searchTime.toFixed(0)}ms ${results.cached ? '(cached)' : results.indexed ? '(indexed)' : ''}`)
       }
     } catch (error) {
       console.error('Search error:', error)
@@ -248,7 +268,7 @@ const FileManagement = ({ clearMessages, error, success, setError, setSuccess })
         const isElectron = window.electron && window.electron.openFileInApp
 
         if (isElectron) {
-          console.log('💻 Running in Electron - using Windows default application')
+          console.log('Running in Electron - using Windows default application')
 
           const pathResponse = await fetch(
             `${API_BASE}/api/file-system/filepath?path=${encodeURIComponent(item.path)}`
@@ -259,19 +279,19 @@ const FileManagement = ({ clearMessages, error, success, setError, setSuccess })
             throw new Error(pathData.message || 'Failed to get file path')
           }
 
-          console.log('📂 Full path:', pathData.fullPath)
-          console.log('📄 File type:', pathData.fileType)
+          console.log('Full path:', pathData.fullPath)
+          console.log('File type:', pathData.fileType)
 
           const result = await window.electron.openFileInApp(pathData.fullPath)
 
           if (result.success) {
-            console.log('✅ Opened with Windows default application')
+            console.log('Opened with Windows default application')
             setSuccess(`Opened ${item.displayName}`)
           } else {
             throw new Error(result.error || 'Failed to open file')
           }
         } else {
-          console.log('🌐 Running in browser - opening in new tab')
+          console.log('Running in browser - opening in new tab')
 
           const fileUrl = `${API_BASE}/api/file-system/file?path=${encodeURIComponent(item.path)}`
           const newWindow = window.open(fileUrl, '_blank')
@@ -281,12 +301,12 @@ const FileManagement = ({ clearMessages, error, success, setError, setSuccess })
           }
 
           newWindow.focus()
-          console.log('✅ Opened in browser tab')
+          console.log('Opened in browser tab')
           setSuccess(`Opened ${item.displayName} in browser`)
         }
 
       } catch (error) {
-        console.error('❌ Error opening file:', error)
+        console.error('Error opening file:', error)
         setError(`Error opening file: ${error.message || 'Failed to open file'}`)
       } finally {
         setIsComponentLoading(false)
@@ -346,7 +366,15 @@ const FileManagement = ({ clearMessages, error, success, setError, setSuccess })
         </div>
 
         <div className="file-controls-right">
-          <div className="file-search">
+        <button
+              className="sync-deleted-btn"
+              onClick={handleSyncDeleted}
+              disabled={isSyncing}
+              title="Remove database records for files deleted from disk"
+            >
+              {isSyncing ? '⏳ Syncing...' : '🔄 Sync Deleted Files'}
+            </button>
+            <div className="file-search">
             <input
               type="text"
               placeholder="Search..."
@@ -374,14 +402,14 @@ const FileManagement = ({ clearMessages, error, success, setError, setSuccess })
             ⚡ {searchPerformance.time.toFixed(0)}ms
           </span>
           <span className="perf-badge">
-            {searchPerformance.cached ? '💾 Cached' : searchPerformance.indexed ? '📇 Indexed' : '🌐 API'}
+            {searchPerformance.cached ? 'Cached' : searchPerformance.indexed ? 'Indexed' : 'API'}
           </span>
           <span className="perf-badge">
-            📊 {searchPerformance.resultCount} results
+            {searchPerformance.resultCount} results
           </span>
           {engineStats && (
             <span className="perf-badge" title="Cache statistics">
-              💿 {engineStats.cache.cacheSize} dirs cached ({engineStats.cache.hitRate} hit rate)
+              {engineStats.cache.cacheSize} dirs cached ({engineStats.cache.hitRate} hit rate)
             </span>
           )}
         </div>

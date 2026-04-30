@@ -159,8 +159,10 @@ const AssignmentIcon = () => (
 );
 
 const RejectionIcon = () => (
-  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="file-icon-svg">
-    <path d="M15 3H6c-.83 0-1.54.5-1.84 1.22l-3.02 7.05c-.09.23-.14.47-.14.73v2c0 1.1.9 2 2 2h6.31l-.95 4.57-.03.32c0 .41.17.79.44 1.06L9.83 23l6.59-6.59c.36-.36.58-.86.58-1.41V5c0-1.1-.9-2-2-2zm4 0v12h4V3h-4z" />
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="file-icon-svg">
+    <circle cx="12" cy="12" r="10" />
+    <line x1="8" y1="8" x2="16" y2="16" />
+    <line x1="16" y1="8" x2="8" y2="16" />
   </svg>
 );
 
@@ -173,10 +175,18 @@ const FinalApprovalIcon = () => (
 
 const FinalRejectionIcon = () => (
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="file-icon-svg">
-    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 9l-9 9z" />
-    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zM12 20c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z" />
-    <path d="M13.59 7l-1.42 1.41L16.17 12l-4.59 4.59L13.59 18l6-6z" />
-    <path d="M7.41 7L6 8.41l4.59 4.59L6 17.59 7.41 19l6-6z" />
+    <circle cx="12" cy="12" r="10" />
+    <line x1="8" y1="8" x2="16" y2="16" />
+    <line x1="16" y1="8" x2="8" y2="16" />
+  </svg>
+);
+
+const PasswordResetIcon = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="file-icon-svg">
+    <circle cx="8" cy="15" r="4" />
+    <path d="M10.85 12.15L19 4" />
+    <path d="M18 5l2 2" />
+    <path d="M15 8l2 2" />
   </svg>
 );
 
@@ -235,6 +245,8 @@ const iconComponents = {
   final_approval: FinalApprovalIcon,
   final_rejection: FinalRejectionIcon,
   team_leader_approved: ApprovalIcon,
+  password_reset_request: PasswordResetIcon,
+  password_reset_complete: ApprovalIcon,
 };
 
 const getIconForFile = (fileType, isFolder = false) => {

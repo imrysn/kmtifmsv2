@@ -14,7 +14,13 @@ const ApprovalTrendChart = memo(({ trends, loading }) => {
         return <div style={{ padding: '1rem', textAlign: 'center' }}>No trend data available</div>;
     }
 
-    const data = trends.slice(-30); // Last 30 days
+    const rawData = trends.slice(-30); // Last 30 days
+
+    // Need at least 2 points to draw a line — pad with a zero-value entry on the left
+    const data = rawData.length < 2
+        ? [{ approved: 0, rejected: 0, day: '', date: '', month: '' }, ...rawData]
+        : rawData;
+
     const maxValue = Math.max(
         ...data.map(t => Math.max(t.approved || 0, t.rejected || 0)),
         1
@@ -117,11 +123,30 @@ const ApprovalTrendChart = memo(({ trends, loading }) => {
                 />
             ))}
 
+            {/* Y-axis labels */}
+            {[0, 0.25, 0.5, 0.75, 1].map((ratio) => {
+                const y = padding.top + chartHeight - ratio * chartHeight;
+                const value = Math.round(ratio * maxValue);
+                return (
+                    <text
+                        key={`ylabel-${ratio}`}
+                        x={padding.left - 8}
+                        y={y + 4}
+                        fontSize="11"
+                        fill="#6B7280"
+                        textAnchor="end"
+                    >
+                        {value}
+                    </text>
+                );
+            })}
+
             {/* X-axis labels - Show every 5th day to avoid crowding */}
             {data.map((t, i) => {
                 if (i % 5 !== 0 && i !== data.length - 1) return null;
                 const x = padding.left + i * stepX;
                 const label = t.month || t.day || t.date || `D${i + 1}`;
+                if (!label) return null; // skip padded zero-point
                 return (
                     <text
                         key={`label-${i}`}

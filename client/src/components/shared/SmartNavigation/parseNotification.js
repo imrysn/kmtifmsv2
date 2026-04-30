@@ -80,17 +80,18 @@ export function parseNotification(notification, role) {
         notification.type === 'approval' ||
         notification.type === 'rejection' ||
         notification.type === 'final_approval' ||
-        notification.type === 'final_rejection'
+        notification.type === 'final_rejection' ||
+        notification.type === 'team_leader_approved' ||
+        notification.type === 'team_leader_rejected' ||
+        notification.type === 'admin_approved' ||
+        notification.type === 'admin_rejected'
     ) {
-        if (notification.file_id) {
-            return {
-                targetTab: role === 'admin' ? tabs.fileApproval : tabs.files,
-                context: {
-                    fileId: notification.file_id
-                },
-                notificationType: 'approval'
-            };
-        }
+        // Always navigate to files/approval tab even for folder-level notifications (file_id may be null)
+        return {
+            targetTab: role === 'admin' ? tabs.fileApproval : tabs.files,
+            context: notification.file_id ? { fileId: notification.file_id } : {},
+            notificationType: 'approval'
+        };
     }
 
     // PASSWORD RESET (Admin only)
@@ -104,6 +105,24 @@ export function parseNotification(notification, role) {
             },
             notificationType: 'password_reset'
         };
+    }
+
+    // ATTACHMENT / TASK-RELATED NOTIFICATIONS with no specific type
+    if (
+        notification.type === 'attachment' ||
+        notification.type === 'attachment_uploaded' ||
+        (notification.title && notification.title.includes('Uploaded Attachment'))
+    ) {
+        if (notification.assignment_id) {
+            return {
+                targetTab: tabs.tasks,
+                context: {
+                    assignmentId: notification.assignment_id,
+                    shouldOpenComments: false
+                },
+                notificationType: 'attachment'
+            };
+        }
     }
 
     // INTELLIGENT FALLBACK for missing/empty types

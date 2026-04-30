@@ -184,11 +184,12 @@ const Login = ({ onLogin }) => {
           onLogin(data.user)
         }, 200)
       } else {
+        // Show the exact message from the server (includes DB connectivity errors)
         setApiError(data.message || 'Login failed')
       }
     } catch (error) {
       logger.error('Login failed', error)
-      setApiError('Unable to connect to server. Please try again.')
+      setApiError('Unable to connect to server. Please check your network connection and try again.')
     } finally {
       setIsLoading(false)
     }

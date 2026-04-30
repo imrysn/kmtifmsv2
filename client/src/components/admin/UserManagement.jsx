@@ -120,7 +120,7 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess, u
   // Handle context data from notifications (e.g., password reset request)
   useEffect(() => {
     if (contextData && contextData.action === 'reset-password' && contextData.userId) {
-      console.log('🔑 Opening password reset modal for user:', contextData);
+      console.log('Opening password reset modal for user:', contextData);
 
       // Find the user by ID
       const targetUser = users.find(u => u.id === contextData.userId);

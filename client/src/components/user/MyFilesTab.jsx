@@ -19,6 +19,7 @@ const MyFilesTab = ({
   const [deleteModal, setDeleteModal] = useState({ isOpen: false, fileId: null, fileName: '', isFolder: false, folderName: null, folderFiles: [] });
   const [openFileModal, setOpenFileModal] = useState({ isOpen: false, file: null });
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isOpeningFile, setIsOpeningFile] = useState(false);
   const [expandedFolders, setExpandedFolders] = useState({});
 
   const submittedFiles = useMemo(() =>
@@ -66,7 +67,7 @@ const MyFilesTab = ({
 
   const openFile = useCallback(async (file) => {
     try {
-      console.log('🔍 Opening file:', { id: file.id, path: file.file_path, name: file.original_name });
+      console.log('Opening file:', { id: file.id, path: file.file_path, name: file.original_name });
       
       if (window.electron?.openFileInApp) {
         const response = await fetch(`${API_BASE_URL}/api/files/${file.id}/path`);
@@ -108,17 +109,20 @@ const MyFilesTab = ({
   }, []);
 
   const handleOpenFileConfirm = useCallback(async () => {
-    if (openFileModal.file) {
+    if (openFileModal.file && !isOpeningFile) {
+      setIsOpeningFile(true);
       await openFile(openFileModal.file);
+      setIsOpeningFile(false);
       setOpenFileModal({ isOpen: false, file: null });
       document.body.style.overflow = '';
     }
-  }, [openFileModal.file, openFile]);
+  }, [openFileModal.file, openFile, isOpeningFile]);
 
   const handleOpenFileCancel = useCallback(() => {
+    if (isOpeningFile) return;
     setOpenFileModal({ isOpen: false, file: null });
     document.body.style.overflow = '';
-  }, []);
+  }, [isOpeningFile]);
 
   const getStatusDisplayName = useCallback((dbStatus) => {
     if (!dbStatus) return 'Pending';
@@ -146,6 +150,37 @@ const MyFilesTab = ({
     };
 
     return classMap[status] || 'status-default';
+  }, []);
+
+  // Compute the folder-level status from all its files
+  // Rules:
+  //   - All final_approved                        → "Approved"
+  //   - ALL files are team_leader_approved (none still pending TL) → "Pending Admin"
+  //   - Any file still uploaded / under_revision  → "Pending Team Leader"
+  //   - Any rejected (and not all approved)       → "Rejected" (show the worst)
+  const getFolderStatus = useCallback((folderFiles) => {
+    if (!folderFiles || folderFiles.length === 0) return { label: 'Pending Team Leader', cls: 'status-pending' };
+
+    const statuses = folderFiles.map(f => f.status);
+    const allFinalApproved  = statuses.every(s => s === 'final_approved');
+    const anyRejected       = statuses.some(s => s === 'rejected_by_team_leader' || s === 'rejected_by_admin');
+    const anyPendingTL      = statuses.some(s => s === 'uploaded' || s === 'under_revision');
+    const allTLApproved     = statuses.every(s => s === 'team_leader_approved' || s === 'final_approved');
+
+    if (allFinalApproved)  return { label: 'Approved',            cls: 'status-approved' };
+    if (anyPendingTL)      return { label: 'Pending Team Leader',  cls: 'status-pending'  };
+    if (allTLApproved)     return { label: 'Pending Admin',        cls: 'status-pending'  };
+    // At least one file passed TL but not all — still show Pending Admin
+    if (statuses.some(s => s === 'team_leader_approved')) return { label: 'Pending Admin', cls: 'status-pending' };
+    if (anyRejected) {
+      // Show the most severe rejection label to match individual file tag sizing
+      const hasTLRejection = statuses.some(s => s === 'rejected_by_team_leader');
+      return hasTLRejection
+        ? { label: 'Rejected by Team Leader', cls: 'status-rejected' }
+        : { label: 'Rejected by Admin',       cls: 'status-rejected' };
+    }
+
+    return { label: 'Pending Team Leader', cls: 'status-pending' };
   }, []);
 
   const formatDateTime = useCallback((dateString) => {
@@ -180,13 +215,20 @@ const MyFilesTab = ({
   );
 
   const totalSize = useMemo(() =>
-    submittedFiles.reduce((total, file) => total + file.file_size, 0),
+    submittedFiles.reduce((total, file) => total + (file.file_size || 0), 0),
     [submittedFiles]
   );
 
   useEffect(() => {
     resetPagination();
   }, [filteredFiles, itemsPerPage, resetPagination]);
+
+  // Cleanup: ensure body overflow is restored if component unmounts with modal open
+  useEffect(() => {
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, []);
 
   const handlePageChange = useCallback((page) => {
     goToPage(page);
@@ -262,7 +304,7 @@ const MyFilesTab = ({
               })
             });
           } catch (folderError) {
-            console.error('⚠️ Error deleting folder directory:', folderError);
+            console.error('Error deleting folder directory:', folderError);
           }
 
           setSuccessModal({
@@ -351,11 +393,15 @@ const MyFilesTab = ({
             <p className="delete-note" style={{ marginTop: '12px' }}>The file will open in your default application.</p>
           </div>
           <div className="delete-modal-footer">
-            <button className="delete-cancel-btn" onClick={handleOpenFileCancel}>
+            <button className="delete-cancel-btn" onClick={handleOpenFileCancel} disabled={isOpeningFile}>
               Cancel
             </button>
-            <button className="delete-confirm-btn" onClick={handleOpenFileConfirm} style={{ backgroundColor: '#3b82f6', borderColor: '#3b82f6' }}>
-              Open File
+            <button className="delete-confirm-btn" onClick={handleOpenFileConfirm} disabled={isOpeningFile} style={{ backgroundColor: '#3b82f6', borderColor: '#3b82f6' }}>
+              {isOpeningFile ? (
+                <><span className="delete-spinner"></span>Opening...</>
+              ) : (
+                'Open File'
+              )}
             </button>
           </div>
         </div>
@@ -479,7 +525,10 @@ const MyFilesTab = ({
             <span className="team-text">{firstFile.user_team}</span>
           </div>
           <div className="col-status">
-            <span style={{ color: '#9ca3af', fontSize: '14px' }}>—</span>
+            {(() => {
+              const { label, cls } = getFolderStatus(folderFiles);
+              return <span className={`status-tag ${cls}`}>{label}</span>;
+            })()}
           </div>
           <div className="col-actions">
             <button
@@ -521,7 +570,6 @@ const MyFilesTab = ({
                 />
                 <div className="file-text">
                   <div className="filename">{displayName}</div>
-                  <div className="filesize">{formatFileSize(file.file_size)}</div>
                   <div className="datetime-mobile">
                     <div className="date-label">{date}</div>
                     <div className="time-label">{time}</div>
@@ -575,7 +623,6 @@ const MyFilesTab = ({
             />
             <div className="file-text">
               <div className="filename">{file.original_name}</div>
-              <div className="filesize">{formatFileSize(file.file_size)}</div>
               <div className="datetime-mobile">
                 <div className="date-label">{date}</div>
                 <div className="time-label">{time}</div>
@@ -609,7 +656,7 @@ const MyFilesTab = ({
     });
 
     return items;
-  }, [paginatedFiles, expandedFolders, groupFilesByFolder, formatDateTime, toggleFolder, handleFolderDeleteClick, handleFileClick, formatFileSize, getStatusClass, getStatusDisplayName, handleDeleteClick]);
+  }, [paginatedFiles, expandedFolders, groupFilesByFolder, formatDateTime, toggleFolder, handleFolderDeleteClick, handleFileClick, formatFileSize, getStatusClass, getStatusDisplayName, handleDeleteClick, getFolderStatus]);
 
   return (
     <div className="user-my-files-component my-files-wrapper">

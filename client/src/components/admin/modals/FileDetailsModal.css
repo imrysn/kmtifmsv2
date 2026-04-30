@@ -1,4 +1,71 @@
 /* File Details Modal Styles - Scoped to avoid global CSS conflicts */
+
+/* Modal shell styles (needed when used outside admin context) */
+.file-details-modal-component .modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1050;
+  padding: 1rem;
+}
+
+.file-details-modal-component .modal.file-modal {
+  background: #ffffff;
+  border-radius: 16px;
+  box-shadow: 0 20px 32px rgba(0, 0, 0, 0.15);
+  max-width: 720px;
+  width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.file-details-modal-component .modal-header {
+  padding: 1.5rem;
+  border-bottom: 1px solid #e5e7eb;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: white;
+  border-radius: 16px 16px 0 0;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.file-details-modal-component .modal-header h3 {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: #111827;
+  margin: 0;
+}
+
+.file-details-modal-component .modal-close {
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  cursor: pointer;
+  color: #6b7280;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  transition: background 0.2s ease;
+}
+
+.file-details-modal-component .modal-close:hover {
+  background: #f3f4f6;
+}
+
 .file-details-modal-component .file-modal .modal-body {
   padding: 0;
 }
@@ -67,7 +134,7 @@
 
 .file-details-modal-component .btn-success-large,
 .file-details-modal-component .btn-danger-large,
-.file-details-modal-component .file-details-modal-component .btn-secondary-large {
+.file-details-modal-component .btn-secondary-large {
   flex: 1;
   display: flex;
   align-items: center;
@@ -83,35 +150,35 @@
 }
 
 .file-details-modal-component .btn-success-large {
-  background: var(--success);
+  background: #10b981;
   color: white;
 }
 
 .file-details-modal-component .btn-success-large:hover:not(:disabled) {
-  background: var(--success-dark);
+  background: #059669;
   transform: translateY(-1px);
   box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
 }
 
 .file-details-modal-component .btn-danger-large {
-  background: var(--danger);
+  background: #ef4444;
   color: white;
 }
 
 .file-details-modal-component .btn-danger-large:hover:not(:disabled) {
-  background: var(--danger-dark);
+  background: #dc2626;
   transform: translateY(-1px);
   box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
 }
 
-.btn-secondary-large {
-  background: var(--surface);
-  color: var(--text-primary);
-  border: 1px solid var(--border);
+.file-details-modal-component .btn-secondary-large {
+  background: #f9fafb;
+  color: #374151;
+  border: 1px solid #d1d5db;
 }
 
 .file-details-modal-component .btn-secondary-large:hover:not(:disabled) {
-  background: var(--hover);
+  background: #f3f4f6;
   transform: translateY(-1px);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }

@@ -251,7 +251,7 @@ const ReviewModal = ({
                     color: selectedFile.status === 'team_leader_approved' ? '#92400E' :
                       selectedFile.status === 'final_approved' ? '#065F46' : '#991B1B'
                   }}>
-                    {selectedFile.status === 'team_leader_approved' ? 'This file has been approved by you and is now pending admin review.' :
+                    {selectedFile.status === 'team_leader_approved' ? `This file has been approved by ${user.fullName || user.username || 'the team leader'} and is now pending admin review.` :
                       selectedFile.status === 'final_approved' ? 'This file has been fully approved and published.' :
                         'This file has been rejected and cannot be re-reviewed.'}
                   </span>

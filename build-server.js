@@ -36,4 +36,14 @@ if (fs.existsSync(nodeModulesSrc)) {
     console.log('✅ Copied node_modules');
 }
 
+// Copy database directory INTO dist-server so it sits alongside node_modules.
+// This lets database/config.js resolve mysql2 via dist-server/node_modules
+// when running inside the packaged Electron app (resources/app-server/).
+const dbSrc = path.join(__dirname, 'database');
+const dbDest = path.join(dest, 'database');
+if (fs.existsSync(dbSrc)) {
+    fs.cpSync(dbSrc, dbDest, { recursive: true });
+    console.log('✅ Copied database directory into dist-server');
+}
+
 console.log('✅ Server build complete!');

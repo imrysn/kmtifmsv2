@@ -6,6 +6,7 @@ const path = require('path');
 const fs = require('fs');
 const { uploadsDir, moveToUserFolder } = require('../config/middleware');
 const assignmentController = require('../controllers/assignmentController');
+const { createAdminNotification } = require('./notifications');
 
 // Configure multer for file uploads using existing uploads directory
 const storage = multer.diskStorage({
@@ -28,13 +29,88 @@ const upload = multer({
   }
 });
 
+// Batch submission tracker to group multiple file submissions into single notification
+const pendingBatchSubmissions = new Map();
+
+// Function to create grouped notification
+async function createBatchedSubmissionNotification(teamLeaderId, assignmentId, submissions) {
+  try {
+    const assignment = await queryOne('SELECT title FROM assignments WHERE id = ?', [assignmentId]);
+    const firstSubmission = submissions[0];
+
+    // Get the REAL total count of files submitted for this assignment by this user from DB
+    // This ensures the count is accurate even if some files were skipped as duplicates
+    const realCount = await queryOne(
+      'SELECT COUNT(*) as total FROM assignment_submissions WHERE assignment_id = ? AND user_id = ?',
+      [assignmentId, firstSubmission.userId]
+    );
+    const totalFileCount = realCount ? realCount.total : submissions.length;
+
+    // Get folder name — use DB data for accuracy
+    const folderName = firstSubmission.folderName;
+    const isFolder = folderName && totalFileCount > 1;
+
+    let message;
+    let title = 'New File Submitted for Review';
+
+    if (isFolder) {
+      title = 'New Folder Submitted for Review';
+      message = `${firstSubmission.submitterName} submitted folder "${folderName}" (${totalFileCount} files) for the assignment "${assignment.title}"`;
+    } else if (totalFileCount === 1) {
+      message = `${firstSubmission.submitterName} submitted "${firstSubmission.fileName}" for the assignment "${assignment.title}"`;
+    } else {
+      message = `${firstSubmission.submitterName} submitted ${totalFileCount} files for the assignment "${assignment.title}"`;
+    }
+
+    // Find the team leader — first try assignment.team_leader_id, then look up by team
+    let finalTeamLeaderId = teamLeaderId;
+    if (!finalTeamLeaderId) {
+      const tl = await queryOne(
+        'SELECT u.id FROM users u JOIN team_leaders tl ON u.id = tl.user_id JOIN teams t ON tl.team_id = t.id JOIN assignments a ON a.team = t.name WHERE a.id = ? LIMIT 1',
+        [assignmentId]
+      );
+      finalTeamLeaderId = tl ? tl.id : null;
+    }
+
+    if (!finalTeamLeaderId) {
+      console.warn(`⚠️ No team leader found for assignment ${assignmentId} — skipping notification`);
+      return;
+    }
+
+    await query(`
+      INSERT INTO notifications (
+        user_id,
+        assignment_id,
+        file_id,
+        type,
+        title,
+        message,
+        action_by_id,
+        action_by_username,
+        action_by_role
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `, [
+      finalTeamLeaderId,
+      assignmentId,
+      firstSubmission.fileId,
+      'submission',
+      title,
+      message,
+      firstSubmission.userId,
+      firstSubmission.username,
+      'USER'
+    ]);
+
+    console.log(`✅ Created batched notification for team leader ${finalTeamLeaderId}: ${isFolder ? `folder "${folderName}" (${totalFileCount} files)` : `${totalFileCount} file(s)`}`);
+  } catch (error) {
+    console.error('⚠️ Failed to create batched submission notification:', error);
+  }
+}
+
 router.get('/admin/all', async (req, res) => {
   try {
-    console.log('🔍 Admin assignments route called');
     const { cursor, limit = 20 } = req.query;
     const parsedLimit = parseInt(limit, 10);
-
-    console.log('Admin fetching assignments with pagination:', { cursor, limit: parsedLimit });
 
     let queryStr = `
       SELECT
@@ -71,8 +147,6 @@ router.get('/admin/all', async (req, res) => {
 
     const assignments = await query(queryStr, queryParams);
 
-    console.log(`Found ${assignments.length} assignments for this batch`);
-
     // Check if there are more results
     const hasMore = assignments.length > parsedLimit;
     const assignmentsToReturn = hasMore ? assignments.slice(0, parsedLimit) : assignments;
@@ -82,7 +156,6 @@ router.get('/admin/all', async (req, res) => {
 
     // Get additional details for each assignment
     for (const assignment of assignmentsToReturn) {
-      // Get assigned member details
       const assignedMembers = await query(`
         SELECT u.id, u.username, u.fullName
         FROM assignment_members am
@@ -94,10 +167,12 @@ router.get('/admin/all', async (req, res) => {
 
       // Get attachments for this assignment
       const attachments = await query(`
-        SELECT id, original_name, filename, file_path, file_size, file_type, created_at
+        SELECT id, original_name, filename, file_path, file_size, file_type, folder_name, relative_path, created_at,
+               COALESCE(status, 'team_leader_approved') AS status,
+               COALESCE(current_stage, 'pending_admin') AS current_stage
         FROM assignment_attachments
         WHERE assignment_id = ?
-        ORDER BY created_at DESC
+        ORDER BY COALESCE(folder_name, ''), created_at DESC
       `, [assignment.id]);
 
       assignment.attachments = attachments || [];
@@ -146,14 +221,6 @@ router.get('/admin/all', async (req, res) => {
       }
     }
 
-    console.log(`Returning ${assignmentsToReturn.length} assignments to admin, hasMore: ${hasMore}`);
-
-    // Debug: Check comment_count in assignments
-    if (assignmentsToReturn.length > 0) {
-      console.log('First assignment comment_count:', assignmentsToReturn[0].comment_count, 'type:', typeof assignmentsToReturn[0].comment_count);
-      console.log('First assignment keys:', Object.keys(assignmentsToReturn[0]));
-    }
-
     res.json({
       success: true,
       assignments: assignmentsToReturn || [],
@@ -184,20 +251,47 @@ router.get('/team-leader/:userId/all-submissions', async (req, res) => {
       WHERE tl.user_id = ?
     `, [userId]);
 
-    if (!ledTeams || ledTeams.length === 0) {
-      console.log(`⚠️ User ${userId} is not a leader of any teams`);
-      return res.json({
-        success: true,
-        submissions: []
-      });
-    }
-
-    const teamNames = ledTeams.map(t => t.name);
+    const teamNames = (ledTeams || []).map(t => t.name);
     console.log(`✅ User ${userId} leads teams:`, teamNames);
 
-    // Get all submissions from ALL teams this user leads
-    const placeholders = teamNames.map(() => '?').join(',');
-    const allSubmissions = await query(`
+    // Get all submissions from ALL teams this user leads (team member files)
+    let memberSubmissions = [];
+    if (teamNames.length > 0) {
+      const placeholders = teamNames.map(() => '?').join(',');
+      memberSubmissions = await query(`
+        SELECT
+          f.id,
+          f.original_name,
+          f.filename,
+          f.file_type,
+          f.file_path,
+          f.public_network_url,
+          f.file_size,
+          f.uploaded_at,
+          f.status,
+          f.user_team,
+          f.folder_name,
+          f.relative_path,
+          f.is_folder,
+          u.username,
+          u.fullName,
+          asub.submitted_at,
+          asub.submitted_at as created_at,
+          a.id as assignment_id,
+          a.title as assignment_title,
+          a.due_date as assignment_due_date,
+          a.team
+        FROM assignment_submissions asub
+        JOIN files f ON asub.file_id = f.id
+        JOIN users u ON asub.user_id = u.id
+        JOIN assignments a ON asub.assignment_id = a.id
+        WHERE a.team IN (${placeholders})
+        ORDER BY asub.submitted_at DESC
+      `, teamNames);
+    }
+
+    // Also get files uploaded directly by the Team Leader (from the files table)
+    const tlFiles = await query(`
       SELECT
         f.id,
         f.original_name,
@@ -214,25 +308,63 @@ router.get('/team-leader/:userId/all-submissions', async (req, res) => {
         f.is_folder,
         u.username,
         u.fullName,
-        asub.submitted_at,
-        asub.submitted_at as created_at,
+        f.uploaded_at as submitted_at,
+        f.uploaded_at as created_at,
+        NULL as assignment_id,
+        NULL as assignment_title,
+        NULL as assignment_due_date,
+        f.user_team as team
+      FROM files f
+      JOIN users u ON f.user_id = u.id
+      WHERE f.user_id = ?
+      ORDER BY f.uploaded_at DESC
+    `, [userId]);
+
+    // Also get TL attachment files (uploaded via assignment attachments)
+    const tlAttachments = await query(`
+      SELECT
+        aa.id,
+        aa.original_name,
+        aa.filename,
+        aa.file_type,
+        aa.file_path,
+        COALESCE(aa.public_network_url, NULL) as public_network_url,
+        aa.file_size,
+        aa.created_at as uploaded_at,
+        COALESCE(aa.status, 'team_leader_approved') as status,
+        u.team as user_team,
+        aa.folder_name,
+        aa.relative_path,
+        0 as is_folder,
+        aa.uploaded_by_username as username,
+        u.fullName,
+        aa.created_at as submitted_at,
+        aa.created_at as created_at,
         a.id as assignment_id,
         a.title as assignment_title,
         a.due_date as assignment_due_date,
-        a.team
-      FROM assignment_submissions asub
-      JOIN files f ON asub.file_id = f.id
-      JOIN users u ON asub.user_id = u.id
-      JOIN assignments a ON asub.assignment_id = a.id
-      WHERE a.team IN (${placeholders})
-      ORDER BY asub.submitted_at DESC
-    `, teamNames);
+        u.team as team,
+        'assignment_attachment' as source_type
+      FROM assignment_attachments aa
+      JOIN assignments a ON aa.assignment_id = a.id
+      JOIN users u ON aa.uploaded_by_id = u.id
+      WHERE aa.uploaded_by_id = ?
+      ORDER BY aa.created_at DESC
+    `, [userId]);
 
-    console.log(`✅ DASHBOARD API: Found ${allSubmissions?.length || 0} submissions across ${teamNames.length} teams`);
+    // Merge — avoid duplicates across all sources
+    const memberFileIds = new Set(memberSubmissions.map(f => String(f.id)));
+    const uniqueTLFiles = tlFiles.filter(f => !memberFileIds.has(String(f.id)));
+    const allExistingIds = new Set([...memberFileIds, ...uniqueTLFiles.map(f => String(f.id))]);
+    const uniqueAttachments = tlAttachments.filter(f => !allExistingIds.has(String(f.id)));
+
+    const allSubmissions = [...memberSubmissions, ...uniqueTLFiles, ...uniqueAttachments];
+
+    console.log(`✅ DASHBOARD API: Found ${memberSubmissions.length} member submissions + ${uniqueTLFiles.length} TL files + ${uniqueAttachments.length} TL attachments = ${allSubmissions.length} total`);
 
     res.json({
       success: true,
-      submissions: allSubmissions || []
+      submissions: allSubmissions
     });
   } catch (error) {
     console.error('❌ DASHBOARD API: Error fetching all submissions:', error);
@@ -247,12 +379,9 @@ router.get('/team-leader/:userId/all-submissions', async (req, res) => {
 // Get all tasks for team members view (similar to admin view but filtered by team)
 router.get('/team/:team/all-tasks', async (req, res) => {
   try {
-    console.log('🔍 Team tasks route called for team:', req.params.team);
     const { team } = req.params;
     const { cursor, limit = 20 } = req.query;
     const parsedLimit = parseInt(limit, 10);
-
-    console.log('Fetching team tasks with pagination:', { team, cursor, limit: parsedLimit });
 
     let queryStr = `
       SELECT
@@ -283,8 +412,6 @@ router.get('/team/:team/all-tasks', async (req, res) => {
 
     const assignments = await query(queryStr, queryParams);
 
-    console.log(`Found ${assignments.length} assignments for team ${team}`);
-
     // Check if there are more results
     const hasMore = assignments.length > parsedLimit;
     const assignmentsToReturn = hasMore ? assignments.slice(0, parsedLimit) : assignments;
@@ -294,7 +421,6 @@ router.get('/team/:team/all-tasks', async (req, res) => {
 
     // Get additional details for each assignment
     for (const assignment of assignmentsToReturn) {
-      // Get assigned member details
       const assignedMembers = await query(`
         SELECT u.id, u.username, u.fullName
         FROM assignment_members am
@@ -306,10 +432,12 @@ router.get('/team/:team/all-tasks', async (req, res) => {
 
       // Get attachments for this assignment
       const attachments = await query(`
-        SELECT id, original_name, filename, file_path, file_size, file_type, created_at
+        SELECT id, original_name, filename, file_path, file_size, file_type, folder_name, relative_path, created_at,
+               COALESCE(status, 'team_leader_approved') AS status,
+               COALESCE(current_stage, 'pending_admin') AS current_stage
         FROM assignment_attachments
         WHERE assignment_id = ?
-        ORDER BY created_at DESC
+        ORDER BY COALESCE(folder_name, ''), created_at DESC
       `, [assignment.id]);
 
       assignment.attachments = attachments || [];
@@ -379,7 +507,6 @@ router.get('/team/:team/all-tasks', async (req, res) => {
 router.get('/team-leader/:userId', async (req, res) => {
   try {
     const { userId } = req.params;
-    console.log(`🔍 Fetching assignments for team leader user ID: ${userId}`);
 
     // First, get all teams this user leads
     const ledTeams = await query(`
@@ -390,7 +517,6 @@ router.get('/team-leader/:userId', async (req, res) => {
     `, [userId]);
 
     if (!ledTeams || ledTeams.length === 0) {
-      console.log(`⚠️ User ${userId} is not a leader of any teams`);
       return res.json({
         success: true,
         assignments: []
@@ -398,11 +524,10 @@ router.get('/team-leader/:userId', async (req, res) => {
     }
 
     const teamNames = ledTeams.map(t => t.name);
-    console.log(`✅ User ${userId} leads teams:`, teamNames);
 
     // Get all assignments from ALL teams this user leads
     const placeholders = teamNames.map(() => '?').join(',');
-    const assignments = await query(`
+    const tlAssignments = await query(`
       SELECT
         a.*,
         COUNT(DISTINCT asub.id) as submission_count,
@@ -415,11 +540,8 @@ router.get('/team-leader/:userId', async (req, res) => {
       ORDER BY a.created_at DESC
     `, teamNames);
 
-    console.log(`✅ Found ${assignments.length} assignments across ${teamNames.length} teams`);
-
     // Get recent submissions for each assignment
-    for (const assignment of assignments) {
-      // Get assigned member details
+    for (const assignment of tlAssignments) {
       const assignedMembers = await query(`
         SELECT u.id, u.username, u.fullName
         FROM assignment_members am
@@ -431,10 +553,12 @@ router.get('/team-leader/:userId', async (req, res) => {
 
       // Get attachments for this assignment
       const attachments = await query(`
-        SELECT id, original_name, filename, file_path, file_size, file_type, created_at
+        SELECT id, original_name, filename, file_path, file_size, file_type, folder_name, relative_path, created_at,
+               COALESCE(status, 'team_leader_approved') AS status,
+               COALESCE(current_stage, 'pending_admin') AS current_stage
         FROM assignment_attachments
         WHERE assignment_id = ?
-        ORDER BY created_at DESC
+        ORDER BY COALESCE(folder_name, ''), created_at DESC
       `, [assignment.id]);
 
       assignment.attachments = attachments || [];
@@ -483,21 +607,15 @@ router.get('/team-leader/:userId', async (req, res) => {
         assignment.team_leader_email = teamLeader.email;
       }
 
-      // Debug log
+      // Debug log: warn if submission_count says files exist but none were fetched
       if (assignment.submission_count > 0 && (!recentSubmissions || recentSubmissions.length === 0)) {
-        console.log(`WARNING: Assignment ${assignment.id} has submission_count ${assignment.submission_count} but no recent_submissions`);
-        // Try to debug what's in assignment_members
-        const debugData = await query(
-          'SELECT * FROM assignment_members WHERE assignment_id = ?',
-          [assignment.id]
-        );
-        console.log(`Debug assignment_members for assignment ${assignment.id}:`, debugData);
+        console.warn(`⚠️ Assignment ${assignment.id} has submission_count ${assignment.submission_count} but fetched no submissions`);
       }
     }
 
     res.json({
       success: true,
-      assignments: assignments || []
+      assignments: tlAssignments || []
     });
   } catch (error) {
     console.error('Error in fetchAssignments route:', error);
@@ -575,8 +693,96 @@ router.get('/:assignmentId/details', async (req, res) => {
   }
 });
 
+// One-time nonce store: prevents Electron multipart cache replay on /create
+// Client requests a nonce before each upload, uses it once, then it's deleted.
+const uploadNonces = new Map(); // nonce -> { used: bool, expiresAt: number }
+
+// Clean up expired nonces every 5 minutes
+setInterval(() => {
+  const now = Date.now();
+  for (const [k, v] of uploadNonces.entries()) {
+    if (now > v.expiresAt) uploadNonces.delete(k);
+  }
+}, 5 * 60 * 1000);
+
+// Issue a one-time upload nonce (must be called right before the real upload)
+router.post('/upload-nonce', (req, res) => {
+  const nonce = `${Date.now()}-${Math.random().toString(36).substring(2)}`;
+  uploadNonces.set(nonce, { used: false, expiresAt: Date.now() + 2 * 60 * 1000 }); // valid 2 min
+  res.json({ success: true, nonce });
+});
+
+// Create assignment via plain JSON (no file uploads) — bypasses multer entirely
+// Used by client when no attachments are selected, to avoid Electron multipart cache replay
+router.post('/create-json', async (req, res) => {
+  try {
+    const {
+      title, description, dueDate, fileTypeRequired,
+      assignedTo, assignedMembers, teamLeaderId, teamLeaderUsername, team
+    } = req.body
+
+    if (!title || !team || !teamLeaderId) {
+      return res.status(400).json({ success: false, message: 'Missing required fields' })
+    }
+
+    const finalMembers = Array.isArray(assignedMembers) ? assignedMembers : JSON.parse(assignedMembers || '[]')
+
+    const assignmentResult = await query(`
+      INSERT INTO assignments (
+        title, description, due_date, file_type_required,
+        assigned_to, max_file_size, team_leader_id, team_leader_username, team, created_at, status
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), 'active')
+    `, [title, description || null, dueDate || null, fileTypeRequired || null,
+        assignedTo || 'specific', 10485760, teamLeaderId, teamLeaderUsername, team])
+
+    const assignmentId = assignmentResult.insertId
+    let membersAssigned = 0
+
+    if (finalMembers.length > 0) {
+      const placeholders = finalMembers.map(() => '(?, ?)').join(', ')
+      await query(
+        `INSERT INTO assignment_members (assignment_id, user_id) VALUES ${placeholders}`,
+        finalMembers.flatMap(uid => [assignmentId, uid])
+      )
+      membersAssigned = finalMembers.length
+
+      for (const uid of finalMembers) {
+        try {
+          await query(`INSERT INTO notifications (user_id,assignment_id,file_id,type,title,message,action_by_id,action_by_username,action_by_role) VALUES (?,?,?,?,?,?,?,?,?)`,
+            [uid, assignmentId, null, 'assignment', 'New Assignment',
+             `${teamLeaderUsername} assigned you a new task: "${title}"${dueDate ? ` - Due: ${new Date(dueDate).toLocaleDateString()}` : ''}`,
+             teamLeaderId, teamLeaderUsername, 'TEAM_LEADER'])
+        } catch (e) { console.warn('Notification failed for user', uid, e.message) }
+      }
+    } else if (assignedTo === 'all') {
+      const teamMembers = await query('SELECT id FROM users WHERE team = ? AND role = ?', [team, 'USER'])
+      if (teamMembers.length > 0) {
+        const placeholders = teamMembers.map(() => '(?, ?)').join(', ')
+        await query(
+          `INSERT INTO assignment_members (assignment_id, user_id) VALUES ${placeholders}`,
+          teamMembers.flatMap(m => [assignmentId, m.id])
+        )
+        membersAssigned = teamMembers.length
+      }
+    }
+
+    try {
+      await query(`INSERT INTO activity_logs (user_id,username,role,team,activity) VALUES (?,?,?,?,?)`,
+        [teamLeaderId, teamLeaderUsername, 'TEAM_LEADER', team, `Created assignment: ${title}`])
+    } catch (e) { /* ignore */ }
+
+    console.log(`✅ Assignment ${assignmentId} created via JSON (no attachments)`)
+    res.json({ success: true, message: 'Assignment created successfully', assignmentId, membersAssigned, attachmentsCreated: 0 })
+  } catch (error) {
+    console.error('Error creating assignment (JSON):', error)
+    res.status(500).json({ success: false, message: 'Failed to create assignment', error: error.message })
+  }
+});
+
 // Create new assignment with file attachments
-router.post('/create', upload.array('attachments', 10), async (req, res) => {
+// NOTE: If client sends no files, it should use /create-json instead.
+// This route still cleans up any stray multer files if hasAttachments is false.
+router.post('/create', upload.array('attachments', 10000), async (req, res) => {
   try {
     const {
       title,
@@ -607,8 +813,67 @@ router.post('/create', upload.array('attachments', 10), async (req, res) => {
     const finalTeamLeaderId = teamLeaderId || team_leader_id;
     const finalTeamLeaderUsername = teamLeaderUsername || team_leader_username;
 
-    // Get uploaded files
-    const uploadedFiles = req.files || [];
+    // NONCE VALIDATION: Only enforce for multipart (file upload) requests.
+    // Plain JSON requests (no files) skip nonce — this allows task creation without attachments.
+    // The nonce guards against Electron's multipart cache replay bug on file uploads only.
+    const isMultipartCreate = req.is('multipart/form-data');
+    const requestNonce = req.body.uploadNonce;
+    const rawFiles = req.files || [];
+
+    if (isMultipartCreate) {
+      if (!requestNonce || !uploadNonces.has(requestNonce)) {
+        // No valid nonce = replayed or stale multipart request — discard all files and reject
+        console.warn(`⚠️ /create rejected: missing or invalid uploadNonce. Discarding ${rawFiles.length} file(s).`);
+        for (const f of rawFiles) {
+          try { fs.unlinkSync(f.path); } catch (e) { /* ignore */ }
+        }
+        return res.status(400).json({ success: false, message: 'Invalid or missing upload nonce. Please try again.' });
+      }
+
+      const nonceEntry = uploadNonces.get(requestNonce);
+      if (nonceEntry.used) {
+        // Already-used nonce = definitely a replay attack
+        console.warn(`⚠️ /create rejected: nonce already used. Discarding ${rawFiles.length} file(s).`);
+        for (const f of rawFiles) {
+          try { fs.unlinkSync(f.path); } catch (e) { /* ignore */ }
+        }
+        return res.status(400).json({ success: false, message: 'Upload nonce already used. Please try again.' });
+      }
+
+      // Mark nonce as used immediately (one-time use)
+      nonceEntry.used = true;
+    }
+
+    // parse list of attachment IDs the client wants removed
+    let removeAttachmentIds = [];
+    if (typeof req.body.removeAttachmentIds === 'string') {
+      try {
+        removeAttachmentIds = JSON.parse(req.body.removeAttachmentIds || '[]');
+        if (!Array.isArray(removeAttachmentIds)) removeAttachmentIds = [];
+      } catch (e) {
+        console.warn('⚠️ [CREATE] Could not parse removeAttachmentIds:', e.message);
+        removeAttachmentIds = [];
+      }
+    } else if (Array.isArray(req.body.removeAttachmentIds)) {
+      removeAttachmentIds = req.body.removeAttachmentIds;
+    }
+
+    if (removeAttachmentIds.length > 0) {
+      // nothing to actually delete on create, just log
+      console.log(`🗑️ Ignoring removeAttachmentIds on create:`, removeAttachmentIds);
+    }
+
+    const clientSentAttachments = req.body.hasAttachments === 'true';
+
+    // Even with a valid nonce, if client says no attachments, discard any stray files
+    if (!clientSentAttachments && rawFiles.length > 0) {
+      console.warn(`⚠️ Discarding ${rawFiles.length} unexpected temp file(s) — client did not flag hasAttachments`);
+      for (const f of rawFiles) {
+        try { fs.unlinkSync(f.path); } catch (e) { /* ignore */ }
+      }
+    }
+
+    const uploadedFiles = clientSentAttachments ? rawFiles : [];
 
     // Validate required fields
     if (!title || !team || !finalTeamLeaderId) {
@@ -654,7 +919,20 @@ router.post('/create', upload.array('attachments', 10), async (req, res) => {
       try {
         console.log(`📎 Saving ${uploadedFiles.length} attachment(s) for assignment ${assignmentId}`);
 
-        for (const file of uploadedFiles) {
+        // Parse relative paths sent by the client ONCE before the loop
+        let relativePaths = []
+        try {
+          relativePaths = JSON.parse(req.body.relativePaths || '[]')
+          console.log(`📂 relativePaths received: ${JSON.stringify(relativePaths)}`)
+        } catch (e) {
+          console.warn('⚠️ Could not parse relativePaths:', e.message)
+          relativePaths = []
+        }
+
+        // iterate with index to ensure the correct relativePath maps to each file
+        for (let fileIndex = 0; fileIndex < uploadedFiles.length; fileIndex++) {
+          const file = uploadedFiles[fileIndex];
+
           // Move file from temp location to team leader's folder
           let finalPath;
           try {
@@ -666,6 +944,23 @@ router.post('/create', upload.array('attachments', 10), async (req, res) => {
             finalPath = file.path;
           }
 
+          const relPath = relativePaths[fileIndex] || file.originalname;
+          const folderName = relPath.includes('/') ? relPath.split('/')[0] : null;
+          console.log(`📎 File ${fileIndex}: ${file.originalname} → relPath: ${relPath}, folderName: ${folderName}`);
+
+          // Re-move the file now that we know the folder structure.
+          // moveToUserFolder will create username/folderName/subpath on disk.
+          if (folderName) {
+            try {
+              const movedPath = await moveToUserFolder(finalPath, finalTeamLeaderUsername, file.originalname, folderName, relPath);
+              finalPath = movedPath;
+              console.log(`✅ Re-moved into folder structure: ${finalPath}`);
+            } catch (reMoveError) {
+              console.error('⚠️ Failed to re-move file into folder structure:', reMoveError.message);
+              // keep finalPath as the flat location — file is still saved, just not folderized
+            }
+          }
+
           await query(`
             INSERT INTO assignment_attachments (
               assignment_id,
@@ -675,8 +970,10 @@ router.post('/create', upload.array('attachments', 10), async (req, res) => {
               file_size,
               file_type,
               uploaded_by_id,
-              uploaded_by_username
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+              uploaded_by_username,
+              folder_name,
+              relative_path
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
           `, [
             assignmentId,
             file.originalname,
@@ -685,7 +982,9 @@ router.post('/create', upload.array('attachments', 10), async (req, res) => {
             file.size,
             file.mimetype,
             finalTeamLeaderId,
-            finalTeamLeaderUsername
+            finalTeamLeaderUsername,
+            folderName,
+            relPath !== file.originalname ? relPath : null
           ]);
           attachmentsCreated++;
         }
@@ -755,126 +1054,60 @@ router.post('/create', upload.array('attachments', 10), async (req, res) => {
 
       // Create notifications for assigned members
       try {
-        console.log('🔔 Creating notifications for assignment:', assignmentId);
-        console.log('Assigned to:', finalAssignedTo);
-        console.log('Members:', finalMembers);
-        console.log('Team:', team);
-        console.log('Team Leader:', finalTeamLeaderUsername, '(ID:', finalTeamLeaderId, ')');
-
         if (finalAssignedTo === 'specific' && finalMembers && finalMembers.length > 0) {
-          // Notify specific members
-          console.log('Creating notifications for specific members:', finalMembers);
           for (const userId of finalMembers) {
             try {
-              const notificationData = {
-                user_id: userId,
-                assignment_id: assignmentId,
-                file_id: null,
-                type: 'assignment',
-                title: 'New Assignment',
-                message: `${finalTeamLeaderUsername} assigned you a new task: "${title}"${finalDueDate ? ` - Due: ${new Date(finalDueDate).toLocaleDateString()}` : ''}`,
-                action_by_id: finalTeamLeaderId,
-                action_by_username: finalTeamLeaderUsername,
-                action_by_role: 'TEAM_LEADER'
-              };
-
-              console.log('Inserting notification:', notificationData);
-
               await query(`
                 INSERT INTO notifications (
-                  user_id,
-                  assignment_id,
-                  file_id,
-                  type,
-                  title,
-                  message,
-                  action_by_id,
-                  action_by_username,
-                  action_by_role
+                  user_id, assignment_id, file_id, type, title, message,
+                  action_by_id, action_by_username, action_by_role
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
               `, [
-                notificationData.user_id,
-                notificationData.assignment_id,
-                notificationData.file_id,
-                notificationData.type,
-                notificationData.title,
-                notificationData.message,
-                notificationData.action_by_id,
-                notificationData.action_by_username,
-                notificationData.action_by_role
+                userId, assignmentId, null, 'assignment', 'New Assignment',
+                `${finalTeamLeaderUsername} assigned you a new task: "${title}"${finalDueDate ? ` - Due: ${new Date(finalDueDate).toLocaleDateString()}` : ''}`,
+                finalTeamLeaderId, finalTeamLeaderUsername, 'TEAM_LEADER'
               ]);
-              console.log(`✅ Notification created successfully for user ${userId}`);
             } catch (err) {
-              console.error(`❌ Failed to create notification for user ${userId}:`, err);
-              console.error('Error details:', err.message);
-              console.error('SQL State:', err.sqlState);
-              console.error('SQL Message:', err.sqlMessage);
+              console.error(`Failed to create notification for user ${userId}:`, err.message);
             }
           }
-          console.log(`✅ Completed creating ${finalMembers.length} notification(s) for specific members`);
         } else if (finalAssignedTo === 'all') {
-          // Notify all team members
-          console.log('Creating notifications for all team members in team:', team);
           const teamMembers = await query(
             'SELECT id FROM users WHERE team = ? AND role = ?',
             [team, 'USER']
           );
-
-          console.log(`Found ${teamMembers.length} team members to notify`);
           for (const member of teamMembers) {
             try {
-              const notificationData = {
-                user_id: member.id,
-                assignment_id: assignmentId,
-                file_id: null,
-                type: 'assignment',
-                title: 'New Assignment',
-                message: `${finalTeamLeaderUsername} assigned a new task to all team members: "${title}"${finalDueDate ? ` - Due: ${new Date(finalDueDate).toLocaleDateString()}` : ''}`,
-                action_by_id: finalTeamLeaderId,
-                action_by_username: finalTeamLeaderUsername,
-                action_by_role: 'TEAM_LEADER'
-              };
-
-              console.log('Inserting notification for member:', member.id, notificationData);
-
               await query(`
                 INSERT INTO notifications (
-                  user_id,
-                  assignment_id,
-                  file_id,
-                  type,
-                  title,
-                  message,
-                  action_by_id,
-                  action_by_username,
-                  action_by_role
+                  user_id, assignment_id, file_id, type, title, message,
+                  action_by_id, action_by_username, action_by_role
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
               `, [
-                notificationData.user_id,
-                notificationData.assignment_id,
-                notificationData.file_id,
-                notificationData.type,
-                notificationData.title,
-                notificationData.message,
-                notificationData.action_by_id,
-                notificationData.action_by_username,
-                notificationData.action_by_role
+                member.id, assignmentId, null, 'assignment', 'New Assignment',
+                `${finalTeamLeaderUsername} assigned a new task to all team members: "${title}"${finalDueDate ? ` - Due: ${new Date(finalDueDate).toLocaleDateString()}` : ''}`,
+                finalTeamLeaderId, finalTeamLeaderUsername, 'TEAM_LEADER'
               ]);
-              console.log(`✅ Notification created successfully for user ${member.id}`);
             } catch (err) {
-              console.error(`❌ Failed to create notification for user ${member.id}:`, err);
-              console.error('Error details:', err.message);
-              console.error('SQL State:', err.sqlState);
-              console.error('SQL Message:', err.sqlMessage);
+              console.error(`Failed to create notification for user ${member.id}:`, err.message);
             }
           }
-          console.log(`✅ Completed creating ${teamMembers.length} notification(s) for all team members`);
         }
       } catch (notificationError) {
-        console.error('⚠️ Failed to create notifications:', notificationError.message);
-        console.error('Full error:', notificationError);
-        console.error('Stack:', notificationError.stack);
+        console.error('Failed to create notifications:', notificationError.message);
         // Don't fail the request if notifications fail
+      }
+
+      // Notify admins if team leader attached files to this assignment
+      if (attachmentsCreated > 0) {
+        const attachTitle = req.body.title || 'Assignment';
+        createAdminNotification(
+          null,
+          'new_upload',
+          'Team Leader Uploaded Attachment(s)',
+          `${finalTeamLeaderUsername} (Team Leader) uploaded ${attachmentsCreated} file${attachmentsCreated !== 1 ? 's' : ''} as attachment(s) for assignment "${attachTitle}".`,
+          finalTeamLeaderId, finalTeamLeaderUsername, 'TEAM_LEADER', assignmentId
+        ).catch(err => console.error('Failed to notify admins of TL attachment upload:', err));
       }
 
       res.json({
@@ -908,7 +1141,7 @@ router.post('/create', upload.array('attachments', 10), async (req, res) => {
 });
 
 // Update existing assignment with file attachments
-router.put('/:id', upload.array('attachments', 10), async (req, res) => {
+router.put('/:id', upload.array('attachments', 10000), async (req, res) => {
   try {
     const { id } = req.params;
     const {
@@ -940,8 +1173,82 @@ router.put('/:id', upload.array('attachments', 10), async (req, res) => {
     const finalTeamLeaderId = teamLeaderId || team_leader_id;
     const finalTeamLeaderUsername = teamLeaderUsername || team_leader_username;
 
-    // Get uploaded files
-    const uploadedFiles = req.files || [];
+    // NONCE VALIDATION for PUT (edit with attachments)
+    // Only enforce nonce for multipart requests — plain JSON updates (no file changes) skip this check.
+    const isMultipart = req.is('multipart/form-data');
+    const requestNonce = req.body.uploadNonce;
+    const rawFiles = req.files || [];
+
+    if (isMultipart) {
+      if (!requestNonce || !uploadNonces.has(requestNonce)) {
+        console.warn(`⚠️ [PUT] rejected: missing or invalid uploadNonce. Discarding ${rawFiles.length} file(s).`);
+        for (const f of rawFiles) {
+          try { fs.unlinkSync(f.path); } catch (e) { /* ignore */ }
+        }
+        return res.status(400).json({ success: false, message: 'Invalid or missing upload nonce. Please try again.' });
+      }
+
+      const nonceEntry = uploadNonces.get(requestNonce);
+      if (nonceEntry.used) {
+        console.warn(`⚠️ [PUT] rejected: nonce already used. Discarding ${rawFiles.length} file(s).`);
+        for (const f of rawFiles) {
+          try { fs.unlinkSync(f.path); } catch (e) { /* ignore */ }
+        }
+        return res.status(400).json({ success: false, message: 'Upload nonce already used. Please try again.' });
+      }
+      nonceEntry.used = true;
+    }
+
+    // parse list of attachment IDs the client wants removed
+    let removeAttachmentIds = [];
+    if (typeof req.body.removeAttachmentIds === 'string') {
+      try {
+        removeAttachmentIds = JSON.parse(req.body.removeAttachmentIds || '[]');
+        if (!Array.isArray(removeAttachmentIds)) removeAttachmentIds = [];
+      } catch (e) {
+        console.warn('⚠️ [PUT] Could not parse removeAttachmentIds:', e.message);
+        removeAttachmentIds = [];
+      }
+    } else if (Array.isArray(req.body.removeAttachmentIds)) {
+      removeAttachmentIds = req.body.removeAttachmentIds;
+    }
+
+    if (removeAttachmentIds.length > 0) {
+      console.log(`🗑️ [PUT] Removing ${removeAttachmentIds.length} existing attachment(s) for assignment ${id}:`, removeAttachmentIds);
+      for (const attId of removeAttachmentIds) {
+        try {
+          const attachment = await queryOne(
+            'SELECT * FROM assignment_attachments WHERE id = ? AND assignment_id = ?',
+            [attId, id]
+          );
+          if (attachment) {
+            if (attachment.file_path) {
+              try {
+                const filePath = attachment.file_path.startsWith('/uploads/')
+                  ? require('path').join(uploadsDir, attachment.file_path.substring(9))
+                  : attachment.file_path;
+                if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+              } catch (e) { console.warn('⚠️ Could not delete physical attachment file during removal:', e.message); }
+            }
+            await query('DELETE FROM assignment_attachments WHERE id = ?', [attId]);
+            console.log(`✅ Removed attachment ${attId}`);
+          }
+        } catch (e) {
+          console.warn('⚠️ Failed to remove attachment', attId, e.message);
+        }
+      }
+    }
+
+    const clientSentAttachments = req.body.hasAttachments === 'true';
+
+    if (!clientSentAttachments && rawFiles.length > 0) {
+      console.warn(`⚠️ [PUT] Discarding ${rawFiles.length} unexpected temp file(s) — client did not flag hasAttachments`);
+      for (const f of rawFiles) {
+        try { fs.unlinkSync(f.path); } catch (e) { /* ignore */ }
+      }
+    }
+
+    const uploadedFiles = clientSentAttachments ? rawFiles : [];
 
     // Validate required fields
     if (!title) {
@@ -992,7 +1299,19 @@ router.put('/:id', upload.array('attachments', 10), async (req, res) => {
       try {
         console.log(`📎 Saving ${uploadedFiles.length} new attachment(s) for assignment ${id}`);
 
-        for (const file of uploadedFiles) {
+        // parse relative paths from client if present
+        let relativePaths = [];
+        try {
+          relativePaths = JSON.parse(req.body.relativePaths || '[]');
+          console.log(`📂 [PUT] relativePaths received: ${JSON.stringify(relativePaths)}`);
+        } catch (e) {
+          console.warn('⚠️ [PUT] Could not parse relativePaths:', e.message);
+          relativePaths = [];
+        }
+
+        for (let fileIndex = 0; fileIndex < uploadedFiles.length; fileIndex++) {
+          const file = uploadedFiles[fileIndex];
+
           // Move file from temp location to team leader's folder
           let finalPath;
           try {
@@ -1004,6 +1323,21 @@ router.put('/:id', upload.array('attachments', 10), async (req, res) => {
             finalPath = file.path;
           }
 
+          const relPath = relativePaths[fileIndex] || file.originalname;
+          const folderName = relPath.includes('/') ? relPath.split('/')[0] : null;
+          console.log(`📎 [PUT] File ${fileIndex}: ${file.originalname} → relPath: ${relPath}, folderName: ${folderName}`);
+
+          // Re-move the file into the correct folder structure now that we know it.
+          if (folderName) {
+            try {
+              const movedPath = await moveToUserFolder(finalPath, finalTeamLeaderUsername, file.originalname, folderName, relPath);
+              finalPath = movedPath;
+              console.log(`✅ [PUT] Re-moved into folder structure: ${finalPath}`);
+            } catch (reMoveError) {
+              console.error('⚠️ [PUT] Failed to re-move file into folder structure:', reMoveError.message);
+            }
+          }
+
           await query(`
             INSERT INTO assignment_attachments (
               assignment_id,
@@ -1013,8 +1347,10 @@ router.put('/:id', upload.array('attachments', 10), async (req, res) => {
               file_size,
               file_type,
               uploaded_by_id,
-              uploaded_by_username
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+              uploaded_by_username,
+              folder_name,
+              relative_path
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
           `, [
             id,
             file.originalname,
@@ -1023,7 +1359,9 @@ router.put('/:id', upload.array('attachments', 10), async (req, res) => {
             file.size,
             file.mimetype,
             finalTeamLeaderId,
-            finalTeamLeaderUsername
+            finalTeamLeaderUsername,
+            folderName,
+            relPath !== file.originalname ? relPath : null
           ]);
           attachmentsCreated++;
         }
@@ -1076,6 +1414,19 @@ router.put('/:id', upload.array('attachments', 10), async (req, res) => {
         console.warn('Activity log insertion failed:', logError.message);
       }
 
+      // Notify admins if team leader added attachments while editing
+      if (attachmentsCreated > 0) {
+        const tlId = finalTeamLeaderId || existingAssignment.team_leader_id;
+        const tlUsername = finalTeamLeaderUsername || existingAssignment.team_leader_username;
+        createAdminNotification(
+          null,
+          'new_upload',
+          'Team Leader Uploaded Attachment(s)',
+          `${tlUsername} (Team Leader) uploaded ${attachmentsCreated} file${attachmentsCreated !== 1 ? 's' : ''} as attachment(s) for assignment "${title}".`,
+          tlId, tlUsername, 'TEAM_LEADER', id
+        ).catch(err => console.error('Failed to notify admins of TL attachment upload (edit):', err));
+      }
+
       res.json({
         success: true,
         message: 'Assignment updated successfully',
@@ -1112,7 +1463,6 @@ router.get('/user/:userId', async (req, res) => {
   try {
     const { userId } = req.params;
 
-    // First get the current user's info
     const currentUser = await queryOne(
       'SELECT username, fullName, team FROM users WHERE id = ?',
       [userId]
@@ -1125,9 +1475,7 @@ router.get('/user/:userId', async (req, res) => {
       });
     }
 
-    console.log('Current user:', currentUser);
-
-    const assignments = await query(`
+    const userAssignments = await query(`
       SELECT
         a.*,
         am.status as user_status,
@@ -1140,7 +1488,8 @@ router.get('/user/:userId', async (req, res) => {
         tl.username as team_leader_username,
         tl.role as team_leader_role,
         ? as assigned_user_fullname,
-        ? as assigned_user_username
+        ? as assigned_user_username,
+        (SELECT COUNT(*) FROM assignment_comments ac WHERE ac.assignment_id = a.id) as comment_count
       FROM assignments a
       LEFT JOIN assignment_members am ON a.id = am.assignment_id AND am.user_id = ?
       LEFT JOIN files fs ON am.file_id = fs.id
@@ -1152,13 +1501,8 @@ router.get('/user/:userId', async (req, res) => {
       ORDER BY a.created_at DESC
     `, [currentUser.fullName, currentUser.username, userId, currentUser.team, userId]);
 
-    console.log('Assignments found:', assignments.length);
-    if (assignments.length > 0) {
-      console.log('First assignment:', assignments[0]);
-    }
-
     // Fetch assigned member details and all submitted files for each assignment
-    for (const assignment of assignments) {
+    for (const assignment of userAssignments) {
       const memberDetails = await query(`
         SELECT u.id, u.username, u.fullName
         FROM assignment_members am
@@ -1170,10 +1514,10 @@ router.get('/user/:userId', async (req, res) => {
 
       // Get attachments for this assignment
       const attachments = await query(`
-        SELECT id, original_name, filename, file_path, file_size, file_type, created_at
+        SELECT id, original_name, filename, file_path, file_size, file_type, folder_name, relative_path, created_at
         FROM assignment_attachments
         WHERE assignment_id = ?
-        ORDER BY created_at DESC
+        ORDER BY COALESCE(folder_name, ''), created_at DESC
       `, [assignment.id]);
 
       assignment.attachments = attachments || [];
@@ -1204,12 +1548,11 @@ router.get('/user/:userId', async (req, res) => {
       `, [assignment.id, userId]);
 
       assignment.submitted_files = submittedFiles || [];
-      console.log(`Assignment ${assignment.id} has ${submittedFiles ? submittedFiles.length : 0} submitted file(s)`);
     }
 
     res.json({
       success: true,
-      assignments: assignments || []
+      assignments: userAssignments || []
     });
   } catch (error) {
     console.error('Error in user assignments route:', error);
@@ -1221,7 +1564,7 @@ router.get('/user/:userId', async (req, res) => {
   }
 });
 
-// Submit assignment (supports multiple file submissions)
+// Submit assignment (supports multiple file submissions with BATCHED notifications)
 router.post('/submit', async (req, res) => {
   try {
     const { assignmentId, userId, fileId } = req.body;
@@ -1264,9 +1607,11 @@ router.post('/submit', async (req, res) => {
     );
 
     if (existingFileSubmission) {
-      return res.status(400).json({
-        success: false,
-        message: 'This file has already been submitted for this assignment'
+      // Already submitted — treat as success so client doesn't show errors on re-upload
+      console.log(`ℹ️ File ${fileId} already submitted for assignment ${assignmentId} — skipping duplicate`);
+      return res.json({
+        success: true,
+        message: 'File already submitted for this assignment'
       });
     }
 
@@ -1300,64 +1645,62 @@ router.post('/submit', async (req, res) => {
       console.log(`✅ Assignment ${assignmentId} additional file submitted by user ${userId} with file ${fileId}`);
     }
 
-    // Create notification for team leader about the submission
-    try {
-      console.log('🔔 Creating submission notification for team leader');
+    // BATCHED NOTIFICATION SYSTEM
+    // Get user details for notification
+    const submitter = await queryOne(
+      'SELECT username, fullName FROM users WHERE id = ?',
+      [userId]
+    );
 
-      // Get user details for notification
-      const submitter = await queryOne(
-        'SELECT username, fullName FROM users WHERE id = ?',
-        [userId]
-      );
+    // Get file details for notification
+    const file = await queryOne(
+      'SELECT original_name, folder_name FROM files WHERE id = ?',
+      [fileId]
+    );
 
-      // Get file details for notification
-      const file = await queryOne(
-        'SELECT original_name FROM files WHERE id = ?',
-        [fileId]
-      );
+    // Create batch key: assignmentId-userId-teamLeaderId
+    const batchKey = `${assignmentId}-${userId}-${assignment.team_leader_id}`;
 
-      const notificationData = {
-        user_id: assignment.team_leader_id,
-        assignment_id: assignmentId,
-        file_id: fileId,
-        type: 'submission',
-        title: 'New File Submitted for Review',
-        message: `${submitter.fullName} submitted "${file.original_name}" for the assignment "${assignment.title}"`,
-        action_by_id: userId,
-        action_by_username: submitter.username,
-        action_by_role: 'USER'
-      };
-
-      console.log('Creating submission notification:', notificationData);
-
-      await query(`
-        INSERT INTO notifications (
-          user_id,
-          assignment_id,
-          file_id,
-          type,
-          title,
-          message,
-          action_by_id,
-          action_by_username,
-          action_by_role
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `, [
-        notificationData.user_id,
-        notificationData.assignment_id,
-        notificationData.file_id,
-        notificationData.type,
-        notificationData.title,
-        notificationData.message,
-        notificationData.action_by_id,
-        notificationData.action_by_username,
-        notificationData.action_by_role
-      ]);
-
-      console.log(`✅ Submission notification created for team leader ${assignment.team_leader_id}`);
-    } catch (notificationError) {
-      console.error('⚠️ Failed to create submission notification:', notificationError);
+    // If batch doesn't exist, create it
+    if (!pendingBatchSubmissions.has(batchKey)) {
+      pendingBatchSubmissions.set(batchKey, {
+        teamLeaderId: assignment.team_leader_id,
+        assignmentId: assignmentId,
+        submissions: []
+      });
     }
+
+    // Add this submission to the batch
+    const batch = pendingBatchSubmissions.get(batchKey);
+    batch.submissions.push({
+      fileId: fileId,
+      fileName: file.original_name,
+      folderName: file.folder_name,
+      userId: userId,
+      username: submitter.username,
+      submitterName: submitter.fullName
+    });
+
+    console.log(`📦 Added file to batch: ${file.original_name} (${batch.submissions.length} files total)`);
+
+    // Clear existing timeout if any
+    if (batch.timeoutId) {
+      clearTimeout(batch.timeoutId);
+    }
+
+    // Set timeout to send batched notification after 5 seconds of no new submissions
+    batch.timeoutId = setTimeout(async () => {
+      const batchToSend = pendingBatchSubmissions.get(batchKey);
+      if (batchToSend) {
+        console.log(`🔔 Sending batched notification for ${batchToSend.submissions.length} file(s)`);
+        await createBatchedSubmissionNotification(
+          batchToSend.teamLeaderId,
+          batchToSend.assignmentId,
+          batchToSend.submissions
+        );
+        pendingBatchSubmissions.delete(batchKey);
+      }
+    }, 5000); // Wait 5 seconds after last submission to accommodate folder uploads
 
     res.json({
       success: true,
@@ -1472,181 +1815,73 @@ router.post('/:assignmentId/comments', async (req, res) => {
 
     // Create notifications for assigned members
     try {
-      console.log(` Comment posted by ${user.role}: ${user.fullName} (ID: ${userId})`);
-      console.log(` Assignment ID: ${assignmentId}`);
-
-      // Get assignment details
       const assignment = await queryOne(
         'SELECT title, team_leader_id FROM assignments WHERE id = ?',
         [assignmentId]
       );
-      console.log(` Assignment title: ${assignment?.title}`);
 
-      // Get all members assigned to this task (except the commenter)
       const assignedMembers = await query(
         'SELECT user_id FROM assignment_members WHERE assignment_id = ? AND user_id != ?',
         [assignmentId, userId]
       );
 
-      console.log(` Found ${assignedMembers.length} assigned members (excluding commenter):`);
-      console.log(assignedMembers);
-
-      // If admin commented, notify both team leader AND assigned members
       if (user.role === 'ADMIN') {
-        console.log('🏗️ Admin commented - notifying both team leader and assigned members');
-        console.log('📊 Assignment details:', {
-          assignmentId,
-          team_leader_id: assignment.team_leader_id,
-          teamLeaderId: assignment.teamLeaderId,
-          userId,
-          userRole: user.role,
-          title: assignment.title
-        });
-
-        // Always notify the team leader if they exist (including if admin is also team leader)
         const teamLeaderId = assignment.team_leader_id || assignment.teamLeaderId;
         if (teamLeaderId) {
-          console.log(`📤 Creating notification for team leader ID: ${teamLeaderId}`);
-
-          const teamLeaderNotification = await query(`
+          await query(`
             INSERT INTO notifications (
-              user_id,
-              assignment_id,
-              file_id,
-              type,
-              title,
-              message,
-              action_by_id,
-              action_by_username,
-              action_by_role
+              user_id, assignment_id, file_id, type, title, message,
+              action_by_id, action_by_username, action_by_role
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
           `, [
-            assignment.team_leader_id,
-            assignmentId,
-            null,
-            'comment',
+            assignment.team_leader_id, assignmentId, null, 'comment',
             'New Admin Comment on Assignment',
             `Admin ${user.fullName} commented on "${assignment.title}": ${comment.substring(0, 100)}${comment.length > 100 ? '...' : ''}`,
-            userId,
-            username,
-            user.role
+            userId, username, user.role
           ]);
-
-          console.log(` Notification created for team leader with ID: ${teamLeaderNotification.insertId}`);
         }
-
-        // Then notify assigned members (except if any of them are team leaders who already got notified)
-        if (assignedMembers.length === 0) {
-          console.log(' No members to notify (either no one assigned or only commenter is assigned)');
-        }
-
-        // Create notification for each assigned member
         for (const member of assignedMembers) {
-          console.log(` Creating notification for user ID: ${member.user_id}`);
-
-          const notificationResult = await query(`
+          await query(`
             INSERT INTO notifications (
-              user_id,
-              assignment_id,
-              file_id,
-              type,
-              title,
-              message,
-              action_by_id,
-              action_by_username,
-              action_by_role
+              user_id, assignment_id, file_id, type, title, message,
+              action_by_id, action_by_username, action_by_role
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
           `, [
-            member.user_id,
-            assignmentId,
-            null,
-            'comment',
+            member.user_id, assignmentId, null, 'comment',
             'New Admin Comment on Assignment',
             `Admin ${user.fullName} commented on "${assignment.title}": ${comment.substring(0, 100)}${comment.length > 100 ? '...' : ''}`,
-            userId,
-            username,
-            user.role
+            userId, username, user.role
           ]);
-
-          console.log(` Notification created with ID: ${notificationResult.insertId}`);
         }
-
-        console.log(` Successfully created admin comment notifications for team leader + ${assignedMembers.length} member(s)`);
-      }
-      // If team leader commented, notify assigned members
-      else if (user.role === 'TEAM_LEADER') {
-        if (assignedMembers.length === 0) {
-          console.log(' No members to notify (either no one assigned or only commenter is assigned)');
-        }
-
-        // Create notification for each assigned member
+      } else if (user.role === 'TEAM_LEADER') {
         for (const member of assignedMembers) {
-          console.log(` Creating notification for user ID: ${member.user_id}`);
-
-          const notificationResult = await query(`
+          await query(`
             INSERT INTO notifications (
-              user_id,
-              assignment_id,
-              file_id,
-              type,
-              title,
-              message,
-              action_by_id,
-              action_by_username,
-              action_by_role
+              user_id, assignment_id, file_id, type, title, message,
+              action_by_id, action_by_username, action_by_role
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
           `, [
-            member.user_id,
-            assignmentId,
-            null,
-            'comment',
+            member.user_id, assignmentId, null, 'comment',
             'New Comment on Assignment',
             `${user.fullName} commented on "${assignment.title}": ${comment.substring(0, 100)}${comment.length > 100 ? '...' : ''}`,
-            userId,
-            username,
-            user.role
+            userId, username, user.role
           ]);
-
-          console.log(` Notification created with ID: ${notificationResult.insertId}`);
         }
-
-        console.log(` Successfully created ${assignedMembers.length} comment notification(s)`);
-      }
-      // If regular user commented, notify team leader
-      else if (user.role === 'USER' && assignment.team_leader_id && assignment.team_leader_id !== userId) {
-        console.log(`📤 Creating notification for team leader ID: ${assignment.team_leader_id}`);
-
-        const notificationResult = await query(`
+      } else if (user.role === 'USER' && assignment.team_leader_id && assignment.team_leader_id !== userId) {
+        await query(`
           INSERT INTO notifications (
-            user_id,
-            assignment_id,
-            file_id,
-            type,
-            title,
-            message,
-            action_by_id,
-            action_by_username,
-            action_by_role
+            user_id, assignment_id, file_id, type, title, message,
+            action_by_id, action_by_username, action_by_role
           ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         `, [
-          assignment.team_leader_id,
-          assignmentId,
-          null,
-          'comment',
+          assignment.team_leader_id, assignmentId, null, 'comment',
           'New Comment on Assignment',
           `${user.fullName} commented on "${assignment.title}": ${comment.substring(0, 100)}${comment.length > 100 ? '...' : ''}`,
-          userId,
-          username,
-          user.role
+          userId, username, user.role
         ]);
-
-        console.log(` Notification created for team leader with ID: ${notificationResult.insertId}`);
-      } else {
-        console.log(`ℹ User ${user.fullName} (${user.role}) posted comment - no additional notifications needed`);
       }
     } catch (notifError) {
-      console.error('⚠️ Failed to create comment notifications:', notifError);
-      console.error('Error stack:', notifError.stack);
+      console.error('Failed to create comment notifications:', notifError.message);
       // Don't fail the request if notifications fail
     }
 
@@ -1759,9 +1994,9 @@ router.post('/:assignmentId/comments/:commentId/reply', async (req, res) => {
           user.role
         ]);
 
-        console.log(` Created reply notification for user ${comment.user_id}`);
+        console.log(`✅ Created reply notification for user ${comment.user_id}`);
       } catch (notifError) {
-        console.error(' Failed to create reply notification:', notifError);
+        console.error('⚠️ Failed to create reply notification:', notifError);
         // Don't fail the request if notifications fail
       }
     }
@@ -1778,6 +2013,120 @@ router.post('/:assignmentId/comments/:commentId/reply', async (req, res) => {
       message: 'Failed to post reply',
       error: error.message
     });
+  }
+});
+
+// ── Edit a comment ──────────────────────────────────────────────────────────
+router.put('/:assignmentId/comments/:commentId', async (req, res) => {
+  try {
+    const { assignmentId, commentId } = req.params;
+    const { userId, comment } = req.body;
+
+    if (!userId || !comment?.trim()) {
+      return res.status(400).json({ success: false, message: 'Missing required fields' });
+    }
+
+    const existing = await queryOne(
+      'SELECT * FROM assignment_comments WHERE id = ? AND assignment_id = ?',
+      [commentId, assignmentId]
+    );
+    if (!existing) return res.status(404).json({ success: false, message: 'Comment not found' });
+    if (String(existing.user_id) !== String(userId)) {
+      return res.status(403).json({ success: false, message: 'You can only edit your own comments' });
+    }
+
+    await query(
+      'UPDATE assignment_comments SET comment = ?, updated_at = NOW() WHERE id = ?',
+      [comment.trim(), commentId]
+    );
+
+    res.json({ success: true, message: 'Comment updated successfully' });
+  } catch (error) {
+    console.error('Error editing comment:', error);
+    res.status(500).json({ success: false, message: 'Failed to edit comment', error: error.message });
+  }
+});
+
+// ── Delete a comment (also deletes its replies via CASCADE) ─────────────────
+router.delete('/:assignmentId/comments/:commentId', async (req, res) => {
+  try {
+    const { assignmentId, commentId } = req.params;
+    const { userId } = req.body;
+
+    if (!userId) {
+      return res.status(400).json({ success: false, message: 'Missing userId' });
+    }
+
+    const existing = await queryOne(
+      'SELECT * FROM assignment_comments WHERE id = ? AND assignment_id = ?',
+      [commentId, assignmentId]
+    );
+    if (!existing) return res.status(404).json({ success: false, message: 'Comment not found' });
+    if (String(existing.user_id) !== String(userId)) {
+      return res.status(403).json({ success: false, message: 'You can only delete your own comments' });
+    }
+
+    // Delete replies first, then the comment
+    await query('DELETE FROM comment_replies WHERE comment_id = ?', [commentId]);
+    await query('DELETE FROM assignment_comments WHERE id = ?', [commentId]);
+
+    res.json({ success: true, message: 'Comment deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting comment:', error);
+    res.status(500).json({ success: false, message: 'Failed to delete comment', error: error.message });
+  }
+});
+
+// ── Edit a reply ─────────────────────────────────────────────────────────────
+router.put('/:assignmentId/comments/:commentId/reply/:replyId', async (req, res) => {
+  try {
+    const { replyId } = req.params;
+    const { userId, reply } = req.body;
+
+    if (!userId || !reply?.trim()) {
+      return res.status(400).json({ success: false, message: 'Missing required fields' });
+    }
+
+    const existing = await queryOne('SELECT * FROM comment_replies WHERE id = ?', [replyId]);
+    if (!existing) return res.status(404).json({ success: false, message: 'Reply not found' });
+    if (String(existing.user_id) !== String(userId)) {
+      return res.status(403).json({ success: false, message: 'You can only edit your own replies' });
+    }
+
+    await query(
+      'UPDATE comment_replies SET reply = ?, updated_at = NOW() WHERE id = ?',
+      [reply.trim(), replyId]
+    );
+
+    res.json({ success: true, message: 'Reply updated successfully' });
+  } catch (error) {
+    console.error('Error editing reply:', error);
+    res.status(500).json({ success: false, message: 'Failed to edit reply', error: error.message });
+  }
+});
+
+// ── Delete a reply ───────────────────────────────────────────────────────────
+router.delete('/:assignmentId/comments/:commentId/reply/:replyId', async (req, res) => {
+  try {
+    const { replyId } = req.params;
+    const { userId } = req.body;
+
+    if (!userId) {
+      return res.status(400).json({ success: false, message: 'Missing userId' });
+    }
+
+    const existing = await queryOne('SELECT * FROM comment_replies WHERE id = ?', [replyId]);
+    if (!existing) return res.status(404).json({ success: false, message: 'Reply not found' });
+    if (String(existing.user_id) !== String(userId)) {
+      return res.status(403).json({ success: false, message: 'You can only delete your own replies' });
+    }
+
+    await query('DELETE FROM comment_replies WHERE id = ?', [replyId]);
+
+    res.json({ success: true, message: 'Reply deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting reply:', error);
+    res.status(500).json({ success: false, message: 'Failed to delete reply', error: error.message });
   }
 });
 
@@ -1871,8 +2220,10 @@ router.put('/:assignmentId/mark-done', async (req, res) => {
   }
 });
 
-// Update assignment (Team Leader only)
-router.put('/:assignmentId', async (req, res) => {
+// Update assignment (Team Leader only) - NON-MULTIPART fallback (no file uploads)
+// Note: The main update route above (PUT /:id with multer) handles file uploads.
+// This route handles plain JSON updates (e.g., member reassignment without new files).
+router.put('/:assignmentId/update-members', async (req, res) => {
   try {
     const { assignmentId } = req.params;
     const {
@@ -2068,7 +2419,7 @@ router.delete('/:assignmentId', async (req, res) => {
     // Delete the assignment
     await query('DELETE FROM assignments WHERE id = ?', [assignmentId]);
 
-    console.log(` Assignment ${assignmentId} deleted successfully with all related data`);
+    console.log(`✅ Assignment ${assignmentId} deleted successfully with all related data`);
 
     res.json({
       success: true,
@@ -2107,9 +2458,10 @@ router.delete('/:assignmentId/files/:fileId', async (req, res) => {
       });
     }
 
-    // Get file info before deleting
+    // Get file info before deleting — fetch BOTH file_path AND public_network_url
+    // public_network_url holds the real NAS path for approved files
     const fileInfo = await queryOne(
-      'SELECT file_path FROM files WHERE id = ?',
+      'SELECT file_path, public_network_url, username FROM files WHERE id = ?',
       [fileId]
     );
     console.log('📄 File to delete:', fileInfo);
@@ -2202,17 +2554,38 @@ router.delete('/:assignmentId/files/:fileId', async (req, res) => {
 
     console.log('💾 Step 2: Deleting physical file...');
 
-    // 7. Delete physical file from NAS
-    if (fileInfo && fileInfo.file_path) {
+    // 7. Delete physical file — check public_network_url FIRST (NAS final path for approved files)
+    // file_path holds the old /uploads/ relative path which won’t exist on NAS after approval
+    if (fileInfo) {
       try {
-        if (fs.existsSync(fileInfo.file_path)) {
-          fs.unlinkSync(fileInfo.file_path);
-          console.log('✅ Physical file deleted from:', fileInfo.file_path);
-        } else {
-          console.log('⚠️ Physical file not found at:', fileInfo.file_path);
+        let physicalPath = null;
+
+        if (fileInfo.public_network_url && !fileInfo.public_network_url.startsWith('http')) {
+          // Approved file — use NAS path directly
+          physicalPath = fileInfo.public_network_url;
+          console.log('📁 Approved file on NAS, using public_network_url:', physicalPath);
+        } else if (fileInfo.file_path) {
+          // Pending file still in uploads staging area
+          if (fileInfo.file_path.startsWith('/uploads/')) {
+            const { uploadsDir } = require('../config/middleware');
+            const relativePath = fileInfo.file_path.substring('/uploads/'.length);
+            physicalPath = require('path').join(uploadsDir, relativePath);
+          } else {
+            physicalPath = fileInfo.file_path;
+          }
+          console.log('📁 Pending file in uploads, using file_path:', physicalPath);
+        }
+
+        if (physicalPath) {
+          if (fs.existsSync(physicalPath)) {
+            fs.unlinkSync(physicalPath);
+            console.log('✅ Physical file deleted from:', physicalPath);
+          } else {
+            console.log('⚠️ Physical file not found at:', physicalPath);
+          }
         }
       } catch (fsError) {
-        console.error('❌ Failed to delete physical file:', fsError);
+        console.error('❌ Failed to delete physical file:', fsError.message);
       }
     }
 
@@ -2268,11 +2641,122 @@ router.get('/debug/:assignmentId/members', async (req, res) => {
   }
 });
 
-// Add comment to assignment
-router.post('/:id/comments', assignmentController.addComment);
+// Delete an entire attachment folder by folder_name (Team Leader only)
+router.delete('/:assignmentId/attachments/folder/:folderName', async (req, res) => {
+  try {
+    const { assignmentId, folderName } = req.params;
+    const decodedFolderName = decodeURIComponent(folderName);
 
-// Add reply to comment
-router.post('/:id/comments/:commentId/reply', assignmentController.addReply);
+    // Get all attachments in this folder for this assignment
+    const folderAttachments = await query(
+      'SELECT * FROM assignment_attachments WHERE assignment_id = ? AND folder_name = ?',
+      [assignmentId, decodedFolderName]
+    );
+
+    if (!folderAttachments || folderAttachments.length === 0) {
+      return res.status(404).json({ success: false, message: 'Folder not found' });
+    }
+
+    console.log(`🗑️ Deleting folder "${decodedFolderName}" with ${folderAttachments.length} file(s) from assignment ${assignmentId}`);
+
+    // Get the folder directory path from the first file
+    let folderDirPath = null;
+    for (const att of folderAttachments) {
+      if (att.file_path) {
+        const candidate = path.dirname(att.file_path);
+        if (candidate && candidate !== '.') {
+          folderDirPath = candidate;
+          break;
+        }
+      }
+    }
+
+    // Delete physical folder (and all contents) using recursive rm
+    if (folderDirPath) {
+      try {
+        if (fs.existsSync(folderDirPath)) {
+          // Node 14.14+ supports fs.rmSync with recursive
+          if (fs.rmSync) {
+            fs.rmSync(folderDirPath, { recursive: true, force: true });
+          } else {
+            // Fallback: delete each file individually then rmdir
+            for (const att of folderAttachments) {
+              try {
+                if (att.file_path && fs.existsSync(att.file_path)) {
+                  fs.unlinkSync(att.file_path);
+                }
+              } catch (e) { console.warn('⚠️ Could not delete file:', e.message); }
+            }
+            try { fs.rmdirSync(folderDirPath); } catch (e) { console.warn('⚠️ Could not remove folder dir:', e.message); }
+          }
+          console.log(`✅ Physical folder deleted: ${folderDirPath}`);
+        } else {
+          console.log(`⚠️ Physical folder not found at: ${folderDirPath} — skipping filesystem delete`);
+        }
+      } catch (fsErr) {
+        console.warn(`⚠️ Could not delete physical folder: ${fsErr.message}`);
+      }
+    }
+
+    // Delete all DB records for this folder
+    await query(
+      'DELETE FROM assignment_attachments WHERE assignment_id = ? AND folder_name = ?',
+      [assignmentId, decodedFolderName]
+    );
+
+    console.log(`✅ Folder "${decodedFolderName}" deleted from assignment ${assignmentId}`);
+    res.json({ success: true, message: 'Folder deleted successfully', deletedCount: folderAttachments.length });
+  } catch (error) {
+    console.error('Error deleting attachment folder:', error);
+    res.status(500).json({ success: false, message: 'Failed to delete folder', error: error.message });
+  }
+});
+
+// Delete a single assignment attachment (Team Leader only)
+// NOTE: This must stay BELOW the /folder/:folderName route to avoid shadowing it
+router.delete('/:assignmentId/attachments/:attachmentId', async (req, res) => {
+  // Guard: reject if attachmentId is literally "folder" (means the folder route didn't match)
+  if (req.params.attachmentId === 'folder') {
+    return res.status(404).json({ success: false, message: 'Route not found' });
+  }
+
+  try {
+    const { assignmentId, attachmentId } = req.params;
+
+    const attachment = await queryOne(
+      'SELECT * FROM assignment_attachments WHERE id = ? AND assignment_id = ?',
+      [attachmentId, assignmentId]
+    );
+
+    if (!attachment) {
+      return res.status(404).json({ success: false, message: 'Attachment not found' });
+    }
+
+    // Delete physical file
+    if (attachment.file_path) {
+      try {
+        const filePath = attachment.file_path.startsWith('/uploads/')
+          ? path.join(uploadsDir, attachment.file_path.substring(9))
+          : attachment.file_path;
+        if (fs.existsSync(filePath)) {
+          fs.unlinkSync(filePath);
+          console.log(`✅ Physical file deleted: ${filePath}`);
+        }
+      } catch (e) { console.warn('⚠️ Could not delete physical attachment file:', e.message); }
+    }
+
+    await query('DELETE FROM assignment_attachments WHERE id = ?', [attachmentId]);
+
+    console.log(`✅ Attachment ${attachmentId} deleted from assignment ${assignmentId}`);
+    res.json({ success: true, message: 'Attachment deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting attachment:', error);
+    res.status(500).json({ success: false, message: 'Failed to delete attachment', error: error.message });
+  }
+});
+
+// NOTE: Comment and reply routes are already registered above with full inline logic.
+// The assignmentController duplicates are intentionally removed to prevent route conflicts.
 
 console.log('✅ Assignments routes registered, including comments endpoint');
 module.exports = router;

@@ -368,6 +368,7 @@
   0% {
     background-position: -200px 0;
   }
+
   100% {
     background-position: calc(200px + 100%) 0;
   }
@@ -643,42 +644,79 @@
   .user-notification-component.notification-section {
     padding: 20px;
   }
-  
+
   .user-notification-component .page-header-content {
     flex-direction: column;
     gap: 16px;
   }
-  
+
   .user-notification-component .notification-actions {
     width: 100%;
     flex-direction: column;
   }
-  
+
   .user-notification-component .mark-all-read-btn,
   .user-notification-component .delete-all-btn {
     width: 100%;
   }
-  
+
   .user-notification-component .page-header h2 {
     font-size: 24px;
   }
-  
+
   .user-notification-component .notification-card {
     padding: 16px;
     gap: 16px;
   }
-  
+
   .user-notification-component .notification-icon {
     width: 48px;
     height: 48px;
   }
-  
+
   .user-notification-component .notification-card .notification-icon svg {
     width: 24px;
     height: 24px;
   }
-  
+
+
   .user-notification-component .arrow-icon {
     opacity: 1 !important;
   }
+
+  .user-notification-component .notification-delete-btn {
+    opacity: 1 !important;
+  }
+}
+
+/* Individual Notification Delete Button */
+
+
+.user-notification-component .notification-delete-btn {
+  background: transparent;
+  border: none;
+  color: #9ca3af;
+  font-size: 24px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 6px;
+  transition: all 0.2s ease;
+  opacity: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
+.user-notification-component .notification-card.clickable:hover .notification-delete-btn {
+  opacity: 1;
+}
+
+.user-notification-component .notification-delete-btn:hover {
+  background-color: #fee2e2;
+  color: #ef4444;
 }

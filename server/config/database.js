@@ -2,7 +2,17 @@
 // All users must connect to the MySQL server on the NAS
 
 // Load environment variables FIRST
-require('dotenv').config();
+// In packaged Electron app, .env is in resources/ (two levels up from app-server/config/)
+// In dev, .env is at the project root (two levels up from server/config/)
+const _fs0 = require('fs');
+const _path0 = require('path');
+const _envPaths = [
+  _path0.join(__dirname, '../../.env'),          // dev: project root
+  _path0.join(__dirname, '../../../.env'),        // packaged: resources/
+  _path0.join(process.resourcesPath || '', '.env') // packaged: explicit resourcesPath
+];
+const _envFile = _envPaths.find(p => { try { return _fs0.existsSync(p); } catch(_){return false;} });
+require('dotenv').config({ path: _envFile });
 
 const path = require('path');
 
@@ -26,8 +36,13 @@ if (!process.env.DB_HOST || !process.env.DB_NAME) {
 
 console.log('🗄️  Initializing MySQL Database Connection...');
 
-// Load MySQL configuration
-const mysqlConfig = require('../../database/config');
+// Load MySQL configuration.
+// In the packaged Electron app, database/ is copied inside app-server/ (one level up).
+// In development, database/ lives at the project root (two levels up from server/config/).
+const _packagedDbConfig = require('path').join(__dirname, '../database/config.js');
+const _devDbConfig = require('path').join(__dirname, '../../database/config.js');
+const _dbConfigPath = require('fs').existsSync(_packagedDbConfig) ? _packagedDbConfig : _devDbConfig;
+const mysqlConfig = require(_dbConfigPath);
 
 // Export MySQL functions with backward compatibility for SQLite-style callbacks
 const db = {
