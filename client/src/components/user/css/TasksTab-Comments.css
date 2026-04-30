@@ -462,6 +462,8 @@
   padding: 8px 14px;
   border: none;
   transition: background 0.15s;
+  overflow: visible;
+  position: relative;
 }
 
 .comments-modal .comment-input-wrapper:focus-within,

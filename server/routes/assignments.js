@@ -1814,11 +1814,28 @@ router.post('/:assignmentId/comments', async (req, res) => {
     `, [result.insertId]);
 
     // Create notifications for assigned members
+    // NOTE: We pre-scan for @mentions first so mentioned users only get the
+    // mention notification — not both a generic comment AND a mention.
     try {
       const assignment = await queryOne(
         'SELECT title, team_leader_id FROM assignments WHERE id = ?',
         [assignmentId]
       );
+
+      // Pre-collect all mentioned user IDs so we can skip generic notif for them
+      const mentionedUserIds = new Set();
+      const preScanRegex = /@([A-Za-z0-9_.]+)/g;
+      let preScanMatch;
+      while ((preScanMatch = preScanRegex.exec(comment)) !== null) {
+        const token = preScanMatch[1].replace(/_/g, ' ').toLowerCase();
+        const mentioned = await queryOne(
+          `SELECT id FROM users WHERE LOWER(username) = ? OR LOWER(REPLACE(fullName,' ','_')) = ? OR LOWER(fullName) = ? LIMIT 1`,
+          [token, token, token]
+        );
+        if (mentioned && String(mentioned.id) !== String(userId)) {
+          mentionedUserIds.add(mentioned.id);
+        }
+      }
 
       const assignedMembers = await query(
         'SELECT user_id FROM assignment_members WHERE assignment_id = ? AND user_id != ?',
@@ -1827,7 +1844,7 @@ router.post('/:assignmentId/comments', async (req, res) => {
 
       if (user.role === 'ADMIN') {
         const teamLeaderId = assignment.team_leader_id || assignment.teamLeaderId;
-        if (teamLeaderId) {
+        if (teamLeaderId && !mentionedUserIds.has(teamLeaderId)) {
           await query(`
             INSERT INTO notifications (
               user_id, assignment_id, file_id, type, title, message,
@@ -1841,48 +1858,85 @@ router.post('/:assignmentId/comments', async (req, res) => {
           ]);
         }
         for (const member of assignedMembers) {
-          await query(`
-            INSERT INTO notifications (
-              user_id, assignment_id, file_id, type, title, message,
-              action_by_id, action_by_username, action_by_role
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-          `, [
-            member.user_id, assignmentId, null, 'comment',
-            'New Admin Comment on Assignment',
-            `Admin ${user.fullName} commented on "${assignment.title}": ${comment.substring(0, 100)}${comment.length > 100 ? '...' : ''}`,
-            userId, username, user.role
-          ]);
+          if (!mentionedUserIds.has(member.user_id)) {
+            await query(`
+              INSERT INTO notifications (
+                user_id, assignment_id, file_id, type, title, message,
+                action_by_id, action_by_username, action_by_role
+              ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            `, [
+              member.user_id, assignmentId, null, 'comment',
+              'New Admin Comment on Assignment',
+              `Admin ${user.fullName} commented on "${assignment.title}": ${comment.substring(0, 100)}${comment.length > 100 ? '...' : ''}`,
+              userId, username, user.role
+            ]);
+          }
         }
       } else if (user.role === 'TEAM_LEADER') {
         for (const member of assignedMembers) {
+          if (!mentionedUserIds.has(member.user_id)) {
+            await query(`
+              INSERT INTO notifications (
+                user_id, assignment_id, file_id, type, title, message,
+                action_by_id, action_by_username, action_by_role
+              ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            `, [
+              member.user_id, assignmentId, null, 'comment',
+              'New Comment on Assignment',
+              `${user.fullName} commented on "${assignment.title}": ${comment.substring(0, 100)}${comment.length > 100 ? '...' : ''}`,
+              userId, username, user.role
+            ]);
+          }
+        }
+      } else if (user.role === 'USER' && assignment.team_leader_id && assignment.team_leader_id !== userId) {
+        if (!mentionedUserIds.has(assignment.team_leader_id)) {
           await query(`
             INSERT INTO notifications (
               user_id, assignment_id, file_id, type, title, message,
               action_by_id, action_by_username, action_by_role
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
           `, [
-            member.user_id, assignmentId, null, 'comment',
+            assignment.team_leader_id, assignmentId, null, 'comment',
             'New Comment on Assignment',
             `${user.fullName} commented on "${assignment.title}": ${comment.substring(0, 100)}${comment.length > 100 ? '...' : ''}`,
             userId, username, user.role
           ]);
         }
-      } else if (user.role === 'USER' && assignment.team_leader_id && assignment.team_leader_id !== userId) {
-        await query(`
-          INSERT INTO notifications (
-            user_id, assignment_id, file_id, type, title, message,
-            action_by_id, action_by_username, action_by_role
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-        `, [
-          assignment.team_leader_id, assignmentId, null, 'comment',
-          'New Comment on Assignment',
-          `${user.fullName} commented on "${assignment.title}": ${comment.substring(0, 100)}${comment.length > 100 ? '...' : ''}`,
-          userId, username, user.role
-        ]);
       }
     } catch (notifError) {
       console.error('Failed to create comment notifications:', notifError.message);
       // Don't fail the request if notifications fail
+    }
+
+    // ── @mention notifications ─────────────────────────────────────────────
+    try {
+      const mentionRegex = /@([A-Za-z0-9_.]+)/g;
+      let match;
+      const notifiedIds = new Set([userId]); // don't notify self
+      while ((match = mentionRegex.exec(comment)) !== null) {
+        const token = match[1].replace(/_/g, ' ').toLowerCase();
+        // Match by username OR fullName (spaces replaced with underscores in mentions)
+        const mentioned = await queryOne(
+          `SELECT id, fullName FROM users WHERE LOWER(username) = ? OR LOWER(REPLACE(fullName,' ','_')) = ? OR LOWER(fullName) = ? LIMIT 1`,
+          [token, token, token]
+        );
+        if (mentioned && !notifiedIds.has(mentioned.id)) {
+          notifiedIds.add(mentioned.id);
+          const assignmentInfo = await queryOne('SELECT title FROM assignments WHERE id = ?', [assignmentId]);
+          await query(`
+            INSERT INTO notifications (user_id, assignment_id, file_id, type, title, message, action_by_id, action_by_username, action_by_role)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+          `, [
+            mentioned.id, assignmentId, null, 'mention',
+            `${user.fullName} mentioned you`,
+            `${user.fullName} mentioned you in a comment on "${assignmentInfo?.title || 'an assignment'}": ${comment.substring(0, 100)}${comment.length > 100 ? '...' : ''}`,
+            userId, username, user.role
+          ]);
+          console.log(`🔔 Mention notification sent to user ${mentioned.id} (${mentioned.fullName})`);
+        }
+      }
+    } catch (mentionErr) {
+      console.error('⚠️ Failed to send mention notifications:', mentionErr.message);
     }
 
     res.json({
@@ -1999,6 +2053,35 @@ router.post('/:assignmentId/comments/:commentId/reply', async (req, res) => {
         console.error('⚠️ Failed to create reply notification:', notifError);
         // Don't fail the request if notifications fail
       }
+    }
+
+    // ── @mention notifications for reply ───────────────────────────────────
+    try {
+      const mentionRegex = /@([A-Za-z0-9_.]+)/g;
+      let match;
+      const notifiedIds = new Set([userId, comment.user_id]);
+      while ((match = mentionRegex.exec(reply)) !== null) {
+        const token = match[1].replace(/_/g, ' ').toLowerCase();
+        const mentioned = await queryOne(
+          `SELECT id, fullName FROM users WHERE LOWER(username) = ? OR LOWER(REPLACE(fullName,' ','_')) = ? OR LOWER(fullName) = ? LIMIT 1`,
+          [token, token, token]
+        );
+        if (mentioned && !notifiedIds.has(mentioned.id)) {
+          notifiedIds.add(mentioned.id);
+          const assignmentInfo = await queryOne('SELECT title FROM assignments WHERE id = ?', [assignmentId]);
+          await query(`
+            INSERT INTO notifications (user_id, assignment_id, file_id, type, title, message, action_by_id, action_by_username, action_by_role)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+          `, [
+            mentioned.id, assignmentId, null, 'mention',
+            `${user.fullName} mentioned you`,
+            `${user.fullName} mentioned you in a reply on "${assignmentInfo?.title || 'an assignment'}": ${reply.substring(0, 100)}${reply.length > 100 ? '...' : ''}`,
+            userId, username, user.role
+          ]);
+        }
+      }
+    } catch (mentionErr) {
+      console.error('⚠️ Failed to send mention notifications for reply:', mentionErr.message);
     }
 
     res.json({

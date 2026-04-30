@@ -2,7 +2,9 @@ import React, { memo, useCallback, useState, useEffect, useRef, useMemo } from '
 import ReactDOM from 'react-dom';
 import './CommentsModal.css';
 
-// Renders text with @mention highlights — memoized outside components so it's stable
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+
+// Renders text with @mention highlights
 const renderTextWithMentions = (text) => {
   if (!text) return null;
   const mentionRegex = /(@[A-Za-z0-9_.]+)/g;
@@ -25,6 +27,247 @@ const computeInitials = (name) => {
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 };
 
+// Role badge colour map
+const ROLE_BADGE_STYLE = {
+  ADMIN:       { background: '#fee2e2', color: '#dc2626' },
+  TEAM_LEADER: { background: '#dbeafe', color: '#1877f2' },
+  USER:        { background: '#d3f1d8', color: '#1a7f37' },
+};
+
+// ─── @Mention Picker Hook ─────────────────────────────────────────────────────
+function useMentionInput({ value, onChange, mentionableUsers, caretPosRef }) {
+  const [picker, setPicker] = useState({ open: false, query: '', index: -1 });
+  const [atPos, setAtPos] = useState(-1);
+
+  const filtered = useMemo(() => {
+    if (!picker.open || !mentionableUsers?.length) return [];
+    const q = picker.query.toLowerCase();
+    return mentionableUsers
+      .filter(u =>
+        u.fullName?.toLowerCase().includes(q) ||
+        u.username?.toLowerCase().includes(q)
+      )
+      .slice(0, 8);
+  }, [picker.open, picker.query, mentionableUsers]);
+
+  const handleKeyChange = useCallback((e, inputEl) => {
+    const val = e.target.value;
+    const cursor = e.target.selectionStart;
+    onChange(val);
+
+    // Detect if there's an active @... segment before cursor
+    const before = val.slice(0, cursor);
+    const atMatch = before.match(/@([A-Za-z0-9_.]*)$/);
+    if (atMatch) {
+      setAtPos(cursor - atMatch[0].length);
+      setPicker({ open: true, query: atMatch[1], index: 0 });
+    } else {
+      setPicker(p => ({ ...p, open: false }));
+    }
+  }, [onChange]);
+
+  const selectUser = useCallback((u) => {
+    const mention = `@${(u.fullName || u.username).replace(/\s+/g, '_')} `;
+    const before = value.slice(0, atPos);
+    const afterAt = value.slice(atPos);
+    const afterMention = afterAt.replace(/^@[A-Za-z0-9_.]*/, '');
+    const newVal = before + mention + afterMention;
+    // Tell the sync effect exactly where to place the cursor (after the mention + space)
+    if (caretPosRef) caretPosRef.current = (before + mention).length;
+    onChange(newVal);
+    setPicker(p => ({ ...p, open: false }));
+  }, [value, atPos, onChange, caretPosRef]);
+
+  const handleKeyDown = useCallback((e) => {
+    if (!picker.open || !filtered.length) return;
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setPicker(p => ({ ...p, index: Math.min(p.index + 1, filtered.length - 1) }));
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setPicker(p => ({ ...p, index: Math.max(p.index - 1, 0) }));
+    } else if (e.key === 'Enter' || e.key === 'Tab') {
+      if (filtered[picker.index]) {
+        e.preventDefault();
+        selectUser(filtered[picker.index]);
+      }
+    } else if (e.key === 'Escape') {
+      setPicker(p => ({ ...p, open: false }));
+    }
+  }, [picker, filtered, selectUser]);
+
+  return { picker, filtered, handleKeyChange, handleKeyDown, selectUser, setAtPos, setPicker };
+}
+
+// ─── helpers for contentEditable caret manipulation ─────────────────────────
+function getCaretOffset(el) {
+  const sel = window.getSelection();
+  if (!sel || !sel.rangeCount) return 0;
+  const range = sel.getRangeAt(0).cloneRange();
+  range.selectNodeContents(el);
+  range.setEnd(sel.getRangeAt(0).endContainer, sel.getRangeAt(0).endOffset);
+  return range.toString().length;
+}
+
+function setCaretOffset(el, offset) {
+  try {
+    const walk = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+    let remaining = offset;
+    let node;
+    while ((node = walk.nextNode())) {
+      if (remaining <= node.length) {
+        const range = document.createRange();
+        const sel = window.getSelection();
+        range.setStart(node, remaining);
+        range.collapse(true);
+        sel.removeAllRanges();
+        sel.addRange(range);
+        return;
+      }
+      remaining -= node.length;
+    }
+    // fallback: move to end
+    const range = document.createRange();
+    range.selectNodeContents(el);
+    range.collapse(false);
+    window.getSelection().removeAllRanges();
+    window.getSelection().addRange(range);
+  } catch (_) {}
+}
+
+// Build innerHTML with highlighted @mentions (visible colored text, normal caret)
+function buildHTML(text) {
+  if (!text) return '';
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/(@[A-Za-z0-9_.]+)/g, '<span class="input-mention-highlight">$1</span>');
+}
+
+// ─── MentionInput — contentEditable with live @mention highlighting ──────────
+const MentionInput = memo((
+  { value, onChange, onSubmit, placeholder, mentionableUsers, autoFocus },
+) => {
+  const editorRef = useRef(null);
+  const isComposingRef = useRef(false);
+  const caretPosRef = useRef(-1); // -1 = keep pos, >=0 = force this offset after update
+  const [pickerPos, setPickerPos] = useState({ top: 0, left: 0 });
+
+  const { picker, filtered, handleKeyDown, selectUser, setAtPos, setPicker } =
+    useMentionInput({ value, onChange, mentionableUsers, caretPosRef });
+
+  // ── Sync external value → DOM innerHTML (re-renders highlights without caret jump) ──
+  useEffect(() => {
+    const el = editorRef.current;
+    if (!el) return;
+
+    // Save caret before rewriting
+    const savedOffset = caretPosRef.current >= 0
+      ? caretPosRef.current
+      : (document.activeElement === el ? getCaretOffset(el) : -1);
+    caretPosRef.current = -1;
+
+    const newHTML = buildHTML(value);
+    // Only rewrite if content actually changed to avoid unnecessary caret resets
+    if (el.innerHTML !== newHTML) {
+      el.innerHTML = newHTML || '';
+      // Restore caret
+      if (savedOffset >= 0) {
+        setCaretOffset(el, savedOffset);
+      }
+    }
+  }, [value]);
+
+  useEffect(() => {
+    if (autoFocus && editorRef.current) editorRef.current.focus();
+  }, [autoFocus]);
+
+  // Position picker above the editor
+  useEffect(() => {
+    if (picker.open && editorRef.current) {
+      const rect = editorRef.current.getBoundingClientRect();
+      setPickerPos({ top: rect.top - 8, left: rect.left });
+    }
+  }, [picker.open]);
+
+  const handleInput = useCallback(() => {
+    if (isComposingRef.current) return;
+    const el = editorRef.current;
+    if (!el) return;
+    // Read plain text from DOM (spans stripped)
+    const text = el.innerText.replace(/\n$/, '');
+    onChange(text);
+
+    // Detect @mention trigger
+    const sel = window.getSelection();
+    if (!sel || !sel.rangeCount) return;
+    const offset = getCaretOffset(el);
+    const before = text.slice(0, offset);
+    const atMatch = before.match(/@([A-Za-z0-9_.]*)$/);
+    if (atMatch) {
+      setAtPos(offset - atMatch[0].length);
+      setPicker({ open: true, query: atMatch[1], index: 0 });
+    } else {
+      setPicker(p => ({ ...p, open: false }));
+    }
+  }, [onChange, setAtPos, setPicker]);
+
+  const handleKeyDownEditor = useCallback((e) => {
+    handleKeyDown(e);
+    if (!picker.open && e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      onSubmit?.(e);
+    }
+  }, [handleKeyDown, picker.open, onSubmit]);
+
+  return (
+    <div className="mention-input-container">
+      <div
+        ref={editorRef}
+        className={`mention-input-editor${!value ? ' is-empty' : ''}`}
+        contentEditable
+        suppressContentEditableWarning
+        data-placeholder={placeholder}
+        onInput={handleInput}
+        onKeyDown={handleKeyDownEditor}
+        onCompositionStart={() => { isComposingRef.current = true; }}
+        onCompositionEnd={() => {
+          isComposingRef.current = false;
+          handleInput();
+        }}
+        spellCheck={false}
+      />
+      {picker.open && filtered.length > 0 && ReactDOM.createPortal(
+        <div
+          className="mention-picker"
+          style={{ position: 'fixed', top: pickerPos.top - (filtered.length * 44), left: pickerPos.left }}
+        >
+          {filtered.map((u, i) => {
+            const role = u.role?.toUpperCase().replace(/[\s_]/g, '_');
+            const badgeStyle = ROLE_BADGE_STYLE[role] || ROLE_BADGE_STYLE.USER;
+            return (
+              <div
+                key={u.id}
+                className={`mention-picker-item${i === picker.index ? ' mention-picker-item--active' : ''}`}
+                onMouseDown={(e) => { e.preventDefault(); selectUser(u); }}
+              >
+                <div className="mention-picker-avatar">{computeInitials(u.fullName || u.username)}</div>
+                <div className="mention-picker-info">
+                  <span className="mention-picker-name">{u.fullName || u.username}</span>
+                  <span className="mention-picker-badge" style={badgeStyle}>{u.role}</span>
+                </div>
+              </div>
+            );
+          })}
+        </div>,
+        document.body
+      )}
+    </div>
+  );
+});
+MentionInput.displayName = 'MentionInput';
+
 // ─── Three-dot menu ───────────────────────────────────────────────────────────
 const MoreMenu = memo(({ onEdit, onDelete }) => {
   const [open, setOpen] = useState(false);
@@ -35,13 +278,12 @@ const MoreMenu = memo(({ onEdit, onDelete }) => {
   useEffect(() => {
     if (!open) return;
     const close = (e) => {
-      if (btnRef.current && btnRef.current.contains(e.target)) return; // let toggle handle it
+      if (btnRef.current && btnRef.current.contains(e.target)) return;
       if (ref.current && !ref.current.contains(e.target)) setOpen(false);
     };
-    // Close on any scroll anywhere so the fixed dropdown doesn't float away
     const onScroll = () => setOpen(false);
     document.addEventListener('mousedown', close);
-    document.addEventListener('scroll', onScroll, true); // capture phase catches modal scroll too
+    document.addEventListener('scroll', onScroll, true);
     return () => {
       document.removeEventListener('mousedown', close);
       document.removeEventListener('scroll', onScroll, true);
@@ -70,11 +312,7 @@ const MoreMenu = memo(({ onEdit, onDelete }) => {
         </svg>
       </button>
       {open && ReactDOM.createPortal(
-        <div
-          ref={ref}
-          className="more-menu-dropdown"
-          style={{ position: 'fixed', top: dropdownPos.top, left: dropdownPos.left }}
-        >
+        <div ref={ref} className="more-menu-dropdown" style={{ position: 'fixed', top: dropdownPos.top, left: dropdownPos.left }}>
           <button className="more-menu-item" onClick={handleEdit}>
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/>
@@ -101,23 +339,14 @@ MoreMenu.displayName = 'MoreMenu';
 const EditInput = memo(({ initialText, onSave, onCancel }) => {
   const [text, setText] = useState(initialText);
   const inputRef = useRef(null);
-
   useEffect(() => { inputRef.current?.focus(); }, []);
-
   const handleKeyDown = useCallback((e) => {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); onSave(text); }
     if (e.key === 'Escape') onCancel();
   }, [text, onSave, onCancel]);
-
   return (
     <div className="edit-input-wrapper">
-      <input
-        ref={inputRef}
-        className="edit-input"
-        value={text}
-        onChange={e => setText(e.target.value)}
-        onKeyDown={handleKeyDown}
-      />
+      <input ref={inputRef} className="edit-input" value={text} onChange={e => setText(e.target.value)} onKeyDown={handleKeyDown} />
       <div className="edit-input-actions">
         <button className="edit-save-btn" onClick={() => onSave(text)} disabled={!text.trim()}>Save</button>
         <button className="edit-cancel-btn" onClick={onCancel}>Cancel</button>
@@ -134,66 +363,33 @@ const ReplyItem = memo(({ reply, parentCommentId, assignmentId, onReplyToReply, 
   const [isEditing, setIsEditing] = useState(false);
   const isLong = reply.reply.length > MAX_REPLY_LENGTH;
   const isOwner = useMemo(() => String(reply.user_id) === String(currentUserId), [reply.user_id, currentUserId]);
-
-  const initials = useMemo(
-    () => computeInitials(reply.user_fullname || reply.fullName || reply.username),
-    [reply.user_fullname, reply.fullName, reply.username]
-  );
-
-  const displayName = useMemo(
-    () => reply.user_fullname || reply.fullName || reply.username,
-    [reply.user_fullname, reply.fullName, reply.username]
-  );
-
-  const roleCls = useMemo(
-    () => `role-badge ${reply.user_role ? reply.user_role.toLowerCase().replace(/[\s_]/g, '-') : 'user'}`,
-    [reply.user_role]
-  );
-
+  const initials = useMemo(() => computeInitials(reply.user_fullname || reply.fullName || reply.username), [reply.user_fullname, reply.fullName, reply.username]);
+  const displayName = useMemo(() => reply.user_fullname || reply.fullName || reply.username, [reply.user_fullname, reply.fullName, reply.username]);
+  const roleCls = useMemo(() => `role-badge ${reply.user_role ? reply.user_role.toLowerCase().replace(/[\s_]/g, '-') : 'user'}`, [reply.user_role]);
   const renderedText = useMemo(() => {
     const content = isLong && !isExpanded ? reply.reply.substring(0, MAX_REPLY_LENGTH) + '...' : reply.reply;
     return renderTextWithMentions(content);
   }, [reply.reply, isLong, isExpanded]);
-
-  const handleReply = useCallback(() => {
-    if (onReplyToReply) onReplyToReply(parentCommentId, displayName);
-  }, [displayName, onReplyToReply, parentCommentId]);
-
-  const handleToggleExpand = useCallback(() => setIsExpanded(v => !v), []);
-
-  const handleSaveEdit = useCallback((newText) => {
-    onEditReply(assignmentId, parentCommentId, reply.id, newText);
-    setIsEditing(false);
-  }, [onEditReply, assignmentId, parentCommentId, reply.id]);
-
-  const handleCancelEdit = useCallback(() => setIsEditing(false), []);
-  const handleDelete = useCallback(() => onDeleteReply(assignmentId, parentCommentId, reply.id), [onDeleteReply, assignmentId, parentCommentId, reply.id]);
+  const handleReply = useCallback(() => { if (onReplyToReply) onReplyToReply(parentCommentId, displayName); }, [displayName, onReplyToReply, parentCommentId]);
+  const handleSaveEdit = useCallback((newText) => { onEditReply(assignmentId, parentCommentId, reply.id, newText); setIsEditing(false); }, [onEditReply, assignmentId, parentCommentId, reply.id]);
 
   return (
     <div className="reply-item">
       <div className="reply-avatar">{initials}</div>
       <div className="reply-content">
         {isEditing ? (
-          <EditInput initialText={reply.reply} onSave={handleSaveEdit} onCancel={handleCancelEdit} />
+          <EditInput initialText={reply.reply} onSave={handleSaveEdit} onCancel={() => setIsEditing(false)} />
         ) : (
           <>
             <div className="reply-bubble">
               <div className="reply-header">
                 <span className="reply-author">{displayName}</span>
                 <span className={roleCls}>{reply.user_role || 'USER'}</span>
-                {isOwner && (
-                  <div className="bubble-menu-wrap">
-                    <MoreMenu onEdit={() => setIsEditing(true)} onDelete={handleDelete} />
-                  </div>
-                )}
+                {isOwner && <div className="bubble-menu-wrap"><MoreMenu onEdit={() => setIsEditing(true)} onDelete={() => onDeleteReply(assignmentId, parentCommentId, reply.id)} /></div>}
               </div>
               <div className="reply-text">
                 {renderedText}
-                {isLong && (
-                  <button className="see-more-btn" onClick={handleToggleExpand}>
-                    {isExpanded ? 'See less' : 'See more'}
-                  </button>
-                )}
+                {isLong && <button className="see-more-btn" onClick={() => setIsExpanded(v => !v)}>{isExpanded ? 'See less' : 'See more'}</button>}
               </div>
             </div>
             <div className="reply-meta-row">
@@ -209,7 +405,7 @@ const ReplyItem = memo(({ reply, parentCommentId, assignmentId, onReplyToReply, 
 ReplyItem.displayName = 'ReplyItem';
 
 // ─── ReplyInputBox ────────────────────────────────────────────────────────────
-const ReplyInputBox = memo(({ comment, initialText, onPostReply, userInitials }) => {
+const ReplyInputBox = memo(({ comment, initialText, onPostReply, userInitials, mentionableUsers }) => {
   const [text, setText] = useState(initialText || '');
   const prevInitial = useRef(initialText);
 
@@ -224,23 +420,16 @@ const ReplyInputBox = memo(({ comment, initialText, onPostReply, userInitials })
     onPostReply(e, comment.id, text, () => setText(''));
   }, [onPostReply, comment.id, text]);
 
-  const handleKeyDown = useCallback((e) => {
-    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSubmit(e); }
-  }, [handleSubmit]);
-
-  const handleChange = useCallback((e) => setText(e.target.value), []);
-
   return (
     <div className="reply-input-box">
       <div className="reply-avatar">{userInitials}</div>
       <div className="comment-input-wrapper">
-        <input
-          type="text"
-          className="comment-input"
-          placeholder="Write a reply..."
+        <MentionInput
           value={text}
-          onChange={handleChange}
-          onKeyDown={handleKeyDown}
+          onChange={setText}
+          onSubmit={handleSubmit}
+          placeholder="Write a reply... (@ to mention)"
+          mentionableUsers={mentionableUsers}
           autoFocus
         />
         <button className="comment-submit-btn" onClick={handleSubmit} disabled={!text.trim()}>➤</button>
@@ -252,105 +441,50 @@ ReplyInputBox.displayName = 'ReplyInputBox';
 
 // ─── CommentItem ──────────────────────────────────────────────────────────────
 const CommentItem = memo(({
-  comment,
-  assignmentId,
-  isReplying,
-  mentionText,
-  repliesVisible,
-  onReply,
-  onToggleReplies,
-  onPostReply,
-  onEditComment,
-  onDeleteComment,
-  onEditReply,
-  onDeleteReply,
-  userInitials,
-  highlightUsername,
-  currentUserId,
+  comment, assignmentId, isReplying, mentionText, repliesVisible,
+  onReply, onToggleReplies, onPostReply, onEditComment, onDeleteComment,
+  onEditReply, onDeleteReply, userInitials, highlightUsername, currentUserId, mentionableUsers,
 }) => {
   const MAX_LEN = 150;
   const [isExpanded, setIsExpanded] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const isLong = comment.comment.length > MAX_LEN;
   const isOwner = useMemo(() => String(comment.user_id) === String(currentUserId), [comment.user_id, currentUserId]);
-
-  const initials = useMemo(
-    () => computeInitials(comment.user_fullname || comment.fullName || comment.username),
-    [comment.user_fullname, comment.fullName, comment.username]
-  );
-
-  const displayName = useMemo(
-    () => comment.user_fullname || comment.fullName || comment.username,
-    [comment.user_fullname, comment.fullName, comment.username]
-  );
-
-  const roleCls = useMemo(
-    () => `role-badge ${comment.user_role ? comment.user_role.toLowerCase().replace(/[\s_]/g, '-') : 'user'}`,
-    [comment.user_role]
-  );
-
-  const isHighlighted = useMemo(
-    () => !!(highlightUsername && (comment.username === highlightUsername || comment.user_fullname === highlightUsername)),
-    [highlightUsername, comment.username, comment.user_fullname]
-  );
-
-  const threadCls = useMemo(
-    () => isHighlighted ? 'comment-thread highlight-comment' : 'comment-thread',
-    [isHighlighted]
-  );
-
+  const initials = useMemo(() => computeInitials(comment.user_fullname || comment.fullName || comment.username), [comment.user_fullname, comment.fullName, comment.username]);
+  const displayName = useMemo(() => comment.user_fullname || comment.fullName || comment.username, [comment.user_fullname, comment.fullName, comment.username]);
+  const roleCls = useMemo(() => `role-badge ${comment.user_role ? comment.user_role.toLowerCase().replace(/[\s_]/g, '-') : 'user'}`, [comment.user_role]);
+  const isHighlighted = useMemo(() => !!(highlightUsername && (comment.username === highlightUsername || comment.user_fullname === highlightUsername)), [highlightUsername, comment.username, comment.user_fullname]);
   const renderedText = useMemo(() => {
     const content = isLong && !isExpanded ? comment.comment.substring(0, MAX_LEN) + '...' : comment.comment;
     return renderTextWithMentions(content);
   }, [comment.comment, isLong, isExpanded]);
-
   const replyCount = useMemo(() => comment.replies?.length ?? 0, [comment.replies]);
-
   const handleReplyClick = useCallback(() => onReply(comment.id, displayName), [comment.id, displayName, onReply]);
   const handleToggleReplies = useCallback(() => onToggleReplies(comment.id), [comment.id, onToggleReplies]);
-  const handleToggleExpand = useCallback(() => setIsExpanded(v => !v), []);
-
-  const handleSaveEdit = useCallback((newText) => {
-    onEditComment(assignmentId, comment.id, newText);
-    setIsEditing(false);
-  }, [onEditComment, assignmentId, comment.id]);
-
-  const handleCancelEdit = useCallback(() => setIsEditing(false), []);
-  const handleDelete = useCallback(() => onDeleteComment(assignmentId, comment.id), [onDeleteComment, assignmentId, comment.id]);
+  const handleSaveEdit = useCallback((newText) => { onEditComment(assignmentId, comment.id, newText); setIsEditing(false); }, [onEditComment, assignmentId, comment.id]);
 
   return (
-    <div className={threadCls} data-comment-id={comment.id}>
+    <div className={isHighlighted ? 'comment-thread highlight-comment' : 'comment-thread'} data-comment-id={comment.id}>
       <div className="comment-item">
         <div className="comment-avatar">{initials}</div>
         <div className="comment-content">
           {isEditing ? (
-            <EditInput initialText={comment.comment} onSave={handleSaveEdit} onCancel={handleCancelEdit} />
+            <EditInput initialText={comment.comment} onSave={handleSaveEdit} onCancel={() => setIsEditing(false)} />
           ) : (
             <>
               <div className="comment-bubble">
                 <div className="comment-header">
                   <span className="comment-author">{displayName}</span>
                   <span className={roleCls}>{comment.user_role || 'USER'}</span>
-                  {isOwner && (
-                    <div className="bubble-menu-wrap">
-                      <MoreMenu onEdit={() => setIsEditing(true)} onDelete={handleDelete} />
-                    </div>
-                  )}
+                  {isOwner && <div className="bubble-menu-wrap"><MoreMenu onEdit={() => setIsEditing(true)} onDelete={() => onDeleteComment(assignmentId, comment.id)} /></div>}
                 </div>
                 <div className="comment-text">
                   {renderedText}
-                  {isLong && (
-                    <button className="see-more-btn" onClick={handleToggleExpand}>
-                      {isExpanded ? 'See less' : 'See more'}
-                    </button>
-                  )}
+                  {isLong && <button className="see-more-btn" onClick={() => setIsExpanded(v => !v)}>{isExpanded ? 'See less' : 'See more'}</button>}
                 </div>
               </div>
               <div className="comment-actions">
-                <span className="comment-time">
-                  {comment._timeAgo}
-                  {comment.updated_at && comment.updated_at !== comment.created_at ? ' · edited' : ''}
-                </span>
+                <span className="comment-time">{comment._timeAgo}{comment.updated_at && comment.updated_at !== comment.created_at ? ' · edited' : ''}</span>
                 <button className="reply-button" onClick={handleReplyClick}>Reply</button>
                 {replyCount > 0 && (
                   <button className="view-replies-button" onClick={handleToggleReplies}>
@@ -374,7 +508,6 @@ const CommentItem = memo(({
               onReplyToReply={onReply}
               onEditReply={onEditReply}
               onDeleteReply={onDeleteReply}
-              usesMention={true}
               currentUserId={currentUserId}
             />
           ))}
@@ -387,6 +520,7 @@ const CommentItem = memo(({
           initialText={mentionText}
           onPostReply={onPostReply}
           userInitials={userInitials}
+          mentionableUsers={mentionableUsers}
         />
       )}
     </div>
@@ -396,48 +530,55 @@ CommentItem.displayName = 'CommentItem';
 
 // ─── CommentsModal ────────────────────────────────────────────────────────────
 const CommentsModal = memo(({
-  isOpen,
-  onClose,
-  assignment,
-  comments,
-  loadingComments,
-  newComment,
-  setNewComment,
-  onPostComment,
-  onPostReply,
-  onEditComment,
-  onDeleteComment,
-  onEditReply,
-  onDeleteReply,
-  visibleReplies,
-  toggleRepliesVisibility,
-  getInitials,
-  formatTimeAgo,
-  user,
-  highlightUsername = null,
+  isOpen, onClose, assignment, comments, loadingComments,
+  newComment, setNewComment, onPostComment, onPostReply,
+  onEditComment, onDeleteComment, onEditReply, onDeleteReply,
+  visibleReplies, toggleRepliesVisibility,
+  getInitials, formatTimeAgo, user, highlightUsername = null,
 }) => {
   const [replyingTo, setReplyingTo] = useState(null);
   const [replyMentionText, setReplyMentionText] = useState('');
+  const [mentionableUsers, setMentionableUsers] = useState([]);
+
+  // Fetch mentionable users once on first open
+  useEffect(() => {
+    if (!isOpen || mentionableUsers.length > 0) return;
+    fetch(`${API_BASE_URL}/api/users/mentionable`)
+      .then(r => r.json())
+      .then(d => { if (d.success) setMentionableUsers(d.users || []); })
+      .catch(() => {});
+  }, [isOpen, mentionableUsers.length]);
+
+  // Lock background scroll while modal is open
+  useEffect(() => {
+    if (!isOpen) return;
+    const prevBody = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const mainContent = document.querySelector('.main-content');
+    const prevMain = mainContent ? mainContent.style.overflow : null;
+    if (mainContent) mainContent.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = prevBody;
+      if (mainContent && prevMain !== null) mainContent.style.overflow = prevMain;
+    };
+  }, [isOpen]);
 
   const stampedComments = useMemo(() => {
     if (!comments?.length) return comments;
     return comments.map(c => ({
       ...c,
       _timeAgo: formatTimeAgo(c.created_at),
-      replies: c.replies?.map(r => ({
-        ...r,
-        _timeAgo: formatTimeAgo(r.created_at),
-      })),
+      replies: c.replies?.map(r => ({ ...r, _timeAgo: formatTimeAgo(r.created_at) })),
     }));
   }, [comments, formatTimeAgo]);
 
-  const userInitials = useMemo(
-    () => computeInitials(user.username || user.fullName),
-    [user.username, user.fullName]
-  );
+  const userInitials = useMemo(() => computeInitials(user.username || user.fullName), [user.username, user.fullName]);
 
   const handleSetReplyingTo = useCallback((commentId, authorName) => {
-    setReplyingTo(commentId);
+    setReplyingTo(prev => {
+      if (prev === commentId) return null; // toggle off if already open
+      return commentId;
+    });
     const token = authorName ? authorName.replace(/\s+/g, '_') : null;
     setReplyMentionText(token ? `@${token} ` : '');
   }, []);
@@ -450,12 +591,7 @@ const CommentsModal = memo(({
     });
   }, [onPostReply]);
 
-  const handleKeyDown = useCallback((e) => {
-    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); onPostComment(e); }
-  }, [onPostComment]);
-
   const handleModalClick = useCallback((e) => e.stopPropagation(), []);
-  const handleCommentChange = useCallback((e) => setNewComment(e.target.value), [setNewComment]);
 
   if (!isOpen || !assignment) return null;
 
@@ -469,14 +605,9 @@ const CommentsModal = memo(({
 
         <div className="comments-modal-body">
           {loadingComments ? (
-            <div className="loading-comments">
-              <div className="spinner" />
-              <p>Loading comments...</p>
-            </div>
+            <div className="loading-comments"><div className="spinner" /><p>Loading comments...</p></div>
           ) : !stampedComments?.length ? (
-            <div className="no-comments">
-              <p>💬 No comments yet. Be the first to comment!</p>
-            </div>
+            <div className="no-comments"><p>💬 No comments yet. Be the first to comment!</p></div>
           ) : (
             <div className="comments-list">
               {stampedComments.map(comment => (
@@ -497,6 +628,7 @@ const CommentsModal = memo(({
                   userInitials={userInitials}
                   highlightUsername={highlightUsername}
                   currentUserId={user.id}
+                  mentionableUsers={mentionableUsers}
                 />
               ))}
             </div>
@@ -507,13 +639,12 @@ const CommentsModal = memo(({
           <div className="add-comment">
             <div className="comment-avatar">{userInitials}</div>
             <div className="comment-input-wrapper">
-              <input
-                type="text"
-                className="comment-input"
-                placeholder="Write a comment..."
+              <MentionInput
                 value={newComment}
-                onChange={handleCommentChange}
-                onKeyDown={handleKeyDown}
+                onChange={setNewComment}
+                onSubmit={onPostComment}
+                placeholder="Write a comment... (@ to mention)"
+                mentionableUsers={mentionableUsers}
               />
               <button className="comment-submit-btn" onClick={onPostComment} disabled={!newComment.trim()}>➤</button>
             </div>
