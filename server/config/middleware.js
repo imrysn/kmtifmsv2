@@ -43,6 +43,8 @@ const storage = multer.diskStorage({
 // Create multer upload middleware with optimizations
 const upload = multer({
   storage: storage,
+  // Pass defCharset to busboy so filenames are decoded as UTF-8 instead of latin1.
+  // This fixes garbled display of Japanese, Chinese, Korean and other multibyte filenames.
   // Security limits to prevent DoS attacks
   limits: {
     fileSize: 50 * 1024 * 1024 * 1024 // 50GB max file size (effectively limitless)

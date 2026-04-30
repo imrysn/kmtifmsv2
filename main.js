@@ -645,25 +645,32 @@ function createWindow() {
     });
 
     mainWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription) => {
+      // Ignore -3 (ERR_ABORTED) — happens during normal SPA navigation
+      if (errorCode === -3) return;
+
       loadRetryCount++;
       log(LogLevel.ERROR, `Failed to load (attempt ${loadRetryCount}/${MAX_LOAD_RETRIES}): ${errorCode} - ${errorDescription}`);
 
       if (loadRetryCount >= MAX_LOAD_RETRIES) {
         log(LogLevel.ERROR, 'Max retries reached. Showing fallback page.');
         showFallbackPage();
-
-        if (splashWindow && !splashWindow.isDestroyed()) {
-          splashWindow.destroy();
-        }
+        if (splashWindow && !splashWindow.isDestroyed()) splashWindow.destroy();
         mainWindow.show();
         return;
       }
 
-      const retryDelay = Math.min(1000 * Math.pow(1.5, loadRetryCount - 1), 5000);
-      setTimeout(() => {
-        log(LogLevel.DEBUG, `Retrying connection to Vite (attempt ${loadRetryCount + 1})...`);
-        mainWindow.loadURL(VITE_URL);
-      }, retryDelay);
+      // Poll until Vite is up, then load — avoids blind retry spam
+      const pollAndLoad = () => {
+        checkViteServer().then(ready => {
+          if (ready) {
+            log(LogLevel.DEBUG, `Vite ready, retrying load (attempt ${loadRetryCount + 1})...`);
+            mainWindow.loadURL(VITE_URL);
+          } else {
+            setTimeout(pollAndLoad, 1000);
+          }
+        });
+      };
+      setTimeout(pollAndLoad, 500);
     });
 
     mainWindow.webContents.on('did-finish-load', () => {
@@ -684,13 +691,21 @@ function createWindow() {
       });
     }
 
-    checkViteConnection();
-    viteRetryInterval = setInterval(checkViteConnection, 3000);
-
-    mainWindow.loadURL(VITE_URL).catch(err => {
-      log(LogLevel.ERROR, 'Failed to load Vite URL:', err);
-      showFallbackPage();
-      mainWindow.show();
+    // Wait for Vite to be ready BEFORE loading to avoid ERR_CONNECTION_REFUSED spam
+    checkViteServer().then(isReady => {
+      if (isReady) {
+        isConnectedToVite = true;
+        mainWindow.loadURL(VITE_URL).catch(err => {
+          log(LogLevel.ERROR, 'Failed to load Vite URL:', err);
+          showFallbackPage();
+          mainWindow.show();
+        });
+      } else {
+        // Vite not ready yet — show fallback and start polling
+        showFallbackPage();
+        checkViteConnection();
+        viteRetryInterval = setInterval(checkViteConnection, 3000);
+      }
     });
   } else {
     // PRODUCTION MODE - with validation

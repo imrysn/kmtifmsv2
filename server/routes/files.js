@@ -440,14 +440,21 @@ router.post('/upload', upload.single('file'), async (req, res) => {
     }
 
     // Get the original filename and ensure proper UTF-8 encoding
+    // Multer/busboy receives the raw bytes from the multipart header and decodes
+    // them as latin1 (ISO-8859-1) by default. For filenames that are UTF-8 encoded
+    // (Japanese, Chinese, Korean, accented chars, etc.) we must re-encode back to
+    // a Buffer then decode as UTF-8 to recover the real characters.
     let originalFilename = req.file.originalname;
 
-    // Fix garbled UTF-8 filenames (latin1 mis-decoded as binary)
     try {
-      if (/[\xC3\xC4\xC6\xC8]/.test(originalFilename)) {
-        const buffer = Buffer.from(originalFilename, 'binary');
-        const utf8Attempt = buffer.toString('utf8');
-        if (utf8Attempt !== originalFilename) originalFilename = utf8Attempt;
+      // Re-interpret the latin1-decoded string as raw bytes, then decode as UTF-8.
+      // If the result is valid and different, the original was UTF-8 mis-decoded.
+      const reDecoded = Buffer.from(originalFilename, 'latin1').toString('utf8');
+      // Only use the re-decoded version when it's a valid UTF-8 string with multibyte chars.
+      // A simple heuristic: if the re-decoded string differs and contains no U+FFFD
+      // replacement chars, it is the correct representation.
+      if (reDecoded !== originalFilename && !reDecoded.includes('\uFFFD')) {
+        originalFilename = reDecoded;
       }
     } catch (e) { /* keep original */ }
 
@@ -927,7 +934,7 @@ router.get('/user/:userId/pending', (req, res) => {
   console.log(`📁 Getting pending files for user ${userId} - Page ${page}, Limit ${limit}`);
 
   // Get total count
-  db.get('SELECT COUNT(*) as total FROM files WHERE user_id = ? AND status != ?', [userId, 'final_approved'], (err, countResult) => {
+  db.get('SELECT COUNT(*) as total FROM files WHERE user_id = ?', [userId], (err, countResult) => {
     if (err) {
       console.error('❌ Error getting user pending file count:', err);
       return res.status(500).json({
@@ -941,7 +948,7 @@ router.get('/user/:userId/pending', (req, res) => {
               GROUP_CONCAT(fc.comment, ' | ') as comments
        FROM files f
        LEFT JOIN file_comments fc ON f.id = fc.file_id
-       WHERE f.user_id = ? AND f.status != 'final_approved'
+       WHERE f.user_id = ?
        GROUP BY f.id
        ORDER BY f.uploaded_at DESC LIMIT ? OFFSET ?`,
       [userId, limit, offset],

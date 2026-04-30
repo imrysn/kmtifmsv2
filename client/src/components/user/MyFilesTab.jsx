@@ -33,18 +33,14 @@ const MyFilesTab = ({
   const groupFilesByFolder = useCallback((files) => {
     const folders = {};
     const individualFiles = [];
-
-    files.forEach(file => {
+    for (const file of files) {
       if (file.folder_name) {
-        if (!folders[file.folder_name]) {
-          folders[file.folder_name] = [];
-        }
+        if (!folders[file.folder_name]) folders[file.folder_name] = [];
         folders[file.folder_name].push(file);
       } else {
         individualFiles.push(file);
       }
-    });
-
+    }
     return { folders, individualFiles };
   }, []);
 
@@ -67,8 +63,6 @@ const MyFilesTab = ({
 
   const openFile = useCallback(async (file) => {
     try {
-      console.log('Opening file:', { id: file.id, path: file.file_path, name: file.original_name });
-      
       if (window.electron?.openFileInApp) {
         const response = await fetch(`${API_BASE_URL}/api/files/${file.id}/path`);
         const data = await response.json();
@@ -656,7 +650,7 @@ const MyFilesTab = ({
     });
 
     return items;
-  }, [paginatedFiles, expandedFolders, groupFilesByFolder, formatDateTime, toggleFolder, handleFolderDeleteClick, handleFileClick, formatFileSize, getStatusClass, getStatusDisplayName, handleDeleteClick, getFolderStatus]);
+  }, [paginatedFiles, expandedFolders, groupFilesByFolder, formatDateTime, toggleFolder, handleFolderDeleteClick, handleFileClick, getStatusClass, getStatusDisplayName, handleDeleteClick, getFolderStatus]);
 
   return (
     <div className="user-my-files-component my-files-wrapper">

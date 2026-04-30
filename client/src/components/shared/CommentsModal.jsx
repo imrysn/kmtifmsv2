@@ -540,14 +540,14 @@ const CommentsModal = memo(({
   const [replyMentionText, setReplyMentionText] = useState('');
   const [mentionableUsers, setMentionableUsers] = useState([]);
 
-  // Fetch mentionable users once on first open
+  // Fetch mentionable users every time the modal opens (ensures fresh list after server fix)
   useEffect(() => {
-    if (!isOpen || mentionableUsers.length > 0) return;
+    if (!isOpen) return;
     fetch(`${API_BASE_URL}/api/users/mentionable`)
       .then(r => r.json())
       .then(d => { if (d.success) setMentionableUsers(d.users || []); })
       .catch(() => {});
-  }, [isOpen, mentionableUsers.length]);
+  }, [isOpen]);
 
   // Lock background scroll while modal is open
   useEffect(() => {

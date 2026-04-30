@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { API_BASE_URL } from '@/config/api'
-import { createPortal } from 'react-dom'
 import './css/TeamTasksTab.css'
 import { FileIcon, FileOpenModal } from '../shared'
+import CommentsModal from '../shared/CommentsModal'
 
 // ── Read-only three-dot menu (Download + Open Folder Path, NO delete) ────────
 function FileMoreMenu({ onDownload, onOpenPath, isFolder = false }) {
@@ -91,13 +91,11 @@ const TeamTasksTab = ({ user }) => {
 
   // Comments state
   const [comments, setComments] = useState({})
-  const [newComment, setNewComment] = useState({})
-  const [replyText, setReplyText] = useState({})
-  const [showCommentsModal, setShowCommentsModal] = useState(null) // null or assignmentId
-  const [replyingTo, setReplyingTo] = useState({})
+  const [newComment, setNewComment] = useState('')
+  const [showCommentsModal, setShowCommentsModal] = useState(false)
+  const [currentCommentsAssignment, setCurrentCommentsAssignment] = useState(null)
   const [visibleReplies, setVisibleReplies] = useState({})
-  const [isPostingComment, setIsPostingComment] = useState({})
-  const [isPostingReply, setIsPostingReply] = useState({})
+  const [loadingComments, setLoadingComments] = useState(false)
   const [showAllFiles, setShowAllFiles] = useState({}) // Track which assignments show all files
   const [showOpenFileConfirmation, setShowOpenFileConfirmation] = useState(false)
   const [fileToOpen, setFileToOpen] = useState(null)
@@ -123,11 +121,11 @@ const TeamTasksTab = ({ user }) => {
   useEffect(() => {
     const handleEscape = (e) => {
       if (e.key === 'Escape' && showCommentsModal) {
-        setShowCommentsModal(null)
+        setShowCommentsModal(false)
+        setCurrentCommentsAssignment(null)
         document.body.style.overflow = ''
       }
     }
-
     document.addEventListener('keydown', handleEscape)
     return () => document.removeEventListener('keydown', handleEscape)
   }, [showCommentsModal])
@@ -445,126 +443,125 @@ const TeamTasksTab = ({ user }) => {
   }
 
   // Fetch comments for an assignment
-  const fetchComments = async (assignmentId) => {
+  const fetchComments = useCallback(async (assignmentId) => {
+    setLoadingComments(true)
     try {
       const response = await fetch(`${API_BASE_URL}/api/assignments/${assignmentId}/comments`)
       const data = await response.json()
-
       if (data.success) {
-        setComments(prev => ({
-          ...prev,
-          [assignmentId]: data.comments || []
-        }))
+        setComments(prev => ({ ...prev, [assignmentId]: data.comments || [] }))
       }
     } catch (error) {
       console.error('Error fetching comments:', error)
+    } finally {
+      setLoadingComments(false)
     }
-  }
+  }, [])
 
-  // Toggle comments section
-  const toggleComments = async (assignmentId) => {
-    if (showCommentsModal === assignmentId) {
-      // Close modal
-      setShowCommentsModal(null)
-      document.body.style.overflow = ''
-    } else {
-      // Open modal
-      setShowCommentsModal(assignmentId)
-      document.body.style.overflow = 'hidden'
+  // Open comments modal
+  const openCommentsModal = useCallback(async (assignment) => {
+    setCurrentCommentsAssignment(assignment)
+    setNewComment('')
+    setShowCommentsModal(true)
+    await fetchComments(assignment.id)
+  }, [fetchComments])
 
-      // Fetch comments if not already loaded
-      if (!comments[assignmentId]) {
-        await fetchComments(assignmentId)
-      }
-    }
-  }
+  // Close comments modal
+  const closeCommentsModal = useCallback(() => {
+    setShowCommentsModal(false)
+    setCurrentCommentsAssignment(null)
+    setNewComment('')
+  }, [])
 
   // Submit a new comment
-  const handleSubmitComment = async (assignmentId) => {
-    const commentText = newComment[assignmentId]?.trim()
-
-    if (!commentText) return
-
+  const handleSubmitComment = useCallback(async () => {
+    if (!newComment.trim() || !currentCommentsAssignment) return
     try {
-      setIsPostingComment(prev => ({ ...prev, [assignmentId]: true }))
-
-      const response = await fetch(`${API_BASE_URL}/api/assignments/${assignmentId}/comments`, {
+      const response = await fetch(`${API_BASE_URL}/api/assignments/${currentCommentsAssignment.id}/comments`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          userId: user.id,
-          username: user.username || user.fullName,
-          comment: commentText
-        })
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: user.id, username: user.username || user.fullName, comment: newComment.trim() })
       })
-
       const data = await response.json()
-
       if (data.success) {
-        // Clear input
-        setNewComment(prev => ({ ...prev, [assignmentId]: '' }))
-        // Refresh comments
-        await fetchComments(assignmentId)
-        setSuccess('Comment posted successfully')
-        setTimeout(() => setSuccess(''), 3000)
-      } else {
-        setError(data.message || 'Failed to post comment')
-        setTimeout(() => setError(''), 3000)
+        setNewComment('')
+        fetchComments(currentCommentsAssignment.id)
       }
     } catch (error) {
       console.error('Error posting comment:', error)
-      setError('Failed to post comment')
-      setTimeout(() => setError(''), 3000)
-    } finally {
-      setIsPostingComment(prev => ({ ...prev, [assignmentId]: false }))
     }
-  }
+  }, [newComment, currentCommentsAssignment, user, fetchComments])
 
-  // Submit a reply to a comment
-  const handleSubmitReply = async (assignmentId, commentId) => {
-    const reply = replyText[commentId]?.trim()
-
-    if (!reply) return
-
+  // Post a reply
+  const handlePostReply = useCallback(async (_e, commentId, replyTextValue, onSuccess) => {
+    if (!replyTextValue?.trim() || !currentCommentsAssignment) return
     try {
-      setIsPostingReply(prev => ({ ...prev, [commentId]: true }))
-
-      const response = await fetch(`${API_BASE_URL}/api/assignments/${assignmentId}/comments/${commentId}/reply`, {
+      const response = await fetch(`${API_BASE_URL}/api/assignments/${currentCommentsAssignment.id}/comments/${commentId}/reply`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          userId: user.id,
-          username: user.username || user.fullName,
-          reply: reply
-        })
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: user.id, username: user.username || user.fullName, reply: replyTextValue.trim() })
       })
-
       const data = await response.json()
-
-      if (data.success) {
-        // Clear input and hide reply box
-        setReplyText(prev => ({ ...prev, [commentId]: '' }))
-        setReplyingTo(prev => ({ ...prev, [commentId]: false }))
-        // Refresh comments
-        await fetchComments(assignmentId)
-        setSuccess('Reply posted successfully')
-        setTimeout(() => setSuccess(''), 3000)
-      } else {
-        setError(data.message || 'Failed to post reply')
-        setTimeout(() => setError(''), 3000)
-      }
+      if (data.success) { onSuccess?.(); fetchComments(currentCommentsAssignment.id) }
     } catch (error) {
       console.error('Error posting reply:', error)
-      setError('Failed to post reply')
-      setTimeout(() => setError(''), 3000)
-    } finally {
-      setIsPostingReply(prev => ({ ...prev, [commentId]: false }))
     }
-  }
+  }, [currentCommentsAssignment, user, fetchComments])
+
+  // Edit a comment
+  const handleEditComment = useCallback(async (assignmentId, commentId, newText) => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/assignments/${assignmentId}/comments/${commentId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: user.id, comment: newText })
+      })
+      const data = await res.json()
+      if (data.success) fetchComments(assignmentId)
+    } catch (e) { console.error(e) }
+  }, [user.id, fetchComments])
+
+  // Delete a comment
+  const handleDeleteComment = useCallback(async (assignmentId, commentId) => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/assignments/${assignmentId}/comments/${commentId}`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: user.id })
+      })
+      const data = await res.json()
+      if (data.success) fetchComments(assignmentId)
+    } catch (e) { console.error(e) }
+  }, [user.id, fetchComments])
+
+  // Edit a reply
+  const handleEditReply = useCallback(async (assignmentId, commentId, replyId, newText) => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/assignments/${assignmentId}/comments/${commentId}/reply/${replyId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: user.id, reply: newText })
+      })
+      const data = await res.json()
+      if (data.success) fetchComments(assignmentId)
+    } catch (e) { console.error(e) }
+  }, [user.id, fetchComments])
+
+  // Delete a reply
+  const handleDeleteReply = useCallback(async (assignmentId, commentId, replyId) => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/assignments/${assignmentId}/comments/${commentId}/reply/${replyId}`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: user.id })
+      })
+      const data = await res.json()
+      if (data.success) fetchComments(assignmentId)
+    } catch (e) { console.error(e) }
+  }, [user.id, fetchComments])
+
+  const toggleRepliesVisibility = useCallback((commentId) =>
+    setVisibleReplies(prev => ({ ...prev, [commentId]: !prev[commentId] })), [])
 
   // Format time ago
   const formatTimeAgo = (dateString) => {
@@ -577,20 +574,6 @@ const TeamTasksTab = ({ user }) => {
     if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`
     if (seconds < 604800) return `${Math.floor(seconds / 86400)}d ago`
     return formatDate(dateString)
-  }
-
-  const toggleRepliesVisibility = (commentId) => {
-    setVisibleReplies(prev => ({
-      ...prev,
-      [commentId]: !prev[commentId]
-    }))
-  }
-
-  const toggleReplyBox = (commentId) => {
-    setReplyingTo(prev => ({
-      ...prev,
-      [commentId]: !prev[commentId]
-    }))
   }
 
   // Skeleton loader for initial load
@@ -983,7 +966,7 @@ const TeamTasksTab = ({ user }) => {
                     className="toggle-comments-btn"
                     onClick={(e) => {
                       e.stopPropagation();
-                      toggleComments(assignment.id);
+                      openCommentsModal(assignment);
                     }}
                     style={{
                       padding: '0',
@@ -999,7 +982,7 @@ const TeamTasksTab = ({ user }) => {
                     }}
                   >
                     <span>Comment</span>
-                    {comments[assignment.id] && comments[assignment.id].length > 0 && (
+                    {comments[assignment.id]?.length > 0 && (
                       <span>({comments[assignment.id].length})</span>
                     )}
                   </button>
@@ -1037,166 +1020,27 @@ const TeamTasksTab = ({ user }) => {
         )}
       </div>
 
-      {/* Comments Modal - Admin Style */}
-      {showCommentsModal && createPortal(
-        <div className="comments-modal-overlay" onClick={() => { setShowCommentsModal(null); document.body.style.overflow = ''; }}>
-          <div className="comments-modal" onClick={(e) => e.stopPropagation()}>
-            <div className="comments-modal-header">
-              <h3>Comments</h3>
-              <button className="close-modal-btn" onClick={() => { setShowCommentsModal(null); document.body.style.overflow = ''; }}>
-                ✕
-              </button>
-            </div>
-
-            <div className="comments-modal-body">
-              {comments[showCommentsModal]?.length > 0 ? (
-                <div className="comments-list">
-                  {comments[showCommentsModal].map((comment) => (
-                    <div key={comment.id} className="comment-thread">
-                      {/* Main Comment */}
-                      <div className="comment-item">
-                        <div className="comment-avatar">
-                        {getInitials(comment.user_fullname || comment.fullName || comment.username)}
-                        </div>
-                        <div className="comment-content">
-                        <div className="comment-header">
-                        <span className="comment-author">{comment.user_fullname || comment.fullName || comment.username}</span>
-                            <span className={`role-badge ${comment.user_role ? comment.user_role.toLowerCase().replace(' ', '-').replace('_', '-') : 'user'}`}>
-                              {comment.user_role || 'USER'}
-                            </span>
-                            <span className="comment-time">{formatTimeAgo(comment.created_at)}</span>
-                          </div>
-                          <div className="comment-text">{comment.comment}</div>
-
-                          {/* Action Buttons */}
-                          <div className="comment-actions">
-                            <button
-                              className="reply-button"
-                              onClick={() => toggleReplyBox(comment.id)}
-                            >
-                              Reply
-                            </button>
-
-                            {/* View Replies Button */}
-                            {comment.replies && comment.replies.length > 0 && (
-                              <button
-                                className="view-replies-button"
-                                onClick={() => toggleRepliesVisibility(comment.id)}
-                              >
-                                {visibleReplies[comment.id] ? 'Hide' : 'View'} {comment.replies.length}{' '}
-                                {comment.replies.length === 1 ? 'reply' : 'replies'}
-                              </button>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Replies Thread */}
-                      {comment.replies && comment.replies.length > 0 && visibleReplies[comment.id] && (
-                        <div className="replies-thread">
-                          {comment.replies.map(reply => (
-                            <div key={reply.id} className="reply-item">
-                              <div className="reply-avatar">
-                                {getInitials(reply.user_fullname || reply.fullName || reply.username)}
-                              </div>
-                              <div className="reply-content">
-                                <div className="reply-header">
-                                  <span className="reply-author">{reply.user_fullname || reply.fullName || reply.username}</span>
-                                  <span className={`role-badge ${reply.user_role ? reply.user_role.toLowerCase().replace(' ', '-').replace('_', '-') : 'user'}`}>
-                                    {reply.user_role || 'USER'}
-                                  </span>
-                                  <span className="reply-time">{formatTimeAgo(reply.created_at)}</span>
-                                </div>
-                                <div className="reply-text">{reply.reply}</div>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-
-                      {/* Reply Input Box */}
-                      {replyingTo[comment.id] && (
-                        <div className="reply-input-box">
-                          <div className="comment-avatar reply-avatar">
-                            {getInitials(user.username || user.fullName)}
-                          </div>
-                          <div className="comment-input-wrapper">
-                            <input
-                              type="text"
-                              className="comment-input"
-                              placeholder="Write a reply..."
-                              value={replyText[comment.id] || ''}
-                              onChange={(e) => setReplyText(prev => ({
-                                ...prev,
-                                [comment.id]: e.target.value
-                              }))}
-                              onKeyPress={(e) => {
-                                if (e.key === 'Enter' && !e.shiftKey) {
-                                  e.preventDefault();
-                                  handleSubmitReply(showCommentsModal, comment.id);
-                                }
-                              }}
-                              disabled={isPostingReply[comment.id]}
-                              autoFocus
-                            />
-                            <button
-                              className="comment-submit-btn"
-                              onClick={() => handleSubmitReply(showCommentsModal, comment.id)}
-                              disabled={!replyText[comment.id]?.trim() || isPostingReply[comment.id]}
-                            >
-                              {isPostingReply[comment.id] ? '...' : '➤'}
-                            </button>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="no-comments">
-                  <p>💬 No comments yet. Be the first to comment!</p>
-                </div>
-              )}
-            </div>
-
-            {/* Comment Form */}
-            <div className="comments-modal-footer">
-              <div className="add-comment">
-                <div className="comment-avatar">
-                  {getInitials(user.username || user.fullName)}
-                </div>
-                <div className="comment-input-wrapper">
-                  <input
-                    type="text"
-                    className="comment-input"
-                    placeholder="Write a comment..."
-                    value={newComment[showCommentsModal] || ''}
-                    onChange={(e) => setNewComment(prev => ({
-                      ...prev,
-                      [showCommentsModal]: e.target.value
-                    }))}
-                    onKeyPress={(e) => {
-                      if (e.key === 'Enter' && !e.shiftKey) {
-                        e.preventDefault();
-                        handleSubmitComment(showCommentsModal);
-                      }
-                    }}
-                    disabled={isPostingComment[showCommentsModal]}
-                  />
-                  <button
-                    className="comment-submit-btn"
-                    onClick={() => handleSubmitComment(showCommentsModal)}
-                    disabled={!newComment[showCommentsModal]?.trim() || isPostingComment[showCommentsModal]}
-                  >
-                    {isPostingComment[showCommentsModal] ? '...' : '➤'}
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>,
-        document.body
-      )}
+      {/* Comments Modal - shared component with full @mention support */}
+      <CommentsModal
+        isOpen={showCommentsModal}
+        onClose={closeCommentsModal}
+        assignment={currentCommentsAssignment}
+        comments={currentCommentsAssignment ? (comments[currentCommentsAssignment.id] || []) : []}
+        loadingComments={loadingComments}
+        newComment={newComment}
+        setNewComment={setNewComment}
+        onPostComment={handleSubmitComment}
+        onPostReply={handlePostReply}
+        onEditComment={handleEditComment}
+        onDeleteComment={handleDeleteComment}
+        onEditReply={handleEditReply}
+        onDeleteReply={handleDeleteReply}
+        visibleReplies={visibleReplies}
+        toggleRepliesVisibility={toggleRepliesVisibility}
+        getInitials={getInitials}
+        formatTimeAgo={formatTimeAgo}
+        user={user}
+      />
 
       {/* File Open Modal */}
       <FileOpenModal

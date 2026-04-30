@@ -29,6 +29,18 @@ const upload = multer({
   }
 });
 
+// Helper: fix garbled UTF-8 filenames that multer/busboy decoded as latin1.
+// Japanese, Chinese, Korean and other multibyte filenames arrive as latin1-garbled
+// strings. Re-encoding to latin1 bytes and decoding as UTF-8 recovers the real name.
+function fixFilename(name) {
+  if (!name) return name;
+  try {
+    const reDecoded = Buffer.from(name, 'latin1').toString('utf8');
+    if (reDecoded !== name && !reDecoded.includes('\uFFFD')) return reDecoded;
+  } catch (_) {}
+  return name;
+}
+
 // Batch submission tracker to group multiple file submissions into single notification
 const pendingBatchSubmissions = new Map();
 
@@ -167,7 +179,7 @@ router.get('/admin/all', async (req, res) => {
 
       // Get attachments for this assignment
       const attachments = await query(`
-        SELECT id, original_name, filename, file_path, file_size, file_type, folder_name, relative_path, created_at,
+        SELECT id, original_name, filename, file_path, public_network_url, file_size, file_type, folder_name, relative_path, created_at,
                COALESCE(status, 'team_leader_approved') AS status,
                COALESCE(current_stage, 'pending_admin') AS current_stage
         FROM assignment_attachments
@@ -432,7 +444,7 @@ router.get('/team/:team/all-tasks', async (req, res) => {
 
       // Get attachments for this assignment
       const attachments = await query(`
-        SELECT id, original_name, filename, file_path, file_size, file_type, folder_name, relative_path, created_at,
+        SELECT id, original_name, filename, file_path, public_network_url, file_size, file_type, folder_name, relative_path, created_at,
                COALESCE(status, 'team_leader_approved') AS status,
                COALESCE(current_stage, 'pending_admin') AS current_stage
         FROM assignment_attachments
@@ -553,7 +565,7 @@ router.get('/team-leader/:userId', async (req, res) => {
 
       // Get attachments for this assignment
       const attachments = await query(`
-        SELECT id, original_name, filename, file_path, file_size, file_type, folder_name, relative_path, created_at,
+        SELECT id, original_name, filename, file_path, public_network_url, file_size, file_type, folder_name, relative_path, created_at,
                COALESCE(status, 'team_leader_approved') AS status,
                COALESCE(current_stage, 'pending_admin') AS current_stage
         FROM assignment_attachments
@@ -935,8 +947,9 @@ router.post('/create', upload.array('attachments', 10000), async (req, res) => {
 
           // Move file from temp location to team leader's folder
           let finalPath;
+          const fixedOriginalname = fixFilename(file.originalname);
           try {
-            finalPath = await moveToUserFolder(file.path, finalTeamLeaderUsername, file.originalname);
+            finalPath = await moveToUserFolder(file.path, finalTeamLeaderUsername, fixedOriginalname);
             console.log(`✅ Moved attachment to: ${finalPath}`);
           } catch (moveError) {
             console.error('⚠️ Failed to move attachment file:', moveError);
@@ -944,15 +957,15 @@ router.post('/create', upload.array('attachments', 10000), async (req, res) => {
             finalPath = file.path;
           }
 
-          const relPath = relativePaths[fileIndex] || file.originalname;
+          const relPath = relativePaths[fileIndex] || fixedOriginalname;
           const folderName = relPath.includes('/') ? relPath.split('/')[0] : null;
-          console.log(`📎 File ${fileIndex}: ${file.originalname} → relPath: ${relPath}, folderName: ${folderName}`);
+          console.log(`📎 File ${fileIndex}: ${fixedOriginalname} → relPath: ${relPath}, folderName: ${folderName}`);
 
           // Re-move the file now that we know the folder structure.
           // moveToUserFolder will create username/folderName/subpath on disk.
           if (folderName) {
             try {
-              const movedPath = await moveToUserFolder(finalPath, finalTeamLeaderUsername, file.originalname, folderName, relPath);
+              const movedPath = await moveToUserFolder(finalPath, finalTeamLeaderUsername, fixedOriginalname, folderName, relPath);
               finalPath = movedPath;
               console.log(`✅ Re-moved into folder structure: ${finalPath}`);
             } catch (reMoveError) {
@@ -976,7 +989,7 @@ router.post('/create', upload.array('attachments', 10000), async (req, res) => {
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
           `, [
             assignmentId,
-            file.originalname,
+            fixedOriginalname,
             path.basename(finalPath),
             finalPath,
             file.size,
@@ -984,7 +997,7 @@ router.post('/create', upload.array('attachments', 10000), async (req, res) => {
             finalTeamLeaderId,
             finalTeamLeaderUsername,
             folderName,
-            relPath !== file.originalname ? relPath : null
+            relPath !== fixedOriginalname ? relPath : null
           ]);
           attachmentsCreated++;
         }
@@ -1314,8 +1327,9 @@ router.put('/:id', upload.array('attachments', 10000), async (req, res) => {
 
           // Move file from temp location to team leader's folder
           let finalPath;
+          const fixedOriginalname = fixFilename(file.originalname);
           try {
-            finalPath = await moveToUserFolder(file.path, finalTeamLeaderUsername, file.originalname);
+            finalPath = await moveToUserFolder(file.path, finalTeamLeaderUsername, fixedOriginalname);
             console.log(`✅ Moved attachment to: ${finalPath}`);
           } catch (moveError) {
             console.error('⚠️ Failed to move attachment file:', moveError);
@@ -1323,14 +1337,14 @@ router.put('/:id', upload.array('attachments', 10000), async (req, res) => {
             finalPath = file.path;
           }
 
-          const relPath = relativePaths[fileIndex] || file.originalname;
+          const relPath = relativePaths[fileIndex] || fixedOriginalname;
           const folderName = relPath.includes('/') ? relPath.split('/')[0] : null;
-          console.log(`📎 [PUT] File ${fileIndex}: ${file.originalname} → relPath: ${relPath}, folderName: ${folderName}`);
+          console.log(`📎 [PUT] File ${fileIndex}: ${fixedOriginalname} → relPath: ${relPath}, folderName: ${folderName}`);
 
           // Re-move the file into the correct folder structure now that we know it.
           if (folderName) {
             try {
-              const movedPath = await moveToUserFolder(finalPath, finalTeamLeaderUsername, file.originalname, folderName, relPath);
+              const movedPath = await moveToUserFolder(finalPath, finalTeamLeaderUsername, fixedOriginalname, folderName, relPath);
               finalPath = movedPath;
               console.log(`✅ [PUT] Re-moved into folder structure: ${finalPath}`);
             } catch (reMoveError) {
@@ -1353,7 +1367,7 @@ router.put('/:id', upload.array('attachments', 10000), async (req, res) => {
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
           `, [
             id,
-            file.originalname,
+            fixedOriginalname,
             path.basename(finalPath),
             finalPath,
             file.size,
@@ -1361,7 +1375,7 @@ router.put('/:id', upload.array('attachments', 10000), async (req, res) => {
             finalTeamLeaderId,
             finalTeamLeaderUsername,
             folderName,
-            relPath !== file.originalname ? relPath : null
+            relPath !== fixedOriginalname ? relPath : null
           ]);
           attachmentsCreated++;
         }
@@ -1482,6 +1496,8 @@ router.get('/user/:userId', async (req, res) => {
         am.submitted_at as user_submitted_at,
         fs.original_name as submitted_file_name,
         fs.file_path as submitted_file_path,
+        fs.public_network_url as submitted_file_nas_path,
+        fs.status as submitted_file_status,
         fs.id as submitted_file_id,
         fs.tag as submitted_file_tag,
         tl.fullName as team_leader_fullname,
@@ -1514,7 +1530,9 @@ router.get('/user/:userId', async (req, res) => {
 
       // Get attachments for this assignment
       const attachments = await query(`
-        SELECT id, original_name, filename, file_path, file_size, file_type, folder_name, relative_path, created_at
+        SELECT id, original_name, filename, file_path, public_network_url, file_size, file_type, folder_name, relative_path, created_at,
+               COALESCE(status, 'team_leader_approved') AS status,
+               COALESCE(current_stage, 'pending_admin') AS current_stage
         FROM assignment_attachments
         WHERE assignment_id = ?
         ORDER BY COALESCE(folder_name, ''), created_at DESC
@@ -1529,6 +1547,7 @@ router.get('/user/:userId', async (req, res) => {
           f.original_name,
           f.filename,
           f.file_path,
+          f.public_network_url,
           f.file_type,
           f.file_size,
           f.tag,
