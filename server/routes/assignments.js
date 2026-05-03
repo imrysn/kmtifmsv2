@@ -7,6 +7,7 @@ const fs = require('fs');
 const { uploadsDir, moveToUserFolder } = require('../config/middleware');
 const assignmentController = require('../controllers/assignmentController');
 const { createAdminNotification } = require('./notifications');
+const { decodeUTF8Filename } = require('../utils/fileUtils');
 
 // Configure multer for file uploads using existing uploads directory
 const storage = multer.diskStorage({
@@ -32,15 +33,6 @@ const upload = multer({
 // Helper: fix garbled UTF-8 filenames that multer/busboy decoded as latin1.
 // Japanese, Chinese, Korean and other multibyte filenames arrive as latin1-garbled
 // strings. Re-encoding to latin1 bytes and decoding as UTF-8 recovers the real name.
-function fixFilename(name) {
-  if (!name) return name;
-  try {
-    const reDecoded = Buffer.from(name, 'latin1').toString('utf8');
-    if (reDecoded !== name && !reDecoded.includes('\uFFFD')) return reDecoded;
-  } catch (_) {}
-  return name;
-}
-
 // Batch submission tracker to group multiple file submissions into single notification
 const pendingBatchSubmissions = new Map();
 
@@ -947,7 +939,7 @@ router.post('/create', upload.array('attachments', 10000), async (req, res) => {
 
           // Move file from temp location to team leader's folder
           let finalPath;
-          const fixedOriginalname = fixFilename(file.originalname);
+          const fixedOriginalname = decodeUTF8Filename(file.originalname);
           try {
             finalPath = await moveToUserFolder(file.path, finalTeamLeaderUsername, fixedOriginalname);
             console.log(`✅ Moved attachment to: ${finalPath}`);
@@ -1327,7 +1319,7 @@ router.put('/:id', upload.array('attachments', 10000), async (req, res) => {
 
           // Move file from temp location to team leader's folder
           let finalPath;
-          const fixedOriginalname = fixFilename(file.originalname);
+          const fixedOriginalname = decodeUTF8Filename(file.originalname);
           try {
             finalPath = await moveToUserFolder(file.path, finalTeamLeaderUsername, fixedOriginalname);
             console.log(`✅ Moved attachment to: ${finalPath}`);

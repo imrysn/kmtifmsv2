@@ -585,6 +585,12 @@
   color: #dc2626;
 }
 
+.admin-file-status.reference {
+  background: #f0f9ff;
+  color: #0369a1;
+  border: 1px solid #bae6fd;
+}
+
 
 .admin-attachment-toggle-btn {
   background: none;

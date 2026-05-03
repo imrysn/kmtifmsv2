@@ -909,12 +909,12 @@ const TaskManagement = ({
                                   <div style={{ fontSize: '32px', flexShrink: 0 }}>
                                     {isExpanded ? '📂' : '📁'}
                                   </div>
-                                  <div className="admin-file-details">
-                                    <div className="admin-file-name" style={{ fontWeight: '600' }}>{folderName}</div>
-                                    <div className="admin-file-meta">
-                                      Submitted by <span className="admin-file-submitter">KMTI User</span> • {folderFiles.length} file{folderFiles.length !== 1 ? 's' : ''}
+                                    <div className="admin-file-details">
+                                      <div className="admin-file-name" style={{ fontWeight: '600' }}>{folderName}</div>
+                                      <div className="admin-file-meta">
+                                        Submitted by <span className="admin-file-submitter">{assignment.team_leader_fullname || assignment.team_leader_username || 'Team Leader'}</span> • {folderFiles.length} file{folderFiles.length !== 1 ? 's' : ''}
+                                      </div>
                                     </div>
-                                  </div>
                                   {/* Download folder button */}
                                   <button
                                     onClick={(e) => { e.stopPropagation(); handleDownloadFolder(folderFiles, folderName) }}
@@ -948,7 +948,7 @@ const TaskManagement = ({
                                         <div className="admin-file-details">
                                           <div className="admin-file-name">{file.original_name}</div>
                                           <div className="admin-file-meta">
-                                            Submitted by <span className="admin-file-submitter">KMTI User</span> on {formatDate(file.uploaded_at || file.created_at)}
+                                            Submitted by <span className="admin-file-submitter">{assignment.team_leader_fullname || assignment.team_leader_username || 'Team Leader'}</span> on {formatDate(file.uploaded_at || file.created_at)}
                                             {file.tag && (
                                               <span style={{
                                                 backgroundColor: '#dbeafe',
@@ -967,18 +967,18 @@ const TaskManagement = ({
                                               </span>
                                             )}
                                             <span className={`admin-file-status ${
-                                              file.status === 'uploaded' ? 'uploaded' :
-                                                file.status === 'team_leader_approved' ? 'team-leader-approved' :
+                                              file.status === 'uploaded' ? 'reference' :
+                                                file.status === 'team_leader_approved' ? 'reference' :
                                                   file.status === 'final_approved' ? 'final-approved' :
                                                     file.status === 'rejected_by_team_leader' || file.status === 'rejected_by_admin' ? 'rejected' :
-                                                      'uploaded'
+                                                      'reference'
                                               }`}>
-                                              {file.status === 'uploaded' ? 'PENDING ADMIN' :
-                                                file.status === 'team_leader_approved' ? 'PENDING ADMIN' :
+                                              {file.status === 'uploaded' ? 'TASK REFERENCE' :
+                                                file.status === 'team_leader_approved' ? 'TASK REFERENCE' :
                                                   file.status === 'final_approved' ? '✓ APPROVED' :
                                                     file.status === 'rejected_by_team_leader' ? '✗ REJECTED' :
                                                       file.status === 'rejected_by_admin' ? '✗ REJECTED' :
-                                                        'PENDING ADMIN'}
+                                                        'TASK REFERENCE'}
                                             </span>
                                           </div>
                                         </div>
@@ -1020,7 +1020,7 @@ const TaskManagement = ({
                               <div className="admin-file-details">
                                 <div className="admin-file-name">{attachment.original_name}</div>
                                 <div className="admin-file-meta">
-                                  Submitted by <span className="admin-file-submitter">KMTI User</span> on {formatDate(attachment.uploaded_at || attachment.created_at)}
+                                  Submitted by <span className="admin-file-submitter">{assignment.team_leader_fullname || assignment.team_leader_username || 'Team Leader'}</span> on {formatDate(attachment.uploaded_at || attachment.created_at)}
                                   {attachment.tag && (
                                     <span style={{
                                       backgroundColor: '#dbeafe',
@@ -1039,18 +1039,18 @@ const TaskManagement = ({
                                     </span>
                                   )}
                                   <span className={`admin-file-status ${
-                                    attachment.status === 'uploaded' ? 'uploaded' :
-                                      attachment.status === 'team_leader_approved' ? 'team-leader-approved' :
+                                    attachment.status === 'uploaded' ? 'reference' :
+                                      attachment.status === 'team_leader_approved' ? 'reference' :
                                         attachment.status === 'final_approved' ? 'final-approved' :
                                           attachment.status === 'rejected_by_team_leader' || attachment.status === 'rejected_by_admin' ? 'rejected' :
-                                            'uploaded'
+                                            'reference'
                                     }`}>
-                                    {attachment.status === 'uploaded' ? 'PENDING ADMIN' :
-                                      attachment.status === 'team_leader_approved' ? 'PENDING ADMIN' :
+                                    {attachment.status === 'uploaded' ? 'TASK REFERENCE' :
+                                      attachment.status === 'team_leader_approved' ? 'TASK REFERENCE' :
                                         attachment.status === 'final_approved' ? '✓ APPROVED' :
                                           attachment.status === 'rejected_by_team_leader' ? '✗ REJECTED' :
                                             attachment.status === 'rejected_by_admin' ? '✗ REJECTED' :
-                                              'PENDING ADMIN'}
+                                              'TASK REFERENCE'}
                                   </span>
                                 </div>
                               </div>

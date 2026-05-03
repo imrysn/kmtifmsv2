@@ -2,6 +2,29 @@ const fs = require('fs').promises;
 const path = require('path');
 
 /**
+ * Robustly decode a filename that may have been mis-decoded as Latin-1 (ISO-8859-1).
+ * Multer/busboy often decodes UTF-8 filenames as Latin-1, resulting in mojibake.
+ * This utility recovers the original UTF-8 characters.
+ */
+function decodeUTF8Filename(name) {
+  if (!name) return name;
+  try {
+    // Re-interpret the string as raw bytes (latin1), then decode as UTF-8.
+    const buffer = Buffer.from(name, 'latin1');
+    const utf8Attempt = buffer.toString('utf8');
+
+    // If the re-decoded string is different and doesn't contain replacement chars (U+FFFD),
+    // it is highly likely to be the correct UTF-8 representation.
+    if (utf8Attempt !== name && !utf8Attempt.includes('\uFFFD')) {
+      return utf8Attempt;
+    }
+  } catch (_) {
+    // Fallback to original if any error occurs
+  }
+  return name;
+}
+
+/**
  * Move uploaded file from temp location to user's folder.
  * Supports folder structure preservation via folderName + relativePath.
  * Handles cross-device moves (EXDEV) for NAS targets.
@@ -17,17 +40,8 @@ async function moveToUserFolder(tempPath, username, originalFilename, folderName
     throw new Error(`Failed to create user folder: ${mkdirError.message}`);
   }
 
-  // Decode garbled UTF-8 filenames (latin1 mis-decoded as binary)
-  let decodedFilename = originalFilename;
-  try {
-    if (/[\xC3\xC4\xC6\xC8]/.test(originalFilename)) {
-      const buffer = Buffer.from(originalFilename, 'binary');
-      const utf8Attempt = buffer.toString('utf8');
-      if (utf8Attempt !== originalFilename) decodedFilename = utf8Attempt;
-    }
-  } catch (e) {
-    // keep original
-  }
+  // Decode garbled UTF-8 filenames (latin1 mis-decoded by multer)
+  const decodedFilename = decodeUTF8Filename(originalFilename);
 
   // Sanitize for Windows filesystem
   const sanitizedFilename = sanitizeFilename(decodedFilename);
@@ -139,6 +153,7 @@ async function ensureDirectory(dirPath) {
 
 module.exports = {
   moveToUserFolder,
+  decodeUTF8Filename,
   sanitizeFilename,
   safeDeleteFile,
   directoryExists,

@@ -6,7 +6,7 @@ const { db } = require('../config/database');
 const { upload, uploadsDir, moveToUserFolder } = require('../config/middleware');
 const { logActivity, logFileStatusChange } = require('../utils/logger');
 const { getFileTypeDescription } = require('../utils/fileHelpers');
-const { safeDeleteFile } = require('../utils/fileUtils');
+const { safeDeleteFile, decodeUTF8Filename } = require('../utils/fileUtils');
 const { createNotification, createAdminNotification } = require('./notifications');
 const { syncDeletedFiles } = require('../services/fileSyncService');
 const { networkDataPath } = require('../config/database');
@@ -241,7 +241,6 @@ router.post('/folder/move-to-nas', async (req, res) => {
       }
 
       if (file.source_type === 'assignment_attachment') {
-        // Update assignment_attachments table
         await new Promise((resolve, reject) => {
           db.run(
             `UPDATE assignment_attachments SET
@@ -249,10 +248,11 @@ router.post('/folder/move-to-nas', async (req, res) => {
               current_stage = 'published_to_public',
               admin_reviewed_at = ?,
               admin_comments = ?,
+              file_path = ?,
               public_network_url = ?,
               final_approved_at = ?
             WHERE id = ?`,
-            [nowSql, comments || null, nasFilePath, nowSql, fileId],
+            [nowSql, comments || null, nasFilePath, nasFilePath, nowSql, fileId],
             (err) => { if (err) { console.warn('Could not update attachment status:', err.message); resolve() } else resolve() }
           )
         })
@@ -265,10 +265,11 @@ router.post('/folder/move-to-nas', async (req, res) => {
             admin_username = ?,
             admin_reviewed_at = ?,
             admin_comments = ?,
+            file_path = ?,
             public_network_url = ?,
             final_approved_at = ?
             WHERE id = ?`,
-            [adminId, adminUsername, nowSql, comments || null, nasFilePath, nowSql, fileId],
+            [adminId, adminUsername, nowSql, comments || null, nasFilePath, nasFilePath, nowSql, fileId],
             (err) => { if (err) reject(err); else resolve() }
           )
         })
@@ -440,23 +441,7 @@ router.post('/upload', upload.single('file'), async (req, res) => {
     }
 
     // Get the original filename and ensure proper UTF-8 encoding
-    // Multer/busboy receives the raw bytes from the multipart header and decodes
-    // them as latin1 (ISO-8859-1) by default. For filenames that are UTF-8 encoded
-    // (Japanese, Chinese, Korean, accented chars, etc.) we must re-encode back to
-    // a Buffer then decode as UTF-8 to recover the real characters.
-    let originalFilename = req.file.originalname;
-
-    try {
-      // Re-interpret the latin1-decoded string as raw bytes, then decode as UTF-8.
-      // If the result is valid and different, the original was UTF-8 mis-decoded.
-      const reDecoded = Buffer.from(originalFilename, 'latin1').toString('utf8');
-      // Only use the re-decoded version when it's a valid UTF-8 string with multibyte chars.
-      // A simple heuristic: if the re-decoded string differs and contains no U+FFFD
-      // replacement chars, it is the correct representation.
-      if (reDecoded !== originalFilename && !reDecoded.includes('\uFFFD')) {
-        originalFilename = reDecoded;
-      }
-    } catch (e) { /* keep original */ }
+    const originalFilename = decodeUTF8Filename(req.file.originalname);
 
     console.log(`📁 Upload by ${username} (${userTeam}): ${originalFilename}${isRevision === 'true' ? ' [REVISION]' : ''}`);
 
@@ -1093,14 +1078,18 @@ router.get('/admin', (req, res) => {
 // Get all files (Admin only - for comprehensive view) - no server-side limit so frontend can paginate fully
 // Also includes Team Leader assignment attachments so admin can review/approve them
 router.get('/all', (req, res) => {
-  console.log(`📁 Getting all files (admin view)`);
+  console.log(`📁 Getting all files (admin view) - Filtering for member submissions`);
 
+  // JOIN with users to filter by role
+  // We exclude ADMIN and TEAM_LEADER roles from the approval queue
   db.all(
-    `SELECT f.*, fc.comment as latest_comment
+    `SELECT f.*, fc.comment as latest_comment, u.username, u.role, u.team as user_team
      FROM files f
+     LEFT JOIN users u ON f.user_id = u.id
      LEFT JOIN file_comments fc ON f.id = fc.file_id AND fc.id = (
        SELECT MAX(id) FROM file_comments WHERE file_id = f.id
      )
+     WHERE u.role NOT LIKE '%TEAM_LEADER%' AND u.role NOT LIKE '%ADMIN%'
      ORDER BY f.uploaded_at DESC`,
     [],
     (err, files) => {
@@ -1112,47 +1101,8 @@ router.get('/all', (req, res) => {
         });
       }
 
-      // Also fetch Team Leader assignment attachments
-      db.all(
-        `SELECT
-           aa.id,
-           aa.original_name,
-           aa.filename,
-           aa.file_path,
-           aa.file_size,
-           aa.file_type,
-           aa.created_at AS uploaded_at,
-           COALESCE(aa.status, 'team_leader_approved') AS status,
-           COALESCE(aa.current_stage, 'pending_admin') AS current_stage,
-           aa.uploaded_by_username AS username,
-           aa.uploaded_by_id AS user_id,
-           u.team AS user_team,
-           COALESCE(aa.folder_name, NULL) AS folder_name,
-           COALESCE(aa.relative_path, NULL) AS relative_path,
-           'assignment_attachment' AS source_type,
-           a.id AS assignment_id
-         FROM assignment_attachments aa
-         LEFT JOIN assignments a ON aa.assignment_id = a.id
-         LEFT JOIN users u ON aa.uploaded_by_id = u.id
-         ORDER BY aa.created_at DESC`,
-        [],
-        (err2, attachments) => {
-          if (err2) {
-            console.warn('⚠️ Could not fetch assignment attachments:', err2.message);
-            // Still return regular files even if attachments fail
-            console.log(`✅ Retrieved ${files.length} files (all files view, attachments unavailable)`);
-            return res.json({ success: true, files });
-          }
-
-          // Merge — avoid duplicates (attachment already in files table)
-          const fileIds = new Set(files.map(f => String(f.id)))
-          const newAttachments = attachments.filter(a => !fileIds.has(String(a.id)))
-
-          const allFiles = [...files, ...newAttachments]
-          console.log(`✅ Retrieved ${files.length} files + ${newAttachments.length} TL attachments (all files view)`);
-          res.json({ success: true, files: allFiles });
-        }
-      );
+      console.log(`✅ Retrieved ${files.length} member files for approval`);
+      res.json({ success: true, files });
     }
   );
 });
@@ -1456,16 +1406,16 @@ router.post('/:fileId/move-to-projects', async (req, res) => {
     if (isAttachment) {
       await new Promise((resolve, reject) => {
         db.run(
-          'UPDATE assignment_attachments SET public_network_url = ? WHERE id = ?',
-          [destinationFilePath, fileId],
-          (err) => { if (err) { console.warn('Could not update attachment public_network_url:', err.message); resolve(); } else resolve(); }
+          'UPDATE assignment_attachments SET file_path = ?, public_network_url = ? WHERE id = ?',
+          [destinationFilePath, destinationFilePath, fileId],
+          (err) => { if (err) { console.warn('Could not update attachment paths:', err.message); resolve(); } else resolve(); }
         );
       });
     } else {
       await new Promise((resolve, reject) => {
         db.run(
-          'UPDATE files SET public_network_url = ? WHERE id = ?',
-          [destinationFilePath, fileId],
+          'UPDATE files SET file_path = ?, public_network_url = ? WHERE id = ?',
+          [destinationFilePath, destinationFilePath, fileId],
           (err) => { if (err) reject(err); else resolve(); }
         );
       });
@@ -3214,7 +3164,7 @@ router.get('/:fileId', (req, res) => {
     // Not in files table — check assignment_attachments (TL-attached files)
     console.log(`📎 File ${fileId} not in files table, checking assignment_attachments...`);
     db.get(
-      `SELECT id, file_path, original_name, filename, file_size, file_type,
+      `SELECT id, file_path, public_network_url, original_name, filename, file_size, file_type,
               uploaded_by_username AS username, created_at AS uploaded_at,
               'team_leader_approved' AS status
        FROM assignment_attachments WHERE id = ?`,
