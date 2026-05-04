@@ -58,6 +58,19 @@ const TaskManagement = ({
   const [fileToOpen, setFileToOpen] = useState(null)
   const [expandedFolders, setExpandedFolders] = useState({})
   const [downloadToast, setDownloadToast] = useState({ show: false, fileName: '' })
+  const [openedFileIds, setOpenedFileIds] = useState(() => {
+    try {
+      const stored = sessionStorage.getItem('kmti_opened_files_admin')
+      return stored ? new Set(JSON.parse(stored)) : new Set()
+    } catch { return new Set() }
+  })
+
+  // Persist openedFileIds to sessionStorage whenever it changes
+  useEffect(() => {
+    try {
+      sessionStorage.setItem('kmti_opened_files_admin', JSON.stringify([...openedFileIds]))
+    } catch {}
+  }, [openedFileIds])
 
   // Pagination state
   const [nextCursor, setNextCursor] = useState(null)
@@ -624,6 +637,7 @@ const TaskManagement = ({
         if (result.success) {
           console.log('Opened with Windows default application');
           setSuccess('File opened successfully');
+          return true
         } else {
           throw new Error(result.error || 'Failed to open file');
         }
@@ -641,12 +655,14 @@ const TaskManagement = ({
         newWindow.focus();
         console.log('Opened in browser tab');
         setSuccess('File opened in browser');
+        return true
       }
 
     } catch (error) {
       console.error('Error opening file:', error);
       setSuccess('') // Clear loading message
       setError(`Error opening file: File deleted/rejected or ${error.message || 'Failed to open file'}`);
+      return false
     } finally {
       setIsOpeningFile(false)
     }
@@ -941,12 +957,12 @@ const TaskManagement = ({
                                       <div
                                         key={file.id}
                                         onClick={(e) => { e.stopPropagation(); setFileToOpen(file); setShowOpenFileConfirmation(true) }}
-                                        className="admin-file-item admin-folder-file-item"
+                                        className={`admin-file-item admin-folder-file-item${openedFileIds.has(file.id) ? ' admin-file-card-opened' : ''}`}
                                         style={{ cursor: 'pointer', marginBottom: '4px' }}
                                       >
                                         <FileIcon fileType={file.original_name.split('.').pop()} size="small" />
                                         <div className="admin-file-details">
-                                          <div className="admin-file-name">{file.original_name}</div>
+                                          <div className="admin-file-name" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{file.original_name}</span>{openedFileIds.has(file.id) && <span style={{ fontSize: '10px', fontWeight: '600', color: '#16a34a', backgroundColor: '#dcfce7', border: '1px solid #86efac', padding: '1px 7px', borderRadius: '10px', flexShrink: 0 }}>✓ Viewed</span>}</div>
                                           <div className="admin-file-meta">
                                             Submitted by <span className="admin-file-submitter">{assignment.team_leader_fullname || assignment.team_leader_username || 'Team Leader'}</span> on {formatDate(file.uploaded_at || file.created_at)}
                                             {file.tag && (
@@ -1014,11 +1030,12 @@ const TaskManagement = ({
                               key={attachment.id}
                               className="admin-file-item"
                               onClick={(e) => { e.stopPropagation(); setFileToOpen(attachment); setShowOpenFileConfirmation(true) }}
+                              className={`admin-file-item${openedFileIds.has(attachment.id) ? ' admin-file-card-opened' : ''}`}
                               style={{ cursor: 'pointer', marginBottom: index < attIndividual.length - 1 ? '8px' : '0' }}
                             >
                               <FileIcon fileType={attachment.original_name.split('.').pop()} size="small" className="admin-file-icon" />
                               <div className="admin-file-details">
-                                <div className="admin-file-name">{attachment.original_name}</div>
+                                <div className="admin-file-name" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{attachment.original_name}</span>{openedFileIds.has(attachment.id) && <span style={{ fontSize: '10px', fontWeight: '600', color: '#16a34a', backgroundColor: '#dcfce7', border: '1px solid #86efac', padding: '1px 7px', borderRadius: '10px', flexShrink: 0 }}>✓ Viewed</span>}</div>
                                 <div className="admin-file-meta">
                                   Submitted by <span className="admin-file-submitter">{assignment.team_leader_fullname || assignment.team_leader_username || 'Team Leader'}</span> on {formatDate(attachment.uploaded_at || attachment.created_at)}
                                   {attachment.tag && (
@@ -1152,7 +1169,7 @@ const TaskManagement = ({
                                       <div
                                         key={file.id}
                                         data-file-id={file.id}
-                                        className="admin-file-item admin-folder-file-item"
+                                        className={`admin-file-item admin-folder-file-item${openedFileIds.has(file.id) ? ' admin-file-card-opened' : ''}`}
                                         onClick={(e) => {
                                           e.stopPropagation()
                                           setFileToOpen(file)
@@ -1166,7 +1183,7 @@ const TaskManagement = ({
                                           className="admin-file-icon"
                                         />
                                         <div className="admin-file-details">
-                                          <div className="admin-file-name">{file.original_name}</div>
+                                          <div className="admin-file-name" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{file.original_name}</span>{openedFileIds.has(file.id) && <span style={{ fontSize: '10px', fontWeight: '600', color: '#16a34a', backgroundColor: '#dcfce7', border: '1px solid #86efac', padding: '1px 7px', borderRadius: '10px', flexShrink: 0 }}>✓ Viewed</span>}</div>
                                           <div className="admin-file-meta">
                                             Submitted by <span className="admin-file-submitter">{file.fullName || file.username}</span> on {formatDate(file.submitted_at)}
                                             {file.tag && (
@@ -1233,7 +1250,7 @@ const TaskManagement = ({
                                 <div
                                   key={file.id}
                                   data-file-id={file.id}
-                                  className="admin-file-item"
+                                  className={`admin-file-item${openedFileIds.has(file.id) ? ' admin-file-card-opened' : ''}`}
                                   onClick={() => {
                                     setFileToOpen(file)
                                     setShowOpenFileConfirmation(true)
@@ -1249,7 +1266,7 @@ const TaskManagement = ({
                                     className="admin-file-icon"
                                   />
                                   <div className="admin-file-details">
-                                    <div className="admin-file-name">{file.original_name}</div>
+                                    <div className="admin-file-name" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{file.original_name}</span>{openedFileIds.has(file.id) && <span style={{ fontSize: '10px', fontWeight: '600', color: '#16a34a', backgroundColor: '#dcfce7', border: '1px solid #86efac', padding: '1px 7px', borderRadius: '10px', flexShrink: 0 }}>✓ Viewed</span>}</div>
                                     <div className="admin-file-meta">
                                       Submitted by <span className="admin-file-submitter">{file.fullName || file.username}</span> on {formatDate(file.submitted_at)}
                                       {file.tag && (
@@ -1489,9 +1506,10 @@ const TaskManagement = ({
           }}
           onConfirm={async () => {
             if (!fileToOpen) return
-
+            const fileId = fileToOpen.id
             try {
-              await handleOpenFile(fileToOpen.file_path, fileToOpen.id)
+              const opened = await handleOpenFile(fileToOpen.file_path, fileToOpen.id)
+              if (opened) setOpenedFileIds(prev => new Set([...prev, fileId]))
             } finally {
               setShowOpenFileConfirmation(false)
               setFileToOpen(null)

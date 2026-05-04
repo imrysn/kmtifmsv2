@@ -181,6 +181,21 @@ const TasksTab = memo(({
   const [showOpenFileModal, setShowOpenFileModal] = useState(false);
   const [fileToOpen, setFileToOpen] = useState(null);
 
+  // Track which files have been opened this session
+  const [openedFileIds, setOpenedFileIds] = useState(() => {
+    try {
+      const stored = sessionStorage.getItem('kmti_opened_files_user')
+      return stored ? new Set(JSON.parse(stored)) : new Set()
+    } catch { return new Set() }
+  });
+
+  // Persist openedFileIds to sessionStorage whenever it changes
+  useEffect(() => {
+    try {
+      sessionStorage.setItem('kmti_opened_files_user', JSON.stringify([...openedFileIds]))
+    } catch {}
+  }, [openedFileIds]);
+
   // Refs
   const fileInputRef = useRef(null);
   const folderInputRef = useRef(null);
@@ -416,6 +431,7 @@ const TasksTab = memo(({
       if (window.electron?.openFileInApp) {
         const result = await window.electron.openFileInApp(pathData.filePath);
         if (!result.success) showError(result.error || 'Failed to open file');
+        else setOpenedFileIds(prev => new Set([...prev, file.id]));
       } else {
         const ext = (pathData.filePath.split('.').pop() || '').toLowerCase();
         const browserViewable = ['pdf','png','jpg','jpeg','gif','svg','webp','txt','html','css','js','json','xml','mp4','mp3'];
@@ -428,6 +444,7 @@ const TasksTab = memo(({
           });
           a.click();
         }
+        setOpenedFileIds(prev => new Set([...prev, file.id]));
       }
     } catch { showError('Failed to open file. Please try again.'); }
   }, [fileToOpen, showError]);
@@ -688,10 +705,11 @@ const TasksTab = memo(({
 
   const renderFileCard = (file, assignmentId, indented = false) => {
     const canDelete = file.status !== 'final_approved';
+    const isOpened = openedFileIds.has(file.id);
     return (
       <div
         key={file.id}
-        className="submitted-file-card"
+        className={`submitted-file-card${isOpened ? ' file-card-opened' : ''}`}
         onClick={() => confirmOpenFile(file)}
         style={{ cursor: 'pointer', marginBottom: indented ? '4px' : undefined }}
       >
@@ -700,8 +718,11 @@ const TasksTab = memo(({
             <FileIcon fileType={(file.original_name || file.filename || 'file').split('.').pop().toLowerCase()} isFolder={false} size={indented ? 'small' : 'default'} />
           </div>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontWeight: '500', fontSize: indented ? '14px' : '15px', color: '#111827', marginBottom: indented ? '2px' : '8px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {file.original_name || file.filename}
+            <div style={{ fontWeight: '500', fontSize: indented ? '14px' : '15px', color: '#111827', marginBottom: indented ? '2px' : '8px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{file.original_name || file.filename}</span>
+              {isOpened && (
+                <span style={{ fontSize: '10px', fontWeight: '600', color: '#16a34a', backgroundColor: '#dcfce7', border: '1px solid #86efac', padding: '1px 7px', borderRadius: '10px', flexShrink: 0, whiteSpace: 'nowrap' }}>✓ Viewed</span>
+              )}
             </div>
             <div style={{ fontSize: indented ? '12px' : '13px', color: '#6b7280', display: 'flex', alignItems: 'center', gap: indented ? '6px' : '8px', flexWrap: 'wrap' }}>
               <span>by <span style={{ fontWeight: '500', color: '#2563eb' }}>{file.submitter_name || user.fullName || user.username}</span></span>
@@ -902,11 +923,14 @@ const TasksTab = memo(({
                             {isExpanded && (
                               <div style={{ marginLeft: '8px', paddingLeft: '8px', marginTop: '4px' }}>
                                 {folderFiles.map(file => (
-                                  <div key={file.id} onClick={() => confirmOpenFile(file)} className="submitted-file-card" style={{ cursor: 'pointer', marginBottom: '4px' }}>
+                                  <div key={file.id} onClick={() => confirmOpenFile(file)} className={`submitted-file-card${openedFileIds.has(file.id) ? ' file-card-opened' : ''}`} style={{ cursor: 'pointer', marginBottom: '4px' }}>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                                       <FileIcon fileType={file.original_name.split('.').pop()} size="small" />
                                       <div style={{ flex: 1, minWidth: 0 }}>
-                                        <div style={{ fontWeight: '500', fontSize: '14px', color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{file.original_name}</div>
+                                        <div style={{ fontWeight: '500', fontSize: '14px', color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{file.original_name}</span>
+                                          {openedFileIds.has(file.id) && <span style={{ fontSize: '10px', fontWeight: '600', color: '#16a34a', backgroundColor: '#dcfce7', border: '1px solid #86efac', padding: '1px 7px', borderRadius: '10px', flexShrink: 0 }}>✓ Viewed</span>}
+                                        </div>
                                         <div style={{ fontSize: '12px', color: '#6b7280', display: 'flex', alignItems: 'center', gap: '6px' }}>
                                           <span>by <span style={{ fontWeight: '500', color: '#2563eb' }}>{assignment.team_leader_fullname || assignment.team_leader_username || 'Team Leader'}</span></span>
                                           <span style={{ color: '#9ca3af' }}>•</span>
@@ -922,11 +946,14 @@ const TasksTab = memo(({
                         );
                       })}
                       {attIndividual.map(attachment => (
-                        <div key={attachment.id} onClick={() => confirmOpenFile(attachment)} className="submitted-file-card" style={{ cursor: 'pointer', marginBottom: '8px' }}>
+                        <div key={attachment.id} onClick={() => confirmOpenFile(attachment)} className={`submitted-file-card${openedFileIds.has(attachment.id) ? ' file-card-opened' : ''}`} style={{ cursor: 'pointer', marginBottom: '8px' }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                             <FileIcon fileType={attachment.original_name.split('.').pop()} size="small" />
                             <div style={{ flex: 1, minWidth: 0 }}>
-                              <div style={{ fontWeight: '500', fontSize: '14px', color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{attachment.original_name}</div>
+                              <div style={{ fontWeight: '500', fontSize: '14px', color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{attachment.original_name}</span>
+                                {openedFileIds.has(attachment.id) && <span style={{ fontSize: '10px', fontWeight: '600', color: '#16a34a', backgroundColor: '#dcfce7', border: '1px solid #86efac', padding: '1px 7px', borderRadius: '10px', flexShrink: 0 }}>✓ Viewed</span>}
+                              </div>
                               <div style={{ fontSize: '12px', color: '#6b7280', display: 'flex', alignItems: 'center', gap: '6px' }}>
                                 <span>by <span style={{ fontWeight: '500', color: '#2563eb' }}>{assignment.team_leader_fullname || assignment.team_leader_username || 'Team Leader'}</span></span>
                                 <span style={{ color: '#9ca3af' }}>•</span>
