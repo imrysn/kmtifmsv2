@@ -46,19 +46,33 @@ const AssignmentsTab = ({
   const [commentCounts, setCommentCounts] = useState({}) // Track comment counts per assignment
   const [showOpenFileConfirmation, setShowOpenFileConfirmation] = useState(false)
   const [fileToOpen, setFileToOpen] = useState(null)
-  const [openedFileIds, setOpenedFileIds] = useState(() => {
-    try {
-      const stored = sessionStorage.getItem('kmti_opened_files_teamleader')
-      return stored ? new Set(JSON.parse(stored)) : new Set()
-    } catch { return new Set() }
-  })
+  const [openedFileIds, setOpenedFileIds] = useState(new Set())
+  const [openedFilesStorageReady, setOpenedFilesStorageReady] = useState(false)
 
-  // Persist openedFileIds to sessionStorage whenever it changes
+  // Load from persistent storage on mount
   useEffect(() => {
-    try {
-      sessionStorage.setItem('kmti_opened_files_teamleader', JSON.stringify([...openedFileIds]))
-    } catch {}
-  }, [openedFileIds])
+    ;(async () => {
+      try {
+        let stored = null
+        if (window.electron?.appStorage) {
+          stored = await window.electron.appStorage.get('kmti_opened_files_teamleader')
+        }
+        if (!stored) stored = localStorage.getItem('kmti_opened_files_teamleader')
+        if (stored) setOpenedFileIds(new Set(JSON.parse(stored)))
+      } catch {}
+      setOpenedFilesStorageReady(true)
+    })()
+  }, [])
+
+  // Save to persistent storage whenever it changes (only after initial load)
+  useEffect(() => {
+    if (!openedFilesStorageReady) return
+    const data = JSON.stringify([...openedFileIds])
+    if (window.electron?.appStorage) {
+      window.electron.appStorage.set('kmti_opened_files_teamleader', data)
+    }
+    try { localStorage.setItem('kmti_opened_files_teamleader', data) } catch {}
+  }, [openedFileIds, openedFilesStorageReady])
   const [expandedAssignmentFolders, setExpandedAssignmentFolders] = useState({}) // Track which folders are expanded in assignments
   const [openFolderMenuId, setOpenFolderMenuId] = useState(null) // Track which folder's 3-dot menu is open
   const [folderReviewModal, setFolderReviewModal] = useState(null) // { folderName, folderFiles, assignmentId }

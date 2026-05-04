@@ -1446,6 +1446,32 @@ if (ipcMain) {
   ipcMain.handle('app:get-version', () => {
     return app.getVersion();
   });
+
+  // ── Persistent App Storage ──────────────────────────────────────────────────
+  // Uses Node.js fs.writeFileSync (synchronous) so data is guaranteed to be
+  // written to disk before the process exits — unlike browser localStorage
+  // which Chromium may not flush in time when the app is closed.
+  ipcMain.handle('app-storage:get', (event, key) => {
+    try {
+      const filePath = path.join(app.getPath('userData'), 'app-storage.json');
+      if (!fs.existsSync(filePath)) return null;
+      const data = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+      return data[key] ?? null;
+    } catch { return null; }
+  });
+
+  ipcMain.handle('app-storage:set', (event, key, value) => {
+    try {
+      const filePath = path.join(app.getPath('userData'), 'app-storage.json');
+      let data = {};
+      if (fs.existsSync(filePath)) {
+        data = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+      }
+      data[key] = value;
+      fs.writeFileSync(filePath, JSON.stringify(data), 'utf8');
+      return true;
+    } catch { return false; }
+  });
 }
 // Handle opening external links
 ipcMain.handle('app:open-external', async (event, url) => {

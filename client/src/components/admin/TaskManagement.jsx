@@ -58,19 +58,33 @@ const TaskManagement = ({
   const [fileToOpen, setFileToOpen] = useState(null)
   const [expandedFolders, setExpandedFolders] = useState({})
   const [downloadToast, setDownloadToast] = useState({ show: false, fileName: '' })
-  const [openedFileIds, setOpenedFileIds] = useState(() => {
-    try {
-      const stored = sessionStorage.getItem('kmti_opened_files_admin')
-      return stored ? new Set(JSON.parse(stored)) : new Set()
-    } catch { return new Set() }
-  })
+  const [openedFileIds, setOpenedFileIds] = useState(new Set())
+  const [openedFilesStorageReady, setOpenedFilesStorageReady] = useState(false)
 
-  // Persist openedFileIds to sessionStorage whenever it changes
+  // Load from persistent storage on mount
   useEffect(() => {
-    try {
-      sessionStorage.setItem('kmti_opened_files_admin', JSON.stringify([...openedFileIds]))
-    } catch {}
-  }, [openedFileIds])
+    ;(async () => {
+      try {
+        let stored = null
+        if (window.electron?.appStorage) {
+          stored = await window.electron.appStorage.get('kmti_opened_files_admin')
+        }
+        if (!stored) stored = localStorage.getItem('kmti_opened_files_admin')
+        if (stored) setOpenedFileIds(new Set(JSON.parse(stored)))
+      } catch {}
+      setOpenedFilesStorageReady(true)
+    })()
+  }, [])
+
+  // Save to persistent storage whenever it changes (only after initial load)
+  useEffect(() => {
+    if (!openedFilesStorageReady) return
+    const data = JSON.stringify([...openedFileIds])
+    if (window.electron?.appStorage) {
+      window.electron.appStorage.set('kmti_opened_files_admin', data)
+    }
+    try { localStorage.setItem('kmti_opened_files_admin', data) } catch {}
+  }, [openedFileIds, openedFilesStorageReady])
 
   // Pagination state
   const [nextCursor, setNextCursor] = useState(null)
