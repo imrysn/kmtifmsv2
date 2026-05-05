@@ -72,6 +72,7 @@
     "server:direct": "node server.js"
   },
   "devDependencies": {
+    "@tanstack/react-query-devtools": "^5.91.2",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
     "@testing-library/user-event": "^14.6.1",
@@ -79,8 +80,8 @@
     "@vercel/ncc": "^0.38.4",
     "concurrently": "^8.2.2",
     "cross-env": "^7.0.3",
-    "electron": "^27.0.0",
-    "electron-builder": "^24.6.4",
+    "electron": "^33.0.0",
+    "electron-builder": "^25.0.0",
     "eslint": "^9.39.2",
     "eslint-config-prettier": "^10.1.8",
     "jest": "^30.2.0",
@@ -91,7 +92,6 @@
   },
   "dependencies": {
     "@tanstack/react-query": "^5.90.19",
-    "@tanstack/react-query-devtools": "^5.91.2",
     "bcryptjs": "^2.4.3",
     "chokidar": "^3.6.0",
     "cors": "^2.8.5",
