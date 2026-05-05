@@ -3,6 +3,7 @@ import { API_BASE_URL } from '@/config/api'
 import './TaskManagement.css'
 import './SmartNavigation.css'
 import FileIcon from '../shared/FileIcon.jsx'
+import FileViewersButton from '../shared/FileViewersButton.jsx'
 import { AlertMessage, ConfirmationModal, CommentsModal, FileOpenModal } from './modals'
 import { useAuth, useNetwork } from '../../contexts'
 import { withErrorBoundary } from '../common'
@@ -472,6 +473,22 @@ const TaskManagement = ({
   const triggerDownloadToast = (fileName) => {
     setDownloadToast({ show: true, fileName })
     setTimeout(() => setDownloadToast({ show: false, fileName: '' }), 3500)
+  }
+
+  const recordView = async (fileId) => {
+    if (!user || !fileId) return
+    try {
+      await fetch(`${API_BASE_URL}/api/files/${fileId}/view`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: user.id,
+          username: user.username,
+          fullName: user.fullName,
+          role: user.role || 'admin'
+        })
+      })
+    } catch {}
   }
 
   const handleDownloadFile = async (file) => {
@@ -970,7 +987,7 @@ const TaskManagement = ({
                                     {folderFiles.map(file => (
                                       <div
                                         key={file.id}
-                                        onClick={(e) => { e.stopPropagation(); setFileToOpen(file); setShowOpenFileConfirmation(true) }}
+                                        onClick={(e) => { e.stopPropagation(); setFileToOpen(file); setShowOpenFileConfirmation(true); recordView(file.id) }}
                                         className={`admin-file-item admin-folder-file-item${openedFileIds.has(file.id) ? ' admin-file-card-opened' : ''}`}
                                         style={{ cursor: 'pointer', marginBottom: '4px' }}
                                       >
@@ -1012,30 +1029,31 @@ const TaskManagement = ({
                                             </span>
                                           </div>
                                         </div>
+                                        <FileViewersButton fileId={file.id} />
                                         <button
-                                          onClick={(e) => { e.stopPropagation(); handleDownloadFile(file) }}
-                                          title="Download file"
-                                          style={{
-                                            background: 'transparent', border: 'none', borderRadius: '6px',
-                                            width: '30px', height: '30px', display: 'flex', alignItems: 'center',
-                                            justifyContent: 'center', cursor: 'pointer', color: '#9ca3af',
-                                            flexShrink: 0, transition: 'all 0.15s'
-                                          }}
-                                          onMouseEnter={e => { e.currentTarget.style.backgroundColor = '#dbeafe'; e.currentTarget.style.color = '#1d4ed8' }}
+                                        onClick={(e) => { e.stopPropagation(); handleDownloadFile(file) }}
+                                        title="Download file"
+                                        style={{
+                                        background: 'transparent', border: 'none', borderRadius: '6px',
+                                        width: '30px', height: '30px', display: 'flex', alignItems: 'center',
+                                        justifyContent: 'center', cursor: 'pointer', color: '#9ca3af',
+                                          flexShrink: 0, transition: 'all 0.15s'
+                                        }}
+                                        onMouseEnter={e => { e.currentTarget.style.backgroundColor = '#dbeafe'; e.currentTarget.style.color = '#1d4ed8' }}
                                           onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = '#9ca3af' }}
                                         >
-                                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                            <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
-                                            <polyline points="7 10 12 15 17 10"/>
-                                            <line x1="12" y1="15" x2="12" y2="3"/>
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                        <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+                                        <polyline points="7 10 12 15 17 10"/>
+                                          <line x1="12" y1="15" x2="12" y2="3"/>
                                           </svg>
-                                        </button>
-                                      </div>
-                                    ))}
-                                  </div>
-                                )}
-                              </div>
-                            )
+                                          </button>
+                                          </div>
+                                          ))}  
+                                          </div>
+                                          )}
+                                          </div>
+                                          )
                           })}
 
                           {/* Individual file attachments */}
@@ -1043,7 +1061,7 @@ const TaskManagement = ({
                             <div
                               key={attachment.id}
                               className="admin-file-item"
-                              onClick={(e) => { e.stopPropagation(); setFileToOpen(attachment); setShowOpenFileConfirmation(true) }}
+                              onClick={(e) => { e.stopPropagation(); setFileToOpen(attachment); setShowOpenFileConfirmation(true); recordView(attachment.id) }}
                               className={`admin-file-item${openedFileIds.has(attachment.id) ? ' admin-file-card-opened' : ''}`}
                               style={{ cursor: 'pointer', marginBottom: index < attIndividual.length - 1 ? '8px' : '0' }}
                             >
@@ -1085,7 +1103,8 @@ const TaskManagement = ({
                                   </span>
                                 </div>
                               </div>
-                              <button
+                              <FileViewersButton fileId={attachment.id} />
+              <button
                                 onClick={(e) => { e.stopPropagation(); handleDownloadFile(attachment) }}
                                 title="Download file"
                                 style={{
@@ -1188,6 +1207,7 @@ const TaskManagement = ({
                                           e.stopPropagation()
                                           setFileToOpen(file)
                                           setShowOpenFileConfirmation(true)
+                                          recordView(file.id)
                                         }}
                                         style={{ cursor: 'pointer', marginBottom: '4px' }}
                                       >
@@ -1234,6 +1254,7 @@ const TaskManagement = ({
                                           </div>
                                         </div>
                                         {/* Download icon */}
+                                        <FileViewersButton fileId={file.id} />
                                         <button
                                           onClick={(e) => { e.stopPropagation(); handleDownloadFile(file) }}
                                           title="Download file"
@@ -1268,6 +1289,7 @@ const TaskManagement = ({
                                   onClick={() => {
                                     setFileToOpen(file)
                                     setShowOpenFileConfirmation(true)
+                                    recordView(file.id)
                                   }}
                                   style={{
                                     cursor: 'pointer',
@@ -1316,7 +1338,8 @@ const TaskManagement = ({
                                       </span>
                                     </div>
                                   </div>
-                                  {/* Download icon */}
+                                  {/* Eye + Download icon */}
+                                  <FileViewersButton fileId={file.id} />
                                   <button
                                     onClick={(e) => { e.stopPropagation(); handleDownloadFile(file) }}
                                     title="Download file"

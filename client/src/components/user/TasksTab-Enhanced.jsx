@@ -150,6 +150,7 @@ const TasksTab = memo(({
   const [sortFilter, setSortFilter] = useState('all');
   const [successModal, setSuccessModal] = useState({ isOpen: false, title: '', message: '', type: 'success' });
   const [downloadToast, setDownloadToast] = useState({ show: false, fileName: '' });
+  const [fileOpenToast, setFileOpenToast] = useState(false);
   const [expandedFolders, setExpandedFolders] = useState({});
   const [showAllSubmittedFiles, setShowAllSubmittedFiles] = useState({});
 
@@ -180,35 +181,6 @@ const TasksTab = memo(({
   // File open modal
   const [showOpenFileModal, setShowOpenFileModal] = useState(false);
   const [fileToOpen, setFileToOpen] = useState(null);
-
-  // Track which files have been opened (persists permanently across app restarts)
-  const [openedFileIds, setOpenedFileIds] = useState(new Set());
-  const [openedFilesStorageReady, setOpenedFilesStorageReady] = useState(false);
-
-  // Load from persistent storage on mount
-  useEffect(() => {
-    (async () => {
-      try {
-        let stored = null;
-        if (window.electron?.appStorage) {
-          stored = await window.electron.appStorage.get('kmti_opened_files_user');
-        }
-        if (!stored) stored = localStorage.getItem('kmti_opened_files_user'); // web fallback
-        if (stored) setOpenedFileIds(new Set(JSON.parse(stored)));
-      } catch {}
-      setOpenedFilesStorageReady(true);
-    })();
-  }, []);
-
-  // Save to persistent storage whenever it changes (only after initial load to avoid overwriting)
-  useEffect(() => {
-    if (!openedFilesStorageReady) return;
-    const data = JSON.stringify([...openedFileIds]);
-    if (window.electron?.appStorage) {
-      window.electron.appStorage.set('kmti_opened_files_user', data);
-    }
-    try { localStorage.setItem('kmti_opened_files_user', data); } catch {}
-  }, [openedFileIds, openedFilesStorageReady]);
 
   // Refs
   const fileInputRef = useRef(null);
@@ -445,7 +417,10 @@ const TasksTab = memo(({
       if (window.electron?.openFileInApp) {
         const result = await window.electron.openFileInApp(pathData.filePath);
         if (!result.success) showError(result.error || 'Failed to open file');
-        else setOpenedFileIds(prev => new Set([...prev, file.id]));
+        else {
+          setFileOpenToast(true);
+          setTimeout(() => setFileOpenToast(false), 3500);
+        }
       } else {
         const ext = (pathData.filePath.split('.').pop() || '').toLowerCase();
         const browserViewable = ['pdf','png','jpg','jpeg','gif','svg','webp','txt','html','css','js','json','xml','mp4','mp3'];
@@ -458,7 +433,8 @@ const TasksTab = memo(({
           });
           a.click();
         }
-        setOpenedFileIds(prev => new Set([...prev, file.id]));
+        setFileOpenToast(true);
+        setTimeout(() => setFileOpenToast(false), 3500);
       }
     } catch { showError('Failed to open file. Please try again.'); }
   }, [fileToOpen, showError]);
@@ -719,11 +695,10 @@ const TasksTab = memo(({
 
   const renderFileCard = (file, assignmentId, indented = false) => {
     const canDelete = file.status !== 'final_approved';
-    const isOpened = openedFileIds.has(file.id);
     return (
       <div
         key={file.id}
-        className={`submitted-file-card${isOpened ? ' file-card-opened' : ''}`}
+        className="submitted-file-card"
         onClick={() => confirmOpenFile(file)}
         style={{ cursor: 'pointer', marginBottom: indented ? '4px' : undefined }}
       >
@@ -732,11 +707,8 @@ const TasksTab = memo(({
             <FileIcon fileType={(file.original_name || file.filename || 'file').split('.').pop().toLowerCase()} isFolder={false} size={indented ? 'small' : 'default'} />
           </div>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontWeight: '500', fontSize: indented ? '14px' : '15px', color: '#111827', marginBottom: indented ? '2px' : '8px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{file.original_name || file.filename}</span>
-              {isOpened && (
-                <span style={{ fontSize: '10px', fontWeight: '600', color: '#16a34a', backgroundColor: '#dcfce7', border: '1px solid #86efac', padding: '1px 7px', borderRadius: '10px', flexShrink: 0, whiteSpace: 'nowrap' }}>✓ Viewed</span>
-              )}
+            <div style={{ fontWeight: '500', fontSize: indented ? '14px' : '15px', color: '#111827', marginBottom: indented ? '2px' : '8px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {file.original_name || file.filename}
             </div>
             <div style={{ fontSize: indented ? '12px' : '13px', color: '#6b7280', display: 'flex', alignItems: 'center', gap: indented ? '6px' : '8px', flexWrap: 'wrap' }}>
               <span>by <span style={{ fontWeight: '500', color: '#2563eb' }}>{file.submitter_name || user.fullName || user.username}</span></span>
@@ -937,13 +909,12 @@ const TasksTab = memo(({
                             {isExpanded && (
                               <div style={{ marginLeft: '8px', paddingLeft: '8px', marginTop: '4px' }}>
                                 {folderFiles.map(file => (
-                                  <div key={file.id} onClick={() => confirmOpenFile(file)} className={`submitted-file-card${openedFileIds.has(file.id) ? ' file-card-opened' : ''}`} style={{ cursor: 'pointer', marginBottom: '4px' }}>
+                                  <div key={file.id} onClick={() => confirmOpenFile(file)} className="submitted-file-card" style={{ cursor: 'pointer', marginBottom: '4px' }}>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                                       <FileIcon fileType={file.original_name.split('.').pop()} size="small" />
                                       <div style={{ flex: 1, minWidth: 0 }}>
-                                        <div style={{ fontWeight: '500', fontSize: '14px', color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{file.original_name}</span>
-                                          {openedFileIds.has(file.id) && <span style={{ fontSize: '10px', fontWeight: '600', color: '#16a34a', backgroundColor: '#dcfce7', border: '1px solid #86efac', padding: '1px 7px', borderRadius: '10px', flexShrink: 0 }}>✓ Viewed</span>}
+                                        <div style={{ fontWeight: '500', fontSize: '14px', color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                          {file.original_name}
                                         </div>
                                         <div style={{ fontSize: '12px', color: '#6b7280', display: 'flex', alignItems: 'center', gap: '6px' }}>
                                           <span>by <span style={{ fontWeight: '500', color: '#2563eb' }}>{assignment.team_leader_fullname || assignment.team_leader_username || 'Team Leader'}</span></span>
@@ -960,13 +931,12 @@ const TasksTab = memo(({
                         );
                       })}
                       {attIndividual.map(attachment => (
-                        <div key={attachment.id} onClick={() => confirmOpenFile(attachment)} className={`submitted-file-card${openedFileIds.has(attachment.id) ? ' file-card-opened' : ''}`} style={{ cursor: 'pointer', marginBottom: '8px' }}>
+                        <div key={attachment.id} onClick={() => confirmOpenFile(attachment)} className="submitted-file-card" style={{ cursor: 'pointer', marginBottom: '8px' }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                             <FileIcon fileType={attachment.original_name.split('.').pop()} size="small" />
                             <div style={{ flex: 1, minWidth: 0 }}>
-                              <div style={{ fontWeight: '500', fontSize: '14px', color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{attachment.original_name}</span>
-                                {openedFileIds.has(attachment.id) && <span style={{ fontSize: '10px', fontWeight: '600', color: '#16a34a', backgroundColor: '#dcfce7', border: '1px solid #86efac', padding: '1px 7px', borderRadius: '10px', flexShrink: 0 }}>✓ Viewed</span>}
+                              <div style={{ fontWeight: '500', fontSize: '14px', color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                {attachment.original_name}
                               </div>
                               <div style={{ fontSize: '12px', color: '#6b7280', display: 'flex', alignItems: 'center', gap: '6px' }}>
                                 <span>by <span style={{ fontWeight: '500', color: '#2563eb' }}>{assignment.team_leader_fullname || assignment.team_leader_username || 'Team Leader'}</span></span>
@@ -1214,6 +1184,23 @@ const TasksTab = memo(({
         onConfirm={handleOpenFile}
         file={fileToOpen}
       />
+
+      {/* File Open Toast */}
+      {fileOpenToast && (
+        <div style={{ position: 'fixed', top: '28px', right: '28px', zIndex: 9999, background: '#fff', border: '1px solid #bbf7d0', borderRadius: '16px', boxShadow: '0 8px 32px rgba(0,0,0,0.13)', padding: '18px 22px 14px 18px', display: 'flex', alignItems: 'flex-start', gap: '14px', minWidth: '280px', maxWidth: '380px', animation: 'slideInRight 0.25s ease' }}>
+          <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: '#dcfce7', border: '2px solid #86efac', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6L9 17l-5-5" /></svg>
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: '15px', fontWeight: '700', color: '#15803d', marginBottom: '4px' }}>Success</div>
+            <div style={{ fontSize: '13px', color: '#374151', lineHeight: '1.4' }}>File opened successfully!</div>
+            <div style={{ marginTop: '10px', height: '4px', borderRadius: '2px', background: '#dcfce7', overflow: 'hidden' }}>
+              <div style={{ height: '100%', borderRadius: '2px', background: '#22c55e', animation: 'shrinkBar 3.5s linear forwards' }} />
+            </div>
+          </div>
+          <button onClick={() => setFileOpenToast(false)} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: '#9ca3af', fontSize: '20px', lineHeight: 1, padding: 0 }}>×</button>
+        </div>
+      )}
 
       {/* Download Toast */}
       {downloadToast.show && (

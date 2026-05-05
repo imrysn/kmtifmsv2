@@ -3131,6 +3131,42 @@ router.get('/:fileId/stream', async (req, res) => {
   }
 });
 
+// ── File Views: record & retrieve who viewed a file ────────────────────────
+// POST /api/files/:fileId/view
+router.post('/:fileId/view', (req, res) => {
+  const { fileId } = req.params;
+  const { userId, username, fullName, role } = req.body;
+  if (!fileId || !userId) return res.status(400).json({ success: false, message: 'fileId and userId required' });
+  const sql = `INSERT INTO file_views (file_id, user_id, username, full_name, role, viewed_at)
+               VALUES (?, ?, ?, ?, ?, NOW())
+               ON DUPLICATE KEY UPDATE full_name = VALUES(full_name), role = VALUES(role), viewed_at = NOW()`;
+  db.run(sql, [fileId, userId, username || '', fullName || '', role || ''], function (err) {
+    if (err) {
+      console.error('❌ Error recording file view:', err.message);
+      return res.status(500).json({ success: false, message: err.message });
+    }
+    res.json({ success: true });
+  });
+});
+
+// GET /api/files/:fileId/views
+router.get('/:fileId/views', (req, res) => {
+  const { fileId } = req.params;
+  if (!/^\d+$/.test(fileId)) return res.status(400).json({ success: false, message: 'Invalid file ID' });
+  db.all(
+    `SELECT user_id, username, full_name, role, viewed_at
+     FROM file_views WHERE file_id = ? ORDER BY viewed_at DESC`,
+    [fileId],
+    (err, viewers) => {
+      if (err) {
+        console.error('❌ Error fetching file views:', err.message);
+        return res.status(500).json({ success: false, message: err.message });
+      }
+      res.json({ success: true, viewers: viewers || [] });
+    }
+  );
+});
+
 // Get file details by ID (for opening files) - CATCH-ALL, MUST BE LAST
 // Also checks assignment_attachments so TL-attached files can be opened by users
 router.get('/:fileId', (req, res) => {
