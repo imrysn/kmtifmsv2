@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import axios from 'axios';
+
 import { API_BASE_URL } from '@/config/api';
 
 const API_BASE = `${API_BASE_URL}/api`;
@@ -11,10 +11,10 @@ export const useUserFiles = (userId, page = 1, limit = 50) => {
     return useQuery({
         queryKey: ['files', 'user', userId, page],
         queryFn: async () => {
-            const { data } = await axios.get(`${API_BASE}/files/user/${userId}`, {
-                params: { page, limit }
-            });
-            return data;
+            const params = new URLSearchParams({ page, limit });
+            const response = await fetch(`${API_BASE}/files/user/${userId}?${params}`);
+            if (!response.ok) throw new Error('Failed to fetch user files');
+            return response.json();
         },
         enabled: !!userId,
         staleTime: 60 * 1000 // 1 minute
@@ -28,10 +28,10 @@ export const usePendingFiles = (userId, page = 1, limit = 50) => {
     return useQuery({
         queryKey: ['files', 'pending', userId, page],
         queryFn: async () => {
-            const { data } = await axios.get(`${API_BASE}/files/user/${userId}/pending`, {
-                params: { page, limit }
-            });
-            return data;
+            const params = new URLSearchParams({ page, limit });
+            const response = await fetch(`${API_BASE}/files/user/${userId}/pending?${params}`);
+            if (!response.ok) throw new Error('Failed to fetch pending files');
+            return response.json();
         },
         enabled: !!userId,
         staleTime: 30 * 1000 // 30 seconds
@@ -54,10 +54,15 @@ export const useUploadFile = () => {
             formData.append('userTeam', fileData.userTeam);
             if (fileData.tag) formData.append('tag', fileData.tag);
 
-            const { data } = await axios.post(`${API_BASE}/files/upload`, formData, {
-                headers: { 'Content-Type': 'multipart/form-data' }
+            const response = await fetch(`${API_BASE}/files/upload`, {
+                method: 'POST',
+                body: formData // fetch automatically sets the correct multipart/form-data boundary
             });
-            return data;
+            if (!response.ok) {
+                const err = await response.json().catch(() => ({}));
+                throw new Error(err.message || 'Failed to upload file');
+            }
+            return response.json();
         },
         onSuccess: (data, variables) => {
             // Invalidate and refetch user files
@@ -75,10 +80,13 @@ export const useDeleteFile = () => {
 
     return useMutation({
         mutationFn: async ({ fileId, userId, username }) => {
-            const { data } = await axios.delete(`${API_BASE}/files/${fileId}`, {
-                data: { userId, username }
+            const response = await fetch(`${API_BASE}/files/${fileId}`, {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ userId, username })
             });
-            return data;
+            if (!response.ok) throw new Error('Failed to delete file');
+            return response.json();
         },
         onSuccess: (data, variables) => {
             queryClient.invalidateQueries({ queryKey: ['files', 'user', variables.userId] });
@@ -95,8 +103,13 @@ export const useApproveFile = () => {
 
     return useMutation({
         mutationFn: async ({ fileId, ...approvalData }) => {
-            const { data } = await axios.post(`${API_BASE}/files/${fileId}/approve`, approvalData);
-            return data;
+            const response = await fetch(`${API_BASE}/files/${fileId}/approve`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(approvalData)
+            });
+            if (!response.ok) throw new Error('Failed to approve file');
+            return response.json();
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['files'] });

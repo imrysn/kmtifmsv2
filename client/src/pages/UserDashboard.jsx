@@ -12,8 +12,8 @@ import FileModal from '../components/user/FileModal'
 // Lazy load tab components
 const TeamTasksTab = lazy(() => import('../components/user/TeamTasksTab'))
 const MyFilesTab = lazy(() => import('../components/user/MyFilesTab'))
-const NotificationTab = lazy(() => import('../components/user/NotificationTab-RealTime'))
-const TasksTab = lazy(() => import('../components/user/TasksTab-Enhanced'))
+const NotificationTab = lazy(() => import('../components/user/NotificationTab'))
+const TasksTab = lazy(() => import('../components/user/TasksTab'))
 
 const UserDashboard = ({ user, onLogout }) => {
   const [activeTab, setActiveTab] = useState('dashboard')

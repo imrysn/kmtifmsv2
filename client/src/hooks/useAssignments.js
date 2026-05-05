@@ -93,6 +93,7 @@ export const useAssignments = (userId, options = {}) => {
 
   return {
     assignments,
+    setAssignments,
     loading,
     error,
     refetch

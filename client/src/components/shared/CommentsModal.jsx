@@ -572,7 +572,10 @@ const CommentsModal = memo(({
     }));
   }, [comments, formatTimeAgo]);
 
-  const userInitials = useMemo(() => computeInitials(user.username || user.fullName), [user.username, user.fullName]);
+  const userInitials = useMemo(() => {
+    if (!user) return '?';
+    return computeInitials(user.username || user.fullName);
+  }, [user]);
 
   const handleSetReplyingTo = useCallback((commentId, authorName) => {
     setReplyingTo(prev => {

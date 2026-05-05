@@ -26,9 +26,7 @@ const useStore = create(
 
             logout: () => {
                 set({
-                    user: null,
-                    filesCache: {},
-                    assignmentsCache: {}
+                    user: null
                 });
             },
 
@@ -86,59 +84,6 @@ const useStore = create(
                 return get().loading[key] || false;
             },
 
-            // ============================================================================
-            // FILES CACHE
-            // ============================================================================
-            filesCache: {},
-
-            setFilesCache: (userId, files) => {
-                set((state) => ({
-                    filesCache: { ...state.filesCache, [userId]: files }
-                }));
-            },
-
-            getFilesCache: (userId) => {
-                return get().filesCache[userId] || null;
-            },
-
-            clearFilesCache: (userId = null) => {
-                if (userId) {
-                    set((state) => {
-                        const newCache = { ...state.filesCache };
-                        delete newCache[userId];
-                        return { filesCache: newCache };
-                    });
-                } else {
-                    set({ filesCache: {} });
-                }
-            },
-
-            // ============================================================================
-            // ASSIGNMENTS CACHE
-            // ============================================================================
-            assignmentsCache: {},
-
-            setAssignmentsCache: (key, assignments) => {
-                set((state) => ({
-                    assignmentsCache: { ...state.assignmentsCache, [key]: assignments }
-                }));
-            },
-
-            getAssignmentsCache: (key) => {
-                return get().assignmentsCache[key] || null;
-            },
-
-            clearAssignmentsCache: (key = null) => {
-                if (key) {
-                    set((state) => {
-                        const newCache = { ...state.assignmentsCache };
-                        delete newCache[key];
-                        return { assignmentsCache: newCache };
-                    });
-                } else {
-                    set({ assignmentsCache: {} });
-                }
-            },
 
             // ============================================================================
             // UI STATE
@@ -154,7 +99,7 @@ const useStore = create(
             // ============================================================================
             // NETWORK STATE
             // ============================================================================
-            isOnline: navigator.onLine,
+            isOnline: typeof navigator !== 'undefined' ? navigator.onLine : true,
 
             setOnline: (online) => set({ isOnline: online }),
 

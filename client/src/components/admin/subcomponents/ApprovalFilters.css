@@ -1,0 +1,168 @@
+/* File Approval Filters & Stats Styles - Restored to Target Screenshot Fidelity */
+.approval-filters-section {
+  margin-bottom: 2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.filters-top-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+}
+
+/* Search Box */
+.search-box {
+  position: relative;
+  flex: 1;
+  min-width: 300px;
+  max-width: 450px;
+}
+
+.search-icon {
+  position: absolute;
+  left: 1rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #64748b;
+  pointer-events: none;
+}
+
+.search-box input {
+  width: 100%;
+  padding: 0.875rem 1rem 0.875rem 2.75rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  background: white;
+  color: #1e293b;
+  font-size: 0.95rem;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+  transition: all 0.2s;
+}
+
+.search-box input:focus {
+  outline: none;
+  border-color: #000000;
+  box-shadow: 0 0 0 3px rgba(0,0,0,0.05);
+}
+
+/* Status Cards */
+.status-cards-grid {
+  display: flex;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.file-status-card {
+  display: flex;
+  align-items: center;
+  gap: 0.875rem;
+  padding: 0.5rem 1rem;
+  border-right: 1px solid #e2e8f0;
+}
+
+.file-status-card:last-child {
+  border-right: none;
+}
+
+.status-icon {
+  width: 42px;
+  height: 42px;
+  border-radius: 8px;
+  border: 1px solid #000000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 0.75rem;
+  color: #000000;
+  background: white;
+  flex-shrink: 0;
+}
+
+.status-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.status-number {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #1e293b;
+  line-height: 1;
+  margin-bottom: 2px;
+}
+
+.status-label {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: #64748b;
+  white-space: nowrap;
+}
+
+/* Filters Controls Row */
+.filters-controls-row {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+}
+
+.filter-dropdowns {
+  display: flex;
+  gap: 1rem;
+}
+
+.filter-dropdowns select {
+  padding: 0.625rem 1rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background: white;
+  color: #334155;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.filter-dropdowns select:hover {
+  border-color: #cbd5e1;
+}
+
+.filter-dropdowns select:focus {
+  border-color: #000000;
+}
+
+@media (max-width: 1024px) {
+  .filters-top-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .search-box {
+    max-width: none;
+  }
+  .status-cards-grid {
+    width: 100%;
+    justify-content: flex-start;
+  }
+}
+
+@media (max-width: 640px) {
+  .status-cards-grid {
+    gap: 0.75rem;
+  }
+  .file-status-card {
+    min-width: 120px;
+    padding: 0.5rem;
+  }
+  .filters-controls-row {
+    justify-content: flex-start;
+  }
+  .filter-dropdowns {
+    flex-direction: column;
+    width: 100%;
+  }
+}

@@ -13,8 +13,8 @@ import LoadingSpinner from './components/LoadingSpinner'
 import ToastContainer from './components/common/ToastContainer'
 
 // Lazy load dashboards (only when needed)
-const UserDashboard = lazy(() => import('./pages/UserDashboard-Enhanced'))
-const TeamLeaderDashboard = lazy(() => import('./pages/TeamLeaderDashboard-Refactored'))
+const UserDashboard = lazy(() => import('./pages/UserDashboard'))
+const TeamLeaderDashboard = lazy(() => import('./pages/TeamLeaderDashboard'))
 const AdminDashboard = lazy(() => import('./pages/AdminDashboard'))
 
 const logger = createLogger('App')

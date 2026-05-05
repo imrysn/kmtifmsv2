@@ -13,19 +13,19 @@ import {
   UserManagement,
   ActivityLogs,
   FileApproval,
-  FileManagement,
   Settings,
   TaskManagement,
+  TeamManagement,
   Notifications
 } from '../components/admin'
 
-// Memoized sidebar so state changes in the main dashboard don't re-render it
+// Memoized sidebar for performance and pixel-perfect fidelity
 const AdminSidebar = memo(({ sidebarRef, activeTab, sidebarOpen, unreadCount, user, handleTabChange, closeSidebar, handleLogout }) => (
   <div className={`admin-sidebar ${sidebarOpen ? 'open' : ''}`} ref={sidebarRef}>
-    <div className="sidebar-header">
-      <div className="admin-info">
-        <div className="admin-name">{user.fullName || 'Admin User'}</div>
-        <div className="admin-role">{user.role || 'Administrator'}</div>
+    <div className="sidebar-header-fidelity">
+      <div className="sidebar-logo-fidelity">
+        <div className="logo-box">K</div>
+        <div className="logo-text">KMTI - FMS</div>
       </div>
     </div>
 
@@ -37,6 +37,7 @@ const AdminSidebar = memo(({ sidebarRef, activeTab, sidebarOpen, unreadCount, us
         <span className="nav-icon">{getSidebarIcon('dashboard')}</span>
         <span className="nav-label">Dashboard</span>
       </button>
+      
       <button
         className={`nav-item ${activeTab === 'notifications' ? 'active' : ''}`}
         onClick={() => { handleTabChange('notifications'); closeSidebar() }}
@@ -44,20 +45,12 @@ const AdminSidebar = memo(({ sidebarRef, activeTab, sidebarOpen, unreadCount, us
         <span className="nav-icon nav-icon-with-badge">
           {getSidebarIcon('notifications')}
           {unreadCount > 0 && (
-            <span className="sidebar-notification-badge">
-              {unreadCount > 99 ? '99+' : unreadCount}
-            </span>
+            <span className="notification-badge-fidelity">{unreadCount}</span>
           )}
         </span>
         <span className="nav-label">Notifications</span>
       </button>
-      <button
-        className={`nav-item ${activeTab === 'file-management' ? 'active' : ''}`}
-        onClick={() => { handleTabChange('file-management'); closeSidebar() }}
-      >
-        <span className="nav-icon">{getSidebarIcon('files')}</span>
-        <span className="nav-label">Files</span>
-      </button>
+
       <button
         className={`nav-item ${activeTab === 'users' ? 'active' : ''}`}
         onClick={() => { handleTabChange('users'); closeSidebar() }}
@@ -65,6 +58,15 @@ const AdminSidebar = memo(({ sidebarRef, activeTab, sidebarOpen, unreadCount, us
         <span className="nav-icon">{getSidebarIcon('users')}</span>
         <span className="nav-label">Users</span>
       </button>
+      
+      <button
+        className={`nav-item ${activeTab === 'teams' ? 'active' : ''}`}
+        onClick={() => { handleTabChange('teams'); closeSidebar() }}
+      >
+        <span className="nav-icon">{getSidebarIcon('teams')}</span>
+        <span className="nav-label">Teams</span>
+      </button>
+
       <button
         className={`nav-item ${activeTab === 'activity-logs' ? 'active' : ''}`}
         onClick={() => { handleTabChange('activity-logs'); closeSidebar() }}
@@ -72,6 +74,7 @@ const AdminSidebar = memo(({ sidebarRef, activeTab, sidebarOpen, unreadCount, us
         <span className="nav-icon">{getSidebarIcon('activityLogs')}</span>
         <span className="nav-label">Activity Logs</span>
       </button>
+
       <button
         className={`nav-item ${activeTab === 'file-approval' ? 'active' : ''}`}
         onClick={() => { handleTabChange('file-approval'); closeSidebar() }}
@@ -79,6 +82,7 @@ const AdminSidebar = memo(({ sidebarRef, activeTab, sidebarOpen, unreadCount, us
         <span className="nav-icon">{getSidebarIcon('fileApproval')}</span>
         <span className="nav-label">File Approval</span>
       </button>
+
       <button
         className={`nav-item ${activeTab === 'tasks' ? 'active' : ''}`}
         onClick={() => { handleTabChange('tasks'); closeSidebar() }}
@@ -86,6 +90,7 @@ const AdminSidebar = memo(({ sidebarRef, activeTab, sidebarOpen, unreadCount, us
         <span className="nav-icon">{getSidebarIcon('tasks')}</span>
         <span className="nav-label">Tasks</span>
       </button>
+
       <button
         className={`nav-item ${activeTab === 'settings' ? 'active' : ''}`}
         onClick={() => { handleTabChange('settings'); closeSidebar() }}
@@ -95,247 +100,125 @@ const AdminSidebar = memo(({ sidebarRef, activeTab, sidebarOpen, unreadCount, us
       </button>
     </nav>
 
-    <div className="sidebar-footer">
-      <button onClick={handleLogout} className="logout-btn">
+    <div className="sidebar-footer-fidelity">
+      <button onClick={handleLogout} className="logout-btn-fidelity">
         <span className="nav-icon">{getSidebarIcon('logout')}</span>
-        <span className="logout-btn-text">Logout</span>
+        <span className="nav-label">Logout</span>
       </button>
     </div>
   </div>
 ))
-AdminSidebar.displayName = 'AdminSidebar'
 
-const AdminDashboard = ({ user, onLogout }) => {
+const AdminDashboard = () => {
   const [activeTab, setActiveTab] = useState('dashboard')
-  const [users, setUsers] = useState([])
-  const [error, setError] = useState('')
-  const [success, setSuccess] = useState('')
-  const [notifications, setNotifications] = useState([])
+  const [user, setUser] = useState(null)
+  const [sidebarOpen, setSidebarOpen] = useState(true)
   const [unreadCount, setUnreadCount] = useState(0)
-  const [contextData, setContextData] = useState(null)
-  const [sidebarOpen, setSidebarOpen] = useState(false)
-
-  // Smart Navigation State
-  const [highlightedFileId, setHighlightedFileId] = useState(null)
-  const [highlightedAssignmentId, setHighlightedAssignmentId] = useState(null)
-  const [notificationCommentContext, setNotificationCommentContext] = useState(null)
-
+  const [loading, setLoading] = useState(true)
+  const [notification, setNotification] = useState(null)
+  
   const sidebarRef = useRef(null)
-  const mainContentRef = useRef(null)
 
-  // Initial animations on component mount only
   useEffect(() => {
-    anime({
-      targets: sidebarRef.current,
-      opacity: [0, 1],
-      duration: 300,
-      easing: 'easeOutCubic'
-    })
-
-    anime({
-      targets: mainContentRef.current,
-      opacity: [0, 1],
-      duration: 300,
-      delay: 100,
-      easing: 'easeOutCubic'
-    })
-  }, [])
-
-  // Fetch users for dashboard overview and settings
-  useEffect(() => {
-    fetchUsers()
-    fetchNotifications()
-    // Poll for notifications every 30 seconds
-    const interval = setInterval(fetchNotifications, 30000)
-    return () => clearInterval(interval)
-  }, [])
-
-  const fetchUsers = async () => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/users`)
-      const data = await response.json()
-      if (data.success) {
-        setUsers(data.users)
-      }
-    } catch (error) {
-      console.error('Error fetching users:', error)
+    const storedUser = localStorage.getItem('user')
+    if (storedUser) {
+      setUser(JSON.parse(storedUser))
     }
+    setLoading(false)
+  }, [])
+
+  const handleTabChange = (tab) => setActiveTab(tab)
+  const closeSidebar = () => { if (window.innerWidth < 1024) setSidebarOpen(false) }
+  const handleLogout = () => {
+    localStorage.removeItem('user')
+    window.location.href = '/login'
   }
 
-  const fetchNotifications = async () => {
-    try {
-      // Lightweight call — only fetch page 1 to get unreadCount and toast notifications
-      const response = await fetch(`${API_BASE_URL}/api/notifications/user/${user.id}?page=1&limit=20`)
-      const data = await response.json()
-      if (data.success) {
-        setNotifications(data.notifications || [])
-        setUnreadCount(data.unreadCount || 0)
-      }
-    } catch (error) {
-      console.error('Error fetching notifications:', error)
-    }
-  }
+  if (loading) return <SkeletonLoader />
 
-  const handleLogout = useCallback(() => {
-    onLogout()
-  }, [onLogout])
-
-  const clearMessages = useCallback(() => {
-    setError('')
-    setSuccess('')
-  }, [])
-
-  const handleTabChange = useCallback((tabName, data = null) => {
-    setActiveTab(tabName)
-    setContextData(data)
-    setError('')
-    setSuccess('')
-  }, [])
-
-  const closeSidebar = useCallback(() => {
-    setSidebarOpen(false)
-  }, [])
-
-  const toggleSidebar = useCallback(() => {
-    setSidebarOpen(prev => !prev)
-  }, [])
-
-  const handleNotificationNavigation = useCallback((tabName, context) => {
-    console.log('🔔 Admin Navigation triggered:', { tabName, context });
-
-    setSidebarOpen(false);
-    setActiveTab(tabName);
-    setError('')
-    setSuccess('')
-
-    if (context && typeof context === 'object') {
-      if (context.fileId) {
-        setHighlightedFileId(context.fileId);
-      }
-      if (context.assignmentId) {
-        setHighlightedAssignmentId(context.assignmentId);
-        if (context.shouldOpenComments) {
-          setNotificationCommentContext({
-            assignmentId: context.assignmentId,
-            expandAllReplies: context.expandAllReplies || false
-          });
-        }
-      }
-      setContextData(context);
-
-      const contentArea = document.querySelector('.content-area');
-      if (contentArea) contentArea.scrollTop = 0;
-    } else {
-      setContextData(context);
-    }
-  }, [])
-
-  const renderActiveTab = useCallback(() => {
-    const commonProps = {
-      clearMessages,
-      error,
-      success,
-      setError,
-      setSuccess
-    }
-
+  const getTabTitle = () => {
     switch (activeTab) {
-      case 'dashboard':
-        return <DashboardOverview user={user} users={users} />
-      case 'users':
-        return <UserManagement {...commonProps} user={user} contextData={contextData} />
-      case 'activity-logs':
-        return <ActivityLogs {...commonProps} />
-      case 'file-approval':
-        return <FileApproval
-          {...commonProps}
-          contextFileId={contextData}
-          highlightedFileId={highlightedFileId}
-          onClearFileHighlight={() => setHighlightedFileId(null)}
-        />
-      case 'file-management':
-        return <FileManagement
-          {...commonProps}
-          contextFileId={contextData}
-          highlightedFileId={highlightedFileId}
-          onClearFileHighlight={() => setHighlightedFileId(null)}
-        />
-      case 'tasks':
-        return <TaskManagement
-          {...commonProps}
-          user={user}
-          contextAssignmentId={contextData}
-          highlightedAssignmentId={highlightedAssignmentId}
-          highlightedFileId={highlightedFileId}
-          notificationCommentContext={notificationCommentContext}
-          onClearHighlight={() => setHighlightedAssignmentId(null)}
-          onClearFileHighlight={() => setHighlightedFileId(null)}
-          onClearNotificationContext={() => setNotificationCommentContext(null)}
-        />
-      case 'notifications':
-        return <Notifications user={user} onNavigate={handleNotificationNavigation} onRead={() => setUnreadCount(0)} />
-      case 'settings':
-        return <Settings {...commonProps} users={users} user={user} />
-      default:
-        return <DashboardOverview user={user} users={users} />
+      case 'dashboard': return 'Admin Overview'
+      case 'notifications': return 'System Notifications'
+      case 'users': return 'User Management'
+      case 'teams': return 'Team Management'
+      case 'activity-logs': return 'Activity Logs'
+      case 'file-approval': return 'File Approval'
+      case 'tasks': return 'Task Management'
+      case 'settings': return 'System Settings'
+      default: return 'Admin Dashboard'
     }
-  }, [activeTab, users, contextData, highlightedFileId, highlightedAssignmentId, notificationCommentContext, error, success, clearMessages, handleNotificationNavigation, user])
+  }
+
+  const getTabSubtitle = () => {
+    switch (activeTab) {
+      case 'tasks': return 'Review and manage assignments across all teams'
+      case 'teams': return 'Manage engineering teams and assignments'
+      case 'file-approval': return 'Review and approve pending student submissions'
+      default: return 'Review and manage system-wide operations'
+    }
+  }
 
   return (
-    <AuthProvider initialUser={user}>
-      <NetworkProvider>
-          <Suspense fallback={<SkeletonLoader type="admin" />}>
-            <div className="minimal-admin-dashboard">
-              {/* Burger Menu Button */}
-              <button
-                className={`burger-menu-btn ${sidebarOpen ? 'active' : ''}`}
-                onClick={toggleSidebar}
-                aria-label="Toggle sidebar menu"
-              >
-                <div className="burger-menu-icon">
-                  <span></span>
-                  <span></span>
-                  <span></span>
-                </div>
-              </button>
+    <div className="minimal-admin-dashboard">
+      <AdminSidebar 
+        sidebarRef={sidebarRef}
+        activeTab={activeTab}
+        sidebarOpen={sidebarOpen}
+        unreadCount={unreadCount}
+        user={user}
+        handleTabChange={handleTabChange}
+        closeSidebar={closeSidebar}
+        handleLogout={handleLogout}
+      />
 
-              {/* Sidebar Overlay */}
-              <div
-                className={`sidebar-overlay ${sidebarOpen ? 'active' : ''}`}
-                onClick={closeSidebar}
-              ></div>
-
-              {/* Memoized Sidebar */}
-              <AdminSidebar
-                sidebarRef={sidebarRef}
-                activeTab={activeTab}
-                sidebarOpen={sidebarOpen}
-                unreadCount={unreadCount}
-                user={user}
-                handleTabChange={handleTabChange}
-                closeSidebar={closeSidebar}
-                handleLogout={handleLogout}
-              />
-
-              {/* Main Content */}
-              <div className="admin-main-content" ref={mainContentRef}>
-
-                {/* Content Area */}
-                <div className="content-area">
-                  {renderActiveTab()}
-                </div>
-              </div>
-
-              {/* Toast Notifications */}
-              <ToastNotification
-                notifications={notifications}
-                onNavigate={handleNotificationNavigation}
-                role="admin"
-              />
+      <main className="admin-main-content">
+        <header className="main-header-fidelity">
+          <div className="header-left">
+            <button className="mobile-toggle" onClick={() => setSidebarOpen(!sidebarOpen)}>
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+            </button>
+            <div className="header-titles">
+              <h1>{getTabTitle()}</h1>
+              <p>{getTabSubtitle()}</p>
             </div>
+          </div>
+          
+          <div className="header-right">
+            <div className="admin-profile-fidelity">
+              <div className="admin-name-plate">
+                <span className="admin-fullname">{user?.fullName || 'Erik Benjamin Adan'}</span>
+                <span className="admin-role-label">System Administrator</span>
+              </div>
+              <div className="admin-avatar-plate">
+                {user?.fullName?.split(' ').map(n => n[0]).join('').slice(0, 2) || 'EA'}
+              </div>
+            </div>
+          </div>
+        </header>
+
+        <section className="content-area-fidelity">
+          <Suspense fallback={<SkeletonLoader />}>
+            {activeTab === 'dashboard' && <DashboardOverview user={user} />}
+            {activeTab === 'notifications' && <Notifications user={user} />}
+            {activeTab === 'users' && <UserManagement user={user} />}
+            {activeTab === 'teams' && <TeamManagement user={user} />}
+            {activeTab === 'activity-logs' && <ActivityLogs user={user} />}
+            {activeTab === 'file-approval' && <FileApproval user={user} />}
+            {activeTab === 'tasks' && <TaskManagement user={user} />}
+            {activeTab === 'settings' && <Settings user={user} />}
           </Suspense>
-      </NetworkProvider>
-    </AuthProvider>
+        </section>
+      </main>
+
+      {notification && (
+        <ToastNotification 
+          message={notification.message} 
+          type={notification.type} 
+          onClose={() => setNotification(null)} 
+        />
+      )}
+    </div>
   )
 }
 

@@ -1,0 +1,384 @@
+/* Task Card Fidelity Styles - Restored to "Old UI" Screenshot 7 */
+.admin-assignment-card-fidelity {
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  margin-bottom: 24px;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+  transition: box-shadow 0.2s;
+}
+
+.admin-assignment-card-fidelity:hover {
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+.card-fidelity-header {
+  padding: 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.header-fidelity-left {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+}
+
+.user-avatar-fidelity {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: #6366f1; /* Indigo from Screenshot 7 */
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.header-fidelity-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.info-top-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 15px;
+  color: #111827;
+}
+
+.fidelity-username {
+  font-weight: 700;
+}
+
+.role-badge-fidelity {
+  font-size: 10px;
+  font-weight: 700;
+  color: #3b82f6;
+  background: #eff6ff; /* Light blue bg from Screenshot 7 */
+  border: 1px solid #bfdbfe;
+  padding: 2px 8px;
+  border-radius: 12px;
+  text-transform: uppercase;
+}
+
+.assigned-text-fidelity {
+  color: #6b7280;
+}
+
+.assigned-text-fidelity strong {
+  color: #111827;
+}
+
+.info-bottom-line {
+  font-size: 13px;
+  color: #9ca3af;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.task-stats-fidelity {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: #6366f1;
+  font-weight: 600;
+  background: #f5f3ff;
+  padding: 2px 8px;
+  border-radius: 6px;
+}
+
+.fidelity-created-at {
+  color: #9ca3af;
+}
+
+.header-fidelity-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+.due-info-fidelity {
+  font-size: 13px;
+  color: #6b7280;
+}
+
+.completed-badge-fidelity {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: #dcfce7;
+  color: #166534;
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.days-left-fidelity {
+  font-weight: 700;
+  margin-left: 4px;
+}
+
+.card-fidelity-body {
+  padding: 0 20px 20px 20px;
+}
+
+.fidelity-task-title {
+  font-size: 20px;
+  font-weight: 800;
+  color: #111827;
+  margin: 0 0 8px 0;
+  letter-spacing: -0.02em;
+}
+
+.fidelity-task-description {
+  font-size: 15px;
+  color: #4b5563;
+  margin: 0 0 24px 0;
+  line-height: 1.5;
+}
+
+/* Attachments Section */
+.attachments-container-fidelity {
+  background: #f8fafc;
+  border: 1px solid #f1f5f9;
+  border-radius: 12px;
+  padding: 16px;
+}
+
+.attachments-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 700;
+  color: #2563eb;
+  margin-bottom: 16px;
+}
+
+.attachments-list-fidelity {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.file-card-fidelity {
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  transition: all 0.2s;
+}
+
+.file-card-fidelity:hover {
+  border-color: #cbd5e1;
+  background: #f8fafc;
+}
+
+.file-card-details {
+  flex: 1;
+  min-width: 0;
+}
+
+.file-card-name {
+  font-size: 14px;
+  font-weight: 700;
+  color: #1e293b;
+  margin-bottom: 4px;
+}
+
+.file-card-meta {
+  font-size: 12px;
+  color: #64748b;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.submitter-name {
+  font-weight: 600;
+  color: #475569;
+}
+
+.fidelity-status-badge {
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.fidelity-status-badge.pending {
+  background: #fff7ed;
+  color: #c2410c;
+  border: 1px solid #fdba74;
+}
+
+.fidelity-status-badge.approved {
+  background: #f0fdf4;
+  color: #15803d;
+  border: 1px solid #86efac;
+}
+
+/* File Actions */
+.file-actions-fidelity {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.approval-actions-fidelity {
+  display: flex;
+  gap: 6px;
+}
+
+.approve-btn-mini, .reject-btn-mini {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s;
+  border: none;
+}
+
+.approve-btn-mini {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.approve-btn-mini:hover {
+  background: #16a34a;
+  color: white;
+}
+
+.reject-btn-mini {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.reject-btn-mini:hover {
+  background: #dc2626;
+  color: white;
+}
+
+.file-fidelity-download {
+  background: none;
+  border: none;
+  color: #64748b;
+  cursor: pointer;
+  padding: 8px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.file-fidelity-download:hover {
+  background: #f1f5f9;
+  color: #1e293b;
+}
+
+/* Footer */
+.card-fidelity-footer {
+  padding: 16px 20px;
+  border-top: 1px solid #f1f5f9;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #fafafa;
+  border-bottom-left-radius: 12px;
+  border-bottom-right-radius: 12px;
+}
+
+.comments-fidelity-row {
+  font-size: 14px;
+  color: #64748b;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 6px 12px;
+  border-radius: 8px;
+  transition: background 0.2s;
+}
+
+.comments-fidelity-row:hover {
+  background: #f1f5f9;
+}
+
+.menu-fidelity-btn {
+  background: none;
+  border: none;
+  color: #94a3b8;
+  cursor: pointer;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.menu-fidelity-btn:hover {
+  background: #f1f5f9;
+  color: #1e293b;
+}
+
+.fidelity-dropdown {
+  position: absolute;
+  bottom: 100%;
+  right: 0;
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+  padding: 6px;
+  z-index: 50;
+  min-width: 140px;
+  margin-bottom: 8px;
+}
+
+.fidelity-dropdown button {
+  width: 100%;
+  padding: 10px 12px;
+  background: none;
+  border: none;
+  color: #334155;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  text-align: left;
+  border-radius: 6px;
+}
+
+.fidelity-dropdown button:hover {
+  background: #f1f5f9;
+}
+
+.fidelity-dropdown .dropdown-divider {
+  height: 1px;
+  background: #e2e8f0;
+  margin: 6px 0;
+}
+
+.fidelity-dropdown button.delete-action {
+  color: #ef4444;
+}
+
+.fidelity-dropdown button.delete-action:hover {
+  background: #fef2f2;
+}

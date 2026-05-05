@@ -16,6 +16,31 @@ if (typeof window !== 'undefined') {
 // StrictMode causes double-rendering which can make the app feel laggy
 const isDevelopment = import.meta.env.MODE === 'development'
 
+// Add global fetch interceptor for API authentication guard
+const APP_TOKEN = 'kmti-fms-local-token';
+const originalFetch = window.fetch;
+window.fetch = async (...args) => {
+  let [resource, config] = args;
+  
+  if (resource instanceof Request) {
+    resource.headers.set('X-App-Token', APP_TOKEN);
+    return originalFetch(resource, config);
+  }
+
+  config = config || {};
+  config.headers = config.headers || {};
+  
+  if (config.headers instanceof Headers) {
+    config.headers.set('X-App-Token', APP_TOKEN);
+  } else if (Array.isArray(config.headers)) {
+    config.headers.push(['X-App-Token', APP_TOKEN]);
+  } else {
+    config.headers['X-App-Token'] = APP_TOKEN;
+  }
+  
+  return originalFetch(resource, config);
+};
+
 // Get root element
 const rootElement = document.getElementById('root')
 

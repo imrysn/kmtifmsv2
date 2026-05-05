@@ -106,11 +106,12 @@ function setupMiddleware(app) {
     exposedHeaders: ['Content-Disposition']
   }));
 
-  // JSON parsing with extended options to handle UTF-8 special characters
+  // JSON parsing with UTF-8 support
+  // Note: large file uploads use multer — the JSON body limit can be kept small
   app.use(express.json({
-    extended: true,
-    limit: '50gb' // Increase limit for larger payloads
+    limit: '10mb'
   }));
+
 
   app.use(express.urlencoded({
     extended: true,

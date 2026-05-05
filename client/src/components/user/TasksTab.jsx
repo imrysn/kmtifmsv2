@@ -1,6 +1,6 @@
 import { useRef, useCallback, useState, useEffect, startTransition, useMemo, memo } from 'react';
 import { API_BASE_URL } from '@/config/api';
-import './css/TasksTab-Enhanced.css';
+import './css/TasksTab.css';
 import './css/TasksTab-Comments.css';
 import { FileIcon, FileOpenModal } from '../shared';
 import CommentsModal from '../shared/CommentsModal';
@@ -9,6 +9,7 @@ import { LoadingCards } from '../common/InlineSkeletonLoader';
 import SuccessModal from './SuccessModal';
 import { useSmartNavigation } from '../shared/SmartNavigation';
 import '../shared/SmartNavigation/SmartNavigation.css';
+import { useAssignments } from '../../hooks/useAssignments';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const INITIAL_FILE_DISPLAY_LIMIT = 5;
@@ -142,9 +143,8 @@ const TasksTab = memo(({
   onClearFileHighlight,
   onClearNotificationContext,
 }) => {
-  // Core data
-  const [assignments, setAssignments] = useState([]);
-  const [isLoading, setIsLoading] = useState(false);
+  // Core data from hook
+  const { assignments, setAssignments, loading: isLoading, refetch: fetchAssignments } = useAssignments(user?.id);
 
   // UI state
   const [sortFilter, setSortFilter] = useState('all');
@@ -208,22 +208,6 @@ const TasksTab = memo(({
     }
   }, []);
 
-  const fetchAssignments = useCallback(async () => {
-    setIsLoading(true);
-    try {
-      const res = await fetch(`${API_BASE_URL}/api/assignments/user/${user.id}`);
-      const data = await res.json();
-      if (data.success) {
-        setAssignments(data.assignments || []);
-      } else {
-        showError('Failed to fetch assignments');
-      }
-    } catch {
-      showError('Failed to connect to server');
-    } finally {
-      setIsLoading(false);
-    }
-  }, [user.id, showError]);
 
   // ─── Session storage scroll-to on mount ────────────────────────────────────
   const openCommentsModal = useCallback((assignment) => {
@@ -254,7 +238,7 @@ const TasksTab = memo(({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [assignments.length]);
 
-  useEffect(() => { fetchAssignments(); }, [fetchAssignments]);
+
 
   // Keep currentAssignmentIdRef in sync
   currentAssignmentIdRef.current = currentCommentsAssignment?.id;
@@ -728,7 +712,7 @@ const TasksTab = memo(({
     <div className="tasks-container">
       {/* Header */}
       <div className="tasks-header">
-        <div className="tasks-header-content" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
+        <div className="tasks-header-content">
           <div>
             <h1>My Tasks</h1>
             <p className="tasks-subtitle" style={{ margin: 0 }}>{assignments.length} assignment{assignments.length !== 1 ? 's' : ''}</p>
@@ -737,25 +721,9 @@ const TasksTab = memo(({
           {/* ── Sort Dropdown ── */}
           <div style={{ position: 'relative' }}>
             <select
+              className="tasks-sort-select"
               value={sortFilter}
               onChange={e => setSortFilter(e.target.value)}
-              style={{
-                appearance: 'none',
-                WebkitAppearance: 'none',
-                padding: '5px 30px 5px 12px',
-                borderRadius: '20px',
-                border: '1.5px solid #d1d5db',
-                backgroundColor: '#ffffff',
-                color: '#374151',
-                fontSize: '13px',
-                fontWeight: '500',
-                cursor: 'pointer',
-                outline: 'none',
-                boxShadow: '0 1px 2px rgba(0,0,0,0.06)',
-                transition: 'border-color 0.15s',
-              }}
-              onFocus={e => { e.currentTarget.style.borderColor = '#9ca3af'; }}
-              onBlur={e => { e.currentTarget.style.borderColor = '#d1d5db'; }}
             >
               {SORT_OPTIONS.map(opt => (
                 <option key={opt.value} value={opt.value}>

@@ -1,10 +1,4 @@
 /**
- * Fast Search Engine Services
- * Ultra-fast file search with indexing, caching, and security
+ * Shared Client Services
+ * Add common business logic and API wrappers here.
  */
-
-export { BitmaskFileIndex } from './BitmaskFileIndex';
-export { CachedFileSystem } from './CachedFileSystem';
-export { SecureDirectoryManager } from './SecureDirectoryManager';
-export { FileEditor } from './FileEditor';
-export { FastSearchEngine } from './FastSearchEngine';

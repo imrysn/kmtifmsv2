@@ -1,73 +1,14 @@
-import { useState, useEffect, useRef, useCallback, memo } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { API_BASE_URL } from '@/config/api';
 import './Notifications.css';
-import FileIcon from '../shared/FileIcon';
 import { useTaskbarFlash } from '../../utils/useTaskbarFlash';
 import { parseNotification } from '../shared/SmartNavigation';
-import { ConfirmationModal } from './modals';
-import { useAuth, useNetwork } from '../../contexts';
 import { withErrorBoundary } from '../common';
 
-// Memoized notification item to prevent unnecessary re-renders
-const NotificationItem = memo(({ notification, onNotificationClick, onDeleteNotification, NotificationIcon, formatTimeAgo }) => {
-  return (
-    <div
-      className={`notification-item ${!notification.is_read ? 'unread' : ''}`}
-      onClick={() => onNotificationClick(notification)}
-    >
-      <div className="notification-icon">
-        <NotificationIcon type={notification.type} />
-      </div>
-
-      <div className="notification-content">
-        <div className="notification-title">
-          {notification.title}
-        </div>
-        <div className="notification-message">{notification.message}</div>
-
-        <div className="notification-meta">
-          <span className="notification-author">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="13" height="13" style={{marginRight: '4px', verticalAlign: 'middle', flexShrink: 0}}>
-              <path d="M12 12c2.7 0 4.8-2.1 4.8-4.8S14.7 2.4 12 2.4 7.2 4.5 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2 0-9.6 1.6-9.6 4.8v2.4h19.2v-2.4c0-3.2-6.4-4.8-9.6-4.8z"/>
-            </svg>
-            {notification.action_by_username} ({notification.action_by_role})
-          </span>
-          {notification.assignment_title && (
-            <span className="notification-assignment">
-              Assignment: {notification.assignment_title}
-            </span>
-          )}
-          {notification.file_name && (
-            <span className="notification-file">
-              {notification.file_name}
-            </span>
-          )}
-          {notification.assignment_due_date && (
-            <span className="notification-due-date">
-              Due: {new Date(notification.assignment_due_date).toLocaleDateString()}
-            </span>
-          )}
-        </div>
-
-        <div className="notification-time">
-          {formatTimeAgo(notification.created_at)}
-        </div>
-      </div>
-
-      <button
-        className="notification-delete"
-        onClick={(e) => {
-          e.stopPropagation();
-          onDeleteNotification(notification.id);
-        }}
-      >
-        ✕
-      </button>
-    </div>
-  );
-});
-
-NotificationItem.displayName = 'NotificationItem';
+// Sub-components
+import NotificationHeader from './subcomponents/NotificationHeader';
+import NotificationList from './subcomponents/NotificationList';
+import NotificationModals from './subcomponents/NotificationModals';
 
 const Notifications = ({ user, onNavigate, onRead }) => {
   const [notifications, setNotifications] = useState([]);
@@ -77,9 +18,6 @@ const Notifications = ({ user, onNavigate, onRead }) => {
   const [unreadCount, setUnreadCount] = useState(0);
   const [showDeleteAllModal, setShowDeleteAllModal] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
-
-  // Enable taskbar flashing for new notifications
-  useTaskbarFlash(unreadCount);
 
   // Pagination state
   const [page, setPage] = useState(1);
@@ -91,46 +29,10 @@ const Notifications = ({ user, onNavigate, onRead }) => {
   const observerRef = useRef(null);
   const loadMoreRef = useRef(null);
 
-  // Highlighted comment ref
-  const [highlightedCommentId, setHighlightedCommentId] = useState(null);
+  // Enable taskbar flashing for new notifications
+  useTaskbarFlash(unreadCount);
 
-  useEffect(() => {
-    fetchNotifications(1, true);
-    // Poll for new notifications every 30 seconds (only first page)
-    const interval = setInterval(() => {
-      fetchNotifications(1, true, true);
-    }, 30000);
-    return () => clearInterval(interval);
-  }, [user.id]);
-
-  // Set up intersection observer for infinite scroll
-  useEffect(() => {
-    if (loading || loadingMore || !hasMore) return;
-
-    const options = {
-      root: null,
-      rootMargin: '100px',
-      threshold: 0.1
-    };
-
-    observerRef.current = new IntersectionObserver((entries) => {
-      if (entries[0].isIntersecting && hasMore && !loadingMore) {
-        fetchNotifications(page + 1, false);
-      }
-    }, options);
-
-    if (loadMoreRef.current) {
-      observerRef.current.observe(loadMoreRef.current);
-    }
-
-    return () => {
-      if (observerRef.current) {
-        observerRef.current.disconnect();
-      }
-    };
-  }, [loading, loadingMore, hasMore, page]);
-
-  const fetchNotifications = async (pageNum, isInitial = false, isSilentRefresh = false) => {
+  const fetchNotifications = useCallback(async (pageNum, isInitial = false, isSilentRefresh = false) => {
     try {
       if (isInitial && !isSilentRefresh) {
         setLoading(true);
@@ -146,34 +48,16 @@ const Notifications = ({ user, onNavigate, onRead }) => {
       if (data.success) {
         const newNotifications = data.notifications || [];
 
-        // Debug: Log password reset notifications
-        const passwordResetNotifs = newNotifications.filter(n => n.type === 'password_reset_request');
-        if (passwordResetNotifs.length > 0) {
-          console.log('Password reset notifications found:', passwordResetNotifs.length);
-          passwordResetNotifs.forEach(n => {
-            console.log('  - Notification:', {
-              id: n.id,
-              type: n.type,
-              action_by_id: n.action_by_id,
-              action_by_username: n.action_by_username,
-              file_id: n.file_id,
-              message: n.message
-            });
-          });
-        }
-
         if (isInitial) {
           setNotifications(newNotifications);
           setPage(1);
         } else if (isSilentRefresh) {
-          // For silent refresh, only update if there are new notifications
           const existingIds = new Set(notifications.map(n => n.id));
           const truelyNew = newNotifications.filter(n => !existingIds.has(n.id));
           if (truelyNew.length > 0) {
-            setNotifications([...truelyNew, ...notifications]);
+            setNotifications(prev => [...truelyNew, ...prev]);
           }
         } else {
-          // For pagination
           setNotifications(prev => [...prev, ...newNotifications]);
           setPage(pageNum);
         }
@@ -187,27 +71,42 @@ const Notifications = ({ user, onNavigate, onRead }) => {
       }
     } catch (error) {
       console.error('Error fetching notifications:', error);
-      if (!isSilentRefresh) {
-        setError('Failed to fetch notifications');
-      }
+      if (!isSilentRefresh) setError('Failed to fetch notifications');
     } finally {
-      if (isInitial && !isSilentRefresh) {
-        setLoading(false);
-      } else if (!isSilentRefresh) {
-        setLoadingMore(false);
-      }
+      if (isInitial && !isSilentRefresh) setLoading(false);
+      else if (!isSilentRefresh) setLoadingMore(false);
     }
-  };
+  }, [user.id, notifications, limit, onRead]);
+
+  useEffect(() => {
+    fetchNotifications(1, true);
+    const interval = setInterval(() => {
+      fetchNotifications(1, true, true);
+    }, 30000);
+    return () => clearInterval(interval);
+  }, [user.id, fetchNotifications]);
+
+  useEffect(() => {
+    if (loading || loadingMore || !hasMore) return;
+
+    const options = { root: null, rootMargin: '100px', threshold: 0.1 };
+    observerRef.current = new IntersectionObserver((entries) => {
+      if (entries[0].isIntersecting && hasMore && !loadingMore) {
+        fetchNotifications(page + 1, false);
+      }
+    }, options);
+
+    if (loadMoreRef.current) observerRef.current.observe(loadMoreRef.current);
+    return () => observerRef.current?.disconnect();
+  }, [loading, loadingMore, hasMore, page, fetchNotifications]);
 
   const markAsRead = async (notificationId) => {
     try {
       const response = await fetch(`${API_BASE_URL}/api/notifications/${notificationId}/read`, {
         method: 'PUT'
       });
-
       const data = await response.json();
       if (data.success) {
-        // Update local state instead of refetching
         setNotifications(prev => prev.map(n =>
           n.id === notificationId ? { ...n, is_read: true } : n
         ));
@@ -223,10 +122,8 @@ const Notifications = ({ user, onNavigate, onRead }) => {
       const response = await fetch(`${API_BASE_URL}/api/notifications/user/${user.id}/read-all`, {
         method: 'PUT'
       });
-
       const data = await response.json();
       if (data.success) {
-        // Update local state
         setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
         setUnreadCount(0);
         onRead?.();
@@ -241,10 +138,8 @@ const Notifications = ({ user, onNavigate, onRead }) => {
       const response = await fetch(`${API_BASE_URL}/api/notifications/${notificationId}`, {
         method: 'DELETE'
       });
-
       const data = await response.json();
       if (data.success) {
-        // Update local state
         const deletedNotification = notifications.find(n => n.id === notificationId);
         setNotifications(prev => prev.filter(n => n.id !== notificationId));
         setTotalCount(prev => prev - 1);
@@ -263,7 +158,6 @@ const Notifications = ({ user, onNavigate, onRead }) => {
       const response = await fetch(`${API_BASE_URL}/api/notifications/user/${user.id}/delete-all`, {
         method: 'DELETE'
       });
-
       const data = await response.json();
       if (data.success) {
         setNotifications([]);
@@ -280,42 +174,16 @@ const Notifications = ({ user, onNavigate, onRead }) => {
     }
   };
 
-  const handleNotificationClick = (notification) => {
-    // Mark as read
-    if (!notification.is_read) {
-      markAsRead(notification.id);
-    }
-
-    console.log('Admin Notification clicked:', notification);
-
-    // Use shared notification parser
+  const handleNotificationClick = useCallback((notification) => {
+    if (!notification.is_read) markAsRead(notification.id);
     const { targetTab, context } = parseNotification(notification, 'admin');
-
-    if (targetTab && onNavigate) {
-      onNavigate(targetTab, context);
-    } else {
-      console.warn('Unable to navigate - no target tab determined');
-    }
-  };
-
-
-  // Notification icon component using FileIcon
-  const NotificationIcon = ({ type }) => {
-    return (
-      <FileIcon
-        fileType={type}
-        size="medium"
-        altText={`${type} notification icon`}
-        className="notification-type-icon"
-      />
-    );
-  };
+    if (targetTab && onNavigate) onNavigate(targetTab, context);
+  }, [onNavigate]);
 
   const formatTimeAgo = useCallback((timestamp) => {
     const now = new Date();
     const created = new Date(timestamp);
     const diffInSeconds = Math.floor((now - created) / 1000);
-
     if (diffInSeconds < 60) return `${diffInSeconds}s ago`;
     if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)}m ago`;
     if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)}h ago`;
@@ -323,56 +191,33 @@ const Notifications = ({ user, onNavigate, onRead }) => {
     return created.toLocaleDateString();
   }, []);
 
-  // Skeleton loader component
-  const NotificationSkeleton = () => (
-    <div className="notification-skeleton">
-      {[1, 2, 3, 4, 5].map(i => (
-        <div key={i} className="notification-skeleton-item">
-          <div className="skeleton-icon"></div>
-          <div className="skeleton-content">
-            <div className="skeleton-line skeleton-line-title"></div>
-            <div className="skeleton-line skeleton-line-message"></div>
-            <div className="skeleton-line skeleton-line-meta"></div>
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-
   if (loading) {
     return (
       <div className="notifications-page">
-        <div className="notifications-header">
-          <div>
-            <h2>Notifications</h2>
-            <p className="notifications-subtitle">Stay updated with your file approvals and system messages</p>
-          </div>
+        <NotificationHeader notificationsCount={0} unreadCount={0} />
+        <div className="notification-skeleton">
+          {[1, 2, 3, 4, 5].map(i => (
+            <div key={i} className="notification-skeleton-item">
+              <div className="skeleton-icon"></div>
+              <div className="skeleton-content">
+                <div className="skeleton-line skeleton-line-title"></div>
+                <div className="skeleton-line skeleton-line-message"></div>
+              </div>
+            </div>
+          ))}
         </div>
-        <NotificationSkeleton />
       </div>
     );
   }
 
   return (
     <div className={`notifications-page ${loading ? 'loading-cursor' : ''}`}>
-      <div className="notifications-header">
-        <div>
-          <h2>Notifications</h2>
-          <p className="notifications-subtitle">Stay updated with your file approvals and system messages</p>
-        </div>
-        <div className="notifications-actions">
-          {unreadCount > 0 && (
-            <button className="btn-mark-all-read" onClick={markAllAsRead}>
-              Mark All as Read
-            </button>
-          )}
-          {notifications.length > 0 && (
-            <button className="btn-delete-all" onClick={() => setShowDeleteAllModal(true)}>
-              Delete All
-            </button>
-          )}
-        </div>
-      </div>
+      <NotificationHeader
+        unreadCount={unreadCount}
+        notificationsCount={notifications.length}
+        markAllAsRead={markAllAsRead}
+        setShowDeleteAllModal={setShowDeleteAllModal}
+      />
 
       {error && <div className="error-message">{error}</div>}
 
@@ -380,88 +225,25 @@ const Notifications = ({ user, onNavigate, onRead }) => {
         {totalCount} total • {unreadCount} unread
       </div>
 
-      {notifications.length === 0 ? (
-        <div className="no-notifications">
-          <div className="no-notifications-icon">
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" width="56" height="56">
-            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
-            <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
-          </svg>
-        </div>
-          <h3>No notifications</h3>
-          <p>You're all caught up! Check back later for updates.</p>
-        </div>
-      ) : (
-        <>
-          <div className="notifications-list">
-            {notifications.map((notification) => (
-              <NotificationItem
-                key={notification.id}
-                notification={notification}
-                onNotificationClick={handleNotificationClick}
-                onDeleteNotification={deleteNotification}
-                NotificationIcon={NotificationIcon}
-                formatTimeAgo={formatTimeAgo}
-              />
-            ))}
-          </div>
+      <NotificationList
+        notifications={notifications}
+        handleNotificationClick={handleNotificationClick}
+        deleteNotification={deleteNotification}
+        formatTimeAgo={formatTimeAgo}
+        loadingMore={loadingMore}
+        hasMore={hasMore}
+        loadMoreRef={loadMoreRef}
+        limit={limit}
+      />
 
-          {/* Load More Skeleton */}
-          {loadingMore && (
-            <div className="notifications-loading-more">
-              <div className="notification-skeleton-item">
-                <div className="skeleton-icon"></div>
-                <div className="skeleton-content">
-                  <div className="skeleton-line skeleton-line-title"></div>
-                  <div className="skeleton-line skeleton-line-message"></div>
-                </div>
-              </div>
-              <div className="notification-skeleton-item">
-                <div className="skeleton-icon"></div>
-                <div className="skeleton-content">
-                  <div className="skeleton-line skeleton-line-title"></div>
-                  <div className="skeleton-line skeleton-line-message"></div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Infinite Scroll Trigger */}
-          {hasMore && !loadingMore && (
-            <div ref={loadMoreRef} className="load-more-trigger" />
-          )}
-
-          {/* End of List Message */}
-          {!hasMore && notifications.length >= limit && (
-            <div className="end-of-list">
-              <p>You've reached the end of your notifications</p>
-            </div>
-          )}
-        </>
-      )}
-
-      {/* Delete All Confirmation Modal */}
-      {showDeleteAllModal && (
-        <ConfirmationModal
-          isOpen={showDeleteAllModal}
-          onClose={() => setShowDeleteAllModal(false)}
-          onConfirm={handleDeleteAll}
-          title="Delete All Notifications"
-          message="Are you sure you want to delete all notifications?"
-          confirmText="Delete All"
-          cancelText="Cancel"
-          variant="danger"
-          isLoading={isDeleting}
-          itemInfo={{
-            name: `${totalCount} notification${totalCount !== 1 ? 's' : ''}`,
-            details: `Including ${unreadCount} unread notification${unreadCount !== 1 ? 's' : ''}`
-          }}
-        >
-          <p className="warning-text">
-            This action cannot be undone. All notifications will be permanently removed from your account.
-          </p>
-        </ConfirmationModal>
-      )}
+      <NotificationModals
+        showDeleteAllModal={showDeleteAllModal}
+        setShowDeleteAllModal={setShowDeleteAllModal}
+        handleDeleteAll={handleDeleteAll}
+        isDeleting={isDeleting}
+        totalCount={totalCount}
+        unreadCount={unreadCount}
+      />
     </div>
   );
 };

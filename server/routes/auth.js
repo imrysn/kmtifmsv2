@@ -26,12 +26,7 @@ router.post('/login', validate(schemas.login), asyncHandler(async (req, res) => 
 
   let user;
   try {
-    user = await new Promise((resolve, reject) => {
-      db.get(query, [email], (err, row) => {
-        if (err) reject(err);
-        else resolve(row);
-      });
-    });
+    user = await db.get(query, [email]);
   } catch (dbErr) {
     // Provide a friendlier message for DB connectivity issues
     const msg = (dbErr.message || '').toLowerCase();
@@ -139,15 +134,7 @@ router.post('/forgot-password', validate(schemas.forgotPassword), asyncHandler(a
       ? 'SELECT id, username, fullName, email, role FROM users WHERE email = ?'
       : 'SELECT id, username, fullName, email, role FROM users WHERE username = ?';
 
-    const requestingUser = await new Promise((resolve, reject) => {
-      db.get(userQuery, [email], (err, row) => {
-        if (err) {
-          reject(err);
-        } else {
-          resolve(row);
-        }
-      });
-    });
+    const requestingUser = await db.get(userQuery, [email]);
 
     if (!requestingUser) {
       logInfo('Password reset - user not found', { email });
@@ -157,16 +144,8 @@ router.post('/forgot-password', validate(schemas.forgotPassword), asyncHandler(a
     logInfo('Password reset - user found', { userId: requestingUser.id, username: requestingUser.username });
 
     // Find all admin users to notify them
-    const adminQuery = 'SELECT id, username, role FROM users WHERE role LIKE ?';
-    const adminUsers = await new Promise((resolve, reject) => {
-      db.all(adminQuery, ['%ADMIN%'], (err, rows) => {
-        if (err) {
-          reject(err);
-        } else {
-          resolve(rows || []);
-        }
-      });
-    });
+    const adminQuery = 'SELECT id, username, role FROM users WHERE role = ?';
+    const adminUsers = await db.all(adminQuery, ['ADMIN']) || [];
 
     logInfo('Password reset - notifying admins', { adminCount: adminUsers.length });
 

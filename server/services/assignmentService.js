@@ -103,7 +103,7 @@ async function getAssignmentById(assignmentId, user) {
  * @returns {Promise<Array>} - Array of assignments
  */
 async function getTeamAssignments(team, options = {}) {
-    return await assignmentRepository.findByTeam(team, options);
+    return await assignmentRepository.findAllWithDetails({ ...options, team });
 }
 
 /**
@@ -112,7 +112,7 @@ async function getTeamAssignments(team, options = {}) {
  * @returns {Promise<Array>} - Array of assignments
  */
 async function getAllAssignments(options = {}) {
-    return await assignmentRepository.findAll(options);
+    return await assignmentRepository.findAllWithDetails(options);
 }
 
 /**

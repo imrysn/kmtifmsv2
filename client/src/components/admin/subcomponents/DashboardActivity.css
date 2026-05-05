@@ -1,0 +1,135 @@
+/* Dashboard Activity Styles */
+.section-card {
+  background: var(--background-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+}
+
+.activity-section {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.section-header {
+  margin-bottom: 1.5rem;
+}
+
+.section-header h3 {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+/* Recent Activity List */
+.activity-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  flex: 1;
+  justify-content: space-between;
+}
+
+.activity-item {
+  display: flex;
+  gap: 1rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--border-light);
+}
+
+.activity-item:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.activity-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.activity-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 4px;
+  flex-wrap: wrap;
+}
+
+.activity-user {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.activity-badge {
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.activity-badge.upload {
+  background: #DBEAFE;
+  color: #1E40AF;
+}
+
+.activity-badge.approved {
+  background: #D1FAE5;
+  color: #065F46;
+}
+
+.activity-badge.rejected {
+  background: #FEE2E2;
+  color: #991B1B;
+}
+
+.activity-description {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin-bottom: 4px;
+}
+
+.activity-meta {
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+
+.activity-loading,
+.activity-empty {
+  padding: 1rem;
+  color: var(--text-secondary);
+}
+
+/* Responsive Design for Activity */
+@media (max-width: 844px) {
+  .section-card {
+    padding: 1rem;
+  }
+  .section-header h3 {
+    font-size: 14px;
+  }
+  .activity-item {
+    padding-bottom: 0.75rem;
+  }
+  .activity-user {
+    font-size: 13px;
+  }
+  .activity-description {
+    font-size: 12px;
+  }
+  .activity-meta {
+    font-size: 11px;
+  }
+}
+
+@media (max-width: 480px) {
+  .section-card {
+    padding: 0.75rem;
+  }
+}

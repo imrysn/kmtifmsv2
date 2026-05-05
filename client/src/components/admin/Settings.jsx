@@ -1,38 +1,16 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { API_BASE_URL } from '@/config/api'
 import './Settings.css'
-import { AlertMessage, ConfirmationModal } from './modals'
-import { SkeletonLoader } from '../common/SkeletonLoader'
-import MultiSelectDropdown from '../common/MultiSelectDropdown'
+import { AlertMessage } from './modals'
 import { useAuth, useNetwork } from '../../contexts'
 import { withErrorBoundary } from '../common'
 
-const Settings = ({ clearMessages, error, success, setError, setSuccess, users, user }) => {
-  const { user: authUser } = useAuth()
-  const { isConnected } = useNetwork()
+// Sub-components
+import SystemInfo from './subcomponents/SystemInfo'
 
-  const [isLoading, setIsLoading] = useState(false)
-  const [teams, setTeams] = useState([])
-  const [teamsLoading, setTeamsLoading] = useState(false)
+const Settings = ({ clearMessages, error, success, setError, setSuccess, user }) => {
+  const { isConnected } = useNetwork()
   const [appVersion, setAppVersion] = useState('Loading...')
-  const [newTeam, setNewTeam] = useState({
-    name: '',
-    leaderIds: []
-  })
-  const [editingTeam, setEditingTeam] = useState(null)
-  const [deleteModal, setDeleteModal] = useState({ isOpen: false, teamId: null, teamName: '' })
-  const [settings, setSettings] = useState({
-    fileManagement: {
-      rootDirectory: ''
-    },
-    general: {
-      timezone: 'UTC',
-      dateFormat: 'ISO',
-      language: 'en-US'
-    }
-  })
-  const [isLoadingSettings, setIsLoadingSettings] = useState(true)
-  // Update state management
   const [updateStatus, setUpdateStatus] = useState({
     state: 'idle', // idle, checking, available, downloading, downloaded, error, up-to-date
     info: null
@@ -42,48 +20,24 @@ const Settings = ({ clearMessages, error, success, setError, setSuccess, users, 
     // Listen for updater events
     if (window.updater) {
       const unsubscribe = window.updater.onStatus((data) => {
-        console.log('Update status received:', data);
-
         switch (data.status) {
-          case 'checking':
-            setUpdateStatus(prev => ({ ...prev, state: 'checking' }));
-            break;
-          case 'available':
-            setUpdateStatus({ state: 'available', info: data });
-            break;
-          case 'not-available':
-            setUpdateStatus({ state: 'up-to-date', info: null });
-            // Reset to idle after 3 seconds
-            setTimeout(() => setUpdateStatus({ state: 'idle', info: null }), 3000);
-            break;
-          case 'downloading':
-            setUpdateStatus({
-              state: 'downloading',
-              info: data
-            });
-            break;
-          case 'downloaded':
-            setUpdateStatus({
-              state: 'downloaded',
-              info: data
-            });
-            break;
-          case 'error':
-            setUpdateStatus({ state: 'error', info: data });
-            setTimeout(() => setUpdateStatus({ state: 'idle', info: null }), 5000);
-            break;
-          default:
-            break;
+          case 'checking': setUpdateStatus(prev => ({ ...prev, state: 'checking' })); break;
+          case 'available': setUpdateStatus({ state: 'available', info: data }); break;
+          case 'not-available': setUpdateStatus({ state: 'up-to-date', info: null }); 
+            setTimeout(() => setUpdateStatus({ state: 'idle', info: null }), 3000); break;
+          case 'downloading': setUpdateStatus({ state: 'downloading', info: data }); break;
+          case 'downloaded': setUpdateStatus({ state: 'downloaded', info: data }); break;
+          case 'error': setUpdateStatus({ state: 'error', info: data });
+            setTimeout(() => setUpdateStatus({ state: 'idle', info: null }), 5000); break;
+          default: break;
         }
       });
-
       return () => unsubscribe();
     }
   }, []);
 
   const handleUpdateClick = () => {
     if (!window.updater) return;
-
     if (updateStatus.state === 'downloaded') {
       window.updater.restartAndInstall();
     } else {
@@ -95,15 +49,12 @@ const Settings = ({ clearMessages, error, success, setError, setSuccess, users, 
   const getUpdateButtonText = () => {
     switch (updateStatus.state) {
       case 'checking': return 'Checking...';
-      case 'available': return 'Downloading...'; // Auto-download is on
-      case 'downloading':
-        return updateStatus.info?.percent
-          ? `Downloading (${updateStatus.info.percent}%)`
-          : 'Downloading...';
+      case 'available': return 'Downloading...';
+      case 'downloading': return updateStatus.info?.percent ? `Downloading (${updateStatus.info.percent}%)` : 'Downloading...';
       case 'downloaded': return 'Restart & Install';
       case 'up-to-date': return 'Up to Date';
       case 'error': return 'Error (Retry)';
-      default: return 'Check for Updates'; // idle
+      default: return 'Check for Updates';
     }
   };
 
@@ -115,550 +66,45 @@ const Settings = ({ clearMessages, error, success, setError, setSuccess, users, 
   useEffect(() => {
     const fetchAppVersion = async () => {
       try {
-        if (window.updater && window.updater.getVersion) {
+        if (window.updater?.getVersion) {
           const version = await window.updater.getVersion()
           setAppVersion(`v${version}`)
         } else {
-          // Fallback: try to get from package.json via API
           const response = await fetch(`${API_BASE_URL}/api/version`)
           const data = await response.json()
-          if (data.success && data.version) {
-            setAppVersion(`v${data.version}`)
-          } else {
-            setAppVersion('Unknown')
-          }
+          if (data.success && data.version) setAppVersion(`v${data.version}`)
+          else setAppVersion('Unknown')
         }
       } catch (error) {
-        console.error('Failed to fetch app version:', error)
         setAppVersion('Unknown')
       }
     }
-
     fetchAppVersion()
   }, [])
 
-  const handleSettingsChange = (category, field, value) => {
-    setSettings(prev => ({
-      ...prev,
-      [category]: {
-        ...prev[category],
-        [field]: value
-      }
-    }))
-  }
-
-  const fetchSettings = async () => {
-    setIsLoadingSettings(true)
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/settings/root_directory`)
-      const data = await response.json()
-      if (data.success && data.setting) {
-        setSettings(prev => ({
-          ...prev,
-          fileManagement: {
-            ...prev.fileManagement,
-            rootDirectory: data.setting.value || '/home/admin/files'
-          }
-        }))
-      }
-    } catch (error) {
-      console.error('Failed to fetch settings:', error)
-      setError('Failed to load settings')
-    } finally {
-      setIsLoadingSettings(false)
-    }
-  }
-
-  const handleBrowseDirectory = async () => {
-    clearMessages()
-    try {
-      // Check if running in Electron
-      console.log('Browse button clicked');
-      console.log('window.electron available:', !!window.electron);
-      console.log('window.electron.openDirectoryDialog available:', !!(window.electron && window.electron.openDirectoryDialog));
-
-      if (window.electron && window.electron.openDirectoryDialog) {
-        console.log('Opening Electron directory dialog...');
-        const result = await window.electron.openDirectoryDialog()
-        console.log('Dialog result:', result);
-
-        if (!result.canceled && result.filePaths && result.filePaths.length > 0) {
-          const selectedPath = result.filePaths[0]
-          console.log('Selected path:', selectedPath);
-          setSettings(prev => ({
-            ...prev,
-            fileManagement: {
-              ...prev.fileManagement,
-              rootDirectory: selectedPath
-            }
-          }))
-          setSuccess(`Selected directory: ${selectedPath}`)
-        } else {
-          console.log('Dialog was canceled');
-        }
-      } else {
-        console.warn('Electron API not available');
-        setError('Folder browser is only available in the desktop application. Please enter the path manually or run the Electron app.')
-      }
-    } catch (error) {
-      console.error('Error browsing directory:', error)
-      setError('Failed to open directory browser: ' + error.message)
-    }
-  }
-
-  const handleSaveFileManagementSettings = async () => {
-    if (!settings.fileManagement.rootDirectory.trim()) {
-      setError('Root directory path is required')
-      return
-    }
-
-    setIsLoading(true)
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/settings/root_directory`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          value: settings.fileManagement.rootDirectory,
-          updated_by: user?.username || 'admin'
-        })
-      })
-      const data = await response.json()
-      if (data.success) {
-        setSuccess('New directory settings saved successfully')
-      } else {
-        setError(data.message || 'Failed to save file directory settings')
-      }
-    } catch (error) {
-      console.error('Error saving settings:', error)
-      setError('Failed to save file directory settings')
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
-  const handleSaveSettings = async () => {
-    setIsLoading(true)
-    try {
-      await new Promise(resolve => setTimeout(resolve, 1000))
-      setSuccess('Settings saved successfully')
-    } catch (error) {
-      setError('Failed to save settings')
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
-  // Network check removed - using NetworkContext
-
-  useEffect(() => {
-    if (isConnected) {
-      fetchTeams()
-      fetchSettings()
-    }
-  }, [isConnected])
-
-  const fetchTeams = async () => {
-    setTeamsLoading(true)
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/teams`)
-      const data = await response.json()
-      if (data.success) {
-        setTeams(data.teams || [])
-      } else {
-        setError('Failed to fetch teams')
-      }
-    } catch (error) {
-      setError('Failed to fetch teams')
-    } finally {
-      setTeamsLoading(false)
-    }
-  }
-
-  const handleCreateTeam = async () => {
-    if (!newTeam.name.trim()) {
-      setError('Team name is required')
-      return
-    }
-
-    setIsLoading(true)
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/teams`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: newTeam.name,
-          leaderIds: newTeam.leaderIds
-        })
-      })
-      const data = await response.json()
-      if (data.success) {
-        setSuccess('Team created successfully')
-        setNewTeam({ name: '', leaderIds: [] })
-        fetchTeams()
-      } else {
-        setError(data.message || 'Failed to create team')
-      }
-    } catch (error) {
-      setError('Failed to create team')
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
-  const handleUpdateTeam = async () => {
-    if (!editingTeam || !editingTeam.name.trim()) {
-      setError('Team name is required')
-      return
-    }
-
-    setIsLoading(true)
-    try {
-      const payload = {
-        name: editingTeam.name,
-        leaderIds: editingTeam.leaderIds || [],
-        isActive: editingTeam.is_active
-      }
-      console.log('🟡 UPDATE TEAM - Sending payload:', payload)
-      console.log('🟡 UPDATE TEAM - editingTeam state:', editingTeam)
-
-      const response = await fetch(`${API_BASE_URL}/api/teams/${editingTeam.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      })
-      const data = await response.json()
-      console.log('🟡 UPDATE TEAM - Response:', data)
-      if (data.success) {
-        setSuccess('Team updated successfully')
-        setEditingTeam(null)
-        fetchTeams()
-      } else {
-        setError(data.message || 'Failed to update team')
-      }
-    } catch (error) {
-      setError('Failed to update team')
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
-  const handleDeleteTeam = (teamId, teamName) => {
-    setDeleteModal({ isOpen: true, teamId, teamName })
-  }
-
-  const handleConfirmDelete = async () => {
-    const { teamId, teamName } = deleteModal
-
-    setIsLoading(true)
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/teams/${teamId}`, { method: 'DELETE' })
-      const data = await response.json()
-      if (data.success) {
-        setSuccess(`Team '${teamName}' deleted successfully`)
-        fetchTeams()
-      } else {
-        setError(data.message || 'Failed to delete team')
-      }
-    } catch (error) {
-      setError('Failed to delete team')
-    } finally {
-      setIsLoading(false)
-      setDeleteModal({ isOpen: false, teamId: null, teamName: '' })
-    }
-  }
-
-  const closeDeleteModal = () => {
-    setDeleteModal({ isOpen: false, teamId: null, teamName: '' })
-  }
-
-  const startEditingTeam = (team) => {
-    // Convert leaders array to leaderIds array for editing
-    const leaderIds = team.leaders ? team.leaders.map(l => l.user_id) : []
-    setEditingTeam({ ...team, leaderIds })
-  }
-  const cancelEditingTeam = () => setEditingTeam(null)
-
-  const getTeamLeaderOptions = () => {
-    return users?.filter(user => user.role === 'TEAM LEADER' || user.role === 'ADMIN') || []
-  }
-
-  // Show skeleton loader when network is not available
-  if (!isConnected) {
-    return <SkeletonLoader type="admin" />
-  }
-
   return (
-    <div className={`settings-section ${isLoading ? 'loading-cursor' : ''}`}>
+    <div className="settings-section">
+      {error && <AlertMessage type="error" message={error} onClose={clearMessages} />}
+      {success && <AlertMessage type="success" message={success} onClose={clearMessages} />}
 
-      {error && (
-        <AlertMessage
-          type="error"
-          message={error}
-          onClose={clearMessages}
-        />
-      )}
-
-      {success && (
-        <AlertMessage
-          type="success"
-          message={success}
-          onClose={clearMessages}
-        />
-      )}
-
-      <div className="settings-grid">
-
-        <div className="settings-card">
-          <div className="settings-card-header">
-            <h3>File Management</h3>
-          </div>
-          <div className="settings-card-body">
-            <div className="form-group">
-              <label>Root Directory Path</label>
-              <div className="input-with-button">
-                <input
-                  type="text"
-                  value={settings.fileManagement.rootDirectory}
-                  onChange={(e) => handleSettingsChange('fileManagement', 'rootDirectory', e.target.value)}
-                  placeholder="/home/admin/files"
-                  className="form-input"
-                  disabled={isLoadingSettings}
-                />
-                <button
-                  className="btn btn-secondary"
-                  onClick={handleBrowseDirectory}
-                  disabled={isLoading || isLoadingSettings}
-                  title="Browse for folder (Desktop app only)"
-                >
-                  Browse
-                </button>
-                <button
-                  className="btn btn-primary"
-                  onClick={handleSaveFileManagementSettings}
-                  disabled={isLoading || isLoadingSettings}
-                >
-                  {isLoading ? 'Saving...' : 'Save'}
-                </button>
-              </div>
-              <p className="help-text">Base directory for files</p>
-            </div>
-          </div>
+      <div className="admin-header">
+        <div className="header-title">
+          <h1>System Settings</h1>
+          <p className="header-subtitle">Manage application configuration and updates</p>
         </div>
-
-        <div className="settings-card team-management-card">
-          <div className="settings-card-header">
-            <h3>Team Management</h3>
-          </div>
-          <div className="settings-card-body">
-            <div className="team-section">
-              <h4>Create New Team</h4>
-              <div className="team-form">
-                <div className="form-group">
-                  <label>Team Name</label>
-                  <input
-                    type="text"
-                    value={newTeam.name}
-                    onChange={(e) => setNewTeam(prev => ({ ...prev, name: e.target.value }))}
-                    placeholder="Enter team name"
-                    className="form-input"
-                  />
-                </div>
-                <div className="form-group">
-                  <label>Team Leaders</label>
-                  <MultiSelectDropdown
-                    options={getTeamLeaderOptions().map(user => ({
-                      id: user.id,
-                      name: `${user.fullName} (${user.username})`
-                    }))}
-                    selectedIds={newTeam.leaderIds}
-                    onChange={(selectedIds) => setNewTeam(prev => ({ ...prev, leaderIds: selectedIds }))}
-                    placeholder="Select team leaders"
-                    displayKey="name"
-                    valueKey="id"
-                  />
-                  {newTeam.leaderIds.length > 0 && (
-                    <p className="help-text">{newTeam.leaderIds.length} leader(s) selected</p>
-                  )}
-                </div>
-                <button
-                  className="btn btn-primary"
-                  id='create-team-btn'
-                  onClick={handleCreateTeam}
-                  disabled={isLoading || !newTeam.name.trim()}
-                >
-                  {isLoading ? 'Creating...' : 'Create Team'}
-                </button>
-              </div>
-            </div>
-
-            <div className="team-section">
-              <h4>Existing Teams ({teams.length})</h4>
-              {teamsLoading ? (
-                <div className="loading-state">Loading teams...</div>
-              ) : teams.length === 0 ? (
-                <div className="empty-state">No teams found</div>
-              ) : (
-                <div className="table-container">
-                  <table className="teams-table">
-                    <thead>
-                      <tr>
-                        <th>Team Name</th>
-                        <th>Leader</th>
-                        <th>Status</th>
-                        <th>Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {teams.map(team => (
-                        <tr key={team.id}>
-                          {editingTeam && editingTeam.id === team.id ? (
-                            <>
-                              <td>
-                                <input
-                                  type="text"
-                                  value={editingTeam.name}
-                                  onChange={(e) => setEditingTeam(prev => ({ ...prev, name: e.target.value }))}
-                                  className="form-input"
-                                />
-                              </td>
-                              <td>
-                                <MultiSelectDropdown
-                                  options={getTeamLeaderOptions().map(user => ({
-                                    id: user.id,
-                                    name: user.username
-                                  }))}
-                                  selectedIds={editingTeam.leaderIds || []}
-                                  onChange={(selectedIds) => setEditingTeam(prev => ({ ...prev, leaderIds: selectedIds }))}
-                                  placeholder="Select leaders"
-                                  displayKey="name"
-                                  valueKey="id"
-                                />
-                              </td>
-                              <td>
-                                <select
-                                  value={editingTeam.is_active}
-                                  onChange={(e) => setEditingTeam(prev => ({ ...prev, is_active: e.target.value === 'true' }))}
-                                  className="form-select"
-                                >
-                                  <option value="true">Active</option>
-                                  <option value="false">Inactive</option>
-                                </select>
-                              </td>
-                              <td>
-                                <div className="team-actions">
-                                  <button
-                                    className="btn btn-primary btn-sm"
-                                    onClick={handleUpdateTeam}
-                                    disabled={isLoading}
-                                  >
-                                    {isLoading ? 'Saving...' : 'Save'}
-                                  </button>
-                                  <button
-                                    className="btn btn-secondary btn-sm"
-                                    onClick={cancelEditingTeam}
-                                  >
-                                    Cancel
-                                  </button>
-                                </div>
-                              </td>
-                            </>
-                          ) : (
-                            <>
-                              <td>{team.name}</td>
-                              <td>
-                                {team.leaders && team.leaders.length > 0
-                                  ? team.leaders.map(l => l.username).join(', ')
-                                  : 'No leader assigned'}
-                              </td>
-                              <td>
-                                <span className={`status ${team.is_active ? 'active' : 'inactive'}`}>
-                                  {team.is_active ? 'Active' : 'Inactive'}
-                                </span>
-                              </td>
-                              <td>
-                                <div className="team-actions">
-                                  <button
-                                    className="btn btn-secondary btn-sm"
-                                    onClick={() => startEditingTeam(team)}
-                                  >
-                                    Edit
-                                  </button>
-                                  <button
-                                    className="btn btn-danger btn-sm"
-                                    onClick={() => handleDeleteTeam(team.id, team.name)}
-                                  >
-                                    Delete
-                                  </button>
-                                </div>
-                              </td>
-                            </>
-                          )}
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-
-        <div className="settings-card">
-          <div className="settings-card-header">
-            <h3>System Information</h3>
-          </div>
-          <div className="settings-card-body">
-            <div className="system-info">
-              <div className="info-row">
-                <span className="info-label">Application Version:</span>
-                <div className="version-info">
-                  <span className="info-value">{appVersion}</span>
-                  <div className="version-actions">
-                    <button
-                      className={`btn btn-sm ${updateStatus.state === 'downloaded' ? 'btn-success' : 'btn-primary'}`}
-                      onClick={handleUpdateClick}
-                      disabled={isUpdateActionDisabled()}
-                      title={updateStatus.state === 'downloaded' ? 'Click to restart and install update' : 'Check for automatic updates'}
-                    >
-                      {getUpdateButtonText()}
-                    </button>
-                  </div>
-                </div>
-              </div>
-              <div className="info-row">
-                <span className="info-label">Database Version:</span>
-                <span className="info-value">MySQL</span>
-              </div>
-            </div>
-          </div>
-        </div>
-
       </div>
 
-      <ConfirmationModal
-        isOpen={deleteModal.isOpen}
-        onClose={closeDeleteModal}
-        onConfirm={handleConfirmDelete}
-        title="Delete Team"
-        message="Are you sure you want to delete this team?"
-        confirmText="Delete Team"
-        variant="danger"
-        isLoading={isLoading}
-        itemInfo={deleteModal.teamName ? {
-          name: deleteModal.teamName,
-          details: "All team members will be unassigned"
-        } : null}
-      >
-        <p className="warning-text">
-          This action cannot be undone. The team will be permanently removed from the system.
-        </p>
-      </ConfirmationModal>
-
-
-    </div >
+      <div className="settings-grid">
+        <SystemInfo
+          appVersion={appVersion}
+          updateStatus={updateStatus}
+          handleUpdateClick={handleUpdateClick}
+          isUpdateActionDisabled={isUpdateActionDisabled}
+          getUpdateButtonText={getUpdateButtonText}
+        />
+      </div>
+    </div>
   )
 }
 
-export default withErrorBoundary(Settings, {
-  componentName: 'Settings'
-})
+export default withErrorBoundary(Settings, { componentName: 'Settings' })

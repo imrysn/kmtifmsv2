@@ -52,7 +52,6 @@ const authRoutes = require('./routes/auth');
 const usersRoutes = require('./routes/users');
 const teamsRoutes = require('./routes/teams');
 const activityLogsRoutes = require('./routes/activityLogs');
-const fileSystemRoutes = require('./routes/fileSystem');
 const filesRoutes = require('./routes/files');
 const dashboardRoutes = require('./routes/dashboard');
 const settingsRoutes = require('./routes/settings');
@@ -64,11 +63,35 @@ const customTagsRoutes = require('./routes/customTags');
 const app = express();
 const PORT = process.env.SERVER_PORT || 3001;
 
+// DB readiness flag — declared here so /api/health can read it safely on first request
+let _dbReady = false;
+
+
 // Setup middleware
 setupMiddleware(app);
 
 // Add request logging
 app.use(logRequest);
+
+// ============================================================================
+// API AUTHENTICATION GUARD
+// ============================================================================
+const APP_TOKEN = process.env.APP_TOKEN || 'kmti-fms-local-token';
+app.use((req, res, next) => {
+  // Allow public paths (health, version, assets)
+  const publicPaths = ['/api/health', '/api/version'];
+  if (publicPaths.includes(req.path) || !req.path.startsWith('/api/')) {
+    return next();
+  }
+
+  const token = req.headers['x-app-token'];
+  if (!token || token !== APP_TOKEN) {
+    logError(new Error('Forbidden: Invalid App Token'), { path: req.path, ip: req.ip });
+    return res.status(403).json({ success: false, message: 'Forbidden: Invalid App Token' });
+  }
+
+  next();
+});
 
 // Apply general API rate limiting to all /api routes
 app.use('/api/', apiLimiter);
@@ -120,7 +143,7 @@ app.use('/api/users', usersRoutes);
 app.use('/api/team-members', usersRoutes); // Alias for team members endpoint
 app.use('/api/teams', teamsRoutes);
 app.use('/api/activity-logs', activityLogsRoutes);
-app.use('/api/file-system', fileSystemRoutes);
+
 // File routes with upload rate limiting
 app.use('/api/files', uploadLimiter, filesRoutes);
 app.use('/api/dashboard', dashboardRoutes);
@@ -260,7 +283,8 @@ async function freePort(port) {
 }
 
 // ── DB initialisation with background retry ────────────────────────────────
-let _dbReady = false;
+// _dbReady is declared at line 65 (before Express app setup)
+
 
 async function initDbWithRetry(attempt = 1) {
   try {

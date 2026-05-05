@@ -1,11 +1,15 @@
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import { API_BASE_URL } from '@/config/api'
 import './UserManagement.css'
-import { AlertMessage, ConfirmationModal, FormModal } from './modals'
 import { SkeletonLoader } from '../common/SkeletonLoader'
 import { useAuth, useNetwork } from '../../contexts'
 import { usePagination } from '../../hooks'
 import { withErrorBoundary } from '../common'
+
+// Sub-components
+import UserFilters from './subcomponents/UserFilters'
+import UserTable from './subcomponents/UserTable'
+import UserModals from './subcomponents/UserModals'
 
 const UserManagement = ({ clearMessages, error, success, setError, setSuccess, user, contextData }) => {
   const { user: authUser } = useAuth()
@@ -109,13 +113,19 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess, u
     }
   }, [])
 
-  // Network check removed - using NetworkContext
-
   // Fetch users and teams ONCE on mount
   useEffect(() => {
     fetchUsers()
     fetchTeams()
   }, [fetchUsers, fetchTeams])
+
+  const openPasswordModal = useCallback((user) => {
+    setError('')
+    setSuccess('')
+    setSelectedUser(user)
+    setFormData(prev => ({ ...prev, password: '' }))
+    setShowPasswordModal(true)
+  }, [setError, setSuccess])
 
   // Handle context data from notifications (e.g., password reset request)
   useEffect(() => {
@@ -145,7 +155,7 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess, u
         setError('User not found. They may have been deleted.');
       }
     }
-  }, [contextData, users, setSuccess, setError]);
+  }, [contextData, users, setSuccess, setError, openPasswordModal]);
 
   const handleAddUser = useCallback(async (e) => {
     e.preventDefault()
@@ -307,14 +317,6 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess, u
     setShowEditModal(true)
   }, [setError, setSuccess])
 
-  const openPasswordModal = useCallback((user) => {
-    setError('')
-    setSuccess('')
-    setSelectedUser(user)
-    setFormData(prev => ({ ...prev, password: '' }))
-    setShowPasswordModal(true)
-  }, [setError, setSuccess])
-
   const openUserDeleteModal = useCallback((user) => {
     setUserToDelete(user)
     setShowUserDeleteModal(true)
@@ -351,406 +353,52 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess, u
 
   return (
     <div className={`users-management ${isLoading ? 'loading-cursor' : ''}`}>
+      <UserFilters
+        searchQuery={searchQuery}
+        handleSearchChange={handleSearchChange}
+        openAddModal={openAddModal}
+      />
 
-      {/* Action Bar */}
-      <div className="action-bar">
-        <div className="search-section">
-          <div className="search-container">
-            <input
-              type="text"
-              placeholder="Search users by name, email, role, or team..."
-              value={searchQuery}
-              onChange={handleSearchChange}
-              className="search-input"
-            />
-          </div>
-        </div>
+      <UserTable
+        paginatedUsers={paginatedUsers}
+        isLoading={isLoading}
+        filteredUsers={filteredUsers}
+        startIndex={startIndex}
+        endIndex={endIndex}
+        currentPage={currentPage}
+        totalPages={totalPages}
+        prevPage={prevPage}
+        nextPage={nextPage}
+        goToPage={goToPage}
+        openPasswordModal={openPasswordModal}
+        openEditModal={openEditModal}
+        openUserDeleteModal={openUserDeleteModal}
+      />
 
-        <div className="action-buttons">
-          <button
-            className="btn btn-primary"
-            onClick={openAddModal}
-          >
-            Add User
-          </button>
-        </div>
-      </div>
-
-      {/* Messages */}
-      {error && (
-        <AlertMessage
-          type="error"
-          message={error}
-          onClose={clearMessages}
-        />
-      )}
-
-      {success && (
-        <AlertMessage
-          type="success"
-          message={success}
-          onClose={clearMessages}
-        />
-      )}
-
-      {/* Users Table */}
-      <div className="table-section">
-        {isLoading ? (
-          <div className="loading-state">
-            <div className="spinner"></div>
-            <p>Loading users...</p>
-          </div>
-        ) : (
-          <div className="users-table-container">
-            <table className="users-table">
-              <thead>
-                <tr>
-                  <th>User</th>
-                  <th>Username</th>
-                  <th>Email</th>
-                  <th>Password</th>
-                  <th>Role</th>
-                  <th>Team</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {paginatedUsers.map((userData) => {
-                  const roleClass = userData.role.toLowerCase().replace(' ', '-')
-                  return (
-                    <tr key={userData.id} className="user-row" data-user-id={userData.id}>
-                      <td>
-                        <div className="user-cell">
-                          <span className="user-name">
-                            {userData.fullName}
-                          </span>
-                        </div>
-                      </td>
-                      <td>{userData.username}</td>
-                      <td className="email-cell">{userData.email}</td>
-                      <td>
-                        <div className="password-cell">
-                          <span className="password-hidden">••••••••</span>
-                          <button
-                            className="password-reset-btn"
-                            onClick={() => openPasswordModal(userData)}
-                            title="Reset Password"
-                          >
-                            Reset
-                          </button>
-                        </div>
-                      </td>
-                      <td>
-                        <span className={`role-badge ${roleClass}`}>
-                          {userData.role}
-                        </span>
-                      </td>
-                      <td>
-                        <span className="team-badge">
-                          {userData.team || '—'}
-                        </span>
-                      </td>
-                      <td>
-                        <div className="action-buttons">
-                          <button
-                            className="action-btn edit-btn"
-                            onClick={() => openEditModal(userData)}
-                            title="Edit User"
-                          >
-                            Edit
-                          </button>
-                          <button
-                            className="action-btn delete-btn"
-                            onClick={() => openUserDeleteModal(userData)}
-                            title="Delete User"
-                          >
-                            Delete
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
-
-        {!isLoading && filteredUsers.length === 0 && (
-          <div className="empty-state">
-            <h3>No users found</h3>
-            <p>No users match your current search criteria.</p>
-          </div>
-        )}
-
-        {/* Pagination Controls */}
-        {!isLoading && totalPages > 1 && (
-          <div className="pagination-container">
-            <div className="pagination-info">
-              Showing {startIndex + 1} to {endIndex} of {filteredUsers.length} users
-            </div>
-            <div className="pagination-controls">
-              <button
-                className="pagination-btn"
-                onClick={prevPage}
-                disabled={currentPage === 1}
-                title="Previous Page"
-              >
-                ‹
-              </button>
-
-              <div className="pagination-numbers">
-                {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                  let pageNum
-                  if (totalPages <= 5) {
-                    pageNum = i + 1
-                  } else if (currentPage <= 3) {
-                    pageNum = i + 1
-                  } else if (currentPage >= totalPages - 2) {
-                    pageNum = totalPages - 4 + i
-                  } else {
-                    pageNum = currentPage - 2 + i
-                  }
-
-                  return (
-                    <button
-                      key={pageNum}
-                      className={`pagination-number ${currentPage === pageNum ? 'active' : ''}`}
-                      onClick={() => goToPage(pageNum)}
-                    >
-                      {pageNum}
-                    </button>
-                  )
-                })}
-              </div>
-
-              <button
-                className="pagination-btn"
-                onClick={nextPage}
-                disabled={currentPage === totalPages}
-                title="Next Page"
-              >
-                ›
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Add User Modal */}
-      {showAddModal && (
-        <FormModal
-          isOpen={showAddModal}
-          onClose={() => setShowAddModal(false)}
-          onSubmit={handleAddUser}
-          title="Add New User"
-          submitText="Create User"
-          isLoading={isLoading}
-          size="medium"
-        >
-          <div className="form-grid">
-            <div className="form-group">
-              <label>Full Name *</label>
-              <input
-                type="text"
-                value={formData.fullName}
-                onChange={e => handleFormChange('fullName', e.target.value)}
-                required
-                className="form-input"
-              />
-            </div>
-            <div className="form-group">
-              <label>Username *</label>
-              <input
-                type="text"
-                value={formData.username}
-                onChange={e => handleFormChange('username', e.target.value)}
-                required
-                className="form-input"
-              />
-            </div>
-            <div className="form-group">
-              <label>Email *</label>
-              <input
-                type="email"
-                value={formData.email}
-                onChange={e => handleFormChange('email', e.target.value)}
-                required
-                className="form-input"
-              />
-            </div>
-            <div className="form-group">
-              <label>Password *</label>
-              <input
-                type="password"
-                value={formData.password}
-                onChange={e => handleFormChange('password', e.target.value)}
-                required
-                minLength="6"
-                className="form-input"
-              />
-            </div>
-            <div className="form-group">
-              <label>Role *</label>
-              <select
-                value={formData.role}
-                onChange={e => handleFormChange('role', e.target.value)}
-                className="form-select"
-              >
-                <option value="USER">User</option>
-                <option value="TEAM LEADER">Team Leader</option>
-                <option value="ADMIN">Admin</option>
-              </select>
-            </div>
-            <div className="form-group">
-              <label>Team</label>
-              <select
-                value={formData.team}
-                onChange={e => handleFormChange('team', e.target.value)}
-                className="form-select"
-                disabled={teamsLoading}
-              >
-                <option value="">Select Team</option>
-                {activeTeams.map(team => (
-                  <option key={team.id} value={team.name}>
-                    {team.name}
-                    {team.leader_username && ` (Led by ${team.leader_username})`}
-                  </option>
-                ))}
-              </select>
-              {teamsLoading && <p className="help-text">Loading teams...</p>}
-            </div>
-          </div>
-        </FormModal>
-      )}
-
-      {/* Edit User Modal */}
-      {showEditModal && selectedUser && (
-        <FormModal
-          isOpen={showEditModal}
-          onClose={() => setShowEditModal(false)}
-          onSubmit={handleEditUser}
-          title="Edit User"
-          submitText="Update User"
-          isLoading={isLoading}
-          size="medium"
-        >
-          <div className="form-grid">
-            <div className="form-group">
-              <label>Full Name *</label>
-              <input
-                type="text"
-                value={formData.fullName}
-                onChange={e => handleFormChange('fullName', e.target.value)}
-                required
-                className="form-input"
-              />
-            </div>
-            <div className="form-group">
-              <label>Username *</label>
-              <input
-                type="text"
-                value={formData.username}
-                onChange={e => handleFormChange('username', e.target.value)}
-                required
-                className="form-input"
-              />
-            </div>
-            <div className="form-group">
-              <label>Email *</label>
-              <input
-                type="email"
-                value={formData.email}
-                onChange={e => handleFormChange('email', e.target.value)}
-                required
-                className="form-input"
-              />
-            </div>
-            <div className="form-group">
-              <label>Role *</label>
-              <select
-                value={formData.role}
-                onChange={e => handleFormChange('role', e.target.value)}
-                className="form-select"
-              >
-                <option value="USER">User</option>
-                <option value="TEAM LEADER">Team Leader</option>
-                <option value="ADMIN">Admin</option>
-              </select>
-            </div>
-            <div className="form-group">
-              <label>Team</label>
-              <select
-                value={formData.team}
-                onChange={e => handleFormChange('team', e.target.value)}
-                className="form-select"
-                disabled={teamsLoading}
-              >
-                <option value="">Select Team</option>
-                {activeTeams.map(team => (
-                  <option key={team.id} value={team.name}>
-                    {team.name}
-                    {team.leader_username && ` (Led by ${team.leader_username})`}
-                  </option>
-                ))}
-              </select>
-              {teamsLoading && <p className="help-text">Loading teams...</p>}
-            </div>
-          </div>
-        </FormModal>
-      )}
-
-      {/* Reset Password Modal */}
-      {showPasswordModal && selectedUser && (
-        <FormModal
-          isOpen={showPasswordModal}
-          onClose={() => setShowPasswordModal(false)}
-          onSubmit={handleResetPassword}
-          title="Reset Password"
-          submitText="Reset Password"
-          isLoading={isLoading}
-          size="small"
-        >
-          <div className="form-group">
-            <label>User: <strong>{selectedUser.fullName} ({selectedUser.username})</strong></label>
-          </div>
-          <div className="form-group">
-            <label>New Password *</label>
-            <input
-              type="password"
-              value={formData.password}
-              onChange={e => handleFormChange('password', e.target.value)}
-              required
-              minLength="6"
-              placeholder="Enter new password"
-              className="form-input"
-            />
-          </div>
-        </FormModal>
-      )}
-
-      {/* User Delete Confirmation Modal */}
-      {showUserDeleteModal && userToDelete && (
-        <ConfirmationModal
-          isOpen={showUserDeleteModal}
-          onClose={() => setShowUserDeleteModal(false)}
-          onConfirm={handleDeleteUser}
-          title="Delete User"
-          message="Are you sure you want to delete this user?"
-          confirmText="Delete User"
-          variant="danger"
-          isLoading={isLoading}
-          itemInfo={{
-            name: userToDelete.fullName,
-            details: `${userToDelete.email} • ${userToDelete.role}`
-          }}
-        >
-          <p className="warning-text">
-            This action cannot be undone. The user account and all associated data will be permanently removed from the system.
-          </p>
-        </ConfirmationModal>
-      )}
-
+      <UserModals
+        error={error}
+        success={success}
+        clearMessages={clearMessages}
+        showAddModal={showAddModal}
+        setShowAddModal={setShowAddModal}
+        handleAddUser={handleAddUser}
+        formData={formData}
+        handleFormChange={handleFormChange}
+        isLoading={isLoading}
+        activeTeams={activeTeams}
+        teamsLoading={teamsLoading}
+        showEditModal={showEditModal}
+        setShowEditModal={setShowEditModal}
+        handleEditUser={handleEditUser}
+        selectedUser={selectedUser}
+        showPasswordModal={showPasswordModal}
+        setShowPasswordModal={setShowPasswordModal}
+        handleResetPassword={handleResetPassword}
+        showUserDeleteModal={showUserDeleteModal}
+        setShowUserDeleteModal={setShowUserDeleteModal}
+        handleDeleteUser={handleDeleteUser}
+        userToDelete={userToDelete}
+      />
     </div>
   )
 }
