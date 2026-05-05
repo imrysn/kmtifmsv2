@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef, memo, useCallback } from 'react'
-import { API_BASE_URL } from '@/config/api'
+import { apiFetch } from '@/config/api'
 import './ActivityLogs.css'
 import { ConfirmationModal, AlertMessage } from './modals'
 import { SkeletonLoader } from '../common/SkeletonLoader'
@@ -127,9 +127,7 @@ const ActivityLogs = ({ clearMessages, error, success, setError, setSuccess }) =
   const fetchActivityLogs = async (limit = 10000) => {
     setIsLoading(true)
     try {
-      const url = `${API_BASE_URL}/api/activity-logs?limit=${limit}`
-      const response = await fetch(url)
-      const data = await response.json()
+      const data = await apiFetch(`/api/activity-logs?limit=${limit}`)
       if (data.success) {
         setActivityLogs(data.logs)
       } else {
@@ -309,8 +307,8 @@ const ActivityLogs = ({ clearMessages, error, success, setError, setSuccess }) =
 
     // Quick API test first
     try {
-      const testResponse = await fetch(`${API_BASE_URL}/api/health`)
-      console.log('API health check:', testResponse.status, testResponse.ok)
+      const testData = await apiFetch(`/api/health`)
+      console.log('API health check:', testData)
     } catch (healthError) {
       console.error('API health check failed:', healthError)
       setError('Cannot connect to server. Please ensure the server is running.')
@@ -320,26 +318,12 @@ const ActivityLogs = ({ clearMessages, error, success, setError, setSuccess }) =
 
     setIsLoading(true)
     try {
-      console.log('Making delete request to:', `${API_BASE_URL}/api/activity-logs/bulk-delete`)
-
       // Make API call to delete the logs
-      const response = await fetch(`${API_BASE_URL}/api/activity-logs/bulk-delete`, {
+      const data = await apiFetch(`/api/activity-logs/bulk-delete`, {
         method: 'DELETE',
-        headers: {
-          'Content-Type': 'application/json',
-        },
         body: JSON.stringify({ logIds: logIdsToDelete })
       })
 
-      console.log('Response status:', response.status, 'OK:', response.ok)
-
-      if (!response.ok) {
-        const errorText = await response.text()
-        console.error('Response error text:', errorText)
-        throw new Error(`HTTP error! status: ${response.status} - ${errorText}`)
-      }
-
-      const data = await response.json()
       console.log('Delete response:', data)
 
       if (!data.success) {

@@ -2,7 +2,7 @@ import { BitmaskFileIndex } from './BitmaskFileIndex';
 import { CachedFileSystem } from './CachedFileSystem';
 import { SecureDirectoryManager } from './SecureDirectoryManager';
 import { FileEditor } from './FileEditor';
-import { API_BASE_URL } from '@/config/api';
+import { apiFetch, API_BASE_URL } from '@/config/api';
 
 /**
  * FastSearchEngine - Main orchestrator for ultra-fast file search
@@ -158,15 +158,7 @@ export class FastSearchEngine {
     console.log('🌐 Using API search for:', query);
 
     const searchPath = options.directory || '/';
-    const url = `${this.apiBase}/api/file-system/search?query=${encodeURIComponent(query)}&path=${encodeURIComponent(searchPath)}`;
-
-    const response = await fetch(url);
-
-    if (!response.ok) {
-      throw new Error(`API search failed: ${response.statusText}`);
-    }
-
-    const data = await response.json();
+    const data = await apiFetch(`/api/file-system/search?query=${encodeURIComponent(query)}&path=${encodeURIComponent(searchPath)}`);
 
     if (!data.success) {
       throw new Error(data.message || 'API search failed');
@@ -193,13 +185,9 @@ export class FastSearchEngine {
       // Security validation
       await this.directoryManager.checkDirectoryAccess(path);
 
-      // Use cached listing
-      const files = await this.fsCache.listDirectory(path, async (dirPath) => {
-        const response = await fetch(
-          `${this.apiBase}/api/file-system/browse?path=${encodeURIComponent(dirPath)}`
-        );
-
-        const data = await response.json();
+      // Use cached listing — result is the array of items returned by the fetcher
+      const items = await this.fsCache.listDirectory(path, async (dirPath) => {
+        const data = await apiFetch(`/api/file-system/browse?path=${encodeURIComponent(dirPath)}`);
 
         if (!data.success) {
           throw new Error(data.message || 'Failed to list directory');
@@ -214,14 +202,14 @@ export class FastSearchEngine {
       });
 
       // Filter by permissions
-      const filteredFiles = files.filter(file => {
+      const filteredItems = items.filter(file => {
         const fileDirPath = file.type === 'folder' ? file.path : this._getDirectoryPath(file.path);
         return this.directoryManager.isDirectoryAllowed(fileDirPath);
       });
 
       return {
         success: true,
-        items: filteredFiles,
+        items: filteredItems,
         path
       };
     } catch (error) {
@@ -292,10 +280,7 @@ export class FastSearchEngine {
       // Warmup cache
       await this.fsCache.warmup(commonDirs, async (path) => {
         try {
-          const response = await fetch(
-            `${this.apiBase}/api/file-system/browse?path=${encodeURIComponent(path)}`
-          );
-          const data = await response.json();
+          const data = await apiFetch(`/api/file-system/browse?path=${encodeURIComponent(path)}`);
           return data.success ? data.items || [] : [];
         } catch (error) {
           console.warn(`Failed to prefetch ${path}:`, error.message);

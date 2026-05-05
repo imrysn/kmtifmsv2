@@ -13,8 +13,6 @@ const { DatabaseError } = require('../middleware/errorHandler');
 
 /**
  * Create a new file record
- * @param {Object} fileData - File data to insert
- * @returns {Promise<number>} - Inserted file ID
  */
 async function create(fileData) {
     const {
@@ -59,8 +57,6 @@ async function create(fileData) {
 
 /**
  * Find file by ID
- * @param {number} fileId - File ID
- * @returns {Promise<Object|null>} - File object or null
  */
 async function findById(fileId) {
     try {
@@ -73,9 +69,6 @@ async function findById(fileId) {
 
 /**
  * Find files by user ID
- * @param {number} userId - User ID
- * @param {Object} options - Query options (limit, offset, status)
- * @returns {Promise<Array>} - Array of files
  */
 async function findByUserId(userId, options = {}) {
     const { limit = 100, offset = 0, status } = options;
@@ -106,9 +99,6 @@ async function findByUserId(userId, options = {}) {
 
 /**
  * Find files by team
- * @param {string} team - Team name
- * @param {Object} options - Query options
- * @returns {Promise<Array>} - Array of files
  */
 async function findByTeam(team, options = {}) {
     const { limit = 100, offset = 0, status, stage } = options;
@@ -144,9 +134,6 @@ async function findByTeam(team, options = {}) {
 
 /**
  * Update file status and stage
- * @param {number} fileId - File ID
- * @param {Object} updates - Updates to apply
- * @returns {Promise<boolean>} - Success status
  */
 async function updateStatus(fileId, updates) {
     const {
@@ -159,7 +146,8 @@ async function updateStatus(fileId, updates) {
         admin_username,
         admin_comments,
         rejection_reason,
-        rejected_by
+        rejected_by,
+        public_network_url
     } = updates;
 
     const fields = [];
@@ -205,6 +193,10 @@ async function updateStatus(fileId, updates) {
         fields.push('rejected_by = ?');
         values.push(rejected_by);
     }
+    if (public_network_url !== undefined) {
+        fields.push('public_network_url = ?');
+        values.push(public_network_url);
+    }
 
     fields.push('updated_at = CURRENT_TIMESTAMP');
 
@@ -221,9 +213,6 @@ async function updateStatus(fileId, updates) {
 
 /**
  * Update multiple files status (batch)
- * @param {Array<number>} fileIds - Array of file IDs
- * @param {Object} updates - Updates to apply
- * @returns {Promise<number>} - Number of files updated
  */
 async function updateBatchStatus(fileIds, updates) {
     if (!fileIds || fileIds.length === 0) return 0;
@@ -254,8 +243,6 @@ async function updateBatchStatus(fileIds, updates) {
 
 /**
  * Delete file record
- * @param {number} fileId - File ID
- * @returns {Promise<boolean>} - Success status
  */
 async function deleteById(fileId) {
     try {
@@ -268,8 +255,6 @@ async function deleteById(fileId) {
 
 /**
  * Find file with its latest comment
- * @param {number} fileId - File ID
- * @returns {Promise<Object|null>} - File object with latest_comment or null
  */
 async function findByIdWithLatestComment(fileId) {
     const query = `
@@ -290,10 +275,6 @@ async function findByIdWithLatestComment(fileId) {
 
 /**
  * Find files by name and user (for duplicate check)
- * @param {string} originalName - Original filename
- * @param {number} userId - User ID
- * @param {string} folderName - Optional folder name
- * @returns {Promise<Object|null>} - File object or null
  */
 async function findByNameAndUser(originalName, userId, folderName = null) {
     let query = 'SELECT * FROM files WHERE original_name = ? AND user_id = ?';
@@ -316,7 +297,6 @@ async function findByNameAndUser(originalName, userId, folderName = null) {
 
 /**
  * Find all files and attachments for comprehensive view
- * @returns {Promise<Array>} - Combined array of files and attachments
  */
 async function findAllWithAttachments() {
     const filesQuery = `
@@ -357,8 +337,9 @@ async function findAllWithAttachments() {
 
 /**
  * Find attachment by ID
- * @param {number} attachmentId - Attachment ID
- * @returns {Promise<Object|null>} - Attachment object or null
+ * FIX: Was defined twice in this file — the second bare definition was silently
+ *      overwriting this richer one (which includes created_at AS uploaded_at).
+ *      Duplicate removed, this single definition is now canonical.
  */
 async function findAttachmentById(attachmentId) {
     const query = 'SELECT *, created_at AS uploaded_at FROM assignment_attachments WHERE id = ?';
@@ -372,18 +353,19 @@ async function findAttachmentById(attachmentId) {
 
 /**
  * Update attachment status
- * @param {number} attachmentId - Attachment ID
- * @param {Object} updates - Updates to apply
- * @returns {Promise<boolean>} - Success status
  */
 async function updateAttachmentStatus(attachmentId, updates) {
-    const { status, current_stage, admin_comments } = updates;
+    const { status, current_stage, admin_comments, public_network_url } = updates;
     const nowSql = new Date().toISOString().slice(0, 19).replace('T', ' ');
 
     let query, params;
     if (status === 'final_approved') {
         query = `UPDATE assignment_attachments SET status = ?, current_stage = ?, admin_reviewed_at = ?, admin_comments = ?, final_approved_at = ? WHERE id = ?`;
         params = [status, current_stage, nowSql, admin_comments || null, nowSql, attachmentId];
+    } else if (public_network_url !== undefined && status === undefined) {
+        // Path-only update (e.g. after moveToProjects)
+        query = `UPDATE assignment_attachments SET public_network_url = ? WHERE id = ?`;
+        params = [public_network_url, attachmentId];
     } else {
         query = `UPDATE assignment_attachments SET status = ?, current_stage = ?, admin_reviewed_at = ?, admin_comments = ? WHERE id = ?`;
         params = [status, current_stage, nowSql, admin_comments || null, attachmentId];
@@ -393,7 +375,6 @@ async function updateAttachmentStatus(attachmentId, updates) {
         const result = await db.run(query, params);
         return (result.changes || result.affectedRows) > 0;
     } catch (err) {
-        // Fallback for cases where columns might not exist yet during migration
         console.warn('⚠️ Repository warning: updateAttachmentStatus failed (schema may be incomplete)', err.message);
         return false;
     }
@@ -401,8 +382,6 @@ async function updateAttachmentStatus(attachmentId, updates) {
 
 /**
  * Count files by criteria
- * @param {Object} criteria - Count criteria
- * @returns {Promise<number>} - File count
  */
 async function count(criteria = {}) {
     const { user_id, team, status, stage } = criteria;
@@ -437,8 +416,6 @@ async function count(criteria = {}) {
 
 /**
  * Get comments for a file
- * @param {number} fileId - File ID
- * @returns {Promise<Array>} - Array of comments
  */
 async function getComments(fileId) {
     const query = `
@@ -457,9 +434,6 @@ async function getComments(fileId) {
 
 /**
  * Add a comment to a file
- * @param {number} fileId - File ID
- * @param {Object} commentData - Comment data
- * @returns {Promise<number>} - Inserted comment ID
  */
 async function addComment(fileId, commentData) {
     const { user_id, username, comment } = commentData;
@@ -474,8 +448,6 @@ async function addComment(fileId, commentData) {
 
 /**
  * Get status history for a file
- * @param {number} fileId - File ID
- * @returns {Promise<Array>} - Array of history records
  */
 async function getHistory(fileId) {
     const query = 'SELECT * FROM file_status_history WHERE file_id = ? ORDER BY changed_at DESC';
@@ -488,9 +460,6 @@ async function getHistory(fileId) {
 
 /**
  * Find files pending review
- * @param {string} stage - Review stage
- * @param {string} team - Optional team filter
- * @returns {Promise<Array>} - Array of files
  */
 async function findPendingByStage(stage, team = null) {
     let query = `
@@ -519,8 +488,6 @@ async function findPendingByStage(stage, team = null) {
 
 /**
  * Find all files for admin view with comprehensive details
- * @param {Object} options - Pagination/Filter options
- * @returns {Promise<Array>} - Array of files
  */
 async function findAllWithDetails(options = {}) {
     const { team, status, stage, limit = 1000, offset = 0 } = options;
@@ -540,7 +507,7 @@ async function findAllWithDetails(options = {}) {
         query += ' AND f.user_team = ?';
         params.push(team);
     }
-    
+
     if (status) {
         if (Array.isArray(status)) {
             query += ` AND f.status IN (${status.map(() => '?').join(',')})`;
@@ -591,17 +558,6 @@ async function updatePriority(fileId, priority, dueDate) {
 }
 
 /**
- * Find attachment by ID (from assignment_attachments)
- */
-async function findAttachmentById(id) {
-    try {
-        return await db.get('SELECT * FROM assignment_attachments WHERE id = ?', [id]);
-    } catch (err) {
-        throw new DatabaseError('Failed to find attachment', err);
-    }
-}
-
-/**
  * Delete multiple files and their assignment submissions
  */
 async function deleteBatch(fileIds) {
@@ -620,7 +576,7 @@ async function deleteBatch(fileIds) {
  */
 async function createAttachment(data) {
     const {
-        assignment_id, file_path, original_name, filename, file_size, 
+        assignment_id, file_path, original_name, filename, file_size,
         file_type, uploaded_by_username, folder_name
     } = data;
 
@@ -633,7 +589,7 @@ async function createAttachment(data) {
 
     try {
         const result = await db.run(query, [
-            assignment_id, file_path, original_name, filename, file_size, 
+            assignment_id, file_path, original_name, filename, file_size,
             file_type, uploaded_by_username, folder_name
         ]);
         return result.insertId || result.lastID;

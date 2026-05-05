@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react'
-import { API_BASE_URL } from '@/config/api'
+import { apiFetch, API_BASE_URL } from '@/config/api'
 import './css/AssignmentsTab.css'
 import './modals/css/AssignmentDetailsModal.css'
 import { CardSkeleton } from '../common/InlineSkeletonLoader'
@@ -111,11 +111,10 @@ const AssignmentsTab = ({
     if (!folderFiles || folderFiles.length === 0) return
     const folderName = folderFiles[0].folder_name
     try {
-      const res = await fetch(
-        `${API_BASE_URL}/api/assignments/${assignmentId}/attachments/folder/${encodeURIComponent(folderName)}`,
+      const data = await apiFetch(
+        `/api/assignments/${assignmentId}/attachments/folder/${encodeURIComponent(folderName)}`,
         { method: 'DELETE' }
       )
-      const data = await res.json()
       if (data.success) {
         setToast({ isOpen: true, title: 'Removed', message: 'Folder removed successfully', type: 'error' })
         if (onRefreshAssignments) onRefreshAssignments()
@@ -165,8 +164,7 @@ const AssignmentsTab = ({
 
   const fetchCommentCount = async (assignmentId) => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/assignments/${assignmentId}/comments`)
-      const data = await response.json()
+      const data = await apiFetch(`/api/assignments/${assignmentId}/comments`)
 
       if (data.success) {
         // Count only top-level comments (not replies) to match Admin/User
@@ -185,8 +183,7 @@ const AssignmentsTab = ({
     setLoadingComments(true)
     try {
       console.log(`🔍 Fetching comments for assignment ${assignmentId}`)
-      const response = await fetch(`${API_BASE_URL}/api/assignments/${assignmentId}/comments`)
-      const data = await response.json()
+      const data = await apiFetch(`/api/assignments/${assignmentId}/comments`)
 
       console.log(`💬 Comments response for ${assignmentId}:`, data)
 
@@ -211,19 +208,14 @@ const AssignmentsTab = ({
     if (!commentText || !selectedAssignment) return
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/assignments/${selectedAssignment.id}/comments`, {
+      const data = await apiFetch(`/api/assignments/${selectedAssignment.id}/comments`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
         body: JSON.stringify({
           userId: user.id,
           username: user.username || user.fullName,
           comment: commentText
         })
       })
-
-      const data = await response.json()
 
       if (data.success) {
         setNewComment('')
@@ -241,19 +233,14 @@ const AssignmentsTab = ({
     if (!replyTextValue || !selectedAssignment) return
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/assignments/${selectedAssignment.id}/comments/${commentId}/reply`, {
+      const data = await apiFetch(`/api/assignments/${selectedAssignment.id}/comments/${commentId}/reply`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
         body: JSON.stringify({
           userId: user.id,
           username: user.username || user.fullName,
           reply: replyTextValue
         })
       })
-
-      const data = await response.json()
 
       if (data.success) {
         setReplyText('')
@@ -290,20 +277,19 @@ const AssignmentsTab = ({
     setVisibleReplies({})
   }
 
-  const deleteComment = async (assignmentId, commentId) => {
+  const deleteComment = async (commentId) => {
     try {
-      await fetch(`${API_BASE_URL}/api/assignments/comments/${commentId}`, { method: 'DELETE' })
+      await apiFetch(`/api/assignments/comments/${commentId}`, { method: 'DELETE' })
       if (selectedAssignment) fetchComments(selectedAssignment.id)
     } catch (err) {
       console.error('Error deleting comment:', err)
     }
   }
 
-  const editComment = async (assignmentId, commentId, newText) => {
+  const editComment = async (commentId, newText) => {
     try {
-      await fetch(`${API_BASE_URL}/api/assignments/comments/${commentId}`, {
+      await apiFetch(`/api/assignments/comments/${commentId}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ comment: newText })
       })
       if (selectedAssignment) fetchComments(selectedAssignment.id)
@@ -312,20 +298,19 @@ const AssignmentsTab = ({
     }
   }
 
-  const deleteReply = async (assignmentId, commentId, replyId) => {
+  const deleteReply = async (replyId) => {
     try {
-      await fetch(`${API_BASE_URL}/api/assignments/comments/${replyId}`, { method: 'DELETE' })
+      await apiFetch(`/api/assignments/comments/${replyId}`, { method: 'DELETE' })
       if (selectedAssignment) fetchComments(selectedAssignment.id)
     } catch (err) {
       console.error('Error deleting reply:', err)
     }
   }
 
-  const editReply = async (assignmentId, commentId, replyId, newText) => {
+  const editReply = async (replyId, newText) => {
     try {
-      await fetch(`${API_BASE_URL}/api/assignments/comments/${replyId}`, {
+      await apiFetch(`/api/assignments/comments/${replyId}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ comment: newText })
       })
       if (selectedAssignment) fetchComments(selectedAssignment.id)
@@ -934,8 +919,7 @@ const AssignmentsTab = ({
                                       }
                                       const firstFile = folderFiles[0]
                                       try {
-                                      const response = await fetch(`${API_BASE_URL}/api/files/${firstFile.id}/path`)
-                                      const data = await response.json()
+                                      const data = await apiFetch(`/api/files/${firstFile.id}/path`)
                                       if (data.success && data.filePath) {
                                       const result = await window.electron.openFolderInExplorer(data.filePath)
                                       if (!result.success) {
@@ -1339,9 +1323,8 @@ const AssignmentsTab = ({
                       }
                       setIsFolderProcessing(true)
                       try {
-                        const response = await fetch(`${API_BASE_URL}/api/files/bulk-action`, {
+                        const data = await apiFetch(`/api/files/bulk-action`, {
                           method: 'POST',
-                          headers: { 'Content-Type': 'application/json' },
                           body: JSON.stringify({
                             fileIds: approvable.map(f => f.id),
                             action: 'approve',
@@ -1352,7 +1335,6 @@ const AssignmentsTab = ({
                             team: user.team
                           })
                         })
-                        const data = await response.json()
                         console.log('Bulk approve response:', JSON.stringify(data, null, 2))
                         if (data.success) {
                           if (data.results?.failed?.length > 0) {
@@ -1388,9 +1370,8 @@ const AssignmentsTab = ({
                       }
                       setIsFolderProcessing(true)
                       try {
-                        const response = await fetch(`${API_BASE_URL}/api/files/bulk-action`, {
+                        const data = await apiFetch(`/api/files/bulk-action`, {
                           method: 'POST',
-                          headers: { 'Content-Type': 'application/json' },
                           body: JSON.stringify({
                             fileIds: rejectable.map(f => f.id),
                             action: 'reject',
@@ -1401,7 +1382,6 @@ const AssignmentsTab = ({
                             team: user.team
                           })
                         })
-                        const data = await response.json()
                         if (data.success) {
                           setFolderReviewModal(null)
                           if (onRefreshAssignments) onRefreshAssignments()
@@ -1473,8 +1453,7 @@ const AssignmentsTab = ({
                   const { attachmentId, assignmentId, attachmentName } = removeAttachmentModal
                   setRemoveAttachmentModal({ isOpen: false, attachmentId: null, attachmentName: '', assignmentId: null })
                   try {
-                    const res = await fetch(`${API_BASE_URL}/api/assignments/${assignmentId}/attachments/${attachmentId}`, { method: 'DELETE' })
-                    const data = await res.json()
+                    const data = await apiFetch(`/api/assignments/${assignmentId}/attachments/${attachmentId}`, { method: 'DELETE' })
                     if (data.success) {
                       setToast({ isOpen: true, title: 'Removed', message: 'File removed successfully', type: 'error' })
                       if (onRefreshAssignments) onRefreshAssignments()
@@ -1587,8 +1566,7 @@ const AssignmentsTab = ({
             // Check if running in Electron and has capability to open files locally
             if (window.electron && window.electron.openFileInApp) {
               // Get the absolute file path from server
-              const response = await fetch(`${API_BASE_URL}/api/files/${fileToOpen.id}/path`);
-              const data = await response.json();
+              const data = await apiFetch(`/api/files/${fileToOpen.id}/path`);
 
               if (data.success && data.filePath) {
                 const result = await window.electron.openFileInApp(data.filePath);

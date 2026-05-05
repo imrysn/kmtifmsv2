@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react'
-import { API_BASE_URL } from '@/config/api'
+import { apiFetch } from '@/config/api'
 
 const NotificationContext = createContext(null)
 
@@ -15,10 +15,9 @@ export const NotificationProvider = ({ children, userId }) => {
     if (!silent) setIsLoading(true)
 
     try {
-      const response = await fetch(
-        `${API_BASE_URL}/api/notifications/user/${userId}?page=1&limit=20`
+      const data = await apiFetch(
+        `/api/notifications/user/${userId}?page=1&limit=20`
       )
-      const data = await response.json()
 
       if (data.success) {
         setNotifications(data.notifications || [])
@@ -33,12 +32,10 @@ export const NotificationProvider = ({ children, userId }) => {
 
   const markAsRead = useCallback(async (notificationId) => {
     try {
-      const response = await fetch(
-        `${API_BASE_URL}/api/notifications/${notificationId}/read`,
+      const data = await apiFetch(
+        `/api/notifications/${notificationId}/read`,
         { method: 'PUT' }
       )
-
-      const data = await response.json()
       if (data.success) {
         setNotifications(prev =>
           prev.map(n => n.id === notificationId ? { ...n, is_read: true } : n)
@@ -54,12 +51,10 @@ export const NotificationProvider = ({ children, userId }) => {
     if (!userId) return
 
     try {
-      const response = await fetch(
-        `${API_BASE_URL}/api/notifications/user/${userId}/read-all`,
+      const data = await apiFetch(
+        `/api/notifications/user/${userId}/read-all`,
         { method: 'PUT' }
       )
-
-      const data = await response.json()
       if (data.success) {
         setNotifications(prev => prev.map(n => ({ ...n, is_read: true })))
         setUnreadCount(0)
@@ -71,12 +66,10 @@ export const NotificationProvider = ({ children, userId }) => {
 
   const deleteNotification = useCallback(async (notificationId) => {
     try {
-      const response = await fetch(
-        `${API_BASE_URL}/api/notifications/${notificationId}`,
+      const data = await apiFetch(
+        `/api/notifications/${notificationId}`,
         { method: 'DELETE' }
       )
-
-      const data = await response.json()
       if (data.success) {
         const deletedNotification = notifications.find(n => n.id === notificationId)
         setNotifications(prev => prev.filter(n => n.id !== notificationId))

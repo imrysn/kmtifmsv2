@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useMemo, memo } from 'react'
-import { API_BASE_URL } from '@/config/api'
+import { apiFetch } from '@/config/api'
 import './DashboardOverview.css'
 import { SkeletonLoader } from '../common/SkeletonLoader'
 import { useAuth, useNetwork } from '../../contexts'
@@ -40,8 +40,7 @@ const DashboardOverview = ({ user, users }) => {
       setLoading(true)
       setError('')
       try {
-        const res = await fetch(`${API_BASE_URL}/api/dashboard/summary`)
-        const data = await res.json()
+        const data = await apiFetch('/api/dashboard/summary')
         if (!mounted) return
         if (data.success) {
           console.log('Dashboard Data Received:', data.summary); // DEBUG Log

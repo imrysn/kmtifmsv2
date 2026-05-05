@@ -181,7 +181,7 @@ const Login = ({ onLogin }) => {
 
         // Smooth transition without anime.js
         setTimeout(() => {
-          onLogin(data.user)
+          onLogin(data.user, data.token)
         }, 200)
       } else {
         // Show the exact message from the server (includes DB connectivity errors)

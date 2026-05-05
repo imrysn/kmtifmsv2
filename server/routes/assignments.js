@@ -9,11 +9,10 @@ const { upload } = require('../config/middleware');
  */
 
 // Admin/Team Leader routes
-router.get('/all', authenticateToken, authorizeRole(['ADMIN']), assignmentController.getAllAssignments);
 router.get('/admin/all', authenticateToken, authorizeRole(['ADMIN']), assignmentController.getAllAssignments);
+router.get('/all', authenticateToken, authorizeRole(['ADMIN']), assignmentController.getAllAssignments); // legacy alias
 router.get('/submissions', authenticateToken, authorizeRole(['TEAM_LEADER', 'ADMIN']), assignmentController.getAllSubmissions);
 router.post('/', authenticateToken, authorizeRole(['TEAM_LEADER', 'ADMIN']), upload.array('attachments', 100), assignmentController.createAssignment);
-router.post('/create', authenticateToken, authorizeRole(['TEAM_LEADER', 'ADMIN']), upload.array('attachments', 100), assignmentController.createAssignment);
 router.put('/:id', authenticateToken, authorizeRole(['TEAM_LEADER', 'ADMIN']), upload.array('attachments', 100), assignmentController.updateAssignment);
 router.delete('/:id', authenticateToken, authorizeRole(['TEAM_LEADER', 'ADMIN']), assignmentController.deleteAssignment);
 
@@ -26,11 +25,9 @@ router.get('/team/:team/all-tasks', authenticateToken, assignmentController.getT
 router.get('/:id', authenticateToken, assignmentController.getAssignmentById);
 router.get('/:id/details', authenticateToken, assignmentController.getAssignmentDetails);
 router.put('/:id/mark-done', authenticateToken, authorizeRole(['TEAM_LEADER', 'ADMIN']), assignmentController.markDone);
-router.put('/:assignmentId/mark-done', authenticateToken, authorizeRole(['TEAM_LEADER', 'ADMIN']), assignmentController.markDone);
 
 // Comments & Replies
 router.get('/:id/comments', authenticateToken, assignmentController.getComments);
-router.get('/:assignmentId/comments', authenticateToken, assignmentController.getComments);
 router.post('/:id/comments', authenticateToken, assignmentController.addComment);
 router.post('/:id/comments/:commentId/reply', authenticateToken, assignmentController.addReply);
 
@@ -40,10 +37,8 @@ router.delete('/comments/:commentId', authenticateToken, assignmentController.de
 
 // Submissions & Attachments
 router.post('/submit', authenticateToken, assignmentController.submitAssignment);
-router.post('/:id/submit', authenticateToken, assignmentController.submitAssignment);
+router.delete('/:id/files/:fileId', authenticateToken, assignmentController.deleteSubmissionFile);
 router.delete('/:id/attachments/folder/:folderName', authenticateToken, authorizeRole(['TEAM_LEADER', 'ADMIN']), assignmentController.deleteAttachmentFolder);
-router.delete('/:assignmentId/attachments/folder/:folderName', authenticateToken, authorizeRole(['TEAM_LEADER', 'ADMIN']), assignmentController.deleteAttachmentFolder);
 router.delete('/:id/attachments/:attachmentId', authenticateToken, authorizeRole(['TEAM_LEADER', 'ADMIN']), assignmentController.deleteAttachment);
-router.delete('/:assignmentId/attachments/:attachmentId', authenticateToken, authorizeRole(['TEAM_LEADER', 'ADMIN']), assignmentController.deleteAttachment);
 
 module.exports = router;

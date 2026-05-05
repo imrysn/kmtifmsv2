@@ -1,4 +1,5 @@
 const fileService = require('../services/fileService');
+const { uploadsDir } = require('../config/middleware');
 const { asyncHandler, ValidationError } = require('../middleware/errorHandler');
 
 /**
@@ -117,9 +118,9 @@ class FileController {
         if (!destinationPath) throw new ValidationError('Destination path is required');
 
         const newPath = await fileService.moveToProjects(
-            id, 
-            destinationPath, 
-            req.user, 
+            id,
+            destinationPath,
+            req.user,
             deleteFromUploads === true || deleteFromUploads === 'true'
         );
 
@@ -154,6 +155,7 @@ class FileController {
         const stats = await fileService.getFileStats(criteria);
         res.json({ success: true, stats });
     });
+
     /**
      * Get files for a specific user
      */
@@ -186,15 +188,15 @@ class FileController {
     getTeamNotifications = asyncHandler(async (req, res) => {
         const { team } = req.params;
         const pendingFiles = await fileService.getPendingTeamLeaderReview(team);
-        
-        res.json({ 
-            success: true, 
-            notifications: [], 
+
+        res.json({
+            success: true,
+            notifications: [],
             counts: {
                 pending: pendingFiles ? pendingFiles.length : 0,
                 urgent: pendingFiles ? pendingFiles.filter(f => f.priority === 'urgent').length : 0,
                 overdue: 0
-            } 
+            }
         });
     });
 
@@ -218,7 +220,7 @@ class FileController {
      * Get file comments
      */
     getComments = asyncHandler(async (req, res) => {
-        const { id } = req.params;
+        const id = req.params.id || req.params.fileId;
         const comments = await fileService.getFileComments(id);
         res.json({ success: true, comments });
     });
@@ -227,7 +229,7 @@ class FileController {
      * Add file comment
      */
     addComment = asyncHandler(async (req, res) => {
-        const { id } = req.params;
+        const id = req.params.id || req.params.fileId;
         const { comment } = req.body;
         const comments = await fileService.addFileComment(id, req.user, comment);
         res.json({ success: true, message: 'Comment added', comments });
@@ -237,10 +239,11 @@ class FileController {
      * Get file history
      */
     getHistory = asyncHandler(async (req, res) => {
-        const { id } = req.params;
+        const id = req.params.id || req.params.fileId;
         const history = await fileService.getFileHistory(id);
         res.json({ success: true, history });
     });
+
     /**
      * Download file
      */
@@ -258,6 +261,7 @@ class FileController {
         const fileInfo = await fileService.resolvePhysicalPath(id);
         res.sendFile(fileInfo.path);
     });
+
     /**
      * Get file by ID
      */
@@ -266,11 +270,25 @@ class FileController {
         const file = await fileService.getFileById(id);
         res.json({ success: true, file });
     });
+
+    /**
+     * Get physical file path (for Electron)
+     */
+    getFilePath = asyncHandler(async (req, res) => {
+        const id = req.params.id || req.params.fileId;
+        const fileInfo = await fileService.resolvePhysicalPath(id);
+        res.json({ 
+            success: true, 
+            filePath: fileInfo.path,
+            fileName: fileInfo.originalName 
+        });
+    });
+
     /**
      * Set file priority
      */
     setPriority = asyncHandler(async (req, res) => {
-        const { id } = req.params;
+        const id = req.params.id || req.params.fileId;
         const { priority, dueDate } = req.body;
         await fileService.setFilePriority(id, priority, dueDate, req.user);
         res.json({ success: true, message: 'Priority updated successfully' });
@@ -300,9 +318,9 @@ class FileController {
     zipFolder = asyncHandler(async (req, res) => {
         const { fileIds: fileIdsStr, folderName } = req.query;
         const fileIds = fileIdsStr.split(',').map(id => parseInt(id.trim())).filter(Boolean);
-        
+
         const { zipPath, tmpDir } = await fileService.zipFolder(fileIds, folderName);
-        
+
         const fs = require('fs');
         res.download(zipPath, `${folderName}.zip`, (err) => {
             // Cleanup
@@ -319,6 +337,7 @@ class FileController {
         const results = await fileService.bulkAction(fileIds, action, req.user);
         res.json({ success: true, ...results });
     });
+
     /**
      * Get files by status for a team (Analytics)
      */
@@ -334,8 +353,10 @@ class FileController {
         const files = await fileService.getAllFiles({ team, status: dbStatus, stage: dbStage });
         res.json({ success: true, files });
     });
+
     /**
      * Sync deleted files (cleanup orphaned DB records)
+     * FIX: uploadsDir was missing — now imported at top of file
      */
     syncDeleted = asyncHandler(async (req, res) => {
         const { syncDeletedFiles } = require('../services/fileSyncService');

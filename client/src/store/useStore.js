@@ -17,16 +17,19 @@ const useStore = create(
             // USER AUTHENTICATION STATE
             // ============================================================================
             user: null,
+            token: null,
 
             setUser: (user) => set({ user }),
+            setToken: (token) => set({ token }),
 
-            login: (userData) => {
-                set({ user: userData });
+            login: (userData, token) => {
+                set({ user: userData, token: token });
             },
 
             logout: () => {
                 set({
                     user: null,
+                    token: null,
                     filesCache: {},
                     assignmentsCache: {}
                 });
@@ -176,6 +179,7 @@ const useStore = create(
             // Only persist user data, not cache or temporary states
             partialize: (state) => ({
                 user: state.user,
+                token: state.token,
                 theme: state.theme,
                 sidebarOpen: state.sidebarOpen
             })

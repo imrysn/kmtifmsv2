@@ -1,5 +1,5 @@
 import { useRef, useCallback, useState, useEffect, startTransition, useMemo, memo } from 'react';
-import { API_BASE_URL } from '@/config/api';
+import { apiFetch, API_BASE_URL } from '@/config/api';
 import './css/TasksTab-Enhanced.css';
 import './css/TasksTab-Comments.css';
 import { FileIcon, FileOpenModal } from '../shared';
@@ -194,8 +194,7 @@ const TasksTab = memo(({
   const fetchComments = useCallback(async (assignmentId) => {
     setLoadingComments(true);
     try {
-      const res = await fetch(`${API_BASE_URL}/api/assignments/${assignmentId}/comments`);
-      const data = await res.json();
+      const data = await apiFetch(`/api/assignments/${assignmentId}/comments`);
       if (data.success) {
         setComments(prev => ({ ...prev, [assignmentId]: data.comments || [] }));
         setAssignments(prev => prev.map(a =>
@@ -210,8 +209,7 @@ const TasksTab = memo(({
   const fetchAssignments = useCallback(async () => {
     setIsLoading(true);
     try {
-      const res = await fetch(`${API_BASE_URL}/api/assignments/user/${user.id}`);
-      const data = await res.json();
+      const data = await apiFetch(`/api/assignments/user/${user.id}`);
       if (data.success) {
         setAssignments(data.assignments || []);
       } else {
@@ -280,12 +278,10 @@ const TasksTab = memo(({
     if (!commentText?.trim()) return;
     setIsPostingComment(prev => ({ ...prev, [assignmentId]: true }));
     try {
-      const res = await fetch(`${API_BASE_URL}/api/assignments/${assignmentId}/comments`, {
+      const data = await apiFetch(`/api/assignments/${assignmentId}/comments`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId: user.id, username: user.username || user.fullName, comment: commentText.trim() }),
       });
-      const data = await res.json();
       if (data.success) {
         setNewComment(prev => ({ ...prev, [assignmentId]: '' }));
         fetchComments(assignmentId);
@@ -303,12 +299,10 @@ const TasksTab = memo(({
     const assignmentId = currentAssignmentIdRef.current;
     if (!assignmentId || !commentId || !replyTextValue?.trim()) return;
     try {
-      const res = await fetch(`${API_BASE_URL}/api/assignments/${assignmentId}/comments/${commentId}/reply`, {
+      const data = await apiFetch(`/api/assignments/${assignmentId}/comments/${commentId}/reply`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId: user.id, username: user.username || user.fullName, reply: replyTextValue.trim() }),
       });
-      const data = await res.json();
       if (data.success) { onSuccess?.(); fetchComments(assignmentId); }
       else showError(data.message || 'Failed to post reply');
     } catch { showError('Failed to post reply'); }
@@ -316,12 +310,10 @@ const TasksTab = memo(({
 
   const editComment = useCallback(async (assignmentId, commentId, newText) => {
     try {
-      const res = await fetch(`${API_BASE_URL}/api/assignments/comments/${commentId}`, {
+      const data = await apiFetch(`/api/assignments/comments/${commentId}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId: user.id, comment: newText }),
       });
-      const data = await res.json();
       if (data.success) fetchComments(assignmentId);
       else showError(data.message || 'Failed to edit comment');
     } catch { showError('Failed to edit comment'); }
@@ -329,12 +321,10 @@ const TasksTab = memo(({
 
   const deleteComment = useCallback(async (assignmentId, commentId) => {
     try {
-      const res = await fetch(`${API_BASE_URL}/api/assignments/comments/${commentId}`, {
+      const data = await apiFetch(`/api/assignments/comments/${commentId}`, {
         method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId: user.id }),
       });
-      const data = await res.json();
       if (data.success) fetchComments(assignmentId);
       else showError(data.message || 'Failed to delete comment');
     } catch { showError('Failed to delete comment'); }
@@ -342,12 +332,10 @@ const TasksTab = memo(({
 
   const editReply = useCallback(async (assignmentId, commentId, replyId, newText) => {
     try {
-      const res = await fetch(`${API_BASE_URL}/api/assignments/comments/${replyId}`, {
+      const data = await apiFetch(`/api/assignments/comments/${replyId}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId: user.id, comment: newText }),
       });
-      const data = await res.json();
       if (data.success) fetchComments(assignmentId);
       else showError(data.message || 'Failed to edit reply');
     } catch { showError('Failed to edit reply'); }
@@ -355,12 +343,10 @@ const TasksTab = memo(({
 
   const deleteReply = useCallback(async (assignmentId, commentId, replyId) => {
     try {
-      const res = await fetch(`${API_BASE_URL}/api/assignments/comments/${replyId}`, {
+      const data = await apiFetch(`/api/assignments/comments/${replyId}`, {
         method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId: user.id }),
       });
-      const data = await res.json();
       if (data.success) fetchComments(assignmentId);
       else showError(data.message || 'Failed to delete reply');
     } catch { showError('Failed to delete reply'); }
@@ -408,8 +394,7 @@ const TasksTab = memo(({
     const file = fileToOpen;
     setFileToOpen(null);
     try {
-      const pathRes = await fetch(`${API_BASE_URL}/api/files/${file.id}/path`);
-      const pathData = await pathRes.json();
+      const pathData = await apiFetch(`/api/files/${file.id}/path`);
       if (!pathData.success || !pathData.filePath) throw new Error(pathData.message || 'Could not resolve file path');
 
       if (window.electron?.openFileInApp) {
@@ -451,17 +436,14 @@ const TasksTab = memo(({
         : a
     ));
     try {
-      const res = await fetch(`${API_BASE_URL}/api/assignments/${assignmentId}/files/${fileId}`, {
+      const data = await apiFetch(`/api/assignments/${assignmentId}/files/${fileId}`, {
         method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId: user.id }),
       });
-      const data = await res.json();
       if (data.success) {
         // Best-effort cleanup of actual file record
-        fetch(`${API_BASE_URL}/api/files/${fileId}`, {
+        apiFetch(`/api/files/${fileId}`, {
           method: 'DELETE',
-          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ adminId: user.id, adminUsername: user.username, adminRole: user.role, team: user.team }),
         }).catch(() => {});
         setSuccessModal({ isOpen: true, title: 'Removed', message: 'File removed successfully', type: 'error' });
@@ -507,9 +489,8 @@ const TasksTab = memo(({
             f => f.original_name === fileObj.file.name || f.filename === fileObj.file.name
           );
           if (match) {
-            await fetch(`${API_BASE_URL}/api/assignments/${currentAssignment.id}/files/${match.id}`, {
+            await apiFetch(`/api/assignments/${currentAssignment.id}/files/${match.id}`, {
               method: 'DELETE',
-              headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ userId: user.id }),
             }).catch(() => {});
           }
@@ -546,8 +527,11 @@ const TasksTab = memo(({
         ) ?? false;
         formData.append('isRevision', String(isRevision));
 
-        const uploadRes = await fetch(`${API_BASE_URL}/api/files/upload`, { method: 'POST', body: formData });
-        const uploadData = await uploadRes.json();
+        const uploadData = await apiFetch(`/api/files/upload`, { 
+          method: 'POST', 
+          body: formData,
+          headers: {} // Important: Don't set Content-Type for FormData
+        });
         if (uploadData.success) uploadedFileIds.push(uploadData.file.id);
         else uploadErrors.push(`${fileObj.file.name}: ${uploadData.message}`);
       }
@@ -556,12 +540,10 @@ const TasksTab = memo(({
 
       const submissionErrors = [];
       for (const fileId of uploadedFileIds) {
-        const submitRes = await fetch(`${API_BASE_URL}/api/assignments/submit`, {
+        const submitData = await apiFetch(`/api/assignments/submit`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ assignmentId: currentAssignment.id, userId: user.id, fileId }),
         });
-        const submitData = await submitRes.json();
         if (!submitData.success) submissionErrors.push(`File ID ${fileId}: ${submitData.message}`);
       }
 
@@ -620,8 +602,7 @@ const TasksTab = memo(({
   const openFolderInExplorer = useCallback(async (fileId) => {
     if (!window.electron?.openFolderInExplorer) return;
     try {
-      const res = await fetch(`${API_BASE_URL}/api/files/${fileId}/path`);
-      const data = await res.json();
+      const data = await apiFetch(`/api/files/${fileId}/path`);
       if (data.success && data.filePath) await window.electron.openFolderInExplorer(data.filePath);
     } catch (e) { console.error('Open folder path error:', e); }
   }, []);
@@ -1144,13 +1125,13 @@ const TasksTab = memo(({
                     ));
                     for (const file of folderFiles) {
                       try {
-                        await fetch(`${API_BASE_URL}/api/assignments/${assignmentId}/files/${file.id}`, { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userId: user.id }) });
-                        await fetch(`${API_BASE_URL}/api/files/${file.id}`, { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ adminId: user.id, adminUsername: user.username, adminRole: user.role, team: user.team }) });
+                        await apiFetch(`/api/assignments/${assignmentId}/files/${file.id}`, { method: 'DELETE', body: JSON.stringify({ userId: user.id }) });
+                        await apiFetch(`/api/files/${file.id}`, { method: 'DELETE', body: JSON.stringify({ adminId: user.id, adminUsername: user.username, adminRole: user.role, team: user.team }) });
                       } catch (e) { console.error('Error deleting folder file:', e); }
                     }
                     try {
-                      await fetch(`${API_BASE_URL}/api/files/folder/delete`, {
-                        method: 'POST', headers: { 'Content-Type': 'application/json' },
+                      await apiFetch(`/api/files/folder/delete`, {
+                        method: 'POST',
                         body: JSON.stringify({ folderName, username: user.username, fileIds: folderFiles.map(f => f.id), userId: user.id, userRole: user.role, team: user.team }),
                       });
                     } catch (e) { console.error('Error deleting folder directory:', e); }

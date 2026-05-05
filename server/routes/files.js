@@ -28,7 +28,6 @@ router.post('/:id/admin-reject', authenticateToken, authorizeRole(['ADMIN']), fi
 
 // Admin & Management
 router.get('/all', authenticateToken, authorizeRole(['ADMIN']), fileController.getAllFiles);
-router.get('/all-files', authenticateToken, authorizeRole(['ADMIN']), fileController.getAllFiles);
 router.post('/:id/move-to-projects', authenticateToken, authorizeRole(['ADMIN']), fileController.moveToProjects);
 router.post('/bulk-action', authenticateToken, authorizeRole(['TEAM_LEADER', 'ADMIN']), fileController.bulkAction);
 router.post('/open-file', authenticateToken, fileController.openFile);
@@ -36,22 +35,16 @@ router.post('/folder/delete', authenticateToken, fileController.deleteFolder);
 router.get('/folder/zip', authenticateToken, fileController.zipFolder);
 router.get('/team/:team/status/:status', authenticateToken, fileController.getFilesByStatus);
 router.patch('/:id/priority', authenticateToken, authorizeRole(['TEAM_LEADER', 'ADMIN']), fileController.setPriority);
-router.patch('/:fileId/priority', authenticateToken, authorizeRole(['TEAM_LEADER', 'ADMIN']), fileController.setPriority);
 
 // Details & Collaboration
 router.get('/:id', authenticateToken, fileController.getFileById);
-router.get('/:fileId', authenticateToken, fileController.getFileById);
+router.get('/:id/path', authenticateToken, fileController.getFilePath);
 router.get('/:id/comments', authenticateToken, fileController.getComments);
-router.get('/:fileId/comments', authenticateToken, fileController.getComments);
 router.post('/:id/comments', authenticateToken, fileController.addComment);
-router.post('/:fileId/comments', authenticateToken, fileController.addComment);
 router.get('/:id/history', authenticateToken, fileController.getHistory);
-router.get('/:fileId/history', authenticateToken, fileController.getHistory);
 
-// Download & Stream (Support both :id and :fileId)
+// Download & Stream
 router.get('/:id/download', authenticateToken, fileController.download);
-router.get('/:fileId/download', authenticateToken, fileController.download);
 router.get('/:id/stream', authenticateToken, fileController.stream);
-router.get('/:fileId/stream', authenticateToken, fileController.stream);
 
 module.exports = router;

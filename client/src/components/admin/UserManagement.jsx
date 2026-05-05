@@ -1,11 +1,30 @@
 import { useState, useEffect, useMemo, useCallback } from 'react'
-import { API_BASE_URL } from '@/config/api'
+import { apiFetch } from '@/config/api'
 import './UserManagement.css'
 import { AlertMessage, ConfirmationModal, FormModal } from './modals'
 import { SkeletonLoader } from '../common/SkeletonLoader'
 import { useAuth, useNetwork } from '../../contexts'
 import { usePagination } from '../../hooks'
 import { withErrorBoundary } from '../common'
+
+/**
+ * Normalise a role string from the DB into a stable CSS class name.
+ * Handles both "TEAM LEADER" (space) and "TEAM_LEADER" (underscore) variants.
+ *   "ADMIN"       → "admin"
+ *   "USER"        → "user"
+ *   "TEAM LEADER" → "team-leader"
+ *   "TEAM_LEADER" → "team-leader"
+ */
+const roleToClass = (role = '') =>
+  role.toLowerCase().replace(/[\s_]+/g, '-')
+
+/**
+ * Normalise a role value for display.
+ * Converts DB underscore format to space format for consistent UI labels.
+ *   "TEAM_LEADER" → "TEAM LEADER"
+ */
+const roleToLabel = (role = '') =>
+  role.replace(/_/g, ' ')
 
 const UserManagement = ({ clearMessages, error, success, setError, setSuccess, user, contextData }) => {
   const { user: authUser } = useAuth()
@@ -78,8 +97,7 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess, u
   const fetchUsers = useCallback(async () => {
     setIsLoading(true)
     try {
-      const response = await fetch(`${API_BASE_URL}/api/users`)
-      const data = await response.json()
+      const data = await apiFetch(`/api/users`)
       if (data.success) {
         setUsers(data.users)
         resetPagination() // Reset to first page when users are refetched
@@ -97,8 +115,7 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess, u
   const fetchTeams = useCallback(async () => {
     setTeamsLoading(true)
     try {
-      const response = await fetch(`${API_BASE_URL}/api/teams`)
-      const data = await response.json()
+      const data = await apiFetch(`/api/teams`)
       if (data.success) {
         setTeams(data.teams || [])
       }
@@ -153,9 +170,8 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess, u
     setError('')
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/users`, {
+      const data = await apiFetch(`/api/users`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...formData,
           adminId: authUser.id,
@@ -164,8 +180,6 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess, u
           adminTeam: authUser.team
         })
       })
-
-      const data = await response.json()
       if (data.success) {
         setSuccess('User created successfully')
         setShowAddModal(false)
@@ -194,9 +208,8 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess, u
     setError('')
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/users/${selectedUser.id}`, {
+      const data = await apiFetch(`/api/users/${selectedUser.id}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           fullName: formData.fullName,
           username: formData.username,
@@ -209,8 +222,6 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess, u
           adminTeam: authUser.team
         })
       })
-
-      const data = await response.json()
       if (data.success) {
         setSuccess('User updated successfully')
         setShowEditModal(false)
@@ -232,9 +243,8 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess, u
     setError('')
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/users/${selectedUser.id}/password`, {
+      const data = await apiFetch(`/api/users/${selectedUser.id}/password`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           password: formData.password,
           adminId: authUser.id,
@@ -243,8 +253,6 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess, u
           adminTeam: authUser.team
         })
       })
-
-      const data = await response.json()
       if (data.success) {
         setSuccess('Password reset successfully')
         setShowPasswordModal(false)
@@ -265,9 +273,8 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess, u
 
     setIsLoading(true)
     try {
-      const response = await fetch(`${API_BASE_URL}/api/users/${userToDelete.id}`, {
+      const data = await apiFetch(`/api/users/${userToDelete.id}`, {
         method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           adminId: authUser.id,
           adminUsername: authUser.username,
@@ -275,8 +282,6 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess, u
           adminTeam: authUser.team
         })
       })
-
-      const data = await response.json()
       if (data.success) {
         setSuccess(`User ${userToDelete.fullName} deleted successfully`)
         setShowUserDeleteModal(false)
@@ -416,7 +421,10 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess, u
               </thead>
               <tbody>
                 {paginatedUsers.map((userData) => {
-                  const roleClass = userData.role.toLowerCase().replace(' ', '-')
+                  // Normalise role → CSS class (handles both "TEAM LEADER" and "TEAM_LEADER")
+                  const roleClass = roleToClass(userData.role)
+                  // Normalise role → display label (always use space format)
+                  const roleLabel = roleToLabel(userData.role)
                   return (
                     <tr key={userData.id} className="user-row" data-user-id={userData.id}>
                       <td>
@@ -442,7 +450,7 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess, u
                       </td>
                       <td>
                         <span className={`role-badge ${roleClass}`}>
-                          {userData.role}
+                          {roleLabel}
                         </span>
                       </td>
                       <td>
@@ -742,7 +750,7 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess, u
           isLoading={isLoading}
           itemInfo={{
             name: userToDelete.fullName,
-            details: `${userToDelete.email} • ${userToDelete.role}`
+            details: `${userToDelete.email} • ${roleToLabel(userToDelete.role)}`
           }}
         >
           <p className="warning-text">

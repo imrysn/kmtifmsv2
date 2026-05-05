@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { API_BASE_URL } from '@/config/api'
+import { apiFetch, API_BASE_URL } from '@/config/api'
 import './css/AssignmentDetailsModal.css'
 import FileIcon from '../../shared/FileIcon'
 
@@ -64,8 +64,7 @@ const AssignmentDetailsModal = ({
   const fetchSubmissionComments = async (fileId) => {
     setIsLoadingComments(true)
     try {
-      const response = await fetch(`${API_BASE_URL}/api/files/${fileId}/comments`)
-      const data = await response.json()
+      const data = await apiFetch(`/api/files/${fileId}/comments`)
 
       if (data.success) {
         setSubmissionComments(data.comments || [])
@@ -84,8 +83,7 @@ const AssignmentDetailsModal = ({
     if (!selectedAssignment) return
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/assignments/${selectedAssignment.id}/comments`)
-      const data = await response.json()
+      const data = await apiFetch(`/api/assignments/${selectedAssignment.id}/comments`)
 
       if (data.success) {
         setAssignmentComments(data.comments || [])
@@ -103,19 +101,14 @@ const AssignmentDetailsModal = ({
     setIsPostingComment(true)
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/assignments/${selectedAssignment.id}/comments`, {
+      const data = await apiFetch(`/api/assignments/${selectedAssignment.id}/comments`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
         body: JSON.stringify({
           userId: teamLeaderId,
           username: teamLeaderUsername,
           comment: commentText
         })
       })
-
-      const data = await response.json()
 
       if (data.success) {
         setNewAssignmentComment('')
@@ -138,19 +131,14 @@ const AssignmentDetailsModal = ({
     setIsPostingReply(true)
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/assignments/${selectedAssignment.id}/comments/${commentId}/reply`, {
+      const data = await apiFetch(`/api/assignments/${selectedAssignment.id}/comments/${commentId}/reply`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
         body: JSON.stringify({
           userId: teamLeaderId,
           username: teamLeaderUsername,
           reply: replyTextValue
         })
       })
-
-      const data = await response.json()
 
       if (data.success) {
         setReplyText('')
@@ -220,11 +208,8 @@ const AssignmentDetailsModal = ({
 
     setIsProcessing(true)
     try {
-      const response = await fetch(`${API_BASE_URL}/api/files/${selectedSubmission.id}/team-leader-review`, {
+      const data = await apiFetch(`/api/files/${selectedSubmission.id}/team-leader-review`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
         body: JSON.stringify({
           action: 'approve',
           comments: reviewComment.trim() || null,
@@ -234,8 +219,6 @@ const AssignmentDetailsModal = ({
           team: selectedAssignment.team
         })
       })
-
-      const data = await response.json()
 
       if (data.success) {
         setAssignmentSubmissions(prev =>
@@ -268,11 +251,8 @@ const AssignmentDetailsModal = ({
 
     setIsProcessing(true)
     try {
-      const response = await fetch(`${API_BASE_URL}/api/files/${selectedSubmission.id}/team-leader-review`, {
+      const data = await apiFetch(`/api/files/${selectedSubmission.id}/team-leader-review`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
         body: JSON.stringify({
           action: 'reject',
           comments: reviewComment.trim(),
@@ -282,8 +262,6 @@ const AssignmentDetailsModal = ({
           team: selectedAssignment.team
         })
       })
-
-      const data = await response.json()
 
       if (data.success) {
         setAssignmentSubmissions(prev =>
@@ -311,9 +289,8 @@ const AssignmentDetailsModal = ({
 
     setIsProcessing(true)
     try {
-      const response = await fetch(`${API_BASE_URL}/api/files/${selectedSubmission.id}/comments`, {
+      const data = await apiFetch(`/api/files/${selectedSubmission.id}/comments`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           comment: reviewComment.trim(),
           userId: teamLeaderId,
@@ -321,8 +298,6 @@ const AssignmentDetailsModal = ({
           userRole: 'TEAM_LEADER'
         })
       })
-
-      const data = await response.json()
 
       if (data.success) {
         setReviewComment('')

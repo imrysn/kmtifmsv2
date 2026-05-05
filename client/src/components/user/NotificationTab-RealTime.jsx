@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback, useRef, startTransition } from 'react';
-import { API_BASE_URL } from '@/config/api';
+import { apiFetch } from '@/config/api';
 import './css/NotificationTab.css';
 import { parseNotification } from '../shared/SmartNavigation';
 
@@ -31,8 +31,7 @@ const NotificationTab = ({ user, onOpenFile, onNavigateToTasks, onNavigate, onUp
   // Single stable fetch function — defined once, used by both initial load and poll
   const fetchNotifications = useCallback(async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/notifications/user/${user.id}`);
-      const data = await response.json();
+      const data = await apiFetch(`/api/notifications/user/${user.id}`);
       applyNotifications(data);
     } catch (error) {
       console.error('❌ Error fetching notifications:', error);
@@ -66,7 +65,7 @@ const NotificationTab = ({ user, onOpenFile, onNavigateToTasks, onNavigate, onUp
   const handleNotificationClick = useCallback(async (notification) => {
     if (!notification.is_read) {
       try {
-        await fetch(`${API_BASE_URL}/api/notifications/${notification.id}/read`, { method: 'PUT' });
+        await apiFetch(`/api/notifications/${notification.id}/read`, { method: 'PUT' });
         setNotifications(prev => prev.map(n => n.id === notification.id ? { ...n, is_read: 1 } : n));
         setUnreadCount(prev => {
           const next = Math.max(0, prev - 1);
@@ -110,8 +109,7 @@ const NotificationTab = ({ user, onOpenFile, onNavigateToTasks, onNavigate, onUp
       const notif = notifications.find(n => n.id === notificationId);
       const wasUnread = notif && !notif.is_read;
 
-      const response = await fetch(`${API_BASE_URL}/api/notifications/${notificationId}`, { method: 'DELETE' });
-      const data = await response.json();
+      const data = await apiFetch(`/api/notifications/${notificationId}`, { method: 'DELETE' });
 
       if (data.success) {
         setNotifications(prev => prev.filter(n => n.id !== notificationId));
@@ -130,8 +128,7 @@ const NotificationTab = ({ user, onOpenFile, onNavigateToTasks, onNavigate, onUp
 
   const handleMarkAllAsRead = useCallback(async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/notifications/user/${user.id}/read-all`, { method: 'PUT' });
-      const data = await response.json();
+      const data = await apiFetch(`/api/notifications/user/${user.id}/read-all`, { method: 'PUT' });
       if (data.success) {
         setNotifications(prev => prev.map(n => ({ ...n, is_read: 1 })));
         setUnreadCount(0);
@@ -146,8 +143,7 @@ const NotificationTab = ({ user, onOpenFile, onNavigateToTasks, onNavigate, onUp
 
   const confirmDeleteAll = useCallback(async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/notifications/user/${user.id}/delete-all`, { method: 'DELETE' });
-      const data = await response.json();
+      const data = await apiFetch(`/api/notifications/user/${user.id}/delete-all`, { method: 'DELETE' });
       if (data.success) {
         setNotifications([]);
         setUnreadCount(0);

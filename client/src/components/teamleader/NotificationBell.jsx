@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { API_BASE_URL } from '@/config/api';
+import { apiFetch } from '@/config/api';
 import './css/NotificationBell.css';
 import { useTaskbarFlash } from '../../utils/useTaskbarFlash';
 
@@ -19,8 +19,7 @@ const NotificationBell = ({ userId, onNotificationClick }) => {
 
   const fetchUnreadCount = async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/notifications/user/${userId}/unread-count`);
-      const data = await response.json();
+      const data = await apiFetch(`/api/notifications/user/${userId}/unread-count`);
 
       if (data.success) {
         const newCount = data.count || 0;

@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { API_BASE_URL } from '@/config/api';
+import { apiFetch } from '@/config/api';
 import './css/MultiSelectTags.css';
 import { FILE_TAGS } from './fileTags';
 
@@ -20,8 +20,7 @@ const SingleSelectTags = ({ selectedTag, onChange, disabled, user }) => {
   const fetchCustomTags = async () => {
     try {
       setIsLoadingTags(true);
-      const response = await fetch(`${API_BASE_URL}/api/custom-tags`);
-      const data = await response.json();
+      const data = await apiFetch(`/api/custom-tags`);
 
       if (data.success) {
         setCustomTags(data.tags || []);
@@ -81,18 +80,13 @@ const SingleSelectTags = ({ selectedTag, onChange, disabled, user }) => {
     console.log('Adding custom tag:', trimmedTag, 'for user:', user.id);
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/custom-tags`, {
+      const data = await apiFetch(`/api/custom-tags`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
         body: JSON.stringify({
           tagName: trimmedTag,
           userId: user.id
         })
       });
-
-      const data = await response.json();
       console.log('API Response:', data);
 
       if (data.success) {

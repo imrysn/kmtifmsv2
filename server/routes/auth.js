@@ -1,10 +1,13 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
+const { secret, expiresIn } = require('../config/jwt');
 const { db } = require('../config/database');
 const { logActivity, logError, logInfo, logWarn } = require('../utils/logger');
 const { createNotification } = require('./notifications');
 const { validate, schemas } = require('../middleware/validation');
 const { asyncHandler, AuthenticationError } = require('../middleware/errorHandler');
+const { authenticateToken } = require('../middleware/auth');
 
 const router = express.Router();
 
@@ -111,8 +114,21 @@ router.post('/login', validate(schemas.login), asyncHandler(async (req, res) => 
 
   // Remove password from user object before sending response
   const { password: _password, ...userWithoutPassword } = user;
+
+  // Generate JWT
+  const tokenPayload = {
+    id: user.id,
+    username: user.username,
+    role: normalizedRole,
+    team: user.team,
+    fullName: user.fullName || user.username
+  };
+
+  const token = jwt.sign(tokenPayload, secret, { expiresIn });
+
   res.json({
     success: true,
+    token: token,
     user: {
       ...userWithoutPassword,
       panelType

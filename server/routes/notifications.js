@@ -1,7 +1,12 @@
 const express = require('express');
-const { query, queryOne } = require('../config/database-mysql');
+const { query, queryOne } = require('../config/database');
+const { authenticateToken } = require('../middleware/auth');
 
 const router = express.Router();
+
+// Apply authentication to all routes in this router
+router.use(authenticateToken);
+
 
 // Helper function to create a notification (supports both file and assignment notifications)
 const createNotification = async (userId, fileId, type, title, message, actionById, actionByUsername, actionByRole, assignmentId = null) => {
@@ -96,6 +101,11 @@ router.get('/user/:userId', async (req, res) => {
     const { userId } = req.params;
     const { unreadOnly, page = 1, limit = 20 } = req.query;
 
+    // Ownership check: Users can only see their own notifications, ADMINs can see any
+    if (req.user.id !== parseInt(userId) && req.user.role !== 'ADMIN') {
+        return res.status(403).json({ success: false, message: 'Access denied: You can only view your own notifications' });
+    }
+
     const pageNum = parseInt(page);
     const limitNum = parseInt(limit);
     const offset = (pageNum - 1) * limitNum;
@@ -173,6 +183,11 @@ router.get('/user/:userId/unread-count', async (req, res) => {
   try {
     const { userId } = req.params;
 
+    // Ownership check
+    if (req.user.id !== parseInt(userId) && req.user.role !== 'ADMIN') {
+        return res.status(403).json({ success: false, message: 'Access denied' });
+    }
+
     const result = await queryOne(
       'SELECT COUNT(*) as count FROM notifications WHERE user_id = ? AND is_read = 0',
       [userId]
@@ -222,6 +237,11 @@ router.put('/user/:userId/read-all', async (req, res) => {
   try {
     const { userId } = req.params;
     const now = new Date().toISOString().slice(0, 19).replace('T', ' ');
+
+    // Ownership check
+    if (req.user.id !== parseInt(userId) && req.user.role !== 'ADMIN') {
+        return res.status(403).json({ success: false, message: 'Access denied' });
+    }
 
     const result = await query(
       'UPDATE notifications SET is_read = 1, read_at = ? WHERE user_id = ? AND is_read = 0',
@@ -273,6 +293,11 @@ router.delete('/:notificationId', async (req, res) => {
 router.delete('/user/:userId/delete-all', async (req, res) => {
   try {
     const { userId } = req.params;
+
+    // Ownership check
+    if (req.user.id !== parseInt(userId) && req.user.role !== 'ADMIN') {
+        return res.status(403).json({ success: false, message: 'Access denied' });
+    }
 
     console.log(`🗑️ Deleting all notifications for user ${userId}`);
 

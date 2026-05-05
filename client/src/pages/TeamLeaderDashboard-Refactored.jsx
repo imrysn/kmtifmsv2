@@ -1,5 +1,5 @@
 import React, { useState, useEffect, Suspense, lazy } from 'react'
-import { API_BASE_URL } from '@/config/api'
+import { apiFetch, API_BASE_URL } from '@/config/api'
 import '../css/TeamLeaderDashboard.css'
 import SkeletonLoader from '../components/common/SkeletonLoader'
 import { AlertMessage } from '../components/shared'
@@ -191,9 +191,7 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
   const fetchAllSubmissions = async () => {
     setIsLoading(true)
     try {
-      const response = await fetch(`${API_BASE_URL}/api/assignments/team-leader/${user.id}/all-submissions`)
-      const data = await response.json()
-
+      const data = await apiFetch(`/api/assignments/team-leader/${user.id}/all-submissions`)
       if (data.success) {
         setSubmittedFiles(data.submissions || [])
       }
@@ -208,18 +206,16 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
   const fetchPendingFiles = async (status = null) => {
     setIsLoading(true)
     try {
-      let url = `${API_BASE_URL}/api/files/team-leader/${user.team}?limit=1000`
+      let url = `/api/files/team-leader/${user.team}?limit=1000`
       if (status === 'total') {
-        url = `${API_BASE_URL}/api/files/team/${user.team}?limit=1000`
+        url = `/api/files/team/${user.team}?limit=1000`
       }
       else if (status && status !== 'pending') {
         let statusParam = status
-        url = `${API_BASE_URL}/api/files/team/${user.team}/status/${statusParam}?limit=1000`
+        url = `/api/files/team/${user.team}/status/${statusParam}?limit=1000`
       }
 
-      const response = await fetch(url)
-      const data = await response.json()
-
+      const data = await apiFetch(url)
       if (data.success) {
         setPendingFiles(data.files || [])
         setFilteredFiles(data.files || [])
@@ -241,9 +237,7 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
     setIsLoadingTeam(true)
     try {
       // Use new team-leader endpoint to get members from ALL teams
-      const response = await fetch(`${API_BASE_URL}/api/team-members/team-leader/${user.id}`)
-      const data = await response.json()
-
+      const data = await apiFetch(`/api/team-members/team-leader/${user.id}`)
       if (data.success && data.members && data.members.length > 0) {
         const mappedMembers = data.members.map(member => ({
           id: member.id,
@@ -301,9 +295,7 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
     setSelectedMember({ id: memberId, name: memberName })
     setIsLoading(true)
     try {
-      const response = await fetch(`${API_BASE_URL}/api/files/member/${memberId}`)
-      const data = await response.json()
-
+      const data = await apiFetch(`/api/files/member/${memberId}`)
       if (data.success) {
         setMemberFiles(data.files || [])
         setShowMemberFilesModal(true)
@@ -321,9 +313,7 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
   const fetchAnalytics = async () => {
     try {
       // Use new team-leader endpoint to get analytics aggregated from ALL teams
-      const response = await fetch(`${API_BASE_URL}/api/dashboard/team-leader/${user.id}`)
-      const data = await response.json()
-
+      const data = await apiFetch(`/api/dashboard/team-leader/${user.id}`)
       if (data.success) {
         setAnalyticsData(data.analytics || {})
       }
@@ -335,15 +325,7 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
   const fetchAssignments = async () => {
     setIsLoadingAssignments(true)
     try {
-      const response = await fetch(`${API_BASE_URL}/api/assignments/team-leader/${user.id}`)
-
-      if (response.status === 404) {
-        setAssignments([])
-        setIsLoadingAssignments(false)
-        return
-      }
-
-      const data = await response.json()
+      const data = await apiFetch(`/api/assignments/team-leader/${user.id}`)
       if (data.success) {
         setAssignments(data.assignments || [])
       } else {
@@ -393,8 +375,7 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
         if (hasAttachments || (removedAttachmentIds && removedAttachmentIds.length > 0)) {
           // Request a one-time nonce from the server before uploading.
           // This prevents Electron's multipart cache from replaying old uploads.
-          const nonceRes = await fetch(`${API_BASE_URL}/api/assignments/upload-nonce`, { method: 'POST' })
-          const nonceData = await nonceRes.json()
+          const nonceData = await apiFetch(`/api/assignments/upload-nonce`, { method: 'POST' })
           if (!nonceData.success) throw new Error('Failed to get upload nonce')
 
           const formData = new FormData()
@@ -418,22 +399,24 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
             formData.append('removeAttachmentIds', JSON.stringify(removedAttachmentIds));
           }
 
-          response = await fetch(url, { method, body: formData })
+          const responseData = await apiFetch(url, { 
+            method, 
+            body: formData,
+            headers: {} // Don't set Content-Type for FormData
+          })
 
-          // If server rejected due to a stale/replayed nonce (Electron cache replay bug),
-          // fall back to a plain JSON request which doesn't carry attachments.
-          if (response.status === 400) {
-            const errData = await response.clone().json().catch(() => ({}))
+          // If server rejected due to a stale/replayed nonce
+          if (responseData.status === 400) {
+            const errData = responseData;
             if (errData.message && errData.message.toLowerCase().includes('nonce')) {
               console.warn('⚠️ Nonce rejected — falling back to JSON request (no attachments)')
               // For new assignments, fall back to /create-json; for edits, fall back to PUT /:id with JSON
               const fallbackUrl = editingAssignmentId
                 ? url
-                : `${API_BASE_URL}/api/assignments/create-json`
+                : `/api/assignments/create-json`
               const fallbackMethod = editingAssignmentId ? 'PUT' : 'POST'
-              response = await fetch(fallbackUrl, {
+              const fallbackData = await apiFetch(fallbackUrl, {
                 method: fallbackMethod,
-                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                   title: assignmentForm.title,
                   description: assignmentForm.description || '',
@@ -447,18 +430,19 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
                   removeAttachmentIds
                 })
               })
+              return handlePostDataResult(fallbackData, removeAttachmentIds);
             }
           }
+          return handlePostDataResult(responseData, removeAttachmentIds);
         } else {
           // No file changes — use JSON-only endpoints (no nonce needed)
           // New assignments → /create-json; edits → PUT /:id with JSON
           const jsonUrl = editingAssignmentId
             ? url
-            : `${API_BASE_URL}/api/assignments/create-json`
+            : `/api/assignments/create-json`
           const jsonMethod = editingAssignmentId ? 'PUT' : 'POST'
-          response = await fetch(jsonUrl, {
+          const data = await apiFetch(jsonUrl, {
             method: jsonMethod,
-            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               title: assignmentForm.title,
               description: assignmentForm.description || '',
@@ -472,40 +456,42 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
               removeAttachmentIds // may be []
             })
           })
+          return handlePostDataResult(data, removeAttachmentIds);
         }
 
-        const data = await response.json()
-        if (data.success) {
-          setSuccess(editingAssignmentId
-            ? 'Task updated successfully!'
-            : `Assignment created! ${data.membersAssigned} members assigned.`
-          )
-          // immediately remove attachments locally so UI reflects change even before server refetch
-          if (editingAssignmentId && removeAttachmentIds.length > 0) {
-            setAssignments(prev => prev.map(a => {
-              if (a.id === editingAssignmentId) {
-                return {
-                  ...a,
-                  attachments: (a.attachments || []).filter(att => !removeAttachmentIds.includes(att.id))
+        const handlePostDataResult = (data, removeAttachmentIds) => {
+          if (data.success) {
+            setSuccess(editingAssignmentId
+              ? 'Task updated successfully!'
+              : `Assignment created! ${data.membersAssigned} members assigned.`
+            )
+            // immediately remove attachments locally so UI reflects change even before server refetch
+            if (editingAssignmentId && removeAttachmentIds.length > 0) {
+              setAssignments(prev => prev.map(a => {
+                if (a.id === editingAssignmentId) {
+                  return {
+                    ...a,
+                    attachments: (a.attachments || []).filter(att => !removeAttachmentIds.includes(att.id))
+                  }
                 }
-              }
-              return a
-            }))
+                return a
+              }))
+            }
+            setShowCreateAssignmentModal(false)
+            setEditingAssignmentId(null)
+            setAssignmentForm({
+              title: '',
+              description: '',
+              dueDate: '',
+              fileTypeRequired: '',
+              assignedMembers: [],
+              selectedTeam: uniqueTeams && uniqueTeams.length === 1 ? uniqueTeams[0] : ''
+            })
+            fetchAssignments()
+          } else {
+            setError(data.message || `Failed to ${editingAssignmentId ? 'update' : 'create'} assignment`)
           }
-          setShowCreateAssignmentModal(false)
-          setEditingAssignmentId(null)
-          setAssignmentForm({
-            title: '',
-            description: '',
-            dueDate: '',
-            fileTypeRequired: '',
-            assignedMembers: [],
-            selectedTeam: uniqueTeams && uniqueTeams.length === 1 ? uniqueTeams[0] : ''
-          })
-          fetchAssignments()
-        } else {
-          setError(data.message || `Failed to ${editingAssignmentId ? 'update' : 'create'} assignment`)
-        }
+        };
     } catch (error) {
       console.error(`Error ${editingAssignmentId ? 'updating' : 'creating'} assignment:`, error)
       setError(`Failed to ${editingAssignmentId ? 'update' : 'create'} assignment`)
@@ -517,12 +503,9 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
   const handleEditAssignment = async (assignment) => {
     // fetch fresh details (including attachments) in case list data is minimal
     try {
-      const res = await fetch(`${API_BASE_URL}/api/assignments/${assignment.id}`)
-      if (res.ok) {
-        const data = await res.json()
-        if (data.success && data.assignment) {
-          assignment = data.assignment
-        }
+      const data = await apiFetch(`/api/assignments/${assignment.id}`)
+      if (data.success && data.assignment) {
+        assignment = data.assignment
       }
     } catch (e) {
       console.warn('Failed to load full assignment details for edit', e)
@@ -560,16 +543,14 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
 
   const deleteAssignment = async (assignmentId, title) => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/assignments/${assignmentId}`, {
+      const data = await apiFetch(`/api/assignments/${assignmentId}`, {
         method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           teamLeaderUsername: user.username,
           team: user.team
         })
       })
 
-      const data = await response.json()
       if (data.success) {
         setSuccess('Assignment deleted successfully')
         fetchAssignments()
@@ -584,9 +565,8 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
 
   const markAssignmentAsDone = async (assignmentId, title) => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/assignments/${assignmentId}/mark-done`, {
+      const data = await apiFetch(`/api/assignments/${assignmentId}/mark-done`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           teamLeaderId: user.id,
           teamLeaderUsername: user.username,
@@ -594,7 +574,6 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
         })
       })
 
-      const data = await response.json()
       if (data.success) {
         setSuccess(`Task "${title}" marked as completed`)
         fetchAssignments()
@@ -614,8 +593,7 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
     setShowReviewModal(true)
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/files/${file.id}/comments`)
-      const data = await response.json()
+      const data = await apiFetch(`/api/files/${file.id}/comments`)
       if (data.success) {
         setFileComments(data.comments || [])
       }
@@ -630,8 +608,7 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
       // Check if running in Electron and has capability to open files locally
       if (window.electron && window.electron.openFileInApp) {
         // Get the absolute file path from server
-        const response = await fetch(`${API_BASE_URL}/api/files/${file.id}/path`);
-        const data = await response.json();
+        const data = await apiFetch(`/api/files/${file.id}/path`);
 
         if (data.success && data.filePath) {
           const result = await window.electron.openFileInApp(data.filePath);
@@ -645,7 +622,8 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
           setError('Could not retrieve file path');
         }
       } else {
-        // Web fallback
+        // Web fallback - using apiFetch buildUrl if needed, but window.open needs a full URL
+        // We'll keep API_BASE_URL for window.open but use it sparingly
         const fileUrl = `${API_BASE_URL}${file.file_path}`;
         window.open(fileUrl, '_blank', 'noopener,noreferrer');
         setSuccess('File opened in new tab');
@@ -668,11 +646,8 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
     setError('')
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/files/${selectedFile.id}/team-leader-review`, {
+      const data = await apiFetch(`/api/files/${selectedFile.id}/team-leader-review`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
         body: JSON.stringify({
           action: actionToUse,
           comments: reviewComments.trim(),
@@ -682,8 +657,6 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
           team: user.team
         })
       })
-
-      const data = await response.json()
 
       if (data.success) {
         if (actionToUse === 'reject') {
@@ -776,9 +749,8 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
     setError('')
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/files/bulk-action`, {
+      const data = await apiFetch(`/api/files/bulk-action`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           fileIds: selectedFileIds,
           action: bulkAction,
@@ -789,8 +761,6 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
           team: user.team
         })
       })
-
-      const data = await response.json()
 
       if (data.success) {
         setSuccess(`Successfully ${bulkAction}d ${data.results.success.length} file(s)`)
@@ -816,9 +786,8 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
   const applyFilters = async () => {
     setIsLoading(true)
     try {
-      const response = await fetch(`${API_BASE_URL}/api/files/team-leader/${user.team}/filter`, {
+      const data = await apiFetch(`/api/files/team-leader/${user.team}/filter`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           filters: filters,
           sort: sortConfig,
@@ -826,8 +795,6 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
           limit: 100
         })
       })
-
-      const data = await response.json()
       if (data.success) {
         setPendingFiles(data.files || [])
         setShowFilterModal(false)
@@ -870,9 +837,8 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
     setError('')
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/files/${priorityFileId}/priority`, {
+      const data = await apiFetch(`/api/files/${priorityFileId}/priority`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           priority: priorityValue,
           dueDate: dueDateValue,
@@ -880,8 +846,6 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
           reviewerUsername: user.username
         })
       })
-
-      const data = await response.json()
 
       if (data.success) {
         setSuccess('Priority and deadline updated successfully')
@@ -902,8 +866,7 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
 
   const fetchNotifications = async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/files/notifications/${encodeURIComponent(user.team)}`)
-      const data = await response.json()
+      const data = await apiFetch(`/api/files/notifications/${encodeURIComponent(user.team)}`)
 
       if (data.success) {
         setNotifications(data.notifications || [])
@@ -915,8 +878,7 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
 
     // Also fetch unread count from the dedicated notifications endpoint
     try {
-      const res = await fetch(`${API_BASE_URL}/api/notifications/user/${user.id}?page=1&limit=1`)
-      const d = await res.json()
+      const d = await apiFetch(`/api/notifications/user/${user.id}?page=1&limit=1`)
       if (d.success) {
         setUnreadCount(d.unreadCount || 0)
       }
@@ -954,14 +916,10 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
   const handleOpenInExplorer = async (filePath, e) => {
     e.stopPropagation()
     try {
-      const response = await fetch(`${API_BASE_URL}/api/files/open-in-explorer`, {
+      const data = await apiFetch(`/api/files/open-in-explorer`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
         body: JSON.stringify({ filePath })
       })
-      const data = await response.json()
       if (data.success) {
         setSuccess('File opened in explorer')
       } else {

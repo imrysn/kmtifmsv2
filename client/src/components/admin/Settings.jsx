@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { API_BASE_URL } from '@/config/api'
+import { apiFetch } from '@/config/api'
 import './Settings.css'
 import { AlertMessage, ConfirmationModal } from './modals'
 import { SkeletonLoader } from '../common/SkeletonLoader'
@@ -120,8 +120,7 @@ const Settings = ({ clearMessages, error, success, setError, setSuccess, users, 
           setAppVersion(`v${version}`)
         } else {
           // Fallback: try to get from package.json via API
-          const response = await fetch(`${API_BASE_URL}/api/version`)
-          const data = await response.json()
+          const data = await apiFetch('/api/version')
           if (data.success && data.version) {
             setAppVersion(`v${data.version}`)
           } else {
@@ -150,8 +149,7 @@ const Settings = ({ clearMessages, error, success, setError, setSuccess, users, 
   const fetchSettings = async () => {
     setIsLoadingSettings(true)
     try {
-      const response = await fetch(`${API_BASE_URL}/api/settings/root_directory`)
-      const data = await response.json()
+      const data = await apiFetch('/api/settings/root_directory')
       if (data.success && data.setting) {
         setSettings(prev => ({
           ...prev,
@@ -214,15 +212,13 @@ const Settings = ({ clearMessages, error, success, setError, setSuccess, users, 
 
     setIsLoading(true)
     try {
-      const response = await fetch(`${API_BASE_URL}/api/settings/root_directory`, {
+      const data = await apiFetch('/api/settings/root_directory', {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           value: settings.fileManagement.rootDirectory,
           updated_by: user?.username || 'admin'
         })
       })
-      const data = await response.json()
       if (data.success) {
         setSuccess('New directory settings saved successfully')
       } else {
@@ -260,8 +256,7 @@ const Settings = ({ clearMessages, error, success, setError, setSuccess, users, 
   const fetchTeams = async () => {
     setTeamsLoading(true)
     try {
-      const response = await fetch(`${API_BASE_URL}/api/teams`)
-      const data = await response.json()
+      const data = await apiFetch('/api/teams')
       if (data.success) {
         setTeams(data.teams || [])
       } else {
@@ -282,15 +277,13 @@ const Settings = ({ clearMessages, error, success, setError, setSuccess, users, 
 
     setIsLoading(true)
     try {
-      const response = await fetch(`${API_BASE_URL}/api/teams`, {
+      const data = await apiFetch('/api/teams', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           name: newTeam.name,
           leaderIds: newTeam.leaderIds
         })
       })
-      const data = await response.json()
       if (data.success) {
         setSuccess('Team created successfully')
         setNewTeam({ name: '', leaderIds: [] })
@@ -321,12 +314,10 @@ const Settings = ({ clearMessages, error, success, setError, setSuccess, users, 
       console.log('🟡 UPDATE TEAM - Sending payload:', payload)
       console.log('🟡 UPDATE TEAM - editingTeam state:', editingTeam)
 
-      const response = await fetch(`${API_BASE_URL}/api/teams/${editingTeam.id}`, {
+      const data = await apiFetch(`/api/teams/${editingTeam.id}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       })
-      const data = await response.json()
       console.log('🟡 UPDATE TEAM - Response:', data)
       if (data.success) {
         setSuccess('Team updated successfully')
@@ -351,8 +342,7 @@ const Settings = ({ clearMessages, error, success, setError, setSuccess, users, 
 
     setIsLoading(true)
     try {
-      const response = await fetch(`${API_BASE_URL}/api/teams/${teamId}`, { method: 'DELETE' })
-      const data = await response.json()
+      const data = await apiFetch(`/api/teams/${teamId}`, { method: 'DELETE' })
       if (data.success) {
         setSuccess(`Team '${teamName}' deleted successfully`)
         fetchTeams()

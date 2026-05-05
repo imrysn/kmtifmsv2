@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { API_BASE_URL } from '@/config/api'
+import { apiFetch, API_BASE_URL } from '@/config/api'
 import './css/AssignmentDetailsModal.css'
 import { getDisplayFileType } from '../../../utils/fileTypeUtils'
 import { ConfirmationModal, FileOpenModal } from '../../shared'
@@ -42,8 +42,7 @@ const ReviewModal = ({
       // Check if running in Electron and has capability to open files locally
       if (window.electron && window.electron.openFileInApp) {
         // Get the absolute file path from server
-        const response = await fetch(`${API_BASE_URL}/api/files/${selectedFile.id}/path`);
-        const data = await response.json();
+        const data = await apiFetch(`/api/files/${selectedFile.id}/path`);
 
         if (data.success && data.filePath) {
           const result = await window.electron.openFileInApp(data.filePath);

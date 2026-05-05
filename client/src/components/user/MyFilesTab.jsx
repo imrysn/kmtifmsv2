@@ -1,5 +1,5 @@
 import './css/MyFilesTab.css';
-import { API_BASE_URL } from '@/config/api';
+import { apiFetch, API_BASE_URL } from '@/config/api';
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import SuccessModal from './SuccessModal';
@@ -64,8 +64,7 @@ const MyFilesTab = ({
   const openFile = useCallback(async (file) => {
     try {
       if (window.electron?.openFileInApp) {
-        const response = await fetch(`${API_BASE_URL}/api/files/${file.id}/path`);
-        const data = await response.json();
+        const data = await apiFetch(`/api/files/${file.id}/path`);
 
         if (data.success && data.filePath) {
           const result = await window.electron.openFileInApp(data.filePath);
@@ -268,16 +267,15 @@ const MyFilesTab = ({
     try {
       if (deleteModal.isFolder) {
         const deletePromises = deleteModal.folderFiles.map(file =>
-          fetch(`${API_BASE_URL}/api/files/${file.id}`, {
+          apiFetch(`/api/files/${file.id}`, {
             method: 'DELETE',
-            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               adminId: user.id,
               adminUsername: user.username,
               adminRole: user.role,
               team: user.team
             })
-          }).then(res => res.json())
+          })
         );
 
         const results = await Promise.all(deletePromises);
@@ -285,9 +283,8 @@ const MyFilesTab = ({
 
         if (allSuccess) {
           try {
-            await fetch(`${API_BASE_URL}/api/files/folder/delete`, {
+            await apiFetch(`/api/files/folder/delete`, {
               method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
                 folderName: deleteModal.folderName,
                 username: user.username,
@@ -312,9 +309,8 @@ const MyFilesTab = ({
           throw new Error('Failed to delete some files in the folder');
         }
       } else {
-        const response = await fetch(`${API_BASE_URL}/api/files/${deleteModal.fileId}`, {
+        const data = await apiFetch(`/api/files/${deleteModal.fileId}`, {
           method: 'DELETE',
-          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             adminId: user.id,
             adminUsername: user.username,
@@ -322,8 +318,6 @@ const MyFilesTab = ({
             team: user.team
           })
         });
-
-        const data = await response.json();
 
         if (data.success) {
           setSuccessModal({

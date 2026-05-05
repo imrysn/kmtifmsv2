@@ -1,11 +1,15 @@
 const express = require('express');
 const { db } = require('../config/database');
 const { logActivity } = require('../utils/logger');
+const { authenticateToken, authorizeRole } = require('../middleware/auth');
 
 const router = express.Router();
 
-// Get all teams (Admin only)
-router.get('/', (req, res) => {
+// Apply authentication to all routes in this router
+router.use(authenticateToken);
+
+// Get all teams (Admin and Team Leader)
+router.get('/', authorizeRole(['TEAM_LEADER', 'ADMIN']), (req, res) => {
   console.log('🏢 Getting all teams...');
 
   // First get all teams
@@ -56,7 +60,7 @@ router.get('/', (req, res) => {
 });
 
 // Create new team (Admin only)
-router.post('/', (req, res) => {
+router.post('/', authorizeRole('ADMIN'), (req, res) => {
   const { name, description, leaderIds = [], color = '#3B82F6' } = req.body;
   console.log('🏢 Creating new team:', { name, description, leaderIds, color });
 
@@ -194,7 +198,7 @@ router.post('/', (req, res) => {
 });
 
 // Update team (Admin only)
-router.put('/:id', (req, res) => {
+router.put('/:id', authorizeRole('ADMIN'), (req, res) => {
   const teamId = req.params.id;
   const { name, description, leaderIds = [], color, isActive } = req.body;
   console.log(`✏️ Updating team ${teamId}:`, { name, description, leaderIds, color, isActive });
@@ -347,7 +351,7 @@ router.put('/:id', (req, res) => {
 });
 
 // Delete team (Admin only)
-router.delete('/:id', (req, res) => {
+router.delete('/:id', authorizeRole('ADMIN'), (req, res) => {
   const teamId = req.params.id;
   console.log(`🗑️ Deleting team ${teamId}`);
 
@@ -413,7 +417,7 @@ router.delete('/:id', (req, res) => {
 });
 
 // Get team by name (for user assignment validation)
-router.get('/name/:name', (req, res) => {
+router.get('/name/:name', authorizeRole(['TEAM_LEADER', 'ADMIN']), (req, res) => {
   const { name } = req.params;
   db.get('SELECT * FROM teams WHERE name = ? AND is_active = 1', [name], (err, team) => {
     if (err) {

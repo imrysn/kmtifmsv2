@@ -1,5 +1,5 @@
 import { SecureDirectoryManager } from './SecureDirectoryManager';
-import { API_BASE_URL } from '@/config/api';
+import { apiFetch, API_BASE_URL } from '@/config/api';
 
 /**
  * FileEditor - Handles safe file reading, writing, and editing operations
@@ -24,16 +24,9 @@ export class FileEditor {
       const maxSize = options.maxSize || this.maxFileSize;
 
       // Use the API to read file
-      const response = await fetch(
-        `${this.apiBase}/api/file-system/read-file?path=${encodeURIComponent(filePath)}&maxSize=${maxSize}`
+      const data = await apiFetch(
+        `/api/file-system/read-file?path=${encodeURIComponent(filePath)}&maxSize=${maxSize}`
       );
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || `Failed to read file: ${response.statusText}`);
-      }
-
-      const data = await response.json();
 
       if (!data.success) {
         throw new Error(data.message || 'Failed to read file');
@@ -84,11 +77,8 @@ export class FileEditor {
       }
 
       // Write file using API
-      const response = await fetch(`${this.apiBase}/api/file-system/write-file`, {
+      const data = await apiFetch('/api/file-system/write-file', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
         body: JSON.stringify({
           path: filePath,
           content: content,
@@ -96,13 +86,6 @@ export class FileEditor {
           backup: options.backup || false
         })
       });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || `Failed to write file: ${response.statusText}`);
-      }
-
-      const data = await response.json();
 
       if (!data.success) {
         throw new Error(data.message || 'Failed to write file');
@@ -128,23 +111,13 @@ export class FileEditor {
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
       const backupPath = `${filePath}.backup.${timestamp}`;
 
-      const response = await fetch(`${this.apiBase}/api/file-system/backup-file`, {
+      const data = await apiFetch('/api/file-system/backup-file', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
         body: JSON.stringify({
           sourcePath: filePath,
           backupPath: backupPath
         })
       });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || 'Backup failed');
-      }
-
-      const data = await response.json();
 
       if (!data.success) {
         throw new Error(data.message || 'Backup failed');
@@ -170,22 +143,12 @@ export class FileEditor {
         backupPath = await this.createBackup(filePath);
       }
 
-      const response = await fetch(`${this.apiBase}/api/file-system/delete-file`, {
+      const data = await apiFetch('/api/file-system/delete-file', {
         method: 'DELETE',
-        headers: {
-          'Content-Type': 'application/json'
-        },
         body: JSON.stringify({
           path: filePath
         })
       });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || 'Delete failed');
-      }
-
-      const data = await response.json();
 
       if (!data.success) {
         throw new Error(data.message || 'Delete failed');
@@ -211,23 +174,13 @@ export class FileEditor {
       const newDirPath = this._getDirectoryPath(newPath);
       await this.directoryManager.checkDirectoryAccess(newDirPath);
 
-      const response = await fetch(`${this.apiBase}/api/file-system/rename-file`, {
+      const data = await apiFetch('/api/file-system/rename-file', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
         body: JSON.stringify({
           oldPath,
           newPath
         })
       });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || 'Rename failed');
-      }
-
-      const data = await response.json();
 
       if (!data.success) {
         throw new Error(data.message || 'Rename failed');
@@ -251,16 +204,9 @@ export class FileEditor {
       const dirPath = this._getDirectoryPath(filePath);
       await this.directoryManager.checkDirectoryAccess(dirPath);
 
-      const response = await fetch(
-        `${this.apiBase}/api/file-system/file-info?path=${encodeURIComponent(filePath)}`
+      const data = await apiFetch(
+        `/api/file-system/file-info?path=${encodeURIComponent(filePath)}`
       );
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || 'Failed to get file info');
-      }
-
-      const data = await response.json();
 
       if (!data.success) {
         throw new Error(data.message || 'Failed to get file info');

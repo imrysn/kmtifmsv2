@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, startTransition } from 'react';
-import { API_BASE_URL } from '@/config/api';
+import { apiFetch } from '@/config/api';
 import './css/DashboardTab.css';
 import { LoadingCards } from '../common/InlineSkeletonLoader';
 
@@ -40,18 +40,15 @@ const DashboardTab = ({ user, files, setActiveTab, onOpenFile, onNavigateToTasks
       if (!silent) setLoading(true);
 
       const requests = [
-        fetch(`${API_BASE_URL}/api/assignments/user/${user.id}`),
-        fetch(`${API_BASE_URL}/api/assignments/team/${user.team}/all-tasks?limit=5`),
-        fetch(`${API_BASE_URL}/api/dashboard/user-performance/${user.id}`),
+        apiFetch(`/api/assignments/user/${user.id}`),
+        apiFetch(`/api/assignments/team/${user.team}/all-tasks?limit=5`),
+        apiFetch(`/api/dashboard/user-performance/${user.id}`),
       ];
       if (!silent) {
-        requests.push(fetch(`${API_BASE_URL}/api/notifications/user/${user.id}`));
+        requests.push(apiFetch(`/api/notifications/user/${user.id}`));
       }
 
-      const responses = await Promise.all(requests);
-      const [assignmentsData, teamTasksData, performanceData, notificationsData] = await Promise.all(
-        responses.map(r => r.json())
-      );
+      const [assignmentsData, teamTasksData, performanceData, notificationsData] = await Promise.all(requests);
 
       const applyUpdates = () => {
         if (assignmentsData.success) {
@@ -88,7 +85,7 @@ const DashboardTab = ({ user, files, setActiveTab, onOpenFile, onNavigateToTasks
   const handleNotificationClick = async (notification) => {
     // Mark notification as read
     try {
-      await fetch(`${API_BASE_URL}/api/notifications/${notification.id}/read`, {
+      await apiFetch(`/api/notifications/${notification.id}/read`, {
         method: 'PUT'
       });
     } catch (error) {

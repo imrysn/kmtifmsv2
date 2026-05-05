@@ -1,5 +1,5 @@
 import { useState, useEffect, Suspense, lazy, useCallback, useMemo, startTransition } from 'react'
-import { API_BASE_URL } from '@/config/api'
+import { apiFetch } from '@/config/api'
 import '../css/UserDashboard.css'
 import SkeletonLoader from '../components/common/SkeletonLoader'
 import { AlertMessage } from '../components/shared'
@@ -38,8 +38,7 @@ const UserDashboard = ({ user, onLogout }) => {
   const fetchUserFiles = useCallback(async () => {
     setIsLoading(true)
     try {
-      const response = await fetch(`${API_BASE_URL}/api/files/user/${user.id}`)
-      const data = await response.json()
+      const data = await apiFetch(`/api/files/user/${user.id}`)
       if (data.success) {
         setFiles(data.files || [])
       } else {
@@ -84,8 +83,7 @@ const UserDashboard = ({ user, onLogout }) => {
     setSelectedFile(file)
     setShowFileModal(true)
     try {
-      const response = await fetch(`${API_BASE_URL}/api/files/${file.id}/comments`)
-      const data = await response.json()
+      const data = await apiFetch(`/api/files/${file.id}/comments`)
       if (data.success) {
         setFileComments(data.comments || [])
       }
@@ -97,8 +95,7 @@ const UserDashboard = ({ user, onLogout }) => {
 
   const openFileByIdFromNotification = useCallback(async (fileId) => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/files/user/${user.id}`)
-      const data = await response.json()
+      const data = await apiFetch(`/api/files/user/${user.id}`)
       if (data.success && data.files) {
         const file = data.files.find(f => f.id === parseInt(fileId))
         if (file) {

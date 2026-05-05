@@ -1,8 +1,7 @@
 import React, { memo, useCallback, useState, useEffect, useRef, useMemo } from 'react';
 import ReactDOM from 'react-dom';
+import { apiFetch } from '@/config/api';
 import './CommentsModal.css';
-
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
 // Renders text with @mention highlights
 const renderTextWithMentions = (text) => {
@@ -543,9 +542,8 @@ const CommentsModal = memo(({
   // Fetch mentionable users every time the modal opens (ensures fresh list after server fix)
   useEffect(() => {
     if (!isOpen) return;
-    fetch(`${API_BASE_URL}/api/users/mentionable`)
-      .then(r => r.json())
-      .then(d => { if (d.success) setMentionableUsers(d.users || []); })
+    apiFetch('/api/users/mentionable')
+      .then(d => { setMentionableUsers(d.users || []); })
       .catch(() => {});
   }, [isOpen]);
 

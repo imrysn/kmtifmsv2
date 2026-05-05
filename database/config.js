@@ -2,10 +2,6 @@
 // This replaces the SQLite configuration to solve multi-user corruption issues
 
 // ── PACKAGED MODE: inject app-server/node_modules into require search path ──
-// database/config.js is copied to resources/database/ at build time, outside
-// app-server/node_modules, so bare require('mysql2') etc. would fail.
-// We push the app-server node_modules path so all dependencies resolve.
-// ── PACKAGED MODE: resolve modules with explicit paths ──
 const _resolveFrom = (() => {
   const _p = require('path');
   const _fs = require('fs');
@@ -26,25 +22,21 @@ const _resolveFrom = (() => {
   };
 })();
 
-// Load environment variables from .env file
-// Search multiple candidate paths so this works in both dev and packaged Electron
+// Load environment variables
 const _fs0 = require('fs');
 const _path0 = require('path');
 const _envPaths = [
-  _path0.join(__dirname, '../.env'),             // dev: project root
-  _path0.join(__dirname, '../../.env'),           // packaged: resources/
-  _path0.join(process.resourcesPath || '', '.env') // packaged: explicit resourcesPath
+  _path0.join(__dirname, '../.env'),
+  _path0.join(__dirname, '../../.env'),
+  _path0.join(process.resourcesPath || '', '.env')
 ];
 const _envFile = _envPaths.find(p => { try { return _fs0.existsSync(p); } catch(_){return false;} });
-// Load dotenv safely — in packaged Electron, dotenv lives in app-server/node_modules
-// so we search for it relative to this file's location, then fall back to require().
 try {
-  // Try loading dotenv from multiple candidate locations
   const _dotenvPaths = [
-    _path0.join(__dirname, '../app-server/node_modules/dotenv'),  // packaged: resources/app-server/node_modules
-    _path0.join(__dirname, '../node_modules/dotenv'),             // dev: project root
-    _path0.join(__dirname, 'node_modules/dotenv'),               // local
-    'dotenv'                                                      // standard require
+    _path0.join(__dirname, '../app-server/node_modules/dotenv'),
+    _path0.join(__dirname, '../node_modules/dotenv'),
+    _path0.join(__dirname, 'node_modules/dotenv'),
+    'dotenv'
   ];
   let _dotenv = null;
   for (const _dp of _dotenvPaths) {
@@ -53,9 +45,7 @@ try {
   if (_dotenv && _envFile) {
     _dotenv.config({ path: _envFile });
   }
-} catch (_e) {
-  // dotenv not available — env vars must already be set by the parent process
-}
+} catch (_e) {}
 
 const mysql = require(_resolveFrom('mysql2/promise'));
 const path = require('path');
@@ -66,34 +56,26 @@ const os = require('os');
 // CONFIGURATION
 // ============================================================================
 
-// Check if MySQL should be used
 const USE_MYSQL = process.env.USE_MYSQL === 'true' || process.env.DB_HOST;
-
-// Environment-based configuration
 const isProduction = process.env.NODE_ENV === 'production' || USE_MYSQL;
 const isDevelopment = !isProduction;
 
-// MySQL Connection Configuration
 const MYSQL_CONFIG = {
-  // Read from environment variables
   host: process.env.DB_HOST || 'localhost',
   port: parseInt(process.env.DB_PORT) || 3306,
   user: process.env.DB_USER || 'root',
   password: process.env.DB_PASSWORD || '',
   database: process.env.DB_NAME || (isProduction ? 'kmtifms' : 'kmtifms_dev'),
   waitForConnections: true,
-  connectionLimit: 20,        // FIXED: Increased for better concurrency
-  queueLimit: 50,             // FIXED: Prevent memory overflow from unlimited queue
-  acquireTimeout: 10000,      // FIXED: Timeout after 10s instead of hanging forever
-  connectTimeout: 5000,       // FIXED: Fail fast if host is unreachable
+  connectionLimit: 30,         // Increased: NAS needs more headroom for parallel queries
+  queueLimit: 100,             // Increased: more requests can wait rather than fail
+  connectTimeout: 15000,       // Increased: NAS can be slow to accept connections
   enableKeepAlive: true,
-  keepAliveInitialDelay: 0,
-  // Connection health checks
-  maxIdle: 10,                // ADDED: Close idle connections after 10 connections
-  idleTimeout: 60000          // ADDED: Close connections idle for 60s
+  keepAliveInitialDelay: 10000,
+  maxIdle: 10,
+  idleTimeout: 60000
 };
 
-// Current configuration
 const currentConfig = MYSQL_CONFIG;
 
 // ============================================================================
@@ -102,7 +84,6 @@ const currentConfig = MYSQL_CONFIG;
 
 let pool = null;
 
-// Create connection pool
 function createPool() {
   if (!pool) {
     try {
@@ -117,7 +98,6 @@ function createPool() {
   return pool;
 }
 
-// Get connection pool
 function getPool() {
   if (!pool) {
     return createPool();
@@ -125,7 +105,6 @@ function getPool() {
   return pool;
 }
 
-// Test database connection
 async function testConnection() {
   try {
     const pool = getPool();
@@ -135,21 +114,17 @@ async function testConnection() {
     return true;
   } catch (error) {
     console.error('❌ MySQL connection failed:', error.message);
-    console.error('💡 Please check:');
-    console.error('   1. MySQL server is running');
-    console.error('   2. Database credentials are correct in .env');
-    console.error('   3. Network connectivity to database server');
-    console.error('   4. Firewall allows MySQL port (3306)');
-    console.error('\n🔍 Current configuration:');
-    console.error(`   Host: ${currentConfig.host}`);
-    console.error(`   Port: ${currentConfig.port}`);
+    console.error(`   Host: ${currentConfig.host}:${currentConfig.port}`);
     console.error(`   Database: ${currentConfig.database}`);
-    console.error(`   User: ${currentConfig.user}`);
     return false;
   }
 }
 
-// Execute query with error handling
+// ============================================================================
+// QUERY FUNCTIONS
+// ============================================================================
+
+// Execute a single query using a pooled connection
 async function query(sql, params = []) {
   const pool = getPool();
   try {
@@ -157,22 +132,55 @@ async function query(sql, params = []) {
     return results;
   } catch (error) {
     console.error('❌ Query error:', error.message);
+    console.error('❌ Error code:', error.code || 'N/A');
+    console.error('❌ SQL state:', error.sqlState || 'N/A');
     console.error('SQL:', sql);
     throw error;
   }
 }
 
-// Execute query and return first result
+// Execute a single query and return the first row
 async function queryOne(sql, params = []) {
   const results = await query(sql, params);
   return results[0] || null;
+}
+
+/**
+ * Run multiple queries on a SINGLE dedicated connection.
+ * Use this for dashboard/summary-style handlers that fire many queries at once.
+ * Prevents pool exhaustion on slow NAS connections by not competing for slots.
+ *
+ * Usage:
+ *   const [r1, r2, r3] = await queryBatch([
+ *     ['SELECT COUNT(*) as total FROM files', []],
+ *     ['SELECT COUNT(*) as approved FROM files WHERE status = ?', ['final_approved']],
+ *   ]);
+ */
+async function queryBatch(queries) {
+  const pool = getPool();
+  const connection = await pool.getConnection();
+  try {
+    const results = [];
+    for (const [sql, params = []] of queries) {
+      const [rows] = await connection.execute(sql, params);
+      results.push(rows);
+    }
+    return results;
+  } finally {
+    connection.release();
+  }
+}
+
+// Same as queryBatch but returns first row of each result
+async function queryOneBatch(queries) {
+  const rows = await queryBatch(queries);
+  return rows.map(r => (Array.isArray(r) ? r[0] || null : r));
 }
 
 // Execute transaction
 async function transaction(callback) {
   const pool = getPool();
   const connection = await pool.getConnection();
-  
   try {
     await connection.beginTransaction();
     const result = await callback(connection);
@@ -187,7 +195,7 @@ async function transaction(callback) {
   }
 }
 
-// Close all connections (for graceful shutdown)
+// Close all connections (graceful shutdown)
 async function closePool() {
   if (pool) {
     try {
@@ -204,7 +212,6 @@ async function closePool() {
 // NETWORK PATHS
 // ============================================================================
 
-// Network data path configuration
 const networkDataPath = isProduction
   ? '\\\\KMTI-NAS\\Shared\\data'
   : path.join(__dirname, '..', 'local-test', 'data');
@@ -213,40 +220,22 @@ const networkProjectsPath = isProduction
   ? '\\\\KMTI-NAS\\Shared\\Public\\PROJECTS'
   : path.join(__dirname, '..', 'local-test', 'PROJECTS');
 
-// Returns a sensible default path suitable for native file pickers.
-// Prefer the networkProjectsPath when configured, otherwise fall back to user's Documents or home.
 function getDefaultProjectPickerPath() {
-  // Prefer the configured NETWORK PROJECTS path first (use the string even if it isn't accessible).
-  if (networkProjectsPath) {
-    return networkProjectsPath;
-  }
-
-  // Then fall back to Documents folder if available
+  if (networkProjectsPath) return networkProjectsPath;
   const home = os.homedir() || '';
   const documents = path.join(home, 'Documents');
   try {
-    if (documents && fs.existsSync(documents)) {
-      return documents;
-    }
-  } catch (e) {
-    // ignore
-  }
-
-  // Final fallback to home or networkDataPath string
+    if (documents && fs.existsSync(documents)) return documents;
+  } catch (e) {}
   return home || networkDataPath;
 }
 
-// Explicit getter for the network PROJECTS path (useful for preload/exposed APIs)
 function getNetworkProjectsPath() {
   return networkProjectsPath;
 }
 
-// Helper to build options for native file pickers (e.g. Electron dialog.showOpenDialog)
-// Pass extra options to merge with the defaults.
 function defaultOpenDialogOptions(extra = {}) {
-  return Object.assign({
-    defaultPath: getDefaultProjectPickerPath()
-  }, extra);
+  return Object.assign({ defaultPath: getDefaultProjectPickerPath() }, extra);
 }
 
 // ============================================================================
@@ -254,34 +243,22 @@ function defaultOpenDialogOptions(extra = {}) {
 // ============================================================================
 
 module.exports = {
-  // Connection functions
   getPool,
   createPool,
   testConnection,
   closePool,
-  
-  // Query functions
   query,
   queryOne,
+  queryBatch,
+  queryOneBatch,
   transaction,
-  
-  // Configuration
   config: currentConfig,
   networkDataPath,
   networkProjectsPath,
   isProduction,
   isDevelopment,
-  // Explicit network projects getter for preload/electron usage
   getNetworkProjectsPath,
-  // Helpers for native file pickers
   getDefaultProjectPickerPath,
   defaultOpenDialogOptions,
-  
-  // Legacy compatibility (for gradual migration)
-  // These provide a similar interface to the old SQLite db object
-  db: {
-    query,
-    queryOne,
-    transaction
-  }
+  db: { query, queryOne, transaction }
 };

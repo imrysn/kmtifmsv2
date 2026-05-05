@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback, memo } from 'react'
-import { API_BASE_URL } from '@/config/api'
+import { apiFetch, API_BASE_URL } from '@/config/api'
 import FileIcon from '../shared/FileIcon'
 import { SkeletonLoader } from '../common/SkeletonLoader'
 import './FileApproval-Optimized.css'
@@ -7,7 +7,7 @@ import { ConfirmationModal, AlertMessage, FileDetailsModal } from './modals'
 import { useAuth, useNetwork } from '../../contexts'
 import { withErrorBoundary } from '../common'
 
-const API_BASE = `${API_BASE_URL}/api`
+const API_BASE = '/api'
 
 
 const StatusCard = memo(({ icon, label, count, className }) => (
@@ -377,10 +377,9 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
     setIsLoading(true)
 
     try {
-      const response = await fetch(`${API_BASE}/files/all`, {
+      const data = await apiFetch(`${API_BASE}/files/all`, {
         signal: fetchAbortController.current.signal
       })
-      const data = await response.json()
 
       if (data.success) {
         setFiles(data.files)
@@ -691,9 +690,8 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
         if (isAttachmentFolder) {
           // For TL attachment folders: delete from assignment_attachments via dedicated endpoint
           try {
-            await fetch(`${API_BASE}/files/folder/delete-attachments`, {
+            await apiFetch(`${API_BASE}/files/folder/delete-attachments`, {
               method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
                 folderName: folderToDelete.folderName,
                 fileIds: folderToDelete.folderFiles.map(f => f.id),
@@ -715,16 +713,15 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
         } else {
           // Regular user folder: delete each file record from files table
           const deletePromises = folderToDelete.folderFiles.map(file =>
-            fetch(`${API_BASE}/files/${file.id}`, {
+            apiFetch(`${API_BASE}/files/${file.id}`, {
               method: 'DELETE',
-              headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
                 adminId: authUser.id,
                 adminUsername: authUser.username,
                 adminRole: authUser.role,
                 team: authUser.team
               })
-            }).then(res => res.json()).catch(() => ({ success: false }))
+            }).catch(() => ({ success: false }))
           )
 
           const results = await Promise.all(deletePromises)
@@ -732,9 +729,8 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
 
           if (allSuccess) {
             try {
-              await fetch(`${API_BASE}/files/folder/delete`, {
+              await apiFetch(`${API_BASE}/files/folder/delete`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                   folderName: folderToDelete.folderName,
                   username: folderToDelete.folderFiles[0].username,
@@ -760,9 +756,8 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
         }
       } else {
         try {
-          await fetch(`${API_BASE}/files/${fileToDelete.id}/delete-file`, {
+          await apiFetch(`${API_BASE}/files/${fileToDelete.id}/delete-file`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               adminId: authUser.id,
               adminUsername: authUser.username,
@@ -773,9 +768,8 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
           console.warn('Physical file deletion failed:', fileDeleteError)
         }
 
-        const response = await fetch(`${API_BASE}/files/${fileToDelete.id}`, {
+        const data = await apiFetch(`${API_BASE}/files/${fileToDelete.id}`, {
           method: 'DELETE',
-          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             adminId: authUser.id,
             adminUsername: authUser.username,
@@ -783,8 +777,6 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
             team: authUser.team
           })
         })
-
-        const data = await response.json()
 
         if (data.success) {
           setFiles(prevFiles => prevFiles.filter(file => file.id !== fileToDelete.id))
@@ -807,8 +799,7 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
     if (!file) return
     setIsOpeningFile(true)
     try {
-      const pathResp = await fetch(`${API_BASE}/files/${file.id}/path`)
-      const pathData = await pathResp.json()
+      const pathData = await apiFetch(`${API_BASE}/files/${file.id}/path`)
       if (!pathData.success) throw new Error('Failed to get file path')
       const filePath = pathData.filePath
       if (window.electron && typeof window.electron.openFolderInExplorer === 'function') {
@@ -829,8 +820,7 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
     if (!file) return
     setIsOpeningFile(true)
     try {
-      const pathResp = await fetch(`${API_BASE}/files/${file.id}/path`)
-      const pathData = await pathResp.json()
+      const pathData = await apiFetch(`${API_BASE}/files/${file.id}/path`)
       if (!pathData.success) throw new Error('Failed to get file path')
       const filePath = pathData.filePath
       if (window.electron && typeof window.electron.openFileInApp === 'function') {
@@ -878,9 +868,8 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
       }
 
       // Single API call: copy the whole folder structure to NAS and approve all files at once
-      const resp = await fetch(`${API_BASE}/files/folder/move-to-nas`, {
+      const data = await apiFetch(`${API_BASE}/files/folder/move-to-nas`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           folderName: folderReviewModal.folderName,
           username: folderReviewModal.folderFiles[0].username,
@@ -893,7 +882,6 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
           comments: folderReviewComment.trim() || null
         })
       })
-      const data = await resp.json()
       if (!data.success) throw new Error(data.message || 'Failed to move folder to NAS')
 
       setFiles(prevFiles =>
@@ -922,9 +910,8 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
     try {
       for (const file of folderReviewModal.folderFiles) {
         try {
-          const resp = await fetch(`${API_BASE}/files/${file.id}/admin-review`, {
+          const data = await apiFetch(`${API_BASE}/files/${file.id}/admin-review`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               action: 'reject',
               comments: folderReviewComment.trim() || null,
@@ -934,11 +921,9 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
               team: authUser.team
             })
           })
-          const data = await resp.json()
           if (data.success) {
-            await fetch(`${API_BASE}/files/${file.id}/delete-file`, {
+            await apiFetch(`${API_BASE}/files/${file.id}/delete-file`, {
               method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ adminId: authUser.id, adminUsername: authUser.username, adminRole: authUser.role })
             }).catch(() => {})
           }
@@ -992,9 +977,8 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
         }
         const selectedPath = result.filePaths[0]
 
-        const moveResp = await fetch(`${API_BASE}/files/${selectedFile.id}/move-to-projects`, {
+        const moveData = await apiFetch(`${API_BASE}/files/${selectedFile.id}/move-to-projects`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             // selectedPath is the base NAS directory chosen by the admin.
             // If this file belongs to a folder upload, the server will automatically
@@ -1007,12 +991,10 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
             deleteFromUploads: true
           })
         })
-        const moveData = await moveResp.json()
         if (!moveData.success) throw new Error(moveData.message || 'Failed to move file')
 
-        const approveResp = await fetch(`${API_BASE}/files/${selectedFile.id}/admin-review`, {
+        const approveData = await apiFetch(`${API_BASE}/files/${selectedFile.id}/admin-review`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             action: 'approve',
             comments: null,
@@ -1022,7 +1004,6 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
             team: authUser.team
           })
         })
-        const approveData = await approveResp.json()
         if (!approveData.success) throw new Error(approveData.message || 'Failed to approve file')
         approvedOnServer = true
       } else {
@@ -1053,9 +1034,8 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
 
     setIsLoading(true)
     try {
-      const response = await fetch(`${API_BASE}/files/${fileToReject.id}/admin-review`, {
+      const data = await apiFetch(`${API_BASE}/files/${fileToReject.id}/admin-review`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action: 'reject',
           comments: null,
@@ -1066,12 +1046,9 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
         })
       })
 
-      const data = await response.json()
-
       if (data.success) {
-        await fetch(`${API_BASE}/files/${fileToReject.id}/delete-file`, {
+        await apiFetch(`${API_BASE}/files/${fileToReject.id}/delete-file`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             adminId: authUser.id,
             adminUsername: authUser.username,

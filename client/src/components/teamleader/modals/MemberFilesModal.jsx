@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { API_BASE_URL } from '@/config/api'
+import { apiFetch, API_BASE_URL } from '@/config/api'
 import { FileOpenModal, FileIcon } from '../../shared'
 import '../css/FileCollectionTab.css'
 
@@ -35,8 +35,7 @@ const MemberFilesModal = ({
   const openFile = async (file) => {
     try {
       if (window.electron && window.electron.openFileInApp) {
-        const response = await fetch(`${API_BASE_URL}/api/files/${file.id}/path`)
-        const data = await response.json()
+        const data = await apiFetch(`/api/files/${file.id}/path`)
         if (data.success && data.filePath) {
           await window.electron.openFileInApp(data.filePath)
         }

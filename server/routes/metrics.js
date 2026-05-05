@@ -2,6 +2,11 @@ const express = require('express');
 const router = express.Router();
 const performanceMonitor = require('../middleware/performanceMonitor');
 const response = require('../utils/responseFormatter');
+const { authenticateToken, authorizeRole } = require('../middleware/auth');
+
+// Apply authentication and ADMIN role to all routes in this router
+router.use(authenticateToken);
+router.use(authorizeRole('ADMIN'));
 
 /**
  * Get performance metrics

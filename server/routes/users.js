@@ -1,12 +1,16 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
-const { db } = require('../config/database');
+const { db, query: dbQuery, queryOne: dbQueryOne } = require('../config/database');
 const { logActivity, logInfo, logWarn } = require('../utils/logger');
 const { getCache, setCache, clearCache } = require('../utils/cache');
 const { validate, schemas, validateId } = require('../middleware/validation');
 const { asyncHandler, DatabaseError, NotFoundError } = require('../middleware/errorHandler');
+const { authenticateToken, authorizeRole } = require('../middleware/auth');
 
 const router = express.Router();
+
+// Apply authentication to all routes in this router
+router.use(authenticateToken);
 
 // Shared helper: attach file counts to an array of user/member objects
 function attachFileCounts(db, members) {
@@ -27,7 +31,7 @@ function attachFileCounts(db, members) {
 }
 
 // Get all users (Admin only) with caching
-router.get('/', (req, res) => {
+router.get('/', authorizeRole('ADMIN'), asyncHandler(async (req, res) => {
   const cacheKey = 'all_users';
   const cachedUsers = getCache(cacheKey);
 
@@ -37,25 +41,25 @@ router.get('/', (req, res) => {
   }
 
   console.log('📈 Getting all users...');
-  db.all('SELECT id, fullName, username, email, role, team, created_at FROM users ORDER BY created_at DESC', [], (err, users) => {
-    if (err) {
-      console.error('❌ Database error getting users:', err);
-      return res.status(500).json({
-        success: false,
-        message: 'Failed to fetch users'
-      });
-    }
+  try {
+    const users = await dbQuery(
+      'SELECT id, fullName, username, email, role, team, created_at FROM users ORDER BY created_at DESC'
+    );
     console.log(`✅ Retrieved ${users.length} users`);
     setCache(cacheKey, users);
-    res.json({
-      success: true,
-      users
+    res.json({ success: true, users });
+  } catch (err) {
+    console.error('❌ Database error getting users:', err);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to fetch users',
+      error: err.message
     });
-  });
-});
+  }
+}));
 
 // Create new user (Admin only)
-router.post('/', validate(schemas.createUser), asyncHandler(async (req, res) => {
+router.post('/', authorizeRole('ADMIN'), validate(schemas.createUser), asyncHandler(async (req, res) => {
   let { fullName, username, email, password, role = 'USER', team = 'General', adminId, adminUsername, adminRole, adminTeam } = req.body;
   // Normalize role and team
   role = (role || 'USER').toString().trim().toUpperCase();
@@ -145,7 +149,7 @@ router.post('/', validate(schemas.createUser), asyncHandler(async (req, res) => 
 }));
 
 // Update user (Admin only)
-router.put('/:id', (req, res) => {
+router.put('/:id', authorizeRole('ADMIN'), (req, res) => {
   const userId = req.params.id;
   let { fullName, username, email, role, team, adminId, adminUsername, adminRole, adminTeam } = req.body;
   // Normalize role and team
@@ -327,7 +331,7 @@ router.put('/:id', (req, res) => {
 });
 
 // Reset user password (Admin only)
-router.put('/:id/password', validateId(), validate(schemas.resetPassword), asyncHandler(async (req, res) => {
+router.put('/:id/password', authorizeRole('ADMIN'), validateId(), validate(schemas.resetPassword), asyncHandler(async (req, res) => {
   const userId = req.params.id;
   const { password, adminId, adminUsername, adminRole, adminTeam } = req.body;
   logInfo('Resetting password for user', { userId });
@@ -426,7 +430,7 @@ router.put('/:id/password', validateId(), validate(schemas.resetPassword), async
 }));
 
 // Delete user (Admin only)
-router.delete('/:id', (req, res) => {
+router.delete('/:id', authorizeRole('ADMIN'), (req, res) => {
   const userId = req.params.id;
   const { adminId, adminUsername, adminRole, adminTeam } = req.body;
   console.log(`🗑️ Deleting user ${userId}`);
@@ -479,9 +483,14 @@ router.delete('/:id', (req, res) => {
   });
 });
 
-// Get team members (Team Leader only)
-router.get('/team/:teamName', (req, res) => {
+// Get team members (Team Leader and Admin)
+router.get('/team/:teamName', authorizeRole(['TEAM_LEADER', 'ADMIN']), (req, res) => {
   const { teamName } = req.params;
+
+  // Security check: If TEAM_LEADER, verify they actually lead this team
+  if (req.user.role === 'TEAM_LEADER' && req.user.team !== teamName) {
+    return res.status(403).json({ success: false, message: 'Access denied: You do not lead this team' });
+  }
   console.log(`👥 Getting team members for team: ${teamName}`);
 
   db.all(
@@ -505,7 +514,7 @@ router.get('/team/:teamName', (req, res) => {
 });
 
 // Search users (Admin only)
-router.get('/search', (req, res) => {
+router.get('/search', authorizeRole('ADMIN'), (req, res) => {
   const { q } = req.query;
   if (!q || q.trim() === '') {
     return res.status(400).json({
@@ -539,8 +548,13 @@ router.get('/search', (req, res) => {
 });
 
 // Get team members for a team leader (across all led teams)
-router.get('/team-leader/:userId', (req, res) => {
+router.get('/team-leader/:userId', authorizeRole(['TEAM_LEADER', 'ADMIN']), (req, res) => {
   const { userId } = req.params;
+
+  // Ownership check: Team Leaders can only see their own members, ADMINs can see any
+  if (req.user.id !== parseInt(userId) && req.user.role !== 'ADMIN') {
+    return res.status(403).json({ success: false, message: 'Access denied' });
+  }
   console.log(`👥 Getting team members for team leader: ${userId}`);
 
   // First, get all teams this user leads
@@ -623,8 +637,13 @@ router.get('/mentionable', (req, res) => {
 
 // Get team members - Direct route (supports /api/users/:teamName)
 // IMPORTANT: This must be LAST to avoid conflicts with other named routes
-router.get('/:teamName', (req, res) => {
+router.get('/:teamName', authorizeRole(['TEAM_LEADER', 'ADMIN']), (req, res) => {
   const { teamName } = req.params;
+
+  // Security check: If TEAM_LEADER, verify they actually lead this team
+  if (req.user.role === 'TEAM_LEADER' && req.user.team !== teamName) {
+    return res.status(403).json({ success: false, message: 'Access denied: You do not lead this team' });
+  }
   console.log(`👥 Getting team members for team: ${teamName}`);
 
   db.all(

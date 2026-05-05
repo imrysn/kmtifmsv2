@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
-import { API_BASE_URL } from '@/config/api'
+import { apiFetch, API_BASE_URL } from '@/config/api'
 import './TaskManagement.css'
 import './SmartNavigation.css'
 import FileIcon from '../shared/FileIcon.jsx'
@@ -149,10 +149,7 @@ const TaskManagement = ({
       setLoading(true)
       clearMessages()
 
-      console.log('Fetching initial assignments...')
-
-      const response = await fetch(`${API_BASE_URL}/api/assignments/admin/all?limit=20`)
-      const data = await response.json()
+      const data = await apiFetch(`/api/assignments/admin/all?limit=20`)
 
       console.log('Initial assignments response:', data)
 
@@ -184,11 +181,7 @@ const TaskManagement = ({
 
     try {
       setLoadingMore(true)
-
-      console.log('Fetching more assignments with cursor:', nextCursor)
-
-      const response = await fetch(`${API_BASE_URL}/api/assignments/admin/all?cursor=${nextCursor}&limit=20`)
-      const data = await response.json()
+      const data = await apiFetch(`/api/assignments/admin/all?cursor=${nextCursor}&limit=20`)
 
       console.log('More assignments response:', data)
 
@@ -215,8 +208,7 @@ const TaskManagement = ({
   const fetchComments = useCallback(async (assignmentId) => {
     try {
       setLoadingComments(true)
-      const response = await fetch(`${API_BASE_URL}/api/assignments/${assignmentId}/comments`)
-      const data = await response.json()
+      const data = await apiFetch(`/api/assignments/${assignmentId}/comments`)
 
       if (data.success) {
         setComments(data.comments || [])
@@ -297,19 +289,14 @@ const TaskManagement = ({
       setComments(prev => [...prev, optimisticComment])
       setNewComment('')
 
-      const response = await fetch(`${API_BASE_URL}/api/assignments/${selectedAssignment.id}/comments`, {
+      const data = await apiFetch(`/api/assignments/${selectedAssignment.id}/comments`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
         body: JSON.stringify({
           userId: currentUser.id,
           username: currentUser.username,
           comment: commentText
         })
       })
-
-      const data = await response.json()
 
       if (data.success) {
         // ⚡ OPTIMIZATION: Only refetch to get the real ID and any server updates
@@ -363,13 +350,10 @@ const TaskManagement = ({
       setReplyingTo(null)
       if (onSuccess) onSuccess()
 
-      const response = await fetch(
-        `${API_BASE_URL}/api/assignments/${selectedAssignment.id}/comments/${commentId}/reply`,
+      const data = await apiFetch(
+        `/api/assignments/${selectedAssignment.id}/comments/${commentId}/reply`,
         {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
           body: JSON.stringify({
             userId: currentUser.id,
             username: currentUser.username,
@@ -377,8 +361,6 @@ const TaskManagement = ({
           })
         }
       )
-
-      const data = await response.json()
 
       if (data.success) {
         // ⚡ OPTIMIZATION: Only refetch to sync with server
@@ -607,10 +589,9 @@ const TaskManagement = ({
         console.log('Running in Electron - using Windows default application');
 
         // For uploaded files, get the full system path from server
-        const pathResponse = await fetch(
-          `${API_BASE_URL}/api/files/${fileId}/path`
+        const pathData = await apiFetch(
+          `/api/files/${fileId}/path`
         );
-        const pathData = await pathResponse.json();
 
         if (!pathData.success) {
           throw new Error(pathData.message || 'Failed to get file path');
@@ -660,11 +641,9 @@ const TaskManagement = ({
       clearMessages()
       setSuccess('Deleting assignment and associated files...')
 
-      const response = await fetch(`${API_BASE_URL}/api/assignments/${assignmentToDelete.id}`, {
+      const data = await apiFetch(`/api/assignments/${assignmentIdToDelete.id}`, {
         method: 'DELETE'
       })
-
-      const data = await response.json()
 
       if (data.success) {
         // Remove the assignment from the local state

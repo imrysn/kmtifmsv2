@@ -64,6 +64,9 @@ const customTagsRoutes = require('./routes/customTags');
 const app = express();
 const PORT = process.env.SERVER_PORT || 3001;
 
+// ── DB initialisation with background retry ────────────────────────────────
+let _dbReady = false;
+
 // Setup middleware
 setupMiddleware(app);
 
@@ -113,22 +116,36 @@ app.get('/api/version', (req, res) => {
   }
 });
 
+// DB-ready guard: return 503 instead of crashing with 500 when MySQL hasn't connected yet
+const dbReadyGuard = (req, res, next) => {
+  if (!_dbReady) {
+    return res.status(503).json({
+      success: false,
+      message: 'Database not ready yet. Please retry in a moment.',
+      dbReady: false
+    });
+  }
+  next();
+};
+
 // Register routes
 // Auth routes with strict rate limiting
 app.use('/api/auth', authLimiter, authRoutes);
-app.use('/api/users', usersRoutes);
-app.use('/api/team-members', usersRoutes); // Alias for team members endpoint
-app.use('/api/teams', teamsRoutes);
-app.use('/api/activity-logs', activityLogsRoutes);
-app.use('/api/file-system', fileSystemRoutes);
+
+// DB-dependent routes — guarded so early requests get 503 not 500
+app.use('/api/users', dbReadyGuard, usersRoutes);
+app.use('/api/team-members', dbReadyGuard, usersRoutes); // Alias for team members endpoint
+app.use('/api/teams', dbReadyGuard, teamsRoutes);
+app.use('/api/activity-logs', dbReadyGuard, activityLogsRoutes);
+app.use('/api/file-system', dbReadyGuard, fileSystemRoutes);
 // File routes with upload rate limiting
-app.use('/api/files', uploadLimiter, filesRoutes);
-app.use('/api/dashboard', dashboardRoutes);
-app.use('/api/settings', settingsRoutes);
-app.use('/api/file-viewer', fileViewerRoutes);
-app.use('/api/notifications', notificationsRoutes);
-app.use('/api/assignments', assignmentsRoutes);
-app.use('/api/custom-tags', customTagsRoutes);
+app.use('/api/files', dbReadyGuard, uploadLimiter, filesRoutes);
+app.use('/api/dashboard', dbReadyGuard, dashboardRoutes);
+app.use('/api/settings', dbReadyGuard, settingsRoutes);
+app.use('/api/file-viewer', dbReadyGuard, fileViewerRoutes);
+app.use('/api/notifications', dbReadyGuard, notificationsRoutes);
+app.use('/api/assignments', dbReadyGuard, assignmentsRoutes);
+app.use('/api/custom-tags', dbReadyGuard, customTagsRoutes);
 
 // Serve static files from the React app build directory
 // In bundled mode, client files are in client-dist, otherwise in ../client/dist
@@ -259,9 +276,6 @@ async function freePort(port) {
   console.warn(`⚠️  Port ${port} may still be in use — attempting to start anyway.`);
 }
 
-// ── DB initialisation with background retry ────────────────────────────────
-let _dbReady = false;
-
 async function initDbWithRetry(attempt = 1) {
   try {
     // Try uploads dir (non-fatal if NAS unreachable)
@@ -300,6 +314,7 @@ async function initDbWithRetry(attempt = 1) {
   } catch (error) {
     const delay = Math.min(30000, attempt * 5000); // 5s, 10s, 15s … max 30s
     console.error(`❌ DB init attempt ${attempt} failed: ${error.message}`);
+    console.error(`❌ Error code: ${error.code || 'N/A'}`);
     console.warn(`🔄 Retrying database connection in ${delay / 1000}s…`);
     setTimeout(() => initDbWithRetry(attempt + 1), delay);
   }

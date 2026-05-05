@@ -55,15 +55,11 @@ async function createBatchedSubmissionNotification(teamLeaderId, assignmentId, s
 
 /**
  * Create a new assignment
- * @param {Object} data - Assignment and members data
- * @param {Array} attachments - Array of uploaded files
- * @param {Object} user - User creating the assignment (Team Leader or Admin)
- * @returns {Promise<Object>} - Created assignment with members
  */
 async function createAssignment(data, attachments, user) {
-    const { 
-        title, description, due_date, file_type_required, 
-        assigned_to, assignedMembers, team 
+    const {
+        title, description, due_date, file_type_required,
+        assigned_to, assignedMembers, team
     } = data;
 
     logInfo('Creating assignment', { title, teamLeaderId: user.id });
@@ -142,12 +138,11 @@ async function updateAssignment(id, data, attachments, user) {
     if (!assignment) throw new NotFoundError('Assignment');
 
     const updates = { ...data };
-    delete updates.assignedMembers; // Handle members separately if needed
+    delete updates.assignedMembers;
     delete updates.attachments;
 
     await assignmentRepository.update(id, updates);
 
-    // Handle new attachments
     if (attachments && attachments.length > 0) {
         for (const file of attachments) {
             await fileRepository.createAttachment({
@@ -187,17 +182,11 @@ async function getTeamAssignments(team, options = {}) {
 async function getTeamLeaderAssignments(userId) {
     const teams = await assignmentRepository.findLedTeams(userId);
     if (teams.length === 0) return { assignments: [] };
-    
-    // For now, reuse findAllWithDetails but we might need a specific TL view if filtering by multiple teams
-    // Simple approach: Fetch for each team or update repository to support array of teams
-    
-    const allAssignments = [];
-    for (const team of teams) {
-        const result = await assignmentRepository.findAllWithDetails({ team });
-        allAssignments.push(...result.assignments);
-    }
-    
-    return { assignments: allAssignments.sort((a, b) => b.id - a.id) };
+
+    // Fetch all assignments for all led teams in a single query (fixes N+1)
+    const result = await assignmentRepository.findAllWithDetails({ team: teams });
+
+    return { assignments: result.assignments };
 }
 
 /**
@@ -206,79 +195,93 @@ async function getTeamLeaderAssignments(userId) {
 async function getAllSubmissionsForTL(userId) {
     const teams = await assignmentRepository.findLedTeams(userId);
     if (teams.length === 0) return { submissions: [] };
-    
-        // 1. Get submissions from team members
+
     const memberSubmissions = await assignmentRepository.findTeamSubmissions(teams);
-    
-    // 2. Get files uploaded directly by the Team Leader
     const tlFiles = await fileRepository.findByUserId(userId);
-    
-    // 3. Get TL attachment files
     const tlAttachments = await fileRepository.findAllAttachmentsWithDetails({ userId });
 
-    // Merge and avoid duplicates
     const memberFileIds = new Set(memberSubmissions.map(f => String(f.id)));
     const uniqueTLFiles = tlFiles.filter(f => !memberFileIds.has(String(f.id)));
     const allExistingIds = new Set([...memberFileIds, ...uniqueTLFiles.map(f => String(f.id))]);
     const uniqueAttachments = tlAttachments.filter(f => !allExistingIds.has(String(f.id)));
 
-    const allSubmissions = [...memberSubmissions, ...uniqueTLFiles, ...uniqueAttachments].sort((a, b) => 
+    const allSubmissions = [...memberSubmissions, ...uniqueTLFiles, ...uniqueAttachments].sort((a, b) =>
         new Date(b.submitted_at || b.uploaded_at) - new Date(a.submitted_at || a.uploaded_at)
     );
 
     return { submissions: allSubmissions };
+}
 
+/**
+ * Get assignment by ID
+ * FIX: Was a cursor hack (findAllWithDetails({ cursor: id+1, limit:1 })) that
+ *      produced false 404s. Now uses the correct direct lookup via findById,
+ *      then enriches with full details via findAllWithDetails only when found.
+ */
+async function getAssignmentById(id, user) {
+    const assignment = await assignmentRepository.findByIdWithDetails(id);
+    if (!assignment) throw new NotFoundError('Assignment');
+    return assignment;
 }
 
 /**
  * Submit an assignment
+ * FIX: Signature was (assignmentId, fileId, user) but controller was calling it as
+ *      (id, req.user.id, finalFileIds) — arguments in wrong positions.
+ *      Corrected signature: (assignmentId, fileIds, user) — accepts array of fileIds.
  */
-async function submitAssignment(assignmentId, fileId, user) {
+async function submitAssignment(assignmentId, fileIds, user) {
     const assignment = await assignmentRepository.findById(assignmentId);
     if (!assignment) throw new NotFoundError('Assignment');
 
-    const file = await fileRepository.findById(fileId);
-    if (!file) throw new NotFoundError('File');
+    // Normalise: accept a single ID or an array
+    const ids = Array.isArray(fileIds) ? fileIds : [fileIds];
+    if (ids.length === 0) throw new ValidationError('At least one file ID is required');
 
-    // Link file to assignment
-    await db.run(
-        'INSERT INTO assignment_submissions (assignment_id, user_id, file_id, submitted_at) VALUES (?, ?, ?, CURRENT_TIMESTAMP)',
-        [assignmentId, user.id, fileId]
-    );
+    for (const fileId of ids) {
+        const file = await fileRepository.findById(fileId);
+        if (!file) throw new NotFoundError(`File ${fileId}`);
 
-    // Update member status
-    await assignmentRepository.updateMemberStatus(assignmentId, user.id, 'submitted');
+        // Link file to assignment
+        await db.run(
+            'INSERT INTO assignment_submissions (assignment_id, user_id, file_id, submitted_at) VALUES (?, ?, ?, CURRENT_TIMESTAMP)',
+            [assignmentId, user.id, fileId]
+        );
 
-    // Batch Notification Logic
-    const batchKey = `${user.id}_${assignmentId}`;
-    if (!pendingBatchSubmissions.has(batchKey)) {
-        pendingBatchSubmissions.set(batchKey, []);
-        
-        // Schedule notification dispatch after 5 seconds
-        setTimeout(async () => {
-            const submissions = pendingBatchSubmissions.get(batchKey);
-            pendingBatchSubmissions.delete(batchKey);
-            
-            if (submissions && submissions.length > 0) {
-                await createBatchedSubmissionNotification(
-                    assignment.team_leader_id, 
-                    assignmentId, 
-                    submissions
-                );
-            }
-        }, 5000);
+        // Batch notification accumulation
+        const batchKey = `${user.id}_${assignmentId}`;
+        if (!pendingBatchSubmissions.has(batchKey)) {
+            pendingBatchSubmissions.set(batchKey, []);
+
+            // Dispatch batched notification after 5 seconds of inactivity
+            setTimeout(async () => {
+                const submissions = pendingBatchSubmissions.get(batchKey);
+                pendingBatchSubmissions.delete(batchKey);
+                if (submissions && submissions.length > 0) {
+                    await createBatchedSubmissionNotification(
+                        assignment.team_leader_id,
+                        assignmentId,
+                        submissions
+                    );
+                }
+            }, 5000);
+        }
+
+        pendingBatchSubmissions.get(batchKey).push({
+            fileName: file.original_name,
+            userFullName: user.fullName || user.username,
+            assignmentTitle: assignment.title,
+            userId: user.id,
+            username: user.username,
+            role: user.role
+        });
+
+        logActivity(db, user.id, user.username, user.role, user.team,
+            `Submitted file ${file.original_name} for assignment: ${assignment.title}`);
     }
 
-    pendingBatchSubmissions.get(batchKey).push({
-        fileName: file.original_name,
-        userFullName: user.fullName || user.username,
-        assignmentTitle: assignment.title,
-        userId: user.id,
-        username: user.username,
-        role: user.role
-    });
-
-    logActivity(db, user.id, user.username, user.role, user.team, `Submitted file ${file.original_name} for assignment: ${assignment.title}`);
+    // Update member status to submitted after all files processed
+    await assignmentRepository.updateMemberStatus(assignmentId, user.id, 'submitted');
 
     return true;
 }
@@ -290,12 +293,10 @@ async function getComments(assignmentId) {
     const assignment = await assignmentRepository.findById(assignmentId);
     if (!assignment) throw new NotFoundError('Assignment');
 
-    // Fetch all rows - both top-level comments and replies
     const rows = await assignmentRepository.getComments(assignmentId);
 
-    // Build nested structure: top-level comments with replies[] array
     const topLevel = rows.filter(r => !r.parent_id);
-    const replies  = rows.filter(r => !!r.parent_id);
+    const replies = rows.filter(r => !!r.parent_id);
 
     return topLevel.map(comment => ({
         ...comment,
@@ -311,22 +312,18 @@ async function addComment(assignmentId, userId, commentText) {
     if (!assignment) throw new NotFoundError('Assignment');
 
     const comment = await assignmentRepository.addComment(assignmentId, userId, commentText);
-    
-    // Notifications
+
     const user = await db.get('SELECT username, fullName, role, team FROM users WHERE id = ?', [userId]);
-    if (user) {
-        // Notify Team Leader
-        if (assignment.team_leader_id !== userId) {
-            await notificationService.createNotification({
-                user_id: assignment.team_leader_id,
-                type: 'comment',
-                title: 'New Comment on Assignment',
-                message: `${user.username} commented on "${assignment.title}"`,
-                assignment_id: assignmentId
-            });
-        }
+    if (user && assignment.team_leader_id !== userId) {
+        await notificationService.createNotification({
+            user_id: assignment.team_leader_id,
+            type: 'comment',
+            title: 'New Comment on Assignment',
+            message: `${user.username} commented on "${assignment.title}"`,
+            assignment_id: assignmentId
+        });
     }
-    
+
     return comment;
 }
 
@@ -338,22 +335,36 @@ async function addReply(assignmentId, commentId, userId, replyText) {
     if (!assignment) throw new NotFoundError('Assignment');
 
     const reply = await assignmentRepository.addReply(assignmentId, commentId, userId, replyText);
-    
+
     const user = await db.get('SELECT username, fullName, role, team FROM users WHERE id = ?', [userId]);
-    if (user) {
-        // Notify Team Leader
-        if (assignment.team_leader_id !== userId) {
-            await notificationService.createNotification({
-                user_id: assignment.team_leader_id,
-                type: 'comment',
-                title: 'New Reply on Assignment',
-                message: `${user.username} replied to a comment on "${assignment.title}"`,
-                assignment_id: assignmentId
-            });
-        }
+    if (user && assignment.team_leader_id !== userId) {
+        await notificationService.createNotification({
+            user_id: assignment.team_leader_id,
+            type: 'comment',
+            title: 'New Reply on Assignment',
+            message: `${user.username} replied to a comment on "${assignment.title}"`,
+            assignment_id: assignmentId
+        });
     }
-    
+
     return reply;
+}
+
+/**
+ * Edit a comment or reply
+ * FIX: Was done with raw db.run in the controller — now in the service layer
+ *      via the repository, consistent with the rest of the codebase.
+ */
+async function editComment(commentId, commentText, user) {
+    return await assignmentRepository.editComment(commentId, commentText, user.id);
+}
+
+/**
+ * Delete a comment or reply (also deletes child replies)
+ * FIX: Was done with raw db.run in the controller — now in the service layer.
+ */
+async function deleteComment(commentId, user) {
+    return await assignmentRepository.deleteComment(commentId, user.id);
 }
 
 /**
@@ -379,7 +390,7 @@ async function markAssignmentDone(assignmentId, user) {
 async function deleteAttachment(assignmentId, attachmentId, user) {
     const fileService = require('./fileService');
     const resolved = await fileService.resolvePhysicalPath(attachmentId);
-    
+
     if (resolved.path) {
         try { await fs.unlink(resolved.path); } catch (e) {}
     }
@@ -418,24 +429,38 @@ module.exports = {
     getTeamAssignments,
     getTeamLeaderAssignments,
     getAllSubmissionsForTL,
+    getAssignmentById,
     submitAssignment,
     markAssignmentDone,
     addComment,
     addReply,
+    editComment,
+    deleteComment,
     getComments,
     deleteAttachment,
     deleteAttachmentFolder,
-        getAssignmentById: async (id) => {
-        const result = await assignmentRepository.findAllWithDetails({ cursor: parseInt(id) + 1, limit: 1 });
-        const assignment = result.assignments.find(a => a.id == id);
+    /**
+     * Remove a submitted file from an assignment
+     */
+    deleteSubmissionFile: async (assignmentId, fileId, user) => {
+        const assignment = await assignmentRepository.findById(assignmentId);
         if (!assignment) throw new NotFoundError('Assignment');
-        return assignment;
-    },
 
+        await db.run(
+            'DELETE FROM assignment_submissions WHERE assignment_id = ? AND file_id = ?',
+            [assignmentId, fileId]
+        );
+
+        logActivity(db, user.id, user.username, user.role, user.team,
+            `Removed submitted file #${fileId} from assignment: ${assignment.title}`);
+        return true;
+    },
     deleteAssignment: async (id, user) => {
         const assignment = await assignmentRepository.findById(id);
         if (!assignment) throw new NotFoundError('Assignment');
-        if (assignment.team_leader_id !== user.id && user.role !== 'ADMIN') throw new ValidationError('Permission denied');
+        if (assignment.team_leader_id !== user.id && user.role !== 'ADMIN') {
+            throw new ValidationError('Permission denied');
+        }
         return await assignmentRepository.deleteById(id);
     },
     getUserAssignments: async (userId, options = {}) => await assignmentRepository.findByUserId(userId, options)

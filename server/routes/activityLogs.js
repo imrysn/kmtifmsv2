@@ -1,8 +1,13 @@
 const express = require('express');
 const { db } = require('../config/database');
 const { logActivity } = require('../utils/logger');
+const { authenticateToken, authorizeRole } = require('../middleware/auth');
 
 const router = express.Router();
+
+// Apply authentication and ADMIN role to all routes in this router
+router.use(authenticateToken);
+router.use(authorizeRole('ADMIN'));
 
 // Activity Logs Endpoints with pagination
 router.get('/', (req, res) => {

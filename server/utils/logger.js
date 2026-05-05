@@ -131,11 +131,14 @@ function logActivity(db, userId, username, role, team, action) {
     timestamp
   });
 
+  // Normalize role for database ENUM compatibility (TEAM_LEADER vs TEAM LEADER)
+  const normalizedRole = (role || '').toString().toUpperCase().replace(/\s+/g, '_');
+
   // Log to database (MySQL)
   const mysqlDb = require('../../database/config');
   mysqlDb.query(
     'INSERT INTO activity_logs (user_id, username, role, team, activity, timestamp) VALUES (?, ?, ?, ?, ?, ?)',
-    [userId, username, role, team, action, timestamp]
+    [userId, username, normalizedRole, team, action, timestamp]
   ).catch(err => {
     logger.error('Failed to log activity to MySQL database', {
       error: err.message,

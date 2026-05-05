@@ -55,7 +55,16 @@ async function up() {
 
         // File status history table
         { name: 'idx_file_status_history_file_id', table: 'file_status_history', column: 'file_id' },
-        { name: 'idx_file_status_history_changed_by_id', table: 'file_status_history', column: 'changed_by_id' }
+        { name: 'idx_file_status_history_changed_by_id', table: 'file_status_history', column: 'changed_by_id' },
+
+        // Assignment attachments table
+        { name: 'idx_assignment_attachments_assignment_id', table: 'assignment_attachments', column: 'assignment_id' },
+
+        // Assignment comments table
+        { name: 'idx_assignment_comments_assignment_id', table: 'assignment_comments', column: 'assignment_id' },
+
+        // Additional file indexes
+        { name: 'idx_files_team_leader_id', table: 'files', column: 'team_leader_id' }
     ];
 
     console.log('📊 Adding database indexes for MySQL...');
@@ -117,7 +126,10 @@ async function down() {
         'DROP INDEX IF EXISTS idx_file_comments_file_id ON file_comments',
         'DROP INDEX IF EXISTS idx_file_comments_user_id ON file_comments',
         'DROP INDEX IF EXISTS idx_file_status_history_file_id ON file_status_history',
-        'DROP INDEX IF EXISTS idx_file_status_history_changed_by_id ON file_status_history'
+        'DROP INDEX IF EXISTS idx_file_status_history_changed_by_id ON file_status_history',
+        'DROP INDEX IF EXISTS idx_assignment_attachments_assignment_id ON assignment_attachments',
+        'DROP INDEX IF EXISTS idx_assignment_comments_assignment_id ON assignment_comments',
+        'DROP INDEX IF EXISTS idx_files_team_leader_id ON files'
     ];
 
     console.log('🗑️  Dropping database indexes...');

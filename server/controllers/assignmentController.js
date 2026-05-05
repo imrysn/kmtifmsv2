@@ -4,6 +4,12 @@ const { asyncHandler, ValidationError, NotFoundError } = require('../middleware/
 /**
  * Assignment Controller
  * Handles HTTP requests for assignment operations
+ *
+ * FIXES APPLIED:
+ * - Removed duplicate method definitions (getAllSubmissions x2, getTeamLeaderAssignments x2)
+ * - Fixed submitAssignment argument order: was (id, req.user.id, finalFileIds),
+ *   now correctly (id, finalFileIds, req.user)
+ * - editComment and deleteComment moved to use assignmentService instead of raw db
  */
 class AssignmentController {
     /**
@@ -32,7 +38,9 @@ class AssignmentController {
     });
 
     /**
-     * Get all submissions for team leader
+     * Get all submitted files for file collection (Team Leader)
+     * Route: GET /submissions
+     * Uses authenticated user's ID — no param needed
      */
     getAllSubmissions = asyncHandler(async (req, res) => {
         const result = await assignmentService.getAllSubmissionsForTL(req.user.id);
@@ -40,20 +48,23 @@ class AssignmentController {
     });
 
     /**
-     * Get assignments for team leader
+     * Get all submissions for a specific team leader (by param)
+     * Route: GET /team-leader/:userId/all-submissions
+     */
+    getAllSubmissionsForTL = asyncHandler(async (req, res) => {
+        const { userId } = req.params;
+        const result = await assignmentService.getAllSubmissionsForTL(userId);
+        res.json({ success: true, submissions: result.submissions || [] });
+    });
+
+    /**
+     * Get assignments for team leader (authenticated user)
+     * Route: GET /team-leader/:userId
      */
     getTeamLeaderAssignments = asyncHandler(async (req, res) => {
-        // Now uses authenticated user ID to find led teams
-        const result = await assignmentService.getTeamLeaderAssignments(req.user.id);
-        res.json({ success: true, ...result });
-    });
-
-    /**
-     * Get all submitted files for file collection (Team Leader)
-     */
-    getAllSubmissions = asyncHandler(async (req, res) => {
-        const result = await assignmentService.getAllSubmissionsForTL(req.user.id);
-        res.json({ success: true, ...result });
+        const { userId } = req.params;
+        const result = await assignmentService.getTeamLeaderAssignments(userId);
+        res.json({ success: true, assignments: result.assignments || [] });
     });
 
     /**
@@ -132,29 +143,26 @@ class AssignmentController {
 
     /**
      * Edit a comment or reply
+     * FIX: Was using raw db.run directly — now goes through service layer
      */
     editComment = asyncHandler(async (req, res) => {
         const { commentId } = req.params;
         const { comment } = req.body;
-        const { db } = require('../config/database');
-        await db.run(
-            'UPDATE assignment_comments SET comment = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
-            [comment, commentId]
-        );
+        if (!comment || !comment.trim()) throw new ValidationError('Comment text is required');
+        await assignmentService.editComment(commentId, comment, req.user);
         res.json({ success: true, message: 'Comment updated successfully' });
     });
 
     /**
      * Delete a comment or reply
+     * FIX: Was using raw db.run directly — now goes through service layer
      */
     deleteComment = asyncHandler(async (req, res) => {
         const { commentId } = req.params;
-        const { db } = require('../config/database');
-        // Delete child replies first, then the parent comment
-        await db.run('DELETE FROM assignment_comments WHERE parent_id = ?', [commentId]);
-        await db.run('DELETE FROM assignment_comments WHERE id = ?', [commentId]);
+        await assignmentService.deleteComment(commentId, req.user);
         res.json({ success: true, message: 'Comment deleted successfully' });
     });
+
     /**
      * Get assignments for a specific user (admin/team leader view)
      */
@@ -173,38 +181,25 @@ class AssignmentController {
     });
 
     /**
-     * Get assignments created by a team leader
-     */
-    getTeamLeaderAssignments = asyncHandler(async (req, res) => {
-        const { userId } = req.params;
-        const result = await assignmentService.getTeamLeaderAssignments(userId);
-        res.json({ success: true, assignments: result.assignments || [] });
-    });
-
-    /**
-     * Get all submissions for a team leader
-     */
-    getAllSubmissionsForTL = asyncHandler(async (req, res) => {
-        const { userId } = req.params;
-        const result = await assignmentService.getAllSubmissionsForTL(userId);
-        res.json({ success: true, submissions: result.submissions || [] });
-    });
-
-    /**
      * Submit assignment
+     * FIX: Arguments were in wrong order — was (id, req.user.id, finalFileIds)
+     *      Service expects (assignmentId, fileIds, user)
      */
     submitAssignment = asyncHandler(async (req, res) => {
         const id = req.params.id || req.body.assignmentId;
         const { fileIds, fileId } = req.body;
-        
+
         if (!id) throw new ValidationError('Assignment ID is required');
-        
+
         // Handle single fileId or array of fileIds
         const finalFileIds = Array.isArray(fileIds) ? fileIds : (fileId ? [fileId] : []);
-        
-        await assignmentService.submitAssignment(id, req.user.id, finalFileIds);
+
+        if (finalFileIds.length === 0) throw new ValidationError('At least one file ID is required');
+
+        await assignmentService.submitAssignment(id, finalFileIds, req.user);
         res.json({ success: true, message: 'Assignment submitted successfully' });
     });
+
     /**
      * Get assignment details
      */
@@ -213,11 +208,12 @@ class AssignmentController {
         const assignment = await assignmentService.getAssignmentById(id, req.user);
         res.json({ success: true, assignment });
     });
+
     /**
      * Mark assignment as done
      */
     markDone = asyncHandler(async (req, res) => {
-        const { id } = req.params;
+        const id = req.params.id || req.params.assignmentId;
         await assignmentService.markAssignmentDone(id, req.user);
         res.json({ success: true, message: 'Assignment marked as completed' });
     });
@@ -230,6 +226,7 @@ class AssignmentController {
         await assignmentService.deleteAttachment(id, attachmentId, req.user);
         res.json({ success: true, message: 'Attachment deleted successfully' });
     });
+
     /**
      * Delete attachment folder
      */
@@ -237,6 +234,14 @@ class AssignmentController {
         const { id, folderName } = req.params;
         await assignmentService.deleteAttachmentFolder(id, folderName, req.user);
         res.json({ success: true, message: `Folder "${folderName}" deleted successfully` });
+    });
+    /**
+     * Delete a submitted file from an assignment
+     */
+    deleteSubmissionFile = asyncHandler(async (req, res) => {
+        const { id, fileId } = req.params;
+        await assignmentService.deleteSubmissionFile(id, fileId, req.user);
+        res.json({ success: true, message: 'Submission file removed' });
     });
 }
 

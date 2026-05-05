@@ -1,48 +1,56 @@
+const jwt = require('jsonwebtoken');
+const { secret } = require('../config/jwt');
+
 /**
- * Authentication Middleware (Compatibility Layer)
- * In this system, user information is often passed via req.body or req.query
- * from the client. This middleware populates req.user for the controllers.
+ * Authentication Middleware
+ * Verifies the JWT from the Authorization header.
  */
-
 function authenticateToken(req, res, next) {
-    // Attempt to find user info in body, query, or headers
-    const userId = req.body.userId || req.query.userId || req.headers['x-user-id'];
-    const username = req.body.username || req.query.username || req.headers['x-user-username'];
-    const role = req.body.userRole || req.query.userRole || req.headers['x-user-role'];
-    const team = req.body.userTeam || req.query.userTeam || req.headers['x-user-team'];
-    const fullName = req.body.userFullName || req.query.userFullName;
+    const authHeader = req.headers['authorization'];
+    const token = authHeader && authHeader.split(' ')[1];
 
-    if (userId) {
-        req.user = {
-            id: parseInt(userId),
-            username: username,
-            role: (role || 'USER').toUpperCase(),
-            team: team,
-            fullName: fullName || username
-        };
-    } else {
-        // Fallback for routes that might not need auth or have it handled differently
-        // In the legacy app, many routes didn't have explicit auth check on server
-        req.user = {}; 
+    if (!token) {
+        return res.status(401).json({ 
+            success: false, 
+            message: 'Authentication required: No token provided' 
+        });
     }
 
-    next();
+    jwt.verify(token, secret, (err, user) => {
+        if (err) {
+            return res.status(403).json({ 
+                success: false, 
+                message: 'Invalid or expired token' 
+            });
+        }
+        
+        req.user = user;
+        next();
+    });
 }
 
+/**
+ * Authorization Middleware
+ * Checks if the user has the required role(s).
+ * @param {string|string[]} roles - Allowed role(s)
+ */
 function authorizeRole(roles) {
+    const allowedRoles = Array.isArray(roles) ? roles.map(r => r.toUpperCase()) : [roles.toUpperCase()];
+    
     return (req, res, next) => {
         if (!req.user || !req.user.role) {
-            // If no user info provided, we might still allow it if it's legacy 
-            // but for security-sensitive routes we should be careful.
-            // However, to maintain parity, we'll just log a warning.
-            console.warn(`⚠️ Authorization check skipped - no user info for roles: ${roles}`);
-            return next();
+            return res.status(401).json({ 
+                success: false, 
+                message: 'Unauthorized: User info missing' 
+            });
         }
 
-        const userRole = req.user.role.toUpperCase();
-        const allowedRoles = Array.isArray(roles) ? roles : [roles];
+        // Normalize user role and allowed roles for comparison (TEAM_LEADER vs TEAM LEADER)
+        const userRole = req.user.role.toUpperCase().replace(/\s+/g, '_');
+        const normalizedAllowedRoles = allowedRoles.map(r => r.replace(/\s+/g, '_'));
         
-        if (allowedRoles.includes(userRole) || userRole === 'ADMIN') {
+        // ADMIN always has access
+        if (userRole === 'ADMIN' || normalizedAllowedRoles.includes(userRole)) {
             return next();
         }
 
@@ -57,3 +65,4 @@ module.exports = {
     authenticateToken,
     authorizeRole
 };
+

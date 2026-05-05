@@ -31,9 +31,9 @@ function App() {
   }, [])
 
   // Handle login
-  const handleLogin = (userData) => {
+  const handleLogin = (userData, token) => {
     logger.logLogin(userData)
-    login(userData)
+    login(userData, token)
     logger.logStateUpdate('User authenticated and saved')
   }
 

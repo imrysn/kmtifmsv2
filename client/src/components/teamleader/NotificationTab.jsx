@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback, memo } from 'react';
-import { API_BASE_URL } from '@/config/api';
+import { apiFetch } from '@/config/api';
 import './css/NotificationTab.css';
 import FileIcon from '../shared/FileIcon';
 import { useTaskbarFlash } from '../../utils/useTaskbarFlash';
@@ -133,10 +133,9 @@ const NotificationTab = ({ user, onNavigate, onRead }) => {
         setLoadingMore(true);
       }
 
-      const response = await fetch(
-        `${API_BASE_URL}/api/notifications/user/${user.id}?page=${pageNum}&limit=${limit}`
+      const data = await apiFetch(
+        `/api/notifications/user/${user.id}?page=${pageNum}&limit=${limit}`
       );
-      const data = await response.json();
 
       if (data.success) {
         const newNotifications = data.notifications || [];
@@ -179,11 +178,9 @@ const NotificationTab = ({ user, onNavigate, onRead }) => {
 
   const markAsRead = async (notificationId) => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/notifications/${notificationId}/read`, {
+      const data = await apiFetch(`/api/notifications/${notificationId}/read`, {
         method: 'PUT'
       });
-
-      const data = await response.json();
       if (data.success) {
         // Update local state instead of refetching
         setNotifications(prev => prev.map(n =>
@@ -198,11 +195,9 @@ const NotificationTab = ({ user, onNavigate, onRead }) => {
 
   const markAllAsRead = async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/notifications/user/${user.id}/read-all`, {
+      const data = await apiFetch(`/api/notifications/user/${user.id}/read-all`, {
         method: 'PUT'
       });
-
-      const data = await response.json();
       if (data.success) {
         // Update local state
         setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
@@ -216,11 +211,9 @@ const NotificationTab = ({ user, onNavigate, onRead }) => {
 
   const deleteNotification = async (notificationId) => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/notifications/${notificationId}`, {
+      const data = await apiFetch(`/api/notifications/${notificationId}`, {
         method: 'DELETE'
       });
-
-      const data = await response.json();
       if (data.success) {
         // Update local state
         const deletedNotification = notifications.find(n => n.id === notificationId);
@@ -242,11 +235,9 @@ const NotificationTab = ({ user, onNavigate, onRead }) => {
   const confirmDeleteAll = async () => {
     setIsDeleting(true);
     try {
-      const response = await fetch(`${API_BASE_URL}/api/notifications/user/${user.id}/delete-all`, {
+      const data = await apiFetch(`/api/notifications/user/${user.id}/delete-all`, {
         method: 'DELETE'
       });
-
-      const data = await response.json();
       if (data.success) {
         setNotifications([]);
         setUnreadCount(0);

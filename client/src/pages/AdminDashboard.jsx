@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, Suspense, memo, useCallback } from 'react'
-import { API_BASE_URL } from '@/config/api'
+import { apiFetch } from '@/config/api'
 import anime from 'animejs'
 import '../css/AdminDashboard.css'
 import SkeletonLoader from '../components/common/SkeletonLoader'
@@ -152,8 +152,7 @@ const AdminDashboard = ({ user, onLogout }) => {
 
   const fetchUsers = async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/users`)
-      const data = await response.json()
+      const data = await apiFetch(`/api/users`)
       if (data.success) {
         setUsers(data.users)
       }
@@ -165,8 +164,7 @@ const AdminDashboard = ({ user, onLogout }) => {
   const fetchNotifications = async () => {
     try {
       // Lightweight call — only fetch page 1 to get unreadCount and toast notifications
-      const response = await fetch(`${API_BASE_URL}/api/notifications/user/${user.id}?page=1&limit=20`)
-      const data = await response.json()
+      const data = await apiFetch(`/api/notifications/user/${user.id}?page=1&limit=20`)
       if (data.success) {
         setNotifications(data.notifications || [])
         setUnreadCount(data.unreadCount || 0)

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { API_BASE_URL } from '@/config/api'
+import { apiFetch, API_BASE_URL } from '@/config/api'
 import FileIcon from '../shared/FileIcon'
 import { SkeletonLoader } from '../common/SkeletonLoader'
 import './FileManagement.css'
@@ -112,8 +112,7 @@ const FileManagement = ({ clearMessages, error, success, setError, setSuccess })
   const handleSyncDeleted = async () => {
     setIsSyncing(true)
     try {
-      const res = await fetch(`${API_BASE}/api/files/sync-deleted`, { method: 'POST' })
-      const data = await res.json()
+      const data = await apiFetch('/api/files/sync-deleted', { method: 'POST' })
       if (data.success) {
         setSuccess(data.message)
         fetchFileSystemItems() // refresh the file list
@@ -131,8 +130,7 @@ const FileManagement = ({ clearMessages, error, success, setError, setSuccess })
     // FIX: Removed manual health check since useNetwork handles it.
     // We only check for specific File System info here.
     try {
-      const infoResponse = await fetch(`${API_BASE}/api/file-system/info`)
-      const data = await infoResponse.json()
+      const data = await apiFetch('/api/file-system/info')
       setNetworkInfo(data)
       if (!data.accessible) {
         setError('Network projects directory is not accessible.')
@@ -270,10 +268,9 @@ const FileManagement = ({ clearMessages, error, success, setError, setSuccess })
         if (isElectron) {
           console.log('Running in Electron - using Windows default application')
 
-          const pathResponse = await fetch(
-            `${API_BASE}/api/file-system/filepath?path=${encodeURIComponent(item.path)}`
+          const pathData = await apiFetch(
+            `/api/file-system/filepath?path=${encodeURIComponent(item.path)}`
           )
-          const pathData = await pathResponse.json()
 
           if (!pathData.success) {
             throw new Error(pathData.message || 'Failed to get file path')

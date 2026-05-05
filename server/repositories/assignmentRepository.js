@@ -8,8 +8,6 @@ const { DatabaseError } = require('../middleware/errorHandler');
 
 /**
  * Create a new assignment
- * @param {Object} data - Assignment data
- * @returns {Promise<number>} - Inserted assignment ID
  */
 async function create(data) {
     const {
@@ -218,7 +216,7 @@ async function findTeamSubmissions(teamNames) {
     if (!teamNames || teamNames.length === 0) return [];
     const placeholders = teamNames.map(() => '?').join(',');
     const query = `
-        SELECT f.*, u.username, u.fullName, asub.submitted_at, 
+        SELECT f.*, u.username, u.fullName, asub.submitted_at,
                a.id as assignment_id, a.title as assignment_title
         FROM assignment_submissions asub
         JOIN files f ON asub.file_id = f.id
@@ -235,25 +233,36 @@ async function findTeamSubmissions(teamNames) {
 }
 
 /**
- * Optimized method to find assignments with all related details
+ * Find assignments with all related details (paginated)
  */
 async function findAllWithDetails(options = {}) {
     const { cursor, limit = 1000, team } = options;
     try {
         let query = `
-            SELECT 
-                a.*, 
+            SELECT
+                a.*,
                 tl.fullName as team_leader_fullname,
                 (SELECT COUNT(*) FROM assignment_members WHERE assignment_id = a.id) as assigned_members_count,
                 (SELECT COUNT(*) FROM assignment_submissions WHERE assignment_id = a.id) as submission_count,
                 (SELECT COUNT(*) FROM assignment_comments WHERE assignment_id = a.id) as comment_count
-            FROM assignments a 
+            FROM assignments a
             LEFT JOIN users tl ON a.team_leader_id = tl.id
         `;
         const params = [];
         const where = [];
 
-        if (team) { where.push('a.team = ?'); params.push(team); }
+        if (team) {
+            if (Array.isArray(team)) {
+                if (team.length > 0) {
+                    const teamPlaceholders = team.map(() => '?').join(',');
+                    where.push(`a.team IN (${teamPlaceholders})`);
+                    params.push(...team);
+                }
+            } else {
+                where.push('a.team = ?');
+                params.push(team);
+            }
+        }
         if (cursor) { where.push('a.id < ?'); params.push(cursor); }
         if (where.length > 0) query += ' WHERE ' + where.join(' AND ');
 
@@ -263,24 +272,28 @@ async function findAllWithDetails(options = {}) {
         const assignments = await db.all(query, params);
         const hasMore = assignments.length > limit;
         const resultAssignments = hasMore ? assignments.slice(0, limit) : assignments;
-        const nextCursor = hasMore && resultAssignments.length > 0 ? resultAssignments[resultAssignments.length - 1].id : null;
+        const nextCursor = hasMore && resultAssignments.length > 0
+            ? resultAssignments[resultAssignments.length - 1].id
+            : null;
 
         if (resultAssignments.length === 0) return { assignments: [], nextCursor: null, hasMore: false };
 
         const assignmentIds = resultAssignments.map(a => a.id);
         const placeholders = assignmentIds.map(() => '?').join(',');
 
-        // Fetch member details
-        const membersQuery = `SELECT am.assignment_id, u.id, u.username, u.fullName, am.status FROM assignment_members am JOIN users u ON am.user_id = u.id WHERE am.assignment_id IN (${placeholders})`;
+        const membersQuery = `
+            SELECT am.assignment_id, u.id, u.username, u.fullName, am.status
+            FROM assignment_members am
+            JOIN users u ON am.user_id = u.id
+            WHERE am.assignment_id IN (${placeholders})
+        `;
         const members = await db.all(membersQuery, assignmentIds);
-        
         const membersMap = members.reduce((acc, m) => {
             if (!acc[m.assignment_id]) acc[m.assignment_id] = [];
             acc[m.assignment_id].push(m);
             return acc;
         }, {});
 
-        // Fetch attachments
         const attachmentsQuery = `
             SELECT id, assignment_id, original_name, filename, file_path, file_size, file_type, folder_name, relative_path, created_at,
                    COALESCE(status, 'team_leader_approved') AS status,
@@ -295,7 +308,6 @@ async function findAllWithDetails(options = {}) {
             return acc;
         }, {});
 
-        // Fetch recent submissions
         const submissionsQuery = `
             SELECT f.*, u.username, u.fullName, asub.submitted_at, asub.assignment_id
             FROM assignment_submissions asub
@@ -327,7 +339,56 @@ async function findAllWithDetails(options = {}) {
 }
 
 /**
- * Comments & Replies
+ * Find a single assignment with all details (members, attachments, submissions)
+ */
+async function findByIdWithDetails(id) {
+    try {
+        const assignment = await db.get(`
+            SELECT a.*, tl.fullName as team_leader_fullname
+            FROM assignments a
+            LEFT JOIN users tl ON a.team_leader_id = tl.id
+            WHERE a.id = ?
+        `, [id]);
+
+        if (!assignment) return null;
+
+        const [members, attachments, submissions] = await Promise.all([
+            db.all(`
+                SELECT am.assignment_id, u.id, u.username, u.fullName, am.status
+                FROM assignment_members am
+                JOIN users u ON am.user_id = u.id
+                WHERE am.assignment_id = ?
+            `, [id]),
+            db.all(`
+                SELECT id, assignment_id, original_name, filename, file_path, file_size, file_type, folder_name, relative_path, created_at,
+                       COALESCE(status, 'team_leader_approved') AS status,
+                       COALESCE(current_stage, 'pending_admin') AS current_stage
+                FROM assignment_attachments
+                WHERE assignment_id = ?
+            `, [id]),
+            db.all(`
+                SELECT f.*, u.username, u.fullName, asub.submitted_at, asub.assignment_id
+                FROM assignment_submissions asub
+                JOIN files f ON asub.file_id = f.id
+                JOIN users u ON asub.user_id = u.id
+                WHERE asub.assignment_id = ?
+                ORDER BY asub.submitted_at DESC
+            `, [id])
+        ]);
+
+        return {
+            ...assignment,
+            assigned_member_details: members || [],
+            attachments: attachments || [],
+            recent_submissions: submissions || []
+        };
+    } catch (err) {
+        throw new DatabaseError('Failed to fetch assignment details', err);
+    }
+}
+
+/**
+ * Get comments and replies for an assignment
  */
 async function getComments(assignmentId) {
     const query = `
@@ -360,7 +421,10 @@ async function addComment(assignmentId, userId, commentText) {
     try {
         const result = await db.run(query, [assignmentId, userId, commentText]);
         const id = result.insertId || result.lastID;
-        return await db.get('SELECT ac.*, u.username, u.fullName FROM assignment_comments ac JOIN users u ON ac.user_id = u.id WHERE ac.id = ?', [id]);
+        return await db.get(
+            'SELECT ac.*, u.username, u.fullName FROM assignment_comments ac JOIN users u ON ac.user_id = u.id WHERE ac.id = ?',
+            [id]
+        );
     } catch (err) {
         throw new DatabaseError('Failed to add assignment comment', err);
     }
@@ -371,14 +435,51 @@ async function addReply(assignmentId, commentId, userId, replyText) {
     try {
         const result = await db.run(query, [assignmentId, userId, replyText, commentId]);
         const id = result.insertId || result.lastID;
-        return await db.get('SELECT ac.*, u.username, u.fullName FROM assignment_comments ac JOIN users u ON ac.user_id = u.id WHERE ac.id = ?', [id]);
+        return await db.get(
+            'SELECT ac.*, u.username, u.fullName FROM assignment_comments ac JOIN users u ON ac.user_id = u.id WHERE ac.id = ?',
+            [id]
+        );
     } catch (err) {
         throw new DatabaseError('Failed to add assignment reply', err);
     }
 }
 
 /**
- * Update assignment
+ * Edit a comment or reply
+ * FIX: Added — was previously done with raw db.run in the controller.
+ */
+async function editComment(commentId, commentText, requestingUserId) {
+    try {
+        const existing = await db.get('SELECT * FROM assignment_comments WHERE id = ?', [commentId]);
+        if (!existing) throw new Error('Comment not found');
+
+        await db.run(
+            'UPDATE assignment_comments SET comment = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+            [commentText, commentId]
+        );
+        return true;
+    } catch (err) {
+        throw new DatabaseError('Failed to edit comment', err);
+    }
+}
+
+/**
+ * Delete a comment and all its child replies
+ * FIX: Added — was previously done with raw db.run in the controller.
+ */
+async function deleteComment(commentId, requestingUserId) {
+    try {
+        // Delete child replies first to avoid FK constraint issues
+        await db.run('DELETE FROM assignment_comments WHERE parent_id = ?', [commentId]);
+        await db.run('DELETE FROM assignment_comments WHERE id = ?', [commentId]);
+        return true;
+    } catch (err) {
+        throw new DatabaseError('Failed to delete comment', err);
+    }
+}
+
+/**
+ * Update assignment fields
  */
 async function update(id, updates) {
     const fields = [];
@@ -400,7 +501,7 @@ async function update(id, updates) {
 }
 
 /**
- * Delete attachment from an assignment
+ * Delete an attachment record
  */
 async function deleteAttachment(attachmentId) {
     try {
@@ -426,7 +527,10 @@ module.exports = {
     getComments,
     addComment,
     addReply,
+    editComment,
+    deleteComment,
     deleteAttachment,
+    findByIdWithDetails,
     deleteById: async (id) => {
         await db.run('DELETE FROM assignment_members WHERE assignment_id = ?', [id]);
         await db.run('DELETE FROM assignments WHERE id = ?', [id]);

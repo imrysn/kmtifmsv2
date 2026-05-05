@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { API_BASE_URL } from '@/config/api'
+import { apiFetch, API_BASE_URL } from '@/config/api'
 import './css/TeamTasksTab.css'
 import { FileIcon, FileOpenModal } from '../shared'
 import CommentsModal from '../shared/CommentsModal'
@@ -165,8 +165,7 @@ const TeamTasksTab = ({ user }) => {
 
       console.log('Fetching team assignments for team:', user.team)
 
-      const response = await fetch(`${API_BASE_URL}/api/assignments/team/${user.team}/all-tasks?limit=20`)
-      const data = await response.json()
+      const data = await apiFetch(`/api/assignments/team/${user.team}/all-tasks?limit=20`)
 
       console.log('Team assignments response:', data)
 
@@ -204,8 +203,7 @@ const TeamTasksTab = ({ user }) => {
 
       console.log('Fetching more team assignments with cursor:', nextCursor)
 
-      const response = await fetch(`${API_BASE_URL}/api/assignments/team/${user.team}/all-tasks?cursor=${nextCursor}&limit=20`)
-      const data = await response.json()
+      const data = await apiFetch(`/api/assignments/team/${user.team}/all-tasks?cursor=${nextCursor}&limit=20`)
 
       console.log('More team assignments response:', data)
 
@@ -240,8 +238,7 @@ const TeamTasksTab = ({ user }) => {
       await Promise.all(
         assignmentsList.map(async (assignment) => {
           try {
-            const response = await fetch(`${API_BASE_URL}/api/assignments/${assignment.id}/comments`)
-            const data = await response.json()
+            const data = await apiFetch(`/api/assignments/${assignment.id}/comments`)
 
             if (data.success) {
               commentCounts[assignment.id] = data.comments || []
@@ -344,10 +341,9 @@ const TeamTasksTab = ({ user }) => {
       if (isElectron) {
         console.log('💻 Running in Electron - using Windows default application');
 
-        const pathResponse = await fetch(
-          `${API_BASE_URL}/api/files/${fileId}/path`
+        const pathData = await apiFetch(
+          `/api/files/${fileId}/path`
         );
-        const pathData = await pathResponse.json();
 
         if (!pathData.success) {
           throw new Error(pathData.message || 'Failed to get file path');
@@ -434,8 +430,7 @@ const TeamTasksTab = ({ user }) => {
   const handleOpenFolderPath = async (fileId) => {
     if (!window.electron?.openFolderInExplorer) return
     try {
-      const res = await fetch(`${API_BASE_URL}/api/files/${fileId}/path`)
-      const data = await res.json()
+      const data = await apiFetch(`/api/files/${fileId}/path`)
       if (data.success && data.filePath) {
         await window.electron.openFolderInExplorer(data.filePath)
       }
@@ -446,8 +441,7 @@ const TeamTasksTab = ({ user }) => {
   const fetchComments = useCallback(async (assignmentId) => {
     setLoadingComments(true)
     try {
-      const response = await fetch(`${API_BASE_URL}/api/assignments/${assignmentId}/comments`)
-      const data = await response.json()
+      const data = await apiFetch(`/api/assignments/${assignmentId}/comments`)
       if (data.success) {
         setComments(prev => ({ ...prev, [assignmentId]: data.comments || [] }))
       }
@@ -477,12 +471,10 @@ const TeamTasksTab = ({ user }) => {
   const handleSubmitComment = useCallback(async () => {
     if (!newComment.trim() || !currentCommentsAssignment) return
     try {
-      const response = await fetch(`${API_BASE_URL}/api/assignments/${currentCommentsAssignment.id}/comments`, {
+      const data = await apiFetch(`/api/assignments/${currentCommentsAssignment.id}/comments`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId: user.id, username: user.username || user.fullName, comment: newComment.trim() })
       })
-      const data = await response.json()
       if (data.success) {
         setNewComment('')
         fetchComments(currentCommentsAssignment.id)
@@ -496,12 +488,10 @@ const TeamTasksTab = ({ user }) => {
   const handlePostReply = useCallback(async (_e, commentId, replyTextValue, onSuccess) => {
     if (!replyTextValue?.trim() || !currentCommentsAssignment) return
     try {
-      const response = await fetch(`${API_BASE_URL}/api/assignments/${currentCommentsAssignment.id}/comments/${commentId}/reply`, {
+      const data = await apiFetch(`/api/assignments/${currentCommentsAssignment.id}/comments/${commentId}/reply`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId: user.id, username: user.username || user.fullName, reply: replyTextValue.trim() })
       })
-      const data = await response.json()
       if (data.success) { onSuccess?.(); fetchComments(currentCommentsAssignment.id) }
     } catch (error) {
       console.error('Error posting reply:', error)
@@ -511,12 +501,10 @@ const TeamTasksTab = ({ user }) => {
   // Edit a comment
   const handleEditComment = useCallback(async (assignmentId, commentId, newText) => {
     try {
-      const res = await fetch(`${API_BASE_URL}/api/assignments/${assignmentId}/comments/${commentId}`, {
+      const data = await apiFetch(`/api/assignments/${assignmentId}/comments/${commentId}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId: user.id, comment: newText })
       })
-      const data = await res.json()
       if (data.success) fetchComments(assignmentId)
     } catch (e) { console.error(e) }
   }, [user.id, fetchComments])
@@ -524,12 +512,10 @@ const TeamTasksTab = ({ user }) => {
   // Delete a comment
   const handleDeleteComment = useCallback(async (assignmentId, commentId) => {
     try {
-      const res = await fetch(`${API_BASE_URL}/api/assignments/${assignmentId}/comments/${commentId}`, {
+      const data = await apiFetch(`/api/assignments/${assignmentId}/comments/${commentId}`, {
         method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId: user.id })
       })
-      const data = await res.json()
       if (data.success) fetchComments(assignmentId)
     } catch (e) { console.error(e) }
   }, [user.id, fetchComments])
@@ -537,12 +523,10 @@ const TeamTasksTab = ({ user }) => {
   // Edit a reply
   const handleEditReply = useCallback(async (assignmentId, commentId, replyId, newText) => {
     try {
-      const res = await fetch(`${API_BASE_URL}/api/assignments/${assignmentId}/comments/${commentId}/reply/${replyId}`, {
+      const data = await apiFetch(`/api/assignments/${assignmentId}/comments/${commentId}/reply/${replyId}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId: user.id, reply: newText })
       })
-      const data = await res.json()
       if (data.success) fetchComments(assignmentId)
     } catch (e) { console.error(e) }
   }, [user.id, fetchComments])
@@ -550,12 +534,10 @@ const TeamTasksTab = ({ user }) => {
   // Delete a reply
   const handleDeleteReply = useCallback(async (assignmentId, commentId, replyId) => {
     try {
-      const res = await fetch(`${API_BASE_URL}/api/assignments/${assignmentId}/comments/${commentId}/reply/${replyId}`, {
+      const data = await apiFetch(`/api/assignments/${assignmentId}/comments/${commentId}/reply/${replyId}`, {
         method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId: user.id })
       })
-      const data = await res.json()
       if (data.success) fetchComments(assignmentId)
     } catch (e) { console.error(e) }
   }, [user.id, fetchComments])

@@ -2,6 +2,11 @@ const express = require('express');
 const router = express.Router();
 const { db } = require('../config/database');
 const { logActivity } = require('../utils/logger');
+const { authenticateToken, authorizeRole } = require('../middleware/auth');
+
+// Apply authentication and ADMIN role to all routes in this router
+router.use(authenticateToken);
+router.use(authorizeRole('ADMIN'));
 
 // Initialize settings table if it doesn't exist
 const initializeSettingsTable = async () => {
