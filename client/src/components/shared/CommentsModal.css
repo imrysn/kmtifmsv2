@@ -562,59 +562,81 @@
 }
 
 /* =================================================================
-   @MENTION PICKER - Facebook-style dropdown
+   @MENTION PICKER - Facebook-style dark dropdown
    ================================================================= */
 
 .mention-picker {
-  background: #fff;
+  background: #ffffff;
   border-radius: 12px;
   box-shadow: 0 4px 24px rgba(0, 0, 0, 0.15);
-  border: 1px solid #e5e7eb;
-  min-width: 240px;
+  border: 1px solid #e4e6eb;
+  min-width: 280px;
   max-width: 320px;
+  max-height: 280px;
+  overflow-y: auto;
   z-index: 99999;
-  overflow: hidden;
-  padding: 4px 0;
+  padding: 6px;
+  animation: cmOverlayIn 0.1s ease-out;
+}
+
+.mention-picker::-webkit-scrollbar {
+  width: 6px;
+}
+
+.mention-picker::-webkit-scrollbar-thumb {
+  background: #e4e6eb;
+  border-radius: 3px;
 }
 
 .mention-picker-item {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 8px 14px;
+  gap: 12px;
+  padding: 8px 10px;
   cursor: pointer;
+  border-radius: 8px;
   transition: background 0.1s;
+  border: 2px solid transparent;
 }
 
-.mention-picker-item:hover,
-.mention-picker-item--active {
+.mention-picker-item:hover {
   background: #f0f2f5;
 }
 
+.mention-picker-item--active {
+  background: #f0f2f5;
+  border-color: #1877f2;
+}
+
 .mention-picker-avatar {
-  width: 34px;
-  height: 34px;
+  width: 36px;
+  height: 36px;
   border-radius: 50%;
   background: #1877f2;
   color: #fff;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 700;
   flex-shrink: 0;
   text-transform: uppercase;
 }
 
+.mention-picker-avatar.everyone {
+  background: #e7f0fd;
+  color: #1877f2;
+}
+
 .mention-picker-info {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 1px;
   min-width: 0;
 }
 
 .mention-picker-name {
-  font-size: 13.5px;
+  font-size: 14px;
   font-weight: 600;
   color: #050505;
   white-space: nowrap;
@@ -622,18 +644,13 @@
   text-overflow: ellipsis;
 }
 
-.mention-picker-badge {
-  font-size: 10px;
-  font-weight: 700;
-  text-transform: uppercase;
-  padding: 1px 6px;
-  border-radius: 4px;
-  display: inline-block;
-  width: fit-content;
-  letter-spacing: 0.3px;
+.mention-picker-subtitle {
+  font-size: 12px;
+  color: #65676b;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
-
-
 
 .mention-highlight {
   color: #1877f2;
@@ -884,73 +901,5 @@
   padding: 0 2px;
 }
 
-/* =================================================================
-   MENTION PICKER DROPDOWN
-   ================================================================= */
 
-.mention-picker {
-  background: #fff;
-  border-radius: 10px;
-  box-shadow: 0 4px 20px rgba(0,0,0,0.18);
-  min-width: 220px;
-  max-width: 300px;
-  overflow: hidden;
-  z-index: 99999;
-  border: 1px solid #e4e6eb;
-  animation: cmOverlayIn 0.12s ease-out forwards;
-}
-
-.mention-picker-item {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 8px 12px;
-  cursor: pointer;
-  transition: background 0.1s;
-}
-
-.mention-picker-item:hover,
-.mention-picker-item--active {
-  background: #f0f2f5;
-}
-
-.mention-picker-avatar {
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  background: #1877f2;
-  color: #fff;
-  font-size: 13px;
-  font-weight: 700;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-
-.mention-picker-info {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
-}
-
-.mention-picker-name {
-  font-size: 13.5px;
-  font-weight: 600;
-  color: #050505;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.mention-picker-badge {
-  font-size: 11px;
-  font-weight: 600;
-  padding: 1px 6px;
-  border-radius: 10px;
-  width: fit-content;
-  text-transform: uppercase;
-  letter-spacing: 0.3px;
-}
 

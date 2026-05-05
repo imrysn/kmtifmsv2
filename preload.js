@@ -25,7 +25,17 @@ try {
     getNetworkProjectsPath: () => ipcRenderer.invoke('app:getNetworkProjectsPath'),
 
     // Window flashing for notifications
-    flashFrame: (shouldFlash) => ipcRenderer.send('window:flashFrame', shouldFlash)
+    flashFrame: (shouldFlash) => ipcRenderer.send('window:flashFrame', shouldFlash),
+
+    // Taskbar overlay badge with unread count
+    setBadge: (count) => ipcRenderer.send('window:setBadge', count),
+
+    // Persistent app storage — reads/writes a JSON file in userData via main process
+    // This survives app restarts (unlike browser localStorage which may not flush on close)
+    appStorage: {
+      get: (key) => ipcRenderer.invoke('app-storage:get', key),
+      set: (key, value) => ipcRenderer.invoke('app-storage:set', key, value),
+    },
   });
 
   // Expose updater API - secure and scoped

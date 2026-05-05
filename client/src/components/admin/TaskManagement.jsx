@@ -3,6 +3,7 @@ import { API_BASE_URL } from '@/config/api'
 import './TaskManagement.css'
 import './SmartNavigation.css'
 import FileIcon from '../shared/FileIcon.jsx'
+import FileViewersButton from '../shared/FileViewersButton.jsx'
 import { AlertMessage, ConfirmationModal, CommentsModal, FileOpenModal } from './modals'
 import { useAuth, useNetwork } from '../../contexts'
 import { withErrorBoundary } from '../common'
@@ -58,6 +59,33 @@ const TaskManagement = ({
   const [fileToOpen, setFileToOpen] = useState(null)
   const [expandedFolders, setExpandedFolders] = useState({})
   const [downloadToast, setDownloadToast] = useState({ show: false, fileName: '' })
+  const [openedFileIds, setOpenedFileIds] = useState(new Set())
+  const [openedFilesStorageReady, setOpenedFilesStorageReady] = useState(false)
+
+  // Load from persistent storage on mount
+  useEffect(() => {
+    ;(async () => {
+      try {
+        let stored = null
+        if (window.electron?.appStorage) {
+          stored = await window.electron.appStorage.get('kmti_opened_files_admin')
+        }
+        if (!stored) stored = localStorage.getItem('kmti_opened_files_admin')
+        if (stored) setOpenedFileIds(new Set(JSON.parse(stored)))
+      } catch {}
+      setOpenedFilesStorageReady(true)
+    })()
+  }, [])
+
+  // Save to persistent storage whenever it changes (only after initial load)
+  useEffect(() => {
+    if (!openedFilesStorageReady) return
+    const data = JSON.stringify([...openedFileIds])
+    if (window.electron?.appStorage) {
+      window.electron.appStorage.set('kmti_opened_files_admin', data)
+    }
+    try { localStorage.setItem('kmti_opened_files_admin', data) } catch {}
+  }, [openedFileIds, openedFilesStorageReady])
 
   // Pagination state
   const [nextCursor, setNextCursor] = useState(null)
@@ -447,6 +475,22 @@ const TaskManagement = ({
     setTimeout(() => setDownloadToast({ show: false, fileName: '' }), 3500)
   }
 
+  const recordView = async (fileId) => {
+    if (!user || !fileId) return
+    try {
+      await fetch(`${API_BASE_URL}/api/files/${fileId}/view`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: user.id,
+          username: user.username,
+          fullName: user.fullName,
+          role: user.role || 'admin'
+        })
+      })
+    } catch {}
+  }
+
   const handleDownloadFile = async (file) => {
     const fileUrl = `${API_BASE_URL}/api/files/${file.id}/download`
     const fileName = file.original_name || file.filename || 'file'
@@ -624,6 +668,7 @@ const TaskManagement = ({
         if (result.success) {
           console.log('Opened with Windows default application');
           setSuccess('File opened successfully');
+          return true
         } else {
           throw new Error(result.error || 'Failed to open file');
         }
@@ -641,12 +686,14 @@ const TaskManagement = ({
         newWindow.focus();
         console.log('Opened in browser tab');
         setSuccess('File opened in browser');
+        return true
       }
 
     } catch (error) {
       console.error('Error opening file:', error);
       setSuccess('') // Clear loading message
       setError(`Error opening file: File deleted/rejected or ${error.message || 'Failed to open file'}`);
+      return false
     } finally {
       setIsOpeningFile(false)
     }
@@ -909,12 +956,12 @@ const TaskManagement = ({
                                   <div style={{ fontSize: '32px', flexShrink: 0 }}>
                                     {isExpanded ? '📂' : '📁'}
                                   </div>
-                                  <div className="admin-file-details">
-                                    <div className="admin-file-name" style={{ fontWeight: '600' }}>{folderName}</div>
-                                    <div className="admin-file-meta">
-                                      Submitted by <span className="admin-file-submitter">KMTI User</span> • {folderFiles.length} file{folderFiles.length !== 1 ? 's' : ''}
+                                    <div className="admin-file-details">
+                                      <div className="admin-file-name" style={{ fontWeight: '600' }}>{folderName}</div>
+                                      <div className="admin-file-meta">
+                                        Submitted by <span className="admin-file-submitter">{assignment.team_leader_fullname || assignment.team_leader_username || 'Team Leader'}</span> • {folderFiles.length} file{folderFiles.length !== 1 ? 's' : ''}
+                                      </div>
                                     </div>
-                                  </div>
                                   {/* Download folder button */}
                                   <button
                                     onClick={(e) => { e.stopPropagation(); handleDownloadFolder(folderFiles, folderName) }}
@@ -940,15 +987,15 @@ const TaskManagement = ({
                                     {folderFiles.map(file => (
                                       <div
                                         key={file.id}
-                                        onClick={(e) => { e.stopPropagation(); setFileToOpen(file); setShowOpenFileConfirmation(true) }}
-                                        className="admin-file-item admin-folder-file-item"
+                                        onClick={(e) => { e.stopPropagation(); setFileToOpen(file); setShowOpenFileConfirmation(true); recordView(file.id) }}
+                                        className={`admin-file-item admin-folder-file-item${openedFileIds.has(file.id) ? ' admin-file-card-opened' : ''}`}
                                         style={{ cursor: 'pointer', marginBottom: '4px' }}
                                       >
                                         <FileIcon fileType={file.original_name.split('.').pop()} size="small" />
                                         <div className="admin-file-details">
-                                          <div className="admin-file-name">{file.original_name}</div>
+                                          <div className="admin-file-name" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{file.original_name}</span>{openedFileIds.has(file.id) && <span style={{ fontSize: '10px', fontWeight: '600', color: '#16a34a', backgroundColor: '#dcfce7', border: '1px solid #86efac', padding: '1px 7px', borderRadius: '10px', flexShrink: 0 }}>✓ Viewed</span>}</div>
                                           <div className="admin-file-meta">
-                                            Submitted by <span className="admin-file-submitter">KMTI User</span> on {formatDate(file.uploaded_at || file.created_at)}
+                                            Submitted by <span className="admin-file-submitter">{assignment.team_leader_fullname || assignment.team_leader_username || 'Team Leader'}</span> on {formatDate(file.uploaded_at || file.created_at)}
                                             {file.tag && (
                                               <span style={{
                                                 backgroundColor: '#dbeafe',
@@ -967,45 +1014,46 @@ const TaskManagement = ({
                                               </span>
                                             )}
                                             <span className={`admin-file-status ${
-                                              file.status === 'uploaded' ? 'uploaded' :
-                                                file.status === 'team_leader_approved' ? 'team-leader-approved' :
+                                              file.status === 'uploaded' ? 'reference' :
+                                                file.status === 'team_leader_approved' ? 'reference' :
                                                   file.status === 'final_approved' ? 'final-approved' :
                                                     file.status === 'rejected_by_team_leader' || file.status === 'rejected_by_admin' ? 'rejected' :
-                                                      'uploaded'
+                                                      'reference'
                                               }`}>
-                                              {file.status === 'uploaded' ? 'PENDING ADMIN' :
-                                                file.status === 'team_leader_approved' ? 'PENDING ADMIN' :
+                                              {file.status === 'uploaded' ? 'TASK REFERENCE' :
+                                                file.status === 'team_leader_approved' ? 'TASK REFERENCE' :
                                                   file.status === 'final_approved' ? '✓ APPROVED' :
                                                     file.status === 'rejected_by_team_leader' ? '✗ REJECTED' :
                                                       file.status === 'rejected_by_admin' ? '✗ REJECTED' :
-                                                        'PENDING ADMIN'}
+                                                        'TASK REFERENCE'}
                                             </span>
                                           </div>
                                         </div>
+                                        <FileViewersButton fileId={file.id} />
                                         <button
-                                          onClick={(e) => { e.stopPropagation(); handleDownloadFile(file) }}
-                                          title="Download file"
-                                          style={{
-                                            background: 'transparent', border: 'none', borderRadius: '6px',
-                                            width: '30px', height: '30px', display: 'flex', alignItems: 'center',
-                                            justifyContent: 'center', cursor: 'pointer', color: '#9ca3af',
-                                            flexShrink: 0, transition: 'all 0.15s'
-                                          }}
-                                          onMouseEnter={e => { e.currentTarget.style.backgroundColor = '#dbeafe'; e.currentTarget.style.color = '#1d4ed8' }}
+                                        onClick={(e) => { e.stopPropagation(); handleDownloadFile(file) }}
+                                        title="Download file"
+                                        style={{
+                                        background: 'transparent', border: 'none', borderRadius: '6px',
+                                        width: '30px', height: '30px', display: 'flex', alignItems: 'center',
+                                        justifyContent: 'center', cursor: 'pointer', color: '#9ca3af',
+                                          flexShrink: 0, transition: 'all 0.15s'
+                                        }}
+                                        onMouseEnter={e => { e.currentTarget.style.backgroundColor = '#dbeafe'; e.currentTarget.style.color = '#1d4ed8' }}
                                           onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = '#9ca3af' }}
                                         >
-                                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                            <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
-                                            <polyline points="7 10 12 15 17 10"/>
-                                            <line x1="12" y1="15" x2="12" y2="3"/>
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                        <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+                                        <polyline points="7 10 12 15 17 10"/>
+                                          <line x1="12" y1="15" x2="12" y2="3"/>
                                           </svg>
-                                        </button>
-                                      </div>
-                                    ))}
-                                  </div>
-                                )}
-                              </div>
-                            )
+                                          </button>
+                                          </div>
+                                          ))}  
+                                          </div>
+                                          )}
+                                          </div>
+                                          )
                           })}
 
                           {/* Individual file attachments */}
@@ -1013,14 +1061,15 @@ const TaskManagement = ({
                             <div
                               key={attachment.id}
                               className="admin-file-item"
-                              onClick={(e) => { e.stopPropagation(); setFileToOpen(attachment); setShowOpenFileConfirmation(true) }}
+                              onClick={(e) => { e.stopPropagation(); setFileToOpen(attachment); setShowOpenFileConfirmation(true); recordView(attachment.id) }}
+                              className={`admin-file-item${openedFileIds.has(attachment.id) ? ' admin-file-card-opened' : ''}`}
                               style={{ cursor: 'pointer', marginBottom: index < attIndividual.length - 1 ? '8px' : '0' }}
                             >
                               <FileIcon fileType={attachment.original_name.split('.').pop()} size="small" className="admin-file-icon" />
                               <div className="admin-file-details">
-                                <div className="admin-file-name">{attachment.original_name}</div>
+                                <div className="admin-file-name" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{attachment.original_name}</span>{openedFileIds.has(attachment.id) && <span style={{ fontSize: '10px', fontWeight: '600', color: '#16a34a', backgroundColor: '#dcfce7', border: '1px solid #86efac', padding: '1px 7px', borderRadius: '10px', flexShrink: 0 }}>✓ Viewed</span>}</div>
                                 <div className="admin-file-meta">
-                                  Submitted by <span className="admin-file-submitter">KMTI User</span> on {formatDate(attachment.uploaded_at || attachment.created_at)}
+                                  Submitted by <span className="admin-file-submitter">{assignment.team_leader_fullname || assignment.team_leader_username || 'Team Leader'}</span> on {formatDate(attachment.uploaded_at || attachment.created_at)}
                                   {attachment.tag && (
                                     <span style={{
                                       backgroundColor: '#dbeafe',
@@ -1039,22 +1088,23 @@ const TaskManagement = ({
                                     </span>
                                   )}
                                   <span className={`admin-file-status ${
-                                    attachment.status === 'uploaded' ? 'uploaded' :
-                                      attachment.status === 'team_leader_approved' ? 'team-leader-approved' :
+                                    attachment.status === 'uploaded' ? 'reference' :
+                                      attachment.status === 'team_leader_approved' ? 'reference' :
                                         attachment.status === 'final_approved' ? 'final-approved' :
                                           attachment.status === 'rejected_by_team_leader' || attachment.status === 'rejected_by_admin' ? 'rejected' :
-                                            'uploaded'
+                                            'reference'
                                     }`}>
-                                    {attachment.status === 'uploaded' ? 'PENDING ADMIN' :
-                                      attachment.status === 'team_leader_approved' ? 'PENDING ADMIN' :
+                                    {attachment.status === 'uploaded' ? 'TASK REFERENCE' :
+                                      attachment.status === 'team_leader_approved' ? 'TASK REFERENCE' :
                                         attachment.status === 'final_approved' ? '✓ APPROVED' :
                                           attachment.status === 'rejected_by_team_leader' ? '✗ REJECTED' :
                                             attachment.status === 'rejected_by_admin' ? '✗ REJECTED' :
-                                              'PENDING ADMIN'}
+                                              'TASK REFERENCE'}
                                   </span>
                                 </div>
                               </div>
-                              <button
+                              <FileViewersButton fileId={attachment.id} />
+              <button
                                 onClick={(e) => { e.stopPropagation(); handleDownloadFile(attachment) }}
                                 title="Download file"
                                 style={{
@@ -1152,11 +1202,12 @@ const TaskManagement = ({
                                       <div
                                         key={file.id}
                                         data-file-id={file.id}
-                                        className="admin-file-item admin-folder-file-item"
+                                        className={`admin-file-item admin-folder-file-item${openedFileIds.has(file.id) ? ' admin-file-card-opened' : ''}`}
                                         onClick={(e) => {
                                           e.stopPropagation()
                                           setFileToOpen(file)
                                           setShowOpenFileConfirmation(true)
+                                          recordView(file.id)
                                         }}
                                         style={{ cursor: 'pointer', marginBottom: '4px' }}
                                       >
@@ -1166,7 +1217,7 @@ const TaskManagement = ({
                                           className="admin-file-icon"
                                         />
                                         <div className="admin-file-details">
-                                          <div className="admin-file-name">{file.original_name}</div>
+                                          <div className="admin-file-name" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{file.original_name}</span>{openedFileIds.has(file.id) && <span style={{ fontSize: '10px', fontWeight: '600', color: '#16a34a', backgroundColor: '#dcfce7', border: '1px solid #86efac', padding: '1px 7px', borderRadius: '10px', flexShrink: 0 }}>✓ Viewed</span>}</div>
                                           <div className="admin-file-meta">
                                             Submitted by <span className="admin-file-submitter">{file.fullName || file.username}</span> on {formatDate(file.submitted_at)}
                                             {file.tag && (
@@ -1203,6 +1254,7 @@ const TaskManagement = ({
                                           </div>
                                         </div>
                                         {/* Download icon */}
+                                        <FileViewersButton fileId={file.id} />
                                         <button
                                           onClick={(e) => { e.stopPropagation(); handleDownloadFile(file) }}
                                           title="Download file"
@@ -1233,10 +1285,11 @@ const TaskManagement = ({
                                 <div
                                   key={file.id}
                                   data-file-id={file.id}
-                                  className="admin-file-item"
+                                  className={`admin-file-item${openedFileIds.has(file.id) ? ' admin-file-card-opened' : ''}`}
                                   onClick={() => {
                                     setFileToOpen(file)
                                     setShowOpenFileConfirmation(true)
+                                    recordView(file.id)
                                   }}
                                   style={{
                                     cursor: 'pointer',
@@ -1249,7 +1302,7 @@ const TaskManagement = ({
                                     className="admin-file-icon"
                                   />
                                   <div className="admin-file-details">
-                                    <div className="admin-file-name">{file.original_name}</div>
+                                    <div className="admin-file-name" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{file.original_name}</span>{openedFileIds.has(file.id) && <span style={{ fontSize: '10px', fontWeight: '600', color: '#16a34a', backgroundColor: '#dcfce7', border: '1px solid #86efac', padding: '1px 7px', borderRadius: '10px', flexShrink: 0 }}>✓ Viewed</span>}</div>
                                     <div className="admin-file-meta">
                                       Submitted by <span className="admin-file-submitter">{file.fullName || file.username}</span> on {formatDate(file.submitted_at)}
                                       {file.tag && (
@@ -1285,7 +1338,8 @@ const TaskManagement = ({
                                       </span>
                                     </div>
                                   </div>
-                                  {/* Download icon */}
+                                  {/* Eye + Download icon */}
+                                  <FileViewersButton fileId={file.id} />
                                   <button
                                     onClick={(e) => { e.stopPropagation(); handleDownloadFile(file) }}
                                     title="Download file"
@@ -1489,9 +1543,10 @@ const TaskManagement = ({
           }}
           onConfirm={async () => {
             if (!fileToOpen) return
-
+            const fileId = fileToOpen.id
             try {
-              await handleOpenFile(fileToOpen.file_path, fileToOpen.id)
+              const opened = await handleOpenFile(fileToOpen.file_path, fileToOpen.id)
+              if (opened) setOpenedFileIds(prev => new Set([...prev, fileId]))
             } finally {
               setShowOpenFileConfirmation(false)
               setFileToOpen(null)

@@ -5,9 +5,21 @@ import './CommentsModal.css';
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
 // Renders text with @mention highlights
-const renderTextWithMentions = (text) => {
+const renderTextWithMentions = (text, users = []) => {
   if (!text) return null;
-  const mentionRegex = /(@[A-Za-z0-9_.]+)/g;
+  
+  // Build a dynamic regex based on known full names to support spaces
+  const escapedNames = users
+    .map(u => u.fullName || u.username)
+    .filter(Boolean)
+    .map(n => n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '[\\s\\u00A0]+')) // Match any whitespace
+    .sort((a, b) => b.length - a.length); // Match longest names first
+
+  const namesPattern = escapedNames.length > 0 ? `|${escapedNames.join('|')}` : '';
+  
+  // Combine: @Everyone | @Full Name | @Username | @DefaultFallback
+  const mentionRegex = new RegExp(`(@(?:everyone|everyone_in_thread${namesPattern}|[A-Za-z0-9_.\u00C0-\u017F\u3040-\u30FF\u4E00-\u9FFF]+))`, 'g');
+  
   const segments = [];
   let lastIndex = 0;
   let match;
@@ -42,12 +54,19 @@ function useMentionInput({ value, onChange, mentionableUsers, caretPosRef }) {
   const filtered = useMemo(() => {
     if (!picker.open || !mentionableUsers?.length) return [];
     const q = picker.query.toLowerCase();
-    return mentionableUsers
+    
+    const users = mentionableUsers
       .filter(u =>
         u.fullName?.toLowerCase().includes(q) ||
         u.username?.toLowerCase().includes(q)
       )
       .slice(0, 8);
+
+    // Add @everyone option if query matches or is empty
+    if ('everyone'.includes(q) || q === '') {
+      return [{ id: 'everyone', username: 'everyone', fullName: 'Everyone', role: 'Mention all', isSpecial: true }, ...users];
+    }
+    return users;
   }, [picker.open, picker.query, mentionableUsers]);
 
   const handleKeyChange = useCallback((e, inputEl) => {
@@ -57,7 +76,7 @@ function useMentionInput({ value, onChange, mentionableUsers, caretPosRef }) {
 
     // Detect if there's an active @... segment before cursor
     const before = val.slice(0, cursor);
-    const atMatch = before.match(/@([A-Za-z0-9_.]*)$/);
+    const atMatch = before.match(/@([A-Za-z0-9_.\u00C0-\u017F\u3040-\u30FF\u4E00-\u9FFF]*)$/);
     if (atMatch) {
       setAtPos(cursor - atMatch[0].length);
       setPicker({ open: true, query: atMatch[1], index: 0 });
@@ -67,7 +86,8 @@ function useMentionInput({ value, onChange, mentionableUsers, caretPosRef }) {
   }, [onChange]);
 
   const selectUser = useCallback((u) => {
-    const mention = `@${(u.fullName || u.username).replace(/\s+/g, '_')} `;
+    const mentionText = u.isSpecial ? 'everyone' : (u.fullName || u.username);
+    const mention = `@${mentionText.replace(/\s+/g, '_')} `;
     const before = value.slice(0, atPos);
     const afterAt = value.slice(atPos);
     const afterMention = afterAt.replace(/^@[A-Za-z0-9_.]*/, '');
@@ -136,13 +156,23 @@ function setCaretOffset(el, offset) {
 }
 
 // Build innerHTML with highlighted @mentions (visible colored text, normal caret)
-function buildHTML(text) {
+function buildHTML(text, users = []) {
   if (!text) return '';
+  
+  const escapedNames = users
+    .map(u => u.fullName || u.username)
+    .filter(Boolean)
+    .map(n => n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '[\\s\\u00A0]+'))
+    .sort((a, b) => b.length - a.length);
+
+  const namesPattern = escapedNames.length > 0 ? `|${escapedNames.join('|')}` : '';
+  const mentionRegex = new RegExp(`(@(?:everyone|everyone_in_thread${namesPattern}|[A-Za-z0-9_.\u00C0-\u017F\u3040-\u30FF\u4E00-\u9FFF]+))`, 'g');
+
   return text
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
-    .replace(/(@[A-Za-z0-9_.]+)/g, '<span class="input-mention-highlight">$1</span>');
+    .replace(mentionRegex, '<span class="input-mention-highlight">$1</span>');
 }
 
 // ─── MentionInput — contentEditable with live @mention highlighting ──────────
@@ -168,7 +198,7 @@ const MentionInput = memo((
       : (document.activeElement === el ? getCaretOffset(el) : -1);
     caretPosRef.current = -1;
 
-    const newHTML = buildHTML(value);
+    const newHTML = buildHTML(value, mentionableUsers);
     // Only rewrite if content actually changed to avoid unnecessary caret resets
     if (el.innerHTML !== newHTML) {
       el.innerHTML = newHTML || '';
@@ -177,7 +207,7 @@ const MentionInput = memo((
         setCaretOffset(el, savedOffset);
       }
     }
-  }, [value]);
+  }, [value, mentionableUsers]);
 
   useEffect(() => {
     if (autoFocus && editorRef.current) editorRef.current.focus();
@@ -204,7 +234,7 @@ const MentionInput = memo((
     if (!sel || !sel.rangeCount) return;
     const offset = getCaretOffset(el);
     const before = text.slice(0, offset);
-    const atMatch = before.match(/@([A-Za-z0-9_.]*)$/);
+    const atMatch = before.match(/@([A-Za-z0-9_.\u00C0-\u017F\u3040-\u30FF\u4E00-\u9FFF]*)$/);
     if (atMatch) {
       setAtPos(offset - atMatch[0].length);
       setPicker({ open: true, query: atMatch[1], index: 0 });
@@ -241,21 +271,35 @@ const MentionInput = memo((
       {picker.open && filtered.length > 0 && ReactDOM.createPortal(
         <div
           className="mention-picker"
-          style={{ position: 'fixed', top: pickerPos.top - (filtered.length * 44), left: pickerPos.left }}
+          style={{ 
+            position: 'fixed', 
+            top: pickerPos.top - Math.min(280, (filtered.length * 54) + 12), 
+            left: pickerPos.left 
+          }}
         >
           {filtered.map((u, i) => {
             const role = u.role?.toUpperCase().replace(/[\s_]/g, '_');
             const badgeStyle = ROLE_BADGE_STYLE[role] || ROLE_BADGE_STYLE.USER;
+            const isEveryone = u.id === 'everyone';
+            
             return (
               <div
                 key={u.id}
                 className={`mention-picker-item${i === picker.index ? ' mention-picker-item--active' : ''}`}
                 onMouseDown={(e) => { e.preventDefault(); selectUser(u); }}
               >
-                <div className="mention-picker-avatar">{computeInitials(u.fullName || u.username)}</div>
+                <div className={`mention-picker-avatar ${isEveryone ? 'everyone' : ''}`}>
+                  {isEveryone ? (
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/>
+                    </svg>
+                  ) : computeInitials(u.fullName || u.username)}
+                </div>
                 <div className="mention-picker-info">
-                  <span className="mention-picker-name">{u.fullName || u.username}</span>
-                  <span className="mention-picker-badge" style={badgeStyle}>{u.role}</span>
+                  <span className="mention-picker-name">{isEveryone ? '@everyone' : (u.fullName || u.username)}</span>
+                  <span className="mention-picker-subtitle">
+                    {isEveryone ? 'Notify everyone in this thread' : `${u.role || 'Member'} ${u.team ? `· ${u.team}` : ''}`}
+                  </span>
                 </div>
               </div>
             );
@@ -357,7 +401,7 @@ const EditInput = memo(({ initialText, onSave, onCancel }) => {
 EditInput.displayName = 'EditInput';
 
 // ─── ReplyItem ────────────────────────────────────────────────────────────────
-const ReplyItem = memo(({ reply, parentCommentId, assignmentId, onReplyToReply, onEditReply, onDeleteReply, currentUserId }) => {
+const ReplyItem = memo(({ reply, parentCommentId, assignmentId, onReplyToReply, onEditReply, onDeleteReply, currentUserId, mentionableUsers }) => {
   const MAX_REPLY_LENGTH = 150;
   const [isExpanded, setIsExpanded] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -368,8 +412,8 @@ const ReplyItem = memo(({ reply, parentCommentId, assignmentId, onReplyToReply, 
   const roleCls = useMemo(() => `role-badge ${reply.user_role ? reply.user_role.toLowerCase().replace(/[\s_]/g, '-') : 'user'}`, [reply.user_role]);
   const renderedText = useMemo(() => {
     const content = isLong && !isExpanded ? reply.reply.substring(0, MAX_REPLY_LENGTH) + '...' : reply.reply;
-    return renderTextWithMentions(content);
-  }, [reply.reply, isLong, isExpanded]);
+    return renderTextWithMentions(content, mentionableUsers);
+  }, [reply.reply, isLong, isExpanded, mentionableUsers]);
   const handleReply = useCallback(() => { if (onReplyToReply) onReplyToReply(parentCommentId, displayName); }, [displayName, onReplyToReply, parentCommentId]);
   const handleSaveEdit = useCallback((newText) => { onEditReply(assignmentId, parentCommentId, reply.id, newText); setIsEditing(false); }, [onEditReply, assignmentId, parentCommentId, reply.id]);
 
@@ -456,8 +500,8 @@ const CommentItem = memo(({
   const isHighlighted = useMemo(() => !!(highlightUsername && (comment.username === highlightUsername || comment.user_fullname === highlightUsername)), [highlightUsername, comment.username, comment.user_fullname]);
   const renderedText = useMemo(() => {
     const content = isLong && !isExpanded ? comment.comment.substring(0, MAX_LEN) + '...' : comment.comment;
-    return renderTextWithMentions(content);
-  }, [comment.comment, isLong, isExpanded]);
+    return renderTextWithMentions(content, mentionableUsers);
+  }, [comment.comment, isLong, isExpanded, mentionableUsers]);
   const replyCount = useMemo(() => comment.replies?.length ?? 0, [comment.replies]);
   const handleReplyClick = useCallback(() => onReply(comment.id, displayName), [comment.id, displayName, onReply]);
   const handleToggleReplies = useCallback(() => onToggleReplies(comment.id), [comment.id, onToggleReplies]);
@@ -509,6 +553,7 @@ const CommentItem = memo(({
               onEditReply={onEditReply}
               onDeleteReply={onDeleteReply}
               currentUserId={currentUserId}
+              mentionableUsers={mentionableUsers}
             />
           ))}
         </div>
@@ -596,7 +641,7 @@ const CommentsModal = memo(({
   if (!isOpen || !assignment) return null;
 
   return (
-    <div className="comments-modal-overlay" onClick={onClose}>
+    <div className="comments-modal-overlay">
       <div className="comments-modal" onClick={handleModalClick}>
         <div className="comments-modal-header">
           <h3>Comments - {assignment.title}</h3>

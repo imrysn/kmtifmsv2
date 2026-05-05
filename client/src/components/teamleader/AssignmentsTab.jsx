@@ -3,7 +3,7 @@ import { API_BASE_URL } from '@/config/api'
 import './css/AssignmentsTab.css'
 import './modals/css/AssignmentDetailsModal.css'
 import { CardSkeleton } from '../common/InlineSkeletonLoader'
-import { ConfirmationModal, CommentsModal, FileIcon, FileOpenModal } from '../shared'
+import { ConfirmationModal, CommentsModal, FileIcon, FileOpenModal, FileViewersButton } from '../shared'
 import { useSmartNavigation } from '../shared/SmartNavigation'
 import '../shared/SmartNavigation/SmartNavigation.css'
 import SuccessModal from '../user/SuccessModal'
@@ -46,6 +46,33 @@ const AssignmentsTab = ({
   const [commentCounts, setCommentCounts] = useState({}) // Track comment counts per assignment
   const [showOpenFileConfirmation, setShowOpenFileConfirmation] = useState(false)
   const [fileToOpen, setFileToOpen] = useState(null)
+  const [openedFileIds, setOpenedFileIds] = useState(new Set())
+  const [openedFilesStorageReady, setOpenedFilesStorageReady] = useState(false)
+
+  // Load from persistent storage on mount
+  useEffect(() => {
+    ;(async () => {
+      try {
+        let stored = null
+        if (window.electron?.appStorage) {
+          stored = await window.electron.appStorage.get('kmti_opened_files_teamleader')
+        }
+        if (!stored) stored = localStorage.getItem('kmti_opened_files_teamleader')
+        if (stored) setOpenedFileIds(new Set(JSON.parse(stored)))
+      } catch {}
+      setOpenedFilesStorageReady(true)
+    })()
+  }, [])
+
+  // Save to persistent storage whenever it changes (only after initial load)
+  useEffect(() => {
+    if (!openedFilesStorageReady) return
+    const data = JSON.stringify([...openedFileIds])
+    if (window.electron?.appStorage) {
+      window.electron.appStorage.set('kmti_opened_files_teamleader', data)
+    }
+    try { localStorage.setItem('kmti_opened_files_teamleader', data) } catch {}
+  }, [openedFileIds, openedFilesStorageReady])
   const [expandedAssignmentFolders, setExpandedAssignmentFolders] = useState({}) // Track which folders are expanded in assignments
   const [openFolderMenuId, setOpenFolderMenuId] = useState(null) // Track which folder's 3-dot menu is open
   const [folderReviewModal, setFolderReviewModal] = useState(null) // { folderName, folderFiles, assignmentId }
@@ -61,6 +88,22 @@ const AssignmentsTab = ({
   const triggerDownloadToast = (fileName) => {
     setDownloadToast({ show: true, fileName })
     setTimeout(() => setDownloadToast({ show: false, fileName: '' }), 3500)
+  }
+
+  const recordView = async (fileId) => {
+    if (!user || !fileId) return
+    try {
+      await fetch(`${API_BASE_URL}/api/files/${fileId}/view`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: user.id,
+          username: user.username,
+          fullName: user.fullName,
+          role: user.role || 'team_leader'
+        })
+      })
+    } catch {}
   }
 
   const handleDownloadFile = async (fileId, fileName) => {
@@ -705,14 +748,15 @@ const AssignmentsTab = ({
                                 {files.map(att => (
                                 <div
                                   key={att.id}
-                                  className="tl-assignment-file-item tl-folder-file-item"
+                                  className={`tl-assignment-file-item tl-folder-file-item${openedFileIds.has(att.id) ? ' file-card-opened' : ''}`}
                                   style={{ cursor: 'pointer', marginBottom: '4px', position: 'relative' }}
-                                  onClick={() => { setFileToOpen(att); setShowOpenFileConfirmation(true) }}
+                                  onClick={() => { setFileToOpen(att); setShowOpenFileConfirmation(true); recordView(att.id) }}
                                 >
                                   <FileIcon fileType={att.original_name.split('.').pop()} size="small" className="tl-assignment-file-icon" />
                                   <div className="tl-assignment-file-details">
-                                    <div className="tl-assignment-file-name">
-                                      {att.original_name}
+                                    <div className="tl-assignment-file-name" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{att.original_name}</span>
+                                      {openedFileIds.has(att.id) && <span style={{ fontSize: '10px', fontWeight: '600', color: '#16a34a', backgroundColor: '#dcfce7', border: '1px solid #86efac', padding: '1px 7px', borderRadius: '10px', flexShrink: 0 }}>✓ Viewed</span>}
                                     </div>
                                     <div className="tl-assignment-file-meta">
                                       <span>by <span className="tl-assignment-file-submitter">{tlName}</span></span>
@@ -733,14 +777,15 @@ const AssignmentsTab = ({
                         {attIndividual.map((attachment) => (
                           <div
                             key={attachment.id}
-                            className="tl-assignment-file-item"
+                            className={`tl-assignment-file-item${openedFileIds.has(attachment.id) ? ' file-card-opened' : ''}`}
                             style={{ position: 'relative', cursor: 'pointer' }}
-                            onClick={() => { setFileToOpen(attachment); setShowOpenFileConfirmation(true) }}
+                            onClick={() => { setFileToOpen(attachment); setShowOpenFileConfirmation(true); recordView(attachment.id) }}
                           >
                             <FileIcon fileType={attachment.original_name.split('.').pop()} size="small" className="tl-assignment-file-icon" />
                             <div className="tl-assignment-file-details">
-                              <div className="tl-assignment-file-name">
-                                {attachment.relative_path && attachment.relative_path !== attachment.original_name ? attachment.relative_path : attachment.original_name}
+                              <div className="tl-assignment-file-name" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{attachment.relative_path && attachment.relative_path !== attachment.original_name ? attachment.relative_path : attachment.original_name}</span>
+                                {openedFileIds.has(attachment.id) && <span style={{ fontSize: '10px', fontWeight: '600', color: '#16a34a', backgroundColor: '#dcfce7', border: '1px solid #86efac', padding: '1px 7px', borderRadius: '10px', flexShrink: 0 }}>✓ Viewed</span>}
                               </div>
                               <div className="tl-assignment-file-meta">
                                 <span>by <span className="tl-assignment-file-submitter">{tlName}</span></span>
@@ -955,10 +1000,12 @@ const AssignmentsTab = ({
                                     <div
                                       key={file.id}
                                       data-file-id={file.id}
-                                      className="tl-assignment-file-item tl-folder-file-item"
+                                      className={`tl-assignment-file-item tl-folder-file-item${openedFileIds.has(file.id) ? ' file-card-opened' : ''}`}
                                       onClick={(e) => {
                                         e.stopPropagation()
                                         if (openReviewModal && file.id) {
+                                          setOpenedFileIds(prev => new Set([...prev, file.id]))
+                                          recordView(file.id)
                                           openReviewModal(file, null)
                                         }
                                       }}
@@ -970,8 +1017,9 @@ const AssignmentsTab = ({
                                         className="tl-assignment-file-icon"
                                       />
                                       <div className="tl-assignment-file-details">
-                                        <div className="tl-assignment-file-name">
-                                          {file.original_name || file.file_name}
+                                        <div className="tl-assignment-file-name" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{file.original_name || file.file_name}</span>
+                                          {openedFileIds.has(file.id) && <span style={{ fontSize: '10px', fontWeight: '600', color: '#16a34a', backgroundColor: '#dcfce7', border: '1px solid #86efac', padding: '1px 7px', borderRadius: '10px', flexShrink: 0 }}>✓ Viewed</span>}
                                         </div>
                                         <div className="tl-assignment-file-meta">
                                           <span>
@@ -1004,7 +1052,8 @@ const AssignmentsTab = ({
                                           </span>
                                         </div>
                                       </div>
-                                      {/* Download icon */}
+                                      {/* Eye icon + Download icon */}
+                                      <FileViewersButton fileId={file.id} />
                                       <button
                                         onClick={async (e) => {
                                           e.stopPropagation()
@@ -1034,10 +1083,12 @@ const AssignmentsTab = ({
                         <div
                           key={submission.id}
                           data-file-id={submission.id}
-                          className="tl-assignment-file-item"
+                          className={`tl-assignment-file-item${openedFileIds.has(submission.id) ? ' file-card-opened' : ''}`}
                           onClick={(e) => {
                             e.stopPropagation()
                             if (openReviewModal && submission.id) {
+                              setOpenedFileIds(prev => new Set([...prev, submission.id]))
+                              recordView(submission.id)
                               openReviewModal(submission, null)
                             }
                           }}
@@ -1048,8 +1099,9 @@ const AssignmentsTab = ({
                             className="tl-assignment-file-icon"
                           />
                           <div className="tl-assignment-file-details">
-                            <div className="tl-assignment-file-name">
-                              {submission.original_name || submission.file_name}
+                            <div className="tl-assignment-file-name" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{submission.original_name || submission.file_name}</span>
+                              {openedFileIds.has(submission.id) && <span style={{ fontSize: '10px', fontWeight: '600', color: '#16a34a', backgroundColor: '#dcfce7', border: '1px solid #86efac', padding: '1px 7px', borderRadius: '10px', flexShrink: 0 }}>✓ Viewed</span>}
                             </div>
                             <div className="tl-assignment-file-meta">
                               <span>
@@ -1082,7 +1134,8 @@ const AssignmentsTab = ({
                               </span>
                             </div>
                           </div>
-                          {/* Download icon */}
+                          {/* Eye icon + Download icon */}
+                          <FileViewersButton fileId={submission.id} />
                           <button
                             onClick={async (e) => {
                               e.stopPropagation()
@@ -1534,7 +1587,7 @@ const AssignmentsTab = ({
         }}
         onConfirm={async () => {
           if (!fileToOpen) return
-
+          const fileId = fileToOpen.id
           try {
             // Check if running in Electron and has capability to open files locally
             if (window.electron && window.electron.openFileInApp) {
@@ -1546,30 +1599,30 @@ const AssignmentsTab = ({
                 const result = await window.electron.openFileInApp(data.filePath);
 
                 if (!result.success) {
-                  alert('Failed to open file locally: ' + (result.error || 'Unknown error'));
+                alert('Failed to open file locally: ' + (result.error || 'Unknown error'));
+                } else {
+                setOpenedFileIds(prev => new Set([...prev, fileId]))
+                  recordView(fileId)
                 }
               } else {
                 alert('Could not retrieve file path');
               }
             } else {
               // Web fallback: Open file in new tab/download
-              // Use public_network_url if available for approved files, otherwise construct from file_path
               let fileUrl = fileToOpen.file_path;
               if (fileToOpen.status === 'final_approved' && fileToOpen.public_network_url) {
-                // If it's a full URL, use it directly, otherwise treat as path
                 if (fileToOpen.public_network_url.startsWith('http')) {
                   fileUrl = fileToOpen.public_network_url;
                 } else {
-                  // Correctly handle network paths if needed, but for web usually we serve via API
-                  // If we are on web, we likely want to serve it via the server's static files or viewer
                   fileUrl = `${API_BASE_URL}${fileToOpen.file_path}`;
                 }
               } else {
-                // Ensure we have the base URL
                 fileUrl = `${API_BASE_URL}${fileToOpen.file_path}`;
               }
 
               window.open(fileUrl, '_blank', 'noopener,noreferrer');
+              setOpenedFileIds(prev => new Set([...prev, fileId]))
+              recordView(fileId)
             }
           } catch (error) {
             console.error('Error opening file:', error);

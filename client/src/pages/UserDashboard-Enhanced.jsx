@@ -4,6 +4,13 @@ import '../css/UserDashboard.css'
 import SkeletonLoader from '../components/common/SkeletonLoader'
 import { AlertMessage } from '../components/shared'
 
+// Sync unread count to Electron taskbar badge + icon flash
+const syncElectronBadge = (count) => {
+  if (!window.electron) return
+  if (typeof window.electron.setBadge === 'function') window.electron.setBadge(count)
+  if (typeof window.electron.flashFrame === 'function') window.electron.flashFrame(count > 0)
+}
+
 // Eagerly import critical components that are always visible
 import Sidebar from '../components/user/Sidebar'
 import DashboardTab from '../components/user/DashboardTab'
@@ -29,6 +36,39 @@ const UserDashboard = ({ user, onLogout }) => {
   const handleUpdateUnreadCount = useCallback((count) => {
     startTransition(() => setNotificationCount(count))
   }, [])
+
+  // Fetch unread count directly — used by SSE and initial load
+  const fetchUnreadCount = useCallback(async () => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/notifications/user/${user.id}/unread-count`)
+      const data = await res.json()
+      if (data.success) {
+        startTransition(() => setNotificationCount(data.count || 0))
+      }
+    } catch (_) {}
+  }, [user.id])
+
+  // SSE — instant badge + flash when a new notification arrives (runs regardless of active tab)
+  useEffect(() => {
+    fetchUnreadCount() // get initial count on mount
+    let es
+    let reconnectTimer
+    const connect = () => {
+      es = new EventSource(`${API_BASE_URL}/api/notifications/user/${user.id}/stream`)
+      es.onmessage = (event) => {
+        if (event.data === 'ping') fetchUnreadCount()
+      }
+      es.onerror = () => {
+        es.close()
+        reconnectTimer = setTimeout(connect, 5000)
+      }
+    }
+    connect()
+    return () => {
+      if (es) es.close()
+      clearTimeout(reconnectTimer)
+    }
+  }, [user.id, fetchUnreadCount])
 
   // Smart Navigation State
   const [highlightedAssignmentId, setHighlightedAssignmentId] = useState(null)
@@ -73,12 +113,14 @@ const UserDashboard = ({ user, onLogout }) => {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
   }, [])
 
-  // Notification count is updated by NotificationTab via onUpdateUnreadCount
-  // No polling here — avoids duplicate requests running in parallel
-
   useEffect(() => {
     fetchUserFiles()
   }, [fetchUserFiles])
+
+  // Sync unread badge + flash to Electron taskbar whenever count changes
+  useEffect(() => {
+    syncElectronBadge(notificationCount)
+  }, [notificationCount])
 
   const openFileModal = useCallback(async (file) => {
     setSelectedFile(file)

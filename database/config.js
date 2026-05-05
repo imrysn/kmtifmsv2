@@ -84,10 +84,11 @@ const MYSQL_CONFIG = {
   waitForConnections: true,
   connectionLimit: 20,        // FIXED: Increased for better concurrency
   queueLimit: 50,             // FIXED: Prevent memory overflow from unlimited queue
-  acquireTimeout: 10000,      // FIXED: Timeout after 10s instead of hanging forever
-  connectTimeout: 5000,       // FIXED: Fail fast if host is unreachable
+  acquireTimeout: 10000,
+  connectTimeout: 5000,
   enableKeepAlive: true,
   keepAliveInitialDelay: 0,
+  charset: 'utf8mb4',         // ADDED: Support Japanese and other multibyte characters
   // Connection health checks
   maxIdle: 10,                // ADDED: Close idle connections after 10 connections
   idleTimeout: 60000          // ADDED: Close connections idle for 60s

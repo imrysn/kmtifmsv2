@@ -1269,3 +1269,14 @@
   font-size: 12px;
   color: var(--text-secondary, #65676b);
 }
+
+/* Opened/Viewed file highlight */
+.tl-assignment-file-item.file-card-opened {
+  border-left: 3px solid #16a34a !important;
+  background-color: #f0fdf4 !important;
+  border-color: #86efac !important;
+}
+.tl-assignment-file-item.file-card-opened:hover {
+  background-color: #dcfce7 !important;
+  border-color: #4ade80 !important;
+}

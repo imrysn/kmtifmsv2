@@ -6,7 +6,8 @@ const path = require('path');
 const fs = require('fs');
 const { uploadsDir, moveToUserFolder } = require('../config/middleware');
 const assignmentController = require('../controllers/assignmentController');
-const { createAdminNotification } = require('./notifications');
+const { createAdminNotification, pushToUser } = require('./notifications');
+const { decodeUTF8Filename } = require('../utils/fileUtils');
 
 // Configure multer for file uploads using existing uploads directory
 const storage = multer.diskStorage({
@@ -32,15 +33,6 @@ const upload = multer({
 // Helper: fix garbled UTF-8 filenames that multer/busboy decoded as latin1.
 // Japanese, Chinese, Korean and other multibyte filenames arrive as latin1-garbled
 // strings. Re-encoding to latin1 bytes and decoding as UTF-8 recovers the real name.
-function fixFilename(name) {
-  if (!name) return name;
-  try {
-    const reDecoded = Buffer.from(name, 'latin1').toString('utf8');
-    if (reDecoded !== name && !reDecoded.includes('\uFFFD')) return reDecoded;
-  } catch (_) {}
-  return name;
-}
-
 // Batch submission tracker to group multiple file submissions into single notification
 const pendingBatchSubmissions = new Map();
 
@@ -114,6 +106,8 @@ async function createBatchedSubmissionNotification(teamLeaderId, assignmentId, s
     ]);
 
     console.log(`✅ Created batched notification for team leader ${finalTeamLeaderId}: ${isFolder ? `folder "${folderName}" (${totalFileCount} files)` : `${totalFileCount} file(s)`}`);
+    // Push SSE ping so team leader badge updates instantly
+    pushToUser(finalTeamLeaderId);
   } catch (error) {
     console.error('⚠️ Failed to create batched submission notification:', error);
   }
@@ -764,6 +758,7 @@ router.post('/create-json', async (req, res) => {
             [uid, assignmentId, null, 'assignment', 'New Assignment',
              `${teamLeaderUsername} assigned you a new task: "${title}"${dueDate ? ` - Due: ${new Date(dueDate).toLocaleDateString()}` : ''}`,
              teamLeaderId, teamLeaderUsername, 'TEAM_LEADER'])
+          pushToUser(uid)
         } catch (e) { console.warn('Notification failed for user', uid, e.message) }
       }
     } else if (assignedTo === 'all') {
@@ -947,7 +942,7 @@ router.post('/create', upload.array('attachments', 10000), async (req, res) => {
 
           // Move file from temp location to team leader's folder
           let finalPath;
-          const fixedOriginalname = fixFilename(file.originalname);
+          const fixedOriginalname = decodeUTF8Filename(file.originalname);
           try {
             finalPath = await moveToUserFolder(file.path, finalTeamLeaderUsername, fixedOriginalname);
             console.log(`✅ Moved attachment to: ${finalPath}`);
@@ -1068,41 +1063,43 @@ router.post('/create', upload.array('attachments', 10000), async (req, res) => {
       // Create notifications for assigned members
       try {
         if (finalAssignedTo === 'specific' && finalMembers && finalMembers.length > 0) {
-          for (const userId of finalMembers) {
-            try {
-              await query(`
-                INSERT INTO notifications (
-                  user_id, assignment_id, file_id, type, title, message,
-                  action_by_id, action_by_username, action_by_role
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-              `, [
-                userId, assignmentId, null, 'assignment', 'New Assignment',
-                `${finalTeamLeaderUsername} assigned you a new task: "${title}"${finalDueDate ? ` - Due: ${new Date(finalDueDate).toLocaleDateString()}` : ''}`,
-                finalTeamLeaderId, finalTeamLeaderUsername, 'TEAM_LEADER'
-              ]);
-            } catch (err) {
-              console.error(`Failed to create notification for user ${userId}:`, err.message);
-            }
+        for (const userId of finalMembers) {
+        try {
+        await query(`
+        INSERT INTO notifications (
+        user_id, assignment_id, file_id, type, title, message,
+        action_by_id, action_by_username, action_by_role
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `, [
+        userId, assignmentId, null, 'assignment', 'New Assignment',
+        `${finalTeamLeaderUsername} assigned you a new task: "${title}"${finalDueDate ? ` - Due: ${new Date(finalDueDate).toLocaleDateString()}` : ''}`,
+        finalTeamLeaderId, finalTeamLeaderUsername, 'TEAM_LEADER'
+        ]);
+          pushToUser(userId);
+        } catch (err) {
+          console.error(`Failed to create notification for user ${userId}:`, err.message);
+          }
           }
         } else if (finalAssignedTo === 'all') {
-          const teamMembers = await query(
-            'SELECT id FROM users WHERE team = ? AND role = ?',
-            [team, 'USER']
-          );
-          for (const member of teamMembers) {
-            try {
-              await query(`
-                INSERT INTO notifications (
-                  user_id, assignment_id, file_id, type, title, message,
-                  action_by_id, action_by_username, action_by_role
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-              `, [
-                member.id, assignmentId, null, 'assignment', 'New Assignment',
-                `${finalTeamLeaderUsername} assigned a new task to all team members: "${title}"${finalDueDate ? ` - Due: ${new Date(finalDueDate).toLocaleDateString()}` : ''}`,
-                finalTeamLeaderId, finalTeamLeaderUsername, 'TEAM_LEADER'
-              ]);
-            } catch (err) {
-              console.error(`Failed to create notification for user ${member.id}:`, err.message);
+        const teamMembers = await query(
+        'SELECT id FROM users WHERE team = ? AND role = ?',
+          [team, 'USER']
+        );
+        for (const member of teamMembers) {
+        try {
+        await query(`
+        INSERT INTO notifications (
+        user_id, assignment_id, file_id, type, title, message,
+          action_by_id, action_by_username, action_by_role
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `, [
+        member.id, assignmentId, null, 'assignment', 'New Assignment',
+        `${finalTeamLeaderUsername} assigned a new task to all team members: "${title}"${finalDueDate ? ` - Due: ${new Date(finalDueDate).toLocaleDateString()}` : ''}`,
+          finalTeamLeaderId, finalTeamLeaderUsername, 'TEAM_LEADER'
+          ]);
+        pushToUser(member.id);
+        } catch (err) {
+            console.error(`Failed to create notification for user ${member.id}:`, err.message);
             }
           }
         }
@@ -1327,7 +1324,7 @@ router.put('/:id', upload.array('attachments', 10000), async (req, res) => {
 
           // Move file from temp location to team leader's folder
           let finalPath;
-          const fixedOriginalname = fixFilename(file.originalname);
+          const fixedOriginalname = decodeUTF8Filename(file.originalname);
           try {
             finalPath = await moveToUserFolder(file.path, finalTeamLeaderUsername, fixedOriginalname);
             console.log(`✅ Moved attachment to: ${finalPath}`);
@@ -1875,6 +1872,7 @@ router.post('/:assignmentId/comments', async (req, res) => {
             `Admin ${user.fullName} commented on "${assignment.title}": ${comment.substring(0, 100)}${comment.length > 100 ? '...' : ''}`,
             userId, username, user.role
           ]);
+          pushToUser(assignment.team_leader_id);
         }
         for (const member of assignedMembers) {
           if (!mentionedUserIds.has(member.user_id)) {
@@ -1889,6 +1887,7 @@ router.post('/:assignmentId/comments', async (req, res) => {
               `Admin ${user.fullName} commented on "${assignment.title}": ${comment.substring(0, 100)}${comment.length > 100 ? '...' : ''}`,
               userId, username, user.role
             ]);
+            pushToUser(member.user_id);
           }
         }
       } else if (user.role === 'TEAM_LEADER') {
@@ -1905,6 +1904,7 @@ router.post('/:assignmentId/comments', async (req, res) => {
               `${user.fullName} commented on "${assignment.title}": ${comment.substring(0, 100)}${comment.length > 100 ? '...' : ''}`,
               userId, username, user.role
             ]);
+            pushToUser(member.user_id);
           }
         }
       } else if (user.role === 'USER' && assignment.team_leader_id && assignment.team_leader_id !== userId) {
@@ -1920,6 +1920,7 @@ router.post('/:assignmentId/comments', async (req, res) => {
             `${user.fullName} commented on "${assignment.title}": ${comment.substring(0, 100)}${comment.length > 100 ? '...' : ''}`,
             userId, username, user.role
           ]);
+          pushToUser(assignment.team_leader_id);
         }
       }
     } catch (notifError) {
@@ -1951,6 +1952,7 @@ router.post('/:assignmentId/comments', async (req, res) => {
             `${user.fullName} mentioned you in a comment on "${assignmentInfo?.title || 'an assignment'}": ${comment.substring(0, 100)}${comment.length > 100 ? '...' : ''}`,
             userId, username, user.role
           ]);
+          pushToUser(mentioned.id);
           console.log(`🔔 Mention notification sent to user ${mentioned.id} (${mentioned.fullName})`);
         }
       }
@@ -2066,6 +2068,7 @@ router.post('/:assignmentId/comments/:commentId/reply', async (req, res) => {
           username,
           user.role
         ]);
+        pushToUser(comment.user_id);
 
         console.log(`✅ Created reply notification for user ${comment.user_id}`);
       } catch (notifError) {
@@ -2097,6 +2100,7 @@ router.post('/:assignmentId/comments/:commentId/reply', async (req, res) => {
             `${user.fullName} mentioned you in a reply on "${assignmentInfo?.title || 'an assignment'}": ${reply.substring(0, 100)}${reply.length > 100 ? '...' : ''}`,
             userId, username, user.role
           ]);
+          pushToUser(mentioned.id);
         }
       }
     } catch (mentionErr) {
@@ -2439,6 +2443,7 @@ router.put('/:assignmentId/update-members', async (req, res) => {
               teamLeaderUsername,
               'TEAM_LEADER'
             ]);
+            pushToUser(userId);
           }
           console.log(`✅ Created notifications for ${membersToAdd.length} newly added member(s)`);
         } catch (notifError) {

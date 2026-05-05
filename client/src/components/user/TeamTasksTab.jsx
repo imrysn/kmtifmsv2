@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { API_BASE_URL } from '@/config/api'
 import './css/TeamTasksTab.css'
-import { FileIcon, FileOpenModal } from '../shared'
+import { FileIcon, FileOpenModal, FileViewersButton } from '../shared'
 import CommentsModal from '../shared/CommentsModal'
 
 // ── Read-only three-dot menu (Download + Open Folder Path, NO delete) ────────
@@ -86,8 +86,8 @@ const TeamTasksTab = ({ user }) => {
   const [loadingMore, setLoadingMore] = useState(false)
   const [expandedAssignments, setExpandedAssignments] = useState({})
   const [error, setError] = useState('')
-  const [success, setSuccess] = useState('')
   const [isOpeningFile, setIsOpeningFile] = useState(false)
+  const [fileOpenToast, setFileOpenToast] = useState(false)
 
   // Comments state
   const [comments, setComments] = useState({})
@@ -103,6 +103,10 @@ const TeamTasksTab = ({ user }) => {
   const [showAllSubmittedFiles, setShowAllSubmittedFiles] = useState({}) // Track which assignments show all submitted files
   const INITIAL_FILE_DISPLAY_LIMIT = 5; // Show first 5 files/folders initially
 
+  // Track which files have been viewed (persists across sessions)
+  const [openedFileIds, setOpenedFileIds] = useState(new Set())
+  const [openedFilesStorageReady, setOpenedFilesStorageReady] = useState(false)
+
   // Pagination state
   const [nextCursor, setNextCursor] = useState(null)
   const [hasMore, setHasMore] = useState(true)
@@ -110,6 +114,31 @@ const TeamTasksTab = ({ user }) => {
   // Ref for infinite scroll
   const observerRef = useRef(null)
   const loadMoreRef = useRef(null)
+
+  // Load viewed file IDs from persistent storage on mount
+  useEffect(() => {
+    ;(async () => {
+      try {
+        let stored = null
+        if (window.electron?.appStorage) {
+          stored = await window.electron.appStorage.get('kmti_opened_files_team_tasks')
+        }
+        if (!stored) stored = localStorage.getItem('kmti_opened_files_team_tasks')
+        if (stored) setOpenedFileIds(new Set(JSON.parse(stored)))
+      } catch {}
+      setOpenedFilesStorageReady(true)
+    })()
+  }, [])
+
+  // Save viewed file IDs to persistent storage whenever they change
+  useEffect(() => {
+    if (!openedFilesStorageReady) return
+    const data = JSON.stringify([...openedFileIds])
+    if (window.electron?.appStorage) {
+      window.electron.appStorage.set('kmti_opened_files_team_tasks', data)
+    }
+    try { localStorage.setItem('kmti_opened_files_team_tasks', data) } catch {}
+  }, [openedFileIds, openedFilesStorageReady])
 
   useEffect(() => {
     if (user && user.team) {
@@ -335,7 +364,6 @@ const TeamTasksTab = ({ user }) => {
     try {
       setIsOpeningFile(true)
       setError('')
-      setSuccess('Opening file...')
 
       await new Promise(resolve => setTimeout(resolve, 300));
 
@@ -360,7 +388,9 @@ const TeamTasksTab = ({ user }) => {
 
         if (result.success) {
           console.log('✅ Opened with Windows default application');
-          setSuccess('File opened successfully');
+          setFileOpenToast(true);
+          setTimeout(() => setFileOpenToast(false), 3500);
+          setOpenedFileIds(prev => new Set([...prev, fileId]));
         } else {
           throw new Error(result.error || 'Failed to open file');
         }
@@ -376,25 +406,22 @@ const TeamTasksTab = ({ user }) => {
 
         newWindow.focus();
         console.log('✅ Opened in browser tab');
-        setSuccess('File opened in browser');
+        setFileOpenToast(true);
+        setTimeout(() => setFileOpenToast(false), 3500);
+        setOpenedFileIds(prev => new Set([...prev, fileId]));
       }
 
     } catch (error) {
       console.error('❌ Error opening file:', error);
-      setSuccess('')
       setError(`Error opening file: ${error.message || 'Failed to open file'}`);
+      setTimeout(() => setError(''), 3000);
     } finally {
       setIsOpeningFile(false)
-      setTimeout(() => {
-        setSuccess('')
-        setError('')
-      }, 3000)
     }
   }
 
   const clearMessages = () => {
     setError('')
-    setSuccess('')
   }
 
   // Download a single file
@@ -431,6 +458,23 @@ const TeamTasksTab = ({ user }) => {
   }
 
   // Open the folder containing a file in Windows Explorer
+  // Record that the current user viewed a file
+  const recordView = async (fileId) => {
+    if (!user || !fileId) return
+    try {
+      await fetch(`${API_BASE_URL}/api/files/${fileId}/view`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: user.id,
+          username: user.username,
+          fullName: user.fullName,
+          role: user.role || 'user'
+        })
+      })
+    } catch {}
+  }
+
   const handleOpenFolderPath = async (fileId) => {
     if (!window.electron?.openFolderInExplorer) return
     try {
@@ -617,13 +661,6 @@ const TeamTasksTab = ({ user }) => {
         </div>
       )}
 
-      {success && (
-        <div className="team-tasks-message success-message">
-          {success}
-          <button className="close-message-btn" onClick={clearMessages}>×</button>
-        </div>
-      )}
-
       <div className="team-tasks-header">
         <h2>Team Tasks</h2>
         <p className="team-tasks-subtitle">Tasks assigned to your team members</p>
@@ -797,14 +834,16 @@ const TeamTasksTab = ({ user }) => {
                                     e.stopPropagation();
                                     setFileToOpen(file);
                                     setShowOpenFileConfirmation(true);
+                                    recordView(file.id);
                                   }}
-                                  style={{ paddingLeft: '40px', backgroundColor: '#fafafa' }}
+                                  style={{ paddingLeft: '40px', backgroundColor: openedFileIds.has(file.id) ? '#f0fdf4' : '#fafafa', borderLeft: openedFileIds.has(file.id) ? '3px solid #86efac' : undefined }}
                                 >
                                   <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1 }}>
                                     <FileIcon fileType={file.original_name.split('.').pop()} size="small" style={{ width: '40px', height: '40px', flexShrink: 0 }} />
                                     <div style={{ flex: 1, minWidth: 0 }}>
-                                      <div style={{ fontWeight: '500', fontSize: '14px', color: '#111827', marginBottom: '6px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                        {file.relative_path || file.original_name}
+                                      <div style={{ fontWeight: '500', fontSize: '14px', color: '#111827', marginBottom: '6px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{file.relative_path || file.original_name}</span>
+                                        {openedFileIds.has(file.id) && <span style={{ fontSize: '10px', fontWeight: '600', color: '#16a34a', backgroundColor: '#dcfce7', border: '1px solid #86efac', padding: '1px 7px', borderRadius: '10px', flexShrink: 0, whiteSpace: 'nowrap' }}>✓ Viewed</span>}
                                       </div>
                                       <div style={{ fontSize: '12px', color: '#6b7280', display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
                                         <span>by <span style={{ fontWeight: '500', color: '#374151' }}>{file.fullName || file.username}</span></span>
@@ -813,6 +852,7 @@ const TeamTasksTab = ({ user }) => {
                                         {file.tag && (<><span style={{ color: '#d1d5db' }}>•</span><span style={{ backgroundColor: '#eff6ff', color: '#1e40af', padding: '2px 10px', borderRadius: '12px', fontSize: '11px', fontWeight: '600', border: '1px solid #bfdbfe' }}>🏷️ {file.tag}</span></>)}
                                       </div>
                                     </div>
+                                    <FileViewersButton fileId={file.id} />
                                     <FileMoreMenu
                                       onDownload={() => handleDownloadFile(file)}
                                       onOpenPath={() => handleOpenFolderPath(file.id)}
@@ -834,7 +874,9 @@ const TeamTasksTab = ({ user }) => {
                                 e.stopPropagation();
                                 setFileToOpen(file);
                                 setShowOpenFileConfirmation(true);
-                              }}
+                                  recordView(file.id);
+                                }}
+              style={{ backgroundColor: openedFileIds.has(file.id) ? '#f0fdf4' : undefined, borderLeft: openedFileIds.has(file.id) ? '3px solid #86efac' : undefined }}
                             >
                               <div style={{
                                 display: 'flex',
@@ -859,9 +901,13 @@ const TeamTasksTab = ({ user }) => {
                                     marginBottom: '6px',
                                     overflow: 'hidden',
                                     textOverflow: 'ellipsis',
-                                    whiteSpace: 'nowrap'
+                                    whiteSpace: 'nowrap',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '8px'
                                   }}>
-                                    {file.original_name}
+                                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{file.original_name}</span>
+                                    {openedFileIds.has(file.id) && <span style={{ fontSize: '10px', fontWeight: '600', color: '#16a34a', backgroundColor: '#dcfce7', border: '1px solid #86efac', padding: '1px 7px', borderRadius: '10px', flexShrink: 0, whiteSpace: 'nowrap' }}>✓ Viewed</span>}
                                   </div>
                                   <div style={{
                                     fontSize: '13px',
@@ -895,6 +941,7 @@ const TeamTasksTab = ({ user }) => {
                                     )}
                                   </div>
                                 </div>
+                                <FileViewersButton fileId={file.id} />
                                 <FileMoreMenu
                                   onDownload={() => handleDownloadFile(file)}
                                   onOpenPath={() => handleOpenFolderPath(file.id)}
@@ -1041,6 +1088,28 @@ const TeamTasksTab = ({ user }) => {
         formatTimeAgo={formatTimeAgo}
         user={user}
       />
+
+      {/* File Open Toast */}
+      {fileOpenToast && (
+        <div style={{ position: 'fixed', top: '28px', right: '28px', zIndex: 9999, background: '#fff', border: '1px solid #bbf7d0', borderRadius: '16px', boxShadow: '0 8px 32px rgba(0,0,0,0.13)', padding: '18px 22px 14px 18px', display: 'flex', alignItems: 'flex-start', gap: '14px', minWidth: '280px', maxWidth: '380px', animation: 'slideInRight 0.25s ease' }}>
+          <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: '#dcfce7', border: '2px solid #86efac', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6L9 17l-5-5" /></svg>
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: '15px', fontWeight: '700', color: '#15803d', marginBottom: '4px' }}>Success</div>
+            <div style={{ fontSize: '13px', color: '#374151', lineHeight: '1.4' }}>File opened successfully!</div>
+            <div style={{ marginTop: '10px', height: '4px', borderRadius: '2px', background: '#dcfce7', overflow: 'hidden' }}>
+              <div style={{ height: '100%', borderRadius: '2px', background: '#22c55e', animation: 'shrinkBar 3.5s linear forwards' }} />
+            </div>
+          </div>
+          <button onClick={() => setFileOpenToast(false)} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: '#9ca3af', fontSize: '20px', lineHeight: 1, padding: 0 }}>×</button>
+        </div>
+      )}
+
+      <style>{`
+        @keyframes slideInRight { from { opacity: 0; transform: translateX(40px); } to { opacity: 1; transform: translateX(0); } }
+        @keyframes shrinkBar { from { width: 100%; } to { width: 0%; } }
+      `}</style>
 
       {/* File Open Modal */}
       <FileOpenModal
