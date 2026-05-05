@@ -290,6 +290,50 @@ const AssignmentsTab = ({
     setVisibleReplies({})
   }
 
+  const deleteComment = async (assignmentId, commentId) => {
+    try {
+      await fetch(`${API_BASE_URL}/api/assignments/comments/${commentId}`, { method: 'DELETE' })
+      if (selectedAssignment) fetchComments(selectedAssignment.id)
+    } catch (err) {
+      console.error('Error deleting comment:', err)
+    }
+  }
+
+  const editComment = async (assignmentId, commentId, newText) => {
+    try {
+      await fetch(`${API_BASE_URL}/api/assignments/comments/${commentId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ comment: newText })
+      })
+      if (selectedAssignment) fetchComments(selectedAssignment.id)
+    } catch (err) {
+      console.error('Error editing comment:', err)
+    }
+  }
+
+  const deleteReply = async (assignmentId, commentId, replyId) => {
+    try {
+      await fetch(`${API_BASE_URL}/api/assignments/comments/${replyId}`, { method: 'DELETE' })
+      if (selectedAssignment) fetchComments(selectedAssignment.id)
+    } catch (err) {
+      console.error('Error deleting reply:', err)
+    }
+  }
+
+  const editReply = async (assignmentId, commentId, replyId, newText) => {
+    try {
+      await fetch(`${API_BASE_URL}/api/assignments/comments/${replyId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ comment: newText })
+      })
+      if (selectedAssignment) fetchComments(selectedAssignment.id)
+    } catch (err) {
+      console.error('Error editing reply:', err)
+    }
+  }
+
   // SMART NAVIGATION: Use shared hook for all highlighting and modal effects
   // IMPORTANT: Must be called AFTER openCommentsModal is defined
   useSmartNavigation({
@@ -1154,6 +1198,10 @@ const AssignmentsTab = ({
         replyText={replyText}
         setReplyText={setReplyText}
         onPostReply={postReply}
+        onDeleteComment={deleteComment}
+        onEditComment={editComment}
+        onDeleteReply={deleteReply}
+        onEditReply={editReply}
         visibleReplies={visibleReplies}
         toggleRepliesVisibility={toggleRepliesVisibility}
         getInitials={getInitials}

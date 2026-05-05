@@ -78,13 +78,12 @@ const FileMoreMenuInline = memo(({ onDelete, isFolder = false }) => {
         width: '30px', height: '30px', display: 'flex', alignItems: 'center',
         justifyContent: 'center', cursor: 'pointer', color: '#9ca3af',
         padding: 0, flexShrink: 0, transition: 'all 0.15s',
+        fontSize: '13px', fontWeight: 'bold', letterSpacing: '1px'
       }}
       onMouseEnter={e => { e.currentTarget.style.backgroundColor = '#fee2e2'; e.currentTarget.style.color = '#dc2626'; }}
       onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = '#9ca3af'; }}
     >
-      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-        <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
-      </svg>
+      •••
     </button>
   );
 });
@@ -317,7 +316,7 @@ const TasksTab = memo(({
 
   const editComment = useCallback(async (assignmentId, commentId, newText) => {
     try {
-      const res = await fetch(`${API_BASE_URL}/api/assignments/${assignmentId}/comments/${commentId}`, {
+      const res = await fetch(`${API_BASE_URL}/api/assignments/comments/${commentId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId: user.id, comment: newText }),
@@ -330,7 +329,7 @@ const TasksTab = memo(({
 
   const deleteComment = useCallback(async (assignmentId, commentId) => {
     try {
-      const res = await fetch(`${API_BASE_URL}/api/assignments/${assignmentId}/comments/${commentId}`, {
+      const res = await fetch(`${API_BASE_URL}/api/assignments/comments/${commentId}`, {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId: user.id }),
@@ -343,10 +342,10 @@ const TasksTab = memo(({
 
   const editReply = useCallback(async (assignmentId, commentId, replyId, newText) => {
     try {
-      const res = await fetch(`${API_BASE_URL}/api/assignments/${assignmentId}/comments/${commentId}/reply/${replyId}`, {
+      const res = await fetch(`${API_BASE_URL}/api/assignments/comments/${replyId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: user.id, reply: newText }),
+        body: JSON.stringify({ userId: user.id, comment: newText }),
       });
       const data = await res.json();
       if (data.success) fetchComments(assignmentId);
@@ -356,7 +355,7 @@ const TasksTab = memo(({
 
   const deleteReply = useCallback(async (assignmentId, commentId, replyId) => {
     try {
-      const res = await fetch(`${API_BASE_URL}/api/assignments/${assignmentId}/comments/${commentId}/reply/${replyId}`, {
+      const res = await fetch(`${API_BASE_URL}/api/assignments/comments/${replyId}`, {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId: user.id }),
@@ -1056,7 +1055,11 @@ const TasksTab = memo(({
                     onClick={() => openCommentsModal(assignment)}
                     style={{ background: 'transparent', border: 'none', color: '#1c1e21', fontSize: '14px', fontWeight: '500', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '0' }}
                   >
-                    Comment ({assignmentComments.length > 0 ? assignmentComments.length : (assignment.comment_count || 0)})
+                    Comment ({
+                      (comments[assignment.id]?.length > 0) 
+                        ? comments[assignment.id].length 
+                        : (assignment.comment_count || 0)
+                    })
                   </button>
                 </div>
               </div>

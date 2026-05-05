@@ -13,7 +13,17 @@ const createNotification = async (userId, fileId, type, title, message, actionBy
         user_id, file_id, type, title, message, assignment_id,
         action_by_id, action_by_username, action_by_role
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [userId, fileId, type, title, message, assignmentId, actionById, actionByUsername, actionByRole]
+      [
+        userId ?? null, 
+        fileId ?? null, 
+        type ?? null, 
+        title ?? null, 
+        message ?? null, 
+        assignmentId ?? null, 
+        actionById ?? null, 
+        actionByUsername ?? 'System', 
+        actionByRole ?? 'ADMIN'
+      ]
     );
 
     console.log(`✅ Notification created for user ${userId}: ${title}`);
@@ -55,7 +65,17 @@ const createAdminNotification = async (fileId, type, title, message, actionById,
           user_id, file_id, type, title, message, assignment_id,
           action_by_id, action_by_username, action_by_role
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [admin.id, fileId, type, title, message, assignmentId, actionById, actionByUsername, actionByRole]
+        [
+          admin.id, 
+          fileId ?? null, 
+          type ?? null, 
+          title ?? null, 
+          message ?? null, 
+          assignmentId ?? null, 
+          actionById ?? null, 
+          actionByUsername ?? 'System', 
+          actionByRole ?? 'ADMIN'
+        ]
       );
       count++;
     }

@@ -1085,13 +1085,20 @@ function waitForViteServer() {
 function shutdownServer() {
   if (serverProcess && !serverProcess.killed) {
     log(LogLevel.INFO, 'Stopping Express server...');
-    serverProcess.kill('SIGTERM');
-
-    setTimeout(() => {
-      if (serverProcess && !serverProcess.killed) {
-        serverProcess.kill('SIGKILL');
+    if (process.platform === 'win32') {
+      try {
+        require('child_process').execSync(`taskkill /pid ${serverProcess.pid} /T /F`, { stdio: 'ignore' });
+      } catch (e) {
+        // Ignore if process is already dead
       }
-    }, 3000);
+    } else {
+      serverProcess.kill('SIGTERM');
+      setTimeout(() => {
+        if (serverProcess && !serverProcess.killed) {
+          serverProcess.kill('SIGKILL');
+        }
+      }, 3000);
+    }
   }
 }
 

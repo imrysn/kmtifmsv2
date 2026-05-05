@@ -902,7 +902,7 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
 
   const fetchNotifications = async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/files/notifications/${user.team}`)
+      const response = await fetch(`${API_BASE_URL}/api/files/notifications/${encodeURIComponent(user.team)}`)
       const data = await response.json()
 
       if (data.success) {
@@ -987,6 +987,20 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
               pendingFiles={pendingFiles}
               teamMembers={teamMembers}
               calculateApprovalRate={calculateApprovalRate}
+              submittedFiles={submittedFiles}
+              assignments={assignments}
+              notifications={notifications}
+              notificationCounts={notificationCounts}
+              analyticsData={analyticsData}
+              activeTab={activeTab}
+              setActiveTab={setActiveTab}
+              onNavigateToTask={(assignmentId, fileId) => {
+                setActiveTab('assignments')
+                setHighlightedAssignmentId(assignmentId)
+                if (fileId) {
+                  setHighlightedSubmissionFileId(fileId)
+                }
+              }}
             />
           </Suspense>
         )

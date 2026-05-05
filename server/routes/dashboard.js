@@ -4,6 +4,9 @@ const { categorizeFileTypes } = require('../utils/fileTypeUtils');
 
 const router = express.Router();
 
+// GET /api/dashboard/test
+router.get('/test', (req, res) => res.json({ success: true, message: 'Dashboard route works' }));
+
 // GET /api/dashboard/summary
 // Returns aggregate counts and recent activity for admin dashboard
 router.get('/summary', (req, res) => {

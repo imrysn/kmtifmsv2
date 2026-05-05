@@ -13,7 +13,9 @@ async function runMigrations() {
       { name: 'Add Database Indexes', run: require('./002-add-database-indexes') },
       { name: 'Add Team Leaders Table', run: require('./003-add-team-leaders-table') },
       { name: 'Add Folder Support', run: require('./003-add-folder-support') },
-      { name: 'Fix Schema Bugs (notifications nullable, activity_logs column)', run: require('./004-fix-schema-bugs') }
+      { name: 'Fix Schema Bugs (notifications nullable, activity_logs column)', run: require('./004-fix-schema-bugs') },
+      { name: 'Add parent_id to assignment_comments', run: require('./005-add-comments-parent-id') },
+      { name: 'Fix assignment_comments schema (drop FK, add updated_at)', run: require('./006-fix-comments-schema') }
     ];
 
     for (const migration of migrations) {

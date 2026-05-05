@@ -1,408 +1,442 @@
-/**
- * Assignment Service
- * 
- * Business logic layer for assignment operations.
- * This layer is responsible for:
- * - Business rules and validation
- * - Orchestrating repository calls
- * - Handling notifications
- * - Activity logging
- */
-
 const assignmentRepository = require('../repositories/assignmentRepository');
-const { logActivity, logInfo } = require('../utils/logger');
+const fileRepository = require('../repositories/fileRepository');
+const notificationService = require('./notificationService');
+const { logActivity, logInfo, logError } = require('../utils/logger');
 const { db } = require('../config/database');
 const { NotFoundError, ValidationError } = require('../middleware/errorHandler');
+const fs = require('fs').promises;
+const path = require('path');
+const { uploadsDir } = require('../config/middleware');
+
+// Batch submission tracker to group multiple file submissions into single notification
+const pendingBatchSubmissions = new Map();
+
+/**
+ * Fix filename encoding issues (latin1 to utf8)
+ */
+function fixFilename(name) {
+    if (!name) return name;
+    try {
+        const reDecoded = Buffer.from(name, 'latin1').toString('utf8');
+        if (reDecoded !== name && !reDecoded.includes('\uFFFD')) return reDecoded;
+    } catch (_) {}
+    return name;
+}
+
+/**
+ * Create a grouped notification for multiple submissions
+ */
+async function createBatchedSubmissionNotification(teamLeaderId, assignmentId, submissions) {
+    if (!submissions || submissions.length === 0) return;
+
+    const firstSub = submissions[0];
+    const userFullName = firstSub.userFullName;
+    const assignmentTitle = firstSub.assignmentTitle;
+
+    let message;
+    if (submissions.length === 1) {
+        message = `${userFullName} submitted "${firstSub.fileName}" for "${assignmentTitle}"`;
+    } else {
+        message = `${userFullName} submitted ${submissions.length} files for "${assignmentTitle}"`;
+    }
+
+    await notificationService.createNotification({
+        user_id: teamLeaderId,
+        assignment_id: assignmentId,
+        type: 'assignment_submission',
+        title: 'New Assignment Submission',
+        message,
+        is_read: 0,
+        action_by_id: firstSub.userId,
+        action_by_username: firstSub.username,
+        action_by_role: firstSub.role
+    });
+}
 
 /**
  * Create a new assignment
- * @param {Object} assignmentData - Assignment data
- * @param {Object} teamLeader - Team leader creating the assignment
- * @returns {Promise<Object>} - Created assignment
+ * @param {Object} data - Assignment and members data
+ * @param {Array} attachments - Array of uploaded files
+ * @param {Object} user - User creating the assignment (Team Leader or Admin)
+ * @returns {Promise<Object>} - Created assignment with members
  */
-async function createAssignment(assignmentData, teamLeader) {
-    logInfo('Creating assignment', {
-        title: assignmentData.title,
-        teamLeaderId: teamLeader.id
+async function createAssignment(data, attachments, user) {
+    const { 
+        title, description, due_date, file_type_required, 
+        assigned_to, assignedMembers, team 
+    } = data;
+
+    logInfo('Creating assignment', { title, teamLeaderId: user.id });
+
+    // 1. Create assignment record
+    const assignmentId = await assignmentRepository.create({
+        title,
+        description,
+        due_date,
+        file_type_required,
+        assigned_to,
+        team_leader_id: user.id,
+        team_leader_username: user.username,
+        team: team || user.team,
+        status: 'active'
     });
 
-    // Prepare assignment data
-    const data = {
-        ...assignmentData,
-        team_leader_id: teamLeader.id,
-        team_leader_username: teamLeader.username,
-        team: teamLeader.team,
-        status: 'active'
-    };
-
-    // Create assignment
-    const assignmentId = await assignmentRepository.create(data);
-
-    // Log activity
-    logActivity(
-        db,
-        teamLeader.id,
-        teamLeader.username,
-        teamLeader.role,
-        teamLeader.team,
-        `Created assignment: ${assignmentData.title}`
-    );
-
-    // Get the created assignment
-    const assignment = await assignmentRepository.findById(assignmentId);
-
-    // If assigned to specific users, add them as members
-    if (assignmentData.assigned_to && assignmentData.assigned_to !== 'all') {
-        const userIds = assignmentData.assigned_to.split(',').map(id => parseInt(id.trim()));
-        for (const userId of userIds) {
-            await assignmentRepository.addMember(assignmentId, userId);
+    // 2. Handle attachments
+    if (attachments && attachments.length > 0) {
+        for (const file of attachments) {
+            await fileRepository.createAttachment({
+                assignment_id: assignmentId,
+                file_path: file.path,
+                original_name: fixFilename(file.originalname),
+                filename: file.filename,
+                file_size: file.size,
+                file_type: file.mimetype,
+                uploaded_by_username: user.username,
+                folder_name: data.folderName || 'Default'
+            });
         }
     }
 
-    logInfo('Assignment created successfully', { assignmentId, title: assignmentData.title });
+    let membersAdded = 0;
+    const finalMembers = Array.isArray(assignedMembers) ? assignedMembers : JSON.parse(assignedMembers || '[]');
 
-    return assignment;
+    // 3. Handle member assignment
+    if (assigned_to === 'all') {
+        const teamMembers = await db.all('SELECT id FROM users WHERE team = ? AND role = "USER"', [team || user.team]);
+        if (teamMembers.length > 0) {
+            const userIds = teamMembers.map(m => m.id);
+            membersAdded = await assignmentRepository.createMembers(assignmentId, userIds);
+            for (const uid of userIds) {
+                await notificationService.createNotification({
+                    user_id: uid,
+                    type: 'assignment',
+                    title: 'New Assignment',
+                    message: `${user.username} assigned a new task: "${title}"`,
+                    assignment_id: assignmentId
+                });
+            }
+        }
+    } else if (finalMembers.length > 0) {
+        membersAdded = await assignmentRepository.createMembers(assignmentId, finalMembers);
+        for (const uid of finalMembers) {
+            await notificationService.createNotification({
+                user_id: uid,
+                type: 'assignment',
+                title: 'New Assignment',
+                message: `${user.username} assigned a new task: "${title}"`,
+                assignment_id: assignmentId
+            });
+        }
+    }
+
+    logActivity(db, user.id, user.username, user.role, team || user.team, `Created assignment: ${title}`);
+
+    return { assignmentId, membersAdded };
 }
 
 /**
- * Get assignment by ID
- * @param {number} assignmentId - Assignment ID
- * @param {Object} user - Authenticated user (for authorization)
- * @returns {Promise<Object>} - Assignment object with members
+ * Update an existing assignment
  */
-async function getAssignmentById(assignmentId, user) {
-    const assignment = await assignmentRepository.findById(assignmentId);
+async function updateAssignment(id, data, attachments, user) {
+    const assignment = await assignmentRepository.findById(id);
+    if (!assignment) throw new NotFoundError('Assignment');
 
-    if (!assignment) {
-        throw new NotFoundError('Assignment');
+    const updates = { ...data };
+    delete updates.assignedMembers; // Handle members separately if needed
+    delete updates.attachments;
+
+    await assignmentRepository.update(id, updates);
+
+    // Handle new attachments
+    if (attachments && attachments.length > 0) {
+        for (const file of attachments) {
+            await fileRepository.createAttachment({
+                assignment_id: id,
+                file_path: file.path,
+                original_name: fixFilename(file.originalname),
+                filename: file.filename,
+                file_size: file.size,
+                file_type: file.mimetype,
+                uploaded_by_username: user.username,
+                folder_name: data.folderName || 'Default'
+            });
+        }
     }
 
-    // Authorization check
-    const canView =
-        user.role === 'ADMIN' ||
-        assignment.team_leader_id === user.id ||
-        assignment.team === user.team;
-
-    if (!canView) {
-        throw new ValidationError('You do not have permission to view this assignment');
-    }
-
-    // Get members
-    const members = await assignmentRepository.getMembers(assignmentId);
-
-    return {
-        ...assignment,
-        members
-    };
-}
-
-/**
- * Get team assignments
- * @param {string} team - Team name
- * @param {Object} options - Query options
- * @returns {Promise<Array>} - Array of assignments
- */
-async function getTeamAssignments(team, options = {}) {
-    return await assignmentRepository.findByTeam(team, options);
-}
-
-/**
- * Get all assignments (admin only)
- * @param {Object} options - Query options
- * @returns {Promise<Array>} - Array of assignments
- */
-async function getAllAssignments(options = {}) {
-    return await assignmentRepository.findAll(options);
-}
-
-/**
- * Update assignment
- * @param {number} assignmentId - Assignment ID
- * @param {Object} updates - Updates to apply
- * @param {Object} teamLeader - Team leader updating the assignment
- * @returns {Promise<Object>} - Updated assignment
- */
-async function updateAssignment(assignmentId, updates, teamLeader) {
-    const assignment = await assignmentRepository.findById(assignmentId);
-
-    if (!assignment) {
-        throw new NotFoundError('Assignment');
-    }
-
-    // Validate team leader owns this assignment
-    if (assignment.team_leader_id !== teamLeader.id && teamLeader.role !== 'ADMIN') {
-        throw new ValidationError('You can only update your own assignments');
-    }
-
-    // Update assignment
-    await assignmentRepository.update(assignmentId, updates);
-
-    // Log activity
-    logActivity(
-        db,
-        teamLeader.id,
-        teamLeader.username,
-        teamLeader.role,
-        teamLeader.team,
-        `Updated assignment: ${assignment.title}`
-    );
-
-    return await assignmentRepository.findById(assignmentId);
-}
-
-/**
- * Delete assignment
- * @param {number} assignmentId - Assignment ID
- * @param {Object} teamLeader - Team leader deleting the assignment
- * @returns {Promise<boolean>} - Success status
- */
-async function deleteAssignment(assignmentId, teamLeader) {
-    const assignment = await assignmentRepository.findById(assignmentId);
-
-    if (!assignment) {
-        throw new NotFoundError('Assignment');
-    }
-
-    // Validate team leader owns this assignment
-    if (assignment.team_leader_id !== teamLeader.id && teamLeader.role !== 'ADMIN') {
-        throw new ValidationError('You can only delete your own assignments');
-    }
-
-    // Delete assignment
-    await assignmentRepository.deleteById(assignmentId);
-
-    // Log activity
-    logActivity(
-        db,
-        teamLeader.id,
-        teamLeader.username,
-        teamLeader.role,
-        teamLeader.team,
-        `Deleted assignment: ${assignment.title}`
-    );
-
+    logActivity(db, user.id, user.username, user.role, user.team, `Updated assignment: ${assignment.title}`);
     return true;
 }
 
 /**
- * Submit assignment
- * @param {number} assignmentId - Assignment ID
- * @param {number} fileId - Submitted file ID
- * @param {Object} user - User submitting
- * @returns {Promise<boolean>} - Success status
+ * Get assignments for admin view (all)
+ */
+async function getAllAssignments(options = {}) {
+    return await assignmentRepository.findAllWithDetails(options);
+}
+
+/**
+ * Get assignments for team view
+ */
+async function getTeamAssignments(team, options = {}) {
+    return await assignmentRepository.findAllWithDetails({ ...options, team });
+}
+
+/**
+ * Get assignments for team leader
+ */
+async function getTeamLeaderAssignments(userId) {
+    const teams = await assignmentRepository.findLedTeams(userId);
+    if (teams.length === 0) return { assignments: [] };
+    
+    // For now, reuse findAllWithDetails but we might need a specific TL view if filtering by multiple teams
+    // Simple approach: Fetch for each team or update repository to support array of teams
+    
+    const allAssignments = [];
+    for (const team of teams) {
+        const result = await assignmentRepository.findAllWithDetails({ team });
+        allAssignments.push(...result.assignments);
+    }
+    
+    return { assignments: allAssignments.sort((a, b) => b.id - a.id) };
+}
+
+/**
+ * Get all submissions for team leader view
+ */
+async function getAllSubmissionsForTL(userId) {
+    const teams = await assignmentRepository.findLedTeams(userId);
+    if (teams.length === 0) return { submissions: [] };
+    
+        // 1. Get submissions from team members
+    const memberSubmissions = await assignmentRepository.findTeamSubmissions(teams);
+    
+    // 2. Get files uploaded directly by the Team Leader
+    const tlFiles = await fileRepository.findByUserId(userId);
+    
+    // 3. Get TL attachment files
+    const tlAttachments = await fileRepository.findAllAttachmentsWithDetails({ userId });
+
+    // Merge and avoid duplicates
+    const memberFileIds = new Set(memberSubmissions.map(f => String(f.id)));
+    const uniqueTLFiles = tlFiles.filter(f => !memberFileIds.has(String(f.id)));
+    const allExistingIds = new Set([...memberFileIds, ...uniqueTLFiles.map(f => String(f.id))]);
+    const uniqueAttachments = tlAttachments.filter(f => !allExistingIds.has(String(f.id)));
+
+    const allSubmissions = [...memberSubmissions, ...uniqueTLFiles, ...uniqueAttachments].sort((a, b) => 
+        new Date(b.submitted_at || b.uploaded_at) - new Date(a.submitted_at || a.uploaded_at)
+    );
+
+    return { submissions: allSubmissions };
+
+}
+
+/**
+ * Submit an assignment
  */
 async function submitAssignment(assignmentId, fileId, user) {
     const assignment = await assignmentRepository.findById(assignmentId);
+    if (!assignment) throw new NotFoundError('Assignment');
 
-    if (!assignment) {
-        throw new NotFoundError('Assignment');
-    }
+    const file = await fileRepository.findById(fileId);
+    if (!file) throw new NotFoundError('File');
 
-    // Check if assignment is active
-    if (assignment.status !== 'active') {
-        throw new ValidationError('This assignment is no longer active');
-    }
-
-    // Check if due date has passed
-    if (assignment.due_date && new Date(assignment.due_date) < new Date()) {
-        throw new ValidationError('This assignment is past its due date');
-    }
+    // Link file to assignment
+    await db.run(
+        'INSERT INTO assignment_submissions (assignment_id, user_id, file_id, submitted_at) VALUES (?, ?, ?, CURRENT_TIMESTAMP)',
+        [assignmentId, user.id, fileId]
+    );
 
     // Update member status
     await assignmentRepository.updateMemberStatus(assignmentId, user.id, 'submitted');
 
-    // Log activity
-    logActivity(
-        db,
-        user.id,
-        user.username,
-        user.role,
-        user.team,
-        `Submitted assignment: ${assignment.title}`
-    );
+    // Batch Notification Logic
+    const batchKey = `${user.id}_${assignmentId}`;
+    if (!pendingBatchSubmissions.has(batchKey)) {
+        pendingBatchSubmissions.set(batchKey, []);
+        
+        // Schedule notification dispatch after 5 seconds
+        setTimeout(async () => {
+            const submissions = pendingBatchSubmissions.get(batchKey);
+            pendingBatchSubmissions.delete(batchKey);
+            
+            if (submissions && submissions.length > 0) {
+                await createBatchedSubmissionNotification(
+                    assignment.team_leader_id, 
+                    assignmentId, 
+                    submissions
+                );
+            }
+        }, 5000);
+    }
 
-    // TODO: Create notification for team leader
-    // await notificationService.notifyTeamLeader(assignment.team_leader_id, 'assignment_submitted', assignment);
+    pendingBatchSubmissions.get(batchKey).push({
+        fileName: file.original_name,
+        userFullName: user.fullName || user.username,
+        assignmentTitle: assignment.title,
+        userId: user.id,
+        username: user.username,
+        role: user.role
+    });
+
+    logActivity(db, user.id, user.username, user.role, user.team, `Submitted file ${file.original_name} for assignment: ${assignment.title}`);
 
     return true;
 }
 
 /**
- * Get assignment statistics
- * @param {Object} criteria - Statistics criteria
- * @returns {Promise<Object>} - Assignment statistics
+ * Get comments for an assignment (with nested replies)
  */
-async function getAssignmentStats(criteria = {}) {
-    const total = await assignmentRepository.count(criteria);
-    const active = await assignmentRepository.count({ ...criteria, status: 'active' });
-    const completed = await assignmentRepository.count({ ...criteria, status: 'completed' });
-    const archived = await assignmentRepository.count({ ...criteria, status: 'archived' });
-
-    return {
-        total,
-        active,
-        completed,
-        archived
-    };
-}
-
-// Import shared notification functions
-const { createNotification, createAdminNotification } = require('../routes/notifications');
-
-/**
- * Add comment to assignment
- * @param {number} assignmentId - Assignment ID
- * @param {number} userId - User ID
- * @param {string} comment - Comment text
- * @returns {Promise<Object>} - Created comment
- */
-async function addComment(assignmentId, userId, comment) {
-    console.log('🐞 DEBUG: addComment called', { assignmentId, userId, comment });
+async function getComments(assignmentId) {
     const assignment = await assignmentRepository.findById(assignmentId);
     if (!assignment) throw new NotFoundError('Assignment');
 
-    // Add comment
-    const newComment = await assignmentRepository.addComment(assignmentId, userId, comment);
-    console.log('🐞 DEBUG: Comment added to DB:', newComment);
+    // Fetch all rows - both top-level comments and replies
+    const rows = await assignmentRepository.getComments(assignmentId);
 
-    // Get user details for logging/notification context
-    const user = await new Promise((resolve, reject) => {
-        db.get('SELECT username, fullName, role, team FROM users WHERE id = ?', [userId], (err, row) => {
-            if (err) reject(err);
-            else resolve(row);
-        });
-    });
+    // Build nested structure: top-level comments with replies[] array
+    const topLevel = rows.filter(r => !r.parent_id);
+    const replies  = rows.filter(r => !!r.parent_id);
 
-    console.log('🐞 DEBUG: User lookup result:', user);
+    return topLevel.map(comment => ({
+        ...comment,
+        replies: replies.filter(r => r.parent_id === comment.id)
+    }));
+}
 
+/**
+ * Add comment to assignment
+ */
+async function addComment(assignmentId, userId, commentText) {
+    const assignment = await assignmentRepository.findById(assignmentId);
+    if (!assignment) throw new NotFoundError('Assignment');
+
+    const comment = await assignmentRepository.addComment(assignmentId, userId, commentText);
+    
+    // Notifications
+    const user = await db.get('SELECT username, fullName, role, team FROM users WHERE id = ?', [userId]);
     if (user) {
-        console.log('🐞 DEBUG: User found, attempting to log and notify');
-        // Log activity
-        logActivity(
-            db,
-            user.id || userId,
-            user.username,
-            user.role,
-            user.team,
-            `Added comment to assignment: ${assignment.title}`
-        );
-
-        // 1. Notify Team Leader (if not the one commenting)
+        // Notify Team Leader
         if (assignment.team_leader_id !== userId) {
-            createNotification(
-                assignment.team_leader_id,
-                null,
-                'comment',
-                'New Comment on Assignment',
-                `${user.fullName || user.username} commented on "${assignment.title}"`,
-                userId,
-                user.username,
-                user.role,
-                assignmentId
-            ).catch(err => console.error('Failed to notify team leader:', err));
+            await notificationService.createNotification({
+                user_id: assignment.team_leader_id,
+                type: 'comment',
+                title: 'New Comment on Assignment',
+                message: `${user.username} commented on "${assignment.title}"`,
+                assignment_id: assignmentId
+            });
         }
-
-        // 2. Notify Assigned Members (if applicable) - Simplified for now to avoid spam,
-        // typically logic is complex (don't notify self).
-        // Let's focus on Admin Requirement.
-
-        // 3. Notify ALL Admins (Vital Requirement)
-        try {
-            const adminCount = await createAdminNotification(
-                null, // fileId
-                'comment',
-                'New Comment on Assignment',
-                `${user.fullName || user.username} commented on "${assignment.title}" (Team: ${assignment.team})`,
-                userId,
-                user.username,
-                user.role,
-                assignmentId
-            );
-            console.log('🐞 DEBUG: Admin notification result:', adminCount);
-        } catch (err) {
-            console.error('🐞 DEBUG: Failed to notify admins:', err);
-        }
-    } else {
-        console.warn('🐞 DEBUG: User NOT found for ID:', userId);
     }
-
-    return newComment;
+    
+    return comment;
 }
 
 /**
  * Add reply to comment
- * @param {number} assignmentId - Assignment ID
- * @param {number} commentId - Parent Comment ID
- * @param {number} userId - User ID
- * @param {string} reply - Reply text
- * @returns {Promise<Object>} - Created reply
  */
-async function addReply(assignmentId, commentId, userId, reply) {
+async function addReply(assignmentId, commentId, userId, replyText) {
     const assignment = await assignmentRepository.findById(assignmentId);
     if (!assignment) throw new NotFoundError('Assignment');
 
-    // Add reply
-    const newReply = await assignmentRepository.addReply(assignmentId, commentId, userId, reply);
-
-    // Get user details
-    const user = await new Promise((resolve, reject) => {
-        db.get('SELECT username, fullName, role, team FROM users WHERE id = ?', [userId], (err, row) => {
-            if (err) reject(err);
-            else resolve(row);
-        });
-    });
-
+    const reply = await assignmentRepository.addReply(assignmentId, commentId, userId, replyText);
+    
+    const user = await db.get('SELECT username, fullName, role, team FROM users WHERE id = ?', [userId]);
     if (user) {
-        // Log activity
-        logActivity(
-            db,
-            user.id || userId,
-            user.username,
-            user.role,
-            user.team,
-            `Replied to comment on assignment: ${assignment.title}`
-        );
-
-        // 1. Notify Team Leader (if not commenter)
+        // Notify Team Leader
         if (assignment.team_leader_id !== userId) {
-            createNotification(
-                assignment.team_leader_id,
-                null,
-                'comment', // Use 'comment' type for compatibility, or 'reply' if standard
-                'New Reply on Assignment',
-                `${user.fullName || user.username} replied to a comment on "${assignment.title}"`,
-                userId,
-                user.username,
-                user.role,
-                assignmentId
-            ).catch(err => console.error('Failed to notify team leader of reply:', err));
+            await notificationService.createNotification({
+                user_id: assignment.team_leader_id,
+                type: 'comment',
+                title: 'New Reply on Assignment',
+                message: `${user.username} replied to a comment on "${assignment.title}"`,
+                assignment_id: assignmentId
+            });
         }
+    }
+    
+    return reply;
+}
 
-        // 2. Notify ALL Admins (Vital Requirement)
-        createAdminNotification(
-            null,
-            'comment', // Admin dashboard handles 'comment' type well
-            'New Reply on Assignment',
-            `${user.fullName || user.username} replied to a comment on "${assignment.title}" (Team: ${assignment.team})`,
-            userId,
-            user.username,
-            user.role,
-            assignmentId
-        ).catch(err => console.error('Failed to notify admins of reply:', err));
+/**
+ * Mark assignment as done
+ */
+async function markAssignmentDone(assignmentId, user) {
+    const assignment = await assignmentRepository.findById(assignmentId);
+    if (!assignment) throw new NotFoundError('Assignment');
+
+    await assignmentRepository.update(assignmentId, { status: 'completed' });
+
+    logActivity(
+        db, user.id, user.username, user.role, user.team,
+        `Marked assignment as completed: ${assignment.title}`
+    );
+
+    return true;
+}
+
+/**
+ * Delete an attachment from an assignment
+ */
+async function deleteAttachment(assignmentId, attachmentId, user) {
+    const fileService = require('./fileService');
+    const resolved = await fileService.resolvePhysicalPath(attachmentId);
+    
+    if (resolved.path) {
+        try { await fs.unlink(resolved.path); } catch (e) {}
     }
 
-    return newReply;
+    await assignmentRepository.deleteAttachment(attachmentId);
+    return true;
+}
+
+/**
+ * Delete a folder of attachments from an assignment
+ */
+async function deleteAttachmentFolder(assignmentId, folderName, user) {
+    const attachments = await db.all(
+        'SELECT id FROM assignment_attachments WHERE assignment_id = ? AND folder_name = ?',
+        [assignmentId, folderName]
+    );
+
+    if (!attachments || attachments.length === 0) return true;
+
+    for (const att of attachments) {
+        await deleteAttachment(assignmentId, att.id, user);
+    }
+
+    logActivity(
+        db, user.id, user.username, user.role, user.team,
+        `Deleted attachment folder: ${folderName} from assignment #${assignmentId}`
+    );
+
+    return true;
 }
 
 module.exports = {
     createAssignment,
-    getAssignmentById,
-    getTeamAssignments,
-    getAllAssignments,
     updateAssignment,
-    deleteAssignment,
+    getAllAssignments,
+    getTeamAssignments,
+    getTeamLeaderAssignments,
+    getAllSubmissionsForTL,
     submitAssignment,
-    getAssignmentStats,
+    markAssignmentDone,
     addComment,
-    addReply
+    addReply,
+    getComments,
+    deleteAttachment,
+    deleteAttachmentFolder,
+        getAssignmentById: async (id) => {
+        const result = await assignmentRepository.findAllWithDetails({ cursor: parseInt(id) + 1, limit: 1 });
+        const assignment = result.assignments.find(a => a.id == id);
+        if (!assignment) throw new NotFoundError('Assignment');
+        return assignment;
+    },
+
+    deleteAssignment: async (id, user) => {
+        const assignment = await assignmentRepository.findById(id);
+        if (!assignment) throw new NotFoundError('Assignment');
+        if (assignment.team_leader_id !== user.id && user.role !== 'ADMIN') throw new ValidationError('Permission denied');
+        return await assignmentRepository.deleteById(id);
+    },
+    getUserAssignments: async (userId, options = {}) => await assignmentRepository.findByUserId(userId, options)
 };

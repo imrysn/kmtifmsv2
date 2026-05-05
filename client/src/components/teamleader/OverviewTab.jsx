@@ -40,17 +40,19 @@ const OverviewTab = ({
 
   // Calculate dashboard metrics
   const calculateFilesStats = () => {
-    const total = submittedFiles.length
-    const approved = submittedFiles.filter(f => f.status === 'approved' || f.status === 'final_approved').length
-    const rejected = submittedFiles.filter(f => f.status === 'rejected' || f.status === 'rejected_by_team_leader' || f.status === 'rejected_by_admin').length
+    const files = Array.isArray(submittedFiles) ? submittedFiles : []
+    const total = files.length
+    const approved = files.filter(f => f.status === 'approved' || f.status === 'final_approved').length
+    const rejected = files.filter(f => f.status === 'rejected' || f.status === 'rejected_by_team_leader' || f.status === 'rejected_by_admin').length
     const pending = total - approved - rejected
     return { total, approved, rejected, pending }
   }
 
   const calculateAssignmentsStats = () => {
-    const activeAssignments = assignments.filter(a => a.status === 'active').length
-    const totalSubmissions = assignments.reduce((sum, a) => sum + (a.submission_count || 0), 0)
-    const upcomingDue = assignments.filter(a => {
+    const list = Array.isArray(assignments) ? assignments : []
+    const activeAssignments = list.filter(a => a.status === 'active').length
+    const totalSubmissions = list.reduce((sum, a) => sum + (a.submission_count || 0), 0)
+    const upcomingDue = list.filter(a => {
       if (!a.due_date) return false
       const dueDate = new Date(a.due_date)
       const now = new Date()
@@ -65,10 +67,11 @@ const OverviewTab = ({
     const now = new Date()
 
     // Filter active assignments with due dates
-    const tasksWithDueDates = assignments.filter(a => a.status === 'active' && a.due_date)
+    const list = Array.isArray(assignments) ? assignments : []
+    const tasksWithDueDates = list.filter(a => a.status === 'active' && a.due_date)
 
     // Filter active assignments without due dates
-    const tasksWithoutDueDates = assignments
+    const tasksWithoutDueDates = list
       .filter(a => a.status === 'active' && !a.due_date)
       .map(task => ({ ...task, daysUntilDue: null, dueDate: null }))
 

@@ -199,14 +199,22 @@ function cleanup() {
   
   if (viteProcess && !viteProcess.killed) {
     log('Stopping Vite...', colors.yellow, '  •');
-    viteProcess.kill('SIGTERM');
-    setTimeout(() => viteProcess.killed || viteProcess.kill('SIGKILL'), 1000);
+    if (process.platform === 'win32') {
+      try { require('child_process').execSync(`taskkill /pid ${viteProcess.pid} /T /F`, { stdio: 'ignore' }); } catch (e) {}
+    } else {
+      viteProcess.kill('SIGTERM');
+      setTimeout(() => viteProcess.killed || viteProcess.kill('SIGKILL'), 1000);
+    }
   }
   
   if (electronProcess && !electronProcess.killed) {
     log('Stopping Electron...', colors.yellow, '  •');
-    electronProcess.kill('SIGTERM');
-    setTimeout(() => electronProcess.killed || electronProcess.kill('SIGKILL'), 1000);
+    if (process.platform === 'win32') {
+      try { require('child_process').execSync(`taskkill /pid ${electronProcess.pid} /T /F`, { stdio: 'ignore' }); } catch (e) {}
+    } else {
+      electronProcess.kill('SIGTERM');
+      setTimeout(() => electronProcess.killed || electronProcess.kill('SIGKILL'), 1000);
+    }
   }
   
   log('Done!', colors.green, '✅');
