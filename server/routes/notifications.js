@@ -3,6 +3,54 @@ const { query, queryOne } = require('../config/database-mysql');
 
 const router = express.Router();
 
+// ── SSE broadcaster ──────────────────────────────────────────────────────────
+// Map<userId, Set<res>> — one user may have multiple open tabs
+const sseClients = new Map();
+
+const addClient = (userId, res) => {
+  if (!sseClients.has(userId)) sseClients.set(userId, new Set());
+  sseClients.get(userId).add(res);
+};
+
+const removeClient = (userId, res) => {
+  const set = sseClients.get(userId);
+  if (set) { set.delete(res); if (set.size === 0) sseClients.delete(userId); }
+};
+
+// Push a ping to a specific user so the client refetches immediately
+const pushToUser = (userId) => {
+  const set = sseClients.get(String(userId));
+  if (!set || set.size === 0) return;
+  const payload = `data: ping\n\n`;
+  for (const res of set) {
+    try { res.write(payload); } catch (_) { removeClient(String(userId), res); }
+  }
+};
+
+// SSE endpoint — client connects once and stays open
+router.get('/user/:userId/stream', (req, res) => {
+  const { userId } = req.params;
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+  res.setHeader('X-Accel-Buffering', 'no'); // disable nginx buffering if proxied
+  res.flushHeaders();
+
+  // Send a heartbeat every 25s to keep the connection alive through proxies
+  const heartbeat = setInterval(() => {
+    try { res.write(': heartbeat\n\n'); } catch (_) { clearInterval(heartbeat); }
+  }, 25000);
+
+  addClient(userId, res);
+  console.log(`📡 SSE client connected: user ${userId} (total: ${sseClients.get(userId)?.size})`);
+
+  req.on('close', () => {
+    clearInterval(heartbeat);
+    removeClient(userId, res);
+    console.log(`📡 SSE client disconnected: user ${userId}`);
+  });
+});
+
 // Helper function to create a notification (supports both file and assignment notifications)
 const createNotification = async (userId, fileId, type, title, message, actionById, actionByUsername, actionByRole, assignmentId = null) => {
   try {
@@ -17,6 +65,8 @@ const createNotification = async (userId, fileId, type, title, message, actionBy
     );
 
     console.log(`✅ Notification created for user ${userId}: ${title}`);
+    // Push real-time ping so the client badge updates instantly
+    pushToUser(userId);
     return result.insertId;
   } catch (error) {
     console.error('❌ Error creating notification:', error);
@@ -57,6 +107,8 @@ const createAdminNotification = async (fileId, type, title, message, actionById,
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [admin.id, fileId, type, title, message, assignmentId, actionById, actionByUsername, actionByRole]
       );
+      // Push real-time ping to the admin
+      pushToUser(admin.id);
       count++;
     }
 
@@ -277,9 +329,10 @@ router.delete('/user/:userId/delete-all', async (req, res) => {
   }
 });
 
-// Export both the router and the helper function
+// Export both the router and the helper functions
 module.exports = {
   router,
   createNotification,
-  createAdminNotification
+  createAdminNotification,
+  pushToUser
 };

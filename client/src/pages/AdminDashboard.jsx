@@ -7,6 +7,13 @@ import { getSidebarIcon } from '../components/shared/FileIcon'
 import { AuthProvider, NetworkProvider } from '../contexts'
 import { ToastNotification } from '../components/shared'
 
+// Sync unread count to Electron taskbar badge + icon flash
+const syncElectronBadge = (count) => {
+  if (!window.electron) return
+  if (typeof window.electron.setBadge === 'function') window.electron.setBadge(count)
+  if (typeof window.electron.flashFrame === 'function') window.electron.flashFrame(count > 0)
+}
+
 // Import admin tab components
 import {
   DashboardOverview,
@@ -145,10 +152,37 @@ const AdminDashboard = ({ user, onLogout }) => {
   useEffect(() => {
     fetchUsers()
     fetchNotifications()
-    // Poll for notifications every 30 seconds
+    // Poll for notifications every 30 seconds (fallback for SSE)
     const interval = setInterval(fetchNotifications, 30000)
     return () => clearInterval(interval)
   }, [])
+
+  // SSE — instant badge update when a new notification arrives
+  useEffect(() => {
+    if (!user?.id) return
+    let es
+    let reconnectTimer
+    const connect = () => {
+      es = new EventSource(`${API_BASE_URL}/api/notifications/user/${user.id}/stream`)
+      es.onmessage = (event) => {
+        if (event.data === 'ping') fetchNotifications()
+      }
+      es.onerror = () => {
+        es.close()
+        reconnectTimer = setTimeout(connect, 5000)
+      }
+    }
+    connect()
+    return () => {
+      if (es) es.close()
+      clearTimeout(reconnectTimer)
+    }
+  }, [user?.id])
+
+  // Sync unread badge + flash to Electron taskbar whenever count changes
+  useEffect(() => {
+    syncElectronBadge(unreadCount)
+  }, [unreadCount])
 
   const fetchUsers = async () => {
     try {

@@ -13,6 +13,7 @@ let loadRetryCount = 0;
 let viteRetryInterval = null;
 let isConnectedToVite = false;
 let splashTimeout = null;
+let hasUnread = false; // shared between createWindow() blur/focus and IPC badge handlers
 
 const isDev = process.env.NODE_ENV === 'development';
 const isProduction = !isDev;
@@ -730,6 +731,18 @@ function createWindow() {
       viteRetryInterval = null;
     }
   });
+
+  // ── Blur/focus flash control ─────────────────────────────────────────────
+  // Must be registered here inside createWindow() where mainWindow actually exists.
+  mainWindow.on('blur', () => {
+    if (hasUnread) {
+      if (!mainWindow.isDestroyed()) mainWindow.flashFrame(true);
+    }
+  });
+
+  mainWindow.on('focus', () => {
+    if (!mainWindow.isDestroyed()) mainWindow.flashFrame(false);
+  });
 }
 
 /*** Check if Vite is fully ready */
@@ -1418,14 +1431,67 @@ if (ipcMain) {
     }
   });
 
-  // Handle window flashing for notifications - DISABLED to prevent blinking
+  // ── Notification badge + taskbar flash ─────────────────────────────────────
+  // Strategy: track unread state in main process. Flash starts when window
+  // loses focus (blur) while there are unread notifications. Stops when
+  // user comes back (focus) or count reaches 0.
+  // NOTE: hasUnread is declared at module scope so createWindow()'s blur/focus
+  // listeners and these IPC handlers share the same variable.
+
+  const startFlash = () => {
+    if (mainWindow && !mainWindow.isDestroyed() && !mainWindow.isFocused()) {
+      mainWindow.flashFrame(true);
+      log(LogLevel.DEBUG, 'Taskbar flash started');
+    }
+  };
+
+  const stopFlash = () => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.flashFrame(false);
+      log(LogLevel.DEBUG, 'Taskbar flash stopped');
+    }
+  };
+
+  // Renderer tells us whether there are unread notifications
   ipcMain.on('window:flashFrame', (event, shouldFlash) => {
-    // DISABLED: Window flashing was causing the entire app to blink
-    // if (mainWindow && !mainWindow.isDestroyed()) {
-    //   log(LogLevel.DEBUG, `Window flash: ${shouldFlash ? 'START' : 'STOP'}`);
-    //   mainWindow.flashFrame(shouldFlash);
-    // }
-    log(LogLevel.DEBUG, `Window flash request ignored (disabled to prevent blinking)`);
+    hasUnread = shouldFlash;
+    if (!shouldFlash) {
+      stopFlash();
+    } else {
+      // Start flashing immediately if window is already not focused
+      startFlash();
+    }
+  });
+
+  // Set taskbar overlay badge icon with unread count
+  ipcMain.on('window:setBadge', (event, count) => {
+    if (!mainWindow || mainWindow.isDestroyed()) return;
+    const { nativeImage } = require('electron');
+    hasUnread = count > 0;
+    if (count > 0) {
+      const size = 20;
+      const label = count > 99 ? '99+' : String(count);
+      const fontSize = label.length > 2 ? 8 : label.length > 1 ? 10 : 12;
+      const svg = [
+        `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}">`,
+        `<circle cx="${size / 2}" cy="${size / 2}" r="${size / 2}" fill="#ef4444"/>`,
+        `<text x="50%" y="50%" dy=".38em" text-anchor="middle"`,
+        `  font-family="Arial,sans-serif" font-size="${fontSize}"`,
+        `  font-weight="bold" fill="white">${label}</text>`,
+        `</svg>`
+      ].join('');
+      const img = nativeImage.createFromDataURL(
+        'data:image/svg+xml;base64,' + Buffer.from(svg).toString('base64')
+      );
+      mainWindow.setOverlayIcon(img, `${count} unread notification${count !== 1 ? 's' : ''}`);
+      // Start flashing immediately if already unfocused
+      startFlash();
+      log(LogLevel.DEBUG, `Taskbar badge set: ${count}`);
+    } else {
+      mainWindow.setOverlayIcon(null, '');
+      stopFlash();
+      log(LogLevel.DEBUG, 'Taskbar badge cleared, flash stopped');
+    }
   });
 
   // Updater IPC handlers - now handled by updater-window module
