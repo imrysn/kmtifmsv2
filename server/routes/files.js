@@ -3169,58 +3169,59 @@ router.get('/:fileId/views', (req, res) => {
 
 // Get file details by ID (for opening files) - CATCH-ALL, MUST BE LAST
 // Also checks assignment_attachments so TL-attached files can be opened by users
-router.get('/:fileId', (req, res) => {
+router.get('/:fileId', async (req, res) => {
   const { fileId } = req.params;
 
-  // Skip if not a numeric ID (avoid catching other routes)
   if (!/^\d+$/.test(fileId)) {
-    return res.status(400).json({
-      success: false,
-      message: 'Invalid file ID'
-    });
+    return res.status(400).json({ success: false, message: 'Invalid file ID' });
   }
 
   console.log(`📝 Getting file details for ID: ${fileId}`);
 
-  // First check the files table
-  db.get('SELECT * FROM files WHERE id = ?', [fileId], (err, file) => {
-    if (err) {
-      console.error('❌ Error getting file:', err);
-      return res.status(500).json({
-        success: false,
-        message: 'Failed to get file details'
-      });
+  try {
+    const { query: mysqlQuery } = require('../../database/config');
+
+    // Try files table first, JOIN assignments via submissions to get task title
+    const rows = await mysqlQuery(`
+      SELECT f.*,
+             a.title AS assignment_title
+      FROM files f
+      LEFT JOIN assignment_submissions asub ON asub.file_id = f.id
+      LEFT JOIN assignments a ON a.id = asub.assignment_id
+      WHERE f.id = ?
+      LIMIT 1
+    `, [fileId]);
+
+    if (rows && rows.length > 0) {
+      console.log('✅ File found in files table:', rows[0].original_name);
+      return res.json({ success: true, file: rows[0] });
     }
 
-    if (file) {
-      console.log('✅ File found in files table:', file.original_name);
-      return res.json({ success: true, file });
-    }
-
-    // Not in files table — check assignment_attachments (TL-attached files)
+    // Not in files table — check assignment_attachments
     console.log(`📎 File ${fileId} not in files table, checking assignment_attachments...`);
-    db.get(
-      `SELECT id, file_path, public_network_url, original_name, filename, file_size, file_type,
-              uploaded_by_username AS username, created_at AS uploaded_at,
-              'team_leader_approved' AS status
-       FROM assignment_attachments WHERE id = ?`,
-      [fileId],
-      (err2, attachment) => {
-        if (err2) {
-          console.error('❌ Error checking assignment_attachments:', err2);
-          return res.status(500).json({ success: false, message: 'Failed to get file details' });
-        }
+    const attRows = await mysqlQuery(`
+      SELECT aa.id, aa.file_path, aa.public_network_url, aa.original_name, aa.filename,
+             aa.file_size, aa.file_type, aa.uploaded_by_username AS username,
+             aa.created_at AS uploaded_at, 'team_leader_approved' AS status,
+             a.title AS assignment_title
+      FROM assignment_attachments aa
+      LEFT JOIN assignments a ON a.id = aa.assignment_id
+      WHERE aa.id = ?
+      LIMIT 1
+    `, [fileId]);
 
-        if (!attachment) {
-          console.log('❌ File not found in either table:', fileId);
-          return res.status(404).json({ success: false, message: 'File not found' });
-        }
+    if (attRows && attRows.length > 0) {
+      console.log('✅ File found in assignment_attachments:', attRows[0].original_name);
+      return res.json({ success: true, file: attRows[0] });
+    }
 
-        console.log('✅ File found in assignment_attachments:', attachment.original_name);
-        return res.json({ success: true, file: attachment });
-      }
-    );
-  });
+    console.log('❌ File not found in either table:', fileId);
+    return res.status(404).json({ success: false, message: 'File not found' });
+
+  } catch (err) {
+    console.error('❌ Error getting file details:', err);
+    return res.status(500).json({ success: false, message: 'Failed to get file details' });
+  }
 });
 
 module.exports = router;

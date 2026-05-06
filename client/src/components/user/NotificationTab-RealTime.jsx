@@ -3,6 +3,9 @@ import { API_BASE_URL } from '@/config/api';
 import './css/NotificationTab.css';
 import { parseNotification } from '../shared/SmartNavigation';
 
+
+const FILE_DETAIL_TYPES = new Set(['approval', 'final_approval', 'rejection', 'final_rejection', 'comment']);
+
 const POLL_INTERVAL = 30000; // 30s fallback poll (SSE handles real-time; this catches missed events)
 
 const NotificationTab = ({ user, onOpenFile, onNavigateToTasks, onNavigate, onUpdateUnreadCount }) => {
@@ -12,6 +15,7 @@ const NotificationTab = ({ user, onOpenFile, onNavigateToTasks, onNavigate, onUp
   const [displayCount, setDisplayCount] = useState(10);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [showAll, setShowAll] = useState(false);
+
 
   // Keep latest onUpdateUnreadCount in a ref so the poll closure never goes stale
   const onUpdateUnreadCountRef = useRef(onUpdateUnreadCount);
@@ -106,6 +110,13 @@ const NotificationTab = ({ user, onOpenFile, onNavigateToTasks, onNavigate, onUp
       } catch (error) {
         console.error('❌ Error marking notification as read:', error);
       }
+    }
+
+    // File approval/rejection/comment notifications → navigate to Tasks and open FileModal there
+    if (FILE_DETAIL_TYPES.has(notification.type) && notification.file_id && !isFolderNotification(notification)) {
+      sessionStorage.setItem('openFileDetailsId', notification.file_id.toString());
+      if (onNavigate) onNavigate('tasks', null);
+      return;
     }
 
     if (isFolderNotification(notification)) {
