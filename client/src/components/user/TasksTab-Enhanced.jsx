@@ -68,24 +68,83 @@ const getAssignmentStatus = (assignment) => {
 };
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
-const FileMoreMenuInline = memo(({ onDelete, isFolder = false }) => {
-  if (!onDelete) return null;
+const FileMoreMenuInline = memo(({ onDelete, onViewDetails, isFolder = false }) => {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [open]);
+
+  if (!onDelete && !onViewDetails) return null;
+
   return (
-    <button
-      onClick={(e) => { e.stopPropagation(); onDelete(); }}
-      title={isFolder ? 'Delete Folder' : 'Delete File'}
-      style={{
-        background: 'transparent', border: 'none', borderRadius: '6px',
-        width: '30px', height: '30px', display: 'flex', alignItems: 'center',
-        justifyContent: 'center', cursor: 'pointer', color: '#9ca3af',
-        padding: 0, flexShrink: 0, transition: 'all 0.15s',
-        fontSize: '13px', fontWeight: 'bold', letterSpacing: '1px'
-      }}
-      onMouseEnter={e => { e.currentTarget.style.backgroundColor = '#fee2e2'; e.currentTarget.style.color = '#dc2626'; }}
-      onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = '#9ca3af'; }}
-    >
-      •••
-    </button>
+    <div ref={ref} style={{ position: 'relative', flexShrink: 0 }}>
+      <button
+        onClick={(e) => { e.stopPropagation(); setOpen(prev => !prev); }}
+        title="More options"
+        style={{
+          background: 'transparent', border: 'none', borderRadius: '6px',
+          width: '30px', height: '30px', display: 'flex', alignItems: 'center',
+          justifyContent: 'center', cursor: 'pointer', color: '#9ca3af',
+          padding: 0, flexShrink: 0, transition: 'all 0.15s',
+          fontSize: '13px', fontWeight: 'bold', letterSpacing: '1px'
+        }}
+        onMouseEnter={e => { e.currentTarget.style.backgroundColor = '#f3f4f6'; e.currentTarget.style.color = '#374151'; }}
+        onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = '#9ca3af'; }}
+      >
+        •••
+      </button>
+      {open && (
+        <div
+          onClick={e => e.stopPropagation()}
+          style={{
+            position: 'absolute', right: 0, top: '34px', zIndex: 1000,
+            backgroundColor: '#fff', border: '1px solid #e5e7eb',
+            borderRadius: '8px', boxShadow: '0 4px 16px rgba(0,0,0,0.12)',
+            minWidth: '160px', overflow: 'hidden',
+          }}
+        >
+          {onViewDetails && (
+            <button
+              onClick={() => { setOpen(false); onViewDetails(); }}
+              style={{
+                width: '100%', textAlign: 'left', background: 'none', border: 'none',
+                padding: '10px 14px', fontSize: '13px', color: '#374151',
+                cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px',
+              }}
+              onMouseEnter={e => { e.currentTarget.style.backgroundColor = '#f3f4f6'; }}
+              onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; }}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+              </svg>
+              File Details
+            </button>
+          )}
+          {onDelete && (
+            <button
+              onClick={() => { setOpen(false); onDelete(); }}
+              style={{
+                width: '100%', textAlign: 'left', background: 'none', border: 'none',
+                padding: '10px 14px', fontSize: '13px', color: '#dc2626',
+                cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px',
+              }}
+              onMouseEnter={e => { e.currentTarget.style.backgroundColor = '#fee2e2'; }}
+              onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; }}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/>
+              </svg>
+              {isFolder ? 'Delete Folder' : 'Delete File'}
+            </button>
+          )}
+        </div>
+      )}
+    </div>
   );
 });
 FileMoreMenuInline.displayName = 'FileMoreMenuInline';
@@ -742,23 +801,8 @@ const TasksTab = memo(({
             </div>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '2px', flexShrink: 0 }} onClick={e => e.stopPropagation()}>
-            <button
-              onClick={() => openFileDetails(fileWithTitle)}
-              title="View file details & comments"
-              style={{
-                background: 'transparent', border: 'none', borderRadius: '6px',
-                width: '30px', height: '30px', display: 'flex', alignItems: 'center',
-                justifyContent: 'center', cursor: 'pointer', color: '#9ca3af',
-                padding: 0, flexShrink: 0, transition: 'all 0.15s',
-              }}
-              onMouseEnter={e => { e.currentTarget.style.backgroundColor = '#eff6ff'; e.currentTarget.style.color = '#2563eb'; }}
-              onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = '#9ca3af'; }}
-            >
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
-              </svg>
-            </button>
             <FileMoreMenuInline
+              onViewDetails={() => openFileDetails(fileWithTitle)}
               onDelete={canDelete ? () => confirmDeleteFile(assignmentId, file.id, file.original_name || file.filename) : undefined}
             />
           </div>
@@ -1038,29 +1082,12 @@ const TasksTab = memo(({
                                   </div>
                                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '2px', flexShrink: 0 }} onClick={e => e.stopPropagation()}>
-                  {folderFiles.some(f => ['rejected_by_team_leader', 'rejected_by_admin'].includes(f.status)) && (
-                    <button
-                      onClick={() => {
-                        const rejectedFile = folderFiles.find(f => ['rejected_by_team_leader', 'rejected_by_admin'].includes(f.status));
-                        if (rejectedFile) openFileDetails(rejectedFile);
-                      }}
-                      title="View file details"
-                      style={{
-                        background: 'transparent', border: 'none', borderRadius: '6px',
-                        width: '30px', height: '30px', display: 'flex', alignItems: 'center',
-                        justifyContent: 'center', cursor: 'pointer', color: '#dc2626',
-                        padding: 0, flexShrink: 0, transition: 'all 0.15s',
-                      }}
-                      onMouseEnter={e => { e.currentTarget.style.backgroundColor = '#fee2e2'; }}
-                      onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; }}
-                    >
-                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                        <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
-                      </svg>
-                    </button>
-                  )}
                   <FileMoreMenuInline
                     isFolder
+                    onViewDetails={() => {
+                      const firstFile = folderFiles[0];
+                      if (firstFile) openFileDetails(firstFile);
+                    }}
                     onDelete={() => {
                       setFileToDelete({ assignmentId: assignment.id, fileId: null, fileName: folderName, isFolderDelete: true, folderFiles });
                       setShowDeleteModal(true);

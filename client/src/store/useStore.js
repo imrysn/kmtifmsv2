@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+import { persist, createJSONStorage } from 'zustand/middleware';
 
 /**
  * Global Application Store
@@ -10,9 +10,49 @@ import { persist } from 'zustand/middleware';
  * - Loading states
  * - File cache
  */
+
+// ── Storage backend ──────────────────────────────────────────────────────────
+// In Electron (with contextIsolation + sandbox), browser localStorage may not
+// flush before the process exits. Use the native app-storage IPC instead.
+// Fall back to localStorage when running outside Electron (browser/dev HMR).
+const createElectronStorage = () => ({
+  getItem: async (name) => {
+    try {
+      if (window.electron?.appStorage) {
+        const val = await window.electron.appStorage.get(name);
+        return val ?? null;
+      }
+    } catch { /* ignore */ }
+    return localStorage.getItem(name);
+  },
+  setItem: async (name, value) => {
+    try {
+      if (window.electron?.appStorage) {
+        await window.electron.appStorage.set(name, value);
+        return;
+      }
+    } catch { /* ignore */ }
+    localStorage.setItem(name, value);
+  },
+  removeItem: async (name) => {
+    try {
+      if (window.electron?.appStorage) {
+        await window.electron.appStorage.set(name, null);
+        return;
+      }
+    } catch { /* ignore */ }
+    localStorage.removeItem(name);
+  },
+});
 const useStore = create(
     persist(
         (set, get) => ({
+            // ============================================================================
+            // HYDRATION STATE
+            // ============================================================================
+            _hasHydrated: false,
+            setHasHydrated: (val) => set({ _hasHydrated: val }),
+
             // ============================================================================
             // USER AUTHENTICATION STATE
             // ============================================================================
@@ -176,13 +216,17 @@ const useStore = create(
         }),
         {
             name: 'kmti-fms-storage',
+            storage: createJSONStorage(createElectronStorage),
             // Only persist user data, not cache or temporary states
             partialize: (state) => ({
                 user: state.user,
                 token: state.token,
                 theme: state.theme,
                 sidebarOpen: state.sidebarOpen
-            })
+            }),
+            onRehydrateStorage: () => (state) => {
+                if (state) state.setHasHydrated(true);
+            },
         }
     )
 );

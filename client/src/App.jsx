@@ -21,7 +21,13 @@ const logger = createLogger('App')
 
 function App() {
   // Use Zustand store instead of local state
-  const { user, login, logout } = useStore()
+  const { user, login, logout, _hasHydrated } = useStore()
+
+  // Don't render until persisted store is rehydrated — prevents 401s from
+  // components firing apiFetch before the token is available
+  if (!_hasHydrated) {
+    return <LoadingSpinner message="Loading..." />
+  }
 
   // Log user session restoration
   useEffect(() => {
