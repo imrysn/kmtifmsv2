@@ -19,7 +19,8 @@ async function runMigrations() {
       { name: 'Fix assignment_comments schema (drop FK, add updated_at)', run: require('./006-fix-comments-schema') },
       // Append the incoming feature as the next step
       { name: 'Add File Views Table', run: require('./007-add-file-views') },
-      { name: 'Add updated_at to files', run: require('./008-add-updated-at-to-files') }
+      { name: 'Add updated_at to files', run: require('./008-add-updated-at-to-files') },
+      { name: 'Add User Performance Snapshots', run: require('./009-add-performance-snapshots') }
     ];
 
     for (const migration of migrations) {

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo, useRef, memo } from 'react';
 import { apiFetch } from '@/config/api';
 import './UserPerformanceCard.css';
 import PerformanceInfoModal from './PerformanceInfoModal';
+import PerfSparkline from './PerfSparkline';
 
 /**
  * UserPerformanceCard - A shared component to display user performance metrics.
@@ -19,6 +20,10 @@ const UserPerformanceCard = memo(({ user, performanceData, fallbackStats, isColl
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isInfoModalOpen, setIsInfoModalOpen] = useState(false);
   const [mode, setMode] = useState('production'); // 'production' or 'management'
+  const [historyData, setHistoryData] = useState(null);
+  const [personalBest, setPersonalBest] = useState(0);
+  const [streakData, setStreakData] = useState({ current: 0, longest: 0 });
+  const [isHistoryLoading, setIsHistoryLoading] = useState(false);
   const lastReportedScore = useRef(null);
 
   const onPerformanceLoadRef = useRef(onPerformanceLoad);
@@ -84,6 +89,27 @@ const UserPerformanceCard = memo(({ user, performanceData, fallbackStats, isColl
   const displayFileTotal = performance?.fileTotal ?? (fallbackStats?.fileTotal || 0);
   const displayFileApproved = performance?.fileApproved ?? (fallbackStats?.fileApproved || 0);
   const displayFileRejected = performance?.fileRejected ?? (fallbackStats?.fileRejected || 0);
+
+  useEffect(() => {
+    if (!isCollapsed && !historyData && !isHistoryLoading && user?.id) {
+      const fetchHistory = async () => {
+        setIsHistoryLoading(true);
+        try {
+          const data = await apiFetch(`/api/dashboard/user-performance/${user.id}/history`);
+          if (data.success) {
+            setHistoryData(data.history || []);
+            setPersonalBest(data.personalBest || 0);
+            setStreakData({ current: data.currentStreak || 0, longest: data.longestStreak || 0 });
+          }
+        } catch (err) {
+          console.error('Failed to fetch performance history:', err);
+        } finally {
+          setIsHistoryLoading(false);
+        }
+      };
+      fetchHistory();
+    }
+  }, [isCollapsed, historyData, isHistoryLoading, user.id]);
 
   if (loading && !fallbackStats) {
     return (
@@ -161,17 +187,42 @@ const UserPerformanceCard = memo(({ user, performanceData, fallbackStats, isColl
                     (mode === 'management' ? performance?.management?.managementScore : overallScore) >= 70 ? 'dot-blue' :
                       (mode === 'management' ? performance?.management?.managementScore : overallScore) >= 50 ? 'dot-amber' : 'dot-rose'
                   }`}></span>
-                {mode === 'management' ? (
-                  performance?.management?.managementScore >= 85 ? 'Excellent Leader' :
-                    performance?.management?.managementScore >= 60 ? 'Active Leader' : 'Slow Response'
-                ) : (
-                  overallScore > 100 ? 'Top Performer' :
-                    overallScore >= 85 ? 'Excellent' :
-                      overallScore >= 70 ? 'Good' :
-                        overallScore >= 50 ? 'Fair' : 'Needs Improvement'
-                )}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  {mode === 'management' ? (
+                    performance?.management?.managementScore >= 85 ? 'Excellent Leader' :
+                      performance?.management?.managementScore >= 60 ? 'Active Leader' : 'Slow Response'
+                  ) : (
+                    overallScore > 100 ? 'Top Performer' :
+                      overallScore >= 85 ? 'Excellent' :
+                        overallScore >= 70 ? 'Good' :
+                          overallScore >= 50 ? 'Fair' : 'Needs Improvement'
+                  )}
+
+                  {/* Absolute Numeric Rank Badge - Always based on Production WPI (overallScore) */}
+                  {performance?.overallScore > 0 && performance?.rank && (
+                    <span className={`perf-rank-pill ${performance.rank === 1 ? 'rank-gold' : performance.percentileRank >= 70 ? 'rank-green' : ''}`}>
+                      {performance.rank === 1 ? '🏆 Top 1' : `Top ${performance.rank}`}
+                      <span style={{ fontSize: '0.85em', opacity: 0.7, marginLeft: '4px' }}>
+                        of {performance.totalUsers}
+                      </span>
+                    </span>
+                  )}
+                </div>
               </div>
             </div>
+
+            {/* Sparkline & Delta Group */}
+            {!isCollapsed && historyData && historyData.length > 1 && (
+              <div className="perf-trend-group" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <PerfSparkline data={historyData.map(h => h.overall_score)} />
+                {historyData.length >= 2 && (
+                  <div className={`perf-delta-chip ${overallScore >= historyData[historyData.length - 2].overall_score ? 'delta-up' : 'delta-down'}`}>
+                    {overallScore >= historyData[historyData.length - 2].overall_score ? '↗' : '↘'} 
+                    {Math.abs(overallScore - historyData[historyData.length - 2].overall_score)}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           <div className="perf-hero-bar-container">
@@ -184,6 +235,22 @@ const UserPerformanceCard = memo(({ user, performanceData, fallbackStats, isColl
               style={{ width: `${Math.min(100, mode === 'management' ? (performance?.management?.managementScore || 0) : overallScore)}%` }}
             ></div>
           </div>
+
+          {/* Gamification Badges Row */}
+          {!isCollapsed && (streakData.current >= 2 || (overallScore >= personalBest && historyData?.length > 0)) && (
+            <div className="perf-badges-row" style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
+              {streakData.current >= 2 && (
+                <div className={`perf-badge-streak ${streakData.current >= 4 ? 'streak-fire' : ''}`}>
+                  🔥 {streakData.current} Week Streak
+                </div>
+              )}
+              {overallScore >= personalBest && historyData?.length > 0 && (
+                <div className="perf-badge-pb">
+                  🏆 Personal Best
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {!isCollapsed && (
@@ -386,6 +453,7 @@ const UserPerformanceCard = memo(({ user, performanceData, fallbackStats, isColl
       <PerformanceInfoModal
         isOpen={isInfoModalOpen}
         onClose={() => setIsInfoModalOpen(false)}
+        performance={performance}
       />
     </div>
   );

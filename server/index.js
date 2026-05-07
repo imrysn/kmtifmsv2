@@ -9,6 +9,7 @@ const runMigrations = require('./migrations/runMigrations');
 const { errorHandler, notFoundHandler, handleUnhandledRejection, handleUncaughtException } = require('./middleware/errorHandler');
 const { logRequest, logInfo, logError } = require('./utils/logger');
 const { apiLimiter, authLimiter, uploadLimiter } = require('./config/rateLimiter');
+const { scheduleWeeklyJob } = require('./utils/snapshotScheduler');
 
 // Hide console window on Windows when running as executable - MUST BE FIRST
 if (process.platform === 'win32' && process.pkg) {
@@ -356,7 +357,10 @@ async function startServer() {
     });
 
     // 3. Start DB init in background — does NOT block server startup
-    initDbWithRetry();
+    initDbWithRetry().then(() => {
+      // 4. Start weekly performance snapshots once DB is ready
+      scheduleWeeklyJob();
+    });
 
   } catch (error) {
     console.error('\n❌ Failed to bind Express server:', error.message);

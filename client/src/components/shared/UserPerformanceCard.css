@@ -531,3 +531,82 @@
   border-left: 2px solid #6366f1;
 }
 
+/* Rank Pill Styling */
+.perf-rank-pill {
+  font-size: 10px;
+  font-weight: 800;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #f1f5f9;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.perf-rank-pill.rank-gold {
+  background: #fefce8;
+  color: #854d0e;
+  border: 1px solid #fde047;
+}
+
+.perf-rank-pill.rank-green {
+  background: #f0fdf4;
+  color: #166534;
+  border: 1px solid #bbf7d0;
+}
+
+/* Trend & Delta */
+.perf-trend-group {
+  margin-left: auto;
+}
+
+.perf-delta-chip {
+  font-size: 11px;
+  font-weight: 800;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.perf-delta-chip.delta-up {
+  background: #f0fdf4;
+  color: #166534;
+}
+
+.perf-delta-chip.delta-down {
+  background: #fef2f2;
+  color: #991b1b;
+}
+
+/* Gamification Badges */
+.perf-badge-streak {
+  font-size: 10px;
+  font-weight: 800;
+  padding: 4px 10px;
+  border-radius: 6px;
+  background: #fff7ed;
+  color: #c2410c;
+  border: 1px solid #fdba74;
+}
+
+.perf-badge-streak.streak-fire {
+  background: #fff1f2;
+  color: #be123c;
+  border-color: #fda4af;
+  animation: pulse-soft 2s infinite;
+}
+
+.perf-badge-pb {
+  font-size: 10px;
+  font-weight: 800;
+  padding: 4px 10px;
+  border-radius: 6px;
+  background: #fdf4ff;
+  color: #701a75;
+  border: 1px solid #f5d0fe;
+}
+
+@keyframes pulse-soft {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.03); }
+  100% { transform: scale(1); }
+}

@@ -1,14 +1,9 @@
 import { LoadingTable } from '../common/InlineSkeletonLoader'
-import { useState, useMemo, useCallback, useEffect } from 'react'
+import { useState, useMemo, useCallback, useEffect, memo } from 'react'
+import { apiFetch } from '@/config/api'
 import UserPerformanceCard from '../shared/UserPerformanceCard'
 import PerformanceDemo from '../shared/PerformanceDemo'
 
-const TeamManagementTab = ({
-  isLoadingTeam,
-  teamMembers,
-  fetchMemberFiles
-}) => {
-// Extract MemberCard to prevent re-creating functions in the map
 const MemberCard = memo(({ member, bulkPerformance, memberScores, handleScoreLoad }) => {
   const score = memberScores[member.id] || 0;
   const isStar = score > 100;
