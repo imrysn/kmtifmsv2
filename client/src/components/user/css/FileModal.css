@@ -162,7 +162,7 @@
 .user-file-modal-component .detail-label {
   color: #86868b;
   font-size: 12px;
-  font-weight: 600;
+  font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.5px;
   flex-shrink: 0;
@@ -295,7 +295,7 @@
 .user-file-modal-component .public-label,
 .user-file-modal-component .rejection-label {
   color: #86868b;
-  font-weight: 500;
+  font-weight: 700;
   flex-shrink: 0;
 }
 
