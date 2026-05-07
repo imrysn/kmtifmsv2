@@ -124,6 +124,8 @@ const DashboardTab = ({ user, files, setActiveTab, onOpenFile, onNavigateToTasks
     submitted: assignments.filter(a => a.user_status === 'submitted').length,
     overdue: assignments.filter(a => {
       if (!a.due_date) return false;
+      // Exclude tasks the TL/admin has already marked as completed
+      if (a.status === 'completed') return false;
       return new Date(a.due_date) < new Date() && a.user_status !== 'submitted';
     }).length
   }), [assignments]);

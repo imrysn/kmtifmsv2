@@ -352,7 +352,7 @@ const ActivityLogs = ({ clearMessages, error, success, setError, setSuccess }) =
         setError('')
       }
 
-      setSuccess(`Successfully deleted ${data.deletedCount || logsToDelete} log(s) matching your filter criteria`)
+      setError(`Successfully deleted ${data.deletedCount || logsToDelete} log(s) matching your filter criteria`)
 
     } catch (error) {
       console.error('Error deleting logs:', error)

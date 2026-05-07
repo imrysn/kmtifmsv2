@@ -349,7 +349,7 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess, u
         })
       })
       if (data.success) {
-        setSuccess(`User ${userToDelete.fullName} deleted successfully`)
+        setError(`User ${userToDelete.fullName} deleted successfully`)
         setShowUserDeleteModal(false)
         setUserToDelete(null)
         fetchUsers()

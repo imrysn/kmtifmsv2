@@ -440,101 +440,134 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
 
       let response
 
-        // choose url/method for both create and update using main endpoint so we can handle removals
-        const url = editingAssignmentId
-          ? `${API_BASE_URL}/api/assignments/${editingAssignmentId}`
-          : `${API_BASE_URL}/api/assignments/create`
-        const method = editingAssignmentId ? 'PUT' : 'POST'
+      // choose url/method for both create and update using main endpoint so we can handle removals
+      const url = editingAssignmentId
+        ? `${API_BASE_URL}/api/assignments/${editingAssignmentId}`
+        : `${API_BASE_URL}/api/assignments/create`
+      const method = editingAssignmentId ? 'PUT' : 'POST'
 
-        if (hasAttachments || (removedAttachmentIds && removedAttachmentIds.length > 0)) {
-          // Request a one-time nonce from the server before uploading.
-          // This prevents Electron's multipart cache from replaying old uploads.
-          const nonceData = await apiFetch(`/api/assignments/upload-nonce`, { method: 'POST' })
-          if (!nonceData.success) throw new Error('Failed to get upload nonce')
+      if (hasAttachments || (removedAttachmentIds && removedAttachmentIds.length > 0)) {
+        // Request a one-time nonce from the server before uploading.
+        // This prevents Electron's multipart cache from replaying old uploads.
+        const nonceData = await apiFetch(`/api/assignments/upload-nonce`, { method: 'POST' })
+        if (!nonceData.success) throw new Error('Failed to get upload nonce')
 
-          const formData = new FormData()
-          formData.append('title', assignmentForm.title)
-          formData.append('description', assignmentForm.description || '')
-          formData.append('dueDate', assignmentForm.dueDate || '')
-          formData.append('fileTypeRequired', assignmentForm.fileTypeRequired || '')
-          formData.append('assignedTo', 'specific')
-          formData.append('assignedMembers', JSON.stringify(assignmentForm.assignedMembers))
-          formData.append('teamLeaderId', user.id)
-          formData.append('teamLeaderUsername', user.username)
-          formData.append('team', assignmentForm.selectedTeam || user.team)
-          // Only flag hasAttachments=true when there are actual new files to upload
-          formData.append('hasAttachments', hasAttachments ? 'true' : 'false')
-          formData.append('uploadNonce', nonceData.nonce)
-          attachedFiles.forEach((file) => formData.append('attachments', file))
-          // Send relative paths so server can group files into folders
-          formData.append('relativePaths', JSON.stringify(attachedFiles.map(f => f.webkitRelativePath || f.name)))
-          // tell server which existing attachment ids to delete
-          if (removedAttachmentIds && removedAttachmentIds.length > 0) {
-            formData.append('removeAttachmentIds', JSON.stringify(removedAttachmentIds));
-          }
-
-          let responseData;
-          try {
-            responseData = await apiFetch(url, { 
-              method, 
-              body: formData,
-              headers: {} // Don't set Content-Type for FormData
-            })
-          } catch (error) {
-            // If server rejected due to a stale/replayed nonce
-            if (error.message && error.message.toLowerCase().includes('nonce')) {
-              console.warn('⚠️ Nonce rejected — falling back to JSON request (no attachments)')
-              // For new assignments, fall back to /create-json; for edits, fall back to PUT /:id with JSON
-              const fallbackUrl = editingAssignmentId
-                ? url
-                : `/api/assignments/create-json`
-              const fallbackMethod = editingAssignmentId ? 'PUT' : 'POST'
-              const fallbackData = await apiFetch(fallbackUrl, {
-                method: fallbackMethod,
-                body: JSON.stringify({
-                  title: assignmentForm.title,
-                  description: assignmentForm.description || '',
-                  dueDate: assignmentForm.dueDate || '',
-                  fileTypeRequired: assignmentForm.fileTypeRequired || '',
-                  assignedTo: 'specific',
-                  assignedMembers: assignmentForm.assignedMembers,
-                  teamLeaderId: user.id,
-                  teamLeaderUsername: user.username,
-                  team: assignmentForm.selectedTeam || user.team,
-                  removeAttachmentIds
-                })
-              })
-              return handlePostDataResult(fallbackData, removeAttachmentIds);
-            }
-            // Re-throw if it's not a nonce error
-            throw error;
-          }
-          return handlePostDataResult(responseData, removeAttachmentIds);
-        } else {
-          // No file changes — use JSON-only endpoints (no nonce needed)
-          // New assignments → /create-json; edits → PUT /:id with JSON
-          const jsonUrl = editingAssignmentId
-            ? url
-            : `/api/assignments/create-json`
-          const jsonMethod = editingAssignmentId ? 'PUT' : 'POST'
-          const data = await apiFetch(jsonUrl, {
-            method: jsonMethod,
-            body: JSON.stringify({
-              title: assignmentForm.title,
-              description: assignmentForm.description || '',
-              dueDate: assignmentForm.dueDate || '',
-              fileTypeRequired: assignmentForm.fileTypeRequired || '',
-              assignedTo: 'specific',
-              assignedMembers: assignmentForm.assignedMembers,
-              teamLeaderId: user.id,
-              teamLeaderUsername: user.username,
-              team: assignmentForm.selectedTeam || user.team,
-              removeAttachmentIds // may be []
-            })
-          })
-          return handlePostDataResult(data, removeAttachmentIds);
+        const formData = new FormData()
+        formData.append('title', assignmentForm.title)
+        formData.append('description', assignmentForm.description || '')
+        formData.append('dueDate', assignmentForm.dueDate || '')
+        formData.append('fileTypeRequired', assignmentForm.fileTypeRequired || '')
+        formData.append('assignedTo', 'specific')
+        formData.append('assignedMembers', JSON.stringify(assignmentForm.assignedMembers))
+        formData.append('teamLeaderId', user.id)
+        formData.append('teamLeaderUsername', user.username)
+        formData.append('team', assignmentForm.selectedTeam || user.team)
+        // Only flag hasAttachments=true when there are actual new files to upload
+        formData.append('hasAttachments', hasAttachments ? 'true' : 'false')
+        formData.append('uploadNonce', nonceData.nonce)
+        attachedFiles.forEach((file) => formData.append('attachments', file))
+        // Send relative paths so server can group files into folders
+        formData.append('relativePaths', JSON.stringify(attachedFiles.map(f => f.webkitRelativePath || f.name)))
+        // tell server which existing attachment ids to delete
+        if (removedAttachmentIds && removedAttachmentIds.length > 0) {
+          formData.append('removeAttachmentIds', JSON.stringify(removedAttachmentIds));
         }
 
+        let responseData;
+        try {
+          responseData = await apiFetch(url, {
+            method,
+            body: formData,
+            headers: {} // Don't set Content-Type for FormData
+          })
+        } catch (error) {
+          // If server rejected due to a stale/replayed nonce
+          if (error.message && error.message.toLowerCase().includes('nonce')) {
+            console.warn('⚠️ Nonce rejected — falling back to JSON request (no attachments)')
+            // For new assignments, fall back to /create-json; for edits, fall back to PUT /:id with JSON
+            const fallbackUrl = editingAssignmentId
+              ? url
+              : `/api/assignments/create-json`
+            const fallbackMethod = editingAssignmentId ? 'PUT' : 'POST'
+            const fallbackData = await apiFetch(fallbackUrl, {
+              method: fallbackMethod,
+              body: JSON.stringify({
+                title: assignmentForm.title,
+                description: assignmentForm.description || '',
+                dueDate: assignmentForm.dueDate || '',
+                fileTypeRequired: assignmentForm.fileTypeRequired || '',
+                assignedTo: 'specific',
+                assignedMembers: assignmentForm.assignedMembers,
+                teamLeaderId: user.id,
+                teamLeaderUsername: user.username,
+                team: assignmentForm.selectedTeam || user.team,
+                removeAttachmentIds
+              })
+            })
+            return handlePostDataResult(fallbackData, removeAttachmentIds);
+          }
+          // Re-throw if it's not a nonce error
+          throw error;
+        }
+        return handlePostDataResult(responseData, removeAttachmentIds);
+      } else {
+        // No file changes — use JSON-only endpoints (no nonce needed)
+        // New assignments → /create-json; edits → PUT /:id with JSON
+        const jsonUrl = editingAssignmentId
+          ? url
+          : `/api/assignments/create-json`
+        const jsonMethod = editingAssignmentId ? 'PUT' : 'POST'
+        const data = await apiFetch(jsonUrl, {
+          method: jsonMethod,
+          body: JSON.stringify({
+            title: assignmentForm.title,
+            description: assignmentForm.description || '',
+            dueDate: assignmentForm.dueDate || '',
+            fileTypeRequired: assignmentForm.fileTypeRequired || '',
+            assignedTo: 'specific',
+            assignedMembers: assignmentForm.assignedMembers,
+            teamLeaderId: user.id,
+            teamLeaderUsername: user.username,
+            team: assignmentForm.selectedTeam || user.team,
+            removeAttachmentIds // may be []
+          })
+        })
+        return handlePostDataResult(data, removeAttachmentIds);
+      }
+
+      function handlePostDataResult(data, removeAttachmentIds) {
+        if (data.success) {
+          setSuccess(editingAssignmentId
+            ? 'Task updated successfully!'
+            : `Assignment created! ${data.membersAssigned} members assigned.`
+          )
+          // immediately remove attachments locally so UI reflects change even before server refetch
+          if (editingAssignmentId && removeAttachmentIds.length > 0) {
+            setAssignments(prev => prev.map(a => {
+              if (a.id === editingAssignmentId) {
+                return {
+                  ...a,
+                  attachments: (a.attachments || []).filter(att => !removeAttachmentIds.includes(att.id))
+                }
+              }
+              return a
+            }))
+          }
+          setShowCreateAssignmentModal(false)
+          setEditingAssignmentId(null)
+          setAssignmentForm({
+            title: '',
+            description: '',
+            dueDate: '',
+            fileTypeRequired: '',
+            assignedMembers: [],
+            selectedTeam: uniqueTeams && uniqueTeams.length === 1 ? uniqueTeams[0] : ''
+          })
+          fetchAssignments()
+        } else {
+          setError(data.message || `Failed to ${editingAssignmentId ? 'update' : 'create'} assignment`)
+        }
+      }
     } catch (error) {
       console.error(`Error ${editingAssignmentId ? 'updating' : 'creating'} assignment:`, error)
       setError(`Failed to ${editingAssignmentId ? 'update' : 'create'} assignment`)
@@ -595,7 +628,7 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
       })
 
       if (data.success) {
-        setSuccess('Assignment deleted successfully')
+        setError('Assignment deleted successfully')
         fetchAssignments()
       } else {
         setError('Failed to delete assignment')
