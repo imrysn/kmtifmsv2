@@ -8,6 +8,90 @@ const TeamManagementTab = ({
   teamMembers,
   fetchMemberFiles
 }) => {
+// Extract MemberCard to prevent re-creating functions in the map
+const MemberCard = memo(({ member, bulkPerformance, memberScores, handleScoreLoad }) => {
+  const score = memberScores[member.id] || 0;
+  const isStar = score > 100;
+  const isExcellent = score >= 85 && score <= 100;
+
+  // Stable callback for this specific member
+  const onPerformanceLoad = useCallback((data) => {
+    handleScoreLoad(member.id, data);
+  }, [handleScoreLoad, member.id]);
+
+  return (
+    <div className={`member-perf-wrapper ${isStar ? 'card-star' : isExcellent ? 'card-excellent' : ''}`} style={{
+      background: '#ffffff',
+      border: (isStar || isExcellent) ? 'none' : '1px solid #f1f5f9',
+      borderRadius: '16px',
+      padding: '16px',
+      boxShadow: (isStar || isExcellent) ? 'none' : '0 2px 10px rgba(0,0,0,0.02)',
+      position: 'relative',
+      overflow: 'hidden'
+    }}>
+      {isStar && (
+        <div className="perf-star-badge">
+          <span>TOP</span>
+        </div>
+      )}
+      {isExcellent && (
+        <div className="perf-star-badge badge-excellent">
+          <span>PRO</span>
+        </div>
+      )}
+
+      <div className="member-perf-header" style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: '12px',
+        marginBottom: '16px',
+        paddingLeft: '4px'
+      }}>
+        <div style={{
+          width: '36px',
+          height: '36px',
+          background: isStar ? 'rgba(99, 102, 241, 0.1)' : isExcellent ? 'rgba(16, 185, 129, 0.1)' : '#f1f5f9',
+          borderRadius: '10px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          fontWeight: '800',
+          color: isStar ? '#6366f1' : isExcellent ? '#10b981' : '#475569',
+          fontSize: '13px',
+          border: isStar ? '1px solid rgba(99, 102, 241, 0.2)' : isExcellent ? '1px solid rgba(16, 185, 129, 0.2)' : 'none'
+        }}>
+          {member.name.substring(0, 2).toUpperCase()}
+        </div>
+        <div style={{ minWidth: 0 }}>
+          <h3 style={{
+            fontSize: '15px',
+            fontWeight: '800',
+            color: '#0f172a',
+            margin: 0,
+            whiteSpace: 'nowrap',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis'
+          }}>{member.name}</h3>
+          <span style={{ fontSize: '12px', color: '#64748b' }}>{member.email}</span>
+        </div>
+      </div>
+      <UserPerformanceCard
+        user={member}
+        isCollapsible={true}
+        performanceData={bulkPerformance[member.id]}
+        onPerformanceLoad={onPerformanceLoad}
+      />
+    </div>
+  );
+});
+MemberCard.displayName = 'MemberCard';
+
+const TeamManagementTab = ({
+  isLoadingTeam,
+  teamMembers,
+  fetchMemberFiles
+}) => {
+
   const [viewMode, setViewMode] = useState('performance') // 'table' or 'performance'
   const [searchQuery, setSearchQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
@@ -223,76 +307,15 @@ const TeamManagementTab = ({
             gridTemplateColumns: 'repeat(2, 1fr)',
             gap: '20px'
           }}>
-            {filteredMembers.filter(member => member.role !== 'ADMIN').map(member => {
-              const score = memberScores[member.id] || 0;
-              const isStar = score > 100;
-              const isExcellent = score >= 85 && score <= 100;
-
-              return (
-                <div key={member.id} className={`member-perf-wrapper ${isStar ? 'card-star' : isExcellent ? 'card-excellent' : ''}`} style={{
-                  background: '#ffffff',
-                  border: (isStar || isExcellent) ? 'none' : '1px solid #f1f5f9',
-                  borderRadius: '16px',
-                  padding: '16px',
-                  boxShadow: (isStar || isExcellent) ? 'none' : '0 2px 10px rgba(0,0,0,0.02)',
-                  position: 'relative',
-                  overflow: 'hidden'
-                }}>
-                  {isStar && (
-                    <div className="perf-star-badge">
-                      <span>TOP</span>
-                    </div>
-                  )}
-                  {isExcellent && (
-                    <div className="perf-star-badge badge-excellent">
-                      <span>PRO</span>
-                    </div>
-                  )}
-
-                  <div className="member-perf-header" style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '12px',
-                    marginBottom: '16px',
-                    paddingLeft: '4px'
-                  }}>
-                    <div style={{
-                      width: '36px',
-                      height: '36px',
-                      background: isStar ? 'rgba(99, 102, 241, 0.1)' : isExcellent ? 'rgba(16, 185, 129, 0.1)' : '#f1f5f9',
-                      borderRadius: '10px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      fontWeight: '800',
-                      color: isStar ? '#6366f1' : isExcellent ? '#10b981' : '#475569',
-                      fontSize: '13px',
-                      border: isStar ? '1px solid rgba(99, 102, 241, 0.2)' : isExcellent ? '1px solid rgba(16, 185, 129, 0.2)' : 'none'
-                    }}>
-                      {member.name.substring(0, 2).toUpperCase()}
-                    </div>
-                    <div style={{ minWidth: 0 }}>
-                      <h3 style={{
-                        fontSize: '15px',
-                        fontWeight: '800',
-                        color: '#0f172a',
-                        margin: 0,
-                        whiteSpace: 'nowrap',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis'
-                      }}>{member.name}</h3>
-                      <span style={{ fontSize: '12px', color: '#64748b' }}>{member.email}</span>
-                    </div>
-                  </div>
-                  <UserPerformanceCard
-                    user={member}
-                    isCollapsible={true}
-                    performanceData={bulkPerformance[member.id]}
-                    onPerformanceLoad={(data) => handleScoreLoad(member.id, data)}
-                  />
-                </div>
-              );
-            })}
+            {filteredMembers.filter(member => member.role !== 'ADMIN').map(member => (
+              <MemberCard
+                key={member.id}
+                member={member}
+                bulkPerformance={bulkPerformance}
+                memberScores={memberScores}
+                handleScoreLoad={handleScoreLoad}
+              />
+            ))}
           </div>
         ) : (
           /* Traditional Table View */

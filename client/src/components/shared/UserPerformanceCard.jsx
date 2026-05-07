@@ -21,14 +21,24 @@ const UserPerformanceCard = memo(({ user, performanceData, fallbackStats, isColl
   const [mode, setMode] = useState('production'); // 'production' or 'management'
   const lastReportedScore = useRef(null);
 
+  const onPerformanceLoadRef = useRef(onPerformanceLoad);
+
+  // Keep the ref updated with the latest handler without triggering re-effects
   useEffect(() => {
+    onPerformanceLoadRef.current = onPerformanceLoad;
+  }, [onPerformanceLoad]);
+
+  useEffect(() => {
+    let mounted = true;
+
     const reportScore = (data) => {
-      if (onPerformanceLoad && lastReportedScore.current !== data.overallScore) {
+      if (onPerformanceLoadRef.current && lastReportedScore.current !== data.overallScore) {
         lastReportedScore.current = data.overallScore;
-        onPerformanceLoad(data);
+        onPerformanceLoadRef.current(data);
       }
     };
 
+    // If data is provided via props, use it and don't fetch
     if (performanceData) {
       setPerformance(performanceData);
       setLoading(false);
@@ -36,23 +46,28 @@ const UserPerformanceCard = memo(({ user, performanceData, fallbackStats, isColl
       return;
     }
 
+    // Don't fetch if already have data or currently loading
+    if (performance || !user?.id) return;
+
     const fetchPerformance = async () => {
       try {
         setLoading(true);
         const data = await apiFetch(`/api/dashboard/user-performance/${user.id}`);
-        if (data.success) {
+        if (data.success && mounted) {
           setPerformance(data.performance);
           reportScore(data.performance);
         }
       } catch (error) {
         console.error('Error fetching user performance:', error);
       } finally {
-        setLoading(false);
+        if (mounted) setLoading(false);
       }
     };
 
     fetchPerformance();
-  }, [user.id, performanceData, onPerformanceLoad]);
+
+    return () => { mounted = false; };
+  }, [user.id, performanceData]); // Removed onPerformanceLoad from dependencies
 
   // Use server-computed performance metrics (accurate) with optional fallback
   const taskCompletionRate = performance?.taskCompletionRate ?? (fallbackStats?.taskCompletionRate || 0);
@@ -147,7 +162,7 @@ const UserPerformanceCard = memo(({ user, performanceData, fallbackStats, isColl
                       (mode === 'management' ? performance?.management?.managementScore : overallScore) >= 50 ? 'dot-amber' : 'dot-rose'
                   }`}></span>
                 {mode === 'management' ? (
-                  performance?.management?.managementScore >= 85 ? 'Excellent Manager' :
+                  performance?.management?.managementScore >= 85 ? 'Excellent Leader' :
                     performance?.management?.managementScore >= 60 ? 'Active Leader' : 'Slow Response'
                 ) : (
                   overallScore > 100 ? 'Top Performer' :
@@ -257,6 +272,23 @@ const UserPerformanceCard = memo(({ user, performanceData, fallbackStats, isColl
                     <div className="perf-metric-footer">First-Pass Quality</div>
                   </div>
 
+                  {/* Rejections (Restored) */}
+                  <div className="perf-metric-item">
+                    <div className="perf-metric-top">
+                      <span className="perf-metric-label">Rejections</span>
+                      <div className="perf-metric-value" style={{ color: displayFileRejected > 0 ? '#f43f5e' : 'inherit' }}>
+                        {displayFileRejected}
+                      </div>
+                    </div>
+                    <div className="perf-mini-pill-container">
+                      <div
+                        className="perf-mini-pill-fill fill-rose"
+                        style={{ width: `${Math.min(100, displayFileRejected * 20)}%`, opacity: displayFileRejected > 0 ? 1 : 0.2 }}
+                      ></div>
+                    </div>
+                    <div className="perf-metric-footer">File Rejections</div>
+                  </div>
+
                   {/* Reliability (Accurate) */}
                   <div className="perf-metric-item">
                     <div className="perf-metric-top">
@@ -269,7 +301,39 @@ const UserPerformanceCard = memo(({ user, performanceData, fallbackStats, isColl
                         style={{ width: `${onTimeRate}%` }}
                       ></div>
                     </div>
-                    <div className="perf-metric-footer">On-Time Accuracy</div>
+                    <div className="perf-metric-footer">On-Time Delivery</div>
+                  </div>
+
+                  {/* Overdue (Restored) */}
+                  <div className="perf-metric-item">
+                    <div className="perf-metric-top">
+                      <span className="perf-metric-label">Overdue</span>
+                      <div className="perf-metric-value" style={{ color: displayOverdue > 0 ? '#f43f5e' : 'inherit' }}>
+                        {displayOverdue}
+                      </div>
+                    </div>
+                    <div className="perf-mini-pill-container">
+                      <div
+                        className="perf-mini-pill-fill fill-rose"
+                        style={{ width: `${Math.min(100, displayOverdue * 25)}%`, opacity: displayOverdue > 0 ? 1 : 0.2 }}
+                      ></div>
+                    </div>
+                    <div className="perf-metric-footer">Awaiting Attention</div>
+                  </div>
+
+                  {/* Completion (Restored) */}
+                  <div className="perf-metric-item">
+                    <div className="perf-metric-top">
+                      <span className="perf-metric-label">Completion</span>
+                      <div className="perf-metric-value">{displayTaskSubmitted}/{displayTaskTotal}</div>
+                    </div>
+                    <div className="perf-mini-pill-container">
+                      <div
+                        className="perf-mini-pill-fill fill-green"
+                        style={{ width: `${displayTaskTotal > 0 ? (displayTaskSubmitted / displayTaskTotal) * 100 : 0}%` }}
+                      ></div>
+                    </div>
+                    <div className="perf-metric-footer">Tasks Finished</div>
                   </div>
                 </>
               )}
