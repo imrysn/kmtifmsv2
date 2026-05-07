@@ -26,6 +26,7 @@
   border: 1px solid var(--border-color);
   border-radius: var(--radius-lg);
   padding: 1.5rem;
+  contain: layout style;
 }
 
 .stat-header {
@@ -106,6 +107,7 @@
   display: grid;
   grid-template-columns: 2fr 1fr;
   gap: 1.5rem;
+  min-width: 0;
 }
 
 /* Charts Section */
@@ -113,6 +115,7 @@
   display: grid;
   grid-template-columns: 1fr;
   gap: 1.5rem;
+  min-width: 0;
 }
 
 .chart-card {
@@ -120,6 +123,8 @@
   border: 1px solid var(--border-color);
   border-radius: var(--radius-lg);
   padding: 1.5rem;
+  min-width: 0;
+  contain: layout style;
 }
 
 .chart-header {
@@ -142,6 +147,7 @@
   display: flex;
   flex-direction: column;
   justify-content: center;
+  will-change: transform;
 }
 
 /* Activity Section */
@@ -177,7 +183,6 @@
   flex-direction: column;
   gap: 1rem;
   flex: 1;
-  justify-content: space-between;
 }
 
 .activity-item {
@@ -254,9 +259,19 @@
 
 /* Activity states */
 .activity-loading,
-.activity-empty {
+.activity-empty,
+.activity-offline {
   padding: 1rem;
   color: var(--text-secondary);
+}
+
+.activity-offline {
+  background: var(--danger-light);
+  color: var(--danger-color);
+  font-size: 12px;
+  border-radius: var(--radius-md);
+  margin-top: 0.5rem;
+  text-align: center;
 }
 
 /* Responsive Design */

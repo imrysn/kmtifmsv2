@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from 'react'
+import React, { useState, useEffect, useMemo, useCallback } from 'react'
 import { apiFetch } from '@/config/api'
 import './UserManagement.css'
 import { AlertMessage, ConfirmationModal, FormModal } from './modals'
@@ -26,6 +26,81 @@ const roleToClass = (role = '') =>
  */
 const roleToLabel = (role = '') =>
   role.replace(/_/g, ' ')
+
+// Memoized row component to prevent inline function re-renders
+const MemberPerfRow = React.memo(({ user, score, performanceData, onScoreLoad }) => {
+  const isStar = score > 100;
+  const isExcellent = score >= 85 && score <= 100;
+
+  const handleLoad = useCallback((data) => {
+    onScoreLoad(user.id, data);
+  }, [user.id, onScoreLoad]);
+
+  return (
+    <div className={`member-perf-wrapper ${isStar ? 'card-star' : isExcellent ? 'card-excellent' : ''}`} style={{
+      background: '#ffffff',
+      border: (isStar || isExcellent) ? 'none' : '1px solid #f1f5f9',
+      borderRadius: '16px',
+      padding: '16px',
+      boxShadow: (isStar || isExcellent) ? 'none' : '0 2px 10px rgba(0,0,0,0.02)',
+      position: 'relative',
+      overflow: 'hidden'
+    }}>
+      {isStar && (
+        <div className="perf-star-badge">
+          <span>TOP</span>
+        </div>
+      )}
+      {isExcellent && (
+        <div className="perf-star-badge badge-excellent">
+          <span>PRO</span>
+        </div>
+      )}
+
+      <div className="member-perf-header" style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: '12px',
+        marginBottom: '16px',
+        paddingLeft: '4px'
+      }}>
+        <div style={{
+          width: '36px',
+          height: '36px',
+          background: isStar ? 'rgba(99, 102, 241, 0.1)' : isExcellent ? 'rgba(16, 185, 129, 0.1)' : '#f1f5f9',
+          borderRadius: '10px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          fontWeight: '800',
+          color: isStar ? '#6366f1' : isExcellent ? '#10b981' : '#475569',
+          fontSize: '13px',
+          border: isStar ? '1px solid rgba(99, 102, 241, 0.2)' : isExcellent ? '1px solid rgba(16, 185, 129, 0.2)' : 'none'
+        }}>
+          {user.fullName.substring(0, 2).toUpperCase()}
+        </div>
+        <div style={{ minWidth: 0 }}>
+          <h3 style={{
+            fontSize: '15px',
+            fontWeight: '800',
+            color: '#0f172a',
+            margin: 0,
+            whiteSpace: 'nowrap',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis'
+          }}>{user.fullName}</h3>
+          <span style={{ fontSize: '12px', color: '#64748b' }}>{user.email}</span>
+        </div>
+      </div>
+      <UserPerformanceCard
+        user={user}
+        isCollapsible={true}
+        performanceData={performanceData}
+        onPerformanceLoad={handleLoad}
+      />
+    </div>
+  );
+});
 
 const UserManagement = ({ clearMessages, error, success, setError, setSuccess, user, contextData }) => {
   const { user: authUser } = useAuth()
@@ -560,83 +635,21 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess, u
             <SkeletonLoader type="table" rows={9} />
           </div>
         ) : viewMode === 'performance' ? (
-          /* Performance Cards Grid - High Density 2-Col */
           <div className="performance-grid" style={{
             display: 'grid',
             gridTemplateColumns: 'repeat(2, 1fr)',
             gap: '20px',
             marginTop: '20px'
           }}>
-            {filteredUsers.filter(u => u.role !== 'ADMIN').map(u => {
-              const score = memberScores[u.id] || 0;
-              const isStar = score > 100;
-              const isExcellent = score >= 85 && score <= 100;
-
-              return (
-                <div key={u.id} className={`member-perf-wrapper ${isStar ? 'card-star' : isExcellent ? 'card-excellent' : ''}`} style={{
-                  background: '#ffffff',
-                  border: (isStar || isExcellent) ? 'none' : '1px solid #f1f5f9',
-                  borderRadius: '16px',
-                  padding: '16px',
-                  boxShadow: (isStar || isExcellent) ? 'none' : '0 2px 10px rgba(0,0,0,0.02)',
-                  position: 'relative',
-                  overflow: 'hidden'
-                }}>
-                  {isStar && (
-                    <div className="perf-star-badge">
-                      <span>TOP</span>
-                    </div>
-                  )}
-                  {isExcellent && (
-                    <div className="perf-star-badge badge-excellent">
-                      <span>PRO</span>
-                    </div>
-                  )}
-
-                  <div className="member-perf-header" style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '12px',
-                    marginBottom: '16px',
-                    paddingLeft: '4px'
-                  }}>
-                    <div style={{
-                      width: '36px',
-                      height: '36px',
-                      background: isStar ? 'rgba(99, 102, 241, 0.1)' : isExcellent ? 'rgba(16, 185, 129, 0.1)' : '#f1f5f9',
-                      borderRadius: '10px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      fontWeight: '800',
-                      color: isStar ? '#6366f1' : isExcellent ? '#10b981' : '#475569',
-                      fontSize: '13px',
-                      border: isStar ? '1px solid rgba(99, 102, 241, 0.2)' : isExcellent ? '1px solid rgba(16, 185, 129, 0.2)' : 'none'
-                    }}>
-                      {u.fullName.substring(0, 2).toUpperCase()}
-                    </div>
-                    <div style={{ minWidth: 0 }}>
-                      <h3 style={{
-                        fontSize: '15px',
-                        fontWeight: '800',
-                        color: '#0f172a',
-                        margin: 0,
-                        whiteSpace: 'nowrap',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis'
-                      }}>{u.fullName}</h3>
-                      <span style={{ fontSize: '12px', color: '#64748b' }}>{u.email}</span>
-                    </div>
-                  </div>
-                  <UserPerformanceCard
-                    user={u}
-                    isCollapsible={true}
-                    performanceData={bulkPerformance[u.id]}
-                    onPerformanceLoad={(data) => handleScoreLoad(u.id, data)}
-                  />
-                </div>
-              );
-            })}
+            {paginatedUsers.filter(u => u.role !== 'ADMIN').map(u => (
+              <MemberPerfRow
+                key={u.id}
+                user={u}
+                score={memberScores[u.id] || 0}
+                performanceData={bulkPerformance[u.id]}
+                onScoreLoad={handleScoreLoad}
+              />
+            ))}
           </div>
         ) : (
           /* Standard List Table View */
@@ -718,60 +731,60 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess, u
                 </tbody>
               </table>
             </div>
-
-            {/* Pagination Controls - ONLY for List View */}
-            {!isLoading && totalPages > 1 && (
-              <div className="pagination-container">
-                <div className="pagination-info">
-                  Showing {startIndex + 1} to {endIndex} of {filteredUsers.length} users
-                </div>
-                <div className="pagination-controls">
-                  <button
-                    className="pagination-btn"
-                    onClick={prevPage}
-                    disabled={currentPage === 1}
-                    title="Previous Page"
-                  >
-                    ‹
-                  </button>
-
-                  <div className="pagination-numbers">
-                    {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                      let pageNum
-                      if (totalPages <= 5) {
-                        pageNum = i + 1
-                      } else if (currentPage <= 3) {
-                        pageNum = i + 1
-                      } else if (currentPage >= totalPages - 2) {
-                        pageNum = totalPages - 4 + i
-                      } else {
-                        pageNum = currentPage - 2 + i
-                      }
-
-                      return (
-                        <button
-                          key={pageNum}
-                          className={`pagination-number ${currentPage === pageNum ? 'active' : ''}`}
-                          onClick={() => goToPage(pageNum)}
-                        >
-                          {pageNum}
-                        </button>
-                      )
-                    })}
-                  </div>
-
-                  <button
-                    className="pagination-btn"
-                    onClick={nextPage}
-                    disabled={currentPage === totalPages}
-                    title="Next Page"
-                  >
-                    ›
-                  </button>
-                </div>
-              </div>
-            )}
           </>
+        )}
+
+        {/* Pagination Controls - Applied to BOTH views */}
+        {!isLoading && totalPages > 1 && (
+          <div className="pagination-container">
+            <div className="pagination-info">
+              Showing {startIndex + 1} to {endIndex} of {filteredUsers.length} users
+            </div>
+            <div className="pagination-controls">
+              <button
+                className="pagination-btn"
+                onClick={prevPage}
+                disabled={currentPage === 1}
+                title="Previous Page"
+              >
+                ‹
+              </button>
+
+              <div className="pagination-numbers">
+                {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                  let pageNum
+                  if (totalPages <= 5) {
+                    pageNum = i + 1
+                  } else if (currentPage <= 3) {
+                    pageNum = i + 1
+                  } else if (currentPage >= totalPages - 2) {
+                    pageNum = totalPages - 4 + i
+                  } else {
+                    pageNum = currentPage - 2 + i
+                  }
+
+                  return (
+                    <button
+                      key={pageNum}
+                      className={`pagination-number ${currentPage === pageNum ? 'active' : ''}`}
+                      onClick={() => goToPage(pageNum)}
+                    >
+                      {pageNum}
+                    </button>
+                  )
+                })}
+              </div>
+
+              <button
+                className="pagination-btn"
+                onClick={nextPage}
+                disabled={currentPage === totalPages}
+                title="Next Page"
+              >
+                ›
+              </button>
+            </div>
+          </div>
         )}
 
         {!isLoading && filteredUsers.length === 0 && (

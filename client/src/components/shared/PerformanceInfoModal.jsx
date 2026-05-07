@@ -2,7 +2,7 @@ import React from 'react';
 import { createPortal } from 'react-dom';
 import './PerformanceInfoModal.css';
 
-const PerformanceInfoModal = ({ isOpen, onClose }) => {
+const PerformanceInfoModal = React.memo(({ isOpen, onClose }) => {
   if (!isOpen) return null;
 
   const modalContent = (
@@ -96,6 +96,6 @@ const PerformanceInfoModal = ({ isOpen, onClose }) => {
   );
 
   return createPortal(modalContent, document.body);
-};
+});
 
 export default PerformanceInfoModal;

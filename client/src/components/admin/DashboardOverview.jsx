@@ -7,8 +7,41 @@ import { withErrorBoundary } from '../common'
 import ApprovalTrendChart from './charts/ApprovalTrendChart'
 import AnimatedPieChart from './charts/AnimatedPieChart'
 
-const DashboardOverview = ({ user, users }) => {
-  const { user: authUser } = useAuth()
+// Sub-component for individual activity items to prevent mass re-renders
+const ActivityItem = memo(({ act }) => {
+  const badgeType = useMemo(() => {
+    const activity = (act.activity || '').toLowerCase()
+    if (activity.includes('approved')) return 'approved'
+    if (activity.includes('rejected')) return 'rejected'
+    return 'upload'
+  }, [act.activity])
+
+  const formattedDate = useMemo(() => {
+    try {
+      return new Date(act.timestamp).toLocaleString()
+    } catch (e) {
+      return 'Invalid date'
+    }
+  }, [act.timestamp])
+
+  return (
+    <div className="activity-item">
+      <div className="activity-content">
+        <div className="activity-header">
+          <span className="activity-user">{act.username || act.role || 'System'}</span>
+          <span className={`activity-badge ${badgeType}`}>
+            {(act.activity || '').split(' ')[0]}
+          </span>
+        </div>
+        <div className="activity-description">{act.activity}</div>
+        <div className="activity-meta">{formattedDate}</div>
+      </div>
+    </div>
+  )
+})
+ActivityItem.displayName = 'ActivityItem'
+
+const DashboardOverview = () => {
   const { isConnected } = useNetwork()
 
   const [loading, setLoading] = useState(true)
@@ -30,20 +63,20 @@ const DashboardOverview = ({ user, users }) => {
     }
   })
 
-  // Network check removed - using NetworkContext
-
   useEffect(() => {
     let mounted = true
-    const fetchSummary = async () => {
+    const fetchSummary = async (isInitialLoad = false) => {
       if (!isConnected) return
 
-      setLoading(true)
-      setError('')
+      if (isInitialLoad) {
+        setLoading(true)
+        setError('')
+      }
+
       try {
         const data = await apiFetch('/api/dashboard/summary')
         if (!mounted) return
         if (data.success) {
-          console.log('Dashboard Data Received:', data.summary); // DEBUG Log
           setSummary(data.summary)
         } else {
           setError(data.message || 'Failed to load dashboard data')
@@ -58,9 +91,8 @@ const DashboardOverview = ({ user, users }) => {
     }
 
     if (isConnected) {
-      fetchSummary()
-      // optionally refresh every minute
-      const interval = setInterval(fetchSummary, 60 * 1000)
+      fetchSummary(true) // Initial load
+      const interval = setInterval(() => fetchSummary(false), 60 * 1000)
       return () => { mounted = false; clearInterval(interval) }
     }
   }, [isConnected])
@@ -71,14 +103,16 @@ const DashboardOverview = ({ user, users }) => {
   const rejectedCount = summary.rejected
   const totalCount = summary.totalFiles
 
-  // Memoize filtered activity counts to avoid repeated filtering
-  const awaitingTeamLeaderCount = useMemo(() => {
-    return summary.recentActivity.filter(a => a.activity && a.activity.toLowerCase().includes('team leader')).length
+  // Memoize activity items - limit to top 10 for performance
+  const activityItemsList = useMemo(() => {
+    return summary.recentActivity.slice(0, 10).map(act => (
+      <ActivityItem key={act.id} act={act} />
+    ))
   }, [summary.recentActivity])
 
-  const awaitingAdminCount = useMemo(() => {
-    return summary.recentActivity.filter(a => a.activity && a.activity.toLowerCase().includes('admin')).length
-  }, [summary.recentActivity])
+  // Memoize chart data to stabilize props
+  const memoizedTrends = useMemo(() => summary.approvalTrends, [summary.approvalTrends])
+  const memoizedFileTypes = useMemo(() => summary.fileTypes, [summary.fileTypes])
 
   // Calculate percentage changes from previous month
   const statChanges = useMemo(() => {
@@ -87,14 +121,8 @@ const DashboardOverview = ({ user, users }) => {
       return ((current - previous) / previous) * 100
     }
 
-    // Check if previousMonth data exists
     if (!summary.previousMonth) {
-      return {
-        pending: 0,
-        approved: 0,
-        rejected: 0,
-        total: 0
-      }
+      return { pending: 0, approved: 0, rejected: 0, total: 0 }
     }
 
     return {
@@ -105,54 +133,31 @@ const DashboardOverview = ({ user, users }) => {
     }
   }, [pendingCount, approvedCount, rejectedCount, totalCount, summary.previousMonth])
 
-  // Helper function to format stat change display
-  const formatStatChange = (change) => {
-    const absChange = Math.abs(change)
-    const sign = change > 0 ? '↑' : change < 0 ? '↓' : '—'
-    const className = change > 0 ? 'positive' : change < 0 ? 'negative' : 'neutral'
-    const formattedChange = absChange.toFixed(1)
+  // Memoize formatted stat changes
+  const formattedStatChanges = useMemo(() => {
+    const formatStatChange = (change) => {
+      const absChange = Math.abs(change)
+      const sign = change > 0 ? '↑' : change < 0 ? '↓' : '—'
+      const className = change > 0 ? 'positive' : change < 0 ? 'negative' : 'neutral'
+      const formattedChange = absChange.toFixed(1)
 
-    if (change === 0) {
+      if (change === 0) {
+        return { text: '— No change', className: 'neutral' }
+      }
+
       return {
-        text: '— No change from last month',
-        className: 'neutral'
+        text: `${sign} ${change >= 0 ? '+' : '-'}${formattedChange}%`,
+        className
       }
     }
 
     return {
-      text: `${sign} ${change >= 0 ? '+' : '-'}${formattedChange}% from last month`,
-      className
+      pending: formatStatChange(statChanges.pending),
+      approved: formatStatChange(statChanges.approved),
+      rejected: formatStatChange(statChanges.rejected),
+      total: formatStatChange(statChanges.total)
     }
-  }
-
-  // Memoize formatted stat changes to prevent duplicate function calls
-  const formattedStatChanges = useMemo(() => ({
-    pending: formatStatChange(statChanges.pending),
-    approved: formatStatChange(statChanges.approved),
-    rejected: formatStatChange(statChanges.rejected),
-    total: formatStatChange(statChanges.total)
-  }), [statChanges])
-
-  // Memoize activity items to prevent re-rendering on every update
-  const activityItems = useMemo(() => {
-    return summary.recentActivity.map(act => (
-      <div className="activity-item" key={act.id}>
-        <div className="activity-content">
-          <div className="activity-header">
-            <span className="activity-user">{act.username || act.role || 'System'}</span>
-            <span className={"activity-badge " + (act.activity && act.activity.toLowerCase().includes('approved') ? 'approved' : act.activity && act.activity.toLowerCase().includes('rejected') ? 'rejected' : 'upload')}>{(act.activity || '').split(' ')[0]}</span>
-          </div>
-          <div className="activity-description">{act.activity}</div>
-          <div className="activity-meta">{new Date(act.timestamp).toLocaleString()}</div>
-        </div>
-      </div>
-    ))
-  }, [summary.recentActivity])
-
-  // Show skeleton loader when network is not available
-  if (!isConnected) {
-    return <SkeletonLoader type="admin" />
-  }
+  }, [statChanges])
 
   return (
     <div className={`dashboard-overview ${loading ? 'loading-cursor' : ''}`}>
@@ -222,7 +227,7 @@ const DashboardOverview = ({ user, users }) => {
               <h3>File Approval Trends</h3>
             </div>
             <div className="chart-content">
-              <ApprovalTrendChart trends={summary.approvalTrends} loading={loading} />
+              <ApprovalTrendChart trends={memoizedTrends} loading={loading} />
             </div>
           </div>
 
@@ -232,7 +237,7 @@ const DashboardOverview = ({ user, users }) => {
               <span className="chart-subtitle">All file types tracked</span>
             </div>
             <div className="chart-content">
-              <AnimatedPieChart fileTypes={summary.fileTypes} loading={loading} />
+              <AnimatedPieChart fileTypes={memoizedFileTypes} loading={loading} />
             </div>
           </div>
         </div>
@@ -244,7 +249,8 @@ const DashboardOverview = ({ user, users }) => {
           <div className="activity-list">
             {loading && <div className="activity-loading">Loading recent activity…</div>}
             {!loading && summary.recentActivity.length === 0 && <div className="activity-empty">No recent activity</div>}
-            {!loading && activityItems}
+            {!loading && activityItemsList}
+            {!isConnected && <div className="activity-offline">Currently offline - data may be stale</div>}
           </div>
         </div>
       </div>

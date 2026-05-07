@@ -21,7 +21,6 @@ import {
   UserManagement,
   ActivityLogs,
   FileApproval,
-  FileManagement,
   Settings,
   TaskManagement,
   Notifications
@@ -58,13 +57,6 @@ const AdminSidebar = memo(({ sidebarRef, activeTab, sidebarOpen, unreadCount, us
           )}
         </span>
         <span className="nav-label">Notifications</span>
-      </button>
-      <button
-        className={`nav-item ${activeTab === 'file-management' ? 'active' : ''}`}
-        onClick={() => { handleTabChange('file-management'); closeSidebar() }}
-      >
-        <span className="nav-icon">{getSidebarIcon('files')}</span>
-        <span className="nav-label">Files</span>
       </button>
       <button
         className={`nav-item ${activeTab === 'users' ? 'active' : ''}`}
@@ -130,6 +122,7 @@ const AdminDashboard = ({ user, onLogout }) => {
 
   const sidebarRef = useRef(null)
   const mainContentRef = useRef(null)
+  const lastNotifFetch = useRef(0) // debounce guard for SSE pings
 
   // Initial animations on component mount only
   useEffect(() => {
@@ -149,45 +142,6 @@ const AdminDashboard = ({ user, onLogout }) => {
     })
   }, [])
 
-  // Fetch users for dashboard overview and settings
-  useEffect(() => {
-    fetchUsers()
-    fetchNotifications()
-    // Poll for notifications every 30 seconds (fallback for SSE)
-    const interval = setInterval(fetchNotifications, 30000)
-    return () => clearInterval(interval)
-  }, [])
-
-  // SSE — instant badge update when a new notification arrives
-  useEffect(() => {
-    if (!user?.id) return
-    const { token } = useStore.getState()
-    let es
-    let reconnectTimer
-    const connect = () => {
-      // Pass token in query param for SSE as EventSource doesn't support headers
-      const url = `${API_BASE_URL}/api/notifications/user/${user.id}/stream${token ? `?token=${token}` : ''}`
-      es = new EventSource(url)
-      es.onmessage = (event) => {
-        if (event.data === 'ping') fetchNotifications()
-      }
-      es.onerror = () => {
-        es.close()
-        reconnectTimer = setTimeout(connect, 5000)
-      }
-    }
-    connect()
-    return () => {
-      if (es) es.close()
-      clearTimeout(reconnectTimer)
-    }
-  }, [user?.id])
-
-  // Sync unread badge + flash to Electron taskbar whenever count changes
-  useEffect(() => {
-    syncElectronBadge(unreadCount)
-  }, [unreadCount])
-
   const fetchUsers = async () => {
     try {
       const data = await apiFetch(`/api/users`)
@@ -199,9 +153,8 @@ const AdminDashboard = ({ user, onLogout }) => {
     }
   }
 
-  const fetchNotifications = async () => {
+  const fetchNotifications = useCallback(async () => {
     try {
-      // Lightweight call — only fetch page 1 to get unreadCount and toast notifications
       const data = await apiFetch(`/api/notifications/user/${user.id}?page=1&limit=20`)
       if (data.success) {
         setNotifications(data.notifications || [])
@@ -210,7 +163,51 @@ const AdminDashboard = ({ user, onLogout }) => {
     } catch (error) {
       console.error('Error fetching notifications:', error)
     }
-  }
+  }, [user.id])
+
+  // Fetch users for dashboard overview and settings
+  useEffect(() => {
+    fetchUsers()
+    fetchNotifications()
+    // Fallback poll every 60s (SSE handles real-time; this is just a safety net)
+    const interval = setInterval(fetchNotifications, 60000)
+    return () => clearInterval(interval)
+  }, [fetchNotifications])
+
+  // SSE — instant badge update when a new notification arrives
+  useEffect(() => {
+    if (!user?.id) return
+    const { token } = useStore.getState()
+    let es
+    let reconnectTimer
+    const connect = () => {
+      const url = `${API_BASE_URL}/api/notifications/user/${user.id}/stream${token ? `?token=${token}` : ''}`
+      es = new EventSource(url)
+      es.onmessage = (event) => {
+        if (event.data === 'ping') {
+          // Debounce: ignore pings that arrive within 5s of the last fetch
+          const now = Date.now()
+          if (now - lastNotifFetch.current < 5000) return
+          lastNotifFetch.current = now
+          fetchNotifications()
+        }
+      }
+      es.onerror = () => {
+        es.close()
+        reconnectTimer = setTimeout(connect, 5000)
+      }
+    }
+    connect()
+    return () => {
+      if (es) es.close()
+      clearTimeout(reconnectTimer)
+    }
+  }, [user?.id, fetchNotifications])
+
+  // Sync unread badge + flash to Electron taskbar whenever count changes
+  useEffect(() => {
+    syncElectronBadge(unreadCount)
+  }, [unreadCount])
 
   const handleLogout = useCallback(() => {
     onLogout()
@@ -266,56 +263,13 @@ const AdminDashboard = ({ user, onLogout }) => {
     }
   }, [])
 
-  const renderActiveTab = useCallback(() => {
-    const commonProps = {
-      clearMessages,
-      error,
-      success,
-      setError,
-      setSuccess
-    }
-
-    switch (activeTab) {
-      case 'dashboard':
-        return <DashboardOverview user={user} users={users} />
-      case 'users':
-        return <UserManagement {...commonProps} user={user} contextData={contextData} />
-      case 'activity-logs':
-        return <ActivityLogs {...commonProps} />
-      case 'file-approval':
-        return <FileApproval
-          {...commonProps}
-          contextFileId={contextData}
-          highlightedFileId={highlightedFileId}
-          onClearFileHighlight={() => setHighlightedFileId(null)}
-        />
-      case 'file-management':
-        return <FileManagement
-          {...commonProps}
-          contextFileId={contextData}
-          highlightedFileId={highlightedFileId}
-          onClearFileHighlight={() => setHighlightedFileId(null)}
-        />
-      case 'tasks':
-        return <TaskManagement
-          {...commonProps}
-          user={user}
-          contextAssignmentId={contextData}
-          highlightedAssignmentId={highlightedAssignmentId}
-          highlightedFileId={highlightedFileId}
-          notificationCommentContext={notificationCommentContext}
-          onClearHighlight={() => setHighlightedAssignmentId(null)}
-          onClearFileHighlight={() => setHighlightedFileId(null)}
-          onClearNotificationContext={() => setNotificationCommentContext(null)}
-        />
-      case 'notifications':
-        return <Notifications user={user} onNavigate={handleNotificationNavigation} onRead={() => setUnreadCount(0)} />
-      case 'settings':
-        return <Settings {...commonProps} users={users} user={user} />
-      default:
-        return <DashboardOverview user={user} users={users} />
-    }
-  }, [activeTab, users, contextData, highlightedFileId, highlightedAssignmentId, notificationCommentContext, error, success, clearMessages, handleNotificationNavigation, user])
+  const commonProps = {
+    clearMessages,
+    error,
+    success,
+    setError,
+    setSuccess
+  }
 
   return (
     <AuthProvider initialUser={user}>
@@ -357,7 +311,29 @@ const AdminDashboard = ({ user, onLogout }) => {
 
                 {/* Content Area */}
                 <div className="content-area">
-                  {renderActiveTab()}
+                  {activeTab === 'dashboard' && <DashboardOverview />}
+                  {activeTab === 'users' && <UserManagement {...commonProps} user={user} contextData={contextData} />}
+                  {activeTab === 'activity-logs' && <ActivityLogs {...commonProps} />}
+                  {activeTab === 'file-approval' && <FileApproval
+                    {...commonProps}
+                    contextFileId={contextData}
+                    highlightedFileId={highlightedFileId}
+                    onClearFileHighlight={() => setHighlightedFileId(null)}
+                  />}
+                  {activeTab === 'tasks' && <TaskManagement
+                    {...commonProps}
+                    user={user}
+                    contextAssignmentId={contextData}
+                    highlightedAssignmentId={highlightedAssignmentId}
+                    highlightedFileId={highlightedFileId}
+                    notificationCommentContext={notificationCommentContext}
+                    onClearHighlight={() => setHighlightedAssignmentId(null)}
+                    onClearFileHighlight={() => setHighlightedFileId(null)}
+                    onClearNotificationContext={() => setNotificationCommentContext(null)}
+                  />}
+                  {activeTab === 'notifications' && <Notifications user={user} onNavigate={handleNotificationNavigation} onRead={() => setUnreadCount(0)} />}
+                  {activeTab === 'settings' && <Settings {...commonProps} users={users} user={user} />}
+                  {activeTab !== 'dashboard' && activeTab !== 'users' && activeTab !== 'activity-logs' && activeTab !== 'file-approval' && activeTab !== 'tasks' && activeTab !== 'notifications' && activeTab !== 'settings' && <DashboardOverview />}
                 </div>
               </div>
             </div>

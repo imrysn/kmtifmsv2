@@ -53,7 +53,6 @@ const authRoutes = require('./routes/auth');
 const usersRoutes = require('./routes/users');
 const teamsRoutes = require('./routes/teams');
 const activityLogsRoutes = require('./routes/activityLogs');
-const fileSystemRoutes = require('./routes/fileSystem');
 const filesRoutes = require('./routes/files');
 const dashboardRoutes = require('./routes/dashboard');
 const settingsRoutes = require('./routes/settings');
@@ -138,7 +137,6 @@ app.use('/api/users', dbReadyGuard, usersRoutes);
 app.use('/api/team-members', dbReadyGuard, usersRoutes); // Alias for team members endpoint
 app.use('/api/teams', dbReadyGuard, teamsRoutes);
 app.use('/api/activity-logs', dbReadyGuard, activityLogsRoutes);
-app.use('/api/file-system', dbReadyGuard, fileSystemRoutes);
 // File routes with upload rate limiting
 app.use('/api/files', dbReadyGuard, uploadLimiter, filesRoutes);
 app.use('/api/dashboard', dbReadyGuard, dashboardRoutes);

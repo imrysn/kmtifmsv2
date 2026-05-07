@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, useCallback } from 'react'
+import { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react'
 import { API_BASE_URL } from '@/config/api'
 
 const NetworkContext = createContext(null)
@@ -65,14 +65,14 @@ export const NetworkProvider = ({ children }) => {
     }
   }, [checkNetworkStatus])
 
-  const value = {
+  const value = useMemo(() => ({
     isOnline,
     isServerAvailable,
     isConnected: isOnline && isServerAvailable,
     lastChecked,
     checkNetworkStatus,
     setCheckInterval
-  }
+  }), [isOnline, isServerAvailable, lastChecked, checkNetworkStatus])
 
   return <NetworkContext.Provider value={value}>{children}</NetworkContext.Provider>
 }

@@ -1,92 +1,82 @@
 import React, { memo, useMemo } from 'react';
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
+import { Chart as ChartJS, ArcElement, Tooltip, Legend } from 'chart.js';
+import { Doughnut } from 'react-chartjs-2';
 import './AnimatedPieChart.css';
 
-// CRITICAL: Define all helpers OUTSIDE component to prevent re-creation on every render/hover
+// Register Chart.js elements — done once at module level
+ChartJS.register(ArcElement, Tooltip, Legend);
+
+// Define colors outside component to prevent re-creation on every render
 const COLORS = [
-    '#3b82f6', // Blue
-    '#10b981', // Green
-    '#f59e0b', // Amber
-    '#ef4444', // Red
-    '#8b5cf6', // Purple
-    '#ec4899', // Pink
-    '#06b6d4', // Cyan
-    '#f97316', // Orange
-    '#14b8a6', // Teal
-    '#6366f1', // Indigo
-    '#84cc16', // Lime
-    '#a855f7'  // Violet
+    '#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6',
+    '#ec4899', '#06b6d4', '#f97316', '#14b8a6', '#6366f1',
+    '#84cc16', '#a855f7'
 ];
 
-// Enhanced tooltip with file type at top
-const CustomTooltip = memo(({ active, payload }) => {
-    if (active && payload && payload.length) {
-        const data = payload[0];
-        return (
-            <div
-                className="pie-chart-tooltip"
-                style={{ borderColor: data.payload.color }}
-            >
-                <p
-                    className="pie-chart-tooltip-label"
-                    style={{ color: data.payload.color }}
-                >
-                    {data.name}
-                </p>
-                <p className="pie-chart-tooltip-info">
-                    Files: <strong>{data.value}</strong>
-                </p>
-                <p className="pie-chart-tooltip-info">
-                    Share: <strong>{data.payload.percentage}%</strong>
-                </p>
-            </div>
-        );
+// Chart options defined OUTSIDE the component — static, never changes, never re-created
+const CHART_OPTIONS = {
+    responsive: true,
+    maintainAspectRatio: false,
+    cutout: '60%',
+    animation: {
+        animateScale: false,
+        animateRotate: false,
+        duration: 0
+    },
+    resizeDelay: 250,
+    plugins: {
+        legend: {
+            position: 'bottom',
+            labels: {
+                usePointStyle: true,
+                padding: 16,
+                font: { size: 11, family: 'system-ui, -apple-system, sans-serif' },
+                // Use Chart.js built-in label generation — no custom function
+                // Percentage is shown in the tooltip instead
+            }
+        },
+        tooltip: {
+            backgroundColor: '#ffffff',
+            titleColor: '#1f2937',
+            bodyColor: '#6b7280',
+            borderColor: '#e5e7eb',
+            borderWidth: 1,
+            padding: 12,
+            boxPadding: 6,
+            usePointStyle: true,
+            titleFont: { size: 14, weight: 'bold' },
+            bodyFont: { size: 13 },
+            callbacks: {
+                label: (context) => {
+                    const dataset = context.dataset;
+                    const total = dataset.data.reduce((sum, val) => sum + val, 0);
+                    const value = context.raw;
+                    const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : '0.0';
+                    return ` ${value} files (${percentage}%)`;
+                }
+            }
+        }
     }
-    return null;
-});
-
-CustomTooltip.displayName = 'CustomTooltip';
-
-// Custom legend
-const renderLegend = (props) => {
-    const { payload } = props;
-
-    // Sort payload by value descending to match chart order
-    const sortedPayload = [...payload].sort((a, b) => b.payload.value - a.payload.value);
-
-    return (
-        <div className="pie-chart-legend">
-            {sortedPayload.map((entry, index) => (
-                <div key={`legend-${index}`} className="pie-chart-legend-item">
-                    <div
-                        className="pie-chart-legend-color"
-                        style={{ backgroundColor: entry.color }}
-                    />
-                    <span className="pie-chart-legend-text">
-                        {entry.value} ({entry.payload.percentage}%)
-                    </span>
-                </div>
-            ))}
-        </div>
-    );
 };
 
 const AnimatedPieChart = memo(({ fileTypes, loading }) => {
-    // Memoize data calculation to avoid re-calculation on every render
-    const data = useMemo(() => {
-        if (!fileTypes || fileTypes.length === 0) return [];
+    const chartData = useMemo(() => {
+        if (!fileTypes || fileTypes.length === 0) {
+            return { labels: [], datasets: [] };
+        }
 
-        const total = fileTypes.reduce((sum, item) => sum + item.count, 0);
+        const sorted = [...fileTypes].sort((a, b) => b.count - a.count);
 
-        // Sort by count descending so largest segments appear first
-        return [...fileTypes]
-            .sort((a, b) => b.count - a.count)
-            .map((item, index) => ({
-                name: item.file_type,
-                value: item.count,
-                percentage: ((item.count / total) * 100).toFixed(1),
-                color: COLORS[index % COLORS.length]
-            }));
+        return {
+            labels: sorted.map(item => item.file_type),
+            datasets: [{
+                data: sorted.map(item => item.count),
+                backgroundColor: sorted.map((_, i) => COLORS[i % COLORS.length]),
+                borderWidth: 2,
+                borderColor: '#ffffff',
+                hoverOffset: 6
+            }]
+        };
     }, [fileTypes]);
 
     if (loading) {
@@ -107,34 +97,11 @@ const AnimatedPieChart = memo(({ fileTypes, loading }) => {
 
     return (
         <div className="pie-chart-container">
-            <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                    <Pie
-                        data={data}
-                        cx="50%"
-                        cy="50%"
-                        labelLine={false}
-                        label={false}
-                        outerRadius={100}
-                        fill="#8884d8"
-                        dataKey="value"
-                        nameKey="name"
-                        isAnimationActive={true}
-                        animationDuration={600}
-                        animationEasing="ease-out"
-                        paddingAngle={2}
-                    >
-                        {data.map((entry, index) => (
-                            <Cell
-                                key={`cell-${index}`}
-                                fill={entry.color}
-                            />
-                        ))}
-                    </Pie>
-                    <Tooltip content={<CustomTooltip />} />
-                    <Legend content={renderLegend} />
-                </PieChart>
-            </ResponsiveContainer>
+            <Doughnut
+                id="file-type-donut"
+                data={chartData}
+                options={CHART_OPTIONS}
+            />
         </div>
     );
 });

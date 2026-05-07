@@ -82,7 +82,9 @@
   z-index: 1000;
   transition: width var(--transition-speed) var(--transition-easing), opacity var(--transition-speed) var(--transition-easing);
   overflow: hidden;
-  will-change: width;
+  will-change: width, transform;
+  backface-visibility: hidden;
+  perspective: 1000px;
   box-shadow: 0 0 10px rgba(0, 0, 0, 0.05);
   opacity: 0;
 }
@@ -149,16 +151,14 @@
 
 .admin-name,
 .admin-role {
-  transition: all calc(var(--transition-speed) * 0.8) var(--transition-easing);
+  transition: opacity calc(var(--transition-speed) * 0.8) var(--transition-easing);
   transition-delay: calc(var(--transition-speed) * 0.2);
-  max-width: 0;
-  overflow: hidden;
+  white-space: nowrap;
   opacity: 0;
 }
 
 .admin-sidebar:hover .admin-name,
 .admin-sidebar:hover .admin-role {
-  max-width: 200px;
   opacity: 1;
 }
 
@@ -272,17 +272,15 @@
 .nav-label {
   font-weight: inherit;
   white-space: nowrap;
-  transition: all calc(var(--transition-speed) * 0.8) var(--transition-easing);
+  transition: opacity calc(var(--transition-speed) * 0.8) var(--transition-easing);
   transition-delay: calc(var(--transition-speed) * 0.2);
-  max-width: 0;
-  overflow: hidden;
-  padding-right: 10px;
   opacity: 0;
+  pointer-events: none;
 }
 
 .admin-sidebar:hover .nav-label {
-  max-width: 200px;
   opacity: 1;
+  pointer-events: auto;
 }
 
 /* Sidebar Footer */
@@ -311,16 +309,12 @@
 }
 
 .logout-btn-text {
-  transition: all calc(var(--transition-speed) * 0.8) var(--transition-easing);
+  transition: opacity calc(var(--transition-speed) * 0.8) var(--transition-easing);
   transition-delay: calc(var(--transition-speed) * 0.2);
-  max-width: 0;
-  overflow: hidden;
-  padding-right: 10px;
   opacity: 0;
 }
 
 .admin-sidebar:hover .logout-btn-text {
-  max-width: 200px;
   opacity: 1;
 }
 
@@ -341,6 +335,8 @@
   transition: opacity var(--transition-speed) var(--transition-easing);
   position: relative;
   z-index: 1;
+  backface-visibility: hidden;
+  will-change: transform;
 }
 
 /* Content Area */

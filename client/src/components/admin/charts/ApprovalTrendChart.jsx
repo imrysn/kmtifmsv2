@@ -1,174 +1,154 @@
-import React, { memo } from 'react';
+import React, { memo, useMemo } from 'react';
 import PropTypes from 'prop-types';
+import {
+    Chart as ChartJS,
+    CategoryScale,
+    LinearScale,
+    PointElement,
+    LineElement,
+    Title,
+    Tooltip,
+    Legend,
+    Filler
+} from 'chart.js';
+import { Line } from 'react-chartjs-2';
+
+// Register Chart.js components
+ChartJS.register(
+    CategoryScale,
+    LinearScale,
+    PointElement,
+    LineElement,
+    Title,
+    Tooltip,
+    Legend,
+    Filler
+);
 
 /**
  * ApprovalTrendChart - Displays approval/rejection trends over time
  * Extracted from DashboardOverview for better maintainability
  */
 const ApprovalTrendChart = memo(({ trends, loading }) => {
+    // Memoize the chart data to prevent unnecessary object creation
+    const chartData = useMemo(() => {
+        if (!trends || trends.length === 0) return { labels: [], datasets: [] };
+
+        const rawData = trends.slice(-30); // Last 30 days
+        
+        // Pad data if we don't have enough points to draw a line
+        const data = rawData.length < 2 
+            ? [{ approved: 0, rejected: 0, day: '', date: '', month: '' }, ...rawData] 
+            : rawData;
+
+        return {
+            labels: data.map(t => t.month || t.day || t.date || ''),
+            datasets: [
+                {
+                    label: 'Approved',
+                    data: data.map(t => t.approved || 0),
+                    borderColor: '#10B981', // Success green
+                    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                    borderWidth: 3,
+                    pointBackgroundColor: '#10B981',
+                    pointRadius: 4,
+                    pointHoverRadius: 6,
+                    tension: 0.3, // Smooth curve
+                    fill: true
+                },
+                {
+                    label: 'Rejected',
+                    data: data.map(t => t.rejected || 0),
+                    borderColor: '#EF4444', // Danger red
+                    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                    borderWidth: 3,
+                    pointBackgroundColor: '#EF4444',
+                    pointRadius: 4,
+                    pointHoverRadius: 6,
+                    tension: 0.3, // Smooth curve
+                    fill: false
+                }
+            ]
+        };
+    }, [trends]);
+
+    // Chart.js options
+    const options = useMemo(() => ({
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: {
+            mode: 'index',
+            intersect: false,
+        },
+        animation: {
+            duration: 0
+        },
+        resizeDelay: 250,
+        plugins: {
+            legend: {
+                position: 'top',
+                align: 'end',
+                labels: {
+                    usePointStyle: true,
+                    boxWidth: 8,
+                    font: {
+                        family: "system-ui, -apple-system, sans-serif",
+                        size: 12
+                    }
+                }
+            },
+            tooltip: {
+                backgroundColor: '#ffffff',
+                titleColor: '#1f2937',
+                bodyColor: '#666666',
+                borderColor: '#e5e7eb',
+                borderWidth: 1,
+                padding: 10,
+                usePointStyle: true,
+                titleFont: { size: 13, weight: 'bold' },
+                bodyFont: { size: 13 }
+            }
+        },
+        scales: {
+            y: {
+                beginAtZero: true,
+                ticks: {
+                    precision: 0, // Only show whole numbers
+                    color: '#6B7280',
+                    font: { size: 11 }
+                },
+                grid: {
+                    color: '#E5E7EB',
+                    drawBorder: false,
+                    borderDash: [4, 4]
+                }
+            },
+            x: {
+                ticks: {
+                    maxTicksLimit: 6, // Don't crowd the x-axis
+                    color: '#6B7280',
+                    font: { size: 11 }
+                },
+                grid: {
+                    display: false,
+                    drawBorder: false
+                }
+            }
+        }
+    }), []);
+
     if (loading) {
-        return <div style={{ padding: '1rem', textAlign: 'center' }}>Loading trends...</div>;
+        return <div style={{ padding: '1rem', textAlign: 'center', color: '#9CA3AF' }}>Loading trends...</div>;
     }
 
     if (!trends || trends.length === 0) {
-        return <div style={{ padding: '1rem', textAlign: 'center' }}>No trend data available</div>;
+        return <div style={{ padding: '1rem', textAlign: 'center', color: '#9CA3AF' }}>No trend data available</div>;
     }
 
-    const rawData = trends.slice(-30); // Last 30 days
-
-    // Need at least 2 points to draw a line — pad with a zero-value entry on the left
-    const data = rawData.length < 2
-        ? [{ approved: 0, rejected: 0, day: '', date: '', month: '' }, ...rawData]
-        : rawData;
-
-    const maxValue = Math.max(
-        ...data.map(t => Math.max(t.approved || 0, t.rejected || 0)),
-        1
-    );
-
-    const padding = { left: 50, right: 50, top: 30, bottom: 50 };
-    const chartWidth = 700 - padding.left - padding.right;
-    const chartHeight = 300 - padding.top - padding.bottom;
-    const stepX = chartWidth / Math.max(data.length - 1, 1);
-
-    // Calculate points for approved and rejected lines
-    const approvedPoints = data.map((t, i) => ({
-        x: padding.left + i * stepX,
-        y: padding.top + chartHeight - ((t.approved || 0) / maxValue) * chartHeight
-    }));
-
-    const rejectedPoints = data.map((t, i) => ({
-        x: padding.left + i * stepX,
-        y: padding.top + chartHeight - ((t.rejected || 0) / maxValue) * chartHeight
-    }));
-
     return (
-        <svg
-            width="100%"
-            height="300"
-            viewBox="0 0 700 300"
-            preserveAspectRatio="xMidYMid meet"
-            style={{ background: 'transparent' }}
-        >
-            {/* Grid lines */}
-            {[0, 0.25, 0.5, 0.75, 1].map((ratio) => {
-                const y = padding.top + chartHeight - ratio * chartHeight;
-                return (
-                    <line
-                        key={ratio}
-                        x1={padding.left}
-                        y1={y}
-                        x2={padding.left + chartWidth}
-                        y2={y}
-                        stroke="#E5E7EB"
-                        strokeWidth="1"
-                        strokeDasharray="4 4"
-                    />
-                );
-            })}
-
-            {/* Approved line */}
-            {approvedPoints.map((point, i) => {
-                if (i === 0) return null;
-                const prevPoint = approvedPoints[i - 1];
-                return (
-                    <line
-                        key={`approved-${i}`}
-                        x1={prevPoint.x}
-                        y1={prevPoint.y}
-                        x2={point.x}
-                        y2={point.y}
-                        stroke="#10B981"
-                        strokeWidth="3"
-                    />
-                );
-            })}
-
-            {/* Rejected line */}
-            {rejectedPoints.map((point, i) => {
-                if (i === 0) return null;
-                const prevPoint = rejectedPoints[i - 1];
-                return (
-                    <line
-                        key={`rejected-${i}`}
-                        x1={prevPoint.x}
-                        y1={prevPoint.y}
-                        x2={point.x}
-                        y2={point.y}
-                        stroke="#EF4444"
-                        strokeWidth="3"
-                    />
-                );
-            })}
-
-            {/* Approved points */}
-            {approvedPoints.map((point, i) => (
-                <circle
-                    key={`approved-point-${i}`}
-                    cx={point.x}
-                    cy={point.y}
-                    r="4"
-                    fill="#10B981"
-                />
-            ))}
-
-            {/* Rejected points */}
-            {rejectedPoints.map((point, i) => (
-                <circle
-                    key={`rejected-point-${i}`}
-                    cx={point.x}
-                    cy={point.y}
-                    r="4"
-                    fill="#EF4444"
-                />
-            ))}
-
-            {/* Y-axis labels */}
-            {[0, 0.25, 0.5, 0.75, 1].map((ratio) => {
-                const y = padding.top + chartHeight - ratio * chartHeight;
-                const value = Math.round(ratio * maxValue);
-                return (
-                    <text
-                        key={`ylabel-${ratio}`}
-                        x={padding.left - 8}
-                        y={y + 4}
-                        fontSize="11"
-                        fill="#6B7280"
-                        textAnchor="end"
-                    >
-                        {value}
-                    </text>
-                );
-            })}
-
-            {/* X-axis labels - Show every 5th day to avoid crowding */}
-            {data.map((t, i) => {
-                if (i % 5 !== 0 && i !== data.length - 1) return null;
-                const x = padding.left + i * stepX;
-                const label = t.month || t.day || t.date || `D${i + 1}`;
-                if (!label) return null; // skip padded zero-point
-                return (
-                    <text
-                        key={`label-${i}`}
-                        x={x}
-                        y={padding.top + chartHeight + 30}
-                        fontSize="11"
-                        fill="#6B7280"
-                        textAnchor="middle"
-                    >
-                        {label}
-                    </text>
-                );
-            })}
-
-            {/* Legend */}
-            <g transform={`translate(${padding.left}, 10)`}>
-                <circle cx="0" cy="0" r="4" fill="#10B981" />
-                <text x="10" y="4" fontSize="12" fill="#6B7280">Approved</text>
-                <circle cx="80" cy="0" r="4" fill="#EF4444" />
-                <text x="90" y="4" fontSize="12" fill="#6B7280">Rejected</text>
-            </g>
-        </svg>
+        <div style={{ width: '100%', height: '100%' }}>
+            <Line id="approval-trend-line" data={chartData} options={options} />
+        </div>
     );
 });
 
@@ -178,6 +158,7 @@ ApprovalTrendChart.propTypes = {
     trends: PropTypes.arrayOf(PropTypes.shape({
         day: PropTypes.string,
         date: PropTypes.string,
+        month: PropTypes.string,
         approved: PropTypes.number,
         rejected: PropTypes.number
     })),
