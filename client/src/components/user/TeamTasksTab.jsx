@@ -831,10 +831,11 @@ const TeamTasksTab = ({ user }) => {
                                         {formatFileSize(file.file_size)}
                                       </div>
                                     </div>
-                                    <FileMoreMenu
-                                      onDownload={() => handleDownloadFile(file)}
-                                      onOpenPath={() => handleOpenFolderPath(file.id)}
-                                    />
+                                      <FileViewersButton fileId={file.id} />
+                                      <FileMoreMenu
+                                        onDownload={() => handleDownloadFile(file)}
+                                        onOpenPath={() => handleOpenFolderPath(file.id)}
+                                      />
                                   </div>
                                 </div>
                               );
@@ -866,10 +867,11 @@ const TeamTasksTab = ({ user }) => {
                                     {formatFileSize(file.file_size)}
                                   </div>
                                 </div>
-                                <FileMoreMenu
-                                  onDownload={() => handleDownloadFile(file)}
-                                  onOpenPath={() => handleOpenFolderPath(file.id)}
-                                />
+                                  <FileViewersButton fileId={file.id} />
+                                  <FileMoreMenu
+                                    onDownload={() => handleDownloadFile(file)}
+                                    onOpenPath={() => handleOpenFolderPath(file.id)}
+                                  />
                               </div>
                             </div>
                           );
@@ -957,10 +959,11 @@ const TeamTasksTab = ({ user }) => {
                                       </div>
                                     </div>
                                     <FileViewersButton fileId={file.id} />
-                                    <FileMoreMenu
-                                      onDownload={() => handleDownloadFile(file)}
-                                      onOpenPath={() => handleOpenFolderPath(file.id)}
-                                    />
+                                      <FileViewersButton fileId={file.id} />
+                                      <FileMoreMenu
+                                        onDownload={() => handleDownloadFile(file)}
+                                        onOpenPath={() => handleOpenFolderPath(file.id)}
+                                      />
                                   </div>
                                 </div>
                               );
@@ -994,10 +997,11 @@ const TeamTasksTab = ({ user }) => {
                                   </div>
                                 </div>
                                 <FileViewersButton fileId={file.id} />
-                                <FileMoreMenu
-                                  onDownload={() => handleDownloadFile(file)}
-                                  onOpenPath={() => handleOpenFolderPath(file.id)}
-                                />
+                                  <FileViewersButton fileId={file.id} />
+                                  <FileMoreMenu
+                                    onDownload={() => handleDownloadFile(file)}
+                                    onOpenPath={() => handleOpenFolderPath(file.id)}
+                                  />
                               </div>
                             </div>
                           );
