@@ -338,9 +338,9 @@ const AdminDashboard = ({ user, onLogout }) => {
               </div>
             </div>
           </Suspense>
-        </NetworkProvider>
-      </AuthProvider>
-    )
+      </NetworkProvider>
+    </AuthProvider>
+  )
 }
 
 export default AdminDashboard
