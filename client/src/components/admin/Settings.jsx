@@ -369,7 +369,7 @@ const Settings = ({ clearMessages, error, success, setError, setSuccess, users, 
   const cancelEditingTeam = () => setEditingTeam(null)
 
   const getTeamLeaderOptions = () => {
-    return users?.filter(user => user.role === 'TEAM LEADER' || user.role === 'ADMIN') || []
+    return users?.filter(user => user.role === 'TEAM_LEADER' || user.role === 'ADMIN') || []
   }
 
   // Show skeleton loader when network is not available

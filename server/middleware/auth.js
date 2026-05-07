@@ -7,7 +7,8 @@ const { secret } = require('../config/jwt');
  */
 function authenticateToken(req, res, next) {
     const authHeader = req.headers['authorization'];
-    const token = authHeader && authHeader.split(' ')[1];
+    // Fallback to query parameter for EventSource (SSE) which doesn't support headers
+    const token = (authHeader && authHeader.split(' ')[1]) || req.query.token;
 
     if (!token) {
         return res.status(401).json({ 
@@ -18,7 +19,13 @@ function authenticateToken(req, res, next) {
 
     jwt.verify(token, secret, (err, user) => {
         if (err) {
-            return res.status(403).json({ 
+            console.error('🔓 JWT Verification Failed:', err.message);
+            // In development, log the token prefix to help debug secret mismatches
+            if (process.env.NODE_ENV !== 'production') {
+                console.log('Token prefix:', token.substring(0, 15) + '...');
+            }
+            
+            return res.status(401).json({ 
                 success: false, 
                 message: 'Invalid or expired token' 
             });
@@ -45,9 +52,9 @@ function authorizeRole(roles) {
             });
         }
 
-        // Normalize user role and allowed roles for comparison (TEAM_LEADER vs TEAM LEADER)
-        const userRole = req.user.role.toUpperCase().replace(/\s+/g, '_');
-        const normalizedAllowedRoles = allowedRoles.map(r => r.replace(/\s+/g, '_'));
+        // Normalize user role and allowed roles for comparison
+        const userRole = req.user.role.toUpperCase();
+        const normalizedAllowedRoles = allowedRoles;
         
         // ADMIN always has access
         if (userRole === 'ADMIN' || normalizedAllowedRoles.includes(userRole)) {

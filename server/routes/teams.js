@@ -103,7 +103,7 @@ router.post('/', authorizeRole('ADMIN'), (req, res) => {
         // Get user details for the leaders
         const placeholders = leaderIds.map(() => '?').join(',');
         db.all(
-          `SELECT id, username FROM users WHERE id IN (${placeholders}) AND role IN ('TEAM LEADER', 'ADMIN')`,
+          `SELECT id, username FROM users WHERE id IN (${placeholders}) AND role IN ('TEAM_LEADER', 'ADMIN')`,
           leaderIds,
           (err, users) => {
             if (err) {
@@ -260,7 +260,7 @@ router.put('/:id', authorizeRole('ADMIN'), (req, res) => {
           // Get user details for the leaders
           const placeholders = leaderIds.map(() => '?').join(',');
           db.all(
-            `SELECT id, username FROM users WHERE id IN (${placeholders}) AND role IN ('TEAM LEADER', 'ADMIN')`,
+            `SELECT id, username FROM users WHERE id IN (${placeholders}) AND role IN ('TEAM_LEADER', 'ADMIN')`,
             leaderIds,
             (err, users) => {
               if (err) {

@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { API_BASE_URL, API_ENDPOINTS } from '../config/api';
+import { apiFetch, API_BASE_URL, API_ENDPOINTS } from '../config/api';
 
 /**
  * Custom hook for managing assignments
@@ -33,10 +33,9 @@ export const useAssignments = (userId, options = {}) => {
     setError(null);
 
     try {
-      const response = await fetch(
+      const data = await apiFetch(
         `${API_BASE_URL}${API_ENDPOINTS.assignmentsByUser(userId)}`
       );
-      const data = await response.json();
 
       if (data.success) {
         setAssignments(data.assignments || []);
@@ -142,8 +141,7 @@ export const useTeamAssignments = (teamName, options = {}) => {
         url += `&cursor=${cursorParam}`;
       }
 
-      const response = await fetch(url);
-      const data = await response.json();
+      const data = await apiFetch(url);
 
       if (data.success) {
         if (cursorParam) {

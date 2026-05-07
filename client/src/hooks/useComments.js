@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { API_BASE_URL, API_ENDPOINTS } from '../config/api';
+import { apiFetch, API_BASE_URL, API_ENDPOINTS } from '../config/api';
 
 /**
  * Custom hook for managing assignment comments
@@ -31,10 +31,9 @@ export const useComments = (assignmentId = null) => {
     setError(null);
 
     try {
-      const response = await fetch(
+      const data = await apiFetch(
         `${API_BASE_URL}${API_ENDPOINTS.assignmentComments(id)}`
       );
-      const data = await response.json();
 
       if (data.success) {
         setComments(prev => ({
@@ -65,8 +64,7 @@ export const useComments = (assignmentId = null) => {
     try {
       // Fetch all comments in parallel
       const promises = assignmentIds.map(id =>
-        fetch(`${API_BASE_URL}${API_ENDPOINTS.assignmentComments(id)}`)
-          .then(res => res.json())
+        apiFetch(`${API_BASE_URL}${API_ENDPOINTS.assignmentComments(id)}`)
           .then(data => ({ id, comments: data.success ? data.comments : [] }))
       );
 
@@ -94,13 +92,10 @@ export const useComments = (assignmentId = null) => {
     if (!id || !commentText.trim()) return { success: false };
 
     try {
-      const response = await fetch(
+      const data = await apiFetch(
         `${API_BASE_URL}${API_ENDPOINTS.assignmentComments(id)}`,
         {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
           body: JSON.stringify({
             userId,
             username,
@@ -108,8 +103,6 @@ export const useComments = (assignmentId = null) => {
           })
         }
       );
-
-      const data = await response.json();
 
       if (data.success) {
         // Refresh comments for this assignment
@@ -134,13 +127,10 @@ export const useComments = (assignmentId = null) => {
     }
 
     try {
-      const response = await fetch(
+      const data = await apiFetch(
         `${API_BASE_URL}${API_ENDPOINTS.assignmentCommentReply(assignmentId, commentId)}`,
         {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
           body: JSON.stringify({
             userId,
             username,
@@ -148,8 +138,6 @@ export const useComments = (assignmentId = null) => {
           })
         }
       );
-
-      const data = await response.json();
 
       if (data.success) {
         // Refresh comments for this assignment

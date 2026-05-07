@@ -10,13 +10,13 @@ const _resolveFrom = (() => {
     _p.join(__dirname, '../node_modules'),
     _p.join(__dirname, 'node_modules'),
   ];
-  return function(mod) {
+  return function (mod) {
     for (const c of candidates) {
       try {
         const full = _p.join(c, mod);
         if (_fs.existsSync(full)) return full;
         return require.resolve(mod, { paths: [c] });
-      } catch(_) {}
+      } catch (_) { }
     }
     return mod;
   };
@@ -30,7 +30,7 @@ const _envPaths = [
   _path0.join(__dirname, '../../.env'),
   _path0.join(process.resourcesPath || '', '.env')
 ];
-const _envFile = _envPaths.find(p => { try { return _fs0.existsSync(p); } catch(_){return false;} });
+const _envFile = _envPaths.find(p => { try { return _fs0.existsSync(p); } catch (_) { return false; } });
 try {
   const _dotenvPaths = [
     _path0.join(__dirname, '../app-server/node_modules/dotenv'),
@@ -40,12 +40,12 @@ try {
   ];
   let _dotenv = null;
   for (const _dp of _dotenvPaths) {
-    try { _dotenv = require(_dp); break; } catch(_) {}
+    try { _dotenv = require(_dp); break; } catch (_) { }
   }
   if (_dotenv && _envFile) {
     _dotenv.config({ path: _envFile });
   }
-} catch (_e) {}
+} catch (_e) { }
 
 const mysql = require(_resolveFrom('mysql2/promise'));
 const path = require('path');
@@ -67,13 +67,15 @@ const MYSQL_CONFIG = {
   password: process.env.DB_PASSWORD || '',
   database: process.env.DB_NAME || (isProduction ? 'kmtifms' : 'kmtifms_dev'),
   waitForConnections: true,
-  connectionLimit: 30,         // Increased: NAS needs more headroom for parallel queries
-  queueLimit: 100,             // Increased: more requests can wait rather than fail
-  connectTimeout: 15000,       // Increased: NAS can be slow to accept connections
+  connectionLimit: 30,           // Use HEAD: NAS needs more headroom
+  queueLimit: 100,              // Use HEAD: More requests can wait
+  acquireTimeout: 10000,        // Use Incoming: Max time to get a conn from pool
+  connectTimeout: 15000,        // Use HEAD: NAS can be slow to establish handshake
   enableKeepAlive: true,
-  keepAliveInitialDelay: 10000,
-  maxIdle: 10,
-  idleTimeout: 60000
+  keepAliveInitialDelay: 10000, // Use HEAD: Keep the NAS awake
+  charset: 'utf8mb4',           // Use Incoming: Critical for Japanese characters
+  maxIdle: 10,                  // Use Incoming: Better resource cleanup
+  idleTimeout: 60000            // Use Incoming: Close stale connections after 1m
 };
 
 const currentConfig = MYSQL_CONFIG;
@@ -226,7 +228,7 @@ function getDefaultProjectPickerPath() {
   const documents = path.join(home, 'Documents');
   try {
     if (documents && fs.existsSync(documents)) return documents;
-  } catch (e) {}
+  } catch (e) { }
   return home || networkDataPath;
 }
 

@@ -28,7 +28,7 @@ const NotificationItem = memo(({ notification, onNotificationClick, onDeleteNoti
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="13" height="13" style={{marginRight: '4px', verticalAlign: 'middle', flexShrink: 0}}>
               <path d="M12 12c2.7 0 4.8-2.1 4.8-4.8S14.7 2.4 12 2.4 7.2 4.5 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2 0-9.6 1.6-9.6 4.8v2.4h19.2v-2.4c0-3.2-6.4-4.8-9.6-4.8z"/>
             </svg>
-            {notification.action_by_username} ({notification.action_by_role})
+            {notification.action_by_username} ({notification.action_by_role === 'TEAM_LEADER' ? 'Team Leader' : notification.action_by_role})
           </span>
           {notification.assignment_title && (
             <span className="tl-notification-assignment">

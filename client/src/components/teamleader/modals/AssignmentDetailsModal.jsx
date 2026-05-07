@@ -458,7 +458,7 @@ const AssignmentDetailsModal = ({
                       <div key={comment.id || index} className="comment-item">
                         <div className="comment-header">
                           <span className="comment-author">{username}</span>
-                          <span className="comment-role">{role}</span>
+                          <span className="comment-role">{role === 'TEAM_LEADER' ? 'Team Leader' : role}</span>
                           <span className="comment-date">
                             {new Date(timestamp).toLocaleDateString('en-US', {
                               month: 'short',

@@ -3,6 +3,19 @@ import { apiFetch } from '@/config/api'
 
 const NotificationContext = createContext(null)
 
+// Helper: update Electron taskbar badge + flash the app icon
+const updateElectronBadge = (unreadCount) => {
+  if (!window.electron) return
+  // Badge: shows red circle with count on taskbar icon
+  if (typeof window.electron.setBadge === 'function') {
+    window.electron.setBadge(unreadCount)
+  }
+  // Flash: makes the taskbar icon flash only when window is NOT focused
+  if (typeof window.electron.flashFrame === 'function') {
+    window.electron.flashFrame(unreadCount > 0)
+  }
+}
+
 export const NotificationProvider = ({ children, userId }) => {
   const [notifications, setNotifications] = useState([])
   const [unreadCount, setUnreadCount] = useState(0)
@@ -108,6 +121,11 @@ export const NotificationProvider = ({ children, userId }) => {
 
     return () => stopPolling()
   }, [userId, fetchNotifications, startPolling, stopPolling])
+
+  // Sync unread count to Electron taskbar badge + icon flash
+  useEffect(() => {
+    updateElectronBadge(unreadCount)
+  }, [unreadCount])
 
   const value = {
     notifications,

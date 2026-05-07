@@ -1,11 +1,19 @@
 import { useState, useEffect, useRef, Suspense, memo, useCallback } from 'react'
-import { apiFetch } from '@/config/api'
+import { apiFetch, API_BASE_URL } from '@/config/api'
 import anime from 'animejs'
 import '../css/AdminDashboard.css'
 import SkeletonLoader from '../components/common/SkeletonLoader'
 import { getSidebarIcon } from '../components/shared/FileIcon'
 import { AuthProvider, NetworkProvider } from '../contexts'
 import { ToastNotification } from '../components/shared'
+import useStore from '../store/useStore'
+
+// Sync unread count to Electron taskbar badge + icon flash
+const syncElectronBadge = (count) => {
+  if (!window.electron) return
+  if (typeof window.electron.setBadge === 'function') window.electron.setBadge(count)
+  if (typeof window.electron.flashFrame === 'function') window.electron.flashFrame(count > 0)
+}
 
 // Import admin tab components
 import {
@@ -145,10 +153,40 @@ const AdminDashboard = ({ user, onLogout }) => {
   useEffect(() => {
     fetchUsers()
     fetchNotifications()
-    // Poll for notifications every 30 seconds
+    // Poll for notifications every 30 seconds (fallback for SSE)
     const interval = setInterval(fetchNotifications, 30000)
     return () => clearInterval(interval)
   }, [])
+
+  // SSE — instant badge update when a new notification arrives
+  useEffect(() => {
+    if (!user?.id) return
+    const { token } = useStore.getState()
+    let es
+    let reconnectTimer
+    const connect = () => {
+      // Pass token in query param for SSE as EventSource doesn't support headers
+      const url = `${API_BASE_URL}/api/notifications/user/${user.id}/stream${token ? `?token=${token}` : ''}`
+      es = new EventSource(url)
+      es.onmessage = (event) => {
+        if (event.data === 'ping') fetchNotifications()
+      }
+      es.onerror = () => {
+        es.close()
+        reconnectTimer = setTimeout(connect, 5000)
+      }
+    }
+    connect()
+    return () => {
+      if (es) es.close()
+      clearTimeout(reconnectTimer)
+    }
+  }, [user?.id])
+
+  // Sync unread badge + flash to Electron taskbar whenever count changes
+  useEffect(() => {
+    syncElectronBadge(unreadCount)
+  }, [unreadCount])
 
   const fetchUsers = async () => {
     try {
@@ -314,7 +352,6 @@ const AdminDashboard = ({ user, onLogout }) => {
                 closeSidebar={closeSidebar}
                 handleLogout={handleLogout}
               />
-
               {/* Main Content */}
               <div className="admin-main-content" ref={mainContentRef}>
 
@@ -323,18 +360,11 @@ const AdminDashboard = ({ user, onLogout }) => {
                   {renderActiveTab()}
                 </div>
               </div>
-
-              {/* Toast Notifications */}
-              <ToastNotification
-                notifications={notifications}
-                onNavigate={handleNotificationNavigation}
-                role="admin"
-              />
             </div>
           </Suspense>
-      </NetworkProvider>
-    </AuthProvider>
-  )
+        </NetworkProvider>
+      </AuthProvider>
+    )
 }
 
 export default AdminDashboard

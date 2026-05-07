@@ -169,8 +169,7 @@
   color: #059669;
 }
 
-/* TEAM LEADER — handles both "TEAM LEADER" (space → "team-leader")
-   and "TEAM_LEADER" (underscore → "team_leader") from the DB */
+/* TEAM_LEADER — handles "TEAM_LEADER" from the DB */
 .users-management .role-badge.team-leader,
 .users-management .role-badge.team_leader {
   border-color: #1d4ed8;

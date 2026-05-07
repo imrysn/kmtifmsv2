@@ -1,9 +1,10 @@
 import { useState, useEffect, useMemo, useCallback, useRef, startTransition } from 'react';
-import { apiFetch } from '@/config/api';
+import { apiFetch, API_BASE_URL } from '@/config/api';
+import useStore from '@/store/useStore';
 import './css/NotificationTab.css';
 import { parseNotification } from '../shared/SmartNavigation';
 
-const POLL_INTERVAL = 30000; // 30s — was 5s, causing constant re-renders & server load
+const POLL_INTERVAL = 30000; // 30s fallback poll (SSE handles real-time; this catches missed events)
 
 const NotificationTab = ({ user, onOpenFile, onNavigateToTasks, onNavigate, onUpdateUnreadCount }) => {
   const [notifications, setNotifications] = useState([]);
@@ -56,6 +57,37 @@ const NotificationTab = ({ user, onOpenFile, onNavigateToTasks, onNavigate, onUp
       clearInterval(interval);
     };
   }, [fetchNotifications]);
+
+  // SSE — server pushes a ping the instant a new notification is created
+  useEffect(() => {
+    let es;
+    let reconnectTimer;
+
+    const connect = () => {
+      const { token } = useStore.getState();
+      es = new EventSource(`${API_BASE_URL}/api/notifications/user/${user.id}/stream${token ? `?token=${token}` : ''}`);
+
+      es.onmessage = (event) => {
+        if (event.data === 'ping') {
+          // Immediately refetch so badge + list update without waiting for the poll
+          fetchNotifications();
+        }
+      };
+
+      es.onerror = () => {
+        es.close();
+        // Reconnect after 5 s on error / network blip
+        reconnectTimer = setTimeout(connect, 5000);
+      };
+    };
+
+    connect();
+
+    return () => {
+      if (es) es.close();
+      clearTimeout(reconnectTimer);
+    };
+  }, [user.id, fetchNotifications]);
 
   const isFolderNotification = useCallback((notification) => {
     const folderKeywords = ['Folder Approved', 'Folder Rejected', 'Folder Partially', 'Folder Mostly'];

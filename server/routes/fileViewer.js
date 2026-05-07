@@ -9,7 +9,7 @@ const router = express.Router();
 router.get('/view/*', (req, res) => {
   try {
     // Get the file path from the URL
-    let filePath = req.params[0]; // Everything after /view/
+    let filePath = decodeURIComponent(req.params[0]); // Everything after /view/
 
     // Remove leading /uploads/ or uploads/ prefix if present to avoid double uploads path
     if (filePath.startsWith('/uploads/')) {
@@ -18,10 +18,16 @@ router.get('/view/*', (req, res) => {
       filePath = filePath.substring('uploads/'.length);
     }
 
-    const fullPath = path.join(uploadsDir, filePath);
+    // Determine if filePath is already an absolute path (NAS or Windows drive)
+    let fullPath;
+    if (filePath.startsWith('\\\\') || /^[a-zA-Z]:[\\/]/.test(filePath)) {
+      fullPath = filePath;
+    } else {
+      fullPath = path.join(uploadsDir, filePath);
+    }
 
     console.log('📂 File view request:', filePath);
-    console.log('📂 Full path:', fullPath);
+    console.log('📂 Resolved path:', fullPath);
 
     // Check if file exists
     if (!fs.existsSync(fullPath)) {
@@ -104,7 +110,7 @@ router.get('/view/*', (req, res) => {
 // Download file (forces download with original filename)
 router.get('/download/*', (req, res) => {
   try {
-    let filePath = req.params[0];
+    let filePath = decodeURIComponent(req.params[0]);
 
     // Remove leading /uploads/ or uploads/ prefix if present to avoid double uploads path
     if (filePath.startsWith('/uploads/')) {
@@ -113,9 +119,16 @@ router.get('/download/*', (req, res) => {
       filePath = filePath.substring('uploads/'.length);
     }
 
-    const fullPath = path.join(uploadsDir, filePath);
+    // Determine if filePath is already an absolute path
+    let fullPath;
+    if (filePath.startsWith('\\\\') || /^[a-zA-Z]:[\\/]/.test(filePath)) {
+      fullPath = filePath;
+    } else {
+      fullPath = path.join(uploadsDir, filePath);
+    }
 
     console.log('💾 File download request:', filePath);
+    console.log('Resolved path:', fullPath);
 
     if (!fs.existsSync(fullPath)) {
       console.error('❌ File not found:', fullPath);

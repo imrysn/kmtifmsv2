@@ -257,11 +257,11 @@ function insertSampleFiles(callback) {
         if (index === 1) { // budget_analysis_q4.xlsx
           db.run(`INSERT INTO file_comments (file_id, user_id, username, user_role, comment, comment_type) 
                   VALUES (?, ?, ?, ?, ?, ?)`,
-          [this.lastID, 2, 'sarah.leader', 'TEAM LEADER', 'Budget allocation looks reasonable. Approved for admin review.', 'approval']);
+          [this.lastID, 2, 'sarah.leader', 'TEAM_LEADER', 'Budget allocation looks reasonable. Approved for admin review.', 'approval']);
         } else if (index === 3) { // test_results_automation.pdf
           db.run(`INSERT INTO file_comments (file_id, user_id, username, user_role, comment, comment_type) 
                   VALUES (?, ?, ?, ?, ?, ?)`,
-          [this.lastID, 2, 'sarah.leader', 'TEAM LEADER', 'Comprehensive test coverage. All critical paths verified.', 'approval']);
+          [this.lastID, 2, 'sarah.leader', 'TEAM_LEADER', 'Comprehensive test coverage. All critical paths verified.', 'approval']);
           db.run(`INSERT INTO file_comments (file_id, user_id, username, user_role, comment, comment_type) 
                   VALUES (?, ?, ?, ?, ?, ?)`,
           [this.lastID, 3, 'admin', 'ADMIN', 'Outstanding work. Ready for public release.', 'final_approval']);

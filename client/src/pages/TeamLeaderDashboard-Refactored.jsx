@@ -1,8 +1,16 @@
 import React, { useState, useEffect, Suspense, lazy } from 'react'
 import { apiFetch, API_BASE_URL } from '@/config/api'
+import useStore from '../store/useStore'
 import '../css/TeamLeaderDashboard.css'
 import SkeletonLoader from '../components/common/SkeletonLoader'
 import { AlertMessage } from '../components/shared'
+
+// Sync unread count to Electron taskbar badge + icon flash
+const syncElectronBadge = (count) => {
+  if (!window.electron) return
+  if (typeof window.electron.setBadge === 'function') window.electron.setBadge(count)
+  if (typeof window.electron.flashFrame === 'function') window.electron.flashFrame(count > 0)
+}
 
 // Eagerly import critical components
 import {
@@ -141,7 +149,7 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
     // or just collect all unique teams from members
     const teams = new Set()
     teamMembers.forEach(m => {
-      if (m.team && m.role !== 'TEAM LEADER') {
+      if (m.team && m.role !== 'TEAM_LEADER') {
         teams.add(m.team)
       }
     })
@@ -163,6 +171,37 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
     const interval = setInterval(fetchNotifications, 30000)
     return () => clearInterval(interval)
   }, [user.team])
+
+  // SSE — instant badge update when a new notification arrives
+  useEffect(() => {
+    if (!user?.id) return
+    let es
+    let reconnectTimer
+
+    const connect = () => {
+      const { token } = useStore.getState()
+      const url = `${API_BASE_URL}/api/notifications/user/${user.id}/stream${token ? `?token=${token}` : ''}`
+      es = new EventSource(url)
+      es.onmessage = (event) => {
+        if (event.data === 'ping') fetchNotifications()
+      }
+      es.onerror = () => {
+        es.close()
+        reconnectTimer = setTimeout(connect, 5000)
+      }
+    }
+
+    connect()
+    return () => {
+      if (es) es.close()
+      clearTimeout(reconnectTimer)
+    }
+  }, [user?.id])
+
+  // Sync unread badge + flash to Electron taskbar whenever count changes
+  useEffect(() => {
+    syncElectronBadge(unreadCount)
+  }, [unreadCount])
 
   useEffect(() => {
     const handleClickOutside = () => {

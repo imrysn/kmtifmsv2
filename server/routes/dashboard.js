@@ -133,11 +133,11 @@ router.get('/team-leader/:userId', authorizeRole(['TEAM_LEADER', 'ADMIN']), asyn
     [`SELECT COUNT(*) as pending FROM files WHERE user_team IN (${ph}) AND current_stage = 'pending_team_leader'`, teamNames],
     [`SELECT COUNT(*) as pending FROM files WHERE user_team IN (${ph}) AND current_stage = 'pending_admin'`, teamNames],
     [`SELECT COUNT(*) as rejected FROM files WHERE user_team IN (${ph}) AND current_stage LIKE 'rejected%'`, teamNames],
-    [`SELECT COUNT(DISTINCT id) as total FROM users WHERE team IN (${ph}) AND role != 'TEAM LEADER'`, teamNames],
+    [`SELECT COUNT(DISTINCT id) as total FROM users WHERE team IN (${ph}) AND role != 'TEAM_LEADER'`, teamNames],
     [`SELECT file_type, COUNT(*) as count FROM files WHERE user_team IN (${ph}) GROUP BY file_type ORDER BY count DESC`, teamNames],
     [`SELECT u.id, u.fullName, u.username, COUNT(f.id) as fileCount
       FROM users u LEFT JOIN files f ON u.id = f.user_id
-      WHERE u.team IN (${ph}) AND u.role != 'TEAM LEADER'
+      WHERE u.team IN (${ph}) AND u.role != 'TEAM_LEADER'
       GROUP BY u.id, u.fullName, u.username ORDER BY fileCount DESC LIMIT 5`, teamNames],
     [`SELECT AVG(DATEDIFF(team_leader_reviewed_at, uploaded_at)) as avgDays
       FROM files WHERE user_team IN (${ph}) AND team_leader_reviewed_at IS NOT NULL`, teamNames],
@@ -189,11 +189,11 @@ router.get('/team/:teamName', authorizeRole(['TEAM_LEADER', 'ADMIN']), asyncHand
     ["SELECT COUNT(*) as pending FROM files WHERE user_team = ? AND current_stage = 'pending_team_leader'", [teamName]],
     ["SELECT COUNT(*) as pending FROM files WHERE user_team = ? AND current_stage = 'pending_admin'", [teamName]],
     ["SELECT COUNT(*) as rejected FROM files WHERE user_team = ? AND current_stage LIKE 'rejected%'", [teamName]],
-    ["SELECT COUNT(*) as total FROM users WHERE team = ? AND role != 'TEAM LEADER'", [teamName]],
+    ["SELECT COUNT(*) as total FROM users WHERE team = ? AND role != 'TEAM_LEADER'", [teamName]],
     ['SELECT file_type, COUNT(*) as count FROM files WHERE user_team = ? GROUP BY file_type ORDER BY count DESC', [teamName]],
     [`SELECT u.id, u.fullName, u.username, COUNT(f.id) as fileCount
       FROM users u LEFT JOIN files f ON u.id = f.user_id
-      WHERE u.team = ? AND u.role != 'TEAM LEADER'
+      WHERE u.team = ? AND u.role != 'TEAM_LEADER'
       GROUP BY u.id, u.fullName, u.username ORDER BY fileCount DESC LIMIT 5`, [teamName]],
     [`SELECT AVG(DATEDIFF(team_leader_reviewed_at, uploaded_at)) as avgDays
       FROM files WHERE user_team = ? AND team_leader_reviewed_at IS NOT NULL`, [teamName]],

@@ -131,8 +131,8 @@ function logActivity(db, userId, username, role, team, action) {
     timestamp
   });
 
-  // Normalize role for database ENUM compatibility (TEAM_LEADER vs TEAM LEADER)
-  const normalizedRole = (role || '').toString().toUpperCase().replace(/\s+/g, '_');
+  // Normalized role is now redundant as roles are standardized
+  const normalizedRole = role;
 
   // Log to database (MySQL)
   const mysqlDb = require('../../database/config');

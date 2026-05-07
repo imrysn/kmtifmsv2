@@ -174,7 +174,7 @@ class FileController {
     });
 
     /**
-     * Get pending reviews for team leader
+     * Get pending reviews for team leader (non-paginated, for badge counts etc.)
      */
     getPendingReview = asyncHandler(async (req, res) => {
         const team = req.user.role === 'ADMIN' ? null : req.user.team;
@@ -201,7 +201,7 @@ class FileController {
     });
 
     /**
-     * Get pending reviews for admin
+     * Get pending reviews for admin (non-paginated)
      */
     getAdminReview = asyncHandler(async (req, res) => {
         const files = await fileService.getPendingAdminReview();
@@ -356,13 +356,139 @@ class FileController {
 
     /**
      * Sync deleted files (cleanup orphaned DB records)
-     * FIX: uploadsDir was missing — now imported at top of file
      */
     syncDeleted = asyncHandler(async (req, res) => {
         const { syncDeletedFiles } = require('../services/fileSyncService');
         const { networkDataPath } = require('../config/database');
         const summary = await syncDeletedFiles(uploadsDir, networkDataPath);
         res.json({ success: true, ...summary });
+    });
+
+    // ─── Methods ported from THEIRS during merge resolution ──────────────────
+
+    /**
+     * Check if a file with the same name already exists for a user.
+     * Used by the client before upload to prompt the user on conflicts.
+     * POST /api/files/check-duplicate
+     */
+    checkDuplicate = asyncHandler(async (req, res) => {
+        const { originalName, userId } = req.body;
+        if (!originalName || !userId) throw new ValidationError('originalName and userId are required');
+        const result = await fileService.checkDuplicate(originalName, userId);
+        res.json({ success: true, isDuplicate: result.isDuplicate, existingFile: result.existingFile });
+    });
+
+    /**
+     * Get all files for a specific team member (TL viewing one of their members).
+     * GET /api/files/member/:memberId
+     */
+    getMemberFiles = asyncHandler(async (req, res) => {
+        const { memberId } = req.params;
+        const files = await fileService.getMemberFiles(memberId);
+        res.json({ success: true, files });
+    });
+
+    /**
+     * Get a user's files with pagination.
+     * GET /api/files/user/:userId/pending
+     */
+    getUserFilesPaginated = asyncHandler(async (req, res) => {
+        const { userId } = req.params;
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 50;
+        const result = await fileService.getUserFilesPaginated(userId, page, limit);
+        res.json({ success: true, ...result });
+    });
+
+    /**
+     * Paginated team leader review queue.
+     * GET /api/files/team-leader/:team
+     */
+    getTeamLeaderQueue = asyncHandler(async (req, res) => {
+        const { team } = req.params;
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 50;
+        const result = await fileService.getTeamLeaderQueue(team, page, limit);
+        res.json({ success: true, ...result });
+    });
+
+    /**
+     * Advanced filtering for the team leader review queue.
+     * POST /api/files/team-leader/:team/filter
+     */
+    filterTeamLeaderQueue = asyncHandler(async (req, res) => {
+        const { team } = req.params;
+        const { filters, sort, page = 1, limit = 50 } = req.body;
+        const result = await fileService.filterTeamLeaderQueue(team, filters, sort, page, limit);
+        res.json({ success: true, ...result });
+    });
+
+    /**
+     * Paginated admin review queue.
+     * GET /api/files/admin
+     */
+    getAdminQueue = asyncHandler(async (req, res) => {
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 50;
+        const result = await fileService.getAdminQueue(page, limit);
+        res.json({ success: true, ...result });
+    });
+
+    /**
+     * Move an entire folder to the NAS destination.
+     * Handles both regular files and assignment_attachments.
+     * Sends smart grouped notifications per user.
+     * POST /api/files/folder/move-to-nas
+     */
+    moveFolderToNas = asyncHandler(async (req, res) => {
+        const { folderName, username, fileIds, destinationPath, adminId, adminUsername, adminRole, team, comments } = req.body;
+        if (!folderName || !username || !fileIds?.length || !destinationPath) {
+            throw new ValidationError('Missing required fields: folderName, username, fileIds, destinationPath');
+        }
+        const result = await fileService.moveFolderToNas(
+            { folderName, username, fileIds, destinationPath, comments },
+            { id: adminId, username: adminUsername, role: adminRole, team }
+        );
+        res.json({
+            success: true,
+            message: `Folder "${folderName}" approved and uploaded to NAS successfully`,
+            nasPath: result.nasPath
+        });
+    });
+
+    /**
+     * Delete an attachment folder (assignment_attachments records + physical files).
+     * POST /api/files/folder/delete-attachments
+     */
+    deleteAttachmentFolder = asyncHandler(async (req, res) => {
+        const { folderName, fileIds, adminId, adminUsername, adminRole, team } = req.body;
+        await fileService.deleteAttachmentFolder(
+            { folderName, fileIds },
+            { id: adminId, username: adminUsername, role: adminRole, team }
+        );
+        res.json({ success: true, message: `Folder "${folderName}" deleted successfully` });
+    });
+
+    /**
+     * Record a file view event (upserts per user per file).
+     * POST /api/files/:id/view
+     */
+    recordView = asyncHandler(async (req, res) => {
+        const id = req.params.id || req.params.fileId;
+        const { userId, username, fullName, role } = req.body;
+        if (!id || !userId) throw new ValidationError('fileId and userId are required');
+        await fileService.recordView(id, { userId, username, fullName, role });
+        res.json({ success: true });
+    });
+
+    /**
+     * Get all users who have viewed a file, most recent first.
+     * GET /api/files/:id/views
+     */
+    getViewers = asyncHandler(async (req, res) => {
+        const id = req.params.id || req.params.fileId;
+        const viewers = await fileService.getViewers(id);
+        res.json({ success: true, viewers });
     });
 }
 

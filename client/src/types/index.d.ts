@@ -6,7 +6,7 @@ export interface User {
   fullName: string;
   username: string;
   email: string;
-  role: 'USER' | 'TEAM LEADER' | 'ADMIN';
+  role: 'USER' | 'TEAM_LEADER' | 'ADMIN';
   team: string | null;
   created_at: string;
   updated_at?: string;

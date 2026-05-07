@@ -222,7 +222,7 @@ router.put('/:id', authorizeRole('ADMIN'), (req, res) => {
             db.get('SELECT id FROM teams WHERE name = ?', [team], (err, teamRow) => {
               if (!err && teamRow) {
                 // Insert into team_leaders table (ignore if already exists)
-                db.run('INSERT OR IGNORE INTO team_leaders (team_id, user_id, username) VALUES (?, ?, ?)',
+                db.run('INSERT IGNORE INTO team_leaders (team_id, user_id, username) VALUES (?, ?, ?)',
                   [teamRow.id, userId, username],
                   (err) => {
                     if (err) {
@@ -495,7 +495,7 @@ router.get('/team/:teamName', authorizeRole(['TEAM_LEADER', 'ADMIN']), (req, res
 
   db.all(
     'SELECT id, fullName, username, email, role, team, created_at FROM users WHERE team = ? AND role != ? ORDER BY fullName',
-    [teamName, 'TEAM LEADER'],
+    [teamName, 'TEAM_LEADER'],
     (err, members) => {
       if (err) {
         console.error('❌ Error getting team members:', err);
@@ -591,7 +591,7 @@ router.get('/team-leader/:userId', authorizeRole(['TEAM_LEADER', 'ADMIN']), (req
          FROM users
          WHERE team IN (${placeholders}) AND role != ?
          ORDER BY fullName`,
-        [...teamNames, 'TEAM LEADER'],
+        [...teamNames, 'TEAM_LEADER'],
         (err, members) => {
           if (err) {
             console.error('❌ Error getting team members:', err);
@@ -648,7 +648,7 @@ router.get('/:teamName', authorizeRole(['TEAM_LEADER', 'ADMIN']), (req, res) => 
 
   db.all(
     'SELECT id, fullName, username, email, role, team, created_at FROM users WHERE team = ? AND role != ? ORDER BY fullName',
-    [teamName, 'TEAM LEADER'],
+    [teamName, 'TEAM_LEADER'],
     (err, members) => {
       if (err) {
         console.error('❌ Error getting team members:', err);

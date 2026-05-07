@@ -149,6 +149,7 @@ const TasksTab = memo(({
   const [sortFilter, setSortFilter] = useState('all');
   const [successModal, setSuccessModal] = useState({ isOpen: false, title: '', message: '', type: 'success' });
   const [downloadToast, setDownloadToast] = useState({ show: false, fileName: '' });
+  const [fileOpenToast, setFileOpenToast] = useState(false);
   const [expandedFolders, setExpandedFolders] = useState({});
   const [showAllSubmittedFiles, setShowAllSubmittedFiles] = useState({});
 
@@ -400,6 +401,10 @@ const TasksTab = memo(({
       if (window.electron?.openFileInApp) {
         const result = await window.electron.openFileInApp(pathData.filePath);
         if (!result.success) showError(result.error || 'Failed to open file');
+        else {
+          setFileOpenToast(true);
+          setTimeout(() => setFileOpenToast(false), 3500);
+        }
       } else {
         const ext = (pathData.filePath.split('.').pop() || '').toLowerCase();
         const browserViewable = ['pdf','png','jpg','jpeg','gif','svg','webp','txt','html','css','js','json','xml','mp4','mp3'];
@@ -412,6 +417,8 @@ const TasksTab = memo(({
           });
           a.click();
         }
+        setFileOpenToast(true);
+        setTimeout(() => setFileOpenToast(false), 3500);
       }
     } catch { showError('Failed to open file. Please try again.'); }
   }, [fileToOpen, showError]);
@@ -886,7 +893,9 @@ const TasksTab = memo(({
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                                       <FileIcon fileType={file.original_name.split('.').pop()} size="small" />
                                       <div style={{ flex: 1, minWidth: 0 }}>
-                                        <div style={{ fontWeight: '500', fontSize: '14px', color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{file.original_name}</div>
+                                        <div style={{ fontWeight: '500', fontSize: '14px', color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                          {file.original_name}
+                                        </div>
                                         <div style={{ fontSize: '12px', color: '#6b7280', display: 'flex', alignItems: 'center', gap: '6px' }}>
                                           <span>by <span style={{ fontWeight: '500', color: '#2563eb' }}>{assignment.team_leader_fullname || assignment.team_leader_username || 'Team Leader'}</span></span>
                                           <span style={{ color: '#9ca3af' }}>•</span>
@@ -906,7 +915,9 @@ const TasksTab = memo(({
                           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                             <FileIcon fileType={attachment.original_name.split('.').pop()} size="small" />
                             <div style={{ flex: 1, minWidth: 0 }}>
-                              <div style={{ fontWeight: '500', fontSize: '14px', color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{attachment.original_name}</div>
+                              <div style={{ fontWeight: '500', fontSize: '14px', color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                {attachment.original_name}
+                              </div>
                               <div style={{ fontSize: '12px', color: '#6b7280', display: 'flex', alignItems: 'center', gap: '6px' }}>
                                 <span>by <span style={{ fontWeight: '500', color: '#2563eb' }}>{assignment.team_leader_fullname || assignment.team_leader_username || 'Team Leader'}</span></span>
                                 <span style={{ color: '#9ca3af' }}>•</span>
@@ -1157,6 +1168,23 @@ const TasksTab = memo(({
         onConfirm={handleOpenFile}
         file={fileToOpen}
       />
+
+      {/* File Open Toast */}
+      {fileOpenToast && (
+        <div style={{ position: 'fixed', top: '28px', right: '28px', zIndex: 9999, background: '#fff', border: '1px solid #bbf7d0', borderRadius: '16px', boxShadow: '0 8px 32px rgba(0,0,0,0.13)', padding: '18px 22px 14px 18px', display: 'flex', alignItems: 'flex-start', gap: '14px', minWidth: '280px', maxWidth: '380px', animation: 'slideInRight 0.25s ease' }}>
+          <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: '#dcfce7', border: '2px solid #86efac', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6L9 17l-5-5" /></svg>
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: '15px', fontWeight: '700', color: '#15803d', marginBottom: '4px' }}>Success</div>
+            <div style={{ fontSize: '13px', color: '#374151', lineHeight: '1.4' }}>File opened successfully!</div>
+            <div style={{ marginTop: '10px', height: '4px', borderRadius: '2px', background: '#dcfce7', overflow: 'hidden' }}>
+              <div style={{ height: '100%', borderRadius: '2px', background: '#22c55e', animation: 'shrinkBar 3.5s linear forwards' }} />
+            </div>
+          </div>
+          <button onClick={() => setFileOpenToast(false)} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: '#9ca3af', fontSize: '20px', lineHeight: 1, padding: 0 }}>×</button>
+        </div>
+      )}
 
       {/* Download Toast */}
       {downloadToast.show && (

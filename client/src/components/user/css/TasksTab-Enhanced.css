@@ -1293,6 +1293,18 @@ textarea:focus {
   box-shadow: 0 2px 4px rgba(59, 130, 246, 0.15);
 }
 
+/* Opened / already-viewed file card */
+.submitted-file-card.file-card-opened {
+  background: #f0fdf4;
+  border-color: #86efac;
+  border-left: 3px solid #16a34a;
+}
+
+.submitted-file-card.file-card-opened:hover {
+  background-color: #dcfce7 !important;
+  border-color: #4ade80;
+}
+
 /* ============================================
    RESPONSIVE DESIGN
    ============================================ */

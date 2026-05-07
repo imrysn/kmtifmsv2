@@ -9,10 +9,9 @@ import { withErrorBoundary } from '../common'
 
 /**
  * Normalise a role string from the DB into a stable CSS class name.
- * Handles both "TEAM LEADER" (space) and "TEAM_LEADER" (underscore) variants.
+ * Handles both "TEAM_LEADER" (underscore) variants.
  *   "ADMIN"       → "admin"
  *   "USER"        → "user"
- *   "TEAM LEADER" → "team-leader"
  *   "TEAM_LEADER" → "team-leader"
  */
 const roleToClass = (role = '') =>
@@ -62,6 +61,7 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess, u
         u.username.toLowerCase().includes(query) ||
         u.email.toLowerCase().includes(query) ||
         u.role.toLowerCase().includes(query) ||
+        roleToLabel(u.role).toLowerCase().includes(query) ||
         (u.team && u.team.toLowerCase().includes(query))
       )
     }
@@ -606,7 +606,7 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess, u
                 className="form-select"
               >
                 <option value="USER">User</option>
-                <option value="TEAM LEADER">Team Leader</option>
+                <option value="TEAM_LEADER">Team Leader</option>
                 <option value="ADMIN">Admin</option>
               </select>
             </div>
@@ -682,7 +682,7 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess, u
                 className="form-select"
               >
                 <option value="USER">User</option>
-                <option value="TEAM LEADER">Team Leader</option>
+                <option value="TEAM_LEADER">Team Leader</option>
                 <option value="ADMIN">Admin</option>
               </select>
             </div>

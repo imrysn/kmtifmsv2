@@ -47,8 +47,8 @@ const upload = multer({
   // This fixes garbled display of Japanese, Chinese, Korean and other multibyte filenames.
   // Security limits to prevent DoS attacks
   limits: {
-    fileSize: 50 * 1024 * 1024 * 1024 // 50GB max file size (effectively limitless)
-    // No files limit — supports folder uploads with unlimited file count
+    fileSize: 50 * 1024 * 1024 * 1024, // 50GB max file size (effectively limitless)
+    defCharset: 'utf8' // Hint to busboy to use UTF-8 for filenames
   }
 });
 

@@ -110,7 +110,8 @@
     "react-hook-form": "^7.68.0",
     "recharts": "^3.7.0",
     "winston": "^3.19.0",
-    "zustand": "^5.0.10"
+    "zustand": "^5.0.10",
+    "react-toastify": "^9.1.3"
   },
   "build": {
     "appId": "com.kmti.kmtifms2",

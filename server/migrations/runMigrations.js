@@ -14,8 +14,11 @@ async function runMigrations() {
       { name: 'Add Team Leaders Table', run: require('./003-add-team-leaders-table') },
       { name: 'Add Folder Support', run: require('./003-add-folder-support') },
       { name: 'Fix Schema Bugs (notifications nullable, activity_logs column)', run: require('./004-fix-schema-bugs') },
+      // Keep comment logic together
       { name: 'Add parent_id to assignment_comments', run: require('./005-add-comments-parent-id') },
-      { name: 'Fix assignment_comments schema (drop FK, add updated_at)', run: require('./006-fix-comments-schema') }
+      { name: 'Fix assignment_comments schema (drop FK, add updated_at)', run: require('./006-fix-comments-schema') },
+      // Append the incoming feature as the next step
+      { name: 'Add File Views Table', run: require('./007-add-file-views') }
     ];
 
     for (const migration of migrations) {

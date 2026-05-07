@@ -71,8 +71,7 @@ router.post('/login', validate(schemas.login), asyncHandler(async (req, res) => 
   logInfo('Password verified', { userId: user.id, role: user.role });
 
   // Role-based access control
-  const rawRole = (user.role || '').toString().trim().toUpperCase();
-  const normalizedRole = rawRole.replace(/\s+/g, '_');
+  const normalizedRole = (user.role || '').toString().trim().toUpperCase();
 
   if (loginType === 'user') {
     // User window: USER and TEAM_LEADER can access. ADMIN must use Admin Login.

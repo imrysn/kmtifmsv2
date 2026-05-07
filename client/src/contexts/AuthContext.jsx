@@ -32,7 +32,7 @@ export const AuthProvider = ({ children, initialUser }) => {
     
     const roleHierarchy = {
       'ADMIN': 3,
-      'TEAM LEADER': 2,
+      'TEAM_LEADER': 2,
       'USER': 1
     }
     
