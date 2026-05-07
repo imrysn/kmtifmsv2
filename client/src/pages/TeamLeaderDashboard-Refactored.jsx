@@ -498,7 +498,7 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
           return handlePostDataResult(data, removeAttachmentIds);
         }
 
-        const handlePostDataResult = (data, removeAttachmentIds) => {
+        function handlePostDataResult(data, removeAttachmentIds) {
           if (data.success) {
             setSuccess(editingAssignmentId
               ? 'Task updated successfully!'
@@ -530,7 +530,7 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
           } else {
             setError(data.message || `Failed to ${editingAssignmentId ? 'update' : 'create'} assignment`)
           }
-        };
+        }
     } catch (error) {
       console.error(`Error ${editingAssignmentId ? 'updating' : 'creating'} assignment:`, error)
       setError(`Failed to ${editingAssignmentId ? 'update' : 'create'} assignment`)
@@ -591,7 +591,7 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
       })
 
       if (data.success) {
-        setSuccess('Assignment deleted successfully')
+        setError('Assignment deleted successfully')
         fetchAssignments()
       } else {
         setError('Failed to delete assignment')

@@ -685,7 +685,6 @@ const TaskManagement = ({
     try {
       setIsDeleting(true)
       clearMessages()
-      setSuccess('Deleting assignment and associated files...')
 
       const data = await apiFetch(`/api/assignments/${assignmentIdToDelete.id}`, {
         method: 'DELETE'
@@ -694,8 +693,8 @@ const TaskManagement = ({
       if (data.success) {
         // Remove the assignment from the local state
         setAssignments(prev => prev.filter(assignment => assignment.id !== assignmentToDelete.id))
-        setSuccess('Assignment and associated files deleted successfully')
-        setTimeout(() => setSuccess(''), 3000)
+        setError('Assignment deleted successfully')
+        setTimeout(() => setError(''), 3000)
         setShowDeleteModal(false)
         setAssignmentToDelete(null)
       } else {

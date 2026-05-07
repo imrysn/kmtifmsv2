@@ -89,7 +89,7 @@ async function createBatchedSubmissionNotification(teamLeaderId, assignmentId, s
       `INSERT INTO notifications (user_id, assignment_id, file_id, type, title, message, action_by_id, action_by_username, action_by_role)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [finalTeamLeaderId, assignmentId, firstSubmission.fileId, 'submission', title, message,
-       firstSubmission.userId, firstSubmission.username, 'USER']
+        firstSubmission.userId, firstSubmission.username, 'USER']
     );
 
     console.log(`✅ Batched notification sent to TL ${finalTeamLeaderId}`);
@@ -105,7 +105,9 @@ const uploadNonces = new Map(); // nonce -> { used: bool, expiresAt: number }
 setInterval(() => {
   const now = Date.now();
   for (const [k, v] of uploadNonces.entries()) {
-    if (now > v.expiresAt) uploadNonces.delete(k);
+    if (now > v.expiresAt) {
+      uploadNonces.delete(k);
+    }
   }
 }, 5 * 60 * 1000);
 
@@ -142,7 +144,9 @@ router.get('/admin/all', authenticateToken, authorizeRole(['ADMIN']), async (req
       conditions.push('a.id < ?');
       queryParams.push(cursor);
     }
-    if (conditions.length > 0) queryStr += ' WHERE ' + conditions.join(' AND ');
+    if (conditions.length > 0) {
+      queryStr += ' WHERE ' + conditions.join(' AND ');
+    }
     queryStr += ' GROUP BY a.id ORDER BY a.created_at DESC, a.id DESC LIMIT ?';
     queryParams.push(parsedLimit + 1);
 
@@ -291,7 +295,9 @@ router.get('/team/:team/all-tasks', authenticateToken, async (req, res) => {
       WHERE a.team = ?
     `;
     const queryParams = [team];
-    if (cursor) { queryStr += ' AND a.id < ?'; queryParams.push(cursor); }
+    if (cursor) {
+      queryStr += ' AND a.id < ?'; queryParams.push(cursor);
+    }
     queryStr += ' GROUP BY a.id ORDER BY a.created_at DESC, a.id DESC LIMIT ?';
     queryParams.push(parsedLimit + 1);
 
@@ -322,7 +328,9 @@ router.get('/team/:team/all-tasks', authenticateToken, async (req, res) => {
         [assignment.id]
       ) || [];
       const tl = await queryOne('SELECT fullName, username, email FROM users WHERE id = ?', [assignment.team_leader_id || assignment.teamLeaderId]);
-      if (tl) { assignment.team_leader_fullname = tl.fullName; assignment.team_leader_username = tl.username; assignment.team_leader_email = tl.email; }
+      if (tl) {
+        assignment.team_leader_fullname = tl.fullName; assignment.team_leader_username = tl.username; assignment.team_leader_email = tl.email;
+      }
     }
 
     res.json({ success: true, assignments: assignmentsToReturn || [], nextCursor, hasMore });
@@ -340,7 +348,9 @@ router.get('/team-leader/:userId', authenticateToken, authorizeRole(['TEAM_LEADE
       'SELECT DISTINCT t.name FROM team_leaders tl JOIN teams t ON tl.team_id = t.id WHERE tl.user_id = ?',
       [userId]
     );
-    if (!ledTeams || ledTeams.length === 0) return res.json({ success: true, assignments: [] });
+    if (!ledTeams || ledTeams.length === 0) {
+      return res.json({ success: true, assignments: [] });
+    }
 
     const teamNames = ledTeams.map(t => t.name);
     const placeholders = teamNames.map(() => '?').join(',');
@@ -375,9 +385,12 @@ router.get('/team-leader/:userId', authenticateToken, authorizeRole(['TEAM_LEADE
       ) || [];
       assignment.recent_submissions = recentSubmissions;
       const tl = await queryOne('SELECT fullName, username, email FROM users WHERE id = ?', [assignment.team_leader_id || assignment.teamLeaderId]);
-      if (tl) { assignment.team_leader_fullname = tl.fullName; assignment.team_leader_username = tl.username; assignment.team_leader_email = tl.email; }
-      if (assignment.submission_count > 0 && recentSubmissions.length === 0)
+      if (tl) {
+        assignment.team_leader_fullname = tl.fullName; assignment.team_leader_username = tl.username; assignment.team_leader_email = tl.email;
+      }
+      if (assignment.submission_count > 0 && recentSubmissions.length === 0) {
         console.warn(`⚠️ Assignment ${assignment.id} has submission_count ${assignment.submission_count} but fetched no submissions`);
+      }
     }
 
     res.json({ success: true, assignments: tlAssignments || [] });
@@ -392,7 +405,9 @@ router.get('/:assignmentId/details', authenticateToken, async (req, res) => {
   try {
     const { assignmentId } = req.params;
     const assignment = await queryOne('SELECT * FROM assignments WHERE id = ?', [assignmentId]);
-    if (!assignment) return res.status(404).json({ success: false, message: 'Assignment not found' });
+    if (!assignment) {
+      return res.status(404).json({ success: false, message: 'Assignment not found' });
+    }
 
     assignment.assigned_member_details = await query(
       'SELECT u.id, u.username, u.fullName FROM assignment_members am JOIN users u ON am.user_id = u.id WHERE am.assignment_id = ?',
@@ -419,7 +434,9 @@ router.get('/:assignmentId/details', authenticateToken, async (req, res) => {
 router.post('/create-json', authenticateToken, authorizeRole(['TEAM_LEADER', 'ADMIN']), async (req, res) => {
   try {
     const { title, description, dueDate, fileTypeRequired, assignedTo, assignedMembers, teamLeaderId, teamLeaderUsername, team } = req.body;
-    if (!title || !team || !teamLeaderId) return res.status(400).json({ success: false, message: 'Missing required fields' });
+    if (!title || !team || !teamLeaderId) {
+      return res.status(400).json({ success: false, message: 'Missing required fields' });
+    }
 
     const finalMembers = Array.isArray(assignedMembers) ? assignedMembers : JSON.parse(assignedMembers || '[]');
     const assignmentResult = await query(
@@ -437,13 +454,15 @@ router.post('/create-json', authenticateToken, authorizeRole(['TEAM_LEADER', 'AD
       for (const uid of finalMembers) {
         try {
           await query(
-            `INSERT INTO notifications (user_id, assignment_id, file_id, type, title, message, action_by_id, action_by_username, action_by_role) VALUES (?,?,?,?,?,?,?,?,?)`,
+            'INSERT INTO notifications (user_id, assignment_id, file_id, type, title, message, action_by_id, action_by_username, action_by_role) VALUES (?,?,?,?,?,?,?,?,?)',
             [uid, assignmentId, null, 'assignment', 'New Assignment',
-             `${teamLeaderUsername} assigned you a new task: "${title}"${dueDate ? ` - Due: ${new Date(dueDate).toLocaleDateString()}` : ''}`,
-             teamLeaderId, teamLeaderUsername, 'TEAM_LEADER']
+              `${teamLeaderUsername} assigned you a new task: "${title}"${dueDate ? ` - Due: ${new Date(dueDate).toLocaleDateString()}` : ''}`,
+              teamLeaderId, teamLeaderUsername, 'TEAM_LEADER']
           );
           pushToUser(uid);
-        } catch (e) { console.warn('Notification failed for user', uid, e.message); }
+        } catch (e) {
+          console.warn('Notification failed for user', uid, e.message);
+        }
       }
     } else if (assignedTo === 'all') {
       const teamMembers = await query('SELECT id FROM users WHERE team = ? AND role = ?', [team, 'USER']);
@@ -455,7 +474,7 @@ router.post('/create-json', authenticateToken, authorizeRole(['TEAM_LEADER', 'AD
     }
 
     try {
-      await query(`INSERT INTO activity_logs (user_id, username, role, team, activity) VALUES (?,?,?,?,?)`,
+      await query('INSERT INTO activity_logs (user_id, username, role, team, activity) VALUES (?,?,?,?,?)',
         [teamLeaderId, teamLeaderUsername, 'TEAM_LEADER', team, `Created assignment: ${title}`]);
     } catch (e) { /* ignore */ }
 
@@ -493,13 +512,21 @@ router.post('/create', authenticateToken, authorizeRole(['TEAM_LEADER', 'ADMIN']
     if (isMultipart) {
       if (!requestNonce || !uploadNonces.has(requestNonce)) {
         console.warn(`⚠️ /create rejected: invalid nonce. Discarding ${rawFiles.length} file(s).`);
-        for (const f of rawFiles) { try { fs.unlinkSync(f.path); } catch (e) { /* ignore */ } }
+        for (const f of rawFiles) {
+          try {
+            fs.unlinkSync(f.path);
+          } catch (e) { /* ignore */ }
+        }
         return res.status(400).json({ success: false, message: 'Invalid or missing upload nonce. Please try again.' });
       }
       const nonceEntry = uploadNonces.get(requestNonce);
       if (nonceEntry.used) {
         console.warn(`⚠️ /create rejected: nonce already used. Discarding ${rawFiles.length} file(s).`);
-        for (const f of rawFiles) { try { fs.unlinkSync(f.path); } catch (e) { /* ignore */ } }
+        for (const f of rawFiles) {
+          try {
+            fs.unlinkSync(f.path);
+          } catch (e) { /* ignore */ }
+        }
         return res.status(400).json({ success: false, message: 'Upload nonce already used. Please try again.' });
       }
       nonceEntry.used = true;
@@ -508,7 +535,11 @@ router.post('/create', authenticateToken, authorizeRole(['TEAM_LEADER', 'ADMIN']
     const clientSentAttachments = req.body.hasAttachments === 'true';
     if (!clientSentAttachments && rawFiles.length > 0) {
       console.warn(`⚠️ Discarding ${rawFiles.length} unexpected temp file(s)`);
-      for (const f of rawFiles) { try { fs.unlinkSync(f.path); } catch (e) { /* ignore */ } }
+      for (const f of rawFiles) {
+        try {
+          fs.unlinkSync(f.path);
+        } catch (e) { /* ignore */ }
+      }
     }
     const uploadedFiles = clientSentAttachments ? rawFiles : [];
 
@@ -529,32 +560,42 @@ router.post('/create', authenticateToken, authorizeRole(['TEAM_LEADER', 'ADMIN']
     if (uploadedFiles.length > 0) {
       try {
         let relativePaths = [];
-        try { relativePaths = JSON.parse(req.body.relativePaths || '[]'); } catch (e) { /* ignore */ }
+        try {
+          relativePaths = JSON.parse(req.body.relativePaths || '[]');
+        } catch (e) { /* ignore */ }
 
         for (let i = 0; i < uploadedFiles.length; i++) {
           const file = uploadedFiles[i];
           const fixedName = decodeUTF8Filename(file.originalname);
           let finalPath;
-          try { finalPath = await moveToUserFolder(file.path, finalTeamLeaderUsername, fixedName); }
-          catch (e) { console.error('⚠️ Failed to move attachment:', e); finalPath = file.path; }
+          try {
+            finalPath = await moveToUserFolder(file.path, finalTeamLeaderUsername, fixedName);
+          } catch (e) {
+            console.error('⚠️ Failed to move attachment:', e); finalPath = file.path;
+          }
 
           const relPath = relativePaths[i] || fixedName;
           const folderName = relPath.includes('/') ? relPath.split('/')[0] : null;
 
           if (folderName) {
-            try { finalPath = await moveToUserFolder(finalPath, finalTeamLeaderUsername, fixedName, folderName, relPath); }
-            catch (e) { console.error('⚠️ Failed to re-move into folder structure:', e.message); }
+            try {
+              finalPath = await moveToUserFolder(finalPath, finalTeamLeaderUsername, fixedName, folderName, relPath);
+            } catch (e) {
+              console.error('⚠️ Failed to re-move into folder structure:', e.message);
+            }
           }
 
           await query(
             `INSERT INTO assignment_attachments (assignment_id, original_name, filename, file_path, file_size, file_type, uploaded_by_id, uploaded_by_username, folder_name, relative_path)
              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             [assignmentId, fixedName, path.basename(finalPath), finalPath, file.size, file.mimetype,
-             finalTeamLeaderId, finalTeamLeaderUsername, folderName, relPath !== fixedName ? relPath : null]
+              finalTeamLeaderId, finalTeamLeaderUsername, folderName, relPath !== fixedName ? relPath : null]
           );
           attachmentsCreated++;
         }
-      } catch (e) { console.error('⚠️ Failed to save attachments:', e); }
+      } catch (e) {
+        console.error('⚠️ Failed to save attachments:', e);
+      }
     }
 
     // Assign members
@@ -571,8 +612,10 @@ router.post('/create', authenticateToken, authorizeRole(['TEAM_LEADER', 'ADMIN']
           membersAssigned = teamMembers.length;
         }
       }
-      try { await query(`INSERT INTO activity_logs (user_id, username, role, team, activity) VALUES (?, ?, ?, ?, ?)`,
-        [finalTeamLeaderId, finalTeamLeaderUsername, 'TEAM_LEADER', team, `Created assignment: ${title}`]); } catch (e) { /* ignore */ }
+      try {
+        await query('INSERT INTO activity_logs (user_id, username, role, team, activity) VALUES (?, ?, ?, ?, ?)',
+          [finalTeamLeaderId, finalTeamLeaderUsername, 'TEAM_LEADER', team, `Created assignment: ${title}`]);
+      } catch (e) { /* ignore */ }
 
       // Notify members
       try {
@@ -581,15 +624,19 @@ router.post('/create', authenticateToken, authorizeRole(['TEAM_LEADER', 'ADMIN']
         for (const uid of memberIds) {
           try {
             await query(
-              `INSERT INTO notifications (user_id, assignment_id, file_id, type, title, message, action_by_id, action_by_username, action_by_role) VALUES (?,?,?,?,?,?,?,?,?)`,
+              'INSERT INTO notifications (user_id, assignment_id, file_id, type, title, message, action_by_id, action_by_username, action_by_role) VALUES (?,?,?,?,?,?,?,?,?)',
               [uid, assignmentId, null, 'assignment', 'New Assignment',
-               `${finalTeamLeaderUsername} assigned you a new task: "${title}"${finalDueDate ? ` - Due: ${new Date(finalDueDate).toLocaleDateString()}` : ''}`,
-               finalTeamLeaderId, finalTeamLeaderUsername, 'TEAM_LEADER']
+                `${finalTeamLeaderUsername} assigned you a new task: "${title}"${finalDueDate ? ` - Due: ${new Date(finalDueDate).toLocaleDateString()}` : ''}`,
+                finalTeamLeaderId, finalTeamLeaderUsername, 'TEAM_LEADER']
             );
             pushToUser(uid);
-          } catch (e) { console.error(`Failed to notify user ${uid}:`, e.message); }
+          } catch (e) {
+            console.error(`Failed to notify user ${uid}:`, e.message);
+          }
         }
-      } catch (e) { console.error('Failed to create notifications:', e.message); }
+      } catch (e) {
+        console.error('Failed to create notifications:', e.message);
+      }
 
       if (attachmentsCreated > 0) {
         createAdminNotification(null, 'new_upload', 'Team Leader Uploaded Attachment(s)',
@@ -636,13 +683,21 @@ router.put('/:id', authenticateToken, authorizeRole(['TEAM_LEADER', 'ADMIN']), u
     if (isMultipart) {
       if (!requestNonce || !uploadNonces.has(requestNonce)) {
         console.warn(`⚠️ [PUT] rejected: invalid nonce. Discarding ${rawFiles.length} file(s).`);
-        for (const f of rawFiles) { try { fs.unlinkSync(f.path); } catch (e) { /* ignore */ } }
+        for (const f of rawFiles) {
+          try {
+            fs.unlinkSync(f.path);
+          } catch (e) { /* ignore */ }
+        }
         return res.status(400).json({ success: false, message: 'Invalid or missing upload nonce. Please try again.' });
       }
       const nonceEntry = uploadNonces.get(requestNonce);
       if (nonceEntry.used) {
         console.warn(`⚠️ [PUT] rejected: nonce already used. Discarding ${rawFiles.length} file(s).`);
-        for (const f of rawFiles) { try { fs.unlinkSync(f.path); } catch (e) { /* ignore */ } }
+        for (const f of rawFiles) {
+          try {
+            fs.unlinkSync(f.path);
+          } catch (e) { /* ignore */ }
+        }
         return res.status(400).json({ success: false, message: 'Upload nonce already used. Please try again.' });
       }
       nonceEntry.used = true;
@@ -653,7 +708,9 @@ router.put('/:id', authenticateToken, authorizeRole(['TEAM_LEADER', 'ADMIN']), u
     try {
       const raw = req.body.removeAttachmentIds;
       removeAttachmentIds = typeof raw === 'string' ? JSON.parse(raw || '[]') : (Array.isArray(raw) ? raw : []);
-    } catch (e) { removeAttachmentIds = []; }
+    } catch (e) {
+      removeAttachmentIds = [];
+    }
 
     for (const attId of removeAttachmentIds) {
       try {
@@ -662,27 +719,41 @@ router.put('/:id', authenticateToken, authorizeRole(['TEAM_LEADER', 'ADMIN']), u
           if (att.file_path) {
             try {
               const fp = att.file_path.startsWith('/uploads/') ? path.join(uploadsDir, att.file_path.substring(9)) : att.file_path;
-              if (fs.existsSync(fp)) fs.unlinkSync(fp);
-            } catch (e) { console.warn('⚠️ Could not delete physical attachment:', e.message); }
+              if (fs.existsSync(fp)) {
+                fs.unlinkSync(fp);
+              }
+            } catch (e) {
+              console.warn('⚠️ Could not delete physical attachment:', e.message);
+            }
           }
           await query('DELETE FROM assignment_attachments WHERE id = ?', [attId]);
         }
-      } catch (e) { console.warn('⚠️ Failed to remove attachment', attId, e.message); }
+      } catch (e) {
+        console.warn('⚠️ Failed to remove attachment', attId, e.message);
+      }
     }
 
     const clientSentAttachments = req.body.hasAttachments === 'true';
     if (!clientSentAttachments && rawFiles.length > 0) {
-      for (const f of rawFiles) { try { fs.unlinkSync(f.path); } catch (e) { /* ignore */ } }
+      for (const f of rawFiles) {
+        try {
+          fs.unlinkSync(f.path);
+        } catch (e) { /* ignore */ }
+      }
     }
     const uploadedFiles = clientSentAttachments ? rawFiles : [];
 
-    if (!title) return res.status(400).json({ success: false, message: 'Title is required' });
+    if (!title) {
+      return res.status(400).json({ success: false, message: 'Title is required' });
+    }
 
     const existingAssignment = await queryOne('SELECT * FROM assignments WHERE id = ?', [id]);
-    if (!existingAssignment) return res.status(404).json({ success: false, message: 'Assignment not found' });
+    if (!existingAssignment) {
+      return res.status(404).json({ success: false, message: 'Assignment not found' });
+    }
 
     await query(
-      `UPDATE assignments SET title=?, description=?, due_date=?, file_type_required=?, assigned_to=?, max_file_size=? WHERE id=?`,
+      'UPDATE assignments SET title=?, description=?, due_date=?, file_type_required=?, assigned_to=?, max_file_size=? WHERE id=?',
       [title, description || null, finalDueDate || null, finalFileType || null, finalAssignedTo || existingAssignment.assigned_to, finalMaxSize, id]
     );
 
@@ -692,31 +763,39 @@ router.put('/:id', authenticateToken, authorizeRole(['TEAM_LEADER', 'ADMIN']), u
     if (uploadedFiles.length > 0) {
       try {
         let relativePaths = [];
-        try { relativePaths = JSON.parse(req.body.relativePaths || '[]'); } catch (e) { /* ignore */ }
+        try {
+          relativePaths = JSON.parse(req.body.relativePaths || '[]');
+        } catch (e) { /* ignore */ }
 
         for (let i = 0; i < uploadedFiles.length; i++) {
           const file = uploadedFiles[i];
           const fixedName = decodeUTF8Filename(file.originalname);
           let finalPath;
-          try { finalPath = await moveToUserFolder(file.path, finalTeamLeaderUsername, fixedName); }
-          catch (e) { finalPath = file.path; }
+          try {
+            finalPath = await moveToUserFolder(file.path, finalTeamLeaderUsername, fixedName);
+          } catch (e) {
+            finalPath = file.path;
+          }
 
           const relPath = relativePaths[i] || fixedName;
           const folderName = relPath.includes('/') ? relPath.split('/')[0] : null;
           if (folderName) {
-            try { finalPath = await moveToUserFolder(finalPath, finalTeamLeaderUsername, fixedName, folderName, relPath); }
-            catch (e) { /* keep flat */ }
+            try {
+              finalPath = await moveToUserFolder(finalPath, finalTeamLeaderUsername, fixedName, folderName, relPath);
+            } catch (e) { /* keep flat */ }
           }
 
           await query(
             `INSERT INTO assignment_attachments (assignment_id, original_name, filename, file_path, file_size, file_type, uploaded_by_id, uploaded_by_username, folder_name, relative_path)
              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             [id, fixedName, path.basename(finalPath), finalPath, file.size, file.mimetype,
-             finalTeamLeaderId, finalTeamLeaderUsername, folderName, relPath !== fixedName ? relPath : null]
+              finalTeamLeaderId, finalTeamLeaderUsername, folderName, relPath !== fixedName ? relPath : null]
           );
           attachmentsCreated++;
         }
-      } catch (e) { console.error('⚠️ Failed to save attachments:', e); }
+      } catch (e) {
+        console.error('⚠️ Failed to save attachments:', e);
+      }
     }
 
     try {
@@ -728,10 +807,12 @@ router.put('/:id', authenticateToken, authorizeRole(['TEAM_LEADER', 'ADMIN']), u
           membersAssigned = finalMembers.length;
         }
       }
-      try { await query(`INSERT INTO activity_logs (user_id, username, role, team, activity) VALUES (?, ?, ?, ?, ?)`,
-        [finalTeamLeaderId || existingAssignment.team_leader_id,
-         finalTeamLeaderUsername || existingAssignment.team_leader_username,
-         'TEAM_LEADER', team || existingAssignment.team, `Updated assignment: ${title}`]); } catch (e) { /* ignore */ }
+      try {
+        await query('INSERT INTO activity_logs (user_id, username, role, team, activity) VALUES (?, ?, ?, ?, ?)',
+          [finalTeamLeaderId || existingAssignment.team_leader_id,
+            finalTeamLeaderUsername || existingAssignment.team_leader_username,
+            'TEAM_LEADER', team || existingAssignment.team, `Updated assignment: ${title}`]);
+      } catch (e) { /* ignore */ }
 
       if (attachmentsCreated > 0) {
         const tlId = finalTeamLeaderId || existingAssignment.team_leader_id;
@@ -758,7 +839,9 @@ router.get('/user/:userId', authenticateToken, async (req, res) => {
   try {
     const { userId } = req.params;
     const currentUser = await queryOne('SELECT username, fullName, team FROM users WHERE id = ?', [userId]);
-    if (!currentUser) return res.status(404).json({ success: false, message: 'User not found' });
+    if (!currentUser) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
 
     const userAssignments = await query(
       `SELECT a.*, am.status as user_status, am.submitted_at as user_submitted_at,
@@ -810,15 +893,20 @@ router.get('/user/:userId', authenticateToken, async (req, res) => {
 router.post('/submit', authenticateToken, async (req, res) => {
   try {
     const { assignmentId, userId, fileId } = req.body;
-    if (!assignmentId || !userId || !fileId) return res.status(400).json({ success: false, message: 'Missing required fields' });
+    if (!assignmentId || !userId || !fileId) {
+      return res.status(400).json({ success: false, message: 'Missing required fields' });
+    }
 
     const assignment = await queryOne(
       'SELECT a.*, am.user_id as assigned_user FROM assignments a LEFT JOIN assignment_members am ON a.id = am.assignment_id AND am.user_id = ? WHERE a.id = ?',
       [userId, assignmentId]
     );
-    if (!assignment) return res.status(404).json({ success: false, message: 'Assignment not found' });
-    if (assignment.assigned_to === 'specific' && !assignment.assigned_user)
+    if (!assignment) {
+      return res.status(404).json({ success: false, message: 'Assignment not found' });
+    }
+    if (assignment.assigned_to === 'specific' && !assignment.assigned_user) {
       return res.status(403).json({ success: false, message: 'You are not assigned to this assignment' });
+    }
 
     const existingSubmission = await queryOne('SELECT * FROM assignment_submissions WHERE assignment_id = ? AND file_id = ?', [assignmentId, fileId]);
     if (existingSubmission) {
@@ -844,10 +932,14 @@ router.post('/submit', authenticateToken, async (req, res) => {
     }
     const batch = pendingBatchSubmissions.get(batchKey);
     batch.submissions.push({ fileId, fileName: file.original_name, folderName: file.folder_name, userId, username: submitter.username, submitterName: submitter.fullName });
-    if (batch.timeoutId) clearTimeout(batch.timeoutId);
+    if (batch.timeoutId) {
+      clearTimeout(batch.timeoutId);
+    }
     batch.timeoutId = setTimeout(async () => {
       const b = pendingBatchSubmissions.get(batchKey);
-      if (b) { await createBatchedSubmissionNotification(b.teamLeaderId, b.assignmentId, b.submissions); pendingBatchSubmissions.delete(batchKey); }
+      if (b) {
+        await createBatchedSubmissionNotification(b.teamLeaderId, b.assignmentId, b.submissions); pendingBatchSubmissions.delete(batchKey);
+      }
     }, 5000);
 
     res.json({ success: true, message: 'File submitted successfully' });
@@ -887,10 +979,14 @@ router.post('/:assignmentId/comments', authenticateToken, async (req, res) => {
   try {
     const { assignmentId } = req.params;
     const { userId, username, comment } = req.body;
-    if (!userId || !username || !comment) return res.status(400).json({ success: false, message: 'Missing required fields' });
+    if (!userId || !username || !comment) {
+      return res.status(400).json({ success: false, message: 'Missing required fields' });
+    }
 
     const user = await queryOne('SELECT fullName, role FROM users WHERE id = ?', [userId]);
-    if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
 
     const result = await query(
       'INSERT INTO assignment_comments (assignment_id, user_id, username, user_fullname, user_role, comment) VALUES (?, ?, ?, ?, ?, ?)',
@@ -910,31 +1006,41 @@ router.post('/:assignmentId/comments', authenticateToken, async (req, res) => {
       while ((m = preScanRegex.exec(comment)) !== null) {
         const token = m[1].replace(/_/g, ' ').toLowerCase();
         const mentioned = await queryOne(
-          `SELECT id FROM users WHERE LOWER(username) = ? OR LOWER(REPLACE(fullName,' ','_')) = ? OR LOWER(fullName) = ? LIMIT 1`,
+          'SELECT id FROM users WHERE LOWER(username) = ? OR LOWER(REPLACE(fullName,\' \',\'_\')) = ? OR LOWER(fullName) = ? LIMIT 1',
           [token, token, token]
         );
-        if (mentioned && String(mentioned.id) !== String(userId)) mentionedUserIds.add(mentioned.id);
+        if (mentioned && String(mentioned.id) !== String(userId)) {
+          mentionedUserIds.add(mentioned.id);
+        }
       }
 
       const assignedMembers = await query('SELECT user_id FROM assignment_members WHERE assignment_id = ? AND user_id != ?', [assignmentId, userId]);
       const notifyUser = async (uid, title, msg) => {
-        await query(`INSERT INTO notifications (user_id,assignment_id,file_id,type,title,message,action_by_id,action_by_username,action_by_role) VALUES (?,?,?,?,?,?,?,?,?)`,
+        await query('INSERT INTO notifications (user_id,assignment_id,file_id,type,title,message,action_by_id,action_by_username,action_by_role) VALUES (?,?,?,?,?,?,?,?,?)',
           [uid, assignmentId, null, 'comment', title, msg, userId, username, user.role]);
         pushToUser(uid);
       };
 
       if (user.role === 'ADMIN') {
         const tlId = assignment.team_leader_id || assignment.teamLeaderId;
-        if (tlId && !mentionedUserIds.has(tlId)) await notifyUser(tlId, 'New Admin Comment on Assignment', `Admin ${user.fullName} commented on "${assignment.title}": ${comment.substring(0, 100)}...`);
+        if (tlId && !mentionedUserIds.has(tlId)) {
+          await notifyUser(tlId, 'New Admin Comment on Assignment', `Admin ${user.fullName} commented on "${assignment.title}": ${comment.substring(0, 100)}...`);
+        }
         for (const member of assignedMembers) {
-          if (!mentionedUserIds.has(member.user_id)) await notifyUser(member.user_id, 'New Admin Comment on Assignment', `Admin ${user.fullName} commented on "${assignment.title}": ${comment.substring(0, 100)}...`);
+          if (!mentionedUserIds.has(member.user_id)) {
+            await notifyUser(member.user_id, 'New Admin Comment on Assignment', `Admin ${user.fullName} commented on "${assignment.title}": ${comment.substring(0, 100)}...`);
+          }
         }
       } else if (user.role === 'TEAM_LEADER') {
         for (const member of assignedMembers) {
-          if (!mentionedUserIds.has(member.user_id)) await notifyUser(member.user_id, 'New Comment on Assignment', `${user.fullName} commented on "${assignment.title}": ${comment.substring(0, 100)}...`);
+          if (!mentionedUserIds.has(member.user_id)) {
+            await notifyUser(member.user_id, 'New Comment on Assignment', `${user.fullName} commented on "${assignment.title}": ${comment.substring(0, 100)}...`);
+          }
         }
       } else if (user.role === 'USER' && assignment.team_leader_id && String(assignment.team_leader_id) !== String(userId)) {
-        if (!mentionedUserIds.has(assignment.team_leader_id)) await notifyUser(assignment.team_leader_id, 'New Comment on Assignment', `${user.fullName} commented on "${assignment.title}": ${comment.substring(0, 100)}...`);
+        if (!mentionedUserIds.has(assignment.team_leader_id)) {
+          await notifyUser(assignment.team_leader_id, 'New Comment on Assignment', `${user.fullName} commented on "${assignment.title}": ${comment.substring(0, 100)}...`);
+        }
       }
 
       // @mention notifications
@@ -943,18 +1049,20 @@ router.post('/:assignmentId/comments', authenticateToken, async (req, res) => {
       let match;
       while ((match = mentionRegex.exec(comment)) !== null) {
         const token = match[1].replace(/_/g, ' ').toLowerCase();
-        const mentioned = await queryOne(`SELECT id, fullName FROM users WHERE LOWER(username) = ? OR LOWER(REPLACE(fullName,' ','_')) = ? OR LOWER(fullName) = ? LIMIT 1`, [token, token, token]);
+        const mentioned = await queryOne('SELECT id, fullName FROM users WHERE LOWER(username) = ? OR LOWER(REPLACE(fullName,\' \',\'_\')) = ? OR LOWER(fullName) = ? LIMIT 1', [token, token, token]);
         if (mentioned && !notifiedIds.has(mentioned.id)) {
           notifiedIds.add(mentioned.id);
           const info = await queryOne('SELECT title FROM assignments WHERE id = ?', [assignmentId]);
-          await query(`INSERT INTO notifications (user_id,assignment_id,file_id,type,title,message,action_by_id,action_by_username,action_by_role) VALUES (?,?,?,?,?,?,?,?,?)`,
+          await query('INSERT INTO notifications (user_id,assignment_id,file_id,type,title,message,action_by_id,action_by_username,action_by_role) VALUES (?,?,?,?,?,?,?,?,?)',
             [mentioned.id, assignmentId, null, 'mention', `${user.fullName} mentioned you`,
-             `${user.fullName} mentioned you in a comment on "${info?.title || 'an assignment'}": ${comment.substring(0, 100)}...`,
-             userId, username, user.role]);
+              `${user.fullName} mentioned you in a comment on "${info?.title || 'an assignment'}": ${comment.substring(0, 100)}...`,
+              userId, username, user.role]);
           pushToUser(mentioned.id);
         }
       }
-    } catch (e) { console.error('Failed to create comment notifications:', e.message); }
+    } catch (e) {
+      console.error('Failed to create comment notifications:', e.message);
+    }
 
     res.json({ success: true, message: 'Comment posted successfully', comment: newComment });
   } catch (error) {
@@ -968,13 +1076,19 @@ router.post('/:assignmentId/comments/:commentId/reply', authenticateToken, async
   try {
     const { assignmentId, commentId } = req.params;
     const { userId, username, reply } = req.body;
-    if (!userId || !username || !reply) return res.status(400).json({ success: false, message: 'Missing required fields' });
+    if (!userId || !username || !reply) {
+      return res.status(400).json({ success: false, message: 'Missing required fields' });
+    }
 
     const comment = await queryOne('SELECT * FROM assignment_comments WHERE id = ? AND assignment_id = ?', [commentId, assignmentId]);
-    if (!comment) return res.status(404).json({ success: false, message: 'Comment not found' });
+    if (!comment) {
+      return res.status(404).json({ success: false, message: 'Comment not found' });
+    }
 
     const user = await queryOne('SELECT fullName, role FROM users WHERE id = ?', [userId]);
-    if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
 
     const result = await query(
       'INSERT INTO comment_replies (comment_id, user_id, username, user_fullname, user_role, reply) VALUES (?, ?, ?, ?, ?, ?)',
@@ -988,12 +1102,14 @@ router.post('/:assignmentId/comments/:commentId/reply', authenticateToken, async
     if (comment.user_id !== userId) {
       try {
         const assignment = await queryOne('SELECT title FROM assignments WHERE id = ?', [assignmentId]);
-        await query(`INSERT INTO notifications (user_id,assignment_id,file_id,type,title,message,action_by_id,action_by_username,action_by_role) VALUES (?,?,?,?,?,?,?,?,?)`,
+        await query('INSERT INTO notifications (user_id,assignment_id,file_id,type,title,message,action_by_id,action_by_username,action_by_role) VALUES (?,?,?,?,?,?,?,?,?)',
           [comment.user_id, assignmentId, null, 'comment', 'New Reply on Assignment',
-           `${user.fullName} replied to your comment on "${assignment.title}": ${reply.substring(0, 100)}...`,
-           userId, username, user.role]);
+            `${user.fullName} replied to your comment on "${assignment.title}": ${reply.substring(0, 100)}...`,
+            userId, username, user.role]);
         pushToUser(comment.user_id);
-      } catch (e) { console.error('⚠️ Failed to create reply notification:', e); }
+      } catch (e) {
+        console.error('⚠️ Failed to create reply notification:', e);
+      }
     }
 
     // @mention notifications for reply
@@ -1003,18 +1119,20 @@ router.post('/:assignmentId/comments/:commentId/reply', authenticateToken, async
       const notifiedIds = new Set([userId, comment.user_id]);
       while ((match = mentionRegex.exec(reply)) !== null) {
         const token = match[1].replace(/_/g, ' ').toLowerCase();
-        const mentioned = await queryOne(`SELECT id, fullName FROM users WHERE LOWER(username) = ? OR LOWER(REPLACE(fullName,' ','_')) = ? OR LOWER(fullName) = ? LIMIT 1`, [token, token, token]);
+        const mentioned = await queryOne('SELECT id, fullName FROM users WHERE LOWER(username) = ? OR LOWER(REPLACE(fullName,\' \',\'_\')) = ? OR LOWER(fullName) = ? LIMIT 1', [token, token, token]);
         if (mentioned && !notifiedIds.has(mentioned.id)) {
           notifiedIds.add(mentioned.id);
           const info = await queryOne('SELECT title FROM assignments WHERE id = ?', [assignmentId]);
-          await query(`INSERT INTO notifications (user_id,assignment_id,file_id,type,title,message,action_by_id,action_by_username,action_by_role) VALUES (?,?,?,?,?,?,?,?,?)`,
+          await query('INSERT INTO notifications (user_id,assignment_id,file_id,type,title,message,action_by_id,action_by_username,action_by_role) VALUES (?,?,?,?,?,?,?,?,?)',
             [mentioned.id, assignmentId, null, 'mention', `${user.fullName} mentioned you`,
-             `${user.fullName} mentioned you in a reply on "${info?.title || 'an assignment'}": ${reply.substring(0, 100)}...`,
-             userId, username, user.role]);
+              `${user.fullName} mentioned you in a reply on "${info?.title || 'an assignment'}": ${reply.substring(0, 100)}...`,
+              userId, username, user.role]);
           pushToUser(mentioned.id);
         }
       }
-    } catch (e) { console.error('⚠️ Failed to send mention notifications for reply:', e.message); }
+    } catch (e) {
+      console.error('⚠️ Failed to send mention notifications for reply:', e.message);
+    }
 
     res.json({ success: true, message: 'Reply posted successfully', reply: newReply });
   } catch (error) {
@@ -1028,10 +1146,16 @@ router.put('/:assignmentId/comments/:commentId', authenticateToken, async (req, 
   try {
     const { assignmentId, commentId } = req.params;
     const { userId, comment } = req.body;
-    if (!userId || !comment?.trim()) return res.status(400).json({ success: false, message: 'Missing required fields' });
+    if (!userId || !comment?.trim()) {
+      return res.status(400).json({ success: false, message: 'Missing required fields' });
+    }
     const existing = await queryOne('SELECT * FROM assignment_comments WHERE id = ? AND assignment_id = ?', [commentId, assignmentId]);
-    if (!existing) return res.status(404).json({ success: false, message: 'Comment not found' });
-    if (String(existing.user_id) !== String(userId)) return res.status(403).json({ success: false, message: 'You can only edit your own comments' });
+    if (!existing) {
+      return res.status(404).json({ success: false, message: 'Comment not found' });
+    }
+    if (String(existing.user_id) !== String(userId)) {
+      return res.status(403).json({ success: false, message: 'You can only edit your own comments' });
+    }
     await query('UPDATE assignment_comments SET comment = ?, updated_at = NOW() WHERE id = ?', [comment.trim(), commentId]);
     res.json({ success: true, message: 'Comment updated successfully' });
   } catch (error) {
@@ -1045,10 +1169,16 @@ router.delete('/:assignmentId/comments/:commentId', authenticateToken, async (re
   try {
     const { assignmentId, commentId } = req.params;
     const { userId } = req.body;
-    if (!userId) return res.status(400).json({ success: false, message: 'Missing userId' });
+    if (!userId) {
+      return res.status(400).json({ success: false, message: 'Missing userId' });
+    }
     const existing = await queryOne('SELECT * FROM assignment_comments WHERE id = ? AND assignment_id = ?', [commentId, assignmentId]);
-    if (!existing) return res.status(404).json({ success: false, message: 'Comment not found' });
-    if (String(existing.user_id) !== String(userId)) return res.status(403).json({ success: false, message: 'You can only delete your own comments' });
+    if (!existing) {
+      return res.status(404).json({ success: false, message: 'Comment not found' });
+    }
+    if (String(existing.user_id) !== String(userId)) {
+      return res.status(403).json({ success: false, message: 'You can only delete your own comments' });
+    }
     await query('DELETE FROM comment_replies WHERE comment_id = ?', [commentId]);
     await query('DELETE FROM assignment_comments WHERE id = ?', [commentId]);
     res.json({ success: true, message: 'Comment deleted successfully' });
@@ -1063,10 +1193,16 @@ router.put('/:assignmentId/comments/:commentId/reply/:replyId', authenticateToke
   try {
     const { replyId } = req.params;
     const { userId, reply } = req.body;
-    if (!userId || !reply?.trim()) return res.status(400).json({ success: false, message: 'Missing required fields' });
+    if (!userId || !reply?.trim()) {
+      return res.status(400).json({ success: false, message: 'Missing required fields' });
+    }
     const existing = await queryOne('SELECT * FROM comment_replies WHERE id = ?', [replyId]);
-    if (!existing) return res.status(404).json({ success: false, message: 'Reply not found' });
-    if (String(existing.user_id) !== String(userId)) return res.status(403).json({ success: false, message: 'You can only edit your own replies' });
+    if (!existing) {
+      return res.status(404).json({ success: false, message: 'Reply not found' });
+    }
+    if (String(existing.user_id) !== String(userId)) {
+      return res.status(403).json({ success: false, message: 'You can only edit your own replies' });
+    }
     await query('UPDATE comment_replies SET reply = ?, updated_at = NOW() WHERE id = ?', [reply.trim(), replyId]);
     res.json({ success: true, message: 'Reply updated successfully' });
   } catch (error) {
@@ -1080,10 +1216,16 @@ router.delete('/:assignmentId/comments/:commentId/reply/:replyId', authenticateT
   try {
     const { replyId } = req.params;
     const { userId } = req.body;
-    if (!userId) return res.status(400).json({ success: false, message: 'Missing userId' });
+    if (!userId) {
+      return res.status(400).json({ success: false, message: 'Missing userId' });
+    }
     const existing = await queryOne('SELECT * FROM comment_replies WHERE id = ?', [replyId]);
-    if (!existing) return res.status(404).json({ success: false, message: 'Reply not found' });
-    if (String(existing.user_id) !== String(userId)) return res.status(403).json({ success: false, message: 'You can only delete your own replies' });
+    if (!existing) {
+      return res.status(404).json({ success: false, message: 'Reply not found' });
+    }
+    if (String(existing.user_id) !== String(userId)) {
+      return res.status(403).json({ success: false, message: 'You can only delete your own replies' });
+    }
     await query('DELETE FROM comment_replies WHERE id = ?', [replyId]);
     res.json({ success: true, message: 'Reply deleted successfully' });
   } catch (error) {
@@ -1097,7 +1239,9 @@ router.patch('/:assignmentId/archive', authenticateToken, authorizeRole(['ADMIN'
   try {
     const { assignmentId } = req.params;
     const assignment = await queryOne('SELECT * FROM assignments WHERE id = ?', [assignmentId]);
-    if (!assignment) return res.status(404).json({ success: false, message: 'Assignment not found' });
+    if (!assignment) {
+      return res.status(404).json({ success: false, message: 'Assignment not found' });
+    }
     const newArchive = assignment.archived ? 0 : 1;
     await query('UPDATE assignments SET archived = ?, archived_at = ? WHERE id = ?', [newArchive, newArchive === 1 ? new Date() : null, assignmentId]);
     res.json({ success: true, message: newArchive === 1 ? 'Assignment archived successfully' : 'Assignment unarchived successfully', archived: newArchive === 1 });
@@ -1112,9 +1256,13 @@ router.put('/:assignmentId/mark-done', authenticateToken, authorizeRole(['TEAM_L
   try {
     const { assignmentId } = req.params;
     const assignment = await queryOne('SELECT * FROM assignments WHERE id = ?', [assignmentId]);
-    if (!assignment) return res.status(404).json({ success: false, message: 'Assignment not found' });
+    if (!assignment) {
+      return res.status(404).json({ success: false, message: 'Assignment not found' });
+    }
     const now = new Date().toISOString().slice(0, 19).replace('T', ' ');
     await query('UPDATE assignments SET status = ?, updated_at = ? WHERE id = ?', ['completed', now, assignmentId]);
+    // Also mark all members as completed so user_status reflects the TL decision
+    await query('UPDATE assignment_members SET status = ?, submitted_at = COALESCE(submitted_at, ?) WHERE assignment_id = ?', ['completed', now, assignmentId]);
     res.json({ success: true, message: 'Assignment marked as completed', assignment: { ...assignment, status: 'completed', updated_at: now } });
   } catch (error) {
     console.error('Error marking assignment as done:', error);
@@ -1128,7 +1276,9 @@ router.put('/:assignmentId/update-members', authenticateToken, authorizeRole(['T
     const { assignmentId } = req.params;
     const { title, description, dueDate, fileTypeRequired, assignedMembers, teamLeaderId, teamLeaderUsername, team } = req.body;
     const assignment = await queryOne('SELECT * FROM assignments WHERE id = ?', [assignmentId]);
-    if (!assignment) return res.status(404).json({ success: false, message: 'Assignment not found' });
+    if (!assignment) {
+      return res.status(404).json({ success: false, message: 'Assignment not found' });
+    }
 
     const now = new Date().toISOString().slice(0, 19).replace('T', ' ');
     await query('UPDATE assignments SET title=?, description=?, due_date=?, file_type_required=?, updated_at=? WHERE id=?',
@@ -1149,18 +1299,22 @@ router.put('/:assignmentId/update-members', authenticateToken, authorizeRole(['T
         await query(`INSERT INTO assignment_members (assignment_id, user_id) VALUES ${placeholders}`, toAdd.flatMap(uid => [assignmentId, uid]));
         for (const uid of toAdd) {
           try {
-            await query(`INSERT INTO notifications (user_id,assignment_id,file_id,type,title,message,action_by_id,action_by_username,action_by_role) VALUES (?,?,?,?,?,?,?,?,?)`,
+            await query('INSERT INTO notifications (user_id,assignment_id,file_id,type,title,message,action_by_id,action_by_username,action_by_role) VALUES (?,?,?,?,?,?,?,?,?)',
               [uid, assignmentId, null, 'assignment', 'Added to Assignment',
-               `${teamLeaderUsername} added you to the task: "${title}"${dueDate ? ` - Due: ${new Date(dueDate).toLocaleDateString()}` : ''}`,
-               teamLeaderId, teamLeaderUsername, 'TEAM_LEADER']);
+                `${teamLeaderUsername} added you to the task: "${title}"${dueDate ? ` - Due: ${new Date(dueDate).toLocaleDateString()}` : ''}`,
+                teamLeaderId, teamLeaderUsername, 'TEAM_LEADER']);
             pushToUser(uid);
-          } catch (e) { console.error('⚠️ Failed to notify new member:', e); }
+          } catch (e) {
+            console.error('⚠️ Failed to notify new member:', e);
+          }
         }
       }
     }
 
-    try { await query(`INSERT INTO activity_logs (user_id,username,role,team,activity) VALUES (?,?,?,?,?)`,
-      [teamLeaderId, teamLeaderUsername, 'TEAM_LEADER', team, `Updated assignment: ${title}`]); } catch (e) { /* ignore */ }
+    try {
+      await query('INSERT INTO activity_logs (user_id,username,role,team,activity) VALUES (?,?,?,?,?)',
+        [teamLeaderId, teamLeaderUsername, 'TEAM_LEADER', team, `Updated assignment: ${title}`]);
+    } catch (e) { /* ignore */ }
 
     res.json({ success: true, message: 'Assignment updated successfully' });
   } catch (error) {
@@ -1174,7 +1328,9 @@ router.delete('/:assignmentId', authenticateToken, authorizeRole(['TEAM_LEADER',
   try {
     const { assignmentId } = req.params;
     const assignment = await queryOne('SELECT * FROM assignments WHERE id = ?', [assignmentId]);
-    if (!assignment) return res.status(404).json({ success: false, message: 'Assignment not found' });
+    if (!assignment) {
+      return res.status(404).json({ success: false, message: 'Assignment not found' });
+    }
 
     const submittedFiles = await query('SELECT file_id FROM assignment_submissions WHERE assignment_id = ?', [assignmentId]);
     // Files are intentionally kept — they return to "My Files" for users
@@ -1197,7 +1353,9 @@ router.delete('/:assignmentId/files/:fileId', authenticateToken, async (req, res
     const { userId } = req.body;
 
     const submission = await queryOne('SELECT * FROM assignment_submissions WHERE assignment_id = ? AND file_id = ? AND user_id = ?', [assignmentId, fileId, userId]);
-    if (!submission) return res.status(404).json({ success: false, message: 'File not found or not authorized' });
+    if (!submission) {
+      return res.status(404).json({ success: false, message: 'File not found or not authorized' });
+    }
 
     const fileInfo = await queryOne('SELECT file_path, public_network_url, username FROM files WHERE id = ?', [fileId]);
     const remainingSubmissions = await query(
@@ -1216,10 +1374,18 @@ router.delete('/:assignmentId/files/:fileId', authenticateToken, async (req, res
     }
 
     await query('DELETE FROM assignment_submissions WHERE assignment_id = ? AND file_id = ? AND user_id = ?', [assignmentId, fileId, userId]);
-    try { await query('DELETE FROM notifications WHERE file_id = ?', [fileId]); } catch (e) { /* ignore */ }
-    try { await query('DELETE FROM file_comments WHERE file_id = ?', [fileId]); } catch (e) { /* ignore */ }
-    try { await query('DELETE FROM file_status_history WHERE file_id = ?', [fileId]); } catch (e) { /* ignore */ }
-    try { await query('DELETE FROM assignment_attachments WHERE file_id = ?', [fileId]); } catch (e) { /* ignore */ }
+    try {
+      await query('DELETE FROM notifications WHERE file_id = ?', [fileId]);
+    } catch (e) { /* ignore */ }
+    try {
+      await query('DELETE FROM file_comments WHERE file_id = ?', [fileId]);
+    } catch (e) { /* ignore */ }
+    try {
+      await query('DELETE FROM file_status_history WHERE file_id = ?', [fileId]);
+    } catch (e) { /* ignore */ }
+    try {
+      await query('DELETE FROM assignment_attachments WHERE file_id = ?', [fileId]);
+    } catch (e) { /* ignore */ }
 
     if (fileInfo) {
       try {
@@ -1231,8 +1397,12 @@ router.delete('/:assignmentId/files/:fileId', authenticateToken, async (req, res
         } else if (fileInfo.file_path) {
           physicalPath = fileInfo.file_path;
         }
-        if (physicalPath && fs.existsSync(physicalPath)) fs.unlinkSync(physicalPath);
-      } catch (e) { console.error('❌ Failed to delete physical file:', e.message); }
+        if (physicalPath && fs.existsSync(physicalPath)) {
+          fs.unlinkSync(physicalPath);
+        }
+      } catch (e) {
+        console.error('❌ Failed to delete physical file:', e.message);
+      }
     }
 
     await query('DELETE FROM files WHERE id = ?', [fileId]);
@@ -1249,18 +1419,26 @@ router.delete('/:assignmentId/attachments/folder/:folderName', authenticateToken
     const { assignmentId, folderName } = req.params;
     const decodedFolderName = decodeURIComponent(folderName);
     const folderAttachments = await query('SELECT * FROM assignment_attachments WHERE assignment_id = ? AND folder_name = ?', [assignmentId, decodedFolderName]);
-    if (!folderAttachments || folderAttachments.length === 0) return res.status(404).json({ success: false, message: 'Folder not found' });
+    if (!folderAttachments || folderAttachments.length === 0) {
+      return res.status(404).json({ success: false, message: 'Folder not found' });
+    }
 
     let folderDirPath = null;
     for (const att of folderAttachments) {
-      if (att.file_path) { const candidate = path.dirname(att.file_path); if (candidate && candidate !== '.') { folderDirPath = candidate; break; } }
+      if (att.file_path) {
+        const candidate = path.dirname(att.file_path); if (candidate && candidate !== '.') {
+          folderDirPath = candidate; break;
+        }
+      }
     }
     if (folderDirPath) {
       try {
         if (fs.existsSync(folderDirPath)) {
           fs.rmSync ? fs.rmSync(folderDirPath, { recursive: true, force: true }) : fs.rmdirSync(folderDirPath, { recursive: true });
         }
-      } catch (e) { console.warn('⚠️ Could not delete physical folder:', e.message); }
+      } catch (e) {
+        console.warn('⚠️ Could not delete physical folder:', e.message);
+      }
     }
 
     await query('DELETE FROM assignment_attachments WHERE assignment_id = ? AND folder_name = ?', [assignmentId, decodedFolderName]);
@@ -1273,17 +1451,25 @@ router.delete('/:assignmentId/attachments/folder/:folderName', authenticateToken
 
 // DELETE /:assignmentId/attachments/:attachmentId — must stay below /folder route
 router.delete('/:assignmentId/attachments/:attachmentId', authenticateToken, authorizeRole(['TEAM_LEADER', 'ADMIN']), async (req, res) => {
-  if (req.params.attachmentId === 'folder') return res.status(404).json({ success: false, message: 'Route not found' });
+  if (req.params.attachmentId === 'folder') {
+    return res.status(404).json({ success: false, message: 'Route not found' });
+  }
   try {
     const { assignmentId, attachmentId } = req.params;
     const attachment = await queryOne('SELECT * FROM assignment_attachments WHERE id = ? AND assignment_id = ?', [attachmentId, assignmentId]);
-    if (!attachment) return res.status(404).json({ success: false, message: 'Attachment not found' });
+    if (!attachment) {
+      return res.status(404).json({ success: false, message: 'Attachment not found' });
+    }
 
     if (attachment.file_path) {
       try {
         const fp = attachment.file_path.startsWith('/uploads/') ? path.join(uploadsDir, attachment.file_path.substring(9)) : attachment.file_path;
-        if (fs.existsSync(fp)) fs.unlinkSync(fp);
-      } catch (e) { console.warn('⚠️ Could not delete physical attachment file:', e.message); }
+        if (fs.existsSync(fp)) {
+          fs.unlinkSync(fp);
+        }
+      } catch (e) {
+        console.warn('⚠️ Could not delete physical attachment file:', e.message);
+      }
     }
     await query('DELETE FROM assignment_attachments WHERE id = ?', [attachmentId]);
     res.json({ success: true, message: 'Attachment deleted successfully' });

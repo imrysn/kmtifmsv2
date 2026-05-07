@@ -344,7 +344,7 @@ const Settings = ({ clearMessages, error, success, setError, setSuccess, users, 
     try {
       const data = await apiFetch(`/api/teams/${teamId}`, { method: 'DELETE' })
       if (data.success) {
-        setSuccess(`Team '${teamName}' deleted successfully`)
+        setError(`Team '${teamName}' deleted successfully`)
         fetchTeams()
       } else {
         setError(data.message || 'Failed to delete team')
