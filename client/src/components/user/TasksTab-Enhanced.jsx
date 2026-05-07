@@ -3,6 +3,7 @@ import { apiFetch, API_BASE_URL } from '@/config/api';
 import './css/TasksTab-Enhanced.css';
 import './css/TasksTab-Comments.css';
 import { FileIcon, FileOpenModal } from '../shared';
+import FileModal from './FileModal';
 import CommentsModal from '../shared/CommentsModal';
 import SingleSelectTags from './SingleSelectTags';
 import { LoadingCards } from '../common/InlineSkeletonLoader';
@@ -180,6 +181,10 @@ const TasksTab = memo(({
   // File open modal
   const [showOpenFileModal, setShowOpenFileModal] = useState(false);
   const [fileToOpen, setFileToOpen] = useState(null);
+
+  // File Details modal
+  const [showFileDetailsModal, setShowFileDetailsModal] = useState(false);
+  const [fileDetailsTarget, setFileDetailsTarget] = useState(null);
 
   // Refs
   const fileInputRef = useRef(null);
@@ -606,6 +611,41 @@ const TasksTab = memo(({
     if (text) postComment(id, text);
   }, [postComment]);
 
+  const openFileDetails = useCallback(async (file) => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/files/${file.id}`);
+      const data = await res.json();
+      const fileData = data.file || file;
+      // Preserve assignment_title if passed in (from notification path or from tasks data)
+      if (file.assignment_title && !fileData.assignment_title) {
+        fileData.assignment_title = file.assignment_title;
+      }
+      setFileDetailsTarget(fileData);
+    } catch {
+      setFileDetailsTarget(file);
+    }
+    setShowFileDetailsModal(true);
+  }, []);
+
+  // Open FileModal when navigated from a notification
+  useEffect(() => {
+    const fileId = sessionStorage.getItem('openFileDetailsId');
+    if (!fileId || assignments.length === 0) return;
+    sessionStorage.removeItem('openFileDetailsId');
+
+    // Find assignment title from already-loaded assignments
+    const fid = parseInt(fileId);
+    let assignmentTitle = null;
+    for (const a of assignments) {
+      if (a.submitted_files?.some(f => f.id === fid)) {
+        assignmentTitle = a.title;
+        break;
+      }
+    }
+
+    openFileDetails({ id: fid, assignment_title: assignmentTitle });
+  }, [assignments, openFileDetails]);
+
   const openFolderInExplorer = useCallback(async (fileId) => {
     if (!window.electron?.openFolderInExplorer) return;
     try {
@@ -673,8 +713,9 @@ const TasksTab = memo(({
     );
   };
 
-  const renderFileCard = (file, assignmentId, indented = false) => {
+  const renderFileCard = (file, assignmentId, indented = false, assignmentTitle = null) => {
     const canDelete = file.status !== 'final_approved';
+    const fileWithTitle = assignmentTitle ? { ...file, assignment_title: assignmentTitle } : file;
     return (
       <div
         key={file.id}
@@ -700,7 +741,23 @@ const TasksTab = memo(({
               {getFileStatusBadge(file.status)}
             </div>
           </div>
-          <div style={{ position: 'relative', flexShrink: 0 }} onClick={e => e.stopPropagation()}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '2px', flexShrink: 0 }} onClick={e => e.stopPropagation()}>
+            <button
+              onClick={() => openFileDetails(fileWithTitle)}
+              title="View file details & comments"
+              style={{
+                background: 'transparent', border: 'none', borderRadius: '6px',
+                width: '30px', height: '30px', display: 'flex', alignItems: 'center',
+                justifyContent: 'center', cursor: 'pointer', color: '#9ca3af',
+                padding: 0, flexShrink: 0, transition: 'all 0.15s',
+              }}
+              onMouseEnter={e => { e.currentTarget.style.backgroundColor = '#eff6ff'; e.currentTarget.style.color = '#2563eb'; }}
+              onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = '#9ca3af'; }}
+            >
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+              </svg>
+            </button>
             <FileMoreMenuInline
               onDelete={canDelete ? () => confirmDeleteFile(assignmentId, file.id, file.original_name || file.filename) : undefined}
             />
@@ -980,27 +1037,48 @@ const TasksTab = memo(({
                                     {renderFolderStatusBadges(folderFiles)}
                                   </div>
                                 </div>
-                                <div style={{ position: 'relative', flexShrink: 0 }} onClick={e => e.stopPropagation()}>
-                                  <FileMoreMenuInline
-                                    isFolder
-                                    onDelete={() => {
-                                      setFileToDelete({ assignmentId: assignment.id, fileId: null, fileName: folderName, isFolderDelete: true, folderFiles });
-                                      setShowDeleteModal(true);
-                                    }}
-                                  />
-                                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '2px', flexShrink: 0 }} onClick={e => e.stopPropagation()}>
+                  {folderFiles.some(f => ['rejected_by_team_leader', 'rejected_by_admin'].includes(f.status)) && (
+                    <button
+                      onClick={() => {
+                        const rejectedFile = folderFiles.find(f => ['rejected_by_team_leader', 'rejected_by_admin'].includes(f.status));
+                        if (rejectedFile) openFileDetails(rejectedFile);
+                      }}
+                      title="View file details"
+                      style={{
+                        background: 'transparent', border: 'none', borderRadius: '6px',
+                        width: '30px', height: '30px', display: 'flex', alignItems: 'center',
+                        justifyContent: 'center', cursor: 'pointer', color: '#dc2626',
+                        padding: 0, flexShrink: 0, transition: 'all 0.15s',
+                      }}
+                      onMouseEnter={e => { e.currentTarget.style.backgroundColor = '#fee2e2'; }}
+                      onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; }}
+                    >
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                        <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+                      </svg>
+                    </button>
+                  )}
+                  <FileMoreMenuInline
+                    isFolder
+                    onDelete={() => {
+                      setFileToDelete({ assignmentId: assignment.id, fileId: null, fileName: folderName, isFolderDelete: true, folderFiles });
+                      setShowDeleteModal(true);
+                    }}
+                  />
+                </div>
                               </div>
                             </div>
                             {isExpanded && (
                               <div style={{ marginLeft: '8px', paddingLeft: '8px', marginTop: '4px' }}>
-                                {folderFiles.map(file => renderFileCard(file, assignment.id, true))}
+                                {folderFiles.map(file => renderFileCard(file, assignment.id, true, assignment.title))}
                               </div>
                             )}
                           </div>
                         );
                       })}
 
-                      {displayIndividualFiles.map(file => renderFileCard(file, assignment.id))}
+                      {displayIndividualFiles.map(file => renderFileCard(file, assignment.id, false, assignment.title))}
 
                       {shouldShowSeeMore && (
                         <div style={{ marginTop: '12px', textAlign: 'center' }}>
@@ -1041,18 +1119,33 @@ const TasksTab = memo(({
                   </div>
                 )}
 
-                {/* Comments toggle */}
-                <div style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px solid #f3f4f6' }}>
+                {/* Comments + File Details row */}
+                <div style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px solid #f3f4f6', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                   <button
                     onClick={() => openCommentsModal(assignment)}
-                    style={{ background: 'transparent', border: 'none', color: '#1c1e21', fontSize: '14px', fontWeight: '500', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '0' }}
+                    style={{ background: 'transparent', border: 'none', color: '#1c1e21', fontSize: '14px', fontWeight: '500', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '0' }}
                   >
-                    Comment ({
-                      (comments[assignment.id]?.length > 0) 
-                        ? comments[assignment.id].length 
-                        : (assignment.comment_count || 0)
-                    })
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" />
+                    </svg>
+                    Comment
+                    {(() => {
+                      const count = assignmentComments.length > 0 ? assignmentComments.length : (assignment.comment_count || 0);
+                      const hasRejected = assignment.submitted_files?.some(f =>
+                        ['rejected_by_team_leader', 'rejected_by_admin'].includes(f.status)
+                      );
+                      return (
+                        <span style={{
+                          backgroundColor: hasRejected && count > 0 ? '#fee2e2' : '#f3f4f6',
+                          color: hasRejected && count > 0 ? '#dc2626' : '#6b7280',
+                          borderRadius: '10px', padding: '1px 8px', fontSize: '12px', fontWeight: '600',
+                        }}>
+                          {count}
+                        </span>
+                      );
+                    })()}
                   </button>
+
                 </div>
               </div>
             );
@@ -1209,6 +1302,17 @@ const TasksTab = memo(({
         @keyframes slideInRight { from { opacity: 0; transform: translateX(40px); } to { opacity: 1; transform: translateX(0); } }
         @keyframes shrinkBar { from { width: 100%; } to { width: 0%; } }
       `}</style>
+
+      {/* File Details Modal */}
+      {showFileDetailsModal && fileDetailsTarget && (
+        <FileModal
+          showFileModal={showFileDetailsModal}
+          setShowFileModal={setShowFileDetailsModal}
+          selectedFile={fileDetailsTarget}
+          fileComments={[]}
+          formatFileSize={formatFileSize}
+        />
+      )}
 
       {/* Submit Modal */}
       {showSubmitModal && currentAssignment && (
@@ -1381,6 +1485,15 @@ const TasksTab = memo(({
           </div>
         </div>
       )}
+
+      {/* File Details Modal */}
+      <FileModal
+        showFileModal={showFileDetailsModal}
+        setShowFileModal={setShowFileDetailsModal}
+        selectedFile={fileDetailsTarget}
+        fileComments={[]}
+        formatFileSize={formatFileSize}
+      />
     </div>
   );
 });
