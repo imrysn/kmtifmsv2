@@ -2,7 +2,7 @@ import React from 'react';
 import { createPortal } from 'react-dom';
 import './PerformanceInfoModal.css';
 
-const PerformanceInfoModal = React.memo(({ isOpen, onClose }) => {
+const PerformanceInfoModal = React.memo(({ isOpen, onClose, performance }) => {
   if (!isOpen) return null;
 
   const modalContent = (
@@ -14,6 +14,30 @@ const PerformanceInfoModal = React.memo(({ isOpen, onClose }) => {
           </div>
           <button className="perf-modal-close" onClick={onClose} style={{ background: 'none', border: 'none', fontSize: '24px', cursor: 'pointer', color: '#94a3b8' }}>&times;</button>
         </div>
+
+        {performance && (
+          <div className="perf-live-summary" style={{
+            background: '#f8fafc',
+            margin: '0 24px 20px',
+            padding: '16px',
+            borderRadius: '12px',
+            border: '1px solid #e2e8f0',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center'
+          }}>
+            <div>
+              <span style={{ fontSize: '12px', color: '#64748b', fontWeight: '600', textTransform: 'uppercase' }}>Your Current Score</span>
+              <div style={{ fontSize: '28px', fontWeight: '900', color: '#0f172a' }}>{performance.overallScore}%</div>
+            </div>
+            <div style={{ textAlign: 'right' }}>
+              <span style={{ fontSize: '12px', color: '#64748b', fontWeight: '600', textTransform: 'uppercase' }}>Formula Breakdown</span>
+              <div style={{ fontSize: '14px', fontWeight: '700', color: '#6366f1' }}>
+                {Math.round(performance.qualityFactor * 0.45)} + {Math.round(performance.efficiencyRatio * 100 * 0.35)} + {Math.round(performance.onTimeRate * 0.20)} pts
+              </div>
+            </div>
+          </div>
+        )}
 
         <div className="perf-modal-body">
 
