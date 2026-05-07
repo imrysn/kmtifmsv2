@@ -56,8 +56,11 @@ const groupFilesByFolder = (files) => {
 };
 
 const getAssignmentStatus = (assignment) => {
+  // If the assignment itself is marked completed (by TL or admin), always treat as completed
+  // regardless of whether the user uploaded files
+  if (assignment.status === 'completed') return 'completed';
   const hasFiles = assignment.submitted_files?.length > 0;
-  if (hasFiles || assignment.status === 'completed') return 'completed';
+  if (hasFiles) return 'completed';
   if (!assignment.due_date) return 'no_due_date';
   const dueDate = new Date(assignment.due_date);
   const now = new Date();
@@ -167,10 +170,13 @@ const getFileStatusBadge = (status) => {
 };
 
 const getStatusBadge = (assignment) => {
+  // If TL/admin marked the task as completed, show Completed badge regardless of file uploads
+  if (assignment.status === 'completed') {
+    return <span style={{ backgroundColor: '#F0FDF4', color: '#15803D', padding: '4px 12px', borderRadius: '20px', fontSize: '12px', fontWeight: '600', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>✓ COMPLETED</span>;
+  }
   if (assignment.submitted_files?.length > 0) {
     return <span style={{ backgroundColor: '#F0FDF4', color: '#15803D', padding: '4px 12px', borderRadius: '20px', fontSize: '12px', fontWeight: '600', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>✓ SUBMITTED</span>;
   }
-  if (assignment.status === 'completed') return null;
   if (!assignment.due_date) return null;
 
   const dueDate = new Date(assignment.due_date);
@@ -884,7 +890,8 @@ const TasksTab = memo(({
               ? Math.ceil((new Date(assignment.due_date) - new Date()) / (1000 * 60 * 60 * 24))
               : null;
             const assignmentComments = comments[assignment.id] || [];
-            const isCompleted = assignment.status === 'completed' && assignment.submitted_files?.length > 0;
+            // Completed if TL marked the assignment done OR if the user submitted files
+            const isCompleted = assignment.status === 'completed' || assignment.submitted_files?.length > 0;
 
             return (
               <div

@@ -1261,6 +1261,8 @@ router.put('/:assignmentId/mark-done', authenticateToken, authorizeRole(['TEAM_L
     }
     const now = new Date().toISOString().slice(0, 19).replace('T', ' ');
     await query('UPDATE assignments SET status = ?, updated_at = ? WHERE id = ?', ['completed', now, assignmentId]);
+    // Also mark all members as completed so user_status reflects the TL decision
+    await query('UPDATE assignment_members SET status = ?, submitted_at = COALESCE(submitted_at, ?) WHERE assignment_id = ?', ['completed', now, assignmentId]);
     res.json({ success: true, message: 'Assignment marked as completed', assignment: { ...assignment, status: 'completed', updated_at: now } });
   } catch (error) {
     console.error('Error marking assignment as done:', error);
