@@ -108,10 +108,15 @@ const isDbNotReady = async (response) => {
 const doFetch = async (fullUrl, options) => {
   const { token } = useStore.getState();
 
-  const headers = {
-    'Content-Type': 'application/json',
-    ...options.headers,
-  };
+  // When body is FormData, do NOT set Content-Type — the browser must set it
+  // automatically so it includes the correct multipart boundary.
+  // Passing `headers: {}` from the caller is not enough because the default
+  // 'Content-Type: application/json' was always merged in first.
+  const isFormData = options.body instanceof FormData;
+
+  const headers = isFormData
+    ? { ...options.headers }          // no Content-Type default for multipart
+    : { 'Content-Type': 'application/json', ...options.headers };
 
   if (token) {
     headers['Authorization'] = `Bearer ${token}`;
