@@ -2,6 +2,8 @@ import { useState, useEffect, useMemo, startTransition } from 'react';
 import { apiFetch } from '@/config/api';
 import './css/DashboardTab.css';
 import { LoadingCards } from '../common/InlineSkeletonLoader';
+import { UserPerformanceCard } from '../shared';
+
 
 const DashboardTab = ({ user, files, setActiveTab, onOpenFile, onNavigateToTasks }) => {
   const [assignments, setAssignments] = useState([]);
@@ -145,36 +147,30 @@ const DashboardTab = ({ user, files, setActiveTab, onOpenFile, onNavigateToTasks
     recent: notifications.slice(0, 3)
   }), [notifications]);
 
-  // Use server-computed performance metrics (accurate) with frontend fallback
-  const taskCompletionRate = performance?.taskCompletionRate ?? (
-    myTasksStats.total > 0 ? Math.round((myTasksStats.submitted / myTasksStats.total) * 100) : 0
-  );
-  const fileApprovalRate = performance?.fileApprovalRate ?? (
-    filesStats.total > 0 ? Math.round((filesStats.approved / filesStats.total) * 100) : 0
-  );
-  const fileRejectionRate = performance?.fileRejectionRate ?? (
-    filesStats.total > 0 ? Math.round((filesStats.rejected / filesStats.total) * 100) : 0
-  );
-  const onTimeRate = performance?.onTimeRate ?? (
-    myTasksStats.total > 0
-      ? Math.round(((myTasksStats.total - myTasksStats.overdue) / myTasksStats.total) * 100) : 100
-  );
-  const overallScore = performance?.overallScore ?? (() => {
-    const taskScore = myTasksStats.total > 0 ? (myTasksStats.submitted / myTasksStats.total) * 100 : 0;
-    const fileScore = filesStats.total > 0 ? (filesStats.approved / filesStats.total) * 100 : 0;
-    const timeScore = myTasksStats.total > 0 ? ((myTasksStats.total - myTasksStats.overdue) / myTasksStats.total) * 100 : 100;
-    return Math.max(0, Math.round((taskScore * 0.4) + (timeScore * 0.3) + (fileScore * 0.3)));
-  })();
-
-  // Use server values for accurate display counts
-  const displayTaskTotal = performance?.taskTotal ?? myTasksStats.total;
-  const displayTaskSubmitted = performance?.taskSubmitted ?? myTasksStats.submitted;
-  const displayTaskPending = performance?.taskPending ?? myTasksStats.pending;
-  const displayOverdue = performance?.overdue ?? myTasksStats.overdue;
-  const displayOnTimeCount = performance?.onTimeCount ?? (myTasksStats.total - myTasksStats.overdue);
-  const displayFileTotal = performance?.fileTotal ?? filesStats.total;
-  const displayFileApproved = performance?.fileApproved ?? filesStats.approved;
-  const displayFileRejected = performance?.fileRejected ?? filesStats.rejected;
+  // Fallback stats for performance component
+  const fallbackStats = useMemo(() => {
+    const taskTotal = myTasksStats.total;
+    const taskSubmitted = myTasksStats.submitted;
+    const taskCompletionRate = taskTotal > 0 ? Math.round((taskSubmitted / taskTotal) * 100) : 0;
+    
+    const fileTotal = filesStats.total;
+    const fileApproved = filesStats.approved;
+    const fileRejected = filesStats.rejected;
+    const fileApprovalRate = fileTotal > 0 ? Math.round((fileApproved / fileTotal) * 100) : 0;
+    const fileRejectionRate = fileTotal > 0 ? Math.round((fileRejected / fileTotal) * 100) : 0;
+    
+    const overdue = myTasksStats.overdue;
+    const onTimeCount = taskTotal - overdue;
+    const onTimeRate = taskTotal > 0 ? Math.round((onTimeCount / taskTotal) * 100) : 100;
+    
+    const overallScore = Math.max(0, Math.round((taskCompletionRate * 0.4) + (onTimeRate * 0.3) + (fileApprovalRate * 0.3)));
+    
+    return {
+      taskTotal, taskSubmitted, taskCompletionRate,
+      fileTotal, fileApproved, fileRejected, fileApprovalRate, fileRejectionRate,
+      overdue, onTimeCount, onTimeRate, overallScore
+    };
+  }, [myTasksStats, filesStats]);
 
   if (loading) {
     return (
@@ -264,172 +260,12 @@ const DashboardTab = ({ user, files, setActiveTab, onOpenFile, onNavigateToTasks
 
       {/* Main Content Grid */}
       <div className="dashboard-main-grid">
-        {/* Performance Analytics */}
-        <div className="analytics-card-modern">
-          <div className="analytics-card-header">
-            <h2 className="analytics-card-title">Performance Analytics</h2>
-          </div>
-          <div className="analytics-content">
-            {/* Overall Score - Circular Gauge */}
-            <div className="overall-score-section">
-              <div className="score-content-wrapper">
-                {/* Circular Progress */}
-                <div className="circular-progress-container">
-                  <svg className="circular-progress-svg" viewBox="0 0 200 200">
-                    {/* Background circle */}
-                    <circle
-                      className="progress-ring-bg"
-                      cx="100"
-                      cy="100"
-                      r="85"
-                      fill="none"
-                      strokeWidth="18"
-                    />
-                    {/* Progress circle */}
-                    <circle
-                      className="progress-ring-fill"
-                      cx="100"
-                      cy="100"
-                      r="85"
-                      fill="none"
-                      strokeWidth="18"
-                      strokeDasharray={`${(overallScore / 100) * 534} 534`}
-                      strokeLinecap="round"
-                      style={{
-                        stroke: overallScore >= 85 ? '#10b981' :
-                          overallScore >= 70 ? '#22c55e' :
-                            overallScore >= 50 ? '#f59e0b' : '#ef4444'
-                      }}
-                    />
-                    {/* Center text */}
-                    <text className="score-percentage-text" x="100" y="95" textAnchor="middle">
-                      {overallScore}%
-                    </text>
-                    <text className="score-label-text" x="100" y="118" textAnchor="middle">
-                      Performance
-                    </text>
-                  </svg>
-                </div>
-
-                {/* Score Description */}
-                <div className="score-description">
-                  <div className="score-status">
-                    <div className="status-badge" style={{
-                      background: overallScore >= 85 ? '#d1fae5' :
-                        overallScore >= 70 ? '#d1fae5' :
-                          overallScore >= 50 ? '#fef3c7' : '#fee2e2',
-                      color: overallScore >= 85 ? '#065f46' :
-                        overallScore >= 70 ? '#065f46' :
-                          overallScore >= 50 ? '#92400e' : '#991b1b'
-                    }}>
-                      {overallScore >= 85 ? '🌟 Excellent' :
-                        overallScore >= 70 ? '✅ Good' :
-                          overallScore >= 50 ? '⚠️ Fair' : '📉 Needs Improvement'}
-                    </div>
-                  </div>
-                  <p className="score-message">
-                    {overallScore >= 85 ? 'Outstanding work! You\'re exceeding expectations.' :
-                      overallScore >= 70 ? 'Great job! Keep up the good momentum.' :
-                        overallScore >= 50 ? 'You\'re on track. Focus on completing pending tasks.' :
-                          'Let\'s work on improving your completion rate.'}
-                  </p>
-                  <div className="score-legend-grid">
-                    <div className="legend-item">
-                      <span className="legend-dot excellent"></span>
-                      <span>85-100% </span>
-                    </div>
-                    <div className="legend-item">
-                      <span className="legend-dot good"></span>
-                      <span>70-84% </span>
-                    </div>
-                    <div className="legend-item">
-                      <span className="legend-dot fair"></span>
-                      <span>50-69% </span>
-                    </div>
-                    <div className="legend-item">
-                      <span className="legend-dot poor"></span>
-                      <span>0-49% </span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Analytics Grid */}
-            <div className="analytics-metrics-grid">
-              <div className="analytics-metric">
-                <div className="metric-icon task-completion-icon">
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                    <polyline points="20 6 9 17 4 12"></polyline>
-                  </svg>
-                </div>
-                <div className="metric-content">
-                  <div className="metric-label">Task Completion</div>
-                  <div className="metric-value">{taskCompletionRate}%</div>
-                  <div className="metric-detail">{displayTaskSubmitted}/{displayTaskTotal} completed</div>
-                </div>
-              </div>
-
-              <div className="analytics-metric">
-                <div className="metric-icon ontime-icon">
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <circle cx="12" cy="12" r="10"></circle>
-                    <polyline points="12 6 12 12 16 14"></polyline>
-                  </svg>
-                </div>
-                <div className="metric-content">
-                  <div className="metric-label">On-Time Delivery</div>
-                  <div className="metric-value">{onTimeRate}%</div>
-                  <div className="metric-detail">{displayOnTimeCount}/{displayTaskTotal} on time</div>
-                </div>
-              </div>
-
-              <div className="analytics-metric">
-                <div className="metric-icon approval-icon">
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"></path>
-                    <polyline points="13 2 13 9 20 9"></polyline>
-                  </svg>
-                </div>
-                <div className="metric-content">
-                  <div className="metric-label">File Approval Rate</div>
-                  <div className="metric-value">{fileApprovalRate}%</div>
-                  <div className="metric-detail">{displayFileApproved}/{displayFileTotal} approved</div>
-                </div>
-              </div>
-
-              <div className="analytics-metric">
-                <div className="metric-icon rejection-icon">
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <circle cx="12" cy="12" r="10"></circle>
-                    <line x1="15" y1="9" x2="9" y2="15"></line>
-                    <line x1="9" y1="9" x2="15" y2="15"></line>
-                  </svg>
-                </div>
-                <div className="metric-content">
-                  <div className="metric-label">File Rejection Rate</div>
-                  <div className="metric-value">{fileRejectionRate}%</div>
-                  <div className="metric-detail">{displayFileRejected}/{displayFileTotal} rejected</div>
-                </div>
-              </div>
-
-              <div className="analytics-metric">
-                <div className="metric-icon overdue-icon">
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
-                    <line x1="12" y1="9" x2="12" y2="13"></line>
-                    <line x1="12" y1="17" x2="12.01" y2="17"></line>
-                  </svg>
-                </div>
-                <div className="metric-content">
-                  <div className="metric-label">Overdue Tasks</div>
-                  <div className="metric-value">{displayOverdue}</div>
-                  <div className="metric-detail">Tasks awaiting attention</div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
+        {/* Performance Analytics Shared Component */}
+        <UserPerformanceCard 
+          user={user} 
+          performanceData={performance} 
+          fallbackStats={fallbackStats} 
+        />
 
         {/* Notifications */}
         <div className="notifications-card-modern">

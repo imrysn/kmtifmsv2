@@ -400,6 +400,41 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
     }
 
     setIsProcessing(true)
+
+    const handlePostDataResult = (data, removeAttachmentIds) => {
+      if (data.success) {
+        setSuccess(editingAssignmentId
+          ? 'Task updated successfully!'
+          : `Assignment created! ${data.membersAssigned} members assigned.`
+        )
+        // immediately remove attachments locally so UI reflects change even before server refetch
+        if (editingAssignmentId && removeAttachmentIds.length > 0) {
+          setAssignments(prev => prev.map(a => {
+            if (a.id === editingAssignmentId) {
+              return {
+                ...a,
+                attachments: (a.attachments || []).filter(att => !removeAttachmentIds.includes(att.id))
+              }
+            }
+            return a
+          }))
+        }
+        setShowCreateAssignmentModal(false)
+        setEditingAssignmentId(null)
+        setAssignmentForm({
+          title: '',
+          description: '',
+          dueDate: '',
+          fileTypeRequired: '',
+          assignedMembers: [],
+          selectedTeam: uniqueTeams && uniqueTeams.length === 1 ? uniqueTeams[0] : ''
+        })
+        fetchAssignments()
+      } else {
+        setError(data.message || `Failed to ${editingAssignmentId ? 'update' : 'create'} assignment`)
+      }
+    };
+
     try {
       const hasAttachments = attachedFiles && attachedFiles.length > 0
 
@@ -438,16 +473,16 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
             formData.append('removeAttachmentIds', JSON.stringify(removedAttachmentIds));
           }
 
-          const responseData = await apiFetch(url, { 
-            method, 
-            body: formData,
-            headers: {} // Don't set Content-Type for FormData
-          })
-
-          // If server rejected due to a stale/replayed nonce
-          if (responseData.status === 400) {
-            const errData = responseData;
-            if (errData.message && errData.message.toLowerCase().includes('nonce')) {
+          let responseData;
+          try {
+            responseData = await apiFetch(url, { 
+              method, 
+              body: formData,
+              headers: {} // Don't set Content-Type for FormData
+            })
+          } catch (error) {
+            // If server rejected due to a stale/replayed nonce
+            if (error.message && error.message.toLowerCase().includes('nonce')) {
               console.warn('⚠️ Nonce rejected — falling back to JSON request (no attachments)')
               // For new assignments, fall back to /create-json; for edits, fall back to PUT /:id with JSON
               const fallbackUrl = editingAssignmentId
@@ -471,6 +506,8 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
               })
               return handlePostDataResult(fallbackData, removeAttachmentIds);
             }
+            // Re-throw if it's not a nonce error
+            throw error;
           }
           return handlePostDataResult(responseData, removeAttachmentIds);
         } else {
@@ -498,39 +535,6 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
           return handlePostDataResult(data, removeAttachmentIds);
         }
 
-        const handlePostDataResult = (data, removeAttachmentIds) => {
-          if (data.success) {
-            setSuccess(editingAssignmentId
-              ? 'Task updated successfully!'
-              : `Assignment created! ${data.membersAssigned} members assigned.`
-            )
-            // immediately remove attachments locally so UI reflects change even before server refetch
-            if (editingAssignmentId && removeAttachmentIds.length > 0) {
-              setAssignments(prev => prev.map(a => {
-                if (a.id === editingAssignmentId) {
-                  return {
-                    ...a,
-                    attachments: (a.attachments || []).filter(att => !removeAttachmentIds.includes(att.id))
-                  }
-                }
-                return a
-              }))
-            }
-            setShowCreateAssignmentModal(false)
-            setEditingAssignmentId(null)
-            setAssignmentForm({
-              title: '',
-              description: '',
-              dueDate: '',
-              fileTypeRequired: '',
-              assignedMembers: [],
-              selectedTeam: uniqueTeams && uniqueTeams.length === 1 ? uniqueTeams[0] : ''
-            })
-            fetchAssignments()
-          } else {
-            setError(data.message || `Failed to ${editingAssignmentId ? 'update' : 'create'} assignment`)
-          }
-        };
     } catch (error) {
       console.error(`Error ${editingAssignmentId ? 'updating' : 'creating'} assignment:`, error)
       setError(`Failed to ${editingAssignmentId ? 'update' : 'create'} assignment`)

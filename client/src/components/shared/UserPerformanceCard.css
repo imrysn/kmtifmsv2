@@ -1,0 +1,533 @@
+/* UserPerformanceCard - Glanceable Hero UI */
+.performance-card-shared {
+  background: #ffffff;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 12px;
+  padding: 16px 20px;
+  width: 100%;
+  margin-bottom: 16px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.performance-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: pointer;
+}
+
+.performance-card-title {
+  font-size: 11px;
+  font-weight: 800;
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.collapse-toggle {
+  background: none;
+  border: none;
+  color: #94a3b8;
+  cursor: pointer;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.2s ease;
+}
+
+.performance-content {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* Hero Section - Always Visible & Compact */
+.perf-hero-bar-section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.perf-hero-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+}
+
+.perf-hero-status-group {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.perf-hero-score {
+  font-size: 32px;
+  font-weight: 900;
+  color: #0f172a;
+  line-height: 0.9;
+  letter-spacing: -1.5px;
+}
+
+.perf-hero-bonus {
+  font-size: 0.7em;
+  background: linear-gradient(135deg, #6366f1, #a855f7);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  margin-left: 2px;
+  vertical-align: top;
+  font-weight: 900;
+  filter: drop-shadow(0 2px 4px rgba(99, 102, 241, 0.2));
+}
+
+.perf-hero-label {
+  font-size: 13px;
+  font-weight: 700;
+  color: #64748b;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.perf-label-star {
+  color: #6366f1;
+  display: flex;
+  align-items: center;
+  font-weight: 800;
+  animation: star-pulse 2s infinite ease-in-out;
+}
+
+/* 💎 Supreme Star Tier Styling */
+.card-star {
+  position: relative;
+  border: 1.5px solid #8b5cf6 !important;
+  box-shadow: 0 0 25px rgba(99, 102, 241, 0.4), 0 15px 45px rgba(99, 102, 241, 0.2) !important;
+  background: #ffffff !important;
+  transform: translateY(-6px);
+  transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  z-index: 10;
+  overflow: hidden;
+}
+
+.card-star:hover {
+  transform: translateY(-10px);
+  box-shadow: 0 0 35px rgba(99, 102, 241, 0.5), 0 25px 60px rgba(99, 102, 241, 0.3) !important;
+  border-color: #6366f1 !important;
+}
+
+/* Elite Hero Bar Shimmer - ⚡ True Left to Right ⚡ */
+.fill-gold {
+  background: linear-gradient(90deg,
+      #6366f1 0%,
+      #a855f7 35%,
+      #ffffff 50%,
+      #a855f7 65%,
+      #6366f1 100%);
+  background-size: 200% 100%;
+  animation: supreme-shimmer-lr 4s infinite linear !important;
+  box-shadow: 0 0 15px rgba(168, 85, 247, 0.4);
+}
+
+@keyframes supreme-shimmer-lr {
+  0% { background-position: 100% 0; }
+  100% { background-position: -100% 0; }
+}
+
+.dot-star {
+  background: #8b5cf6;
+  box-shadow: 0 0 15px rgba(139, 92, 246, 0.8);
+  animation: dot-glow 1.5s infinite alternate;
+}
+
+@keyframes dot-glow {
+  from { box-shadow: 0 0 8px rgba(139, 92, 246, 0.4); }
+  to { box-shadow: 0 0 16px rgba(139, 92, 246, 0.8); }
+}
+
+/* Emerald Pro Card Highlight (85-100%) */
+.card-excellent {
+  position: relative;
+  border: 1.5px solid #10b981 !important;
+  box-shadow: 0 4px 20px rgba(16, 185, 129, 0.12) !important;
+  background: #ffffff !important;
+  transition: all 0.3s ease;
+  overflow: hidden;
+}
+
+.card-excellent:hover {
+  box-shadow: 0 8px 30px rgba(16, 185, 129, 0.2) !important;
+  transform: translateY(-4px);
+}
+
+.badge-excellent {
+  background: linear-gradient(135deg, #10b981, #059669) !important;
+  box-shadow: 0 4px 10px rgba(16, 185, 129, 0.3) !important;
+}
+
+/* Supreme Star Badge (Ribbon) */
+.perf-star-badge {
+  position: absolute;
+  top: 12px;
+  right: -35px;
+  background: linear-gradient(135deg, #6366f1, #a855f7);
+  color: white;
+  padding: 6px 40px;
+  transform: rotate(45deg);
+  box-shadow: 0 4px 10px rgba(99, 102, 241, 0.3);
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.perf-star-badge span {
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 1px;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+.dot-star {
+  background: #8b5cf6;
+  box-shadow: 0 0 15px rgba(139, 92, 246, 0.8);
+  animation: dot-glow 1.5s infinite alternate;
+}
+
+.dot-emerald {
+  background: #10b981;
+}
+
+.fill-emerald {
+  background: #10b981;
+}
+
+.dot-blue {
+  background: #3b82f6;
+}
+
+.fill-blue {
+  background: #3b82f6;
+}
+
+.dot-amber {
+  background: #f59e0b;
+}
+
+.fill-amber {
+  background: #f59e0b;
+}
+
+.dot-rose {
+  background: #f43f5e;
+}
+
+.fill-rose {
+  background: #f43f5e;
+}
+
+.perf-hero-bar-container {
+  height: 8px;
+  background: #f1f5f9;
+  border-radius: 4px;
+  width: 100%;
+  overflow: hidden;
+  margin-top: 4px;
+}
+
+.perf-hero-bar-container {
+  height: 8px;
+  background: #f1f5f9;
+  border-radius: 4px;
+  width: 100%;
+  overflow: hidden;
+  margin-top: 4px;
+}
+
+.perf-hero-bar-fill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 1s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+
+.perf-status-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-right: 6px;
+}
+
+/* Metrics Grid - Adaptive & Precise */
+.perf-grid-precision {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px;
+  margin-top: 4px;
+}
+
+.perf-metric-item {
+  background: #f8fafc;
+  border: 1px solid #f1f5f9;
+  border-radius: 8px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  transition: all 0.2s ease;
+}
+
+
+.perf-metric-item:hover {
+  border-color: #e2e8f0;
+}
+
+.perf-metric-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.perf-metric-label-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.perf-metric-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.perf-metric-value {
+  font-size: 16px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+/* Mini Progress Pill */
+.perf-mini-pill-container {
+  height: 4px;
+  background: #e2e8f0;
+  border-radius: 2px;
+  width: 100%;
+  overflow: hidden;
+}
+
+.perf-mini-pill-fill {
+  height: 100%;
+  border-radius: 2px;
+  transition: width 0.8s ease-out;
+}
+
+.perf-metric-footer {
+  font-size: 10px;
+  font-weight: 500;
+  color: #94a3b8;
+}
+
+/* Color Tokens */
+.dot-emerald {
+  background: #10b981;
+}
+
+.dot-blue {
+  background: #3b82f6;
+}
+
+.dot-amber {
+  background: #f59e0b;
+}
+
+.dot-rose {
+  background: #f43f5e;
+}
+
+.fill-emerald {
+  background: #10b981;
+  stroke: #10b981;
+}
+
+.fill-blue {
+  background: #3b82f6;
+  stroke: #3b82f6;
+}
+
+.fill-amber {
+  background: #f59e0b;
+  stroke: #f59e0b;
+}
+
+.fill-rose {
+  background: #f43f5e;
+  stroke: #f43f5e;
+}
+
+/* Responsive */
+@media (max-width: 1024px) {
+  .perf-grid-precision {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 640px) {
+  .perf-grid-precision {
+    grid-template-columns: 1fr;
+  }
+
+  .perf-hero-section {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+/* 🎭 Dual Mode Toggle Styling */
+.perf-mode-toggle {
+  display: flex;
+  background: #f1f5f9;
+  padding: 2px;
+  border-radius: 20px;
+  border: 1px solid #e2e8f0;
+}
+
+.perf-mode-btn {
+  padding: 4px 12px;
+  border-radius: 18px;
+  border: none;
+  background: transparent;
+  font-size: 10px;
+  font-weight: 800;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.perf-mode-btn.active {
+  background: #ffffff;
+  color: #6366f1;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.mode-management .perf-mode-btn.active {
+  color: #0891b2;
+}
+
+.perf-mode-btn:not(.active):hover {
+  color: #475569;
+  background: rgba(0, 0, 0, 0.02);
+}
+
+/* 📋 Management Mode Theme (Cyan/Teal) */
+.mode-management .perf-hero-score { color: #0891b2; }
+.mode-management .perf-hero-bar-fill.fill-emerald { background: #06b6d4; }
+
+.fill-green { background: #10b981; }
+.fill-amber { background: #f59e0b; }
+.fill-rose { background: #f43f5e; }
+.fill-slate { background: #64748b; }
+
+.fill-green { background: #10b981; }
+.fill-amber { background: #f59e0b; }
+.fill-rose { background: #f43f5e; }
+.fill-slate { background: #64748b; }
+
+/* Info Tooltip */
+.perf-info-trigger {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #94a3b8;
+  cursor: help;
+  transition: all 0.2s ease;
+  padding: 4px;
+  border-radius: 50%;
+}
+
+.perf-info-trigger:hover {
+  color: #6366f1;
+  background: rgba(99, 102, 241, 0.1);
+}
+
+.perf-info-tooltip {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  width: 280px;
+  background: #1e293b;
+  border: 1px solid #334155;
+  border-radius: 12px;
+  padding: 16px;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3), 0 8px 10px -6px rgba(0, 0, 0, 0.3);
+  z-index: 100;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(10px);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  pointer-events: none;
+  margin-top: 8px;
+}
+
+.perf-info-trigger:hover .perf-info-tooltip {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+}
+
+.perf-tooltip-header {
+  color: #f8fafc;
+  font-size: 13px;
+  font-weight: 700;
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #334155;
+}
+
+.perf-tooltip-row {
+  margin-bottom: 10px;
+}
+
+.perf-tooltip-label {
+  display: block;
+  color: #e2e8f0;
+  font-size: 11px;
+  font-weight: 600;
+  margin-bottom: 2px;
+}
+
+.perf-tooltip-desc {
+  display: block;
+  color: #94a3b8;
+  font-size: 10px;
+  line-height: 1.4;
+}
+
+.perf-tooltip-footer {
+  margin-top: 12px;
+  padding-top: 8px;
+  border-top: 1px solid #334155;
+  color: #a78bfa;
+  font-size: 10px;
+  font-style: italic;
+  font-weight: 500;
+}
+
+.perf-tooltip-math {
+  display: block;
+  color: #a5b4fc;
+  font-family: 'JetBrains Mono', 'Courier New', monospace;
+  font-size: 10px;
+  background: rgba(0,0,0,0.2);
+  padding: 4px 6px;
+  border-radius: 4px;
+  margin: 4px 0;
+  border-left: 2px solid #6366f1;
+}
+

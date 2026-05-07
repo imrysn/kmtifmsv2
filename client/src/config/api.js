@@ -109,9 +109,13 @@ const doFetch = async (fullUrl, options) => {
   const { token } = useStore.getState();
 
   const headers = {
-    'Content-Type': 'application/json',
     ...options.headers,
   };
+
+  // Automatically set Content-Type to application/json if body is present and not FormData
+  if (options.body && !(options.body instanceof FormData) && !headers['Content-Type']) {
+    headers['Content-Type'] = 'application/json';
+  }
 
   if (token) {
     headers['Authorization'] = `Bearer ${token}`;

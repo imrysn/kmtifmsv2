@@ -1113,14 +1113,26 @@ router.put('/:assignmentId/mark-done', authenticateToken, authorizeRole(['TEAM_L
     const { assignmentId } = req.params;
     const assignment = await queryOne('SELECT * FROM assignments WHERE id = ?', [assignmentId]);
     if (!assignment) return res.status(404).json({ success: false, message: 'Assignment not found' });
+    
     const now = new Date().toISOString().slice(0, 19).replace('T', ' ');
+    
+    // 1. Update assignment status
     await query('UPDATE assignments SET status = ?, updated_at = ? WHERE id = ?', ['completed', now, assignmentId]);
-    res.json({ success: true, message: 'Assignment marked as completed', assignment: { ...assignment, status: 'completed', updated_at: now } });
+    
+    // 2. IMPORTANT: Update all members who haven't submitted yet to 'submitted' status
+    // This ensures they get credit for completion in their performance metrics
+    await query(
+      'UPDATE assignment_members SET status = ?, submitted_at = ? WHERE assignment_id = ? AND (status IS NULL OR status != ?)',
+      ['submitted', now, assignmentId, 'submitted']
+    );
+
+    res.json({ success: true, message: 'Assignment marked as completed and all members updated', assignment: { ...assignment, status: 'completed', updated_at: now } });
   } catch (error) {
     console.error('Error marking assignment as done:', error);
     res.status(500).json({ success: false, message: 'Failed to mark assignment as done', error: error.message });
   }
 });
+
 
 // PUT /:assignmentId/update-members
 router.put('/:assignmentId/update-members', authenticateToken, authorizeRole(['TEAM_LEADER', 'ADMIN']), async (req, res) => {

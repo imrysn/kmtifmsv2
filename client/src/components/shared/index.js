@@ -6,3 +6,5 @@ export { default as FileIcon, getSidebarIcon } from '../shared/FileIcon'
 export { default as ConfirmationModal } from './ConfirmationModal'
 export { default as FileOpenModal } from './FileOpenModal'
 export { default as FileViewersButton } from './FileViewersButton'
+export { default as UserPerformanceCard } from './UserPerformanceCard'
+

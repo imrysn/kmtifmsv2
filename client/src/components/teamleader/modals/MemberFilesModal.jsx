@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { apiFetch, API_BASE_URL } from '@/config/api'
-import { FileOpenModal, FileIcon } from '../../shared'
+import { FileOpenModal, FileIcon, UserPerformanceCard } from '../../shared'
 import '../css/FileCollectionTab.css'
+
 
 const MemberFilesModal = ({
   showMemberFilesModal,
@@ -251,7 +252,7 @@ const MemberFilesModal = ({
               <div className="tl-spinner"></div>
               <p>Loading files...</p>
             </div>
-          ) : memberFiles.length === 0 ? (
+          ) : memberFiles.length === 0 && !isLoading ? (
             <div className="tl-empty">
               <div className="tl-empty-icon">📄</div>
               <h3>No files</h3>
@@ -259,6 +260,11 @@ const MemberFilesModal = ({
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+              
+              {/* Performance Section */}
+              <div className="performance-section-modal">
+                <UserPerformanceCard user={selectedMember} isCollapsible={true} />
+              </div>
 
               {/* ── FOLDERS ── */}
               {displayedFolders.length > 0 && (

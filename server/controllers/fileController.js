@@ -1,6 +1,7 @@
 const fileService = require('../services/fileService');
 const { uploadsDir } = require('../config/middleware');
 const { asyncHandler, ValidationError } = require('../middleware/errorHandler');
+const { invalidateCache } = require('../utils/cacheUtils');
 
 /**
  * File Controller
@@ -19,6 +20,7 @@ class FileController {
             file_path: req.file.path,
             file_size: req.file.size,
             file_type: req.file.mimetype,
+            mime_type: req.file.mimetype,
             tag: req.body.tag,
             description: req.body.description,
             folder_name: req.body.folderName,
@@ -37,6 +39,8 @@ class FileController {
             });
         }
 
+        invalidateCache();
+
         res.status(201).json({
             success: true,
             message: 'File uploaded successfully',
@@ -52,6 +56,7 @@ class FileController {
         const { comments } = req.body;
 
         const file = await fileService.approveByTeamLeader(id, req.user, comments);
+        invalidateCache();
 
         res.json({
             success: true,
@@ -68,6 +73,7 @@ class FileController {
         const { reason } = req.body;
 
         const file = await fileService.rejectByTeamLeader(id, req.user, reason);
+        invalidateCache();
 
         res.json({
             success: true,
@@ -84,6 +90,7 @@ class FileController {
         const { comments } = req.body;
 
         const file = await fileService.approveByAdmin(id, req.user, comments);
+        invalidateCache();
 
         res.json({
             success: true,
@@ -100,6 +107,7 @@ class FileController {
         const { reason } = req.body;
 
         const file = await fileService.rejectByAdmin(id, req.user, reason);
+        invalidateCache();
 
         res.json({
             success: true,
@@ -137,6 +145,7 @@ class FileController {
     deleteFile = asyncHandler(async (req, res) => {
         const { id } = req.params;
         await fileService.deleteFile(id, req.user);
+        invalidateCache();
 
         res.json({
             success: true,
@@ -335,6 +344,7 @@ class FileController {
     bulkAction = asyncHandler(async (req, res) => {
         const { fileIds, action } = req.body;
         const results = await fileService.bulkAction(fileIds, action, req.user);
+        invalidateCache();
         res.json({ success: true, ...results });
     });
 

@@ -18,7 +18,8 @@ async function runMigrations() {
       { name: 'Add parent_id to assignment_comments', run: require('./005-add-comments-parent-id') },
       { name: 'Fix assignment_comments schema (drop FK, add updated_at)', run: require('./006-fix-comments-schema') },
       // Append the incoming feature as the next step
-      { name: 'Add File Views Table', run: require('./007-add-file-views') }
+      { name: 'Add File Views Table', run: require('./007-add-file-views') },
+      { name: 'Add updated_at to files', run: require('./008-add-updated-at-to-files') }
     ];
 
     for (const migration of migrations) {

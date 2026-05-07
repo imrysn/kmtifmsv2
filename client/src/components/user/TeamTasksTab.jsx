@@ -80,6 +80,33 @@ function FileMoreMenu({ onDownload, onOpenPath, isFolder = false }) {
   )
 }
 
+// ── Helpers ──────────────────────────────────────────────────────────────────
+const formatFileSize = (bytes) => {
+  if (!bytes) return '0 Bytes';
+  const k = 1024;
+  const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return `${parseFloat((bytes / Math.pow(k, i)).toFixed(2))} ${sizes[i]}`;
+};
+
+const groupFilesByFolder = (files) => {
+  const folders = {};
+  const individualFiles = [];
+
+  files.forEach(file => {
+    if (file.folder_name) {
+      if (!folders[file.folder_name]) {
+        folders[file.folder_name] = [];
+      }
+      folders[file.folder_name].push(file);
+    } else {
+      individualFiles.push(file);
+    }
+  });
+
+  return { folders, individualFiles };
+};
+
 const TeamTasksTab = ({ user }) => {
   const [assignments, setAssignments] = useState([])
   const [loading, setLoading] = useState(true)
@@ -727,58 +754,158 @@ const TeamTasksTab = ({ user }) => {
                   </div>
                 )}
 
-                {/* Attachment */}
+                {/* Attachment Section */}
                 <div className="team-task-attachment-section">
-                  {assignment.recent_submissions && assignment.recent_submissions.length > 0 ? (
-                    <div className="team-task-attached-file">
-                      <div className="file-label">
+                  {/* Section 1: Team Leader Attached Files */}
+                  {assignment.attachments && assignment.attachments.length > 0 && (
+                    <div className="team-task-attached-file tl-attachments" style={{ marginBottom: '16px', borderLeft: '4px solid #3b82f6' }}>
+                      <div className="file-label" style={{ color: '#1d4ed8' }}>
                         <span style={{ fontSize: '16px' }}>📎</span>
-                        Attachment{assignment.recent_submissions.length > 1 ? 's' : ''} ({assignment.recent_submissions.length}):
+                        Attached Files ({assignment.attachments.length}):
                       </div>
                       {(() => {
-                        // Group files by folder
-                        const groupFilesByFolder = (files) => {
-                          const folders = {};
-                          const individualFiles = [];
-
-                          files.forEach(file => {
-                            if (file.folder_name) {
-                              if (!folders[file.folder_name]) {
-                                folders[file.folder_name] = [];
-                              }
-                              folders[file.folder_name].push(file);
-                            } else {
-                              individualFiles.push(file);
-                            }
-                          });
-
-                          return { folders, individualFiles };
-                        };
-
-                        // Sort all files by submitted_at (newest first)
-                        const sortedFiles = [...assignment.recent_submissions].sort((a, b) =>
-                          new Date(b.submitted_at) - new Date(a.submitted_at)
-                        );
-
-                        // Group files
-                        const { folders, individualFiles } = groupFilesByFolder(sortedFiles);
+                        const { folders, individualFiles } = groupFilesByFolder(assignment.attachments);
                         const items = [];
 
-                        // Render folders first
+                        // Render folders
                         Object.keys(folders).forEach(folderName => {
                           const folderFiles = folders[folderName];
-                          const isExpanded = expandedFolders[`${assignment.id}-${folderName}`];
+                          const isExpanded = expandedFolders[`att-${assignment.id}-${folderName}`];
                           const firstFile = folderFiles[0];
 
                           items.push(
                             <div
-                              key={`folder-${assignment.id}-${folderName}`}
+                              key={`att-folder-${assignment.id}-${folderName}`}
                               className="file-item folder-item"
                               onClick={(e) => {
                                 e.stopPropagation();
                                 setExpandedFolders(prev => ({
                                   ...prev,
-                                  [`${assignment.id}-${folderName}`]: !prev[`${assignment.id}-${folderName}`]
+                                  [`att-${assignment.id}-${folderName}`]: !prev[`att-${assignment.id}-${folderName}`]
+                                }));
+                              }}
+                              style={{ cursor: 'pointer', backgroundColor: isExpanded ? '#BFDBFE' : '#DBEAFE' }}
+                            >
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1 }}>
+                                <div style={{ fontSize: '32px', flexShrink: 0 }}>
+                                  {isExpanded ? '📂' : '📁'}
+                                </div>
+                                <div style={{ flex: 1, minWidth: 0 }}>
+                                  <div style={{ fontWeight: '600', fontSize: '14px', color: '#111827' }}>
+                                    {folderName}
+                                  </div>
+                                  <div style={{ fontSize: '12px', color: '#6b7280' }}>
+                                    {assignment.team_leader_fullname || assignment.team_leader_username || 'Team Leader'} • {folderFiles.length} files
+                                  </div>
+                                </div>
+                                <FileMoreMenu
+                                  isFolder
+                                  onDownload={() => handleDownloadFolder(folderFiles, folderName)}
+                                  onOpenPath={() => handleOpenFolderPath(firstFile.id)}
+                                />
+                              </div>
+                            </div>
+                          );
+
+                          if (isExpanded) {
+                            folderFiles.forEach(file => {
+                              items.push(
+                                <div
+                                  key={`att-${file.id}`}
+                                  className="file-item nested-file-item"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setFileToOpen(file);
+                                    setShowOpenFileConfirmation(true);
+                                    recordView(file.id);
+                                  }}
+                                  style={{ paddingLeft: '40px', backgroundColor: openedFileIds.has(file.id) ? '#f0fdf4' : '#fafafa' }}
+                                >
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1 }}>
+                                    <FileIcon fileType={file.original_name.split('.').pop()} size="small" style={{ width: '40px', height: '40px', flexShrink: 0 }} />
+                                    <div style={{ flex: 1, minWidth: 0 }}>
+                                      <div style={{ fontWeight: '500', fontSize: '14px', color: '#111827', marginBottom: '6px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                        {file.relative_path || file.original_name}
+                                      </div>
+                                      <div style={{ fontSize: '12px', color: '#6b7280' }}>
+                                        {formatFileSize(file.file_size)}
+                                      </div>
+                                    </div>
+                                    <FileMoreMenu
+                                      onDownload={() => handleDownloadFile(file)}
+                                      onOpenPath={() => handleOpenFolderPath(file.id)}
+                                    />
+                                  </div>
+                                </div>
+                              );
+                            });
+                          }
+                        });
+
+                        // Render individual files
+                        individualFiles.forEach(file => {
+                          items.push(
+                            <div
+                              key={`att-${file.id}`}
+                              className="file-item"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setFileToOpen(file);
+                                setShowOpenFileConfirmation(true);
+                                recordView(file.id);
+                              }}
+                              style={{ backgroundColor: openedFileIds.has(file.id) ? '#f0fdf4' : undefined }}
+                            >
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1 }}>
+                                <FileIcon fileType={file.original_name.split('.').pop()} size="small" style={{ width: '48px', height: '48px', flexShrink: 0 }} />
+                                <div style={{ flex: 1, minWidth: 0 }}>
+                                  <div style={{ fontWeight: '500', fontSize: '15px', color: '#111827', marginBottom: '6px' }}>
+                                    {file.original_name}
+                                  </div>
+                                  <div style={{ fontSize: '13px', color: '#6b7280' }}>
+                                    {formatFileSize(file.file_size)}
+                                  </div>
+                                </div>
+                                <FileMoreMenu
+                                  onDownload={() => handleDownloadFile(file)}
+                                  onOpenPath={() => handleOpenFolderPath(file.id)}
+                                />
+                              </div>
+                            </div>
+                          );
+                        });
+
+                        return items;
+                      })()}
+                    </div>
+                  )}
+
+                  {/* Section 2: Member Submissions */}
+                  {assignment.recent_submissions && assignment.recent_submissions.length > 0 ? (
+                    <div className="team-task-attached-file member-submissions">
+                      <div className="file-label">
+                        <span style={{ fontSize: '16px' }}>📤</span>
+                        Submitted Files ({assignment.recent_submissions.length}):
+                      </div>
+                      {(() => {
+                        const { folders, individualFiles } = groupFilesByFolder(assignment.recent_submissions);
+                        const items = [];
+
+                        // Render folders
+                        Object.keys(folders).forEach(folderName => {
+                          const folderFiles = folders[folderName];
+                          const isExpanded = expandedFolders[`sub-${assignment.id}-${folderName}`];
+                          const firstFile = folderFiles[0];
+
+                          items.push(
+                            <div
+                              key={`sub-folder-${assignment.id}-${folderName}`}
+                              className="file-item folder-item"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setExpandedFolders(prev => ({
+                                  ...prev,
+                                  [`sub-${assignment.id}-${folderName}`]: !prev[`sub-${assignment.id}-${folderName}`]
                                 }));
                               }}
                               style={{ cursor: 'pointer', backgroundColor: isExpanded ? '#BFDBFE' : '#DBEAFE' }}
@@ -804,12 +931,11 @@ const TeamTasksTab = ({ user }) => {
                             </div>
                           );
 
-                          // Render files in expanded folder
                           if (isExpanded) {
                             folderFiles.forEach(file => {
                               items.push(
                                 <div
-                                  key={file.id}
+                                  key={`sub-${file.id}`}
                                   className="file-item nested-file-item"
                                   onClick={(e) => {
                                     e.stopPropagation();
@@ -817,20 +943,17 @@ const TeamTasksTab = ({ user }) => {
                                     setShowOpenFileConfirmation(true);
                                     recordView(file.id);
                                   }}
-                                  style={{ paddingLeft: '40px', backgroundColor: openedFileIds.has(file.id) ? '#f0fdf4' : '#fafafa', borderLeft: openedFileIds.has(file.id) ? '3px solid #86efac' : undefined }}
+                                  style={{ paddingLeft: '40px', backgroundColor: openedFileIds.has(file.id) ? '#f0fdf4' : '#fafafa' }}
                                 >
                                   <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1 }}>
                                     <FileIcon fileType={file.original_name.split('.').pop()} size="small" style={{ width: '40px', height: '40px', flexShrink: 0 }} />
                                     <div style={{ flex: 1, minWidth: 0 }}>
                                       <div style={{ fontWeight: '500', fontSize: '14px', color: '#111827', marginBottom: '6px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{file.relative_path || file.original_name}</span>
-                                        {openedFileIds.has(file.id) && <span style={{ fontSize: '10px', fontWeight: '600', color: '#16a34a', backgroundColor: '#dcfce7', border: '1px solid #86efac', padding: '1px 7px', borderRadius: '10px', flexShrink: 0, whiteSpace: 'nowrap' }}>✓ Viewed</span>}
+                                        <span>{file.relative_path || file.original_name}</span>
+                                        {openedFileIds.has(file.id) && <span style={{ fontSize: '10px', color: '#16a34a' }}>✓ Viewed</span>}
                                       </div>
-                                      <div style={{ fontSize: '12px', color: '#6b7280', display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
-                                        <span>by <span style={{ fontWeight: '500', color: '#374151' }}>{file.fullName || file.username}</span></span>
-                                        <span style={{ color: '#d1d5db' }}>•</span>
-                                        <span>{formatDate(file.submitted_at)}</span>
-                                        {file.tag && (<><span style={{ color: '#d1d5db' }}>•</span><span style={{ backgroundColor: '#eff6ff', color: '#1e40af', padding: '2px 10px', borderRadius: '12px', fontSize: '11px', fontWeight: '600', border: '1px solid #bfdbfe' }}>🏷️ {file.tag}</span></>)}
+                                      <div style={{ fontSize: '12px', color: '#6b7280' }}>
+                                        by {file.fullName || file.username} • {formatDate(file.submitted_at)}
                                       </div>
                                     </div>
                                     <FileViewersButton fileId={file.id} />
@@ -849,77 +972,25 @@ const TeamTasksTab = ({ user }) => {
                         individualFiles.forEach(file => {
                           items.push(
                             <div
-                              key={file.id}
+                              key={`sub-${file.id}`}
                               className="file-item"
                               onClick={(e) => {
                                 e.stopPropagation();
                                 setFileToOpen(file);
                                 setShowOpenFileConfirmation(true);
-                                  recordView(file.id);
-                                }}
-              style={{ backgroundColor: openedFileIds.has(file.id) ? '#f0fdf4' : undefined, borderLeft: openedFileIds.has(file.id) ? '3px solid #86efac' : undefined }}
+                                recordView(file.id);
+                              }}
+                              style={{ backgroundColor: openedFileIds.has(file.id) ? '#f0fdf4' : undefined }}
                             >
-                              <div style={{
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '12px',
-                                flex: 1
-                              }}>
-                                <FileIcon
-                                  fileType={file.original_name.split('.').pop()}
-                                  size="small"
-                                  style={{
-                                    width: '48px',
-                                    height: '48px',
-                                    flexShrink: 0
-                                  }}
-                                />
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1 }}>
+                                <FileIcon fileType={file.original_name.split('.').pop()} size="small" style={{ width: '48px', height: '48px', flexShrink: 0 }} />
                                 <div style={{ flex: 1, minWidth: 0 }}>
-                                  <div style={{
-                                    fontWeight: '500',
-                                    fontSize: '15px',
-                                    color: '#111827',
-                                    marginBottom: '6px',
-                                    overflow: 'hidden',
-                                    textOverflow: 'ellipsis',
-                                    whiteSpace: 'nowrap',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: '8px'
-                                  }}>
-                                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{file.original_name}</span>
-                                    {openedFileIds.has(file.id) && <span style={{ fontSize: '10px', fontWeight: '600', color: '#16a34a', backgroundColor: '#dcfce7', border: '1px solid #86efac', padding: '1px 7px', borderRadius: '10px', flexShrink: 0, whiteSpace: 'nowrap' }}>✓ Viewed</span>}
+                                  <div style={{ fontWeight: '500', fontSize: '15px', color: '#111827', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <span>{file.original_name}</span>
+                                    {openedFileIds.has(file.id) && <span style={{ fontSize: '10px', color: '#16a34a' }}>✓ Viewed</span>}
                                   </div>
-                                  <div style={{
-                                    fontSize: '13px',
-                                    color: '#6b7280',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: '8px',
-                                    flexWrap: 'wrap'
-                                  }}>
-                                    <span>Submitted by <span style={{ fontWeight: '500', color: '#374151' }}>{file.fullName || file.username}</span></span>
-                                    <span style={{ color: '#d1d5db' }}>•</span>
-                                    <span>on {formatDate(file.submitted_at)}</span>
-                                    {file.tag && (
-                                      <>
-                                        <span style={{ color: '#d1d5db' }}>•</span>
-                                        <span style={{
-                                          backgroundColor: '#eff6ff',
-                                          color: '#1e40af',
-                                          padding: '2px 10px',
-                                          borderRadius: '12px',
-                                          fontSize: '11px',
-                                          fontWeight: '600',
-                                          border: '1px solid #bfdbfe',
-                                          display: 'inline-flex',
-                                          alignItems: 'center',
-                                          gap: '4px'
-                                        }}>
-                                          <span>🏷️</span> {file.tag}
-                                        </span>
-                                      </>
-                                    )}
+                                  <div style={{ fontSize: '13px', color: '#6b7280' }}>
+                                    Submitted by {file.fullName || file.username} on {formatDate(file.submitted_at)}
                                   </div>
                                 </div>
                                 <FileViewersButton fileId={file.id} />
@@ -932,7 +1003,6 @@ const TeamTasksTab = ({ user }) => {
                           );
                         });
 
-                        // Calculate if we need to show "See more" button
                         const totalItems = items.length;
                         const isShowingAll = showAllSubmittedFiles[assignment.id];
                         const itemsToShow = isShowingAll ? items : items.slice(0, INITIAL_FILE_DISPLAY_LIMIT);
@@ -943,29 +1013,14 @@ const TeamTasksTab = ({ user }) => {
                             {itemsToShow}
                             {totalItems > INITIAL_FILE_DISPLAY_LIMIT && (
                               <div
-                                style={{
-                                  padding: '12px 16px',
-                                  textAlign: 'center',
-                                  cursor: 'pointer'
-                                }}
+                                style={{ padding: '12px 16px', textAlign: 'center', cursor: 'pointer' }}
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  setShowAllSubmittedFiles(prev => ({
-                                    ...prev,
-                                    [assignment.id]: !prev[assignment.id]
-                                  }));
+                                  setShowAllSubmittedFiles(prev => ({ ...prev, [assignment.id]: !prev[assignment.id] }));
                                 }}
                               >
-                                <span style={{
-                                  color: '#0066cc',
-                                  fontSize: '14px',
-                                  fontWeight: '500',
-                                  textDecoration: 'underline',
-                                  cursor: 'pointer'
-                                }}>
-                                  {isShowingAll
-                                    ? 'See less'
-                                    : `See more (${remainingCount} more)`}
+                                <span style={{ color: '#0066cc', fontSize: '14px', fontWeight: '500', textDecoration: 'underline' }}>
+                                  {isShowingAll ? 'See less' : `See more (${remainingCount} more)`}
                                 </span>
                               </div>
                             )}
@@ -973,12 +1028,12 @@ const TeamTasksTab = ({ user }) => {
                         );
                       })()}
                     </div>
-                  ) : (
+                  ) : null}
+                  
+                  {(!assignment.attachments?.length && !assignment.recent_submissions?.length) && (
                     <div className="no-attachment">
                       <span className="no-attachment-icon">📄</span>
-                      <span className="no-attachment-text">
-                        No attachments yet
-                      </span>
+                      <span className="no-attachment-text">No attachments yet</span>
                     </div>
                   )}
                 </div>

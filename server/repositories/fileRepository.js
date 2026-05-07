@@ -21,7 +21,7 @@ async function create(fileData) {
         file_path,
         file_size,
         file_type,
-        mime_type,
+        mime_type = fileData.file_type || 'application/octet-stream',
         description,
         user_id,
         username,
@@ -39,17 +39,31 @@ async function create(fileData) {
       description, user_id, username, user_team, status, current_stage,
       folder_name, relative_path, is_folder,
       uploaded_at, updated_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
   `;
 
     try {
         const result = await db.run(
             query,
-            [filename, original_name, file_path, file_size, file_type, mime_type,
-                description, user_id, username, user_team, status, current_stage,
-                folder_name, relative_path, is_folder ? 1 : 0]
+            [
+                filename,
+                original_name,
+                file_path,
+                file_size,
+                file_type,
+                mime_type,
+                description || null,
+                user_id,
+                username,
+                user_team,
+                status,
+                current_stage,
+                folder_name || null,
+                relative_path || null,
+                is_folder ? 1 : 0
+            ]
         );
-        return result.lastID;
+        return result.insertId || result.lastID;
     } catch (err) {
         throw new DatabaseError('Failed to create file record', err);
     }
@@ -162,7 +176,7 @@ async function updateStatus(fileId, updates) {
         values.push(current_stage);
     }
     if (team_leader_id !== undefined) {
-        fields.push('team_leader_id = ?, team_leader_reviewed_at = CURRENT_TIMESTAMP');
+        fields.push('team_leader_id = ?, team_leader_reviewed_at = NOW()');
         values.push(team_leader_id);
     }
     if (team_leader_username !== undefined) {
@@ -174,7 +188,7 @@ async function updateStatus(fileId, updates) {
         values.push(team_leader_comments);
     }
     if (admin_id !== undefined) {
-        fields.push('admin_id = ?, admin_reviewed_at = CURRENT_TIMESTAMP');
+        fields.push('admin_id = ?, admin_reviewed_at = NOW()');
         values.push(admin_id);
     }
     if (admin_username !== undefined) {
@@ -186,7 +200,7 @@ async function updateStatus(fileId, updates) {
         values.push(admin_comments);
     }
     if (rejection_reason !== undefined) {
-        fields.push('rejection_reason = ?, rejected_at = CURRENT_TIMESTAMP');
+        fields.push('rejection_reason = ?, rejected_at = NOW()');
         values.push(rejection_reason);
     }
     if (rejected_by !== undefined) {
@@ -198,7 +212,7 @@ async function updateStatus(fileId, updates) {
         values.push(public_network_url);
     }
 
-    fields.push('updated_at = CURRENT_TIMESTAMP');
+    fields.push('updated_at = NOW()');
 
     const query = `UPDATE files SET ${fields.join(', ')} WHERE id = ?`;
     values.push(fileId);
@@ -223,11 +237,11 @@ async function updateBatchStatus(fileIds, updates) {
 
     if (status !== undefined) { fields.push('status = ?'); values.push(status); }
     if (current_stage !== undefined) { fields.push('current_stage = ?'); values.push(current_stage); }
-    if (admin_id !== undefined) { fields.push('admin_id = ?, admin_reviewed_at = CURRENT_TIMESTAMP'); values.push(admin_id); }
+    if (admin_id !== undefined) { fields.push('admin_id = ?, admin_reviewed_at = NOW()'); values.push(admin_id); }
     if (admin_username !== undefined) { fields.push('admin_username = ?'); values.push(admin_username); }
     if (admin_comments !== undefined) { fields.push('admin_comments = ?'); values.push(admin_comments); }
 
-    fields.push('updated_at = CURRENT_TIMESTAMP');
+    fields.push('updated_at = NOW()');
 
     const placeholders = fileIds.map(() => '?').join(',');
     const query = `UPDATE files SET ${fields.join(', ')} WHERE id IN (${placeholders})`;

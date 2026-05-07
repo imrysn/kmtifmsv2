@@ -2,6 +2,8 @@ import { useState, useEffect, useMemo, useCallback } from 'react'
 import { apiFetch } from '@/config/api'
 import './UserManagement.css'
 import { AlertMessage, ConfirmationModal, FormModal } from './modals'
+import { UserPerformanceCard } from '../shared'
+
 import { SkeletonLoader } from '../common/SkeletonLoader'
 import { useAuth, useNetwork } from '../../contexts'
 import { usePagination } from '../../hooks'
@@ -39,7 +41,14 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess, u
   const [showEditModal, setShowEditModal] = useState(false)
   const [showPasswordModal, setShowPasswordModal] = useState(false)
   const [showUserDeleteModal, setShowUserDeleteModal] = useState(false)
+  const [showPerformanceModal, setShowPerformanceModal] = useState(false)
   const [userToDelete, setUserToDelete] = useState(null)
+  const [viewMode, setViewMode] = useState('performance') // 'performance' by default
+  const [sortBy, setSortBy] = useState('performance-desc') // 'performance-desc' by default
+  const [memberScores, setMemberScores] = useState({})
+  const [bulkPerformance, setBulkPerformance] = useState({})
+  const [isBulkLoading, setIsBulkLoading] = useState(false)
+
   const [formData, setFormData] = useState({
     fullName: '',
     username: '',
@@ -49,14 +58,49 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess, u
     team: ''
   })
 
+  // Track performance scores to determine framing (Star/Excellent)
+  const handleScoreLoad = useCallback((userId, data) => {
+    setMemberScores(prev => {
+      if (prev[userId] === data.overallScore) return prev;
+      return { ...prev, [userId]: data.overallScore };
+    });
+  }, []);
+
+  const fetchBulkPerformance = useCallback(async () => {
+    // Only fetch if not already loading
+    setIsBulkLoading(true);
+    try {
+      const data = await apiFetch('/api/dashboard/bulk-performance');
+      if (data.success) {
+        setBulkPerformance(data.performanceMap || {});
+        // Pre-fill member scores for instant elite framing
+        const scores = {};
+        Object.entries(data.performanceMap).forEach(([id, perf]) => {
+          scores[id] = perf.overallScore;
+        });
+        setMemberScores(scores);
+      }
+    } catch (error) {
+      console.error('Error fetching bulk performance:', error);
+    } finally {
+      setIsBulkLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (viewMode === 'performance' || sortBy.includes('performance')) {
+      fetchBulkPerformance();
+    }
+  }, [viewMode, sortBy, fetchBulkPerformance]);
+
   // Memoized filtered and sorted users for better performance
   const filteredUsers = useMemo(() => {
-    let filtered = users
+    let filtered = [...users]
 
     // Filter by search query
     if (searchQuery.trim() !== '') {
       const query = searchQuery.toLowerCase()
-      filtered = users.filter(u =>
+      filtered = filtered.filter(u =>
         u.fullName.toLowerCase().includes(query) ||
         u.username.toLowerCase().includes(query) ||
         u.email.toLowerCase().includes(query) ||
@@ -66,13 +110,35 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess, u
       )
     }
 
-    // Sort by created_at (oldest first)
+    // Advanced sorting logic
     return filtered.sort((a, b) => {
-      const dateA = new Date(a.created_at || 0)
-      const dateB = new Date(b.created_at || 0)
-      return dateA - dateB // Ascending order (oldest first)
+      switch (sortBy) {
+        case 'performance-desc': {
+          const scoreA = bulkPerformance[a.id]?.overallScore || 0;
+          const scoreB = bulkPerformance[b.id]?.overallScore || 0;
+          return scoreB - scoreA;
+        }
+        case 'performance-asc': {
+          const scoreA = bulkPerformance[a.id]?.overallScore || 0;
+          const scoreB = bulkPerformance[b.id]?.overallScore || 0;
+          return scoreA - scoreB;
+        }
+        case 'name-asc':
+          return a.fullName.localeCompare(b.fullName);
+        case 'date-desc': {
+          const dateA = new Date(a.created_at || 0);
+          const dateB = new Date(b.created_at || 0);
+          return dateB - dateA;
+        }
+        case 'date-asc':
+        default: {
+          const dateA = new Date(a.created_at || 0);
+          const dateB = new Date(b.created_at || 0);
+          return dateA - dateB;
+        }
+      }
     })
-  }, [searchQuery, users])
+  }, [searchQuery, users, sortBy, bulkPerformance])
 
   // Use pagination hook
   const {
@@ -325,6 +391,12 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess, u
     setShowUserDeleteModal(true)
   }, [])
 
+  const openPerformanceModal = useCallback((user) => {
+    setSelectedUser(user)
+    setShowPerformanceModal(true)
+  }, [])
+
+
   const openAddModal = useCallback(() => {
     setError('')
     setSuccess('')
@@ -371,10 +443,93 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess, u
           </div>
         </div>
 
-        <div className="action-buttons">
+        <div className="action-buttons" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <div className="sort-section" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{ fontSize: '12px', fontWeight: '700', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Sort By:</span>
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value)}
+              style={{
+                padding: '8px 12px',
+                borderRadius: '10px',
+                border: '1px solid #e2e8f0',
+                background: '#ffffff',
+                fontSize: '13px',
+                fontWeight: '700',
+                color: '#0f172a',
+                cursor: 'pointer',
+                outline: 'none',
+                transition: 'all 0.2s ease',
+                boxShadow: '0 2px 4px rgba(0,0,0,0.02)'
+              }}
+              className="sort-select"
+            >
+              <option value="performance-desc">Top Performer</option>
+              <option value="performance-asc">Low Performer</option>
+              <option value="name-asc">Name (A-Z)</option>
+              <option value="date-desc">Newest Members</option>
+              <option value="date-asc">Oldest Members</option>
+            </select>
+          </div>
+
+          <div className="view-mode-toggle" style={{
+            display: 'flex',
+            background: '#f1f5f9',
+            padding: '4px',
+            borderRadius: '10px',
+            border: '1px solid #e2e8f0'
+          }}>
+            <button
+              onClick={() => setViewMode('performance')}
+              style={{
+                padding: '8px 16px',
+                borderRadius: '8px',
+                border: 'none',
+                background: viewMode === 'performance' ? '#ffffff' : 'transparent',
+                color: viewMode === 'performance' ? '#0f172a' : '#64748b',
+                fontSize: '13px',
+                fontWeight: '700',
+                cursor: 'pointer',
+                boxShadow: viewMode === 'performance' ? '0 2px 8px rgba(0,0,0,0.05)' : 'none',
+                transition: 'all 0.2s ease',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px'
+              }}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                <path d="M21.21 15.89A10 10 0 1 1 8 2.83M22 12A10 10 0 0 0 12 2v10z" />
+              </svg>
+              Performance
+            </button>
+            <button
+              onClick={() => setViewMode('list')}
+              style={{
+                padding: '8px 16px',
+                borderRadius: '8px',
+                border: 'none',
+                background: viewMode === 'list' ? '#ffffff' : 'transparent',
+                color: viewMode === 'list' ? '#0f172a' : '#64748b',
+                fontSize: '13px',
+                fontWeight: '700',
+                cursor: 'pointer',
+                boxShadow: viewMode === 'list' ? '0 2px 8px rgba(0,0,0,0.05)' : 'none',
+                transition: 'all 0.2s ease',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px'
+              }}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                <line x1="8" y1="6" x2="21" y2="6" /><line x1="8" y1="12" x2="21" y2="12" /><line x1="8" y1="18" x2="21" y2="18" /><line x1="3" y1="6" x2="3.01" y2="6" /><line x1="3" y1="12" x2="3.01" y2="12" /><line x1="3" y1="18" x2="3.01" y2="18" />
+              </svg>
+              User List
+            </button>
+          </div>
           <button
             className="btn btn-primary"
             onClick={openAddModal}
+            style={{ borderRadius: '10px' }}
           >
             Add User
           </button>
@@ -400,147 +555,229 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess, u
 
       {/* Users Table */}
       <div className="table-section">
-        {isLoading ? (
-          <div className="loading-state">
-            <div className="spinner"></div>
-            <p>Loading users...</p>
+        {(isLoading && users.length === 0) ? (
+          <div className="skeleton-container">
+            <SkeletonLoader type="table" rows={9} />
+          </div>
+        ) : viewMode === 'performance' ? (
+          /* Performance Cards Grid - High Density 2-Col */
+          <div className="performance-grid" style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(2, 1fr)',
+            gap: '20px',
+            marginTop: '20px'
+          }}>
+            {filteredUsers.filter(u => u.role !== 'ADMIN').map(u => {
+              const score = memberScores[u.id] || 0;
+              const isStar = score > 100;
+              const isExcellent = score >= 85 && score <= 100;
+
+              return (
+                <div key={u.id} className={`member-perf-wrapper ${isStar ? 'card-star' : isExcellent ? 'card-excellent' : ''}`} style={{
+                  background: '#ffffff',
+                  border: (isStar || isExcellent) ? 'none' : '1px solid #f1f5f9',
+                  borderRadius: '16px',
+                  padding: '16px',
+                  boxShadow: (isStar || isExcellent) ? 'none' : '0 2px 10px rgba(0,0,0,0.02)',
+                  position: 'relative',
+                  overflow: 'hidden'
+                }}>
+                  {isStar && (
+                    <div className="perf-star-badge">
+                      <span>TOP</span>
+                    </div>
+                  )}
+                  {isExcellent && (
+                    <div className="perf-star-badge badge-excellent">
+                      <span>PRO</span>
+                    </div>
+                  )}
+
+                  <div className="member-perf-header" style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '12px',
+                    marginBottom: '16px',
+                    paddingLeft: '4px'
+                  }}>
+                    <div style={{
+                      width: '36px',
+                      height: '36px',
+                      background: isStar ? 'rgba(99, 102, 241, 0.1)' : isExcellent ? 'rgba(16, 185, 129, 0.1)' : '#f1f5f9',
+                      borderRadius: '10px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontWeight: '800',
+                      color: isStar ? '#6366f1' : isExcellent ? '#10b981' : '#475569',
+                      fontSize: '13px',
+                      border: isStar ? '1px solid rgba(99, 102, 241, 0.2)' : isExcellent ? '1px solid rgba(16, 185, 129, 0.2)' : 'none'
+                    }}>
+                      {u.fullName.substring(0, 2).toUpperCase()}
+                    </div>
+                    <div style={{ minWidth: 0 }}>
+                      <h3 style={{
+                        fontSize: '15px',
+                        fontWeight: '800',
+                        color: '#0f172a',
+                        margin: 0,
+                        whiteSpace: 'nowrap',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis'
+                      }}>{u.fullName}</h3>
+                      <span style={{ fontSize: '12px', color: '#64748b' }}>{u.email}</span>
+                    </div>
+                  </div>
+                  <UserPerformanceCard
+                    user={u}
+                    isCollapsible={true}
+                    performanceData={bulkPerformance[u.id]}
+                    onPerformanceLoad={(data) => handleScoreLoad(u.id, data)}
+                  />
+                </div>
+              );
+            })}
           </div>
         ) : (
-          <div className="users-table-container">
-            <table className="users-table">
-              <thead>
-                <tr>
-                  <th>User</th>
-                  <th>Username</th>
-                  <th>Email</th>
-                  <th>Password</th>
-                  <th>Role</th>
-                  <th>Team</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {paginatedUsers.map((userData) => {
-                  // Normalise role → CSS class (handles both "TEAM LEADER" and "TEAM_LEADER")
-                  const roleClass = roleToClass(userData.role)
-                  // Normalise role → display label (always use space format)
-                  const roleLabel = roleToLabel(userData.role)
-                  return (
-                    <tr key={userData.id} className="user-row" data-user-id={userData.id}>
-                      <td>
-                        <div className="user-cell">
-                          <span className="user-name">
-                            {userData.fullName}
+          /* Standard List Table View */
+          <>
+            <div className="users-table-container">
+              <table className="users-table">
+                <thead>
+                  <tr>
+                    <th>User</th>
+                    <th>Username</th>
+                    <th>Email</th>
+                    <th>Password</th>
+                    <th>Role</th>
+                    <th>Team</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {paginatedUsers.map((userData) => {
+                    // Normalise role → CSS class (handles both "TEAM LEADER" and "TEAM_LEADER")
+                    const roleClass = roleToClass(userData.role)
+                    // Normalise role → display label (always use space format)
+                    const roleLabel = roleToLabel(userData.role)
+                    return (
+                      <tr key={userData.id} className="user-row" data-user-id={userData.id}>
+                        <td>
+                          <div className="user-cell">
+                            <span className="user-name">
+                              {userData.fullName}
+                            </span>
+                          </div>
+                        </td>
+                        <td>{userData.username}</td>
+                        <td className="email-cell">{userData.email}</td>
+                        <td>
+                          <div className="password-cell">
+                            <span className="password-hidden">••••••••</span>
+                            <button
+                              className="password-reset-btn"
+                              onClick={() => openPasswordModal(userData)}
+                              title="Reset Password"
+                            >
+                              Reset
+                            </button>
+                          </div>
+                        </td>
+                        <td>
+                          <span className={`role-badge ${roleClass}`}>
+                            {roleLabel}
                           </span>
-                        </div>
-                      </td>
-                      <td>{userData.username}</td>
-                      <td className="email-cell">{userData.email}</td>
-                      <td>
-                        <div className="password-cell">
-                          <span className="password-hidden">••••••••</span>
-                          <button
-                            className="password-reset-btn"
-                            onClick={() => openPasswordModal(userData)}
-                            title="Reset Password"
-                          >
-                            Reset
-                          </button>
-                        </div>
-                      </td>
-                      <td>
-                        <span className={`role-badge ${roleClass}`}>
-                          {roleLabel}
-                        </span>
-                      </td>
-                      <td>
-                        <span className="team-badge">
-                          {userData.team || '—'}
-                        </span>
-                      </td>
-                      <td>
-                        <div className="action-buttons">
-                          <button
-                            className="action-btn edit-btn"
-                            onClick={() => openEditModal(userData)}
-                            title="Edit User"
-                          >
-                            Edit
-                          </button>
-                          <button
-                            className="action-btn delete-btn"
-                            onClick={() => openUserDeleteModal(userData)}
-                            title="Delete User"
-                          >
-                            Delete
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
-          </div>
+                        </td>
+                        <td>
+                          <span className="team-badge">
+                            {userData.team || '—'}
+                          </span>
+                        </td>
+                        <td>
+                          <div className="action-buttons">
+                            <button
+                              className="action-btn edit-btn"
+                              onClick={() => openEditModal(userData)}
+                              title="Edit User"
+                            >
+                              Edit
+                            </button>
+
+                            <button
+                              className="action-btn delete-btn"
+                              onClick={() => openUserDeleteModal(userData)}
+                              title="Delete User"
+                            >
+                              Delete
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Pagination Controls - ONLY for List View */}
+            {!isLoading && totalPages > 1 && (
+              <div className="pagination-container">
+                <div className="pagination-info">
+                  Showing {startIndex + 1} to {endIndex} of {filteredUsers.length} users
+                </div>
+                <div className="pagination-controls">
+                  <button
+                    className="pagination-btn"
+                    onClick={prevPage}
+                    disabled={currentPage === 1}
+                    title="Previous Page"
+                  >
+                    ‹
+                  </button>
+
+                  <div className="pagination-numbers">
+                    {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                      let pageNum
+                      if (totalPages <= 5) {
+                        pageNum = i + 1
+                      } else if (currentPage <= 3) {
+                        pageNum = i + 1
+                      } else if (currentPage >= totalPages - 2) {
+                        pageNum = totalPages - 4 + i
+                      } else {
+                        pageNum = currentPage - 2 + i
+                      }
+
+                      return (
+                        <button
+                          key={pageNum}
+                          className={`pagination-number ${currentPage === pageNum ? 'active' : ''}`}
+                          onClick={() => goToPage(pageNum)}
+                        >
+                          {pageNum}
+                        </button>
+                      )
+                    })}
+                  </div>
+
+                  <button
+                    className="pagination-btn"
+                    onClick={nextPage}
+                    disabled={currentPage === totalPages}
+                    title="Next Page"
+                  >
+                    ›
+                  </button>
+                </div>
+              </div>
+            )}
+          </>
         )}
 
         {!isLoading && filteredUsers.length === 0 && (
           <div className="empty-state">
             <h3>No users found</h3>
             <p>No users match your current search criteria.</p>
-          </div>
-        )}
-
-        {/* Pagination Controls */}
-        {!isLoading && totalPages > 1 && (
-          <div className="pagination-container">
-            <div className="pagination-info">
-              Showing {startIndex + 1} to {endIndex} of {filteredUsers.length} users
-            </div>
-            <div className="pagination-controls">
-              <button
-                className="pagination-btn"
-                onClick={prevPage}
-                disabled={currentPage === 1}
-                title="Previous Page"
-              >
-                ‹
-              </button>
-
-              <div className="pagination-numbers">
-                {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                  let pageNum
-                  if (totalPages <= 5) {
-                    pageNum = i + 1
-                  } else if (currentPage <= 3) {
-                    pageNum = i + 1
-                  } else if (currentPage >= totalPages - 2) {
-                    pageNum = totalPages - 4 + i
-                  } else {
-                    pageNum = currentPage - 2 + i
-                  }
-
-                  return (
-                    <button
-                      key={pageNum}
-                      className={`pagination-number ${currentPage === pageNum ? 'active' : ''}`}
-                      onClick={() => goToPage(pageNum)}
-                    >
-                      {pageNum}
-                    </button>
-                  )
-                })}
-              </div>
-
-              <button
-                className="pagination-btn"
-                onClick={nextPage}
-                disabled={currentPage === totalPages}
-                title="Next Page"
-              >
-                ›
-              </button>
-            </div>
           </div>
         )}
       </div>
@@ -758,6 +995,20 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess, u
           </p>
         </ConfirmationModal>
       )}
+
+      {/* User Performance Modal */}
+      {showPerformanceModal && selectedUser && (
+        <FormModal
+          isOpen={showPerformanceModal}
+          onClose={() => setShowPerformanceModal(false)}
+          title={`Performance: ${selectedUser.fullName}`}
+          showSubmit={false}
+          size="large"
+        >
+          <UserPerformanceCard user={selectedUser} />
+        </FormModal>
+      )}
+
 
     </div>
   )

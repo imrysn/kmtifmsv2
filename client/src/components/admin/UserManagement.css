@@ -221,6 +221,16 @@
   background: #dc2626;
 }
 
+.users-management .perf-btn {
+  background: #10b981;
+  color: white;
+}
+
+.users-management .perf-btn:hover {
+  background: #059669;
+}
+
+
 /* Loading and Empty States */
 .users-management .loading-state, 
 .users-management .empty-state {

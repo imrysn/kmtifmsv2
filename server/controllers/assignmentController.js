@@ -1,5 +1,6 @@
 const assignmentService = require('../services/assignmentService');
 const { asyncHandler, ValidationError, NotFoundError } = require('../middleware/errorHandler');
+const { invalidateCache } = require('../utils/cacheUtils');
 
 /**
  * Assignment Controller
@@ -81,6 +82,7 @@ class AssignmentController {
      */
     createAssignment = asyncHandler(async (req, res) => {
         const result = await assignmentService.createAssignment(req.body, req.files, req.user);
+        invalidateCache();
         res.status(201).json({ success: true, ...result });
     });
 
@@ -90,6 +92,7 @@ class AssignmentController {
     updateAssignment = asyncHandler(async (req, res) => {
         const { id } = req.params;
         await assignmentService.updateAssignment(id, req.body, req.files, req.user);
+        invalidateCache();
         res.json({ success: true, message: 'Assignment updated successfully' });
     });
 
@@ -99,6 +102,7 @@ class AssignmentController {
     deleteAssignment = asyncHandler(async (req, res) => {
         const { id } = req.params;
         await assignmentService.deleteAssignment(id, req.user);
+        invalidateCache();
         res.json({ success: true, message: 'Assignment deleted successfully' });
     });
 
@@ -197,6 +201,7 @@ class AssignmentController {
         if (finalFileIds.length === 0) throw new ValidationError('At least one file ID is required');
 
         await assignmentService.submitAssignment(id, finalFileIds, req.user);
+        invalidateCache();
         res.json({ success: true, message: 'Assignment submitted successfully' });
     });
 
@@ -215,6 +220,7 @@ class AssignmentController {
     markDone = asyncHandler(async (req, res) => {
         const id = req.params.id || req.params.assignmentId;
         await assignmentService.markAssignmentDone(id, req.user);
+        invalidateCache();
         res.json({ success: true, message: 'Assignment marked as completed' });
     });
 
