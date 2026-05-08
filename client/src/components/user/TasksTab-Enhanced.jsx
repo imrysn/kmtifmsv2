@@ -152,6 +152,81 @@ const FileMoreMenuInline = memo(({ onDelete, onViewDetails, isFolder = false }) 
 });
 FileMoreMenuInline.displayName = 'FileMoreMenuInline';
 
+// ── Read-only menu for Team Leader attachments (Open File Path + Download) ───
+const AttachmentMoreMenu = memo(({ onDownload, onOpenPath, isFolder = false }) => {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+  useEffect(() => {
+    if (!open) return;
+    const close = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    document.addEventListener('mousedown', close);
+    return () => document.removeEventListener('mousedown', close);
+  }, [open]);
+  return (
+    <div ref={ref} style={{ position: 'relative', flexShrink: 0 }} onClick={e => e.stopPropagation()}>
+      <button
+        onClick={e => { e.stopPropagation(); setOpen(v => !v); }}
+        style={{
+          background: 'transparent', border: 'none', borderRadius: '6px',
+          width: '28px', height: '28px', display: 'flex', alignItems: 'center',
+          justifyContent: 'center', cursor: 'pointer', color: '#9ca3af', padding: 0,
+        }}
+        onMouseEnter={e => { e.currentTarget.style.backgroundColor = '#f3f4f6'; e.currentTarget.style.color = '#374151'; }}
+        onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = '#9ca3af'; }}
+        title="More options"
+      >
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+          <circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/>
+        </svg>
+      </button>
+      {open && (
+        <div style={{
+          position: 'absolute', right: 0, top: '100%', marginTop: '4px',
+          background: '#fff', border: '1px solid #e5e7eb', borderRadius: '8px',
+          boxShadow: '0 4px 12px rgba(0,0,0,0.12)', zIndex: 200,
+          minWidth: '160px', padding: '4px',
+        }}>
+          {onOpenPath && (
+            <button
+              onClick={() => { onOpenPath(); setOpen(false); }}
+              style={{
+                display: 'flex', alignItems: 'center', gap: '8px', width: '100%',
+                padding: '8px 12px', background: 'transparent', border: 'none',
+                borderRadius: '6px', cursor: 'pointer', fontSize: '13px', color: '#374151', textAlign: 'left',
+              }}
+              onMouseEnter={e => e.currentTarget.style.backgroundColor = '#f3f4f6'}
+              onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/>
+              </svg>
+              {isFolder ? 'Open Folder Path' : 'Open File Path'}
+            </button>
+          )}
+          <button
+            onClick={() => { onDownload(); setOpen(false); }}
+            style={{
+              display: 'flex', alignItems: 'center', gap: '8px', width: '100%',
+              padding: '8px 12px', background: 'transparent', border: 'none',
+              borderRadius: '6px', cursor: 'pointer', fontSize: '13px', color: '#374151', textAlign: 'left',
+            }}
+            onMouseEnter={e => e.currentTarget.style.backgroundColor = '#f3f4f6'}
+            onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+              <polyline points="7 10 12 15 17 10"/>
+              <line x1="12" y1="15" x2="12" y2="3"/>
+            </svg>
+            {isFolder ? 'Download Folder' : 'Download'}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+});
+AttachmentMoreMenu.displayName = 'AttachmentMoreMenu';
+
 const getFileStatusBadge = (status) => {
   const badges = {
     uploaded: { bg: '#1d4ed8', color: '#fff', label: 'New', radius: '20px' },
@@ -992,6 +1067,11 @@ const TasksTab = memo(({
                                 <svg width="16" height="16" viewBox="0 0 16 16" fill="none" style={{ transform: isExpanded ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s', flexShrink: 0 }}>
                                   <path d="M4 6L8 10L12 6" stroke="#6B7280" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                                 </svg>
+                                <AttachmentMoreMenu
+                                  isFolder
+                                  onDownload={() => handleDownloadFolder(folderFiles, folderName)}
+                                  onOpenPath={() => openFolderInExplorer(folderFiles[0]?.id)}
+                                />
                               </div>
                             </div>
                             {isExpanded && (
@@ -1010,6 +1090,10 @@ const TasksTab = memo(({
                                           <span>{formatFileSize(file.file_size)}</span>
                                         </div>
                                       </div>
+                                      <AttachmentMoreMenu
+                                        onDownload={() => handleDownloadFile(file)}
+                                        onOpenPath={() => openFolderInExplorer(file.id)}
+                                      />
                                     </div>
                                   </div>
                                 ))}
@@ -1032,6 +1116,10 @@ const TasksTab = memo(({
                                 <span>{formatFileSize(attachment.file_size)}</span>
                               </div>
                             </div>
+                            <AttachmentMoreMenu
+                              onDownload={() => handleDownloadFile(attachment)}
+                              onOpenPath={() => openFolderInExplorer(attachment.id)}
+                            />
                           </div>
                         </div>
                       ))}

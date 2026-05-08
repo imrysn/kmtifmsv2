@@ -758,7 +758,7 @@ const TeamTasksTab = ({ user }) => {
                 <div className="team-task-attachment-section">
                   {/* Section 1: Team Leader Attached Files */}
                   {assignment.attachments && assignment.attachments.length > 0 && (
-                    <div className="team-task-attached-file tl-attachments" style={{ marginBottom: '16px', borderLeft: '4px solid #3b82f6' }}>
+                    <div className="team-task-attached-file tl-attachments" style={{ marginBottom: '16px' }}>
                       <div className="file-label" style={{ color: '#1d4ed8' }}>
                         <span style={{ fontSize: '16px' }}>📎</span>
                         Attached Files ({assignment.attachments.length}):
@@ -795,14 +795,12 @@ const TeamTasksTab = ({ user }) => {
                                     {folderName}
                                   </div>
                                   <div style={{ fontSize: '12px', color: '#6b7280' }}>
-                                    {assignment.team_leader_fullname || assignment.team_leader_username || 'Team Leader'} • {folderFiles.length} files
+                                    {assignment.team_leader_fullname || assignment.team_leader_username || 'Team Leader'} • {folderFiles.length} file{folderFiles.length !== 1 ? 's' : ''}
                                   </div>
                                 </div>
-                                <FileMoreMenu
-                                  isFolder
-                                  onDownload={() => handleDownloadFolder(folderFiles, folderName)}
-                                  onOpenPath={() => handleOpenFolderPath(firstFile.id)}
-                                />
+                                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" style={{ transform: isExpanded ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s', flexShrink: 0 }}>
+                                  <path d="M4 6L8 10L12 6" stroke="#6B7280" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                                </svg>
                               </div>
                             </div>
                           );
@@ -824,18 +822,20 @@ const TeamTasksTab = ({ user }) => {
                                   <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1 }}>
                                     <FileIcon fileType={file.original_name.split('.').pop()} size="small" style={{ width: '40px', height: '40px', flexShrink: 0 }} />
                                     <div style={{ flex: 1, minWidth: 0 }}>
-                                      <div style={{ fontWeight: '500', fontSize: '14px', color: '#111827', marginBottom: '6px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                        {file.relative_path || file.original_name}
+                                      <div style={{ fontWeight: '500', fontSize: '14px', color: '#111827', marginBottom: '2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                        {file.original_name}
                                       </div>
-                                      <div style={{ fontSize: '12px', color: '#6b7280' }}>
-                                        {formatFileSize(file.file_size)}
+                                      <div style={{ fontSize: '12px', color: '#6b7280', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                        <span>by <span style={{ fontWeight: '500', color: '#2563eb' }}>{assignment.team_leader_fullname || assignment.team_leader_username || 'Team Leader'}</span></span>
+                                        <span style={{ color: '#9ca3af' }}>•</span>
+                                        <span>{formatFileSize(file.file_size)}</span>
                                       </div>
                                     </div>
-                                      <FileViewersButton fileId={file.id} />
-                                      <FileMoreMenu
-                                        onDownload={() => handleDownloadFile(file)}
-                                        onOpenPath={() => handleOpenFolderPath(file.id)}
-                                      />
+                                    <FileViewersButton fileId={file.id} />
+                                    <FileMoreMenu
+                                      onDownload={() => handleDownloadFile(file)}
+                                      onOpenPath={() => handleOpenFolderPath(file.id)}
+                                    />
                                   </div>
                                 </div>
                               );
@@ -860,18 +860,20 @@ const TeamTasksTab = ({ user }) => {
                               <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1 }}>
                                 <FileIcon fileType={file.original_name.split('.').pop()} size="small" style={{ width: '48px', height: '48px', flexShrink: 0 }} />
                                 <div style={{ flex: 1, minWidth: 0 }}>
-                                  <div style={{ fontWeight: '500', fontSize: '15px', color: '#111827', marginBottom: '6px' }}>
+                                  <div style={{ fontWeight: '500', fontSize: '14px', color: '#111827', marginBottom: '2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                     {file.original_name}
                                   </div>
-                                  <div style={{ fontSize: '13px', color: '#6b7280' }}>
-                                    {formatFileSize(file.file_size)}
+                                  <div style={{ fontSize: '12px', color: '#6b7280', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                    <span>by <span style={{ fontWeight: '500', color: '#2563eb' }}>{assignment.team_leader_fullname || assignment.team_leader_username || 'Team Leader'}</span></span>
+                                    <span style={{ color: '#9ca3af' }}>•</span>
+                                    <span>{formatFileSize(file.file_size)}</span>
                                   </div>
                                 </div>
-                                  <FileViewersButton fileId={file.id} />
-                                  <FileMoreMenu
-                                    onDownload={() => handleDownloadFile(file)}
-                                    onOpenPath={() => handleOpenFolderPath(file.id)}
-                                  />
+                                <FileViewersButton fileId={file.id} />
+                                <FileMoreMenu
+                                  onDownload={() => handleDownloadFile(file)}
+                                  onOpenPath={() => handleOpenFolderPath(file.id)}
+                                />
                               </div>
                             </div>
                           );
@@ -959,11 +961,10 @@ const TeamTasksTab = ({ user }) => {
                                       </div>
                                     </div>
                                     <FileViewersButton fileId={file.id} />
-                                      <FileViewersButton fileId={file.id} />
-                                      <FileMoreMenu
-                                        onDownload={() => handleDownloadFile(file)}
-                                        onOpenPath={() => handleOpenFolderPath(file.id)}
-                                      />
+                                    <FileMoreMenu
+                                      onDownload={() => handleDownloadFile(file)}
+                                      onOpenPath={() => handleOpenFolderPath(file.id)}
+                                    />
                                   </div>
                                 </div>
                               );
@@ -997,11 +998,10 @@ const TeamTasksTab = ({ user }) => {
                                   </div>
                                 </div>
                                 <FileViewersButton fileId={file.id} />
-                                  <FileViewersButton fileId={file.id} />
-                                  <FileMoreMenu
-                                    onDownload={() => handleDownloadFile(file)}
-                                    onOpenPath={() => handleOpenFolderPath(file.id)}
-                                  />
+                                <FileMoreMenu
+                                  onDownload={() => handleDownloadFile(file)}
+                                  onOpenPath={() => handleOpenFolderPath(file.id)}
+                                />
                               </div>
                             </div>
                           );
