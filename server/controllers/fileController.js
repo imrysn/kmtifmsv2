@@ -83,6 +83,25 @@ class FileController {
     });
 
     /**
+     * Admin review — dispatches to approve or reject based on req.body.action
+     */
+    adminReview = asyncHandler(async (req, res) => {
+        const { id } = req.params;
+        const { action, comments, reason } = req.body;
+
+        if (action === 'reject') {
+            const file = await fileService.rejectByAdmin(id, req.user, reason || comments);
+            invalidateCache();
+            return res.json({ success: true, message: 'File rejected by administrator', file });
+        }
+
+        // default: approve
+        const file = await fileService.approveByAdmin(id, req.user, comments);
+        invalidateCache();
+        return res.json({ success: true, message: 'File final approved by administrator', file });
+    });
+
+    /**
      * Approve file by admin (Final Approval)
      */
     approveByAdmin = asyncHandler(async (req, res) => {

@@ -194,7 +194,7 @@ async function approveByAdmin(fileId, admin, comments = '') {
 
     await notificationService.createNotification(
         targetFile.user_id || targetFile.uploaded_by_id,
-        fileId, 'approval', 'File Final Approved',
+        isAttachment ? null : fileId, 'approval', 'File Final Approved',
         `Your file "${targetFile.original_name}" has received final approval from the administrator and is now published.`,
         admin.id, admin.username, admin.role
     );
@@ -248,7 +248,7 @@ async function rejectByAdmin(fileId, admin, reason) {
 
     await notificationService.createNotification(
         targetFile.user_id || targetFile.uploaded_by_id,
-        fileId, 'rejection', 'File Rejected by Admin',
+        isAttachment ? null : fileId, 'rejection', 'File Rejected by Admin',
         `Your file "${targetFile.original_name}" has been rejected by the administrator. Reason: ${reason}`,
         admin.id, admin.username, admin.role
     );

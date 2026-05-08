@@ -49,7 +49,7 @@ router.get('/admin-review', authenticateToken, authorizeRole(['ADMIN']), fileCon
 router.get('/admin', authenticateToken, authorizeRole(['ADMIN']), fileController.getAdminQueue);
 router.get('/all', authenticateToken, authorizeRole(['ADMIN']), fileController.getAllFiles);
 
-router.post('/:id/admin-review', authenticateToken, authorizeRole(['ADMIN']), fileController.approveByAdmin);
+router.post('/:id/admin-review', authenticateToken, authorizeRole(['ADMIN']), fileController.adminReview);
 router.post('/:id/admin-reject', authenticateToken, authorizeRole(['ADMIN']), fileController.rejectByAdmin);
 
 // ─── Admin File Management ────────────────────────────────────────────────────

@@ -755,19 +755,6 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
           }
         }
       } else {
-        try {
-          await apiFetch(`${API_BASE}/files/${fileToDelete.id}/delete-file`, {
-            method: 'POST',
-            body: JSON.stringify({
-              adminId: authUser.id,
-              adminUsername: authUser.username,
-              adminRole: authUser.role
-            })
-          })
-        } catch (fileDeleteError) {
-          console.warn('Physical file deletion failed:', fileDeleteError)
-        }
-
         const data = await apiFetch(`${API_BASE}/files/${fileToDelete.id}`, {
           method: 'DELETE',
           body: JSON.stringify({
@@ -921,12 +908,7 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
               team: authUser.team
             })
           })
-          if (data.success) {
-            await apiFetch(`${API_BASE}/files/${file.id}/delete-file`, {
-              method: 'POST',
-              body: JSON.stringify({ adminId: authUser.id, adminUsername: authUser.username, adminRole: authUser.role })
-            }).catch(() => {})
-          }
+          // file status already updated server-side by admin-review
         } catch (err) {
           console.warn(`Failed to reject file ${file.id}:`, err)
         }
@@ -1047,15 +1029,6 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
       })
 
       if (data.success) {
-        await apiFetch(`${API_BASE}/files/${fileToReject.id}/delete-file`, {
-          method: 'POST',
-          body: JSON.stringify({
-            adminId: authUser.id,
-            adminUsername: authUser.username,
-            adminRole: authUser.role
-          })
-        }).catch(() => { })
-
         setFiles(prevFiles =>
           prevFiles.map(f =>
             f.id === fileToReject.id ? { ...f, status: 'rejected_by_admin' } : f
