@@ -1284,6 +1284,7 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
               initialAttachments={modalInitialAttachments}
               onClose={() => {
                 setShowCreateAssignmentModal(false)
+                setIsProcessing(false)
                 setEditingAssignmentId(null)
                 setModalInitialAttachments([])
                 setAssignmentForm({
