@@ -142,6 +142,9 @@ const TeamTasksTab = ({ user }) => {
   const observerRef = useRef(null)
   const loadMoreRef = useRef(null)
 
+  // Track viewer counts locally for instant updates
+  const [viewerCounts, setViewerCounts] = useState({})
+
   // Load viewed file IDs from persistent storage on mount
   useEffect(() => {
     ;(async () => {
@@ -484,6 +487,8 @@ const TeamTasksTab = ({ user }) => {
   // Record that the current user viewed a file
   const recordView = async (fileId) => {
     if (!user || !fileId) return
+    // Instantly bump the count in UI
+    setViewerCounts(prev => ({ ...prev, [fileId]: (prev[fileId] ?? 0) + 1 }))
     try {
       await apiFetch(`/api/files/${fileId}/view`, {
         method: 'POST',
@@ -815,7 +820,6 @@ const TeamTasksTab = ({ user }) => {
                                     e.stopPropagation();
                                     setFileToOpen(file);
                                     setShowOpenFileConfirmation(true);
-                                    recordView(file.id);
                                   }}
                                   style={{ paddingLeft: '40px', backgroundColor: openedFileIds.has(file.id) ? '#f0fdf4' : '#fafafa' }}
                                 >
@@ -831,7 +835,7 @@ const TeamTasksTab = ({ user }) => {
                                         <span>{formatFileSize(file.file_size)}</span>
                                       </div>
                                     </div>
-                                    <FileViewersButton fileId={file.id} />
+                                    <FileViewersButton fileId={file.id} externalCount={viewerCounts[file.id]} />
                                     <FileMoreMenu
                                       onDownload={() => handleDownloadFile(file)}
                                       onOpenPath={() => handleOpenFolderPath(file.id)}
@@ -853,7 +857,6 @@ const TeamTasksTab = ({ user }) => {
                                 e.stopPropagation();
                                 setFileToOpen(file);
                                 setShowOpenFileConfirmation(true);
-                                recordView(file.id);
                               }}
                               style={{ backgroundColor: openedFileIds.has(file.id) ? '#f0fdf4' : undefined }}
                             >
@@ -869,7 +872,7 @@ const TeamTasksTab = ({ user }) => {
                                     <span>{formatFileSize(file.file_size)}</span>
                                   </div>
                                 </div>
-                                <FileViewersButton fileId={file.id} />
+                                <FileViewersButton fileId={file.id} externalCount={viewerCounts[file.id]} />
                                 <FileMoreMenu
                                   onDownload={() => handleDownloadFile(file)}
                                   onOpenPath={() => handleOpenFolderPath(file.id)}
@@ -945,7 +948,6 @@ const TeamTasksTab = ({ user }) => {
                                     e.stopPropagation();
                                     setFileToOpen(file);
                                     setShowOpenFileConfirmation(true);
-                                    recordView(file.id);
                                   }}
                                   style={{ paddingLeft: '40px', backgroundColor: openedFileIds.has(file.id) ? '#f0fdf4' : '#fafafa' }}
                                 >
@@ -960,7 +962,7 @@ const TeamTasksTab = ({ user }) => {
                                         by {file.fullName || file.username} • {formatDate(file.submitted_at)}
                                       </div>
                                     </div>
-                                    <FileViewersButton fileId={file.id} />
+                                    <FileViewersButton fileId={file.id} externalCount={viewerCounts[file.id]} />
                                     <FileMoreMenu
                                       onDownload={() => handleDownloadFile(file)}
                                       onOpenPath={() => handleOpenFolderPath(file.id)}
@@ -982,7 +984,6 @@ const TeamTasksTab = ({ user }) => {
                                 e.stopPropagation();
                                 setFileToOpen(file);
                                 setShowOpenFileConfirmation(true);
-                                recordView(file.id);
                               }}
                               style={{ backgroundColor: openedFileIds.has(file.id) ? '#f0fdf4' : undefined }}
                             >
@@ -997,7 +998,7 @@ const TeamTasksTab = ({ user }) => {
                                     Submitted by {file.fullName || file.username} on {formatDate(file.submitted_at)}
                                   </div>
                                 </div>
-                                <FileViewersButton fileId={file.id} />
+                                <FileViewersButton fileId={file.id} externalCount={viewerCounts[file.id]} />
                                 <FileMoreMenu
                                   onDownload={() => handleDownloadFile(file)}
                                   onOpenPath={() => handleOpenFolderPath(file.id)}
@@ -1160,9 +1161,10 @@ const TeamTasksTab = ({ user }) => {
         }}
         onConfirm={async () => {
           if (!fileToOpen) return
-
+          const fileId = fileToOpen.id
           try {
             await handleOpenFile(fileToOpen.file_path, fileToOpen.id)
+            recordView(fileId)
           } finally {
             setShowOpenFileConfirmation(false)
             setFileToOpen(null)

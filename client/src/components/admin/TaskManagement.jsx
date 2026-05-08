@@ -61,6 +61,8 @@ const TaskManagement = ({
   const [downloadToast, setDownloadToast] = useState({ show: false, fileName: '' })
   const [openedFileIds, setOpenedFileIds] = useState(new Set())
   const [openedFilesStorageReady, setOpenedFilesStorageReady] = useState(false)
+  // Map of fileId -> viewer count for instant badge update
+  const [viewerCounts, setViewerCounts] = useState({})
 
   // Load from persistent storage on mount
   useEffect(() => {
@@ -459,6 +461,8 @@ const TaskManagement = ({
 
   const recordView = async (fileId) => {
     if (!user || !fileId) return
+    // Instantly bump badge count
+    setViewerCounts(prev => ({ ...prev, [fileId]: (prev[fileId] ?? 0) + 1 }))
     try {
       await apiFetch(`/api/files/${fileId}/view`, {
         method: 'POST',
@@ -964,7 +968,7 @@ const TaskManagement = ({
                                       {folderFiles.map(file => (
                                         <div
                                           key={file.id}
-                                          onClick={(e) => { e.stopPropagation(); setFileToOpen(file); setShowOpenFileConfirmation(true); recordView(file.id) }}
+                                          onClick={(e) => { e.stopPropagation(); setFileToOpen(file); setShowOpenFileConfirmation(true) }}
                                           className={`admin-file-item admin-folder-file-item${openedFileIds.has(file.id) ? ' admin-file-card-opened' : ''}`}
                                           style={{ cursor: 'pointer', marginBottom: '4px' }}
                                         >
@@ -1004,9 +1008,9 @@ const TaskManagement = ({
                                                           'TASK REFERENCE'}
                                               </span>
                                             </div>
-                                          </div>
-                                          <FileViewersButton fileId={file.id} />
-                                          <button
+                                            </div>
+                                            <FileViewersButton fileId={file.id} externalCount={viewerCounts[file.id]} />
+                                            <button
                                             onClick={(e) => { e.stopPropagation(); handleDownloadFile(file) }}
                                             title="Download file"
                                             style={{
@@ -1036,7 +1040,7 @@ const TaskManagement = ({
                             {attIndividual.map((attachment, index) => (
                               <div
                                 key={attachment.id}
-                                onClick={(e) => { e.stopPropagation(); setFileToOpen(attachment); setShowOpenFileConfirmation(true); recordView(attachment.id) }}
+                                onClick={(e) => { e.stopPropagation(); setFileToOpen(attachment); setShowOpenFileConfirmation(true) }}
                                 className={`admin-file-item${openedFileIds.has(attachment.id) ? ' admin-file-card-opened' : ''}`}
                                 style={{ cursor: 'pointer', marginBottom: index < attIndividual.length - 1 ? '8px' : '0' }}
                               >
@@ -1077,7 +1081,7 @@ const TaskManagement = ({
                                     </span>
                                   </div>
                                 </div>
-                                <FileViewersButton fileId={attachment.id} />
+                                <FileViewersButton fileId={attachment.id} externalCount={viewerCounts[attachment.id]} />
                                 <button
                                   onClick={(e) => { e.stopPropagation(); handleDownloadFile(attachment) }}
                                   title="Download file"
@@ -1181,7 +1185,6 @@ const TaskManagement = ({
                                                 e.stopPropagation()
                                                 setFileToOpen(file)
                                                 setShowOpenFileConfirmation(true)
-                                                recordView(file.id)
                                               }}
                                               style={{ cursor: 'pointer', marginBottom: '4px' }}
                                             >
@@ -1227,7 +1230,7 @@ const TaskManagement = ({
                                                 </div>
                                               </div>
                                               {/* Download icon */}
-                                              <FileViewersButton fileId={file.id} />
+                                              <FileViewersButton fileId={file.id} externalCount={viewerCounts[file.id]} />
                                               <button
                                                 onClick={(e) => { e.stopPropagation(); handleDownloadFile(file) }}
                                                 title="Download file"
@@ -1262,7 +1265,6 @@ const TaskManagement = ({
                                     onClick={() => {
                                       setFileToOpen(file)
                                       setShowOpenFileConfirmation(true)
-                                      recordView(file.id)
                                     }}
                                     style={{
                                       cursor: 'pointer',
@@ -1311,7 +1313,7 @@ const TaskManagement = ({
                                       </div>
                                     </div>
                                     {/* Eye + Download icon */}
-                                    <FileViewersButton fileId={file.id} />
+                                    <FileViewersButton fileId={file.id} externalCount={viewerCounts[file.id]} />
                                     <button
                                       onClick={(e) => { e.stopPropagation(); handleDownloadFile(file) }}
                                       title="Download file"
@@ -1518,7 +1520,10 @@ const TaskManagement = ({
             const fileId = fileToOpen.id
             try {
               const opened = await handleOpenFile(fileToOpen.file_path, fileToOpen.id)
-              if (opened) setOpenedFileIds(prev => new Set([...prev, fileId]))
+              if (opened) {
+                setOpenedFileIds(prev => new Set([...prev, fileId]))
+                recordView(fileId)
+              }
             } finally {
               setShowOpenFileConfirmation(false)
               setFileToOpen(null)

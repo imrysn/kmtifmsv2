@@ -48,6 +48,8 @@ const AssignmentsTab = ({
   const [fileToOpen, setFileToOpen] = useState(null)
   const [openedFileIds, setOpenedFileIds] = useState(new Set())
   const [openedFilesStorageReady, setOpenedFilesStorageReady] = useState(false)
+  // Map of fileId -> viewer count for instant update
+  const [viewerCounts, setViewerCounts] = useState({})
 
   // Load from persistent storage on mount
   useEffect(() => {
@@ -92,6 +94,8 @@ const AssignmentsTab = ({
 
   const recordView = async (fileId) => {
     if (!user || !fileId) return
+    // Instantly bump the count in UI
+    setViewerCounts(prev => ({ ...prev, [fileId]: (prev[fileId] ?? 0) + 1 }))
     try {
       await apiFetch(`/api/files/${fileId}/view`, {
         method: 'POST',
@@ -778,7 +782,7 @@ const AssignmentsTab = ({
                                   key={att.id}
                                   className={`tl-assignment-file-item tl-folder-file-item${openedFileIds.has(att.id) ? ' file-card-opened' : ''}`}
                                   style={{ cursor: 'pointer', marginBottom: '4px', position: 'relative' }}
-                                  onClick={() => { setFileToOpen(att); setShowOpenFileConfirmation(true); recordView(att.id) }}
+                                  onClick={() => { setFileToOpen(att); setShowOpenFileConfirmation(true) }}
                                 >
                                   <FileIcon fileType={att.original_name.split('.').pop()} size="small" className="tl-assignment-file-icon" />
                                   <div className="tl-assignment-file-details">
@@ -792,7 +796,7 @@ const AssignmentsTab = ({
                                       <span style={{marginLeft:'8px',padding:'2px 8px',borderRadius:'12px',fontSize:'11px',fontWeight:'600',background:'#f0f9ff',color:'#0369a1',border:'1px solid #bae6fd'}}>Reference</span>
                                     </div>
                                   </div>
-                                  <FileViewersButton fileId={att.id} />
+                                  <FileViewersButton fileId={att.id} externalCount={viewerCounts[att.id]} />
                                   <button onClick={(e) => { e.stopPropagation(); setRemoveAttachmentModal({ isOpen: true, attachmentId: att.id, attachmentName: att.original_name, assignmentId: assignment.id }) }} title="Remove" style={{ marginLeft: 'auto', background:'transparent', border:'none', cursor:'pointer', color:'#9ca3af', fontSize:'18px', width:'28px', height:'28px', display:'flex', alignItems:'center', justifyContent:'center', borderRadius:'6px' }} onMouseEnter={e=>{e.currentTarget.style.backgroundColor='#fee2e2';e.currentTarget.style.color='#dc2626'}} onMouseLeave={e=>{e.currentTarget.style.backgroundColor='transparent';e.currentTarget.style.color='#9ca3af'}}>×</button>
                                 </div>
                               ))}
@@ -808,7 +812,7 @@ const AssignmentsTab = ({
                             key={attachment.id}
                             className={`tl-assignment-file-item${openedFileIds.has(attachment.id) ? ' file-card-opened' : ''}`}
                             style={{ position: 'relative', cursor: 'pointer' }}
-                            onClick={() => { setFileToOpen(attachment); setShowOpenFileConfirmation(true); recordView(attachment.id) }}
+                            onClick={() => { setFileToOpen(attachment); setShowOpenFileConfirmation(true) }}
                           >
                             <FileIcon fileType={attachment.original_name.split('.').pop()} size="small" className="tl-assignment-file-icon" />
                             <div className="tl-assignment-file-details">
@@ -822,7 +826,7 @@ const AssignmentsTab = ({
                                 <span style={{marginLeft:'8px',padding:'2px 8px',borderRadius:'12px',fontSize:'11px',fontWeight:'600',background:'#f0f9ff',color:'#0369a1',border:'1px solid #bae6fd'}}>Reference</span>
                               </div>
                             </div>
-                            <FileViewersButton fileId={attachment.id} />
+                            <FileViewersButton fileId={attachment.id} externalCount={viewerCounts[attachment.id]} />
                             <button
                               onClick={(e) => {
                                 e.stopPropagation()
@@ -1033,9 +1037,10 @@ const AssignmentsTab = ({
                                       onClick={(e) => {
                                         e.stopPropagation()
                                         if (openReviewModal && file.id) {
-                                          setOpenedFileIds(prev => new Set([...prev, file.id]))
-                                          recordView(file.id)
-                                          openReviewModal(file, null)
+                                          openReviewModal(file, null, (fileId) => {
+                                            setViewerCounts(prev => ({ ...prev, [fileId]: (prev[fileId] ?? 0) + 1 }))
+                                            setOpenedFileIds(prev => new Set([...prev, fileId]))
+                                          })
                                         }
                                       }}
                                       style={{ cursor: 'pointer', marginBottom: '4px' }}
@@ -1082,7 +1087,7 @@ const AssignmentsTab = ({
                                         </div>
                                       </div>
                                       {/* Eye icon + Download icon */}
-                                      <FileViewersButton fileId={file.id} />
+                                      <FileViewersButton fileId={file.id} externalCount={viewerCounts[file.id]} />
                                       <button
                                         onClick={async (e) => {
                                           e.stopPropagation()
@@ -1116,9 +1121,10 @@ const AssignmentsTab = ({
                           onClick={(e) => {
                             e.stopPropagation()
                             if (openReviewModal && submission.id) {
-                              setOpenedFileIds(prev => new Set([...prev, submission.id]))
-                              recordView(submission.id)
-                              openReviewModal(submission, null)
+                              openReviewModal(submission, null, (fileId) => {
+                                setViewerCounts(prev => ({ ...prev, [fileId]: (prev[fileId] ?? 0) + 1 }))
+                                setOpenedFileIds(prev => new Set([...prev, fileId]))
+                              })
                             }
                           }}
                         >
@@ -1164,7 +1170,7 @@ const AssignmentsTab = ({
                             </div>
                           </div>
                           {/* Eye icon + Download icon */}
-                          <FileViewersButton fileId={submission.id} />
+                          <FileViewersButton fileId={submission.id} externalCount={viewerCounts[submission.id]} />
                           <button
                             onClick={async (e) => {
                               e.stopPropagation()
@@ -1626,9 +1632,9 @@ const AssignmentsTab = ({
                 const result = await window.electron.openFileInApp(data.filePath);
 
                 if (!result.success) {
-                alert('Failed to open file locally: ' + (result.error || 'Unknown error'));
+                  alert('Failed to open file locally: ' + (result.error || 'Unknown error'));
                 } else {
-                setOpenedFileIds(prev => new Set([...prev, fileId]))
+                  setOpenedFileIds(prev => new Set([...prev, fileId]))
                   recordView(fileId)
                 }
               } else {

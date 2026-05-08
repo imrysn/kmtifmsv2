@@ -46,6 +46,7 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
   const [success, setSuccess] = useState('')
   const [selectedFile, setSelectedFile] = useState(null)
   const [showReviewModal, setShowReviewModal] = useState(false)
+  const [onFileViewedCallback, setOnFileViewedCallback] = useState(null)
   const [showFileViewModal, setShowFileViewModal] = useState(false)
   const [reviewComments, setReviewComments] = useState('')
   const [reviewAction, setReviewAction] = useState('')
@@ -232,7 +233,7 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
     try {
       const data = await apiFetch(`/api/assignments/team-leader/${user.id}/all-submissions`)
       if (data.success) {
-        setSubmittedFiles(data.submissions || [])
+        setSubmittedFiles(data.files || [])
       }
     } catch (error) {
       console.error('Error fetching all submissions:', error)
@@ -662,11 +663,12 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
     }
   }
 
-  const openReviewModal = async (file, action) => {
+  const openReviewModal = async (file, action, onFileViewed) => {
     setSelectedFile(file)
     setReviewAction(action)
     setReviewComments('')
     setShowReviewModal(true)
+    if (onFileViewed) setOnFileViewedCallback(() => onFileViewed)
 
     try {
       const data = await apiFetch(`/api/files/${file.id}/comments`)
@@ -693,6 +695,9 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
             setError('Failed to open file locally: ' + (result.error || 'Unknown error'));
           } else {
             setSuccess('File opened successfully');
+            // Record view only when file is actually opened
+            try { await apiFetch(`/api/files/${file.id}/view`, { method: 'POST', body: JSON.stringify({ userId: user.id, username: user.username, fullName: user.fullName, role: user.role || 'TEAM_LEADER' }) }) } catch {}
+            if (onFileViewedCallback) { onFileViewedCallback(file.id); setOnFileViewedCallback(null) }
           }
         } else {
           setError('Could not retrieve file path');
@@ -703,6 +708,9 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
         const fileUrl = `${API_BASE_URL}${file.file_path}`;
         window.open(fileUrl, '_blank', 'noopener,noreferrer');
         setSuccess('File opened in new tab');
+        // Record view only when file is actually opened
+        try { await apiFetch(`/api/files/${file.id}/view`, { method: 'POST', body: JSON.stringify({ userId: user.id, username: user.username, fullName: user.fullName, role: user.role || 'TEAM_LEADER' }) }) } catch {}
+        if (onFileViewedCallback) { onFileViewedCallback(file.id); setOnFileViewedCallback(null) }
       }
     } catch (error) {
       console.error('Error opening file:', error);
@@ -1315,6 +1323,7 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
               handleReviewSubmit={handleReviewSubmit}
               formatFileSize={formatFileSize}
               user={user}
+              openFileViewModal={openFileViewModal}
             />
           </Suspense>
         )}

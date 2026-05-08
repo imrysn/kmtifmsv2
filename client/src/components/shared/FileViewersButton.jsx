@@ -7,11 +7,14 @@ import { apiFetch, API_BASE_URL } from '@/config/api'
  * Eye icon button that shows a popover listing everyone who has viewed a file.
  * Usage: <FileViewersButton fileId={file.id} />
  */
-const FileViewersButton = ({ fileId, size = 14 }) => {
+const FileViewersButton = ({ fileId, size = 14, externalCount }) => {
   const [viewers, setViewers] = useState([])
   const [loading, setLoading] = useState(false)
   const [open, setOpen] = useState(false)
   const [count, setCount] = useState(null)
+
+  // Use externalCount when provided (instant update from parent)
+  const displayCount = externalCount !== undefined ? externalCount : (count ?? 0)
   const ref = useRef(null)
   const btnRef = useRef(null)
   const popoverRef = useRef(null)
@@ -125,7 +128,7 @@ const FileViewersButton = ({ fileId, size = 14 }) => {
       <button
         ref={btnRef}
         onClick={handleClick}
-        title={count > 0 ? `${count} view${count !== 1 ? 's' : ''} — click to see who` : 'No views yet'}
+        title={displayCount > 0 ? `${displayCount} view${displayCount !== 1 ? 's' : ''} — click to see who` : 'No views yet'}
         style={{
           background: open ? '#f0fdf4' : 'transparent',
           border: 'none',
@@ -136,7 +139,7 @@ const FileViewersButton = ({ fileId, size = 14 }) => {
           alignItems: 'center',
           justifyContent: 'center',
           cursor: 'pointer',
-          color: open ? '#16a34a' : count > 0 ? '#16a34a' : '#9ca3af',
+          color: open ? '#16a34a' : displayCount > 0 ? '#16a34a' : '#9ca3af',
           flexShrink: 0,
           transition: 'all 0.15s',
           position: 'relative',
@@ -148,7 +151,7 @@ const FileViewersButton = ({ fileId, size = 14 }) => {
         onMouseLeave={e => {
           if (!open) {
             e.currentTarget.style.backgroundColor = 'transparent'
-            e.currentTarget.style.color = count > 0 ? '#16a34a' : '#9ca3af'
+            e.currentTarget.style.color = displayCount > 0 ? '#16a34a' : '#9ca3af'
           }
         }}
       >
@@ -158,7 +161,7 @@ const FileViewersButton = ({ fileId, size = 14 }) => {
           <circle cx="12" cy="12" r="3"/>
         </svg>
         {/* Viewer count badge */}
-        {count > 0 && (
+        {displayCount > 0 && (
           <span style={{
             position: 'absolute',
             top: '1px',
@@ -177,7 +180,7 @@ const FileViewersButton = ({ fileId, size = 14 }) => {
             lineHeight: 1,
             pointerEvents: 'none',
           }}>
-            {count > 99 ? '99+' : count}
+            {displayCount > 99 ? '99+' : displayCount}
           </span>
         )}
       </button>

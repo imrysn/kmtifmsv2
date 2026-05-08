@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { apiFetch, API_BASE_URL } from '@/config/api'
 import './css/AssignmentDetailsModal.css'
 import { getDisplayFileType } from '../../../utils/fileTypeUtils'
@@ -16,8 +16,20 @@ const ReviewModal = ({
   isProcessing,
   handleReviewSubmit,
   formatFileSize,
-  user
+  user,
+  openFileViewModal
 }) => {
+  useEffect(() => {
+    if (showReviewModal) {
+      document.body.style.overflow = 'hidden'
+    } else {
+      document.body.style.overflow = ''
+    }
+    return () => {
+      document.body.style.overflow = ''
+    }
+  }, [showReviewModal])
+
   if (!showReviewModal || !selectedFile) return null
 
   const [isOpeningFile, setIsOpeningFile] = useState(false)
@@ -33,48 +45,16 @@ const ReviewModal = ({
     setIsOpeningFile(true)
     setShowOpenConfirmation(false)
     try {
-      console.log('Opening file:', {
-        id: selectedFile.id,
-        name: selectedFile.original_name,
-        current_status: selectedFile.status
-      })
-
-      // Check if running in Electron and has capability to open files locally
-      if (window.electron && window.electron.openFileInApp) {
-        // Get the absolute file path from server
-        const data = await apiFetch(`/api/files/${selectedFile.id}/path`);
-
-        if (data.success && data.filePath) {
-          const result = await window.electron.openFileInApp(data.filePath);
-
-          if (!result.success) {
-            alert('Failed to open file locally: ' + (result.error || 'Unknown error'));
-          }
-        } else {
-          alert('Could not retrieve file path');
-        }
+      if (openFileViewModal) {
+        await openFileViewModal(selectedFile)
       } else {
-        // Web fallback: Open file in new tab/download
-        let fileUrl = selectedFile.file_path
-
-        // Handle approved files with public URLs
-        if (selectedFile.status === 'final_approved' && selectedFile.public_network_url) {
-          if (selectedFile.public_network_url.startsWith('http')) {
-            fileUrl = selectedFile.public_network_url
-          } else {
-            // Fallback for relative paths in public_network_url or inconsistencies
-            fileUrl = `${API_BASE_URL}${selectedFile.file_path}`
-          }
-        } else {
-          // Standard files served via API/static
-          fileUrl = `${API_BASE_URL}${selectedFile.file_path}`
-        }
-
+        console.warn('openFileViewModal prop is missing in ReviewModal')
+        // Web fallback if prop is missing (less ideal as it won't record view)
+        const fileUrl = `${API_BASE_URL}${selectedFile.file_path}`
         window.open(fileUrl, '_blank', 'noopener,noreferrer')
       }
     } catch (error) {
       console.error('Error opening file:', error)
-      alert('Failed to open file. Please try again.')
     } finally {
       setIsOpeningFile(false)
     }

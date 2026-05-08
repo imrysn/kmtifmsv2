@@ -3,7 +3,15 @@ import './FileOpenModal.css'
 
 const FileOpenModal = ({ isOpen, onClose, onConfirm, file, isLoading = false }) => {
     useEffect(() => {
-        return () => {}
+        if (isOpen) {
+            document.body.style.overflow = 'hidden'
+        } else {
+            document.body.style.overflow = ''
+        }
+        
+        return () => {
+            document.body.style.overflow = ''
+        }
     }, [isOpen])
 
     if (!isOpen || !file) return null
