@@ -328,7 +328,7 @@ async function findAllWithDetails(options = {}) {
                 ...a,
                 assigned_member_details: membersMap[a.id] || [],
                 attachments: attachmentsMap[a.id] || [],
-                recent_submissions: submissionsMap[a.id] || []
+                submitted_files: submissionsMap[a.id] || []
             })),
             nextCursor,
             hasMore
@@ -380,7 +380,7 @@ async function findByIdWithDetails(id) {
             ...assignment,
             assigned_member_details: members || [],
             attachments: attachments || [],
-            recent_submissions: submissions || []
+            submitted_files: submissions || []
         };
     } catch (err) {
         throw new DatabaseError('Failed to fetch assignment details', err);

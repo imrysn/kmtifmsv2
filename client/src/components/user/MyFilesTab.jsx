@@ -3,9 +3,10 @@ import { apiFetch, API_BASE_URL } from '@/config/api';
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import SuccessModal from './SuccessModal';
-import { FileIcon } from '../shared';
+import { FileIcon, StatusBadge, TeamBadge } from '../shared';
 import { usePagination } from '../../hooks';
 import { Trash2 } from 'lucide-react';
+import { openFile } from '../../utils/file-actions';
 
 const MyFilesTab = ({
   filteredFiles,
@@ -61,38 +62,17 @@ const MyFilesTab = ({
     resetPagination
   } = usePagination(submittedFiles, itemsPerPage);
 
-  const openFile = useCallback(async (file) => {
-    try {
-      if (window.electron?.openFileInApp) {
-        const data = await apiFetch(`/api/files/${file.id}/path`);
-
-        if (data.success && data.filePath) {
-          const result = await window.electron.openFileInApp(data.filePath);
-
-          if (!result.success) {
-            setSuccessModal({
-              isOpen: true,
-              title: 'Error',
-              message: result.error || 'Failed to open file with system application',
-              type: 'error'
-            });
-          }
-        } else {
-          throw new Error('Could not get file path');
-        }
-      } else {
-        const fileUrl = `${API_BASE_URL}${file.file_path}`;
-        window.open(fileUrl, '_blank', 'noopener,noreferrer');
+  const openFileCallback = useCallback(async (file) => {
+    await openFile(file, {
+      onError: (message) => {
+        setSuccessModal({
+          isOpen: true,
+          title: 'Error',
+          message: message,
+          type: 'error'
+        });
       }
-    } catch (error) {
-      console.error('Error opening file:', error);
-      setSuccessModal({
-        isOpen: true,
-        title: 'Error',
-        message: 'Failed to open file. Please try again.',
-        type: 'error'
-      });
-    }
+    });
   }, []);
 
   const handleFileClick = useCallback((file, e) => {
@@ -104,12 +84,12 @@ const MyFilesTab = ({
   const handleOpenFileConfirm = useCallback(async () => {
     if (openFileModal.file && !isOpeningFile) {
       setIsOpeningFile(true);
-      await openFile(openFileModal.file);
+      await openFileCallback(openFileModal.file);
       setIsOpeningFile(false);
       setOpenFileModal({ isOpen: false, file: null });
       document.body.style.overflow = '';
     }
-  }, [openFileModal.file, openFile, isOpeningFile]);
+  }, [openFileModal.file, openFileCallback, isOpeningFile]);
 
   const handleOpenFileCancel = useCallback(() => {
     if (isOpeningFile) return;
@@ -117,32 +97,9 @@ const MyFilesTab = ({
     document.body.style.overflow = '';
   }, [isOpeningFile]);
 
-  const getStatusDisplayName = useCallback((dbStatus) => {
-    if (!dbStatus) return 'Pending';
-
-    const statusMap = {
-      'uploaded': 'Pending Team Leader',
-      'under_revision': 'Revision',
-      'team_leader_approved': 'Pending Admin',
-      'final_approved': 'Approved',
-      'rejected_by_team_leader': 'Rejected by Team Leader',
-      'rejected_by_admin': 'Rejected by Admin'
-    };
-
-    return statusMap[dbStatus] || 'Pending';
-  }, []);
-
-  const getStatusClass = useCallback((status) => {
-    const classMap = {
-      'uploaded': 'status-pending',
-      'team_leader_approved': 'status-pending',
-      'under_revision': 'status-revised',
-      'final_approved': 'status-approved',
-      'rejected_by_team_leader': 'status-rejected',
-      'rejected_by_admin': 'status-rejected'
-    };
-
-    return classMap[status] || 'status-default';
+  // Helpers for StatusBadge mapping
+  const getBadgeStatus = useCallback((dbStatus) => {
+    return dbStatus || 'pending';
   }, []);
 
   // Compute the folder-level status from all its files
@@ -151,8 +108,8 @@ const MyFilesTab = ({
   //   - ALL files are team_leader_approved (none still pending TL) → "Pending Admin"
   //   - Any file still uploaded / under_revision  → "Pending Team Leader"
   //   - Any rejected (and not all approved)       → "Rejected" (show the worst)
-  const getFolderStatus = useCallback((folderFiles) => {
-    if (!folderFiles || folderFiles.length === 0) return { label: 'Pending Team Leader', cls: 'status-pending' };
+  const getFolderStatusKey = useCallback((folderFiles) => {
+    if (!folderFiles || folderFiles.length === 0) return 'uploaded';
 
     const statuses = folderFiles.map(f => f.status);
     const allFinalApproved  = statuses.every(s => s === 'final_approved');
@@ -160,20 +117,16 @@ const MyFilesTab = ({
     const anyPendingTL      = statuses.some(s => s === 'uploaded' || s === 'under_revision');
     const allTLApproved     = statuses.every(s => s === 'team_leader_approved' || s === 'final_approved');
 
-    if (allFinalApproved)  return { label: 'Approved',            cls: 'status-approved' };
-    if (anyPendingTL)      return { label: 'Pending Team Leader',  cls: 'status-pending'  };
-    if (allTLApproved)     return { label: 'Pending Admin',        cls: 'status-pending'  };
-    // At least one file passed TL but not all — still show Pending Admin
-    if (statuses.some(s => s === 'team_leader_approved')) return { label: 'Pending Admin', cls: 'status-pending' };
+    if (allFinalApproved)  return 'final_approved';
+    if (anyPendingTL)      return 'uploaded';
+    if (allTLApproved)     return 'team_leader_approved';
+    if (statuses.some(s => s === 'team_leader_approved')) return 'team_leader_approved';
     if (anyRejected) {
-      // Show the most severe rejection label to match individual file tag sizing
       const hasTLRejection = statuses.some(s => s === 'rejected_by_team_leader');
-      return hasTLRejection
-        ? { label: 'Rejected by Team Leader', cls: 'status-rejected' }
-        : { label: 'Rejected by Admin',       cls: 'status-rejected' };
+      return hasTLRejection ? 'rejected_by_team_leader' : 'rejected_by_admin';
     }
 
-    return { label: 'Pending Team Leader', cls: 'status-pending' };
+    return 'uploaded';
   }, []);
 
   const formatDateTime = useCallback((dateString) => {
@@ -509,13 +462,10 @@ const MyFilesTab = ({
             <div className="time-label">{time}</div>
           </div>
           <div className="col-team">
-            <span className="team-text">{firstFile.user_team}</span>
+            <TeamBadge team={firstFile.user_team} />
           </div>
           <div className="col-status">
-            {(() => {
-              const { label, cls } = getFolderStatus(folderFiles);
-              return <span className={`status-tag ${cls}`}>{label}</span>;
-            })()}
+            <StatusBadge status={getFolderStatusKey(folderFiles)} pill />
           </div>
           <div className="col-actions">
             <button
@@ -567,12 +517,10 @@ const MyFilesTab = ({
                 <div className="time-label">{time}</div>
               </div>
               <div className="col-team">
-                <span className="team-text">{file.user_team}</span>
+                <TeamBadge team={file.user_team} />
               </div>
               <div className="col-status">
-                <span className={`status-tag ${getStatusClass(file.status)}`}>
-                  {getStatusDisplayName(file.status)}
-                </span>
+                <StatusBadge status={getBadgeStatus(file.status)} pill />
               </div>
               <div className="col-actions">
                 <button
@@ -619,12 +567,10 @@ const MyFilesTab = ({
             <div className="time-label">{time}</div>
           </div>
           <div className="col-team">
-            <span className="team-text">{file.user_team}</span>
+            <TeamBadge team={file.user_team} />
           </div>
           <div className="col-status">
-            <span className={`status-tag ${getStatusClass(file.status)}`}>
-              {getStatusDisplayName(file.status)}
-            </span>
+            <StatusBadge status={getBadgeStatus(file.status)} pill />
           </div>
           <div className="col-actions">
             <button
@@ -641,7 +587,7 @@ const MyFilesTab = ({
     });
 
     return items;
-  }, [paginatedFiles, expandedFolders, groupFilesByFolder, formatDateTime, toggleFolder, handleFolderDeleteClick, handleFileClick, getStatusClass, getStatusDisplayName, handleDeleteClick, getFolderStatus]);
+  }, [paginatedFiles, expandedFolders, groupFilesByFolder, formatDateTime, toggleFolder, handleFolderDeleteClick, handleFileClick, getBadgeStatus, handleDeleteClick, getFolderStatusKey]);
 
   return (
     <div className="user-my-files-component my-files-wrapper">

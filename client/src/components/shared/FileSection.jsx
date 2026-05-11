@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
-import { ChevronRight, ChevronDown, Download, FolderOpen, Trash2, Tag, ExternalLink, Info } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { ChevronRight, ChevronDown, Download, FolderOpen, Trash2, Tag, ExternalLink, Info, MoreVertical, Eye, CheckCircle } from 'lucide-react';
+import { createPortal } from 'react-dom';
 import { groupFilesByFolder, formatFileSize, formatDate } from '../../utils/ui-helpers';
 import { downloadFile, downloadFolder } from '../../utils/file-actions';
 import FileIcon from './FileIcon';
@@ -14,7 +15,7 @@ const FileSection = ({
   files = [], 
   onDeleteFile,
   onFileClick, 
-  onDownloadFile,        // Optional: parent injects modal-gated download
+  onDownloadFile,        
   onOpenPath,
   openedFileIds = new Set(),
   isAdmin = false,
@@ -23,6 +24,35 @@ const FileSection = ({
 }) => {
   const { folders, individualFiles } = groupFilesByFolder(files);
   const [expandedFolders, setExpandedFolders] = useState({});
+  const [activeMenu, setActiveMenu] = useState(null); // Track which file's menu is open
+  const [menuPos, setMenuPos] = useState({ top: 0, left: 0 });
+  const menuRef = useRef(null);
+
+  // Close menu on click outside or scroll
+  useEffect(() => {
+    if (!activeMenu) return;
+    const handler = () => setActiveMenu(null);
+    window.addEventListener('click', handler);
+    window.addEventListener('scroll', handler, true);
+    return () => {
+      window.removeEventListener('click', handler);
+      window.removeEventListener('scroll', handler, true);
+    };
+  }, [activeMenu]);
+
+  const handleMenuClick = (e, file) => {
+    e.stopPropagation();
+    if (activeMenu === file.id) {
+      setActiveMenu(null);
+    } else {
+      const rect = e.currentTarget.getBoundingClientRect();
+      setMenuPos({
+        top: rect.bottom + window.scrollY + 5,
+        left: rect.right - 160 // updated dropdown width
+      });
+      setActiveMenu(file.id);
+    }
+  };
 
   const toggleFolder = (folderName) => {
     setExpandedFolders(prev => ({ ...prev, [folderName]: !prev[folderName] }));
@@ -48,7 +78,16 @@ const FileSection = ({
   };
 
   const renderFileRow = (file, isIndented = false) => {
-    const isViewed = openedFileIds.has(file.id);
+    // Robust ID comparison (handles Set/Array and String/Number mismatches)
+    let isViewed = false;
+    if (openedFileIds) {
+      if (openedFileIds instanceof Set) {
+        isViewed = openedFileIds.has(file.id) || openedFileIds.has(String(file.id)) || openedFileIds.has(Number(file.id));
+      } else if (Array.isArray(openedFileIds)) {
+        isViewed = openedFileIds.includes(file.id) || openedFileIds.includes(String(file.id)) || openedFileIds.includes(Number(file.id));
+      }
+    }
+    
     const fileExt = file.original_name?.split('.').pop()?.toLowerCase();
     
     return (
@@ -61,6 +100,7 @@ const FileSection = ({
           <FileIcon file={file} size="small" />
           <div className="file-details-legacy">
             <div className="file-name-row">
+              {isViewed && <CheckCircle size={14} className="file-viewed-icon-check" style={{ color: '#16a34a', flexShrink: 0 }} />}
               <span className="file-name">{file.original_name || file.filename}</span>
               {isViewed && <span className="viewed-badge">✓ Viewed</span>}
             </div>
@@ -91,26 +131,45 @@ const FileSection = ({
         </div>
         
         <div className="file-actions-legacy" onClick={e => e.stopPropagation()}>
-          {/* File Viewers Tracking (TL/Admin Feature) */}
+          {/* File Viewers Tracking (TL/Admin Feature) - Outside Menu */}
           {(isAdmin || isTL) && (
             <FileViewersButton fileId={file.id} />
           )}
 
-          {/* Explorer Path Action (Electron only) */}
-          {onOpenPath && window.electron && (
-            <button className="legacy-action-btn explorer" onClick={() => onOpenPath(file)} title="Show in Folder">
-              <ExternalLink size={14} />
-            </button>
-          )}
-
-          <button className="legacy-action-btn" onClick={() => handleDownload(file)} title="Download">
-            <Download size={14} />
+          <button 
+            className={`legacy-action-btn menu-trigger ${activeMenu === file.id ? 'active' : ''}`} 
+            onClick={(e) => handleMenuClick(e, file)}
+            title="Actions"
+          >
+            <MoreVertical size={16} />
           </button>
 
-          {onDeleteFile && (
-            <button className="legacy-action-btn delete" onClick={() => onDeleteFile(file)} title="Delete">
-              <Trash2 size={14} />
-            </button>
+          {activeMenu === file.id && createPortal(
+            <div 
+              className="file-action-dropdown" 
+              style={{ top: menuPos.top, left: menuPos.left }}
+              onClick={e => e.stopPropagation()}
+            >
+              <button className="dropdown-item" onClick={() => { setActiveMenu(null); handleDownload(file); }}>
+                <Download size={14} /> <span>Download</span>
+              </button>
+
+              {onOpenPath && window.electron && (
+                <button className="dropdown-item" onClick={() => { setActiveMenu(null); onOpenPath(file); }}>
+                  <ExternalLink size={14} /> <span>Show in Folder</span>
+                </button>
+              )}
+
+              {onDeleteFile && (
+                <>
+                  <div className="dropdown-divider" />
+                  <button className="dropdown-item delete" onClick={() => { setActiveMenu(null); onDeleteFile(file); }}>
+                    <Trash2 size={14} /> <span>Delete</span>
+                  </button>
+                </>
+              )}
+            </div>,
+            document.body
           )}
         </div>
       </div>

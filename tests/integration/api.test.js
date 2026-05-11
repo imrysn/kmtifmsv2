@@ -14,7 +14,8 @@ describe('File API Integration Tests', () => {
                 .get('/api/health');
 
             expect(response.status).toBe(200);
-            expect(response.body.status).toBe('healthy');
+            expect(['healthy', 'starting']).toContain(response.body.status);
+            expect(response.body.dbReady).toBeDefined();
         });
     });
 

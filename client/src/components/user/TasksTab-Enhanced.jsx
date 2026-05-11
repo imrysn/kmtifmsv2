@@ -3,7 +3,7 @@ import useStore from '@/store/useStore';
 import { apiFetch, API_BASE_URL } from '@/config/api';
 import './css/TasksTab-Enhanced.css';
 import './css/TasksTab-Comments.css';
-import { FileIcon, FileOpenModal, PremiumTaskCard, PremiumModal } from '../shared';
+import { FileIcon, PremiumTaskCard, PremiumModal } from '../shared';
 import FileModal from './FileModal';
 import CommentsModal from '../shared/CommentsModal';
 import SingleSelectTags from './SingleSelectTags';
@@ -267,6 +267,7 @@ const TasksTab = memo(({
   const [expandedFolders, setExpandedFolders] = useState({});
   const [showAllSubmittedFiles, setShowAllSubmittedFiles] = useState({});
 
+
   // Comments
   const [comments, setComments] = useState({});
   const [newComment, setNewComment] = useState({});
@@ -290,10 +291,6 @@ const TasksTab = memo(({
   // Delete modal
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [fileToDelete, setFileToDelete] = useState(null);
-
-  // File open modal
-  const [showOpenFileModal, setShowOpenFileModal] = useState(false);
-  const [fileToOpen, setFileToOpen] = useState(null);
 
   // File Details modal
   const [showFileDetailsModal, setShowFileDetailsModal] = useState(false);
@@ -508,49 +505,14 @@ const TasksTab = memo(({
     }
   }, [showError]);
 
-  const handleOpenFile = useCallback(async () => {
-    if (!fileToOpen) return;
-    setShowOpenFileModal(false);
-    const file = fileToOpen;
-    setFileToOpen(null);
-    try {
-      const pathData = await apiFetch(`/api/files/${file.id}/path`);
-      if (!pathData.success || !pathData.filePath) throw new Error(pathData.message || 'Could not resolve file path');
 
-      if (window.electron?.openFileInApp) {
-        const result = await window.electron.openFileInApp(pathData.filePath);
-        if (!result.success) showError(result.error || 'Failed to open file');
-        else {
-          setFileOpenToast(true);
-          setTimeout(() => setFileOpenToast(false), 3500);
-        }
-      } else {
-        const ext = (pathData.filePath.split('.').pop() || '').toLowerCase();
-        const browserViewable = ['pdf','png','jpg','jpeg','gif','svg','webp','txt','html','css','js','json','xml','mp4','mp3'];
-        if (browserViewable.includes(ext)) {
-          window.open(`${API_BASE_URL}/api/files/${file.id}/stream`, '_blank', 'noopener,noreferrer');
-        } else {
-          const a = Object.assign(document.createElement('a'), {
-            href: `${API_BASE_URL}/api/files/${file.id}/stream`,
-            download: file.original_name || 'file',
-          });
-          a.click();
-        }
-        setFileOpenToast(true);
-        setTimeout(() => setFileOpenToast(false), 3500);
-      }
-    } catch { showError('Failed to open file. Please try again.'); }
-  }, [fileToOpen, showError]);
 
   const confirmDeleteFile = useCallback((assignmentId, fileId, fileName) => {
     setFileToDelete({ assignmentId, fileId, fileName });
     setShowDeleteModal(true);
   }, []);
 
-  const confirmOpenFile = useCallback((file) => {
-    setFileToOpen(file);
-    setShowOpenFileModal(true);
-  }, []);
+
 
   const handleRemoveSubmittedFile = useCallback(async (assignmentId, fileId) => {
     setShowDeleteModal(false);
@@ -933,7 +895,10 @@ const TasksTab = memo(({
                 if (action === 'refresh') fetchAssignments();
               }}
               onPrimaryClick={(action, t) => action === 'submit' && handleSubmit(t)}
-              onFileClick={confirmOpenFile}
+              onFileClick={() => {
+                setFileOpenToast(true);
+                setTimeout(() => setFileOpenToast(false), 3500);
+              }}
               onDownloadFile={handleDownloadFile}
               onFileDelete={(file) => confirmDeleteFile(assignment.id, file.id, file.original_name || file.filename)}
               onOpenPath={openFolderInExplorer}
@@ -1045,13 +1010,7 @@ const TasksTab = memo(({
         </div>
       )}
 
-      {/* File Open Modal */}
-      <FileOpenModal
-        isOpen={showOpenFileModal}
-        onClose={() => { setShowOpenFileModal(false); setFileToOpen(null); }}
-        onConfirm={handleOpenFile}
-        file={fileToOpen}
-      />
+
 
       {/* File Open Toast */}
       {fileOpenToast && (

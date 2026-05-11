@@ -102,7 +102,7 @@ async function createBatchedSubmissionNotification(teamLeaderId, assignmentId, s
 // ── Nonce store: prevents Electron multipart cache replay ────────────────────
 const uploadNonces = new Map(); // nonce -> { used: bool, expiresAt: number }
 
-setInterval(() => {
+const uploadNonceCleanupTimer = setInterval(() => {
   const now = Date.now();
   for (const [k, v] of uploadNonces.entries()) {
     if (now > v.expiresAt) {
@@ -110,6 +110,10 @@ setInterval(() => {
     }
   }
 }, 5 * 60 * 1000);
+
+if (typeof uploadNonceCleanupTimer.unref === 'function') {
+  uploadNonceCleanupTimer.unref();
+}
 
 // ── Routes ────────────────────────────────────────────────────────────────────
 
@@ -171,7 +175,7 @@ router.get('/admin/all', authenticateToken, authorizeRole(['ADMIN']), async (req
         [assignment.id]
       ) || [];
 
-      assignment.recent_submissions = await query(
+      assignment.submitted_files = await query(
         `SELECT f.id, f.original_name, f.filename, f.file_type, f.file_path, f.public_network_url, f.file_size,
                 f.tag, f.description, f.uploaded_at, f.status, f.folder_name, f.relative_path, f.is_folder,
                 u.username, u.fullName, asub.submitted_at, asub.submitted_at as created_at, asub.user_id
@@ -389,7 +393,7 @@ router.get('/team/:team/all-tasks', authenticateToken, async (req, res) => {
     for (const assignment of assignmentsToReturn) {
       assignment.assigned_member_details = memberMap[assignment.id] || [];
       assignment.attachments = attachmentMap[assignment.id] || [];
-      assignment.recent_submissions = submissionMap[assignment.id] || [];
+      assignment.submitted_files = submissionMap[assignment.id] || [];
       const tl = tlMap[assignment.team_leader_id || assignment.teamLeaderId];
       if (tl) {
         assignment.team_leader_fullname = tl.fullName;
@@ -420,10 +424,11 @@ router.get('/team-leader/:userId', authenticateToken, authorizeRole(['TEAM_LEADE
     const teamNames = ledTeams.map(t => t.name);
     const placeholders = teamNames.map(() => '?').join(',');
     const tlAssignments = await query(
-      `SELECT a.*, COUNT(DISTINCT asub.id) as submission_count, COUNT(DISTINCT am.id) as assigned_members_count
+      `SELECT a.*, COUNT(DISTINCT asub.id) as submission_count, COUNT(DISTINCT am.id) as assigned_members_count, COUNT(DISTINCT ac.id) as comment_count
        FROM assignments a
        LEFT JOIN assignment_members am ON a.id = am.assignment_id
        LEFT JOIN assignment_submissions asub ON a.id = asub.assignment_id
+       LEFT JOIN assignment_comments ac ON a.id = ac.assignment_id
        WHERE a.team IN (${placeholders}) GROUP BY a.id ORDER BY a.created_at DESC`,
       teamNames
     );
@@ -448,7 +453,7 @@ router.get('/team-leader/:userId', authenticateToken, authorizeRole(['TEAM_LEADE
          WHERE asub.assignment_id = ? ORDER BY asub.submitted_at DESC`,
         [assignment.id]
       ) || [];
-      assignment.recent_submissions = recentSubmissions;
+      assignment.submitted_files = recentSubmissions;
       const tl = await queryOne('SELECT fullName, username, email FROM users WHERE id = ?', [assignment.team_leader_id || assignment.teamLeaderId]);
       if (tl) {
         assignment.team_leader_fullname = tl.fullName; assignment.team_leader_username = tl.username; assignment.team_leader_email = tl.email;

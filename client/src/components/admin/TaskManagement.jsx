@@ -42,18 +42,16 @@ const TaskManagement = ({
   const [replyingTo, setReplyingTo] = useState(null)
   const [replyText, setReplyText] = useState('')
   const [visibleReplies, setVisibleReplies] = useState({})
-  const [isOpeningFile, setIsOpeningFile] = useState(false)
+
   const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [assignmentToDelete, setAssignmentToDelete] = useState(null)
   const [isDeleting, setIsDeleting] = useState(false)
   const [showMenuForAssignment, setShowMenuForAssignment] = useState(null)
   const [expandedAttachments, setExpandedAttachments] = useState({})
-  const [showOpenFileConfirmation, setShowOpenFileConfirmation] = useState(false)
-  const [fileToOpen, setFileToOpen] = useState(null)
-  const [expandedFolders, setExpandedFolders] = useState({})
   const [downloadToast, setDownloadToast] = useState({ show: false, fileName: '' })
   const [openedFileIds, setOpenedFileIds] = useState(new Set())
   const [openedFilesStorageReady, setOpenedFilesStorageReady] = useState(false)
+  const [commentCounts, setCommentCounts] = useState({}) // Real-time comment count tracking
 
   // Load from persistent storage on mount
   useEffect(() => {
@@ -164,6 +162,19 @@ const TaskManagement = ({
       document.removeEventListener('mousedown', handleClickOutside)
     }
   }, [showMenuForAssignment])
+
+  const fetchCommentCount = async (assignmentId) => {
+    try {
+      const data = await apiFetch(`/api/assignments/${assignmentId}/comments`)
+      if (data.success) {
+        // Count all comments/replies to match list view count
+        const total = (data.comments || []).length
+        setCommentCounts(prev => ({ ...prev, [assignmentId]: total }))
+      }
+    } catch (err) {
+      console.error('Error fetching comment count:', err)
+    }
+  }
 
   const fetchInitialAssignments = async () => {
     try {
@@ -322,6 +333,7 @@ const TaskManagement = ({
       if (data.success) {
         // ⚡ OPTIMIZATION: Only refetch to get the real ID and any server updates
         await fetchComments(selectedAssignment.id)
+        await fetchCommentCount(selectedAssignment.id)
         setSuccess('Comment posted successfully')
         setTimeout(() => setSuccess(''), 3000)
       } else {
@@ -386,6 +398,7 @@ const TaskManagement = ({
       if (data.success) {
         // ⚡ OPTIMIZATION: Only refetch to sync with server
         await fetchComments(selectedAssignment.id)
+        await fetchCommentCount(selectedAssignment.id)
         setSuccess('Reply posted successfully')
         setTimeout(() => setSuccess(''), 3000)
       } else {
@@ -771,7 +784,7 @@ const TaskManagement = ({
   }
 
   return (
-    <div className={`task-management-container ${isOpeningFile ? 'file-opening-cursor' : ''}`}>
+    <div className="task-management-container">
       {/* Messages */}
       {error && (
         <AlertMessage
@@ -817,14 +830,19 @@ const TaskManagement = ({
                 {assignments.map(assignment => (
                   <PremiumTaskCard
                     key={assignment.id}
-                    task={assignment}
+                    task={{
+                      ...assignment,
+                      comment_count: commentCounts[assignment.id] !== undefined ? commentCounts[assignment.id] : assignment.comment_count
+                    }}
                     role="admin"
                     onCommentClick={openCommentsModal}
                     onActionClick={(action, t) => {
                       if (action === 'delete') confirmDeleteAssignment(t);
                       if (action === 'refresh') fetchAssignments();
                     }}
-                    onFileClick={(file) => handleOpenFile(file.file_path, file.id)}
+                    onFileClick={(file) => {
+                      setOpenedFileIds(prev => new Set([...prev, file.id]));
+                    }}
                     openedFileIds={openedFileIds}
                     className="admin-task-card-margin"
                   />
@@ -904,26 +922,7 @@ const TaskManagement = ({
           </p>
         </ConfirmationModal>
 
-        {/* File Open Modal */}
-        <FileOpenModal
-          isOpen={showOpenFileConfirmation}
-          onClose={() => {
-            setShowOpenFileConfirmation(false)
-            setFileToOpen(null)
-          }}
-          onConfirm={async () => {
-            if (!fileToOpen) return
-            const fileId = fileToOpen.id
-            try {
-              const opened = await handleOpenFile(fileToOpen.file_path, fileToOpen.id)
-              if (opened) setOpenedFileIds(prev => new Set([...prev, fileId]))
-            } finally {
-              setShowOpenFileConfirmation(false)
-              setFileToOpen(null)
-            }
-          }}
-          file={fileToOpen}
-        />
+
 
         {/* Download Success Toast */}
         {downloadToast.show && (

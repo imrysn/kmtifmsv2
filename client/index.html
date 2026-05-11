@@ -122,7 +122,30 @@
 
   <script type="module" src="/src/main.jsx"></script>
 
-  <script src="./loader.js"></script>
+  <script>
+    window.addEventListener('DOMContentLoaded', () => {
+      const checkReactMount = setInterval(() => {
+        const root = document.getElementById('root');
+        if (root && root.children.length > 0) {
+          const loader = document.getElementById('initial-loader');
+          if (loader) {
+            loader.classList.add('loaded');
+            setTimeout(() => loader.remove(), 300);
+          }
+          clearInterval(checkReactMount);
+        }
+      }, 100);
+
+      setTimeout(() => {
+        const loader = document.getElementById('initial-loader');
+        if (loader) {
+          loader.classList.add('loaded');
+          setTimeout(() => loader.remove(), 300);
+        }
+        clearInterval(checkReactMount);
+      }, 10000);
+    });
+  </script>
 </body>
 
 </html>

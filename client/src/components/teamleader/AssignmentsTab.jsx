@@ -46,8 +46,6 @@ const AssignmentsTab = ({
   const [assignmentToDelete, setAssignmentToDelete] = useState(null)
   const [expandedAttachments, setExpandedAttachments] = useState({})
   const [commentCounts, setCommentCounts] = useState({}) // Track comment counts per assignment
-  const [showOpenFileConfirmation, setShowOpenFileConfirmation] = useState(false)
-  const [fileToOpen, setFileToOpen] = useState(null)
   const [openedFileIds, setOpenedFileIds] = useState(new Set())
   const [openedFilesStorageReady, setOpenedFilesStorageReady] = useState(false)
 
@@ -269,7 +267,10 @@ const AssignmentsTab = ({
   const deleteComment = async (commentId) => {
     try {
       await apiFetch(`/api/assignments/comments/${commentId}`, { method: 'DELETE' })
-      if (selectedAssignment) fetchComments(selectedAssignment.id)
+      if (selectedAssignment) {
+        fetchComments(selectedAssignment.id)
+        fetchCommentCount(selectedAssignment.id)
+      }
     } catch (err) {
       console.error('Error deleting comment:', err)
     }
@@ -290,7 +291,10 @@ const AssignmentsTab = ({
   const deleteReply = async (replyId) => {
     try {
       await apiFetch(`/api/assignments/comments/${replyId}`, { method: 'DELETE' })
-      if (selectedAssignment) fetchComments(selectedAssignment.id)
+      if (selectedAssignment) {
+        fetchComments(selectedAssignment.id)
+        fetchCommentCount(selectedAssignment.id)
+      }
     } catch (err) {
       console.error('Error deleting reply:', err)
     }
@@ -332,6 +336,23 @@ const AssignmentsTab = ({
       [assignmentId]: !prev[assignmentId]
     }))
   }
+
+  const openFolderInExplorer = useCallback(async (file) => {
+    if (!file) return;
+    try {
+      const pathData = await apiFetch(`/api/files/${file.id}/path`);
+      if (!pathData.success) throw new Error('Failed to get file path');
+      const filePath = pathData.filePath;
+      if (window.electron && typeof window.electron.openFolderInExplorer === 'function') {
+        const result = await window.electron.openFolderInExplorer(filePath);
+        if (!result.success) throw new Error(result.error || 'Failed to open folder path');
+      } else {
+        console.warn('Open folder path is only available in Electron app');
+      }
+    } catch (error) {
+      console.error('Error opening folder path:', error);
+    }
+  }, []);
 
   const formatRelativeTime = (dateString) => {
     const date = new Date(dateString)
@@ -537,7 +558,10 @@ const AssignmentsTab = ({
             {assignments.map((assignment) => (
               <PremiumTaskCard
                 key={assignment.id}
-                task={assignment}
+                task={{
+                  ...assignment,
+                  comment_count: commentCounts[assignment.id] !== undefined ? commentCounts[assignment.id] : assignment.comment_count
+                }}
                 role="teamleader"
                 onCommentClick={openCommentsModal}
                 onActionClick={(action, t) => {
@@ -551,7 +575,9 @@ const AssignmentsTab = ({
                 onPrimaryClick={(action, t) => {
                   if (action === 'done') markAssignmentAsDone(t.id, t.title);
                 }}
-                onFileClick={(file) => { setFileToOpen(file); setShowOpenFileConfirmation(true); recordView(file.id); }}
+                onFileClick={(file) => { 
+                  setOpenedFileIds(prev => new Set([...prev, file.id])); 
+                }}
                 onFileDelete={(file) => setRemoveAttachmentModal({ isOpen: true, attachmentId: file.id, attachmentName: file.original_name, assignmentId: assignment.id })}
                 onOpenPath={openFolderInExplorer}
                 openedFileIds={openedFileIds}
@@ -951,61 +977,6 @@ const AssignmentsTab = ({
         }
       `}</style>
 
-      {/* File Open Modal */}
-      <FileOpenModal
-        isOpen={showOpenFileConfirmation}
-        onClose={() => {
-          setShowOpenFileConfirmation(false)
-          setFileToOpen(null)
-        }}
-        onConfirm={async () => {
-          if (!fileToOpen) return
-          const fileId = fileToOpen.id
-          try {
-            // Check if running in Electron and has capability to open files locally
-            if (window.electron && window.electron.openFileInApp) {
-              // Get the absolute file path from server
-              const data = await apiFetch(`/api/files/${fileToOpen.id}/path`);
-
-              if (data.success && data.filePath) {
-                const result = await window.electron.openFileInApp(data.filePath);
-
-                if (!result.success) {
-                alert('Failed to open file locally: ' + (result.error || 'Unknown error'));
-                } else {
-                setOpenedFileIds(prev => new Set([...prev, fileId]))
-                  recordView(fileId)
-                }
-              } else {
-                alert('Could not retrieve file path');
-              }
-            } else {
-              // Web fallback: Open file in new tab/download
-              let fileUrl = fileToOpen.file_path;
-              if (fileToOpen.status === 'final_approved' && fileToOpen.public_network_url) {
-                if (fileToOpen.public_network_url.startsWith('http')) {
-                  fileUrl = fileToOpen.public_network_url;
-                } else {
-                  fileUrl = `${API_BASE_URL}${fileToOpen.file_path}`;
-                }
-              } else {
-                fileUrl = `${API_BASE_URL}${fileToOpen.file_path}`;
-              }
-
-              window.open(fileUrl, '_blank', 'noopener,noreferrer');
-              setOpenedFileIds(prev => new Set([...prev, fileId]))
-              recordView(fileId)
-            }
-          } catch (error) {
-            console.error('Error opening file:', error);
-            alert('Failed to open file. Please try again.');
-          } finally {
-            setShowOpenFileConfirmation(false)
-            setFileToOpen(null)
-          }
-        }}
-        file={fileToOpen}
-      />
     </div>
   )
 }

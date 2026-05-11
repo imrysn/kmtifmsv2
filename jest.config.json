@@ -10,6 +10,9 @@
     "testMatch": [
         "**/tests/**/*.test.js"
     ],
+    "setupFilesAfterEnv": [
+        "<rootDir>/tests/setup.js"
+    ],
     "modulePathIgnorePatterns": [
         "<rootDir>/dist/",
         "<rootDir>/dist-server/",

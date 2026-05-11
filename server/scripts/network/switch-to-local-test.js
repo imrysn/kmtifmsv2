@@ -19,7 +19,7 @@ try {
   // Check if already in test mode
   if (serverContent.includes('test-projects-directory')) {
     console.log('⚠️ Already in local test mode');
-    return;
+    process.exit(0);
   }
   
   // Create local test directory first

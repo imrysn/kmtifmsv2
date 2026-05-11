@@ -42,9 +42,7 @@ server/
 │   │   └── verify-network-connection.js    # Verify network connectivity
 │   │
 │   └── testing/        # Testing and debugging scripts
-│       ├── debug-file-management.js        # Debug file management issues
 │       ├── test-delete-endpoint.js         # Test delete functionality
-│       ├── test-file-management-api.js     # Test file management API
 │       ├── test-team-delete.js             # Test team deletion
 │       └── test-teams-api.js               # Test teams API
 │

@@ -485,9 +485,21 @@ class FileController {
      */
     recordView = asyncHandler(async (req, res) => {
         const id = req.params.id || req.params.fileId;
-        const { userId, username, fullName, role } = req.body;
-        if (!id || !userId) throw new ValidationError('fileId and userId are required');
-        await fileService.recordView(id, { userId, username, fullName, role });
+        if (!id) throw new ValidationError('fileId is required');
+        
+        // Use authenticated user from req.user (populated by authenticateToken middleware)
+        const user = req.user;
+        if (!user || !user.id) {
+            throw new AuthenticationError('User session is invalid or expired');
+        }
+        
+        await fileService.recordView(id, { 
+            userId: user.id, 
+            username: user.username, 
+            fullName: user.fullName || user.username, 
+            role: user.role 
+        });
+        
         res.json({ success: true });
     });
 

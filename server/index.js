@@ -369,7 +369,9 @@ async function startServer() {
   }
 }
 
-startServer();
+if (process.env.NODE_ENV !== 'test') {
+  startServer();
+}
 
 // Graceful shutdown
 async function shutdown(signal) {
@@ -401,3 +403,5 @@ process.on('SIGTERM', () => shutdown('SIGTERM'));
 // handleUnhandledRejection() / handleUncaughtException() called above.
 
 module.exports = app;
+module.exports.startServer = startServer;
+module.exports.shutdown = shutdown;

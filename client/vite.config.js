@@ -4,6 +4,7 @@ import path from 'path';
 
 // https://vitejs.dev/config/
 export default defineConfig({
+  root: __dirname,
   base: './',
   plugins: [react()],
   test: {
@@ -25,7 +26,7 @@ export default defineConfig({
 
   build: {
     // Output directory
-    outDir: 'dist',
+    outDir: path.resolve(__dirname, 'dist'),
 
     // Generate sourcemaps for production debugging
     sourcemap: false,
@@ -34,6 +35,7 @@ export default defineConfig({
     chunkSizeWarningLimit: 1000,
 
     rollupOptions: {
+      input: path.resolve(__dirname, 'index.html'),
       output: {
         // Manual chunks for better code splitting
         manualChunks: {

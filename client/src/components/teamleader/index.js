@@ -1,5 +1,4 @@
 export { default as NotificationBell } from './NotificationBell'
-// AlertMessage moved to shared/
 
 // Tab Components
 export { default as OverviewTab } from './OverviewTab'

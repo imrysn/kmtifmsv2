@@ -1,7 +1,8 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { MessageSquare, MoreVertical, Send, Download, Trash2, CheckCircle, Eye, Copy, RefreshCcw, Edit2 } from 'lucide-react';
 import { formatDate, formatTimeAgo } from '../../utils/ui-helpers';
-import { MemberAvatar, PremiumBadge, FileSection, RoleBadge, StatusBadge } from './index';
+import { MemberAvatar, PremiumBadge, FileSection, RoleBadge, StatusBadge, FileOpenModal } from './index';
+import { openFile, recordFileView } from '../../utils/file-actions';
 import './PremiumTaskCard.css';
 
 /**
@@ -24,6 +25,8 @@ const PremiumTaskCard = ({
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [fileToOpen, setFileToOpen] = useState(null);
+  const [isOpening, setIsOpening] = useState(false);
   const menuRef = useRef(null);
 
   const isUser = role === 'user';
@@ -63,6 +66,30 @@ const PremiumTaskCard = ({
     return <StatusBadge status="pending" size="md" pill />;
   };
 
+  const handleFileClickInternal = (file) => {
+    setFileToOpen(file);
+  };
+
+  const handleConfirmOpenFile = async () => {
+    if (!fileToOpen) return;
+    setIsOpening(true);
+    try {
+      await openFile(fileToOpen, {
+        onFileOpened: () => {
+          setFileToOpen(null);
+          // Notify parent if needed (e.g. for recording view in parent state)
+          onFileClick?.(fileToOpen);
+        },
+        onError: (err) => {
+          console.error('Failed to open file:', err);
+          setFileToOpen(null);
+        }
+      });
+    } finally {
+      setIsOpening(false);
+    }
+  };
+
   // Role-based three-dot menu items
   const getMenuItems = () => {
     // If the role is 'user', we now hide the three-dot menu entirely
@@ -91,6 +118,13 @@ const PremiumTaskCard = ({
 
     // Role-Specific: Team Leader
     if (isTL) {
+      if (task.status !== 'completed') {
+        items.push({
+          label: 'Mark as Done',
+          icon: <CheckCircle size={14} />,
+          action: () => { setMenuOpen(false); onPrimaryClick?.('done', task); }
+        });
+      }
       items.push({
         label: 'Edit Task',
         icon: <Edit2 size={14} />,
@@ -212,7 +246,7 @@ const PremiumTaskCard = ({
             <FileSection
               files={task.attachments}
               assignmentTitle={task.title}
-              onFileClick={onFileClick}
+              onFileClick={handleFileClickInternal}
               onDownloadFile={onDownloadFile}
               onOpenPath={onOpenPath}
               openedFileIds={openedFileIds}
@@ -248,7 +282,7 @@ const PremiumTaskCard = ({
               isTL={isTL}
               assignmentTitle={task.title}
               onDeleteFile={onFileDelete}
-              onFileClick={onFileClick}
+              onFileClick={handleFileClickInternal}
               onDownloadFile={onDownloadFile}
               onOpenPath={onOpenPath}
               openedFileIds={openedFileIds}
@@ -271,6 +305,13 @@ const PremiumTaskCard = ({
           {/* Submit button moved to card body */}
         </div>
       </div>
+      <FileOpenModal
+        isOpen={!!fileToOpen}
+        file={fileToOpen}
+        isLoading={isOpening}
+        onClose={() => setFileToOpen(null)}
+        onConfirm={handleConfirmOpenFile}
+      />
     </div>
   );
 };

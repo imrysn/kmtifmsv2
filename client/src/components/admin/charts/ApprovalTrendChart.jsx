@@ -83,7 +83,6 @@ const ApprovalTrendChart = memo(({ trends, loading }) => {
         animation: {
             duration: 0
         },
-        resizeDelay: 250,
         plugins: {
             legend: {
                 position: 'top',
@@ -137,17 +136,21 @@ const ApprovalTrendChart = memo(({ trends, loading }) => {
         }
     }), []);
 
-    if (loading) {
-        return <div style={{ padding: '1rem', textAlign: 'center', color: '#9CA3AF' }}>Loading trends...</div>;
-    }
-
-    if (!trends || trends.length === 0) {
-        return <div style={{ padding: '1rem', textAlign: 'center', color: '#9CA3AF' }}>No trend data available</div>;
-    }
-
     return (
-        <div style={{ width: '100%', height: '100%' }}>
-            <Line id="approval-trend-line" data={chartData} options={options} />
+        <div style={{ width: '100%', height: '100%', position: 'relative', minHeight: '200px' }}>
+            {loading ? (
+                <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#9CA3AF', background: 'rgba(255,255,255,0.7)', zIndex: 5 }}>
+                    Loading trends...
+                </div>
+            ) : (!trends || trends.length === 0) ? (
+                <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#9CA3AF', zIndex: 5 }}>
+                    No trend data available
+                </div>
+            ) : null}
+            
+            <div style={{ width: '100%', height: '100%', visibility: (loading || !trends || trends.length === 0) ? 'hidden' : 'visible' }}>
+                <Line id="approval-trend-line" data={chartData} options={options} />
+            </div>
         </div>
     );
 });

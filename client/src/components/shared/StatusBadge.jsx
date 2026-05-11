@@ -45,6 +45,10 @@ const StatusBadge = ({ status, size = 'sm', pill = false, className = '', ...pro
       label: 'Rejected',
       color: '#ef4444'
     },
+    'under_revision': {
+      label: 'Revision',
+      color: '#1d4ed8'
+    },
 
     // Task / Assignment Statuses
     'pending': {

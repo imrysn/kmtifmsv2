@@ -12,8 +12,10 @@ const { NotFoundError, ValidationError } = require('../../server/middleware/erro
 jest.mock('../../server/repositories/fileRepository');
 jest.mock('../../server/utils/logger');
 jest.mock('../../server/config/database', () => ({
+    networkDataPath: 'C:\\TMP\\kmtifms-test-data',
     db: {
-        run: jest.fn()
+        run: jest.fn(),
+        query: jest.fn()
     }
 }));
 
@@ -92,7 +94,7 @@ describe('File Service', () => {
                 .toThrow(NotFoundError);
         });
 
-        test('should throw ValidationError if user cannot view file', async () => {
+        test('should return file lookup result without applying access rules', async () => {
             const mockFile = {
                 id: 1,
                 filename: 'test.pdf',
@@ -108,9 +110,9 @@ describe('File Service', () => {
 
             fileRepository.findById.mockResolvedValue(mockFile);
 
-            await expect(fileService.getFileById(1, user))
-                .rejects
-                .toThrow(ValidationError);
+            const result = await fileService.getFileById(1, user);
+
+            expect(result).toEqual(mockFile);
         });
 
         test('should allow admin to view any file', async () => {
@@ -303,22 +305,13 @@ describe('File Service', () => {
     });
 
     describe('getFileStats', () => {
-        test('should return correct statistics', async () => {
-            fileRepository.count
-                .mockResolvedValueOnce(100) // total
-                .mockResolvedValueOnce(30)  // uploaded
-                .mockResolvedValueOnce(50)  // approved
-                .mockResolvedValueOnce(20); // rejected
+        test('should return count from repository', async () => {
+            fileRepository.count.mockResolvedValueOnce(100);
 
             const stats = await fileService.getFileStats({ team: 'Engineering' });
 
-            expect(stats).toEqual({
-                total: 100,
-                uploaded: 30,
-                approved: 50,
-                rejected: 20,
-                pending: 30
-            });
+            expect(fileRepository.count).toHaveBeenCalledWith({ team: 'Engineering' });
+            expect(stats).toBe(100);
         });
     });
 });

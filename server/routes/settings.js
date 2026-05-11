@@ -32,8 +32,10 @@ const initializeSettingsTable = async () => {
   }
 };
 
-// Initialize on module load
-initializeSettingsTable();
+// Initialize on module load, but avoid real DB side effects in tests.
+if (process.env.NODE_ENV !== 'test') {
+  initializeSettingsTable();
+}
 
 // GET all settings
 router.get('/', async (req, res) => {

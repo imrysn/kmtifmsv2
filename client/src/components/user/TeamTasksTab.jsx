@@ -92,7 +92,6 @@ const TeamTasksTab = ({ user }) => {
   const [loadingMore, setLoadingMore] = useState(false)
   const [expandedAssignments, setExpandedAssignments] = useState({})
   const [error, setError] = useState('')
-  const [isOpeningFile, setIsOpeningFile] = useState(false)
   const [fileOpenToast, setFileOpenToast] = useState(false)
 
   // Comments state
@@ -103,8 +102,7 @@ const TeamTasksTab = ({ user }) => {
   const [visibleReplies, setVisibleReplies] = useState({})
   const [loadingComments, setLoadingComments] = useState(false)
   const [showAllFiles, setShowAllFiles] = useState({}) // Track which assignments show all files
-  const [showOpenFileConfirmation, setShowOpenFileConfirmation] = useState(false)
-  const [fileToOpen, setFileToOpen] = useState(null)
+
   const [expandedFolders, setExpandedFolders] = useState({}) // Track which folders are expanded
   const [showAllSubmittedFiles, setShowAllSubmittedFiles] = useState({}) // Track which assignments show all submitted files
   const INITIAL_FILE_DISPLAY_LIMIT = 5; // Show first 5 files/folders initially
@@ -315,69 +313,7 @@ const TeamTasksTab = ({ user }) => {
     return '#27ae60'
   }
 
-  const handleOpenFile = async (filePath, fileId) => {
-    if (!filePath) {
-      setError('File path not available')
-      return
-    }
 
-    try {
-      setIsOpeningFile(true)
-      setError('')
-
-      await new Promise(resolve => setTimeout(resolve, 300));
-
-      const isElectron = window.electron && window.electron.openFileInApp;
-
-      if (isElectron) {
-        console.log('💻 Running in Electron - using Windows default application');
-
-        const pathData = await apiFetch(
-          `/api/files/${fileId}/path`
-        );
-
-        if (!pathData.success) {
-          throw new Error(pathData.message || 'Failed to get file path');
-        }
-
-        console.log('📂 Full path:', pathData.filePath);
-        console.log('📄 File name:', pathData.fileName);
-
-        const result = await window.electron.openFileInApp(pathData.filePath);
-
-        if (result.success) {
-          console.log('✅ Opened with Windows default application');
-          setFileOpenToast(true);
-          setTimeout(() => setFileOpenToast(false), 3500);
-          setOpenedFileIds(prev => new Set([...prev, fileId]));
-        } else {
-          throw new Error(result.error || 'Failed to open file');
-        }
-      } else {
-        console.log('🌐 Running in browser - opening in new tab');
-
-        const fileUrl = `${API_BASE_URL}${filePath}`;
-        const newWindow = window.open(fileUrl, '_blank');
-
-        if (!newWindow) {
-          throw new Error('Pop-up blocked. Please allow pop-ups for this site.');
-        }
-
-        newWindow.focus();
-        console.log('✅ Opened in browser tab');
-        setFileOpenToast(true);
-        setTimeout(() => setFileOpenToast(false), 3500);
-        setOpenedFileIds(prev => new Set([...prev, fileId]));
-      }
-
-    } catch (error) {
-      console.error('❌ Error opening file:', error);
-      setError(`Error opening file: ${error.message || 'Failed to open file'}`);
-      setTimeout(() => setError(''), 3000);
-    } finally {
-      setIsOpeningFile(false)
-    }
-  }
 
   const clearMessages = () => {
     setError('')
@@ -418,20 +354,7 @@ const TeamTasksTab = ({ user }) => {
 
   // Open the folder containing a file in Windows Explorer
   // Record that the current user viewed a file
-  const recordView = async (fileId) => {
-    if (!user || !fileId) return
-    try {
-      await apiFetch(`/api/files/${fileId}/view`, {
-        method: 'POST',
-        body: JSON.stringify({
-          userId: user.id,
-          username: user.username,
-          fullName: user.fullName,
-          role: user.role || 'user'
-        })
-      })
-    } catch {}
-  }
+
 
   const handleOpenFolderPath = async (fileId) => {
     if (!window.electron?.openFolderInExplorer) return
@@ -599,7 +522,7 @@ const TeamTasksTab = ({ user }) => {
   }
 
   return (
-    <div className={`team-tasks-tab ${isOpeningFile ? 'file-opening-cursor' : ''}`}>
+    <div className="team-tasks-tab">
       {/* Messages */}
       {error && (
         <div className="team-tasks-message error-message">
@@ -637,10 +560,14 @@ const TeamTasksTab = ({ user }) => {
                     ...assignment,
                     submitted_files: assignment.recent_submissions
                   }}
-                  role="user"
+                  role={user.role?.toLowerCase() === 'team_leader' ? 'teamleader' : (user.role?.toLowerCase() || 'user')}
                   hideSubmit={true}
                   onCommentClick={openCommentsModal}
-                  onFileClick={(file) => handleOpenFile(file.file_path, file.id)}
+                  onFileClick={(file) => {
+                    setOpenedFileIds(prev => new Set([...prev, file.id]));
+                    setFileOpenToast(true);
+                    setTimeout(() => setFileOpenToast(false), 3500);
+                  }}
                   onDownloadFile={handleDownloadFile}
                   onOpenPath={(file) => handleOpenFolderPath(file.id)}
                   openedFileIds={openedFileIds}
@@ -723,25 +650,7 @@ const TeamTasksTab = ({ user }) => {
         @keyframes shrinkBar { from { width: 100%; } to { width: 0%; } }
       `}</style>
 
-      {/* File Open Modal */}
-      <FileOpenModal
-        isOpen={showOpenFileConfirmation}
-        onClose={() => {
-          setShowOpenFileConfirmation(false)
-          setFileToOpen(null)
-        }}
-        onConfirm={async () => {
-          if (!fileToOpen) return
 
-          try {
-            await handleOpenFile(fileToOpen.file_path, fileToOpen.id)
-          } finally {
-            setShowOpenFileConfirmation(false)
-            setFileToOpen(null)
-          }
-        }}
-        file={fileToOpen}
-      />
     </div>
   )
 }

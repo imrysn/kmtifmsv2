@@ -10,7 +10,7 @@ try {
   if (!fs.existsSync(backupPath)) {
     console.log('❌ No backup file found (server.js.backup)');
     console.log('Manual restore required');
-    return;
+    process.exit(0);
   }
   
   // Restore from backup

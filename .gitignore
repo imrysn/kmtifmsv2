@@ -4,12 +4,16 @@ client/node_modules/
 
 # Database
 database.sqlite
+database.sqlite-shm
+database.sqlite-wal
 *.db
 
 # Build outputs
 dist/
 client/dist/
 dist-server/
+build-server/
+client/vite.config.js.timestamp-*.mjs
 
 # Environment variables
 .env
@@ -29,6 +33,7 @@ yarn-error.log*
 lerna-debug.log*
 
 # Runtime data
+uploads/assignment_attachments/
 pids
 *.pid
 *.seed

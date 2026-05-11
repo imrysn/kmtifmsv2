@@ -23,7 +23,6 @@ const CHART_OPTIONS = {
         animateRotate: false,
         duration: 0
     },
-    resizeDelay: 250,
     plugins: {
         legend: {
             position: 'bottom',
@@ -79,29 +78,25 @@ const AnimatedPieChart = memo(({ fileTypes, loading }) => {
         };
     }, [fileTypes]);
 
-    if (loading) {
-        return (
-            <div className="pie-chart-loading">
-                <div className="pie-chart-message">Loading chart...</div>
-            </div>
-        );
-    }
-
-    if (!fileTypes || fileTypes.length === 0) {
-        return (
-            <div className="pie-chart-empty">
-                <div className="pie-chart-message">No data available</div>
-            </div>
-        );
-    }
-
     return (
-        <div className="pie-chart-container">
-            <Doughnut
-                id="file-type-donut"
-                data={chartData}
-                options={CHART_OPTIONS}
-            />
+        <div className="pie-chart-container" style={{ position: 'relative', minHeight: '200px' }}>
+            {loading ? (
+                <div className="pie-chart-loading" style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(255,255,255,0.7)', zIndex: 5 }}>
+                    <div className="pie-chart-message">Loading chart...</div>
+                </div>
+            ) : (!fileTypes || fileTypes.length === 0) ? (
+                <div className="pie-chart-empty" style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 5 }}>
+                    <div className="pie-chart-message">No data available</div>
+                </div>
+            ) : null}
+
+            <div style={{ width: '100%', height: '100%', visibility: (loading || !fileTypes || fileTypes.length === 0) ? 'hidden' : 'visible' }}>
+                <Doughnut
+                    id="file-type-donut"
+                    data={chartData}
+                    options={CHART_OPTIONS}
+                />
+            </div>
         </div>
     );
 });
