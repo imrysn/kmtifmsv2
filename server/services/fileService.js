@@ -27,6 +27,7 @@ function fixFilename(name) {
  */
 async function uploadFile(fileData, user) {
     const originalName = fixFilename(fileData.original_name);
+    const { moveToUserFolder } = require('../utils/fileUtils');
     
     logInfo('Uploading file', { filename: originalName, userId: user.id });
 
@@ -43,9 +44,37 @@ async function uploadFile(fileData, user) {
         return { isDuplicate: true, existingFile: existing };
     }
 
+    // Move the temp file from uploadsDir root into the user's folder
+    // (and into the correct subfolder if folderName/relativePath are provided)
+    let finalFilePath = fileData.file_path; // fallback: keep temp path
+    try {
+        // tempPath is what multer wrote: uploadsDir/temp_timestamp_random
+        const tempPath = fileData.file_path.startsWith('/uploads/')
+            ? path.join(uploadsDir, fileData.file_path.substring('/uploads/'.length))
+            : fileData.file_path;
+
+        const movedPath = await moveToUserFolder(
+            tempPath,
+            user.username,
+            originalName,
+            fileData.folder_name || null,
+            fileData.relative_path || null
+        );
+
+        // Convert absolute path back to /uploads/... relative URL for DB storage
+        const relativeToUploads = movedPath.startsWith(uploadsDir)
+            ? movedPath.substring(uploadsDir.length).replace(/\\/g, '/')
+            : movedPath;
+        finalFilePath = `/uploads${relativeToUploads.startsWith('/') ? '' : '/'}${relativeToUploads}`;
+    } catch (moveErr) {
+        logError(moveErr, { context: 'uploadFile-moveToUserFolder', filename: originalName });
+        // Keep temp path if move fails — file is still accessible
+    }
+
     const data = {
         ...fileData,
         original_name: originalName,
+        file_path: finalFilePath,
         user_id: user.id,
         username: user.username,
         user_team: user.team,
