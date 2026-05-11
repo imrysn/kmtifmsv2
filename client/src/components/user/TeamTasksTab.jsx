@@ -820,6 +820,9 @@ const TeamTasksTab = ({ user }) => {
                         Object.keys(folders).forEach(folderName => {
                           const folderFiles = folders[folderName];
                           const isExpanded = expandedFolders[`att-${assignment.id}-${folderName}`];
+                          const tlFolderChildKey = `tlattfc-${assignment.id}-${folderName}`;
+                          const isTlFolderChildExpanded = showAllFiles[tlFolderChildKey];
+                          const visibleFolderChildren = isTlFolderChildExpanded ? folderFiles : folderFiles.slice(0, 5);
                           const firstFile = folderFiles[0];
 
                           items.push(
@@ -855,7 +858,7 @@ const TeamTasksTab = ({ user }) => {
                           );
 
                           if (isExpanded) {
-                            folderFiles.forEach(file => {
+                            visibleFolderChildren.forEach(file => {
                               items.push(
                                 <div
                                   key={`att-${file.id}`}
@@ -888,6 +891,22 @@ const TeamTasksTab = ({ user }) => {
                                 </div>
                               );
                             });
+                            if (folderFiles.length > 5) {
+                              items.push(
+                                <div
+                                  key={`tlattfc-seemore-${folderName}`}
+                                  style={{ padding: '8px 16px', textAlign: 'center', cursor: 'pointer' }}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setShowAllFiles(prev => ({ ...prev, [tlFolderChildKey]: !prev[tlFolderChildKey] }));
+                                  }}
+                                >
+                                  <span style={{ color: '#0066cc', fontSize: '13px', fontWeight: '500', textDecoration: 'underline' }}>
+                                    {isTlFolderChildExpanded ? 'See less' : `See more (${folderFiles.length - 5} more)`}
+                                  </span>
+                                </div>
+                              );
+                            }
                           }
                         });
 
@@ -926,7 +945,29 @@ const TeamTasksTab = ({ user }) => {
                           );
                         });
 
-                        return items;
+                        const tlAttItems = items;
+                        const tlAttExpKey = `tlatt-${assignment.id}`;
+                        const isShowingAllTlAtt = showAllFiles[tlAttExpKey];
+                        const tlAttToShow = isShowingAllTlAtt ? tlAttItems : tlAttItems.slice(0, INITIAL_FILE_DISPLAY_LIMIT);
+                        const tlAttRemaining = tlAttItems.length - INITIAL_FILE_DISPLAY_LIMIT;
+                        return (
+                          <>
+                            {tlAttToShow}
+                            {tlAttItems.length > INITIAL_FILE_DISPLAY_LIMIT && (
+                              <div
+                                style={{ padding: '12px 16px', textAlign: 'center', cursor: 'pointer' }}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setShowAllFiles(prev => ({ ...prev, [tlAttExpKey]: !prev[tlAttExpKey] }));
+                                }}
+                              >
+                                <span style={{ color: '#0066cc', fontSize: '14px', fontWeight: '500', textDecoration: 'underline' }}>
+                                  {isShowingAllTlAtt ? 'See less' : `See more (${tlAttRemaining} more)`}
+                                </span>
+                              </div>
+                            )}
+                          </>
+                        );
                       })()}
                     </div>
                   )}

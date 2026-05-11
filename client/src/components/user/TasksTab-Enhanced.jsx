@@ -1040,15 +1040,27 @@ const TasksTab = memo(({
                   const { folders: attFolders, individualFiles: attIndividual } = groupFilesByFolder(assignment.attachments);
                   const folderNames = Object.keys(attFolders);
                   const totalItems = folderNames.length + attIndividual.length;
+                  const attExpKey = `att-${assignment.id}`;
+                  const attExpanded = showAllSubmittedFiles[attExpKey];
+                  const allAttTop = [
+                    ...folderNames.map(n => ({ type: 'folder', name: n })),
+                    ...attIndividual.map(f => ({ type: 'file', file: f }))
+                  ];
+                  const visAttTop = attExpanded ? allAttTop : allAttTop.slice(0, 5);
+                  const visAttFolderNames = new Set(visAttTop.filter(i => i.type === 'folder').map(i => i.name));
+                  const visAttFiles = visAttTop.filter(i => i.type === 'file').map(i => i.file);
                   return (
                     <div style={{ padding: '8px 0', marginBottom: '16px' }}>
                       <div style={{ fontSize: '13px', fontWeight: '600', color: '#374151', marginBottom: '8px' }}>
                         📎 Attached Files ({totalItems === 1 ? '1 item' : `${folderNames.length} folder${folderNames.length !== 1 ? 's' : ''}${attIndividual.length > 0 ? `, ${attIndividual.length} file${attIndividual.length !== 1 ? 's' : ''}` : ''}`})
                       </div>
-                      {folderNames.map(folderName => {
+                      {folderNames.filter(fn => visAttFolderNames.has(fn)).map(folderName => {
                         const folderFiles = attFolders[folderName];
                         const key = `att-${assignment.id}-${folderName}`;
                         const isExpanded = expandedFolders[key];
+                        const attFolderChildKey = `attfc-${assignment.id}-${folderName}`;
+                        const isFolderChildExpanded = expandedFolders[attFolderChildKey];
+                        const visibleFolderFiles = isFolderChildExpanded ? folderFiles : folderFiles.slice(0, 5);
                         return (
                           <div key={folderName} style={{ marginBottom: '8px' }}>
                             <div
@@ -1076,7 +1088,7 @@ const TasksTab = memo(({
                             </div>
                             {isExpanded && (
                               <div style={{ marginLeft: '8px', paddingLeft: '8px', marginTop: '4px' }}>
-                                {folderFiles.map(file => (
+                                {visibleFolderFiles.map(file => (
                                   <div key={file.id} onClick={() => confirmOpenFile(file)} className="submitted-file-card" style={{ cursor: 'pointer', marginBottom: '4px' }}>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                                       <FileIcon fileType={file.original_name.split('.').pop()} size="small" />
@@ -1097,12 +1109,21 @@ const TasksTab = memo(({
                                     </div>
                                   </div>
                                 ))}
+                                {folderFiles.length > 5 && (
+                                  <div style={{ padding: '8px 16px', textAlign: 'center', cursor: 'pointer' }}
+                                    onClick={(e) => { e.stopPropagation(); setExpandedFolders(prev => ({ ...prev, [attFolderChildKey]: !prev[attFolderChildKey] })) }}
+                                  >
+                                    <span style={{ color: '#0066cc', fontSize: '13px', fontWeight: '500', textDecoration: 'underline' }}>
+                                      {isFolderChildExpanded ? 'See less' : `See more (${folderFiles.length - 5} more)`}
+                                    </span>
+                                  </div>
+                                )}
                               </div>
                             )}
                           </div>
                         );
                       })}
-                      {attIndividual.map(attachment => (
+                      {visAttFiles.map(attachment => (
                         <div key={attachment.id} onClick={() => confirmOpenFile(attachment)} className="submitted-file-card" style={{ cursor: 'pointer', marginBottom: '8px' }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                             <FileIcon fileType={attachment.original_name.split('.').pop()} size="small" />
@@ -1123,6 +1144,16 @@ const TasksTab = memo(({
                           </div>
                         </div>
                       ))}
+                      {totalItems > 5 && (
+                        <div style={{ marginTop: '8px', textAlign: 'center' }}>
+                          <button
+                            onClick={() => setShowAllSubmittedFiles(prev => ({ ...prev, [attExpKey]: !prev[attExpKey] }))}
+                            style={{ background: 'none', border: 'none', color: '#2563eb', fontSize: '14px', fontWeight: '500', cursor: 'pointer', padding: '8px 16px', textDecoration: 'underline' }}
+                          >
+                            {attExpanded ? 'See less' : `See more (${totalItems - 5} more)`}
+                          </button>
+                        </div>
+                      )}
                     </div>
                   );
                 })()}
@@ -1160,6 +1191,9 @@ const TasksTab = memo(({
                         const folderFiles = folders[folderName];
                         const key = `${assignment.id}-${folderName}`;
                         const isExpanded = expandedFolders[key];
+                        const subFolderKey = `subfc-${assignment.id}-${folderName}`;
+                        const isSubExpanded = expandedFolders[subFolderKey];
+                        const visibleSubFiles = isSubExpanded ? folderFiles : folderFiles.slice(0, 5);
                         return (
                           <div key={folderName} style={{ marginBottom: '8px' }}>
                             <div
@@ -1193,7 +1227,16 @@ const TasksTab = memo(({
                             </div>
                             {isExpanded && (
                               <div style={{ marginLeft: '8px', paddingLeft: '8px', marginTop: '4px' }}>
-                                {folderFiles.map(file => renderFileCard(file, assignment.id, true, assignment.title))}
+                                {visibleSubFiles.map(file => renderFileCard(file, assignment.id, true, assignment.title))}
+                                {folderFiles.length > 5 && (
+                                  <div style={{ padding: '8px 16px', textAlign: 'center', cursor: 'pointer' }}
+                                    onClick={(e) => { e.stopPropagation(); setExpandedFolders(prev => ({ ...prev, [subFolderKey]: !prev[subFolderKey] })) }}
+                                  >
+                                    <span style={{ color: '#0066cc', fontSize: '13px', fontWeight: '500', textDecoration: 'underline' }}>
+                                      {isSubExpanded ? 'See less' : `See more (${folderFiles.length - 5} more)`}
+                                    </span>
+                                  </div>
+                                )}
                               </div>
                             )}
                           </div>

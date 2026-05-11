@@ -918,15 +918,27 @@ const TaskManagement = ({
                       const { folders: attFolders, individualFiles: attIndividual } = groupFilesByFolder(assignment.attachments)
                       const folderNames = Object.keys(attFolders)
                       const totalItems = folderNames.length + attIndividual.length
+                      const attExpKey = `att-${assignment.id}`
+                      const attExpanded = expandedAttachments[attExpKey]
+                      const allAttTop = [
+                        ...folderNames.map(n => ({ type: 'folder', name: n })),
+                        ...attIndividual.map(f => ({ type: 'file', file: f }))
+                      ]
+                      const visibleAttTop = attExpanded ? allAttTop : allAttTop.slice(0, 5)
+                      const visAttFolderNames = new Set(visibleAttTop.filter(i => i.type === 'folder').map(i => i.name))
+                      const visAttFiles = visibleAttTop.filter(i => i.type === 'file').map(i => i.file)
                       return (
                         <div className="admin-attachment-section" style={{ marginBottom: '16px' }}>
                           <div className="admin-submitted-file">
                             <div className="admin-file-label admin-submitted-label">📎 Attachments ({totalItems === 1 ? '1 item' : `${folderNames.length > 0 ? `${folderNames.length} folder${folderNames.length !== 1 ? 's' : ''}` : ''}${folderNames.length > 0 && attIndividual.length > 0 ? ', ' : ''}${attIndividual.length > 0 ? `${attIndividual.length} file${attIndividual.length !== 1 ? 's' : ''}` : ''}`}):</div>
 
                             {/* Folder attachments */}
-                            {folderNames.map(folderName => {
+                            {folderNames.filter(fn => visAttFolderNames.has(fn)).map(folderName => {
                               const folderFiles = attFolders[folderName]
                               const isExpanded = expandedFolders[`att-${assignment.id}-${folderName}`]
+                              const attFolderChildKey = `attfc-${assignment.id}-${folderName}`
+                              const isFolderChildExpanded = expandedAttachments[attFolderChildKey]
+                              const visibleFolderFiles = isFolderChildExpanded ? folderFiles : folderFiles.slice(0, 5)
                               return (
                                 <div key={folderName} style={{ marginBottom: '8px' }}>
                                   <div
@@ -965,7 +977,7 @@ const TaskManagement = ({
                                   </div>
                                   {isExpanded && (
                                     <div style={{ marginLeft: '8px', paddingLeft: '8px', marginTop: '4px' }}>
-                                      {folderFiles.map(file => (
+                                      {visibleFolderFiles.map(file => (
                                         <div
                                           key={file.id}
                                           onClick={(e) => { e.stopPropagation(); setFileToOpen(file); setShowOpenFileConfirmation(true) }}
@@ -1030,6 +1042,15 @@ const TaskManagement = ({
                                           </button>
                                         </div>
                                       ))}
+                                      {folderFiles.length > 5 && (
+                                        <div style={{ padding: '8px 16px', textAlign: 'center', cursor: 'pointer' }}
+                                          onClick={(e) => { e.stopPropagation(); toggleAttachments(attFolderChildKey) }}
+                                        >
+                                          <span style={{ color: '#0066cc', fontSize: '13px', fontWeight: '500', textDecoration: 'underline' }}>
+                                            {isFolderChildExpanded ? 'See less' : `See more (${folderFiles.length - 5} more)`}
+                                          </span>
+                                        </div>
+                                      )}
                                     </div>
                                   )}
                                 </div>
@@ -1037,7 +1058,7 @@ const TaskManagement = ({
                             })}
 
                             {/* Individual file attachments */}
-                            {attIndividual.map((attachment, index) => (
+                            {visAttFiles.map((attachment, index) => (
                               <div
                                 key={attachment.id}
                                 onClick={(e) => { e.stopPropagation(); setFileToOpen(attachment); setShowOpenFileConfirmation(true) }}
@@ -1102,6 +1123,15 @@ const TaskManagement = ({
                                 </button>
                               </div>
                             ))}
+                            {totalItems > 5 && (
+                              <div style={{ padding: '12px 16px', textAlign: 'center', cursor: 'pointer' }}
+                                onClick={() => toggleAttachments(attExpKey)}
+                              >
+                                <span style={{ color: '#0066cc', fontSize: '14px', fontWeight: '500', textDecoration: 'underline' }}>
+                                  {attExpanded ? 'See less' : `See more (${totalItems - 5} more)`}
+                                </span>
+                              </div>
+                            )}
                           </div>
                         </div>
                       )
@@ -1341,14 +1371,13 @@ const TaskManagement = ({
                             const { folders: _f, individualFiles: _i } = groupFilesByFolder(assignment.recent_submissions)
                             const totalTopLevel = Object.keys(_f).length + _i.length
                             return totalTopLevel > 5 ? (
-                              <button
-                                className="admin-attachment-toggle-btn"
+                              <div style={{ padding: '12px 16px', textAlign: 'center', cursor: 'pointer' }}
                                 onClick={() => toggleAttachments(assignment.id)}
                               >
-                                {expandedAttachments[assignment.id]
-                                  ? 'See less'
-                                  : `See more (${totalTopLevel - 5} more)`}
-                              </button>
+                                <span style={{ color: '#0066cc', fontSize: '14px', fontWeight: '500', textDecoration: 'underline' }}>
+                                  {expandedAttachments[assignment.id] ? 'See less' : `See more (${totalTopLevel - 5} more)`}
+                                </span>
+                              </div>
                             ) : null
                           })()}
                         </div>

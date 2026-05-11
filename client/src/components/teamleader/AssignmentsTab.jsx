@@ -850,16 +850,30 @@ const AssignmentsTab = ({
                     }
                   })
                   const tlName = assignment.team_leader_fullname || assignment.teamLeaderUsername || 'Team Leader'
+                  const attExpKey = `att-${assignment.id}`
+                  const attExpanded = expandedAttachments[attExpKey]
+                  const attFolderNames = Object.keys(attFolders)
+                  const allAttTop = [
+                    ...attFolderNames.map(n => ({ type: 'folder', name: n })),
+                    ...attIndividual.map(f => ({ type: 'file', file: f }))
+                  ]
+                  const visAttTop = attExpanded ? allAttTop : allAttTop.slice(0, 5)
+                  const visAttFolderNames = new Set(visAttTop.filter(i => i.type === 'folder').map(i => i.name))
+                  const visAttFiles = visAttTop.filter(i => i.type === 'file').map(i => i.file)
+                  const attTotalItems = attFolderNames.length + attIndividual.length
                   return (
                     <div className="tl-assignment-attachment-section">
                       <div className="tl-assignment-attached-file">
                         <div className="tl-assignment-file-label">
-                          📎 Attached Files ({assignment.attachments.length})
+                          📎 Attached Files ({attTotalItems === 1 ? '1 item' : `${attFolderNames.length > 0 ? `${attFolderNames.length} folder${attFolderNames.length !== 1 ? 's' : ''}` : ''}${attFolderNames.length > 0 && attIndividual.length > 0 ? ', ' : ''}${attIndividual.length > 0 ? `${attIndividual.length} file${attIndividual.length !== 1 ? 's' : ''}` : ''}`})
                         </div>
 
                         {/* Folder attachments */}
-                        {Object.entries(attFolders).map(([folderName, files]) => {
+                        {Object.entries(attFolders).filter(([fn]) => visAttFolderNames.has(fn)).map(([folderName, files]) => {
                           const isExpanded = expandedAttachments[`attfolder-${assignment.id}-${folderName}`]
+                          const folderExpKey = `attfolderfiles-${assignment.id}-${folderName}`
+                          const isFolderFilesExpanded = expandedAttachments[folderExpKey]
+                          const visibleFolderFiles = isFolderFilesExpanded ? files : files.slice(0, 5)
                           return (
                             <React.Fragment key={`attfolder-${folderName}`}>
                               <div
@@ -892,7 +906,7 @@ const AssignmentsTab = ({
                               </div>
                               {isExpanded && (
                               <div style={{ marginLeft: '8px', paddingLeft: '8px', marginTop: '4px' }}>
-                                {files.map(att => (
+                                {visibleFolderFiles.map(att => (
                                 <div
                                   key={att.id}
                                   className={`tl-assignment-file-item tl-folder-file-item${openedFileIds.has(att.id) ? ' file-card-opened' : ''}`}
@@ -915,6 +929,15 @@ const AssignmentsTab = ({
                                   <button onClick={(e) => { e.stopPropagation(); setRemoveAttachmentModal({ isOpen: true, attachmentId: att.id, attachmentName: att.original_name, assignmentId: assignment.id }) }} title="Remove" style={{ marginLeft: 'auto', background:'transparent', border:'none', cursor:'pointer', color:'#9ca3af', fontSize:'18px', width:'28px', height:'28px', display:'flex', alignItems:'center', justifyContent:'center', borderRadius:'6px' }} onMouseEnter={e=>{e.currentTarget.style.backgroundColor='#fee2e2';e.currentTarget.style.color='#dc2626'}} onMouseLeave={e=>{e.currentTarget.style.backgroundColor='transparent';e.currentTarget.style.color='#9ca3af'}}>×</button>
                                 </div>
                               ))}
+                                {files.length > 5 && (
+                                  <div style={{ padding: '8px 16px', textAlign: 'center', cursor: 'pointer' }}
+                                    onClick={(e) => { e.stopPropagation(); setExpandedAttachments(prev => ({ ...prev, [folderExpKey]: !prev[folderExpKey] })) }}
+                                  >
+                                    <span style={{ color: '#0066cc', fontSize: '13px', fontWeight: '500', textDecoration: 'underline' }}>
+                                      {isFolderFilesExpanded ? 'See less' : `See more (${files.length - 5} more)`}
+                                    </span>
+                                  </div>
+                                )}
                                 </div>
                               )}
                             </React.Fragment>
@@ -922,7 +945,7 @@ const AssignmentsTab = ({
                         })}
 
                         {/* Individual file attachments */}
-                        {attIndividual.map((attachment) => (
+                        {visAttFiles.map((attachment) => (
                           <div
                             key={attachment.id}
                             className={`tl-assignment-file-item${openedFileIds.has(attachment.id) ? ' file-card-opened' : ''}`}
@@ -954,6 +977,15 @@ const AssignmentsTab = ({
                             >×</button>
                           </div>
                         ))}
+                        {attTotalItems > 5 && (
+                          <div style={{ padding: '12px 16px', textAlign: 'center', cursor: 'pointer' }}
+                            onClick={() => toggleAttachments(attExpKey)}
+                          >
+                            <span style={{ color: '#0066cc', fontSize: '14px', fontWeight: '500', textDecoration: 'underline' }}>
+                              {attExpanded ? 'See less' : `See more (${attTotalItems - 5} more)`}
+                            </span>
+                          </div>
+                        )}
                       </div>
                     </div>
                   )
@@ -1226,14 +1258,13 @@ const AssignmentsTab = ({
                         </div>
                       ))}
                             {totalTopLevel > 5 && (
-                              <button
-                                className="tl-attachment-toggle-btn"
+                              <div style={{ padding: '12px 16px', textAlign: 'center', cursor: 'pointer' }}
                                 onClick={() => toggleAttachments(assignment.id)}
                               >
-                                {expandedAttachments[assignment.id]
-                                  ? 'See less'
-                                  : `See more (${totalTopLevel - 5} more)`}
-                              </button>
+                                <span style={{ color: '#0066cc', fontSize: '14px', fontWeight: '500', textDecoration: 'underline' }}>
+                                  {expandedAttachments[assignment.id] ? 'See less' : `See more (${totalTopLevel - 5} more)`}
+                                </span>
+                              </div>
                             )}
                           </>
                         )
