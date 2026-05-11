@@ -28,10 +28,16 @@ function decodeUTF8Filename(name) {
  * Move uploaded file from temp location to user's folder.
  * Supports folder structure preservation via folderName + relativePath.
  * Handles cross-device moves (EXDEV) for NAS targets.
+ * @param {string} taskPrefix  Optional sub-directory under userDir (e.g. "task_42")
+ *                             used to isolate uploads per assignment.
  */
-async function moveToUserFolder(tempPath, username, originalFilename, folderName = null, relativePath = null) {
+async function moveToUserFolder(tempPath, username, originalFilename, folderName = null, relativePath = null, taskPrefix = null) {
   const { uploadsDir } = require('../config/middleware');
-  const userDir = path.join(uploadsDir, username);
+  // If a taskPrefix is given, place files under uploads/username/task_N/...
+  // so the same folder name uploaded to two different tasks never collides.
+  const userDir = taskPrefix
+    ? path.join(uploadsDir, username, taskPrefix)
+    : path.join(uploadsDir, username);
 
   // Ensure user directory exists (race-safe)
   try {

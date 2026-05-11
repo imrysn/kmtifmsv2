@@ -610,6 +610,46 @@
 
 .tl-folder-file-row td {
   vertical-align: middle !important;
+  padding: 0.6rem 1rem !important;
+}
+
+.tl-folder-file-row .file-icon {
+  width: 24px;
+  height: 24px;
+}
+
+.tl-folder-file-row .file-name {
+  font-size: 0.82rem;
+  font-weight: 400;
+}
+
+.tl-folder-file-row .file-size {
+  font-size: 0.72rem;
+}
+
+.tl-folder-file-row .assignment-title {
+  font-size: 0.82rem;
+}
+
+.tl-folder-file-row .assignment-due-date {
+  font-size: 0.72rem;
+}
+
+.tl-folder-file-row .user-name {
+  font-size: 0.82rem;
+}
+
+.tl-folder-file-row .date {
+  font-size: 0.82rem;
+}
+
+.tl-folder-file-row .time {
+  font-size: 0.72rem;
+}
+
+.tl-folder-file-row .status-badge {
+  font-size: 0.68rem;
+  padding: 0.25rem 0.5rem;
 }
 
 .tl-folder-file-row:hover {

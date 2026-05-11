@@ -25,7 +25,8 @@ class FileController {
             description: req.body.description,
             folder_name: req.body.folderName,
             relative_path: req.body.relativePath,
-            is_folder: req.body.isFolder === 'true'
+            is_folder: req.body.isFolder === 'true',
+            assignment_id: req.body.assignmentId || null
         };
 
         const result = await fileService.uploadFile(fileData, req.user);

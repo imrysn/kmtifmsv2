@@ -288,17 +288,41 @@ async function findByIdWithLatestComment(fileId) {
 }
 
 /**
- * Find files by name and user (for duplicate check)
+ * Find files by name and user (for duplicate check).
+ * If assignmentId is provided, only matches files already submitted to that assignment.
+ * This allows the same file name to be uploaded to different tasks.
  */
-async function findByNameAndUser(originalName, userId, folderName = null) {
-    let query = 'SELECT * FROM files WHERE original_name = ? AND user_id = ?';
-    const params = [originalName, userId];
+async function findByNameAndUser(originalName, userId, folderName = null, assignmentId = null) {
+    let query;
+    const params = [];
 
-    if (folderName) {
-        query += ' AND folder_name = ?';
-        params.push(folderName);
+    if (assignmentId) {
+        // Scoped duplicate check: only flag as duplicate if the same file
+        // is already submitted for THIS specific assignment
+        query = `
+            SELECT f.* FROM files f
+            INNER JOIN assignment_submissions asub
+                ON asub.file_id = f.id
+                AND asub.assignment_id = ?
+                AND asub.user_id = ?
+            WHERE f.original_name = ? AND f.user_id = ?`;
+        params.push(assignmentId, userId, originalName, userId);
+        if (folderName) {
+            query += ' AND f.folder_name = ?';
+            params.push(folderName);
+        } else {
+            query += ' AND (f.folder_name IS NULL OR f.folder_name = \'\')';
+        }
     } else {
-        query += ' AND (folder_name IS NULL OR folder_name = "")';
+        // Legacy fallback (no task context): check across all files for this user
+        query = 'SELECT * FROM files WHERE original_name = ? AND user_id = ?';
+        params.push(originalName, userId);
+        if (folderName) {
+            query += ' AND folder_name = ?';
+            params.push(folderName);
+        } else {
+            query += ' AND (folder_name IS NULL OR folder_name = "")';
+        }
     }
 
     try {

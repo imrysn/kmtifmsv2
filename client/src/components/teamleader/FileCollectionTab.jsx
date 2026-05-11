@@ -29,6 +29,8 @@ const FileCollectionTab = ({
   const [fileToOpen, setFileToOpen] = useState(null)
   const [teamFilter, setTeamFilter] = useState('all')
   const [expandedFolders, setExpandedFolders] = useState({})
+  const [folderShowAll, setFolderShowAll] = useState({})
+  const FOLDER_PREVIEW_COUNT = 5
 
   const uniqueTeams = useMemo(() => {
     const teams = new Set()
@@ -55,8 +57,8 @@ const FileCollectionTab = ({
       }
 
       if (folderName) {
-        // Key by folderName + user so different users' same-named folders stay separate
-        const key = `${folderName}||${file.user_id || file.username || ''}`
+        // Key by folderName + assignment_id + user so same folder in different tasks stays separate
+        const key = `${folderName}||${file.assignment_id || ''}||${file.user_id || file.username || ''}`
         if (!folders[key]) folders[key] = []
         folders[key].push(file)
       } else {
@@ -68,6 +70,7 @@ const FileCollectionTab = ({
 
   useEffect(() => {
     setCurrentPage(1)
+    setFolderShowAll({})
   }, [searchQuery, fileCollectionFilter, fileCollectionSort, teamFilter])
 
   useEffect(() => {
@@ -165,8 +168,8 @@ const FileCollectionTab = ({
         return latestB - latestA
       })
       .forEach(folderKey => {
-        // folderKey is "folderName||username" — strip the user part for display
-        const folderName = folderKey.includes('||') ? folderKey.split('||')[0] : folderKey
+        // folderKey is "folderName||assignmentId||username" — strip to get display name
+        const folderName = folderKey.split('||')[0]
         items.push({ type: 'folder', folderKey, folderName, files: folders[folderKey] })
       })
     individualFiles.forEach(file => {

@@ -634,21 +634,6 @@ const TasksTab = memo(({
     if (!uploadedFiles.length || !currentAssignment) return;
     setIsUploading(true);
     try {
-      // Auto-replace duplicate file names
-      if (currentAssignment.submitted_files?.length) {
-        for (const fileObj of uploadedFiles) {
-          const match = currentAssignment.submitted_files.find(
-            f => f.original_name === fileObj.file.name || f.filename === fileObj.file.name
-          );
-          if (match) {
-            await apiFetch(`/api/assignments/${currentAssignment.id}/files/${match.id}`, {
-              method: 'DELETE',
-              body: JSON.stringify({ userId: user.id }),
-            }).catch(() => {});
-          }
-        }
-      }
-
       const uploadedFileIds = [];
       const uploadErrors = [];
 
@@ -663,6 +648,8 @@ const TasksTab = memo(({
         formData.append('description', fileDescription || '');
         formData.append('tag', fileTag || '');
         formData.append('replaceExisting', 'true');
+        // Pass assignmentId so the server can do scoped duplicate-replace
+        formData.append('assignmentId', currentAssignment.id);
 
         const effectiveFolderName = targetFolder || fileObj.folderName;
         if (effectiveFolderName) {

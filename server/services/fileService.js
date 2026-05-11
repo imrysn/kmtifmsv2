@@ -28,24 +28,57 @@ function fixFilename(name) {
 async function uploadFile(fileData, user) {
     const originalName = fixFilename(fileData.original_name);
     const { moveToUserFolder } = require('../utils/fileUtils');
+    const assignmentId = fileData.assignment_id ? parseInt(fileData.assignment_id) : null;
     
-    logInfo('Uploading file', { filename: originalName, userId: user.id });
+    logInfo('Uploading file', { filename: originalName, userId: user.id, assignmentId });
 
     const existing = await fileRepository.findByNameAndUser(
         originalName,
         user.id,
-        fileData.folder_name
+        fileData.folder_name,
+        assignmentId
     );
 
     if (existing) {
-        logInfo('Duplicate file found, cleaning up...', { fileId: existing.id });
-        const tempPath = path.join(uploadsDir, fileData.file_path.replace(/^\/uploads\//, ''));
-        try { await fs.unlink(tempPath); } catch (e) {}
-        return { isDuplicate: true, existingFile: existing };
+        if (assignmentId) {
+            // Same file name + same task → auto-replace:
+            // Remove the old submission record and delete the old file from disk,
+            // then fall through to upload the new version.
+            logInfo('Replacing existing file for same task', { oldFileId: existing.id, assignmentId });
+            const tempPath = fileData.file_path.startsWith('/uploads/')
+                ? path.join(uploadsDir, fileData.file_path.substring('/uploads/'.length))
+                : fileData.file_path;
+            try {
+                // Delete old physical file
+                if (existing.file_path) {
+                    const oldPhysical = existing.file_path.startsWith('/uploads/')
+                        ? path.join(uploadsDir, existing.file_path.substring('/uploads/'.length))
+                        : existing.file_path;
+                    await safeDeleteFile(oldPhysical);
+                }
+                // Remove old submission + file record
+                await require('../config/database').query(
+                    'DELETE FROM assignment_submissions WHERE file_id = ? AND assignment_id = ?',
+                    [existing.id, assignmentId]
+                );
+                await fileRepository.deleteById(existing.id);
+            } catch (replaceErr) {
+                logError(replaceErr, { context: 'uploadFile-replace', oldFileId: existing.id });
+            }
+            // Fall through — upload the new file below
+        } else {
+            // No task context and duplicate found → block (legacy behavior)
+            logInfo('Duplicate file found (no task context), cleaning up...', { fileId: existing.id });
+            const tempPath = path.join(uploadsDir, fileData.file_path.replace(/^\/uploads\//, ''));
+            try { await fs.unlink(tempPath); } catch (e) {}
+            return { isDuplicate: true, existingFile: existing };
+        }
     }
 
     // Move the temp file from uploadsDir root into the user's folder
     // (and into the correct subfolder if folderName/relativePath are provided)
+    // If this upload is scoped to a task AND has a folder, isolate it under
+    // task_{assignmentId}/ so the same folder name in different tasks never collides.
     let finalFilePath = fileData.file_path; // fallback: keep temp path
     try {
         // tempPath is what multer wrote: uploadsDir/temp_timestamp_random
@@ -53,12 +86,17 @@ async function uploadFile(fileData, user) {
             ? path.join(uploadsDir, fileData.file_path.substring('/uploads/'.length))
             : fileData.file_path;
 
+        const taskPrefix = (assignmentId && fileData.folder_name)
+            ? `task_${assignmentId}`
+            : null;
+
         const movedPath = await moveToUserFolder(
             tempPath,
             user.username,
             originalName,
             fileData.folder_name || null,
-            fileData.relative_path || null
+            fileData.relative_path || null,
+            taskPrefix
         );
 
         // Convert absolute path back to /uploads/... relative URL for DB storage
@@ -489,6 +527,7 @@ async function openFile(filePath) {
  */
 async function deleteFolder(folderName, fileIds, user) {
     const dirsToDelete = new Set();
+    // Legacy path (no task scope)
     dirsToDelete.add(path.join(uploadsDir, user.username, folderName));
 
     if (fileIds && fileIds.length > 0) {
@@ -498,7 +537,10 @@ async function deleteFolder(folderName, fileIds, user) {
                 const physicalPath = await resolvePhysicalPath(fileId);
                 if (physicalPath.path) {
                     try { await fs.unlink(physicalPath.path); } catch (e) {}
-                    dirsToDelete.add(path.dirname(physicalPath.path));
+                    // Add both the immediate parent AND the task_N parent so we clean up both
+                    const parentDir = path.dirname(physicalPath.path);
+                    dirsToDelete.add(parentDir);
+                    dirsToDelete.add(path.dirname(parentDir));
                 }
             }
         }
@@ -509,7 +551,18 @@ async function deleteFolder(folderName, fileIds, user) {
         try {
             const stat = await fs.stat(dirPath);
             if (stat.isDirectory()) {
-                await fs.rm(dirPath, { recursive: true, force: true });
+                // Only delete task_N dirs or the folder itself — never delete the root user dir
+                const isUserRoot = dirPath === path.join(uploadsDir, user.username);
+                const isUploadsRoot = dirPath === uploadsDir;
+                if (!isUserRoot && !isUploadsRoot) {
+                    // Check if the directory is now empty before deleting parent dirs
+                    const entries = await fs.readdir(dirPath).catch(() => []);
+                    if (entries.length === 0) {
+                        await fs.rm(dirPath, { recursive: true, force: true });
+                    } else if (dirPath.endsWith(folderName) || path.basename(dirPath).startsWith('task_')) {
+                        await fs.rm(dirPath, { recursive: true, force: true });
+                    }
+                }
             }
         } catch (e) {}
     }
