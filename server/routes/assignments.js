@@ -270,7 +270,7 @@ router.get('/team-leader/:userId/all-submissions', authenticateToken, authorizeR
     const allSubmissions = [...memberSubmissions, ...uniqueTLFiles, ...uniqueAttachments];
 
     console.log(`✅ DASHBOARD API: ${memberSubmissions.length} member + ${uniqueTLFiles.length} TL + ${uniqueAttachments.length} attachments = ${allSubmissions.length} total`);
-    res.json({ success: true, submissions: allSubmissions });
+    res.json({ success: true, files: allSubmissions });
   } catch (error) {
     console.error('❌ DASHBOARD API: Error fetching all submissions:', error);
     res.status(500).json({ success: false, message: 'Failed to fetch submissions', error: error.message });
@@ -452,6 +452,8 @@ router.post('/create-json', authenticateToken, authorizeRole(['TEAM_LEADER', 'AD
       await query(`INSERT INTO assignment_members (assignment_id, user_id) VALUES ${placeholders}`, finalMembers.flatMap(uid => [assignmentId, uid]));
       membersAssigned = finalMembers.length;
       for (const uid of finalMembers) {
+        // Don't notify the team leader who created the task
+        if (String(uid) === String(teamLeaderId)) continue;
         try {
           await query(
             'INSERT INTO notifications (user_id, assignment_id, file_id, type, title, message, action_by_id, action_by_username, action_by_role) VALUES (?,?,?,?,?,?,?,?,?)',
@@ -622,6 +624,8 @@ router.post('/create', authenticateToken, authorizeRole(['TEAM_LEADER', 'ADMIN']
         const memberIds = finalAssignedTo === 'specific' ? (finalMembers || []) :
           (await query('SELECT id FROM users WHERE team = ? AND role = ?', [team, 'USER'])).map(m => m.id);
         for (const uid of memberIds) {
+          // Don't notify the team leader who created the task
+          if (String(uid) === String(finalTeamLeaderId)) continue;
           try {
             await query(
               'INSERT INTO notifications (user_id, assignment_id, file_id, type, title, message, action_by_id, action_by_username, action_by_role) VALUES (?,?,?,?,?,?,?,?,?)',
@@ -799,13 +803,13 @@ router.put('/:id', authenticateToken, authorizeRole(['TEAM_LEADER', 'ADMIN']), u
     }
 
     try {
-      if (finalMembers && Array.isArray(finalMembers)) {
+      if (finalMembers && Array.isArray(finalMembers) && finalMembers.length > 0) {
+        // Only update members if the client actually sent a non-empty list.
+        // An empty list means "don't change members" — not "remove all members".
         await query('DELETE FROM assignment_members WHERE assignment_id = ?', [id]);
-        if (finalMembers.length > 0) {
-          const placeholders = finalMembers.map(() => '(?, ?)').join(', ');
-          await query(`INSERT INTO assignment_members (assignment_id, user_id) VALUES ${placeholders}`, finalMembers.flatMap(uid => [id, uid]));
-          membersAssigned = finalMembers.length;
-        }
+        const placeholders = finalMembers.map(() => '(?, ?)').join(', ');
+        await query(`INSERT INTO assignment_members (assignment_id, user_id) VALUES ${placeholders}`, finalMembers.flatMap(uid => [id, uid]));
+        membersAssigned = finalMembers.length;
       }
       try {
         await query('INSERT INTO activity_logs (user_id, username, role, team, activity) VALUES (?, ?, ?, ?, ?)',
@@ -1306,6 +1310,8 @@ router.put('/:assignmentId/update-members', authenticateToken, authorizeRole(['T
         const placeholders = toAdd.map(() => '(?, ?)').join(', ');
         await query(`INSERT INTO assignment_members (assignment_id, user_id) VALUES ${placeholders}`, toAdd.flatMap(uid => [assignmentId, uid]));
         for (const uid of toAdd) {
+          // Don't notify the team leader who made the change
+          if (String(uid) === String(teamLeaderId)) continue;
           try {
             await query('INSERT INTO notifications (user_id,assignment_id,file_id,type,title,message,action_by_id,action_by_username,action_by_role) VALUES (?,?,?,?,?,?,?,?,?)',
               [uid, assignmentId, null, 'assignment', 'Added to Assignment',

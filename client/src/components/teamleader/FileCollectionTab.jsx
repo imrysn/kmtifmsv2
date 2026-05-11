@@ -43,9 +43,20 @@ const FileCollectionTab = ({
     const folders = {}
     const individualFiles = []
     files.forEach(file => {
-      if (file.folder_name) {
-        // Key by folder_name + user so different users' same-named folders stay separate
-        const key = `${file.folder_name}||${file.user_id || file.username || ''}`
+      let folderName = file.folder_name
+      
+      // Fallback: if folder_name is missing, try to extract it from the path in original_name
+      if (!folderName && file.original_name && (file.original_name.includes('/') || file.original_name.includes('\\'))) {
+        const separator = file.original_name.includes('/') ? '/' : '\\'
+        const parts = file.original_name.split(separator)
+        if (parts.length > 1) {
+          folderName = parts[0]
+        }
+      }
+
+      if (folderName) {
+        // Key by folderName + user so different users' same-named folders stay separate
+        const key = `${folderName}||${file.user_id || file.username || ''}`
         if (!folders[key]) folders[key] = []
         folders[key].push(file)
       } else {

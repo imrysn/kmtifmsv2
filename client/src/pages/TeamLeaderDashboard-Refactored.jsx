@@ -111,6 +111,8 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
   })
   const [editingAssignmentId, setEditingAssignmentId] = useState(null)
   const [modalInitialAttachments, setModalInitialAttachments] = useState([])
+  const createAssignmentAbortController = React.useRef(null)
+  const createAssignmentCancelled = React.useRef(false)
   const [notificationCommentContext, setNotificationCommentContext] = useState(null)
   const [highlightedAssignmentId, setHighlightedAssignmentId] = useState(null)
   const [highlightedFileId, setHighlightedFileId] = useState(null)
@@ -121,6 +123,7 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
     // Only fetch files for tabs that need them
     if (activeTab === 'overview') {
       fetchPendingFiles('total')
+      fetchAllSubmissions()
     }
 
     if (activeTab === 'file-collection') {
@@ -380,6 +383,17 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
   }
 
   const createAssignment = async (attachedFiles = [], removedAttachmentIds = []) => {
+    // Guard: if the modal was closed before this runs, abort silently
+    if (!showCreateAssignmentModal) return
+
+    // Cancel any previous in-flight request
+    createAssignmentCancelled.current = false
+    if (createAssignmentAbortController.current) {
+      createAssignmentAbortController.current.abort()
+    }
+    const abortController = new AbortController()
+    createAssignmentAbortController.current = abortController
+
     const removeAttachmentIds = removedAttachmentIds || [];
     if (removeAttachmentIds.length > 0) {
       console.log('📤 Sending removedAttachmentIds to server:', removeAttachmentIds);
@@ -389,10 +403,12 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
       return
     }
 
-    if (assignmentForm.assignedMembers.length === 0) {
+    if (!editingAssignmentId && assignmentForm.assignedMembers.length === 0) {
       setError('Please select at least one team member')
       return
     }
+
+    // When editing and no members are selected in the form, keep existing members (don't wipe them)
 
     // require team selection if multiple teams exist
     if (uniqueTeams && uniqueTeams.length > 1 && !assignmentForm.selectedTeam) {
@@ -403,6 +419,17 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
     setIsProcessing(true)
 
     const handlePostDataResult = (data, removeAttachmentIds) => {
+      // Check the ref — this is synchronous and works even in Electron
+      if (createAssignmentCancelled.current) {
+        if (data.success && data.assignmentId && !editingAssignmentId) {
+          // User cancelled after server already created it — delete it immediately
+          apiFetch(`/api/assignments/${data.assignmentId}`, {
+            method: 'DELETE',
+            body: JSON.stringify({ teamLeaderUsername: user.username, team: user.team })
+          }).catch(() => {})
+        }
+        return
+      }
       if (data.success) {
         setSuccess(editingAssignmentId
           ? 'Task updated successfully!'
@@ -450,7 +477,7 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
       if (hasAttachments || (removedAttachmentIds && removedAttachmentIds.length > 0)) {
         // Request a one-time nonce from the server before uploading.
         // This prevents Electron's multipart cache from replaying old uploads.
-        const nonceData = await apiFetch(`/api/assignments/upload-nonce`, { method: 'POST' })
+        const nonceData = await apiFetch(`/api/assignments/upload-nonce`, { method: 'POST', signal: abortController.signal })
         if (!nonceData.success) throw new Error('Failed to get upload nonce')
 
         const formData = new FormData()
@@ -479,7 +506,8 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
           responseData = await apiFetch(url, {
             method,
             body: formData,
-            headers: {} // Don't set Content-Type for FormData
+            headers: {}, // Don't set Content-Type for FormData
+            signal: abortController.signal
           })
         } catch (error) {
           // If server rejected due to a stale/replayed nonce
@@ -503,7 +531,8 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
                 teamLeaderUsername: user.username,
                 team: assignmentForm.selectedTeam || user.team,
                 removeAttachmentIds
-              })
+              }),
+              signal: abortController.signal
             })
             return handlePostDataResult(fallbackData, removeAttachmentIds);
           }
@@ -513,7 +542,6 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
         return handlePostDataResult(responseData, removeAttachmentIds);
       } else {
         // No file changes — use JSON-only endpoints (no nonce needed)
-        // New assignments → /create-json; edits → PUT /:id with JSON
         const jsonUrl = editingAssignmentId
           ? url
           : `/api/assignments/create-json`
@@ -531,62 +559,34 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
             teamLeaderUsername: user.username,
             team: assignmentForm.selectedTeam || user.team,
             removeAttachmentIds // may be []
-          })
+          }),
+          signal: abortController.signal
         })
         return handlePostDataResult(data, removeAttachmentIds);
       }
-
-      function handlePostDataResult(data, removeAttachmentIds) {
-        if (data.success) {
-          setSuccess(editingAssignmentId
-            ? 'Task updated successfully!'
-            : `Assignment created! ${data.membersAssigned} members assigned.`
-          )
-          // immediately remove attachments locally so UI reflects change even before server refetch
-          if (editingAssignmentId && removeAttachmentIds.length > 0) {
-            setAssignments(prev => prev.map(a => {
-              if (a.id === editingAssignmentId) {
-                return {
-                  ...a,
-                  attachments: (a.attachments || []).filter(att => !removeAttachmentIds.includes(att.id))
-                }
-              }
-              return a
-            }))
-          }
-          setShowCreateAssignmentModal(false)
-          setEditingAssignmentId(null)
-          setAssignmentForm({
-            title: '',
-            description: '',
-            dueDate: '',
-            fileTypeRequired: '',
-            assignedMembers: [],
-            selectedTeam: uniqueTeams && uniqueTeams.length === 1 ? uniqueTeams[0] : ''
-          })
-          fetchAssignments()
-        } else {
-          setError(data.message || `Failed to ${editingAssignmentId ? 'update' : 'create'} assignment`)
-        }
-      }
     } catch (error) {
+      if (error.name === 'AbortError' || createAssignmentCancelled.current) {
+        console.log('ℹ️ Assignment creation cancelled by user')
+        return
+      }
       console.error(`Error ${editingAssignmentId ? 'updating' : 'creating'} assignment:`, error)
       setError(`Failed to ${editingAssignmentId ? 'update' : 'create'} assignment`)
     } finally {
       setIsProcessing(false)
+      createAssignmentAbortController.current = null
+      // Don't reset cancelled here — let it stay true until next createAssignment call
     }
   }
 
   const handleEditAssignment = async (assignment) => {
     // fetch fresh details (including attachments) in case list data is minimal
     try {
-      const data = await apiFetch(`/api/assignments/${assignment.id}`)
+      const data = await apiFetch(`/api/assignments/${assignment.id}/details`)
       if (data.success && data.assignment) {
-        assignment = data.assignment
+        assignment = { ...assignment, ...data.assignment, attachments: data.assignment.attachments || assignment.attachments || [] }
       }
     } catch (e) {
       console.warn('Failed to load full assignment details for edit', e)
-      // fall back to passed object
     }
 
     setEditingAssignmentId(assignment.id)
@@ -1291,6 +1291,13 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
               isEditMode={!!editingAssignmentId}
               initialAttachments={modalInitialAttachments}
               onClose={() => {
+                // Mark as cancelled FIRST — synchronously, before anything else
+                createAssignmentCancelled.current = true
+                // Also try to abort the network request
+                if (createAssignmentAbortController.current) {
+                  createAssignmentAbortController.current.abort()
+                  createAssignmentAbortController.current = null
+                }
                 setShowCreateAssignmentModal(false)
                 setIsProcessing(false)
                 setEditingAssignmentId(null)

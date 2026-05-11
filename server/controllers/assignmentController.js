@@ -55,7 +55,7 @@ class AssignmentController {
     getAllSubmissionsForTL = asyncHandler(async (req, res) => {
         const { userId } = req.params;
         const result = await assignmentService.getAllSubmissionsForTL(userId);
-        res.json({ success: true, submissions: result.submissions || [] });
+        res.json({ success: true, files: result.submissions || [] });
     });
 
     /**

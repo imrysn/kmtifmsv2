@@ -1,24 +1,64 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
+import ReactDOM from 'react-dom'
 import { apiFetch, API_BASE_URL } from '@/config/api'
 import './css/TeamTasksTab.css'
 import { FileIcon, FileOpenModal, FileViewersButton } from '../shared'
 import CommentsModal from '../shared/CommentsModal'
 
-// ── Read-only three-dot menu (Download + Open Folder Path, NO delete) ────────
+// ── CUSTOM HOOK: useDropdownPosition ─────────────────────────────────────────
+const useDropdownPosition = (btnRef, menuRef, isOpen) => {
+  const [pos, setPos] = useState({ top: 0, left: 0, ready: false, up: false })
+  const updatePosition = useCallback(() => {
+    if (!btnRef.current) return
+    const rect = btnRef.current.getBoundingClientRect()
+    const menuH = menuRef.current?.offsetHeight || 100
+    const menuW = menuRef.current?.offsetWidth || 160
+    const spaceBelow = window.innerHeight - rect.bottom
+    const shouldOpenUp = spaceBelow < menuH + 10 && rect.top > menuH + 10
+    const top = shouldOpenUp ? rect.top - menuH - 4 : rect.bottom + 4
+    let left = rect.right - menuW
+    if (left < 10) left = 10
+    setPos({ top, left, ready: true, up: shouldOpenUp })
+  }, [btnRef, menuRef])
+  useEffect(() => {
+    if (isOpen) {
+      updatePosition()
+      const rafId = requestAnimationFrame(updatePosition)
+      window.addEventListener('scroll', updatePosition, true)
+      window.addEventListener('resize', updatePosition)
+      return () => {
+        cancelAnimationFrame(rafId)
+        window.removeEventListener('scroll', updatePosition, true)
+        window.removeEventListener('resize', updatePosition)
+      }
+    } else {
+      setPos(prev => ({ ...prev, ready: false }))
+    }
+  }, [isOpen, updatePosition])
+  return pos
+}
+
 function FileMoreMenu({ onDownload, onOpenPath, isFolder = false }) {
   const [open, setOpen] = useState(false)
-  const ref = useRef(null)
+  const btnRef = useRef(null)
+  const menuRef = useRef(null)
+  const pos = useDropdownPosition(btnRef, menuRef, open)
 
   useEffect(() => {
     if (!open) return
-    const close = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false) }
+    const close = (e) => { 
+        if (menuRef.current && !menuRef.current.contains(e.target) && !btnRef.current.contains(e.target)) {
+            setOpen(false) 
+        }
+    }
     document.addEventListener('mousedown', close)
     return () => document.removeEventListener('mousedown', close)
   }, [open])
 
   return (
-    <div ref={ref} style={{ position: 'relative', flexShrink: 0 }} onClick={e => e.stopPropagation()}>
+    <div style={{ position: 'relative', flexShrink: 0 }} onClick={e => e.stopPropagation()}>
       <button
+        ref={btnRef}
         onClick={e => { e.stopPropagation(); setOpen(v => !v) }}
         style={{
           background: 'transparent', border: 'none', borderRadius: '6px',
@@ -33,13 +73,21 @@ function FileMoreMenu({ onDownload, onOpenPath, isFolder = false }) {
           <circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/>
         </svg>
       </button>
-      {open && (
-        <div style={{
-          position: 'absolute', right: 0, top: '100%', marginTop: '4px',
-          background: '#fff', border: '1px solid #e5e7eb', borderRadius: '8px',
-          boxShadow: '0 4px 12px rgba(0,0,0,0.12)', zIndex: 200,
-          minWidth: '160px', padding: '4px',
-        }}>
+      {open && ReactDOM.createPortal(
+        <div 
+          ref={menuRef}
+          style={{
+            position: 'fixed', 
+            top: pos.top,
+            left: pos.left,
+            visibility: pos.ready ? 'visible' : 'hidden',
+            background: '#fff', border: '1px solid #e5e7eb', borderRadius: '8px',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.12)', zIndex: 99999,
+            minWidth: '160px', padding: '4px',
+            transformOrigin: pos.up ? 'bottom right' : 'top right',
+            animation: 'dropdownFadeIn 0.15s ease-out'
+          }}
+        >
           {onOpenPath && (
             <button
               onClick={() => { onOpenPath(); setOpen(false) }}
@@ -51,10 +99,7 @@ function FileMoreMenu({ onDownload, onOpenPath, isFolder = false }) {
               onMouseEnter={e => e.currentTarget.style.backgroundColor = '#f3f4f6'}
               onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
             >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/>
-              </svg>
-              {isFolder ? 'Open Folder Path' : 'Open File Path'}
+              📂 Open Folder Path
             </button>
           )}
           <button
@@ -68,13 +113,12 @@ function FileMoreMenu({ onDownload, onOpenPath, isFolder = false }) {
             onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
-              <polyline points="7 10 12 15 17 10"/>
-              <line x1="12" y1="15" x2="12" y2="3"/>
+              <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
             </svg>
-            {isFolder ? 'Download Folder' : 'Download'}
+            Download {isFolder ? 'Folder' : 'File'}
           </button>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   )

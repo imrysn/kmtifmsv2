@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react'
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
+import ReactDOM from 'react-dom'
 import { apiFetch, API_BASE_URL } from '@/config/api'
 import './css/AssignmentsTab.css'
 import './modals/css/AssignmentDetailsModal.css'
@@ -7,6 +8,139 @@ import { ConfirmationModal, CommentsModal, FileIcon, FileOpenModal, FileViewersB
 import { useSmartNavigation } from '../shared/SmartNavigation'
 import '../shared/SmartNavigation/SmartNavigation.css'
 import SuccessModal from '../user/SuccessModal'
+
+const useDropdownPosition = (btnRef, menuRef, isOpen) => {
+  const [pos, setPos] = useState({ top: 0, left: 0, up: false, ready: false })
+
+  useEffect(() => {
+    if (!isOpen || !btnRef.current) return
+    const btn = btnRef.current.getBoundingClientRect()
+    const menuHeight = menuRef.current?.offsetHeight || 180
+    const spaceBelow = window.innerHeight - btn.bottom
+    const up = spaceBelow < menuHeight + 8
+    setPos({
+      top: up ? btn.top - menuHeight - 4 : btn.bottom + 4,
+      left: Math.min(btn.right - 190, window.innerWidth - 200),
+      up,
+      ready: true
+    })
+  }, [isOpen])
+
+  useEffect(() => { if (!isOpen) setPos(p => ({ ...p, ready: false })) }, [isOpen])
+
+  return pos
+}
+
+const FolderActionDropdown = ({ assignment, folderName, folderFiles, handleDownloadFolder, setFolderReviewModal, setFolderReviewComment }) => {
+  const [isOpen, setIsOpen] = useState(false)
+  const btnRef = useRef(null)
+  const menuRef = useRef(null)
+  const pos = useDropdownPosition(btnRef, menuRef, isOpen)
+
+  useEffect(() => {
+    if (!isOpen) return
+    const handleClose = (e) => {
+      if (menuRef.current && !menuRef.current.contains(e.target) && !btnRef.current.contains(e.target)) {
+        setIsOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClose)
+    return () => document.removeEventListener('mousedown', handleClose)
+  }, [isOpen])
+
+  return (
+    <>
+      <button
+        ref={btnRef}
+        className="tl-assignment-menu-btn"
+        style={{ fontSize: '13px', padding: '2px 6px', letterSpacing: '1px' }}
+        onClick={(e) => { e.stopPropagation(); setIsOpen(!isOpen) }}
+        title="More options"
+      >
+        •••
+      </button>
+      {isOpen && ReactDOM.createPortal(
+        <div 
+          ref={menuRef}
+          className="tl-assignment-menu-dropdown" 
+          style={{ 
+            position: 'fixed', 
+            top: pos.top, 
+            left: pos.left, 
+            visibility: pos.ready ? 'visible' : 'hidden',
+            minWidth: '190px', 
+            zIndex: 99999, 
+            whiteSpace: 'nowrap',
+            transformOrigin: pos.up ? 'bottom right' : 'top right',
+            animation: 'dropdownFadeIn 0.15s ease-out',
+            padding: '4px'
+          }}
+        >
+          <button
+            className="tl-assignment-menu-item"
+            style={{ fontWeight: '600' }}
+            onClick={async (e) => {
+              e.stopPropagation()
+              setIsOpen(false)
+              if (!window.electron || !window.electron.openFolderInExplorer) {
+                alert('Open Folder Path is only available in the desktop app.')
+                return
+              }
+              const firstFile = folderFiles[0]
+              try {
+                const data = await apiFetch(`/api/files/${firstFile.id}/path`)
+                if (data.success && data.filePath) {
+                  const result = await window.electron.openFolderInExplorer(data.filePath)
+                  if (!result.success) alert('Could not open folder: ' + (result.error || 'Unknown error'))
+                } else {
+                  alert('Could not retrieve folder path.')
+                }
+              } catch (err) {
+                alert('Failed to open folder path.')
+              }
+            }}
+          >
+            📂 Open Folder Path
+          </button>
+          <button
+            className="tl-assignment-menu-item"
+            style={{ fontWeight: '600', display: 'flex', alignItems: 'center', gap: '8px' }}
+            onClick={async (e) => {
+              e.stopPropagation()
+              setIsOpen(false)
+              await handleDownloadFolder(folderFiles, folderName)
+            }}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+            </svg>
+            Download Folder
+          </button>
+          <button
+            className="tl-assignment-menu-item"
+            style={{ fontWeight: '600', display: 'flex', alignItems: 'center', gap: '6px' }}
+            onClick={(e) => {
+              e.stopPropagation()
+              setIsOpen(false)
+              setFolderReviewComment('')
+              setFolderReviewModal({ folderName, folderFiles })
+            }}
+          >
+            <svg width="15" height="15" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ flexShrink: 0 }}>
+              <path d="M10 2C5.58172 2 2 5.58172 2 10C2 14.4183 5.58172 18 10 18C14.4183 18 18 14.4183 18 10C18 5.58172 14.4183 2 10 2Z" fill="#16a34a" opacity="0.15"/>
+              <path d="M10 2C5.58172 2 2 5.58172 2 10C2 14.4183 5.58172 18 10 18C14.4183 18 18 14.4183 18 10C18 5.58172 14.4183 2 10 2Z" stroke="#16a34a" strokeWidth="1.5"/>
+              <path d="M6.5 10L9 12.5L13.5 7.5" stroke="#16a34a" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+            <span style={{ color: '#16a34a' }}>Approve</span>
+            <span style={{ color: '#9ca3af' }}> / </span>
+            <span style={{ color: '#dc2626' }}>Reject Folder</span>
+          </button>
+        </div>,
+        document.body
+      )}
+    </>
+  )
+}
 
 const AssignmentsTab = ({
   isLoadingAssignments,
@@ -726,7 +860,6 @@ const AssignmentsTab = ({
                         {/* Folder attachments */}
                         {Object.entries(attFolders).map(([folderName, files]) => {
                           const isExpanded = expandedAttachments[`attfolder-${assignment.id}-${folderName}`]
-                          const attFolderMenuId = `attfolder-${assignment.id}-${folderName}`
                           return (
                             <React.Fragment key={`attfolder-${folderName}`}>
                               <div
@@ -749,30 +882,12 @@ const AssignmentsTab = ({
                                   style={{ marginLeft: 'auto', position: 'relative' }}
                                   onClick={(e) => e.stopPropagation()}
                                 >
-                                  <button
-                                    className="tl-assignment-menu-btn"
-                                    style={{ fontSize: '13px', padding: '2px 6px', letterSpacing: '1px' }}
-                                    onClick={(e) => {
-                                      e.stopPropagation()
-                                      setOpenFolderMenuId(prev => prev === attFolderMenuId ? null : attFolderMenuId)
-                                    }}
-                                    title="More options"
-                                  >
-                                    •••
-                                  </button>
-                                  {openFolderMenuId === attFolderMenuId && (
-                                    <div className="tl-assignment-menu-dropdown" style={{ right: 0, left: 'auto', minWidth: '180px', whiteSpace: 'nowrap' }}>
-                                      <button
-                                        className="tl-assignment-menu-item tl-assignment-delete-menu-item"
-                                        onClick={(e) => {
-                                          e.stopPropagation()
-                                          handleRemoveAttachmentFolder(assignment.id, files)
-                                        }}
-                                      >
-                                        🗑️ Remove Folder
-                                      </button>
-                                    </div>
-                                  )}
+                                  <FolderActionDropdown 
+                                    assignment={assignment}
+                                    folderName={folderName}
+                                    folderFiles={files}
+                                    handleDownloadFolder={handleDownloadFolder}
+                                  />
                                 </div>
                               </div>
                               {isExpanded && (
@@ -937,93 +1052,14 @@ const AssignmentsTab = ({
                                         })()}
                                       </div>
                                     </div>
-                                    {/* 3-dot menu */}
-                                    <div
-                                      className="tl-folder-menu-wrapper"
-                                      style={{ marginLeft: 'auto', position: 'relative' }}
-                                      onClick={(e) => e.stopPropagation()}
-                                    >
-                                      <button
-                                        className="tl-assignment-menu-btn"
-                                        style={{ fontSize: '13px', padding: '2px 6px', letterSpacing: '1px' }}
-                                        onClick={(e) => {
-                                          e.stopPropagation()
-                                          const menuId = `${assignment.id}-${folderName}`
-                                          setOpenFolderMenuId(prev => prev === menuId ? null : menuId)
-                                        }}
-                                        title="More options"
-                                      >
-                                        •••
-                                      </button>
-                                      {openFolderMenuId === `${assignment.id}-${folderName}` && (
-                                      <div className="tl-assignment-menu-dropdown" style={{ right: 0, left: 'auto', minWidth: '190px', whiteSpace: 'nowrap' }}>
-                                      <button
-                                      className="tl-assignment-menu-item"
-                                      style={{ fontWeight: '600' }}
-                                      onClick={async (e) => {
-                                      e.stopPropagation()
-                                      setOpenFolderMenuId(null)
-                                      if (!window.electron || !window.electron.openFolderInExplorer) {
-                                      alert('Open Folder Path is only available in the desktop app.')
-                                      return
-                                      }
-                                      const firstFile = folderFiles[0]
-                                      try {
-                                      const data = await apiFetch(`/api/files/${firstFile.id}/path`)
-                                      if (data.success && data.filePath) {
-                                      const result = await window.electron.openFolderInExplorer(data.filePath)
-                                      if (!result.success) {
-                                      alert('Could not open folder: ' + (result.error || 'Unknown error'))
-                                      }
-                                      } else {
-                                      alert('Could not retrieve folder path.')
-                                      }
-                                      } catch (err) {
-                                      console.error('Error opening folder:', err)
-                                      alert('Failed to open folder path.')
-                                      }
-                                      }}
-                                      >
-                                      📂 Open Folder Path
-                                      </button>
-                                      <button
-                                      className="tl-assignment-menu-item"
-                                      style={{ fontWeight: '600', display: 'flex', alignItems: 'center', gap: '8px' }}
-                                      onClick={async (e) => {
-                                      e.stopPropagation()
-                                      setOpenFolderMenuId(null)
-                                      await handleDownloadFolder(folderFiles, folderName)
-                                            }}
-                                          >
-                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                              <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
-                                              <polyline points="7 10 12 15 17 10"/>
-                                              <line x1="12" y1="15" x2="12" y2="3"/>
-                                            </svg>
-                                            Download Folder
-                                          </button>
-                                          <button
-                                            className="tl-assignment-menu-item"
-                                            style={{ fontWeight: '600', display: 'flex', alignItems: 'center', gap: '6px' }}
-                                            onClick={(e) => {
-                                              e.stopPropagation()
-                                              setOpenFolderMenuId(null)
-                                              setFolderReviewComment('')
-                                              setFolderReviewModal({ folderName, folderFiles })
-                                            }}
-                                          >
-                                            <svg width="15" height="15" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ flexShrink: 0 }}>
-                                              <path d="M10 2C5.58172 2 2 5.58172 2 10C2 14.4183 5.58172 18 10 18C14.4183 18 18 14.4183 18 10C18 5.58172 14.4183 2 10 2Z" fill="#16a34a" opacity="0.15"/>
-                                              <path d="M10 2C5.58172 2 2 5.58172 2 10C2 14.4183 5.58172 18 10 18C14.4183 18 18 14.4183 18 10C18 5.58172 14.4183 2 10 2Z" stroke="#16a34a" strokeWidth="1.5"/>
-                                              <path d="M6.5 10L9 12.5L13.5 7.5" stroke="#16a34a" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
-                                            </svg>
-                                            <span style={{ color: '#16a34a' }}>Approve</span>
-                                            <span style={{ color: '#9ca3af' }}> / </span>
-                                            <span style={{ color: '#dc2626' }}>Reject Folder</span>
-                                          </button>
-                                        </div>
-                                      )}
-                                    </div>
+                                    <FolderActionDropdown 
+                                      assignment={assignment}
+                                      folderName={folderName}
+                                      folderFiles={folderFiles}
+                                      handleDownloadFolder={handleDownloadFolder}
+                                      setFolderReviewModal={setFolderReviewModal}
+                                      setFolderReviewComment={setFolderReviewComment}
+                                    />
                                   </div>
                                   
                                   {/* Folder Contents */}

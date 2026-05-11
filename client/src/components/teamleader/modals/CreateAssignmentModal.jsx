@@ -85,13 +85,19 @@ const CreateAssignmentModal = ({
   }
 
   const handleFileSelect = (e) => {
+    e.preventDefault()
+    e.stopPropagation()
     const files = Array.from(e.target.files)
     if (files.length > 0) {
       setAttachedFiles(prevFiles => [...prevFiles, ...files])
     }
+    // Reset input so same files can be re-selected
+    if (fileInputRef.current) fileInputRef.current.value = ''
   }
 
   const handleFolderSelect = (e) => {
+    e.preventDefault()
+    e.stopPropagation()
     const files = Array.from(e.target.files)
     if (files.length > 0) {
       // Tag each file with its relative path for folder structure
@@ -104,6 +110,8 @@ const CreateAssignmentModal = ({
       })
       setAttachedFiles(prevFiles => [...prevFiles, ...tagged])
     }
+    // Reset the input so the same folder can be re-selected if needed
+    if (folderInputRef.current) folderInputRef.current.value = ''
   }
 
   const handleRemoveFile = (index) => {
@@ -197,7 +205,7 @@ const CreateAssignmentModal = ({
   }
 
   return (
-    <div className="tl-modal-overlay">
+    <div className="tl-modal-overlay" onClick={isProcessing ? undefined : handleClose}>
       <div className="tl-modal-large" onClick={e => e.stopPropagation()}>
         <div className="tl-modal-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -208,10 +216,10 @@ const CreateAssignmentModal = ({
               </span>
             )}
           </div>
-          <button onClick={handleClose}>×</button>
+          <button onClick={handleClose} disabled={isProcessing} style={{ opacity: isProcessing ? 0.5 : 1, cursor: isProcessing ? 'not-allowed' : 'pointer' }}>×</button>
         </div>
         <div className="tl-modal-body-large">
-          <form>
+          <div onSubmit={e => e.preventDefault()}>
             <div className="tl-form-group">
               <label>Task Title *</label>
               <input
@@ -556,10 +564,20 @@ const CreateAssignmentModal = ({
             </div>
 
             <div className="tl-modal-footer">
+              {isProcessing && (
+                <span style={{ fontSize: '13px', color: '#6B7280', display: 'flex', alignItems: 'center', gap: '6px', marginRight: 'auto' }}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style={{ animation: 'spin 1s linear infinite' }}>
+                    <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" strokeDasharray="60" strokeDashoffset="20" strokeLinecap="round"/>
+                  </svg>
+                  {isEditMode ? 'Updating task...' : 'Creating task, please wait...'}
+                </span>
+              )}
               <button
                 type="button"
                 className="tl-btn secondary"
                 onClick={handleClose}
+                disabled={isProcessing}
+                style={{ opacity: isProcessing ? 0.5 : 1, cursor: isProcessing ? 'not-allowed' : 'pointer' }}
               >
                 Cancel
               </button>
@@ -567,7 +585,7 @@ const CreateAssignmentModal = ({
                 type="button"
                 className="tl-btn success"
                 onClick={() => createAssignment(attachedFiles, attachmentsToRemove)}
-                disabled={isProcessing || !assignmentForm.title.trim() || assignmentForm.assignedMembers.length === 0}
+                disabled={isProcessing || !assignmentForm.title.trim() || (!isEditMode && assignmentForm.assignedMembers.length === 0)}
               >
                 {isProcessing
                   ? (isEditMode ? 'Updating...' : 'Creating...')
@@ -575,7 +593,7 @@ const CreateAssignmentModal = ({
                 }
               </button>
             </div>
-          </form>
+          </div>
         </div>
       </div>
 

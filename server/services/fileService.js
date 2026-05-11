@@ -1,7 +1,7 @@
 const fileRepository = require('../repositories/fileRepository');
 const notificationService = require('./notificationService');
 const { logActivity, logInfo, logError, logFileStatusChange } = require('../utils/logger');
-const { db } = require('../config/database');
+const { db, query, queryOne } = require('../config/database');
 const { NotFoundError, ValidationError } = require('../middleware/errorHandler');
 const fs = require('fs').promises;
 const path = require('path');
@@ -608,26 +608,19 @@ async function getMemberFiles(memberId) {
 async function getUserFilesPaginated(userId, page = 1, limit = 50) {
     const offset = (page - 1) * limit;
 
-    const [total, files] = await Promise.all([
-        new Promise((resolve, reject) =>
-            db.get('SELECT COUNT(*) as total FROM files WHERE user_id = ?', [userId],
-                (err, row) => err ? reject(err) : resolve(row.total))
-        ),
-        new Promise((resolve, reject) =>
-            db.all(
-                `SELECT f.*, GROUP_CONCAT(fc.comment, ' | ') as comments
-                 FROM files f
-                 LEFT JOIN file_comments fc ON f.id = fc.file_id
-                 WHERE f.user_id = ?
-                 GROUP BY f.id
-                 ORDER BY f.uploaded_at DESC LIMIT ? OFFSET ?`,
-                [userId, limit, offset],
-                (err, rows) => err ? reject(err) : resolve(rows)
-            )
-        )
-    ]);
+    const countRow = await queryOne('SELECT COUNT(*) as total FROM files WHERE user_id = ?', [userId]);
+    const total = countRow ? countRow.total : 0;
 
-    // Normalize grouped comments string into an array
+    const files = await query(
+        `SELECT f.*, GROUP_CONCAT(fc.comment SEPARATOR ' | ') as comments
+         FROM files f
+         LEFT JOIN file_comments fc ON f.id = fc.file_id
+         WHERE f.user_id = ?
+         GROUP BY f.id
+         ORDER BY f.uploaded_at DESC LIMIT ? OFFSET ?`,
+        [userId, limit, offset]
+    );
+
     const processedFiles = files.map(file => ({
         ...file,
         comments: file.comments
@@ -648,28 +641,22 @@ async function getUserFilesPaginated(userId, page = 1, limit = 50) {
 async function getTeamLeaderQueue(team, page = 1, limit = 50) {
     const offset = (page - 1) * limit;
 
-    const [total, files] = await Promise.all([
-        new Promise((resolve, reject) =>
-            db.get(
-                "SELECT COUNT(*) as total FROM files WHERE user_team = ? AND current_stage = 'pending_team_leader'",
-                [team],
-                (err, row) => err ? reject(err) : resolve(row.total)
-            )
-        ),
-        new Promise((resolve, reject) =>
-            db.all(
-                `SELECT f.*, fc.comment as latest_comment
-                 FROM files f
-                 LEFT JOIN file_comments fc ON f.id = fc.file_id AND fc.id = (
-                   SELECT MAX(id) FROM file_comments WHERE file_id = f.id
-                 )
-                 WHERE f.user_team = ? AND f.current_stage = 'pending_team_leader'
-                 ORDER BY f.uploaded_at DESC LIMIT ? OFFSET ?`,
-                [team, limit, offset],
-                (err, rows) => err ? reject(err) : resolve(rows)
-            )
-        )
-    ]);
+    const countRow = await queryOne(
+        "SELECT COUNT(*) as total FROM files WHERE user_team = ? AND current_stage = 'pending_team_leader'",
+        [team]
+    );
+    const total = countRow ? countRow.total : 0;
+
+    const files = await query(
+        `SELECT f.*, fc.comment as latest_comment
+         FROM files f
+         LEFT JOIN file_comments fc ON f.id = fc.file_id AND fc.id = (
+           SELECT MAX(id) FROM file_comments WHERE file_id = f.id
+         )
+         WHERE f.user_team = ? AND f.current_stage = 'pending_team_leader'
+         ORDER BY f.uploaded_at DESC LIMIT ? OFFSET ?`,
+        [team, limit, offset]
+    );
 
     return {
         files,
@@ -707,24 +694,18 @@ async function filterTeamLeaderQueue(team, filters = {}, sort = {}, page = 1, li
     const sortDir = sort.direction === 'ASC' ? 'ASC' : 'DESC';
     const where = whereClauses.join(' AND ');
 
-    const [total, files] = await Promise.all([
-        new Promise((resolve, reject) =>
-            db.get(`SELECT COUNT(*) as total FROM files WHERE ${where}`, params,
-                (err, row) => err ? reject(err) : resolve(row.total))
-        ),
-        new Promise((resolve, reject) =>
-            db.all(
-                `SELECT f.*, fc.comment as latest_comment
-                 FROM files f
-                 LEFT JOIN file_comments fc ON f.id = fc.file_id AND fc.id = (
-                   SELECT MAX(id) FROM file_comments WHERE file_id = f.id
-                 )
-                 WHERE ${where} ORDER BY ${sortField} ${sortDir} LIMIT ? OFFSET ?`,
-                [...params, limit, offset],
-                (err, rows) => err ? reject(err) : resolve(rows)
-            )
-        )
-    ]);
+    const countRow = await queryOne(`SELECT COUNT(*) as total FROM files WHERE ${where}`, params);
+    const total = countRow ? countRow.total : 0;
+
+    const files = await query(
+        `SELECT f.*, fc.comment as latest_comment
+         FROM files f
+         LEFT JOIN file_comments fc ON f.id = fc.file_id AND fc.id = (
+           SELECT MAX(id) FROM file_comments WHERE file_id = f.id
+         )
+         WHERE ${where} ORDER BY ${sortField} ${sortDir} LIMIT ? OFFSET ?`,
+        [...params, limit, offset]
+    );
 
     return {
         files,
@@ -739,28 +720,21 @@ async function filterTeamLeaderQueue(team, filters = {}, sort = {}, page = 1, li
 async function getAdminQueue(page = 1, limit = 50) {
     const offset = (page - 1) * limit;
 
-    const [total, files] = await Promise.all([
-        new Promise((resolve, reject) =>
-            db.get(
-                "SELECT COUNT(*) as total FROM files WHERE current_stage = 'pending_admin'",
-                [],
-                (err, row) => err ? reject(err) : resolve(row.total)
-            )
-        ),
-        new Promise((resolve, reject) =>
-            db.all(
-                `SELECT f.*, fc.comment as latest_comment
-                 FROM files f
-                 LEFT JOIN file_comments fc ON f.id = fc.file_id AND fc.id = (
-                   SELECT MAX(id) FROM file_comments WHERE file_id = f.id
-                 )
-                 WHERE f.current_stage = 'pending_admin'
-                 ORDER BY f.uploaded_at DESC LIMIT ? OFFSET ?`,
-                [limit, offset],
-                (err, rows) => err ? reject(err) : resolve(rows)
-            )
-        )
-    ]);
+    const countRow = await queryOne(
+        "SELECT COUNT(*) as total FROM files WHERE current_stage = 'pending_admin'"
+    );
+    const total = countRow ? countRow.total : 0;
+
+    const files = await query(
+        `SELECT f.*, fc.comment as latest_comment
+         FROM files f
+         LEFT JOIN file_comments fc ON f.id = fc.file_id AND fc.id = (
+           SELECT MAX(id) FROM file_comments WHERE file_id = f.id
+         )
+         WHERE f.current_stage = 'pending_admin'
+         ORDER BY f.uploaded_at DESC LIMIT ? OFFSET ?`,
+        [limit, offset]
+    );
 
     return {
         files,
@@ -785,27 +759,21 @@ async function getAdminQueue(page = 1, limit = 50) {
 async function moveFolderToNas({ folderName, username, fileIds, destinationPath, comments }, admin) {
     // ── 1. Load all files from DB (check files table then assignment_attachments) ──
     const dbFiles = (await Promise.all(
-        fileIds.map(fileId => new Promise((resolve, reject) => {
-            db.get('SELECT * FROM files WHERE id = ?', [fileId], (err, row) => {
-                if (err) return reject(err);
-                if (row) return resolve(row);
-                db.get(
-                    'SELECT *, created_at AS uploaded_at FROM assignment_attachments WHERE id = ?',
-                    [fileId],
-                    (err2, row2) => {
-                        if (err2) return reject(err2);
-                        if (row2) {
-                            // Normalize to match files table shape
-                            row2.source_type = 'assignment_attachment';
-                            row2.user_id = row2.uploaded_by_id;
-                            row2.username = row2.uploaded_by_username;
-                            row2.status = 'team_leader_approved';
-                        }
-                        resolve(row2 || null);
-                    }
-                );
-            });
-        }))
+        fileIds.map(async (fileId) => {
+            let row = await queryOne('SELECT * FROM files WHERE id = ?', [fileId]);
+            if (row) return row;
+            const att = await queryOne(
+                'SELECT *, created_at AS uploaded_at FROM assignment_attachments WHERE id = ?',
+                [fileId]
+            );
+            if (att) {
+                att.source_type = 'assignment_attachment';
+                att.user_id = att.uploaded_by_id;
+                att.username = att.uploaded_by_username;
+                att.status = 'team_leader_approved';
+            }
+            return att || null;
+        })
     )).filter(Boolean);
 
     if (dbFiles.length === 0) {
@@ -921,39 +889,33 @@ async function moveFolderToNas({ folderName, username, fileIds, destinationPath,
 
         // Update DB record
         if (file.source_type === 'assignment_attachment') {
-            await new Promise((resolve) =>
-                db.run(
-                    `UPDATE assignment_attachments SET
-                        status = 'final_approved',
-                        current_stage = 'published_to_public',
-                        admin_reviewed_at = ?,
-                        admin_comments = ?,
-                        file_path = ?,
-                        public_network_url = ?,
-                        final_approved_at = ?
-                     WHERE id = ?`,
-                    [nowSql, comments || null, nasFilePath, nasFilePath, nowSql, file.id],
-                    (err) => { if (err) logError(err, { context: 'moveFolderToNas-attachment-update' }); resolve(); }
-                )
-            );
+            await query(
+                `UPDATE assignment_attachments SET
+                    status = 'final_approved',
+                    current_stage = 'published_to_public',
+                    admin_reviewed_at = ?,
+                    admin_comments = ?,
+                    file_path = ?,
+                    public_network_url = ?,
+                    final_approved_at = ?
+                 WHERE id = ?`,
+                [nowSql, comments || null, nasFilePath, nasFilePath, nowSql, file.id]
+            ).catch(err => logError(err, { context: 'moveFolderToNas-attachment-update' }));
         } else {
-            await new Promise((resolve, reject) =>
-                db.run(
-                    `UPDATE files SET
-                        status = 'final_approved',
-                        current_stage = 'published_to_public',
-                        admin_id = ?,
-                        admin_username = ?,
-                        admin_reviewed_at = ?,
-                        admin_comments = ?,
-                        file_path = ?,
-                        public_network_url = ?,
-                        final_approved_at = ?
-                     WHERE id = ?`,
-                    [admin.id, admin.username, nowSql, comments || null,
-                     nasFilePath, nasFilePath, nowSql, file.id],
-                    (err) => err ? reject(err) : resolve()
-                )
+            await query(
+                `UPDATE files SET
+                    status = 'final_approved',
+                    current_stage = 'published_to_public',
+                    admin_id = ?,
+                    admin_username = ?,
+                    admin_reviewed_at = ?,
+                    admin_comments = ?,
+                    file_path = ?,
+                    public_network_url = ?,
+                    final_approved_at = ?
+                 WHERE id = ?`,
+                [admin.id, admin.username, nowSql, comments || null,
+                 nasFilePath, nasFilePath, nowSql, file.id]
             );
 
             logFileStatusChange(db, file.id, file.status, 'final_approved',
@@ -996,9 +958,8 @@ async function moveFolderToNas({ folderName, username, fileIds, destinationPath,
  */
 async function deleteAttachmentFolder({ folderName, fileIds }, admin) {
     for (const fileId of (fileIds || [])) {
-        const attachment = await new Promise(resolve =>
-            db.get('SELECT * FROM assignment_attachments WHERE id = ?', [fileId],
-                (err, row) => resolve(row || null))
+        const attachment = await queryOne(
+            'SELECT * FROM assignment_attachments WHERE id = ?', [fileId]
         );
 
         if (attachment?.file_path) {
@@ -1013,9 +974,7 @@ async function deleteAttachmentFolder({ folderName, fileIds }, admin) {
             await safeDeleteFile(srcPath).catch(() => {});
         }
 
-        await new Promise(resolve =>
-            db.run('DELETE FROM assignment_attachments WHERE id = ?', [fileId], () => resolve())
-        );
+        await query('DELETE FROM assignment_attachments WHERE id = ?', [fileId]);
     }
 
     logActivity(db, admin.id, admin.username, admin.role, admin.team,
@@ -1029,26 +988,24 @@ async function deleteAttachmentFolder({ folderName, fileIds }, admin) {
  * Uses raw db.run because the file_views table is not in fileRepository yet.
  */
 async function recordView(fileId, { userId, username, fullName, role }) {
-    const sql = `INSERT INTO file_views (file_id, user_id, username, full_name, role, viewed_at)
-                 VALUES (?, ?, ?, ?, ?, NOW())
-                 ON DUPLICATE KEY UPDATE full_name = VALUES(full_name), role = VALUES(role), viewed_at = NOW()`;
-    return new Promise((resolve, reject) =>
-        db.run(sql, [fileId, userId, username || '', fullName || '', role || ''],
-            (err) => err ? reject(err) : resolve(true))
+    await query(
+        `INSERT INTO file_views (file_id, user_id, username, full_name, role, viewed_at)
+         VALUES (?, ?, ?, ?, ?, NOW())
+         ON DUPLICATE KEY UPDATE full_name = VALUES(full_name), role = VALUES(role), viewed_at = NOW()`,
+        [fileId, userId, username || '', fullName || '', role || '']
     );
+    return true;
 }
 
 /**
  * Get all viewers for a file, ordered by most recent view.
  */
 async function getViewers(fileId) {
-    return new Promise((resolve, reject) =>
-        db.all(
-            'SELECT user_id, username, full_name, role, viewed_at FROM file_views WHERE file_id = ? ORDER BY viewed_at DESC',
-            [fileId],
-            (err, rows) => err ? reject(err) : resolve(rows || [])
-        )
+    const rows = await query(
+        'SELECT user_id, username, full_name, role, viewed_at FROM file_views WHERE file_id = ? ORDER BY viewed_at DESC',
+        [fileId]
     );
+    return rows || [];
 }
 
 module.exports = {

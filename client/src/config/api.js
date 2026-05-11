@@ -172,7 +172,9 @@ export const apiFetch = async (endpoint, options = {}) => {
 
     if (!response.ok) {
       if (response.status === 401) {
-        console.warn('🔒 Authentication expired or invalid. User may need to log in again.');
+        console.warn('🔒 Authentication expired or invalid. Logging out user.');
+        // Clear session state — App.jsx will automatically redirect to /login
+        useStore.getState().logout();
       } else if (response.status === 403) {
         console.error('🚫 Access denied: Insufficient permissions.');
       }

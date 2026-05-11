@@ -57,11 +57,15 @@ async function up() {
       }
 
       // Ensure unique key exists
-      try {
+      const existingIndexes = await query(`
+        SHOW INDEX FROM file_views WHERE Key_name = 'unique_user_file'
+      `);
+      
+      if (existingIndexes.length === 0) {
         await query(`ALTER TABLE file_views ADD UNIQUE KEY unique_user_file (file_id, user_id)`);
         console.log('  ✅ Added unique key');
-      } catch (e) {
-        // Already exists — fine
+      } else {
+        console.log('  ⏭️  Unique key already exists');
       }
 
       console.log('  ✅ file_views columns verified');
