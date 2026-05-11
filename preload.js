@@ -23,6 +23,7 @@ try {
 
     // Get default network projects path
     getNetworkProjectsPath: () => ipcRenderer.invoke('app:getNetworkProjectsPath'),
+    getFileIcon: (filePath) => ipcRenderer.invoke('app:getFileIcon', filePath),
 
     // Window flashing for notifications
     flashFrame: (shouldFlash) => ipcRenderer.send('window:flashFrame', shouldFlash),

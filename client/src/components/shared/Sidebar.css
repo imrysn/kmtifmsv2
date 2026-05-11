@@ -1,0 +1,307 @@
+.premium-sidebar {
+  position: fixed;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: var(--sidebar-width);
+  background: var(--bg-primary);
+  border-right: 1px solid var(--border-light);
+  display: flex;
+  flex-direction: column;
+  z-index: 50;
+  transition: width 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: var(--shadow-xl);
+  width: 280px;
+  overflow: hidden;
+}
+
+.premium-sidebar.collapsed {
+  width: 80px;
+}
+
+.premium-sidebar.collapsed:hover {
+  width: 280px;
+}
+
+.premium-sidebar-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(4px);
+  z-index: 45;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--transition-normal);
+}
+
+.premium-sidebar-overlay.active {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.premium-sidebar-overlay.active {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.mobile-close-btn {
+  display: none;
+  margin-left: auto;
+  padding: var(--space-2);
+  color: var(--text-tertiary);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+}
+
+/* Profile Section */
+.sidebar-profile {
+  padding: 0 var(--space-4) var(--space-8);
+  transition: padding 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.premium-sidebar.collapsed .sidebar-profile {
+  padding-left: 0;
+  padding-right: 0;
+}
+
+.profile-wrapper {
+  background: var(--bg-secondary);
+  padding: var(--space-3) 16px; /* Fixed: centers 48px avatar in 80px when wrapper is 100% width */
+  border-radius: var(--radius-xl);
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  border: 1px solid var(--border-light);
+  transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow: hidden;
+  min-height: 64px;
+  width: 100%;
+}
+
+.premium-sidebar.collapsed .profile-wrapper {
+  gap: 0;
+  border-radius: 0;
+  background: transparent;
+  border-color: transparent;
+}
+
+.profile-wrapper:hover {
+  border-color: var(--border-medium);
+  background: var(--bg-tertiary);
+}
+
+.profile-avatar {
+  border: 2px solid var(--bg-primary);
+  box-shadow: var(--shadow-sm);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.premium-sidebar.collapsed .profile-avatar {
+  transform: scale(0.7);
+}
+
+.profile-details {
+  flex: 1;
+  min-width: 0;
+  transition: opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1) 0.1s;
+  opacity: 1;
+  visibility: visible;
+  white-space: nowrap;
+  color: #111827;
+}
+
+.premium-sidebar.collapsed .profile-details {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition-delay: 0s;
+}
+
+.profile-name {
+  font-size: var(--font-md);
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: var(--space-1);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.profile-role-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.team-label {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 80px;
+}
+
+/* Navigation Section */
+.sidebar-navigation {
+  flex: 1;
+  padding: 0 var(--space-4);
+  overflow-y: auto;
+  transition: padding 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.premium-sidebar.collapsed .sidebar-navigation {
+  padding-left: 0;
+  padding-right: 0;
+}
+
+.nav-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.premium-nav-item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  padding: var(--space-3) 30px;
+  border-radius: var(--radius-lg);
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  margin-bottom: 2px;
+  overflow: hidden;
+  width: 100%;
+}
+
+.premium-sidebar.collapsed .premium-nav-item {
+  /* No changes needed to padding or justification to keep icons still */
+}
+
+.premium-nav-item:hover {
+  background: var(--bg-secondary);
+  color: var(--primary-700);
+}
+
+.premium-nav-item.active {
+  background: var(--primary-50);
+  color: var(--primary-700);
+}
+
+.nav-item-content {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.nav-item-content svg {
+  flex-shrink: 0;
+}
+
+.nav-label {
+  font-size: var(--font-md);
+  font-weight: 500;
+  transition: opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1) 0.1s;
+  opacity: 1;
+  visibility: visible;
+  white-space: nowrap;
+}
+
+.premium-sidebar.collapsed .nav-label {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition-delay: 0s;
+}
+
+.nav-badge {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.premium-sidebar.collapsed .nav-badge {
+  opacity: 0;
+  transform: scale(0);
+}
+
+.active-indicator {
+  position: absolute;
+  left: 0;
+  top: 15%;
+  bottom: 15%;
+  width: 4px;
+  background: var(--primary-600);
+  border-radius: 0 4px 4px 0;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.premium-sidebar.collapsed .active-indicator {
+  opacity: 0;
+}
+
+/* Footer Section */
+.sidebar-footer {
+  padding: var(--space-6) var(--space-4);
+  border-top: 1px solid var(--border-light);
+}
+
+.premium-logout-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: var(--space-3) 30px; /* Fixed: centers 20px icon in 80px */
+  border-radius: var(--radius-lg);
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--danger-600);
+  font-weight: 600;
+  font-size: var(--font-md);
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.premium-logout-btn svg {
+  flex-shrink: 0;
+}
+
+.premium-logout-btn span {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  white-space: nowrap;
+}
+
+.premium-sidebar.collapsed .premium-logout-btn span {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition-delay: 0s;
+}
+
+.premium-logout-btn:hover {
+  background: var(--danger-50);
+  border-color: var(--danger-100);
+}
+
+.premium-sidebar.collapsed .premium-logout-btn {
+  /* No changes needed to keep icon still */
+}
+
+/* Mobile Responsiveness */
+@media (max-width: 1024px) {
+  .premium-sidebar {
+    transform: translateX(-100%);
+  }
+  
+  .premium-sidebar.open {
+    transform: translateX(0);
+  }
+  
+  .mobile-close-btn {
+    display: flex;
+  }
+}

@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { apiFetch, API_BASE_URL } from '@/config/api'
 import './css/AssignmentDetailsModal.css'
 import { getDisplayFileType } from '../../../utils/fileTypeUtils'
-import { ConfirmationModal, FileOpenModal } from '../../shared'
+import { ConfirmationModal, FileOpenModal, StatusBadge, TeamBadge } from '../../shared'
 
 const ReviewModal = ({
   showReviewModal,
@@ -101,39 +101,6 @@ const ReviewModal = ({
     handleReviewSubmit({ preventDefault: () => { } }, 'reject')
   }
 
-  const getStatusDisplayName = (status) => {
-    switch (status) {
-      case 'uploaded':
-      case 'submitted':
-        return 'Pending Team Leader'
-      case 'team_leader_approved':
-        return 'Pending Admin'
-      case 'final_approved':
-        return 'Approved'
-      case 'rejected_by_team_leader':
-        return 'Rejected by Team Leader'
-      case 'rejected_by_admin':
-        return 'Rejected by Admin'
-      default:
-        return 'Pending Review'
-    }
-  }
-
-  const mapFileStatus = (status) => {
-    switch (status) {
-      case 'uploaded':
-      case 'submitted':
-      case 'team_leader_approved':
-        return 'pending'
-      case 'final_approved':
-        return 'approved'
-      case 'rejected_by_team_leader':
-      case 'rejected_by_admin':
-        return 'rejected'
-      default:
-        return 'pending'
-    }
-  }
 
   return (
     <div className="modal-overlay" onClick={handleClose}>
@@ -166,9 +133,7 @@ const ReviewModal = ({
               </div>
               <div className="detail-item">
                 <span className="detail-label">TEAM:</span>
-                <span className="detail-value team-badge-inline">
-                  {selectedFile.user_team || selectedFile.team || user.team}
-                </span>
+                <TeamBadge team={selectedFile.user_team || selectedFile.team || user.team} size="sm" />
               </div>
               <div className="detail-item">
                 <span className="detail-label">UPLOAD DATE:</span>
@@ -178,9 +143,7 @@ const ReviewModal = ({
               </div>
               <div className="detail-item">
                 <span className="detail-label">STATUS:</span>
-                <span className={`detail-value status-badge status-${mapFileStatus(selectedFile.status || selectedFile.current_stage)}`}>
-                  {getStatusDisplayName(selectedFile.status || selectedFile.current_stage)}
-                </span>
+                <StatusBadge status={selectedFile.status || selectedFile.current_stage} size="sm" />
               </div>
             </div>
           </div>

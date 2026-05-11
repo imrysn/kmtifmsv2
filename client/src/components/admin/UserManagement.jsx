@@ -2,30 +2,13 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react'
 import { apiFetch } from '@/config/api'
 import './UserManagement.css'
 import { AlertMessage, ConfirmationModal, FormModal } from './modals'
-import { UserPerformanceCard } from '../shared'
+import { UserPerformanceCard, RoleBadge, TeamBadge } from '../shared'
 
 import { SkeletonLoader } from '../common/SkeletonLoader'
 import { useAuth, useNetwork } from '../../contexts'
 import { usePagination } from '../../hooks'
 import { withErrorBoundary } from '../common'
 
-/**
- * Normalise a role string from the DB into a stable CSS class name.
- * Handles both "TEAM_LEADER" (underscore) variants.
- *   "ADMIN"       → "admin"
- *   "USER"        → "user"
- *   "TEAM_LEADER" → "team-leader"
- */
-const roleToClass = (role = '') =>
-  role.toLowerCase().replace(/[\s_]+/g, '-')
-
-/**
- * Normalise a role value for display.
- * Converts DB underscore format to space format for consistent UI labels.
- *   "TEAM_LEADER" → "TEAM LEADER"
- */
-const roleToLabel = (role = '') =>
-  role.replace(/_/g, ' ')
 
 // Memoized row component to prevent inline function re-renders
 const MemberPerfRow = React.memo(({ user, score, performanceData, onScoreLoad }) => {
@@ -180,7 +163,6 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess, u
         u.username.toLowerCase().includes(query) ||
         u.email.toLowerCase().includes(query) ||
         u.role.toLowerCase().includes(query) ||
-        roleToLabel(u.role).toLowerCase().includes(query) ||
         (u.team && u.team.toLowerCase().includes(query))
       )
     }
@@ -669,10 +651,6 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess, u
                 </thead>
                 <tbody>
                   {paginatedUsers.map((userData) => {
-                    // Normalise role → CSS class (handles both "TEAM LEADER" and "TEAM_LEADER")
-                    const roleClass = roleToClass(userData.role)
-                    // Normalise role → display label (always use space format)
-                    const roleLabel = roleToLabel(userData.role)
                     return (
                       <tr key={userData.id} className="user-row" data-user-id={userData.id}>
                         <td>
@@ -697,14 +675,10 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess, u
                           </div>
                         </td>
                         <td>
-                          <span className={`role-badge ${roleClass}`}>
-                            {roleLabel}
-                          </span>
+                          <RoleBadge role={userData.role} size="md" />
                         </td>
                         <td>
-                          <span className="team-badge">
-                            {userData.team || '—'}
-                          </span>
+                          <TeamBadge team={userData.team} size="md" />
                         </td>
                         <td>
                           <div className="action-buttons">
@@ -1000,7 +974,7 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess, u
           isLoading={isLoading}
           itemInfo={{
             name: userToDelete.fullName,
-            details: `${userToDelete.email} • ${roleToLabel(userToDelete.role)}`
+            details: `${userToDelete.email} • ${userToDelete.role.replace(/_/g, ' ')}`
           }}
         >
           <p className="warning-text">

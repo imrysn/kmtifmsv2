@@ -1,19 +1,11 @@
-import { useState, useEffect, Suspense, lazy, useCallback, useMemo, startTransition } from 'react'
+import { useState, useEffect, Suspense, lazy, useCallback, useMemo, startTransition, memo } from 'react'
 import { apiFetch, API_BASE_URL } from '@/config/api'
 import useStore from '../store/useStore'
 import '../css/UserDashboard.css'
 import SkeletonLoader from '../components/common/SkeletonLoader'
-import { AlertMessage } from '../components/shared'
-
-// Sync unread count to Electron taskbar badge + icon flash
-const syncElectronBadge = (count) => {
-  if (!window.electron) return
-  if (typeof window.electron.setBadge === 'function') window.electron.setBadge(count)
-  if (typeof window.electron.flashFrame === 'function') window.electron.flashFrame(count > 0)
-}
+import { AlertMessage, Sidebar } from '../components/shared'
 
 // Eagerly import critical components that are always visible
-import Sidebar from '../components/user/Sidebar'
 import DashboardTab from '../components/user/DashboardTab'
 import FileModal from '../components/user/FileModal'
 
@@ -23,19 +15,25 @@ const MyFilesTab = lazy(() => import('../components/user/MyFilesTab'))
 const NotificationTab = lazy(() => import('../components/user/NotificationTab-RealTime'))
 const TasksTab = lazy(() => import('../components/user/TasksTab-Enhanced'))
 
-const UserDashboard = ({ user, onLogout }) => {
+const EMPTY_ARRAY = [];
+
+const UserDashboard = memo(({ user, onLogout }) => {
   const [activeTab, setActiveTab] = useState('dashboard')
-  const [files, setFiles] = useState([])
-  const [isLoading, setIsLoading] = useState(false)
+  const [sidebarOpen, setSidebarOpen] = useState(false)
+  
+  // STABILIZED: Use selectors only for critical structural data
+  const setFilesCache = useStore(state => state.setFilesCache)
+  // Removed notificationCount and filesCache subscriptions from here to prevent re-renders
+  
+  const [isLoading, setIsLoading] = useState(false) // Initialized as false, fetchUserFiles will handle it
   const [error, setError] = useState('')
   const [selectedFile, setSelectedFile] = useState(null)
   const [showFileModal, setShowFileModal] = useState(false)
   const [fileComments, setFileComments] = useState([])
-  const [notificationCount, setNotificationCount] = useState(0)
 
-  // Wrap in startTransition so badge updates never block scroll/interaction
+  // Stable callback for unread count updates from children
   const handleUpdateUnreadCount = useCallback((count) => {
-    startTransition(() => setNotificationCount(count))
+    useStore.getState().setGlobalUnreadCount(count)
   }, [])
 
   // Fetch unread count directly — used by SSE and initial load
@@ -43,17 +41,25 @@ const UserDashboard = ({ user, onLogout }) => {
     try {
       const data = await apiFetch(`/api/notifications/user/${user.id}/unread-count`)
       if (data.success) {
-        startTransition(() => setNotificationCount(data.count || 0))
+        useStore.getState().setGlobalUnreadCount(data.count || 0)
       }
     } catch (_) {}
   }, [user.id])
 
+
+
   // SSE — instant badge + flash when a new notification arrives (runs regardless of active tab)
   useEffect(() => {
-    fetchUnreadCount() // get initial count on mount
+    // Pause global SSE if the notification tab is active, because PremiumNotificationCenter
+    // handles its own SSE + fetching, preventing double connections/lag.
+    if (activeTab === 'notification') return;
+
     let es
     let reconnectTimer
+    let isMounted = true
+
     const connect = () => {
+      if (!isMounted) return;
       const { token } = useStore.getState()
       const url = `${API_BASE_URL}/api/notifications/user/${user.id}/stream${token ? `?token=${token}` : ''}`
       es = new EventSource(url)
@@ -62,15 +68,18 @@ const UserDashboard = ({ user, onLogout }) => {
       }
       es.onerror = () => {
         es.close()
-        reconnectTimer = setTimeout(connect, 5000)
+        if (isMounted) {
+          reconnectTimer = setTimeout(connect, 5000)
+        }
       }
     }
     connect()
     return () => {
+      isMounted = false;
       if (es) es.close()
       clearTimeout(reconnectTimer)
     }
-  }, [user.id, fetchUnreadCount])
+  }, [user.id, fetchUnreadCount, activeTab])
 
   // Smart Navigation State
   const [highlightedAssignmentId, setHighlightedAssignmentId] = useState(null)
@@ -78,11 +87,12 @@ const UserDashboard = ({ user, onLogout }) => {
   const [notificationCommentContext, setNotificationCommentContext] = useState(null)
 
   const fetchUserFiles = useCallback(async () => {
-    setIsLoading(true)
+    const currentFiles = useStore.getState().filesCache[user.id]
+    if (!currentFiles) setIsLoading(true)
     try {
       const data = await apiFetch(`/api/files/user/${user.id}`)
       if (data.success) {
-        setFiles(data.files || [])
+        setFilesCache(user.id, data.files || [])
       } else {
         setError('Failed to fetch your files')
       }
@@ -94,8 +104,15 @@ const UserDashboard = ({ user, onLogout }) => {
     }
   }, [user.id])
 
+  // Initial data load
+  useEffect(() => {
+    fetchUnreadCount()
+    fetchUserFiles()
+  }, [fetchUnreadCount, fetchUserFiles])
+
   const handleTabChange = useCallback((tab) => {
     setActiveTab(tab)
+    setSidebarOpen(false)
   }, [])
 
   const clearMessages = useCallback(() => {
@@ -114,14 +131,11 @@ const UserDashboard = ({ user, onLogout }) => {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
   }, [])
 
-  useEffect(() => {
-    fetchUserFiles()
-  }, [fetchUserFiles])
+  // Initial load effect handled above
+  // Removed redundant useEffect to prevent duplicate calls
 
-  // Sync unread badge + flash to Electron taskbar whenever count changes
-  useEffect(() => {
-    syncElectronBadge(notificationCount)
-  }, [notificationCount])
+  // Sync unread badge + flash to Electron taskbar moved to App.jsx for performance
+
 
   const openFileModal = useCallback(async (file) => {
     setSelectedFile(file)
@@ -209,14 +223,17 @@ const UserDashboard = ({ user, onLogout }) => {
   const clearFileHighlight = useCallback(() => setHighlightedFileId(null), [])
   const clearNotificationContext = useCallback(() => setNotificationCommentContext(null), [])
 
-  // filesCount derived without recreating on every render
-  const filesCount = useMemo(() =>
-    files.filter(f =>
-      f.status === 'uploaded' ||
-      f.status === 'team_leader_approved' ||
-      f.status === 'final_approved'
-    ).length
-  , [files])
+  // STABILIZED: userNavItems no longer depends on notificationCount/filesCount
+  // These will be injected by the Sidebar itself to prevent UserDashboard re-renders
+  const userNavItems = useMemo(() => [
+    { id: 'dashboard', label: 'Dashboard', icon: 'dashboard' },
+    { id: 'notification', label: 'Notifications', icon: 'notifications', type: 'notification' },
+    { id: 'my-files', label: 'My Files', icon: 'files', type: 'files' },
+    { id: 'tasks', label: 'My Tasks', icon: 'tasks' },
+    { id: 'team-files', label: 'Team Tasks', icon: 'team' }
+  ], []);
+
+  const files = useStore(state => state.filesCache[user.id] || EMPTY_ARRAY);
 
   const renderActiveTab = () => {
     switch (activeTab) {
@@ -288,18 +305,25 @@ const UserDashboard = ({ user, onLogout }) => {
 
   return (
     <Suspense fallback={<SkeletonLoader type="dashboard" />}>
-      <div className="minimal-dashboard user-dashboard">
+      <div className="user-layout">
         <Sidebar
-          activeTab={activeTab}
-          setActiveTab={handleTabChange}
-          filesCount={filesCount}
-          notificationCount={notificationCount}
-          onLogout={handleLogout}
           user={user}
+          items={userNavItems}
+          activeTab={activeTab}
+          onTabChange={handleTabChange}
+          onLogout={handleLogout}
+          isOpen={sidebarOpen}
+          onClose={() => setSidebarOpen(false)}
         />
 
         {/* Main Content */}
-        <div className="main-content">
+        <div 
+          className="main-content"
+          style={{ 
+            marginLeft: '80px',
+            width: 'calc(100% - 80px)'
+          }}
+        >
           <div className="dashboard-content">
             <AlertMessage
               type="error"
@@ -328,6 +352,6 @@ const UserDashboard = ({ user, onLogout }) => {
       </div>
     </Suspense>
   )
-}
+});
 
 export default UserDashboard

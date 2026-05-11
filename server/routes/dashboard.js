@@ -394,7 +394,8 @@ router.get('/user-performance/:userId', authorizeRole(['USER', 'TEAM_LEADER', 'A
     (reliabilityScore * 20)
   )) : 0;
 
-  const performanceData = (await calculateAllUserPerformance())[userId] || {};
+  // FIX #1 — pass userId so only this user's rows are fetched from MySQL
+  const performanceData = (await calculateAllUserPerformance(null, userId))[userId] || {};
 
   res.json({
     success: true,

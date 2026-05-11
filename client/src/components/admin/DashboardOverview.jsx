@@ -92,8 +92,37 @@ const DashboardOverview = () => {
 
     if (isConnected) {
       fetchSummary(true) // Initial load
-      const interval = setInterval(() => fetchSummary(false), 60 * 1000)
-      return () => { mounted = false; clearInterval(interval) }
+
+      // FIX #11 — pause the poll while the tab is hidden so we don't hammer
+      // NAS MySQL (11 aggregate queries) every 60s from every idle client.
+      let interval = null
+
+      const startInterval = () => {
+        if (interval) return
+        interval = setInterval(() => {
+          if (!document.hidden) fetchSummary(false)
+        }, 60 * 1000)
+      }
+
+      const handleVisibility = () => {
+        if (document.hidden) {
+          clearInterval(interval)
+          interval = null
+        } else {
+          // Tab became visible — fetch immediately then restart interval
+          fetchSummary(false)
+          startInterval()
+        }
+      }
+
+      startInterval()
+      document.addEventListener('visibilitychange', handleVisibility)
+
+      return () => {
+        mounted = false
+        clearInterval(interval)
+        document.removeEventListener('visibilitychange', handleVisibility)
+      }
     }
   }, [isConnected])
 

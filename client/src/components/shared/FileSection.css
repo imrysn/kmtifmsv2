@@ -1,0 +1,212 @@
+/* Legacy File Section Styling */
+.legacy-file-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.legacy-file-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.legacy-file-row:hover {
+  background-color: #f9fafb;
+  border-color: #d1d5db;
+}
+
+.legacy-file-row.viewed {
+  border-left: 3px solid #16a34a;
+  background-color: #f0fdf4;
+  border-color: #86efac;
+}
+
+.legacy-file-row.viewed:hover {
+  background-color: #dcfce7;
+}
+
+.file-info-main {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+  min-width: 0;
+}
+
+.file-details-legacy {
+  flex: 1;
+  min-width: 0;
+}
+
+.file-name-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 2px;
+}
+
+.file-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: #1c1e21;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.viewed-badge {
+  font-size: 10px;
+  font-weight: 700;
+  color: #16a34a;
+  background-color: #dcfce7;
+  border: 1px solid #86efac;
+  padding: 1px 7px;
+  border-radius: 10px;
+  text-transform: uppercase;
+}
+
+.file-meta-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #65676b;
+  flex-wrap: wrap;
+}
+
+.submitter-name {
+  font-weight: 600;
+  color: #1877f2;
+}
+
+.legacy-tag-badge {
+  background-color: #dbeafe;
+  color: #1e40af;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 600;
+  border: 1px solid #93c5fd;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.legacy-file-status-badge {
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.legacy-file-status-badge.uploaded { background: #e0e7ff; color: #4338ca; }
+.legacy-file-status-badge.final_approved { background: #d1fae5; color: #059669; }
+.legacy-file-status-badge.rejected_by_team_leader,
+.legacy-file-status-badge.rejected_by_admin { background: #fee2e2; color: #dc2626; }
+
+/* Folder Styling */
+.legacy-folder-group {
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.legacy-folder-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  background-color: #f0f9ff;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.legacy-folder-header:hover {
+  background-color: #e0f2fe;
+}
+
+.folder-id-section {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.folder-icon-wrapper {
+  font-size: 24px;
+}
+
+.folder-text {
+  display: flex;
+  flex-direction: column;
+}
+
+.folder-name {
+  font-size: 14px;
+  font-weight: 700;
+  color: #0c4a6e;
+}
+
+.folder-meta {
+  font-size: 11px;
+  color: #64748b;
+}
+
+.legacy-folder-content {
+  padding: 8px;
+  background-color: #f8fafc;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.legacy-file-row.is-indented {
+  border: 1px solid #f1f5f9;
+}
+
+/* Actions */
+.file-actions-legacy {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.legacy-action-btn {
+  background: transparent;
+  border: none;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  color: #64748b;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.legacy-action-btn:hover {
+  background-color: #e2e8f0;
+  color: #1e293b;
+}
+
+.legacy-action-btn.delete:hover {
+  background-color: #fee2e2;
+  color: #dc2626;
+}
+
+.legacy-empty-state {
+  padding: 20px;
+  text-align: center;
+  font-size: 13px;
+  color: #94a3b8;
+  background: #f8fafc;
+  border: 1px dashed #e2e8f0;
+  border-radius: 8px;
+}

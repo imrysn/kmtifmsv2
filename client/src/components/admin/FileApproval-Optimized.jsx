@@ -4,6 +4,7 @@ import FileIcon from '../shared/FileIcon'
 import { SkeletonLoader } from '../common/SkeletonLoader'
 import './FileApproval-Optimized.css'
 import { ConfirmationModal, AlertMessage, FileDetailsModal } from './modals'
+import { StatusBadge, TeamBadge } from '../shared'
 import { useAuth, useNetwork } from '../../contexts'
 import { withErrorBoundary } from '../common'
 
@@ -116,9 +117,7 @@ const FolderRow = memo(({
         <div className="file-cell">
           <div className="file-icon">
             <FileIcon
-              fileType="folder"
               isFolder={true}
-              altText={`Folder: ${folderName}`}
               size="medium"
             />
           </div>
@@ -139,12 +138,10 @@ const FolderRow = memo(({
         </div>
       </td>
       <td>
-        <span className="team-badge">{firstFile.user_team}</span>
+        <TeamBadge team={firstFile.user_team} size="sm" />
       </td>
       <td>
-        <span className={`status-badge status-${folderStatus.cls}`}>
-          {folderStatus.label}
-        </span>
+        <StatusBadge status={folderStatus.status} size="sm" />
       </td>
       <td>
         <div className="action-dropdown-wrapper">
@@ -263,9 +260,7 @@ const FileRow = memo(({
         <div className="file-cell" style={isNested ? { paddingLeft: '40px' } : {}}>
           <div className="file-icon">
             <FileIcon
-              fileType={fileExtension}
-              isFolder={false}
-              altText={`Icon for ${file.original_name}`}
+              file={file}
               size="medium"
             />
           </div>
@@ -286,12 +281,10 @@ const FileRow = memo(({
         </div>
       </td>
       <td>
-        <span className="team-badge">{file.user_team}</span>
+        <TeamBadge team={file.user_team} size="sm" />
       </td>
       <td>
-        <span className={`status-badge status-${mapFileStatus(file.status)}`}>
-          {getStatusDisplayName(file.status)}
-        </span>
+        <StatusBadge status={file.status} size="sm" />
       </td>
       <td>
         <div className="action-dropdown-wrapper">
@@ -1418,7 +1411,9 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
                     </div>
                     <div className="detail-item">
                       <span className="detail-label">TEAM:</span>
-                      <span className="detail-value team-badge-inline">{folderReviewModal.folderFiles[0]?.user_team || 'N/A'}</span>
+                      <span className="detail-value">
+                        <TeamBadge team={folderReviewModal.folderFiles[0]?.user_team} size="sm" />
+                      </span>
                     </div>
                     <div className="detail-item">
                       <span className="detail-label">UPLOAD DATE:</span>
@@ -1434,7 +1429,9 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
                     </div>
                     <div className="detail-item">
                       <span className="detail-label">STATUS:</span>
-                      <span className="detail-value status-badge status-pending">Pending Admin</span>
+                      <span className="detail-value">
+                        <StatusBadge status="team_leader_approved" size="sm" />
+                      </span>
                     </div>
                   </div>
                 </div>

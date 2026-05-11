@@ -1,0 +1,102 @@
+.premium-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(15, 23, 42, 0.4);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  padding: var(--space-4);
+}
+
+.premium-modal-container {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-height: 90vh;
+  border-radius: var(--radius-xl);
+  overflow: hidden;
+  background: var(--glass-bg);
+}
+
+/* Modal Sizes */
+.modal-sm { max-width: 400px; }
+.modal-md { max-width: 600px; }
+.modal-lg { max-width: 800px; }
+.modal-xl { max-width: 1000px; }
+.modal-full { max-width: 1200px; }
+
+/* Header */
+.premium-modal-header {
+  padding: var(--space-4) var(--space-6);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--glass-border);
+}
+
+.premium-modal-title {
+  margin: 0;
+  color: var(--secondary-900);
+}
+
+.premium-modal-close-btn {
+  background: transparent;
+  border: none;
+  color: var(--secondary-500);
+  padding: var(--space-2);
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.premium-modal-close-btn:hover {
+  background: var(--secondary-100);
+  color: var(--secondary-900);
+}
+
+/* Body */
+.premium-modal-body {
+  padding: var(--space-6);
+  overflow-y: auto;
+  flex: 1;
+}
+
+/* Footer */
+.premium-modal-footer {
+  padding: var(--space-4) var(--space-6);
+  border-top: 1px solid var(--glass-border);
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-3);
+  background: rgba(255, 255, 255, 0.2);
+}
+
+/* Variants */
+.modal-variant-danger .premium-modal-header {
+  border-bottom: 2px solid var(--danger);
+}
+
+.modal-variant-danger .premium-modal-title {
+  color: var(--danger);
+}
+
+/* Custom Scrollbar for Modal Body */
+.premium-modal-body::-webkit-scrollbar {
+  width: 6px;
+}
+
+.premium-modal-body::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.premium-modal-body::-webkit-scrollbar-thumb {
+  background: var(--secondary-200);
+  border-radius: var(--radius-full);
+}

@@ -144,49 +144,6 @@
   background: var(--primary-hover);
 }
 
-/* ── Role & Team badges ─────────────────────────────────────────────────── */
-.users-management .role-badge,
-.users-management .team-badge {
-  padding: 0.375rem 0.875rem;
-  border: 1px solid;
-  border-radius: 12px;
-  font-size: 0.75rem;
-  font-weight: 500;
-  width: 130px;
-  text-align: center;
-  display: inline-block;
-}
-
-/* Fallback: keeps any unrecognised role visible instead of white-on-white */
-.users-management .role-badge {
-  color: #374151;
-  border-color: #9ca3af;
-}
-
-/* USER */
-.users-management .role-badge.user {
-  border-color: #059669;
-  color: #059669;
-}
-
-/* TEAM_LEADER — handles "TEAM_LEADER" from the DB */
-.users-management .role-badge.team-leader,
-.users-management .role-badge.team_leader {
-  border-color: #1d4ed8;
-  color: #1d4ed8;
-}
-
-/* ADMIN */
-.users-management .role-badge.admin {
-  border-color: #dc2626;
-  color: #dc2626;
-}
-
-.users-management .team-badge {
-  background: transparent;
-  color: #000000;
-  border: 1px solid #000000;
-}
 
 /* ── Action buttons ─────────────────────────────────────────────────────── */
 .users-management .action-buttons {

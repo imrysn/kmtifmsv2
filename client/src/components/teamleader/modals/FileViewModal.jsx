@@ -1,6 +1,7 @@
 import './css/AssignmentDetailsModal.css'
 import { API_BASE_URL } from '@/config/api'
 import { getDisplayFileType } from '../../../utils/fileTypeUtils'
+import { StatusBadge, TeamBadge } from '../../shared'
 
 const FileViewModal = ({
   showModal,
@@ -15,44 +16,6 @@ const FileViewModal = ({
     setShowModal(false)
   }
 
-  const getStatusDisplayName = (status) => {
-    switch (status) {
-      case 'uploaded':
-      case 'submitted':
-        return 'Pending Team Leader'
-      case 'team_leader_approved':
-        return 'Pending Admin'
-      case 'final_approved':
-      case 'approved':
-        return 'Approved'
-      case 'rejected_by_team_leader':
-        return 'Rejected by Team Leader'
-      case 'rejected_by_admin':
-        return 'Rejected by Admin'
-      case 'rejected':
-        return 'Rejected'
-      default:
-        return 'Pending Review'
-    }
-  }
-
-  const mapFileStatus = (status) => {
-    switch (status) {
-      case 'uploaded':
-      case 'submitted':
-      case 'team_leader_approved':
-        return 'pending'
-      case 'final_approved':
-      case 'approved':
-        return 'approved'
-      case 'rejected_by_team_leader':
-      case 'rejected_by_admin':
-      case 'rejected':
-        return 'rejected'
-      default:
-        return 'pending'
-    }
-  }
 
   return (
     <div className="modal-overlay" onClick={handleClose}>
@@ -85,9 +48,7 @@ const FileViewModal = ({
               </div>
               <div className="detail-item">
                 <span className="detail-label">TEAM:</span>
-                <span className="detail-value team-badge-inline">
-                  {selectedFile.user_team || selectedFile.team || user.team}
-                </span>
+                <TeamBadge team={selectedFile.user_team || selectedFile.team || user.team} size="sm" />
               </div>
               <div className="detail-item">
                 <span className="detail-label">SUBMITTED DATE:</span>
@@ -97,9 +58,7 @@ const FileViewModal = ({
               </div>
               <div className="detail-item">
                 <span className="detail-label">STATUS:</span>
-                <span className={`detail-value status-badge status-${mapFileStatus(selectedFile.status)}`}>
-                  {getStatusDisplayName(selectedFile.status)}
-                </span>
+                <StatusBadge status={selectedFile.status} size="sm" />
               </div>
             </div>
           </div>

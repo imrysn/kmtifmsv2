@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { apiFetch, API_BASE_URL } from '@/config/api'
-import { FileOpenModal, FileIcon, UserPerformanceCard } from '../../shared'
+import { FileOpenModal, FileIcon, UserPerformanceCard, StatusBadge } from '../../shared'
 import '../css/FileCollectionTab.css'
 
 
@@ -49,32 +49,6 @@ const MemberFilesModal = ({
     }
   }
 
-  const getStatusDisplayName = (status) => {
-    switch (status) {
-      case 'uploaded':
-      case 'submitted': return 'Pending Team Leader'
-      case 'team_leader_approved': return 'Pending Admin'
-      case 'final_approved':
-      case 'approved': return 'Approved'
-      case 'rejected_by_team_leader': return 'Rejected by Team Leader'
-      case 'rejected_by_admin': return 'Rejected by Admin'
-      case 'rejected': return 'Rejected'
-      default: return 'Pending Review'
-    }
-  }
-
-  const getStatusLabel = (file) => {
-    if (file.status === 'approved' || file.status === 'final_approved') return 'Approved'
-    if (file.status === 'rejected' || file.status === 'rejected_by_team_leader' || file.status === 'rejected_by_admin') return 'Rejected'
-    if (file.current_stage?.includes('pending_admin') || file.status === 'team_leader_approved') return 'Pending Admin'
-    return 'Pending Team Leader'
-  }
-
-  const getStatusClass = (file) => {
-    if (file.status === 'approved' || file.status === 'final_approved') return 'approved'
-    if (file.status === 'rejected' || file.status === 'rejected_by_team_leader' || file.status === 'rejected_by_admin') return 'rejected'
-    return 'pending'
-  }
 
   const formatDateTime = (dateStr) => {
     const d = new Date(dateStr)
@@ -128,7 +102,7 @@ const MemberFilesModal = ({
         <td>
           <div className="tl-file-name-cell" style={{ paddingLeft: isNested ? '2rem' : '0', display: 'flex', alignItems: 'center', gap: '10px' }}>
             <FileIcon
-              fileType={file.original_name?.split('.').pop()?.toLowerCase()}
+              file={file}
               size="small"
             />
             <strong style={{ fontSize: '13px', fontWeight: isNested ? '500' : '600' }}>{file.original_name}</strong>
@@ -145,9 +119,7 @@ const MemberFilesModal = ({
         </td>
         <td>{formatFileSize(file.file_size)}</td>
         <td>
-          <span className={`status-badge status-${getStatusClass(file)}`}>
-            {getStatusLabel(file)}
-          </span>
+          <StatusBadge status={file.status || file.current_stage} size="sm" />
         </td>
       </tr>
     )

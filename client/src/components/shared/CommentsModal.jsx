@@ -2,6 +2,7 @@ import React, { memo, useCallback, useState, useEffect, useRef, useMemo } from '
 import ReactDOM from 'react-dom';
 import { apiFetch } from '@/config/api';
 import './CommentsModal.css';
+import { RoleBadge } from './index';
 
 // Renders text with @mention highlights
 const renderTextWithMentions = (text, users = []) => {
@@ -36,13 +37,6 @@ const computeInitials = (name) => {
   const parts = name.trim().split(/\s+/);
   if (parts.length === 1) return parts[0][0].toUpperCase();
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
-};
-
-// Role badge colour map
-const ROLE_BADGE_STYLE = {
-  ADMIN:       { background: '#fee2e2', color: '#dc2626' },
-  TEAM_LEADER: { background: '#dbeafe', color: '#1877f2' },
-  USER:        { background: '#d3f1d8', color: '#1a7f37' },
 };
 
 // ─── @Mention Picker Hook ─────────────────────────────────────────────────────
@@ -278,7 +272,6 @@ const MentionInput = memo((
         >
           {filtered.map((u, i) => {
             const role = u.role?.toUpperCase().replace(/[\s_]/g, '_');
-            const badgeStyle = ROLE_BADGE_STYLE[role] || ROLE_BADGE_STYLE.USER;
             const isEveryone = u.id === 'everyone';
             
             return (
@@ -408,7 +401,6 @@ const ReplyItem = memo(({ reply, parentCommentId, assignmentId, onReplyToReply, 
   const isOwner = useMemo(() => String(reply.user_id) === String(currentUserId), [reply.user_id, currentUserId]);
   const initials = useMemo(() => computeInitials(reply.user_fullname || reply.fullName || reply.username), [reply.user_fullname, reply.fullName, reply.username]);
   const displayName = useMemo(() => reply.user_fullname || reply.fullName || reply.username, [reply.user_fullname, reply.fullName, reply.username]);
-  const roleCls = useMemo(() => `role-badge ${reply.user_role ? reply.user_role.toLowerCase().replace(/[\s_]/g, '-') : 'user'}`, [reply.user_role]);
   const renderedText = useMemo(() => {
     const content = isLong && !isExpanded ? reply.reply.substring(0, MAX_REPLY_LENGTH) + '...' : reply.reply;
     return renderTextWithMentions(content, mentionableUsers);
@@ -427,7 +419,7 @@ const ReplyItem = memo(({ reply, parentCommentId, assignmentId, onReplyToReply, 
             <div className="reply-bubble">
               <div className="reply-header">
                 <span className="reply-author">{displayName}</span>
-                <span className={roleCls}>{reply.user_role || 'USER'}</span>
+                <RoleBadge role={reply.user_role} size="sm" />
                 {isOwner && <div className="bubble-menu-wrap"><MoreMenu onEdit={() => setIsEditing(true)} onDelete={() => onDeleteReply(assignmentId, parentCommentId, reply.id)} /></div>}
               </div>
               <div className="reply-text">
@@ -495,7 +487,6 @@ const CommentItem = memo(({
   const isOwner = useMemo(() => String(comment.user_id) === String(currentUserId), [comment.user_id, currentUserId]);
   const initials = useMemo(() => computeInitials(comment.user_fullname || comment.fullName || comment.username), [comment.user_fullname, comment.fullName, comment.username]);
   const displayName = useMemo(() => comment.user_fullname || comment.fullName || comment.username, [comment.user_fullname, comment.fullName, comment.username]);
-  const roleCls = useMemo(() => `role-badge ${comment.user_role ? comment.user_role.toLowerCase().replace(/[\s_]/g, '-') : 'user'}`, [comment.user_role]);
   const isHighlighted = useMemo(() => !!(highlightUsername && (comment.username === highlightUsername || comment.user_fullname === highlightUsername)), [highlightUsername, comment.username, comment.user_fullname]);
   const renderedText = useMemo(() => {
     const content = isLong && !isExpanded ? comment.comment.substring(0, MAX_LEN) + '...' : comment.comment;
@@ -518,7 +509,7 @@ const CommentItem = memo(({
               <div className="comment-bubble">
                 <div className="comment-header">
                   <span className="comment-author">{displayName}</span>
-                  <span className={roleCls}>{comment.user_role || 'USER'}</span>
+                  <RoleBadge role={comment.user_role} size="sm" />
                   {isOwner && <div className="bubble-menu-wrap"><MoreMenu onEdit={() => setIsEditing(true)} onDelete={() => onDeleteComment(assignmentId, comment.id)} /></div>}
                 </div>
                 <div className="comment-text">

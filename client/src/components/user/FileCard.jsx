@@ -1,4 +1,4 @@
-import FileIcon from '../shared/FileIcon';
+import { FileIcon, StatusBadge } from '../shared';
 import './css/FileCard.css';
 
 const FileCard = ({ file, formatFileSize, onFileClick }) => {
@@ -53,47 +53,6 @@ const FileCard = ({ file, formatFileSize, onFileClick }) => {
 
   const tags = getTags();
 
-  const getStatusBadgeClass = (status, currentStage) => {
-    if (!status) return 'status-uploaded';
-    if (status === 'final_approved') return 'status-approved';
-    if (status.includes('rejected')) return 'status-rejected';
-    if (currentStage && currentStage.includes('pending')) return 'status-pending';
-    return 'status-uploaded';
-  };
-
-  const getStatusText = (status, currentStage) => {
-    switch (status) {
-      case 'uploaded':
-        return 'Uploaded';
-      case 'team_leader_approved':
-        return 'Team Leader Approved';
-      case 'final_approved':
-        return 'Final Approved';
-      case 'rejected_by_team_leader':
-        return 'Rejected by Team Leader';
-      case 'rejected_by_admin':
-        return 'Rejected by Admin';
-      default:
-        return status ? status.charAt(0).toUpperCase() + status.slice(1).replace('_', ' ') : 'Unknown';
-    }
-  };
-
-  const getCurrentStageText = (currentStage) => {
-    switch (currentStage) {
-      case 'pending_team_leader':
-        return 'Pending Team Leader Review';
-      case 'pending_admin':
-        return 'Pending Admin Review';
-      case 'published_to_public':
-        return 'Published to Public Network';
-      case 'rejected_by_team_leader':
-        return 'Rejected by Team Leader';
-      case 'rejected_by_admin':
-        return 'Rejected by Admin';
-      default:
-        return currentStage ? currentStage.charAt(0).toUpperCase() + currentStage.slice(1).replace('_', ' ') : 'Unknown';
-    }
-  };
 
   return (
     <div 
@@ -104,8 +63,7 @@ const FileCard = ({ file, formatFileSize, onFileClick }) => {
         {/* Left: File Icon */}
         <div className="file-icon-large">
           <FileIcon 
-            fileType={getFileExtension()} 
-            isFolder={false}
+            file={file}
             size="large"
             altText={`${file.file_type} file`}
           />
@@ -160,12 +118,7 @@ const FileCard = ({ file, formatFileSize, onFileClick }) => {
         
         {/* Right: Status Info */}
         <div className="file-status-section">
-          <div className={`status-badge ${getStatusBadgeClass(file.status, file.current_stage)}`}>
-            {getStatusText(file.status, file.current_stage)}
-          </div>
-          <div className="status-stage">
-            ✓ {getCurrentStageText(file.current_stage)}
-          </div>
+          <StatusBadge status={file.status || file.current_stage} size="sm" />
         </div>
       </div>
     </div>

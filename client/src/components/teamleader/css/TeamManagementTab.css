@@ -1,0 +1,295 @@
+.member-perf-wrapper {
+  background: var(--bg-primary);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-xl);
+  padding: var(--space-4);
+  box-shadow: var(--shadow-sm);
+  position: relative;
+  overflow: hidden;
+  transition: all var(--transition-normal);
+}
+
+.member-perf-wrapper:hover {
+  border-color: var(--border-medium);
+  box-shadow: var(--shadow-md);
+  transform: translateY(-2px);
+}
+
+.member-perf-wrapper.card-star {
+  border: 2px solid var(--primary-200);
+  background: linear-gradient(135deg, #ffffff, var(--primary-50));
+}
+
+.member-perf-wrapper.card-excellent {
+  border: 2px solid var(--success-200);
+  background: linear-gradient(135deg, #ffffff, var(--success-50));
+}
+
+.perf-star-badge {
+  position: absolute;
+  top: 0;
+  right: 0;
+  background: var(--primary-600);
+  color: white;
+  padding: 4px 12px;
+  font-size: 10px;
+  font-weight: 800;
+  border-bottom-left-radius: 12px;
+  letter-spacing: 0.05em;
+  z-index: 1;
+}
+
+.perf-star-badge.badge-excellent {
+  background: var(--success-600);
+}
+
+.member-perf-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+  padding-left: var(--space-1);
+}
+
+.member-avatar-placeholder {
+  width: 36px;
+  height: 36px;
+  background: var(--bg-tertiary);
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  color: var(--text-secondary);
+  font-size: 13px;
+  border: 1px solid var(--border-light);
+}
+
+.card-star .member-avatar-placeholder {
+  background: var(--primary-100);
+  color: var(--primary-700);
+  border-color: var(--primary-200);
+}
+
+.card-excellent .member-avatar-placeholder {
+  background: var(--success-100);
+  color: var(--success-700);
+  border-color: var(--success-200);
+}
+
+.member-info h3 {
+  font-size: var(--font-md);
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.member-info .member-email {
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+
+/* Demo Section */
+.visual-tier-demo-container {
+  background: var(--warning-50);
+  border: 1px dashed var(--warning-300);
+  border-radius: var(--radius-xl);
+  padding: var(--space-6);
+  margin-bottom: var(--space-10);
+}
+
+.demo-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-5);
+}
+
+.demo-preview-tag {
+  background: var(--warning-600);
+  color: white;
+  font-size: 10px;
+  font-weight: 900;
+  padding: 2px 6px;
+  border-radius: 4px;
+  text-transform: uppercase;
+}
+
+.demo-title {
+  font-size: var(--font-lg);
+  font-weight: 800;
+  color: var(--warning-900);
+  margin: 0;
+}
+
+/* Controls Section */
+.team-management-controls {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--space-6);
+  gap: var(--space-4);
+  flex-wrap: wrap;
+}
+
+.view-toggle-group {
+  display: flex;
+  background: var(--bg-secondary);
+  padding: 4px;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-light);
+}
+
+.view-toggle-btn {
+  padding: 6px 16px;
+  border-radius: var(--radius-md);
+  border: none;
+  background: transparent;
+  color: var(--text-tertiary);
+  font-size: var(--font-sm);
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.view-toggle-btn.active {
+  background: white;
+  color: var(--primary-600);
+  box-shadow: var(--shadow-sm);
+}
+
+.filter-group {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.search-input-wrapper {
+  position: relative;
+  min-width: 240px;
+}
+
+.search-input-wrapper input {
+  width: 100%;
+  padding: 8px 12px 8px 36px;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-light);
+  background: white;
+  font-size: var(--font-sm);
+}
+
+.search-icon-sm {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-tertiary);
+}
+
+.filter-select {
+  padding: 8px 12px;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-light);
+  background: white;
+  font-size: var(--font-sm);
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+/* Performance Grid */
+.performance-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: var(--space-6);
+}
+
+/* Table View */
+.team-members-table-container {
+  background: white;
+  border-radius: var(--radius-xl);
+  border: 1px solid var(--border-light);
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+}
+
+.members-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.members-table th {
+  text-align: left;
+  padding: 16px;
+  background: var(--bg-secondary);
+  color: var(--text-tertiary);
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-bottom: 1px solid var(--border-light);
+}
+
+.members-table td {
+  padding: 16px;
+  border-bottom: 1px solid var(--border-light);
+  font-size: var(--font-sm);
+  color: var(--text-secondary);
+}
+
+.members-table tr:last-child td {
+  border-bottom: none;
+}
+
+.members-table tr:hover td {
+  background: var(--bg-secondary);
+}
+
+.member-name-cell {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.member-avatar-sm {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: var(--primary-50);
+  color: var(--primary-600);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 11px;
+}
+
+.status-badge {
+  padding: 4px 8px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.status-active {
+  background: var(--success-50);
+  color: var(--success-700);
+}
+
+.view-files-btn {
+  color: var(--primary-600);
+  background: transparent;
+  border: none;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+}
+
+.view-files-btn:hover {
+  background: var(--primary-50);
+}

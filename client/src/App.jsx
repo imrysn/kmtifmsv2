@@ -19,16 +19,33 @@ const AdminDashboard = lazy(() => import('./pages/AdminDashboard'))
 
 const logger = createLogger('App')
 
-function App() {
-  // Use Zustand store instead of local state
-  const { user, login, logout, _hasHydrated } = useStore()
+// Sync unread count to Electron taskbar badge + icon flash
+const syncElectronBadge = (count) => {
+  if (!window.electron) return
+  if (typeof window.electron.setBadge === 'function') window.electron.setBadge(count)
+  if (typeof window.electron.flashFrame === 'function') window.electron.flashFrame(count > 0)
+}
 
-  // Log user session restoration
+function App() {
+  // STABILIZED: Use selectors to prevent App re-rendering on every store change (e.g. notification counts)
+  const user = useStore(state => state.user);
+  const login = useStore(state => state.login);
+  const logout = useStore(state => state.logout);
+  const _hasHydrated = useStore(state => state._hasHydrated);
+  const notificationCount = useStore(state => state.globalUnreadCount);
+
+  // Log user session restoration and navigation
   useEffect(() => {
     if (user && _hasHydrated) {
       logger.info('User session restored from store')
+      logger.logNavigation('login', `${user.panelType}-dashboard`)
     }
-  }, [user, _hasHydrated])
+  }, [user?.id, user?.panelType, _hasHydrated])
+
+  // Sync unread badge + flash to Electron taskbar
+  useEffect(() => {
+    syncElectronBadge(notificationCount)
+  }, [notificationCount])
 
   // Don't render until persisted store is rehydrated — prevents 401s from
   // components firing apiFetch before the token is available
@@ -53,8 +70,6 @@ function App() {
   const getDashboardComponent = () => {
     if (!user) return null
 
-    logger.logNavigation('login', `${user.panelType}-dashboard`)
-
     switch (user.panelType) {
       case 'user':
         return <UserDashboard user={user} onLogout={handleLogout} />
@@ -70,7 +85,7 @@ function App() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <Router>
+      <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <div className="app">
           {/* Toast notifications - handles ALL notifications including updates */}
           <ToastContainer />

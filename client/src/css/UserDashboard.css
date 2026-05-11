@@ -8,15 +8,25 @@
 }
 
 /* Main Content Area */
+.user-layout .main-content,
 .user-dashboard .main-content {
   flex: 1;
-  margin-left: 75px;
-  width: calc(100% - 75px);
+  margin-left: 280px; /* Match PremiumSidebar width */
+  width: calc(100% - 280px);
   height: 100vh;
   overflow-y: scroll;
   overflow-x: hidden;
   position: relative;
   isolation: isolate;
+}
+
+/* Sidebar closed state (if applicable for mobile) */
+@media (max-width: 1024px) {
+  .user-layout .main-content,
+  .user-dashboard .main-content {
+    margin-left: 0;
+    width: 100%;
+  }
 }
 
 @media (max-width: 480px) {

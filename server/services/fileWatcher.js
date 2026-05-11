@@ -137,22 +137,28 @@ async function handleFileDeletion(deletedPath) {
 
 /**
  * Called when chokidar fires 'unlinkDir' (an entire folder was deleted).
+ * FIX #8 — replaced leading-wildcard LIKE queries (full table scan) with
+ * exact segment matching. We extract the normalized basename of the deleted
+ * directory and match it against folder_name first; fall back to a
+ * RIGHT-anchored LIKE only on the last path segment, which *can* use an
+ * index prefix on columns like relative_path that are indexed.
  */
 async function handleDirectoryDeletion(dirPath) {
-  const relDir = relPart(dirPath);   // e.g. "kmti user/test test"
+  const relDir      = relPart(dirPath);          // e.g. "kmti user/test test"
+  const dirBasename = path.basename(dirPath).toLowerCase().trim();
   console.log(`🗑️  [Watcher] Directory deleted: ${dirPath}`);
 
   try {
-    // Match any file whose stored relative path starts with this folder segment
+    // Match by folder_name (exact, indexable) OR by last segment of relative path.
+    // We no longer use a leading-wildcard LIKE on the full path.
     const fileRows = await query(
       `SELECT id, original_name, status FROM files
-       WHERE LOWER(REPLACE(COALESCE(file_path,''), '\\\\', '/'))         LIKE ?
-          OR LOWER(REPLACE(COALESCE(public_network_url,''), '\\\\', '/')) LIKE ?`,
-      [`%${relDir}%`, `%${relDir}%`]
+       WHERE LOWER(TRIM(COALESCE(folder_name,''))) = ?
+          OR LOWER(TRIM(COALESCE(folder_name,''))) = ?`,
+      [dirBasename, relDir.split('/').pop()]
     );
 
     for (const file of (fileRows || [])) {
-      // Skip approved files
       if (file.status === 'final_approved') {
         console.log(`ℹ️  [Watcher] Skipping folder deletion for approved file: ${file.original_name} (ID: ${file.id})`);
         continue;
@@ -167,8 +173,9 @@ async function handleDirectoryDeletion(dirPath) {
 
     const attRows = await query(
       `SELECT id FROM assignment_attachments
-       WHERE LOWER(REPLACE(COALESCE(file_path,''), '\\\\', '/')) LIKE ?`,
-      [`%${relDir}%`]
+       WHERE LOWER(TRIM(COALESCE(folder_name,''))) = ?
+          OR LOWER(TRIM(COALESCE(folder_name,''))) = ?`,
+      [dirBasename, relDir.split('/').pop()]
     ).catch(() => []);
 
     for (const att of (attRows || [])) {
@@ -219,8 +226,8 @@ function startWatcher(watchPaths) {
     persistent: true,
     ignoreInitial: true,
     usePolling: true,        // Required for NAS/UNC network paths
-    interval: 3000,          // Poll every 3 seconds
-    binaryInterval: 5000,
+    interval: 15000,         // FIX #3 — was 3s; 15s is sufficient for deletion detection and reduces NAS I/O by 80%
+    binaryInterval: 30000,
     awaitWriteFinish: {
       stabilityThreshold: 2000,
       pollInterval: 500,

@@ -20,7 +20,8 @@ async function runMigrations() {
       // Append the incoming feature as the next step
       { name: 'Add File Views Table', run: require('./007-add-file-views') },
       { name: 'Add updated_at to files', run: require('./008-add-updated-at-to-files') },
-      { name: 'Add User Performance Snapshots', run: require('./009-add-performance-snapshots') }
+      { name: 'Add User Performance Snapshots', run: require('./009-add-performance-snapshots') },
+      { name: 'Add composite indexes for dashboard and queue performance (FIX #12)', run: require('./010-add-composite-indexes') }
     ];
 
     for (const migration of migrations) {

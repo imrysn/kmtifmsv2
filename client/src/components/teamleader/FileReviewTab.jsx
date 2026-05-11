@@ -1,5 +1,5 @@
 import './css/FileReviewTab.css'
-import FileIcon from '../shared/FileIcon'
+import { FileIcon, StatusBadge, TeamBadge } from '../shared'
 
 const FileReviewTab = ({
   analyticsData,
@@ -171,9 +171,7 @@ const FileReviewTab = ({
                     <div className="file-cell">
                       <div className="file-icon">
                         <FileIcon
-                          fileType={fileExtension}
-                          isFolder={false}
-                          altText={`Icon for ${file.original_name}`}
+                          file={file}
                           size="medium"
                         />
                       </div>
@@ -190,9 +188,7 @@ const FileReviewTab = ({
                   </td>
                   <td>{file.username}</td>
                   <td>
-                    <span className="team-badge">
-                      {file.team || user.team}
-                    </span>
+                    <TeamBadge team={file.team || user.team} size="sm" />
                   </td>
                   <td onClick={(e) => e.stopPropagation()}>
                     <div style={{display: 'flex', alignItems: 'center', gap: '4px', flexWrap: 'wrap'}}>
@@ -228,19 +224,7 @@ const FileReviewTab = ({
                     </div>
                   </td>
                   <td>
-                    <span className={`status-badge status-${
-                      file.status === 'approved' || file.status === 'final_approved' ? 'approved' : 
-                      file.status === 'rejected' || file.status === 'rejected_by_team_leader' || file.status === 'rejected_by_admin' ? 'rejected' : 
-                      'pending'
-                    }`}>
-                      {
-                        file.status === 'approved' || file.status === 'final_approved' ? 'Approved' : 
-                        file.status === 'rejected' || file.status === 'rejected_by_team_leader' || file.status === 'rejected_by_admin' ? 'Rejected' : 
-                        file.current_stage?.includes('pending_team_leader') || file.status === 'uploaded' ? 'Pending Team Leader' : 
-                        file.current_stage?.includes('pending_admin') || file.status === 'team_leader_approved' ? 'Pending Admin' : 
-                        file.status?.toUpperCase() || 'PENDING'
-                      }
-                    </span>
+                    <StatusBadge status={file.status || file.current_stage} size="sm" />
                   </td>
                   <td style={{textAlign: 'center'}}>
                     <div className="tl-actions-menu-wrapper">

@@ -1,0 +1,376 @@
+/* Reverted to Legacy Dashboard Look */
+.legacy-task-card {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  margin-bottom: 24px;
+  overflow: visible;
+  transition: box-shadow 0.2s ease;
+}
+
+.legacy-task-card:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+}
+
+/* Header */
+.task-card-header {
+  padding: 16px 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  border-bottom: 1px solid #f3f4f6;
+}
+
+.header-left {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  flex: 1;
+}
+
+.header-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.assigned-text-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 2px;
+}
+
+.assigned-text {
+  font-size: 15px;
+  color: #1c1e21;
+  line-height: 1.3;
+}
+
+.members-list-inline {
+  font-weight: 600;
+  color: #374151;
+}
+
+.created-date-aligned {
+  font-size: 13px;
+  color: #65676b;
+  margin-left: 42px; /* width of sm avatar (32px) + gap (10px) */
+}
+
+.header-avatar-inline {
+  flex-shrink: 0;
+}
+
+.leader-name {
+  font-weight: 700;
+}
+
+.created-date {
+  font-size: 13px;
+  color: #65676b;
+}
+
+.header-right {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 12px;
+}
+
+/* Status Badges (Old Look) */
+.legacy-status-badge {
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.legacy-status-badge.success {
+  background-color: #d1fae5;
+  color: #059669;
+}
+
+.legacy-due-date {
+  font-size: 14px;
+  color: #374151;
+  font-weight: 500;
+}
+
+.days-left {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--danger);
+}
+
+/* Body */
+.task-card-body {
+  padding: 16px 20px;
+}
+
+.task-title {
+  font-weight: 700;
+  font-size: 18px;
+  color: #1c1e21;
+  margin: 0 0 12px 0;
+}
+
+.task-description {
+  color: #374151;
+  font-size: 14px;
+  line-height: 1.6;
+  margin: 0;
+}
+
+.expand-link {
+  background: none;
+  border: none;
+  color: #3b82f6;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  padding: 0;
+  margin-left: 6px;
+}
+
+/* Files Section (Legacy Blue/White split) */
+.task-files-container {
+  padding: 0 20px 16px 20px;
+}
+
+.file-group {
+  margin-bottom: 16px;
+  border-radius: 8px;
+}
+
+.file-group.resources {
+  background: transparent;
+}
+
+.file-group.submissions {
+  background-color: #f0f9ff;
+  padding: 24px 16px;
+  border: 1px solid #dbeafe;
+}
+
+.group-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #374151;
+  margin-bottom: 12px;
+}
+
+.submissions-label {
+  color: #1e40af;
+}
+
+/* Footer */
+.task-card-footer {
+  padding: 12px 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-top: 1px solid #f3f4f6;
+}
+
+.comment-trigger {
+  background: transparent;
+  border: none;
+  color: #65676b;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  transition: all 0.2s;
+}
+
+.comment-trigger:hover {
+  background-color: #f0f2f5;
+  color: #1877f2;
+}
+
+.comment-count {
+  background: #f3f4f6;
+  border-radius: 12px;
+  padding: 1px 8px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.legacy-submit-btn {
+  background: #f3f4f6;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  padding: 8px 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.legacy-submit-btn:hover {
+  background: #e5e7eb;
+}
+
+.legacy-submit-btn span {
+  font-size: 14px;
+  font-weight: 600;
+  color: #374151;
+}
+
+/* Role Badges (Legacy Outlined) */
+.role-badge {
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  margin: 0 8px;
+  display: inline-block;
+  border: 1px solid;
+}
+
+.role-badge.team-leader {
+  border-color: #1d4ed8;
+  color: #1d4ed8;
+}
+
+.role-badge.admin {
+  border-color: #dc2626;
+  color: #dc2626;
+}
+
+/* Three-dot inline dropdown menu */
+.card-menu-wrapper {
+  position: relative;
+}
+
+.card-menu-dropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.12);
+  z-index: 9999;
+  min-width: 160px;
+  overflow: hidden;
+}
+
+.card-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  background: none;
+  border: none;
+  padding: 10px 16px;
+  text-align: left;
+  font-size: 14px;
+  font-weight: 500;
+  color: #374151;
+  cursor: pointer;
+  transition: background-color 0.15s;
+}
+
+.card-menu-item:hover {
+  background-color: #f0f2f5;
+}
+
+.card-menu-item.menu-item-danger {
+  color: #dc2626;
+}
+
+.card-menu-item.menu-item-danger:hover {
+  background-color: #fee2e2;
+}
+
+/* Overdue / urgent due date */
+.legacy-due-date.overdue { color: #dc2626; }
+.days-left.overdue { color: #dc2626; font-weight: 700; }
+.days-left.urgent { color: #ea580c; font-weight: 600; }
+
+/* Three-dot menu button */
+.task-menu-btn {
+  background: transparent;
+  border: none;
+  color: #65676b;
+  padding: 6px;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.task-menu-btn:hover {
+  background-color: #f0f2f5;
+  color: #1c1e21;
+}
+
+/* Submission Action Box (User POV) */
+.submission-box {
+  background-color: #f8fafc;
+  border: 1px dashed #cbd5e1;
+  padding: 24px 20px;
+  border-radius: 10px;
+  margin-top: 8px;
+  margin-bottom: 24px;
+  transition: all 0.2s ease;
+}
+
+.submission-box:hover {
+  border-color: #3b82f6;
+  background-color: #f0f9ff;
+}
+
+.submission-upload-area {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.submit-file-btn {
+  background-color: #ffffff;
+  border: 1px solid #d1d5db;
+  color: #1e293b;
+  padding: 10px 24px;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  transition: all 0.2s;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.submit-file-btn:hover {
+  border-color: #3b82f6;
+  color: #3b82f6;
+  background-color: #ffffff;
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15);
+  transform: translateY(-1px);
+}
+
+.submit-file-btn svg {
+  color: #3b82f6;
+}
+
+.submission-hint {
+  font-size: 13px;
+  color: #64748b;
+  margin: 0;
+}
+

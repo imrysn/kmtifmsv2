@@ -3,14 +3,23 @@ import { apiFetch } from '@/config/api';
 import './css/DashboardTab.css';
 import { LoadingCards } from '../common/InlineSkeletonLoader';
 import { UserPerformanceCard } from '../shared';
+import useStore from '@/store/useStore';
 
 
 const DashboardTab = ({ user, files, setActiveTab, onOpenFile, onNavigateToTasks }) => {
-  const [assignments, setAssignments] = useState([]);
-  const [teamTasks, setTeamTasks] = useState([]);
-  const [notifications, setNotifications] = useState([]);
-  const [performance, setPerformance] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const setAssignmentsCache = useStore(state => state.setAssignmentsCache);
+  const assignments = useStore(state => state.assignmentsCache[`user-${user.id}`]) || [];
+
+  const setTeamTasksCache = useStore(state => state.setTeamTasksCache);
+  const teamTasks = useStore(state => state.teamTasksCache[user.team]) || [];
+
+  const setUserPerformanceCache = useStore(state => state.setUserPerformanceCache);
+  const performance = useStore(state => state.userPerformanceCache[user.id]) || null;
+
+  const setServerNotifications = useStore(state => state.setServerNotifications);
+  const notifications = useStore(state => state.serverNotifications) || [];
+
+  const [loading, setLoading] = useState(!assignments.length && !teamTasks.length && !performance);
   const [lastUpdate, setLastUpdate] = useState(new Date());
 
   useEffect(() => {
@@ -39,7 +48,8 @@ const DashboardTab = ({ user, files, setActiveTab, onOpenFile, onNavigateToTasks
 
   const fetchDashboardData = async (silent = false) => {
     try {
-      if (!silent) setLoading(true);
+      const isCacheEmpty = !useStore.getState().assignmentsCache[`user-${user.id}`];
+      if (!silent && isCacheEmpty) setLoading(true);
 
       const requests = [
         apiFetch(`/api/assignments/user/${user.id}`),
@@ -54,16 +64,16 @@ const DashboardTab = ({ user, files, setActiveTab, onOpenFile, onNavigateToTasks
 
       const applyUpdates = () => {
         if (assignmentsData.success) {
-          setAssignments(assignmentsData.assignments || []);
+          setAssignmentsCache(`user-${user.id}`, assignmentsData.assignments || []);
         }
         if (teamTasksData.success) {
-          setTeamTasks(teamTasksData.assignments || []);
+          setTeamTasksCache(user.team, teamTasksData.assignments || []);
         }
         if (performanceData?.success) {
-          setPerformance(performanceData.performance);
+          setUserPerformanceCache(user.id, performanceData.performance);
         }
         if (notificationsData?.success) {
-          setNotifications(notificationsData.notifications || []);
+          setServerNotifications(notificationsData.notifications || []);
         }
         if (!silent) setLastUpdate(new Date());
       };

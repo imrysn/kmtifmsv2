@@ -1,8 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react'
 import './css/FileCollectionTab.css'
 import '../shared/SmartNavigation/SmartNavigation.css'
-import FileIcon from '../shared/FileIcon'
-import FileOpenModal from '../shared/FileOpenModal'
+import { FileIcon, FileOpenModal, StatusBadge, TeamBadge } from '../shared'
 import { LoadingTable } from '../common/InlineSkeletonLoader'
 
 const FileCollectionTab = ({
@@ -194,37 +193,6 @@ const FileCollectionTab = ({
     return pageNumbers
   }, [totalPages, currentPage])
 
-  const getFolderStatusBadge = (folderFiles) => {
-    const allApproved = folderFiles.every(f => f.status === 'approved' || f.status === 'final_approved')
-    const anyRejected = folderFiles.some(f => f.status === 'rejected' || f.status === 'rejected_by_team_leader' || f.status === 'rejected_by_admin')
-    const allAtLeastTLApproved = folderFiles.every(f => f.status === 'team_leader_approved' || f.status === 'approved' || f.status === 'final_approved')
-    const anyPendingTL = folderFiles.some(f => f.status === 'uploaded')
-
-    if (anyPendingTL) {
-      return <span className="status-badge status-pending">Pending Team Leader</span>
-    }
-    if (allApproved) {
-      return <span className="status-badge status-approved">Approved</span>
-    }
-    if (anyRejected) {
-      return <span className="status-badge status-rejected">Rejected</span>
-    }
-    if (allAtLeastTLApproved) {
-      return <span className="status-badge status-pending">Pending Admin</span>
-    }
-    return <span className="status-badge status-pending">Pending Team Leader</span>
-  }
-
-  const getStatusBadge = (submission) => {
-    const cls = submission.status === 'approved' || submission.status === 'final_approved' ? 'approved'
-      : submission.status === 'rejected' || submission.status === 'rejected_by_team_leader' || submission.status === 'rejected_by_admin' ? 'rejected'
-      : 'pending'
-    const label = submission.status === 'approved' || submission.status === 'final_approved' ? 'Approved'
-      : submission.status === 'rejected' || submission.status === 'rejected_by_team_leader' || submission.status === 'rejected_by_admin' ? 'Rejected'
-      : submission.status === 'team_leader_approved' ? 'Pending Admin'
-      : 'Pending Team Leader'
-    return <span className={`status-badge status-${cls}`}>{label}</span>
-  }
 
   const renderFileRow = (submission, isNested = false) => {
     const ext = getFileExtension(submission.original_name, submission.file_type)
@@ -239,7 +207,7 @@ const FileCollectionTab = ({
         <td>
           <div className="file-cell" style={isNested ? { paddingLeft: '44px' } : {}}>
             <div className="file-icon">
-              <FileIcon fileType={ext} isFolder={false} altText={`Icon for ${submission.original_name}`} size="medium" />
+              <FileIcon file={submission} size="medium" />
             </div>
             <div className="file-details">
               <span className="file-name">{isNested ? (submission.relative_path || submission.original_name) : submission.original_name}</span>
@@ -255,7 +223,7 @@ const FileCollectionTab = ({
         </td>
         <td>
           <div className="team-cell">
-            <span className="team-badge" data-team={submission.user_team || submission.team}>{submission.user_team || submission.team || 'N/A'}</span>
+            <TeamBadge team={submission.user_team || submission.team} size="sm" />
           </div>
         </td>
         <td><div className="user-cell"><span className="user-name">{submission.fullName || submission.username}</span></div></td>
@@ -265,7 +233,7 @@ const FileCollectionTab = ({
             <div className="time">{new Date(submission.submitted_at || submission.uploaded_at).toLocaleTimeString()}</div>
           </div>
         </td>
-        <td>{getStatusBadge(submission)}</td>
+        <td><StatusBadge status={submission.status} size="sm" /></td>
         <td style={{ textAlign: 'center' }}>
           <div className="tl-actions-menu-wrapper">
             <button className="tl-menu-button" onClick={(e) => toggleMenu(submission.id, e)} title="Options">
@@ -398,12 +366,25 @@ const FileCollectionTab = ({
                         <td style={{ verticalAlign: 'middle' }}>{firstFile.assignment_title || '-'}</td>
                         <td style={{ verticalAlign: 'middle' }}>
                           <div className="team-cell">
-                            <span className="team-badge" data-team={firstFile.user_team || firstFile.team}>{firstFile.user_team || firstFile.team || 'N/A'}</span>
+                            <TeamBadge team={firstFile.user_team || firstFile.team} size="sm" />
                           </div>
                         </td>
                         <td style={{ verticalAlign: 'middle' }}>{firstFile.fullName || firstFile.username || '-'}</td>
                         <td style={{ verticalAlign: 'middle' }}>{new Date(firstFile.submitted_at || firstFile.uploaded_at).toLocaleDateString()}</td>
-                        <td style={{ verticalAlign: 'middle' }}>{getFolderStatusBadge(folderFiles)}</td>
+                        <td style={{ verticalAlign: 'middle' }}>
+                          {/* Folder status is complex, but we can approximate it or use StatusBadge if it supports list of statuses */}
+                          {/* For now, let's just use the logic from the component itself since it's folder-specific */}
+                          {(() => {
+                            const allApproved = folderFiles.every(f => f.status === 'approved' || f.status === 'final_approved');
+                            const anyRejected = folderFiles.some(f => f.status === 'rejected' || f.status === 'rejected_by_team_leader' || f.status === 'rejected_by_admin');
+                            const anyPendingTL = folderFiles.some(f => f.status === 'uploaded');
+                            
+                            if (anyPendingTL) return <StatusBadge status="uploaded" size="sm" />;
+                            if (allApproved) return <StatusBadge status="final_approved" size="sm" />;
+                            if (anyRejected) return <StatusBadge status="rejected" size="sm" />;
+                            return <StatusBadge status="team_leader_approved" size="sm" />;
+                          })()}
+                        </td>
                         <td style={{ textAlign: 'center', verticalAlign: 'middle' }}>
                           <div className="tl-actions-menu-wrapper">
                             <button className="tl-menu-button" onClick={(e) => { e.stopPropagation(); toggleMenu(`folder-${folderKey}`, e) }} title="Options">

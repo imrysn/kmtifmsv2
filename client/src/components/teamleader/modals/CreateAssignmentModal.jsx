@@ -459,7 +459,7 @@ const CreateAssignmentModal = ({
                         border: '1px solid #E5E7EB'
                       }}>
                         <FileIcon
-                          fileType={(file.original_name || '').split('.').pop()}
+                          file={file}
                           size="small"
                           style={{ color: '#6B7280' }}
                         />
@@ -517,7 +517,7 @@ const CreateAssignmentModal = ({
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1 }}>
                           {/* file icon based on type */}
                           <FileIcon
-                            fileType={(file.name || file.webkitRelativePath || '').split('.').pop()}
+                            file={file}
                             size="small"
                             style={{ color: '#6B7280' }}
                           />

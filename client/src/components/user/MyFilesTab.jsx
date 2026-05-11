@@ -366,8 +366,7 @@ const MyFilesTab = ({
           <div className="delete-modal-header">
             <div className="delete-icon-wrapper" style={{ backgroundColor: '#3b82f6' }}>
               <FileIcon
-                fileType={file.original_name.split('.').pop().toLowerCase()}
-                isFolder={false}
+                file={file}
                 size="default"
                 altText="File"
                 style={{ width: '28px', height: '28px' }}
@@ -550,8 +549,7 @@ const MyFilesTab = ({
             >
               <div className="col-filename">
                 <FileIcon
-                  fileType={file.original_name.split('.').pop().toLowerCase()}
-                  isFolder={false}
+                  file={file}
                   size="default"
                   altText={`${file.file_type} file`}
                   style={{ width: '52px', height: '52px' }}
@@ -603,8 +601,7 @@ const MyFilesTab = ({
         >
           <div className="col-filename">
             <FileIcon
-              fileType={file.original_name.split('.').pop().toLowerCase()}
-              isFolder={false}
+              file={file}
               size="default"
               altText={`${file.file_type} file`}
               style={{ width: '56px', height: '56px' }}

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { apiFetch, API_BASE_URL } from '@/config/api'
 import './css/AssignmentDetailsModal.css'
-import FileIcon from '../../shared/FileIcon'
+import { FileIcon, StatusBadge, TeamBadge } from '../../shared'
 
 const AssignmentDetailsModal = ({
   showAssignmentDetailsModal,
@@ -343,39 +343,6 @@ const AssignmentDetailsModal = ({
     }
   }
 
-  const getStatusDisplayName = (status) => {
-    switch (status) {
-      case 'uploaded':
-      case 'submitted':
-        return 'Pending Team Leader'
-      case 'team_leader_approved':
-        return 'Pending Admin'
-      case 'final_approved':
-        return 'Approved'
-      case 'rejected_by_team_leader':
-        return 'Rejected by Team Leader'
-      case 'rejected_by_admin':
-        return 'Rejected by Admin'
-      default:
-        return 'Pending Review'
-    }
-  }
-
-  const mapFileStatus = (status) => {
-    switch (status) {
-      case 'uploaded':
-      case 'submitted':
-      case 'team_leader_approved':
-        return 'pending'
-      case 'final_approved':
-        return 'approved'
-      case 'rejected_by_team_leader':
-      case 'rejected_by_admin':
-        return 'rejected'
-      default:
-        return 'pending'
-    }
-  }
 
   // Only show submission modal if one is selected
   if (selectedSubmission) {
@@ -410,9 +377,7 @@ const AssignmentDetailsModal = ({
                 </div>
                 <div className="detail-item">
                   <span className="detail-label">TEAM:</span>
-                  <span className="detail-value team-badge-inline">
-                    {selectedAssignment.team || 'IT Dept'}
-                  </span>
+                  <TeamBadge team={selectedAssignment.team || 'IT Dept'} size="sm" />
                 </div>
                 <div className="detail-item">
                   <span className="detail-label">UPLOAD DATE:</span>
@@ -420,9 +385,7 @@ const AssignmentDetailsModal = ({
                 </div>
                 <div className="detail-item">
                   <span className="detail-label">STATUS:</span>
-                  <span className={`detail-value status-badge status-${mapFileStatus(selectedSubmission.status)}`}>
-                    {getStatusDisplayName(selectedSubmission.status)}
-                  </span>
+                  <StatusBadge status={selectedSubmission.status} size="sm" />
                 </div>
               </div>
             </div>
@@ -877,9 +840,7 @@ const AssignmentDetailsModal = ({
                               <div className="file-cell">
                                 <div className="file-icon">
                                   <FileIcon
-                                    fileType={fileExtension}
-                                    isFolder={false}
-                                    altText={`Icon for ${submission.original_name}`}
+                                    file={submission}
                                     size="medium"
                                   />
                                 </div>
@@ -901,9 +862,7 @@ const AssignmentDetailsModal = ({
                               </div>
                             </td>
                             <td>
-                              <span className={`status-badge status-${mapFileStatus(submission.status)}`}>
-                                {getStatusDisplayName(submission.status)}
-                              </span>
+                              <StatusBadge status={submission.status} size="sm" />
                             </td>
                           </tr>
                         )

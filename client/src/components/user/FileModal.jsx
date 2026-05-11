@@ -1,5 +1,6 @@
 import { useEffect, useMemo, memo, useCallback } from 'react';
 import './css/FileModal.css';
+import { StatusBadge } from '../shared';
 
 // MySQL datetimes have no timezone suffix — treat them as local time
 const parseLocalDate = (str) => {
@@ -18,34 +19,6 @@ const formatDate = (str) => {
   return d.toLocaleString();
 };
 
-const getStatusBadgeClass = (status) => {
-  if (!status) return 'status-uploaded';
-  if (status === 'final_approved' || status === 'team_leader_approved') return 'status-approved';
-  if (status.includes('rejected')) return 'status-rejected';
-  return 'status-uploaded';
-};
-
-const getStatusText = (status) => {
-  const map = {
-    uploaded: 'Uploaded',
-    team_leader_approved: 'Team Leader Approved',
-    final_approved: 'Final Approved',
-    rejected_by_team_leader: 'Rejected by Team Leader',
-    rejected_by_admin: 'Rejected by Admin',
-  };
-  return map[status] || (status ? status.charAt(0).toUpperCase() + status.slice(1).replace(/_/g, ' ') : 'Unknown');
-};
-
-const getCurrentStageText = (currentStage) => {
-  const map = {
-    pending_team_leader: 'Pending Team Leader Review',
-    pending_admin: 'Pending Admin Review',
-    published_to_public: 'Published to Public Network',
-    rejected_by_team_leader: 'Rejected by Team Leader',
-    rejected_by_admin: 'Rejected by Admin',
-  };
-  return map[currentStage] || (currentStage ? currentStage.charAt(0).toUpperCase() + currentStage.slice(1).replace(/_/g, ' ') : 'Unknown');
-};
 
 const FileModal = memo(({ showFileModal, setShowFileModal, selectedFile, fileComments, formatFileSize }) => {
   const handleClose = useCallback(() => setShowFileModal(false), [setShowFileModal]);
@@ -140,12 +113,7 @@ const FileModal = memo(({ showFileModal, setShowFileModal, selectedFile, fileCom
             )}
             <div className="file-detail-row">
               <span className="detail-label">Current Status:</span>
-              <div className="status-container">
-                <span className={`status-badge ${getStatusBadgeClass(selectedFile.status)}`}>
-                  {getStatusText(selectedFile.status)}
-                </span>
-                <div className="stage-text">{getCurrentStageText(selectedFile.current_stage)}</div>
-              </div>
+              <StatusBadge status={selectedFile.status || selectedFile.current_stage} size="md" />
             </div>
             {selectedFile.team_leader_reviewed_at && (
               <div className="review-section">

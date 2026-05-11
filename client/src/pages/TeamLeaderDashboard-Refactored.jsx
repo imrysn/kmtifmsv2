@@ -3,7 +3,7 @@ import { apiFetch, API_BASE_URL } from '@/config/api'
 import useStore from '../store/useStore'
 import '../css/TeamLeaderDashboard.css'
 import SkeletonLoader from '../components/common/SkeletonLoader'
-import { AlertMessage } from '../components/shared'
+import { AlertMessage, Sidebar, TopBar } from '../components/shared'
 
 // Sync unread count to Electron taskbar badge + icon flash
 const syncElectronBadge = (count) => {
@@ -11,11 +11,6 @@ const syncElectronBadge = (count) => {
   if (typeof window.electron.setBadge === 'function') window.electron.setBadge(count)
   if (typeof window.electron.flashFrame === 'function') window.electron.flashFrame(count > 0)
 }
-
-// Eagerly import critical components
-import {
-  Sidebar,
-} from '../components/teamleader'
 
 // Lazy load tab components
 const OverviewTab = lazy(() => import('../components/teamleader').then(module => ({ default: module.OverviewTab })))
@@ -1180,19 +1175,41 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
 
   return (
     <Suspense fallback={<SkeletonLoader type="teamleader" />}>
-      <div className="tl-dashboard">
+      <div className="tl-layout">
         <Sidebar
-          activeTab={activeTab}
-          setActiveTab={setActiveTab}
-          clearMessages={clearMessages}
-          setSidebarOpen={setSidebarOpen}
-          sidebarOpen={sidebarOpen}
-          onLogout={onLogout}
           user={user}
-          unreadCount={unreadCount}
+          items={[
+            { id: 'dashboard', label: 'Dashboard', icon: 'dashboard' },
+            { id: 'notifications', label: 'Notifications', icon: 'notifications', badge: unreadCount },
+            { id: 'file-collection', label: 'File Collection', icon: 'files' },
+            { id: 'assignments', label: 'Tasks', icon: 'tasks' },
+            { id: 'team-management', label: 'Team', icon: 'team' }
+          ]}
+          activeTab={activeTab}
+          onTabChange={setActiveTab}
+          onLogout={onLogout}
+          isOpen={sidebarOpen}
+          onClose={() => setSidebarOpen(false)}
         />
 
-        <main className="tl-main">
+        <main 
+          className="tl-main main-content"
+          style={{ 
+            marginLeft: '80px',
+            width: 'calc(100% - 80px)'
+          }}
+        >
+          <TopBar 
+            title={activeTab === 'dashboard' ? 'Dashboard' : 
+                   activeTab === 'notifications' ? 'Notifications' :
+                   activeTab === 'file-collection' ? 'File Collection' :
+                   activeTab === 'assignments' ? 'Tasks' :
+                   activeTab === 'team-management' ? 'Team Management' : 'Dashboard'}
+            onMenuClick={() => setSidebarOpen(true)}
+            user={user}
+            onLogout={onLogout}
+            onSettings={() => setActiveTab('settings')}
+          />
           <AlertMessage
             type="error"
             message={error}

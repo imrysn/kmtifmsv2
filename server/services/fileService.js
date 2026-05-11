@@ -23,6 +23,27 @@ function fixFilename(name) {
 }
 
 /**
+ * Enrich file objects with absolute physical paths for Electron native icons
+ */
+function enrichFilePaths(files) {
+    if (!files) return files;
+    const filesArray = Array.isArray(files) ? files : [files];
+    
+    for (const file of filesArray) {
+        if (!file.public_network_url && file.file_path) {
+            if (file.file_path.startsWith('/uploads/')) {
+                file.public_network_url = path.join(uploadsDir, file.file_path.substring(9));
+            } else if (file.username && !file.file_path.includes(file.username)) {
+                file.public_network_url = path.join(uploadsDir, file.username, path.basename(file.file_path));
+            } else {
+                file.public_network_url = path.join(uploadsDir, file.file_path);
+            }
+        }
+    }
+    return files;
+}
+
+/**
  * Upload a new file
  */
 async function uploadFile(fileData, user) {
@@ -60,7 +81,7 @@ async function uploadFile(fileData, user) {
 
     const file = await fileRepository.findById(fileId);
     logInfo('File uploaded successfully', { fileId, filename: fileData.original_name });
-    return file;
+    return enrichFilePaths(file);
 }
 
 /**
@@ -323,43 +344,122 @@ async function moveToProjects(fileId, destinationPath, admin, deleteFromUploads 
 async function getFileById(fileId) {
     const file = await fileRepository.findById(fileId);
     if (!file) throw new NotFoundError('File');
-    return file;
+    return enrichFilePaths(file);
 }
 
 /**
  * Get user files (unpaginated)
  */
 async function getUserFiles(userId) {
-    return await fileRepository.findByUserId(userId);
+    const files = await fileRepository.findByUserId(userId);
+    return enrichFilePaths(files);
 }
 
 /**
  * Get pending reviews for team leader
  */
 async function getPendingTeamLeaderReview(team) {
-    return await fileRepository.findPendingByStage('pending_team_leader', team);
+    const files = await fileRepository.findPendingByStage('pending_team_leader', team);
+    return enrichFilePaths(files);
 }
 
 /**
  * Get pending reviews for admin
  */
 async function getPendingAdminReview() {
-    return await fileRepository.findPendingByStage('pending_admin');
+    const files = await fileRepository.findPendingByStage('pending_admin');
+    return enrichFilePaths(files);
 }
 
 /**
  * Get all files for admin (merges regular files and assignment attachments)
+ * FIX #4 — use a single UNION ALL query sorted in MySQL instead of two
+ * separate queries + JS sort. Eliminates double-fetch and in-memory sort.
  */
 async function getAllFiles(options = {}) {
-    const files = await fileRepository.findAllWithDetails(options);
-    const attachments = await fileRepository.findAllAttachmentsWithDetails(options);
+    const { team, status, stage, limit = 1000, offset = 0 } = options;
 
-    const fileIds = new Set(files.map(f => String(f.id)));
-    const uniqueAttachments = attachments.filter(a => !fileIds.has(String(a.id)));
+    const whereClauses = [];
+    const params = [];
+    const attachWhere = [];
+    const attachParams = [];
 
-    return [...files, ...uniqueAttachments].sort((a, b) =>
-        new Date(b.uploaded_at) - new Date(a.uploaded_at)
-    );
+    if (team) {
+        whereClauses.push('f.user_team = ?');
+        params.push(team);
+        attachWhere.push('u.team = ?');
+        attachParams.push(team);
+    }
+    if (status) {
+        const arr = Array.isArray(status) ? status : [status];
+        const ph = arr.map(() => '?').join(',');
+        whereClauses.push(`f.status IN (${ph})`);
+        params.push(...arr);
+        attachWhere.push(`COALESCE(aa.status,'team_leader_approved') IN (${ph})`);
+        attachParams.push(...arr);
+    }
+    if (stage) {
+        const arr = Array.isArray(stage) ? stage : [stage];
+        const ph = arr.map(() => '?').join(',');
+        whereClauses.push(`f.current_stage IN (${ph})`);
+        params.push(...arr);
+        attachWhere.push(`COALESCE(aa.current_stage,'pending_admin') IN (${ph})`);
+        attachParams.push(...arr);
+    }
+
+    const fileWhere = whereClauses.length ? 'AND ' + whereClauses.join(' AND ') : '';
+    const aaWhere   = attachWhere.length   ? 'AND ' + attachWhere.join(' AND ')   : '';
+
+    const sql = `
+        SELECT f.id, f.original_name, f.filename, f.file_path, f.file_size, f.file_type,
+               f.uploaded_at, f.status, f.current_stage,
+               f.username, f.user_id, f.user_team,
+               u.fullName AS user_fullname,
+               fc.comment AS latest_comment,
+               f.folder_name, f.relative_path, f.public_network_url,
+               NULL AS source_type, NULL AS assignment_id
+        FROM files f
+        JOIN users u ON f.user_id = u.id
+        LEFT JOIN file_comments fc ON f.id = fc.file_id AND fc.id = (
+            SELECT MAX(id) FROM file_comments WHERE file_id = f.id
+        )
+        WHERE 1=1 ${fileWhere}
+
+        UNION ALL
+
+        SELECT aa.id, aa.original_name, aa.filename, aa.file_path, aa.file_size, aa.file_type,
+               aa.created_at AS uploaded_at,
+               COALESCE(aa.status,'team_leader_approved') AS status,
+               COALESCE(aa.current_stage,'pending_admin') AS current_stage,
+               aa.uploaded_by_username AS username, aa.uploaded_by_id AS user_id,
+               u.team AS user_team, u.fullName AS user_fullname,
+               NULL AS latest_comment,
+               COALESCE(aa.folder_name, NULL) AS folder_name,
+               COALESCE(aa.relative_path, NULL) AS relative_path,
+               aa.public_network_url,
+               'assignment_attachment' AS source_type, aa.assignment_id
+        FROM assignment_attachments aa
+        LEFT JOIN users u ON aa.uploaded_by_id = u.id
+        WHERE 1=1 ${aaWhere}
+
+        ORDER BY uploaded_at DESC
+        LIMIT ? OFFSET ?`;
+
+    try {
+        const results = await fileRepository.rawQuery(sql, [...params, ...attachParams, limit, offset]);
+        return enrichFilePaths(results);
+    } catch (err) {
+        // Fallback to original two-query approach if UNION fails (schema mismatch)
+        const files       = await fileRepository.findAllWithDetails(options);
+        const attachments = await fileRepository.findAllAttachmentsWithDetails(options);
+        
+        const all = [...files, ...attachments];
+        enrichFilePaths(all);
+
+        const fileIds     = new Set(files.map(f => String(f.id)));
+        const unique      = attachments.filter(a => !fileIds.has(String(a.id)));
+        return [...files, ...unique].sort((a, b) => new Date(b.uploaded_at) - new Date(a.uploaded_at));
+    }
 }
 
 /**
@@ -493,26 +593,33 @@ async function deleteFolder(folderName, fileIds, user) {
 
 /**
  * Zip a folder of files
+ * FIX #9 — replaced sequential for-loop with Promise.all() + concurrency cap
+ * so large folders don't block the event loop one file at a time.
  */
 async function zipFolder(fileIds, folderName) {
-    const tmpDir = path.join(os.tmpdir(), `kmti-folder-${Date.now()}`);
+    const tmpDir  = path.join(os.tmpdir(), `kmti-folder-${Date.now()}`);
     const zipPath = path.join(os.tmpdir(), `${folderName}-${Date.now()}.zip`);
 
     await fs.mkdir(tmpDir, { recursive: true });
 
-    for (const fileId of fileIds) {
+    // Concurrency-limited copy: max 5 parallel file operations to avoid NAS saturation
+    const CONCURRENCY = 5;
+    const copyTasks = fileIds.map(fileId => async () => {
         const file = await fileRepository.findById(fileId);
-        if (file) {
-            const resolved = await resolvePhysicalPath(fileId);
-            if (resolved.path) {
-                const relPath = file.relative_path
-                    ? file.relative_path.replace(/\\/g, '/').split('/').slice(1).join('/')
-                    : file.original_name;
-                const destFile = path.join(tmpDir, relPath || file.original_name);
-                await fs.mkdir(path.dirname(destFile), { recursive: true });
-                await fs.copyFile(resolved.path, destFile);
-            }
-        }
+        if (!file) return;
+        const resolved = await resolvePhysicalPath(fileId);
+        if (!resolved.path) return;
+        const relPath  = file.relative_path
+            ? file.relative_path.replace(/\\/g, '/').split('/').slice(1).join('/')
+            : file.original_name;
+        const destFile = path.join(tmpDir, relPath || file.original_name);
+        await fs.mkdir(path.dirname(destFile), { recursive: true });
+        await fs.copyFile(resolved.path, destFile);
+    });
+
+    // Run with max CONCURRENCY tasks in-flight at once
+    for (let i = 0; i < copyTasks.length; i += CONCURRENCY) {
+        await Promise.all(copyTasks.slice(i, i + CONCURRENCY).map(t => t()));
     }
 
     const cmd = `powershell -NoProfile -Command "Compress-Archive -Path '${tmpDir}\\*' -DestinationPath '${zipPath}' -Force"`;
@@ -560,12 +667,14 @@ async function resolvePhysicalPath(fileId) {
 
 /**
  * Perform bulk actions on files (approve/reject)
+ * FIX #10 — replaced sequential for-loop with Promise.allSettled() so all
+ * files are processed in parallel instead of N sequential round-trips.
  */
 async function bulkAction(fileIds, action, user) {
     const results = { successful: [], failed: [] };
 
-    for (const fileId of fileIds) {
-        try {
+    const settled = await Promise.allSettled(
+        fileIds.map(async (fileId) => {
             if (action === 'approve') {
                 if (user.role === 'ADMIN') await approveByAdmin(fileId, user);
                 else await approveByTeamLeader(fileId, user);
@@ -573,9 +682,15 @@ async function bulkAction(fileIds, action, user) {
                 if (user.role === 'ADMIN') await rejectByAdmin(fileId, user);
                 else await rejectByTeamLeader(fileId, user);
             }
-            results.successful.push(fileId);
-        } catch (error) {
-            results.failed.push({ fileId, error: error.message });
+            return fileId;
+        })
+    );
+
+    for (let i = 0; i < settled.length; i++) {
+        if (settled[i].status === 'fulfilled') {
+            results.successful.push(fileIds[i]);
+        } else {
+            results.failed.push({ fileId: fileIds[i], error: settled[i].reason?.message });
         }
     }
 
@@ -598,37 +713,34 @@ async function checkDuplicate(originalName, userId) {
  * Used by team leaders to view individual member file lists.
  */
 async function getMemberFiles(memberId) {
-    return await fileRepository.findByUserId(memberId);
+    const files = await fileRepository.findByUserId(memberId);
+    return enrichFilePaths(files);
 }
 
 /**
  * Get a user's files with server-side pagination.
+ * FIX #6 — ported from SQLite callback shim to mysql2 query/queryBatch.
  * Returns { files, pagination }.
  */
 async function getUserFilesPaginated(userId, page = 1, limit = 50) {
     const offset = (page - 1) * limit;
+    const { query: dbQuery } = require('../config/database');
 
-    const [total, files] = await Promise.all([
-        new Promise((resolve, reject) =>
-            db.get('SELECT COUNT(*) as total FROM files WHERE user_id = ?', [userId],
-                (err, row) => err ? reject(err) : resolve(row.total))
-        ),
-        new Promise((resolve, reject) =>
-            db.all(
-                `SELECT f.*, GROUP_CONCAT(fc.comment, ' | ') as comments
-                 FROM files f
-                 LEFT JOIN file_comments fc ON f.id = fc.file_id
-                 WHERE f.user_id = ?
-                 GROUP BY f.id
-                 ORDER BY f.uploaded_at DESC LIMIT ? OFFSET ?`,
-                [userId, limit, offset],
-                (err, rows) => err ? reject(err) : resolve(rows)
-            )
+    const [countRows, files] = await Promise.all([
+        dbQuery('SELECT COUNT(*) as total FROM files WHERE user_id = ?', [userId]),
+        dbQuery(
+            `SELECT f.*, GROUP_CONCAT(fc.comment ORDER BY fc.id SEPARATOR ' | ') as comments
+             FROM files f
+             LEFT JOIN file_comments fc ON f.id = fc.file_id
+             WHERE f.user_id = ?
+             GROUP BY f.id
+             ORDER BY f.uploaded_at DESC LIMIT ? OFFSET ?`,
+            [userId, limit, offset]
         )
     ]);
 
-    // Normalize grouped comments string into an array
-    const processedFiles = files.map(file => ({
+    const total = countRows[0]?.total || 0;
+    const processedFiles = (files || []).map(file => ({
         ...file,
         comments: file.comments
             ? file.comments.split(' | ').map(comment => ({ comment }))
@@ -636,54 +748,45 @@ async function getUserFilesPaginated(userId, page = 1, limit = 50) {
     }));
 
     return {
-        files: processedFiles,
+        files: enrichFilePaths(processedFiles),
         pagination: { page, limit, total, pages: Math.ceil(total / limit) }
     };
 }
 
 /**
  * Paginated team leader review queue.
+ * FIX #6 — ported from SQLite callback shim to mysql2.
  * Returns { files, pagination }.
  */
 async function getTeamLeaderQueue(team, page = 1, limit = 50) {
     const offset = (page - 1) * limit;
+    const { queryBatch: qb } = require('../config/database');
 
-    const [total, files] = await Promise.all([
-        new Promise((resolve, reject) =>
-            db.get(
-                "SELECT COUNT(*) as total FROM files WHERE user_team = ? AND current_stage = 'pending_team_leader'",
-                [team],
-                (err, row) => err ? reject(err) : resolve(row.total)
-            )
-        ),
-        new Promise((resolve, reject) =>
-            db.all(
-                `SELECT f.*, fc.comment as latest_comment
-                 FROM files f
-                 LEFT JOIN file_comments fc ON f.id = fc.file_id AND fc.id = (
-                   SELECT MAX(id) FROM file_comments WHERE file_id = f.id
-                 )
-                 WHERE f.user_team = ? AND f.current_stage = 'pending_team_leader'
-                 ORDER BY f.uploaded_at DESC LIMIT ? OFFSET ?`,
-                [team, limit, offset],
-                (err, rows) => err ? reject(err) : resolve(rows)
-            )
-        )
+    const [[countRow], files] = await qb([
+        ["SELECT COUNT(*) as total FROM files WHERE user_team = ? AND current_stage = 'pending_team_leader'", [team]],
+        [`SELECT f.*, fc.comment as latest_comment
+          FROM files f
+          LEFT JOIN file_comments fc ON f.id = fc.file_id AND fc.id = (
+            SELECT MAX(id) FROM file_comments WHERE file_id = f.id
+          )
+          WHERE f.user_team = ? AND f.current_stage = 'pending_team_leader'
+          ORDER BY f.uploaded_at DESC LIMIT ? OFFSET ?`, [team, limit, offset]]
     ]);
 
     return {
-        files,
-        pagination: { page, limit, total, pages: Math.ceil(total / limit) }
+        files: enrichFilePaths(files) || [],
+        pagination: { page, limit, total: countRow?.total || 0, pages: Math.ceil((countRow?.total || 0) / limit) }
     };
 }
 
 /**
  * Advanced filter + sort for the team leader review queue.
- * Accepts a filters object and sort descriptor.
+ * FIX #6 — ported from SQLite callback shim to mysql2.
  * Returns { files, pagination }.
  */
 async function filterTeamLeaderQueue(team, filters = {}, sort = {}, page = 1, limit = 50) {
     const offset = (page - 1) * limit;
+    const { queryBatch: qb } = require('../config/database');
 
     const whereClauses = ['user_team = ?', "current_stage = 'pending_team_leader'"];
     const params = [team];
@@ -704,67 +807,49 @@ async function filterTeamLeaderQueue(team, filters = {}, sort = {}, page = 1, li
 
     const allowedSortFields = ['uploaded_at', 'original_name', 'file_size', 'priority', 'due_date'];
     const sortField = allowedSortFields.includes(sort.field) ? sort.field : 'uploaded_at';
-    const sortDir = sort.direction === 'ASC' ? 'ASC' : 'DESC';
-    const where = whereClauses.join(' AND ');
+    const sortDir   = sort.direction === 'ASC' ? 'ASC' : 'DESC';
+    const where     = whereClauses.join(' AND ');
 
-    const [total, files] = await Promise.all([
-        new Promise((resolve, reject) =>
-            db.get(`SELECT COUNT(*) as total FROM files WHERE ${where}`, params,
-                (err, row) => err ? reject(err) : resolve(row.total))
-        ),
-        new Promise((resolve, reject) =>
-            db.all(
-                `SELECT f.*, fc.comment as latest_comment
-                 FROM files f
-                 LEFT JOIN file_comments fc ON f.id = fc.file_id AND fc.id = (
-                   SELECT MAX(id) FROM file_comments WHERE file_id = f.id
-                 )
-                 WHERE ${where} ORDER BY ${sortField} ${sortDir} LIMIT ? OFFSET ?`,
-                [...params, limit, offset],
-                (err, rows) => err ? reject(err) : resolve(rows)
-            )
-        )
+    const [[countRow], files] = await qb([
+        [`SELECT COUNT(*) as total FROM files WHERE ${where}`, [...params]],
+        [`SELECT f.*, fc.comment as latest_comment
+          FROM files f
+          LEFT JOIN file_comments fc ON f.id = fc.file_id AND fc.id = (
+            SELECT MAX(id) FROM file_comments WHERE file_id = f.id
+          )
+          WHERE ${where} ORDER BY ${sortField} ${sortDir} LIMIT ? OFFSET ?`,
+         [...params, limit, offset]]
     ]);
 
     return {
-        files,
-        pagination: { page, limit, total, pages: Math.ceil(total / limit) }
+        files: enrichFilePaths(files) || [],
+        pagination: { page, limit, total: countRow?.total || 0, pages: Math.ceil((countRow?.total || 0) / limit) }
     };
 }
 
 /**
  * Paginated admin review queue (pending_admin stage only).
+ * FIX #6 — ported from SQLite callback shim to mysql2.
  * Returns { files, pagination }.
  */
 async function getAdminQueue(page = 1, limit = 50) {
     const offset = (page - 1) * limit;
+    const { queryBatch: qb } = require('../config/database');
 
-    const [total, files] = await Promise.all([
-        new Promise((resolve, reject) =>
-            db.get(
-                "SELECT COUNT(*) as total FROM files WHERE current_stage = 'pending_admin'",
-                [],
-                (err, row) => err ? reject(err) : resolve(row.total)
-            )
-        ),
-        new Promise((resolve, reject) =>
-            db.all(
-                `SELECT f.*, fc.comment as latest_comment
-                 FROM files f
-                 LEFT JOIN file_comments fc ON f.id = fc.file_id AND fc.id = (
-                   SELECT MAX(id) FROM file_comments WHERE file_id = f.id
-                 )
-                 WHERE f.current_stage = 'pending_admin'
-                 ORDER BY f.uploaded_at DESC LIMIT ? OFFSET ?`,
-                [limit, offset],
-                (err, rows) => err ? reject(err) : resolve(rows)
-            )
-        )
+    const [[countRow], files] = await qb([
+        ["SELECT COUNT(*) as total FROM files WHERE current_stage = 'pending_admin'", []],
+        [`SELECT f.*, fc.comment as latest_comment
+          FROM files f
+          LEFT JOIN file_comments fc ON f.id = fc.file_id AND fc.id = (
+            SELECT MAX(id) FROM file_comments WHERE file_id = f.id
+          )
+          WHERE f.current_stage = 'pending_admin'
+          ORDER BY f.uploaded_at DESC LIMIT ? OFFSET ?`, [limit, offset]]
     ]);
 
     return {
-        files,
-        pagination: { page, limit, total, pages: Math.ceil(total / limit) }
+        files: enrichFilePaths(files) || [],
+        pagination: { page, limit, total: countRow?.total || 0, pages: Math.ceil((countRow?.total || 0) / limit) }
     };
 }
 

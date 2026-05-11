@@ -123,7 +123,7 @@ const doFetch = async (fullUrl, options) => {
   }
 
   if (import.meta.env.DEV) {
-    console.log(`🚀 API Request: ${options.method || 'GET'} ${fullUrl}`);
+    console.debug(`API Request: ${options.method || 'GET'} ${fullUrl}`);
   }
 
   return fetch(fullUrl, { ...options, headers });
@@ -151,7 +151,7 @@ export const apiFetch = async (endpoint, options = {}) => {
       if (!(await isDbNotReady(response))) break;
 
       if (import.meta.env.DEV) {
-        console.log(`⏳ DB not ready — retrying ${fullUrl} in ${delay / 1000}s…`);
+        console.debug(`DB not ready — retrying ${fullUrl} in ${delay / 1000}s…`);
       }
 
       await sleep(delay);
@@ -167,7 +167,7 @@ export const apiFetch = async (endpoint, options = {}) => {
     // ─────────────────────────────────────────────────────────────────────
 
     if (import.meta.env.DEV) {
-      console.log(`📡 API Response: ${response.status} ${fullUrl}`);
+      console.debug(`API Response: ${response.status} ${fullUrl}`);
     }
 
     if (!response.ok) {

@@ -33,6 +33,10 @@ const PID_FILE = path.join(app.getPath('userData'), 'server.pid');
 // FIXED: Import port utilities for cleanup
 const { isPortAvailable, waitForPortToBeFree, killProcess, findProcessByPort } = require('./server/utils/portUtils');
 
+// Network Storage Configuration (KMTI-NAS)
+const NETWORK_DATA_PATH = process.env.NETWORK_DATA_PATH || '\\\\KMTI-NAS\\Shared\\data';
+const NETWORK_UPLOADS_DIR = path.join(NETWORK_DATA_PATH, 'uploads');
+
 // Logging utility with levels
 const LogLevel = {
   ERROR: 0,
@@ -1412,6 +1416,34 @@ if (ipcMain) {
     } catch (error) {
       log(LogLevel.ERROR, 'Error opening file:', error.message);
       return { success: false, error: error.message };
+    }
+  });
+
+  // Fetch native system icon for a file path
+  ipcMain.handle('app:getFileIcon', async (event, filePath) => {
+    try {
+      if (!filePath || typeof filePath !== 'string') return null;
+      
+      let resolvedPath = filePath;
+      
+      // If it's a relative path (common for files from DB), resolve it against NAS uploads dir
+      if (!path.isAbsolute(filePath)) {
+        // Remove leading 'uploads/' or '/uploads/' if present
+        let cleanPath = filePath.replace(/^(\/)?uploads(\/)?/, '');
+        resolvedPath = path.join(NETWORK_UPLOADS_DIR, cleanPath);
+      }
+      
+      // Ensure path exists before calling getFileIcon to avoid generic drive icon fallback
+      if (!fs.existsSync(resolvedPath)) {
+        return null;
+      }
+      
+      // Use Electron's app.getFileIcon to get a NativeImage
+      const icon = await app.getFileIcon(path.normalize(resolvedPath), { size: 'normal' });
+      return icon.toDataURL();
+    } catch (error) {
+      // Don't log full error for every missing icon to avoid spam
+      return null;
     }
   });
 

@@ -138,11 +138,11 @@ class SecureLogger {
   }
 
   logStateUpdate(stateName) {
-    this.log(`State updated: ${stateName}`);
+    // this.log(`State updated: ${stateName}`);
   }
 
   logNavigation(from, to) {
-    this.log(`Navigation: ${from} → ${to}`);
+    // this.log(`Navigation: ${from} → ${to}`);
   }
 
   // Debug mode (only in development)

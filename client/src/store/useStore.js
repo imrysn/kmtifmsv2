@@ -83,7 +83,7 @@ const useStore = create(
             },
 
             // ============================================================================
-            // NOTIFICATIONS STATE
+            // NOTIFICATIONS STATE (Legacy/Toast)
             // ============================================================================
             notifications: [],
 
@@ -113,6 +113,28 @@ const useStore = create(
                     )
                 }));
             },
+
+            // ============================================================================
+            // SERVER NOTIFICATIONS STATE (Global Caching)
+            // ============================================================================
+            serverNotifications: [],
+            globalUnreadCount: 0,
+            notifPage: 1,
+            notifHasMore: true,
+
+            setServerNotifications: (notifs) => set((state) => ({ 
+                serverNotifications: typeof notifs === 'function' ? notifs(state.serverNotifications) : notifs 
+            })),
+            setGlobalUnreadCount: (count) => set((state) => ({ 
+                globalUnreadCount: typeof count === 'function' ? count(state.globalUnreadCount) : count 
+            })),
+            setNotifPagination: (page, hasMore) => set({ notifPage: page, notifHasMore: hasMore }),
+            clearServerNotifications: () => set({ 
+                serverNotifications: [], 
+                globalUnreadCount: 0, 
+                notifPage: 1, 
+                notifHasMore: true 
+            }),
 
             // ============================================================================
             // LOADING STATES
@@ -163,7 +185,10 @@ const useStore = create(
 
             setAssignmentsCache: (key, assignments) => {
                 set((state) => ({
-                    assignmentsCache: { ...state.assignmentsCache, [key]: assignments }
+                    assignmentsCache: { 
+                        ...state.assignmentsCache, 
+                        [key]: typeof assignments === 'function' ? assignments(state.assignmentsCache[key] || []) : assignments 
+                    }
                 }));
             },
 
@@ -181,6 +206,27 @@ const useStore = create(
                 } else {
                     set({ assignmentsCache: {} });
                 }
+            },
+
+            // ============================================================================
+            // PERFORMANCE & TEAM TASKS CACHE (Dashboard)
+            // ============================================================================
+            userPerformanceCache: {},
+            teamTasksCache: {},
+
+            setUserPerformanceCache: (userId, performance) => {
+                set((state) => ({
+                    userPerformanceCache: { ...state.userPerformanceCache, [userId]: performance }
+                }));
+            },
+
+            setTeamTasksCache: (team, tasks) => {
+                set((state) => ({
+                    teamTasksCache: { 
+                        ...state.teamTasksCache, 
+                        [team]: typeof tasks === 'function' ? tasks(state.teamTasksCache[team] || []) : tasks 
+                    }
+                }));
             },
 
             // ============================================================================

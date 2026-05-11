@@ -655,6 +655,18 @@ async function findAllAttachmentsWithDetails(options = {}) {
     }
 }
 
+/**
+ * Raw passthrough query — used by fileService.getAllFiles UNION ALL.
+ * Returns results as an array, same as db.all.
+ */
+async function rawQuery(sql, params = []) {
+    try {
+        return await db.all(sql, params);
+    } catch (err) {
+        throw new DatabaseError('Raw query failed', err);
+    }
+}
+
 module.exports = {
     create,
     findById,
@@ -677,5 +689,6 @@ module.exports = {
     findPendingByStage,
     findAllWithDetails,
     findAllAttachmentsWithDetails,
+    rawQuery,
     count
 };

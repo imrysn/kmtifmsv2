@@ -1,6 +1,7 @@
 import React from 'react'
 import './FileDetailsModal.css'
 import { getDisplayFileType } from '../../../utils/fileTypeUtils'
+import { TeamBadge, StatusBadge } from '../../shared'
 
 const FileDetailsModal = ({
   isOpen,
@@ -51,8 +52,8 @@ const FileDetailsModal = ({
                 </div>
                 <div className="detail-item">
                   <span className="detail-label">TEAM:</span>
-                  <span className="detail-value team-badge-inline">
-                    {file.user_team}
+                  <span className="detail-value">
+                    <TeamBadge team={file.user_team} size="sm" />
                   </span>
                 </div>
                 <div className="detail-item">
@@ -61,8 +62,8 @@ const FileDetailsModal = ({
                 </div>
                 <div className="detail-item">
                   <span className="detail-label">STATUS:</span>
-                  <span className={`detail-value status-badge status-${mapFileStatus(file.status)}`}>
-                    {getStatusDisplayName(file.status)}
+                  <span className="detail-value">
+                    <StatusBadge status={file.status} size="sm" />
                   </span>
                 </div>
               </div>

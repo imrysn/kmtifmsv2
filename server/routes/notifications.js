@@ -91,58 +91,37 @@ const createNotification = async (userId, fileId, type, title, message, actionBy
 };
 
 // Helper function to notify all admins
+// FIX #7 — single batch INSERT instead of N sequential INSERTs
 const createAdminNotification = async (fileId, type, title, message, actionById, actionByUsername, actionByRole, assignmentId = null) => {
   try {
-    console.log('📢 Broadcasting admin notification:', { type, title });
-
-    // 1. Get all admin users
     const admins = await query('SELECT id FROM users WHERE role = ?', ['ADMIN']);
+    if (!admins || admins.length === 0) return 0;
 
-    if (!admins || admins.length === 0) {
-      console.log('⚠️ No admins found to notify');
-      return 0;
-    }
+    const targets = admins.filter(a => !actionById || a.id !== parseInt(actionById, 10));
+    if (targets.length === 0) return 0;
 
-    console.log(`found ${admins.length} admins to notify`);
-
-    // 2. Create notification for each admin
-    let count = 0;
-    for (const admin of admins) {
-      // Don't notify the admin who performed the action (if applicable)
-      if (actionById && admin.id === parseInt(actionById, 10)) {
-        console.log(`ℹ️ Skipped notifying admin ${admin.id} (${admin.username || 'unknown'}) - they performed the action`);
-        continue;
-      }
-
-      console.log(`🔔 Creating notification for admin ${admin.id} (${admin.username || 'unknown'})`);
-      await query(
-        `INSERT INTO notifications (
-          user_id, file_id, type, title, message, assignment_id,
-          action_by_id, action_by_username, action_by_role
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [
-          admin.id,
-          fileId ?? null,
-          type ?? null,
-          title ?? null,
-          message ?? null,
-          assignmentId ?? null,
-          actionById ?? null,
-          actionByUsername ?? 'System',
-          actionByRole ?? 'ADMIN'
-        ]
+    const placeholders = targets.map(() => '(?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)').join(', ');
+    const params = [];
+    for (const admin of targets) {
+      params.push(
+        admin.id, fileId ?? null, assignmentId ?? null,
+        type ?? null, title ?? null, message ?? null,
+        actionById ?? null, actionByUsername ?? 'System', actionByRole ?? 'ADMIN'
       );
-      // Push real-time ping to the admin
       pushToUser(admin.id);
-      count++;
     }
 
-    console.log(`✅ Admin notifications created: ${count}`);
-    return count;
+    await query(
+      `INSERT INTO notifications
+         (user_id, file_id, assignment_id, type, title, message,
+          action_by_id, action_by_username, action_by_role, created_at)
+       VALUES ${placeholders}`,
+      params
+    );
 
+    return targets.length;
   } catch (error) {
     console.error('❌ Error creating admin notifications:', error);
-    // Don't throw, just log error so main flow doesn't break
     return 0;
   }
 };
@@ -158,8 +137,8 @@ router.get('/user/:userId', async (req, res) => {
       return res.status(403).json({ success: false, message: 'Access denied: You can only view your own notifications' });
     }
 
-    const pageNum = parseInt(page);
-    const limitNum = parseInt(limit);
+    const pageNum = Math.max(1, parseInt(page) || 1);
+    const limitNum = Math.max(1, Math.min(100, parseInt(limit) || 20));
     const offset = (pageNum - 1) * limitNum;
 
     console.log(`📬 Fetching notifications for user ${userId}, page: ${pageNum}, limit: ${limitNum}`);
@@ -184,10 +163,8 @@ router.get('/user/:userId', async (req, res) => {
       FROM notifications n
       LEFT JOIN files f ON n.file_id = f.id
       LEFT JOIN assignments a ON n.assignment_id = a.id
-      LEFT JOIN assignment_comments ac ON n.assignment_id = ac.assignment_id 
-        AND n.type = 'comment' 
-        AND n.created_at <= DATE_ADD(ac.created_at, INTERVAL 1 SECOND)
-        AND n.created_at >= DATE_SUB(ac.created_at, INTERVAL 1 SECOND)
+      LEFT JOIN assignment_comments ac ON n.comment_id = ac.id 
+        AND n.type = 'comment'
       WHERE n.user_id = ?
     `;
 
