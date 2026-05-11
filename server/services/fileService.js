@@ -397,7 +397,19 @@ async function getFileById(fileId) {
  * Get user files (unpaginated)
  */
 async function getUserFiles(userId) {
-    return await fileRepository.findByUserId(userId);
+    // Fetch regular uploaded files
+    const files = await fileRepository.findByUserId(userId);
+
+    // Also fetch task attachments uploaded by this user (e.g. team leader attachments)
+    const attachments = await fileRepository.findAllAttachmentsWithDetails({ userId });
+
+    // Merge, deduplicate by id+source, sort newest first
+    const fileIds = new Set(files.map(f => `file_${f.id}`));
+    const uniqueAttachments = attachments.filter(a => !fileIds.has(`file_${a.id}`));
+
+    return [...files, ...uniqueAttachments].sort(
+        (a, b) => new Date(b.uploaded_at) - new Date(a.uploaded_at)
+    );
 }
 
 /**

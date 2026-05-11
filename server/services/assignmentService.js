@@ -87,6 +87,7 @@ async function createAssignment(data, attachments, user) {
                 filename: file.filename,
                 file_size: file.size,
                 file_type: file.mimetype,
+                uploaded_by_id: user.id,
                 uploaded_by_username: user.username,
                 folder_name: data.folderName || 'Default'
             });
@@ -152,6 +153,7 @@ async function updateAssignment(id, data, attachments, user) {
                 filename: file.filename,
                 file_size: file.size,
                 file_type: file.mimetype,
+                uploaded_by_id: user.id,
                 uploaded_by_username: user.username,
                 folder_name: data.folderName || 'Default'
             });

@@ -615,20 +615,20 @@ async function deleteBatch(fileIds) {
 async function createAttachment(data) {
     const {
         assignment_id, file_path, original_name, filename, file_size,
-        file_type, uploaded_by_username, folder_name
+        file_type, uploaded_by_id = null, uploaded_by_username, folder_name
     } = data;
 
     const query = `
         INSERT INTO assignment_attachments (
             assignment_id, file_path, original_name, filename, file_size, 
-            file_type, uploaded_by_username, folder_name, created_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+            file_type, uploaded_by_id, uploaded_by_username, folder_name, created_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
     `;
 
     try {
         const result = await db.run(query, [
             assignment_id, file_path, original_name, filename, file_size,
-            file_type, uploaded_by_username, folder_name
+            file_type, uploaded_by_id, uploaded_by_username, folder_name
         ]);
         return result.insertId || result.lastID;
     } catch (err) {
