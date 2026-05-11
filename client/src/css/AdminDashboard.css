@@ -335,8 +335,10 @@
   transition: opacity var(--transition-speed) var(--transition-easing);
   position: relative;
   z-index: 1;
-  backface-visibility: hidden;
-  will-change: transform;
+  /* NOTE: backface-visibility and will-change: transform intentionally removed.
+     Those properties create a new containing block that traps position:fixed
+     modal overlays inside the scroll container, causing them to scroll with
+     the page instead of staying fixed to the viewport. */
 }
 
 /* Content Area */
