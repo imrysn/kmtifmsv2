@@ -67,6 +67,7 @@ const FolderRow = memo(({
   onDelete,
   onApproveFolder,
   onOpenFolderPath,
+  isReference = false,
 }) => {
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const dropdownRef = useRef(null)
@@ -116,7 +117,7 @@ const FolderRow = memo(({
           </div>
         </div>
       </td>
-      <td><div className="user-cell"><span className="user-name">{firstFile.username}</span></div></td>
+      <td><div className="user-cell"><span className="user-name">{firstFile.user_fullname || firstFile.username}</span></div></td>
       <td>
         <div className="datetime-cell">
           <div className="date">{formattedDate}</div>
@@ -124,9 +125,9 @@ const FolderRow = memo(({
         </div>
       </td>
       <td><span className="team-badge">{firstFile.user_team}</span></td>
-      <td><span className={`status-badge status-${folderStatus.cls}`}>{folderStatus.label}</span></td>
+      {!isReference && <td><span className={`status-badge status-${folderStatus.cls}`}>{folderStatus.label}</span></td>}
       <td>
-        <div className="action-dropdown-wrapper">
+        <div className="action-dropdown-wrapper" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
           <button
             ref={btnRef}
             className="action-dots-btn"
@@ -184,7 +185,8 @@ const FileRow = memo(({
   onOpenModal,
   onDelete,
   onOpenFilePath,
-  isNested = false
+  isNested = false,
+  isReference = false,
 }) => {
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const dropdownRef = useRef(null)
@@ -239,7 +241,7 @@ const FileRow = memo(({
           </div>
         </div>
       </td>
-      <td><div className="user-cell"><span className="user-name">{file.username}</span></div></td>
+      <td><div className="user-cell"><span className="user-name">{file.user_fullname || file.username}</span></div></td>
       <td>
         <div className="datetime-cell">
           <div className="date">{formattedDate}</div>
@@ -247,13 +249,15 @@ const FileRow = memo(({
         </div>
       </td>
       <td><span className="team-badge">{file.user_team}</span></td>
+      {!isReference && (
+        <td>
+          <span className={`status-badge status-${mapFileStatus(file.status)}`}>
+            {getStatusDisplayName(file.status)}
+          </span>
+        </td>
+      )}
       <td>
-        <span className={`status-badge status-${mapFileStatus(file.status)}`}>
-          {getStatusDisplayName(file.status)}
-        </span>
-      </td>
-      <td>
-        <div className="action-dropdown-wrapper">
+        <div className="action-dropdown-wrapper" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
           <button
             ref={btnRef}
             className="action-dots-btn"
@@ -312,6 +316,7 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
   const [folderReviewModal, setFolderReviewModal] = useState(null)
   const [folderReviewComment, setFolderReviewComment] = useState('')
   const [deleteAlert, setDeleteAlert] = useState(null)
+  const [activeView, setActiveView] = useState('approval') // 'approval' | 'reference'
 
   const fetchAbortController = useRef(null)
 
@@ -381,7 +386,12 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
   }), [files])
 
   const filteredFiles = useMemo(() => {
-    let filtered = files
+    // Split by view: approval = member submissions, reference = TL attachments
+    const sourceFiles = activeView === 'reference'
+      ? files.filter(f => f.source_type === 'assignment_attachment')
+      : files.filter(f => f.source_type !== 'assignment_attachment')
+
+    let filtered = sourceFiles
 
     if (fileFilter !== 'all') {
       filtered = filtered.filter(file => {
@@ -416,7 +426,7 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
         default: return 0
       }
     })
-  }, [files, fileSearchQuery, fileFilter, fileSortBy])
+  }, [files, fileSearchQuery, fileFilter, fileSortBy, activeView])
 
   const groupedData = useMemo(() => groupFilesByFolder(filteredFiles), [filteredFiles, groupFilesByFolder])
 
@@ -935,6 +945,7 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
             onApproveFolder={(name, files) => openFolderReviewModal(name, files, 'approve')}
             onOpenFolderPath={openFilePath}
             formatFileSize={formatFileSize}
+            isReference={activeView === 'reference'}
           />
         )
 
@@ -951,6 +962,7 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
                 onDelete={openDeleteModal}
                 onOpenFilePath={openFilePath}
                 isNested={true}
+                isReference={activeView === 'reference'}
               />
             )
           })
@@ -967,13 +979,14 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
             onDelete={openDeleteModal}
             onOpenFilePath={openFilePath}
             isNested={false}
+            isReference={activeView === 'reference'}
           />
         )
       }
     })
 
     return rows
-  }, [currentPageItems, expandedFolders, toggleFolder, openFolderDeleteModal, openFolderReviewModal, openFilePath, openDeleteModal, openFileModal, formatFileSize, mapFileStatus, getStatusDisplayName])
+  }, [currentPageItems, expandedFolders, activeView, toggleFolder, openFolderDeleteModal, openFolderReviewModal, openFilePath, openDeleteModal, openFileModal, formatFileSize, mapFileStatus, getStatusDisplayName])
 
   const renderPaginationNumbers = useMemo(() => {
     const pageNumbers = []
@@ -1022,11 +1035,41 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
       {success && <AlertMessage type="success" message={success} onClose={clearMessages} />}
       {deleteAlert && <AlertMessage type="error" message={deleteAlert} onClose={() => setDeleteAlert(null)} />}
 
-      <div className="file-status-cards">
-        <StatusCard icon="TL" label="Pending Team Leader" count={statusCounts.pendingTeamLeader} className="pending" />
-        <StatusCard icon="AD" label="Pending Admin" count={statusCounts.pendingAdmin} className="pending-admin" />
-        <StatusCard icon="AP" label="Approved Files" count={statusCounts.approved} className="approved" />
-        <StatusCard icon="RE" label="Rejected Files" count={statusCounts.rejected} className="rejected" />
+      <div style={{ marginBottom: '0.5rem', marginTop: '-1rem' }}>
+        <h2 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 700, color: 'var(--text-primary)' }}>File Approval</h2>
+        <p style={{ margin: '2px 0 0', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Review and approve member file submissions</p>
+      </div>
+
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem', flexWrap: 'wrap', gap: '1rem' }}>
+        <div style={{ display: 'inline-flex', border: '1px solid #e5e7eb', borderRadius: '8px', overflow: 'hidden', background: '#f9fafb' }}>
+          <button
+            onClick={() => { setActiveView('approval'); setCurrentPage(1) }}
+            style={{
+              padding: '7px 20px', fontSize: '14px', fontWeight: 500, border: 'none', cursor: 'pointer',
+              background: activeView === 'approval' ? 'white' : 'transparent',
+              color: activeView === 'approval' ? '#111827' : '#6b7280',
+              boxShadow: activeView === 'approval' ? '0 1px 4px rgba(0,0,0,0.08)' : 'none',
+              borderRadius: '7px', margin: '2px', transition: 'all 0.2s ease',
+            }}
+          >File Approval</button>
+          <button
+            onClick={() => { setActiveView('reference'); setCurrentPage(1) }}
+            style={{
+              padding: '7px 20px', fontSize: '14px', fontWeight: 500, border: 'none', cursor: 'pointer',
+              background: activeView === 'reference' ? 'white' : 'transparent',
+              color: activeView === 'reference' ? '#111827' : '#6b7280',
+              boxShadow: activeView === 'reference' ? '0 1px 4px rgba(0,0,0,0.08)' : 'none',
+              borderRadius: '7px', margin: '2px', transition: 'all 0.2s ease',
+            }}
+          >Reference Files</button>
+        </div>
+
+        <div className="file-status-cards" style={{ marginBottom: 0 }}>
+          <StatusCard icon="TL" label="Pending Team Leader" count={statusCounts.pendingTeamLeader} className="pending" />
+          <StatusCard icon="AD" label="Pending Admin" count={statusCounts.pendingAdmin} className="pending-admin" />
+          <StatusCard icon="AP" label="Approved Files" count={statusCounts.approved} className="approved" />
+          <StatusCard icon="RE" label="Rejected Files" count={statusCounts.rejected} className="rejected" />
+        </div>
       </div>
 
       <div className="file-controls">
@@ -1082,7 +1125,7 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
                 <th>Submitted By</th>
                 <th>Date & Time</th>
                 <th>Team</th>
-                <th>Status</th>
+                {activeView === 'approval' && <th>Status</th>}
                 <th>Actions</th>
               </tr>
             </thead>
