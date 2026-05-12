@@ -205,7 +205,7 @@ const CreateAssignmentModal = ({
   }
 
   return (
-    <div className="tl-modal-overlay" onClick={isProcessing ? undefined : handleClose}>
+    <div className="tl-modal-overlay">
       <div className="tl-modal-large" onClick={e => e.stopPropagation()}>
         <div className="tl-modal-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
