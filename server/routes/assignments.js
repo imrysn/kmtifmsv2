@@ -570,21 +570,18 @@ router.post('/create', authenticateToken, authorizeRole(['TEAM_LEADER', 'ADMIN']
           const file = uploadedFiles[i];
           const fixedName = decodeUTF8Filename(file.originalname);
           let finalPath;
-          try {
-            finalPath = await moveToUserFolder(file.path, finalTeamLeaderUsername, fixedName);
-          } catch (e) {
-            console.error('⚠️ Failed to move attachment:', e); finalPath = file.path;
-          }
-
           const relPath = relativePaths[i] || fixedName;
           const folderName = relPath.includes('/') ? relPath.split('/')[0] : null;
 
-          if (folderName) {
-            try {
-              finalPath = await moveToUserFolder(finalPath, finalTeamLeaderUsername, fixedName, folderName, relPath);
-            } catch (e) {
-              console.error('⚠️ Failed to re-move into folder structure:', e.message);
-            }
+          try {
+            // Team leader attachments go to \\KMTI-NAS\Shared\data\teamleader\<username>\
+            finalPath = await moveToUserFolder(
+              file.path, finalTeamLeaderUsername, fixedName,
+              folderName || null, folderName ? relPath : null,
+              null, true /* isTeamLeaderAttachment */
+            );
+          } catch (e) {
+            console.error('⚠️ Failed to move attachment:', e); finalPath = file.path;
           }
 
           await query(
@@ -775,18 +772,18 @@ router.put('/:id', authenticateToken, authorizeRole(['TEAM_LEADER', 'ADMIN']), u
           const file = uploadedFiles[i];
           const fixedName = decodeUTF8Filename(file.originalname);
           let finalPath;
-          try {
-            finalPath = await moveToUserFolder(file.path, finalTeamLeaderUsername, fixedName);
-          } catch (e) {
-            finalPath = file.path;
-          }
-
           const relPath = relativePaths[i] || fixedName;
           const folderName = relPath.includes('/') ? relPath.split('/')[0] : null;
-          if (folderName) {
-            try {
-              finalPath = await moveToUserFolder(finalPath, finalTeamLeaderUsername, fixedName, folderName, relPath);
-            } catch (e) { /* keep flat */ }
+
+          try {
+            // Team leader attachments go to \\KMTI-NAS\Shared\data\teamleader\<username>\
+            finalPath = await moveToUserFolder(
+              file.path, finalTeamLeaderUsername, fixedName,
+              folderName || null, folderName ? relPath : null,
+              null, true /* isTeamLeaderAttachment */
+            );
+          } catch (e) {
+            finalPath = file.path;
           }
 
           await query(

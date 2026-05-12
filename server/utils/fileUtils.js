@@ -30,14 +30,24 @@ function decodeUTF8Filename(name) {
  * Handles cross-device moves (EXDEV) for NAS targets.
  * @param {string} taskPrefix  Optional sub-directory under userDir (e.g. "task_42")
  *                             used to isolate uploads per assignment.
+ * @param {boolean} isTeamLeaderAttachment  If true, files go to teamleader/<username>/
+ *                             instead of uploads/<username>/.
  */
-async function moveToUserFolder(tempPath, username, originalFilename, folderName = null, relativePath = null, taskPrefix = null) {
+async function moveToUserFolder(tempPath, username, originalFilename, folderName = null, relativePath = null, taskPrefix = null, isTeamLeaderAttachment = false) {
   const { uploadsDir } = require('../config/middleware');
-  // If a taskPrefix is given, place files under uploads/username/task_N/...
+  const { networkDataPath } = require('../config/database');
+
+  // Team leader attachments go to \\KMTI-NAS\Shared\data\teamleader\<username>\
+  // Regular uploads stay under \\KMTI-NAS\Shared\data\uploads\<username>\
+  const baseDir = isTeamLeaderAttachment
+    ? path.join(networkDataPath, 'teamleader')
+    : uploadsDir;
+
+  // If a taskPrefix is given, place files under <base>/username/task_N/...
   // so the same folder name uploaded to two different tasks never collides.
   const userDir = taskPrefix
-    ? path.join(uploadsDir, username, taskPrefix)
-    : path.join(uploadsDir, username);
+    ? path.join(baseDir, username, taskPrefix)
+    : path.join(baseDir, username);
 
   // Ensure user directory exists (race-safe)
   try {
