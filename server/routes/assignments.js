@@ -85,6 +85,12 @@ async function createBatchedSubmissionNotification(teamLeaderId, assignmentId, s
       return;
     }
 
+    // Don't notify the team leader if they submitted the file themselves
+    if (String(finalTeamLeaderId) === String(firstSubmission.userId)) {
+      console.log(`ℹ️ Skipping submission notification — submitter is the team leader (id: ${finalTeamLeaderId})`);
+      return;
+    }
+
     await query(
       `INSERT INTO notifications (user_id, assignment_id, file_id, type, title, message, action_by_id, action_by_username, action_by_role)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,

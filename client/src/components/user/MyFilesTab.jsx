@@ -21,6 +21,16 @@ const MyFilesTab = ({
   const [isDeleting, setIsDeleting] = useState(false);
   const [isOpeningFile, setIsOpeningFile] = useState(false);
   const [expandedFolders, setExpandedFolders] = useState({});
+  const [sortOrder, setSortOrder] = useState('all');
+  const [sortDropdownOpen, setSortDropdownOpen] = useState(false);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    if (!sortDropdownOpen) return;
+    const handler = () => setSortDropdownOpen(false);
+    document.addEventListener('click', handler);
+    return () => document.removeEventListener('click', handler);
+  }, [sortDropdownOpen]);
 
   const submittedFiles = useMemo(() =>
     filteredFiles.filter(f =>
@@ -46,17 +56,36 @@ const MyFilesTab = ({
 
   // Build display items FIRST so folders count as 1 row each, then paginate.
   // Without this, a 9-file folder consumed 9 of the 10 per-page slots.
+  // Items are sorted by date descending (folders are NOT pinned to top).
   const displayItems = useMemo(() => {
-    const { folders, individualFiles } = groupFilesByFolder(submittedFiles);
+    // Apply status filter before grouping
+    const statusFilterMap = {
+      all: null,
+      pending_tl: (f) => f.status === 'uploaded' || f.status === 'under_revision',
+      pending_admin: (f) => f.status === 'team_leader_approved',
+      approved: (f) => f.status === 'final_approved',
+      rejected: (f) => f.status === 'rejected_by_team_leader' || f.status === 'rejected_by_admin',
+    };
+    const filterFn = statusFilterMap[sortOrder];
+    const filesToShow = filterFn ? submittedFiles.filter(filterFn) : submittedFiles;
+
+    const { folders, individualFiles } = groupFilesByFolder(filesToShow);
     const items = [];
     Object.keys(folders).forEach(folderName => {
-      items.push({ type: 'folder', folderName, files: folders[folderName] });
+      // Use the most recent file date in the folder as the folder's sort date
+      const latestDate = folders[folderName].reduce((latest, f) => {
+        const d = new Date(f.uploaded_at);
+        return d > latest ? d : latest;
+      }, new Date(0));
+      items.push({ type: 'folder', folderName, files: folders[folderName], _sortDate: latestDate });
     });
     individualFiles.forEach(file => {
-      items.push({ type: 'file', file });
+      items.push({ type: 'file', file, _sortDate: new Date(file.uploaded_at) });
     });
+    // Sort all items together by date descending
+    items.sort((a, b) => b._sortDate - a._sortDate);
     return items;
-  }, [submittedFiles, groupFilesByFolder]);
+  }, [submittedFiles, groupFilesByFolder, sortOrder]);
 
   const [itemsPerPage, setItemsPerPage] = useState(() => {
     const saved = localStorage.getItem('myFilesItemsPerPage');
@@ -526,12 +555,7 @@ const MyFilesTab = ({
             <div className="col-team">
               <span className="team-text">{firstFile.user_team}</span>
             </div>
-            <div className="col-status">
-              {(() => {
-                const { label, cls } = getFolderStatus(folderFiles);
-                return <span className={`status-tag ${cls}`}>{label}</span>;
-              })()}
-            </div>
+            <div className="col-status" />
             <div className="col-actions">
               <button
                 className="delete-btn"
@@ -685,7 +709,79 @@ const MyFilesTab = ({
         ) : (
           <>
             <div className="header-left">
+              <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
               <h1>My Files</h1>
+              <div style={{ position: 'relative', display: 'inline-block' }}>
+              <button
+              onClick={(e) => { e.stopPropagation(); setSortDropdownOpen(prev => !prev); }}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '6px 12px',
+                  border: '1px solid #d5d5d9',
+                borderRadius: '6px',
+                background: 'white',
+                fontSize: '14px',
+                color: '#1d1d1f',
+                fontWeight: 500,
+                  cursor: 'pointer',
+                  whiteSpace: 'nowrap',
+                    transition: 'border-color 0.15s ease, box-shadow 0.15s ease',
+                    }}
+              >
+              {sortOrder === 'all' && `All Files (${submittedFiles.length})`}
+              {sortOrder === 'pending_tl' && `Pending Team Leader (${pendingFiles.filter(f => f.status === 'uploaded').length})`}
+              {sortOrder === 'pending_admin' && `Pending Admin (${pendingFiles.filter(f => f.status === 'team_leader_approved').length})`}
+              {sortOrder === 'approved' && `Approved (${approvedFiles.length})`}
+              {sortOrder === 'rejected' && `Rejected (${rejectedFiles.length})`}
+              <svg width="12" height="8" viewBox="0 0 12 8" fill="none">
+              <path d="M1 1.5L6 6.5L11 1.5" stroke="#1d1d1f" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+              </button>
+              {sortDropdownOpen && (
+              <div style={{
+              position: 'absolute',
+              top: 'calc(100% + 4px)',
+                left: 0,
+                  background: 'white',
+                border: '1px solid #d5d5d9',
+                borderRadius: '8px',
+                boxShadow: '0 4px 16px rgba(0,0,0,0.12)',
+                zIndex: 100,
+                minWidth: '100%',
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                  animation: 'sortDropdownIn 0.15s ease',
+              }}>
+                  {[
+                      { value: 'all', label: `All Files (${submittedFiles.length})` },
+                        { value: 'pending_tl', label: `Pending Team Leader (${pendingFiles.filter(f => f.status === 'uploaded').length})` },
+                        { value: 'pending_admin', label: `Pending Admin (${pendingFiles.filter(f => f.status === 'team_leader_approved').length})` },
+                        { value: 'approved', label: `Approved (${approvedFiles.length})` },
+                        { value: 'rejected', label: `Rejected (${rejectedFiles.length})` },
+                      ].map(opt => (
+                        <div
+                          key={opt.value}
+                          onClick={() => { setSortOrder(opt.value); setSortDropdownOpen(false); }}
+                          style={{
+                            padding: '8px 16px',
+                            fontSize: '14px',
+                            fontWeight: sortOrder === opt.value ? 600 : 400,
+                            color: sortOrder === opt.value ? '#5856d6' : '#1d1d1f',
+                            background: sortOrder === opt.value ? '#f0f0ff' : 'white',
+                            cursor: 'pointer',
+                          }}
+                          onMouseEnter={e => e.currentTarget.style.background = sortOrder === opt.value ? '#f0f0ff' : '#f5f5f7'}
+                          onMouseLeave={e => e.currentTarget.style.background = sortOrder === opt.value ? '#f0f0ff' : 'white'}
+                        >
+                          {opt.label}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
               <p className="header-subtitle">{submittedFiles.length} files • {formatFileSize(totalSize)} total</p>
             </div>
 
