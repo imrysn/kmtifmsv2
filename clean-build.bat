@@ -16,6 +16,14 @@ echo KMTI File Management System - Clean Build
 echo ============================================================================
 echo.
 
+echo [0/5] Bumping version...
+echo.
+call node bump-version.js
+if %ERRORLEVEL% NEQ 0 (
+    echo   ! Warning: Could not bump version, continuing with current version...
+)
+echo.
+
 REM ============================================================================
 REM STEP 1: Kill Running Processes
 REM ============================================================================
