@@ -177,10 +177,7 @@
   vertical-align: middle;
 }
 
-.tl-files-table td:nth-child(6) {
-  text-align: left;
-  vertical-align: middle;
-}
+/* Status column (6th in collection view) — no override needed; badges are inline-flex and self-aligning */
 
 /* Clickable Rows */
 .tl-clickable-row {

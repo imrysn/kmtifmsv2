@@ -30,6 +30,7 @@ const FileCollectionTab = ({
   const [teamFilter, setTeamFilter] = useState('all')
   const [expandedFolders, setExpandedFolders] = useState({})
   const [folderShowAll, setFolderShowAll] = useState({})
+  const [activeView, setActiveView] = useState('collection') // 'collection' | 'reference'
   const FOLDER_PREVIEW_COUNT = 5
 
   const uniqueTeams = useMemo(() => {
@@ -116,8 +117,19 @@ const FileCollectionTab = ({
     }
   }
 
+  // Split files by view: File Collection = member submissions, Reference Files = TL attachments
+  const collectionFiles = useMemo(() =>
+    submittedFiles.filter(f => f.source_type !== 'assignment_attachment'),
+    [submittedFiles]
+  )
+  const referenceFiles = useMemo(() =>
+    submittedFiles.filter(f => f.source_type === 'assignment_attachment'),
+    [submittedFiles]
+  )
+  const activeFiles = activeView === 'reference' ? referenceFiles : collectionFiles
+
   const filteredAndSortedFiles = useMemo(() => {
-    let filtered = submittedFiles
+    let filtered = activeFiles
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase()
       filtered = filtered.filter(file =>
@@ -153,7 +165,7 @@ const FileCollectionTab = ({
       }
     })
     return sorted
-  }, [submittedFiles, searchQuery, fileCollectionFilter, teamFilter, fileCollectionSort])
+  }, [activeFiles, searchQuery, fileCollectionFilter, teamFilter, fileCollectionSort])
 
   const displayedFiles = filteredAndSortedFiles
 
@@ -279,9 +291,9 @@ const FileCollectionTab = ({
             <div className="time">{new Date(submission.submitted_at || submission.uploaded_at).toLocaleTimeString()}</div>
           </div>
         </td>
-        <td>{getStatusBadge(submission)}</td>
-        <td style={{ textAlign: 'center' }}>
-          <div className="tl-actions-menu-wrapper">
+        {activeView === 'collection' && <td>{getStatusBadge(submission)}</td>}
+        <td style={{ textAlign: 'center', verticalAlign: 'middle' }}>
+          <div className="tl-actions-menu-wrapper" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
             <button className="tl-menu-button" onClick={(e) => toggleMenu(submission.id, e)} title="Options">
               <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
                 <circle cx="3" cy="8" r="1.5" fill="currentColor" />
@@ -314,6 +326,29 @@ const FileCollectionTab = ({
         <div className="tl-page-header">
           <h1>File Collection</h1>
           <p>View all submitted files from assignments in one place</p>
+          {/* Toggle */}
+          <div style={{ display: 'inline-flex', marginTop: '12px', border: '1px solid #e5e7eb', borderRadius: '8px', overflow: 'hidden', background: '#f9fafb' }}>
+            <button
+              onClick={() => setActiveView('collection')}
+              style={{
+                padding: '7px 20px', fontSize: '14px', fontWeight: 500, border: 'none', cursor: 'pointer',
+                background: activeView === 'collection' ? 'white' : 'transparent',
+                color: activeView === 'collection' ? '#111827' : '#6b7280',
+                boxShadow: activeView === 'collection' ? '0 1px 4px rgba(0,0,0,0.08)' : 'none',
+                borderRadius: '7px', margin: '2px', transition: 'all 0.2s ease',
+              }}
+            >File Collection</button>
+            <button
+              onClick={() => setActiveView('reference')}
+              style={{
+                padding: '7px 20px', fontSize: '14px', fontWeight: 500, border: 'none', cursor: 'pointer',
+                background: activeView === 'reference' ? 'white' : 'transparent',
+                color: activeView === 'reference' ? '#111827' : '#6b7280',
+                boxShadow: activeView === 'reference' ? '0 1px 4px rgba(0,0,0,0.08)' : 'none',
+                borderRadius: '7px', margin: '2px', transition: 'all 0.2s ease',
+              }}
+            >Reference Files</button>
+          </div>
         </div>
         <div className="file-status-cards">
           <div className="file-status-card">
@@ -379,11 +414,11 @@ const FileCollectionTab = ({
             <thead>
               <tr>
                 <th>File Name</th>
-                <th>Assignment</th>
+                <th>Task</th>
                 <th>Team</th>
                 <th>Submitted By</th>
                 <th>Submitted Date</th>
-                <th>Status</th>
+                {activeView === 'collection' && <th>Status</th>}
                 <th style={{ width: '80px', textAlign: 'center' }}>Actions</th>
               </tr>
             </thead>
@@ -417,9 +452,9 @@ const FileCollectionTab = ({
                         </td>
                         <td style={{ verticalAlign: 'middle' }}>{firstFile.fullName || firstFile.username || '-'}</td>
                         <td style={{ verticalAlign: 'middle' }}>{new Date(firstFile.submitted_at || firstFile.uploaded_at).toLocaleDateString()}</td>
-                        <td style={{ verticalAlign: 'middle' }}>{getFolderStatusBadge(folderFiles)}</td>
+                        {activeView === 'collection' && <td style={{ verticalAlign: 'middle' }}>{getFolderStatusBadge(folderFiles)}</td>}
                         <td style={{ textAlign: 'center', verticalAlign: 'middle' }}>
-                          <div className="tl-actions-menu-wrapper">
+                          <div className="tl-actions-menu-wrapper" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
                             <button className="tl-menu-button" onClick={(e) => { e.stopPropagation(); toggleMenu(`folder-${folderKey}`, e) }} title="Options">
                               <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
                                 <circle cx="3" cy="8" r="1.5" fill="currentColor" />
