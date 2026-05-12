@@ -124,6 +124,8 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess, u
   const [bulkPerformance, setBulkPerformance] = useState({})
   const [isBulkLoading, setIsBulkLoading] = useState(false)
 
+  const [modalError, setModalError] = useState('')
+
   const [formData, setFormData] = useState({
     fullName: '',
     username: '',
@@ -308,7 +310,7 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess, u
   const handleAddUser = useCallback(async (e) => {
     e.preventDefault()
     setIsLoading(true)
-    setError('')
+    setModalError('')
 
     try {
       const data = await apiFetch(`/api/users`, {
@@ -324,6 +326,7 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess, u
       if (data.success) {
         setSuccess('User created successfully')
         setShowAddModal(false)
+        setModalError('')
         setFormData({
           fullName: '',
           username: '',
@@ -334,19 +337,19 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess, u
         })
         fetchUsers()
       } else {
-        setError(data.message)
+        setModalError(data.message || 'Failed to create user')
       }
     } catch (error) {
-      setError('Failed to create user')
+      setModalError(error.message || 'Failed to create user')
     } finally {
       setIsLoading(false)
     }
-  }, [formData, authUser, setError, setSuccess, fetchUsers])
+  }, [formData, authUser, setSuccess, fetchUsers])
 
   const handleEditUser = useCallback(async (e) => {
     e.preventDefault()
     setIsLoading(true)
-    setError('')
+    setModalError('')
 
     try {
       const data = await apiFetch(`/api/users/${selectedUser.id}`, {
@@ -366,22 +369,23 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess, u
       if (data.success) {
         setSuccess('User updated successfully')
         setShowEditModal(false)
+        setModalError('')
         setSelectedUser(null)
         fetchUsers()
       } else {
-        setError(data.message)
+        setModalError(data.message || 'Failed to update user')
       }
     } catch (error) {
-      setError('Failed to update user')
+      setModalError(error.message || 'Failed to update user')
     } finally {
       setIsLoading(false)
     }
-  }, [formData, selectedUser, authUser, setError, setSuccess, fetchUsers])
+  }, [formData, selectedUser, authUser, setSuccess, fetchUsers])
 
   const handleResetPassword = useCallback(async (e) => {
     e.preventDefault()
     setIsLoading(true)
-    setError('')
+    setModalError('')
 
     try {
       const data = await apiFetch(`/api/users/${selectedUser.id}/password`, {
@@ -397,17 +401,18 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess, u
       if (data.success) {
         setSuccess('Password reset successfully')
         setShowPasswordModal(false)
+        setModalError('')
         setSelectedUser(null)
         setFormData(prev => ({ ...prev, password: '' }))
       } else {
-        setError(data.message)
+        setModalError(data.message || 'Failed to reset password')
       }
     } catch (error) {
-      setError('Failed to reset password')
+      setModalError(error.message || 'Failed to reset password')
     } finally {
       setIsLoading(false)
     }
-  }, [formData.password, selectedUser, authUser, setError, setSuccess])
+  }, [formData.password, selectedUser, authUser, setSuccess])
 
   const handleDeleteUser = useCallback(async () => {
     if (!userToDelete) return
@@ -441,6 +446,7 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess, u
   const openEditModal = useCallback((user) => {
     setError('')
     setSuccess('')
+    setModalError('')
     setSelectedUser(user)
     setFormData({
       fullName: user.fullName || '',
@@ -456,6 +462,7 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess, u
   const openPasswordModal = useCallback((user) => {
     setError('')
     setSuccess('')
+    setModalError('')
     setSelectedUser(user)
     setFormData(prev => ({ ...prev, password: '' }))
     setShowPasswordModal(true)
@@ -475,6 +482,7 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess, u
   const openAddModal = useCallback(() => {
     setError('')
     setSuccess('')
+    setModalError('')
     setSelectedUser(null)
     setFormData({
       fullName: '',
@@ -799,13 +807,30 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess, u
       {showAddModal && (
         <FormModal
           isOpen={showAddModal}
-          onClose={() => setShowAddModal(false)}
+          onClose={() => { setShowAddModal(false); setModalError('') }}
           onSubmit={handleAddUser}
           title="Add New User"
           submitText="Create User"
           isLoading={isLoading}
           size="medium"
         >
+          {modalError && (
+            <div style={{
+              background: '#fef2f2',
+              border: '1px solid #fecaca',
+              borderRadius: '8px',
+              padding: '10px 14px',
+              marginBottom: '16px',
+              color: '#dc2626',
+              fontSize: '13px',
+              fontWeight: '600',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px'
+            }}>
+              <span>⚠️</span> {modalError}
+            </div>
+          )}
           <div className="form-grid">
             <div className="form-group">
               <label>Full Name *</label>
@@ -886,13 +911,30 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess, u
       {showEditModal && selectedUser && (
         <FormModal
           isOpen={showEditModal}
-          onClose={() => setShowEditModal(false)}
+          onClose={() => { setShowEditModal(false); setModalError('') }}
           onSubmit={handleEditUser}
           title="Edit User"
           submitText="Update User"
           isLoading={isLoading}
           size="medium"
         >
+          {modalError && (
+            <div style={{
+              background: '#fef2f2',
+              border: '1px solid #fecaca',
+              borderRadius: '8px',
+              padding: '10px 14px',
+              marginBottom: '16px',
+              color: '#dc2626',
+              fontSize: '13px',
+              fontWeight: '600',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px'
+            }}>
+              <span>⚠️</span> {modalError}
+            </div>
+          )}
           <div className="form-grid">
             <div className="form-group">
               <label>Full Name *</label>
@@ -962,13 +1004,30 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess, u
       {showPasswordModal && selectedUser && (
         <FormModal
           isOpen={showPasswordModal}
-          onClose={() => setShowPasswordModal(false)}
+          onClose={() => { setShowPasswordModal(false); setModalError('') }}
           onSubmit={handleResetPassword}
           title="Reset Password"
           submitText="Reset Password"
           isLoading={isLoading}
           size="small"
         >
+          {modalError && (
+            <div style={{
+              background: '#fef2f2',
+              border: '1px solid #fecaca',
+              borderRadius: '8px',
+              padding: '10px 14px',
+              marginBottom: '16px',
+              color: '#dc2626',
+              fontSize: '13px',
+              fontWeight: '600',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px'
+            }}>
+              <span>⚠️</span> {modalError}
+            </div>
+          )}
           <div className="form-group">
             <label>User: <strong>{selectedUser.fullName} ({selectedUser.username})</strong></label>
           </div>
