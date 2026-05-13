@@ -21,6 +21,7 @@ const useDropdownPosition = (btnRef, menuRef, isOpen) => {
     if (left < 10) left = 10
     setPos({ top, left, ready: true, up: shouldOpenUp })
   }, [btnRef, menuRef])
+
   useEffect(() => {
     if (isOpen) {
       updatePosition()
@@ -36,9 +37,11 @@ const useDropdownPosition = (btnRef, menuRef, isOpen) => {
       setPos(prev => ({ ...prev, ready: false }))
     }
   }, [isOpen, updatePosition])
+
   return pos
 }
 
+// ── FileMoreMenu: portal-based dropdown for folder/file actions ───────────────
 function FileMoreMenu({ onDownload, onOpenPath, isFolder = false }) {
   const [open, setOpen] = useState(false)
   const btnRef = useRef(null)
@@ -47,10 +50,10 @@ function FileMoreMenu({ onDownload, onOpenPath, isFolder = false }) {
 
   useEffect(() => {
     if (!open) return
-    const close = (e) => { 
-        if (menuRef.current && !menuRef.current.contains(e.target) && !btnRef.current.contains(e.target)) {
-            setOpen(false) 
-        }
+    const close = (e) => {
+      if (menuRef.current && !menuRef.current.contains(e.target) && !btnRef.current.contains(e.target)) {
+        setOpen(false)
+      }
     }
     document.addEventListener('mousedown', close)
     return () => document.removeEventListener('mousedown', close)
@@ -75,10 +78,10 @@ function FileMoreMenu({ onDownload, onOpenPath, isFolder = false }) {
         </svg>
       </button>
       {open && ReactDOM.createPortal(
-        <div 
+        <div
           ref={menuRef}
           style={{
-            position: 'fixed', 
+            position: 'fixed',
             top: pos.top,
             left: pos.left,
             visibility: pos.ready ? 'visible' : 'hidden',
@@ -100,7 +103,10 @@ function FileMoreMenu({ onDownload, onOpenPath, isFolder = false }) {
               onMouseEnter={e => e.currentTarget.style.backgroundColor = '#f3f4f6'}
               onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
             >
-              📂 Open Folder Path
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/>
+              </svg>
+              Open Folder Path
             </button>
           )}
           <button
@@ -125,40 +131,36 @@ function FileMoreMenu({ onDownload, onOpenPath, isFolder = false }) {
   )
 }
 
-// ── Helpers ──────────────────────────────────────────────────────────────────
+// ── Helpers ───────────────────────────────────────────────────────────────────
 const formatFileSize = (bytes) => {
-  if (!bytes) return '0 Bytes';
-  const k = 1024;
-  const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return `${parseFloat((bytes / Math.pow(k, i)).toFixed(2))} ${sizes[i]}`;
-};
+  if (!bytes) return '0 Bytes'
+  const k = 1024
+  const sizes = ['Bytes', 'KB', 'MB', 'GB']
+  const i = Math.floor(Math.log(bytes) / Math.log(k))
+  return `${parseFloat((bytes / Math.pow(k, i)).toFixed(2))} ${sizes[i]}`
+}
 
 const groupFilesByFolder = (files) => {
-  const folders = {};
-  const individualFiles = [];
-
-  files.forEach(file => {
+  const folders = {}
+  const individualFiles = []
+  for (const file of files) {
     if (file.folder_name) {
-      if (!folders[file.folder_name]) {
-        folders[file.folder_name] = [];
-      }
-      folders[file.folder_name].push(file);
+      if (!folders[file.folder_name]) folders[file.folder_name] = []
+      folders[file.folder_name].push(file)
     } else {
-      individualFiles.push(file);
+      individualFiles.push(file)
     }
-  });
+  }
+  return { folders, individualFiles }
+}
 
-  return { folders, individualFiles };
-};
-
+// ── Main Component ─────────────────────────────────────────────────────────────
 const TeamTasksTab = ({ user }) => {
   const [assignments, setAssignments] = useState([])
   const [loading, setLoading] = useState(true)
   const [loadingMore, setLoadingMore] = useState(false)
   const [expandedAssignments, setExpandedAssignments] = useState({})
   const [error, setError] = useState('')
-  const [isOpeningFile, setIsOpeningFile] = useState(false)
   const [successModal, setSuccessModal] = useState({ isOpen: false, title: '', message: '', type: 'success' })
 
   // Comments state
@@ -168,15 +170,19 @@ const TeamTasksTab = ({ user }) => {
   const [currentCommentsAssignment, setCurrentCommentsAssignment] = useState(null)
   const [visibleReplies, setVisibleReplies] = useState({})
   const [loadingComments, setLoadingComments] = useState(false)
-  const [showAllFiles, setShowAllFiles] = useState({}) // Track which assignments show all files
+
+  // File display state
+  const [showAllFiles, setShowAllFiles] = useState({})
+  const [showAllSubmittedFiles, setShowAllSubmittedFiles] = useState({})
+  const [expandedFolders, setExpandedFolders] = useState({})
+  const INITIAL_FILE_DISPLAY_LIMIT = 5
+
+  // File open modal state
   const [showOpenFileConfirmation, setShowOpenFileConfirmation] = useState(false)
   const [fileToOpen, setFileToOpen] = useState(null)
   const [openModalType, setOpenModalType] = useState('file')
-  const [expandedFolders, setExpandedFolders] = useState({}) // Track which folders are expanded
-  const [showAllSubmittedFiles, setShowAllSubmittedFiles] = useState({}) // Track which assignments show all submitted files
-  const INITIAL_FILE_DISPLAY_LIMIT = 5; // Show first 5 files/folders initially
 
-  // Track which files have been viewed (persists across sessions)
+  // Track which files have been viewed
   const [openedFileIds, setOpenedFileIds] = useState(new Set())
   const [openedFilesStorageReady, setOpenedFilesStorageReady] = useState(false)
 
@@ -184,14 +190,14 @@ const TeamTasksTab = ({ user }) => {
   const [nextCursor, setNextCursor] = useState(null)
   const [hasMore, setHasMore] = useState(true)
 
-  // Ref for infinite scroll
+  // Viewer counts for instant UI updates
+  const [viewerCounts, setViewerCounts] = useState({})
+
+  // Refs
   const observerRef = useRef(null)
   const loadMoreRef = useRef(null)
 
-  // Track viewer counts locally for instant updates
-  const [viewerCounts, setViewerCounts] = useState({})
-
-  // Load viewed file IDs from persistent storage on mount
+  // ── Persistent storage for viewed file IDs ────────────────────────────────
   useEffect(() => {
     ;(async () => {
       try {
@@ -201,28 +207,26 @@ const TeamTasksTab = ({ user }) => {
         }
         if (!stored) stored = localStorage.getItem('kmti_opened_files_team_tasks')
         if (stored) setOpenedFileIds(new Set(JSON.parse(stored)))
-      } catch {}
+      } catch { /* ignore */ }
       setOpenedFilesStorageReady(true)
     })()
   }, [])
 
-  // Save viewed file IDs to persistent storage whenever they change
   useEffect(() => {
     if (!openedFilesStorageReady) return
     const data = JSON.stringify([...openedFileIds])
     if (window.electron?.appStorage) {
       window.electron.appStorage.set('kmti_opened_files_team_tasks', data)
     }
-    try { localStorage.setItem('kmti_opened_files_team_tasks', data) } catch {}
+    try { localStorage.setItem('kmti_opened_files_team_tasks', data) } catch { /* ignore */ }
   }, [openedFileIds, openedFilesStorageReady])
 
+  // ── Initial fetch ─────────────────────────────────────────────────────────
   useEffect(() => {
-    if (user && user.team) {
-      fetchInitialAssignments()
-    }
+    if (user?.team) fetchInitialAssignments()
   }, [user])
 
-  // Handle Escape key to close modal
+  // ── Escape key to close comments modal ────────────────────────────────────
   useEffect(() => {
     const handleEscape = (e) => {
       if (e.key === 'Escape' && showCommentsModal) {
@@ -235,62 +239,40 @@ const TeamTasksTab = ({ user }) => {
     return () => document.removeEventListener('keydown', handleEscape)
   }, [showCommentsModal])
 
-  // Set up intersection observer for infinite scroll
+  // ── Infinite scroll observer ──────────────────────────────────────────────
   useEffect(() => {
     if (loading || loadingMore || !hasMore) return
 
-    const options = {
-      root: null,
-      rootMargin: '100px',
-      threshold: 0.1
-    }
+    observerRef.current = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && hasMore && !loadingMore) {
+          fetchMoreAssignments()
+        }
+      },
+      { root: null, rootMargin: '100px', threshold: 0.1 }
+    )
 
-    observerRef.current = new IntersectionObserver((entries) => {
-      if (entries[0].isIntersecting && hasMore && !loadingMore) {
-        console.log('Intersection detected, loading more...')
-        fetchMoreAssignments()
-      }
-    }, options)
+    if (loadMoreRef.current) observerRef.current.observe(loadMoreRef.current)
 
-    if (loadMoreRef.current) {
-      observerRef.current.observe(loadMoreRef.current)
-    }
-
-    return () => {
-      if (observerRef.current) {
-        observerRef.current.disconnect()
-      }
-    }
+    return () => { observerRef.current?.disconnect() }
   }, [loading, loadingMore, hasMore, nextCursor])
 
+  // ── Data fetching ─────────────────────────────────────────────────────────
   const fetchInitialAssignments = async () => {
     try {
       setLoading(true)
       setError('')
-
-      console.log('Fetching team assignments for team:', user.team)
-
       const data = await apiFetch(`/api/assignments/team/${user.team}/all-tasks?limit=20`)
-
-      console.log('Team assignments response:', data)
-
       if (!data.success) {
         setError(data.message || 'Failed to fetch team assignments')
-        setLoading(false)
         return
       }
-
       const allAssignments = data.assignments || []
-      console.log(`Fetched ${allAssignments.length} team assignments`)
-
       setAssignments(allAssignments)
       setNextCursor(data.nextCursor)
       setHasMore(data.hasMore)
-
-      // Fetch comment counts for all assignments
       await fetchCommentCounts(allAssignments)
-    } catch (error) {
-      console.error('Error fetching team assignments:', error)
+    } catch {
       setError('Failed to load team assignments')
     } finally {
       setLoading(false)
@@ -298,74 +280,44 @@ const TeamTasksTab = ({ user }) => {
   }
 
   const fetchMoreAssignments = useCallback(async () => {
-    if (loadingMore || !hasMore || !nextCursor) {
-      console.log('Skipping fetch:', { loadingMore, hasMore, nextCursor })
-      return
-    }
-
+    if (loadingMore || !hasMore || !nextCursor) return
     try {
       setLoadingMore(true)
-
-      console.log('Fetching more team assignments with cursor:', nextCursor)
-
       const data = await apiFetch(`/api/assignments/team/${user.team}/all-tasks?cursor=${nextCursor}&limit=20`)
-
-      console.log('More team assignments response:', data)
-
       if (!data.success) {
         setError(data.message || 'Failed to fetch more assignments')
         return
       }
-
       const newAssignments = data.assignments || []
-      console.log(`Fetched ${newAssignments.length} more assignments`)
-
       setAssignments(prev => [...prev, ...newAssignments])
       setNextCursor(data.nextCursor)
       setHasMore(data.hasMore)
-
-      // Fetch comment counts for new assignments
       await fetchCommentCounts(newAssignments)
-    } catch (error) {
-      console.error('Error fetching more assignments:', error)
+    } catch {
       setError('Failed to load more assignments')
     } finally {
       setLoadingMore(false)
     }
   }, [nextCursor, hasMore, loadingMore, user.team])
 
-  // Fetch comment counts for all assignments
   const fetchCommentCounts = async (assignmentsList) => {
     try {
       const commentCounts = {}
-
-      // Fetch comment count for each assignment
       await Promise.all(
         assignmentsList.map(async (assignment) => {
           try {
             const data = await apiFetch(`/api/assignments/${assignment.id}/comments`)
-
-            if (data.success) {
-              commentCounts[assignment.id] = data.comments || []
-            }
-          } catch (error) {
-            console.error(`Error fetching comments for assignment ${assignment.id}:`, error)
-          }
+            if (data.success) commentCounts[assignment.id] = data.comments || []
+          } catch { /* ignore individual failures */ }
         })
       )
-
-      // Update comments state with all fetched comments
       setComments(prev => ({ ...prev, ...commentCounts }))
-    } catch (error) {
-      console.error('Error fetching comment counts:', error)
-    }
+    } catch { /* ignore */ }
   }
 
+  // ── UI helpers ────────────────────────────────────────────────────────────
   const toggleExpand = (assignmentId) => {
-    setExpandedAssignments(prev => ({
-      ...prev,
-      [assignmentId]: !prev[assignmentId]
-    }))
+    setExpandedAssignments(prev => ({ ...prev, [assignmentId]: !prev[assignmentId] }))
   }
 
   const getInitials = (name) => {
@@ -375,147 +327,133 @@ const TeamTasksTab = ({ user }) => {
 
   const formatDate = (dateString) => {
     if (!dateString) return 'No due date'
-    const date = new Date(dateString)
-    return date.toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric'
-    })
+    return new Date(dateString).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
   }
 
   const formatDaysLeft = (dateString, hasSubmissions) => {
-    if (!dateString) return ''
-
-    // If there are submissions, don't show overdue text
-    if (hasSubmissions) return ''
-
-    const date = new Date(dateString)
-    const now = new Date()
-    const diffTime = date - now
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
-
-    if (diffDays < 0) {
-      return `${Math.abs(diffDays)} days overdue`
-    } else if (diffDays === 0) {
-      return 'Due today'
-    } else if (diffDays === 1) {
-      return '1 day left'
-    } else {
-      return `${diffDays} days left`
-    }
+    if (!dateString || hasSubmissions) return ''
+    const diffDays = Math.ceil((new Date(dateString) - new Date()) / (1000 * 60 * 60 * 24))
+    if (diffDays < 0) return `${Math.abs(diffDays)} days overdue`
+    if (diffDays === 0) return 'Due today'
+    if (diffDays === 1) return '1 day left'
+    return `${diffDays} days left`
   }
 
   const formatDateTime = (dateString) => {
     if (!dateString) return 'Unknown'
-    const date = new Date(dateString)
-    return date.toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
+    return new Date(dateString).toLocaleDateString('en-US', {
+      month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit'
     })
   }
 
   const getStatusColor = (dueDate) => {
     if (!dueDate) return '#95a5a6'
-    const date = new Date(dueDate)
-    const now = new Date()
-    const diffDays = Math.ceil((date - now) / (1000 * 60 * 60 * 24))
-
+    const diffDays = Math.ceil((new Date(dueDate) - new Date()) / (1000 * 60 * 60 * 24))
     if (diffDays < 0) return '#e74c3c'
     if (diffDays <= 2) return '#f39c12'
     return '#27ae60'
   }
 
+  const formatTimeAgo = (dateString) => {
+    const seconds = Math.floor((new Date() - new Date(dateString)) / 1000)
+    if (seconds < 60) return 'Just now'
+    if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`
+    if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`
+    if (seconds < 604800) return `${Math.floor(seconds / 86400)}d ago`
+    return formatDate(dateString)
+  }
+
+  // ── File open / folder path ───────────────────────────────────────────────
+  /**
+   * Opens a file or folder. Uses ?type=attachment for TL-attached files,
+   * ?type=file for user-submitted files — matching the pattern in TasksTab-Enhanced.
+   */
   const handleOpenFile = async (filePath, fileId) => {
-    setSuccessModal({ isOpen: true, title: 'Success', message: openModalType === 'folder' ? 'Folder opened successfully!' : 'File opened successfully!', type: 'success' });
-
-    if (openModalType === 'folder') {
-      if (window.electron?.openFolderInExplorer) {
-        await window.electron.openFolderInExplorer(filePath)
-      }
-      return
-    }
-
-    if (!filePath) {
-      setError('File path not available')
-      return
-    }
+    setSuccessModal({
+      isOpen: true,
+      title: 'Success',
+      message: openModalType === 'folder' ? 'Folder opened successfully!' : 'File opened successfully!',
+      type: 'success'
+    })
 
     try {
-      setIsOpeningFile(true)
-      setError('')
-
-      const isElectron = window.electron && window.electron.openFileInApp;
-
-      if (isElectron) {
-        console.log('💻 Running in Electron - using Windows default application');
-
-        const pathData = await apiFetch(
-          `/api/files/${fileId}/path`
-        );
-
-        if (!pathData.success) {
-          throw new Error(pathData.message || 'Failed to get file path');
+      if (openModalType === 'folder') {
+        if (!window.electron?.openFolderInExplorer) return
+        const pathType = fileToOpen?.isAttachment ? 'attachment' : 'file'
+        const data = await apiFetch(`/api/files/${fileId}/path?type=${pathType}`)
+        if (data.success && data.filePath) {
+          await window.electron.openFolderInExplorer(data.filePath)
         }
-
-        console.log('📂 Full path:', pathData.filePath);
-        console.log('📄 File name:', pathData.fileName);
-
-        const result = await window.electron.openFileInApp(pathData.filePath);
-
-        if (result.success) {
-          console.log('✅ Opened with Windows default application');
-          setOpenedFileIds(prev => new Set([...prev, fileId]));
-        } else {
-          throw new Error(result.error || 'Failed to open file');
-        }
-      } else {
-        console.log('🌐 Running in browser - opening in new tab');
-
-        const fileUrl = `${API_BASE_URL}${filePath}`;
-        const newWindow = window.open(fileUrl, '_blank');
-
-        if (!newWindow) {
-          throw new Error('Pop-up blocked. Please allow pop-ups for this site.');
-        }
-
-        newWindow.focus();
-        console.log('✅ Opened in browser tab');
-        setOpenedFileIds(prev => new Set([...prev, fileId]));
+        return
       }
 
-    } catch (error) {
-      console.error('❌ Error opening file:', error);
-      setError(`Error opening file: ${error.message || 'Failed to open file'}`);
-      setTimeout(() => setError(''), 3000);
-    } finally {
-      setIsOpeningFile(false)
+      if (!filePath && !fileId) return
+
+      const pathType = fileToOpen?.isAttachment ? 'attachment' : 'file'
+      const pathData = await apiFetch(`/api/files/${fileId}/path?type=${pathType}`)
+      if (!pathData.success || !pathData.filePath) {
+        setError(pathData.message || 'Could not resolve file path')
+        return
+      }
+
+      if (window.electron?.openFileInApp) {
+        const result = await window.electron.openFileInApp(pathData.filePath)
+        if (result.success) {
+          setOpenedFileIds(prev => new Set([...prev, fileId]))
+        } else {
+          setError(result.error || 'Failed to open file')
+          setTimeout(() => setError(''), 3000)
+        }
+      } else {
+        const ext = (pathData.filePath.split('.').pop() || '').toLowerCase()
+        const browserViewable = ['pdf','png','jpg','jpeg','gif','svg','webp','txt','html','css','js','json','xml','mp4','mp3']
+        if (browserViewable.includes(ext)) {
+          window.open(`${API_BASE_URL}/api/files/${fileId}/stream`, '_blank', 'noopener,noreferrer')
+        } else {
+          const a = Object.assign(document.createElement('a'), {
+            href: `${API_BASE_URL}/api/files/${fileId}/stream`,
+            download: fileToOpen?.original_name || 'file',
+          })
+          a.click()
+        }
+        setOpenedFileIds(prev => new Set([...prev, fileId]))
+      }
+    } catch {
+      setError('Failed to open file. Please try again.')
+      setTimeout(() => setError(''), 3000)
     }
   }
 
-  const clearMessages = () => {
-    setError('')
+  /**
+   * Opens the folder containing a file in Windows Explorer.
+   * isAttachment=true → uses ?type=attachment (TL reference files)
+   * isAttachment=false → uses ?type=file (user submitted files)
+   */
+  const handleOpenFolderPath = async (fileId, isAttachment = false) => {
+    if (!window.electron?.openFolderInExplorer) return
+    try {
+      const pathType = isAttachment ? 'attachment' : 'file'
+      const data = await apiFetch(`/api/files/${fileId}/path?type=${pathType}`)
+      if (data.success && data.filePath) {
+        setFileToOpen({ id: fileId, file_path: data.filePath, original_name: 'Folder Path', isAttachment })
+        setOpenModalType('folder')
+        setShowOpenFileConfirmation(true)
+      }
+    } catch { /* ignore */ }
   }
 
-  // Download a single file
+  // ── Download helpers ──────────────────────────────────────────────────────
   const handleDownloadFile = async (file) => {
     const fileUrl = `${API_BASE_URL}/api/files/${file.id}/download`
     const fileName = file.original_name || file.filename || 'file'
     if (window.electron?.downloadFile) {
       await window.electron.downloadFile(fileUrl, fileName)
     } else {
-      const a = document.createElement('a')
-      a.href = fileUrl
-      a.download = fileName
-      document.body.appendChild(a)
-      a.click()
-      document.body.removeChild(a)
+      const a = Object.assign(document.createElement('a'), { href: fileUrl, download: fileName })
+      document.body.appendChild(a); a.click(); document.body.removeChild(a)
     }
   }
 
-  // Download all files in a folder as a zip
   const handleDownloadFolder = async (folderFiles, folderName) => {
     const fileIds = folderFiles.map(f => f.id).join(',')
     const fileUrl = `${API_BASE_URL}/api/files/folder/zip?fileIds=${fileIds}&folderName=${encodeURIComponent(folderName)}`
@@ -523,20 +461,14 @@ const TeamTasksTab = ({ user }) => {
     if (window.electron?.downloadFile) {
       await window.electron.downloadFile(fileUrl, fileName)
     } else {
-      const a = document.createElement('a')
-      a.href = fileUrl
-      a.download = fileName
-      document.body.appendChild(a)
-      a.click()
-      document.body.removeChild(a)
+      const a = Object.assign(document.createElement('a'), { href: fileUrl, download: fileName })
+      document.body.appendChild(a); a.click(); document.body.removeChild(a)
     }
   }
 
-  // Open the folder containing a file in Windows Explorer
-  // Record that the current user viewed a file
+  // ── View tracking ─────────────────────────────────────────────────────────
   const recordView = async (fileId) => {
     if (!user || !fileId) return
-    // Instantly bump the count in UI
     setViewerCounts(prev => ({ ...prev, [fileId]: (prev[fileId] ?? 0) + 1 }))
     try {
       await apiFetch(`/api/files/${fileId}/view`, {
@@ -548,37 +480,20 @@ const TeamTasksTab = ({ user }) => {
           role: user.role || 'user'
         })
       })
-    } catch {}
+    } catch { /* ignore */ }
   }
 
-  const handleOpenFolderPath = async (fileId) => {
-    if (!window.electron?.openFolderInExplorer) return
-    try {
-      const data = await apiFetch(`/api/files/${fileId}/path`)
-      if (data.success && data.filePath) {
-        setFileToOpen({ id: fileId, file_path: data.filePath, original_name: 'Folder Path' })
-        setOpenModalType('folder')
-        setShowOpenFileConfirmation(true)
-      }
-    } catch (e) { console.error('Open folder path error:', e) }
-  }
-
-  // Fetch comments for an assignment
+  // ── Comments ──────────────────────────────────────────────────────────────
   const fetchComments = useCallback(async (assignmentId) => {
     setLoadingComments(true)
     try {
       const data = await apiFetch(`/api/assignments/${assignmentId}/comments`)
-      if (data.success) {
-        setComments(prev => ({ ...prev, [assignmentId]: data.comments || [] }))
-      }
-    } catch (error) {
-      console.error('Error fetching comments:', error)
-    } finally {
+      if (data.success) setComments(prev => ({ ...prev, [assignmentId]: data.comments || [] }))
+    } catch { /* ignore */ } finally {
       setLoadingComments(false)
     }
   }, [])
 
-  // Open comments modal
   const openCommentsModal = useCallback(async (assignment) => {
     setCurrentCommentsAssignment(assignment)
     setNewComment('')
@@ -586,14 +501,12 @@ const TeamTasksTab = ({ user }) => {
     await fetchComments(assignment.id)
   }, [fetchComments])
 
-  // Close comments modal
   const closeCommentsModal = useCallback(() => {
     setShowCommentsModal(false)
     setCurrentCommentsAssignment(null)
     setNewComment('')
   }, [])
 
-  // Submit a new comment
   const handleSubmitComment = useCallback(async () => {
     if (!newComment.trim() || !currentCommentsAssignment) return
     try {
@@ -601,16 +514,10 @@ const TeamTasksTab = ({ user }) => {
         method: 'POST',
         body: JSON.stringify({ userId: user.id, username: user.username || user.fullName, comment: newComment.trim() })
       })
-      if (data.success) {
-        setNewComment('')
-        fetchComments(currentCommentsAssignment.id)
-      }
-    } catch (error) {
-      console.error('Error posting comment:', error)
-    }
+      if (data.success) { setNewComment(''); fetchComments(currentCommentsAssignment.id) }
+    } catch { /* ignore */ }
   }, [newComment, currentCommentsAssignment, user, fetchComments])
 
-  // Post a reply
   const handlePostReply = useCallback(async (_e, commentId, replyTextValue, onSuccess) => {
     if (!replyTextValue?.trim() || !currentCommentsAssignment) return
     try {
@@ -619,12 +526,9 @@ const TeamTasksTab = ({ user }) => {
         body: JSON.stringify({ userId: user.id, username: user.username || user.fullName, reply: replyTextValue.trim() })
       })
       if (data.success) { onSuccess?.(); fetchComments(currentCommentsAssignment.id) }
-    } catch (error) {
-      console.error('Error posting reply:', error)
-    }
+    } catch { /* ignore */ }
   }, [currentCommentsAssignment, user, fetchComments])
 
-  // Edit a comment
   const handleEditComment = useCallback(async (assignmentId, commentId, newText) => {
     try {
       const data = await apiFetch(`/api/assignments/${assignmentId}/comments/${commentId}`, {
@@ -632,10 +536,9 @@ const TeamTasksTab = ({ user }) => {
         body: JSON.stringify({ userId: user.id, comment: newText })
       })
       if (data.success) fetchComments(assignmentId)
-    } catch (e) { console.error(e) }
+    } catch { /* ignore */ }
   }, [user.id, fetchComments])
 
-  // Delete a comment
   const handleDeleteComment = useCallback(async (assignmentId, commentId) => {
     try {
       const data = await apiFetch(`/api/assignments/${assignmentId}/comments/${commentId}`, {
@@ -643,10 +546,9 @@ const TeamTasksTab = ({ user }) => {
         body: JSON.stringify({ userId: user.id })
       })
       if (data.success) fetchComments(assignmentId)
-    } catch (e) { console.error(e) }
+    } catch { /* ignore */ }
   }, [user.id, fetchComments])
 
-  // Edit a reply
   const handleEditReply = useCallback(async (assignmentId, commentId, replyId, newText) => {
     try {
       const data = await apiFetch(`/api/assignments/${assignmentId}/comments/${commentId}/reply/${replyId}`, {
@@ -654,10 +556,9 @@ const TeamTasksTab = ({ user }) => {
         body: JSON.stringify({ userId: user.id, reply: newText })
       })
       if (data.success) fetchComments(assignmentId)
-    } catch (e) { console.error(e) }
+    } catch { /* ignore */ }
   }, [user.id, fetchComments])
 
-  // Delete a reply
   const handleDeleteReply = useCallback(async (assignmentId, commentId, replyId) => {
     try {
       const data = await apiFetch(`/api/assignments/${assignmentId}/comments/${commentId}/reply/${replyId}`, {
@@ -665,26 +566,13 @@ const TeamTasksTab = ({ user }) => {
         body: JSON.stringify({ userId: user.id })
       })
       if (data.success) fetchComments(assignmentId)
-    } catch (e) { console.error(e) }
+    } catch { /* ignore */ }
   }, [user.id, fetchComments])
 
   const toggleRepliesVisibility = useCallback((commentId) =>
     setVisibleReplies(prev => ({ ...prev, [commentId]: !prev[commentId] })), [])
 
-  // Format time ago
-  const formatTimeAgo = (dateString) => {
-    const date = new Date(dateString)
-    const now = new Date()
-    const seconds = Math.floor((now - date) / 1000)
-
-    if (seconds < 60) return 'Just now'
-    if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`
-    if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`
-    if (seconds < 604800) return `${Math.floor(seconds / 86400)}d ago`
-    return formatDate(dateString)
-  }
-
-  // Skeleton loader for initial load
+  // ── Loading skeleton ──────────────────────────────────────────────────────
   if (loading) {
     return (
       <div className="team-tasks-tab">
@@ -715,13 +603,14 @@ const TeamTasksTab = ({ user }) => {
     )
   }
 
+  // ── Render ────────────────────────────────────────────────────────────────
   return (
-    <div className={`team-tasks-tab ${isOpeningFile ? 'file-opening-cursor' : ''}`}>
-      {/* Messages */}
+    <div className="team-tasks-tab">
+      {/* Error banner */}
       {error && (
         <div className="team-tasks-message error-message">
           {error}
-          <button className="close-message-btn" onClick={clearMessages}>×</button>
+          <button className="close-message-btn" onClick={() => setError('')}>×</button>
         </div>
       )}
 
@@ -730,13 +619,11 @@ const TeamTasksTab = ({ user }) => {
         <p className="team-tasks-subtitle">Tasks assigned to your team members</p>
       </div>
 
-      {/* Task Count */}
       <div className="team-tasks-count">
         {assignments.length} task{assignments.length !== 1 ? 's' : ''}
         {hasMore && ' • Scroll for more'}
       </div>
 
-      {/* Feed */}
       <div className="team-tasks-container">
         {assignments.length === 0 ? (
           <div className="empty-team-tasks">
@@ -747,10 +634,7 @@ const TeamTasksTab = ({ user }) => {
         ) : (
           <>
             {assignments.map(assignment => (
-              <div
-                key={assignment.id}
-                className="team-task-card"
-              >
+              <div key={assignment.id} className="team-task-card">
                 {/* Card Header */}
                 <div className="team-task-header">
                   <div className="team-task-header-left">
@@ -765,7 +649,7 @@ const TeamTasksTab = ({ user }) => {
                         {' '}<span className="role-badge team-leader">TEAM LEADER</span>{' '}
                         assigned to{' '}
                         <span className="assigned-user">
-                          {assignment.assigned_member_details && assignment.assigned_member_details.length > 0
+                          {assignment.assigned_member_details?.length > 0
                             ? assignment.assigned_member_details.length === 1
                               ? assignment.assigned_member_details[0].fullName
                               : `${assignment.assigned_member_details.length} members (${assignment.assigned_member_details.map(m => m.fullName).join(', ')})`
@@ -776,10 +660,10 @@ const TeamTasksTab = ({ user }) => {
                       </div>
                       <div className="team-task-created">
                         {assignment.created_at ? formatDateTime(assignment.created_at) : 'Unknown creation date'}
-                        </div>
-                        </div>
-                        </div>
-              </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
 
                 {/* Task Title */}
                 <div className="team-task-title-section">
@@ -798,10 +682,7 @@ const TeamTasksTab = ({ user }) => {
                       {assignment.description.length > 200 && (
                         <button
                           className="expand-btn"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            toggleExpand(assignment.id);
-                          }}
+                          onClick={(e) => { e.stopPropagation(); toggleExpand(assignment.id) }}
                         >
                           {expandedAssignments[assignment.id] ? 'Show less' : 'Show more'}
                         </button>
@@ -810,85 +691,79 @@ const TeamTasksTab = ({ user }) => {
                   </div>
                 )}
 
-                {/* Attachment Section */}
+                {/* Attachments */}
                 <div className="team-task-attachment-section">
-                  {/* Section 1: Team Leader Attached Files */}
-                  {assignment.attachments && assignment.attachments.length > 0 && (
+
+                  {/* Section 1: Team Leader Attached Files (isAttachment = true) */}
+                  {assignment.attachments?.length > 0 && (
                     <div className="team-task-attached-file tl-attachments" style={{ marginBottom: '16px' }}>
                       <div className="file-label" style={{ color: '#1d4ed8' }}>
                         <span style={{ fontSize: '16px' }}>📎</span>
                         Attached Files ({assignment.attachments.length}):
                       </div>
                       {(() => {
-                        const { folders, individualFiles } = groupFilesByFolder(assignment.attachments);
-                        const items = [];
+                        const { folders, individualFiles } = groupFilesByFolder(assignment.attachments)
+                        const items = []
 
-                        // Render folders
                         Object.keys(folders).forEach(folderName => {
-                          const folderFiles = folders[folderName];
-                          const isExpanded = expandedFolders[`att-${assignment.id}-${folderName}`];
-                          const tlFolderChildKey = `tlattfc-${assignment.id}-${folderName}`;
-                          const isTlFolderChildExpanded = showAllFiles[tlFolderChildKey];
-                          const visibleFolderChildren = isTlFolderChildExpanded ? folderFiles : folderFiles.slice(0, 5);
-                          const firstFile = folderFiles[0];
+                          const folderFiles = folders[folderName]
+                          const folderKey = `att-${assignment.id}-${folderName}`
+                          const isExpanded = expandedFolders[folderKey]
+                          const childKey = `tlattfc-${assignment.id}-${folderName}`
+                          const isShowingAllChildren = showAllFiles[childKey]
+                          const visibleChildren = isShowingAllChildren ? folderFiles : folderFiles.slice(0, 5)
+                          const firstFile = folderFiles[0]
 
                           items.push(
                             <div
                               key={`att-folder-${assignment.id}-${folderName}`}
                               className="file-item folder-item"
                               onClick={(e) => {
-                                e.stopPropagation();
-                                setExpandedFolders(prev => ({
-                                  ...prev,
-                                  [`att-${assignment.id}-${folderName}`]: !prev[`att-${assignment.id}-${folderName}`]
-                                }));
+                                e.stopPropagation()
+                                setExpandedFolders(prev => ({ ...prev, [folderKey]: !prev[folderKey] }))
                               }}
                               style={{ cursor: 'pointer', backgroundColor: isExpanded ? '#BFDBFE' : '#DBEAFE' }}
                             >
                               <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1 }}>
-                                <div style={{ fontSize: '32px', flexShrink: 0 }}>
-                                  {isExpanded ? '📂' : '📁'}
-                                </div>
+                                <div style={{ fontSize: '32px', flexShrink: 0 }}>{isExpanded ? '📂' : '📁'}</div>
                                 <div style={{ flex: 1, minWidth: 0 }}>
-                                  <div style={{ fontWeight: '600', fontSize: '14px', color: '#111827' }}>
-                                    {folderName}
-                                  </div>
+                                  <div style={{ fontWeight: '600', fontSize: '14px', color: '#111827' }}>{folderName}</div>
                                   <div style={{ fontSize: '12px', color: '#6b7280' }}>
                                     {assignment.team_leader_fullname || assignment.team_leader_username || 'Team Leader'} • {folderFiles.length} file{folderFiles.length !== 1 ? 's' : ''}
                                   </div>
                                 </div>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
                                   <svg width="16" height="16" viewBox="0 0 16 16" fill="none" style={{ transform: isExpanded ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }}>
-                                    <path d="M4 6L8 10L12 6" stroke="#6B7280" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                                    <path d="M4 6L8 10L12 6" stroke="#6B7280" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                                   </svg>
                                   <div onClick={e => e.stopPropagation()}>
                                     <FileMoreMenu
                                       isFolder
                                       onDownload={() => handleDownloadFolder(folderFiles, folderName)}
-                                      onOpenPath={() => handleOpenFolderPath(firstFile.id)}
+                                      onOpenPath={() => handleOpenFolderPath(firstFile.id, true)}
                                     />
                                   </div>
                                 </div>
                               </div>
                             </div>
-                          );
+                          )
 
                           if (isExpanded) {
-                            visibleFolderChildren.forEach(file => {
+                            visibleChildren.forEach(file => {
                               items.push(
                                 <div
-                                  key={`att-${file.id}`}
+                                  key={`att-child-${file.id}`}
                                   className="file-item nested-file-item"
                                   onClick={(e) => {
-                                    e.stopPropagation();
-                                    setFileToOpen(file);
-                                    setOpenModalType('file');
-                                    setShowOpenFileConfirmation(true);
+                                    e.stopPropagation()
+                                    setFileToOpen({ ...file, isAttachment: true })
+                                    setOpenModalType('file')
+                                    setShowOpenFileConfirmation(true)
                                   }}
                                   style={{ paddingLeft: '40px', backgroundColor: openedFileIds.has(file.id) ? '#f0fdf4' : '#fafafa' }}
                                 >
                                   <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1 }}>
-                                    <FileIcon fileType={file.original_name.split('.').pop()} size="small" style={{ width: '40px', height: '40px', flexShrink: 0 }} />
+                                    <FileIcon fileType={file.original_name.split('.').pop()} size="small" style={{ width: '40px', height: '40px', flexShrink: 0 }}/>
                                     <div style={{ flex: 1, minWidth: 0 }}>
                                       <div style={{ fontWeight: '500', fontSize: '14px', color: '#111827', marginBottom: '2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                         {file.original_name}
@@ -899,50 +774,50 @@ const TeamTasksTab = ({ user }) => {
                                         <span>{formatFileSize(file.file_size)}</span>
                                       </div>
                                     </div>
-                                    <FileViewersButton fileId={file.id} externalCount={viewerCounts[file.id]} minDate={assignment.created_at} />
+                                    <FileViewersButton fileId={file.id} externalCount={viewerCounts[file.id]} minDate={assignment.created_at}/>
                                     <FileMoreMenu
                                       onDownload={() => handleDownloadFile(file)}
-                                      onOpenPath={() => handleOpenFolderPath(file.id)}
+                                      onOpenPath={() => handleOpenFolderPath(file.id, true)}
                                     />
                                   </div>
                                 </div>
-                              );
-                            });
+                              )
+                            })
+
                             if (folderFiles.length > 5) {
                               items.push(
                                 <div
                                   key={`tlattfc-seemore-${folderName}`}
                                   style={{ padding: '8px 16px', textAlign: 'center', cursor: 'pointer' }}
                                   onClick={(e) => {
-                                    e.stopPropagation();
-                                    setShowAllFiles(prev => ({ ...prev, [tlFolderChildKey]: !prev[tlFolderChildKey] }));
+                                    e.stopPropagation()
+                                    setShowAllFiles(prev => ({ ...prev, [childKey]: !prev[childKey] }))
                                   }}
                                 >
                                   <span style={{ color: '#0066cc', fontSize: '13px', fontWeight: '500', textDecoration: 'underline' }}>
-                                    {isTlFolderChildExpanded ? 'See less' : `See more (${folderFiles.length - 5} more)`}
+                                    {isShowingAllChildren ? 'See less' : `See more (${folderFiles.length - 5} more)`}
                                   </span>
                                 </div>
-                              );
+                              )
                             }
                           }
-                        });
+                        })
 
-                        // Render individual files
                         individualFiles.forEach(file => {
                           items.push(
                             <div
                               key={`att-${file.id}`}
                               className="file-item"
                               onClick={(e) => {
-                                e.stopPropagation();
-                                setFileToOpen(file);
-                                setOpenModalType('file');
-                                setShowOpenFileConfirmation(true);
+                                e.stopPropagation()
+                                setFileToOpen({ ...file, isAttachment: true })
+                                setOpenModalType('file')
+                                setShowOpenFileConfirmation(true)
                               }}
                               style={{ backgroundColor: openedFileIds.has(file.id) ? '#f0fdf4' : undefined }}
                             >
                               <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1 }}>
-                                <FileIcon fileType={file.original_name.split('.').pop()} size="small" style={{ width: '48px', height: '48px', flexShrink: 0 }} />
+                                <FileIcon fileType={file.original_name.split('.').pop()} size="small" style={{ width: '48px', height: '48px', flexShrink: 0 }}/>
                                 <div style={{ flex: 1, minWidth: 0 }}>
                                   <div style={{ fontWeight: '500', fontSize: '14px', color: '#111827', marginBottom: '2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                     {file.original_name}
@@ -953,81 +828,74 @@ const TeamTasksTab = ({ user }) => {
                                     <span>{formatFileSize(file.file_size)}</span>
                                   </div>
                                 </div>
-                                <FileViewersButton fileId={file.id} externalCount={viewerCounts[file.id]} />
+                                <FileViewersButton fileId={file.id} externalCount={viewerCounts[file.id]}/>
                                 <FileMoreMenu
                                   onDownload={() => handleDownloadFile(file)}
-                                  onOpenPath={() => handleOpenFolderPath(file.id)}
+                                  onOpenPath={() => handleOpenFolderPath(file.id, true)}
                                 />
                               </div>
                             </div>
-                          );
-                        });
+                          )
+                        })
 
-                        const tlAttItems = items;
-                        const tlAttExpKey = `tlatt-${assignment.id}`;
-                        const isShowingAllTlAtt = showAllFiles[tlAttExpKey];
-                        const tlAttToShow = isShowingAllTlAtt ? tlAttItems : tlAttItems.slice(0, INITIAL_FILE_DISPLAY_LIMIT);
-                        const tlAttRemaining = tlAttItems.length - INITIAL_FILE_DISPLAY_LIMIT;
+                        const tlAttKey = `tlatt-${assignment.id}`
+                        const isShowingAll = showAllFiles[tlAttKey]
+                        const toShow = isShowingAll ? items : items.slice(0, INITIAL_FILE_DISPLAY_LIMIT)
+                        const remaining = items.length - INITIAL_FILE_DISPLAY_LIMIT
+
                         return (
                           <>
-                            {tlAttToShow}
-                            {tlAttItems.length > INITIAL_FILE_DISPLAY_LIMIT && (
+                            {toShow}
+                            {items.length > INITIAL_FILE_DISPLAY_LIMIT && (
                               <div
                                 style={{ padding: '12px 16px', textAlign: 'center', cursor: 'pointer' }}
                                 onClick={(e) => {
-                                  e.stopPropagation();
-                                  setShowAllFiles(prev => ({ ...prev, [tlAttExpKey]: !prev[tlAttExpKey] }));
+                                  e.stopPropagation()
+                                  setShowAllFiles(prev => ({ ...prev, [tlAttKey]: !prev[tlAttKey] }))
                                 }}
                               >
                                 <span style={{ color: '#0066cc', fontSize: '14px', fontWeight: '500', textDecoration: 'underline' }}>
-                                  {isShowingAllTlAtt ? 'See less' : `See more (${tlAttRemaining} more)`}
+                                  {isShowingAll ? 'See less' : `See more (${remaining} more)`}
                                 </span>
                               </div>
                             )}
                           </>
-                        );
+                        )
                       })()}
                     </div>
                   )}
 
-                  {/* Section 2: Member Submissions */}
-                  {assignment.recent_submissions && assignment.recent_submissions.length > 0 ? (
+                  {/* Section 2: Member Submissions (isAttachment = false) */}
+                  {assignment.recent_submissions?.length > 0 && (
                     <div className="team-task-attached-file member-submissions">
                       <div className="file-label">
                         <span style={{ fontSize: '16px' }}>📤</span>
                         Submitted Files ({assignment.recent_submissions.length}):
                       </div>
                       {(() => {
-                        const { folders, individualFiles } = groupFilesByFolder(assignment.recent_submissions);
-                        const items = [];
+                        const { folders, individualFiles } = groupFilesByFolder(assignment.recent_submissions)
+                        const items = []
 
-                        // Render folders
                         Object.keys(folders).forEach(folderName => {
-                          const folderFiles = folders[folderName];
-                          const isExpanded = expandedFolders[`sub-${assignment.id}-${folderName}`];
-                          const firstFile = folderFiles[0];
+                          const folderFiles = folders[folderName]
+                          const folderKey = `sub-${assignment.id}-${folderName}`
+                          const isExpanded = expandedFolders[folderKey]
+                          const firstFile = folderFiles[0]
 
                           items.push(
                             <div
                               key={`sub-folder-${assignment.id}-${folderName}`}
                               className="file-item folder-item"
                               onClick={(e) => {
-                                e.stopPropagation();
-                                setExpandedFolders(prev => ({
-                                  ...prev,
-                                  [`sub-${assignment.id}-${folderName}`]: !prev[`sub-${assignment.id}-${folderName}`]
-                                }));
+                                e.stopPropagation()
+                                setExpandedFolders(prev => ({ ...prev, [folderKey]: !prev[folderKey] }))
                               }}
                               style={{ cursor: 'pointer', backgroundColor: isExpanded ? '#BFDBFE' : '#DBEAFE' }}
                             >
                               <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1 }}>
-                                <div style={{ fontSize: '32px', flexShrink: 0 }}>
-                                  {isExpanded ? '📂' : '📁'}
-                                </div>
+                                <div style={{ fontSize: '32px', flexShrink: 0 }}>{isExpanded ? '📂' : '📁'}</div>
                                 <div style={{ flex: 1, minWidth: 0 }}>
-                                  <div style={{ fontWeight: '600', fontSize: '14px', color: '#111827' }}>
-                                    {folderName}
-                                  </div>
+                                  <div style={{ fontWeight: '600', fontSize: '14px', color: '#111827' }}>{folderName}</div>
                                   <div style={{ fontSize: '12px', color: '#6b7280' }}>
                                     Submitted by <span style={{ fontWeight: '500' }}>{firstFile.fullName || firstFile.username}</span> • {folderFiles.length} files
                                   </div>
@@ -1035,28 +903,28 @@ const TeamTasksTab = ({ user }) => {
                                 <FileMoreMenu
                                   isFolder
                                   onDownload={() => handleDownloadFolder(folderFiles, folderName)}
-                                  onOpenPath={() => handleOpenFolderPath(firstFile.id)}
+                                  onOpenPath={() => handleOpenFolderPath(firstFile.id, false)}
                                 />
                               </div>
                             </div>
-                          );
+                          )
 
                           if (isExpanded) {
                             folderFiles.forEach(file => {
                               items.push(
                                 <div
-                                  key={`sub-${file.id}`}
+                                  key={`sub-child-${file.id}`}
                                   className="file-item nested-file-item"
                                   onClick={(e) => {
-                                    e.stopPropagation();
-                                    setFileToOpen(file);
-                                    setOpenModalType('file');
-                                    setShowOpenFileConfirmation(true);
+                                    e.stopPropagation()
+                                    setFileToOpen({ ...file, isAttachment: false })
+                                    setOpenModalType('file')
+                                    setShowOpenFileConfirmation(true)
                                   }}
                                   style={{ paddingLeft: '40px', backgroundColor: openedFileIds.has(file.id) ? '#f0fdf4' : '#fafafa' }}
                                 >
                                   <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1 }}>
-                                    <FileIcon fileType={file.original_name.split('.').pop()} size="small" style={{ width: '40px', height: '40px', flexShrink: 0 }} />
+                                    <FileIcon fileType={file.original_name.split('.').pop()} size="small" style={{ width: '40px', height: '40px', flexShrink: 0 }}/>
                                     <div style={{ flex: 1, minWidth: 0 }}>
                                       <div style={{ fontWeight: '500', fontSize: '14px', color: '#111827', marginBottom: '6px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '8px' }}>
                                         <span>{file.relative_path || file.original_name}</span>
@@ -1066,34 +934,33 @@ const TeamTasksTab = ({ user }) => {
                                         by {file.fullName || file.username} • {formatDate(file.submitted_at)}
                                       </div>
                                     </div>
-                                    <FileViewersButton fileId={file.id} externalCount={viewerCounts[file.id]} minDate={assignment.created_at} />
+                                    <FileViewersButton fileId={file.id} externalCount={viewerCounts[file.id]} minDate={assignment.created_at}/>
                                     <FileMoreMenu
                                       onDownload={() => handleDownloadFile(file)}
-                                      onOpenPath={() => handleOpenFolderPath(file.id)}
+                                      onOpenPath={() => handleOpenFolderPath(file.id, false)}
                                     />
                                   </div>
                                 </div>
-                              );
-                            });
+                              )
+                            })
                           }
-                        });
+                        })
 
-                        // Render individual files
                         individualFiles.forEach(file => {
                           items.push(
                             <div
                               key={`sub-${file.id}`}
                               className="file-item"
                               onClick={(e) => {
-                                e.stopPropagation();
-                                setFileToOpen(file);
-                                setOpenModalType('file');
-                                setShowOpenFileConfirmation(true);
+                                e.stopPropagation()
+                                setFileToOpen({ ...file, isAttachment: false })
+                                setOpenModalType('file')
+                                setShowOpenFileConfirmation(true)
                               }}
                               style={{ backgroundColor: openedFileIds.has(file.id) ? '#f0fdf4' : undefined }}
                             >
                               <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1 }}>
-                                <FileIcon fileType={file.original_name.split('.').pop()} size="small" style={{ width: '48px', height: '48px', flexShrink: 0 }} />
+                                <FileIcon fileType={file.original_name.split('.').pop()} size="small" style={{ width: '48px', height: '48px', flexShrink: 0 }}/>
                                 <div style={{ flex: 1, minWidth: 0 }}>
                                   <div style={{ fontWeight: '500', fontSize: '15px', color: '#111827', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '8px' }}>
                                     <span>{file.original_name}</span>
@@ -1103,44 +970,43 @@ const TeamTasksTab = ({ user }) => {
                                     Submitted by {file.fullName || file.username} on {formatDate(file.submitted_at)}
                                   </div>
                                 </div>
-                                <FileViewersButton fileId={file.id} externalCount={viewerCounts[file.id]} minDate={assignment.created_at} />
+                                <FileViewersButton fileId={file.id} externalCount={viewerCounts[file.id]} minDate={assignment.created_at}/>
                                 <FileMoreMenu
                                   onDownload={() => handleDownloadFile(file)}
-                                  onOpenPath={() => handleOpenFolderPath(file.id)}
+                                  onOpenPath={() => handleOpenFolderPath(file.id, false)}
                                 />
                               </div>
                             </div>
-                          );
-                        });
+                          )
+                        })
 
-                        const totalItems = items.length;
-                        const isShowingAll = showAllSubmittedFiles[assignment.id];
-                        const itemsToShow = isShowingAll ? items : items.slice(0, INITIAL_FILE_DISPLAY_LIMIT);
-                        const remainingCount = totalItems - INITIAL_FILE_DISPLAY_LIMIT;
+                        const isShowingAll = showAllSubmittedFiles[assignment.id]
+                        const toShow = isShowingAll ? items : items.slice(0, INITIAL_FILE_DISPLAY_LIMIT)
+                        const remaining = items.length - INITIAL_FILE_DISPLAY_LIMIT
 
                         return (
                           <>
-                            {itemsToShow}
-                            {totalItems > INITIAL_FILE_DISPLAY_LIMIT && (
+                            {toShow}
+                            {items.length > INITIAL_FILE_DISPLAY_LIMIT && (
                               <div
                                 style={{ padding: '12px 16px', textAlign: 'center', cursor: 'pointer' }}
                                 onClick={(e) => {
-                                  e.stopPropagation();
-                                  setShowAllSubmittedFiles(prev => ({ ...prev, [assignment.id]: !prev[assignment.id] }));
+                                  e.stopPropagation()
+                                  setShowAllSubmittedFiles(prev => ({ ...prev, [assignment.id]: !prev[assignment.id] }))
                                 }}
                               >
                                 <span style={{ color: '#0066cc', fontSize: '14px', fontWeight: '500', textDecoration: 'underline' }}>
-                                  {isShowingAll ? 'See less' : `See more (${remainingCount} more)`}
+                                  {isShowingAll ? 'See less' : `See more (${remaining} more)`}
                                 </span>
                               </div>
                             )}
                           </>
-                        );
+                        )
                       })()}
                     </div>
-                  ) : null}
-                  
-                  {(!assignment.attachments?.length && !assignment.recent_submissions?.length) && (
+                  )}
+
+                  {!assignment.attachments?.length && !assignment.recent_submissions?.length && (
                     <div className="no-attachment">
                       <span className="no-attachment-icon">📄</span>
                       <span className="no-attachment-text">No attachments yet</span>
@@ -1148,30 +1014,18 @@ const TeamTasksTab = ({ user }) => {
                   )}
                 </div>
 
-                {/* Comments Section */}
+                {/* Comments trigger */}
                 <div className="team-task-comments-section" style={{
-                  display: 'flex',
-                  justifyContent: 'flex-start',
-                  paddingTop: '12px',
-                  borderTop: '1px solid #f3f4f6'
+                  display: 'flex', justifyContent: 'flex-start',
+                  paddingTop: '12px', borderTop: '1px solid #f3f4f6'
                 }}>
                   <button
                     className="toggle-comments-btn"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      openCommentsModal(assignment);
-                    }}
+                    onClick={(e) => { e.stopPropagation(); openCommentsModal(assignment) }}
                     style={{
-                      padding: '0',
-                      backgroundColor: 'transparent',
-                      border: 'none',
-                      color: '#1c1e21',
-                      fontSize: '14px',
-                      fontWeight: '500',
-                      cursor: 'pointer',
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '4px'
+                      padding: '0', backgroundColor: 'transparent', border: 'none',
+                      color: '#1c1e21', fontSize: '14px', fontWeight: '500',
+                      cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '4px'
                     }}
                   >
                     <span>Comment</span>
@@ -1183,7 +1037,7 @@ const TeamTasksTab = ({ user }) => {
               </div>
             ))}
 
-            {/* Inline Skeleton Loader for Loading More */}
+            {/* Inline skeleton for loading more */}
             {loadingMore && (
               <div className="inline-skeleton-container">
                 {[1, 2].map(i => (
@@ -1205,15 +1059,14 @@ const TeamTasksTab = ({ user }) => {
               </div>
             )}
 
-            {/* Load More Trigger (Hidden) */}
             {hasMore && !loadingMore && (
-              <div ref={loadMoreRef} style={{ height: '20px', margin: '20px 0' }} />
+              <div ref={loadMoreRef} style={{ height: '20px', margin: '20px 0' }}/>
             )}
           </>
         )}
       </div>
 
-      {/* Comments Modal - shared component with full @mention support */}
+      {/* Comments Modal */}
       <CommentsModal
         isOpen={showCommentsModal}
         onClose={closeCommentsModal}
@@ -1235,16 +1088,16 @@ const TeamTasksTab = ({ user }) => {
         user={user}
       />
 
-      {/* Success Modal */}
+      {/* Success / error modal */}
       <SuccessModal
         isOpen={successModal.isOpen}
-        onClose={() => setSuccessModal({ ...successModal, isOpen: false })}
+        onClose={() => setSuccessModal(prev => ({ ...prev, isOpen: false }))}
         title={successModal.title}
         message={successModal.message}
         type={successModal.type}
       />
 
-      {/* File Open Modal */}
+      {/* File / folder open confirmation modal */}
       <FileOpenModal
         isOpen={showOpenFileConfirmation}
         onClose={() => {
@@ -1255,7 +1108,7 @@ const TeamTasksTab = ({ user }) => {
           if (!fileToOpen) return
           const fileId = fileToOpen.id
           try {
-            await handleOpenFile(fileToOpen.file_path, fileToOpen.id)
+            await handleOpenFile(fileToOpen.file_path, fileId)
             if (openModalType === 'file') recordView(fileId)
           } finally {
             setShowOpenFileConfirmation(false)
