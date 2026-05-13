@@ -1374,6 +1374,70 @@ router.put('/:assignmentId/mark-done', authenticateToken, authorizeRole(['TEAM_L
       ['submitted', now, assignmentId, 'submitted']
     );
 
+    // 3. Delete attachment files from NAS, but keep DB records for reference.
+    //    file_path is nulled out so the UI knows the physical file is gone;
+    //    original_name / filename / file_type etc. remain intact for display.
+    const attachments = await query(
+      'SELECT id, file_path, folder_name FROM assignment_attachments WHERE assignment_id = ?',
+      [assignmentId]
+    );
+    let nasDeletedCount = 0;
+    // Collect unique parent folder directories so we can rmdir them after files are gone
+    const folderDirsToRemove = new Set();
+
+    // Build the base NAS directory for this TL's attachments
+    const { networkDataPath } = require('../config/database');
+    const tlUsername = assignment.team_leader_username;
+    const tlBaseDir = path.join(networkDataPath, 'teamleader', tlUsername);
+
+    for (const att of (attachments || [])) {
+      // Delete physical file if path is known and exists
+      if (att.file_path) {
+        try {
+          if (fs.existsSync(att.file_path)) {
+            fs.unlinkSync(att.file_path);
+            console.log(`🗑️  NAS file deleted on mark-done: ${att.file_path}`);
+            nasDeletedCount++;
+          }
+          // Track parent dir from stored path
+          const parentDir = path.dirname(att.file_path);
+          if (parentDir && parentDir !== '.' && parentDir !== tlBaseDir) {
+            folderDirsToRemove.add(parentDir);
+          }
+        } catch (delErr) {
+          console.warn(`⚠️  Could not delete NAS file ${att.file_path}:`, delErr.message);
+        }
+      }
+
+      // Also track the folder by name so we can delete it even if file_path is already NULL
+      if (att.folder_name) {
+        const namedFolderPath = path.join(tlBaseDir, att.folder_name);
+        folderDirsToRemove.add(namedFolderPath);
+      }
+
+      // Null out file_path regardless — even if the physical delete failed
+      if (att.file_path !== null) {
+        await query('UPDATE assignment_attachments SET file_path = NULL WHERE id = ?', [att.id]);
+      }
+    }
+
+    // Remove folder directories left behind after file deletion.
+    // Sort descending by path length so nested subdirs are removed before parents.
+    const sortedDirs = [...folderDirsToRemove].sort((a, b) => b.length - a.length);
+    for (const dirPath of sortedDirs) {
+      try {
+        if (fs.existsSync(dirPath)) {
+          fs.rmSync(dirPath, { recursive: true, force: true });
+          console.log(`🗂️  NAS folder removed on mark-done: ${dirPath}`);
+        }
+      } catch (dirErr) {
+        console.warn(`⚠️  Could not remove NAS folder ${dirPath}:`, dirErr.message);
+      }
+    }
+    if (attachments && attachments.length > 0) {
+      console.log(`✅  mark-done: processed ${attachments.length} attachment(s), physically deleted ${nasDeletedCount} files, removed ${folderDirsToRemove.size} folder(s)`);
+    }
+
     res.json({ success: true, message: 'Assignment marked as completed and all members updated', assignment: { ...assignment, status: 'completed', updated_at: now } });
   } catch (error) {
     console.error('Error marking assignment as done:', error);

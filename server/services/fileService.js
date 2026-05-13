@@ -138,6 +138,33 @@ async function uploadFile(fileData, user) {
     logActivity(db, user.id, user.username, user.role, user.team,
         `Uploaded file: ${fileData.original_name}`);
 
+    // Notify team leader if this upload is linked to an assignment
+    if (assignmentId) {
+        try {
+            const { pushToUser } = require('../routes/notifications');
+            const assignment = await queryOne(
+                'SELECT id, title, team_leader_id FROM assignments WHERE id = ?',
+                [assignmentId]
+            );
+            if (assignment && assignment.team_leader_id) {
+                await notificationService.createNotification(
+                    assignment.team_leader_id,
+                    fileId,
+                    'file_submitted',
+                    'New File Submission',
+                    `${user.fullName || user.username} submitted "${originalName}" for "${assignment.title}".`,
+                    user.id,
+                    user.username,
+                    user.role,
+                    assignmentId
+                );
+                pushToUser(assignment.team_leader_id);
+            }
+        } catch (notifErr) {
+            logError(notifErr, { context: 'uploadFile-TL-notification' });
+        }
+    }
+
     const file = await fileRepository.findById(fileId);
     logInfo('File uploaded successfully', { fileId, filename: fileData.original_name });
     return file;
@@ -227,6 +254,37 @@ async function bulkUpload(filesData, user, assignmentId = null) {
     }
 
     logActivity(db, user.id, user.username, user.role, user.team, `Bulk uploaded ${results.filter(r => r.success).length} files`);
+
+    // Send ONE grouped notification to the team leader after all files are processed
+    if (assignmentId) {
+        try {
+            const { pushToUser } = require('../routes/notifications');
+            const assignment = await queryOne(
+                'SELECT id, title, team_leader_id FROM assignments WHERE id = ?',
+                [parseInt(assignmentId, 10)]
+            );
+            if (assignment && assignment.team_leader_id) {
+                const successCount = results.filter(r => r.success).length;
+                await notificationService.createNotification(
+                    assignment.team_leader_id,
+                    null,
+                    'file_submitted',
+                    'New File Submission',
+                    `${user.fullName || user.username} submitted ${successCount} file${successCount !== 1 ? 's' : ''} for "${assignment.title}".`,
+                    user.id,
+                    user.username,
+                    user.role,
+                    parseInt(assignmentId, 10)
+                );
+                // createNotification already calls pushToUser, but push again to guarantee delivery
+                pushToUser(assignment.team_leader_id);
+                logInfo('Team leader notified of bulk submission', { tlId: assignment.team_leader_id, assignmentId, successCount });
+            }
+        } catch (notifErr) {
+            logError(notifErr, { context: 'bulkUpload-TL-notification' });
+        }
+    }
+
     return results;
 }
 

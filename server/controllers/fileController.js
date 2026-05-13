@@ -83,7 +83,9 @@ class FileController {
         res.status(201).json({
             success: true,
             message: `Bulk upload processed ${results.filter(r => r.success).length} files`,
-            results
+            results,
+            // Return assignmentId so uploadBatchWithProgress can pass it to subsequent chunk batches
+            assignmentId: assignmentId || null
         });
     });
 

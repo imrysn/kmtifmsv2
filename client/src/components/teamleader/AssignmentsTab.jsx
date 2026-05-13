@@ -978,7 +978,7 @@ const AssignmentsTab = ({
                                       <span style={{marginLeft:'8px',padding:'2px 8px',borderRadius:'12px',fontSize:'11px',fontWeight:'600',background:'#f0f9ff',color:'#0369a1',border:'1px solid #bae6fd'}}>Reference</span>
                                     </div>
                                   </div>
-                                  <FileViewersButton fileId={att.id} externalCount={viewerCounts[att.id]} />
+                                  <FileViewersButton fileId={att.id} externalCount={viewerCounts[att.id]} minDate={att.created_at} />
                                   <button onClick={(e) => { e.stopPropagation(); setRemoveAttachmentModal({ isOpen: true, attachmentId: att.id, attachmentName: att.original_name, assignmentId: assignment.id }) }} title="Remove" style={{ marginLeft: 'auto', background:'transparent', border:'none', cursor:'pointer', color:'#9ca3af', fontSize:'18px', width:'28px', height:'28px', display:'flex', alignItems:'center', justifyContent:'center', borderRadius:'6px' }} onMouseEnter={e=>{e.currentTarget.style.backgroundColor='#fee2e2';e.currentTarget.style.color='#dc2626'}} onMouseLeave={e=>{e.currentTarget.style.backgroundColor='transparent';e.currentTarget.style.color='#9ca3af'}}>×</button>
                                 </div>
                               ))}
@@ -1017,7 +1017,7 @@ const AssignmentsTab = ({
                                 <span style={{marginLeft:'8px',padding:'2px 8px',borderRadius:'12px',fontSize:'11px',fontWeight:'600',background:'#f0f9ff',color:'#0369a1',border:'1px solid #bae6fd'}}>Reference</span>
                               </div>
                             </div>
-                            <FileViewersButton fileId={attachment.id} externalCount={viewerCounts[attachment.id]} />
+                            <FileViewersButton fileId={attachment.id} externalCount={viewerCounts[attachment.id]} minDate={attachment.created_at} />
                             <button
                               onClick={(e) => {
                                 e.stopPropagation()

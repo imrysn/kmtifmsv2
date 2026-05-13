@@ -72,7 +72,13 @@ async function createNotification(
 
     try {
         const result = await db.run(query, params);
-        return result.insertId || result.lastID;
+        const insertedId = result.insertId || result.lastID;
+        // Push real-time SSE ping so the client badge updates instantly
+        try {
+            const { pushToUser } = require('../routes/notifications');
+            pushToUser(data.user_id ?? data.userId);
+        } catch (_) {}
+        return insertedId;
     } catch (err) {
         console.error('❌ Failed to create notification:', err);
         return null;
