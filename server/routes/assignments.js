@@ -123,10 +123,11 @@ setInterval(() => {
 }, 5 * 60 * 1000);
 
 // ── Parallel attachment processor ───────────────────────────────────────────
-// Moves files to NAS concurrently in batches of CONCURRENCY size.
+// Moves files to NAS/teamleader/<username>/ concurrently in batches.
 // Returns array of { fixedName, finalPath, file, folderName, relPath }
-const CONCURRENCY = 8;
-async function processAttachments(uploadedFiles, relativePaths, finalTeamLeaderUsername) {
+// IMPORTANT: finalPath is ALWAYS the absolute NAS path — never a temp path.
+const CONCURRENCY = 4; // Reduced from 8 to avoid overwhelming NAS writes
+async function processAttachments(uploadedFiles, relativePaths, finalTeamLeaderUsername, assignmentId) {
   const results = [];
   for (let i = 0; i < uploadedFiles.length; i += CONCURRENCY) {
     const batch = uploadedFiles.slice(i, i + CONCURRENCY);
@@ -136,17 +137,16 @@ async function processAttachments(uploadedFiles, relativePaths, finalTeamLeaderU
         const fixedName = decodeUTF8Filename(file.originalname);
         const relPath = (relativePaths && relativePaths[idx]) || fixedName;
         const folderName = relPath.includes('/') ? relPath.split('/')[0] : null;
-        let finalPath;
-        try {
-          finalPath = await moveToUserFolder(
-            file.path, finalTeamLeaderUsername, fixedName,
-            folderName || null, folderName ? relPath : null,
-            null, true /* isTeamLeaderAttachment */
-          );
-        } catch (e) {
-          console.error('⚠️ Failed to move attachment:', e);
-          finalPath = file.path;
-        }
+
+        // Move temp file → NAS teamleader folder. Do NOT silently swallow errors:
+        // if move fails the temp path would be stored in DB, causing open/path failures.
+        const finalPath = await moveToUserFolder(
+          file.path, finalTeamLeaderUsername, fixedName,
+          folderName || null, folderName ? relPath : null,
+          assignmentId ? `task_${assignmentId}` : null, true /* isTeamLeaderAttachment */
+        );
+
+        console.log(`✅ Attachment moved to NAS: ${finalPath}`);
         return { fixedName, finalPath, file, folderName, relPath };
       })
     );
@@ -196,7 +196,7 @@ router.post('/add-attachments', authenticateToken, authorizeRole(['TEAM_LEADER',
     let relativePaths = [];
     try { relativePaths = JSON.parse(req.body.relativePaths || '[]'); } catch (_) {}
 
-    const processed = await processAttachments(rawFiles, relativePaths, assignment.team_leader_username);
+    const processed = await processAttachments(rawFiles, relativePaths, assignment.team_leader_username, assignmentId);
     let attachmentsCreated = 0;
     if (processed.length > 0) {
       const placeholders = processed.map(() => '(?,?,?,?,?,?,?,?,?,?)').join(',');
@@ -669,7 +669,7 @@ router.post('/create', authenticateToken, authorizeRole(['TEAM_LEADER', 'ADMIN']
         let relativePaths = [];
         try { relativePaths = JSON.parse(req.body.relativePaths || '[]'); } catch (e) { /* ignore */ }
 
-        const processed = await processAttachments(uploadedFiles, relativePaths, finalTeamLeaderUsername);
+        const processed = await processAttachments(uploadedFiles, relativePaths, finalTeamLeaderUsername, assignmentId);
         if (processed.length > 0) {
           const placeholders = processed.map(() => '(?,?,?,?,?,?,?,?,?,?)').join(',');
           const values = processed.flatMap(({ fixedName, finalPath, file, folderName, relPath }) => [
@@ -857,7 +857,7 @@ router.put('/:id', authenticateToken, authorizeRole(['TEAM_LEADER', 'ADMIN']), u
         let relativePaths = [];
         try { relativePaths = JSON.parse(req.body.relativePaths || '[]'); } catch (e) { /* ignore */ }
 
-        const processed = await processAttachments(uploadedFiles, relativePaths, finalTeamLeaderUsername);
+        const processed = await processAttachments(uploadedFiles, relativePaths, finalTeamLeaderUsername, id);
         if (processed.length > 0) {
           const placeholders = processed.map(() => '(?,?,?,?,?,?,?,?,?,?)').join(',');
           const values = processed.flatMap(({ fixedName, finalPath, file, folderName, relPath }) => [

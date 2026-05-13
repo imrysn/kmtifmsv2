@@ -305,7 +305,8 @@ class FileController {
      */
     getFilePath = asyncHandler(async (req, res) => {
         const id = req.params.id || req.params.fileId;
-        const fileInfo = await fileService.resolvePhysicalPath(id);
+        const { type } = req.query;
+        const fileInfo = await fileService.resolvePhysicalPath(id, type);
         res.json({ 
             success: true, 
             filePath: fileInfo.path,
@@ -327,8 +328,8 @@ class FileController {
      * Open file with default application
      */
     openFile = asyncHandler(async (req, res) => {
-        const { filePath } = req.body;
-        await fileService.openFile(filePath);
+        const { fileId } = req.body;
+        await fileService.openFile(fileId);
         res.json({ success: true, message: 'File opened successfully' });
     });
 
@@ -362,8 +363,8 @@ class FileController {
      * Bulk action (approve/reject)
      */
     bulkAction = asyncHandler(async (req, res) => {
-        const { fileIds, action } = req.body;
-        const results = await fileService.bulkAction(fileIds, action, req.user);
+        const { fileIds, action, comments } = req.body;
+        const results = await fileService.bulkAction(fileIds, action, req.user, comments);
         invalidateCache();
         res.json({ success: true, ...results });
     });

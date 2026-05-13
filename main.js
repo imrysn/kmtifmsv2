@@ -1356,6 +1356,7 @@ if (ipcMain) {
   });
 
   ipcMain.handle('file:openInApp', async (event, filePath) => {
+    log(LogLevel.INFO, `IPC: file:openInApp - Received path: ${filePath}`);
     try {
       // SECURITY: Validate input
       if (!filePath || typeof filePath !== 'string') {
@@ -1370,9 +1371,20 @@ if (ipcMain) {
       const isUNCPath = normalizedPath.startsWith('\\\\') || filePath.startsWith('\\\\');
 
       if (isUNCPath) {
-        // For UNC/network paths, skip fs.existsSync (unreliable on network drives)
-        // and go straight to shell.openPath — Windows will handle the error if missing
-        log(LogLevel.DEBUG, `Opening UNC/network file directly: ${normalizedPath}`);
+        log(LogLevel.DEBUG, `Opening UNC/network file: ${normalizedPath}`);
+        
+        // Try to check if it's a directory even for UNC paths
+        try {
+          const stats = await fs.promises.stat(normalizedPath);
+          if (stats.isDirectory()) {
+            log(LogLevel.WARN, 'UNC path is a directory, opening in explorer instead of app');
+            await shell.openPath(normalizedPath);
+            return { success: true, method: 'explorer-fallback' };
+          }
+        } catch (e) {
+          log(LogLevel.WARN, 'Could not stat UNC path, proceeding with openPath');
+        }
+
         const result = await shell.openPath(normalizedPath);
         if (result) {
           log(LogLevel.ERROR, 'Error opening UNC file:', result);
@@ -1416,21 +1428,47 @@ if (ipcMain) {
   });
 
   ipcMain.handle('folder:openInExplorer', async (event, folderPath) => {
+    log(LogLevel.INFO, `IPC: folder:openInExplorer - Received path: ${folderPath}`);
     try {
       if (!folderPath || typeof folderPath !== 'string') {
         return { success: false, error: 'Invalid folder path' };
       }
 
       const normalizedPath = path.normalize(folderPath);
+      const isUNC = normalizedPath.startsWith('\\\\');
 
-      if (!fs.existsSync(normalizedPath)) {
+      // For UNC/network paths skip fs.existsSync — unreliable on NAS drives.
+      if (!isUNC && !fs.existsSync(normalizedPath)) {
+        // Path not found — try opening the parent directory instead
+        const parentDir = path.dirname(normalizedPath);
+        if (parentDir && parentDir !== normalizedPath && fs.existsSync(parentDir)) {
+          log(LogLevel.DEBUG, `Target not found, opening parent: ${parentDir}`);
+          shell.showItemInFolder(parentDir);
+          return { success: true };
+        }
         return { success: false, error: 'Folder not found' };
       }
 
       log(LogLevel.DEBUG, `Opening in Explorer: ${normalizedPath}`);
-      // shell.showItemInFolder opens Explorer with the item highlighted in its parent.
-      // Works correctly for both files AND folders — no need to dirname first.
-      shell.showItemInFolder(normalizedPath);
+      
+      // Determine if the path is a directory
+      let isDirectory = false;
+      try {
+        const stats = fs.statSync(normalizedPath);
+        isDirectory = stats.isDirectory();
+      } catch (e) {
+        // Fallback for UNC or missing file: if it ends with slash or has no extension, assume dir
+        isDirectory = normalizedPath.endsWith(path.sep) || !path.extname(normalizedPath);
+      }
+
+      if (isDirectory) {
+        // Open the folder directly so user is INSIDE it
+        shell.openPath(normalizedPath);
+      } else {
+        // Highlight the file in its parent folder
+        shell.showItemInFolder(normalizedPath);
+      }
+      
       return { success: true };
     } catch (error) {
       log(LogLevel.ERROR, 'Error opening folder:', error.message);

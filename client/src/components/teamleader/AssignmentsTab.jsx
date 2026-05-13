@@ -31,7 +31,7 @@ const useDropdownPosition = (btnRef, menuRef, isOpen) => {
   return pos
 }
 
-const FolderActionDropdown = ({ assignment, folderName, folderFiles, handleDownloadFolder, setFolderReviewModal, setFolderReviewComment }) => {
+const FolderActionDropdown = ({ assignment, folderName, folderFiles, handleDownloadFolder, setFolderReviewModal, setFolderReviewComment, setToast }) => {
   const [isOpen, setIsOpen] = useState(false)
   const btnRef = useRef(null)
   const menuRef = useRef(null)
@@ -88,14 +88,18 @@ const FolderActionDropdown = ({ assignment, folderName, folderFiles, handleDownl
             style={{ fontWeight: '600' }}
             onClick={async (e) => {
               e.stopPropagation()
+              if (setToast) {
+                setToast({ isOpen: true, title: 'Opening Folder', message: `Opening path for ${folderName}...`, type: 'success' });
+              }
               setIsOpen(false)
               if (!window.electron || !window.electron.openFolderInExplorer) {
                 alert('Open Folder Path is only available in the desktop app.')
                 return
               }
               const firstFile = folderFiles[0]
+              const type = isReference ? 'attachment' : 'file'
               try {
-                const data = await apiFetch(`/api/files/${firstFile.id}/path`)
+                const data = await apiFetch(`/api/files/${firstFile.id}/path?type=${type}`)
                 if (data.success && data.filePath) {
                   const result = await window.electron.openFolderInExplorer(data.filePath)
                   if (!result.success) alert('Could not open folder: ' + (result.error || 'Unknown error'))
@@ -194,16 +198,41 @@ const AssignmentsTab = ({
   // Map of fileId -> viewer count for instant update
   const [viewerCounts, setViewerCounts] = useState({})
 
+  // Warm up the server's path cache when a folder is expanded
+  const prefetchFolderFiles = (files, type = 'file') => {
+    if (!files || files.length === 0) return
+    files.forEach(file => {
+      // Fire and forget - just to trigger server-side caching
+      apiFetch(`/api/files/${file.id}/path?type=${type}`)
+        .catch(() => {}) // Ignore prefetch errors
+    });
+  }
+
+  // openedFileIds is scoped per-assignment: key = `${assignmentId}:${fileId}`
+  // This prevents a file viewed in task A from showing as Viewed in task B.
+  const makeViewedKey = (assignmentId, fileId) => `${assignmentId}:${fileId}`
+  const isFileViewed = (assignmentId, fileId) => openedFileIds.has(makeViewedKey(assignmentId, fileId))
+  const markFileViewed = (assignmentId, fileId) => {
+    setOpenedFileIds(prev => new Set([...prev, makeViewedKey(assignmentId, fileId)]))
+  }
+
   // Load from persistent storage on mount
   useEffect(() => {
     ;(async () => {
       try {
         let stored = null
         if (window.electron?.appStorage) {
-          stored = await window.electron.appStorage.get('kmti_opened_files_teamleader')
+          stored = await window.electron.appStorage.get('kmti_opened_files_tl_v2')
         }
-        if (!stored) stored = localStorage.getItem('kmti_opened_files_teamleader')
-        if (stored) setOpenedFileIds(new Set(JSON.parse(stored)))
+        if (!stored) stored = localStorage.getItem('kmti_opened_files_tl_v2')
+        if (stored) {
+          const parsed = JSON.parse(stored)
+          // Only load keys in the new "assignmentId:fileId" scoped format.
+          // Old bare numeric IDs from the previous format are discarded so
+          // re-uploaded files in new tasks never inherit a stale Viewed badge.
+          const scoped = parsed.filter(k => String(k).includes(':'))
+          setOpenedFileIds(new Set(scoped))
+        }
       } catch {}
       setOpenedFilesStorageReady(true)
     })()
@@ -214,9 +243,9 @@ const AssignmentsTab = ({
     if (!openedFilesStorageReady) return
     const data = JSON.stringify([...openedFileIds])
     if (window.electron?.appStorage) {
-      window.electron.appStorage.set('kmti_opened_files_teamleader', data)
+      window.electron.appStorage.set('kmti_opened_files_tl_v2', data)
     }
-    try { localStorage.setItem('kmti_opened_files_teamleader', data) } catch {}
+    try { localStorage.setItem('kmti_opened_files_tl_v2', data) } catch {}
   }, [openedFileIds, openedFilesStorageReady])
   const [expandedAssignmentFolders, setExpandedAssignmentFolders] = useState({}) // Track which folders are expanded in assignments
   const [openFolderMenuId, setOpenFolderMenuId] = useState(null) // Track which folder's 3-dot menu is open
@@ -527,10 +556,16 @@ const AssignmentsTab = ({
   });
 
   const toggleAttachments = (assignmentId) => {
-    setExpandedAttachments(prev => ({
-      ...prev,
-      [assignmentId]: !prev[assignmentId]
-    }))
+    setExpandedAttachments(prev => {
+      const newState = !prev[assignmentId];
+      if (newState) {
+        const assignment = assignments.find(a => a.id === assignmentId);
+        if (assignment && assignment.attachments) {
+          prefetchFolderFiles(assignment.attachments, 'attachment');
+        }
+      }
+      return { ...prev, [assignmentId]: newState };
+    });
   }
 
   const formatRelativeTime = (dateString) => {
@@ -888,7 +923,11 @@ const AssignmentsTab = ({
                               <div
                                 className="tl-assignment-file-item tl-folder-item"
                                 style={{ cursor: 'pointer', backgroundColor: isExpanded ? '#BFDBFE' : '#DBEAFE', position: 'relative' }}
-                                onClick={() => setExpandedAttachments(prev => ({ ...prev, [`attfolder-${assignment.id}-${folderName}`]: !prev[`attfolder-${assignment.id}-${folderName}`] }))}
+                                onClick={() => {
+                                  const newState = !isExpanded;
+                                  setExpandedAttachments(prev => ({ ...prev, [`attfolder-${assignment.id}-${folderName}`]: newState }));
+                                  if (newState) prefetchFolderFiles(files, 'attachment');
+                                }}
                               >
                                 <div style={{ fontSize: '32px' }}>{isExpanded ? '📂' : '📁'}</div>
                                 <div className="tl-assignment-file-details">
@@ -910,6 +949,7 @@ const AssignmentsTab = ({
                                     folderName={folderName}
                                     folderFiles={files}
                                     handleDownloadFolder={handleDownloadFolder}
+                                    setToast={setToast}
                                   />
                                 </div>
                               </div>
@@ -918,15 +958,15 @@ const AssignmentsTab = ({
                                 {visibleFolderFiles.map(att => (
                                 <div
                                   key={att.id}
-                                  className={`tl-assignment-file-item tl-folder-file-item${openedFileIds.has(att.id) ? ' file-card-opened' : ''}`}
+                                  className={`tl-assignment-file-item tl-folder-file-item${isFileViewed(assignment.id, att.id) ? ' file-card-opened' : ''}`}
                                   style={{ cursor: 'pointer', marginBottom: '4px', position: 'relative' }}
-                                  onClick={() => { setFileToOpen(att); setShowOpenFileConfirmation(true) }}
+                                  onClick={() => { setFileToOpen({ ...att, assignmentId: assignment.id, isAttachment: true }); setShowOpenFileConfirmation(true) }}
                                 >
                                   <FileIcon fileType={att.original_name.split('.').pop()} size="small" className="tl-assignment-file-icon" />
                                   <div className="tl-assignment-file-details">
                                     <div className="tl-assignment-file-name" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                       <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{att.original_name}</span>
-                                      {openedFileIds.has(att.id) && <span style={{ fontSize: '10px', fontWeight: '600', color: '#16a34a', backgroundColor: '#dcfce7', border: '1px solid #86efac', padding: '1px 7px', borderRadius: '10px', flexShrink: 0 }}>✓ Viewed</span>}
+                                      {isFileViewed(assignment.id, att.id) && <span style={{ fontSize: '10px', fontWeight: '600', color: '#16a34a', backgroundColor: '#dcfce7', border: '1px solid #86efac', padding: '1px 7px', borderRadius: '10px', flexShrink: 0 }}>✓ Viewed</span>}
                                     </div>
                                     <div className="tl-assignment-file-meta">
                                       <span>by <span className="tl-assignment-file-submitter">{tlName}</span></span>
@@ -957,15 +997,15 @@ const AssignmentsTab = ({
                         {visAttFiles.map((attachment) => (
                           <div
                             key={attachment.id}
-                            className={`tl-assignment-file-item${openedFileIds.has(attachment.id) ? ' file-card-opened' : ''}`}
+                            className={`tl-assignment-file-item${isFileViewed(assignment.id, attachment.id) ? ' file-card-opened' : ''}`}
                             style={{ position: 'relative', cursor: 'pointer' }}
-                            onClick={() => { setFileToOpen(attachment); setShowOpenFileConfirmation(true) }}
+                            onClick={() => { setFileToOpen({ ...attachment, assignmentId: assignment.id, isAttachment: true }); setShowOpenFileConfirmation(true) }}
                           >
                             <FileIcon fileType={attachment.original_name.split('.').pop()} size="small" className="tl-assignment-file-icon" />
                             <div className="tl-assignment-file-details">
                               <div className="tl-assignment-file-name" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                 <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{attachment.relative_path && attachment.relative_path !== attachment.original_name ? attachment.relative_path : attachment.original_name}</span>
-                                {openedFileIds.has(attachment.id) && <span style={{ fontSize: '10px', fontWeight: '600', color: '#16a34a', backgroundColor: '#dcfce7', border: '1px solid #86efac', padding: '1px 7px', borderRadius: '10px', flexShrink: 0 }}>✓ Viewed</span>}
+                                {isFileViewed(assignment.id, attachment.id) && <span style={{ fontSize: '10px', fontWeight: '600', color: '#16a34a', backgroundColor: '#dcfce7', border: '1px solid #86efac', padding: '1px 7px', borderRadius: '10px', flexShrink: 0 }}>✓ Viewed</span>}
                               </div>
                               <div className="tl-assignment-file-meta">
                                 <span>by <span className="tl-assignment-file-submitter">{tlName}</span></span>
@@ -1099,6 +1139,7 @@ const AssignmentsTab = ({
                                       folderFiles={folderFiles}
                                       handleDownloadFolder={handleDownloadFolder}
                                       setFolderReviewModal={setFolderReviewModal}
+                                      setToast={setToast}
                                       setFolderReviewComment={setFolderReviewComment}
                                     />
                                   </div>
@@ -1110,13 +1151,13 @@ const AssignmentsTab = ({
                                     <div
                                       key={file.id}
                                       data-file-id={file.id}
-                                      className={`tl-assignment-file-item tl-folder-file-item${openedFileIds.has(file.id) ? ' file-card-opened' : ''}`}
+                                      className={`tl-assignment-file-item tl-folder-file-item${isFileViewed(assignment.id, file.id) ? ' file-card-opened' : ''}`}
                                       onClick={(e) => {
                                         e.stopPropagation()
                                         if (openReviewModal && file.id) {
                                           openReviewModal(file, null, (fileId) => {
                                             setViewerCounts(prev => ({ ...prev, [fileId]: (prev[fileId] ?? 0) + 1 }))
-                                            setOpenedFileIds(prev => new Set([...prev, fileId]))
+                                            markFileViewed(assignment.id, fileId)
                                           })
                                         }
                                       }}
@@ -1130,7 +1171,7 @@ const AssignmentsTab = ({
                                       <div className="tl-assignment-file-details">
                                         <div className="tl-assignment-file-name" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                           <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{file.original_name || file.file_name}</span>
-                                          {openedFileIds.has(file.id) && <span style={{ fontSize: '10px', fontWeight: '600', color: '#16a34a', backgroundColor: '#dcfce7', border: '1px solid #86efac', padding: '1px 7px', borderRadius: '10px', flexShrink: 0 }}>✓ Viewed</span>}
+                                          {isFileViewed(assignment.id, file.id) && <span style={{ fontSize: '10px', fontWeight: '600', color: '#16a34a', backgroundColor: '#dcfce7', border: '1px solid #86efac', padding: '1px 7px', borderRadius: '10px', flexShrink: 0 }}>✓ Viewed</span>}
                                         </div>
                                         <div className="tl-assignment-file-meta">
                                           <span>
@@ -1194,13 +1235,13 @@ const AssignmentsTab = ({
                         <div
                           key={submission.id}
                           data-file-id={submission.id}
-                          className={`tl-assignment-file-item${openedFileIds.has(submission.id) ? ' file-card-opened' : ''}`}
+                          className={`tl-assignment-file-item${isFileViewed(assignment.id, submission.id) ? ' file-card-opened' : ''}`}
                           onClick={(e) => {
                             e.stopPropagation()
                             if (openReviewModal && submission.id) {
                               openReviewModal(submission, null, (fileId) => {
                                 setViewerCounts(prev => ({ ...prev, [fileId]: (prev[fileId] ?? 0) + 1 }))
-                                setOpenedFileIds(prev => new Set([...prev, fileId]))
+                                markFileViewed(assignment.id, fileId)
                               })
                             }
                           }}
@@ -1213,7 +1254,7 @@ const AssignmentsTab = ({
                           <div className="tl-assignment-file-details">
                             <div className="tl-assignment-file-name" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                               <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{submission.original_name || submission.file_name}</span>
-                              {openedFileIds.has(submission.id) && <span style={{ fontSize: '10px', fontWeight: '600', color: '#16a34a', backgroundColor: '#dcfce7', border: '1px solid #86efac', padding: '1px 7px', borderRadius: '10px', flexShrink: 0 }}>✓ Viewed</span>}
+                              {isFileViewed(assignment.id, submission.id) && <span style={{ fontSize: '10px', fontWeight: '600', color: '#16a34a', backgroundColor: '#dcfce7', border: '1px solid #86efac', padding: '1px 7px', borderRadius: '10px', flexShrink: 0 }}>✓ Viewed</span>}
                             </div>
                             <div className="tl-assignment-file-meta">
                               <span>
@@ -1697,12 +1738,21 @@ const AssignmentsTab = ({
         }}
         onConfirm={async () => {
           if (!fileToOpen) return
-          const fileId = fileToOpen.id
+          
+          // Close immediately to improve perceived responsiveness
+          const file = { ...fileToOpen };
+          const fileId = file.id;
+          setShowOpenFileConfirmation(false);
+          setFileToOpen(null);
+          
+          setToast({ isOpen: true, title: 'Opening', message: `Opening ${file.original_name}...`, type: 'success' });
+
           try {
             // Check if running in Electron and has capability to open files locally
             if (window.electron && window.electron.openFileInApp) {
               // Get the absolute file path from server
-              const data = await apiFetch(`/api/files/${fileToOpen.id}/path`);
+              const type = file.isAttachment ? 'attachment' : 'file';
+              const data = await apiFetch(`/api/files/${file.id}/path?type=${type}`);
 
               if (data.success && data.filePath) {
                 const result = await window.electron.openFileInApp(data.filePath);
@@ -1710,7 +1760,7 @@ const AssignmentsTab = ({
                 if (!result.success) {
                   alert('Failed to open file locally: ' + (result.error || 'Unknown error'));
                 } else {
-                  setOpenedFileIds(prev => new Set([...prev, fileId]))
+                  markFileViewed(file.assignmentId, fileId)
                   recordView(fileId)
                 }
               } else {
@@ -1718,27 +1768,24 @@ const AssignmentsTab = ({
               }
             } else {
               // Web fallback: Open file in new tab/download
-              let fileUrl = fileToOpen.file_path;
-              if (fileToOpen.status === 'final_approved' && fileToOpen.public_network_url) {
-                if (fileToOpen.public_network_url.startsWith('http')) {
-                  fileUrl = fileToOpen.public_network_url;
+              let fileUrl = file.file_path;
+              if (file.status === 'final_approved' && file.public_network_url) {
+                if (file.public_network_url.startsWith('http')) {
+                  fileUrl = file.public_network_url;
                 } else {
-                  fileUrl = `${API_BASE_URL}${fileToOpen.file_path}`;
+                  fileUrl = `${API_BASE_URL}${file.file_path}`;
                 }
               } else {
-                fileUrl = `${API_BASE_URL}${fileToOpen.file_path}`;
+                fileUrl = `${API_BASE_URL}${file.file_path}`;
               }
 
               window.open(fileUrl, '_blank', 'noopener,noreferrer');
-              setOpenedFileIds(prev => new Set([...prev, fileId]))
+              markFileViewed(file.assignmentId, fileId)
               recordView(fileId)
             }
           } catch (error) {
             console.error('Error opening file:', error);
             alert('Failed to open file. Please try again.');
-          } finally {
-            setShowOpenFileConfirmation(false)
-            setFileToOpen(null)
           }
         }}
         file={fileToOpen}

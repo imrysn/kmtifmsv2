@@ -156,21 +156,34 @@ const CreateAssignmentModal = ({
   }
 
   const toggleMemberSelection = (memberId) => {
-    const updatedMembers = assignmentForm.assignedMembers.includes(memberId)
-      ? assignmentForm.assignedMembers.filter(id => id !== memberId)
-      : [...assignmentForm.assignedMembers, memberId]
+    // remove any stale __ALL__ when picking specific members
+    const current = assignmentForm.assignedMembers.filter(id => id !== '__ALL__')
+    const updatedMembers = current.includes(memberId)
+      ? current.filter(id => id !== memberId)
+      : [...current, memberId]
     setAssignmentForm({ ...assignmentForm, assignedMembers: updatedMembers })
   }
 
+  const ALL_MEMBERS_VALUE = '__ALL__'
+
   const getSelectedMembersText = () => {
-    if (assignmentForm.assignedMembers.length === 0) {
+    const realMembers = assignmentForm.assignedMembers.filter(id => id !== '__ALL__')
+    if (realMembers.length === 0) {
       return 'Select members...'
     }
-    if (assignmentForm.assignedMembers.length === 1) {
-      const member = teamMembers.find(m => m.id === assignmentForm.assignedMembers[0])
+    if (realMembers.length === 1) {
+      const member = teamMembers.find(m => m.id === realMembers[0])
       return member ? member.name : '1 member selected'
     }
-    return `${assignmentForm.assignedMembers.length} members selected`
+    return `${realMembers.length} members selected`
+  }
+
+  const toggleAllMembers = () => {
+    if (assignmentForm.assignedMembers.includes(ALL_MEMBERS_VALUE)) {
+      setAssignmentForm({ ...assignmentForm, assignedMembers: [] })
+    } else {
+      setAssignmentForm({ ...assignmentForm, assignedMembers: [ALL_MEMBERS_VALUE] })
+    }
   }
 
   const handleDropdownToggle = () => {
@@ -806,7 +819,7 @@ const CreateAssignmentModal = ({
                 type="button"
                 className="tl-btn success"
                 onClick={() => createAssignment(attachedFiles, attachmentsToRemove)}
-                disabled={isProcessing || !assignmentForm.title.trim() || (!isEditMode && assignmentForm.assignedMembers.length === 0)}
+                disabled={isProcessing || !assignmentForm.title.trim()}
               >
                 {isProcessing
                   ? (isEditMode ? 'Updating...' : 'Creating...')

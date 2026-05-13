@@ -404,9 +404,8 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
       return
     }
 
-    if (!editingAssignmentId && assignmentForm.assignedMembers.length === 0) {
-      setError('Please select at least one team member')
-      return
+    if (!editingAssignmentId && assignmentForm.assignedMembers.filter(id => id !== '__ALL__').length === 0 && !assignmentForm.assignedMembers.includes('__ALL__')) {
+      // allow empty members — task will be assigned to 'all' by default
     }
 
     // When editing and no members are selected in the form, keep existing members (don't wipe them)
@@ -498,8 +497,10 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
         formData.append('description', assignmentForm.description || '')
         formData.append('dueDate', assignmentForm.dueDate || '')
         formData.append('fileTypeRequired', assignmentForm.fileTypeRequired || '')
-        formData.append('assignedTo', 'specific')
-        formData.append('assignedMembers', JSON.stringify(assignmentForm.assignedMembers))
+        formData.append('assignedTo', assignmentForm.assignedMembers.includes('__ALL__') ? 'all' : 'specific')
+        formData.append('assignedMembers', JSON.stringify(
+          assignmentForm.assignedMembers.includes('__ALL__') ? [] : assignmentForm.assignedMembers
+        ))
         formData.append('teamLeaderId', user.id)
         formData.append('teamLeaderUsername', user.username)
         formData.append('team', assignmentForm.selectedTeam || user.team)
@@ -536,20 +537,20 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
             const fallbackData = await apiFetch(fallbackUrl, {
               method: fallbackMethod,
               body: JSON.stringify({
-                title: assignmentForm.title,
-                description: assignmentForm.description || '',
-                dueDate: assignmentForm.dueDate || '',
-                fileTypeRequired: assignmentForm.fileTypeRequired || '',
-                assignedTo: 'specific',
-                assignedMembers: assignmentForm.assignedMembers,
-                teamLeaderId: user.id,
-                teamLeaderUsername: user.username,
-                team: assignmentForm.selectedTeam || user.team,
-                removeAttachmentIds
+              title: assignmentForm.title,
+              description: assignmentForm.description || '',
+              dueDate: assignmentForm.dueDate || '',
+              fileTypeRequired: assignmentForm.fileTypeRequired || '',
+              assignedTo: assignmentForm.assignedMembers.includes('__ALL__') ? 'all' : 'specific',
+              assignedMembers: assignmentForm.assignedMembers.includes('__ALL__') ? [] : assignmentForm.assignedMembers,
+              teamLeaderId: user.id,
+              teamLeaderUsername: user.username,
+              team: assignmentForm.selectedTeam || user.team,
+              removeAttachmentIds
               }),
               signal: abortController.signal
-            })
-            return handlePostDataResult(fallbackData, removeAttachmentIds)
+              })
+              return handlePostDataResult(fallbackData, removeAttachmentIds)
           }
           throw error
         }
@@ -567,8 +568,8 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
             description: assignmentForm.description || '',
             dueDate: assignmentForm.dueDate || '',
             fileTypeRequired: assignmentForm.fileTypeRequired || '',
-            assignedTo: 'specific',
-            assignedMembers: assignmentForm.assignedMembers,
+            assignedTo: assignmentForm.assignedMembers.includes('__ALL__') ? 'all' : 'specific',
+            assignedMembers: assignmentForm.assignedMembers.includes('__ALL__') ? [] : assignmentForm.assignedMembers,
             teamLeaderId: user.id,
             teamLeaderUsername: user.username,
             team: assignmentForm.selectedTeam || user.team,
@@ -698,10 +699,12 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
 
   const openFileViewModal = async (file) => {
     try {
+      setSuccess(`Opening ${file.original_name || file.name || 'file'}...`);
+      setError('');
       // Check if running in Electron and has capability to open files locally
       if (window.electron && window.electron.openFileInApp) {
         // Get the absolute file path from server
-        const data = await apiFetch(`/api/files/${file.id}/path`);
+        const data = await apiFetch(`/api/files/${file.id}/path?type=file`);
 
         if (data.success && data.filePath) {
           const result = await window.electron.openFileInApp(data.filePath);
@@ -720,8 +723,10 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
       } else {
         // Web fallback - using apiFetch buildUrl if needed, but window.open needs a full URL
         // We'll keep API_BASE_URL for window.open but use it sparingly
-        const fileUrl = `${API_BASE_URL}${file.file_path}`;
-        window.open(fileUrl, '_blank', 'noopener,noreferrer');
+        const data = await apiFetch(`/api/files/open-file`, {
+          method: 'POST',
+          body: JSON.stringify({ fileId: file.id })
+        });
         setSuccess('File opened in new tab');
         // Record view only when file is actually opened
         try { await apiFetch(`/api/files/${file.id}/view`, { method: 'POST', body: JSON.stringify({ userId: user.id, username: user.username, fullName: user.fullName, role: user.role || 'TEAM_LEADER' }) }) } catch {}
@@ -736,7 +741,6 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
   const handleReviewSubmit = async (e, action = null) => {
     e.preventDefault()
 
-    // Use the passed action or fall back to the state
     const actionToUse = action || reviewAction
 
     if (!selectedFile || !actionToUse) return
@@ -745,11 +749,17 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
     setError('')
 
     try {
-      const data = await apiFetch(`/api/files/${selectedFile.id}/team-leader-review`, {
+      // Use the correct endpoint: reject goes to team-leader-reject, approve to team-leader-review
+      const endpoint = actionToUse === 'reject'
+        ? `/api/files/${selectedFile.id}/team-leader-reject`
+        : `/api/files/${selectedFile.id}/team-leader-review`
+
+      const data = await apiFetch(endpoint, {
         method: 'POST',
         body: JSON.stringify({
           action: actionToUse,
           comments: reviewComments.trim(),
+          reason: reviewComments.trim(),
           teamLeaderId: user.id,
           teamLeaderUsername: user.username,
           teamLeaderRole: user.role,

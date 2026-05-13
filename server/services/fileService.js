@@ -10,6 +10,9 @@ const os = require('os');
 const { uploadsDir } = require('../config/middleware');
 const { safeDeleteFile, streamCopy } = require('../utils/fileUtils');
 
+// In-memory cache to speed up physical path resolution (prevents multiple slow NAS scans)
+const physicalPathCache = new Map();
+
 /**
  * Fix filename encoding issues (latin1 to utf8)
  */
@@ -41,22 +44,17 @@ async function uploadFile(fileData, user) {
 
     if (existing) {
         if (assignmentId) {
-            // Same file name + same task → auto-replace:
-            // Remove the old submission record and delete the old file from disk,
-            // then fall through to upload the new version.
             logInfo('Replacing existing file for same task', { oldFileId: existing.id, assignmentId });
             const tempPath = fileData.file_path.startsWith('/uploads/')
                 ? path.join(uploadsDir, fileData.file_path.substring('/uploads/'.length))
                 : fileData.file_path;
             try {
-                // Delete old physical file
                 if (existing.file_path) {
                     const oldPhysical = existing.file_path.startsWith('/uploads/')
                         ? path.join(uploadsDir, existing.file_path.substring('/uploads/'.length))
                         : existing.file_path;
                     await safeDeleteFile(oldPhysical);
                 }
-                // Remove old submission + file record
                 await require('../config/database').query(
                     'DELETE FROM assignment_submissions WHERE file_id = ? AND assignment_id = ?',
                     [existing.id, assignmentId]
@@ -65,9 +63,7 @@ async function uploadFile(fileData, user) {
             } catch (replaceErr) {
                 logError(replaceErr, { context: 'uploadFile-replace', oldFileId: existing.id });
             }
-            // Fall through — upload the new file below
         } else {
-            // No task context and duplicate found → block (legacy behavior)
             logInfo('Duplicate file found (no task context), cleaning up...', { fileId: existing.id });
             const tempPath = path.join(uploadsDir, fileData.file_path.replace(/^\/uploads\//, ''));
             try { await fs.unlink(tempPath); } catch (e) {}
@@ -75,13 +71,8 @@ async function uploadFile(fileData, user) {
         }
     }
 
-    // Move the temp file from uploadsDir root into the user's folder
-    // (and into the correct subfolder if folderName/relativePath are provided)
-    // If this upload is scoped to a task AND has a folder, isolate it under
-    // task_{assignmentId}/ so the same folder name in different tasks never collides.
-    let finalFilePath = fileData.file_path; // fallback: keep temp path
+    let finalFilePath = fileData.file_path;
     try {
-        // tempPath is what multer wrote: uploadsDir/temp_timestamp_random
         const tempPath = fileData.file_path.startsWith('/uploads/')
             ? path.join(uploadsDir, fileData.file_path.substring('/uploads/'.length))
             : fileData.file_path;
@@ -99,14 +90,12 @@ async function uploadFile(fileData, user) {
             taskPrefix
         );
 
-        // Convert absolute path back to /uploads/... relative URL for DB storage
         const relativeToUploads = movedPath.startsWith(uploadsDir)
             ? movedPath.substring(uploadsDir.length).replace(/\\/g, '/')
             : movedPath;
         finalFilePath = `/uploads${relativeToUploads.startsWith('/') ? '' : '/'}${relativeToUploads}`;
     } catch (moveErr) {
         logError(moveErr, { context: 'uploadFile-moveToUserFolder', filename: originalName });
-        // Keep temp path if move fails — file is still accessible
     }
 
     const data = {
@@ -134,36 +123,55 @@ async function uploadFile(fileData, user) {
  * Approve file by team leader
  */
 async function approveByTeamLeader(fileId, teamLeader, comments = '') {
-    const file = await fileRepository.findById(fileId);
+    let file = await fileRepository.findById(fileId);
+    let isAttachment = false;
+
+    if (!file) {
+        file = await fileRepository.findAttachmentById(fileId);
+        if (file) isAttachment = true;
+    }
     if (!file) throw new NotFoundError('File');
 
     if (file.user_team !== teamLeader.team && teamLeader.role !== 'ADMIN') {
         throw new ValidationError('You can only approve files from your team');
     }
-    if (file.current_stage !== 'pending_team_leader') {
+
+    // Attachments might not have a current_stage in the same way, but we can check status
+    const currentStage = file.current_stage || file.status;
+    if (currentStage !== 'pending_team_leader' && currentStage !== 'uploaded' && currentStage !== 'submitted') {
         throw new ValidationError('File is not in the correct stage for team leader approval');
     }
 
     const newStatus = 'team_leader_approved';
     const newStage = 'pending_admin';
 
-    await fileRepository.updateStatus(fileId, {
-        status: newStatus,
-        current_stage: newStage,
-        team_leader_id: teamLeader.id,
-        team_leader_username: teamLeader.username,
-        team_leader_comments: comments
-    });
+    if (isAttachment) {
+        await fileRepository.updateAttachmentStatus(fileId, {
+            status: newStatus,
+            current_stage: newStage,
+            team_leader_id: teamLeader.id,
+            team_leader_username: teamLeader.username,
+            team_leader_comments: comments
+        });
+    } else {
+        await fileRepository.updateStatus(fileId, {
+            status: newStatus,
+            current_stage: newStage,
+            team_leader_id: teamLeader.id,
+            team_leader_username: teamLeader.username,
+            team_leader_comments: comments
+        });
+    }
 
-    logFileStatusChange(db, fileId, file.status, newStatus, file.current_stage, newStage,
+    logFileStatusChange(db, fileId, file.status, newStatus, currentStage, newStage,
         teamLeader.id, teamLeader.username, teamLeader.role,
         `Team leader approved: ${comments || 'No comments'}`);
 
     logActivity(db, teamLeader.id, teamLeader.username, teamLeader.role, teamLeader.team,
-        `Approved file: ${file.original_name}`);
+        `Approved ${isAttachment ? 'attachment' : 'file'}: ${file.original_name}`);
 
     await notificationService.createNotification(
-        file.user_id, fileId, 'approval', 'File Approved by Team Leader',
+        file.user_id || file.uploaded_by_id, isAttachment ? null : fileId, 'approval', 'File Approved by Team Leader',
         `Your file "${file.original_name}" has been approved by ${teamLeader.username} and is now pending admin review.`,
         teamLeader.id, teamLeader.username, teamLeader.role
     );
@@ -174,14 +182,20 @@ async function approveByTeamLeader(fileId, teamLeader, comments = '') {
         teamLeader.id, teamLeader.username, teamLeader.role
     );
 
-    return await fileRepository.findById(fileId);
+    return isAttachment ? await fileRepository.findAttachmentById(fileId) : await fileRepository.findById(fileId);
 }
 
 /**
  * Reject file by team leader
  */
 async function rejectByTeamLeader(fileId, teamLeader, reason) {
-    const file = await fileRepository.findById(fileId);
+    let file = await fileRepository.findById(fileId);
+    let isAttachment = false;
+
+    if (!file) {
+        file = await fileRepository.findAttachmentById(fileId);
+        if (file) isAttachment = true;
+    }
     if (!file) throw new NotFoundError('File');
 
     if (file.user_team !== teamLeader.team && teamLeader.role !== 'ADMIN') {
@@ -191,7 +205,7 @@ async function rejectByTeamLeader(fileId, teamLeader, reason) {
     const newStatus = 'rejected_by_team_leader';
     const newStage = 'rejected_by_team_leader';
 
-    await fileRepository.updateStatus(fileId, {
+    const updateData = {
         status: newStatus,
         current_stage: newStage,
         team_leader_id: teamLeader.id,
@@ -199,22 +213,37 @@ async function rejectByTeamLeader(fileId, teamLeader, reason) {
         team_leader_comments: reason,
         rejection_reason: reason,
         rejected_by: teamLeader.username
-    });
+    };
 
-    logFileStatusChange(db, fileId, file.status, newStatus, file.current_stage, newStage,
+    if (isAttachment) {
+        await fileRepository.updateAttachmentStatus(fileId, updateData);
+    } else {
+        await fileRepository.updateStatus(fileId, updateData);
+    }
+
+    logFileStatusChange(db, fileId, file.status, newStatus, file.current_stage || file.status, newStage,
         teamLeader.id, teamLeader.username, teamLeader.role,
         `Team leader rejected: ${reason}`);
 
     logActivity(db, teamLeader.id, teamLeader.username, teamLeader.role, teamLeader.team,
-        `Rejected file: ${file.original_name} - Reason: ${reason}`);
+        `Rejected ${isAttachment ? 'attachment' : 'file'}: ${file.original_name} - Reason: ${reason}`);
 
     await notificationService.createNotification(
-        file.user_id, fileId, 'rejection', 'File Rejected by Team Leader',
+        file.user_id || file.uploaded_by_id, isAttachment ? null : fileId, 'rejection', 'File Rejected by Team Leader',
         `Your file "${file.original_name}" has been rejected by ${teamLeader.username}. Reason: ${reason}`,
         teamLeader.id, teamLeader.username, teamLeader.role
     );
 
-    return await fileRepository.findById(fileId);
+    // CRITICAL: We should NOT call createAdminNotification here unless explicitly needed,
+    // but if we do, it must be for REJECTION, not approval.
+    // For now, keeping it consistent with approveByTeamLeader but with correct labels.
+    await notificationService.createAdminNotification(
+        fileId, 'team_leader_rejected', 'File Rejected by Team Leader',
+        `${teamLeader.username} rejected file "${file.original_name}" (Team: ${teamLeader.team}). Reason: ${reason}`,
+        teamLeader.id, teamLeader.username, teamLeader.role
+    );
+
+    return isAttachment ? await fileRepository.findAttachmentById(fileId) : await fileRepository.findById(fileId);
 }
 
 /**
@@ -397,16 +426,10 @@ async function getFileById(fileId) {
  * Get user files (unpaginated)
  */
 async function getUserFiles(userId) {
-    // Fetch regular uploaded files
     const files = await fileRepository.findByUserId(userId);
-
-    // Also fetch task attachments uploaded by this user (e.g. team leader attachments)
     const attachments = await fileRepository.findAllAttachmentsWithDetails({ userId });
-
-    // Merge, deduplicate by id+source, sort newest first
     const fileIds = new Set(files.map(f => `file_${f.id}`));
     const uniqueAttachments = attachments.filter(a => !fileIds.has(`file_${a.id}`));
-
     return [...files, ...uniqueAttachments].sort(
         (a, b) => new Date(b.uploaded_at) - new Date(a.uploaded_at)
     );
@@ -432,10 +455,8 @@ async function getPendingAdminReview() {
 async function getAllFiles(options = {}) {
     const files = await fileRepository.findAllWithDetails(options);
     const attachments = await fileRepository.findAllAttachmentsWithDetails(options);
-
     const fileIds = new Set(files.map(f => String(f.id)));
     const uniqueAttachments = attachments.filter(a => !fileIds.has(String(a.id)));
-
     return [...files, ...uniqueAttachments].sort((a, b) =>
         new Date(b.uploaded_at) - new Date(a.uploaded_at)
     );
@@ -507,12 +528,11 @@ async function setFilePriority(fileId, priority, dueDate, user) {
 /**
  * Open file with default application
  */
-async function openFile(filePath) {
-    let resolvedPath = filePath;
-    if (filePath.startsWith('/uploads/')) {
-        resolvedPath = path.join(uploadsDir, filePath.substring(9));
-    }
-    resolvedPath = path.normalize(resolvedPath);
+async function openFile(fileId) {
+    const resolved = await resolvePhysicalPath(fileId);
+    if (!resolved || !resolved.path) throw new ValidationError('File path could not be resolved');
+    
+    let resolvedPath = path.normalize(resolved.path);
 
     if (/[&;`|<>$!\r\n]/.test(resolvedPath)) throw new ValidationError('Invalid file path');
 
@@ -539,7 +559,6 @@ async function openFile(filePath) {
  */
 async function deleteFolder(folderName, fileIds, user) {
     const dirsToDelete = new Set();
-    // Legacy path (no task scope)
     dirsToDelete.add(path.join(uploadsDir, user.username, folderName));
 
     if (fileIds && fileIds.length > 0) {
@@ -549,7 +568,6 @@ async function deleteFolder(folderName, fileIds, user) {
                 const physicalPath = await resolvePhysicalPath(fileId);
                 if (physicalPath.path) {
                     try { await fs.unlink(physicalPath.path); } catch (e) {}
-                    // Add both the immediate parent AND the task_N parent so we clean up both
                     const parentDir = path.dirname(physicalPath.path);
                     dirsToDelete.add(parentDir);
                     dirsToDelete.add(path.dirname(parentDir));
@@ -563,11 +581,9 @@ async function deleteFolder(folderName, fileIds, user) {
         try {
             const stat = await fs.stat(dirPath);
             if (stat.isDirectory()) {
-                // Only delete task_N dirs or the folder itself — never delete the root user dir
                 const isUserRoot = dirPath === path.join(uploadsDir, user.username);
                 const isUploadsRoot = dirPath === uploadsDir;
                 if (!isUserRoot && !isUploadsRoot) {
-                    // Check if the directory is now empty before deleting parent dirs
                     const entries = await fs.readdir(dirPath).catch(() => []);
                     if (entries.length === 0) {
                         await fs.rm(dirPath, { recursive: true, force: true });
@@ -595,7 +611,9 @@ async function zipFolder(fileIds, folderName) {
     await fs.mkdir(tmpDir, { recursive: true });
 
     for (const fileId of fileIds) {
-        const file = await fileRepository.findById(fileId);
+        // zipFolder must handle both regular files and attachments
+        const regularFile = await fileRepository.findById(fileId);
+        const file = regularFile || await fileRepository.findAttachmentById(fileId);
         if (file) {
             const resolved = await resolvePhysicalPath(fileId);
             if (resolved.path) {
@@ -604,7 +622,7 @@ async function zipFolder(fileIds, folderName) {
                     : file.original_name;
                 const destFile = path.join(tmpDir, relPath || file.original_name);
                 await fs.mkdir(path.dirname(destFile), { recursive: true });
-                await fs.copyFile(resolved.path, destFile);
+                try { await fs.copyFile(resolved.path, destFile); } catch (_) {}
             }
         }
     }
@@ -618,54 +636,178 @@ async function zipFolder(fileIds, folderName) {
 }
 
 /**
- * Resolve the physical path for a file
+ * Resolve the physical path for a file or team leader attachment.
+ * Team leader attachments: NAS/teamleader/<username>/...
+ * Regular user files:      NAS/uploads/<username>/...
+ *
+ * Handles stale OS temp paths in DB (caused by a previously failed NAS move)
+ * by reconstructing the correct NAS path from stored metadata fields.
  */
-async function resolvePhysicalPath(fileId) {
-    let file = await fileRepository.findById(fileId);
+async function resolvePhysicalPath(fileId, requestedType = null) {
+    const cacheKey = `${requestedType || 'auto'}_${fileId}`;
+    if (physicalPathCache.has(cacheKey)) {
+        // Double check the path still exists (fast check)
+        const cached = physicalPathCache.get(cacheKey);
+        try {
+            await fs.access(cached.path);
+            return cached;
+        } catch (e) {
+            physicalPathCache.delete(cacheKey);
+        }
+    }
+    const { networkDataPath } = require('../config/database');
+    const { uploadsDir } = require('../config/middleware');
+    const teamleaderDir = path.join(uploadsDir, 'teamleader');
+    
+    logInfo('Resolving path for file', { fileId, requestedType });
+
+    let file = requestedType !== 'attachment' ? await fileRepository.findById(fileId) : null;
+    const isAttachment = !file;
     if (!file) file = await fileRepository.findAttachmentById(fileId);
-    if (!file) throw new NotFoundError('File');
+    if (!file) {
+        logError('File not found in any table', { fileId });
+        throw new NotFoundError('File');
+    }
+    
+    logInfo('File found', { isAttachment, originalName: file.original_name, username: file.username || file.uploaded_by_username });
+    
+    // Helper to return and cache the result
+    const returnAndCache = (p) => {
+        const res = { path: p, originalName: file.original_name, mimeType: file.file_type };
+        physicalPathCache.set(cacheKey, res);
+        return res;
+    };
 
-    let filePath = file.file_path;
+    // Helper: true if path exists on disk
+    const diskExists = async (p) => { try { await fs.access(p); return true; } catch (_) { return false; } };
 
+    // Detect stale OS temp paths (e.g. C:\Users\...\AppData\Local\Temp\temp_xxx)
+    const isTempPath = (p) => !p ? false : (
+        /[\\/]temp_\d+_[a-z0-9]+$/i.test(p) ||
+        p.toLowerCase().includes('\\temp\\') ||
+        p.toLowerCase().includes('/tmp/')
+    );
+
+    // ── Priority 1: public_network_url set after admin approval ──────────────
     if (file.public_network_url && !file.public_network_url.startsWith('http')) {
-        filePath = file.public_network_url;
-    } else if (file.file_path && (file.file_path.startsWith('\\\\') || /^[A-Za-z]:[\\\\]/.test(file.file_path))) {
-        filePath = file.file_path;
-    } else if (file.file_path && file.file_path.startsWith('/uploads/')) {
-        filePath = path.join(uploadsDir, file.file_path.replace(/^\/uploads\//, ''));
-    } else if (file.file_path) {
-        filePath = path.join(uploadsDir, file.file_path);
+        if (await diskExists(file.public_network_url)) return returnAndCache(file.public_network_url);
+        logInfo('Priority 1 failed (disk)', { path: file.public_network_url });
     }
 
-    if (filePath && file.username) {
-        try {
-            await fs.access(filePath);
-        } catch (e) {
-            const userPath = path.join(uploadsDir, file.username, path.basename(file.file_path || file.filename));
-            try {
-                await fs.access(userPath);
-                filePath = userPath;
-            } catch (innerE) {}
+    // ── Priority 2: absolute Windows/UNC path — skip stale temp paths ────────
+    if (file.file_path && !isTempPath(file.file_path) &&
+        (file.file_path.startsWith('\\\\') || /^[A-Za-z]:[\\/]/.test(file.file_path))) {
+        if (await diskExists(file.file_path)) return returnAndCache(file.file_path);
+        logInfo('Priority 2 failed (disk)', { path: file.file_path });
+    }
+
+    // ── Priority 3: /uploads/-relative path — skip stale temp paths ──────────
+    if (file.file_path && file.file_path.startsWith('/uploads/') && !isTempPath(file.file_path)) {
+        const candidate = path.join(uploadsDir, file.file_path.replace(/^\/uploads\//, ''));
+        if (await diskExists(candidate)) return returnAndCache(candidate);
+        logInfo('Priority 3 failed (disk)', { path: candidate });
+    }
+
+    // ── Priority 4: reconstruct teamleader NAS path for attachments ───────────
+    if (isAttachment && file.uploaded_by_username) {
+        const u = file.uploaded_by_username;
+        const aid = file.assignment_id;
+        const taskDir = aid ? path.join(teamleaderDir, u, `task_${aid}`) : null;
+        const userDir = path.join(teamleaderDir, u);
+
+        logInfo('Reconstructing attachment path', { u, taskDir, originalName: file.original_name });
+
+        if (file.relative_path) {
+            const rel = file.relative_path.replace(/\/+/g, path.sep);
+            if (taskDir) {
+                const c = path.join(taskDir, rel);
+                if (await diskExists(c)) return returnAndCache(c);
+            }
+            const c = path.join(userDir, rel);
+            if (await diskExists(c)) return returnAndCache(c);
+        }
+
+        if (file.folder_name && file.original_name) {
+            if (taskDir) {
+                const c = path.join(taskDir, file.folder_name, file.original_name);
+                if (await diskExists(c)) return returnAndCache(c);
+            }
+            const c = path.join(userDir, file.folder_name, file.original_name);
+            if (await diskExists(c)) return returnAndCache(c);
+        }
+
+        if (file.original_name) {
+            if (taskDir) {
+                const c = path.join(taskDir, file.original_name);
+                if (await diskExists(c)) return returnAndCache(c);
+            }
+            const c = path.join(userDir, file.original_name);
+            if (await diskExists(c)) return returnAndCache(c);
         }
     }
 
-    return { path: filePath, originalName: file.original_name, mimeType: file.file_type };
+    // ── Priority 5: reconstruct uploads NAS path for regular files ───────────
+    if (!isAttachment && file.username) {
+        const u = file.username;
+        const userDir = path.join(uploadsDir, u);
+
+        logInfo('Reconstructing regular file path', { u, userDir, originalName: file.original_name });
+
+        if (file.relative_path) {
+            const rel = file.relative_path.replace(/\/+/g, path.sep);
+            const c = path.join(userDir, rel);
+            if (await diskExists(c)) return returnAndCache(c);
+        }
+        
+        if (file.file_path) {
+            const c = path.join(userDir, path.basename(file.file_path));
+            if (await diskExists(c)) return returnAndCache(c);
+        }
+
+        const c = path.join(userDir, file.original_name);
+        if (await diskExists(c)) return returnAndCache(c);
+
+        // Try scanning for task-scoped folders if the root check fails
+        if (file.is_folder || file.folder_name) {
+            try {
+                const items = await fs.readdir(userDir);
+                for (const item of items) {
+                    if (item.startsWith('task_')) {
+                        const candidate = path.join(userDir, item, file.folder_name || file.original_name);
+                        if (await diskExists(candidate)) return returnAndCache(candidate);
+                    }
+                }
+            } catch (e) {
+                logWarn('Failed to scan for task-scoped fallback', { error: e.message });
+            }
+        }
+    }
+
+    // ── Last resort: return best guess, let caller surface the error ──────────
+    let fallback = file.file_path || '';
+    if (fallback.startsWith('/uploads/')) fallback = path.join(uploadsDir, fallback.replace(/^\/uploads\//, ''));
+    else if (fallback && !path.isAbsolute(fallback)) fallback = path.join(uploadsDir, fallback);
+    
+    logWarn('Returning fallback path (last resort)', { fallback });
+    const result = { path: fallback, originalName: file.original_name, mimeType: file.file_type };
+    physicalPathCache.set(cacheKey, result);
+    return result;
 }
 
 /**
  * Perform bulk actions on files (approve/reject)
  */
-async function bulkAction(fileIds, action, user) {
+async function bulkAction(fileIds, action, user, comments = '') {
     const results = { successful: [], failed: [] };
 
     for (const fileId of fileIds) {
         try {
             if (action === 'approve') {
-                if (user.role === 'ADMIN') await approveByAdmin(fileId, user);
-                else await approveByTeamLeader(fileId, user);
+                if (user.role === 'ADMIN') await approveByAdmin(fileId, user, comments);
+                else await approveByTeamLeader(fileId, user, comments);
             } else if (action === 'reject') {
-                if (user.role === 'ADMIN') await rejectByAdmin(fileId, user);
-                else await rejectByTeamLeader(fileId, user);
+                if (user.role === 'ADMIN') await rejectByAdmin(fileId, user, comments);
+                else await rejectByTeamLeader(fileId, user, comments);
             }
             results.successful.push(fileId);
         } catch (error) {
@@ -676,35 +818,19 @@ async function bulkAction(fileIds, action, user) {
     return results;
 }
 
-// ─── Methods ported from THEIRS during merge resolution ───────────────────────
-
-/**
- * Check for an existing file with the same name for a user.
- * Delegates to the repository's existing findByNameAndUser.
- */
 async function checkDuplicate(originalName, userId) {
     const existing = await fileRepository.findByNameAndUser(originalName, userId, null);
     return { isDuplicate: !!existing, existingFile: existing || null };
 }
 
-/**
- * Get all files for a specific team member (with latest comment joined).
- * Used by team leaders to view individual member file lists.
- */
 async function getMemberFiles(memberId) {
     return await fileRepository.findByUserId(memberId);
 }
 
-/**
- * Get a user's files with server-side pagination.
- * Returns { files, pagination }.
- */
 async function getUserFilesPaginated(userId, page = 1, limit = 50) {
     const offset = (page - 1) * limit;
-
     const countRow = await queryOne('SELECT COUNT(*) as total FROM files WHERE user_id = ?', [userId]);
     const total = countRow ? countRow.total : 0;
-
     const files = await query(
         `SELECT f.*, GROUP_CONCAT(fc.comment SEPARATOR ' | ') as comments
          FROM files f
@@ -714,152 +840,78 @@ async function getUserFilesPaginated(userId, page = 1, limit = 50) {
          ORDER BY f.uploaded_at DESC LIMIT ? OFFSET ?`,
         [userId, limit, offset]
     );
-
     const processedFiles = files.map(file => ({
         ...file,
-        comments: file.comments
-            ? file.comments.split(' | ').map(comment => ({ comment }))
-            : []
+        comments: file.comments ? file.comments.split(' | ').map(comment => ({ comment })) : []
     }));
-
-    return {
-        files: processedFiles,
-        pagination: { page, limit, total, pages: Math.ceil(total / limit) }
-    };
+    return { files: processedFiles, pagination: { page, limit, total, pages: Math.ceil(total / limit) } };
 }
 
-/**
- * Paginated team leader review queue.
- * Returns { files, pagination }.
- */
 async function getTeamLeaderQueue(team, page = 1, limit = 50) {
     const offset = (page - 1) * limit;
-
     const countRow = await queryOne(
-        "SELECT COUNT(*) as total FROM files WHERE user_team = ? AND current_stage = 'pending_team_leader'",
-        [team]
+        "SELECT COUNT(*) as total FROM files WHERE user_team = ? AND current_stage = 'pending_team_leader'", [team]
     );
     const total = countRow ? countRow.total : 0;
-
     const files = await query(
         `SELECT f.*, fc.comment as latest_comment
          FROM files f
-         LEFT JOIN file_comments fc ON f.id = fc.file_id AND fc.id = (
-           SELECT MAX(id) FROM file_comments WHERE file_id = f.id
-         )
+         LEFT JOIN file_comments fc ON f.id = fc.file_id AND fc.id = (SELECT MAX(id) FROM file_comments WHERE file_id = f.id)
          WHERE f.user_team = ? AND f.current_stage = 'pending_team_leader'
          ORDER BY f.uploaded_at DESC LIMIT ? OFFSET ?`,
         [team, limit, offset]
     );
-
-    return {
-        files,
-        pagination: { page, limit, total, pages: Math.ceil(total / limit) }
-    };
+    return { files, pagination: { page, limit, total, pages: Math.ceil(total / limit) } };
 }
 
-/**
- * Advanced filter + sort for the team leader review queue.
- * Accepts a filters object and sort descriptor.
- * Returns { files, pagination }.
- */
 async function filterTeamLeaderQueue(team, filters = {}, sort = {}, page = 1, limit = 50) {
     const offset = (page - 1) * limit;
-
     const whereClauses = ['user_team = ?', "current_stage = 'pending_team_leader'"];
     const params = [team];
-
-    if (filters.fileType?.length) {
-        whereClauses.push(`file_type IN (${filters.fileType.map(() => '?').join(',')})`);
-        params.push(...filters.fileType);
-    }
-    if (filters.submittedBy?.length) {
-        whereClauses.push(`user_id IN (${filters.submittedBy.map(() => '?').join(',')})`);
-        params.push(...filters.submittedBy);
-    }
+    if (filters.fileType?.length) { whereClauses.push(`file_type IN (${filters.fileType.map(() => '?').join(',')})`); params.push(...filters.fileType); }
+    if (filters.submittedBy?.length) { whereClauses.push(`user_id IN (${filters.submittedBy.map(() => '?').join(',')})`); params.push(...filters.submittedBy); }
     if (filters.dateFrom) { whereClauses.push('uploaded_at >= ?'); params.push(filters.dateFrom); }
     if (filters.dateTo)   { whereClauses.push('uploaded_at <= ?'); params.push(filters.dateTo); }
-    if (filters.priority) { whereClauses.push('priority = ?');     params.push(filters.priority); }
+    if (filters.priority) { whereClauses.push('priority = ?'); params.push(filters.priority); }
     if (filters.hasDeadline) whereClauses.push('due_date IS NOT NULL');
     if (filters.isOverdue) { whereClauses.push('due_date < ?'); params.push(new Date().toISOString()); }
-
     const allowedSortFields = ['uploaded_at', 'original_name', 'file_size', 'priority', 'due_date'];
     const sortField = allowedSortFields.includes(sort.field) ? sort.field : 'uploaded_at';
     const sortDir = sort.direction === 'ASC' ? 'ASC' : 'DESC';
     const where = whereClauses.join(' AND ');
-
     const countRow = await queryOne(`SELECT COUNT(*) as total FROM files WHERE ${where}`, params);
     const total = countRow ? countRow.total : 0;
-
     const files = await query(
         `SELECT f.*, fc.comment as latest_comment
          FROM files f
-         LEFT JOIN file_comments fc ON f.id = fc.file_id AND fc.id = (
-           SELECT MAX(id) FROM file_comments WHERE file_id = f.id
-         )
+         LEFT JOIN file_comments fc ON f.id = fc.file_id AND fc.id = (SELECT MAX(id) FROM file_comments WHERE file_id = f.id)
          WHERE ${where} ORDER BY ${sortField} ${sortDir} LIMIT ? OFFSET ?`,
         [...params, limit, offset]
     );
-
-    return {
-        files,
-        pagination: { page, limit, total, pages: Math.ceil(total / limit) }
-    };
+    return { files, pagination: { page, limit, total, pages: Math.ceil(total / limit) } };
 }
 
-/**
- * Paginated admin review queue (pending_admin stage only).
- * Returns { files, pagination }.
- */
 async function getAdminQueue(page = 1, limit = 50) {
     const offset = (page - 1) * limit;
-
-    const countRow = await queryOne(
-        "SELECT COUNT(*) as total FROM files WHERE current_stage = 'pending_admin'"
-    );
+    const countRow = await queryOne("SELECT COUNT(*) as total FROM files WHERE current_stage = 'pending_admin'");
     const total = countRow ? countRow.total : 0;
-
     const files = await query(
         `SELECT f.*, fc.comment as latest_comment
          FROM files f
-         LEFT JOIN file_comments fc ON f.id = fc.file_id AND fc.id = (
-           SELECT MAX(id) FROM file_comments WHERE file_id = f.id
-         )
+         LEFT JOIN file_comments fc ON f.id = fc.file_id AND fc.id = (SELECT MAX(id) FROM file_comments WHERE file_id = f.id)
          WHERE f.current_stage = 'pending_admin'
          ORDER BY f.uploaded_at DESC LIMIT ? OFFSET ?`,
         [limit, offset]
     );
-
-    return {
-        files,
-        pagination: { page, limit, total, pages: Math.ceil(total / limit) }
-    };
+    return { files, pagination: { page, limit, total, pages: Math.ceil(total / limit) } };
 }
 
-/**
- * Move an entire folder (and all its files) to the NAS destination path.
- *
- * Handles both regular files (files table) and assignment attachments.
- * For regular folders: attempts a directory-level copy first, falls back to
- * file-by-file copy from DB paths if the source folder can't be resolved.
- * For attachment folders: always copies file-by-file from DB paths.
- * Updates DB records for each file (status, file_path, public_network_url).
- * Sends smart grouped notifications per user after all files are processed.
- *
- * @param {Object} params - { folderName, username, fileIds, destinationPath, comments }
- * @param {Object} admin  - { id, username, role, team }
- * @returns {Promise<{ nasPath: string }>}
- */
 async function moveFolderToNas({ folderName, username, fileIds, destinationPath, comments }, admin) {
-    // ── 1. Load all files from DB (check files table then assignment_attachments) ──
     const dbFiles = (await Promise.all(
         fileIds.map(async (fileId) => {
             let row = await queryOne('SELECT * FROM files WHERE id = ?', [fileId]);
             if (row) return row;
-            const att = await queryOne(
-                'SELECT *, created_at AS uploaded_at FROM assignment_attachments WHERE id = ?',
-                [fileId]
-            );
+            const att = await queryOne('SELECT *, created_at AS uploaded_at FROM assignment_attachments WHERE id = ?', [fileId]);
             if (att) {
                 att.source_type = 'assignment_attachment';
                 att.user_id = att.uploaded_by_id;
@@ -870,50 +922,36 @@ async function moveFolderToNas({ folderName, username, fileIds, destinationPath,
         })
     )).filter(Boolean);
 
-    if (dbFiles.length === 0) {
-        throw new NotFoundError('No files found in database for provided IDs');
-    }
+    if (dbFiles.length === 0) throw new NotFoundError('No files found in database for provided IDs');
 
     const isAttachmentFolder = dbFiles.some(f => f.source_type === 'assignment_attachment');
     const destFolderPath = path.join(destinationPath, folderName);
     await fs.mkdir(destFolderPath, { recursive: true });
 
-    // ── 2. For regular folders, try a directory-level copy ───────────────────
     let sourceExists = false;
 
     if (!isAttachmentFolder) {
         let sourceFolderPath = path.join(uploadsDir, username, folderName);
         sourceExists = await fs.access(sourceFolderPath).then(() => true).catch(() => false);
 
-        // Fallback 1: derive from first file's DB path
         if (!sourceExists && dbFiles[0]?.file_path) {
-            const relPart = dbFiles[0].file_path.startsWith('/uploads/')
-                ? dbFiles[0].file_path.substring(9)
-                : dbFiles[0].file_path;
+            const relPart = dbFiles[0].file_path.startsWith('/uploads/') ? dbFiles[0].file_path.substring(9) : dbFiles[0].file_path;
             const parts = relPart.replace(/\\/g, '/').split('/');
             if (parts.length >= 2) {
                 const alt = path.join(uploadsDir, parts[0], parts[1]);
-                if (await fs.access(alt).then(() => true).catch(() => false)) {
-                    sourceFolderPath = alt;
-                    sourceExists = true;
-                }
+                if (await fs.access(alt).then(() => true).catch(() => false)) { sourceFolderPath = alt; sourceExists = true; }
             }
         }
 
-        // Fallback 2: derive from relative_path top-level folder
         if (!sourceExists) {
             const topFolder = (dbFiles[0]?.relative_path || '').replace(/\\/g, '/').split('/')[0];
             if (topFolder) {
                 const alt2 = path.join(uploadsDir, username, topFolder);
-                if (await fs.access(alt2).then(() => true).catch(() => false)) {
-                    sourceFolderPath = alt2;
-                    sourceExists = true;
-                }
+                if (await fs.access(alt2).then(() => true).catch(() => false)) { sourceFolderPath = alt2; sourceExists = true; }
             }
         }
 
         if (sourceExists) {
-            // Parallel directory copy with 8 MB buffers; up to 8 files copy simultaneously.
             async function copyDir(src, dest) {
                 const entries = await fs.readdir(src, { withFileTypes: true });
                 const BATCH = 8;
@@ -921,12 +959,8 @@ async function moveFolderToNas({ folderName, username, fileIds, destinationPath,
                     await Promise.all(entries.slice(i, i + BATCH).map(async entry => {
                         const srcPath = path.join(src, entry.name);
                         const destPath = path.join(dest, entry.name);
-                        if (entry.isDirectory()) {
-                            await fs.mkdir(destPath, { recursive: true });
-                            await copyDir(srcPath, destPath);
-                        } else {
-                            await streamCopy(srcPath, destPath);
-                        }
+                        if (entry.isDirectory()) { await fs.mkdir(destPath, { recursive: true }); await copyDir(srcPath, destPath); }
+                        else { await streamCopy(srcPath, destPath); }
                     }));
                 }
             }
@@ -938,25 +972,20 @@ async function moveFolderToNas({ folderName, username, fileIds, destinationPath,
         }
     }
 
-    // ── 3. Update DB records and copy individual files if needed ─────────────
     const nowSql = new Date().toISOString().slice(0, 19).replace('T', ' ');
 
     for (const file of dbFiles) {
         if (!file) continue;
 
-        // Preserve subfolder structure from relative_path
         let nasFilePath;
         if (file.relative_path) {
             const relParts = file.relative_path.replace(/\\/g, '/').split('/');
-            const relativeInFolder = relParts.slice(1).join('/'); // strip top-level folder name
-            nasFilePath = relativeInFolder
-                ? path.join(destFolderPath, relativeInFolder)
-                : path.join(destFolderPath, file.original_name);
+            const relativeInFolder = relParts.slice(1).join('/');
+            nasFilePath = relativeInFolder ? path.join(destFolderPath, relativeInFolder) : path.join(destFolderPath, file.original_name);
         } else {
             nasFilePath = path.join(destFolderPath, file.original_name);
         }
 
-        // File-by-file copy (used for attachment folders OR when directory copy wasn't possible)
         if (!sourceExists) {
             let srcFilePath;
             if (path.isAbsolute(file.file_path) || file.file_path.startsWith('\\\\')) {
@@ -968,7 +997,6 @@ async function moveFolderToNas({ folderName, username, fileIds, destinationPath,
             }
 
             await fs.mkdir(path.dirname(nasFilePath), { recursive: true });
-
             const srcOk = await fs.access(srcFilePath).then(() => true).catch(() => false);
             if (srcOk) {
                 const normalSrc = path.normalize(srcFilePath).toLowerCase();
@@ -977,67 +1005,40 @@ async function moveFolderToNas({ folderName, username, fileIds, destinationPath,
                     await fs.copyFile(srcFilePath, nasFilePath);
                     await safeDeleteFile(srcFilePath);
                     logInfo('Copied file to NAS', { nasFilePath });
-                } else {
-                    logInfo('Source and destination are the same path, skipping copy', { srcFilePath });
                 }
             } else {
                 logInfo('Source file not found — may already have been moved', { srcFilePath });
             }
         }
 
-        // Update DB record
         if (file.source_type === 'assignment_attachment') {
             await query(
-                `UPDATE assignment_attachments SET
-                    status = 'final_approved',
-                    current_stage = 'published_to_public',
-                    admin_reviewed_at = ?,
-                    admin_comments = ?,
-                    file_path = ?,
-                    public_network_url = ?,
-                    final_approved_at = ?
-                 WHERE id = ?`,
+                `UPDATE assignment_attachments SET status='final_approved', current_stage='published_to_public',
+                    admin_reviewed_at=?, admin_comments=?, file_path=?, public_network_url=?, final_approved_at=? WHERE id=?`,
                 [nowSql, comments || null, nasFilePath, nasFilePath, nowSql, file.id]
             ).catch(err => logError(err, { context: 'moveFolderToNas-attachment-update' }));
         } else {
             await query(
-                `UPDATE files SET
-                    status = 'final_approved',
-                    current_stage = 'published_to_public',
-                    admin_id = ?,
-                    admin_username = ?,
-                    admin_reviewed_at = ?,
-                    admin_comments = ?,
-                    file_path = ?,
-                    public_network_url = ?,
-                    final_approved_at = ?
-                 WHERE id = ?`,
-                [admin.id, admin.username, nowSql, comments || null,
-                 nasFilePath, nasFilePath, nowSql, file.id]
+                `UPDATE files SET status='final_approved', current_stage='published_to_public',
+                    admin_id=?, admin_username=?, admin_reviewed_at=?, admin_comments=?,
+                    file_path=?, public_network_url=?, final_approved_at=? WHERE id=?`,
+                [admin.id, admin.username, nowSql, comments || null, nasFilePath, nasFilePath, nowSql, file.id]
             );
-
-            logFileStatusChange(db, file.id, file.status, 'final_approved',
-                file.current_stage, 'published_to_public',
-                admin.id, admin.username, admin.role,
-                `Folder approved & moved to NAS: ${comments || 'No comments'}`);
+            logFileStatusChange(db, file.id, file.status, 'final_approved', file.current_stage, 'published_to_public',
+                admin.id, admin.username, admin.role, `Folder approved & moved to NAS: ${comments || 'No comments'}`);
         }
     }
 
-    // ── 4. Smart grouped notifications per user ───────────────────────────────
-    // All files in this call were approved (rejection happens via separate admin-reject endpoint).
-    // Group by user and send one folder-level notification per user.
     const userFileMap = {};
     for (const file of dbFiles) {
         const uid = String(file.user_id);
         if (!userFileMap[uid]) userFileMap[uid] = [];
         userFileMap[uid].push(file);
     }
-
     for (const [userId, files] of Object.entries(userFileMap)) {
         const count = files.length;
         notificationService.createNotification(
-            userId, null, 'final_approval',
-            `Folder Approved: "${folderName}"`,
+            userId, null, 'final_approval', `Folder Approved: "${folderName}"`,
             `All ${count} file${count !== 1 ? 's' : ''} in your folder "${folderName}" have been approved and saved to the NAS.`,
             admin.id, admin.username, admin.role
         ).catch(() => {});
@@ -1049,17 +1050,9 @@ async function moveFolderToNas({ folderName, username, fileIds, destinationPath,
     return { nasPath: destFolderPath };
 }
 
-/**
- * Delete an attachment folder: removes physical files and assignment_attachments DB records.
- * @param {Object} params - { folderName, fileIds }
- * @param {Object} admin  - { id, username, role, team }
- */
 async function deleteAttachmentFolder({ folderName, fileIds }, admin) {
     for (const fileId of (fileIds || [])) {
-        const attachment = await queryOne(
-            'SELECT * FROM assignment_attachments WHERE id = ?', [fileId]
-        );
-
+        const attachment = await queryOne('SELECT * FROM assignment_attachments WHERE id = ?', [fileId]);
         if (attachment?.file_path) {
             let srcPath;
             if (path.isAbsolute(attachment.file_path) || attachment.file_path.startsWith('\\\\')) {
@@ -1071,20 +1064,13 @@ async function deleteAttachmentFolder({ folderName, fileIds }, admin) {
             }
             await safeDeleteFile(srcPath).catch(() => {});
         }
-
         await query('DELETE FROM assignment_attachments WHERE id = ?', [fileId]);
     }
-
     logActivity(db, admin.id, admin.username, admin.role, admin.team,
         `Attachment folder deleted: ${folderName} (${fileIds?.length || 0} files)`);
-
     return true;
 }
 
-/**
- * Record a file view event. Upserts so each user has at most one row per file.
- * Uses raw db.run because the file_views table is not in fileRepository yet.
- */
 async function recordView(fileId, { userId, username, fullName, role }) {
     await query(
         `INSERT INTO file_views (file_id, user_id, username, full_name, role, viewed_at)
@@ -1095,9 +1081,6 @@ async function recordView(fileId, { userId, username, fullName, role }) {
     return true;
 }
 
-/**
- * Get all viewers for a file, ordered by most recent view.
- */
 async function getViewers(fileId) {
     const rows = await query(
         'SELECT user_id, username, full_name, role, viewed_at FROM file_views WHERE file_id = ? ORDER BY viewed_at DESC',
@@ -1140,9 +1123,7 @@ module.exports = {
     deleteFile: async (fileId, user) => {
         const file = await fileRepository.findById(fileId);
         if (!file) throw new NotFoundError('File');
-        if (file.user_id !== user.id && user.role !== 'ADMIN') {
-            throw new ValidationError('Permission denied');
-        }
+        if (file.user_id !== user.id && user.role !== 'ADMIN') throw new ValidationError('Permission denied');
         await fileRepository.deleteById(fileId);
         logActivity(db, user.id, user.username, user.role, user.team, `Deleted file: ${file.original_name}`);
         return true;
