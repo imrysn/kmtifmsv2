@@ -67,7 +67,7 @@ const MYSQL_CONFIG = {
   password: process.env.DB_PASSWORD || '',
   database: process.env.DB_NAME || (isProduction ? 'kmtifms' : 'kmtifms_dev'),
   waitForConnections: true,
-  connectionLimit: 30,           // Use HEAD: NAS needs more headroom
+  connectionLimit: 100,           // Use HEAD: NAS needs more headroom
   queueLimit: 100,              // Use HEAD: More requests can wait
   acquireTimeout: 10000,        // Use Incoming: Max time to get a conn from pool
   connectTimeout: 15000,        // Use HEAD: NAS can be slow to establish handshake

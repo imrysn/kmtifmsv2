@@ -6,7 +6,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { query } = require('../../database/config');
+const { query } = require('../config/database');
 
 function norm(p) {
   return (p || '').replace(/\\/g, '/').toLowerCase().trim();

@@ -184,17 +184,16 @@ handleUncaughtException();
 // Cleanup leftover temp files from previous sessions (prevents ghost Electron multipart replays)
 function cleanupTempFiles() {
   try {
-    const { uploadsDir } = require('./config/middleware');
-    if (!fs.existsSync(uploadsDir)) return;
-    const files = fs.readdirSync(uploadsDir);
+    const os = require('os');
+    const tmpDir = os.tmpdir();
+    const files = fs.readdirSync(tmpDir);
     let cleaned = 0;
     const ONE_HOUR = 60 * 60 * 1000;
     for (const file of files) {
       if (!file.startsWith('temp_')) continue;
-      const filePath = require('path').join(uploadsDir, file);
+      const filePath = require('path').join(tmpDir, file);
       try {
         const stat = fs.statSync(filePath);
-        // Only delete temp files older than 1 hour (not currently-uploading files)
         if (Date.now() - stat.mtimeMs > ONE_HOUR) {
           fs.unlinkSync(filePath);
           cleaned++;
@@ -202,7 +201,7 @@ function cleanupTempFiles() {
       } catch (_e) { /* ignore */ }
     }
     if (cleaned > 0) {
-      console.log(`🧹 Cleaned up ${cleaned} leftover temp file(s) from uploads directory`);
+      console.log(`🧹 Cleaned up ${cleaned} leftover temp file(s) from OS temp directory`);
     }
   } catch (e) {
     console.warn('⚠️ Could not clean temp files:', e.message);

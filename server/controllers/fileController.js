@@ -50,7 +50,16 @@ class FileController {
     });
 
     /**
-     * Upload multiple files (bulk)
+     * Upload multiple files (bulk) — FAST PATH
+     *
+     * Strategy:
+     *   1. Multer has already written all files to local OS temp dir (fast, local disk).
+     *   2. We INSERT the DB records immediately with the temp paths so the client
+     *      can see the files right away.
+     *   3. We respond to the client INSTANTLY — no waiting for the NAS.
+     *   4. The NAS move (streamCopy) happens in the background after the response.
+     *
+     * This means the upload bar completes in ~1-2s regardless of NAS speed.
      */
     bulkUpload = asyncHandler(async (req, res) => {
         const rawFiles = req.files || [];
@@ -65,7 +74,7 @@ class FileController {
             return {
                 original_name: file.originalname,
                 filename: file.filename,
-                file_path: file.path,
+                file_path: file.path,   // still pointing at local temp — that's fine for now
                 file_size: file.size,
                 file_type: file.mimetype,
                 mime_type: file.mimetype,
@@ -77,15 +86,23 @@ class FileController {
             };
         });
 
-        const results = await fileService.bulkUpload(filesData, req.user, assignmentId);
+        // ── Phase 1: DB inserts only (fast — no NAS I/O) ──────────────────────
+        const { assignmentLinks, fileRecords } = await fileService.bulkUploadFast(filesData, req.user, assignmentId);
+
         invalidateCache();
 
+        // ── Respond immediately so the client sees 100% ───────────────────────
         res.status(201).json({
             success: true,
-            message: `Bulk upload processed ${results.filter(r => r.success).length} files`,
-            results,
-            // Return assignmentId so uploadBatchWithProgress can pass it to subsequent chunk batches
+            message: `Bulk upload processed ${fileRecords.filter(r => r.success).length} files`,
+            results: fileRecords,
             assignmentId: assignmentId || null
+        });
+
+        // ── Phase 2: move temp → NAS in the background (non-blocking) ─────────
+        setImmediate(() => {
+            fileService.bulkUploadMoveToNas(fileRecords, req.user, assignmentId, assignmentLinks)
+                .catch(err => require('../utils/logger').logError(err, { context: 'bulkUpload-background-NAS-move' }));
         });
     });
 
@@ -345,8 +362,8 @@ class FileController {
      */
     getFilePath = asyncHandler(async (req, res) => {
         const id = req.params.id || req.params.fileId;
-        const { type } = req.query;
-        const fileInfo = await fileService.resolvePhysicalPath(id, type);
+        const { type, folderName } = req.query;
+        const fileInfo = await fileService.resolvePhysicalPath(id, type, folderName);
         res.json({ 
             success: true, 
             filePath: fileInfo.path,

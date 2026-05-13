@@ -21,9 +21,10 @@ console.log(`📁 Uploads directory configured: ${uploadsDir}`);
 // Configure multer storage with optimizations for large files
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
-    // Write to local OS temp dir first, NOT the NAS.
-    // This eliminates the double-NAS-write: previously multer wrote to NAS/temp,
-    // then moveToUserFolder copied NAS→NAS again. Now it's local-write + one NAS write.
+    // REVERT to local OS temp dir.
+    // Writing directly to NAS over SMB in small chunks (multer behavior) 
+    // can be very slow due to network latency. Writing to local disk is faster.
+    // We then move the completed file to the NAS in one fast operation.
     cb(null, os.tmpdir());
   },
   filename: function (req, file, cb) {

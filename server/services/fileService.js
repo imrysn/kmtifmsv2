@@ -171,89 +171,285 @@ async function uploadFile(fileData, user) {
 }
 
 /**
+ * FAST bulk upload — Phase 1 only: duplicate check + DB inserts with temp paths.
+ * No NAS I/O at all. Returns fileRecords (for the response) and assignmentLinks
+ * (for the background NAS move phase).
+ */
+async function bulkUploadFast(filesData, user, assignmentId = null) {
+    const MAX_CONCURRENT = 50;
+    const assignmentLinks = [];   // {fileId, tempPath, fileData} — for background move
+    const fileRecords = [];        // results sent to client
+
+    async function processFileFast(fileData) {
+        try {
+            const originalName = fixFilename(fileData.original_name);
+
+            // 1. Duplicate check (DB only — fast)
+            const existing = await fileRepository.findByNameAndUser(
+                originalName, user.id, fileData.folder_name, assignmentId
+            );
+
+            if (existing && assignmentId) {
+                // Remove old record so we replace it
+                const oldPhysical = existing.file_path.startsWith('/uploads/')
+                    ? path.join(uploadsDir, existing.file_path.substring('/uploads/'.length))
+                    : existing.file_path;
+                await safeDeleteFile(oldPhysical);
+                await query('DELETE FROM assignment_submissions WHERE file_id = ? AND assignment_id = ?',
+                    [existing.id, assignmentId]);
+                await fileRepository.deleteById(existing.id);
+            }
+
+            // 2. Insert DB record with the current temp path so the file appears in the UI
+            //    instantly. The background job will update file_path once NAS move is done.
+            const tempPath = fileData.file_path; // e.g. C:\Users\...\AppData\Local\Temp\temp_xxx
+
+            // Relative path for the UI (we'll use a placeholder until NAS move completes)
+            const dbData = {
+                ...fileData,
+                original_name: originalName,
+                file_path: tempPath,   // temp path — updated by background job after NAS copy
+                user_id: user.id,
+                username: user.username,
+                user_team: user.team,
+                status: 'uploaded',
+                current_stage: 'pending_team_leader'
+            };
+
+            const fileId = await fileRepository.create(dbData);
+
+            // 3. Queue for background NAS move
+            assignmentLinks.push({ fileId, tempPath, originalName, fileData });
+
+            return { success: true, fileId, originalName };
+        } catch (err) {
+            logError(err, { context: 'bulkUploadFast-item', filename: fileData.original_name });
+            return { success: false, error: err.message, filename: fileData.original_name };
+        }
+    }
+
+    // Run all inserts concurrently
+    const executing = new Set();
+    const promises = [];
+    for (const file of filesData) {
+        const p = processFileFast(file);
+        promises.push(p);
+        executing.add(p);
+        const clean = () => executing.delete(p);
+        p.then(clean).catch(clean);
+        if (executing.size >= MAX_CONCURRENT) await Promise.race(executing);
+    }
+    const settled = await Promise.all(promises);
+    settled.forEach(r => fileRecords.push(r));
+
+    // Batch-insert assignment_submissions right away so the task shows submitted
+    const successLinks = assignmentLinks.filter(l => fileRecords.some(r => r.success && r.fileId === l.fileId));
+    if (assignmentId && successLinks.length > 0) {
+        try {
+            const assignmentIdInt = parseInt(assignmentId, 10);
+            const fileIds = successLinks.map(l => l.fileId);
+            const subPlaceholders = fileIds.map(() => '(?, ?, ?, NOW())').join(', ');
+            const subValues = fileIds.flatMap(fid => [assignmentIdInt, user.id, fid]);
+            await query(
+                `INSERT IGNORE INTO assignment_submissions (assignment_id, user_id, file_id, submitted_at) VALUES ${subPlaceholders}`,
+                subValues
+            );
+            await query(
+                'UPDATE assignment_members SET file_id = ?, submitted_at = NOW(), status = "submitted" WHERE assignment_id = ? AND user_id = ?',
+                [fileIds[fileIds.length - 1], assignmentIdInt, user.id]
+            );
+        } catch (err) {
+            logError('Failed to batch-link submissions in fast phase', { error: err.message });
+        }
+    }
+
+    logActivity(db, user.id, user.username, user.role, user.team,
+        `Bulk uploaded ${fileRecords.filter(r => r.success).length} files (fast path)`);
+
+    // Notify team leader immediately (files are visible in DB already)
+    if (assignmentId) {
+        try {
+            const { pushToUser } = require('../routes/notifications');
+            const assignment = await queryOne(
+                'SELECT id, title, team_leader_id FROM assignments WHERE id = ?',
+                [parseInt(assignmentId, 10)]
+            );
+            if (assignment && assignment.team_leader_id) {
+                const successCount = fileRecords.filter(r => r.success).length;
+                await notificationService.createNotification(
+                    assignment.team_leader_id, null, 'file_submitted',
+                    'New File Submission',
+                    `${user.fullName || user.username} submitted ${successCount} file${successCount !== 1 ? 's' : ''} for "${assignment.title}".`,
+                    user.id, user.username, user.role, parseInt(assignmentId, 10)
+                );
+                pushToUser(assignment.team_leader_id);
+            }
+        } catch (notifErr) {
+            logError(notifErr, { context: 'bulkUploadFast-TL-notification' });
+        }
+    }
+
+    return { assignmentLinks, fileRecords };
+}
+
+/**
+ * FAST bulk upload — Phase 2: move files from local temp to NAS and update DB paths.
+ * Runs in the background after the HTTP response has already been sent.
+ */
+async function bulkUploadMoveToNas(fileRecords, user, assignmentId, assignmentLinks) {
+    const { moveToUserFolder } = require('../utils/fileUtils');
+
+    for (const link of assignmentLinks) {
+        try {
+            if (!link.tempPath || !link.fileId) continue;
+
+            const movedPath = await moveToUserFolder(
+                link.tempPath,
+                user.username,
+                link.originalName,
+                link.fileData.folder_name || null,
+                link.fileData.relative_path || null,
+                null   // no taskPrefix
+            );
+
+            const relativeToUploads = movedPath.startsWith(uploadsDir)
+                ? movedPath.substring(uploadsDir.length).replace(/\\/g, '/')
+                : movedPath;
+            const finalFilePath = `/uploads${relativeToUploads.startsWith('/') ? '' : '/'}${relativeToUploads}`;
+
+            // Update DB record with the real NAS path
+            await query('UPDATE files SET file_path = ? WHERE id = ?', [finalFilePath, link.fileId]);
+        } catch (err) {
+            logError(err, { context: 'bulkUploadMoveToNas-item', fileId: link.fileId, filename: link.originalName });
+        }
+    }
+}
+
+/**
  * Bulk upload multiple files and link them to an assignment
  */
 async function bulkUpload(filesData, user, assignmentId = null) {
     const { moveToUserFolder } = require('../utils/fileUtils');
-    const results = [];
-    const CONCURRENCY = 25;
+    
+    // We can handle high concurrency now that DB pool is increased
+    const MAX_CONCURRENT = 50;
+    
+    // Queue for assignment links to be batched at the end
+    const assignmentLinks = [];
 
-    for (let i = 0; i < filesData.length; i += CONCURRENCY) {
-        const batch = filesData.slice(i, i + CONCURRENCY);
-        const batchResults = await Promise.all(batch.map(async (fileData) => {
-            try {
-                const originalName = fixFilename(fileData.original_name);
-                
-                // 1. Check for duplicates (and replace if in task context)
-                const existing = await fileRepository.findByNameAndUser(
-                    originalName,
-                    user.id,
-                    fileData.folder_name,
-                    assignmentId
-                );
+    // Helper for parallel execution with limit
+    async function processFile(fileData) {
+        try {
+            const originalName = fixFilename(fileData.original_name);
+            
+            // 1. Check for duplicates
+            const existing = await fileRepository.findByNameAndUser(
+                originalName,
+                user.id,
+                fileData.folder_name,
+                assignmentId
+            );
 
-                if (existing && assignmentId) {
-                    const oldPhysical = existing.file_path.startsWith('/uploads/')
-                        ? path.join(uploadsDir, existing.file_path.substring('/uploads/'.length))
-                        : existing.file_path;
-                    await safeDeleteFile(oldPhysical);
-                    await query('DELETE FROM assignment_submissions WHERE file_id = ? AND assignment_id = ?', [existing.id, assignmentId]);
-                    await fileRepository.deleteById(existing.id);
-                }
-
-                // 2. Move to permanent location
-                const tempPath = fileData.file_path.startsWith('/uploads/')
-                    ? path.join(uploadsDir, fileData.file_path.substring('/uploads/'.length))
-                    : fileData.file_path;
-
-                const taskPrefix = null; // Removed task-prefixed subfolders as per user request
-                const movedPath = await moveToUserFolder(
-                    tempPath, user.username, originalName,
-                    fileData.folder_name || null, fileData.relative_path || null,
-                    taskPrefix
-                );
-
-                const relativeToUploads = movedPath.startsWith(uploadsDir)
-                    ? movedPath.substring(uploadsDir.length).replace(/\\/g, '/')
-                    : movedPath;
-                const finalFilePath = `/uploads${relativeToUploads.startsWith('/') ? '' : '/'}${relativeToUploads}`;
-
-                // 3. Create DB record
-                const dbData = {
-                    ...fileData,
-                    original_name: originalName,
-                    file_path: finalFilePath,
-                    user_id: user.id,
-                    username: user.username,
-                    user_team: user.team,
-                    status: 'uploaded',
-                    current_stage: 'pending_team_leader'
-                };
-
-                const fileId = await fileRepository.create(dbData);
-
-                // 4. Link to assignment if provided
-                if (assignmentId) {
-                    await query(
-                        'INSERT INTO assignment_submissions (assignment_id, user_id, file_id, submitted_at) VALUES (?, ?, ?, NOW())',
-                        [assignmentId, user.id, fileId]
-                    );
-                    await query(
-                        'UPDATE assignment_members SET file_id = ?, submitted_at = NOW(), status = "submitted" WHERE assignment_id = ? AND user_id = ?',
-                        [fileId, assignmentId, user.id]
-                    );
-                }
-
-                return { success: true, fileId, originalName };
-            } catch (err) {
-                logError(err, { context: 'bulkUpload-item', filename: fileData.original_name });
-                return { success: false, error: err.message, filename: fileData.original_name };
+            if (existing && assignmentId) {
+                const oldPhysical = existing.file_path.startsWith('/uploads/')
+                    ? path.join(uploadsDir, existing.file_path.substring('/uploads/'.length))
+                    : existing.file_path;
+                await safeDeleteFile(oldPhysical);
+                await query('DELETE FROM assignment_submissions WHERE file_id = ? AND assignment_id = ?', [existing.id, assignmentId]);
+                await fileRepository.deleteById(existing.id);
             }
-        }));
-        results.push(...batchResults);
+
+            // 2. Move to permanent location
+            const tempPath = fileData.file_path.startsWith('/uploads/')
+                ? path.join(uploadsDir, fileData.file_path.substring('/uploads/'.length))
+                : fileData.file_path;
+
+            const movedPath = await moveToUserFolder(
+                tempPath, user.username, originalName,
+                fileData.folder_name || null, fileData.relative_path || null,
+                null // taskPrefix
+            );
+
+            const relativeToUploads = movedPath.startsWith(uploadsDir)
+                ? movedPath.substring(uploadsDir.length).replace(/\\/g, '/')
+                : movedPath;
+            const finalFilePath = `/uploads${relativeToUploads.startsWith('/') ? '' : '/'}${relativeToUploads}`;
+
+            // 3. Create DB record
+            const dbData = {
+                ...fileData,
+                original_name: originalName,
+                file_path: finalFilePath,
+                user_id: user.id,
+                username: user.username,
+                user_team: user.team,
+                status: 'uploaded',
+                current_stage: 'pending_team_leader'
+            };
+
+            const fileId = await fileRepository.create(dbData);
+
+            // 4. Queue for assignment linking (if provided)
+            if (assignmentId) {
+                assignmentLinks.push([
+                    'INSERT INTO assignment_submissions (assignment_id, user_id, file_id, submitted_at) VALUES (?, ?, ?, NOW())',
+                    [assignmentId, user.id, fileId]
+                ]);
+            }
+
+            return { success: true, fileId, originalName };
+        } catch (err) {
+            logError(err, { context: 'bulkUpload-item', filename: fileData.original_name });
+            return { success: false, error: err.message, filename: fileData.original_name };
+        }
     }
 
-    logActivity(db, user.id, user.username, user.role, user.team, `Bulk uploaded ${results.filter(r => r.success).length} files`);
+    // Process all files with concurrency limit
+    const results = [];
+    const executing = new Set();
+    for (const file of filesData) {
+        const p = processFile(file);
+        results.push(p);
+        executing.add(p);
+        const clean = () => executing.delete(p);
+        p.then(clean).catch(clean);
+        if (executing.size >= MAX_CONCURRENT) {
+            await Promise.race(executing);
+        }
+    }
+    const finalResults = await Promise.all(results);
+
+    // 5. Batch process assignment links with a TRUE single-statement bulk INSERT
+    //    queryBatch ran every query sequentially on one connection — on a NAS that meant
+    //    N×(NAS round-trip latency) seconds of blocking.  A single parameterised INSERT
+    //    collapses all submissions into one network trip regardless of file count.
+    if (assignmentLinks.length > 0) {
+        try {
+            const assignmentIdInt = parseInt(assignmentId, 10);
+
+            // Extract file IDs queued during processFile
+            const fileIds = assignmentLinks.map(([, params]) => params[2]);
+
+            // One INSERT for all assignment_submissions rows
+            const subPlaceholders = fileIds.map(() => '(?, ?, ?, NOW())').join(', ');
+            const subValues      = fileIds.flatMap(fid => [assignmentIdInt, user.id, fid]);
+            await query(
+                `INSERT IGNORE INTO assignment_submissions (assignment_id, user_id, file_id, submitted_at) VALUES ${subPlaceholders}`,
+                subValues
+            );
+
+            // One UPDATE for assignment_members (the last file id is representative)
+            const lastFileId = fileIds[fileIds.length - 1];
+            await query(
+                'UPDATE assignment_members SET file_id = ?, submitted_at = NOW(), status = "submitted" WHERE assignment_id = ? AND user_id = ?',
+                [lastFileId, assignmentIdInt, user.id]
+            );
+        } catch (err) {
+            logError('Failed to batch link assignment submissions', { error: err.message });
+        }
+    }
+
+    logActivity(db, user.id, user.username, user.role, user.team, `Bulk uploaded ${finalResults.filter(r => r.success).length} files`);
 
     // Send ONE grouped notification to the team leader after all files are processed
     if (assignmentId) {
@@ -813,8 +1009,8 @@ async function zipFolder(fileIds, folderName) {
  * Handles stale OS temp paths in DB (caused by a previously failed NAS move)
  * by reconstructing the correct NAS path from stored metadata fields.
  */
-async function resolvePhysicalPath(fileId, requestedType = null) {
-    const cacheKey = `${requestedType || 'auto'}_${fileId}`;
+async function resolvePhysicalPath(fileId, requestedType = null, folderName = null) {
+    const cacheKey = `${requestedType || 'auto'}_${fileId}_${folderName || 'none'}`;
     
     // ── Trust Cache ──────────────────────────────────────────────────────────
     const cached = physicalPathCache.get(cacheKey);
@@ -828,7 +1024,7 @@ async function resolvePhysicalPath(fileId, requestedType = null) {
     // Correct teamleader base directory is a peer to the 'data' folder on the NAS
     const teamleaderDir = path.join(path.dirname(networkDataPath), 'teamleader');
     
-    logInfo('Resolving path for file', { fileId, requestedType });
+    logInfo('Resolving path for file', { fileId, requestedType, folderName });
 
     let file = requestedType !== 'attachment' ? await fileRepository.findById(fileId) : null;
     const isAttachment = !file;
@@ -842,13 +1038,25 @@ async function resolvePhysicalPath(fileId, requestedType = null) {
     
     // Helper to return and cache the result
     const returnAndCache = (p) => {
-        const res = { path: p, originalName: file.original_name, mimeType: file.file_type, timestamp: Date.now() };
+        let finalPath = p;
+        // If folderName is provided, we want to open the parent folder, not the file itself.
+        if (folderName && folderName !== 'Folder Path') {
+            const parts = p.split(path.sep);
+            // Search for the folder name in the resolved path to get the exact directory
+            const folderIdx = parts.lastIndexOf(folderName);
+            if (folderIdx !== -1) {
+                finalPath = parts.slice(0, folderIdx + 1).join(path.sep);
+            } else {
+                finalPath = path.dirname(p);
+            }
+        }
+        const res = { path: finalPath, originalName: file.original_name, mimeType: file.file_type, timestamp: Date.now() };
         physicalPathCache.set(cacheKey, res);
         return res;
     };
 
     // Helper: true if path exists on disk
-    const diskExists = async (p) => { try { await fs.access(p); return true; } catch (_) { return false; } };
+    const diskExists = async (p) => { try { if (!p) return false; await fs.access(p); return true; } catch (_) { return false; } };
 
     // Detect stale OS temp paths (e.g. C:\Users\...\AppData\Local\Temp\temp_xxx)
     const isTempPath = (p) => !p ? false : (
@@ -862,8 +1070,8 @@ async function resolvePhysicalPath(fileId, requestedType = null) {
         if (await diskExists(file.public_network_url)) return returnAndCache(file.public_network_url);
     }
 
-    // ── Priority 2: absolute Windows/UNC path — skip stale temp paths ────────
-    if (file.file_path && !isTempPath(file.file_path) &&
+    // ── Priority 2: absolute Windows/UNC path — includes valid temp paths ──────
+    if (file.file_path && !file.file_path.startsWith('/uploads/') &&
         (file.file_path.startsWith('\\\\') || /^[A-Za-z]:[\\/]/.test(file.file_path))) {
         if (await diskExists(file.file_path)) return returnAndCache(file.file_path);
     }
@@ -883,6 +1091,10 @@ async function resolvePhysicalPath(fileId, requestedType = null) {
         const rel = file.relative_path ? file.relative_path.replace(/\/+/g, path.sep) : null;
 
         const candidates = [
+            // Priority: provided folderName in teamleader
+            folderName && folderName !== 'Folder Path' ? path.join(userDir, folderName) : null,
+            folderName && folderName !== 'Folder Path' && taskDir ? path.join(taskDir, folderName) : null,
+
             rel ? path.join(userDir, rel) : null, // NEW: Root user folder (flat structure)
             rel && taskDir ? path.join(taskDir, rel) : null, // OLD: Legacy task_N structure
             file.folder_name && file.original_name ? path.join(userDir, file.folder_name, file.original_name) : null,
@@ -904,14 +1116,17 @@ async function resolvePhysicalPath(fileId, requestedType = null) {
         const rel = file.relative_path ? file.relative_path.replace(/\/+/g, path.sep) : null;
 
         const candidates = [
-            // Try teamleader directory first (matching Image 2)
-            rel ? path.join(teamleaderDir, u, rel) : null,
-            file.original_name ? path.join(teamleaderDir, u, file.original_name) : null,
-            
-            // Try uploads directory (matching Image 1)
+            // Priority: provided folderName in uploads
+            folderName && folderName !== 'Folder Path' ? path.join(userDir, folderName) : null,
+
+            // Try uploads directory (Primary for regular files)
             rel ? path.join(userDir, rel) : null,
-            file.file_path ? path.join(userDir, path.basename(file.file_path)) : null,
-            file.original_name ? path.join(userDir, file.original_name) : null
+            file.file_path && !isTempPath(file.file_path) ? path.join(userDir, path.basename(file.file_path)) : null,
+            file.original_name ? path.join(userDir, file.original_name) : null,
+
+            // Fallback: teamleader directory (some files might have been moved or uploaded there)
+            rel ? path.join(teamleaderDir, u, rel) : null,
+            file.original_name ? path.join(teamleaderDir, u, file.original_name) : null
         ];
 
         const winner = await findFirstExisting(candidates);
@@ -1258,6 +1473,8 @@ async function getViewers(fileId) {
 module.exports = {
     uploadFile,
     bulkUpload,
+    bulkUploadFast,
+    bulkUploadMoveToNas,
     getFileById,
     getUserFiles,
     getUserFilesPaginated,

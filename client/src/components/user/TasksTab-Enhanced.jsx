@@ -580,7 +580,8 @@ const TasksTab = memo(({
     try {
       if (type === 'folder') {
         const pathType = file.isAttachment ? 'attachment' : 'file';
-        const data = await apiFetch(`/api/files/${file.id}/path?type=${pathType}`);
+        const folderParam = file.folderName && file.folderName !== 'Folder Path' ? `&folderName=${encodeURIComponent(file.folderName)}` : '';
+        const data = await apiFetch(`/api/files/${file.id}/path?type=${pathType}${folderParam}`);
         if (data.success && data.filePath && window.electron?.openFolderInExplorer) {
           await window.electron.openFolderInExplorer(data.filePath);
         }
@@ -812,11 +813,11 @@ const TasksTab = memo(({
     openFileDetails({ id: fid, assignment_title: assignmentTitle });
   }, [assignments, openFileDetails]);
 
-  const openFolderInExplorer = useCallback(async (fileId, isAttachment = true) => {
+  const openFolderInExplorer = useCallback(async (fileId, isAttachment = true, folderName = 'Folder Path') => {
     if (!window.electron?.openFolderInExplorer) return;
     
     // Instead of showing SuccessModal directly, show confirmation modal
-    setFileToOpen({ id: fileId, isAttachment, folderName: 'Folder Path' });
+    setFileToOpen({ id: fileId, isAttachment, folderName });
     setOpenModalType('folder');
     setShowOpenFileModal(true);
   }, []);
@@ -1116,7 +1117,7 @@ const TasksTab = memo(({
                                 <AttachmentMoreMenu
                                   isFolder
                                   onDownload={() => handleDownloadFolder(folderFiles, folderName)}
-                                  onOpenPath={() => openFolderInExplorer(folderFiles[0]?.id)}
+                                  onOpenPath={() => openFolderInExplorer(folderFiles[0]?.id, true, folderName)}
                                 />
                               </div>
                             </div>
@@ -1257,7 +1258,7 @@ const TasksTab = memo(({
                       const firstFile = folderFiles[0];
                       if (firstFile) openFileDetails(firstFile);
                     }}
-                    onOpenPath={() => openFolderInExplorer(folderFiles[0]?.id, false)}
+                    onOpenPath={() => openFolderInExplorer(folderFiles[0]?.id, false, folderName)}
                     onDelete={() => {
                       setFileToDelete({ assignmentId: assignment.id, fileId: null, fileName: folderName, isFolderDelete: true, folderFiles });
                       setShowDeleteModal(true);

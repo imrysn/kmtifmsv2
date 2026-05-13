@@ -399,15 +399,8 @@ export const uploadBatchWithProgress = async (
         fd.append('uploadNonce', nonceData.nonce);
         fd.append('hasAttachments', 'true');
         fd.append('relativePaths', JSON.stringify(batch.paths));
-        batch.files.forEach(f => fd.append('attachments', f));
-
-        // Note: For generic bulk upload, chunksUrl might expect 'files' instead of 'attachments'
-        // but since we are refactoring, we'll make our bulk-upload endpoint handle 'attachments' too or rename here.
-        // We'll use 'files' for the generic bulk upload.
-        if (!assignmentId && !chunksUrl.includes('assignments')) {
-          fd.delete('attachments');
-          batch.files.forEach(f => fd.append('files', f));
-        }
+        // Always use 'files' — matches server multer upload.array('files', 10000)
+        batch.files.forEach(f => fd.append('files', f));
 
         await xhrUpload(chunksUrl, fd, 'POST', batch.id);
       }));

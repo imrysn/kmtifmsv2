@@ -5,7 +5,7 @@
  */
 
 const path = require('path');
-const { query } = require('../../database/config');
+const { query } = require('../config/database');
 
 let watcher = null;
 let isStarted = false;
@@ -218,12 +218,12 @@ function startWatcher(watchPaths) {
   watcher = chokidar.watch(validPaths, {
     persistent: true,
     ignoreInitial: true,
-    usePolling: true,        // Required for NAS/UNC network paths
-    interval: 3000,          // Poll every 3 seconds
-    binaryInterval: 5000,
+    usePolling: false,       // Event-based — no constant NAS polling
+    interval: 10000,         // Fallback poll interval if events unavailable
+    binaryInterval: 15000,
     awaitWriteFinish: {
-      stabilityThreshold: 2000,
-      pollInterval: 500,
+      stabilityThreshold: 3000,
+      pollInterval: 1000,
     },
     ignored: [
       /(^|[\/\\])\../,       // hidden/dot files
