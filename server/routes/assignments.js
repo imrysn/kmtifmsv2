@@ -126,11 +126,24 @@ setInterval(() => {
 // Moves files to NAS/teamleader/<username>/ concurrently in batches.
 // Returns array of { fixedName, finalPath, file, folderName, relPath }
 // IMPORTANT: finalPath is ALWAYS the absolute NAS path — never a temp path.
-const CONCURRENCY = 4; // Reduced from 8 to avoid overwhelming NAS writes
+const CONCURRENCY = 25; // Increased to parallelize more NAS moves
 async function processAttachments(uploadedFiles, relativePaths, finalTeamLeaderUsername, assignmentId) {
-  const results = [];
-  for (let i = 0; i < uploadedFiles.length; i += CONCURRENCY) {
-    const batch = uploadedFiles.slice(i, i + CONCURRENCY);
+    const results = [];
+    // Process ALL in a single parallel batch if small, or larger chunks if massive
+    const batchSize = Math.max(CONCURRENCY, Math.ceil(uploadedFiles.length / 2));
+    for (let i = 0; i < uploadedFiles.length; i += batchSize) {
+        const batch = uploadedFiles.slice(i, i + batchSize);
+    // Pre-create all unique directories once to avoid redundant NAS mkdir round-trips per file
+    const uniqueDirs = new Set(uploadedFiles.map((file, i) => {
+      const relPath = relativePaths[i] || file.originalname;
+      const baseDir = path.join(require('../config/database').networkDataPath, 'teamleader', finalTeamLeaderUsername);
+      const sanitizedRelPath = (relPath || '').split('/').map(seg => seg.replace(/[<>:"/\\|?*\x00-\x1F]/g, '_')).join(path.sep);
+      return path.dirname(path.join(baseDir, sanitizedRelPath));
+    }));
+    
+    const { ensureDirectory } = require('../utils/fileUtils');
+    await Promise.all([...uniqueDirs].map(dir => ensureDirectory(dir)));
+
     const batchResults = await Promise.all(
       batch.map(async (file, batchIdx) => {
         const idx = i + batchIdx;
@@ -143,7 +156,7 @@ async function processAttachments(uploadedFiles, relativePaths, finalTeamLeaderU
         const finalPath = await moveToUserFolder(
           file.path, finalTeamLeaderUsername, fixedName,
           folderName || null, folderName ? relPath : null,
-          assignmentId ? `task_${assignmentId}` : null, true /* isTeamLeaderAttachment */
+          null, true /* isTeamLeaderAttachment */
         );
 
         console.log(`✅ Attachment moved to NAS: ${finalPath}`);
@@ -468,35 +481,35 @@ router.get('/team-leader/:userId', authenticateToken, authorizeRole(['TEAM_LEADE
       teamNames
     );
 
-    for (const assignment of tlAssignments) {
-      assignment.assigned_member_details = await query(
-        'SELECT u.id, u.username, u.fullName FROM assignment_members am JOIN users u ON am.user_id = u.id WHERE am.assignment_id = ?',
-        [assignment.id]
-      ) || [];
-      assignment.attachments = await query(
-        `SELECT id, original_name, filename, file_path, public_network_url, file_size, file_type, folder_name, relative_path, created_at,
+    await Promise.all(tlAssignments.map(async (assignment) => {
+      const [members, attachments, recentSubmissions, tl] = await Promise.all([
+        query('SELECT u.id, u.username, u.fullName FROM assignment_members am JOIN users u ON am.user_id = u.id WHERE am.assignment_id = ?', [assignment.id]),
+        query(`SELECT id, original_name, filename, file_path, public_network_url, file_size, file_type, folder_name, relative_path, created_at,
                 COALESCE(status, 'team_leader_approved') AS status, COALESCE(current_stage, 'pending_admin') AS current_stage
-         FROM assignment_attachments WHERE assignment_id = ? ORDER BY COALESCE(folder_name, ''), created_at DESC`,
-        [assignment.id]
-      ) || [];
-      const recentSubmissions = await query(
-        `SELECT f.id, f.original_name, f.filename, f.file_type, f.file_path, f.public_network_url, f.file_size,
+         FROM assignment_attachments WHERE assignment_id = ? ORDER BY COALESCE(folder_name, ''), created_at DESC`, [assignment.id]),
+        query(`SELECT f.id, f.original_name, f.filename, f.file_type, f.file_path, f.public_network_url, f.file_size,
                 f.tag, f.description, f.uploaded_at, f.status, f.folder_name, f.relative_path, f.is_folder, f.user_team,
                 u.username, u.fullName, asub.submitted_at, asub.submitted_at as created_at, asub.user_id
          FROM assignment_submissions asub
          JOIN files f ON asub.file_id = f.id JOIN users u ON asub.user_id = u.id
-         WHERE asub.assignment_id = ? ORDER BY asub.submitted_at DESC`,
-        [assignment.id]
-      ) || [];
-      assignment.recent_submissions = recentSubmissions;
-      const tl = await queryOne('SELECT fullName, username, email FROM users WHERE id = ?', [assignment.team_leader_id || assignment.teamLeaderId]);
+         WHERE asub.assignment_id = ? ORDER BY asub.submitted_at DESC`, [assignment.id]),
+        queryOne('SELECT fullName, username, email FROM users WHERE id = ?', [assignment.team_leader_id || assignment.teamLeaderId])
+      ]);
+
+      assignment.assigned_member_details = members || [];
+      assignment.attachments = attachments || [];
+      assignment.recent_submissions = recentSubmissions || [];
+      
       if (tl) {
-        assignment.team_leader_fullname = tl.fullName; assignment.team_leader_username = tl.username; assignment.team_leader_email = tl.email;
+        assignment.team_leader_fullname = tl.fullName; 
+        assignment.team_leader_username = tl.username; 
+        assignment.team_leader_email = tl.email;
       }
-      if (assignment.submission_count > 0 && recentSubmissions.length === 0) {
+      
+      if (assignment.submission_count > 0 && (recentSubmissions || []).length === 0) {
         console.warn(`⚠️ Assignment ${assignment.id} has submission_count ${assignment.submission_count} but fetched no submissions`);
       }
-    }
+    }));
 
     res.json({ success: true, assignments: tlAssignments || [] });
   } catch (error) {
@@ -707,23 +720,36 @@ router.post('/create', authenticateToken, authorizeRole(['TEAM_LEADER', 'ADMIN']
           [finalTeamLeaderId, finalTeamLeaderUsername, 'TEAM_LEADER', team, `Created assignment: ${title}`]);
       } catch (e) { /* ignore */ }
 
-      // Notify members
+      // Notify members in parallel batches
       try {
         const memberIds = finalAssignedTo === 'specific' ? (finalMembers || []) :
           (await query('SELECT id FROM users WHERE team = ? AND role = ?', [team, 'USER'])).map(m => m.id);
-        for (const uid of memberIds) {
-          // Don't notify the team leader who created the task
-          if (String(uid) === String(finalTeamLeaderId)) continue;
-          try {
-            await query(
-              'INSERT INTO notifications (user_id, assignment_id, file_id, type, title, message, action_by_id, action_by_username, action_by_role) VALUES (?,?,?,?,?,?,?,?,?)',
-              [uid, assignmentId, null, 'assignment', 'New Assignment',
-                `${finalTeamLeaderUsername} assigned you a new task: "${title}"${finalDueDate ? ` - Due: ${new Date(finalDueDate).toLocaleDateString()}` : ''}`,
-                finalTeamLeaderId, finalTeamLeaderUsername, 'TEAM_LEADER']
+        
+        if (memberIds.length > 0) {
+          const notificationValues = [];
+          const notificationPlaceholders = [];
+          
+          for (const uid of memberIds) {
+            if (String(uid) === String(finalTeamLeaderId)) continue;
+            
+            notificationPlaceholders.push('(?,?,?,?,?,?,?,?,?)');
+            notificationValues.push(
+              uid, assignmentId, null, 'assignment', 'New Assignment',
+              `${finalTeamLeaderUsername} assigned you a new task: "${title}"${finalDueDate ? ` - Due: ${new Date(finalDueDate).toLocaleDateString()}` : ''}`,
+              finalTeamLeaderId, finalTeamLeaderUsername, 'TEAM_LEADER'
             );
-            pushToUser(uid);
-          } catch (e) {
-            console.error(`Failed to notify user ${uid}:`, e.message);
+          }
+          
+          if (notificationValues.length > 0) {
+            await query(
+              `INSERT INTO notifications (user_id, assignment_id, file_id, type, title, message, action_by_id, action_by_username, action_by_role) 
+               VALUES ${notificationPlaceholders.join(',')}`,
+              notificationValues
+            );
+            // Trigger SSE for all notified users
+            memberIds.forEach(uid => {
+              if (String(uid) !== String(finalTeamLeaderId)) pushToUser(uid);
+            });
           }
         }
       } catch (e) {

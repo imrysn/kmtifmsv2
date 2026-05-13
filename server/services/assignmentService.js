@@ -83,7 +83,7 @@ async function createAssignment(data, attachments, user) {
         try { relativePaths = JSON.parse(data.relativePaths || '[]'); } catch (_) {}
 
         const { moveToUserFolder } = require('../utils/fileUtils');
-        const CONCURRENCY = 8;
+        const CONCURRENCY = 12;
 
         // Pre-compute metadata for each file
         const meta = attachments.map((file, i) => {
@@ -109,8 +109,8 @@ async function createAssignment(data, attachments, user) {
                     m.originalName,
                     m.folderName,
                     m.relativePath,
-                    `task_${assignmentId}`,
-                    true  // isTeamLeaderAttachment → teamleader/<user>/task_N/...
+                    null,
+                    true  // isTeamLeaderAttachment → teamleader/<user>/...
                 );
                 movedPaths[idx] = moved;
             }));
@@ -186,7 +186,7 @@ async function updateAssignment(id, data, attachments, user) {
         try { relativePaths = JSON.parse(data.relativePaths || '[]'); } catch (_) {}
 
         const { moveToUserFolder } = require('../utils/fileUtils');
-        const CONCURRENCY = 8;
+        const CONCURRENCY = 12;
 
         const meta = attachments.map((file, i) => {
             const relativePath = relativePaths[i] || file.originalname;
@@ -211,7 +211,7 @@ async function updateAssignment(id, data, attachments, user) {
                     m.originalName,
                     m.folderName,
                     m.relativePath,
-                    `task_${id}`,
+                    null,
                     true
                 );
                 movedPaths[idx] = moved;

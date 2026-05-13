@@ -71,7 +71,7 @@ const getAssignmentStatus = (assignment) => {
 };
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
-const FileMoreMenuInline = memo(({ onDelete, onViewDetails, isFolder = false }) => {
+const FileMoreMenuInline = memo(({ onDelete, onViewDetails, onOpenPath, isFolder = false }) => {
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
 
@@ -126,6 +126,23 @@ const FileMoreMenuInline = memo(({ onDelete, onViewDetails, isFolder = false }) 
                 <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
               </svg>
               File Details
+            </button>
+          )}
+          {onOpenPath && (
+            <button
+              onClick={() => { setOpen(false); onOpenPath(); }}
+              style={{
+                width: '100%', textAlign: 'left', background: 'none', border: 'none',
+                padding: '10px 14px', fontSize: '13px', color: '#374151',
+                cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px',
+              }}
+              onMouseEnter={e => { e.currentTarget.style.backgroundColor = '#f3f4f6'; }}
+              onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; }}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 2h9a2 2 0 0 1 2 2v12z" />
+              </svg>
+              {isFolder ? 'Open Folder Path' : 'Open File Path'}
             </button>
           )}
           {onDelete && (
@@ -321,6 +338,7 @@ const TasksTab = memo(({
   // File open modal
   const [showOpenFileModal, setShowOpenFileModal] = useState(false);
   const [fileToOpen, setFileToOpen] = useState(null);
+  const [openModalType, setOpenModalType] = useState('file');
 
   // File Details modal
   const [showFileDetailsModal, setShowFileDetailsModal] = useState(false);
@@ -332,6 +350,20 @@ const TasksTab = memo(({
   const currentAssignmentIdRef = useRef(null);
   const newCommentRef = useRef(newComment);
   newCommentRef.current = newComment;
+
+  // Warm up the server's path cache when a folder is expanded
+  const prefetchFolderFiles = useCallback((files, type = 'file') => {
+    if (!files || files.length === 0) return
+    
+    // Use bulk prefetch to resolve all paths in one parallel request
+    const fileIds = files.map(f => f.id).filter(Boolean);
+    if (fileIds.length === 0) return;
+
+    apiFetch('/api/files/bulk-path', {
+      method: 'POST',
+      body: JSON.stringify({ fileIds, type })
+    }).catch(() => {}); // Ignore prefetch errors
+  }, []);
 
   // ─── Fetch helpers ─────────────────────────────────────────────────────────
   const showError = useCallback((message) =>
@@ -536,19 +568,33 @@ const TasksTab = memo(({
 
   const handleOpenFile = useCallback(async () => {
     if (!fileToOpen) return;
+    
+    // Close immediately for responsiveness
+    const file = { ...fileToOpen };
+    const type = openModalType;
     setShowOpenFileModal(false);
-    const file = fileToOpen;
     setFileToOpen(null);
+
+    setSuccessModal({ isOpen: true, title: 'Success', message: type === 'folder' ? 'Folder opened successfully!' : 'File opened successfully!', type: 'success' });
+
     try {
-      const pathData = await apiFetch(`/api/files/${file.id}/path`);
+      if (type === 'folder') {
+        const pathType = file.isAttachment ? 'attachment' : 'file';
+        const data = await apiFetch(`/api/files/${file.id}/path?type=${pathType}`);
+        if (data.success && data.filePath && window.electron?.openFolderInExplorer) {
+          await window.electron.openFolderInExplorer(data.filePath);
+        }
+        return;
+      }
+
+      const pathType = file.isAttachment ? 'attachment' : 'file';
+      const pathData = await apiFetch(`/api/files/${file.id}/path?type=${pathType}`);
       if (!pathData.success || !pathData.filePath) throw new Error(pathData.message || 'Could not resolve file path');
 
       if (window.electron?.openFileInApp) {
         const result = await window.electron.openFileInApp(pathData.filePath);
-        if (!result.success) showError(result.error || 'Failed to open file');
-        else {
-          setFileOpenToast(true);
-          setTimeout(() => setFileOpenToast(false), 3500);
+        if (!result.success) {
+          showError(result.error || 'Failed to open file');
         }
       } else {
         const ext = (pathData.filePath.split('.').pop() || '').toLowerCase();
@@ -562,11 +608,9 @@ const TasksTab = memo(({
           });
           a.click();
         }
-        setFileOpenToast(true);
-        setTimeout(() => setFileOpenToast(false), 3500);
       }
     } catch { showError('Failed to open file. Please try again.'); }
-  }, [fileToOpen, showError]);
+  }, [fileToOpen, openModalType, showError]);
 
   const confirmDeleteFile = useCallback((assignmentId, fileId, fileName) => {
     setFileToDelete({ assignmentId, fileId, fileName });
@@ -575,6 +619,7 @@ const TasksTab = memo(({
 
   const confirmOpenFile = useCallback((file) => {
     setFileToOpen(file);
+    setOpenModalType('file');
     setShowOpenFileModal(true);
   }, []);
 
@@ -610,6 +655,8 @@ const TasksTab = memo(({
     }
   }, [user.id, user.username, user.role, user.team, fetchAssignments, showError]);
 
+  const [uploadProgress, setUploadProgress] = useState(0);
+
   // ─── Submit modal helpers ─────────────────────────────────────────────────
   const resetSubmitModal = useCallback(() => {
     setUploadedFiles([]);
@@ -617,6 +664,7 @@ const TasksTab = memo(({
     setFileTag('');
     setUploadMode('files');
     setTargetFolder(null);
+    setUploadProgress(0);
     if (fileInputRef.current) fileInputRef.current.value = '';
     if (folderInputRef.current) folderInputRef.current.value = '';
   }, []);
@@ -633,76 +681,67 @@ const TasksTab = memo(({
   const handleFileUpload = useCallback(async () => {
     if (!uploadedFiles.length || !currentAssignment) return;
     setIsUploading(true);
+    setUploadProgress(0);
+
     try {
-      const uploadedFileIds = [];
-      const uploadErrors = [];
+      const { uploadBatchWithProgress } = await import('@/config/api');
+      
+      const BATCH_SIZE = 50;
+      const firstBatch = uploadedFiles.slice(0, BATCH_SIZE);
+      const remaining = uploadedFiles.slice(BATCH_SIZE);
 
-      for (const fileObj of uploadedFiles) {
-        const formData = new FormData();
-        formData.append('file', fileObj.file);
-        formData.append('userId', user.id);
-        formData.append('username', user.username);
-        formData.append('fullName', user.fullName);
-        formData.append('userTeam', user.team);
-        formData.append('userRole', user.role || '');
-        formData.append('description', fileDescription || '');
-        formData.append('tag', fileTag || '');
-        formData.append('replaceExisting', 'true');
-        // Pass assignmentId so the server can do scoped duplicate-replace
-        formData.append('assignmentId', currentAssignment.id);
+      const firstPaths = firstBatch.map(f => {
+        const folder = targetFolder || f.folderName;
+        return folder ? `${folder}/${f.file.name}` : f.file.name;
+      });
+      const remainingPaths = remaining.map(f => {
+        const folder = targetFolder || f.folderName;
+        return folder ? `${folder}/${f.file.name}` : f.file.name;
+      });
 
-        const effectiveFolderName = targetFolder || fileObj.folderName;
-        if (effectiveFolderName) {
-          formData.append('folderName', effectiveFolderName);
-          formData.append('relativePath', `${effectiveFolderName}/${fileObj.file.name}`);
-          formData.append('isFolder', 'true');
-        } else {
-          formData.append('isFolder', 'false');
-        }
+      const fd = new FormData();
+      fd.append('userId', user.id);
+      fd.append('username', user.username);
+      fd.append('assignmentId', currentAssignment.id);
+      fd.append('tag', fileTag || '');
+      fd.append('description', fileDescription || '');
+      fd.append('relativePaths', JSON.stringify(firstPaths));
+      firstBatch.forEach(f => fd.append('files', f.file));
 
-        const isRevision = currentAssignment.submitted_files?.some(
-          f => (f.original_name === fileObj.file.name || f.filename === fileObj.file.name) &&
-            ['rejected_by_team_leader', 'rejected_by_admin'].includes(f.status)
-        ) ?? false;
-        formData.append('isRevision', String(isRevision));
+      const result = await uploadBatchWithProgress(
+        '/api/files/bulk-upload',
+        '/api/files/bulk-upload',
+        fd,
+        remaining.map(f => f.file),
+        remainingPaths,
+        'POST',
+        null,
+        (p) => setUploadProgress(p),
+        BATCH_SIZE,
+        4
+      );
 
-        const uploadData = await apiFetch(`/api/files/upload`, { 
-          method: 'POST', 
-          body: formData,
-          headers: {} // Important: Don't set Content-Type for FormData
+      if (result.success) {
+        setSuccessModal({ 
+          isOpen: true, 
+          title: 'Success', 
+          message: 'Files uploaded and submitted successfully!', 
+          type: 'success' 
         });
-        if (uploadData.success) uploadedFileIds.push(uploadData.file.id);
-        else uploadErrors.push(`${fileObj.file.name}: ${uploadData.message}`);
-      }
-
-      if (!uploadedFileIds.length) throw new Error('No files were uploaded successfully. ' + uploadErrors.join(', '));
-
-      const submissionErrors = [];
-      for (const fileId of uploadedFileIds) {
-        const submitData = await apiFetch(`/api/assignments/submit`, {
-          method: 'POST',
-          body: JSON.stringify({ assignmentId: currentAssignment.id, userId: user.id, fileId }),
-        });
-        if (!submitData.success) submissionErrors.push(`File ID ${fileId}: ${submitData.message}`);
-      }
-
-      if (!submissionErrors.length) {
-        setSuccessModal({ isOpen: true, title: 'Success', message: `${uploadedFileIds.length} file(s) uploaded and submitted successfully!`, type: 'success' });
-      } else if (submissionErrors.length < uploadedFileIds.length) {
-        setSuccessModal({ isOpen: true, title: 'Partially Submitted', message: `${uploadedFileIds.length - submissionErrors.length} of ${uploadedFileIds.length} file(s) submitted.\n\nFailed:\n${submissionErrors.join('\n')}`, type: 'error' });
+        setShowSubmitModal(false);
+        resetSubmitModal();
+        fetchAssignments();
       } else {
-        throw new Error('Failed to submit files: ' + submissionErrors.join(', '));
+        throw new Error(result.message || 'Upload failed');
       }
-
-      setShowSubmitModal(false);
-      resetSubmitModal();
-      fetchAssignments();
     } catch (err) {
+      console.error('Upload error:', err);
       showError(err.message || 'Failed to upload files');
     } finally {
       setIsUploading(false);
+      setUploadProgress(0);
     }
-  }, [uploadedFiles, currentAssignment, user, fileDescription, fileTag, targetFolder, fetchAssignments, resetSubmitModal, showError]);
+  }, [uploadedFiles, currentAssignment, user, fileTag, fileDescription, targetFolder, fetchAssignments, resetSubmitModal, showError]);
 
   // ─── Utility ───────────────────────────────────────────────────────────────
   const formatRelativeTime = useCallback((dateString) => {
@@ -773,12 +812,13 @@ const TasksTab = memo(({
     openFileDetails({ id: fid, assignment_title: assignmentTitle });
   }, [assignments, openFileDetails]);
 
-  const openFolderInExplorer = useCallback(async (fileId) => {
+  const openFolderInExplorer = useCallback(async (fileId, isAttachment = true) => {
     if (!window.electron?.openFolderInExplorer) return;
-    try {
-      const data = await apiFetch(`/api/files/${fileId}/path`);
-      if (data.success && data.filePath) await window.electron.openFolderInExplorer(data.filePath);
-    } catch (e) { console.error('Open folder path error:', e); }
+    
+    // Instead of showing SuccessModal directly, show confirmation modal
+    setFileToOpen({ id: fileId, isAttachment, folderName: 'Folder Path' });
+    setOpenModalType('folder');
+    setShowOpenFileModal(true);
   }, []);
 
   // ─── Sorted + Filtered assignments ────────────────────────────────────────
@@ -840,14 +880,14 @@ const TasksTab = memo(({
     );
   };
 
-  const renderFileCard = (file, assignmentId, indented = false, assignmentTitle = null) => {
+  const renderFileCard = (file, assignmentId, indented = false, assignmentTitle = null, isAttachment = false) => {
     const canDelete = file.status !== 'final_approved';
     const fileWithTitle = assignmentTitle ? { ...file, assignment_title: assignmentTitle } : file;
     return (
       <div
         key={file.id}
         className="submitted-file-card"
-        onClick={() => confirmOpenFile(file)}
+        onClick={() => confirmOpenFile({ ...file, isAttachment })}
         style={{ cursor: 'pointer', marginBottom: indented ? '4px' : undefined }}
       >
         <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
@@ -871,6 +911,7 @@ const TasksTab = memo(({
           <div style={{ display: 'flex', alignItems: 'center', gap: '2px', flexShrink: 0 }} onClick={e => e.stopPropagation()}>
             <FileMoreMenuInline
               onViewDetails={() => openFileDetails(fileWithTitle)}
+              onOpenPath={() => openFolderInExplorer(file.id, false)}
               onDelete={canDelete ? () => confirmDeleteFile(assignmentId, file.id, file.original_name || file.filename) : undefined}
             />
           </div>
@@ -1052,7 +1093,13 @@ const TasksTab = memo(({
                           <div key={folderName} style={{ marginBottom: '8px' }}>
                             <div
                               className="submitted-file-card"
-                              onClick={() => setExpandedFolders(prev => ({ ...prev, [key]: !prev[key] }))}
+                              onClick={() => {
+                                const newState = !expandedFolders[key];
+                                setExpandedFolders(prev => ({ ...prev, [key]: newState }));
+                                if (newState && folderFiles) {
+                                  prefetchFolderFiles(folderFiles, 'attachment');
+                                }
+                              }}
                               style={{ cursor: 'pointer', backgroundColor: isExpanded ? '#BFDBFE' : '#DBEAFE' }}
                             >
                               <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -1076,7 +1123,7 @@ const TasksTab = memo(({
                             {isExpanded && (
                               <div style={{ marginLeft: '8px', paddingLeft: '8px', marginTop: '4px' }}>
                                 {visibleFolderFiles.map(file => (
-                                  <div key={file.id} onClick={() => confirmOpenFile(file)} className="submitted-file-card" style={{ cursor: 'pointer', marginBottom: '4px' }}>
+                                  <div key={file.id} onClick={() => confirmOpenFile({ ...file, isAttachment: true })} className="submitted-file-card" style={{ cursor: 'pointer', marginBottom: '4px' }}>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                                       <FileIcon fileType={file.original_name.split('.').pop()} size="small" />
                                       <div style={{ flex: 1, minWidth: 0 }}>
@@ -1111,7 +1158,7 @@ const TasksTab = memo(({
                         );
                       })}
                       {visAttFiles.map(attachment => (
-                        <div key={attachment.id} onClick={() => confirmOpenFile(attachment)} className="submitted-file-card" style={{ cursor: 'pointer', marginBottom: '8px' }}>
+                        <div key={attachment.id} onClick={() => confirmOpenFile({ ...attachment, isAttachment: true })} className="submitted-file-card" style={{ cursor: 'pointer', marginBottom: '8px' }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                             <FileIcon fileType={attachment.original_name.split('.').pop()} size="small" />
                             <div style={{ flex: 1, minWidth: 0 }}>
@@ -1185,7 +1232,13 @@ const TasksTab = memo(({
                           <div key={folderName} style={{ marginBottom: '8px' }}>
                             <div
                               className="submitted-file-card"
-                              onClick={() => setExpandedFolders(prev => ({ ...prev, [key]: !prev[key] }))}
+                              onClick={() => {
+                                const newState = !expandedFolders[key];
+                                setExpandedFolders(prev => ({ ...prev, [key]: newState }));
+                                if (newState && folderFiles) {
+                                  prefetchFolderFiles(folderFiles, 'file');
+                                }
+                              }}
                               style={{ cursor: 'pointer', backgroundColor: isExpanded ? '#BFDBFE' : '#DBEAFE' }}
                             >
                               <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -1204,6 +1257,7 @@ const TasksTab = memo(({
                       const firstFile = folderFiles[0];
                       if (firstFile) openFileDetails(firstFile);
                     }}
+                    onOpenPath={() => openFolderInExplorer(folderFiles[0]?.id, false)}
                     onDelete={() => {
                       setFileToDelete({ assignmentId: assignment.id, fileId: null, fileName: folderName, isFolderDelete: true, folderFiles });
                       setShowDeleteModal(true);
@@ -1379,12 +1433,6 @@ const TasksTab = memo(({
                     setAssignments(prev => prev.map(a =>
                       a.id !== assignmentId ? a : { ...a, submitted_files: a.submitted_files.filter(f => !folderFileIds.has(f.id)) }
                     ));
-                    for (const file of folderFiles) {
-                      try {
-                        await apiFetch(`/api/assignments/${assignmentId}/files/${file.id}`, { method: 'DELETE', body: JSON.stringify({ userId: user.id }) });
-                        await apiFetch(`/api/files/${file.id}`, { method: 'DELETE', body: JSON.stringify({ adminId: user.id, adminUsername: user.username, adminRole: user.role, team: user.team }) });
-                      } catch (e) { console.error('Error deleting folder file:', e); }
-                    }
                     try {
                       await apiFetch(`/api/files/folder/delete`, {
                         method: 'POST',
@@ -1412,6 +1460,15 @@ const TasksTab = memo(({
         onClose={() => { setShowOpenFileModal(false); setFileToOpen(null); }}
         onConfirm={handleOpenFile}
         file={fileToOpen}
+        type={openModalType}
+      />
+
+      <SuccessModal
+        isOpen={successModal.isOpen}
+        onClose={() => setSuccessModal({ ...successModal, isOpen: false })}
+        title={successModal.title}
+        message={successModal.message}
+        type={successModal.type}
       />
 
       {/* File Open Toast */}
@@ -1619,20 +1676,33 @@ const TasksTab = memo(({
               </div>
             </div>
 
-            <div className="tasks-modal-footer" style={{ borderTop: '1px solid #e5e7eb', paddingTop: '16px', display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
-              <button
-                onClick={() => { setShowSubmitModal(false); resetSubmitModal(); }}
-                style={{ padding: '10px 20px', borderRadius: '8px', border: '1px solid #d1d5db', backgroundColor: '#fff', color: '#374151', fontSize: '14px', fontWeight: '500', cursor: 'pointer' }}
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleFileUpload}
-                disabled={!uploadedFiles.length || isUploading}
-                style={{ padding: '10px 20px', borderRadius: '8px', border: 'none', backgroundColor: !uploadedFiles.length || isUploading ? '#d1d5db' : '#4f46e5', color: '#fff', fontSize: '14px', fontWeight: '500', cursor: !uploadedFiles.length || isUploading ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}
-              >
-                {isUploading ? '⏳ Uploading...' : `✓ Upload ${uploadedFiles.length > 0 ? `${uploadedFiles.length} ` : ''}File${uploadedFiles.length !== 1 ? 's' : ''} & Submit`}
-              </button>
+            <div className="tasks-modal-footer" style={{ borderTop: '1px solid #e5e7eb', paddingTop: '16px', display: 'flex', gap: '12px', justifyContent: 'flex-end', flexDirection: 'column' }}>
+              {isUploading && (
+                <div style={{ width: '100%', marginBottom: '12px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
+                    <span style={{ fontSize: '13px', fontWeight: '600', color: '#4f46e5' }}>{uploadProgress < 100 ? 'Uploading files...' : 'Finalizing...'}</span>
+                    <span style={{ fontSize: '13px', fontWeight: '600', color: '#4f46e5' }}>{uploadProgress}%</span>
+                  </div>
+                  <div style={{ width: '100%', height: '8px', backgroundColor: '#e5e7eb', borderRadius: '4px', overflow: 'hidden' }}>
+                    <div style={{ width: `${uploadProgress}%`, height: '100%', backgroundColor: '#4f46e5', transition: 'width 0.3s ease' }} />
+                  </div>
+                </div>
+              )}
+              <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
+                <button
+                  onClick={() => { setShowSubmitModal(false); resetSubmitModal(); }}
+                  style={{ padding: '10px 20px', borderRadius: '8px', border: '1px solid #d1d5db', backgroundColor: '#fff', color: '#374151', fontSize: '14px', fontWeight: '500', cursor: 'pointer' }}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleFileUpload}
+                  disabled={!uploadedFiles.length || isUploading}
+                  style={{ padding: '10px 20px', borderRadius: '8px', border: 'none', backgroundColor: !uploadedFiles.length || isUploading ? '#d1d5db' : '#4f46e5', color: '#fff', fontSize: '14px', fontWeight: '500', cursor: !uploadedFiles.length || isUploading ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}
+                >
+                  {isUploading ? '⏳ Uploading...' : `✓ Upload ${uploadedFiles.length > 0 ? `${uploadedFiles.length} ` : ''}File${uploadedFiles.length !== 1 ? 's' : ''} & Submit`}
+                </button>
+              </div>
             </div>
           </div>
         </div>

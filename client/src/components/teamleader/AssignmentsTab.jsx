@@ -201,11 +201,15 @@ const AssignmentsTab = ({
   // Warm up the server's path cache when a folder is expanded
   const prefetchFolderFiles = (files, type = 'file') => {
     if (!files || files.length === 0) return
-    files.forEach(file => {
-      // Fire and forget - just to trigger server-side caching
-      apiFetch(`/api/files/${file.id}/path?type=${type}`)
-        .catch(() => {}) // Ignore prefetch errors
-    });
+    
+    // Use bulk prefetch to resolve all paths in one parallel request
+    const fileIds = files.map(f => f.id).filter(Boolean);
+    if (fileIds.length === 0) return;
+
+    apiFetch('/api/files/bulk-path', {
+      method: 'POST',
+      body: JSON.stringify({ fileIds, type })
+    }).catch(() => {}); // Ignore prefetch errors
   }
 
   // openedFileIds is scoped per-assignment: key = `${assignmentId}:${fileId}`

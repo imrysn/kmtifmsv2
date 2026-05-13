@@ -309,8 +309,8 @@ export const uploadBatchWithProgress = async (
   method = 'POST',
   signal,
   onProgress,
-  batchSize = 10,
-  concurrentBatches = 3
+  batchSize = 50,
+  concurrentBatches = 4
 ) => {
   const { token } = useStore.getState();
 
@@ -369,7 +369,7 @@ export const uploadBatchWithProgress = async (
   const assignmentId = metaResult.assignmentId;
 
   // ── 2. Split remaining files into batches and upload in parallel ─────────
-  if (remainingFiles.length > 0 && assignmentId) {
+  if (remainingFiles.length > 0 && chunksUrl) {
     const batches = [];
     for (let i = 0; i < remainingFiles.length; i += batchSize) {
       batches.push({
@@ -383,17 +383,31 @@ export const uploadBatchWithProgress = async (
     for (let i = 0; i < batches.length; i += concurrentBatches) {
       if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
       const group = batches.slice(i, i + concurrentBatches);
-      await Promise.all(group.map(async (batch) => {
-        // Each chunk needs its own nonce
-        const nonceData = await apiFetch('/api/assignments/upload-nonce', { method: 'POST', signal });
+      
+      // Request nonces in parallel for the whole group
+      const nonces = await Promise.all(group.map(() => 
+        apiFetch('/api/assignments/upload-nonce', { method: 'POST', signal })
+      ));
+
+      await Promise.all(group.map(async (batch, idx) => {
+        const nonceData = nonces[idx];
         if (!nonceData.success) throw new Error('Failed to get upload nonce for chunk');
 
         const fd = new FormData();
-        fd.append('assignmentId', assignmentId);
+        // If we have an assignmentId, pass it; otherwise don't (generic bulk upload)
+        if (assignmentId) fd.append('assignmentId', assignmentId);
         fd.append('uploadNonce', nonceData.nonce);
         fd.append('hasAttachments', 'true');
         fd.append('relativePaths', JSON.stringify(batch.paths));
         batch.files.forEach(f => fd.append('attachments', f));
+
+        // Note: For generic bulk upload, chunksUrl might expect 'files' instead of 'attachments'
+        // but since we are refactoring, we'll make our bulk-upload endpoint handle 'attachments' too or rename here.
+        // We'll use 'files' for the generic bulk upload.
+        if (!assignmentId && !chunksUrl.includes('assignments')) {
+          fd.delete('attachments');
+          batch.files.forEach(f => fd.append('files', f));
+        }
 
         await xhrUpload(chunksUrl, fd, 'POST', batch.id);
       }));

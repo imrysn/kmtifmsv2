@@ -50,6 +50,44 @@ class FileController {
     });
 
     /**
+     * Upload multiple files (bulk)
+     */
+    bulkUpload = asyncHandler(async (req, res) => {
+        const rawFiles = req.files || [];
+        if (rawFiles.length === 0) throw new ValidationError('No files uploaded');
+
+        const { assignmentId, tag, description } = req.body;
+        let relativePaths = [];
+        try { relativePaths = JSON.parse(req.body.relativePaths || '[]'); } catch (_) {}
+
+        const filesData = rawFiles.map((file, i) => {
+            const relPath = relativePaths[i] || file.originalname;
+            return {
+                original_name: file.originalname,
+                filename: file.filename,
+                file_path: file.path,
+                file_size: file.size,
+                file_type: file.mimetype,
+                mime_type: file.mimetype,
+                tag,
+                description,
+                folder_name: relPath.includes('/') ? relPath.split('/')[0] : null,
+                relative_path: relPath,
+                is_folder: relPath.includes('/')
+            };
+        });
+
+        const results = await fileService.bulkUpload(filesData, req.user, assignmentId);
+        invalidateCache();
+
+        res.status(201).json({
+            success: true,
+            message: `Bulk upload processed ${results.filter(r => r.success).length} files`,
+            results
+        });
+    });
+
+    /**
      * Approve file by team leader
      */
     approveByTeamLeader = asyncHandler(async (req, res) => {
@@ -312,6 +350,17 @@ class FileController {
             filePath: fileInfo.path,
             fileName: fileInfo.originalName 
         });
+    });
+
+    /**
+     * Get multiple physical file paths (for bulk prefetching)
+     * POST /api/files/bulk-path
+     */
+    getBulkFilePaths = asyncHandler(async (req, res) => {
+        const { fileIds, type } = req.body;
+        if (!fileIds || !Array.isArray(fileIds)) throw new ValidationError('fileIds array is required');
+        const results = await fileService.resolveBulkPhysicalPaths(fileIds, type);
+        res.json({ success: true, results });
     });
 
     /**

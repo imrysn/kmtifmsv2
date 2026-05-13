@@ -11,7 +11,31 @@ const { uploadsDir } = require('../config/middleware');
 const { safeDeleteFile, streamCopy } = require('../utils/fileUtils');
 
 // In-memory cache to speed up physical path resolution (prevents multiple slow NAS scans)
-const physicalPathCache = new Map();
+const physicalPathCache = new Map(); // key -> {path, originalName, mimeType, timestamp}
+const CACHE_TTL_MS = 3600000; // 1 hour trust duration for NAS paths (reduces NAS traffic)
+
+/**
+ * Helper: true if path exists on disk
+ */
+const diskExists = async (p) => { 
+    if (!p) return false;
+    try { await fs.access(p); return true; } catch (_) { return false; } 
+};
+
+/**
+ * Helper: find first existing path from a list in parallel
+ */
+const findFirstExisting = async (paths) => {
+    const candidates = paths.filter(Boolean);
+    if (candidates.length === 0) return null;
+    
+    // Check all candidates simultaneously to avoid sequential NAS latency
+    const results = await Promise.all(candidates.map(async (p) => {
+        if (await diskExists(p)) return p;
+        return null;
+    }));
+    return results.find(r => r !== null);
+};
 
 /**
  * Fix filename encoding issues (latin1 to utf8)
@@ -77,9 +101,9 @@ async function uploadFile(fileData, user) {
             ? path.join(uploadsDir, fileData.file_path.substring('/uploads/'.length))
             : fileData.file_path;
 
-        const taskPrefix = (assignmentId && fileData.folder_name)
-            ? `task_${assignmentId}`
-            : null;
+        // Group individual files by task, but let folders be at the root of the user directory 
+        // so they maintain their original names as requested by the user.
+        const taskPrefix = null; // No task_N subfolders as requested
 
         const movedPath = await moveToUserFolder(
             tempPath,
@@ -117,6 +141,93 @@ async function uploadFile(fileData, user) {
     const file = await fileRepository.findById(fileId);
     logInfo('File uploaded successfully', { fileId, filename: fileData.original_name });
     return file;
+}
+
+/**
+ * Bulk upload multiple files and link them to an assignment
+ */
+async function bulkUpload(filesData, user, assignmentId = null) {
+    const { moveToUserFolder } = require('../utils/fileUtils');
+    const results = [];
+    const CONCURRENCY = 25;
+
+    for (let i = 0; i < filesData.length; i += CONCURRENCY) {
+        const batch = filesData.slice(i, i + CONCURRENCY);
+        const batchResults = await Promise.all(batch.map(async (fileData) => {
+            try {
+                const originalName = fixFilename(fileData.original_name);
+                
+                // 1. Check for duplicates (and replace if in task context)
+                const existing = await fileRepository.findByNameAndUser(
+                    originalName,
+                    user.id,
+                    fileData.folder_name,
+                    assignmentId
+                );
+
+                if (existing && assignmentId) {
+                    const oldPhysical = existing.file_path.startsWith('/uploads/')
+                        ? path.join(uploadsDir, existing.file_path.substring('/uploads/'.length))
+                        : existing.file_path;
+                    await safeDeleteFile(oldPhysical);
+                    await query('DELETE FROM assignment_submissions WHERE file_id = ? AND assignment_id = ?', [existing.id, assignmentId]);
+                    await fileRepository.deleteById(existing.id);
+                }
+
+                // 2. Move to permanent location
+                const tempPath = fileData.file_path.startsWith('/uploads/')
+                    ? path.join(uploadsDir, fileData.file_path.substring('/uploads/'.length))
+                    : fileData.file_path;
+
+                const taskPrefix = null; // Removed task-prefixed subfolders as per user request
+                const movedPath = await moveToUserFolder(
+                    tempPath, user.username, originalName,
+                    fileData.folder_name || null, fileData.relative_path || null,
+                    taskPrefix
+                );
+
+                const relativeToUploads = movedPath.startsWith(uploadsDir)
+                    ? movedPath.substring(uploadsDir.length).replace(/\\/g, '/')
+                    : movedPath;
+                const finalFilePath = `/uploads${relativeToUploads.startsWith('/') ? '' : '/'}${relativeToUploads}`;
+
+                // 3. Create DB record
+                const dbData = {
+                    ...fileData,
+                    original_name: originalName,
+                    file_path: finalFilePath,
+                    user_id: user.id,
+                    username: user.username,
+                    user_team: user.team,
+                    status: 'uploaded',
+                    current_stage: 'pending_team_leader'
+                };
+
+                const fileId = await fileRepository.create(dbData);
+
+                // 4. Link to assignment if provided
+                if (assignmentId) {
+                    await query(
+                        'INSERT INTO assignment_submissions (assignment_id, user_id, file_id, submitted_at) VALUES (?, ?, ?, NOW())',
+                        [assignmentId, user.id, fileId]
+                    );
+                    await query(
+                        'UPDATE assignment_members SET file_id = ?, submitted_at = NOW(), status = "submitted" WHERE assignment_id = ? AND user_id = ?',
+                        [fileId, assignmentId, user.id]
+                    );
+                }
+
+                return { success: true, fileId, originalName };
+            } catch (err) {
+                logError(err, { context: 'bulkUpload-item', filename: fileData.original_name });
+                return { success: false, error: err.message, filename: fileData.original_name };
+            }
+        }));
+        results.push(...batchResults);
+    }
+
+    logActivity(db, user.id, user.username, user.role, user.team, `Bulk uploaded ${results.filter(r => r.success).length} files`);
+    return results;
 }
 
 /**
@@ -562,7 +673,8 @@ async function deleteFolder(folderName, fileIds, user) {
     dirsToDelete.add(path.join(uploadsDir, user.username, folderName));
 
     if (fileIds && fileIds.length > 0) {
-        for (const fileId of fileIds) {
+        // Resolve and delete physical files in parallel
+        await Promise.all(fileIds.map(async (fileId) => {
             const file = await fileRepository.findById(fileId);
             if (file) {
                 const physicalPath = await resolvePhysicalPath(fileId);
@@ -573,7 +685,7 @@ async function deleteFolder(folderName, fileIds, user) {
                     dirsToDelete.add(path.dirname(parentDir));
                 }
             }
-        }
+        }));
         await fileRepository.deleteBatch(fileIds);
     }
 
@@ -645,19 +757,18 @@ async function zipFolder(fileIds, folderName) {
  */
 async function resolvePhysicalPath(fileId, requestedType = null) {
     const cacheKey = `${requestedType || 'auto'}_${fileId}`;
-    if (physicalPathCache.has(cacheKey)) {
-        // Double check the path still exists (fast check)
-        const cached = physicalPathCache.get(cacheKey);
-        try {
-            await fs.access(cached.path);
-            return cached;
-        } catch (e) {
-            physicalPathCache.delete(cacheKey);
-        }
+    
+    // ── Trust Cache ──────────────────────────────────────────────────────────
+    const cached = physicalPathCache.get(cacheKey);
+    if (cached && (Date.now() - (cached.timestamp || 0) < CACHE_TTL_MS)) {
+        return cached;
     }
+
     const { networkDataPath } = require('../config/database');
     const { uploadsDir } = require('../config/middleware');
-    const teamleaderDir = path.join(uploadsDir, 'teamleader');
+    
+    // Correct teamleader base directory is a peer to the 'data' folder on the NAS
+    const teamleaderDir = path.join(path.dirname(networkDataPath), 'teamleader');
     
     logInfo('Resolving path for file', { fileId, requestedType });
 
@@ -673,7 +784,7 @@ async function resolvePhysicalPath(fileId, requestedType = null) {
     
     // Helper to return and cache the result
     const returnAndCache = (p) => {
-        const res = { path: p, originalName: file.original_name, mimeType: file.file_type };
+        const res = { path: p, originalName: file.original_name, mimeType: file.file_type, timestamp: Date.now() };
         physicalPathCache.set(cacheKey, res);
         return res;
     };
@@ -691,21 +802,18 @@ async function resolvePhysicalPath(fileId, requestedType = null) {
     // ── Priority 1: public_network_url set after admin approval ──────────────
     if (file.public_network_url && !file.public_network_url.startsWith('http')) {
         if (await diskExists(file.public_network_url)) return returnAndCache(file.public_network_url);
-        logInfo('Priority 1 failed (disk)', { path: file.public_network_url });
     }
 
     // ── Priority 2: absolute Windows/UNC path — skip stale temp paths ────────
     if (file.file_path && !isTempPath(file.file_path) &&
         (file.file_path.startsWith('\\\\') || /^[A-Za-z]:[\\/]/.test(file.file_path))) {
         if (await diskExists(file.file_path)) return returnAndCache(file.file_path);
-        logInfo('Priority 2 failed (disk)', { path: file.file_path });
     }
 
     // ── Priority 3: /uploads/-relative path — skip stale temp paths ──────────
     if (file.file_path && file.file_path.startsWith('/uploads/') && !isTempPath(file.file_path)) {
         const candidate = path.join(uploadsDir, file.file_path.replace(/^\/uploads\//, ''));
         if (await diskExists(candidate)) return returnAndCache(candidate);
-        logInfo('Priority 3 failed (disk)', { path: candidate });
     }
 
     // ── Priority 4: reconstruct teamleader NAS path for attachments ───────────
@@ -714,69 +822,51 @@ async function resolvePhysicalPath(fileId, requestedType = null) {
         const aid = file.assignment_id;
         const taskDir = aid ? path.join(teamleaderDir, u, `task_${aid}`) : null;
         const userDir = path.join(teamleaderDir, u);
+        const rel = file.relative_path ? file.relative_path.replace(/\/+/g, path.sep) : null;
 
-        logInfo('Reconstructing attachment path', { u, taskDir, originalName: file.original_name });
+        const candidates = [
+            rel ? path.join(userDir, rel) : null, // NEW: Root user folder (flat structure)
+            rel && taskDir ? path.join(taskDir, rel) : null, // OLD: Legacy task_N structure
+            file.folder_name && file.original_name ? path.join(userDir, file.folder_name, file.original_name) : null,
+            taskDir && file.folder_name && file.original_name ? path.join(taskDir, file.folder_name, file.original_name) : null,
+            file.original_name ? path.join(userDir, file.original_name) : null,
+            taskDir && file.original_name ? path.join(taskDir, file.original_name) : null,
+            // Fallback to legacy location if needed
+            rel ? path.join(uploadsDir, 'teamleader', u, rel) : null
+        ];
 
-        if (file.relative_path) {
-            const rel = file.relative_path.replace(/\/+/g, path.sep);
-            if (taskDir) {
-                const c = path.join(taskDir, rel);
-                if (await diskExists(c)) return returnAndCache(c);
-            }
-            const c = path.join(userDir, rel);
-            if (await diskExists(c)) return returnAndCache(c);
-        }
-
-        if (file.folder_name && file.original_name) {
-            if (taskDir) {
-                const c = path.join(taskDir, file.folder_name, file.original_name);
-                if (await diskExists(c)) return returnAndCache(c);
-            }
-            const c = path.join(userDir, file.folder_name, file.original_name);
-            if (await diskExists(c)) return returnAndCache(c);
-        }
-
-        if (file.original_name) {
-            if (taskDir) {
-                const c = path.join(taskDir, file.original_name);
-                if (await diskExists(c)) return returnAndCache(c);
-            }
-            const c = path.join(userDir, file.original_name);
-            if (await diskExists(c)) return returnAndCache(c);
-        }
+        const winner = await findFirstExisting(candidates);
+        if (winner) return returnAndCache(winner);
     }
 
     // ── Priority 5: reconstruct uploads NAS path for regular files ───────────
     if (!isAttachment && file.username) {
         const u = file.username;
         const userDir = path.join(uploadsDir, u);
+        const rel = file.relative_path ? file.relative_path.replace(/\/+/g, path.sep) : null;
 
-        logInfo('Reconstructing regular file path', { u, userDir, originalName: file.original_name });
+        const candidates = [
+            // Try teamleader directory first (matching Image 2)
+            rel ? path.join(teamleaderDir, u, rel) : null,
+            file.original_name ? path.join(teamleaderDir, u, file.original_name) : null,
+            
+            // Try uploads directory (matching Image 1)
+            rel ? path.join(userDir, rel) : null,
+            file.file_path ? path.join(userDir, path.basename(file.file_path)) : null,
+            file.original_name ? path.join(userDir, file.original_name) : null
+        ];
 
-        if (file.relative_path) {
-            const rel = file.relative_path.replace(/\/+/g, path.sep);
-            const c = path.join(userDir, rel);
-            if (await diskExists(c)) return returnAndCache(c);
-        }
-        
-        if (file.file_path) {
-            const c = path.join(userDir, path.basename(file.file_path));
-            if (await diskExists(c)) return returnAndCache(c);
-        }
-
-        const c = path.join(userDir, file.original_name);
-        if (await diskExists(c)) return returnAndCache(c);
+        const winner = await findFirstExisting(candidates);
+        if (winner) return returnAndCache(winner);
 
         // Try scanning for task-scoped folders if the root check fails
         if (file.is_folder || file.folder_name) {
             try {
                 const items = await fs.readdir(userDir);
-                for (const item of items) {
-                    if (item.startsWith('task_')) {
-                        const candidate = path.join(userDir, item, file.folder_name || file.original_name);
-                        if (await diskExists(candidate)) return returnAndCache(candidate);
-                    }
-                }
+                const taskFolders = items.filter(item => item.startsWith('task_'));
+                const scanCandidates = taskFolders.map(item => path.join(userDir, item, file.folder_name || file.original_name));
+                const scanWinner = await findFirstExisting(scanCandidates);
+                if (scanWinner) return returnAndCache(scanWinner);
             } catch (e) {
                 logWarn('Failed to scan for task-scoped fallback', { error: e.message });
             }
@@ -789,30 +879,48 @@ async function resolvePhysicalPath(fileId, requestedType = null) {
     else if (fallback && !path.isAbsolute(fallback)) fallback = path.join(uploadsDir, fallback);
     
     logWarn('Returning fallback path (last resort)', { fallback });
-    const result = { path: fallback, originalName: file.original_name, mimeType: file.file_type };
+    const result = { path: fallback, originalName: file.original_name, mimeType: file.file_type, timestamp: Date.now() };
     physicalPathCache.set(cacheKey, result);
     return result;
 }
 
+/**
+ * Resolve multiple physical paths in parallel
+ */
+async function resolveBulkPhysicalPaths(fileIds, requestedType = 'file') {
+    return await Promise.all(fileIds.map(async (id) => {
+        try {
+            const info = await resolvePhysicalPath(id, requestedType);
+            return { id, success: true, ...info };
+        } catch (e) {
+            return { id, success: false, error: e.message };
+        }
+    }));
+}
 /**
  * Perform bulk actions on files (approve/reject)
  */
 async function bulkAction(fileIds, action, user, comments = '') {
     const results = { successful: [], failed: [] };
 
-    for (const fileId of fileIds) {
-        try {
-            if (action === 'approve') {
-                if (user.role === 'ADMIN') await approveByAdmin(fileId, user, comments);
-                else await approveByTeamLeader(fileId, user, comments);
-            } else if (action === 'reject') {
-                if (user.role === 'ADMIN') await rejectByAdmin(fileId, user, comments);
-                else await rejectByTeamLeader(fileId, user, comments);
+    // Process actions in parallel batches
+    const BATCH_SIZE = 10;
+    for (let i = 0; i < fileIds.length; i += BATCH_SIZE) {
+        const batch = fileIds.slice(i, i + BATCH_SIZE);
+        await Promise.all(batch.map(async (fileId) => {
+            try {
+                if (action === 'approve') {
+                    if (user.role === 'ADMIN') await approveByAdmin(fileId, user, comments);
+                    else await approveByTeamLeader(fileId, user, comments);
+                } else if (action === 'reject') {
+                    if (user.role === 'ADMIN') await rejectByAdmin(fileId, user, comments);
+                    else await rejectByTeamLeader(fileId, user, comments);
+                }
+                results.successful.push(fileId);
+            } catch (error) {
+                results.failed.push({ fileId, error: error.message });
             }
-            results.successful.push(fileId);
-        } catch (error) {
-            results.failed.push({ fileId, error: error.message });
-        }
+        }));
     }
 
     return results;
@@ -1091,6 +1199,7 @@ async function getViewers(fileId) {
 
 module.exports = {
     uploadFile,
+    bulkUpload,
     getFileById,
     getUserFiles,
     getUserFilesPaginated,

@@ -38,7 +38,7 @@ const ReviewModal = ({
   const [showOpenConfirmation, setShowOpenConfirmation] = useState(false)
 
   const handleOpenFileClick = () => {
-    setShowOpenConfirmation(true)
+    executeOpenFile()
   }
 
   const executeOpenFile = async () => {
@@ -300,14 +300,7 @@ const ReviewModal = ({
         </p>
       </ConfirmationModal>
 
-      {/* File Open Modal */}
-      <FileOpenModal
-        isOpen={showOpenConfirmation}
-        onClose={() => setShowOpenConfirmation(false)}
-        onConfirm={executeOpenFile}
-        file={selectedFile}
-        isLoading={isOpeningFile}
-      />
+
     </div>
   )
 }

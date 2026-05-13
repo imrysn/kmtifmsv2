@@ -3,7 +3,7 @@ import { apiFetch, API_BASE_URL } from '@/config/api';
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import SuccessModal from './SuccessModal';
-import { FileIcon } from '../shared';
+import { FileIcon, FileOpenModal } from '../shared';
 import { usePagination } from '../../hooks';
 import { Trash2 } from 'lucide-react';
 
@@ -105,6 +105,13 @@ const MyFilesTab = ({
   } = usePagination(displayItems, itemsPerPage);
 
   const openFile = useCallback(async (file) => {
+    setSuccessModal({
+      isOpen: true,
+      title: 'Success',
+      message: 'File opened successfully!',
+      type: 'success'
+    });
+
     try {
       if (window.electron?.openFileInApp) {
         const data = await apiFetch(`/api/files/${file.id}/path`);
@@ -398,48 +405,7 @@ const MyFilesTab = ({
     setExpandedFolders(prev => ({ ...prev, [folderName]: !prev[folderName] }));
   }, []);
 
-  const OpenFileModal = useMemo(() => {
-    if (!openFileModal.isOpen || !openFileModal.file) return null;
-
-    const file = openFileModal.file;
-
-    return createPortal(
-      <div className="delete-modal-overlay" onClick={handleOpenFileCancel}>
-        <div className="delete-modal-content" onClick={(e) => e.stopPropagation()}>
-          <div className="delete-modal-header">
-            <div className="delete-icon-wrapper" style={{ backgroundColor: '#3b82f6' }}>
-              <FileIcon
-                fileType={file.original_name.split('.').pop().toLowerCase()}
-                isFolder={false}
-                size="default"
-                altText="File"
-                style={{ width: '28px', height: '28px' }}
-              />
-            </div>
-            <h2>Open File</h2>
-          </div>
-          <div className="delete-modal-body">
-            <p className="delete-warning">Do you want to open this file?</p>
-            <p className="delete-filename">{file.original_name}</p>
-            <p className="delete-note" style={{ marginTop: '12px' }}>The file will open in your default application.</p>
-          </div>
-          <div className="delete-modal-footer">
-            <button className="delete-cancel-btn" onClick={handleOpenFileCancel} disabled={isOpeningFile}>
-              Cancel
-            </button>
-            <button className="delete-confirm-btn" onClick={handleOpenFileConfirm} disabled={isOpeningFile} style={{ backgroundColor: '#3b82f6', borderColor: '#3b82f6' }}>
-              {isOpeningFile ? (
-                <><span className="delete-spinner"></span>Opening...</>
-              ) : (
-                'Open File'
-              )}
-            </button>
-          </div>
-        </div>
-      </div>,
-      document.body
-    );
-  }, [openFileModal.isOpen, openFileModal.file, handleOpenFileCancel, handleOpenFileConfirm]);
+  // The custom OpenFileModal useMemo is removed in favor of the shared component
 
   const DeleteModal = useMemo(() => {
     if (!deleteModal.isOpen) return null;
@@ -915,7 +881,15 @@ const MyFilesTab = ({
         type={successModal.type}
       />
 
-      {OpenFileModal}
+      {/* Shared File Open Modal */}
+      <FileOpenModal
+        isOpen={openFileModal.isOpen}
+        onClose={handleOpenFileCancel}
+        onConfirm={handleOpenFileConfirm}
+        file={openFileModal.file}
+        isLoading={isOpeningFile}
+      />
+
       {DeleteModal}
     </div>
   );

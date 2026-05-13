@@ -22,6 +22,7 @@ const { upload } = require('../config/middleware');
 // ─── Basic File Operations ────────────────────────────────────────────────────
 
 router.post('/upload', authenticateToken, upload.single('file'), fileController.uploadFile);
+router.post('/bulk-upload', authenticateToken, upload.array('files', 10000), fileController.bulkUpload);
 router.post('/check-duplicate', authenticateToken, fileController.checkDuplicate);
 router.get('/my-files', authenticateToken, fileController.getMyFiles);
 router.get('/stats', authenticateToken, fileController.getStats);
@@ -75,6 +76,7 @@ router.delete('/:id', authenticateToken, fileController.deleteFile);
 // NOTE: Specific sub-resource routes MUST be registered before the /:id catch-all.
 
 router.get('/:id/path', authenticateToken, fileController.getFilePath);
+router.post('/bulk-path', authenticateToken, fileController.getBulkFilePaths);
 router.get('/:id/comments', authenticateToken, fileController.getComments);
 router.post('/:id/comments', authenticateToken, fileController.addComment);
 router.get('/:id/history', authenticateToken, fileController.getHistory);
