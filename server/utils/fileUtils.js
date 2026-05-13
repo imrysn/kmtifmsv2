@@ -1,5 +1,34 @@
 const fs = require('fs').promises;
+const fsSync = require('fs');
 const path = require('path');
+
+// Cache of already-created directories to avoid redundant mkdir NAS round-trips
+const _createdDirs = new Set();
+async function ensureDirCached(dirPath) {
+  if (_createdDirs.has(dirPath)) return;
+  try {
+    await fs.mkdir(dirPath, { recursive: true });
+  } catch (e) {
+    if (e.code !== 'EEXIST') throw new Error(`Failed to create folder: ${e.message}`);
+  }
+  _createdDirs.add(dirPath);
+}
+
+/**
+ * Fast streaming copy using fs.createReadStream/WriteStream with an 8 MB buffer.
+ * 8 MB chunks dramatically reduce NAS round-trips vs the old 256 KB buffer:
+ * a 100 MB file goes from ~400 NAS reads down to ~13.
+ */
+function streamCopy(src, dest) {
+  return new Promise((resolve, reject) => {
+    const rd = fsSync.createReadStream(src, { highWaterMark: 8 * 1024 * 1024 });
+    const wr = fsSync.createWriteStream(dest, { highWaterMark: 8 * 1024 * 1024 });
+    rd.on('error', reject);
+    wr.on('error', reject);
+    wr.on('finish', resolve);
+    rd.pipe(wr);
+  });
+}
 
 /**
  * Robustly decode a filename that may have been mis-decoded as Latin-1 (ISO-8859-1).
@@ -37,82 +66,51 @@ async function moveToUserFolder(tempPath, username, originalFilename, folderName
   const { uploadsDir } = require('../config/middleware');
   const { networkDataPath } = require('../config/database');
 
-  // Team leader attachments go to \\KMTI-NAS\Shared\data\teamleader\<username>\
-  // Regular uploads stay under \\KMTI-NAS\Shared\data\uploads\<username>\
   const baseDir = isTeamLeaderAttachment
     ? path.join(networkDataPath, 'teamleader')
     : uploadsDir;
 
-  // If a taskPrefix is given, place files under <base>/username/task_N/...
-  // so the same folder name uploaded to two different tasks never collides.
   const userDir = taskPrefix
     ? path.join(baseDir, username, taskPrefix)
     : path.join(baseDir, username);
 
-  // Ensure user directory exists (race-safe)
-  try {
-    await fs.mkdir(userDir, { recursive: true });
-  } catch (mkdirError) {
-    throw new Error(`Failed to create user folder: ${mkdirError.message}`);
-  }
-
-  // Decode garbled UTF-8 filenames (latin1 mis-decoded by multer)
   const decodedFilename = decodeUTF8Filename(originalFilename);
-
-  // Sanitize for Windows filesystem
   const sanitizedFilename = sanitizeFilename(decodedFilename);
 
-  // Handle folder structure preservation
+  // Resolve final destination path
   let finalPath;
   if (folderName && relativePath) {
-    // relativePath = "FolderName/subfolder/file.txt"
-    // Sanitize each path segment individually (preserves separators)
     const normalizedRelPath = relativePath.replace(/\\/g, '/');
     const segments = normalizedRelPath.split('/');
     const sanitizedSegments = segments.map((seg, i) =>
       i === segments.length - 1 ? sanitizeFilename(seg) : sanitizeFilename(seg) || seg
     );
     const sanitizedRelPath = sanitizedSegments.join(path.sep);
-
     const subfolderPath = path.dirname(path.join(userDir, sanitizedRelPath));
-    await fs.mkdir(subfolderPath, { recursive: true });
+    await ensureDirCached(subfolderPath);
     finalPath = path.join(userDir, sanitizedRelPath);
   } else if (relativePath) {
-    // Edge case: single file with relative path but no folderName
+    await ensureDirCached(userDir);
     finalPath = path.join(userDir, sanitizeFilename(relativePath));
   } else {
+    await ensureDirCached(userDir);
     finalPath = path.join(userDir, sanitizedFilename);
   }
 
-  // Verify temp file exists before moving
-  try {
-    await fs.access(tempPath);
-  } catch {
-    throw new Error(`Temp file not found: ${tempPath}`);
-  }
-
-  // Move: try fast rename first, fall back to copy+delete for cross-device (NAS)
+  // Move: try fast rename first, fall back to streaming copy for cross-device (NAS)
   try {
     await fs.rename(tempPath, finalPath);
   } catch (renameError) {
     if (renameError.code === 'EXDEV') {
-      // Cross-device (local temp → NAS): copy then delete
       try {
-        await fs.copyFile(tempPath, finalPath);
-        await fs.unlink(tempPath).catch(() => {}); // best-effort cleanup
+        await streamCopy(tempPath, finalPath);
+        await fs.unlink(tempPath).catch(() => {});
       } catch (copyError) {
         throw new Error(`Failed to copy file to NAS: ${copyError.message}`);
       }
     } else {
       throw new Error(`Failed to move file: ${renameError.message}`);
     }
-  }
-
-  // Verify file landed at destination
-  try {
-    await fs.access(finalPath);
-  } catch {
-    throw new Error(`File verification failed after move — not found at: ${finalPath}`);
   }
 
   return finalPath;
@@ -169,6 +167,7 @@ async function ensureDirectory(dirPath) {
 
 module.exports = {
   moveToUserFolder,
+  streamCopy,          // exported so fileService can reuse the large-buffer copy
   decodeUTF8Filename,
   sanitizeFilename,
   safeDeleteFile,

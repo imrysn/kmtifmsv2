@@ -21,15 +21,20 @@ const router = express.Router();
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
+const os = require('os');
 const { query, queryOne } = require('../../database/config');
 const { uploadsDir, moveToUserFolder } = require('../config/middleware');
 const { authenticateToken, authorizeRole } = require('../middleware/auth');
 const { createAdminNotification, pushToUser } = require('./notifications');
 const { decodeUTF8Filename } = require('../utils/fileUtils');
 
-// ── Multer: temp upload storage ───────────────────────────────────────────────
+// ── Multer: write to LOCAL temp disk, NOT the NAS ────────────────────────────
+// Previously multer wrote directly to uploadsDir (NAS), causing a double NAS
+// write: multer NAS write + moveToUserFolder NAS write = 2× slow.
+// Now: multer writes to local OS temp (fast), then processAttachments does a
+// single streamCopy to the NAS (local disk → NAS, no double write).
 const storage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, uploadsDir),
+  destination: (req, file, cb) => cb(null, os.tmpdir()),
   filename: (req, file, cb) => {
     const timestamp = Date.now();
     const randomString = Math.random().toString(36).substring(7);
@@ -117,7 +122,101 @@ setInterval(() => {
   }
 }, 5 * 60 * 1000);
 
+// ── Parallel attachment processor ───────────────────────────────────────────
+// Moves files to NAS concurrently in batches of CONCURRENCY size.
+// Returns array of { fixedName, finalPath, file, folderName, relPath }
+const CONCURRENCY = 8;
+async function processAttachments(uploadedFiles, relativePaths, finalTeamLeaderUsername) {
+  const results = [];
+  for (let i = 0; i < uploadedFiles.length; i += CONCURRENCY) {
+    const batch = uploadedFiles.slice(i, i + CONCURRENCY);
+    const batchResults = await Promise.all(
+      batch.map(async (file, batchIdx) => {
+        const idx = i + batchIdx;
+        const fixedName = decodeUTF8Filename(file.originalname);
+        const relPath = (relativePaths && relativePaths[idx]) || fixedName;
+        const folderName = relPath.includes('/') ? relPath.split('/')[0] : null;
+        let finalPath;
+        try {
+          finalPath = await moveToUserFolder(
+            file.path, finalTeamLeaderUsername, fixedName,
+            folderName || null, folderName ? relPath : null,
+            null, true /* isTeamLeaderAttachment */
+          );
+        } catch (e) {
+          console.error('⚠️ Failed to move attachment:', e);
+          finalPath = file.path;
+        }
+        return { fixedName, finalPath, file, folderName, relPath };
+      })
+    );
+    results.push(...batchResults);
+  }
+  return results;
+}
+
 // ── Routes ────────────────────────────────────────────────────────────────────
+
+// POST /add-attachments — receive a chunk of files for an EXISTING assignment.
+// Called by uploadBatchWithProgress for chunks 2…N (metadata was already saved
+// by the initial /create or /:id PUT request).
+router.post('/add-attachments', authenticateToken, authorizeRole(['TEAM_LEADER', 'ADMIN']), upload.array('attachments', 10000), async (req, res) => {
+  try {
+    const rawFiles = req.files || [];
+    const { assignmentId, uploadNonce, hasAttachments } = req.body;
+
+    if (!assignmentId) {
+      for (const f of rawFiles) { try { fs.unlinkSync(f.path); } catch (_) {} }
+      return res.status(400).json({ success: false, message: 'Missing assignmentId' });
+    }
+
+    // Nonce validation
+    if (!uploadNonce || !uploadNonces.has(uploadNonce)) {
+      for (const f of rawFiles) { try { fs.unlinkSync(f.path); } catch (_) {} }
+      return res.status(400).json({ success: false, message: 'Invalid or missing upload nonce' });
+    }
+    const nonceEntry = uploadNonces.get(uploadNonce);
+    if (nonceEntry.used) {
+      for (const f of rawFiles) { try { fs.unlinkSync(f.path); } catch (_) {} }
+      return res.status(400).json({ success: false, message: 'Upload nonce already used' });
+    }
+    nonceEntry.used = true;
+
+    const clientSentAttachments = hasAttachments === 'true';
+    if (!clientSentAttachments || rawFiles.length === 0) {
+      return res.json({ success: true, attachmentsCreated: 0 });
+    }
+
+    const assignment = await queryOne('SELECT * FROM assignments WHERE id = ?', [assignmentId]);
+    if (!assignment) {
+      for (const f of rawFiles) { try { fs.unlinkSync(f.path); } catch (_) {} }
+      return res.status(404).json({ success: false, message: 'Assignment not found' });
+    }
+
+    let relativePaths = [];
+    try { relativePaths = JSON.parse(req.body.relativePaths || '[]'); } catch (_) {}
+
+    const processed = await processAttachments(rawFiles, relativePaths, assignment.team_leader_username);
+    let attachmentsCreated = 0;
+    if (processed.length > 0) {
+      const placeholders = processed.map(() => '(?,?,?,?,?,?,?,?,?,?)').join(',');
+      const values = processed.flatMap(({ fixedName, finalPath, file, folderName, relPath }) => [
+        assignmentId, fixedName, path.basename(finalPath), finalPath, file.size, file.mimetype,
+        assignment.team_leader_id, assignment.team_leader_username, folderName,
+        relPath !== fixedName ? relPath : null
+      ]);
+      await query(
+        `INSERT INTO assignment_attachments (assignment_id, original_name, filename, file_path, file_size, file_type, uploaded_by_id, uploaded_by_username, folder_name, relative_path) VALUES ${placeholders}`,
+        values
+      );
+      attachmentsCreated = processed.length;
+    }
+    res.json({ success: true, attachmentsCreated });
+  } catch (error) {
+    console.error('Error in /add-attachments:', error);
+    res.status(500).json({ success: false, message: 'Failed to save attachments', error: error.message });
+  }
+});
 
 // Issue a one-time upload nonce (client calls this immediately before each upload)
 router.post('/upload-nonce', authenticateToken, (req, res) => {
@@ -568,35 +667,21 @@ router.post('/create', authenticateToken, authorizeRole(['TEAM_LEADER', 'ADMIN']
     if (uploadedFiles.length > 0) {
       try {
         let relativePaths = [];
-        try {
-          relativePaths = JSON.parse(req.body.relativePaths || '[]');
-        } catch (e) { /* ignore */ }
+        try { relativePaths = JSON.parse(req.body.relativePaths || '[]'); } catch (e) { /* ignore */ }
 
-        for (let i = 0; i < uploadedFiles.length; i++) {
-          const file = uploadedFiles[i];
-          const fixedName = decodeUTF8Filename(file.originalname);
-          let finalPath;
-          const relPath = relativePaths[i] || fixedName;
-          const folderName = relPath.includes('/') ? relPath.split('/')[0] : null;
-
-          try {
-            // Team leader attachments go to \\KMTI-NAS\Shared\data\teamleader\<username>\
-            finalPath = await moveToUserFolder(
-              file.path, finalTeamLeaderUsername, fixedName,
-              folderName || null, folderName ? relPath : null,
-              null, true /* isTeamLeaderAttachment */
-            );
-          } catch (e) {
-            console.error('⚠️ Failed to move attachment:', e); finalPath = file.path;
-          }
-
+        const processed = await processAttachments(uploadedFiles, relativePaths, finalTeamLeaderUsername);
+        if (processed.length > 0) {
+          const placeholders = processed.map(() => '(?,?,?,?,?,?,?,?,?,?)').join(',');
+          const values = processed.flatMap(({ fixedName, finalPath, file, folderName, relPath }) => [
+            assignmentId, fixedName, path.basename(finalPath), finalPath, file.size, file.mimetype,
+            finalTeamLeaderId, finalTeamLeaderUsername, folderName,
+            relPath !== fixedName ? relPath : null
+          ]);
           await query(
-            `INSERT INTO assignment_attachments (assignment_id, original_name, filename, file_path, file_size, file_type, uploaded_by_id, uploaded_by_username, folder_name, relative_path)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-            [assignmentId, fixedName, path.basename(finalPath), finalPath, file.size, file.mimetype,
-              finalTeamLeaderId, finalTeamLeaderUsername, folderName, relPath !== fixedName ? relPath : null]
+            `INSERT INTO assignment_attachments (assignment_id, original_name, filename, file_path, file_size, file_type, uploaded_by_id, uploaded_by_username, folder_name, relative_path) VALUES ${placeholders}`,
+            values
           );
-          attachmentsCreated++;
+          attachmentsCreated = processed.length;
         }
       } catch (e) {
         console.error('⚠️ Failed to save attachments:', e);
@@ -770,35 +855,21 @@ router.put('/:id', authenticateToken, authorizeRole(['TEAM_LEADER', 'ADMIN']), u
     if (uploadedFiles.length > 0) {
       try {
         let relativePaths = [];
-        try {
-          relativePaths = JSON.parse(req.body.relativePaths || '[]');
-        } catch (e) { /* ignore */ }
+        try { relativePaths = JSON.parse(req.body.relativePaths || '[]'); } catch (e) { /* ignore */ }
 
-        for (let i = 0; i < uploadedFiles.length; i++) {
-          const file = uploadedFiles[i];
-          const fixedName = decodeUTF8Filename(file.originalname);
-          let finalPath;
-          const relPath = relativePaths[i] || fixedName;
-          const folderName = relPath.includes('/') ? relPath.split('/')[0] : null;
-
-          try {
-            // Team leader attachments go to \\KMTI-NAS\Shared\data\teamleader\<username>\
-            finalPath = await moveToUserFolder(
-              file.path, finalTeamLeaderUsername, fixedName,
-              folderName || null, folderName ? relPath : null,
-              null, true /* isTeamLeaderAttachment */
-            );
-          } catch (e) {
-            finalPath = file.path;
-          }
-
+        const processed = await processAttachments(uploadedFiles, relativePaths, finalTeamLeaderUsername);
+        if (processed.length > 0) {
+          const placeholders = processed.map(() => '(?,?,?,?,?,?,?,?,?,?)').join(',');
+          const values = processed.flatMap(({ fixedName, finalPath, file, folderName, relPath }) => [
+            id, fixedName, path.basename(finalPath), finalPath, file.size, file.mimetype,
+            finalTeamLeaderId, finalTeamLeaderUsername, folderName,
+            relPath !== fixedName ? relPath : null
+          ]);
           await query(
-            `INSERT INTO assignment_attachments (assignment_id, original_name, filename, file_path, file_size, file_type, uploaded_by_id, uploaded_by_username, folder_name, relative_path)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-            [id, fixedName, path.basename(finalPath), finalPath, file.size, file.mimetype,
-              finalTeamLeaderId, finalTeamLeaderUsername, folderName, relPath !== fixedName ? relPath : null]
+            `INSERT INTO assignment_attachments (assignment_id, original_name, filename, file_path, file_size, file_type, uploaded_by_id, uploaded_by_username, folder_name, relative_path) VALUES ${placeholders}`,
+            values
           );
-          attachmentsCreated++;
+          attachmentsCreated = processed.length;
         }
       } catch (e) {
         console.error('⚠️ Failed to save attachments:', e);

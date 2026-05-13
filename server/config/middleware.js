@@ -4,6 +4,7 @@ const helmet = require('helmet');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
+const os = require('os');
 const { networkDataPath } = require('./database');
 
 // FIXED: Import async file utilities
@@ -20,16 +21,10 @@ console.log(`📁 Uploads directory configured: ${uploadsDir}`);
 // Configure multer storage with optimizations for large files
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
-    // Lazily create uploads directory at upload time (not at server startup)
-    // This avoids blocking when NAS is temporarily unreachable on startup
-    fs.mkdir(uploadsDir, { recursive: true }, (mkdirErr) => {
-      if (mkdirErr && mkdirErr.code !== 'EEXIST') {
-        console.error('❌ Cannot create uploads directory:', mkdirErr.message);
-        console.error('   Path:', uploadsDir);
-        console.error('   💡 Check network connection to NAS and folder permissions.');
-      }
-      cb(null, uploadsDir);
-    });
+    // Write to local OS temp dir first, NOT the NAS.
+    // This eliminates the double-NAS-write: previously multer wrote to NAS/temp,
+    // then moveToUserFolder copied NAS→NAS again. Now it's local-write + one NAS write.
+    cb(null, os.tmpdir());
   },
   filename: function (req, file, cb) {
     // Save with a simple temp name (no special characters)

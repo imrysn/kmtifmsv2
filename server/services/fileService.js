@@ -8,7 +8,7 @@ const path = require('path');
 const { exec } = require('child_process');
 const os = require('os');
 const { uploadsDir } = require('../config/middleware');
-const { safeDeleteFile } = require('../utils/fileUtils');
+const { safeDeleteFile, streamCopy } = require('../utils/fileUtils');
 
 /**
  * Fix filename encoding issues (latin1 to utf8)
@@ -913,17 +913,21 @@ async function moveFolderToNas({ folderName, username, fileIds, destinationPath,
         }
 
         if (sourceExists) {
+            // Parallel directory copy with 8 MB buffers; up to 8 files copy simultaneously.
             async function copyDir(src, dest) {
                 const entries = await fs.readdir(src, { withFileTypes: true });
-                for (const entry of entries) {
-                    const srcPath = path.join(src, entry.name);
-                    const destPath = path.join(dest, entry.name);
-                    if (entry.isDirectory()) {
-                        await fs.mkdir(destPath, { recursive: true });
-                        await copyDir(srcPath, destPath);
-                    } else {
-                        await fs.copyFile(srcPath, destPath);
-                    }
+                const BATCH = 8;
+                for (let i = 0; i < entries.length; i += BATCH) {
+                    await Promise.all(entries.slice(i, i + BATCH).map(async entry => {
+                        const srcPath = path.join(src, entry.name);
+                        const destPath = path.join(dest, entry.name);
+                        if (entry.isDirectory()) {
+                            await fs.mkdir(destPath, { recursive: true });
+                            await copyDir(srcPath, destPath);
+                        } else {
+                            await streamCopy(srcPath, destPath);
+                        }
+                    }));
                 }
             }
             await copyDir(sourceFolderPath, destFolderPath);

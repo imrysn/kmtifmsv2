@@ -77,21 +77,62 @@ async function createAssignment(data, attachments, user) {
         status: 'active'
     });
 
-    // 2. Handle attachments
+    // 2. Handle attachments — move to NAS in parallel, then batch insert
     if (attachments && attachments.length > 0) {
-        for (const file of attachments) {
-            await fileRepository.createAttachment({
-                assignment_id: assignmentId,
-                file_path: file.path,
-                original_name: fixFilename(file.originalname),
-                filename: file.filename,
-                file_size: file.size,
-                file_type: file.mimetype,
-                uploaded_by_id: user.id,
-                uploaded_by_username: user.username,
-                folder_name: data.folderName || 'Default'
+        let relativePaths = [];
+        try { relativePaths = JSON.parse(data.relativePaths || '[]'); } catch (_) {}
+
+        const { moveToUserFolder } = require('../utils/fileUtils');
+        const CONCURRENCY = 8;
+
+        // Pre-compute metadata for each file
+        const meta = attachments.map((file, i) => {
+            const relativePath = relativePaths[i] || file.originalname;
+            const pathParts = relativePath.split('/');
+            return {
+                relativePath,
+                folderName: pathParts.length > 1 ? pathParts[0] : null,
+                originalName: fixFilename(file.originalname)
+            };
+        });
+
+        // Move files from local temp → NAS in parallel batches of CONCURRENCY
+        const movedPaths = new Array(attachments.length).fill(null);
+        for (let i = 0; i < attachments.length; i += CONCURRENCY) {
+            const batch = attachments.slice(i, i + CONCURRENCY);
+            const results = await Promise.allSettled(batch.map(async (file, j) => {
+                const idx = i + j;
+                const m = meta[idx];
+                const moved = await moveToUserFolder(
+                    file.path,
+                    user.username,
+                    m.originalName,
+                    m.folderName,
+                    m.relativePath,
+                    `task_${assignmentId}`,
+                    true  // isTeamLeaderAttachment → teamleader/<user>/task_N/...
+                );
+                movedPaths[idx] = moved;
+            }));
+            results.forEach((r, j) => {
+                if (r.status === 'rejected')
+                    logError(r.reason, { context: 'createAssignment-moveFile', idx: i + j });
             });
         }
+
+        const attachmentsData = attachments.map((file, i) => ({
+            assignment_id: assignmentId,
+            file_path: movedPaths[i] || file.path,   // permanent NAS path (or local fallback)
+            original_name: meta[i].originalName,
+            filename: file.filename,
+            file_size: file.size,
+            file_type: file.mimetype,
+            uploaded_by_id: user.id,
+            uploaded_by_username: user.username,
+            folder_name: meta[i].folderName,
+            relative_path: meta[i].relativePath
+        }));
+        await fileRepository.createAttachmentBatch(attachmentsData);
     }
 
     let membersAdded = 0;
@@ -103,27 +144,23 @@ async function createAssignment(data, attachments, user) {
         if (teamMembers.length > 0) {
             const userIds = teamMembers.map(m => m.id);
             membersAdded = await assignmentRepository.createMembers(assignmentId, userIds);
-            for (const uid of userIds) {
-                await notificationService.createNotification({
-                    user_id: uid,
-                    type: 'assignment',
-                    title: 'New Assignment',
-                    message: `${user.username} assigned a new task: "${title}"`,
-                    assignment_id: assignmentId
-                });
-            }
-        }
-    } else if (finalMembers.length > 0) {
-        membersAdded = await assignmentRepository.createMembers(assignmentId, finalMembers);
-        for (const uid of finalMembers) {
-            await notificationService.createNotification({
+            await Promise.all(userIds.map(uid => notificationService.createNotification({
                 user_id: uid,
                 type: 'assignment',
                 title: 'New Assignment',
                 message: `${user.username} assigned a new task: "${title}"`,
                 assignment_id: assignmentId
-            });
+            })));
         }
+    } else if (finalMembers.length > 0) {
+        membersAdded = await assignmentRepository.createMembers(assignmentId, finalMembers);
+        await Promise.all(finalMembers.map(uid => notificationService.createNotification({
+            user_id: uid,
+            type: 'assignment',
+            title: 'New Assignment',
+            message: `${user.username} assigned a new task: "${title}"`,
+            assignment_id: assignmentId
+        })));
     }
 
     logActivity(db, user.id, user.username, user.role, team || user.team, `Created assignment: ${title}`);
@@ -145,19 +182,59 @@ async function updateAssignment(id, data, attachments, user) {
     await assignmentRepository.update(id, updates);
 
     if (attachments && attachments.length > 0) {
-        for (const file of attachments) {
-            await fileRepository.createAttachment({
-                assignment_id: id,
-                file_path: file.path,
-                original_name: fixFilename(file.originalname),
-                filename: file.filename,
-                file_size: file.size,
-                file_type: file.mimetype,
-                uploaded_by_id: user.id,
-                uploaded_by_username: user.username,
-                folder_name: data.folderName || 'Default'
+        let relativePaths = [];
+        try { relativePaths = JSON.parse(data.relativePaths || '[]'); } catch (_) {}
+
+        const { moveToUserFolder } = require('../utils/fileUtils');
+        const CONCURRENCY = 8;
+
+        const meta = attachments.map((file, i) => {
+            const relativePath = relativePaths[i] || file.originalname;
+            const pathParts = relativePath.split('/');
+            return {
+                relativePath,
+                folderName: pathParts.length > 1 ? pathParts[0] : null,
+                originalName: fixFilename(file.originalname)
+            };
+        });
+
+        // Move files from local temp → NAS in parallel batches
+        const movedPaths = new Array(attachments.length).fill(null);
+        for (let i = 0; i < attachments.length; i += CONCURRENCY) {
+            const batch = attachments.slice(i, i + CONCURRENCY);
+            const results = await Promise.allSettled(batch.map(async (file, j) => {
+                const idx = i + j;
+                const m = meta[idx];
+                const moved = await moveToUserFolder(
+                    file.path,
+                    user.username,
+                    m.originalName,
+                    m.folderName,
+                    m.relativePath,
+                    `task_${id}`,
+                    true
+                );
+                movedPaths[idx] = moved;
+            }));
+            results.forEach((r, j) => {
+                if (r.status === 'rejected')
+                    logError(r.reason, { context: 'updateAssignment-moveFile', idx: i + j });
             });
         }
+
+        const attachmentsData = attachments.map((file, i) => ({
+            assignment_id: id,
+            file_path: movedPaths[i] || file.path,
+            original_name: meta[i].originalName,
+            filename: file.filename,
+            file_size: file.size,
+            file_type: file.mimetype,
+            uploaded_by_id: user.id,
+            uploaded_by_username: user.username,
+            folder_name: meta[i].folderName,
+            relative_path: meta[i].relativePath
+        }));
+        await fileRepository.createAttachmentBatch(attachmentsData);
     }
 
     logActivity(db, user.id, user.username, user.role, user.team, `Updated assignment: ${assignment.title}`);

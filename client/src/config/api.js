@@ -207,9 +207,208 @@ export const apiFetch = async (endpoint, options = {}) => {
   }
 };
 
+/**
+ * Upload FormData with real progress events via XMLHttpRequest.
+ * Returns a Promise that resolves with the parsed JSON response.
+ *
+ * @param {string} url - Endpoint path or full URL
+ * @param {FormData} formData - The multipart form data to send
+ * @param {object} options
+ * @param {string} [options.method='POST'] - HTTP method
+ * @param {AbortSignal} [options.signal] - AbortController signal
+ * @param {function} [options.onProgress] - Called with (percentComplete 0-100, loaded, total)
+ */
+export const uploadWithProgress = (url, formData, { method = 'POST', signal, onProgress } = {}) => {
+  return new Promise((resolve, reject) => {
+    const { token } = useStore.getState();
+    const xhr = new XMLHttpRequest();
+
+    xhr.open(method, buildUrl(url));
+
+    if (token) {
+      xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+    }
+
+    // Wire up the AbortSignal
+    if (signal) {
+      if (signal.aborted) {
+        reject(new DOMException('Aborted', 'AbortError'));
+        return;
+      }
+      signal.addEventListener('abort', () => {
+        xhr.abort();
+        reject(new DOMException('Aborted', 'AbortError'));
+      });
+    }
+
+    // Progress tracking (upload phase — bytes sent to server)
+    if (onProgress && xhr.upload) {
+      xhr.upload.onprogress = (e) => {
+        if (e.lengthComputable) {
+          onProgress(Math.round((e.loaded / e.total) * 100), e.loaded, e.total);
+        }
+      };
+    }
+
+    xhr.onload = () => {
+      if (xhr.status === 401) {
+        useStore.getState().logout();
+        reject(new Error('Authentication expired'));
+        return;
+      }
+      try {
+        const data = JSON.parse(xhr.responseText);
+        if (xhr.status >= 200 && xhr.status < 300) {
+          resolve(data);
+        } else {
+          reject(new Error(data.message || `HTTP error! status: ${xhr.status}`));
+        }
+      } catch {
+        reject(new Error(`HTTP error! status: ${xhr.status}`));
+      }
+    };
+
+    xhr.onerror = () => reject(new Error('Network error during upload'));
+    xhr.onabort = () => reject(new DOMException('Aborted', 'AbortError'));
+
+    xhr.send(formData);
+  });
+};
+
+/**
+ * Upload a large set of files in parallel batches with accurate aggregate progress.
+ *
+ * Strategy:
+ *   1. Split `files` into chunks of `batchSize` (default 10).
+ *   2. Upload `concurrentBatches` (default 3) chunks simultaneously.
+ *   3. Each XHR reports per-byte progress; totals are merged for a single
+ *      combined percentage sent to `onProgress`.
+ *
+ * The first batch also carries all the task metadata (title, members, etc.).
+ * Subsequent batches carry only `assignmentId` + `uploadNonce` + files.
+ *
+ * Returns the response from the first (metadata) batch.
+ *
+ * @param {string}   metaUrl        - Full URL for the first (create/update) request
+ * @param {string}   chunksUrl      - URL for subsequent chunk-only requests
+ * @param {FormData} metaFormData   - FormData with task fields + first-batch files already appended
+ * @param {File[]}   remainingFiles - Files NOT yet in metaFormData (chunks 2…N)
+ * @param {string[]} remainingPaths - webkitRelativePath for each remaining file
+ * @param {string}   method         - HTTP method for metaUrl ('POST' | 'PUT')
+ * @param {AbortSignal} [signal]    - AbortController signal
+ * @param {function} [onProgress]   - (pct 0-100) callback
+ * @param {number}   [batchSize=10] - Files per chunk request
+ * @param {number}   [concurrentBatches=3] - Parallel chunk uploads
+ */
+export const uploadBatchWithProgress = async (
+  metaUrl,
+  chunksUrl,
+  metaFormData,
+  remainingFiles,
+  remainingPaths,
+  method = 'POST',
+  signal,
+  onProgress,
+  batchSize = 10,
+  concurrentBatches = 3
+) => {
+  const { token } = useStore.getState();
+
+  // ── track per-request loaded bytes for accurate aggregate progress ──
+  const totalBytes = remainingFiles.reduce((s, f) => s + f.size, 0) +
+    [...(metaFormData.entries ? metaFormData.entries() : [])]
+      .filter(([, v]) => v instanceof File)
+      .reduce((s, [, f]) => s + f.size, 0);
+
+  const loadedMap = {}; // requestId → loaded bytes
+  let completedBytes = 0;
+
+  const reportProgress = () => {
+    if (!onProgress || totalBytes === 0) return;
+    const loaded = completedBytes + Object.values(loadedMap).reduce((a, b) => a + b, 0);
+    onProgress(Math.min(99, Math.round((loaded / totalBytes) * 100)));
+  };
+
+  const xhrUpload = (url, formData, reqMethod, reqId) => new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open(reqMethod, buildUrl(url));
+    if (token) xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+
+    if (signal) {
+      if (signal.aborted) { reject(new DOMException('Aborted', 'AbortError')); return; }
+      signal.addEventListener('abort', () => { xhr.abort(); reject(new DOMException('Aborted', 'AbortError')); });
+    }
+
+    if (xhr.upload && onProgress) {
+      loadedMap[reqId] = 0;
+      xhr.upload.onprogress = (e) => {
+        if (e.lengthComputable) { loadedMap[reqId] = e.loaded; reportProgress(); }
+      };
+    }
+
+    xhr.onload = () => {
+      if (xhr.status === 401) { useStore.getState().logout(); reject(new Error('Authentication expired')); return; }
+      // Move this request's bytes to completedBytes
+      completedBytes += (loadedMap[reqId] || 0);
+      delete loadedMap[reqId];
+      try {
+        const data = JSON.parse(xhr.responseText);
+        if (xhr.status >= 200 && xhr.status < 300) resolve(data);
+        else reject(new Error(data.message || `HTTP ${xhr.status}`));
+      } catch { reject(new Error(`HTTP ${xhr.status}`)); }
+    };
+    xhr.onerror = () => reject(new Error('Network error during upload'));
+    xhr.onabort = () => reject(new DOMException('Aborted', 'AbortError'));
+    xhr.send(formData);
+  });
+
+  // ── 1. Send the first (metadata) request ────────────────────────────────
+  const metaResult = await xhrUpload(metaUrl, metaFormData, method, 'meta');
+  if (!metaResult.success) throw new Error(metaResult.message || 'Failed to create/update assignment');
+
+  const assignmentId = metaResult.assignmentId;
+
+  // ── 2. Split remaining files into batches and upload in parallel ─────────
+  if (remainingFiles.length > 0 && assignmentId) {
+    const batches = [];
+    for (let i = 0; i < remainingFiles.length; i += batchSize) {
+      batches.push({
+        files: remainingFiles.slice(i, i + batchSize),
+        paths: remainingPaths.slice(i, i + batchSize),
+        id: `chunk_${i}`
+      });
+    }
+
+    // Process concurrentBatches at a time
+    for (let i = 0; i < batches.length; i += concurrentBatches) {
+      if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
+      const group = batches.slice(i, i + concurrentBatches);
+      await Promise.all(group.map(async (batch) => {
+        // Each chunk needs its own nonce
+        const nonceData = await apiFetch('/api/assignments/upload-nonce', { method: 'POST', signal });
+        if (!nonceData.success) throw new Error('Failed to get upload nonce for chunk');
+
+        const fd = new FormData();
+        fd.append('assignmentId', assignmentId);
+        fd.append('uploadNonce', nonceData.nonce);
+        fd.append('hasAttachments', 'true');
+        fd.append('relativePaths', JSON.stringify(batch.paths));
+        batch.files.forEach(f => fd.append('attachments', f));
+
+        await xhrUpload(chunksUrl, fd, 'POST', batch.id);
+      }));
+    }
+  }
+
+  if (onProgress) onProgress(100);
+  return metaResult;
+};
+
 export default {
   API_BASE_URL,
   API_ENDPOINTS,
   buildUrl,
-  apiFetch
+  apiFetch,
+  uploadWithProgress,
+  uploadBatchWithProgress
 };

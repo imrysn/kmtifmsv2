@@ -610,25 +610,64 @@ async function deleteBatch(fileIds) {
 }
 
 /**
+ * Batch insert multiple attachments in a single query
+ */
+async function createAttachmentBatch(attachmentsData) {
+    if (!attachmentsData || attachmentsData.length === 0) return [];
+
+    const placeholders = attachmentsData.map(() =>
+        '(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)'
+    ).join(', ');
+
+    const values = attachmentsData.flatMap(d => [
+        d.assignment_id,
+        d.file_path,
+        d.original_name,
+        d.filename,
+        d.file_size,
+        d.file_type,
+        d.uploaded_by_id || null,
+        d.uploaded_by_username,
+        d.folder_name || null,
+        d.relative_path || null
+    ]);
+
+    const query = `
+        INSERT INTO assignment_attachments (
+            assignment_id, file_path, original_name, filename, file_size,
+            file_type, uploaded_by_id, uploaded_by_username, folder_name, relative_path, created_at
+        ) VALUES ${placeholders}
+    `;
+
+    try {
+        const result = await db.run(query, values);
+        return result;
+    } catch (err) {
+        throw new DatabaseError('Failed to batch create assignment attachments', err);
+    }
+}
+
+/**
  * Create a new attachment for an assignment (from Team Leader)
  */
 async function createAttachment(data) {
     const {
         assignment_id, file_path, original_name, filename, file_size,
-        file_type, uploaded_by_id = null, uploaded_by_username, folder_name
+        file_type, uploaded_by_id = null, uploaded_by_username, folder_name,
+        relative_path = null
     } = data;
 
     const query = `
         INSERT INTO assignment_attachments (
             assignment_id, file_path, original_name, filename, file_size, 
-            file_type, uploaded_by_id, uploaded_by_username, folder_name, created_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+            file_type, uploaded_by_id, uploaded_by_username, folder_name, relative_path, created_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
     `;
 
     try {
         const result = await db.run(query, [
             assignment_id, file_path, original_name, filename, file_size,
-            file_type, uploaded_by_id, uploaded_by_username, folder_name
+            file_type, uploaded_by_id, uploaded_by_username, folder_name, relative_path
         ]);
         return result.insertId || result.lastID;
     } catch (err) {
@@ -694,6 +733,7 @@ module.exports = {
     findAllWithAttachments,
     findAttachmentById,
     createAttachment,
+    createAttachmentBatch,
     updateAttachmentStatus,
     getComments,
     addComment,

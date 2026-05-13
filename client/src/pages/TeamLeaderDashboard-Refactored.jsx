@@ -1,5 +1,5 @@
 import React, { useState, useEffect, Suspense, lazy } from 'react'
-import { apiFetch, API_BASE_URL } from '@/config/api'
+import { apiFetch, API_BASE_URL, uploadWithProgress, uploadBatchWithProgress } from '@/config/api'
 import useStore from '../store/useStore'
 import '../css/TeamLeaderDashboard.css'
 import SkeletonLoader from '../components/common/SkeletonLoader'
@@ -111,6 +111,7 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
   })
   const [editingAssignmentId, setEditingAssignmentId] = useState(null)
   const [modalInitialAttachments, setModalInitialAttachments] = useState([])
+  const [uploadProgress, setUploadProgress] = React.useState(null) // null = not uploading, 0-100 = percent
   const createAssignmentAbortController = React.useRef(null)
   const createAssignmentCancelled = React.useRef(false)
   const [notificationCommentContext, setNotificationCommentContext] = useState(null)
@@ -480,6 +481,18 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
         const nonceData = await apiFetch(`/api/assignments/upload-nonce`, { method: 'POST', signal: abortController.signal })
         if (!nonceData.success) throw new Error('Failed to get upload nonce')
 
+        // ── Split files into: first batch (goes with metadata) + remaining chunks ──
+        // First batch carries all task fields; subsequent batches carry only files.
+        const FIRST_BATCH_SIZE = 10  // files in the metadata request
+        const CHUNK_SIZE = 10        // files per subsequent chunk
+        const CONCURRENT_CHUNKS = 3  // parallel chunk uploads
+
+        const firstBatchFiles = attachedFiles.slice(0, FIRST_BATCH_SIZE)
+        const remainingFiles  = attachedFiles.slice(FIRST_BATCH_SIZE)
+        const allPaths = attachedFiles.map(f => f.webkitRelativePath || f.name)
+        const firstBatchPaths  = allPaths.slice(0, FIRST_BATCH_SIZE)
+        const remainingPaths   = allPaths.slice(FIRST_BATCH_SIZE)
+
         const formData = new FormData()
         formData.append('title', assignmentForm.title)
         formData.append('description', assignmentForm.description || '')
@@ -490,33 +503,35 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
         formData.append('teamLeaderId', user.id)
         formData.append('teamLeaderUsername', user.username)
         formData.append('team', assignmentForm.selectedTeam || user.team)
-        // Only flag hasAttachments=true when there are actual new files to upload
-        formData.append('hasAttachments', hasAttachments ? 'true' : 'false')
+        formData.append('hasAttachments', hasAttachments && firstBatchFiles.length > 0 ? 'true' : 'false')
         formData.append('uploadNonce', nonceData.nonce)
-        attachedFiles.forEach((file) => formData.append('attachments', file))
-        // Send relative paths so server can group files into folders
-        formData.append('relativePaths', JSON.stringify(attachedFiles.map(f => f.webkitRelativePath || f.name)))
-        // tell server which existing attachment ids to delete
+        firstBatchFiles.forEach(f => formData.append('attachments', f))
+        formData.append('relativePaths', JSON.stringify(firstBatchPaths))
         if (removedAttachmentIds && removedAttachmentIds.length > 0) {
-          formData.append('removeAttachmentIds', JSON.stringify(removedAttachmentIds));
+          formData.append('removeAttachmentIds', JSON.stringify(removedAttachmentIds))
         }
 
-        let responseData;
+        const chunksUrl = `${API_BASE_URL}/api/assignments/add-attachments`
+
+        let responseData
         try {
-          responseData = await apiFetch(url, {
+          responseData = await uploadBatchWithProgress(
+            url,
+            chunksUrl,
+            formData,
+            remainingFiles,
+            remainingPaths,
             method,
-            body: formData,
-            headers: {}, // Don't set Content-Type for FormData
-            signal: abortController.signal
-          })
+            abortController.signal,
+            (pct) => setUploadProgress(pct),
+            CHUNK_SIZE,
+            CONCURRENT_CHUNKS
+          )
         } catch (error) {
           // If server rejected due to a stale/replayed nonce
           if (error.message && error.message.toLowerCase().includes('nonce')) {
             console.warn('⚠️ Nonce rejected — falling back to JSON request (no attachments)')
-            // For new assignments, fall back to /create-json; for edits, fall back to PUT /:id with JSON
-            const fallbackUrl = editingAssignmentId
-              ? url
-              : `/api/assignments/create-json`
+            const fallbackUrl = editingAssignmentId ? url : `/api/assignments/create-json`
             const fallbackMethod = editingAssignmentId ? 'PUT' : 'POST'
             const fallbackData = await apiFetch(fallbackUrl, {
               method: fallbackMethod,
@@ -534,12 +549,11 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
               }),
               signal: abortController.signal
             })
-            return handlePostDataResult(fallbackData, removeAttachmentIds);
+            return handlePostDataResult(fallbackData, removeAttachmentIds)
           }
-          // Re-throw if it's not a nonce error
-          throw error;
+          throw error
         }
-        return handlePostDataResult(responseData, removeAttachmentIds);
+        return handlePostDataResult(responseData, removeAttachmentIds)
       } else {
         // No file changes — use JSON-only endpoints (no nonce needed)
         const jsonUrl = editingAssignmentId
@@ -573,6 +587,7 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
       setError(`Failed to ${editingAssignmentId ? 'update' : 'create'} assignment`)
     } finally {
       setIsProcessing(false)
+      setUploadProgress(null)
       createAssignmentAbortController.current = null
       // Don't reset cancelled here — let it stay true until next createAssignment call
     }
@@ -1285,6 +1300,7 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
               setAssignmentForm={setAssignmentForm}
               teamMembers={teamMembers}
               isProcessing={isProcessing}
+              uploadProgress={uploadProgress}
               createAssignment={createAssignment}
               currentUserId={user.id}
               teams={uniqueTeams} // Pass unique teams to modal
@@ -1300,6 +1316,7 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
                 }
                 setShowCreateAssignmentModal(false)
                 setIsProcessing(false)
+                setUploadProgress(null)
                 setEditingAssignmentId(null)
                 setModalInitialAttachments([])
                 setAssignmentForm({

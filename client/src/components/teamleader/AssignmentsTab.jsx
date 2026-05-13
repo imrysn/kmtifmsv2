@@ -36,6 +36,7 @@ const FolderActionDropdown = ({ assignment, folderName, folderFiles, handleDownl
   const btnRef = useRef(null)
   const menuRef = useRef(null)
   const pos = useDropdownPosition(btnRef, menuRef, isOpen)
+  const isReference = !setFolderReviewModal // reference folders have no review action
 
   useEffect(() => {
     if (!isOpen) return
@@ -68,9 +69,15 @@ const FolderActionDropdown = ({ assignment, folderName, folderFiles, handleDownl
             top: pos.top, 
             left: pos.left, 
             visibility: pos.ready ? 'visible' : 'hidden',
-            minWidth: '190px', 
+            width: 'fit-content',
+            minWidth: 'unset',
+            maxWidth: 'fit-content',
             zIndex: 99999, 
-            whiteSpace: 'nowrap',
+            whiteSpace: 'normal',
+            background: 'white',
+            border: '1px solid #e5e7eb',
+            borderRadius: '8px',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
             transformOrigin: pos.up ? 'bottom right' : 'top right',
             animation: 'dropdownFadeIn 0.15s ease-out',
             padding: '4px'
@@ -116,25 +123,27 @@ const FolderActionDropdown = ({ assignment, folderName, folderFiles, handleDownl
             </svg>
             Download Folder
           </button>
-          <button
-            className="tl-assignment-menu-item"
-            style={{ fontWeight: '600', display: 'flex', alignItems: 'center', gap: '6px' }}
-            onClick={(e) => {
-              e.stopPropagation()
-              setIsOpen(false)
-              setFolderReviewComment('')
-              setFolderReviewModal({ folderName, folderFiles })
-            }}
-          >
-            <svg width="15" height="15" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ flexShrink: 0 }}>
-              <path d="M10 2C5.58172 2 2 5.58172 2 10C2 14.4183 5.58172 18 10 18C14.4183 18 18 14.4183 18 10C18 5.58172 14.4183 2 10 2Z" fill="#16a34a" opacity="0.15"/>
-              <path d="M10 2C5.58172 2 2 5.58172 2 10C2 14.4183 5.58172 18 10 18C14.4183 18 18 14.4183 18 10C18 5.58172 14.4183 2 10 2Z" stroke="#16a34a" strokeWidth="1.5"/>
-              <path d="M6.5 10L9 12.5L13.5 7.5" stroke="#16a34a" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
-            <span style={{ color: '#16a34a' }}>Approve</span>
-            <span style={{ color: '#9ca3af' }}> / </span>
-            <span style={{ color: '#dc2626' }}>Reject Folder</span>
-          </button>
+          {!isReference && (
+            <button
+              className="tl-assignment-menu-item"
+              style={{ fontWeight: '600', display: 'flex', alignItems: 'center', gap: '6px' }}
+              onClick={(e) => {
+                e.stopPropagation()
+                setIsOpen(false)
+                setFolderReviewComment('')
+                setFolderReviewModal({ folderName, folderFiles })
+              }}
+            >
+              <svg width="15" height="15" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ flexShrink: 0 }}>
+                <path d="M10 2C5.58172 2 2 5.58172 2 10C2 14.4183 5.58172 18 10 18C14.4183 18 18 14.4183 18 10C18 5.58172 14.4183 2 10 2Z" fill="#16a34a" opacity="0.15"/>
+                <path d="M10 2C5.58172 2 2 5.58172 2 10C2 14.4183 5.58172 18 10 18C14.4183 18 18 14.4183 18 10C18 5.58172 14.4183 2 10 2Z" stroke="#16a34a" strokeWidth="1.5"/>
+                <path d="M6.5 10L9 12.5L13.5 7.5" stroke="#16a34a" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+              <span style={{ color: '#16a34a' }}>Approve</span>
+              <span style={{ color: '#9ca3af' }}> / </span>
+              <span style={{ color: '#dc2626' }}>Reject Folder</span>
+            </button>
+          )}
         </div>,
         document.body
       )}
