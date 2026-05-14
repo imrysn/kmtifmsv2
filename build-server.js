@@ -1,49 +1,46 @@
+const { execSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 
-console.log('📦 Building server files...');
+console.log('📦 Starting optimized server build...');
 
-const src = path.join(__dirname, 'server');
 const dest = path.join(__dirname, 'dist-server');
 
-// Clean destination
+// 1. Clean destination
 if (fs.existsSync(dest)) {
     fs.rmSync(dest, { recursive: true });
     console.log('✅ Cleaned dist-server directory');
 }
-
-// Create destination
 fs.mkdirSync(dest, { recursive: true });
 
-// Copy server directory
-fs.cpSync(src, dest, { recursive: true });
-console.log('✅ Copied server files');
-
-// Copy root server.js
-fs.cpSync(path.join(__dirname, 'server.js'), path.join(dest, 'server.js'));
-console.log('✅ Copied server.js');
-
-// Copy package.json
-fs.cpSync(path.join(__dirname, 'package.json'), path.join(dest, 'package.json'));
-console.log('✅ Copied package.json');
-
-// Copy node_modules (only production dependencies)
-console.log('📦 Copying node_modules (this may take a moment)...');
-const nodeModulesSrc = path.join(__dirname, 'node_modules');
-const nodeModulesDest = path.join(dest, 'node_modules');
-if (fs.existsSync(nodeModulesSrc)) {
-    fs.cpSync(nodeModulesSrc, nodeModulesDest, { recursive: true });
-    console.log('✅ Copied node_modules');
+// 2. Run NCC to bundle server.js (and all its dependencies) into a single file
+console.log('📦 Bundling server with NCC (this may take a moment)...');
+try {
+    // We use npx to ensure ncc is available from devDependencies
+    execSync('npx ncc build server.js -o dist-server --minify', { stdio: 'inherit' });
+    console.log('✅ Server bundled successfully into dist-server/index.js');
+} catch (error) {
+    console.error('❌ NCC bundling failed:', error.message);
+    process.exit(1);
 }
 
-// Copy database directory INTO dist-server so it sits alongside node_modules.
-// This lets database/config.js resolve mysql2 via dist-server/node_modules
-// when running inside the packaged Electron app (resources/app-server/).
-const dbSrc = path.join(__dirname, 'database');
-const dbDest = path.join(dest, 'database');
-if (fs.existsSync(dbSrc)) {
-    fs.cpSync(dbSrc, dbDest, { recursive: true });
-    console.log('✅ Copied database directory into dist-server');
+// 3. Copy client/dist to dist-server/client-dist
+// This allows the embedded server to serve the React frontend in production
+const clientDist = path.join(__dirname, 'client', 'dist');
+const clientDest = path.join(dest, 'client-dist');
+
+if (fs.existsSync(clientDist)) {
+    console.log('📦 Copying frontend build...');
+    fs.cpSync(clientDist, clientDest, { recursive: true });
+    console.log('✅ Copied client/dist to dist-server/client-dist');
+} else {
+    console.warn('⚠️  Warning: client/dist not found. Frontend will not be available in the server build.');
+    console.warn('   Run "npm run client:build" first if you need the frontend.');
 }
 
-console.log('✅ Server build complete!');
+// 4. Verify build size
+const stats = fs.statSync(path.join(dest, 'index.js'));
+const sizeMB = (stats.size / (1024 * 1024)).toFixed(2);
+console.log(`\n✨ Build complete!`);
+console.log(`📊 Bundled server size: ${sizeMB} MB`);
+console.log(`🚀 Ready for Electron packaging\n`);

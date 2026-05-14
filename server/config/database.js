@@ -23,11 +23,9 @@ if (!process.env.DB_HOST || !process.env.DB_NAME) {
 
 console.log('🗄️  Initializing MySQL Database Connection...');
 
-// Resolve database/config.js (packaged vs dev paths)
-const _packagedDbConfig = require('path').join(__dirname, '../database/config.js');
-const _devDbConfig = require('path').join(__dirname, '../../database/config.js');
-const _dbConfigPath = require('fs').existsSync(_packagedDbConfig) ? _packagedDbConfig : _devDbConfig;
-const mysqlConfig = require(_dbConfigPath);
+// Resolve database/config.js
+// NCC will bundle this correctly if it's a static require
+const mysqlConfig = require('../../database/config.js');
 
 // Export MySQL functions with backward compatibility for SQLite-style callbacks
 const db = {
