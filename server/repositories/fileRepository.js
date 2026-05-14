@@ -74,7 +74,15 @@ async function create(fileData) {
  */
 async function findById(fileId) {
     try {
-        const file = await db.get('SELECT * FROM files WHERE id = ?', [fileId]);
+        // Join with assignment_submissions and assignments to get task context
+        const query = `
+            SELECT f.*, a.title as assignment_title, a.id as assignment_id
+            FROM files f
+            LEFT JOIN assignment_submissions asub ON f.id = asub.file_id
+            LEFT JOIN assignments a ON asub.assignment_id = a.id
+            WHERE f.id = ?
+        `;
+        const file = await db.get(query, [fileId]);
         return file || null;
     } catch (err) {
         throw new DatabaseError('Failed to find file', err);
@@ -380,7 +388,12 @@ async function findAllWithAttachments() {
  *      Duplicate removed, this single definition is now canonical.
  */
 async function findAttachmentById(attachmentId) {
-    const query = 'SELECT *, created_at AS uploaded_at FROM assignment_attachments WHERE id = ?';
+    const query = `
+        SELECT att.*, att.created_at AS uploaded_at, a.title AS assignment_title, a.team AS user_team
+        FROM assignment_attachments att
+        JOIN assignments a ON att.assignment_id = a.id
+        WHERE att.id = ?
+    `;
     try {
         const attachment = await db.get(query, [attachmentId]);
         return attachment || null;

@@ -574,7 +574,7 @@ async function approveByTeamLeader(fileId, teamLeader, comments = '') {
 
     await notificationService.createAdminNotification(
         fileId, 'team_leader_approved', 'File Approved by Team Leader',
-        `${teamLeader.username} approved file "${file.original_name}" (Team: ${teamLeader.team}). Pending final review.`,
+        `${teamLeader.username} approved file "${file.original_name}" (Team: ${file.user_team || teamLeader.team}). Pending final review.`,
         teamLeader.id, teamLeader.username, teamLeader.role
     );
 
@@ -641,7 +641,7 @@ async function rejectByTeamLeader(fileId, teamLeader, reason) {
     // For now, keeping it consistent with approveByTeamLeader but with correct labels.
     await notificationService.createAdminNotification(
         fileId, 'team_leader_rejected', 'File Rejected by Team Leader',
-        `${teamLeader.username} rejected file "${file.original_name}" (Team: ${teamLeader.team}). Reason: ${reason}`,
+        `${teamLeader.username} rejected file "${file.original_name}" (Team: ${file.user_team || teamLeader.team}). Reason: ${reason}`,
         teamLeader.id, teamLeader.username, teamLeader.role
     );
 
@@ -819,7 +819,10 @@ async function moveToProjects(fileId, destinationPath, admin, deleteFromUploads 
  * Get file by ID
  */
 async function getFileById(fileId) {
-    const file = await fileRepository.findById(fileId);
+    let file = await fileRepository.findById(fileId);
+    if (!file) {
+        file = await fileRepository.findAttachmentById(fileId);
+    }
     if (!file) throw new NotFoundError('File');
     return file;
 }

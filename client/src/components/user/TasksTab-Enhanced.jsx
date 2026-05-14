@@ -799,15 +799,16 @@ const TasksTab = memo(({
 
   const openFileDetails = useCallback(async (file) => {
     try {
-      const res = await fetch(`${API_BASE_URL}/api/files/${file.id}`);
-      const data = await res.json();
+      // Use apiFetch to ensure Authorization headers are included
+      const data = await apiFetch(`/api/files/${file.id}`);
       const fileData = data.file || file;
       // Preserve assignment_title if passed in (from notification path or from tasks data)
       if (file.assignment_title && !fileData.assignment_title) {
         fileData.assignment_title = file.assignment_title;
       }
       setFileDetailsTarget(fileData);
-    } catch {
+    } catch (err) {
+      console.error('Failed to fetch file details:', err);
       setFileDetailsTarget(file);
     }
     setShowFileDetailsModal(true);
@@ -1803,6 +1804,7 @@ const TasksTab = memo(({
         selectedFile={fileDetailsTarget}
         fileComments={[]}
         formatFileSize={formatFileSize}
+        onOpenFile={() => confirmOpenFile(fileDetailsTarget)}
       />
     </div>
   );
