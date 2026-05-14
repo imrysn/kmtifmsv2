@@ -148,7 +148,6 @@ const MyFilesTab = ({
   const handleFileClick = useCallback((file, e) => {
     e.stopPropagation();
     setOpenFileModal({ isOpen: true, file });
-    document.body.style.overflow = 'hidden';
   }, []);
 
   const handleOpenFileConfirm = useCallback(async () => {
@@ -157,14 +156,12 @@ const MyFilesTab = ({
       await openFile(openFileModal.file);
       setIsOpeningFile(false);
       setOpenFileModal({ isOpen: false, file: null });
-      document.body.style.overflow = '';
     }
   }, [openFileModal.file, openFile, isOpeningFile]);
 
   const handleOpenFileCancel = useCallback(() => {
     if (isOpeningFile) return;
     setOpenFileModal({ isOpen: false, file: null });
-    document.body.style.overflow = '';
   }, [isOpeningFile]);
 
   const getStatusDisplayName = useCallback((dbStatus) => {
@@ -881,14 +878,16 @@ const MyFilesTab = ({
         type={successModal.type}
       />
 
-      {/* Shared File Open Modal */}
-      <FileOpenModal
-        isOpen={openFileModal.isOpen}
-        onClose={handleOpenFileCancel}
-        onConfirm={handleOpenFileConfirm}
-        file={openFileModal.file}
-        isLoading={isOpeningFile}
-      />
+      {openFileModal.isOpen && createPortal(
+        <FileOpenModal
+          isOpen={openFileModal.isOpen}
+          onClose={handleOpenFileCancel}
+          onConfirm={handleOpenFileConfirm}
+          file={openFileModal.file}
+          isLoading={isOpeningFile}
+        />,
+        document.body
+      )}
 
       {DeleteModal}
     </div>
