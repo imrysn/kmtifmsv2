@@ -59,6 +59,7 @@ async function uploadFile(fileData, user) {
     
     logInfo('Uploading file', { filename: originalName, userId: user.id, assignmentId });
 
+    let isRevision = false;
     const existing = await fileRepository.findByNameAndUser(
         originalName,
         user.id,
@@ -68,7 +69,12 @@ async function uploadFile(fileData, user) {
 
     if (existing) {
         if (assignmentId) {
-            logInfo('Replacing existing file for same task', { oldFileId: existing.id, assignmentId });
+            // Check if this specific file is a revision (replacing a rejected file)
+            if (existing.status === 'rejected_by_team_leader' || existing.status === 'rejected_by_admin') {
+                isRevision = true;
+            }
+
+            logInfo('Replacing existing file for same task', { oldFileId: existing.id, assignmentId, isRevision });
             const tempPath = fileData.file_path.startsWith('/uploads/')
                 ? path.join(uploadsDir, fileData.file_path.substring('/uploads/'.length))
                 : fileData.file_path;
@@ -129,7 +135,7 @@ async function uploadFile(fileData, user) {
         user_id: user.id,
         username: user.username,
         user_team: user.team,
-        status: 'uploaded',
+        status: isRevision ? 'revision' : 'uploaded',
         current_stage: 'pending_team_leader'
     };
 
@@ -180,6 +186,9 @@ async function bulkUploadFast(filesData, user, assignmentId = null) {
     const assignmentLinks = [];   // {fileId, tempPath, fileData} — for background move
     const fileRecords = [];        // results sent to client
 
+    let batchHasRevision = false;
+    let revisionCount = 0;
+
     async function processFileFast(fileData) {
         try {
             const originalName = fixFilename(fileData.original_name);
@@ -190,6 +199,13 @@ async function bulkUploadFast(filesData, user, assignmentId = null) {
             );
 
             if (existing && assignmentId) {
+                // Check if this specific file is a revision (replacing a rejected file)
+                if (existing.status === 'rejected_by_team_leader' || existing.status === 'rejected_by_admin') {
+                    batchHasRevision = true;
+                    revisionCount++;
+                    fileData.isThisFileRevision = true;
+                }
+
                 // Remove old record so we replace it
                 const oldPhysical = existing.file_path.startsWith('/uploads/')
                     ? path.join(uploadsDir, existing.file_path.substring('/uploads/'.length))
@@ -208,13 +224,17 @@ async function bulkUploadFast(filesData, user, assignmentId = null) {
             const dbData = {
                 ...fileData,
                 original_name: originalName,
-                file_path: tempPath,   // temp path — updated by background job after NAS copy
+                file_path: tempPath,
                 user_id: user.id,
                 username: user.username,
                 user_team: user.team,
-                status: 'uploaded',
-                current_stage: 'pending_team_leader'
+                current_stage: 'pending_team_leader',
+                status: fileData.isThisFileRevision ? 'revision' : 'uploaded'
             };
+            
+            // Explicitly ensure status is set correctly even if fileData had a status property
+            if (fileData.isThisFileRevision) dbData.status = 'revision';
+            else if (!dbData.status || dbData.status === '') dbData.status = 'uploaded';
 
             const fileId = await fileRepository.create(dbData);
 
@@ -276,10 +296,15 @@ async function bulkUploadFast(filesData, user, assignmentId = null) {
             );
             if (assignment && assignment.team_leader_id) {
                 const successCount = fileRecords.filter(r => r.success).length;
+                const notificationTitle = batchHasRevision ? 'Revised File Submission' : 'New File Submission';
+                const notificationMessage = batchHasRevision 
+                    ? `${user.fullName || user.username} submitted ${successCount} file${successCount !== 1 ? 's' : ''} (including ${revisionCount} revision${revisionCount !== 1 ? 's' : ''}) for "${assignment.title}".`
+                    : `${user.fullName || user.username} submitted ${successCount} file${successCount !== 1 ? 's' : ''} for "${assignment.title}".`;
+
                 await notificationService.createNotification(
                     assignment.team_leader_id, null, 'file_submitted',
-                    'New File Submission',
-                    `${user.fullName || user.username} submitted ${successCount} file${successCount !== 1 ? 's' : ''} for "${assignment.title}".`,
+                    notificationTitle,
+                    notificationMessage,
                     user.id, user.username, user.role, parseInt(assignmentId, 10)
                 );
                 pushToUser(assignment.team_leader_id);
@@ -497,8 +522,14 @@ async function approveByTeamLeader(fileId, teamLeader, comments = '') {
     }
     if (!file) throw new NotFoundError('File');
 
-    if (file.user_team !== teamLeader.team && teamLeader.role !== 'ADMIN') {
-        throw new ValidationError('You can only approve files from your team');
+    if (teamLeader.role !== 'ADMIN') {
+        const isLeader = await queryOne(
+            'SELECT 1 FROM team_leaders tl JOIN teams t ON tl.team_id = t.id WHERE tl.user_id = ? AND t.name = ?',
+            [teamLeader.id, file.user_team]
+        );
+        if (!isLeader) {
+            throw new ValidationError('You can only approve files from your team');
+        }
     }
 
     // Attachments might not have a current_stage in the same way, but we can check status
@@ -563,8 +594,14 @@ async function rejectByTeamLeader(fileId, teamLeader, reason) {
     }
     if (!file) throw new NotFoundError('File');
 
-    if (file.user_team !== teamLeader.team && teamLeader.role !== 'ADMIN') {
-        throw new ValidationError('You can only reject files from your team');
+    if (teamLeader.role !== 'ADMIN') {
+        const isLeader = await queryOne(
+            'SELECT 1 FROM team_leaders tl JOIN teams t ON tl.team_id = t.id WHERE tl.user_id = ? AND t.name = ?',
+            [teamLeader.id, file.user_team]
+        );
+        if (!isLeader) {
+            throw new ValidationError('You can only reject files from your team');
+        }
     }
 
     const newStatus = 'rejected_by_team_leader';

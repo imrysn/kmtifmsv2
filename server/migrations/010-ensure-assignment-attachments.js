@@ -34,7 +34,7 @@ async function up() {
         INDEX idx_aa_assignment (assignment_id),
         INDEX idx_aa_folder     (folder_name),
         FOREIGN KEY (assignment_id) REFERENCES assignments(id) ON DELETE CASCADE
-      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci
     `);
     console.log('✅ [010] assignment_attachments table ensured');
 

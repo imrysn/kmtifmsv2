@@ -118,6 +118,29 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
   const [highlightedAssignmentId, setHighlightedAssignmentId] = useState(null)
   const [highlightedFileId, setHighlightedFileId] = useState(null)
   const [highlightedSubmissionFileId, setHighlightedSubmissionFileId] = useState(null)
+  const updateUser = useStore(state => state.updateUser)
+
+  const refreshUserProfile = async () => {
+    try {
+      const data = await apiFetch('/api/users/profile')
+      if (data.success && data.user) {
+        // Sync the local store with the latest server data
+        // This fixes the stale team tag issue when an admin updates the assignment
+        updateUser(data.user)
+        console.log('👤 Profile refreshed:', { 
+          team: data.user.team, 
+          ledTeams: data.user.ledTeams?.map(t => t.name) 
+        })
+      }
+    } catch (err) {
+      console.warn('⚠️ Failed to refresh user profile:', err)
+    }
+  }
+
+  // Refresh profile on mount
+  useEffect(() => {
+    refreshUserProfile()
+  }, [])
 
 
   useEffect(() => {

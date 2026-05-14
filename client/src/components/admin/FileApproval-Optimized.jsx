@@ -43,6 +43,9 @@ const getFolderStatus = (folderFiles) => {
   if (statuses.every(s => s === 'team_leader_approved' || s === 'final_approved'))
     return { status: 'team_leader_approved', label: 'Pending Admin', cls: 'pending' }
 
+  if (statuses.some(s => s === 'revision'))
+    return { status: 'revision', label: 'Revision', cls: 'pending' }
+
   return { status: 'uploaded', label: 'Pending Team Leader', cls: 'pending' }
 }
 
@@ -379,7 +382,7 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
   }, [])
 
   const statusCounts = useMemo(() => ({
-    pendingTeamLeader: files.filter(f => f.status === 'uploaded').length,
+    pendingTeamLeader: files.filter(f => f.status === 'uploaded' || f.status === 'revision').length,
     pendingAdmin: files.filter(f => f.status === 'team_leader_approved').length,
     approved: files.filter(f => f.status === 'final_approved').length,
     rejected: files.filter(f => f.status === 'rejected_by_team_leader' || f.status === 'rejected_by_admin').length
@@ -520,6 +523,7 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
   const mapFileStatus = useCallback((dbStatus) => {
     switch (dbStatus) {
       case 'uploaded':
+      case 'revision':
       case 'team_leader_approved': return 'pending'
       case 'final_approved':       return 'approved'
       case 'rejected_by_team_leader':
@@ -531,6 +535,7 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
   const getStatusDisplayName = useCallback((dbStatus) => {
     switch (dbStatus) {
       case 'uploaded':              return 'Pending Team Leader'
+      case 'revision':              return 'Revision (New Submission)'
       case 'team_leader_approved':  return 'Pending Admin'
       case 'final_approved':        return 'Approved'
       case 'rejected_by_team_leader': return 'Rejected by Team Leader'

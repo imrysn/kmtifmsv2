@@ -227,6 +227,11 @@
   padding-bottom: 0;
 }
 
+.comments-list.refreshing {
+  opacity: 0.85;
+  transition: opacity 0.2s ease-in-out;
+}
+
 /* =================================================================
    COMMENT ITEM - Facebook style
    ================================================================= */
@@ -496,6 +501,16 @@
   overflow-wrap: break-word;
   word-break: break-word;
   margin: 0;
+}
+
+.is-processing {
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+.is-saving .edit-input {
+  background: #f0f2f5 !important;
+  color: #65676b !important;
 }
 
 /* Replaces the inline style that was generating a new object every render */
@@ -788,6 +803,20 @@
   color: #050505;
 }
 
+.more-menu-wrapper.disabled {
+  opacity: 0.7;
+  pointer-events: none;
+}
+
+.menu-spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid #e4e6eb;
+  border-top-color: #65676b;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
 /* Dropdown portaled to document.body — never clipped by scroll containers */
 .more-menu-dropdown {
   position: fixed;
@@ -929,6 +958,11 @@
   white-space: pre-wrap;
   word-break: break-word;
   cursor: text;
+}
+
+.mention-input-editor.is-disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 /* Placeholder via ::before on empty unfocused state */

@@ -46,6 +46,8 @@ const TaskManagement = ({
   const [comments, setComments] = useState([])
   const [loadingComments, setLoadingComments] = useState(false)
   const [newComment, setNewComment] = useState('')
+  const [isPostingComment, setIsPostingComment] = useState(false)
+  const [isPostingReply, setIsPostingReply] = useState(false)
   const [replyingTo, setReplyingTo] = useState(null)
   const [replyText, setReplyText] = useState('')
   const [visibleReplies, setVisibleReplies] = useState({})
@@ -319,6 +321,7 @@ const TaskManagement = ({
       setComments(prev => [...prev, optimisticComment])
       setNewComment('')
 
+      setIsPostingComment(true)
       const data = await apiFetch(`/api/assignments/${selectedAssignment.id}/comments`, {
         method: 'POST',
         body: JSON.stringify({
@@ -342,8 +345,38 @@ const TaskManagement = ({
     } catch (error) {
       console.error('Error posting comment:', error)
       setError('Failed to post comment')
+    } finally {
+      setIsPostingComment(false)
     }
   }, [newComment, user, selectedAssignment, fetchComments, setError, setSuccess])
+
+  const handleEditComment = useCallback(async (assignmentId, commentId, newText) => {
+    try {
+      const data = await apiFetch(`/api/assignments/${assignmentId}/comments/${commentId}`, {
+        method: 'PUT',
+        body: JSON.stringify({ userId: user.id, comment: newText }),
+      });
+      if (data.success) fetchComments(assignmentId);
+      else setError(data.message || 'Failed to edit comment');
+    } catch (error) {
+      console.error('Error editing comment:', error);
+      setError('Failed to edit comment');
+    }
+  }, [user.id, fetchComments, setError]);
+
+  const handleDeleteComment = useCallback(async (assignmentId, commentId) => {
+    try {
+      const data = await apiFetch(`/api/assignments/${assignmentId}/comments/${commentId}`, {
+        method: 'DELETE',
+        body: JSON.stringify({ userId: user.id }),
+      });
+      if (data.success) fetchComments(assignmentId);
+      else setError(data.message || 'Failed to delete comment');
+    } catch (error) {
+      console.error('Error deleting comment:', error);
+      setError('Failed to delete comment');
+    }
+  }, [user.id, fetchComments, setError]);
 
   // ⚡ OPTIMIZATION: Optimistic update + memoized handler
   const handlePostReply = useCallback(async (e, commentId, replyTextArg, onSuccess) => {
@@ -380,6 +413,7 @@ const TaskManagement = ({
       setReplyingTo(null)
       if (onSuccess) onSuccess()
 
+      setIsPostingReply(true)
       const data = await apiFetch(
         `/api/assignments/${selectedAssignment.id}/comments/${commentId}/reply`,
         {
@@ -411,8 +445,38 @@ const TaskManagement = ({
     } catch (error) {
       console.error('Error posting reply:', error)
       setError('Failed to post reply')
+    } finally {
+      setIsPostingReply(false)
     }
   }, [replyText, user, selectedAssignment, fetchComments, setError, setSuccess])
+
+  const handleEditReply = useCallback(async (assignmentId, commentId, replyId, newText) => {
+    try {
+      const data = await apiFetch(`/api/assignments/${assignmentId}/comments/${commentId}/reply/${replyId}`, {
+        method: 'PUT',
+        body: JSON.stringify({ userId: user.id, reply: newText }),
+      });
+      if (data.success) fetchComments(assignmentId);
+      else setError(data.message || 'Failed to edit reply');
+    } catch (error) {
+      console.error('Error editing reply:', error);
+      setError('Failed to edit reply');
+    }
+  }, [user.id, fetchComments, setError]);
+
+  const handleDeleteReply = useCallback(async (assignmentId, commentId, replyId) => {
+    try {
+      const data = await apiFetch(`/api/assignments/${assignmentId}/comments/${commentId}/reply/${replyId}`, {
+        method: 'DELETE',
+        body: JSON.stringify({ userId: user.id }),
+      });
+      if (data.success) fetchComments(assignmentId);
+      else setError(data.message || 'Failed to delete reply');
+    } catch (error) {
+      console.error('Error deleting reply:', error);
+      setError('Failed to delete reply');
+    }
+  }, [user.id, fetchComments, setError]);
 
   const toggleExpand = (assignmentId) => {
     setExpandedAssignments(prev => ({
@@ -1245,17 +1309,19 @@ const TaskManagement = ({
                                                     </span>
                                                   )}
                                                   <span className={`admin-file-status ${file.status === 'uploaded' ? 'uploaded' :
+                                                      file.status === 'revision' ? 'revision' :
                                                       file.status === 'team_leader_approved' ? 'team-leader-approved' :
                                                         file.status === 'final_approved' ? 'final-approved' :
                                                           file.status === 'rejected_by_team_leader' || file.status === 'rejected_by_admin' ? 'rejected' :
                                                             'uploaded'
                                                     }`}>
                                                     {file.status === 'uploaded' ? 'PENDING TEAM LEADER' :
+                                                      file.status === 'revision' ? '✎ REVISION' :
                                                       file.status === 'team_leader_approved' ? 'PENDING ADMIN' :
                                                         file.status === 'final_approved' ? '✓ APPROVED' :
                                                           file.status === 'rejected_by_team_leader' ? '✗ REJECTED' :
                                                             file.status === 'rejected_by_admin' ? '✗ REJECTED' :
-                                                              'DELETED by user'}
+                                                              file.status}
                                                   </span>
                                                 </div>
                                               </div>
@@ -1328,17 +1394,19 @@ const TaskManagement = ({
                                           </span>
                                         )}
                                         <span className={`admin-file-status ${file.status === 'uploaded' ? 'uploaded' :
+                                            file.status === 'revision' ? 'revision' :
                                             file.status === 'team_leader_approved' ? 'team-leader-approved' :
                                               file.status === 'final_approved' ? 'final-approved' :
                                                 file.status === 'rejected_by_team_leader' || file.status === 'rejected_by_admin' ? 'rejected' :
                                                   'uploaded'
                                           }`}>
                                           {file.status === 'uploaded' ? 'PENDING TEAM LEADER' :
+                                            file.status === 'revision' ? '✎ REVISION' :
                                             file.status === 'team_leader_approved' ? 'PENDING ADMIN' :
                                               file.status === 'final_approved' ? '✓ APPROVED' :
                                                 file.status === 'rejected_by_team_leader' ? '✗ REJECTED' :
                                                   file.status === 'rejected_by_admin' ? '✗ REJECTED' :
-                                                    'DELETED by user'}
+                                                    file.status}
                                         </span>
                                       </div>
                                     </div>
@@ -1504,11 +1572,17 @@ const TaskManagement = ({
           newComment={newComment}
           setNewComment={setNewComment}
           onPostComment={handlePostComment}
+          isPostingComment={isPostingComment}
           replyingTo={replyingTo}
           setReplyingTo={setReplyingTo}
           replyText={replyText}
           setReplyText={setReplyText}
           onPostReply={handlePostReply}
+          isPostingReply={isPostingReply}
+          onEditComment={handleEditComment}
+          onDeleteComment={handleDeleteComment}
+          onEditReply={handleEditReply}
+          onDeleteReply={handleDeleteReply}
           visibleReplies={visibleReplies}
           toggleRepliesVisibility={toggleRepliesVisibility}
           getInitials={getInitials}

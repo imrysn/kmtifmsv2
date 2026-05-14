@@ -23,7 +23,26 @@ const Sidebar = memo(({
         <div className="tl-brand-logo">TL</div>
         <div className="tl-brand-name" style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
           <span>Team Leader</span>
-          {user?.team && (
+          {user?.ledTeams && user.ledTeams.length > 0 ? (
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+              {user.ledTeams.map((team) => (
+                <span key={team.id} style={{
+                  backgroundColor: 'transparent',
+                  color: '#374151',
+                  fontSize: '11px',
+                  fontWeight: '600',
+                  padding: '2px 8px',
+                  borderRadius: '20px',
+                  border: `1.5px solid ${team.color || '#6b7280'}`,
+                  whiteSpace: 'nowrap',
+                  display: 'inline-block',
+                  textAlign: 'center'
+                }}>
+                  {team.name}
+                </span>
+              ))}
+            </div>
+          ) : user?.team && (
             <span style={{
               backgroundColor: 'transparent',
               color: '#374151',

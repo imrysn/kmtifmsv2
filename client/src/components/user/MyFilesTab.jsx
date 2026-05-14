@@ -8,21 +8,7 @@ import { usePagination } from '../../hooks';
 import { Trash2 } from 'lucide-react';
 
 // Groups files within a top-level folder into their immediate subfolders
-const groupBySubfolder = (files) => {
-  const subfolders = {};
-  const rootFiles = [];
-  for (const file of files) {
-    const parts = (file.relative_path || '').split('/');
-    if (parts.length > 2) {
-      const subName = parts[1];
-      if (!subfolders[subName]) subfolders[subName] = [];
-      subfolders[subName].push(file);
-    } else {
-      rootFiles.push(file);
-    }
-  }
-  return { subfolders, rootFiles };
-};
+import { recursiveGroupByPath } from '@utils/folderUtils'
 
 const MyFilesTab = ({
   filteredFiles,
@@ -550,110 +536,97 @@ const MyFilesTab = ({
         );
 
         if (isExpanded) {
-          const { subfolders: subGroups, rootFiles: rfFiles } = groupBySubfolder(folderFiles);
-          const subNames = Object.keys(subGroups);
+          const renderRecursiveItems = (files, level = 1, parentKey = '') => {
+            const { subfolders, rootFiles } = recursiveGroupByPath(files);
+            const subItems = [];
 
-          // ── Subfolder rows ──────────────────────────────────────────────
-          subNames.forEach(subName => {
-            const subKey = `${folderName}__${subName}`;
-            const isSubOpen = expandedFolders[subKey];
-            const subFiles = subGroups[subName];
-            const subFirstFile = subFiles[0];
-            const { date: subDate, time: subTime } = formatDateTime(subFirstFile.uploaded_at);
+            // 1. Render subfolders
+            Object.entries(subfolders).forEach(([subName, subFiles]) => {
+              const subKey = parentKey ? `${parentKey}__${subName}` : `${folderName}__${subName}`;
+              const isSubOpen = expandedFolders[subKey];
+              const subFirstFile = subFiles[0].file || subFiles[0];
+              const { date: subDate, time: subTime } = formatDateTime(subFirstFile.uploaded_at);
 
-            items.push(
-              <div
-                key={`subfolder-${subKey}`}
-                className="file-row-new folder-row"
-                onClick={() => setExpandedFolders(prev => ({ ...prev, [subKey]: !prev[subKey] }))}
-                style={{ cursor: 'pointer', paddingLeft: '60px', backgroundColor: isSubOpen ? '#f0f4ff' : '#f5f7ff' }}
-              >
-                <div className="col-filename">
-                  <FileIcon fileType="folder" isFolder={true} size="default" altText="Subfolder" style={{ width: '40px', height: '40px' }} />
-                  <div className="file-text">
-                    <div className="filename" style={{ fontWeight: '600', fontSize: '13px' }}>{subName}</div>
-                    <div className="filesize">{subFiles.length} file{subFiles.length !== 1 ? 's' : ''}</div>
-                  </div>
-                </div>
-                <div className="col-datetime">
-                  <div className="date-label">{subDate}</div>
-                  <div className="time-label">{subTime}</div>
-                </div>
-                <div className="col-team"><span className="team-text">{subFirstFile.user_team}</span></div>
-                <div className="col-status" />
-                <div className="col-actions" />
-              </div>
-            );
-
-            if (isSubOpen) {
-              subFiles.forEach(file => {
-                const { date, time } = formatDateTime(file.uploaded_at);
-                items.push(
+              subItems.push(
+                <React.Fragment key={`subfolder-${subKey}`}>
                   <div
-                    key={file.id}
-                    className="file-row-new nested-file"
-                    onClick={(e) => handleFileClick(file, e)}
-                    title="Click to open file"
-                    style={{ paddingLeft: '96px', backgroundColor: '#fafafa' }}
+                    className="file-row-new folder-row"
+                    onClick={() => setExpandedFolders(prev => ({ ...prev, [subKey]: !prev[subKey] }))}
+                    style={{ cursor: 'pointer', paddingLeft: `${48 + (level * 24)}px`, backgroundColor: isSubOpen ? '#f0f4ff' : '#f5f7ff' }}
                   >
                     <div className="col-filename">
-                      <FileIcon fileType={file.original_name.split('.').pop().toLowerCase()} isFolder={false} size="default" altText={`${file.file_type} file`} style={{ width: '44px', height: '44px' }} />
+                      <FileIcon fileType="folder" isFolder={true} size="default" altText="Subfolder" style={{ width: '40px', height: '40px' }} />
                       <div className="file-text">
-                        <div className="filename">{file.original_name}</div>
-                        <div className="datetime-mobile">
-                          <div className="date-label">{date}</div>
-                          <div className="time-label">{time}</div>
-                        </div>
+                        <div className="filename" style={{ fontWeight: '600', fontSize: '13px' }}>{subName}</div>
+                        <div className="filesize">{subFiles.length} file{subFiles.length !== 1 ? 's' : ''}</div>
                       </div>
                     </div>
-                    <div className="col-datetime"><div className="date-label">{date}</div><div className="time-label">{time}</div></div>
-                    <div className="col-team"><span className="team-text">{file.user_team}</span></div>
-                    <div className="col-status"><span className={`status-tag ${getStatusClass(file.status)}`}>{getStatusDisplayName(file.status)}</span></div>
-                    <div className="col-actions">
-                      <button className="delete-btn" onClick={(e) => handleDeleteClick(e, file)} title="Delete file" aria-label="Delete file"><Trash2 size={18} /></button>
+                    <div className="col-datetime">
+                      <div className="date-label">{subDate}</div>
+                      <div className="time-label">{subTime}</div>
+                    </div>
+                    <div className="col-team">
+                      <span className="team-text">{subFirstFile.user_team}</span>
+                    </div>
+                    <div className="col-status" />
+                    <div className="col-actions" />
+                  </div>
+                  {isSubOpen && renderRecursiveItems(subFiles, level + 1, subKey)}
+                </React.Fragment>
+              );
+            });
+
+            // 2. Render root files
+            rootFiles.forEach(fileItem => {
+              const file = fileItem.file || fileItem;
+              const { date: fDate, time: fTime } = formatDateTime(file.uploaded_at);
+              subItems.push(
+                <div
+                  key={file.id}
+                  className="file-row-new"
+                  onClick={(e) => handleFileClick(file, e)}
+                  style={{ paddingLeft: `${48 + (level * 24)}px` }}
+                >
+                  <div className="col-filename">
+                    <FileIcon
+                      fileType={file.original_name.split('.').pop().toLowerCase()}
+                      isFolder={false}
+                      size="default"
+                      style={{ width: '40px', height: '40px' }}
+                    />
+                    <div className="file-text">
+                      <div className="filename" style={{ fontSize: '13px' }}>{file.original_name}</div>
                     </div>
                   </div>
-                );
-              });
-            }
-          });
-
-          // ── Root-level files (not in any subfolder) ─────────────────────
-          rfFiles.forEach(file => {
-            const { date, time } = formatDateTime(file.uploaded_at);
-            let displayName = file.original_name;
-            if (file.relative_path && file.folder_name) {
-              const pathAfterFolder = file.relative_path.replace(`${file.folder_name}/`, '');
-              displayName = pathAfterFolder;
-            }
-
-            items.push(
-              <div
-                key={file.id}
-                className="file-row-new nested-file"
-                onClick={(e) => handleFileClick(file, e)}
-                title="Click to open file"
-                style={{ paddingLeft: '60px', backgroundColor: '#fafafa' }}
-              >
-                <div className="col-filename">
-                  <FileIcon fileType={file.original_name.split('.').pop().toLowerCase()} isFolder={false} size="default" altText={`${file.file_type} file`} style={{ width: '52px', height: '52px' }} />
-                  <div className="file-text">
-                    <div className="filename">{displayName}</div>
-                    <div className="datetime-mobile">
-                      <div className="date-label">{date}</div>
-                      <div className="time-label">{time}</div>
-                    </div>
+                  <div className="col-datetime">
+                    <div className="date-label">{fDate}</div>
+                    <div className="time-label">{fTime}</div>
+                  </div>
+                  <div className="col-team">
+                    <span className="team-text">{file.user_team}</span>
+                  </div>
+                  <div className="col-status">
+                    <span className={`status-tag ${getStatusClass(file.status)}`}>
+                      {getStatusDisplayName(file.status)}
+                    </span>
+                  </div>
+                  <div className="col-actions">
+                    <button
+                      className="delete-btn"
+                      onClick={(e) => handleDeleteClick(e, file)}
+                      title="Delete file"
+                    >
+                      <Trash2 size={18} />
+                    </button>
                   </div>
                 </div>
-                <div className="col-datetime"><div className="date-label">{date}</div><div className="time-label">{time}</div></div>
-                <div className="col-team"><span className="team-text">{file.user_team}</span></div>
-                <div className="col-status"><span className={`status-tag ${getStatusClass(file.status)}`}>{getStatusDisplayName(file.status)}</span></div>
-                <div className="col-actions">
-                  <button className="delete-btn" onClick={(e) => handleDeleteClick(e, file)} title="Delete file" aria-label="Delete file"><Trash2 size={18} /></button>
-                </div>
-              </div>
-            );
-          });
+              );
+            });
+
+            return subItems;
+          };
+
+          items.push(...renderRecursiveItems(folderFiles));
         }
       } else {
         const file = displayItem.file;

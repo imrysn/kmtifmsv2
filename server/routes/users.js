@@ -12,6 +12,45 @@ const router = express.Router();
 // Apply authentication to all routes in this router
 router.use(authenticateToken);
 
+/**
+ * GET /api/users/profile
+ * Get current user's full info including led teams
+ */
+router.get('/profile', asyncHandler(async (req, res) => {
+  const userId = req.user.id;
+  
+  // 1. Get user basic info
+  const user = await dbQueryOne(
+    'SELECT id, fullName, username, email, role, team, created_at, profile_picture FROM users WHERE id = ?',
+    [userId]
+  );
+  
+  if (!user) {
+    throw new NotFoundError('User not found');
+  }
+  
+  // 2. If Team Leader or Admin, get teams they lead
+  let ledTeams = [];
+  if (user.role === 'TEAM_LEADER' || user.role === 'ADMIN') {
+    const teams = await dbQuery(
+      `SELECT t.id, t.name, t.color 
+       FROM team_leaders tl 
+       JOIN teams t ON tl.team_id = t.id 
+       WHERE tl.user_id = ?`,
+      [userId]
+    );
+    ledTeams = teams || [];
+  }
+  
+  res.json({
+    success: true,
+    user: {
+      ...user,
+      ledTeams
+    }
+  });
+}));
+
 // Shared helper: attach file counts to an array of user/member objects
 function attachFileCounts(db, members) {
   return Promise.all(

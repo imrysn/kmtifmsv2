@@ -185,6 +185,8 @@ const TeamTasksTab = ({ user }) => {
   const [showCommentsModal, setShowCommentsModal] = useState(false)
   const [currentCommentsAssignment, setCurrentCommentsAssignment] = useState(null)
   const [visibleReplies, setVisibleReplies] = useState({})
+  const [isPostingComment, setIsPostingComment] = useState(false)
+  const [isPostingReply, setIsPostingReply] = useState(false)
   const [loadingComments, setLoadingComments] = useState(false)
 
   // File display state
@@ -525,24 +527,30 @@ const TeamTasksTab = ({ user }) => {
 
   const handleSubmitComment = useCallback(async () => {
     if (!newComment.trim() || !currentCommentsAssignment) return
+    setIsPostingComment(true)
     try {
       const data = await apiFetch(`/api/assignments/${currentCommentsAssignment.id}/comments`, {
         method: 'POST',
         body: JSON.stringify({ userId: user.id, username: user.username || user.fullName, comment: newComment.trim() })
       })
       if (data.success) { setNewComment(''); fetchComments(currentCommentsAssignment.id) }
-    } catch { /* ignore */ }
+    } catch { /* ignore */ } finally {
+      setIsPostingComment(false)
+    }
   }, [newComment, currentCommentsAssignment, user, fetchComments])
 
   const handlePostReply = useCallback(async (_e, commentId, replyTextValue, onSuccess) => {
     if (!replyTextValue?.trim() || !currentCommentsAssignment) return
+    setIsPostingReply(true)
     try {
       const data = await apiFetch(`/api/assignments/${currentCommentsAssignment.id}/comments/${commentId}/reply`, {
         method: 'POST',
         body: JSON.stringify({ userId: user.id, username: user.username || user.fullName, reply: replyTextValue.trim() })
       })
       if (data.success) { onSuccess?.(); fetchComments(currentCommentsAssignment.id) }
-    } catch { /* ignore */ }
+    } catch { /* ignore */ } finally {
+      setIsPostingReply(false)
+    }
   }, [currentCommentsAssignment, user, fetchComments])
 
   const handleEditComment = useCallback(async (assignmentId, commentId, newText) => {
@@ -802,9 +810,13 @@ const TeamTasksTab = ({ user }) => {
                                           <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1 }}>
                                             <FileIcon fileType={file.original_name.split('.').pop()} size="small" />
                                             <div style={{ flex: 1, minWidth: 0 }}>
-                                              <div style={{ fontWeight: '500', fontSize: '14px', color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{file.original_name}</div>
+                                              <div style={{ fontWeight: '500', fontSize: '14px', color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                <span>{file.original_name}</span>
+                                                {openedFileIds.has(file.id) && <span style={{ fontSize: '10px', color: '#16a34a' }}>✓ Viewed</span>}
+                                              </div>
                                               <div style={{ fontSize: '12px', color: '#6b7280' }}>{formatFileSize(file.file_size)}</div>
                                             </div>
+                                            <FileViewersButton fileId={file.id} externalCount={viewerCounts[file.id]} minDate={assignment.created_at}/>
                                             <FileMoreMenu onDownload={() => handleDownloadFile(file)} onOpenPath={() => handleOpenFolderPath(file.id, true)} />
                                           </div>
                                         </div>
@@ -831,8 +843,9 @@ const TeamTasksTab = ({ user }) => {
                                   <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1 }}>
                                     <FileIcon fileType={file.original_name.split('.').pop()} size="small" style={{ width: '40px', height: '40px', flexShrink: 0 }}/>
                                     <div style={{ flex: 1, minWidth: 0 }}>
-                                      <div style={{ fontWeight: '500', fontSize: '14px', color: '#111827', marginBottom: '2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                        {file.original_name}
+                                      <div style={{ fontWeight: '500', fontSize: '14px', color: '#111827', marginBottom: '2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                        <span>{file.original_name}</span>
+                                        {openedFileIds.has(file.id) && <span style={{ fontSize: '10px', color: '#16a34a' }}>✓ Viewed</span>}
                                       </div>
                                       <div style={{ fontSize: '12px', color: '#6b7280', display: 'flex', alignItems: 'center', gap: '6px' }}>
                                         <span>by <span style={{ fontWeight: '500', color: '#2563eb' }}>{assignment.team_leader_fullname || assignment.team_leader_username || 'Team Leader'}</span></span>
@@ -868,8 +881,9 @@ const TeamTasksTab = ({ user }) => {
                               <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1 }}>
                                 <FileIcon fileType={file.original_name.split('.').pop()} size="small" style={{ width: '48px', height: '48px', flexShrink: 0 }}/>
                                 <div style={{ flex: 1, minWidth: 0 }}>
-                                  <div style={{ fontWeight: '500', fontSize: '14px', color: '#111827', marginBottom: '2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                    {file.original_name}
+                                  <div style={{ fontWeight: '500', fontSize: '14px', color: '#111827', marginBottom: '2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <span>{file.original_name}</span>
+                                    {openedFileIds.has(file.id) && <span style={{ fontSize: '10px', color: '#16a34a' }}>✓ Viewed</span>}
                                   </div>
                                   <div style={{ fontSize: '12px', color: '#6b7280', display: 'flex', alignItems: 'center', gap: '6px' }}>
                                     <span>by <span style={{ fontWeight: '500', color: '#2563eb' }}>{assignment.team_leader_fullname || assignment.team_leader_username || 'Team Leader'}</span></span>
@@ -996,9 +1010,13 @@ const TeamTasksTab = ({ user }) => {
                                           <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1 }}>
                                             <FileIcon fileType={file.original_name.split('.').pop()} size="small" />
                                             <div style={{ flex: 1, minWidth: 0 }}>
-                                              <div style={{ fontWeight: '500', fontSize: '14px', color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{file.original_name}</div>
+                                              <div style={{ fontWeight: '500', fontSize: '14px', color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                <span>{file.original_name}</span>
+                                                {openedFileIds.has(file.id) && <span style={{ fontSize: '10px', color: '#16a34a' }}>✓ Viewed</span>}
+                                              </div>
                                               <div style={{ fontSize: '12px', color: '#6b7280' }}>by {file.fullName || file.username}</div>
                                             </div>
+                                            <FileViewersButton fileId={file.id} externalCount={viewerCounts[file.id]} minDate={assignment.created_at}/>
                                             <FileMoreMenu onDownload={() => handleDownloadFile(file)} onOpenPath={() => handleOpenFolderPath(file.id, false)} />
                                           </div>
                                         </div>
@@ -1175,7 +1193,9 @@ const TeamTasksTab = ({ user }) => {
         newComment={newComment}
         setNewComment={setNewComment}
         onPostComment={handleSubmitComment}
+        isPostingComment={isPostingComment}
         onPostReply={handlePostReply}
+        isPostingReply={isPostingReply}
         onEditComment={handleEditComment}
         onDeleteComment={handleDeleteComment}
         onEditReply={handleEditReply}

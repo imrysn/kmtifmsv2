@@ -425,6 +425,11 @@
   color: #ef4444;
 }
 
+.file-approval-section .status-revision {
+  border: 1px solid #f59e0b;
+  color: #f59e0b;
+}
+
 /* Simplified button - removed transform on hover for performance */
 .file-approval-section .action-btn {
   padding: 0.5rem 0.75rem;

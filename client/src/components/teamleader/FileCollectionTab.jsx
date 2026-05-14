@@ -5,6 +5,8 @@ import FileIcon from '../shared/FileIcon'
 import FileOpenModal from '../shared/FileOpenModal'
 import { LoadingTable } from '../common/InlineSkeletonLoader'
 
+import { recursiveGroupByPath } from '@utils/folderUtils'
+
 const FileCollectionTab = ({
   submittedFiles,
   isLoading,
@@ -252,7 +254,7 @@ const FileCollectionTab = ({
     return <span className={`status-badge status-${cls}`}>{label}</span>
   }
 
-  const renderFileRow = (submission, isNested = false) => {
+  const renderFileRow = (submission, isNested = false, level = 0) => {
     const ext = getFileExtension(submission.original_name, submission.file_type)
     return (
       <tr
@@ -263,12 +265,12 @@ const FileCollectionTab = ({
         style={isNested ? { backgroundColor: '#fafafa' } : {}}
       >
         <td>
-          <div className="file-cell" style={isNested ? { paddingLeft: '44px' } : {}}>
+          <div className="file-cell" style={{ paddingLeft: isNested ? `${(level * 24) + 12}px` : '12px' }}>
             <div className="file-icon">
               <FileIcon fileType={ext} isFolder={false} altText={`Icon for ${submission.original_name}`} size="medium" />
             </div>
             <div className="file-details">
-              <span className="file-name">{isNested ? (submission.relative_path || submission.original_name) : submission.original_name}</span>
+              <span className="file-name">{submission.original_name}</span>
               <span className="file-size">{formatFileSize(submission.file_size)}</span>
             </div>
           </div>
@@ -413,7 +415,7 @@ const FileCollectionTab = ({
           <table className="tl-files-table">
             <thead>
               <tr>
-                <th>File Name</th>
+                <th style={{ width: '40%' }}>File Name</th>
                 <th>Task</th>
                 <th>Team</th>
                 <th>Submitted By</th>
@@ -423,67 +425,105 @@ const FileCollectionTab = ({
               </tr>
             </thead>
             <tbody>
-              {currentPageItems.map((item) => {
-                if (item.type === 'folder') {
-                  const { folderKey, folderName, files: folderFiles } = item
-                  const isExpanded = expandedFolders[folderKey]
-                  const firstFile = folderFiles[0]
-                  return (
-                    <React.Fragment key={`folder-${folderKey}`}>
-                      <tr
-                        className="tl-clickable-row tl-folder-row"
-                        style={{ verticalAlign: 'middle' }}
-                        onClick={() => setExpandedFolders(prev => ({ ...prev, [folderKey]: !prev[folderKey] }))}
-                      >
-                        <td style={{ verticalAlign: 'middle' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                            <div style={{ fontSize: '32px' }}>{isExpanded ? '📂' : '📁'}</div>
-                            <div>
-                              <div style={{ fontWeight: '600', color: '#111827' }}>{folderName}</div>
-                              <div style={{ fontSize: '12px', color: '#6b7280' }}>{folderFiles.length} files</div>
-                            </div>
-                          </div>
-                        </td>
-                        <td style={{ verticalAlign: 'middle' }}>{firstFile.assignment_title || '-'}</td>
-                        <td style={{ verticalAlign: 'middle' }}>
-                          <div className="team-cell">
-                            <span className="team-badge" data-team={firstFile.user_team || firstFile.team}>{firstFile.user_team || firstFile.team || 'N/A'}</span>
-                          </div>
-                        </td>
-                        <td style={{ verticalAlign: 'middle' }}>{firstFile.fullName || firstFile.username || '-'}</td>
-                        <td style={{ verticalAlign: 'middle' }}>{new Date(firstFile.submitted_at || firstFile.uploaded_at).toLocaleDateString()}</td>
-                        {activeView === 'collection' && <td style={{ verticalAlign: 'middle' }}>{getFolderStatusBadge(folderFiles)}</td>}
-                        <td style={{ textAlign: 'center', verticalAlign: 'middle' }}>
-                          <div className="tl-actions-menu-wrapper" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-                            <button className="tl-menu-button" onClick={(e) => { e.stopPropagation(); toggleMenu(`folder-${folderKey}`, e) }} title="Options">
-                              <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                                <circle cx="3" cy="8" r="1.5" fill="currentColor" />
-                                <circle cx="8" cy="8" r="1.5" fill="currentColor" />
-                                <circle cx="13" cy="8" r="1.5" fill="currentColor" />
-                              </svg>
-                            </button>
-                            {openMenuId === `folder-${folderKey}` && (
-                              <div className="tl-dropdown-menu">
-                                {firstFile.assignment_id && onNavigateToTask && (
-                                  <button className="tl-dropdown-item" onClick={(e) => { e.stopPropagation(); onNavigateToTask(firstFile.assignment_id, firstFile.id) }}>
-                                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                                      <path d="M5.33333 2.66667H2.66667C2.29848 2.66667 2 2.96514 2 3.33333V13.3333C2 13.7015 2.29848 14 2.66667 14H12.6667C13.0349 14 13.3333 13.7015 13.3333 13.3333V10.6667" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                                      <path d="M12 2L14 4L8.66667 9.33333L6.66667 9.66667L7 7.66667L12 2Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                                    </svg>
-                                    Go to Task
-                                  </button>
-                                )}
+              {(() => {
+                const renderRecursiveItems = (files, level = 1, parentKey = '') => {
+                  const { subfolders, rootFiles } = recursiveGroupByPath(files);
+                  const items = [];
+
+                  // 1. Render subfolders
+                  Object.entries(subfolders).forEach(([folderName, folderFiles]) => {
+                    const currentKey = parentKey ? `${parentKey}__${folderName}` : folderName;
+                    const isExpanded = expandedFolders[currentKey];
+                    const firstFile = folderFiles[0].file || folderFiles[0];
+
+                    items.push(
+                      <React.Fragment key={`folder-${currentKey}`}>
+                        <tr
+                          className="tl-clickable-row tl-folder-row"
+                          onClick={() => setExpandedFolders(prev => ({ ...prev, [currentKey]: !prev[currentKey] }))}
+                          style={{ backgroundColor: isExpanded ? '#f9fafb' : '#ffffff' }}
+                        >
+                          <td>
+                            <div className="file-cell" style={{ paddingLeft: `${level * 24}px` }}>
+                              <div style={{ fontSize: '32px' }}>{isExpanded ? '📂' : '📁'}</div>
+                              <div className="file-details">
+                                <span className="file-name" style={{ fontWeight: '600' }}>{folderName}</span>
+                                <span className="file-size">{folderFiles.length} items</span>
                               </div>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                      {isExpanded && folderFiles.map(f => renderFileRow(f, true))}
-                    </React.Fragment>
-                  )
-                }
-                return renderFileRow(item.file, false)
-              })}
+                            </div>
+                          </td>
+                          <td>{firstFile.assignment_title || '-'}</td>
+                          <td>
+                            <div className="team-cell">
+                              <span className="team-badge" data-team={firstFile.user_team || firstFile.team}>{firstFile.user_team || firstFile.team || 'N/A'}</span>
+                            </div>
+                          </td>
+                          <td><span className="user-name">{firstFile.fullName || firstFile.username || '-'}</span></td>
+                          <td>{new Date(firstFile.submitted_at || firstFile.uploaded_at).toLocaleDateString()}</td>
+                          {activeView === 'collection' && <td>{getFolderStatusBadge(folderFiles.map(f => f.file || f))}</td>}
+                          <td style={{ textAlign: 'center' }}>
+                            <button className="tl-menu-button" onClick={(e) => { e.stopPropagation(); toggleMenu(`folder-${currentKey}`, e) }}>
+                              <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="3" cy="8" r="1.5" fill="currentColor" /><circle cx="8" cy="8" r="1.5" fill="currentColor" /><circle cx="13" cy="8" r="1.5" fill="currentColor" /></svg>
+                            </button>
+                          </td>
+                        </tr>
+                        {isExpanded && renderRecursiveItems(folderFiles, level + 1, currentKey)}
+                      </React.Fragment>
+                    );
+                  });
+
+                  // 2. Render root files
+                  rootFiles.forEach((item) => {
+                    const file = item.file || item;
+                    items.push(renderFileRow(file, true, level));
+                  });
+
+                  return items;
+                };
+
+                return currentPageItems.map((item) => {
+                  if (item.type === 'folder') {
+                    const { folderKey, folderName, files: folderFiles } = item;
+                    const isExpanded = expandedFolders[folderKey];
+                    const firstFile = folderFiles[0];
+                    return (
+                      <React.Fragment key={`root-folder-${folderKey}`}>
+                        <tr
+                          className="tl-clickable-row tl-folder-row"
+                          onClick={() => setExpandedFolders(prev => ({ ...prev, [folderKey]: !prev[folderKey] }))}
+                          style={{ backgroundColor: isExpanded ? '#f9fafb' : '#ffffff' }}
+                        >
+                          <td>
+                            <div className="file-cell">
+                              <div style={{ fontSize: '32px' }}>{isExpanded ? '📂' : '📁'}</div>
+                              <div className="file-details">
+                                <span className="file-name" style={{ fontWeight: '600' }}>{folderName}</span>
+                                <span className="file-size">{folderFiles.length} items</span>
+                              </div>
+                            </div>
+                          </td>
+                          <td>{firstFile.assignment_title || '-'}</td>
+                          <td>
+                            <div className="team-cell">
+                              <span className="team-badge" data-team={firstFile.user_team || firstFile.team}>{firstFile.user_team || firstFile.team || 'N/A'}</span>
+                            </div>
+                          </td>
+                          <td><span className="user-name">{firstFile.fullName || firstFile.username || '-'}</span></td>
+                          <td>{new Date(firstFile.submitted_at || firstFile.uploaded_at).toLocaleDateString()}</td>
+                          {activeView === 'collection' && <td>{getFolderStatusBadge(folderFiles)}</td>}
+                          <td style={{ textAlign: 'center' }}>
+                            <button className="tl-menu-button" onClick={(e) => { e.stopPropagation(); toggleMenu(`folder-${folderKey}`, e) }}>
+                              <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="3" cy="8" r="1.5" fill="currentColor" /><circle cx="8" cy="8" r="1.5" fill="currentColor" /><circle cx="13" cy="8" r="1.5" fill="currentColor" /></svg>
+                            </button>
+                          </td>
+                        </tr>
+                        {isExpanded && renderRecursiveItems(folderFiles, 1, folderKey)}
+                      </React.Fragment>
+                    );
+                  }
+                  return renderFileRow(item.file);
+                });
+              })()}
             </tbody>
           </table>
 

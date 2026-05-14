@@ -269,6 +269,7 @@ const getFileStatusBadge = (status) => {
     rejected_by_team_leader: { bg: '#ffe4e6', color: '#be123c', label: 'Rejected', radius: '20px' },
     rejected_by_admin: { bg: '#ffe4e6', color: '#be123c', label: 'Rejected', radius: '20px' },
     under_revision: { bg: '#fef3c7', color: '#92400e', label: '✎ REVISED', radius: '4px', weight: '600' },
+    revision: { bg: '#fef9c3', color: '#854d0e', label: '✎ REVISION', radius: '4px', weight: '600' },
   };
   const b = badges[status] || badges.uploaded;
   return (
@@ -336,6 +337,7 @@ const TasksTab = memo(({
   const [showCommentsModal, setShowCommentsModal] = useState(false);
   const [currentCommentsAssignment, setCurrentCommentsAssignment] = useState(null);
   const [highlightCommentBy, setHighlightCommentBy] = useState(null);
+  const [isPostingReply, setIsPostingReply] = useState(false);
   const [loadingComments, setLoadingComments] = useState(false);
   const [visibleReplies, setVisibleReplies] = useState({});
 
@@ -494,6 +496,7 @@ const TasksTab = memo(({
   const postReply = useCallback(async (_e, commentId, replyTextValue, onSuccess) => {
     const assignmentId = currentAssignmentIdRef.current;
     if (!assignmentId || !commentId || !replyTextValue?.trim()) return;
+    setIsPostingReply(true);
     try {
       const data = await apiFetch(`/api/assignments/${assignmentId}/comments/${commentId}/reply`, {
         method: 'POST',
@@ -502,11 +505,12 @@ const TasksTab = memo(({
       if (data.success) { onSuccess?.(); fetchComments(assignmentId); }
       else showError(data.message || 'Failed to post reply');
     } catch { showError('Failed to post reply'); }
+    finally { setIsPostingReply(false); }
   }, [user.id, user.username, user.fullName, fetchComments, showError]);
 
   const editComment = useCallback(async (assignmentId, commentId, newText) => {
     try {
-      const data = await apiFetch(`/api/assignments/comments/${commentId}`, {
+      const data = await apiFetch(`/api/assignments/${assignmentId}/comments/${commentId}`, {
         method: 'PUT',
         body: JSON.stringify({ userId: user.id, comment: newText }),
       });
@@ -517,7 +521,7 @@ const TasksTab = memo(({
 
   const deleteComment = useCallback(async (assignmentId, commentId) => {
     try {
-      const data = await apiFetch(`/api/assignments/comments/${commentId}`, {
+      const data = await apiFetch(`/api/assignments/${assignmentId}/comments/${commentId}`, {
         method: 'DELETE',
         body: JSON.stringify({ userId: user.id }),
       });
@@ -528,9 +532,9 @@ const TasksTab = memo(({
 
   const editReply = useCallback(async (assignmentId, commentId, replyId, newText) => {
     try {
-      const data = await apiFetch(`/api/assignments/comments/${replyId}`, {
+      const data = await apiFetch(`/api/assignments/${assignmentId}/comments/${commentId}/reply/${replyId}`, {
         method: 'PUT',
-        body: JSON.stringify({ userId: user.id, comment: newText }),
+        body: JSON.stringify({ userId: user.id, reply: newText }),
       });
       if (data.success) fetchComments(assignmentId);
       else showError(data.message || 'Failed to edit reply');
@@ -539,7 +543,7 @@ const TasksTab = memo(({
 
   const deleteReply = useCallback(async (assignmentId, commentId, replyId) => {
     try {
-      const data = await apiFetch(`/api/assignments/comments/${replyId}`, {
+      const data = await apiFetch(`/api/assignments/${assignmentId}/comments/${commentId}/reply/${replyId}`, {
         method: 'DELETE',
         body: JSON.stringify({ userId: user.id }),
       });
@@ -881,15 +885,17 @@ const TasksTab = memo(({
     const approved = folderFiles.filter(f => f.status === 'final_approved').length;
     const tlApproved = folderFiles.filter(f => f.status === 'team_leader_approved').length;
     const rejected = folderFiles.filter(f => ['rejected_by_team_leader', 'rejected_by_admin'].includes(f.status)).length;
-    const pending = folderFiles.filter(f => !f.status || f.status === 'uploaded').length;
+    const revision = folderFiles.filter(f => f.status === 'revision').length;
+    const pending = folderFiles.filter(f => !f.status || f.status === 'uploaded' || f.status === 'revision').length;
 
     if (approved === total) return <span style={{ background: '#d1fae5', color: '#065f46', padding: '2px 8px', borderRadius: '10px', fontSize: '11px', fontWeight: '600' }}>✓ All Approved</span>;
     if (rejected === total) return <span style={{ background: '#ffe4e6', color: '#be123c', padding: '2px 8px', borderRadius: '20px', fontSize: '11px', fontWeight: '500' }}>All Rejected</span>;
 
     return (
       <>
+        {revision > 0 && <span style={{ background: '#fef9c3', color: '#854d0e', padding: '2px 8px', borderRadius: '10px', fontSize: '11px', fontWeight: '600', border: '1px solid #fef08a', marginRight: '4px' }}>Revision ({revision})</span>}
         {(tlApproved > 0 || (approved > 0 && !pending && !rejected)) && <span style={{ background: '#fef9c3', color: '#92400e', padding: '2px 8px', borderRadius: '10px', fontSize: '11px', fontWeight: '500', marginRight: '4px' }}>Pending Admin</span>}
-        {pending > 0 && <span style={{ background: '#e0e7ff', color: '#3730a3', padding: '2px 8px', borderRadius: '10px', fontSize: '11px', fontWeight: '600', marginRight: '4px' }}>Pending Review</span>}
+        {pending > 0 && revision === 0 && <span style={{ background: '#e0e7ff', color: '#3730a3', padding: '2px 8px', borderRadius: '10px', fontSize: '11px', fontWeight: '600', marginRight: '4px' }}>Pending Review</span>}
         {rejected > 0 && <span style={{ background: '#ffe4e6', color: '#be123c', padding: '2px 8px', borderRadius: '20px', fontSize: '11px', fontWeight: '500', marginRight: '4px' }}>{rejected} Rejected</span>}
         {approved > 0 && approved < total && <span style={{ background: '#d1fae5', color: '#065f46', padding: '2px 8px', borderRadius: '10px', fontSize: '11px', fontWeight: '600' }}>{approved} Approved</span>}
       </>
@@ -1460,7 +1466,9 @@ const TasksTab = memo(({
           newComment={newComment[currentCommentsAssignment.id] || ''}
           setNewComment={handleSetNewComment}
           onPostComment={handlePostComment}
+          isPostingComment={isPostingComment[currentCommentsAssignment.id]}
           onPostReply={postReply}
+          isPostingReply={isPostingReply}
           onEditComment={editComment}
           onDeleteComment={deleteComment}
           onEditReply={editReply}

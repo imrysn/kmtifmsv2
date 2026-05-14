@@ -1,5 +1,30 @@
-import React from 'react'
 import { FileIcon } from '../../shared';
+
+const recursiveGroupByPath = (files, pathKey = 'relative_path') => {
+  const result = { subfolders: {}, rootFiles: [] };
+  files.forEach((item, originalIdx) => {
+    // 'item' might be a File, an existing attachment object, or our internal wrapper
+    const file = item.file || item;
+    const info = {
+      _original_idx: item._original_idx !== undefined ? item._original_idx : originalIdx,
+      _temp_path: item._temp_path
+    };
+
+    const getPath = (f) => f[pathKey] || f.webkitRelativePath || '';
+    const currentPath = info._temp_path !== undefined ? info._temp_path : getPath(file);
+    
+    const parts = currentPath.split('/').filter(Boolean);
+    if (parts.length > 1) {
+      const folderName = parts[0].trim();
+      if (!result.subfolders[folderName]) result.subfolders[folderName] = [];
+      const remainingPath = parts.slice(1).join('/');
+      result.subfolders[folderName].push({ file, _original_idx: info._original_idx, _temp_path: remainingPath });
+    } else {
+      result.rootFiles.push({ file, _original_idx: info._original_idx });
+    }
+  });
+  return result;
+};
 
 const CreateAssignmentModal = ({
   showCreateAssignmentModal,
@@ -255,6 +280,90 @@ const CreateAssignmentModal = ({
     return option ? option.label : 'Any file type'
   }
 
+  const FolderTree = ({ files, level = 0, parentKey = '', onRemoveFile, onRemoveFolder, isExisting = false, pathKey = 'relative_path' }) => {
+    const { subfolders, rootFiles } = recursiveGroupByPath(files, pathKey);
+    
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+        {Object.entries(subfolders).map(([folderName, folderFiles]) => {
+          const currentKey = parentKey ? `${parentKey}__${folderName}` : folderName;
+          const isExpanded = !!expandedFolders[currentKey];
+          const totalSize = folderFiles.reduce((sum, f) => {
+            const af = f.file || f;
+            return sum + (isExisting ? (af.file_size || 0) : (af.size || 0));
+          }, 0);
+          
+          return (
+            <div key={currentKey} style={{ borderRadius: '8px', border: '1px solid #E5E7EB', overflow: 'hidden', background: 'white' }}>
+              <div 
+                onClick={() => setExpandedFolders(prev => ({ ...prev, [currentKey]: !prev[currentKey] }))}
+                style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 12px', cursor: 'pointer', userSelect: 'none', background: isExpanded ? '#f8faff' : '#ffffff' }}
+              >
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="none" style={{ flexShrink: 0, transition: 'transform 0.2s', transform: isExpanded ? 'rotate(90deg)' : 'rotate(0deg)' }}>
+                  <path d="M6 4L10 8L6 12" stroke="#64748b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+                <div style={{ fontSize: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', width: '32px', height: '32px', background: isExpanded ? '#dbeafe' : '#f1f5f9', borderRadius: '6px', color: isExpanded ? '#2563eb' : '#64748b' }}>
+                  {isExpanded ? '📂' : '📁'}
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: '13.5px', fontWeight: '600', color: '#1e293b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{folderName}</div>
+                  <div style={{ fontSize: '11px', color: '#64748b' }}>{folderFiles.length} item{folderFiles.length !== 1 ? 's' : ''} &bull; {formatFileSize(totalSize)}</div>
+                </div>
+                {onRemoveFolder && level === 0 && (
+                  <button type="button" onClick={(e) => { e.stopPropagation(); onRemoveFolder(folderName); }} style={{ padding: '6px', background: 'transparent', border: 'none', cursor: 'pointer', color: '#ef4444', display: 'flex', alignItems: 'center' }}>
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M12 4L4 12M4 4L12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                  </button>
+                )}
+              </div>
+              
+              {isExpanded && (
+                <div style={{ background: '#fafafa', padding: '2px 0 2px 24px', borderLeft: '1px solid #f1f5f9' }}>
+                  <FolderTree 
+                    files={folderFiles} 
+                    level={level + 1} 
+                    parentKey={currentKey} 
+                    onRemoveFile={onRemoveFile}
+                    isExisting={isExisting}
+                    pathKey={pathKey}
+                  />
+                </div>
+              )}
+            </div>
+          );
+        })}
+        
+        {rootFiles.map((item, idx) => {
+          const actualFile = item.file || item;
+          const fileName = actualFile.original_name || actualFile.name || '';
+          
+          return (
+            <div key={`${fileName}-${idx}`} style={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: '10px', 
+              padding: '8px 12px 8px 12px', 
+              background: 'white', 
+              borderBottom: idx === rootFiles.length - 1 && level > 0 ? 'none' : '1px solid #f1f5f9', 
+              position: 'relative' 
+            }}>
+              <div style={{ width: '14px', flexShrink: 0 }} /> {/* Spacer to align with chevron/gap */}
+              <FileIcon fileType={fileName.split('.').pop()} size="small" style={{ color: '#64748b', flexShrink: 0 }} />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: '13px', fontWeight: '500', color: '#334155', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{fileName}</div>
+                <div style={{ fontSize: '11px', color: '#94a3b8' }}>{formatFileSize(isExisting ? actualFile.file_size : actualFile.size)}</div>
+              </div>
+              {onRemoveFile && (
+                <button type="button" onClick={() => onRemoveFile(isExisting ? actualFile : item._original_idx)} style={{ padding: '4px', background: 'transparent', border: 'none', cursor: 'pointer', color: '#ef4444', display: 'flex', alignItems: 'center' }}>
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M12 4L4 12M4 4L12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                </button>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
+
   return (
     <div className="tl-modal-overlay">
       <div className="tl-modal-large" onClick={e => e.stopPropagation()}>
@@ -496,318 +605,43 @@ const CreateAssignmentModal = ({
                   </button>
                 </div>
 
-                {/* existing attachments from server when editing */}
-                {existingAttachments.length > 0 && (() => {
-                  // Group by folder_name from DB
-                  const existingFolderGroups = {};
-                  const existingLooseFiles = [];
+                {existingAttachments.length > 0 && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', padding: '16px', background: '#F9FAFB', borderRadius: '12px', border: '1px solid #E5E7EB' }}>
+                    <div style={{ fontSize: '12px', fontWeight: '600', color: '#4B5563', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>Existing Server Attachments</div>
+                    <FolderTree 
+                      files={existingAttachments} 
+                      isExisting={true} 
+                      onRemoveFile={(file) => {
+                        const idx = existingAttachments.indexOf(file);
+                        if (idx !== -1) handleRemoveExisting(idx);
+                      }}
+                      onRemoveFolder={(folderName) => {
+                        const filesToRemove = existingAttachments.filter(f => f.folder_name === folderName);
+                        filesToRemove.forEach(f => {
+                          if (f.id) setAttachmentsToRemove(ids => [...ids, f.id]);
+                        });
+                        setExistingAttachments(prev => prev.filter(f => f.folder_name !== folderName));
+                      }}
+                    />
+                  </div>
+                )}
 
-                  existingAttachments.forEach((file, index) => {
-                    if (file.folder_name) {
-                      if (!existingFolderGroups[file.folder_name]) existingFolderGroups[file.folder_name] = [];
-                      existingFolderGroups[file.folder_name].push({ file, index });
-                    } else {
-                      existingLooseFiles.push({ file, index });
-                    }
-                  });
-
-                  const handleRemoveExistingFolder = (folderName) => {
-                    existingFolderGroups[folderName].forEach(({ file, index }) => {
-                      if (file.id) setAttachmentsToRemove(ids => [...ids, file.id]);
-                    });
-                    const indicesToRemove = new Set(existingFolderGroups[folderName].map(f => f.index));
-                    setExistingAttachments(prev => prev.filter((_, i) => !indicesToRemove.has(i)));
-                  };
-
-                  return (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', padding: '12px', background: '#F9FAFB', borderRadius: '8px', border: '1px solid #E5E7EB' }}>
-                      {/* Existing folder groups */}
-                      {Object.entries(existingFolderGroups).map(([folderName, items]) => {
-                        const totalSize = items.reduce((sum, { file }) => sum + (file.file_size || 0), 0);
-                        const expandKey = `existing_${folderName}`;
-                        const isExpanded = !!expandedFolders[expandKey];
-                        const limit = folderFileLimits[expandKey] || 10;
-                        const visibleItems = items.slice(0, limit);
-                        const remaining = items.length - limit;
-                        return (
-                          <div key={`existing-folder-${folderName}`} style={{ borderRadius: '6px', border: '1px solid #E5E7EB', overflow: 'hidden', background: 'white' }}>
-                            {/* Folder header */}
-                            <div
-                              onClick={() => setExpandedFolders(prev => ({ ...prev, [expandKey]: !prev[expandKey] }))}
-                              style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 12px', cursor: 'pointer', userSelect: 'none' }}
-                            >
-                              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" style={{ flexShrink: 0, transition: 'transform 0.2s', transform: isExpanded ? 'rotate(90deg)' : 'rotate(0deg)' }}>
-                                <path d="M6 4L10 8L6 12" stroke="#6B7280" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                              </svg>
-                              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0 }}>
-                                <path d="M3 7C3 5.89543 3.89543 5 5 5H9.58579C9.851 5 10.1054 5.10536 10.2929 5.29289L11.7071 6.70711C11.8946 6.89464 12.149 7 12.4142 7H19C20.1046 7 21 7.89543 21 9V17C21 18.1046 20.1046 19 19 19H5C3.89543 19 3 18.1046 3 17V7Z" fill="#FEF3C7" stroke="#F59E0B" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                              </svg>
-                              <div style={{ flex: 1, minWidth: 0 }}>
-                                <div style={{ fontSize: '14px', fontWeight: '600', color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{folderName}</div>
-                                <div style={{ fontSize: '12px', color: '#6B7280' }}>{items.length} file{items.length !== 1 ? 's' : ''} &bull; {formatFileSize(totalSize)}</div>
-                              </div>
-                              <button
-                                type="button"
-                                onClick={(e) => { e.stopPropagation(); handleRemoveExistingFolder(folderName); }}
-                                style={{ padding: '4px', background: 'transparent', border: 'none', cursor: 'pointer', color: '#EF4444', display: 'flex', alignItems: 'center', flexShrink: 0 }}
-                              >
-                                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                                  <path d="M12 4L4 12M4 4L12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                                </svg>
-                              </button>
-                            </div>
-                            {/* Expanded file list */}
-                            {isExpanded && (
-                              <div style={{ borderTop: '1px solid #E5E7EB', background: '#F9FAFB' }}>
-                                {visibleItems.map(({ file, index }) => (
-                                  <div key={`existing-${file.id || index}`} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 14px 10px 44px', borderBottom: '1px solid #F3F4F6' }}>
-                                    <FileIcon fileType={(file.original_name || '').split('.').pop()} size="small" style={{ color: '#6B7280', flexShrink: 0 }} />
-                                    <div style={{ flex: 1, minWidth: 0 }}>
-                                      <div style={{ fontSize: '14px', color: '#374151', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                        {file.relative_path ? file.relative_path.split('/').slice(1).join('/') : file.original_name}
-                                      </div>
-                                      <div style={{ fontSize: '12px', color: '#9CA3AF', marginTop: '2px' }}>{formatFileSize(file.file_size)}</div>
-                                    </div>
-                                    <button type="button" onClick={() => handleRemoveExisting(index)} style={{ padding: '6px', background: 'transparent', border: 'none', cursor: 'pointer', color: '#EF4444', display: 'flex', alignItems: 'center', flexShrink: 0 }}>
-                                      <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M12 4L4 12M4 4L12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
-                                    </button>
-                                  </div>
-                                ))}
-                                {remaining > 0 && (
-                                  <div style={{ padding: '10px 14px 10px 44px', borderTop: '1px solid #F3F4F6', display: 'flex', gap: '16px' }}>
-                                    <button type="button" onClick={() => setFolderFileLimits(prev => ({ ...prev, [expandKey]: limit + 10 }))} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#16A34A', fontSize: '13px', fontWeight: '500', padding: 0, display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                      <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M8 4v8M4 8h8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></svg>
-                                      See {Math.min(remaining, 10)} more ({remaining} remaining)
-                                    </button>
-                                    {limit > 10 && (
-                                      <button type="button" onClick={() => setFolderFileLimits(prev => ({ ...prev, [expandKey]: 10 }))} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6B7280', fontSize: '13px', fontWeight: '500', padding: 0, display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                        <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M4 10L8 6L12 10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
-                                        See less
-                                      </button>
-                                    )}
-                                  </div>
-                                )}
-                                {limit > 10 && remaining <= 0 && (
-                                  <div style={{ padding: '10px 14px 10px 44px', borderTop: '1px solid #F3F4F6' }}>
-                                    <button type="button" onClick={() => setFolderFileLimits(prev => ({ ...prev, [expandKey]: 10 }))} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6B7280', fontSize: '13px', fontWeight: '500', padding: 0, display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                      <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M4 10L8 6L12 10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
-                                      See less
-                                    </button>
-                                  </div>
-                                )}
-                              </div>
-                            )}
-                          </div>
-                        );
-                      })}
-                      {/* Existing loose files */}
-                      {existingLooseFiles.map(({ file, index }) => (
-                        <div key={`existing-${file.id || index}`} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '8px 12px', background: 'white', borderRadius: '6px', border: '1px solid #E5E7EB' }}>
-                          <FileIcon fileType={(file.original_name || '').split('.').pop()} size="small" style={{ color: '#6B7280' }} />
-                          <div style={{ flex: 1, minWidth: 0 }}>
-                            <div style={{ fontSize: '14px', fontWeight: '500', color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{file.original_name}</div>
-                            <div style={{ fontSize: '12px', color: '#6B7280' }}>{formatFileSize(file.file_size)}</div>
-                          </div>
-                          <button type="button" onClick={() => handleRemoveExisting(index)} style={{ padding: '4px', background: 'transparent', border: 'none', cursor: 'pointer', color: '#EF4444', display: 'flex', alignItems: 'center' }}>
-                            <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M12 4L4 12M4 4L12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  );
-                })()}
-
-                {attachedFiles.length > 0 && (() => {
-                  // Group files: folder files under their top-level folder, loose files individually
-                  const folderGroups = {};
-                  const looseFiles = [];
-
-                  attachedFiles.forEach((file, index) => {
-                    const relPath = file.webkitRelativePath || '';
-                    const parts = relPath.split('/');
-                    if (parts.length > 1) {
-                      const folderName = parts[0];
-                      if (!folderGroups[folderName]) folderGroups[folderName] = [];
-                      folderGroups[folderName].push({ file, index });
-                    } else {
-                      looseFiles.push({ file, index });
-                    }
-                  });
-
-                  const handleRemoveFolder = (folderName) => {
-                    const indicesToRemove = new Set(
-                      folderGroups[folderName].map(f => f.index)
-                    );
-                    setAttachedFiles(prev => prev.filter((_, i) => !indicesToRemove.has(i)));
-                  };
-
-                  return (
-                    <div style={{
-                      display: 'flex',
-                      flexDirection: 'column',
-                      gap: '8px',
-                      padding: '12px',
-                      background: '#F9FAFB',
-                      borderRadius: '8px',
-                      border: '1px solid #E5E7EB'
-                    }}>
-                      {/* Folder groups */}
-                      {Object.entries(folderGroups).map(([folderName, items]) => {
-                        const totalSize = items.reduce((sum, { file }) => sum + file.size, 0);
-                        const isExpanded = !!expandedFolders[folderName];
-                        return (
-                          <div key={`folder-${folderName}`} style={{ borderRadius: '6px', border: '1px solid #E5E7EB', overflow: 'hidden', background: 'white' }}>
-                            {/* Folder header row — clickable */}
-                            <div
-                              onClick={() => setExpandedFolders(prev => ({ ...prev, [folderName]: !prev[folderName] }))}
-                              style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 12px', cursor: 'pointer', userSelect: 'none' }}
-                            >
-                              {/* Chevron */}
-                              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" style={{ flexShrink: 0, transition: 'transform 0.2s', transform: isExpanded ? 'rotate(90deg)' : 'rotate(0deg)' }}>
-                                <path d="M6 4L10 8L6 12" stroke="#6B7280" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                              </svg>
-                              {/* Folder icon */}
-                              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0 }}>
-                                <path d="M3 7C3 5.89543 3.89543 5 5 5H9.58579C9.851 5 10.1054 5.10536 10.2929 5.29289L11.7071 6.70711C11.8946 6.89464 12.149 7 12.4142 7H19C20.1046 7 21 7.89543 21 9V17C21 18.1046 20.1046 19 19 19H5C3.89543 19 3 18.1046 3 17V7Z" fill="#FEF3C7" stroke="#F59E0B" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                              </svg>
-                              <div style={{ flex: 1, minWidth: 0 }}>
-                                <div style={{ fontSize: '14px', fontWeight: '600', color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                  {folderName}
-                                </div>
-                                <div style={{ fontSize: '12px', color: '#6B7280' }}>
-                                  {items.length} file{items.length !== 1 ? 's' : ''} &bull; {formatFileSize(totalSize)}
-                                </div>
-                              </div>
-                              {/* Remove folder button */}
-                              <button
-                                type="button"
-                                onClick={(e) => { e.stopPropagation(); handleRemoveFolder(folderName); }}
-                                style={{ padding: '4px', background: 'transparent', border: 'none', cursor: 'pointer', color: '#EF4444', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}
-                              >
-                                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                                  <path d="M12 4L4 12M4 4L12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                                </svg>
-                              </button>
-                            </div>
-
-                            {/* Expanded file list */}
-                            {isExpanded && (() => {
-                              const limit = folderFileLimits[folderName] || 10;
-                              const visibleItems = items.slice(0, limit);
-                              const remaining = items.length - limit;
-                              return (
-                                <div style={{ borderTop: '1px solid #E5E7EB', background: '#F9FAFB' }}>
-                                  {visibleItems.map(({ file, index }) => (
-                                    <div key={index} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 14px 10px 44px', borderBottom: '1px solid #F3F4F6' }}>
-                                      <FileIcon
-                                        fileType={(file.name || '').split('.').pop()}
-                                        size="small"
-                                        style={{ color: '#6B7280', flexShrink: 0 }}
-                                      />
-                                      <div style={{ flex: 1, minWidth: 0 }}>
-                                        <div style={{ fontSize: '14px', color: '#374151', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                          {file.webkitRelativePath.split('/').slice(1).join('/') || file.name}
-                                        </div>
-                                        <div style={{ fontSize: '12px', color: '#9CA3AF', marginTop: '2px' }}>{formatFileSize(file.size)}</div>
-                                      </div>
-                                      <button
-                                        type="button"
-                                        onClick={() => handleRemoveFile(index)}
-                                        style={{ padding: '6px', background: 'transparent', border: 'none', cursor: 'pointer', color: '#EF4444', display: 'flex', alignItems: 'center', flexShrink: 0 }}
-                                      >
-                                        <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                                          <path d="M12 4L4 12M4 4L12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                                        </svg>
-                                      </button>
-                                    </div>
-                                  ))}
-                                  {remaining > 0 && (
-                                    <div style={{ padding: '10px 14px 10px 44px', borderTop: '1px solid #F3F4F6', display: 'flex', alignItems: 'center', gap: '16px' }}>
-                                      <button
-                                        type="button"
-                                        onClick={() => setFolderFileLimits(prev => ({ ...prev, [folderName]: limit + 10 }))}
-                                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#16A34A', fontSize: '13px', fontWeight: '500', padding: 0, display: 'flex', alignItems: 'center', gap: '4px' }}
-                                      >
-                                        <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
-                                          <path d="M8 4v8M4 8h8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-                                        </svg>
-                                        See {Math.min(remaining, 10)} more ({remaining} remaining)
-                                      </button>
-                                      {limit > 10 && (
-                                        <button
-                                          type="button"
-                                          onClick={() => setFolderFileLimits(prev => ({ ...prev, [folderName]: 10 }))}
-                                          style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6B7280', fontSize: '13px', fontWeight: '500', padding: 0, display: 'flex', alignItems: 'center', gap: '4px' }}
-                                        >
-                                          <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
-                                            <path d="M4 10L8 6L12 10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                                          </svg>
-                                          See less
-                                        </button>
-                                      )}
-                                    </div>
-                                  )}
-                                  {limit > 10 && remaining <= 0 && (
-                                    <div style={{ padding: '10px 14px 10px 44px', borderTop: '1px solid #F3F4F6' }}>
-                                      <button
-                                        type="button"
-                                        onClick={() => setFolderFileLimits(prev => ({ ...prev, [folderName]: 10 }))}
-                                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6B7280', fontSize: '13px', fontWeight: '500', padding: 0, display: 'flex', alignItems: 'center', gap: '4px' }}
-                                      >
-                                        <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
-                                          <path d="M4 10L8 6L12 10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                                        </svg>
-                                        See less
-                                      </button>
-                                    </div>
-                                  )}
-                                </div>
-                              );
-                            })()}
-                          </div>
-                        );
-                      })}
-
-                      {/* Loose individual files */}
-                      {looseFiles.map(({ file, index }) => (
-                        <div key={index} style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'space-between',
-                          padding: '8px 12px',
-                          background: 'white',
-                          borderRadius: '6px',
-                          border: '1px solid #E5E7EB'
-                        }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1 }}>
-                            <FileIcon
-                              fileType={(file.name || '').split('.').pop()}
-                              size="small"
-                              style={{ color: '#6B7280' }}
-                            />
-                            <div style={{ flex: 1, minWidth: 0 }}>
-                              <div style={{ fontSize: '14px', fontWeight: '500', color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                {file.name}
-                              </div>
-                              <div style={{ fontSize: '12px', color: '#6B7280' }}>
-                                {formatFileSize(file.size)}
-                              </div>
-                            </div>
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() => handleRemoveFile(index)}
-                            style={{ padding: '4px', background: 'transparent', border: 'none', cursor: 'pointer', color: '#EF4444', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                          >
-                            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                              <path d="M12 4L4 12M4 4L12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                            </svg>
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  );
-                })()}
+                {attachedFiles.length > 0 && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', padding: '16px', background: '#F9FAFB', borderRadius: '12px', border: '1px solid #E5E7EB' }}>
+                    <div style={{ fontSize: '12px', fontWeight: '600', color: '#4B5563', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>Newly Added Files</div>
+                    <FolderTree 
+                      files={attachedFiles} 
+                      pathKey="relativeFolderPath"
+                      onRemoveFile={(fileIndex) => handleRemoveFile(fileIndex)}
+                      onRemoveFolder={(folderName) => {
+                        setAttachedFiles(prev => prev.filter(f => {
+                          const existingFolder = f.webkitRelativePath?.split('/')[0];
+                          return existingFolder !== folderName;
+                        }));
+                      }}
+                    />
+                  </div>
+                )}
               </div>
             </div>
 
