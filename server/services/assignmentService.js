@@ -448,12 +448,77 @@ async function deleteComment(commentId, user) {
 
 /**
  * Mark assignment as done
+ * Also deletes the team leader's attachment folders from the NAS teamleader directory.
  */
 async function markAssignmentDone(assignmentId, user) {
     const assignment = await assignmentRepository.findById(assignmentId);
     if (!assignment) throw new NotFoundError('Assignment');
 
+    // 1. Mark completed in DB
     await assignmentRepository.update(assignmentId, { status: 'completed' });
+
+    // 2. Delete the team leader's attachment folders from NAS
+    //    Path: \\KMTI-NAS\Shared\data\teamleader\<username>\<folder_name>
+    setImmediate(async () => {
+        try {
+            const { networkDataPath } = require('../config/database');
+            const teamleaderBase = path.join(path.dirname(networkDataPath), 'teamleader');
+            const userDir = path.join(teamleaderBase, user.username);
+
+            // Get all attachment folders for this assignment
+            const attachments = await db.all(
+                'SELECT DISTINCT folder_name, file_path FROM assignment_attachments WHERE assignment_id = ?',
+                [assignmentId]
+            );
+
+            const deletedFolders = new Set();
+
+            for (const att of (attachments || [])) {
+                // Delete by folder_name if available
+                if (att.folder_name && !deletedFolders.has(att.folder_name)) {
+                    const folderPath = path.join(userDir, att.folder_name);
+                    try {
+                        await fs.rm(folderPath, { recursive: true, force: true });
+                        deletedFolders.add(att.folder_name);
+                        logInfo('Deleted TL attachment folder on mark-done', { folderPath });
+                    } catch (e) {
+                        logError(e, { context: 'markDone-deleteFolder', folderPath });
+                    }
+                }
+
+                // Also delete by the top-level directory of the file_path
+                if (att.file_path) {
+                    const normalised = att.file_path.replace(/\\/g, '/');
+                    // Resolve absolute path to a path under userDir and grab top segment
+                    let rel = null;
+                    const userDirNorm = userDir.replace(/\\/g, '/');
+                    if (normalised.startsWith(userDirNorm)) {
+                        rel = normalised.slice(userDirNorm.length).replace(/^\//, '');
+                    }
+                    if (rel) {
+                        const topFolder = rel.split('/')[0];
+                        if (topFolder && !deletedFolders.has(topFolder)) {
+                            const folderPath = path.join(userDir, topFolder);
+                            try {
+                                await fs.rm(folderPath, { recursive: true, force: true });
+                                deletedFolders.add(topFolder);
+                                logInfo('Deleted TL attachment folder (path-derived) on mark-done', { folderPath });
+                            } catch (e) {
+                                logError(e, { context: 'markDone-deleteFolder-path', folderPath });
+                            }
+                        }
+                    }
+                }
+            }
+
+            if (deletedFolders.size > 0) {
+                logActivity(db, user.id, user.username, user.role, user.team,
+                    `Deleted ${deletedFolders.size} attachment folder(s) on mark-done: ${assignment.title}`);
+            }
+        } catch (err) {
+            logError(err, { context: 'markAssignmentDone-folderCleanup', assignmentId });
+        }
+    });
 
     logActivity(
         db, user.id, user.username, user.role, user.team,

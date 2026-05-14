@@ -59,6 +59,7 @@ export function parseNotification(notification, role) {
     if (
         notification.type === 'submission' ||
         notification.type === 'file_uploaded' ||
+        notification.type === 'file_submitted' ||
         notification.type === 'assignment'
     ) {
         if (notification.assignment_id) {
