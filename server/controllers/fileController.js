@@ -556,6 +556,19 @@ class FileController {
     });
 
     /**
+     * Delete a folder (regular submissions + physical files)
+     * POST /api/files/folder/delete
+     */
+    deleteFolder = asyncHandler(async (req, res) => {
+        const { folderName, fileIds, userId, username, userRole, team } = req.body;
+        // Construct a user object from the body if req.user is somehow incomplete,
+        // though req.user from authenticateToken should normally be used.
+        const user = req.user || { id: userId, username, role: userRole, team };
+        await fileService.deleteFolder(folderName, fileIds, user);
+        res.json({ success: true, message: `Folder "${folderName}" deleted successfully` });
+    });
+
+    /**
      * Delete an attachment folder (assignment_attachments records + physical files).
      * POST /api/files/folder/delete-attachments
      */
