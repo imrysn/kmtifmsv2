@@ -1029,7 +1029,7 @@ const TasksTab = memo(({
                         ✓ Completed
                       </div>
                     ) : assignment.submitted_files?.length > 0 ? (
-                      <div style={{ backgroundColor: 'transparent', color: '#d97706', padding: '6px 12px', borderRadius: '20px', fontSize: '13px', fontWeight: '600', display: 'inline-flex', alignItems: 'center', gap: '4px', border: '1.5px solid #d97706' }}>
+                      <div style={{ backgroundColor: '#F0FDF4', color: '#15803D', padding: '6px 12px', borderRadius: '20px', fontSize: '13px', fontWeight: '600', display: 'inline-flex', alignItems: 'center', gap: '4px', border: '1.5px solid #86EFAC' }}>
                         ✓ Submitted
                       </div>
                     ) : (
