@@ -56,11 +56,9 @@ const groupFilesByFolder = (files) => {
 };
 
 const getAssignmentStatus = (assignment) => {
-  // If the assignment itself is marked completed (by TL or admin), always treat as completed
-  // regardless of whether the user uploaded files
+  // Only truly completed when the team leader/admin explicitly marks it done
   if (assignment.status === 'completed') return 'completed';
-  const hasFiles = assignment.submitted_files?.length > 0;
-  if (hasFiles) return 'completed';
+  // Having submitted files means it's active (submitted), not completed yet
   if (!assignment.due_date) return 'no_due_date';
   const dueDate = new Date(assignment.due_date);
   const now = new Date();
@@ -262,10 +260,11 @@ const getFileStatusBadge = (status) => {
 };
 
 const getStatusBadge = (assignment) => {
-  // If TL/admin marked the task as completed, show Completed badge regardless of file uploads
+  // ONLY show Completed if TL/admin explicitly marked the task done
   if (assignment.status === 'completed') {
     return <span style={{ backgroundColor: '#F0FDF4', color: '#15803D', padding: '4px 12px', borderRadius: '20px', fontSize: '12px', fontWeight: '600', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>✓ COMPLETED</span>;
   }
+  // Show SUBMITTED if user has uploaded files (pending review)
   if (assignment.submitted_files?.length > 0) {
     return <span style={{ backgroundColor: '#F0FDF4', color: '#15803D', padding: '4px 12px', borderRadius: '20px', fontSize: '12px', fontWeight: '600', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>✓ SUBMITTED</span>;
   }
@@ -685,49 +684,38 @@ const TasksTab = memo(({
     setUploadProgress(0);
 
     try {
-      const { uploadBatchWithProgress } = await import('@/config/api');
-      
-      const BATCH_SIZE = 50;
-      const firstBatch = uploadedFiles.slice(0, BATCH_SIZE);
-      const remaining = uploadedFiles.slice(BATCH_SIZE);
+      const { uploadWithProgress } = await import('@/config/api');
 
-      const firstPaths = firstBatch.map(f => {
-        const folder = targetFolder || f.folderName;
-        return folder ? `${folder}/${f.file.name}` : f.file.name;
-      });
-      const remainingPaths = remaining.map(f => {
+      // Build relative paths for every file
+      const allPaths = uploadedFiles.map(f => {
         const folder = targetFolder || f.folderName;
         return folder ? `${folder}/${f.file.name}` : f.file.name;
       });
 
+      // Send ALL files in a single multipart request.
+      // The field name MUST be 'files' — that's what
+      // upload.array('files', 10000) on /api/files/bulk-upload expects.
       const fd = new FormData();
       fd.append('userId', user.id);
       fd.append('username', user.username);
       fd.append('assignmentId', currentAssignment.id);
       fd.append('tag', fileTag || '');
       fd.append('description', fileDescription || '');
-      fd.append('relativePaths', JSON.stringify(firstPaths));
-      firstBatch.forEach(f => fd.append('files', f.file));
+      fd.append('relativePaths', JSON.stringify(allPaths));
+      uploadedFiles.forEach(f => fd.append('files', f.file));
 
-      const result = await uploadBatchWithProgress(
-        '/api/files/bulk-upload',
+      const result = await uploadWithProgress(
         '/api/files/bulk-upload',
         fd,
-        remaining.map(f => f.file),
-        remainingPaths,
-        'POST',
-        null,
-        (p) => setUploadProgress(p),
-        BATCH_SIZE,
-        4
+        { onProgress: (p) => setUploadProgress(p) }
       );
 
       if (result.success) {
-        setSuccessModal({ 
-          isOpen: true, 
-          title: 'Success', 
-          message: 'Files uploaded and submitted successfully!', 
-          type: 'success' 
+        setSuccessModal({
+          isOpen: true,
+          title: 'Success',
+          message: 'Files uploaded and submitted successfully!',
+          type: 'success'
         });
         setShowSubmitModal(false);
         resetSubmitModal();
@@ -995,7 +983,9 @@ const TasksTab = memo(({
               : null;
             const assignmentComments = comments[assignment.id] || [];
             // Completed if TL marked the assignment done OR if the user submitted files
-            const isCompleted = assignment.status === 'completed' || assignment.submitted_files?.length > 0;
+            // isCompleted is ONLY true when the team leader/admin explicitly marks the task done.
+            // Submitting files does NOT complete a task — it just means files are pending review.
+            const isCompleted = assignment.status === 'completed';
 
             return (
               <div
@@ -1037,6 +1027,10 @@ const TasksTab = memo(({
                     {isCompleted ? (
                       <div style={{ backgroundColor: '#d1fae5', color: '#059669', padding: '6px 12px', borderRadius: '20px', fontSize: '13px', fontWeight: '600', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
                         ✓ Completed
+                      </div>
+                    ) : assignment.submitted_files?.length > 0 ? (
+                      <div style={{ backgroundColor: 'transparent', color: '#d97706', padding: '6px 12px', borderRadius: '20px', fontSize: '13px', fontWeight: '600', display: 'inline-flex', alignItems: 'center', gap: '4px', border: '1.5px solid #d97706' }}>
+                        ✓ Submitted
                       </div>
                     ) : (
                       <div style={{ fontSize: '14px', fontWeight: '500', color: '#000000' }}>
