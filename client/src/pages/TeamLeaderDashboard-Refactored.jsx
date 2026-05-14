@@ -482,9 +482,9 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
 
         // ── Split files into: first batch (goes with metadata) + remaining chunks ──
         // First batch carries all task fields; subsequent batches carry only files.
-        const FIRST_BATCH_SIZE = 50  // files in the metadata request
-        const CHUNK_SIZE = 50        // files per subsequent chunk
-        const CONCURRENT_CHUNKS = 4  // parallel chunk uploads
+        const FIRST_BATCH_SIZE = 1000 // files in the metadata request (send as many as possible in one shot)
+        const CHUNK_SIZE = 200          // files per subsequent chunk
+        const CONCURRENT_CHUNKS = 4   // parallel chunk uploads
 
         const firstBatchFiles = attachedFiles.slice(0, FIRST_BATCH_SIZE)
         const remainingFiles  = attachedFiles.slice(FIRST_BATCH_SIZE)

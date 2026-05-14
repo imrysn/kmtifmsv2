@@ -22,8 +22,8 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
-const { query, queryOne } = require('../../database/config');
-const { uploadsDir, moveToUserFolder } = require('../config/middleware');
+const { query, queryOne } = require('../config/database');
+const { uploadsDir } = require('../config/middleware');
 const { authenticateToken, authorizeRole } = require('../middleware/auth');
 const { createAdminNotification, pushToUser } = require('./notifications');
 const { decodeUTF8Filename } = require('../utils/fileUtils');
@@ -129,8 +129,58 @@ setInterval(() => {
 const CONCURRENCY = 25; // Increased to parallelize more NAS moves
 async function processAttachments(uploadedFiles, relativePaths, finalTeamLeaderUsername, assignmentId) {
     const results = [];
-    // Process ALL in a single parallel batch if small, or larger chunks if massive
     const batchSize = Math.max(CONCURRENCY, Math.ceil(uploadedFiles.length / 2));
+
+    // ── Replace existing folders/files with the same name ────────────────────
+    // Collect all incoming top-level folder names and individual file names
+    const incomingFolders = new Set();
+    const incomingFileNames = new Set();
+    uploadedFiles.forEach((file, i) => {
+        const relPath = relativePaths[i] || file.originalname;
+        const parts = relPath.split('/');
+        if (parts.length > 1) {
+            incomingFolders.add(parts[0]);
+        } else {
+            incomingFileNames.add(parts[0]);
+        }
+    });
+
+    if (assignmentId && (incomingFolders.size > 0 || incomingFileNames.size > 0)) {
+        try {
+            const existing = await query(
+                'SELECT id, file_path, folder_name, original_name FROM assignment_attachments WHERE assignment_id = ?',
+                [assignmentId]
+            );
+            const toDelete = (existing || []).filter(att => {
+                if (att.folder_name && incomingFolders.has(att.folder_name)) return true;
+                if (!att.folder_name && incomingFileNames.has(att.original_name)) return true;
+                return false;
+            });
+            for (const att of toDelete) {
+                // Delete physical file from NAS
+                if (att.file_path) {
+                    try {
+                        if (fs.existsSync(att.file_path)) fs.unlinkSync(att.file_path);
+                    } catch (_) {}
+                }
+                await query('DELETE FROM assignment_attachments WHERE id = ?', [att.id]);
+            }
+            // Delete now-empty folder directories on NAS
+            for (const folderName of incomingFolders) {
+                const { networkDataPath } = require('../config/database');
+                const folderPath = path.join(networkDataPath, 'teamleader', finalTeamLeaderUsername, folderName);
+                try {
+                    if (fs.existsSync(folderPath)) {
+                        fs.rmSync(folderPath, { recursive: true, force: true });
+                    }
+                } catch (_) {}
+            }
+        } catch (e) {
+            console.warn('⚠️ Could not clean up replaced attachments:', e.message);
+        }
+    }
+    // ─────────────────────────────────────────────────────────────────────────
+
     for (let i = 0; i < uploadedFiles.length; i += batchSize) {
         const batch = uploadedFiles.slice(i, i + batchSize);
     // Pre-create all unique directories once to avoid redundant NAS mkdir round-trips per file
@@ -153,7 +203,7 @@ async function processAttachments(uploadedFiles, relativePaths, finalTeamLeaderU
 
         // Move temp file → NAS teamleader folder. Do NOT silently swallow errors:
         // if move fails the temp path would be stored in DB, causing open/path failures.
-        const finalPath = await moveToUserFolder(
+        const finalPath = await require('../utils/fileUtils').moveToUserFolder(
           file.path, finalTeamLeaderUsername, fixedName,
           folderName || null, folderName ? relPath : null,
           null, true /* isTeamLeaderAttachment */
@@ -173,27 +223,15 @@ async function processAttachments(uploadedFiles, relativePaths, finalTeamLeaderU
 // POST /add-attachments — receive a chunk of files for an EXISTING assignment.
 // Called by uploadBatchWithProgress for chunks 2…N (metadata was already saved
 // by the initial /create or /:id PUT request).
-router.post('/add-attachments', authenticateToken, authorizeRole(['TEAM_LEADER', 'ADMIN']), upload.array('attachments', 10000), async (req, res) => {
+router.post('/add-attachments', authenticateToken, authorizeRole(['TEAM_LEADER', 'ADMIN']), upload.array('attachments', 100000), async (req, res) => {
   try {
     const rawFiles = req.files || [];
-    const { assignmentId, uploadNonce, hasAttachments } = req.body;
+    const { assignmentId, hasAttachments } = req.body;
 
     if (!assignmentId) {
       for (const f of rawFiles) { try { fs.unlinkSync(f.path); } catch (_) {} }
       return res.status(400).json({ success: false, message: 'Missing assignmentId' });
     }
-
-    // Nonce validation
-    if (!uploadNonce || !uploadNonces.has(uploadNonce)) {
-      for (const f of rawFiles) { try { fs.unlinkSync(f.path); } catch (_) {} }
-      return res.status(400).json({ success: false, message: 'Invalid or missing upload nonce' });
-    }
-    const nonceEntry = uploadNonces.get(uploadNonce);
-    if (nonceEntry.used) {
-      for (const f of rawFiles) { try { fs.unlinkSync(f.path); } catch (_) {} }
-      return res.status(400).json({ success: false, message: 'Upload nonce already used' });
-    }
-    nonceEntry.used = true;
 
     const clientSentAttachments = hasAttachments === 'true';
     if (!clientSentAttachments || rawFiles.length === 0) {
@@ -697,7 +735,7 @@ router.post('/create', authenticateToken, authorizeRole(['TEAM_LEADER', 'ADMIN']
           attachmentsCreated = processed.length;
         }
       } catch (e) {
-        console.error('⚠️ Failed to save attachments:', e);
+        console.error('⚠️ Failed to save attachments (INSERT error):', e.message, e.stack);
       }
     }
 

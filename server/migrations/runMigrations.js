@@ -20,7 +20,8 @@ async function runMigrations() {
       // Append the incoming feature as the next step
       { name: 'Add File Views Table', run: require('./007-add-file-views') },
       { name: 'Add updated_at to files', run: require('./008-add-updated-at-to-files') },
-      { name: 'Add User Performance Snapshots', run: require('./009-add-performance-snapshots') }
+      { name: 'Add User Performance Snapshots', run: require('./009-add-performance-snapshots') },
+      { name: 'Ensure assignment_attachments table', run: require('./010-ensure-assignment-attachments') }
     ];
 
     for (const migration of migrations) {

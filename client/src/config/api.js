@@ -399,8 +399,8 @@ export const uploadBatchWithProgress = async (
         fd.append('uploadNonce', nonceData.nonce);
         fd.append('hasAttachments', 'true');
         fd.append('relativePaths', JSON.stringify(batch.paths));
-        // Always use 'files' — matches server multer upload.array('files', 10000)
-        batch.files.forEach(f => fd.append('files', f));
+        // Use 'attachments' — matches server multer upload.array('attachments', 100000) on /add-attachments
+        batch.files.forEach(f => fd.append('attachments', f));
 
         await xhrUpload(chunksUrl, fd, 'POST', batch.id);
       }));

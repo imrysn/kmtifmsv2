@@ -91,10 +91,21 @@ const CreateAssignmentModal = ({
     e.preventDefault()
     e.stopPropagation()
     const files = Array.from(e.target.files)
-    if (files.length > 0) {
-      setAttachedFiles(prevFiles => [...prevFiles, ...files])
-    }
-    // Reset input so same files can be re-selected
+    if (files.length === 0) return
+
+    setAttachedFiles(prev => {
+      // For each incoming file, replace any existing loose file with the same name
+      const replaced = new Set()
+      const updated = prev.map(existing => {
+        const match = files.find(f => !f.webkitRelativePath.includes('/') && f.name === existing.name && !existing.webkitRelativePath?.includes('/'))
+        if (match) { replaced.add(match.name); return match }
+        return existing
+      })
+      // Append files that didn't replace anything
+      const newOnes = files.filter(f => !replaced.has(f.name) && !f.webkitRelativePath?.includes('/'))
+      return [...updated, ...newOnes]
+    })
+
     if (fileInputRef.current) fileInputRef.current.value = ''
   }
 
@@ -102,18 +113,42 @@ const CreateAssignmentModal = ({
     e.preventDefault()
     e.stopPropagation()
     const files = Array.from(e.target.files)
-    if (files.length > 0) {
-      // Tag each file with its relative path for folder structure
-      const tagged = files.map(file => {
-        Object.defineProperty(file, 'relativeFolderPath', {
-          value: file.webkitRelativePath || file.name,
-          writable: true
-        })
-        return file
+    if (files.length === 0) return
+
+    const newFolderName = files[0]?.webkitRelativePath?.split('/')[0]
+    if (!newFolderName) return
+
+    // Tag each file with its relative path
+    const tagged = files.map(file => {
+      Object.defineProperty(file, 'relativeFolderPath', {
+        value: file.webkitRelativePath || file.name,
+        writable: true
       })
-      setAttachedFiles(prevFiles => [...prevFiles, ...tagged])
-    }
-    // Reset the input so the same folder can be re-selected if needed
+      return file
+    })
+
+    setAttachedFiles(prev => {
+      // Remove all files that belong to the same folder name (replace, not merge)
+      const withoutOld = prev.filter(f => {
+        const existingFolder = f.webkitRelativePath?.split('/')[0]
+        return existingFolder !== newFolderName
+      })
+      return [...withoutOld, ...tagged]
+    })
+
+    // Also auto-queue removal of the matching existing server attachment folder
+    setExistingAttachments(prev => {
+      const toRemove = prev.filter(f => f.folder_name === newFolderName)
+      if (toRemove.length > 0) {
+        setAttachmentsToRemove(ids => [
+          ...ids,
+          ...toRemove.map(f => f.id).filter(Boolean)
+        ])
+        return prev.filter(f => f.folder_name !== newFolderName)
+      }
+      return prev
+    })
+
     if (folderInputRef.current) folderInputRef.current.value = ''
   }
 

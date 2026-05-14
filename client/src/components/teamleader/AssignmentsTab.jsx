@@ -257,6 +257,18 @@ const AssignmentsTab = ({
   const [folderReviewComment, setFolderReviewComment] = useState('')
   const [isFolderProcessing, setIsFolderProcessing] = useState(false)
 
+  // Loading state for Mark as Done
+  const [markingDoneId, setMarkingDoneId] = useState(null)
+
+  const handleMarkAsDone = async (assignmentId, title) => {
+    setMarkingDoneId(assignmentId)
+    try {
+      await markAssignmentAsDone(assignmentId, title)
+    } finally {
+      setMarkingDoneId(null)
+    }
+  }
+
   // Remove attachment confirmation modal
   const [removeAttachmentModal, setRemoveAttachmentModal] = useState({ isOpen: false, attachmentId: null, attachmentName: '', assignmentId: null })
 
@@ -831,7 +843,7 @@ const AssignmentsTab = ({
                           <button
                             className="tl-assignment-menu-item"
                             onClick={() => {
-                              markAssignmentAsDone(assignment.id, assignment.title)
+                              handleMarkAsDone(assignment.id, assignment.title)
                               setShowMenuForAssignment(null)
                             }}
                             disabled={assignment.status === 'completed'}
@@ -1661,6 +1673,56 @@ const AssignmentsTab = ({
         type={toast.type}
       />
 
+      {/* Mark as Done Loading Overlay */}
+      {markingDoneId !== null && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+          backgroundColor: 'rgba(0,0,0,0.45)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          zIndex: 9998
+        }}>
+          <div style={{
+            background: '#fff',
+            borderRadius: '20px',
+            boxShadow: '0 20px 60px rgba(0,0,0,0.2)',
+            padding: '36px 44px',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: '20px',
+            minWidth: '280px'
+          }}>
+            <div style={{
+              width: '56px', height: '56px',
+              borderRadius: '50%',
+              background: 'linear-gradient(135deg, #16a34a, #22c55e)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              boxShadow: '0 4px 16px rgba(22,163,74,0.3)'
+            }}>
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+                style={{ animation: 'markDoneSpin 1.2s linear infinite' }}>
+                <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
+              </svg>
+            </div>
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ fontSize: '17px', fontWeight: '700', color: '#111827', marginBottom: '6px' }}>
+                Marking as Done…
+              </div>
+              <div style={{ fontSize: '13px', color: '#6b7280', lineHeight: 1.5 }}>
+                Completing task and cleaning up files.<br/>Please wait.
+              </div>
+            </div>
+            <div style={{ width: '100%', height: '4px', background: '#e5e7eb', borderRadius: '2px', overflow: 'hidden' }}>
+              <div style={{
+                height: '100%', borderRadius: '2px',
+                background: 'linear-gradient(90deg, #16a34a, #22c55e)',
+                animation: 'markDoneBar 1.5s ease-in-out infinite alternate'
+              }} />
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Download Success Toast */}
       {downloadToast.show && (
         <div
@@ -1723,6 +1785,14 @@ const AssignmentsTab = ({
       )}
 
       <style>{`
+        @keyframes markDoneSpin {
+          from { transform: rotate(0deg); }
+          to   { transform: rotate(360deg); }
+        }
+        @keyframes markDoneBar {
+          from { width: 20%; }
+          to   { width: 90%; }
+        }
         @keyframes tlSlideInRight {
           from { opacity: 0; transform: translateX(40px); }
           to   { opacity: 1; transform: translateX(0); }
