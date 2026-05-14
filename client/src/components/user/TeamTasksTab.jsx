@@ -154,6 +154,22 @@ const groupFilesByFolder = (files) => {
   return { folders, individualFiles }
 }
 
+const groupBySubfolder = (files) => {
+  const subfolders = {}
+  const rootFiles = []
+  for (const file of files) {
+    const parts = (file.relative_path || '').split('/')
+    if (parts.length > 2) {
+      const subName = parts[1]
+      if (!subfolders[subName]) subfolders[subName] = []
+      subfolders[subName].push(file)
+    } else {
+      rootFiles.push(file)
+    }
+  }
+  return { subfolders, rootFiles }
+}
+
 // ── Main Component ─────────────────────────────────────────────────────────────
 const TeamTasksTab = ({ user }) => {
   const [assignments, setAssignments] = useState([])
@@ -749,7 +765,57 @@ const TeamTasksTab = ({ user }) => {
                           )
 
                           if (isExpanded) {
-                            visibleChildren.forEach(file => {
+                            const { subfolders: subGroups, rootFiles: rfFiles } = groupBySubfolder(folderFiles)
+                            const subNames = Object.keys(subGroups)
+
+                            subNames.forEach(subName => {
+                              const subKey = `attdir-${assignment.id}-${folderName}-${subName}`
+                              const isSubOpen = expandedFolders[subKey]
+                              const subFiles = subGroups[subName]
+                              items.push(
+                                <div key={`attdir-${subName}`} style={{ marginBottom: '6px', marginLeft: '8px' }}>
+                                  <div
+                                    className="file-item folder-item"
+                                    onClick={(e) => { e.stopPropagation(); setExpandedFolders(prev => ({ ...prev, [subKey]: !prev[subKey] })) }}
+                                    style={{ cursor: 'pointer', backgroundColor: isSubOpen ? '#C7D7FD' : '#DBE9FE', padding: '10px 12px' }}
+                                  >
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: 1 }}>
+                                      <div style={{ fontSize: '26px', flexShrink: 0 }}>{isSubOpen ? '📂' : '📁'}</div>
+                                      <div style={{ flex: 1, minWidth: 0 }}>
+                                        <div style={{ fontWeight: '600', fontSize: '13px', color: '#111827' }}>{subName}</div>
+                                        <div style={{ fontSize: '11px', color: '#6b7280' }}>{subFiles.length} file{subFiles.length !== 1 ? 's' : ''}</div>
+                                      </div>
+                                      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" style={{ transform: isSubOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s', flexShrink: 0 }}>
+                                        <path d="M4 6L8 10L12 6" stroke="#6B7280" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                                      </svg>
+                                    </div>
+                                  </div>
+                                  {isSubOpen && (
+                                    <div style={{ marginLeft: '12px', paddingLeft: '8px', borderLeft: '2px solid #BFDBFE' }}>
+                                      {subFiles.map(file => (
+                                        <div
+                                          key={`attdir-child-${file.id}`}
+                                          className="file-item nested-file-item"
+                                          onClick={(e) => { e.stopPropagation(); setFileToOpen({ ...file, isAttachment: true }); setOpenModalType('file'); setShowOpenFileConfirmation(true) }}
+                                          style={{ paddingLeft: '16px', backgroundColor: openedFileIds.has(file.id) ? '#f0fdf4' : '#fafafa' }}
+                                        >
+                                          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1 }}>
+                                            <FileIcon fileType={file.original_name.split('.').pop()} size="small" />
+                                            <div style={{ flex: 1, minWidth: 0 }}>
+                                              <div style={{ fontWeight: '500', fontSize: '14px', color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{file.original_name}</div>
+                                              <div style={{ fontSize: '12px', color: '#6b7280' }}>{formatFileSize(file.file_size)}</div>
+                                            </div>
+                                            <FileMoreMenu onDownload={() => handleDownloadFile(file)} onOpenPath={() => handleOpenFolderPath(file.id, true)} />
+                                          </div>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
+                              )
+                            })
+
+                            rfFiles.forEach(file => {
                               items.push(
                                 <div
                                   key={`att-child-${file.id}`}
@@ -783,23 +849,6 @@ const TeamTasksTab = ({ user }) => {
                                 </div>
                               )
                             })
-
-                            if (folderFiles.length > 5) {
-                              items.push(
-                                <div
-                                  key={`tlattfc-seemore-${folderName}`}
-                                  style={{ padding: '8px 16px', textAlign: 'center', cursor: 'pointer' }}
-                                  onClick={(e) => {
-                                    e.stopPropagation()
-                                    setShowAllFiles(prev => ({ ...prev, [childKey]: !prev[childKey] }))
-                                  }}
-                                >
-                                  <span style={{ color: '#0066cc', fontSize: '13px', fontWeight: '500', textDecoration: 'underline' }}>
-                                    {isShowingAllChildren ? 'See less' : `See more (${folderFiles.length - 5} more)`}
-                                  </span>
-                                </div>
-                              )
-                            }
                           }
                         })
 
@@ -910,7 +959,57 @@ const TeamTasksTab = ({ user }) => {
                           )
 
                           if (isExpanded) {
-                            folderFiles.forEach(file => {
+                            const { subfolders: subGroups, rootFiles: rfFiles } = groupBySubfolder(folderFiles)
+                            const subNames = Object.keys(subGroups)
+
+                            subNames.forEach(subName => {
+                              const subKey = `subdir-${assignment.id}-${folderName}-${subName}`
+                              const isSubOpen = expandedFolders[subKey]
+                              const subFiles = subGroups[subName]
+                              items.push(
+                                <div key={`subdir-${subName}`} style={{ marginBottom: '6px', marginLeft: '8px' }}>
+                                  <div
+                                    className="file-item folder-item"
+                                    onClick={(e) => { e.stopPropagation(); setExpandedFolders(prev => ({ ...prev, [subKey]: !prev[subKey] })) }}
+                                    style={{ cursor: 'pointer', backgroundColor: isSubOpen ? '#C7D7FD' : '#DBE9FE', padding: '10px 12px' }}
+                                  >
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: 1 }}>
+                                      <div style={{ fontSize: '26px', flexShrink: 0 }}>{isSubOpen ? '📂' : '📁'}</div>
+                                      <div style={{ flex: 1, minWidth: 0 }}>
+                                        <div style={{ fontWeight: '600', fontSize: '13px', color: '#111827' }}>{subName}</div>
+                                        <div style={{ fontSize: '11px', color: '#6b7280' }}>{subFiles.length} file{subFiles.length !== 1 ? 's' : ''}</div>
+                                      </div>
+                                      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" style={{ transform: isSubOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s', flexShrink: 0 }}>
+                                        <path d="M4 6L8 10L12 6" stroke="#6B7280" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                                      </svg>
+                                    </div>
+                                  </div>
+                                  {isSubOpen && (
+                                    <div style={{ marginLeft: '12px', paddingLeft: '8px', borderLeft: '2px solid #BFDBFE' }}>
+                                      {subFiles.map(file => (
+                                        <div
+                                          key={`subdir-child-${file.id}`}
+                                          className="file-item nested-file-item"
+                                          onClick={(e) => { e.stopPropagation(); setFileToOpen({ ...file, isAttachment: false }); setOpenModalType('file'); setShowOpenFileConfirmation(true) }}
+                                          style={{ paddingLeft: '16px', backgroundColor: openedFileIds.has(file.id) ? '#f0fdf4' : '#fafafa' }}
+                                        >
+                                          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1 }}>
+                                            <FileIcon fileType={file.original_name.split('.').pop()} size="small" />
+                                            <div style={{ flex: 1, minWidth: 0 }}>
+                                              <div style={{ fontWeight: '500', fontSize: '14px', color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{file.original_name}</div>
+                                              <div style={{ fontSize: '12px', color: '#6b7280' }}>by {file.fullName || file.username}</div>
+                                            </div>
+                                            <FileMoreMenu onDownload={() => handleDownloadFile(file)} onOpenPath={() => handleOpenFolderPath(file.id, false)} />
+                                          </div>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
+                              )
+                            })
+
+                            rfFiles.forEach(file => {
                               items.push(
                                 <div
                                   key={`sub-child-${file.id}`}
@@ -927,7 +1026,7 @@ const TeamTasksTab = ({ user }) => {
                                     <FileIcon fileType={file.original_name.split('.').pop()} size="small" style={{ width: '40px', height: '40px', flexShrink: 0 }}/>
                                     <div style={{ flex: 1, minWidth: 0 }}>
                                       <div style={{ fontWeight: '500', fontSize: '14px', color: '#111827', marginBottom: '6px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                        <span>{file.relative_path || file.original_name}</span>
+                                        <span>{file.original_name}</span>
                                         {openedFileIds.has(file.id) && <span style={{ fontSize: '10px', color: '#16a34a' }}>✓ Viewed</span>}
                                       </div>
                                       <div style={{ fontSize: '12px', color: '#6b7280' }}>

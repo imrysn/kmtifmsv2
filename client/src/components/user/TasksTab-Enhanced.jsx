@@ -55,6 +55,25 @@ const groupFilesByFolder = (files) => {
   return { folders, individualFiles };
 };
 
+// Groups files within an already-resolved top-level folder into their immediate subfolders.
+// e.g. relative_path="checklist-main/ChecklistApp/file.php" → subfolderName="ChecklistApp"
+const groupBySubfolder = (files) => {
+  const subfolders = {};
+  const rootFiles = [];
+  for (const file of files) {
+    const parts = (file.relative_path || '').split('/');
+    // parts[0]=topFolder, parts[last]=filename, parts[1..-2]=subfolder chain
+    if (parts.length > 2) {
+      const subName = parts[1];
+      if (!subfolders[subName]) subfolders[subName] = [];
+      subfolders[subName].push(file);
+    } else {
+      rootFiles.push(file);
+    }
+  }
+  return { subfolders, rootFiles };
+};
+
 const getAssignmentStatus = (assignment) => {
   // Only truly completed when the team leader/admin explicitly marks it done
   if (assignment.status === 'completed') return 'completed';
@@ -686,10 +705,18 @@ const TasksTab = memo(({
     try {
       const { uploadWithProgress } = await import('@/config/api');
 
-      // Build relative paths for every file
+      // Build relative paths for every file.
+      // f.relativePath already holds the full path (e.g. "ParentFolder/SubFolder/file.txt")
+      // from either webkitRelativePath or the drag-drop readAllFilesFromEntry helper.
+      // Only when the user picked an existing targetFolder do we need to prepend it
+      // (but only for individual files that don't already have a folder prefix).
       const allPaths = uploadedFiles.map(f => {
-        const folder = targetFolder || f.folderName;
-        return folder ? `${folder}/${f.file.name}` : f.file.name;
+        if (targetFolder) {
+          // Prepend the target folder only if the file doesn't already have its own folder
+          return f.folderName ? f.relativePath : `${targetFolder}/${f.file.name}`;
+        }
+        // Use the full relative path as-is to preserve nested folder structure
+        return f.relativePath;
       });
 
       // Send ALL files in a single multipart request.
@@ -1115,40 +1142,71 @@ const TasksTab = memo(({
                                 />
                               </div>
                             </div>
-                            {isExpanded && (
-                              <div style={{ marginLeft: '8px', paddingLeft: '8px', marginTop: '4px' }}>
-                                {visibleFolderFiles.map(file => (
-                                  <div key={file.id} onClick={() => confirmOpenFile({ ...file, isAttachment: true })} className="submitted-file-card" style={{ cursor: 'pointer', marginBottom: '4px' }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                      <FileIcon fileType={file.original_name.split('.').pop()} size="small" />
-                                      <div style={{ flex: 1, minWidth: 0 }}>
-                                        <div style={{ fontWeight: '500', fontSize: '14px', color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                          {file.original_name}
+                            {isExpanded && (() => {
+                              const { subfolders: subGroups, rootFiles: rfFiles } = groupBySubfolder(folderFiles);
+                              const subNames = Object.keys(subGroups);
+                              return (
+                                <div style={{ marginLeft: '8px', paddingLeft: '8px', marginTop: '4px' }}>
+                                  {subNames.map(subName => {
+                                    const subKey = `attdir-${assignment.id}-${folderName}-${subName}`;
+                                    const isSubOpen = expandedFolders[subKey];
+                                    const subFiles = subGroups[subName];
+                                    return (
+                                      <div key={subName} style={{ marginBottom: '6px' }}>
+                                        <div
+                                          className="submitted-file-card"
+                                          onClick={() => setExpandedFolders(prev => ({ ...prev, [subKey]: !prev[subKey] }))}
+                                          style={{ cursor: 'pointer', backgroundColor: isSubOpen ? '#C7D7FD' : '#DBE9FE', padding: '10px 12px' }}
+                                        >
+                                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                            <div style={{ fontSize: '26px', flexShrink: 0 }}>{isSubOpen ? '📂' : '📁'}</div>
+                                            <div style={{ flex: 1, minWidth: 0 }}>
+                                              <div style={{ fontWeight: '600', fontSize: '13px', color: '#111827' }}>{subName}</div>
+                                              <div style={{ fontSize: '11px', color: '#6b7280' }}>{subFiles.length} file{subFiles.length !== 1 ? 's' : ''}</div>
+                                            </div>
+                                            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" style={{ transform: isSubOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s', flexShrink: 0 }}>
+                                              <path d="M4 6L8 10L12 6" stroke="#6B7280" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                                            </svg>
+                                          </div>
                                         </div>
-                                        <div style={{ fontSize: '12px', color: '#6b7280', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                          <span>by <span style={{ fontWeight: '500', color: '#2563eb' }}>{assignment.team_leader_fullname || assignment.team_leader_username || 'Team Leader'}</span></span>
-                                          <span style={{ color: '#9ca3af' }}>•</span>
-                                          <span>{formatFileSize(file.file_size)}</span>
-                                        </div>
+                                        {isSubOpen && (
+                                          <div style={{ marginLeft: '12px', paddingLeft: '8px', borderLeft: '2px solid #BFDBFE', marginTop: '4px' }}>
+                                            {subFiles.map(file => (
+                                              <div key={file.id} onClick={() => confirmOpenFile({ ...file, isAttachment: true })} className="submitted-file-card" style={{ cursor: 'pointer', marginBottom: '4px' }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                                  <FileIcon fileType={file.original_name.split('.').pop()} size="small" />
+                                                  <div style={{ flex: 1, minWidth: 0 }}>
+                                                    <div style={{ fontWeight: '500', fontSize: '14px', color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{file.original_name}</div>
+                                                    <div style={{ fontSize: '12px', color: '#6b7280' }}>{formatFileSize(file.file_size)}</div>
+                                                  </div>
+                                                  <AttachmentMoreMenu onDownload={() => handleDownloadFile(file)} onOpenPath={() => openFolderInExplorer(file.id)} />
+                                                </div>
+                                              </div>
+                                            ))}
+                                          </div>
+                                        )}
                                       </div>
-                                      <AttachmentMoreMenu
-                                        onDownload={() => handleDownloadFile(file)}
-                                        onOpenPath={() => openFolderInExplorer(file.id)}
-                                      />
+                                    );
+                                  })}
+                                  {rfFiles.map(file => (
+                                    <div key={file.id} onClick={() => confirmOpenFile({ ...file, isAttachment: true })} className="submitted-file-card" style={{ cursor: 'pointer', marginBottom: '4px' }}>
+                                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                        <FileIcon fileType={file.original_name.split('.').pop()} size="small" />
+                                        <div style={{ flex: 1, minWidth: 0 }}>
+                                          <div style={{ fontWeight: '500', fontSize: '14px', color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{file.original_name}</div>
+                                          <div style={{ fontSize: '12px', color: '#6b7280', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                            <span>by <span style={{ fontWeight: '500', color: '#2563eb' }}>{assignment.team_leader_fullname || assignment.team_leader_username || 'Team Leader'}</span></span>
+                                            <span style={{ color: '#9ca3af' }}>•</span>
+                                            <span>{formatFileSize(file.file_size)}</span>
+                                          </div>
+                                        </div>
+                                        <AttachmentMoreMenu onDownload={() => handleDownloadFile(file)} onOpenPath={() => openFolderInExplorer(file.id)} />
+                                      </div>
                                     </div>
-                                  </div>
-                                ))}
-                                {folderFiles.length > 5 && (
-                                  <div style={{ padding: '8px 16px', textAlign: 'center', cursor: 'pointer' }}
-                                    onClick={(e) => { e.stopPropagation(); setExpandedFolders(prev => ({ ...prev, [attFolderChildKey]: !prev[attFolderChildKey] })) }}
-                                  >
-                                    <span style={{ color: '#0066cc', fontSize: '13px', fontWeight: '500', textDecoration: 'underline' }}>
-                                      {isFolderChildExpanded ? 'See less' : `See more (${folderFiles.length - 5} more)`}
-                                    </span>
-                                  </div>
-                                )}
-                              </div>
-                            )}
+                                  ))}
+                                </div>
+                              );
+                            })()}
                           </div>
                         );
                       })}
@@ -1261,20 +1319,47 @@ const TasksTab = memo(({
                 </div>
                               </div>
                             </div>
-                            {isExpanded && (
-                              <div style={{ marginLeft: '8px', paddingLeft: '8px', marginTop: '4px' }}>
-                                {visibleSubFiles.map(file => renderFileCard(file, assignment.id, true, assignment.title))}
-                                {folderFiles.length > 5 && (
-                                  <div style={{ padding: '8px 16px', textAlign: 'center', cursor: 'pointer' }}
-                                    onClick={(e) => { e.stopPropagation(); setExpandedFolders(prev => ({ ...prev, [subFolderKey]: !prev[subFolderKey] })) }}
-                                  >
-                                    <span style={{ color: '#0066cc', fontSize: '13px', fontWeight: '500', textDecoration: 'underline' }}>
-                                      {isSubExpanded ? 'See less' : `See more (${folderFiles.length - 5} more)`}
-                                    </span>
-                                  </div>
-                                )}
-                              </div>
-                            )}
+                            {isExpanded && (() => {
+                              const { subfolders: subGroups, rootFiles: rfFiles } = groupBySubfolder(folderFiles);
+                              const subNames = Object.keys(subGroups);
+                              return (
+                                <div style={{ marginLeft: '8px', paddingLeft: '8px', marginTop: '4px' }}>
+                                  {/* Nested subfolder cards */}
+                                  {subNames.map(subName => {
+                                    const subKey = `subdir-${assignment.id}-${folderName}-${subName}`;
+                                    const isSubOpen = expandedFolders[subKey];
+                                    const subFiles = subGroups[subName];
+                                    return (
+                                      <div key={subName} style={{ marginBottom: '6px' }}>
+                                        <div
+                                          className="submitted-file-card"
+                                          onClick={() => setExpandedFolders(prev => ({ ...prev, [subKey]: !prev[subKey] }))}
+                                          style={{ cursor: 'pointer', backgroundColor: isSubOpen ? '#C7D7FD' : '#DBE9FE', padding: '10px 12px' }}
+                                        >
+                                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                            <div style={{ fontSize: '26px', flexShrink: 0 }}>{isSubOpen ? '📂' : '📁'}</div>
+                                            <div style={{ flex: 1, minWidth: 0 }}>
+                                              <div style={{ fontWeight: '600', fontSize: '13px', color: '#111827' }}>{subName}</div>
+                                              <div style={{ fontSize: '11px', color: '#6b7280' }}>{subFiles.length} file{subFiles.length !== 1 ? 's' : ''}</div>
+                                            </div>
+                                            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" style={{ transform: isSubOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s', flexShrink: 0 }}>
+                                              <path d="M4 6L8 10L12 6" stroke="#6B7280" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                                            </svg>
+                                          </div>
+                                        </div>
+                                        {isSubOpen && (
+                                          <div style={{ marginLeft: '12px', paddingLeft: '8px', borderLeft: '2px solid #BFDBFE', marginTop: '4px' }}>
+                                            {subFiles.map(file => renderFileCard(file, assignment.id, true, assignment.title))}
+                                          </div>
+                                        )}
+                                      </div>
+                                    );
+                                  })}
+                                  {/* Root-level files (not inside any subfolder) */}
+                                  {rfFiles.map(file => renderFileCard(file, assignment.id, true, assignment.title))}
+                                </div>
+                              );
+                            })()}
                           </div>
                         );
                       })}
