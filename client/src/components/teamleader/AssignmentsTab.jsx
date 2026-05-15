@@ -941,154 +941,173 @@ const AssignmentsTab = ({
                         const submissions = assignment.recent_submissions || [];
                         const revisionCount = submissions.filter(f => f.status === 'revision').length;
                         
-                        const renderRecursiveSubmissions = (files, level = 0, parentKey = '', type = 'file') => {
+                        const renderRecursiveSubmissions = (files, level = 0, parentKey = '', type = 'file', parentIsLastArr = []) => {
                           const { subfolders, rootFiles } = recursiveGroupByPath(files);
                           const items = [];
                           const isReference = type === 'attachment';
 
+                          const subfolderEntries = Object.entries(subfolders);
+                          const totalSubfolders = subfolderEntries.length;
+                          const totalRootFiles = rootFiles.length;
+
                           // 1. Render Subfolders
-                          Object.entries(subfolders).forEach(([folderName, folderFiles]) => {
+                          subfolderEntries.forEach(([folderName, folderFiles], index) => {
+                            const isLast = (index === totalSubfolders - 1) && (totalRootFiles === 0);
                             const currentKey = parentKey ? `${parentKey}__${folderName}` : `${type}__${folderName}`;
                             const isExpanded = expandedAssignmentFolders[`${assignment.id}__${currentKey}`];
                             
                             items.push(
                               <React.Fragment key={`folder-${currentKey}`}>
-                                <div
-                                  className="tl-assignment-file-item tl-folder-row"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    const newKey = `${assignment.id}__${currentKey}`;
-                                    const newState = !expandedAssignmentFolders[newKey];
-                                    setExpandedAssignmentFolders(prev => ({ ...prev, [newKey]: newState }));
-                                    if (newState) prefetchFolderFiles(folderFiles.map(f => f.file || f), type);
-                                  }}
-                                  style={{ 
-                                    cursor: 'pointer', 
-                                    background: isExpanded ? 'linear-gradient(90deg, #eff6ff 0%, #ffffff 100%)' : '#f8fafc', 
-                                    padding: '10px 14px', 
-                                    marginBottom: '6px', 
-                                    borderRadius: '10px',
-                                    marginLeft: `${level * 20}px`,
-                                    boxShadow: isExpanded ? '0 2px 8px rgba(0, 0, 0, 0.08)' : 'none',
-                                    transition: 'all 0.2s ease',
-                                    display: 'flex',
-                                    alignItems: 'center'
-                                  }}
-                                >
-                                  <div style={{ 
-                                    fontSize: '22px', 
-                                    width: '36px', 
-                                    height: '36px', 
-                                    display: 'flex', 
-                                    alignItems: 'center', 
-                                    justifyContent: 'center',
-                                    background: isExpanded ? '#dbeafe' : '#f1f5f9',
-                                    color: isExpanded ? '#2563eb' : '#64748b',
-                                    borderRadius: '8px',
-                                    marginRight: '14px'
-                                  }}>
-                                    {isExpanded ? '📂' : '📁'}
-                                  </div>
-                                  <div className="tl-assignment-file-details">
-                                    <div className="tl-assignment-file-name" style={{ fontWeight: '700', fontSize: '14px', color: '#1e293b' }}>{folderName}</div>
-                                    <div className="tl-assignment-file-meta">
-                                      <span style={{ color: '#64748b', fontWeight: '500' }}>{folderFiles.length} items</span>
-                                      {isReference && <span className="tl-badge-reference" style={{ marginLeft: '8px' }}>Reference</span>}
-                                      {!isReference && folderFiles.some(f => (f.file?.status || f.status) === 'revision') && (
-                                        <span className="tl-badge-revision" style={{ marginLeft: '8px' }}>
-                                          Revision ({folderFiles.filter(f => (f.file?.status || f.status) === 'revision').length})
-                                        </span>
-                                      )}
+                                <div className="tl-tree-container">
+                                  {parentIsLastArr.map((isLastParent, i) => (
+                                    <div key={i} className={isLastParent ? "tl-tree-line-empty" : "tl-tree-line-vertical"} />
+                                  ))}
+                                  {level > 0 && <div className={`tl-tree-line-connector ${isLast ? 'last-item' : ''}`} />}
+                                  <div
+                                    className={`tl-assignment-file-item tl-folder-row ${level > 0 ? 'tl-in-tree' : ''}`}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      const newKey = `${assignment.id}__${currentKey}`;
+                                      const newState = !expandedAssignmentFolders[newKey];
+                                      setExpandedAssignmentFolders(prev => ({ ...prev, [newKey]: newState }));
+                                      if (newState) prefetchFolderFiles(folderFiles.map(f => f.file || f), type);
+                                    }}
+                                    style={{ 
+                                      cursor: 'pointer', 
+                                      background: isExpanded ? 'linear-gradient(90deg, #eff6ff 0%, #ffffff 100%)' : '#f8fafc', 
+                                      padding: '10px 14px', 
+                                      marginBottom: '6px', 
+                                      borderRadius: '10px',
+                                      marginLeft: level === 0 ? '0px' : '0px', // We use tree lines now
+                                      boxShadow: isExpanded ? '0 2px 8px rgba(0, 0, 0, 0.08)' : 'none',
+                                      transition: 'all 0.2s ease',
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      flex: 1
+                                    }}
+                                  >
+                                    <div style={{ 
+                                      fontSize: '22px', 
+                                      width: '36px', 
+                                      height: '36px', 
+                                      display: 'flex', 
+                                      alignItems: 'center', 
+                                      justifyContent: 'center',
+                                      background: isExpanded ? '#dbeafe' : '#f1f5f9',
+                                      color: isExpanded ? '#2563eb' : '#64748b',
+                                      borderRadius: '8px',
+                                      marginRight: '14px'
+                                    }}>
+                                      {isExpanded ? '📂' : '📁'}
+                                    </div>
+                                    <div className="tl-assignment-file-details">
+                                      <div className="tl-assignment-file-name" style={{ fontWeight: '700', fontSize: '14px', color: '#1e293b' }}>{folderName}</div>
+                                      <div className="tl-assignment-file-meta">
+                                        <span style={{ color: '#64748b', fontWeight: '500' }}>{folderFiles.length} items</span>
+                                        {isReference && <span className="tl-badge-reference" style={{ marginLeft: '8px' }}>Reference</span>}
+                                        {!isReference && folderFiles.some(f => (f.file?.status || f.status) === 'revision') && (
+                                          <span className="tl-badge-revision" style={{ marginLeft: '8px' }}>
+                                            Revision ({folderFiles.filter(f => (f.file?.status || f.status) === 'revision').length})
+                                          </span>
+                                        )}
+                                      </div>
+                                    </div>
+                                    <div className="tl-folder-menu-wrapper" style={{ marginLeft: 'auto' }}>
+                                      <FolderActionDropdown
+                                        assignment={assignment}
+                                        folderName={folderName}
+                                        folderFiles={folderFiles.map(f => f.file || f)}
+                                        handleDownloadFolder={handleDownloadFolder}
+                                        setFolderReviewModal={isReference ? null : setFolderReviewModal}
+                                        setFolderReviewComment={isReference ? null : setFolderReviewComment}
+                                        setToast={setToast}
+                                      />
                                     </div>
                                   </div>
-                                  <div className="tl-folder-menu-wrapper" style={{ marginLeft: 'auto' }}>
-                                    <FolderActionDropdown
-                                      assignment={assignment}
-                                      folderName={folderName}
-                                      folderFiles={folderFiles.map(f => f.file || f)}
-                                      handleDownloadFolder={handleDownloadFolder}
-                                      setFolderReviewModal={isReference ? null : setFolderReviewModal}
-                                      setFolderReviewComment={isReference ? null : setFolderReviewComment}
-                                      setToast={setToast}
-                                    />
-                                  </div>
                                 </div>
-                                {isExpanded && renderRecursiveSubmissions(folderFiles, level + 1, currentKey, type)}
+                                {isExpanded && renderRecursiveSubmissions(folderFiles, level + 1, currentKey, type, [...parentIsLastArr, isLast])}
                               </React.Fragment>
                             );
                           });
 
                           // 2. Render root files
-                          rootFiles.forEach((item) => {
+                          rootFiles.forEach((item, index) => {
+                            const isLast = index === totalRootFiles - 1;
                             const submission = item.file || item;
                             const isViewed = isFileViewed(assignment.id, submission.id);
                             
                             items.push(
-                              <div
-                                key={submission.id}
-                                data-file-id={submission.id}
-                                className={`tl-assignment-file-item ${isViewed ? 'file-card-opened' : ''}`}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  // Remove open file function for reference attachments as requested
-                                  if (!isReference) {
-                                    if (openReviewModal && submission.id) {
-                                      openReviewModal(submission, null, (fileId) => {
-                                        setViewerCounts(prev => ({ ...prev, [fileId]: (prev[fileId] ?? 0) + 1 }));
-                                        markFileViewed(assignment.id, fileId);
-                                      });
+                              <div className="tl-tree-container" key={submission.id}>
+                                {parentIsLastArr.map((isLastParent, i) => (
+                                  <div key={i} className={isLastParent ? "tl-tree-line-empty" : "tl-tree-line-vertical"} />
+                                ))}
+                                {level > 0 && <div className={`tl-tree-line-connector ${isLast ? 'last-item' : ''}`} />}
+                                <div
+                                  data-file-id={submission.id}
+                                  className={`tl-assignment-file-item ${isViewed ? 'file-card-opened' : ''} ${level > 0 ? 'tl-in-tree' : ''}`}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    // Remove open file function for reference attachments as requested
+                                    if (!isReference) {
+                                      if (openReviewModal && submission.id) {
+                                        openReviewModal(submission, null, (fileId) => {
+                                          setViewerCounts(prev => ({ ...prev, [fileId]: (prev[fileId] ?? 0) + 1 }));
+                                          markFileViewed(assignment.id, fileId);
+                                        });
+                                      }
                                     }
-                                  }
-                                }}
-                                style={{ 
-                                  cursor: isReference ? 'default' : 'pointer', 
-                                  marginLeft: `${level * 20}px`, 
-                                  padding: '10px 16px', 
-                                  marginBottom: '6px'
-                                }}
-                              >
-                                <FileIcon
-                                  fileType={(submission.original_name || submission.file_name || '').split('.').pop()}
-                                  size="small"
-                                  className="tl-assignment-file-icon"
-                                />
-                                <div className="tl-assignment-file-details">
-                                  <div className="tl-assignment-file-name" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '14.5px', fontWeight: '500' }}>{submission.original_name || submission.file_name}</span>
-                                    {isViewed && <span className="tl-viewed-badge">✓ Viewed</span>}
-                                  </div>
-                                  <div className="tl-assignment-file-meta">
-                                    {isReference ? (
-                                      <span className="tl-badge-reference">Reference Attachment</span>
-                                    ) : (
-                                      <>
-                                        <span>by <span className="tl-assignment-file-submitter">{submission.fullName || submission.username || 'Unknown'}</span></span>
-                                        {submission.tag && <span className="tl-assignment-file-tag">🏷️ {submission.tag}</span>}
-                                        <span className={`tl-assignment-file-status ${submission.status}`}>
-                                          {submission.status === 'uploaded' ? 'New' : 
-                                           submission.status === 'revision' ? '⚠ Revision' :
-                                           submission.status === 'team_leader_approved' ? 'Pending Admin' : 
-                                           submission.status === 'final_approved' ? '✓ Approved' : 
-                                           (submission.status === 'rejected_by_team_leader' || submission.status === 'rejected_by_admin') ? 'X Rejected' : 'Pending'}
-                                        </span>
-                                      </>
-                                    )}
-                                  </div>
-                                </div>
-                                <FileViewersButton fileId={submission.id} externalCount={viewerCounts[submission.id]} />
-                                <button
-                                  onClick={async (e) => {
-                                    e.stopPropagation()
-                                    await (isReference ? handleDownloadFile(submission.id, submission.original_name, true) : handleDownloadFile(submission.id, submission.original_name || submission.file_name))
                                   }}
-                                  title="Download file"
-                                  className="tl-download-button"
-                                  style={{ marginLeft: '4px', flexShrink: 0, background: 'transparent', border: 'none', cursor: 'pointer', color: '#9ca3af', width: '28px', height: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '6px', transition: 'all 0.2s' }}
+                                  style={{ 
+                                    cursor: isReference ? 'default' : 'pointer', 
+                                    marginLeft: level === 0 ? '0px' : '0px', 
+                                    padding: '10px 16px', 
+                                    marginBottom: '6px',
+                                    flex: 1
+                                  }}
                                 >
-                                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                    <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
-                                  </svg>
-                                </button>
+                                  <FileIcon
+                                    fileType={(submission.original_name || submission.file_name || '').split('.').pop()}
+                                    size="small"
+                                    className="tl-assignment-file-icon"
+                                  />
+                                  <div className="tl-assignment-file-details">
+                                    <div className="tl-assignment-file-name" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '14.5px', fontWeight: '500' }}>{submission.original_name || submission.file_name}</span>
+                                      {isViewed && <span className="tl-viewed-badge">✓ Viewed</span>}
+                                    </div>
+                                    <div className="tl-assignment-file-meta">
+                                      {isReference ? (
+                                        <span className="tl-badge-reference">Reference Attachment</span>
+                                      ) : (
+                                        <>
+                                          <span>by <span className="tl-assignment-file-submitter">{submission.fullName || submission.username || 'Unknown'}</span></span>
+                                          {submission.tag && <span className="tl-assignment-file-tag">🏷️ {submission.tag}</span>}
+                                          <span className={`tl-assignment-file-status ${submission.status}`}>
+                                            {submission.status === 'uploaded' ? 'New' : 
+                                             submission.status === 'revision' ? '⚠ Revision' :
+                                             submission.status === 'team_leader_approved' ? 'Pending Admin' : 
+                                             submission.status === 'final_approved' ? '✓ Approved' : 
+                                             (submission.status === 'rejected_by_team_leader' || submission.status === 'rejected_by_admin') ? 'X Rejected' : 'Pending'}
+                                          </span>
+                                        </>
+                                      )}
+                                    </div>
+                                  </div>
+                                  <FileViewersButton fileId={submission.id} externalCount={viewerCounts[submission.id]} />
+                                  <button
+                                    onClick={async (e) => {
+                                      e.stopPropagation()
+                                      await (isReference ? handleDownloadFile(submission.id, submission.original_name, true) : handleDownloadFile(submission.id, submission.original_name || submission.file_name))
+                                    }}
+                                    title="Download file"
+                                    className="tl-download-button"
+                                    style={{ marginLeft: '4px', flexShrink: 0, background: 'transparent', border: 'none', cursor: 'pointer', color: '#9ca3af', width: '28px', height: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '6px', transition: 'all 0.2s' }}
+                                  >
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                      <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+                                    </svg>
+                                  </button>
+                                </div>
                               </div>
                             );
                           });
@@ -1096,8 +1115,8 @@ const AssignmentsTab = ({
                           return items;
                         };
 
-                        const referenceItems = renderRecursiveSubmissions(attachments, 0, '', 'attachment');
-                        const submissionItems = renderRecursiveSubmissions(submissions, 0, '', 'file');
+                        const referenceItems = renderRecursiveSubmissions(attachments, 0, '', 'attachment', []);
+                        const submissionItems = renderRecursiveSubmissions(submissions, 0, '', 'file', []);
                         
                         const refLimit = expandedAttachments[assignment.id] ? referenceItems.length : 5;
                         const subLimit = expandedSubmissions[assignment.id] ? submissionItems.length : 5;

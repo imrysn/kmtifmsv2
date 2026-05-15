@@ -120,9 +120,8 @@ const MemberFilesModal = ({
     ...(totalFolders > 0 ? [{ key: 'folders', label: 'Folders', count: totalFolders }] : []),
   ]
 
-    const FileRow = ({ file, isNested = false, indentationLevel = 1, isLast = false }) => {
+    const FileRow = ({ file, isNested = false, indentationLevel = 0, isLast = false, parentIsLastArr = [] }) => {
       const { date, time } = formatDateTime(file.uploaded_at || file.created_at)
-      const paddingLeft = isNested ? `${indentationLevel * 2}rem` : '0';
       
       return (
         <tr
@@ -133,33 +132,19 @@ const MemberFilesModal = ({
           title={`View ${file.original_name}`}
         >
           <td>
-            <div className="tl-file-name-cell" style={{ paddingLeft, display: 'flex', alignItems: 'center', gap: '10px', position: 'relative' }}>
-              {isNested && (
-                <>
-                  <div style={{ 
-                    position: 'absolute', 
-                    left: `${(indentationLevel - 1) * 2 + 1.2}rem`, 
-                    top: '-1px', 
-                    bottom: isLast ? '50%' : '-1px', 
-                    width: '3.5px', 
-                    backgroundColor: '#cbd5e1' 
-                  }} />
-                  <div style={{ 
-                    position: 'absolute', 
-                    left: `${(indentationLevel - 1) * 2 + 1.2}rem`, 
-                    top: '50%', 
-                    width: '1.2rem', 
-                    height: '3.5px', 
-                    backgroundColor: '#cbd5e1' 
-                  }} />
-                </>
-              )}
-              <FileIcon
-                fileType={file.original_name?.split('.').pop()?.toLowerCase()}
-                size="small"
-                style={{ width: '18px', height: '18px' }}
-              />
-              <strong style={{ fontSize: '14.5px', fontWeight: isNested ? '500' : '600', color: '#1e293b' }}>{file.original_name}</strong>
+            <div className="tl-tree-container" style={{ paddingLeft: '0.75rem' }}>
+              {parentIsLastArr.map((isLastParent, i) => (
+                <div key={i} className={isLastParent ? "tl-tree-line-empty" : "tl-tree-line-vertical"} />
+              ))}
+              {indentationLevel > 0 && <div className={`tl-tree-line-connector ${isLast ? 'last-item' : ''}`} />}
+              <div className="tl-file-name-cell" style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <FileIcon
+                  fileType={file.original_name?.split('.').pop()?.toLowerCase()}
+                  size="small"
+                  style={{ width: '18px', height: '18px' }}
+                />
+                <strong style={{ fontSize: '14.5px', fontWeight: isNested ? '500' : '600', color: '#1e293b' }}>{file.original_name}</strong>
+              </div>
             </div>
           </td>
         <td>
@@ -181,8 +166,12 @@ const MemberFilesModal = ({
     )
   }
 
-  const SectionTable = ({ files, isNested = false, level = 0, parentKey = '' }) => {
+  const SectionTable = ({ files, isNested = false, level = 0, parentKey = '', parentIsLastArr = [] }) => {
     const { subfolders, rootFiles } = recursiveGroupByPath(files);
+
+    const subfolderEntries = Object.entries(subfolders).sort();
+    const totalSubfolders = subfolderEntries.length;
+    const totalRootFiles = rootFiles.length;
 
     return (
       <table className="tl-member-files-table" style={{ margin: 0, tableLayout: 'fixed', width: '100%' }}>
@@ -195,7 +184,8 @@ const MemberFilesModal = ({
         </colgroup>
         <tbody>
           {/* 1. Render Subfolders */}
-          {Object.entries(subfolders).sort().map(([folderName, folderFiles]) => {
+          {subfolderEntries.map(([folderName, folderFiles], index) => {
+            const isLast = (index === totalSubfolders - 1) && (totalRootFiles === 0);
             const currentKey = parentKey ? `${parentKey}__${folderName}` : folderName;
             const isExpanded = expandedFolders[currentKey];
             const firstFile = folderFiles[0].file || folderFiles[0];
@@ -209,10 +199,16 @@ const MemberFilesModal = ({
                   style={{ cursor: 'pointer', backgroundColor: isExpanded ? '#f8fafc' : '#ffffff' }}
                 >
                   <td>
-                    <div className="tl-file-name-cell" style={{ paddingLeft: `${level * 2}rem`, display: 'flex', alignItems: 'center', gap: '10px' }}>
-                      <div style={{ fontSize: '24px' }}>{isExpanded ? '📂' : '📁'}</div>
-                      <strong style={{ fontSize: '14.5px', fontWeight: '600', color: '#1e293b' }}>{folderName}</strong>
-                      <span style={{ fontSize: '11px', color: '#64748b' }}>({folderFiles.length})</span>
+                    <div className="tl-tree-container" style={{ paddingLeft: '0.75rem' }}>
+                      {parentIsLastArr.map((isLastParent, i) => (
+                        <div key={i} className={isLastParent ? "tl-tree-line-empty" : "tl-tree-line-vertical"} />
+                      ))}
+                      {level > 0 && <div className={`tl-tree-line-connector ${isLast ? 'last-item' : ''}`} />}
+                      <div className="tl-file-name-cell" style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <div style={{ fontSize: '24px' }}>{isExpanded ? '📂' : '📁'}</div>
+                        <strong style={{ fontSize: '14.5px', fontWeight: '600', color: '#1e293b' }}>{folderName}</strong>
+                        <span style={{ fontSize: '11px', color: '#64748b' }}>({folderFiles.length})</span>
+                      </div>
                     </div>
                   </td>
                   <td>
@@ -230,7 +226,13 @@ const MemberFilesModal = ({
                 {isExpanded && (
                   <tr>
                     <td colSpan="5" style={{ padding: 0 }}>
-                      <SectionTable files={folderFiles} isNested={true} level={level + 1} parentKey={currentKey} />
+                      <SectionTable 
+                        files={folderFiles} 
+                        isNested={true} 
+                        level={level + 1} 
+                        parentKey={currentKey} 
+                        parentIsLastArr={[...parentIsLastArr, isLast]}
+                      />
                     </td>
                   </tr>
                 )}
@@ -244,8 +246,9 @@ const MemberFilesModal = ({
               key={item.file?.id || item.id || index} 
               file={item.file || item} 
               isNested={isNested} 
-              indentationLevel={level + 1} 
-              isLast={index === rootFiles.length - 1 && Object.keys(subfolders).length === 0} 
+              indentationLevel={level} 
+              isLast={index === rootFiles.length - 1} 
+              parentIsLastArr={parentIsLastArr}
             />
           ))}
         </tbody>

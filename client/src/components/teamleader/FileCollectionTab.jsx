@@ -254,7 +254,7 @@ const FileCollectionTab = ({
     return <span className={`status-badge status-${cls}`}>{label}</span>
   }
 
-  const renderFileRow = (submission, isNested = false, level = 0) => {
+  const renderFileRow = (submission, isNested = false, level = 0, isLast = false, parentIsLastArr = []) => {
     const ext = getFileExtension(submission.original_name, submission.file_type)
     return (
       <tr
@@ -265,13 +265,19 @@ const FileCollectionTab = ({
         style={isNested ? { backgroundColor: '#fafafa' } : {}}
       >
         <td>
-          <div className="file-cell" style={{ paddingLeft: isNested ? `${(level * 24) + 12}px` : '12px' }}>
-            <div className="file-icon">
-              <FileIcon fileType={ext} isFolder={false} altText={`Icon for ${submission.original_name}`} size="medium" />
-            </div>
-            <div className="file-details">
-              <span className="file-name">{submission.original_name}</span>
-              <span className="file-size">{formatFileSize(submission.file_size)}</span>
+          <div className="tl-tree-container">
+            {parentIsLastArr.map((isLastParent, i) => (
+              <div key={i} className={isLastParent ? "tl-tree-line-empty" : "tl-tree-line-vertical"} />
+            ))}
+            {level > 0 && <div className={`tl-tree-line-connector ${isLast ? 'last-item' : ''}`} />}
+            <div className="file-cell" style={{ flex: 1 }}>
+              <div className="file-icon">
+                <FileIcon fileType={ext} isFolder={false} altText={`Icon for ${submission.original_name}`} size="medium" />
+              </div>
+              <div className="file-details">
+                <span className="file-name">{submission.original_name}</span>
+                <span className="file-size">{formatFileSize(submission.file_size)}</span>
+              </div>
             </div>
           </div>
         </td>
@@ -426,12 +432,17 @@ const FileCollectionTab = ({
             </thead>
             <tbody>
               {(() => {
-                const renderRecursiveItems = (files, level = 1, parentKey = '') => {
+                const renderRecursiveItems = (files, level = 1, parentKey = '', parentIsLastArr = []) => {
                   const { subfolders, rootFiles } = recursiveGroupByPath(files);
                   const items = [];
 
+                  const subfolderEntries = Object.entries(subfolders);
+                  const totalSubfolders = subfolderEntries.length;
+                  const totalRootFiles = rootFiles.length;
+
                   // 1. Render subfolders
-                  Object.entries(subfolders).forEach(([folderName, folderFiles]) => {
+                  subfolderEntries.forEach(([folderName, folderFiles], index) => {
+                    const isLast = (index === totalSubfolders - 1) && (totalRootFiles === 0);
                     const currentKey = parentKey ? `${parentKey}__${folderName}` : folderName;
                     const isExpanded = expandedFolders[currentKey];
                     const firstFile = folderFiles[0].file || folderFiles[0];
@@ -444,11 +455,17 @@ const FileCollectionTab = ({
                           style={{ backgroundColor: isExpanded ? '#f9fafb' : '#ffffff' }}
                         >
                           <td>
-                            <div className="file-cell" style={{ paddingLeft: `${level * 24}px` }}>
-                              <div style={{ fontSize: '32px' }}>{isExpanded ? '📂' : '📁'}</div>
-                              <div className="file-details">
-                                <span className="file-name" style={{ fontWeight: '600' }}>{folderName}</span>
-                                <span className="file-size">{folderFiles.length} items</span>
+                            <div className="tl-tree-container">
+                              {parentIsLastArr.map((isLastParent, i) => (
+                                <div key={i} className={isLastParent ? "tl-tree-line-empty" : "tl-tree-line-vertical"} />
+                              ))}
+                              {level > 0 && <div className={`tl-tree-line-connector ${isLast ? 'last-item' : ''}`} />}
+                              <div className="file-cell" style={{ flex: 1 }}>
+                                <div style={{ fontSize: '32px' }}>{isExpanded ? '📂' : '📁'}</div>
+                                <div className="file-details">
+                                  <span className="file-name" style={{ fontWeight: '600' }}>{folderName}</span>
+                                  <span className="file-size">{folderFiles.length} items</span>
+                                </div>
                               </div>
                             </div>
                           </td>
@@ -467,15 +484,16 @@ const FileCollectionTab = ({
                             </button>
                           </td>
                         </tr>
-                        {isExpanded && renderRecursiveItems(folderFiles, level + 1, currentKey)}
+                        {isExpanded && renderRecursiveItems(folderFiles, level + 1, currentKey, [...parentIsLastArr, isLast])}
                       </React.Fragment>
                     );
                   });
 
                   // 2. Render root files
-                  rootFiles.forEach((item) => {
+                  rootFiles.forEach((item, index) => {
+                    const isLast = index === totalRootFiles - 1;
                     const file = item.file || item;
-                    items.push(renderFileRow(file, true, level));
+                    items.push(renderFileRow(file, true, level, isLast, parentIsLastArr));
                   });
 
                   return items;
@@ -517,7 +535,7 @@ const FileCollectionTab = ({
                             </button>
                           </td>
                         </tr>
-                        {isExpanded && renderRecursiveItems(folderFiles, 1, folderKey)}
+                        {isExpanded && renderRecursiveItems(folderFiles, 1, folderKey, [])}
                       </React.Fragment>
                     );
                   }

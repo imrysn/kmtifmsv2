@@ -536,12 +536,17 @@ const MyFilesTab = ({
         );
 
         if (isExpanded) {
-          const renderRecursiveItems = (files, level = 1, parentKey = '') => {
+          const renderRecursiveItems = (files, level = 1, parentKey = '', parentIsLastArr = []) => {
             const { subfolders, rootFiles } = recursiveGroupByPath(files);
             const subItems = [];
 
+            const subfolderEntries = Object.entries(subfolders);
+            const totalSubfolders = subfolderEntries.length;
+            const totalRootFiles = rootFiles.length;
+
             // 1. Render subfolders
-            Object.entries(subfolders).forEach(([subName, subFiles]) => {
+            subfolderEntries.forEach(([subName, subFiles], index) => {
+              const isLast = (index === totalSubfolders - 1) && (totalRootFiles === 0);
               const subKey = parentKey ? `${parentKey}__${subName}` : `${folderName}__${subName}`;
               const isSubOpen = expandedFolders[subKey];
               const subFirstFile = subFiles[0].file || subFiles[0];
@@ -552,13 +557,19 @@ const MyFilesTab = ({
                   <div
                     className="file-row-new folder-row"
                     onClick={() => setExpandedFolders(prev => ({ ...prev, [subKey]: !prev[subKey] }))}
-                    style={{ cursor: 'pointer', paddingLeft: `${48 + (level * 24)}px`, backgroundColor: isSubOpen ? '#f0f4ff' : '#f5f7ff' }}
+                    style={{ cursor: 'pointer', backgroundColor: isSubOpen ? '#f0f4ff' : '#f5f7ff' }}
                   >
                     <div className="col-filename">
-                      <FileIcon fileType="folder" isFolder={true} size="default" altText="Subfolder" style={{ width: '40px', height: '40px' }} />
-                      <div className="file-text">
-                        <div className="filename" style={{ fontWeight: '600', fontSize: '13px' }}>{subName}</div>
-                        <div className="filesize">{subFiles.length} file{subFiles.length !== 1 ? 's' : ''}</div>
+                      <div className="tl-tree-container">
+                        {parentIsLastArr.map((isLastParent, i) => (
+                          <div key={i} className={isLastParent ? "tl-tree-line-empty" : "tl-tree-line-vertical"} />
+                        ))}
+                        {level > 0 && <div className={`tl-tree-line-connector ${isLast ? 'last-item' : ''}`} />}
+                        <FileIcon fileType="folder" isFolder={true} size="default" altText="Subfolder" style={{ width: '40px', height: '40px' }} />
+                        <div className="file-text">
+                          <div className="filename" style={{ fontWeight: '600', fontSize: '13px' }}>{subName}</div>
+                          <div className="filesize">{subFiles.length} file{subFiles.length !== 1 ? 's' : ''}</div>
+                        </div>
                       </div>
                     </div>
                     <div className="col-datetime">
@@ -571,13 +582,14 @@ const MyFilesTab = ({
                     <div className="col-status" />
                     <div className="col-actions" />
                   </div>
-                  {isSubOpen && renderRecursiveItems(subFiles, level + 1, subKey)}
+                  {isSubOpen && renderRecursiveItems(subFiles, level + 1, subKey, [...parentIsLastArr, isLast])}
                 </React.Fragment>
               );
             });
 
             // 2. Render root files
-            rootFiles.forEach(fileItem => {
+            rootFiles.forEach((fileItem, index) => {
+              const isLast = index === totalRootFiles - 1;
               const file = fileItem.file || fileItem;
               const { date: fDate, time: fTime } = formatDateTime(file.uploaded_at);
               subItems.push(
@@ -585,17 +597,22 @@ const MyFilesTab = ({
                   key={file.id}
                   className="file-row-new"
                   onClick={(e) => handleFileClick(file, e)}
-                  style={{ paddingLeft: `${48 + (level * 24)}px` }}
                 >
                   <div className="col-filename">
-                    <FileIcon
-                      fileType={file.original_name.split('.').pop().toLowerCase()}
-                      isFolder={false}
-                      size="default"
-                      style={{ width: '40px', height: '40px' }}
-                    />
-                    <div className="file-text">
-                      <div className="filename" style={{ fontSize: '13px' }}>{file.original_name}</div>
+                    <div className="tl-tree-container">
+                      {parentIsLastArr.map((isLastParent, i) => (
+                        <div key={i} className={isLastParent ? "tl-tree-line-empty" : "tl-tree-line-vertical"} />
+                      ))}
+                      {level > 0 && <div className={`tl-tree-line-connector ${isLast ? 'last-item' : ''}`} />}
+                      <FileIcon
+                        fileType={file.original_name.split('.').pop().toLowerCase()}
+                        isFolder={false}
+                        size="default"
+                        style={{ width: '40px', height: '40px' }}
+                      />
+                      <div className="file-text">
+                        <div className="filename" style={{ fontSize: '13px' }}>{file.original_name}</div>
+                      </div>
                     </div>
                   </div>
                   <div className="col-datetime">
@@ -626,7 +643,7 @@ const MyFilesTab = ({
             return subItems;
           };
 
-          items.push(...renderRecursiveItems(folderFiles));
+          items.push(...renderRecursiveItems(folderFiles, 1, '', []));
         }
       } else {
         const file = displayItem.file;
