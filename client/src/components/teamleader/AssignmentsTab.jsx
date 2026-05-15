@@ -1030,10 +1030,8 @@ const AssignmentsTab = ({
                                 className={`tl-assignment-file-item ${isViewed ? 'file-card-opened' : ''}`}
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  if (isReference) {
-                                    setFileToOpen({ ...submission, assignmentId: assignment.id, isAttachment: true });
-                                    setShowOpenFileConfirmation(true);
-                                  } else {
+                                  // Remove open file function for reference attachments as requested
+                                  if (!isReference) {
                                     if (openReviewModal && submission.id) {
                                       openReviewModal(submission, null, (fileId) => {
                                         setViewerCounts(prev => ({ ...prev, [fileId]: (prev[fileId] ?? 0) + 1 }));
@@ -1042,9 +1040,8 @@ const AssignmentsTab = ({
                                     }
                                   }
                                 }}
-                                className={`tl-assignment-file-item ${isViewed ? 'file-card-opened' : ''}`}
                                 style={{ 
-                                  cursor: 'default', 
+                                  cursor: isReference ? 'default' : 'pointer', 
                                   marginLeft: `${level * 20}px`, 
                                   padding: '10px 16px', 
                                   marginBottom: '6px'
@@ -1079,29 +1076,6 @@ const AssignmentsTab = ({
                                   </div>
                                 </div>
                                 <FileViewersButton fileId={submission.id} externalCount={viewerCounts[submission.id]} />
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    if (isReference) {
-                                      setFileToOpen({ ...submission, assignmentId: assignment.id, isAttachment: true });
-                                      setShowOpenFileConfirmation(true);
-                                    } else {
-                                      if (openReviewModal && submission.id) {
-                                        openReviewModal(submission, null, (fileId) => {
-                                          setViewerCounts(prev => ({ ...prev, [fileId]: (prev[fileId] ?? 0) + 1 }));
-                                          markFileViewed(assignment.id, fileId);
-                                        });
-                                      }
-                                    }
-                                  }}
-                                  title="View file"
-                                  className="tl-view-button"
-                                  style={{ marginLeft: '8px', flexShrink: 0, background: 'transparent', border: 'none', cursor: 'pointer', color: '#9ca3af', width: '28px', height: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '6px', transition: 'all 0.2s' }}
-                                >
-                                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
-                                  </svg>
-                                </button>
                                 <button
                                   onClick={async (e) => {
                                     e.stopPropagation()
@@ -1337,7 +1311,16 @@ const AssignmentsTab = ({
                       <div 
                         key={file.id} 
                         className={`tl-assignment-file-item ${isViewed ? 'file-card-opened' : ''}`}
-                        style={{ padding: '8px 12px', marginBottom: '8px', border: '1px solid #e5e7eb', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '10px' }}
+                        style={{ padding: '8px 12px', marginBottom: '8px', border: '1px solid #e5e7eb', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (openReviewModal && file.id) {
+                            openReviewModal(file, null, (fileId) => {
+                              setViewerCounts(prev => ({ ...prev, [fileId]: (prev[fileId] ?? 0) + 1 }));
+                              markFileViewed(folderReviewModal.assignmentId, fileId);
+                            });
+                          }
+                        }}
                       >
                         <FileIcon fileType={(file.original_name || file.file_name || '').split('.').pop()} size="small" />
                         <div className="tl-assignment-file-details" style={{ flex: 1, minWidth: 0 }}>
@@ -1357,23 +1340,6 @@ const AssignmentsTab = ({
                         </div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                           <FileViewersButton fileId={file.id} externalCount={viewerCounts[file.id]} />
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              if (openReviewModal && file.id) {
-                                openReviewModal(file, null, (fileId) => {
-                                  setViewerCounts(prev => ({ ...prev, [fileId]: (prev[fileId] ?? 0) + 1 }));
-                                  markFileViewed(folderReviewModal.assignmentId, fileId);
-                                });
-                              }
-                            }}
-                            title="View file"
-                            style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: '#9ca3af', width: '28px', height: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '6px' }}
-                          >
-                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
-                            </svg>
-                          </button>
                         </div>
                       </div>
                     );
