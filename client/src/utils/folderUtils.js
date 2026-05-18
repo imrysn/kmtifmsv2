@@ -17,7 +17,8 @@ export const recursiveGroupByPath = (files, pathKey = 'relative_path') => {
 
     // Get the current path to process
     const getPath = (f) => f[pathKey] || f.webkitRelativePath || '';
-    const currentPath = info._temp_path !== undefined ? info._temp_path : getPath(file);
+    const rawPath = info._temp_path !== undefined ? info._temp_path : getPath(file);
+    const currentPath = (rawPath || '').replace(/\\/g, '/');
     
     const parts = currentPath.split('/').filter(Boolean);
     if (parts.length > 1) {

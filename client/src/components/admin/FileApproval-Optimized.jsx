@@ -6,6 +6,7 @@ import './FileApproval-Optimized.css'
 import { ConfirmationModal, AlertMessage, FileDetailsModal } from './modals'
 import { useAuth, useNetwork } from '../../contexts'
 import { withErrorBoundary } from '../common'
+import { recursiveGroupByPath } from '@utils/folderUtils'
 
 const API_BASE = '/api'
 
@@ -112,8 +113,8 @@ const FolderRow = memo(({
     >
       <td>
         <div className="file-cell">
-          <div className="file-icon">
-            <FileIcon fileType="folder" isFolder={true} altText={`Folder: ${folderName}`} size="medium" />
+          <div className="file-icon" style={{ width: '34px', height: '34px', position: 'relative', zIndex: 2 }}>
+            <FileIcon fileType="folder" isFolder={true} altText={`Folder: ${folderName}`} size="medium" style={{ position: 'relative', zIndex: 2 }} />
           </div>
           <div className="file-details">
             <span className="file-name">{folderName}</span>
@@ -180,6 +181,142 @@ const FolderRow = memo(({
   )
 })
 
+// SubFolder Row Component
+const SubFolderRow = memo(({
+  folderName,
+  folderFiles,
+  isExpanded,
+  onToggle,
+  onDelete,
+  onApproveFolder,
+  onOpenFolderPath,
+  isLast,
+  level,
+  parentIsLastArr,
+  isReference = false,
+}) => {
+  const [dropdownOpen, setDropdownOpen] = useState(false)
+  const dropdownRef = useRef(null)
+  const btnRef = useRef(null)
+  const dropdownPos = useDropdownPosition(btnRef, dropdownOpen)
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target) &&
+          btnRef.current && !btnRef.current.contains(event.target)) {
+        setDropdownOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
+  const handleClick = useCallback(() => {
+    onToggle()
+  }, [onToggle])
+
+  const rawFiles = useMemo(() => folderFiles.map(f => f.file || f), [folderFiles])
+  const firstFile = rawFiles[0]
+  const formattedDate = useMemo(() => new Date(firstFile.uploaded_at).toLocaleDateString(), [firstFile.uploaded_at])
+  const formattedTime = useMemo(() => new Date(firstFile.uploaded_at).toLocaleTimeString(), [firstFile.uploaded_at])
+  const folderStatus = useMemo(() => getFolderStatus(rawFiles), [rawFiles])
+
+  const canApprove = folderStatus.status === 'team_leader_approved'
+  const canReject = folderStatus.status !== 'final_approved' && folderStatus.status !== 'rejected'
+
+  return (
+    <tr
+      className="file-row folder-row"
+      onClick={handleClick}
+      style={{
+        cursor: 'pointer',
+        backgroundColor: isExpanded ? '#f9fafb' : '#ffffff',
+        fontWeight: '600'
+      }}
+    >
+      <td>
+        <div className="tl-tree-container">
+          {parentIsLastArr.map((isLastParent, i) => (
+            <div key={i} className={isLastParent ? "tl-tree-line-empty" : "tl-tree-line-vertical"} />
+          ))}
+          {level > 0 && <div className={`tl-tree-line-connector ${isLast ? 'last-item' : ''}`} />}
+          <div className="file-cell" style={{ flex: 1 }}>
+            <div className="file-icon" style={{ width: '34px', height: '34px', position: 'relative', zIndex: 2 }}>
+              <FileIcon fileType="folder" isFolder={true} altText={`Folder: ${folderName}`} size="medium" style={{ position: 'relative', zIndex: 2 }} />
+            </div>
+            <div className="file-details">
+              <span className="file-name">{folderName}</span>
+            </div>
+          </div>
+        </div>
+      </td>
+      <td><div className="user-cell"><span className="user-name">{firstFile.user_fullname || firstFile.username}</span></div></td>
+      <td>
+        <div className="datetime-cell">
+          <div className="date">{formattedDate}</div>
+          <div className="time">{formattedTime}</div>
+        </div>
+      </td>
+      <td><span className="team-badge">{firstFile.user_team}</span></td>
+      {!isReference && <td><span className={`status-badge status-${folderStatus.cls}`}>{folderStatus.label}</span></td>}
+      {isReference && (
+        <td>
+          <span className="status-badge" style={{ border: '1px solid #6b7280', color: '#6b7280' }}>
+            Reference Task
+          </span>
+        </td>
+      )}
+      <td>
+        <div className="action-dropdown-wrapper" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+          <button
+            ref={btnRef}
+            className="action-dots-btn"
+            onClick={(e) => { e.stopPropagation(); setDropdownOpen(prev => !prev) }}
+            title="Actions"
+          >
+            ⋮
+          </button>
+          {dropdownOpen && (
+            <div ref={dropdownRef} className="action-dropdown-menu" style={{ position: 'fixed', top: dropdownPos.top, left: dropdownPos.left, zIndex: 9999 }}>
+              {(canApprove || canReject) && (
+                <button
+                  className="dropdown-item dropdown-approve-reject"
+                  onClick={(e) => { e.stopPropagation(); setDropdownOpen(false); onApproveFolder(folderName, rawFiles) }}
+                >
+                  <svg className="dropdown-svg-icon" width="15" height="15" viewBox="0 0 20 20" fill="none">
+                    <path d="M10 2C5.58172 2 2 5.58172 2 10C2 14.4183 5.58172 18 10 18C14.4183 18 18 14.4183 18 10C18 5.58172 14.4183 2 10 2Z" fill="#16a34a" opacity="0.15"/>
+                    <path d="M10 2C5.58172 2 2 5.58172 2 10C2 14.4183 5.58172 18 10 18C14.4183 18 18 14.4183 18 10C18 5.58172 14.4183 2 10 2Z" stroke="#16a34a" strokeWidth="1.5"/>
+                    <path d="M6.5 10L9 12.5L13.5 7.5" stroke="#16a34a" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                  <span className="dropdown-approve-text">Approve</span>
+                  <span className="dropdown-slash"> / </span>
+                  <span className="dropdown-reject-text">Reject</span>
+                  <span className="dropdown-folder-text"> Folder</span>
+                </button>
+              )}
+              <button
+                className="dropdown-item dropdown-open"
+                onClick={(e) => { e.stopPropagation(); setDropdownOpen(false); onOpenFolderPath(rawFiles[0]) }}
+              >
+                <span className="dropdown-icon">📂</span> Open Folder Path
+              </button>
+              <div className="dropdown-divider" />
+              <button
+                className="dropdown-item dropdown-delete"
+                onClick={(e) => { e.stopPropagation(); setDropdownOpen(false); onDelete(folderName, rawFiles) }}
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style={{color:'#ef4444',flexShrink:0}}>
+                  <path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg> Delete
+              </button>
+            </div>
+          )}
+        </div>
+      </td>
+    </tr>
+  )
+})
+
 const FileRow = memo(({
   file,
   formatFileSize,
@@ -189,6 +326,8 @@ const FileRow = memo(({
   onDelete,
   onOpenFilePath,
   isNested = false,
+  isLast = false,
+  parentIsLastArr = [],
   isReference = false,
 }) => {
   const [dropdownOpen, setDropdownOpen] = useState(false)
@@ -224,25 +363,46 @@ const FileRow = memo(({
   const formattedTime = useMemo(() => new Date(file.uploaded_at).toLocaleTimeString(), [file.uploaded_at])
 
   let displayName = file.original_name
-  if (isNested && file.relative_path && file.folder_name) {
-    displayName = file.relative_path.replace(`${file.folder_name}/`, '')
+  if (isNested) {
+    const cleanPath = (file.relative_path || file.original_name || '').replace(/\\/g, '/');
+    const parts = cleanPath.split('/').filter(Boolean)
+    if (parts.length > 0) {
+      displayName = parts[parts.length - 1]
+    }
   }
 
   return (
     <tr
-      className="file-row"
+      className={`file-row ${isNested ? 'nested-file' : ''}`}
       onClick={handleRowClick}
-      style={isNested ? { paddingLeft: '60px', backgroundColor: '#fafafa' } : {}}
+      style={isNested ? { backgroundColor: '#fafafa' } : {}}
     >
       <td>
-        <div className="file-cell" style={isNested ? { paddingLeft: '40px' } : {}}>
-          <div className="file-icon">
-            <FileIcon fileType={fileExtension} isFolder={false} altText={`Icon for ${file.original_name}`} size="medium" />
+        {isNested ? (
+          <div className="tl-tree-container">
+            {parentIsLastArr.map((isLastParent, i) => (
+              <div key={i} className={isLastParent ? "tl-tree-line-empty" : "tl-tree-line-vertical"} />
+            ))}
+            <div className={`tl-tree-line-connector ${isLast ? 'last-item' : ''}`} />
+            <div className="file-cell" style={{ flex: 1 }}>
+              <div className="file-icon" style={{ width: '34px', height: '34px', position: 'relative', zIndex: 2 }}>
+                <FileIcon fileType={fileExtension} isFolder={false} altText={`Icon for ${file.original_name}`} size="medium" style={{ position: 'relative', zIndex: 2 }} />
+              </div>
+              <div className="file-details">
+                <span className="file-name">{displayName}</span>
+              </div>
+            </div>
           </div>
-          <div className="file-details">
-            <span className="file-name">{displayName}</span>
+        ) : (
+          <div className="file-cell">
+            <div className="file-icon" style={{ width: '34px', height: '34px', position: 'relative', zIndex: 2 }}>
+              <FileIcon fileType={fileExtension} isFolder={false} altText={`Icon for ${file.original_name}`} size="medium" style={{ position: 'relative', zIndex: 2 }} />
+            </div>
+            <div className="file-details">
+              <span className="file-name">{displayName}</span>
+            </div>
           </div>
-        </div>
+        )}
       </td>
       <td><div className="user-cell"><span className="user-name">{file.user_fullname || file.username}</span></div></td>
       <td>
@@ -923,6 +1083,65 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
   const renderFileRows = useMemo(() => {
     const rows = []
 
+    const renderRecursiveItems = (files, level = 1, parentKey = '', parentIsLastArr = []) => {
+      const { subfolders, rootFiles } = recursiveGroupByPath(files);
+      const items = [];
+
+      const subfolderEntries = Object.entries(subfolders);
+      const totalSubfolders = subfolderEntries.length;
+      const totalRootFiles = rootFiles.length;
+
+      // 1. Render subfolders
+      subfolderEntries.forEach(([subfolderName, folderFiles], index) => {
+        const isLast = (index === totalSubfolders - 1) && (totalRootFiles === 0);
+        const currentKey = parentKey ? `${parentKey}__${subfolderName}` : subfolderName;
+        const isSubFolderExpanded = expandedFolders[currentKey];
+
+        items.push(
+          <React.Fragment key={`folder-${currentKey}`}>
+            <SubFolderRow
+              folderName={subfolderName}
+              folderFiles={folderFiles}
+              isExpanded={isSubFolderExpanded}
+              onToggle={() => toggleFolder(currentKey)}
+              onDelete={openFolderDeleteModal}
+              onApproveFolder={(name, files) => openFolderReviewModal(name, files, 'approve')}
+              onOpenFolderPath={openFilePath}
+              isLast={isLast}
+              level={level}
+              parentIsLastArr={parentIsLastArr}
+              isReference={activeView === 'reference'}
+            />
+            {isSubFolderExpanded && renderRecursiveItems(folderFiles, level + 1, currentKey, [...parentIsLastArr, isLast])}
+          </React.Fragment>
+        );
+      });
+
+      // 2. Render root files
+      rootFiles.forEach((item, index) => {
+        const isLast = index === totalRootFiles - 1;
+        const file = item.file || item;
+        items.push(
+          <FileRow
+            key={file.id}
+            file={file}
+            formatFileSize={formatFileSize}
+            mapFileStatus={mapFileStatus}
+            getStatusDisplayName={getStatusDisplayName}
+            onOpenModal={openFileModal}
+            onDelete={openDeleteModal}
+            onOpenFilePath={openFilePath}
+            isNested={true}
+            isLast={isLast}
+            parentIsLastArr={parentIsLastArr}
+            isReference={activeView === 'reference'}
+          />
+        );
+      });
+
+      return items;
+    };
+
     currentPageItems.forEach(item => {
       if (item.type === 'date-header') {
         rows.push(
@@ -955,22 +1174,20 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
         )
 
         if (isExpanded) {
-          item.files.forEach(file => {
-            rows.push(
-              <FileRow
-                key={file.id}
-                file={file}
-                formatFileSize={formatFileSize}
-                mapFileStatus={mapFileStatus}
-                getStatusDisplayName={getStatusDisplayName}
-                onOpenModal={openFileModal}
-                onDelete={openDeleteModal}
-                onOpenFilePath={openFilePath}
-                isNested={true}
-                isReference={activeView === 'reference'}
-              />
-            )
-          })
+          const mappedFilesForRecursion = item.files.map(file => {
+            const path = (file.relative_path || file.webkitRelativePath || '').replace(/\\/g, '/');
+            const parts = path.split('/').filter(Boolean);
+            let remainingPath = path;
+            if (parts.length > 0 && parts[0].trim() === item.name) {
+              remainingPath = parts.slice(1).join('/');
+            }
+            return {
+              file,
+              _temp_path: remainingPath
+            };
+          });
+
+          rows.push(...renderRecursiveItems(mappedFilesForRecursion, 1, folderKey, []));
         }
       } else {
         rows.push(

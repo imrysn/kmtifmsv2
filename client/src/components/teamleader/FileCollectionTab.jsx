@@ -256,6 +256,14 @@ const FileCollectionTab = ({
 
   const renderFileRow = (submission, isNested = false, level = 0, isLast = false, parentIsLastArr = []) => {
     const ext = getFileExtension(submission.original_name, submission.file_type)
+    let displayName = submission.original_name
+    if (isNested) {
+      const cleanPath = (submission.relative_path || submission.original_name || '').replace(/\\/g, '/')
+      const parts = cleanPath.split('/').filter(Boolean)
+      if (parts.length > 0) {
+        displayName = parts[parts.length - 1]
+      }
+    }
     return (
       <tr
         key={submission.id}
@@ -275,7 +283,7 @@ const FileCollectionTab = ({
                 <FileIcon fileType={ext} isFolder={false} altText={`Icon for ${submission.original_name}`} size="default" style={{ width: '34px', height: '34px', minWidth: '34px', minHeight: '34px' }} />
               </div>
               <div className="file-details">
-                <span className="file-name">{submission.original_name}</span>
+                <span className="file-name">{displayName}</span>
                 <span className="file-size">{formatFileSize(submission.file_size)}</span>
               </div>
             </div>
@@ -538,7 +546,7 @@ const FileCollectionTab = ({
                         {isExpanded && renderRecursiveItems(
                           folderFiles.map(f => {
                             const file = f.file || f;
-                            const path = file.relative_path || file.webkitRelativePath || '';
+                            const path = (file.relative_path || file.webkitRelativePath || '').replace(/\\/g, '/');
                             const parts = path.split('/').filter(Boolean);
                             let remainingPath = path;
                             if (parts.length > 0 && parts[0].trim() === folderName) {
