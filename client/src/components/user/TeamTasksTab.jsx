@@ -644,69 +644,87 @@ const TeamTasksTab = ({ user }) => {
       const subFirstFile = subFiles[0].file || subFiles[0]
 
       subItems.push(
-        <div key={`subfolder-${subKey}`} style={{ marginBottom: '6px' }}>
-          <div
-            className="file-item folder-item"
-            onClick={(e) => {
-              e.stopPropagation()
-              setExpandedFolders(prev => ({ ...prev, [subKey]: !prev[subKey] }))
-            }}
-            style={{ cursor: 'pointer', backgroundColor: isSubOpen ? '#C7D7FD' : '#DBE9FE', padding: '10px 12px' }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: 1 }}>
-              <div style={{ fontSize: '26px', flexShrink: 0 }}>{isSubOpen ? '📂' : '📁'}</div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontWeight: '600', fontSize: '13px', color: '#111827' }}>{subName}</div>
-                <div style={{ fontSize: '11px', color: '#6b7280' }}>
-                  {isAttachment
-                    ? `${assignment.team_leader_fullname || assignment.team_leader_username || 'Team Leader'} • ${subFiles.length} file${subFiles.length !== 1 ? 's' : ''}`
-                    : `Submitted by ${subFirstFile.fullName || subFirstFile.username} • ${subFiles.length} file${subFiles.length !== 1 ? 's' : ''}`}
+        <div key={`subfolder-${subKey}`} style={{ display: 'flex', flexDirection: 'column' }}>
+          <div className="tl-tree-container" style={{ marginBottom: '6px' }}>
+            {parentIsLastArr.map((isLastParent, i) => (
+              <div key={i} className={isLastParent ? "tl-tree-line-empty" : "tl-tree-line-vertical"} />
+            ))}
+            {level > 0 && <div className={`tl-tree-line-connector ${isLast ? 'last-item' : ''}`} />}
+            
+            <div
+              className="file-item folder-item"
+              onClick={(e) => {
+                e.stopPropagation()
+                setExpandedFolders(prev => ({ ...prev, [subKey]: !prev[subKey] }))
+              }}
+              style={{ 
+                cursor: 'pointer', 
+                backgroundColor: isSubOpen ? '#C7D7FD' : '#DBE9FE', 
+                padding: '10px 12px',
+                flex: 1
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: 1 }}>
+                <div style={{ fontSize: '26px', flexShrink: 0 }}>{isSubOpen ? '📂' : '📁'}</div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontWeight: '600', fontSize: '13px', color: '#111827' }}>{subName}</div>
+                  <div style={{ fontSize: '11px', color: '#6b7280' }}>
+                    {isAttachment
+                      ? `${assignment.team_leader_fullname || assignment.team_leader_username || 'Team Leader'} • ${subFiles.length} file${subFiles.length !== 1 ? 's' : ''}`
+                      : `Submitted by ${subFirstFile.fullName || subFirstFile.username} • ${subFiles.length} file${subFiles.length !== 1 ? 's' : ''}`}
+                  </div>
                 </div>
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="none" style={{ transform: isSubOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s', flexShrink: 0 }}>
+                  <path d="M4 6L8 10L12 6" stroke="#6B7280" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
               </div>
-              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" style={{ transform: isSubOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s', flexShrink: 0 }}>
-                <path d="M4 6L8 10L12 6" stroke="#6B7280" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
             </div>
           </div>
-          {isSubOpen && (
-            <div style={{ paddingLeft: '24px', marginTop: '6px' }}>
-              {renderRecursiveItems(assignment, subFiles, level + 1, subKey, [...parentIsLastArr, isLast], isAttachment)}
-            </div>
-          )}
+          {isSubOpen && renderRecursiveItems(assignment, subFiles, level + 1, subKey, [...parentIsLastArr, isLast], isAttachment)}
         </div>
       )
     })
 
     // 2. Render root files
     rootFiles.forEach((fileItem, index) => {
+      const isLast = index === totalRootFiles - 1
       const file = fileItem.file || fileItem
       subItems.push(
-        <div
-          key={`file-${file.id}`}
-          className="file-item nested-file-item"
-          onClick={(e) => {
-            e.stopPropagation()
-            setFileToOpen({ ...file, isAttachment })
-            setOpenModalType('file')
-            setShowOpenFileConfirmation(true)
-          }}
-          style={{ backgroundColor: openedFileIds.has(file.id) ? '#f0fdf4' : '#fafafa', marginBottom: '6px' }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1 }}>
-            <FileIcon fileType={file.original_name.split('.').pop()} size="small" />
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontWeight: '500', fontSize: '14px', color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span>{file.original_name}</span>
-                {openedFileIds.has(file.id) && <span style={{ fontSize: '10px', color: '#16a34a' }}>✓ Viewed</span>}
+        <div key={`file-${file.id}`} className="tl-tree-container" style={{ marginBottom: '6px' }}>
+          {parentIsLastArr.map((isLastParent, i) => (
+            <div key={i} className={isLastParent ? "tl-tree-line-empty" : "tl-tree-line-vertical"} />
+          ))}
+          {level > 0 && <div className={`tl-tree-line-connector ${isLast ? 'last-item' : ''}`} />}
+          
+          <div
+            className="file-item nested-file-item"
+            onClick={(e) => {
+              e.stopPropagation()
+              setFileToOpen({ ...file, isAttachment })
+              setOpenModalType('file')
+              setShowOpenFileConfirmation(true)
+            }}
+            style={{ 
+              backgroundColor: openedFileIds.has(file.id) ? '#f0fdf4' : '#fafafa',
+              flex: 1
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1 }}>
+              <FileIcon fileType={file.original_name.split('.').pop()} size="small" />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontWeight: '500', fontSize: '14px', color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span>{file.original_name}</span>
+                  {openedFileIds.has(file.id) && <span style={{ fontSize: '10px', color: '#16a34a' }}>✓ Viewed</span>}
+                </div>
+                <div style={{ fontSize: '12px', color: '#6b7280' }}>
+                  {isAttachment
+                    ? formatFileSize(file.file_size)
+                    : `by ${file.fullName || file.username} • ${formatFileSize(file.file_size)}`}
+                </div>
               </div>
-              <div style={{ fontSize: '12px', color: '#6b7280' }}>
-                {isAttachment
-                  ? formatFileSize(file.file_size)
-                  : `by ${file.fullName || file.username} • ${formatFileSize(file.file_size)}`}
-              </div>
+              <FileViewersButton fileId={file.id} externalCount={viewerCounts[file.id]} minDate={assignment.created_at}/>
+              <FileMoreMenu onDownload={() => handleDownloadFile(file)} onOpenPath={() => handleOpenFolderPath(file.id, isAttachment)} />
             </div>
-            <FileViewersButton fileId={file.id} externalCount={viewerCounts[file.id]} minDate={assignment.created_at}/>
-            <FileMoreMenu onDownload={() => handleDownloadFile(file)} onOpenPath={() => handleOpenFolderPath(file.id, isAttachment)} />
           </div>
         </div>
       )

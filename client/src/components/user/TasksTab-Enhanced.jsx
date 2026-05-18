@@ -960,61 +960,80 @@ const TasksTab = memo(({
       const subFirstFile = subFiles[0].file || subFiles[0];
 
       subItems.push(
-        <div key={`subfolder-${subKey}`} style={{ marginBottom: '6px' }}>
-          <div
-            className="submitted-file-card"
-            onClick={(e) => {
-              e.stopPropagation();
-              setExpandedFolders(prev => ({ ...prev, [subKey]: !prev[subKey] }));
-            }}
-            style={{ cursor: 'pointer', backgroundColor: isSubOpen ? '#C7D7FD' : '#DBE9FE', padding: '10px 12px' }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: 1 }}>
-              <div style={{ fontSize: '26px', flexShrink: 0 }}>{isSubOpen ? '📂' : '📁'}</div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontWeight: '600', fontSize: '13px', color: '#111827' }}>{subName}</div>
-                <div style={{ fontSize: '11px', color: '#6b7280' }}>
-                  {isAttachment
-                    ? `${assignment.team_leader_fullname || assignment.team_leader_username || 'Team Leader'} • ${subFiles.length} file${subFiles.length !== 1 ? 's' : ''}`
-                    : `Submitted by ${subFirstFile.submitter_name || user.fullName || user.username} • ${subFiles.length} file${subFiles.length !== 1 ? 's' : ''}`}
+        <div key={`subfolder-${subKey}`} style={{ display: 'flex', flexDirection: 'column' }}>
+          <div className="tl-tree-container" style={{ marginBottom: '6px' }}>
+            {parentIsLastArr.map((isLastParent, i) => (
+              <div key={i} className={isLastParent ? "tl-tree-line-empty" : "tl-tree-line-vertical"} />
+            ))}
+            {level > 0 && <div className={`tl-tree-line-connector ${isLast ? 'last-item' : ''}`} />}
+            
+            <div
+              className="submitted-file-card"
+              onClick={(e) => {
+                e.stopPropagation();
+                setExpandedFolders(prev => ({ ...prev, [subKey]: !prev[subKey] }));
+              }}
+              style={{ 
+                cursor: 'pointer', 
+                backgroundColor: isSubOpen ? '#C7D7FD' : '#DBE9FE', 
+                padding: '10px 12px',
+                flex: 1
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: 1 }}>
+                <div style={{ fontSize: '26px', flexShrink: 0 }}>{isSubOpen ? '📂' : '📁'}</div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontWeight: '600', fontSize: '13px', color: '#111827' }}>{subName}</div>
+                  <div style={{ fontSize: '11px', color: '#6b7280' }}>
+                    {isAttachment
+                      ? `${assignment.team_leader_fullname || assignment.team_leader_username || 'Team Leader'} • ${subFiles.length} file${subFiles.length !== 1 ? 's' : ''}`
+                      : `Submitted by ${subFirstFile.submitter_name || user.fullName || user.username} • ${subFiles.length} file${subFiles.length !== 1 ? 's' : ''}`}
+                  </div>
                 </div>
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="none" style={{ transform: isSubOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s', flexShrink: 0 }}>
+                  <path d="M4 6L8 10L12 6" stroke="#6B7280" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
               </div>
-              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" style={{ transform: isSubOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s', flexShrink: 0 }}>
-                <path d="M4 6L8 10L12 6" stroke="#6B7280" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
             </div>
           </div>
-          {isSubOpen && (
-            <div style={{ paddingLeft: '24px', marginTop: '6px' }}>
-              {renderRecursiveItems(assignment, subFiles, level + 1, subKey, [...parentIsLastArr, isLast], isAttachment)}
-            </div>
-          )}
+          {isSubOpen && renderRecursiveItems(assignment, subFiles, level + 1, subKey, [...parentIsLastArr, isLast], isAttachment)}
         </div>
       );
     });
 
     // 2. Render root files
     rootFiles.forEach((fileItem, index) => {
+      const isLast = index === totalRootFiles - 1;
       const file = fileItem.file || fileItem;
 
       if (isAttachment) {
         subItems.push(
-          <div
-            key={`file-${file.id}`}
-            className="submitted-file-card nested-file-item"
-            onClick={(e) => {
-              e.stopPropagation();
-              confirmOpenFile({ ...file, isAttachment: true });
-            }}
-            style={{ cursor: 'pointer', backgroundColor: '#fafafa', marginBottom: '6px' }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1 }}>
-              <FileIcon fileType={(file.original_name || 'file').split('.').pop().toLowerCase()} size="small" />
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontWeight: '500', fontSize: '14px', color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{file.original_name}</div>
-                <div style={{ fontSize: '12px', color: '#6b7280' }}>{formatFileSize(file.file_size)}</div>
+          <div key={`file-${file.id}`} className="tl-tree-container" style={{ marginBottom: '6px' }}>
+            {parentIsLastArr.map((isLastParent, i) => (
+              <div key={i} className={isLastParent ? "tl-tree-line-empty" : "tl-tree-line-vertical"} />
+            ))}
+            {level > 0 && <div className={`tl-tree-line-connector ${isLast ? 'last-item' : ''}`} />}
+            
+            <div
+              className="submitted-file-card nested-file-item"
+              onClick={(e) => {
+                e.stopPropagation();
+                confirmOpenFile({ ...file, isAttachment: true });
+              }}
+              style={{ 
+                cursor: 'pointer', 
+                backgroundColor: '#fafafa',
+                flex: 1
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1 }}>
+                <FileIcon fileType={(file.original_name || 'file').split('.').pop().toLowerCase()} size="small" />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontWeight: '500', fontSize: '14px', color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{file.original_name}</div>
+                  <div style={{ fontSize: '12px', color: '#6b7280' }}>{formatFileSize(file.file_size)}</div>
+                </div>
+                <AttachmentMoreMenu onDownload={() => handleDownloadFile(file)} onOpenPath={() => openFolderInExplorer(file.id)} />
               </div>
-              <AttachmentMoreMenu onDownload={() => handleDownloadFile(file)} onOpenPath={() => openFolderInExplorer(file.id)} />
             </div>
           </div>
         );
@@ -1022,37 +1041,47 @@ const TasksTab = memo(({
         const canDelete = file.status !== 'final_approved';
         const fileWithTitle = assignment.title ? { ...file, assignment_title: assignment.title } : file;
         subItems.push(
-          <div
-            key={`file-${file.id}`}
-            className="submitted-file-card nested-file-item"
-            onClick={(e) => {
-              e.stopPropagation();
-              confirmOpenFile({ ...file, isAttachment: false });
-            }}
-            style={{ cursor: 'pointer', backgroundColor: '#fafafa', marginBottom: '6px' }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1 }}>
-              <FileIcon fileType={(file.original_name || file.filename || 'file').split('.').pop().toLowerCase()} size="small" />
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontWeight: '500', fontSize: '14px', color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {file.original_name || file.filename}
+          <div key={`file-${file.id}`} className="tl-tree-container" style={{ marginBottom: '6px' }}>
+            {parentIsLastArr.map((isLastParent, i) => (
+              <div key={i} className={isLastParent ? "tl-tree-line-empty" : "tl-tree-line-vertical"} />
+            ))}
+            {level > 0 && <div className={`tl-tree-line-connector ${isLast ? 'last-item' : ''}`} />}
+            
+            <div
+              className="submitted-file-card nested-file-item"
+              onClick={(e) => {
+                e.stopPropagation();
+                confirmOpenFile({ ...file, isAttachment: false });
+              }}
+              style={{ 
+                cursor: 'pointer', 
+                backgroundColor: '#fafafa',
+                flex: 1
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1 }}>
+                <FileIcon fileType={(file.original_name || file.filename || 'file').split('.').pop().toLowerCase()} size="small" />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontWeight: '500', fontSize: '14px', color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {file.original_name || file.filename}
+                  </div>
+                  <div style={{ fontSize: '12px', color: '#6b7280', display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                    <span>by <span style={{ fontWeight: '500', color: '#2563eb' }}>{file.submitter_name || user.fullName || user.username}</span></span>
+                    <span style={{ color: '#9ca3af' }}>•</span>
+                    <span>{formatDate(file.submitted_at || file.uploaded_at)}</span>
+                    {file.tag && (
+                      <span style={{ backgroundColor: '#eff6ff', color: '#1e40af', padding: '2px 8px', borderRadius: '4px', fontSize: '10px', fontWeight: '600' }}>🏷️ {file.tag}</span>
+                    )}
+                    {getFileStatusBadge(file.status)}
+                  </div>
                 </div>
-                <div style={{ fontSize: '12px', color: '#6b7280', display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
-                  <span>by <span style={{ fontWeight: '500', color: '#2563eb' }}>{file.submitter_name || user.fullName || user.username}</span></span>
-                  <span style={{ color: '#9ca3af' }}>•</span>
-                  <span>{formatDate(file.submitted_at || file.uploaded_at)}</span>
-                  {file.tag && (
-                    <span style={{ backgroundColor: '#eff6ff', color: '#1e40af', padding: '2px 8px', borderRadius: '4px', fontSize: '10px', fontWeight: '600' }}>🏷️ {file.tag}</span>
-                  )}
-                  {getFileStatusBadge(file.status)}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '2px', flexShrink: 0 }} onClick={e => e.stopPropagation()}>
+                  <FileMoreMenuInline
+                    onViewDetails={() => openFileDetails(fileWithTitle)}
+                    onOpenPath={() => openFolderInExplorer(file.id, false)}
+                    onDelete={canDelete ? () => confirmDeleteFile(assignment.id, file.id, file.original_name || file.filename) : undefined}
+                  />
                 </div>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '2px', flexShrink: 0 }} onClick={e => e.stopPropagation()}>
-                <FileMoreMenuInline
-                  onViewDetails={() => openFileDetails(fileWithTitle)}
-                  onOpenPath={() => openFolderInExplorer(file.id, false)}
-                  onDelete={canDelete ? () => confirmDeleteFile(assignment.id, file.id, file.original_name || file.filename) : undefined}
-                />
               </div>
             </div>
           </div>

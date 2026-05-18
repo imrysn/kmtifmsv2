@@ -1500,10 +1500,10 @@ textarea:focus {
   content: '';
   position: absolute;
   left: 12px;
-  top: -24px; /* Connect to previous row */
-  bottom: -24px; /* Connect to next row */
+  top: -6px; /* Connect to previous item */
+  bottom: -6px; /* Connect to next item */
   width: 1.5px;
-  background-color: #cbd5e1;
+  background-color: #cbd5e1; /* slate-300 */
 }
 
 .tl-tree-line-empty {
@@ -1521,8 +1521,8 @@ textarea:focus {
   content: '';
   position: absolute;
   left: 12px;
-  top: -24px;
-  bottom: -24px;
+  top: -6px;
+  bottom: -6px;
   width: 1.5px;
   background-color: #cbd5e1;
 }
@@ -1537,13 +1537,8 @@ textarea:focus {
   background-color: #cbd5e1;
 }
 
+/* For the last item in a folder, stop the vertical line at the horizontal connector */
 .tl-tree-line-connector.last-item::before {
-  height: calc(50% + 24px);
+  height: calc(50% + 6px);
   bottom: auto;
-}
-
-.nested-file-item .tl-tree-line-vertical::before,
-.nested-file-item .tl-tree-line-connector::before,
-.nested-file-item .tl-tree-line-connector::after {
-  background-color: #cbd5e1;
 }
