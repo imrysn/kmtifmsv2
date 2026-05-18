@@ -837,7 +837,12 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
     if (!file) return
     setIsOpeningFile(true)
     try {
-      const pathData = await apiFetch(`${API_BASE}/files/${file.id}/path`)
+      const isAttachment = file.source_type === 'assignment_attachment'
+      const params = new URLSearchParams()
+      if (isAttachment) params.set('type', 'attachment')
+      if (file.folder_name) params.set('folderName', file.folder_name)
+      const query = params.toString() ? `?${params.toString()}` : ''
+      const pathData = await apiFetch(`${API_BASE}/files/${file.id}/path${query}`)
       if (!pathData.success) throw new Error('Failed to get file path')
       if (window.electron && typeof window.electron.openFolderInExplorer === 'function') {
         const result = await window.electron.openFolderInExplorer(pathData.filePath)
@@ -857,13 +862,19 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
     if (!file) return
     setIsOpeningFile(true)
     try {
-      const pathData = await apiFetch(`${API_BASE}/files/${file.id}/path`)
+      const isAttachment = file.source_type === 'assignment_attachment'
+      const params = new URLSearchParams()
+      if (isAttachment) params.set('type', 'attachment')
+      // No folderName — we want the exact file path, not the parent folder
+      const query = params.toString() ? `?${params.toString()}` : ''
+      const pathData = await apiFetch(`${API_BASE}/files/${file.id}/path${query}`)
       if (!pathData.success) throw new Error('Failed to get file path')
-      if (window.electron && typeof window.electron.openFileInApp === 'function') {
-        const result = await window.electron.openFileInApp(pathData.filePath)
-        if (!result.success) throw new Error(result.error || 'Failed to open file')
+      // Reveal the file in Explorer (highlight it), not launch it
+      if (window.electron && typeof window.electron.openFolderInExplorer === 'function') {
+        const result = await window.electron.openFolderInExplorer(pathData.filePath)
+        if (!result.success) throw new Error(result.error || 'Failed to reveal file in Explorer')
       } else {
-        setError('File opening not available')
+        setError('File path opening not available in browser mode')
       }
     } catch (err) {
       console.error('Error opening file:', err)
@@ -1130,7 +1141,7 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
             getStatusDisplayName={getStatusDisplayName}
             onOpenModal={openFileModal}
             onDelete={openDeleteModal}
-            onOpenFilePath={openFilePath}
+            onOpenFilePath={openFile}
             isNested={true}
             isLast={isLast}
             parentIsLastArr={parentIsLastArr}
@@ -1199,7 +1210,7 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
             getStatusDisplayName={getStatusDisplayName}
             onOpenModal={openFileModal}
             onDelete={openDeleteModal}
-            onOpenFilePath={openFilePath}
+            onOpenFilePath={openFile}
             isNested={false}
             isReference={activeView === 'reference'}
           />

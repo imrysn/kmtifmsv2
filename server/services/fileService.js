@@ -1,6 +1,6 @@
 const fileRepository = require('../repositories/fileRepository');
 const notificationService = require('./notificationService');
-const { logActivity, logInfo, logError, logFileStatusChange } = require('../utils/logger');
+const { logActivity, logInfo, logError, logWarn, logFileStatusChange } = require('../utils/logger');
 const { db, query, queryOne } = require('../config/database');
 const { NotFoundError, ValidationError } = require('../middleware/errorHandler');
 const fs = require('fs').promises;
@@ -860,8 +860,9 @@ async function getPendingAdminReview() {
 async function getAllFiles(options = {}) {
     const files = await fileRepository.findAllWithDetails(options);
     const attachments = await fileRepository.findAllAttachmentsWithDetails(options);
-    const fileIds = new Set(files.map(f => String(f.id)));
-    const uniqueAttachments = attachments.filter(a => !fileIds.has(String(a.id)));
+    // Use namespaced keys to avoid ID collisions between the two separate tables
+    const fileKeys = new Set(files.map(f => `file:${f.id}`));
+    const uniqueAttachments = attachments.filter(a => !fileKeys.has(`attachment:${a.id}`));
     return [...files, ...uniqueAttachments].sort((a, b) =>
         new Date(b.uploaded_at) - new Date(a.uploaded_at)
     );
@@ -1147,6 +1148,32 @@ async function resolvePhysicalPath(fileId, requestedType = null, folderName = nu
 
         const winner = await findFirstExisting(candidates);
         if (winner) return returnAndCache(winner);
+
+        // ── Deep scan: search entire teamleader NAS directory for old attachments ──
+        if (file.original_name) {
+            try {
+                const deepScan = async (dir, depth = 0) => {
+                    if (depth > 4) return null;
+                    let entries;
+                    try { entries = await fs.readdir(dir, { withFileTypes: true }); } catch (_) { return null; }
+                    for (const entry of entries) {
+                        const fullPath = path.join(dir, entry.name);
+                        if (entry.isDirectory()) {
+                            if (folderName && entry.name === folderName) return fullPath;
+                            const found = await deepScan(fullPath, depth + 1);
+                            if (found) return found;
+                        } else if (entry.name === file.original_name || entry.name === path.basename(file.file_path || '')) {
+                            return fullPath;
+                        }
+                    }
+                    return null;
+                };
+                const deepWinner = await deepScan(path.join(teamleaderDir, u));
+                if (deepWinner) return returnAndCache(deepWinner);
+            } catch (e) {
+                logWarn('Deep scan failed for attachment', { error: e.message });
+            }
+        }
     }
 
     // ── Priority 5: reconstruct uploads NAS path for regular files ───────────
@@ -1182,6 +1209,34 @@ async function resolvePhysicalPath(fileId, requestedType = null, folderName = nu
                 if (scanWinner) return returnAndCache(scanWinner);
             } catch (e) {
                 logWarn('Failed to scan for task-scoped fallback', { error: e.message });
+            }
+        }
+
+        // ── Deep scan: search entire user NAS directory for the file by name ────
+        // Handles old files whose DB path is stale (moved, renamed folder, etc.)
+        if (file.original_name) {
+            try {
+                const deepScan = async (dir, depth = 0) => {
+                    if (depth > 4) return null;
+                    let entries;
+                    try { entries = await fs.readdir(dir, { withFileTypes: true }); } catch (_) { return null; }
+                    for (const entry of entries) {
+                        const fullPath = path.join(dir, entry.name);
+                        if (entry.isDirectory()) {
+                            // If looking for a folder, check folder name match first
+                            if (folderName && entry.name === folderName) return fullPath;
+                            const found = await deepScan(fullPath, depth + 1);
+                            if (found) return found;
+                        } else if (entry.name === file.original_name || entry.name === path.basename(file.file_path || '')) {
+                            return fullPath;
+                        }
+                    }
+                    return null;
+                };
+                const deepWinner = await deepScan(userDir);
+                if (deepWinner) return returnAndCache(deepWinner);
+            } catch (e) {
+                logWarn('Deep scan failed for regular file', { error: e.message });
             }
         }
     }

@@ -389,9 +389,13 @@ async function findAllWithAttachments() {
  */
 async function findAttachmentById(attachmentId) {
     const query = `
-        SELECT att.*, att.created_at AS uploaded_at, a.title AS assignment_title, a.team AS user_team
+        SELECT att.*, att.created_at AS uploaded_at,
+               a.title AS assignment_title,
+               COALESCE(a.team, u.team) AS user_team,
+               att.uploaded_by_username AS username
         FROM assignment_attachments att
-        JOIN assignments a ON att.assignment_id = a.id
+        LEFT JOIN assignments a ON att.assignment_id = a.id
+        LEFT JOIN users u ON att.uploaded_by_id = u.id
         WHERE att.id = ?
     `;
     try {
