@@ -78,9 +78,10 @@ export const buildUrl = (endpoint, params = {}) => {
  * initialising (MySQL background connect). We retry automatically so
  * callers never have to handle this transient state themselves.
  *
- * Schedule: 2s → 4s → 6s → 8s → 10s (5 attempts, ~30 s total window)
+ * Schedule: 500ms → 1s → 2s → 3s → 5s (5 attempts, ~11.5s total window)
+ * Shorter delays mean tabs populate much faster once MySQL connects.
  */
-const DB_RETRY_DELAYS_MS = [2000, 4000, 6000, 8000, 10000];
+const DB_RETRY_DELAYS_MS = [500, 1000, 2000, 3000, 5000];
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 

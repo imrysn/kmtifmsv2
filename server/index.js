@@ -183,29 +183,34 @@ handleUncaughtException();
 
 // Cleanup leftover temp files from previous sessions (prevents ghost Electron multipart replays)
 function cleanupTempFiles() {
-  try {
-    const os = require('os');
-    const tmpDir = os.tmpdir();
-    const files = fs.readdirSync(tmpDir);
-    let cleaned = 0;
-    const ONE_HOUR = 60 * 60 * 1000;
-    for (const file of files) {
-      if (!file.startsWith('temp_')) continue;
-      const filePath = require('path').join(tmpDir, file);
-      try {
-        const stat = fs.statSync(filePath);
-        if (Date.now() - stat.mtimeMs > ONE_HOUR) {
-          fs.unlinkSync(filePath);
-          cleaned++;
-        }
-      } catch (_e) { /* ignore */ }
+  // Run fully async — never block the event loop on startup
+  setImmediate(async () => {
+    try {
+      const os = require('os');
+      const tmpDir = os.tmpdir();
+      const files = await fs.promises.readdir(tmpDir);
+      let cleaned = 0;
+      const ONE_HOUR = 60 * 60 * 1000;
+      await Promise.all(files
+        .filter(f => f.startsWith('temp_'))
+        .map(async file => {
+          const filePath = require('path').join(tmpDir, file);
+          try {
+            const stat = await fs.promises.stat(filePath);
+            if (Date.now() - stat.mtimeMs > ONE_HOUR) {
+              await fs.promises.unlink(filePath);
+              cleaned++;
+            }
+          } catch (_e) { /* ignore */ }
+        })
+      );
+      if (cleaned > 0) {
+        console.log(`🧹 Cleaned up ${cleaned} leftover temp file(s) from OS temp directory`);
+      }
+    } catch (e) {
+      console.warn('⚠️ Could not clean temp files:', e.message);
     }
-    if (cleaned > 0) {
-      console.log(`🧹 Cleaned up ${cleaned} leftover temp file(s) from OS temp directory`);
-    }
-  } catch (e) {
-    console.warn('⚠️ Could not clean temp files:', e.message);
-  }
+  });
 }
 
 // Kill any process already using our port (Windows-safe, with retry)
@@ -213,15 +218,34 @@ async function freePort(port) {
   if (process.platform !== 'win32') return;
 
   const { exec } = require('child_process');
+  const net = require('net');
 
-  // Helper: get all PIDs listening on the port
+  // Helper: check if port is free by trying to bind it (fast — no netstat)
+  function isPortFree() {
+    return new Promise((resolve) => {
+      const tester = net.createServer();
+      tester.once('error', () => resolve(false));
+      tester.once('listening', () => { tester.close(); resolve(true); });
+      tester.listen(port, '127.0.0.1');
+    });
+  }
+
+  // FAST PATH: if port is already free (common after graceful shutdown), skip netstat entirely
+  if (await isPortFree()) {
+    console.log(`✅ Port ${port} is already free — skipping netstat.`);
+    return;
+  }
+
+  // Port is busy — now use netstat to find and kill the occupying process
+  console.log(`⚠️  Port ${port} is busy — finding occupying process...`);
+
+  // Helper: get all PIDs listening on the port (only called when port is actually busy)
   function getPidsOnPort() {
     return new Promise((resolve) => {
       exec(`netstat -ano | findstr :${port}`, (err, stdout) => {
         if (err || !stdout) { resolve(new Set()); return; }
         const pids = new Set();
         stdout.split('\n').forEach(line => {
-          // Only kill LISTENING processes, not TIME_WAIT / CLOSE_WAIT
           if (line.toUpperCase().includes('LISTENING')) {
             const parts = line.trim().split(/\s+/);
             const pid = parseInt(parts[parts.length - 1]);
@@ -235,17 +259,6 @@ async function freePort(port) {
 
   // Helper: wait N ms
   const wait = (ms) => new Promise(r => setTimeout(r, ms));
-
-  // Helper: check if port is free by trying to bind it
-  function isPortFree() {
-    return new Promise((resolve) => {
-      const net = require('net');
-      const tester = net.createServer();
-      tester.once('error', () => resolve(false));
-      tester.once('listening', () => { tester.close(); resolve(true); });
-      tester.listen(port, '127.0.0.1');
-    });
-  }
 
   // Kill all PIDs currently occupying the port
   const pids = await getPidsOnPort();

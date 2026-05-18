@@ -885,46 +885,54 @@ async function startServer() {
 
     // Free port before loading server module (prevents EADDRINUSE)
     await new Promise((resolvePort) => {
-      const { exec } = require('child_process');
-      const net = require('net');
+    const { exec } = require('child_process');
+    const net = require('net');
 
-      function getPids(cb) {
-        exec(`netstat -ano | findstr :${SERVER_PORT}`, (err, stdout) => {
-          if (err || !stdout) { cb(new Set()); return; }
-          const pids = new Set();
-          stdout.split('\n').forEach(line => {
-            if (line.toUpperCase().includes('LISTENING')) {
+    // Fast check — no netstat needed
+    function isPortFree(cb) {
+    const tester = net.createServer();
+    tester.once('error', () => cb(false));
+    tester.once('listening', () => { tester.close(); cb(true); });
+    tester.listen(SERVER_PORT, '127.0.0.1');
+    }
+
+    function getPids(cb) {
+    exec(`netstat -ano | findstr :${SERVER_PORT}`, (err, stdout) => {
+    if (err || !stdout) { cb(new Set()); return; }
+    const pids = new Set();
+      stdout.split('\n').forEach(line => {
+          if (line.toUpperCase().includes('LISTENING')) {
               const parts = line.trim().split(/\s+/);
-              const pid = parseInt(parts[parts.length - 1]);
-              if (!isNaN(pid) && pid !== process.pid) pids.add(pid);
-            }
-          });
-          cb(pids);
-        });
+            const pid = parseInt(parts[parts.length - 1]);
+          if (!isNaN(pid) && pid !== process.pid) pids.add(pid);
+        }
+      });
+      cb(pids);
+      });
       }
 
-      function isPortFree(cb) {
-        const tester = net.createServer();
-        tester.once('error', () => cb(false));
-        tester.once('listening', () => { tester.close(); cb(true); });
-        tester.listen(SERVER_PORT, '127.0.0.1');
-      }
+    function killAndWait(attempt) {
+    if (attempt > 10) { log(LogLevel.WARN, `Port ${SERVER_PORT} still busy after retries — proceeding anyway`); resolvePort(); return; }
 
-      function killAndWait(attempt) {
-        if (attempt > 10) { log(LogLevel.WARN, `Port ${SERVER_PORT} still busy after retries — proceeding anyway`); resolvePort(); return; }
-        getPids((pids) => {
-          const killAll = (cb) => {
-            if (pids.size === 0) { cb(); return; }
-            let n = pids.size;
-            pids.forEach(pid => exec(`taskkill /PID ${pid} /F`, () => { if (--n === 0) cb(); }));
-          };
-          killAll(() => {
-            setTimeout(() => {
-              isPortFree((free) => {
-                if (free) { resolvePort(); }
+    // FAST PATH: check if port is already free before touching netstat
+    isPortFree((free) => {
+    if (free) { resolvePort(); return; }
+
+    // Port is busy — only now use netstat to find PIDs
+    getPids((pids) => {
+    const killAll = (cb) => {
+    if (pids.size === 0) { cb(); return; }
+    let n = pids.size;
+    pids.forEach(pid => exec(`taskkill /PID ${pid} /F`, () => { if (--n === 0) cb(); }));
+    };
+      killAll(() => {
+          setTimeout(() => {
+              isPortFree((nowFree) => {
+                  if (nowFree) { resolvePort(); }
                 else { killAndWait(attempt + 1); }
-              });
-            }, 500);
+                });
+              }, 500);
+            });
           });
         });
       }

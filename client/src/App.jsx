@@ -1,4 +1,4 @@
-import React, { lazy, Suspense, useEffect } from 'react'
+import React, { lazy, Suspense, useEffect, useState, useRef } from 'react'
 import { HashRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
 import { QueryClientProvider } from '@tanstack/react-query'
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
@@ -6,6 +6,7 @@ import './css/App.css'
 import { createLogger } from './utils/secureLogger'
 import useStore from './store/useStore'
 import { queryClient } from './config/queryClient'
+import { API_BASE_URL } from './config/api'
 
 // Eager load (always needed)
 import Login from './components/Login'
@@ -22,6 +23,44 @@ const logger = createLogger('App')
 function App() {
   // Use Zustand store instead of local state
   const { user, login, logout, _hasHydrated } = useStore()
+
+  // ── DB-ready gate ──────────────────────────────────────────────────────
+  // Poll /api/health until MySQL is connected before letting the dashboard
+  // fire any API calls. This prevents every tab simultaneously hitting 503
+  // and waiting on independent retry timers.
+  const [dbReady, setDbReady] = useState(false)
+  const dbPollRef = useRef(null)
+
+  useEffect(() => {
+    if (!user || !_hasHydrated) return // only poll when logged in
+
+    let cancelled = false
+
+    const poll = async () => {
+      while (!cancelled) {
+        try {
+          const res = await fetch(`${API_BASE_URL}/api/health`, { cache: 'no-store' })
+          const data = await res.json()
+          if (data.dbReady) {
+            if (!cancelled) setDbReady(true)
+            return
+          }
+        } catch (_) {
+          // server not yet responding — keep polling
+        }
+        await new Promise(r => setTimeout(r, 600))
+      }
+    }
+
+    poll()
+    return () => { cancelled = true }
+  }, [user, _hasHydrated])
+
+  // Reset dbReady on logout so next login re-polls
+  useEffect(() => {
+    if (!user) setDbReady(false)
+  }, [user])
+  // ───────────────────────────────────────────────────────────────────────
 
   // Log user session restoration
   useEffect(() => {
@@ -52,6 +91,12 @@ function App() {
   // Get the appropriate dashboard component based on user's panel type
   const getDashboardComponent = () => {
     if (!user) return null
+
+    // Show a brief connecting screen until MySQL is ready.
+    // This ensures all tabs load together instead of hammering 503s independently.
+    if (!dbReady) {
+      return <LoadingSpinner message="Connecting to database..." />
+    }
 
     logger.logNavigation('login', `${user.panelType}-dashboard`)
 
