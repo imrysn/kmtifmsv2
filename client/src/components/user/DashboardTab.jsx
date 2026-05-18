@@ -11,7 +11,7 @@ const DashboardTab = ({ user, files, setActiveTab, onOpenFile, onNavigateToTasks
   const [notifications, setNotifications] = useState([]);
   const [performance, setPerformance] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [lastUpdate, setLastUpdate] = useState(new Date());
+  const [performanceLoading, setPerformanceLoading] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -24,64 +24,75 @@ const DashboardTab = ({ user, files, setActiveTab, onOpenFile, onNavigateToTasks
 
     loadData();
 
-    // Poll every 30s for real-time updates
+    // Poll every 5 minutes for lightweight updates (assignments + team tasks only).
+    // Performance score is expensive (calls calculateAllUserPerformance) — skip on silent refresh.
     const refreshInterval = setInterval(() => {
       if (isMounted) {
         fetchDashboardData(true);
       }
-    }, 30000);
+    }, 300000); // 5 minutes
 
     return () => {
       isMounted = false;
       clearInterval(refreshInterval);
     };
-  }, [user.id, user.team]);
+  }, [user.id, user.team]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const fetchDashboardData = async (silent = false) => {
     try {
       if (!silent) setLoading(true);
 
-      const requests = [
-        apiFetch(`/api/assignments/user/${user.id}`),
-        apiFetch(`/api/assignments/team/${user.team}/all-tasks?limit=5`),
-        apiFetch(`/api/dashboard/user-performance/${user.id}`),
-      ];
-      if (!silent) {
-        requests.push(apiFetch(`/api/notifications/user/${user.id}`));
-      }
+      // Phase 1: Single lightweight quickstats call — 4 COUNT queries batched server-side.
+      // Returns task counts, file counts, team count, and 3 recent notifications.
+      // Replaces the previous 2 heavy calls (full assignment rows + attachments + members).
+      const quickStats = await apiFetch(`/api/dashboard/user-quickstats/${user.id}`);
 
-      const [assignmentsData, teamTasksData, performanceData, notificationsData] = await Promise.all(requests);
-
-      const applyUpdates = () => {
-        if (assignmentsData.success) {
-          setAssignments(assignmentsData.assignments || []);
+      const applyCore = () => {
+        if (quickStats.success) {
+          // Build a flat synthetic assignment array for the dashboard stat cards.
+          // Shape: { user_status, _overdue? } — same keys the useMemo selectors filter on.
+          // Note: overdue is a SUBSET of pending, so we build:
+          //   N_submitted submitted items
+          //   (pending - overdue) non-overdue pending items
+          //   overdue overdue pending items
+          // Total = submitted + pending (not submitted + pending + overdue, which would double-count).
+          const { submitted, pending, overdue } = quickStats.tasks;
+          const nonOverduePending = Math.max(0, pending - overdue);
+          setAssignments([
+            ...Array.from({ length: submitted }, () => ({ user_status: 'submitted' })),
+            ...Array.from({ length: nonOverduePending }, () => ({ user_status: 'pending' })),
+            ...Array.from({ length: overdue }, () => ({ user_status: 'pending', _overdue: true }))
+          ]);
+          setTeamTasks(Array.from({ length: quickStats.team.totalTasks }, (_, i) => ({ id: i, recent_submissions: [] })));
+          setNotifications(quickStats.recentNotifications || []);
+          // Pre-populate file counts so the Files stat card shows numbers immediately
+          // (before UserDashboard’s files prop arrives from its own fetch)
+          if (quickStats.files) setQuickFileStats(quickStats.files);
         }
-        if (teamTasksData.success) {
-          setTeamTasks(teamTasksData.assignments || []);
-        }
-        if (performanceData?.success) {
-          setPerformance(performanceData.performance);
-        }
-        if (notificationsData?.success) {
-          setNotifications(notificationsData.notifications || []);
-        }
-        if (!silent) setLastUpdate(new Date());
       };
 
-      if (silent) {
-        startTransition(applyUpdates);
-      } else {
-        applyUpdates();
+      if (silent) startTransition(applyCore);
+      else applyCore();
+
+      // Clear skeleton as soon as core data is ready
+      if (!silent) setLoading(false);
+
+      // Phase 2: Load performance in the background (expensive, non-blocking)
+      if (!silent) {
+        setPerformanceLoading(true);
+        apiFetch(`/api/dashboard/user-performance/${user.id}`)
+          .then((performanceData) => {
+            startTransition(() => {
+              if (performanceData?.success) setPerformance(performanceData.performance);
+            });
+          })
+          .catch(err => console.error('Error fetching performance:', err))
+          .finally(() => setPerformanceLoading(false));
       }
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
-    } finally {
       if (!silent) setLoading(false);
     }
-  };
-
-  const handleRefresh = () => {
-    fetchDashboardData();
   };
 
   const handleNotificationClick = async (notification) => {
@@ -119,29 +130,31 @@ const DashboardTab = ({ user, files, setActiveTab, onOpenFile, onNavigateToTasks
   };
 
   const myTasksStats = useMemo(() => ({
-    total: assignments.length,
+    total: assignments.filter(a => a.user_status !== undefined).length,
     pending: assignments.filter(a => a.user_status !== 'submitted').length,
     submitted: assignments.filter(a => a.user_status === 'submitted').length,
-    overdue: assignments.filter(a => {
-      if (!a.due_date) return false;
-      // Exclude tasks the TL/admin has already marked as completed
-      if (a.status === 'completed') return false;
-      return new Date(a.due_date) < new Date() && a.user_status !== 'submitted';
-    }).length
+    overdue: assignments.filter(a => a._overdue === true).length
   }), [assignments]);
 
-  const filesStats = useMemo(() => ({
-    total: files.length,
-    pending: files.filter(f => f.current_stage?.includes('pending')).length,
-    approved: files.filter(f => f.status === 'final_approved').length,
-    rejected: files.filter(f => f.status?.includes('rejected') || f.current_stage?.includes('rejected')).length
-  }), [files]);
+  // filesStats reads from the files prop (fetched by UserDashboard) OR quickstats counts
+  // as fallback so the card shows correct numbers immediately on first paint.
+  const [quickFileStats, setQuickFileStats] = useState(null);
+
+  const filesStats = useMemo(() => {
+    if (files.length > 0 || !quickFileStats) {
+      return {
+        total: files.length,
+        pending: files.filter(f => f.current_stage?.includes('pending')).length,
+        approved: files.filter(f => f.status === 'final_approved').length,
+        rejected: files.filter(f => f.status?.includes('rejected') || f.current_stage?.includes('rejected')).length
+      };
+    }
+    return quickFileStats;
+  }, [files, quickFileStats]);
 
   const teamStats = useMemo(() => ({
     totalTasks: teamTasks.length,
-    totalSubmissions: teamTasks.reduce((sum, task) =>
-      sum + (task.recent_submissions ? task.recent_submissions.length : 0), 0
-    )
+    totalSubmissions: 0 // not loaded on dashboard — full data available in Team tab
   }), [teamTasks]);
 
   const notificationStats = useMemo(() => ({
@@ -255,7 +268,7 @@ const DashboardTab = ({ user, files, setActiveTab, onOpenFile, onNavigateToTasks
           <div className="stat-card-content">
             <div className="stat-card-label">Team Activity</div>
             <div className="stat-card-value">{teamStats.totalTasks}</div>
-            <div className="stat-card-detail">{teamStats.totalTasks} tasks · {teamStats.totalSubmissions} submissions</div>
+            <div className="stat-card-detail">{teamStats.totalTasks} tasks in your team</div>
           </div>
         </div>
       </div>
@@ -266,7 +279,8 @@ const DashboardTab = ({ user, files, setActiveTab, onOpenFile, onNavigateToTasks
         <UserPerformanceCard 
           user={user} 
           performanceData={performance} 
-          fallbackStats={fallbackStats} 
+          fallbackStats={fallbackStats}
+          isLoading={performanceLoading}
         />
 
         {/* Notifications */}

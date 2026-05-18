@@ -51,22 +51,23 @@ router.get('/profile', asyncHandler(async (req, res) => {
   });
 }));
 
-// Shared helper: attach file counts to an array of user/member objects
-function attachFileCounts(db, members) {
-  return Promise.all(
-    members.map(member =>
-      new Promise(resolve => {
-        db.get(
-          'SELECT COUNT(*) as totalFiles FROM files WHERE user_id = ?',
-          [member.id],
-          (err, result) => {
-            member.totalFiles = (!err && result) ? (result.totalFiles || 0) : 0;
-            resolve(member);
-          }
-        );
-      })
-    )
-  );
+// Shared helper: attach file counts to an array of user/member objects using a single bulk query
+async function attachFileCounts(db, members) {
+  if (!members || members.length === 0) return members;
+  const ids = members.map(m => m.id);
+  const ph = ids.map(() => '?').join(',');
+  try {
+    const rows = await dbQuery(
+      `SELECT user_id, COUNT(*) as totalFiles FROM files WHERE user_id IN (${ph}) GROUP BY user_id`,
+      ids
+    );
+    const countMap = {};
+    (rows || []).forEach(r => { countMap[r.user_id] = r.totalFiles || 0; });
+    members.forEach(m => { m.totalFiles = countMap[m.id] || 0; });
+  } catch (_) {
+    members.forEach(m => { m.totalFiles = 0; });
+  }
+  return members;
 }
 
 // Get all users (Admin only) with caching
@@ -100,274 +101,137 @@ router.get('/', authorizeRole('ADMIN'), asyncHandler(async (req, res) => {
 // Create new user (Admin only)
 router.post('/', authorizeRole('ADMIN'), validate(schemas.createUser), asyncHandler(async (req, res) => {
   let { fullName, username, email, password, role = 'USER', team = 'General', adminId, adminUsername, adminRole, adminTeam } = req.body;
-  // Normalize role and team
   role = (role || 'USER').toString().trim().toUpperCase();
   team = (team || 'General').toString().trim();
   logInfo('Creating new user', { fullName, username, email, role, team });
 
-  // Hash password
   const hashedPassword = bcrypt.hashSync(password, 10);
-  db.run(
-    'INSERT INTO users (fullName, username, email, password, role, team) VALUES (?, ?, ?, ?, ?, ?)',
-    [fullName, username, email, hashedPassword, role, team],
-    function (err, result) {
-      if (err) {
-        console.error('❌ Error creating user:', err);
-        if (err.code === 'ER_DUP_ENTRY' || err.code === 'SQLITE_CONSTRAINT') {
-          return res.status(409).json({
-            success: false,
-            message: 'Username or email already exists'
-          });
-        }
-        return res.status(500).json({
-          success: false,
-          message: 'Failed to create user'
-        });
-      }
-      // For SQLite callback style, result may be undefined and 'this' contains lastID. For MySQL, result.insertId is available.
-      const newUserId = (result && (result.insertId || result.insert_id)) || (this && this.lastID) || null;
-      console.log(`✅ User created with ID: ${newUserId}`);
 
-      // Clear cache since users list changed
-      clearCache('all_users');
-
-      // Log activity using admin's information
-      logActivity(
-        db,
-        adminId || null,
-        adminUsername || 'Administrator',
-        adminRole || 'ADMIN',
-        adminTeam || 'System',
-        `User account created by administrator: ${fullName} (${username})`
-      );
-
-      // If the new user is a Team Leader and a team is specified, set the team's leader
-      if (role === 'TEAM_LEADER' && team) {
-        db.get('SELECT id FROM teams WHERE name = ?', [team], (err, teamRow) => {
-          if (!err && teamRow) {
-            // Insert into team_leaders table
-            db.run('INSERT INTO team_leaders (team_id, user_id, username) VALUES (?, ?, ?)',
-              [teamRow.id, newUserId, username],
-              (err) => {
-                if (err) {
-                  console.error('❌ Error assigning team leader to team_leaders table:', err);
-                } else {
-                  console.log(`✅ Assigned ${username} (ID: ${newUserId}) as leader for team '${team}' in team_leaders table`);
-
-                  // Also update teams.leader_id for backward compatibility if no leader exists
-                  db.get('SELECT leader_id FROM teams WHERE id = ?', [teamRow.id], (err, currentTeam) => {
-                    if (!err && (!currentTeam.leader_id || currentTeam.leader_id === null)) {
-                      db.run('UPDATE teams SET leader_id = ?, leader_username = ? WHERE id = ?',
-                        [newUserId, username, teamRow.id],
-                        (err) => {
-                          if (err) {
-                            console.error('❌ Error updating team leader_id:', err);
-                          } else {
-                            console.log(`✅ Set ${username} as primary leader for team '${team}'`);
-                          }
-                        }
-                      );
-                    }
-                  });
-                }
-              }
-            );
-          } else {
-            console.log(`⚠️ Team '${team}' not found; skipping leader assignment`);
-          }
-        });
-      }
-
-      res.status(201).json({
-        success: true,
-        message: 'User created successfully',
-        userId: newUserId
-      });
+  let newUserId;
+  try {
+    const result = await dbQuery(
+      'INSERT INTO users (fullName, username, email, password, role, team) VALUES (?, ?, ?, ?, ?, ?)',
+      [fullName, username, email, hashedPassword, role, team]
+    );
+    newUserId = result?.insertId || null;
+  } catch (err) {
+    console.error('❌ Error creating user:', err);
+    if (err.code === 'ER_DUP_ENTRY' || err.code === 'SQLITE_CONSTRAINT') {
+      return res.status(409).json({ success: false, message: 'Username or email already exists' });
     }
+    return res.status(500).json({ success: false, message: 'Failed to create user' });
+  }
+
+  console.log(`✅ User created with ID: ${newUserId}`);
+  clearCache('all_users');
+
+  logActivity(
+    db,
+    adminId || null,
+    adminUsername || 'Administrator',
+    adminRole || 'ADMIN',
+    adminTeam || 'System',
+    `User account created by administrator: ${fullName} (${username})`
   );
+
+  // Assign Team Leader to team if applicable
+  if (role === 'TEAM_LEADER' && team && newUserId) {
+    try {
+      const teamRow = await dbQueryOne('SELECT id, leader_id FROM teams WHERE name = ?', [team]);
+      if (teamRow) {
+        await dbQuery(
+          'INSERT INTO team_leaders (team_id, user_id, username) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE username = VALUES(username)',
+          [teamRow.id, newUserId, username]
+        );
+        console.log(`✅ Assigned ${username} (ID: ${newUserId}) as leader for team '${team}'`);
+        if (!teamRow.leader_id) {
+          await dbQuery('UPDATE teams SET leader_id = ?, leader_username = ? WHERE id = ?', [newUserId, username, teamRow.id]);
+        }
+      } else {
+        console.log(`⚠️ Team '${team}' not found; skipping leader assignment`);
+      }
+    } catch (err) {
+      console.error('❌ Error assigning team leader:', err);
+    }
+  }
+
+  res.status(201).json({ success: true, message: 'User created successfully', userId: newUserId });
 }));
 
 // Update user (Admin only)
-router.put('/:id', authorizeRole('ADMIN'), (req, res) => {
+router.put('/:id', authorizeRole('ADMIN'), asyncHandler(async (req, res) => {
   const userId = req.params.id;
   let { fullName, username, email, role, team, adminId, adminUsername, adminRole, adminTeam } = req.body;
-  // Normalize role and team
   role = (role || '').toString().trim().toUpperCase();
   team = (team || 'General').toString().trim();
   console.log(`✏️ Updating user ${userId}:`, { fullName, username, email, role, team });
 
-  // Validation
   if (!fullName || !username || !email || !role) {
-    return res.status(400).json({
-      success: false,
-      message: 'Full name, username, email, and role are required'
-    });
+    return res.status(400).json({ success: false, message: 'Full name, username, email, and role are required' });
   }
 
-  // First, check if user exists and get current data
-  db.get('SELECT * FROM users WHERE id = ?', [userId], (err, currentUser) => {
-    if (err) {
-      console.error('❌ Error fetching user:', err);
-      return res.status(500).json({
-        success: false,
-        message: 'Failed to fetch user data'
-      });
-    }
-    if (!currentUser) {
-      return res.status(404).json({
-        success: false,
-        message: 'User not found'
-      });
-    }
+  const currentUser = await dbQueryOne('SELECT * FROM users WHERE id = ?', [userId]);
+  if (!currentUser) {
+    return res.status(404).json({ success: false, message: 'User not found' });
+  }
 
-    // Perform a single UPDATE (no explicit SQL transaction; helper transaction is available)
-    db.run(
+  try {
+    const result = await dbQuery(
       'UPDATE users SET fullName = ?, username = ?, email = ?, role = ?, team = ? WHERE id = ?',
-      [fullName, username, email, role, team || 'General', userId],
-      function (err, result) {
-        if (err) {
-          console.error('❌ Error updating user:', err);
-          if (err.code === 'ER_DUP_ENTRY' || err.code === 'SQLITE_CONSTRAINT') {
-            return res.status(409).json({
-              success: false,
-              message: 'Username or email already exists'
-            });
-          }
-          return res.status(500).json({
-            success: false,
-            message: 'Failed to update user'
-          });
-        }
-
-        // Determine affected rows for SQLite (this.changes) or MySQL (result.affectedRows)
-        const rowsAffected = (result && (result.affectedRows || result.affected_rows || result.length)) || (this && this.changes) || 0;
-        if (!rowsAffected) {
-          return res.status(404).json({
-            success: false,
-            message: 'User not found or no changes made'
-          });
-        }
-
-        // Clear cache since users list changed
-        clearCache('all_users');
-
-        console.log(`✅ User ${userId} updated successfully - ${rowsAffected} row(s) affected`);
-        console.log(`   Old values: ${currentUser.fullName} (${currentUser.username}) - ${currentUser.role} - ${currentUser.team}`);
-        console.log(`   New values: ${fullName} (${username}) - ${role} - ${team || 'General'}`);
-
-        // If role changed to TEAM LEADER, assign to team; if role changed away from TEAM LEADER, clear previous team leader entries
-        try {
-          if (role === 'TEAM_LEADER') {
-            db.get('SELECT id FROM teams WHERE name = ?', [team], (err, teamRow) => {
-              if (!err && teamRow) {
-                // Insert into team_leaders table (ignore if already exists)
-                db.run('INSERT IGNORE INTO team_leaders (team_id, user_id, username) VALUES (?, ?, ?)',
-                  [teamRow.id, userId, username],
-                  (err) => {
-                    if (err) {
-                      console.error('❌ Error assigning team leader during user update:', err);
-                    } else {
-                      console.log(`✅ Assigned ${username} (ID: ${userId}) as leader for team '${team}' in team_leaders table`);
-
-                      // Update teams.leader_id for backward compatibility if no leader exists
-                      db.get('SELECT leader_id FROM teams WHERE id = ?', [teamRow.id], (err, currentTeam) => {
-                        if (!err && (!currentTeam.leader_id || currentTeam.leader_id === null)) {
-                          db.run('UPDATE teams SET leader_id = ?, leader_username = ? WHERE id = ?',
-                            [userId, username, teamRow.id],
-                            (err) => {
-                              if (err) {
-                                console.error('❌ Error updating team leader_id:', err);
-                              } else {
-                                console.log(`✅ Set ${username} as primary leader for team '${team}'`);
-                              }
-                            }
-                          );
-                        }
-                      });
-                    }
-                  }
-                );
-              } else {
-                console.log(`⚠️ Team '${team}' not found; skipping leader assignment`);
-              }
-            });
-          }
-
-          if (currentUser.role === 'TEAM_LEADER' && role !== 'TEAM_LEADER') {
-            // Remove from team_leaders table
-            db.run('DELETE FROM team_leaders WHERE user_id = ?', [userId], (err) => {
-              if (err) {
-                console.error('❌ Error clearing leader assignment from team_leaders:', err);
-              } else {
-                console.log(`✅ Cleared leader assignment for user ID ${userId} from team_leaders table`);
-
-                // Update teams.leader_id if this user was the primary leader
-                db.run(`UPDATE teams SET leader_id = NULL, leader_username = NULL WHERE leader_id = ?`,
-                  [userId],
-                  (err) => {
-                    if (err) {
-                      console.error('❌ Error clearing team leader_id:', err);
-                    } else {
-                      console.log(`✅ Cleared primary leader assignment for user ID ${userId}`);
-
-                      // Set new primary leader if team has other leaders
-                      db.get(`SELECT t.id as team_id, tl.user_id, tl.username 
-                              FROM teams t 
-                              LEFT JOIN team_leaders tl ON t.id = tl.team_id 
-                              WHERE t.leader_id IS NULL AND tl.user_id IS NOT NULL 
-                              LIMIT 1`,
-                        [],
-                        (err, newLeader) => {
-                          if (!err && newLeader) {
-                            db.run('UPDATE teams SET leader_id = ?, leader_username = ? WHERE id = ?',
-                              [newLeader.user_id, newLeader.username, newLeader.team_id],
-                              (err) => {
-                                if (err) {
-                                  console.error('❌ Error setting new primary leader:', err);
-                                } else {
-                                  console.log(`✅ Set new primary leader: ${newLeader.username}`);
-                                }
-                              }
-                            );
-                          }
-                        }
-                      );
-                    }
-                  }
-                );
-              }
-            });
-          }
-        } catch (err) {
-          console.error('❌ Error handling team leader assignment during user update:', err);
-        }
-
-        // Log activity using admin's information
-        logActivity(
-          db,
-          adminId || null,
-          adminUsername || 'Administrator',
-          adminRole || 'ADMIN',
-          adminTeam || 'System',
-          `User profile updated by administrator (Name: ${fullName}, Role: ${role}, Team: ${team || 'General'})`
-        );
-
-        res.json({
-          success: true,
-          message: 'User updated successfully',
-          updatedUser: {
-            id: userId,
-            fullName,
-            username,
-            email,
-            role,
-            team: team || 'General'
-          }
-        });
-      }
+      [fullName, username, email, role, team || 'General', userId]
     );
+    const rowsAffected = result?.affectedRows || 0;
+    if (!rowsAffected) {
+      return res.status(404).json({ success: false, message: 'User not found or no changes made' });
+    }
+  } catch (err) {
+    console.error('❌ Error updating user:', err);
+    if (err.code === 'ER_DUP_ENTRY' || err.code === 'SQLITE_CONSTRAINT') {
+      return res.status(409).json({ success: false, message: 'Username or email already exists' });
+    }
+    return res.status(500).json({ success: false, message: 'Failed to update user' });
+  }
+
+  clearCache('all_users');
+  console.log(`✅ User ${userId} updated — ${currentUser.role}→${role}, ${currentUser.team}→${team}`);
+
+  // Handle Team Leader assignment changes
+  try {
+    if (role === 'TEAM_LEADER') {
+      const teamRow = await dbQueryOne('SELECT id, leader_id FROM teams WHERE name = ?', [team]);
+      if (teamRow) {
+        await dbQuery(
+          'INSERT IGNORE INTO team_leaders (team_id, user_id, username) VALUES (?, ?, ?)',
+          [teamRow.id, userId, username]
+        );
+        if (!teamRow.leader_id) {
+          await dbQuery('UPDATE teams SET leader_id = ?, leader_username = ? WHERE id = ?', [userId, username, teamRow.id]);
+        }
+      }
+    }
+    if (currentUser.role === 'TEAM_LEADER' && role !== 'TEAM_LEADER') {
+      await dbQuery('DELETE FROM team_leaders WHERE user_id = ?', [userId]);
+      await dbQuery('UPDATE teams SET leader_id = NULL, leader_username = NULL WHERE leader_id = ?', [userId]);
+    }
+  } catch (err) {
+    console.error('❌ Error handling team leader assignment during user update:', err);
+  }
+
+  logActivity(
+    db,
+    adminId || null,
+    adminUsername || 'Administrator',
+    adminRole || 'ADMIN',
+    adminTeam || 'System',
+    `User profile updated by administrator (Name: ${fullName}, Role: ${role}, Team: ${team || 'General'})`
+  );
+
+  res.json({
+    success: true,
+    message: 'User updated successfully',
+    updatedUser: { id: userId, fullName, username, email, role, team: team || 'General' }
   });
-});
+}));
 
 // Reset user password (Admin only)
 router.put('/:id/password', authorizeRole('ADMIN'), validateId(), validate(schemas.resetPassword), asyncHandler(async (req, res) => {
@@ -469,186 +333,101 @@ router.put('/:id/password', authorizeRole('ADMIN'), validateId(), validate(schem
 }));
 
 // Delete user (Admin only)
-router.delete('/:id', authorizeRole('ADMIN'), (req, res) => {
+router.delete('/:id', authorizeRole('ADMIN'), asyncHandler(async (req, res) => {
   const userId = req.params.id;
   const { adminId, adminUsername, adminRole, adminTeam } = req.body;
   console.log(`🗑️ Deleting user ${userId}`);
 
-  // First check if user exists and get their info
-  db.get('SELECT fullName, email FROM users WHERE id = ?', [userId], (err, user) => {
-    if (err) {
-      console.error('❌ Error checking user:', err);
-      return res.status(500).json({
-        success: false,
-        message: 'Failed to delete user'
-      });
-    }
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: 'User not found'
-      });
-    }
+  const user = await dbQueryOne('SELECT fullName, email FROM users WHERE id = ?', [userId]);
+  if (!user) {
+    return res.status(404).json({ success: false, message: 'User not found' });
+  }
 
-    // Delete the user
-    db.run('DELETE FROM users WHERE id = ?', [userId], function (err) {
-      if (err) {
-        console.error('❌ Error deleting user:', err);
-        return res.status(500).json({
-          success: false,
-          message: 'Failed to delete user'
-        });
-      }
+  try {
+    await dbQuery('DELETE FROM users WHERE id = ?', [userId]);
+  } catch (err) {
+    console.error('❌ Error deleting user:', err);
+    return res.status(500).json({ success: false, message: 'Failed to delete user' });
+  }
 
-      // Clear cache since users list changed
-      clearCache('all_users');
+  clearCache('all_users');
+  console.log(`✅ User deleted: ${user.fullName} (${user.email})`);
 
-      console.log(`✅ User deleted: ${user.fullName} (${user.email})`);
+  logActivity(
+    db,
+    adminId || null,
+    adminUsername || 'Administrator',
+    adminRole || 'ADMIN',
+    adminTeam || 'System',
+    `User account deleted by administrator: ${user.fullName} (${user.email})`
+  );
 
-      // Log activity using admin's information
-      logActivity(
-        db,
-        adminId || null,
-        adminUsername || 'Administrator',
-        adminRole || 'ADMIN',
-        adminTeam || 'System',
-        `User account deleted by administrator: ${user.fullName} (${user.email})`
-      );
-      res.json({
-        success: true,
-        message: `User ${user.fullName} deleted successfully`
-      });
-    });
-  });
-});
+  res.json({ success: true, message: `User ${user.fullName} deleted successfully` });
+}));
 
 // Get team members (Team Leader and Admin)
-router.get('/team/:teamName', authorizeRole(['TEAM_LEADER', 'ADMIN']), (req, res) => {
+router.get('/team/:teamName', authorizeRole(['TEAM_LEADER', 'ADMIN']), asyncHandler(async (req, res) => {
   const { teamName } = req.params;
-
-  // Security check: If TEAM_LEADER, verify they actually lead this team
   if (req.user.role === 'TEAM_LEADER' && req.user.team !== teamName) {
     return res.status(403).json({ success: false, message: 'Access denied: You do not lead this team' });
   }
   console.log(`👥 Getting team members for team: ${teamName}`);
-
-  db.all(
+  const members = await dbQuery(
     'SELECT id, fullName, username, email, role, team, created_at FROM users WHERE team = ? AND role != ? ORDER BY fullName',
-    [teamName, 'TEAM_LEADER'],
-    (err, members) => {
-      if (err) {
-        console.error('❌ Error getting team members:', err);
-        return res.status(500).json({
-          success: false,
-          message: 'Failed to fetch team members'
-        });
-      }
-      console.log(`✅ Retrieved ${members.length} members for team ${teamName}`);
-
-      attachFileCounts(db, members).then(membersWithFiles => {
-        res.json({ success: true, members: membersWithFiles });
-      });
-    }
+    [teamName, 'TEAM_LEADER']
   );
-});
+  console.log(`✅ Retrieved ${members.length} members for team ${teamName}`);
+  await attachFileCounts(db, members);
+  res.json({ success: true, members });
+}));
 
 // Search users (Admin only)
-router.get('/search', authorizeRole('ADMIN'), (req, res) => {
+router.get('/search', authorizeRole('ADMIN'), asyncHandler(async (req, res) => {
   const { q } = req.query;
   if (!q || q.trim() === '') {
-    return res.status(400).json({
-      success: false,
-      message: 'Search query is required'
-    });
+    return res.status(400).json({ success: false, message: 'Search query is required' });
   }
   console.log(`🔍 Searching users with query: ${q}`);
   const searchPattern = `%${q}%`;
-  db.all(
+  const users = await dbQuery(
     `SELECT id, fullName, username, email, role, team, created_at
      FROM users
      WHERE fullName LIKE ? OR username LIKE ? OR email LIKE ? OR role LIKE ? OR team LIKE ?
      ORDER BY fullName`,
-    [searchPattern, searchPattern, searchPattern, searchPattern, searchPattern],
-    (err, users) => {
-      if (err) {
-        console.error('❌ Error searching users:', err);
-        return res.status(500).json({
-          success: false,
-          message: 'Search failed'
-        });
-      }
-      console.log(`✅ Found ${users.length} users matching '${q}'`);
-      res.json({
-        success: true,
-        users
-      });
-    }
+    [searchPattern, searchPattern, searchPattern, searchPattern, searchPattern]
   );
-});
+  console.log(`✅ Found ${users.length} users matching '${q}'`);
+  res.json({ success: true, users });
+}));
 
 // Get team members for a team leader (across all led teams)
-router.get('/team-leader/:userId', authorizeRole(['TEAM_LEADER', 'ADMIN']), (req, res) => {
+router.get('/team-leader/:userId', authorizeRole(['TEAM_LEADER', 'ADMIN']), asyncHandler(async (req, res) => {
   const { userId } = req.params;
-
-  // Ownership check: Team Leaders can only see their own members, ADMINs can see any
   if (req.user.id !== parseInt(userId) && req.user.role !== 'ADMIN') {
     return res.status(403).json({ success: false, message: 'Access denied' });
   }
   console.log(`👥 Getting team members for team leader: ${userId}`);
 
-  // First, get all teams this user leads
-  db.all(
-    `SELECT DISTINCT t.name
-     FROM team_leaders tl
-     JOIN teams t ON tl.team_id = t.id
-     WHERE tl.user_id = ?`,
-    [userId],
-    (err, ledTeams) => {
-      if (err) {
-        console.error('❌ Error getting led teams:', err);
-        return res.status(500).json({
-          success: false,
-          message: 'Failed to fetch team members'
-        });
-      }
-
-      if (!ledTeams || ledTeams.length === 0) {
-        console.log(`⚠️ User ${userId} is not a leader of any teams`);
-        return res.json({
-          success: true,
-          members: []
-        });
-      }
-
-      const teamNames = ledTeams.map(t => t.name);
-      console.log(`✅ User ${userId} leads teams:`, teamNames);
-
-      // Get members from ALL teams this user leads
-      const placeholders = teamNames.map(() => '?').join(',');
-      db.all(
-        `SELECT id, fullName, username, email, role, team, created_at
-         FROM users
-         WHERE team IN (${placeholders}) AND role != ?
-         ORDER BY fullName`,
-        [...teamNames, 'TEAM_LEADER'],
-        (err, members) => {
-          if (err) {
-            console.error('❌ Error getting team members:', err);
-            return res.status(500).json({
-              success: false,
-              message: 'Failed to fetch team members'
-            });
-          }
-          console.log(`✅ Retrieved ${members.length} members across teams: ${teamNames.join(', ')}`);
-
-          attachFileCounts(db, members).then(membersWithFiles => {
-            res.json({ success: true, members: membersWithFiles });
-          });
-        }
-      );
-    }
+  const ledTeams = await dbQuery(
+    `SELECT DISTINCT t.name FROM team_leaders tl JOIN teams t ON tl.team_id = t.id WHERE tl.user_id = ?`,
+    [userId]
   );
-});
+
+  if (!ledTeams || ledTeams.length === 0) {
+    return res.json({ success: true, members: [] });
+  }
+
+  const teamNames = ledTeams.map(t => t.name);
+  const placeholders = teamNames.map(() => '?').join(',');
+  const members = await dbQuery(
+    `SELECT id, fullName, username, email, role, team, created_at
+     FROM users WHERE team IN (${placeholders}) AND role != ? ORDER BY fullName`,
+    [...teamNames, 'TEAM_LEADER']
+  );
+  console.log(`✅ Retrieved ${members.length} members across teams: ${teamNames.join(', ')}`);
+  await attachFileCounts(db, members);
+  res.json({ success: true, members });
+}));
 
 // Get all mentionable users for @mention dropdown in comments
 // NOTE: Defined before /:teamName to prevent the catch-all from swallowing this route
@@ -676,29 +455,19 @@ router.get('/mentionable', (req, res) => {
 
 // Get team members - Direct route (supports /api/users/:teamName)
 // IMPORTANT: This must be LAST to avoid conflicts with other named routes
-router.get('/:teamName', authorizeRole(['TEAM_LEADER', 'ADMIN']), (req, res) => {
+router.get('/:teamName', authorizeRole(['TEAM_LEADER', 'ADMIN']), asyncHandler(async (req, res) => {
   const { teamName } = req.params;
-
-  // Security check: If TEAM_LEADER, verify they actually lead this team
   if (req.user.role === 'TEAM_LEADER' && req.user.team !== teamName) {
     return res.status(403).json({ success: false, message: 'Access denied: You do not lead this team' });
   }
   console.log(`👥 Getting team members for team: ${teamName}`);
-
-  db.all(
+  const members = await dbQuery(
     'SELECT id, fullName, username, email, role, team, created_at FROM users WHERE team = ? AND role != ? ORDER BY fullName',
-    [teamName, 'TEAM_LEADER'],
-    (err, members) => {
-      if (err) {
-        console.error('❌ Error getting team members:', err);
-        return res.status(500).json({ success: false, message: 'Failed to fetch team members' });
-      }
-      console.log(`✅ Retrieved ${members.length} members for team ${teamName}`);
-      attachFileCounts(db, members).then(membersWithFiles => {
-        res.json({ success: true, members: membersWithFiles });
-      });
-    }
+    [teamName, 'TEAM_LEADER']
   );
-});
+  console.log(`✅ Retrieved ${members.length} members for team ${teamName}`);
+  await attachFileCounts(db, members);
+  res.json({ success: true, members });
+}));
 
 module.exports = router;

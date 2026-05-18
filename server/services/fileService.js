@@ -318,63 +318,18 @@ async function bulkUploadFast(filesData, user, assignmentId = null) {
 }
 
 /**
- * FAST bulk upload — Phase 2: move files from local temp to NAS and update DB paths.
- * Runs in the background after the HTTP response has already been sent.
- */
-async function bulkUploadMoveToNas(fileRecords, user, assignmentId, assignmentLinks) {
-    const { moveToUserFolder } = require('../utils/fileUtils');
-
-    for (const link of assignmentLinks) {
-        try {
-            if (!link.tempPath || !link.fileId) continue;
-
-            const movedPath = await moveToUserFolder(
-                link.tempPath,
-                user.username,
-                link.originalName,
-                link.fileData.folder_name || null,
-                link.fileData.relative_path || null,
-                null   // no taskPrefix
-            );
-
-            const relativeToUploads = movedPath.startsWith(uploadsDir)
-                ? movedPath.substring(uploadsDir.length).replace(/\\/g, '/')
-                : movedPath;
-            const finalFilePath = `/uploads${relativeToUploads.startsWith('/') ? '' : '/'}${relativeToUploads}`;
-
-            // Update DB record with the real NAS path
-            await query('UPDATE files SET file_path = ? WHERE id = ?', [finalFilePath, link.fileId]);
-        } catch (err) {
-            logError(err, { context: 'bulkUploadMoveToNas-item', fileId: link.fileId, filename: link.originalName });
-        }
-    }
-}
-
-/**
- * Bulk upload multiple files and link them to an assignment
+ * Bulk upload multiple files and link them to an assignment (legacy synchronous path).
+ * Kept for reference; the active path is bulkUploadFast + bulkUploadMoveToNas.
  */
 async function bulkUpload(filesData, user, assignmentId = null) {
     const { moveToUserFolder } = require('../utils/fileUtils');
-    
-    // We can handle high concurrency now that DB pool is increased
     const MAX_CONCURRENT = 50;
-    
-    // Queue for assignment links to be batched at the end
     const assignmentLinks = [];
 
-    // Helper for parallel execution with limit
     async function processFile(fileData) {
         try {
             const originalName = fixFilename(fileData.original_name);
-            
-            // 1. Check for duplicates
-            const existing = await fileRepository.findByNameAndUser(
-                originalName,
-                user.id,
-                fileData.folder_name,
-                assignmentId
-            );
-
+            const existing = await fileRepository.findByNameAndUser(originalName, user.id, fileData.folder_name, assignmentId);
             if (existing && assignmentId) {
                 const oldPhysical = existing.file_path.startsWith('/uploads/')
                     ? path.join(uploadsDir, existing.file_path.substring('/uploads/'.length))
@@ -383,45 +338,17 @@ async function bulkUpload(filesData, user, assignmentId = null) {
                 await query('DELETE FROM assignment_submissions WHERE file_id = ? AND assignment_id = ?', [existing.id, assignmentId]);
                 await fileRepository.deleteById(existing.id);
             }
-
-            // 2. Move to permanent location
             const tempPath = fileData.file_path.startsWith('/uploads/')
                 ? path.join(uploadsDir, fileData.file_path.substring('/uploads/'.length))
                 : fileData.file_path;
-
-            const movedPath = await moveToUserFolder(
-                tempPath, user.username, originalName,
-                fileData.folder_name || null, fileData.relative_path || null,
-                null // taskPrefix
-            );
-
+            const movedPath = await moveToUserFolder(tempPath, user.username, originalName, fileData.folder_name || null, fileData.relative_path || null, null);
             const relativeToUploads = movedPath.startsWith(uploadsDir)
                 ? movedPath.substring(uploadsDir.length).replace(/\\/g, '/')
                 : movedPath;
             const finalFilePath = `/uploads${relativeToUploads.startsWith('/') ? '' : '/'}${relativeToUploads}`;
-
-            // 3. Create DB record
-            const dbData = {
-                ...fileData,
-                original_name: originalName,
-                file_path: finalFilePath,
-                user_id: user.id,
-                username: user.username,
-                user_team: user.team,
-                status: 'uploaded',
-                current_stage: 'pending_team_leader'
-            };
-
+            const dbData = { ...fileData, original_name: originalName, file_path: finalFilePath, user_id: user.id, username: user.username, user_team: user.team, status: 'uploaded', current_stage: 'pending_team_leader' };
             const fileId = await fileRepository.create(dbData);
-
-            // 4. Queue for assignment linking (if provided)
-            if (assignmentId) {
-                assignmentLinks.push([
-                    'INSERT INTO assignment_submissions (assignment_id, user_id, file_id, submitted_at) VALUES (?, ?, ?, NOW())',
-                    [assignmentId, user.id, fileId]
-                ]);
-            }
-
+            if (assignmentId) assignmentLinks.push(['INSERT INTO assignment_submissions (assignment_id, user_id, file_id, submitted_at) VALUES (?, ?, ?, NOW())', [assignmentId, user.id, fileId]]);
             return { success: true, fileId, originalName };
         } catch (err) {
             logError(err, { context: 'bulkUpload-item', filename: fileData.original_name });
@@ -429,7 +356,6 @@ async function bulkUpload(filesData, user, assignmentId = null) {
         }
     }
 
-    // Process all files with concurrency limit
     const results = [];
     const executing = new Set();
     for (const file of filesData) {
@@ -438,37 +364,18 @@ async function bulkUpload(filesData, user, assignmentId = null) {
         executing.add(p);
         const clean = () => executing.delete(p);
         p.then(clean).catch(clean);
-        if (executing.size >= MAX_CONCURRENT) {
-            await Promise.race(executing);
-        }
+        if (executing.size >= MAX_CONCURRENT) await Promise.race(executing);
     }
     const finalResults = await Promise.all(results);
 
-    // 5. Batch process assignment links with a TRUE single-statement bulk INSERT
-    //    queryBatch ran every query sequentially on one connection — on a NAS that meant
-    //    N×(NAS round-trip latency) seconds of blocking.  A single parameterised INSERT
-    //    collapses all submissions into one network trip regardless of file count.
     if (assignmentLinks.length > 0) {
         try {
             const assignmentIdInt = parseInt(assignmentId, 10);
-
-            // Extract file IDs queued during processFile
             const fileIds = assignmentLinks.map(([, params]) => params[2]);
-
-            // One INSERT for all assignment_submissions rows
             const subPlaceholders = fileIds.map(() => '(?, ?, ?, NOW())').join(', ');
-            const subValues      = fileIds.flatMap(fid => [assignmentIdInt, user.id, fid]);
-            await query(
-                `INSERT IGNORE INTO assignment_submissions (assignment_id, user_id, file_id, submitted_at) VALUES ${subPlaceholders}`,
-                subValues
-            );
-
-            // One UPDATE for assignment_members (the last file id is representative)
-            const lastFileId = fileIds[fileIds.length - 1];
-            await query(
-                'UPDATE assignment_members SET file_id = ?, submitted_at = NOW(), status = "submitted" WHERE assignment_id = ? AND user_id = ?',
-                [lastFileId, assignmentIdInt, user.id]
-            );
+            const subValues = fileIds.flatMap(fid => [assignmentIdInt, user.id, fid]);
+            await query(`INSERT IGNORE INTO assignment_submissions (assignment_id, user_id, file_id, submitted_at) VALUES ${subPlaceholders}`, subValues);
+            await query('UPDATE assignment_members SET file_id = ?, submitted_at = NOW(), status = "submitted" WHERE assignment_id = ? AND user_id = ?', [fileIds[fileIds.length - 1], assignmentIdInt, user.id]);
         } catch (err) {
             logError('Failed to batch link assignment submissions', { error: err.message });
         }
@@ -476,28 +383,13 @@ async function bulkUpload(filesData, user, assignmentId = null) {
 
     logActivity(db, user.id, user.username, user.role, user.team, `Bulk uploaded ${finalResults.filter(r => r.success).length} files`);
 
-    // Send ONE grouped notification to the team leader after all files are processed
     if (assignmentId) {
         try {
             const { pushToUser } = require('../routes/notifications');
-            const assignment = await queryOne(
-                'SELECT id, title, team_leader_id FROM assignments WHERE id = ?',
-                [parseInt(assignmentId, 10)]
-            );
+            const assignment = await queryOne('SELECT id, title, team_leader_id FROM assignments WHERE id = ?', [parseInt(assignmentId, 10)]);
             if (assignment && assignment.team_leader_id) {
-                const successCount = results.filter(r => r.success).length;
-                await notificationService.createNotification(
-                    assignment.team_leader_id,
-                    null,
-                    'file_submitted',
-                    'New File Submission',
-                    `${user.fullName || user.username} submitted ${successCount} file${successCount !== 1 ? 's' : ''} for "${assignment.title}".`,
-                    user.id,
-                    user.username,
-                    user.role,
-                    parseInt(assignmentId, 10)
-                );
-                // createNotification already calls pushToUser, but push again to guarantee delivery
+                const successCount = finalResults.filter(r => r.success).length;
+                await notificationService.createNotification(assignment.team_leader_id, null, 'file_submitted', 'New File Submission', `${user.fullName || user.username} submitted ${successCount} file${successCount !== 1 ? 's' : ''} for "${assignment.title}".`, user.id, user.username, user.role, parseInt(assignmentId, 10));
                 pushToUser(assignment.team_leader_id);
                 logInfo('Team leader notified of bulk submission', { tlId: assignment.team_leader_id, assignmentId, successCount });
             }
@@ -506,7 +398,48 @@ async function bulkUpload(filesData, user, assignmentId = null) {
         }
     }
 
-    return results;
+    return finalResults;
+}
+
+/**
+ * FAST bulk upload — Phase 2: move files from local temp to NAS and update DB paths.
+ * Runs in the background after the HTTP response has already been sent.
+ */
+async function bulkUploadMoveToNas(fileRecords, user, assignmentId, assignmentLinks) {
+    const { moveToUserFolder } = require('../utils/fileUtils');
+    // Run all NAS moves concurrently — sequential for-loop was the main cause of slow
+    // background finalization when uploading many files at once.
+    const MAX_CONCURRENT = 8; // conservative to avoid hammering the NAS SMB share
+    const validLinks = assignmentLinks.filter(l => l.tempPath && l.fileId);
+
+    const moveOne = async (link) => {
+        try {
+            const movedPath = await moveToUserFolder(
+                link.tempPath,
+                user.username,
+                link.originalName,
+                link.fileData.folder_name || null,
+                link.fileData.relative_path || null,
+                null   // no taskPrefix
+            );
+            const relativeToUploads = movedPath.startsWith(uploadsDir)
+                ? movedPath.substring(uploadsDir.length).replace(/\\/g, '/')
+                : movedPath;
+            const finalFilePath = `/uploads${relativeToUploads.startsWith('/') ? '' : '/'}${relativeToUploads}`;
+            await query('UPDATE files SET file_path = ? WHERE id = ?', [finalFilePath, link.fileId]);
+        } catch (err) {
+            logError(err, { context: 'bulkUploadMoveToNas-item', fileId: link.fileId, filename: link.originalName });
+        }
+    };
+
+    const executing = new Set();
+    for (const link of validLinks) {
+        const p = moveOne(link);
+        executing.add(p);
+        p.finally(() => executing.delete(p));
+        if (executing.size >= MAX_CONCURRENT) await Promise.race(executing);
+    }
+    await Promise.all(executing);
 }
 
 /**

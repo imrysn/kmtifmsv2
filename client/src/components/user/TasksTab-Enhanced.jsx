@@ -1,5 +1,5 @@
 import { useRef, useCallback, useState, useEffect, startTransition, useMemo, memo } from 'react';
-import { apiFetch, API_BASE_URL } from '@/config/api';
+import { apiFetch, API_BASE_URL, uploadWithProgress } from '@/config/api';
 import './css/TasksTab-Enhanced.css';
 import './css/TasksTab-Comments.css';
 import { FileIcon, FileOpenModal } from '../shared';
@@ -327,7 +327,7 @@ const TasksTab = memo(({
   const [sortFilter, setSortFilter] = useState('all');
   const [successModal, setSuccessModal] = useState({ isOpen: false, title: '', message: '', type: 'success' });
   const [downloadToast, setDownloadToast] = useState({ show: false, fileName: '' });
-  const [fileOpenToast, setFileOpenToast] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
   const [expandedFolders, setExpandedFolders] = useState({});
   const [showAllSubmittedFiles, setShowAllSubmittedFiles] = useState({});
 
@@ -647,6 +647,18 @@ const TasksTab = memo(({
     setShowOpenFileModal(true);
   }, []);
 
+  // ─── Submit modal helpers ─────────────────────────────────────────────────
+  const resetSubmitModal = useCallback(() => {
+    setUploadedFiles([]);
+    setFileDescription('');
+    setFileTag('');
+    setUploadMode('files');
+    setTargetFolder(null);
+    setUploadProgress(0);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+    if (folderInputRef.current) folderInputRef.current.value = '';
+  }, []);
+
   const handleRemoveSubmittedFile = useCallback(async (assignmentId, fileId) => {
     setShowDeleteModal(false);
     setFileToDelete(null);
@@ -679,19 +691,7 @@ const TasksTab = memo(({
     }
   }, [user.id, user.username, user.role, user.team, fetchAssignments, showError]);
 
-  const [uploadProgress, setUploadProgress] = useState(0);
-
-  // ─── Submit modal helpers ─────────────────────────────────────────────────
-  const resetSubmitModal = useCallback(() => {
-    setUploadedFiles([]);
-    setFileDescription('');
-    setFileTag('');
-    setUploadMode('files');
-    setTargetFolder(null);
-    setUploadProgress(0);
-    if (fileInputRef.current) fileInputRef.current.value = '';
-    if (folderInputRef.current) folderInputRef.current.value = '';
-  }, []);
+  // resetSubmitModal defined above (near uploadProgress state)
 
   const handleSubmit = useCallback((assignment) => {
     setCurrentAssignment(assignment);
@@ -708,8 +708,6 @@ const TasksTab = memo(({
     setUploadProgress(0);
 
     try {
-      const { uploadWithProgress } = await import('@/config/api');
-
       // Build relative paths for every file.
       // f.relativePath already holds the full path (e.g. "ParentFolder/SubFolder/file.txt")
       // from either webkitRelativePath or the drag-drop readAllFilesFromEntry helper.
@@ -736,11 +734,14 @@ const TasksTab = memo(({
       fd.append('relativePaths', JSON.stringify(allPaths));
       uploadedFiles.forEach(f => fd.append('files', f.file));
 
+      // Cap upload XHR progress at 99% so bar stays visible while server processes
       const result = await uploadWithProgress(
         '/api/files/bulk-upload',
         fd,
-        { onProgress: (p) => setUploadProgress(p) }
+        { onProgress: (p) => setUploadProgress(Math.min(p, 99)) }
       );
+      // Now server has responded — jump to 100%
+      setUploadProgress(100);
 
       if (result.success) {
         setSuccessModal({
@@ -1600,23 +1601,6 @@ const TasksTab = memo(({
         message={successModal.message}
         type={successModal.type}
       />
-
-      {/* File Open Toast */}
-      {fileOpenToast && (
-        <div style={{ position: 'fixed', top: '28px', right: '28px', zIndex: 9999, background: '#fff', border: '1px solid #bbf7d0', borderRadius: '16px', boxShadow: '0 8px 32px rgba(0,0,0,0.13)', padding: '18px 22px 14px 18px', display: 'flex', alignItems: 'flex-start', gap: '14px', minWidth: '280px', maxWidth: '380px', animation: 'slideInRight 0.25s ease' }}>
-          <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: '#dcfce7', border: '2px solid #86efac', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6L9 17l-5-5" /></svg>
-          </div>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: '15px', fontWeight: '700', color: '#15803d', marginBottom: '4px' }}>Success</div>
-            <div style={{ fontSize: '13px', color: '#374151', lineHeight: '1.4' }}>File opened successfully!</div>
-            <div style={{ marginTop: '10px', height: '4px', borderRadius: '2px', background: '#dcfce7', overflow: 'hidden' }}>
-              <div style={{ height: '100%', borderRadius: '2px', background: '#22c55e', animation: 'shrinkBar 3.5s linear forwards' }} />
-            </div>
-          </div>
-          <button onClick={() => setFileOpenToast(false)} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: '#9ca3af', fontSize: '20px', lineHeight: 1, padding: 0 }}>×</button>
-        </div>
-      )}
 
       {/* Download Toast */}
       {downloadToast.show && (

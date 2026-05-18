@@ -143,32 +143,29 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
   }, [])
 
 
+  // One-time mount fetch: team members, analytics, and notifications are stable data
+  // that don't need to re-fetch on every tab switch.
+  const hasMountFetched = React.useRef(false)
   useEffect(() => {
-    // Only fetch files for tabs that need them
-    if (activeTab === 'overview') {
-      fetchPendingFiles('total')
-      fetchAllSubmissions()
-    }
-
-    if (activeTab === 'file-collection') {
-      fetchAllSubmissions()
-    }
-
+    if (hasMountFetched.current) return
+    hasMountFetched.current = true
     fetchTeamMembers()
     fetchNotifications()
     fetchAnalytics()
+    fetchAllSubmissions()
+    fetchAssignments()
+    fetchPendingFiles('total')
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-    if (activeTab === 'assignments') {
-      fetchAssignments()
-    }
-
-    // For dashboard, fetch all necessary data
-    if (activeTab === 'dashboard') {
-      console.log('🔄 DASHBOARD TAB: Loading data...', { activeTab, team: user.team })
-      fetchAllSubmissions()
-      fetchAssignments()
-    }
-  }, [user.team, activeTab])
+  // Tab-specific lazy fetch: only load tab data the FIRST time a tab is visited.
+  // Subsequent tab switches use the already-cached state — no re-fetch.
+  const fetchedTabs = React.useRef(new Set(['dashboard', 'overview'])) // pre-mark as fetched since mount fetch covers them
+  useEffect(() => {
+    if (fetchedTabs.current.has(activeTab)) return
+    fetchedTabs.current.add(activeTab)
+    // Currently no extra per-tab fetches are needed here since mount covers all data.
+    // Add tab-specific fetches here only if data becomes stale and needs a refresh.
+  }, [activeTab]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // derive list of unique teams from fetched members
   const uniqueTeams = React.useMemo(() => {
@@ -205,13 +202,19 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
     if (!user?.id) return
     let es
     let reconnectTimer
+    let lastFetch = 0 // debounce guard
 
     const connect = () => {
       const { token } = useStore.getState()
       const url = `${API_BASE_URL}/api/notifications/user/${user.id}/stream${token ? `?token=${token}` : ''}`
       es = new EventSource(url)
       es.onmessage = (event) => {
-        if (event.data === 'ping') fetchNotifications()
+        if (event.data === 'ping') {
+          const now = Date.now()
+          if (now - lastFetch < 5000) return
+          lastFetch = now
+          fetchNotifications()
+        }
       }
       es.onerror = () => {
         es.close()
@@ -1065,35 +1068,13 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
   }
 
   const calculateApprovalRate = () => {
-    return 94 // Placeholder
+    if (!analyticsData) return 0
+    return analyticsData.approvalRate ?? 0
   }
 
   const renderActiveTab = () => {
     switch (activeTab) {
       case 'overview':
-        return (
-          <Suspense fallback={<SkeletonLoader type="cards" />}>
-            <OverviewTab
-              pendingFiles={pendingFiles}
-              teamMembers={teamMembers}
-              calculateApprovalRate={calculateApprovalRate}
-              submittedFiles={submittedFiles}
-              assignments={assignments}
-              notifications={notifications}
-              notificationCounts={notificationCounts}
-              analyticsData={analyticsData}
-              activeTab={activeTab}
-              setActiveTab={setActiveTab}
-              onNavigateToTask={(assignmentId, fileId) => {
-                setActiveTab('assignments')
-                setHighlightedAssignmentId(assignmentId)
-                if (fileId) {
-                  setHighlightedSubmissionFileId(fileId)
-                }
-              }}
-            />
-          </Suspense>
-        )
       case 'dashboard':
         return (
           <Suspense fallback={<SkeletonLoader type="cards" />}>
@@ -1228,6 +1209,18 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
               pendingFiles={pendingFiles}
               teamMembers={teamMembers}
               calculateApprovalRate={calculateApprovalRate}
+              submittedFiles={submittedFiles}
+              assignments={assignments}
+              notifications={notifications}
+              notificationCounts={notificationCounts}
+              analyticsData={analyticsData}
+              activeTab={activeTab}
+              setActiveTab={setActiveTab}
+              onNavigateToTask={(assignmentId, fileId) => {
+                setActiveTab('assignments')
+                setHighlightedAssignmentId(assignmentId)
+                if (fileId) setHighlightedSubmissionFileId(fileId)
+              }}
             />
           </Suspense>
         )

@@ -246,7 +246,8 @@ export const uploadWithProgress = (url, formData, { method = 'POST', signal, onP
     if (onProgress && xhr.upload) {
       xhr.upload.onprogress = (e) => {
         if (e.lengthComputable) {
-          onProgress(Math.round((e.loaded / e.total) * 100), e.loaded, e.total);
+          // Cap at 99 — the caller jumps to 100 once the server responds
+          onProgress(Math.min(Math.round((e.loaded / e.total) * 100), 99), e.loaded, e.total);
         }
       };
     }

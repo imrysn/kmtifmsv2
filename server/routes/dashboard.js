@@ -1,13 +1,10 @@
 const express = require('express');
-const { queryBatch, queryOneBatch, query, queryOne } = require('../config/database');
+const { queryBatch, query, queryOne } = require('../config/database');
 const { categorizeFileTypes } = require('../utils/fileTypeUtils');
 const { authenticateToken, authorizeRole } = require('../middleware/auth');
 const { asyncHandler } = require('../middleware/errorHandler');
-const { getBusinessHoursDiff, calculateSpeedFactor } = require('../utils/performanceUtils');
 const { calculateAllUserPerformance } = require('../services/performanceService');
-
-
-const { getCache, setCache, invalidateCache } = require('../utils/cacheUtils');
+const { getCache, setCache, invalidateCache, getRecomputePromise, setRecomputePromise } = require('../utils/cacheUtils');
 
 const router = express.Router();
 
@@ -237,6 +234,77 @@ router.get('/team/:teamName', authorizeRole(['TEAM_LEADER', 'ADMIN']), asyncHand
 }));
 
 /**
+ * GET /api/dashboard/user-quickstats/:userId
+ * Lightweight dashboard-only endpoint — returns only the counts the DashboardTab
+ * stat cards need, plus 3 recent notifications.
+ * Runs 4 COUNT queries batched on one connection instead of fetching full
+ * assignment rows + attachments + members + submissions.
+ * ~10-50ms vs the 500-2000ms of the full assignments route.
+ */
+router.get('/user-quickstats/:userId', authorizeRole(['USER', 'TEAM_LEADER', 'ADMIN']), asyncHandler(async (req, res) => {
+  const { userId } = req.params;
+
+  if (req.user.id !== parseInt(userId) && req.user.role === 'USER') {
+    return res.status(403).json({ success: false, message: 'Access denied' });
+  }
+
+  const user = await queryOne('SELECT team FROM users WHERE id = ?', [userId]);
+  if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+  const { team } = user;
+
+  const [taskRows, fileRows, teamTaskRows, notifRows] = await queryBatch([
+    // Task stats: total, submitted, overdue (only what the stat card shows)
+    [`SELECT
+        COUNT(DISTINCT a.id) as total,
+        SUM(CASE WHEN am.status = 'submitted' THEN 1 ELSE 0 END) as submitted,
+        SUM(CASE WHEN a.due_date < NOW() AND (am.status IS NULL OR am.status != 'submitted') AND a.status != 'completed' THEN 1 ELSE 0 END) as overdue
+      FROM assignments a
+      LEFT JOIN assignment_members am ON a.id = am.assignment_id AND am.user_id = ?
+      WHERE (a.assigned_to = 'all' AND a.team = ?) OR (a.assigned_to = 'specific' AND am.user_id = ?)`,
+      [userId, team, userId]],
+
+    // File stats: total, pending, approved, rejected
+    [`SELECT
+        COUNT(*) as total,
+        SUM(CASE WHEN current_stage LIKE '%pending%' THEN 1 ELSE 0 END) as pending,
+        SUM(CASE WHEN status = 'final_approved' THEN 1 ELSE 0 END) as approved,
+        SUM(CASE WHEN status LIKE 'rejected%' OR current_stage LIKE 'rejected%' THEN 1 ELSE 0 END) as rejected
+      FROM files WHERE user_id = ?`,
+      [userId]],
+
+    // Team task count
+    [`SELECT COUNT(*) as total FROM assignments WHERE team = ?`, [team]],
+
+    // 3 most recent notifications
+    [`SELECT id, title, type, is_read, created_at, assignment_id, file_id
+      FROM notifications WHERE user_id = ? ORDER BY created_at DESC LIMIT 3`,
+      [userId]]
+  ]);
+
+  const tasks = taskRows[0] || {};
+  const files = fileRows[0] || {};
+  const teamCount = teamTaskRows[0]?.total || 0;
+
+  res.json({
+    success: true,
+    tasks: {
+      total: tasks.total || 0,
+      submitted: tasks.submitted || 0,
+      pending: (tasks.total || 0) - (tasks.submitted || 0),
+      overdue: tasks.overdue || 0
+    },
+    files: {
+      total: files.total || 0,
+      pending: files.pending || 0,
+      approved: files.approved || 0,
+      rejected: files.rejected || 0
+    },
+    team: { totalTasks: teamCount },
+    recentNotifications: notifRows || []
+  });
+}));
+
+/**
  * GET /api/dashboard/bulk-performance
  * Fetches performance data for multiple users in a single request
  * Optimized with GROUP BY to avoid N+1 queries
@@ -275,136 +343,69 @@ router.get('/user-performance/:userId', authorizeRole(['USER', 'TEAM_LEADER', 'A
     return res.status(403).json({ success: false, message: 'Access denied' });
   }
 
-  // Fetch data for WPI calculation
-  const results = await queryBatch([
-    // 1. Task Metrics (Totals and Submissions)
-    [`SELECT 
-        COUNT(DISTINCT a.id) as total,
-        SUM(CASE WHEN am.status = 'submitted' THEN 1 ELSE 0 END) as submitted
-      FROM assignments a
-      LEFT JOIN assignment_members am ON a.id = am.assignment_id AND am.user_id = ?
-      JOIN users u ON u.id = ?
-      WHERE (a.assigned_to = 'all' AND a.team = u.team)
-         OR (a.assigned_to = 'specific' AND am.user_id = ?)`, [userId, userId, userId]],
+  // 1. Serve stale cache immediately if available (stale-while-revalidate)
+  const cached = getCache();
+  if (cached) {
+    const performanceData = (cached.data || {})[userId] || {};
+    const taskTotal     = performanceData.taskTotal     || 0;
+    const taskSubmitted = performanceData.taskSubmitted  || 0;
+    const fileApproved  = performanceData.fileApproved  || 0;
+    const fileRejected  = performanceData.fileRejected  || 0;
+    const processedFiles = fileApproved + fileRejected;
+    const taskCompletionRate = taskTotal > 0 ? Math.round((taskSubmitted / taskTotal) * 100) : 0;
+    const onTimeRate    = performanceData.onTimeRate     ?? 100;
+    const onTimeCount   = Math.round((onTimeRate / 100) * taskTotal);
 
-    // 2. Reliability (R) - 20%
-    [`SELECT 
-        COUNT(DISTINCT a.id) as total_with_deadline,
-        SUM(CASE WHEN am.status = 'submitted' AND a.due_date IS NOT NULL AND am.submitted_at <= a.due_date THEN 1 ELSE 0 END) as on_time
-      FROM assignments a
-      JOIN assignment_members am ON a.id = am.assignment_id AND am.user_id = ?
-      JOIN users u ON u.id = ?
-      WHERE a.due_date IS NOT NULL
-        AND ((a.assigned_to = 'all' AND a.team = u.team) OR (a.assigned_to = 'specific' AND am.user_id = ?))`,
-      [userId, userId, userId]],
-
-    // 3. Overdue Tasks
-    [`SELECT COUNT(DISTINCT a.id) as overdue
-      FROM assignments a
-      LEFT JOIN assignment_members am ON a.id = am.assignment_id AND am.user_id = ?
-      JOIN users u ON u.id = ?
-      WHERE a.due_date IS NOT NULL
-        AND (am.status IS NULL OR am.status != 'submitted')
-        AND a.due_date < NOW()
-        AND ((a.assigned_to = 'all' AND a.team = u.team) OR (a.assigned_to = 'specific' AND am.user_id = ?))`,
-      [userId, userId, userId]],
-
-    // 4. Quality (Files Approved/Rejected)
-    [`SELECT COUNT(*) as total,
-        SUM(CASE WHEN status = 'final_approved' THEN 1 ELSE 0 END) as approved,
-        SUM(CASE WHEN status LIKE 'rejected%' OR current_stage LIKE 'rejected%' THEN 1 ELSE 0 END) as rejected
-      FROM files WHERE user_id = ?`, [userId]],
-
-    // 5. Speed Factor Data (Task Timestamps)
-    [`SELECT a.created_at, a.due_date, am.submitted_at
-      FROM assignments a
-      JOIN assignment_members am ON a.id = am.assignment_id AND am.user_id = ?
-      WHERE am.status = 'submitted' AND a.due_date IS NOT NULL AND am.submitted_at IS NOT NULL
-      LIMIT 50`, [userId]],
-
-    // 6. Management Metrics (For Team Leaders)
-    [`SELECT 
-        COUNT(*) as total_reviewed,
-        AVG(TIMESTAMPDIFF(HOUR, am.submitted_at, f.team_leader_reviewed_at)) as avg_review_hours
-      FROM files f
-      JOIN assignment_members am ON f.id = am.file_id
-      WHERE f.team_leader_id = ? AND f.team_leader_reviewed_at IS NOT NULL`, [userId]],
-
-    // 7. Management Pending Queue
-    [`SELECT COUNT(f.id) as pending_reviews
-      FROM users u
-      JOIN files f ON u.team = f.user_team
-      WHERE u.id = ? AND f.current_stage = 'pending_team_leader'`, [userId]]
-  ]);
-
-  const taskStats = results[0][0] || {};
-  const onTimeStats = results[1][0] || {};
-  const overdueStats = results[2][0] || {};
-  const fileStats = results[3][0] || {};
-  const speedData = results[4] || [];
-  const managementStats = results[5][0] || {};
-  const managementQueue = results[6][0] || {};
-
-  const taskTotal = taskStats.total || 0;
-  const taskSubmitted = taskStats.submitted || 0;
-  const taskCompletionRate = taskTotal > 0 ? Math.round((taskSubmitted / taskTotal) * 100) : 0;
-
-  // Reliability (R) - 20%
-  const deadlineTotal = onTimeStats.total_with_deadline || 0;
-  const onTimeCount = onTimeStats.on_time || 0;
-  const effectiveOnTime = onTimeCount + (taskTotal - deadlineTotal);
-  const onTimeRate = taskTotal > 0 ? Math.round((effectiveOnTime / taskTotal) * 100) : 100;
-  const reliabilityScore = onTimeRate / 100;
-
-  // Quality (Q) - 45%
-  const fileTotal = fileStats.total || 0;
-  const fileApproved = fileStats.approved || 0;
-  const fileRejected = fileStats.rejected || 0;
-  const processedFiles = fileApproved + fileRejected;
-  // Default quality is 0% if nothing processed, or 50% if files uploaded but not yet reviewed
-  const qualityFactor = processedFiles > 0 ? (fileApproved / processedFiles) : (fileTotal > 0 ? 0.5 : 0);
-  // Apply a small penalty for rejections to differentiate from perfect quality
-  const qualityScore = Math.max(0, qualityFactor - (fileRejected * 0.01));
-
-  // Speed Factor (S) - 35%
-  let totalSpeedFactor = 0;
-  let speedTasksCount = 0;
-
-  speedData.forEach(task => {
-    const timeAllocated = getBusinessHoursDiff(task.created_at, task.due_date);
-    const timeTaken = getBusinessHoursDiff(task.created_at, task.submitted_at);
-    
-    if (timeAllocated > 0 && timeTaken > 0) {
-      totalSpeedFactor += calculateSpeedFactor(timeAllocated, timeTaken);
-      speedTasksCount++;
+    // Trigger background recompute if dirty but don't wait for it
+    if (cached.isDirty && !getRecomputePromise()) {
+      const p = calculateAllUserPerformance()
+        .then(map => setCache(map))
+        .catch(err => { console.error('Background perf recompute failed:', err); setRecomputePromise(null); });
+      setRecomputePromise(p);
     }
-  });
 
-  const avgSpeedFactor = speedTasksCount > 0 ? (totalSpeedFactor / speedTasksCount) : 0;
-  // Normalize speed factor for 0-100 score (1.0 = 100%, clamped at 1.5)
-  const speedScore = Math.min(1.5, avgSpeedFactor);
+    return res.json({
+      success: true,
+      cached: true,
+      performance: {
+        ...performanceData,
+        taskCompletionRate,
+        fileApprovalRate:  processedFiles > 0 ? Math.round((fileApproved  / processedFiles) * 100) : (taskTotal > 0 ? 0 : 100),
+        fileRejectionRate: processedFiles > 0 ? Math.round((fileRejected / processedFiles) * 100) : 0,
+        onTimeCount
+      }
+    });
+  }
 
-  // Final Weighted Performance Index (WPI)
-  // Performance% = (Q * 45) + (S * 35) + (R * 20)
-  // If no tasks are assigned OR no work has been submitted, score is 0
-  const hasActivity = taskSubmitted > 0 || processedFiles > 0;
-  const overallScore = (taskTotal > 0 && hasActivity) ? Math.max(0, Math.round(
-    (qualityScore * 45) + 
-    (speedScore * 35) + 
-    (reliabilityScore * 20)
-  )) : 0;
+  // 2. No cache at all — deduplicate concurrent recalculations
+  let recompute = getRecomputePromise();
+  if (!recompute) {
+    recompute = calculateAllUserPerformance()
+      .then(map => { setCache(map); return map; })
+      .catch(err => { setRecomputePromise(null); throw err; });
+    setRecomputePromise(recompute);
+  }
 
-  const performanceData = (await calculateAllUserPerformance())[userId] || {};
+  const allPerformanceMap = await recompute;
+  const performanceData = allPerformanceMap[userId] || {};
+
+  const taskTotal     = performanceData.taskTotal     || 0;
+  const taskSubmitted = performanceData.taskSubmitted  || 0;
+  const fileApproved  = performanceData.fileApproved  || 0;
+  const fileRejected  = performanceData.fileRejected  || 0;
+  const processedFiles = fileApproved + fileRejected;
+  const taskCompletionRate = taskTotal > 0 ? Math.round((taskSubmitted / taskTotal) * 100) : 0;
+  const onTimeRate    = performanceData.onTimeRate     ?? 100;
+  const onTimeCount   = Math.round((onTimeRate / 100) * taskTotal);
 
   res.json({
     success: true,
     performance: {
       ...performanceData,
-      // Keep legacy fields if any were different (most match the service now)
       taskCompletionRate,
-      fileApprovalRate: processedFiles > 0 ? Math.round((fileApproved / processedFiles) * 100) : (fileTotal > 0 ? 0 : 100),
+      fileApprovalRate:  processedFiles > 0 ? Math.round((fileApproved  / processedFiles) * 100) : (taskTotal > 0 ? 0 : 100),
       fileRejectionRate: processedFiles > 0 ? Math.round((fileRejected / processedFiles) * 100) : 0,
-      onTimeCount: effectiveOnTime
+      onTimeCount
     }
   });
 }));

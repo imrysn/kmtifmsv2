@@ -104,13 +104,12 @@ function setupMiddleware(app) {
 
   // JSON parsing with extended options to handle UTF-8 special characters
   app.use(express.json({
-    extended: true,
-    limit: '50gb' // Increase limit for larger payloads
+    limit: '10mb' // JSON payloads are never large; files go through multer
   }));
 
   app.use(express.urlencoded({
     extended: true,
-    limit: '50gb',
+    limit: '10mb',
     parameterLimit: 50000
   }));
 

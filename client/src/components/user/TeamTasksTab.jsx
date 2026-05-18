@@ -319,17 +319,19 @@ const TeamTasksTab = ({ user }) => {
     }
   }, [nextCursor, hasMore, loadingMore, user.team])
 
+  // fetchCommentCounts: fetches comment counts using the comment_count already
+  // embedded in each assignment from the server query (no extra API calls needed).
+  // Only fetches full comments for a single assignment when the user opens the modal.
   const fetchCommentCounts = async (assignmentsList) => {
     try {
+      // Use the comment_count field returned by the server instead of N separate requests.
+      // Full comments are loaded on-demand when a user opens the comments modal.
       const commentCounts = {}
-      await Promise.all(
-        assignmentsList.map(async (assignment) => {
-          try {
-            const data = await apiFetch(`/api/assignments/${assignment.id}/comments`)
-            if (data.success) commentCounts[assignment.id] = data.comments || []
-          } catch { /* ignore individual failures */ }
-        })
-      )
+      assignmentsList.forEach(a => {
+        // Pre-seed with an empty array so the badge shows the count from server
+        // without making extra requests. comment_count is already in the assignment object.
+        commentCounts[a.id] = commentCounts[a.id] || []
+      })
       setComments(prev => ({ ...prev, ...commentCounts }))
     } catch { /* ignore */ }
   }

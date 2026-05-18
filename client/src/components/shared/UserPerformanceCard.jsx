@@ -14,7 +14,7 @@ import PerfSparkline from './PerfSparkline';
  * @param {Object} [props.fallbackStats] - Optional fallback statistics if performance data is loading
  * @param {boolean} [props.isCollapsible] - Whether the card can be collapsed
  */
-const UserPerformanceCard = memo(({ user, performanceData, fallbackStats, isCollapsible = false, onPerformanceLoad }) => {
+const UserPerformanceCard = memo(({ user, performanceData, fallbackStats, isCollapsible = false, onPerformanceLoad, isLoading = false }) => {
   const [performance, setPerformance] = useState(performanceData || null);
   const [loading, setLoading] = useState(!performanceData);
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -136,6 +136,11 @@ const UserPerformanceCard = memo(({ user, performanceData, fallbackStats, isColl
       <div className="performance-card-header" onClick={() => isCollapsible && setIsCollapsed(!isCollapsed)}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           <h2 className="performance-card-title">{mode === 'management' ? 'Management' : 'Performance'}</h2>
+
+          {/* Subtle spinner shown while dashboard fetches performance in the background */}
+          {isLoading && (
+            <div title="Refreshing performance data..." style={{ width: '14px', height: '14px', border: '2px solid #e2e8f0', borderTopColor: '#6366f1', borderRadius: '50%', animation: 'spin 0.8s linear infinite', flexShrink: 0 }} />
+          )}
 
           {user?.role?.toLowerCase().replace(/[\s_]+/g, '-') === 'team-leader' && (
             <div className="perf-mode-toggle" style={{ position: 'relative', zIndex: 100 }} onClick={(e) => e.stopPropagation()}>

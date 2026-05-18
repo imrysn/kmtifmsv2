@@ -953,7 +953,7 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
     if (!folderReviewModal) return
     setIsLoading(true)
     try {
-      for (const file of folderReviewModal.folderFiles) {
+      await Promise.all(folderReviewModal.folderFiles.map(async (file) => {
         try {
           await apiFetch(`${API_BASE}/files/${file.id}/admin-review`, {
             method: 'POST',
@@ -969,7 +969,7 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
         } catch (err) {
           console.warn(`Failed to reject file ${file.id}:`, err)
         }
-      }
+      }))
 
       setFiles(prev =>
         prev.map(f =>

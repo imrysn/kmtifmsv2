@@ -21,8 +21,8 @@ async function calculateAllUserPerformance(teamId = null) {
         SUM(COALESCE(fc.file_count, 1)) as total_files
       FROM users u
       LEFT JOIN assignment_members am ON u.id = am.user_id
-      LEFT JOIN assignments a ON a.id = am.assignment_id OR (a.assigned_to = 'all' AND a.team = u.team)
-      LEFT JOIN (SELECT assignment_id, user_id, COUNT(*) as file_count FROM files GROUP BY assignment_id, user_id) fc 
+      LEFT JOIN assignments a ON a.id = am.assignment_id
+      LEFT JOIN (SELECT assignment_id, user_id, COUNT(*) as file_count FROM files WHERE assignment_id IS NOT NULL GROUP BY assignment_id, user_id) fc 
         ON a.id = fc.assignment_id AND u.id = fc.user_id
       WHERE ${userFilter}
       GROUP BY u.id`, params],

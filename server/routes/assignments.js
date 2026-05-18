@@ -313,40 +313,40 @@ router.get('/admin/all', authenticateToken, authorizeRole(['ADMIN']), async (req
       ? assignmentsToReturn[assignmentsToReturn.length - 1].id
       : null;
 
-    for (const assignment of assignmentsToReturn) {
-      assignment.assigned_member_details = await query(
-        'SELECT u.id, u.username, u.fullName FROM assignment_members am JOIN users u ON am.user_id = u.id WHERE am.assignment_id = ?',
-        [assignment.id]
-      ) || [];
+    // Batch all sub-queries for all assignments in 4 queries instead of N×4
+    if (assignmentsToReturn.length > 0) {
+      const ids = assignmentsToReturn.map(a => a.id);
+      const ph = ids.map(() => '?').join(',');
+      const tlIds = [...new Set(assignmentsToReturn.map(a => a.team_leader_id || a.teamLeaderId).filter(Boolean))];
+      const tlPh = tlIds.length > 0 ? tlIds.map(() => '?').join(',') : '0';
 
-      assignment.attachments = await query(
-        `SELECT id, original_name, filename, file_path, public_network_url, file_size, file_type, folder_name, relative_path, created_at,
-                COALESCE(status, 'team_leader_approved') AS status,
-                COALESCE(current_stage, 'pending_admin') AS current_stage
-         FROM assignment_attachments WHERE assignment_id = ? ORDER BY COALESCE(folder_name, ''), created_at DESC`,
-        [assignment.id]
-      ) || [];
-
-      assignment.recent_submissions = await query(
-        `SELECT f.id, f.original_name, f.filename, f.file_type, f.file_path, f.public_network_url, f.file_size,
+      const [allMembers, allAttachments, allSubmissions, allTLs] = await Promise.all([
+        query(`SELECT am.assignment_id, u.id, u.username, u.fullName FROM assignment_members am JOIN users u ON am.user_id = u.id WHERE am.assignment_id IN (${ph})`, ids),
+        query(`SELECT id, assignment_id, original_name, filename, file_path, public_network_url, file_size, file_type, folder_name, relative_path, created_at,
+                COALESCE(status, 'team_leader_approved') AS status, COALESCE(current_stage, 'pending_admin') AS current_stage
+         FROM assignment_attachments WHERE assignment_id IN (${ph}) ORDER BY assignment_id, COALESCE(folder_name, ''), created_at DESC`, ids),
+        query(`SELECT asub.assignment_id, f.id, f.original_name, f.filename, f.file_type, f.file_path, f.public_network_url, f.file_size,
                 f.tag, f.description, f.uploaded_at, f.status, f.folder_name, f.relative_path, f.is_folder,
                 u.username, u.fullName, asub.submitted_at, asub.submitted_at as created_at, asub.user_id
          FROM assignment_submissions asub
-         JOIN files f ON asub.file_id = f.id
-         JOIN users u ON asub.user_id = u.id
-         WHERE asub.assignment_id = ? ORDER BY asub.submitted_at DESC`,
-        [assignment.id]
-      ) || [];
+         JOIN files f ON asub.file_id = f.id JOIN users u ON asub.user_id = u.id
+         WHERE asub.assignment_id IN (${ph}) ORDER BY asub.submitted_at DESC`, ids),
+        tlIds.length > 0 ? query(`SELECT id, fullName, username, email FROM users WHERE id IN (${tlPh})`, tlIds) : []
+      ]);
 
-      const teamLeader = await queryOne(
-        'SELECT fullName, username, email FROM users WHERE id = ?',
-        [assignment.team_leader_id || assignment.teamLeaderId]
-      );
-      if (teamLeader) {
-        assignment.team_leader_fullname = teamLeader.fullName;
-        assignment.team_leader_username = teamLeader.username;
-        assignment.team_leader_email = teamLeader.email;
-      }
+      const membersByAsgn = {}; const attachByAsgn = {}; const subsByAsgn = {};
+      (allMembers || []).forEach(r => { const k = r.assignment_id; if (!membersByAsgn[k]) membersByAsgn[k] = []; membersByAsgn[k].push(r); });
+      (allAttachments || []).forEach(r => { const k = r.assignment_id; if (!attachByAsgn[k]) attachByAsgn[k] = []; attachByAsgn[k].push(r); });
+      (allSubmissions || []).forEach(r => { const k = r.assignment_id; if (!subsByAsgn[k]) subsByAsgn[k] = []; subsByAsgn[k].push(r); });
+      const tlMap = {}; (allTLs || []).forEach(u => { tlMap[u.id] = u; });
+
+      assignmentsToReturn.forEach(assignment => {
+        assignment.assigned_member_details = membersByAsgn[assignment.id] || [];
+        assignment.attachments = attachByAsgn[assignment.id] || [];
+        assignment.recent_submissions = subsByAsgn[assignment.id] || [];
+        const tl = tlMap[assignment.team_leader_id || assignment.teamLeaderId];
+        if (tl) { assignment.team_leader_fullname = tl.fullName; assignment.team_leader_username = tl.username; assignment.team_leader_email = tl.email; }
+      });
     }
 
     res.json({ success: true, assignments: assignmentsToReturn || [], nextCursor, hasMore });
@@ -463,30 +463,36 @@ router.get('/team/:team/all-tasks', authenticateToken, async (req, res) => {
     const nextCursor = hasMore && assignmentsToReturn.length > 0
       ? assignmentsToReturn[assignmentsToReturn.length - 1].id : null;
 
-    for (const assignment of assignmentsToReturn) {
-      assignment.assigned_member_details = await query(
-        'SELECT u.id, u.username, u.fullName FROM assignment_members am JOIN users u ON am.user_id = u.id WHERE am.assignment_id = ?',
-        [assignment.id]
-      ) || [];
-      assignment.attachments = await query(
-        `SELECT id, original_name, filename, file_path, public_network_url, file_size, file_type, folder_name, relative_path, created_at,
+    // Batch sub-queries for all assignments
+    if (assignmentsToReturn.length > 0) {
+      const ids = assignmentsToReturn.map(a => a.id);
+      const ph = ids.map(() => '?').join(',');
+      const tlIds = [...new Set(assignmentsToReturn.map(a => a.team_leader_id || a.teamLeaderId).filter(Boolean))];
+      const [allMembers, allAttachments, allSubmissions, allTLs] = await Promise.all([
+        query(`SELECT am.assignment_id, u.id, u.username, u.fullName FROM assignment_members am JOIN users u ON am.user_id = u.id WHERE am.assignment_id IN (${ph})`, ids),
+        query(`SELECT id, assignment_id, original_name, filename, file_path, public_network_url, file_size, file_type, folder_name, relative_path, created_at,
                 COALESCE(status, 'team_leader_approved') AS status, COALESCE(current_stage, 'pending_admin') AS current_stage
-         FROM assignment_attachments WHERE assignment_id = ? ORDER BY COALESCE(folder_name, ''), created_at DESC`,
-        [assignment.id]
-      ) || [];
-      assignment.recent_submissions = await query(
-        `SELECT f.id, f.original_name, f.filename, f.file_type, f.file_path, f.public_network_url, f.file_size,
+         FROM assignment_attachments WHERE assignment_id IN (${ph}) ORDER BY assignment_id, COALESCE(folder_name, ''), created_at DESC`, ids),
+        query(`SELECT asub.assignment_id, f.id, f.original_name, f.filename, f.file_type, f.file_path, f.public_network_url, f.file_size,
                 f.tag, f.description, f.uploaded_at, f.status, f.folder_name, f.relative_path, f.is_folder,
                 u.username, u.fullName, asub.submitted_at, asub.submitted_at as created_at
          FROM assignment_submissions asub
          JOIN files f ON asub.file_id = f.id JOIN users u ON asub.user_id = u.id
-         WHERE asub.assignment_id = ? ORDER BY asub.submitted_at DESC`,
-        [assignment.id]
-      ) || [];
-      const tl = await queryOne('SELECT fullName, username, email FROM users WHERE id = ?', [assignment.team_leader_id || assignment.teamLeaderId]);
-      if (tl) {
-        assignment.team_leader_fullname = tl.fullName; assignment.team_leader_username = tl.username; assignment.team_leader_email = tl.email;
-      }
+         WHERE asub.assignment_id IN (${ph}) ORDER BY asub.submitted_at DESC`, ids),
+        tlIds.length > 0 ? query(`SELECT id, fullName, username, email FROM users WHERE id IN (${tlIds.map(() => '?').join(',')})`, tlIds) : []
+      ]);
+      const membersByAsgn = {}; const attachByAsgn = {}; const subsByAsgn = {};
+      (allMembers || []).forEach(r => { const k = r.assignment_id; if (!membersByAsgn[k]) membersByAsgn[k] = []; membersByAsgn[k].push(r); });
+      (allAttachments || []).forEach(r => { const k = r.assignment_id; if (!attachByAsgn[k]) attachByAsgn[k] = []; attachByAsgn[k].push(r); });
+      (allSubmissions || []).forEach(r => { const k = r.assignment_id; if (!subsByAsgn[k]) subsByAsgn[k] = []; subsByAsgn[k].push(r); });
+      const tlMap = {}; (allTLs || []).forEach(u => { tlMap[u.id] = u; });
+      assignmentsToReturn.forEach(a => {
+        a.assigned_member_details = membersByAsgn[a.id] || [];
+        a.attachments = attachByAsgn[a.id] || [];
+        a.recent_submissions = subsByAsgn[a.id] || [];
+        const tl = tlMap[a.team_leader_id || a.teamLeaderId];
+        if (tl) { a.team_leader_fullname = tl.fullName; a.team_leader_username = tl.username; a.team_leader_email = tl.email; }
+      });
     }
 
     res.json({ success: true, assignments: assignmentsToReturn || [], nextCursor, hasMore });
@@ -519,35 +525,42 @@ router.get('/team-leader/:userId', authenticateToken, authorizeRole(['TEAM_LEADE
       teamNames
     );
 
-    await Promise.all(tlAssignments.map(async (assignment) => {
-      const [members, attachments, recentSubmissions, tl] = await Promise.all([
-        query('SELECT u.id, u.username, u.fullName FROM assignment_members am JOIN users u ON am.user_id = u.id WHERE am.assignment_id = ?', [assignment.id]),
-        query(`SELECT id, original_name, filename, file_path, public_network_url, file_size, file_type, folder_name, relative_path, created_at,
+    // Batch all sub-queries across all assignments in 4 bulk queries instead of N×4
+    if (tlAssignments.length > 0) {
+      const ids = tlAssignments.map(a => a.id);
+      const ph = ids.map(() => '?').join(',');
+      const tlIds = [...new Set(tlAssignments.map(a => a.team_leader_id || a.teamLeaderId).filter(Boolean))];
+      const tlPh = tlIds.map(() => '?').join(',');
+
+      const [allMembers, allAttachments, allSubmissions, allTLs] = await Promise.all([
+        query(`SELECT am.assignment_id, u.id, u.username, u.fullName FROM assignment_members am JOIN users u ON am.user_id = u.id WHERE am.assignment_id IN (${ph})`, ids),
+        query(`SELECT id, assignment_id, original_name, filename, file_path, public_network_url, file_size, file_type, folder_name, relative_path, created_at,
                 COALESCE(status, 'team_leader_approved') AS status, COALESCE(current_stage, 'pending_admin') AS current_stage
-         FROM assignment_attachments WHERE assignment_id = ? ORDER BY COALESCE(folder_name, ''), created_at DESC`, [assignment.id]),
-        query(`SELECT f.id, f.original_name, f.filename, f.file_type, f.file_path, f.public_network_url, f.file_size,
+         FROM assignment_attachments WHERE assignment_id IN (${ph}) ORDER BY assignment_id, COALESCE(folder_name, ''), created_at DESC`, ids),
+        query(`SELECT asub.assignment_id, f.id, f.original_name, f.filename, f.file_type, f.file_path, f.public_network_url, f.file_size,
                 f.tag, f.description, f.uploaded_at, f.status, f.folder_name, f.relative_path, f.is_folder, f.user_team,
                 u.username, u.fullName, asub.submitted_at, asub.submitted_at as created_at, asub.user_id
          FROM assignment_submissions asub
          JOIN files f ON asub.file_id = f.id JOIN users u ON asub.user_id = u.id
-         WHERE asub.assignment_id = ? ORDER BY asub.submitted_at DESC`, [assignment.id]),
-        queryOne('SELECT fullName, username, email FROM users WHERE id = ?', [assignment.team_leader_id || assignment.teamLeaderId])
+         WHERE asub.assignment_id IN (${ph}) ORDER BY asub.submitted_at DESC`, ids),
+        tlIds.length > 0 ? query(`SELECT id, fullName, username, email FROM users WHERE id IN (${tlPh})`, tlIds) : []
       ]);
 
-      assignment.assigned_member_details = members || [];
-      assignment.attachments = attachments || [];
-      assignment.recent_submissions = recentSubmissions || [];
-      
-      if (tl) {
-        assignment.team_leader_fullname = tl.fullName; 
-        assignment.team_leader_username = tl.username; 
-        assignment.team_leader_email = tl.email;
-      }
-      
-      if (assignment.submission_count > 0 && (recentSubmissions || []).length === 0) {
-        console.warn(`⚠️ Assignment ${assignment.id} has submission_count ${assignment.submission_count} but fetched no submissions`);
-      }
-    }));
+      // Group by assignment_id
+      const membersByAsgn = {}; const attachByAsgn = {}; const subsByAsgn = {};
+      (allMembers || []).forEach(r => { const k = r.assignment_id; if (!membersByAsgn[k]) membersByAsgn[k] = []; membersByAsgn[k].push(r); });
+      (allAttachments || []).forEach(r => { const k = r.assignment_id; if (!attachByAsgn[k]) attachByAsgn[k] = []; attachByAsgn[k].push(r); });
+      (allSubmissions || []).forEach(r => { const k = r.assignment_id; if (!subsByAsgn[k]) subsByAsgn[k] = []; subsByAsgn[k].push(r); });
+      const tlMap = {}; (allTLs || []).forEach(u => { tlMap[u.id] = u; });
+
+      tlAssignments.forEach(assignment => {
+        assignment.assigned_member_details = membersByAsgn[assignment.id] || [];
+        assignment.attachments = attachByAsgn[assignment.id] || [];
+        assignment.recent_submissions = subsByAsgn[assignment.id] || [];
+        const tl = tlMap[assignment.team_leader_id || assignment.teamLeaderId];
+        if (tl) { assignment.team_leader_fullname = tl.fullName; assignment.team_leader_username = tl.username; assignment.team_leader_email = tl.email; }
+      });
+    }
 
     res.json({ success: true, assignments: tlAssignments || [] });
   } catch (error) {
@@ -1002,26 +1015,31 @@ router.get('/user/:userId', authenticateToken, async (req, res) => {
       [currentUser.fullName, currentUser.username, userId, currentUser.team, userId]
     );
 
-    for (const assignment of userAssignments) {
-      assignment.assigned_member_details = await query(
-        'SELECT u.id, u.username, u.fullName FROM assignment_members am JOIN users u ON am.user_id = u.id WHERE am.assignment_id = ?',
-        [assignment.id]
-      ) || [];
-      assignment.attachments = await query(
-        `SELECT id, original_name, filename, file_path, public_network_url, file_size, file_type, folder_name, relative_path, created_at,
+    // Batch sub-queries for all assignments instead of N×3 sequential round-trips
+    if (userAssignments.length > 0) {
+      const ids = userAssignments.map(a => a.id);
+      const ph = ids.map(() => '?').join(',');
+      const [allMembers, allAttachments, allSubmitted] = await Promise.all([
+        query(`SELECT am.assignment_id, u.id, u.username, u.fullName FROM assignment_members am JOIN users u ON am.user_id = u.id WHERE am.assignment_id IN (${ph})`, ids),
+        query(`SELECT id, assignment_id, original_name, filename, file_path, public_network_url, file_size, file_type, folder_name, relative_path, created_at,
                 COALESCE(status, 'team_leader_approved') AS status, COALESCE(current_stage, 'pending_admin') AS current_stage
-         FROM assignment_attachments WHERE assignment_id = ? ORDER BY COALESCE(folder_name, ''), created_at DESC`,
-        [assignment.id]
-      ) || [];
-      assignment.submitted_files = await query(
-        `SELECT f.id, f.original_name, f.filename, f.file_path, f.public_network_url, f.file_type, f.file_size,
+         FROM assignment_attachments WHERE assignment_id IN (${ph}) ORDER BY assignment_id, COALESCE(folder_name, ''), created_at DESC`, ids),
+        query(`SELECT asub.assignment_id, f.id, f.original_name, f.filename, f.file_path, f.public_network_url, f.file_type, f.file_size,
                 f.tag, f.description, f.status, f.folder_name, f.relative_path, f.is_folder,
                 asub.submitted_at, u.fullName as submitter_name, u.username as submitter_username
          FROM assignment_submissions asub
          JOIN files f ON asub.file_id = f.id JOIN users u ON asub.user_id = u.id
-         WHERE asub.assignment_id = ? AND asub.user_id = ? ORDER BY asub.submitted_at DESC`,
-        [assignment.id, userId]
-      ) || [];
+         WHERE asub.assignment_id IN (${ph}) AND asub.user_id = ? ORDER BY asub.submitted_at DESC`, [...ids, userId])
+      ]);
+      const membersByAsgn = {}; const attachByAsgn = {}; const subsByAsgn = {};
+      (allMembers || []).forEach(r => { const k = r.assignment_id; if (!membersByAsgn[k]) membersByAsgn[k] = []; membersByAsgn[k].push(r); });
+      (allAttachments || []).forEach(r => { const k = r.assignment_id; if (!attachByAsgn[k]) attachByAsgn[k] = []; attachByAsgn[k].push(r); });
+      (allSubmitted || []).forEach(r => { const k = r.assignment_id; if (!subsByAsgn[k]) subsByAsgn[k] = []; subsByAsgn[k].push(r); });
+      userAssignments.forEach(a => {
+        a.assigned_member_details = membersByAsgn[a.id] || [];
+        a.attachments = attachByAsgn[a.id] || [];
+        a.submitted_files = subsByAsgn[a.id] || [];
+      });
     }
 
     res.json({ success: true, assignments: userAssignments || [] });
@@ -1101,13 +1119,24 @@ router.get('/:assignmentId/comments', authenticateToken, async (req, res) => {
        WHERE ac.assignment_id = ? ORDER BY ac.created_at ASC`,
       [assignmentId]
     );
-    for (const comment of comments) {
-      comment.replies = await query(
+    // Batch-load all replies for all comments in ONE query instead of N sequential round-trips
+    if (comments && comments.length > 0) {
+      const commentIds = comments.map(c => c.id);
+      const ph = commentIds.map(() => '?').join(',');
+      const allReplies = await query(
         `SELECT cr.*, u.fullName as user_fullname, u.role as user_role
          FROM comment_replies cr JOIN users u ON cr.user_id = u.id
-         WHERE cr.comment_id = ? ORDER BY cr.created_at ASC`,
-        [comment.id]
+         WHERE cr.comment_id IN (${ph}) ORDER BY cr.created_at ASC`,
+        commentIds
       ) || [];
+      const repliesByComment = {};
+      allReplies.forEach(r => {
+        if (!repliesByComment[r.comment_id]) repliesByComment[r.comment_id] = [];
+        repliesByComment[r.comment_id].push(r);
+      });
+      comments.forEach(c => { c.replies = repliesByComment[c.id] || []; });
+    } else if (comments) {
+      comments.forEach(c => { c.replies = []; });
     }
     res.json({ success: true, comments: comments || [] });
   } catch (error) {
