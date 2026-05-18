@@ -769,3 +769,66 @@
   background-color: #dcfce7 !important;
   border-color: #4ade80 !important;
 }
+
+/* =================================================================
+   VISUAL TREE CONNECTOR LINES (PREMIUM TEAM LEADER STYLE)
+   ================================================================= */
+.tl-tree-container {
+  display: flex;
+  align-items: stretch;
+  position: relative;
+}
+
+.tl-tree-line-vertical {
+  width: 30px;
+  flex-shrink: 0;
+  position: relative;
+}
+
+.tl-tree-line-empty {
+  width: 30px;
+  flex-shrink: 0;
+}
+
+.tl-tree-line-vertical::before {
+  content: '';
+  position: absolute;
+  left: 15px;
+  top: -7px; /* Connect to previous item */
+  bottom: -7px; /* Connect to next item */
+  width: 2px;
+  background-color: #cbd5e1; /* slate-300 */
+}
+
+.tl-tree-line-connector {
+  width: 30px;
+  flex-shrink: 0;
+  position: relative;
+}
+
+.tl-tree-line-connector::before {
+  content: '';
+  position: absolute;
+  left: 15px;
+  top: -7px;
+  bottom: -7px;
+  width: 2px;
+  background-color: #cbd5e1;
+}
+
+.tl-tree-line-connector::after {
+  content: '';
+  position: absolute;
+  left: 15px;
+  top: 50%;
+  width: 15px;
+  height: 2px;
+  background-color: #cbd5e1;
+}
+
+/* For the last item in a folder, stop the vertical line at the horizontal connector */
+.tl-tree-line-connector.last-item::before {
+  height: calc(50% + 7px);
+  bottom: auto;
+}
+

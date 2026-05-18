@@ -271,8 +271,8 @@ const FileCollectionTab = ({
             ))}
             {level > 0 && <div className={`tl-tree-line-connector ${isLast ? 'last-item' : ''}`} />}
             <div className="file-cell" style={{ flex: 1 }}>
-              <div className="file-icon">
-                <FileIcon fileType={ext} isFolder={false} altText={`Icon for ${submission.original_name}`} size="medium" />
+              <div className="file-icon" style={{ width: '34px', height: '34px' }}>
+                <FileIcon fileType={ext} isFolder={false} altText={`Icon for ${submission.original_name}`} size="default" style={{ width: '34px', height: '34px', minWidth: '34px', minHeight: '34px' }} />
               </div>
               <div className="file-details">
                 <span className="file-name">{submission.original_name}</span>
@@ -461,7 +461,7 @@ const FileCollectionTab = ({
                               ))}
                               {level > 0 && <div className={`tl-tree-line-connector ${isLast ? 'last-item' : ''}`} />}
                               <div className="file-cell" style={{ flex: 1 }}>
-                                <div style={{ fontSize: '32px' }}>{isExpanded ? '📂' : '📁'}</div>
+                                <div style={{ fontSize: '30px' }}>{isExpanded ? '📂' : '📁'}</div>
                                 <div className="file-details">
                                   <span className="file-name" style={{ fontWeight: '600' }}>{folderName}</span>
                                   <span className="file-size">{folderFiles.length} items</span>
@@ -513,7 +513,7 @@ const FileCollectionTab = ({
                         >
                           <td>
                             <div className="file-cell">
-                              <div style={{ fontSize: '32px' }}>{isExpanded ? '📂' : '📁'}</div>
+                              <div style={{ fontSize: '30px' }}>{isExpanded ? '📂' : '📁'}</div>
                               <div className="file-details">
                                 <span className="file-name" style={{ fontWeight: '600' }}>{folderName}</span>
                                 <span className="file-size">{folderFiles.length} items</span>
@@ -535,7 +535,24 @@ const FileCollectionTab = ({
                             </button>
                           </td>
                         </tr>
-                        {isExpanded && renderRecursiveItems(folderFiles, 1, folderKey, [])}
+                        {isExpanded && renderRecursiveItems(
+                          folderFiles.map(f => {
+                            const file = f.file || f;
+                            const path = file.relative_path || file.webkitRelativePath || '';
+                            const parts = path.split('/').filter(Boolean);
+                            let remainingPath = path;
+                            if (parts.length > 0 && parts[0].trim() === folderName) {
+                              remainingPath = parts.slice(1).join('/');
+                            }
+                            return {
+                              file,
+                              _temp_path: remainingPath
+                            };
+                          }),
+                          1,
+                          folderKey,
+                          []
+                        )}
                       </React.Fragment>
                     );
                   }

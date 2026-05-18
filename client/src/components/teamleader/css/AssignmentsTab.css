@@ -1350,28 +1350,28 @@
 }
 
 .tl-tree-line-vertical {
-  width: 24px;
+  width: 30px;
   flex-shrink: 0;
   position: relative;
 }
 
 .tl-tree-line-empty {
-  width: 24px;
+  width: 30px;
   flex-shrink: 0;
 }
 
 .tl-tree-line-vertical::before {
   content: '';
   position: absolute;
-  left: 12px;
-  top: -6px; /* Connect to previous item */
-  bottom: -6px; /* Connect to next item */
-  width: 1.5px;
+  left: 15px;
+  top: -8px; /* Connect to previous item */
+  bottom: -8px; /* Connect to next item */
+  width: 2px;
   background-color: #cbd5e1; /* slate-300 */
 }
 
 .tl-tree-line-connector {
-  width: 24px;
+  width: 30px;
   flex-shrink: 0;
   position: relative;
 }
@@ -1379,26 +1379,26 @@
 .tl-tree-line-connector::before {
   content: '';
   position: absolute;
-  left: 12px;
-  top: -6px;
-  bottom: -6px;
-  width: 1.5px;
+  left: 15px;
+  top: -8px;
+  bottom: -8px;
+  width: 2px;
   background-color: #cbd5e1;
 }
 
 .tl-tree-line-connector::after {
   content: '';
   position: absolute;
-  left: 12px;
+  left: 15px;
   top: 50%;
-  width: 12px;
-  height: 1.5px;
+  width: 15px;
+  height: 2px;
   background-color: #cbd5e1;
 }
 
 /* For the last item in a folder, stop the vertical line at the horizontal connector */
 .tl-tree-line-connector.last-item::before {
-  height: calc(50% + 6px);
+  height: calc(50% + 8px);
   bottom: auto;
 }
 

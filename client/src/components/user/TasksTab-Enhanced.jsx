@@ -961,7 +961,7 @@ const TasksTab = memo(({
 
       subItems.push(
         <div key={`subfolder-${subKey}`} style={{ display: 'flex', flexDirection: 'column' }}>
-          <div className="tl-tree-container" style={{ marginBottom: '6px' }}>
+          <div className="tl-tree-container" style={{ marginBottom: '7px' }}>
             {parentIsLastArr.map((isLastParent, i) => (
               <div key={i} className={isLastParent ? "tl-tree-line-empty" : "tl-tree-line-vertical"} />
             ))}
@@ -976,22 +976,22 @@ const TasksTab = memo(({
               style={{ 
                 cursor: 'pointer', 
                 backgroundColor: isSubOpen ? '#C7D7FD' : '#DBE9FE', 
-                padding: '10px 12px',
+                padding: '14px 20px',
                 flex: 1
               }}
             >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: 1 }}>
-                <div style={{ fontSize: '26px', flexShrink: 0 }}>{isSubOpen ? '📂' : '📁'}</div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1 }}>
+                <div style={{ fontSize: '32px', flexShrink: 0 }}>{isSubOpen ? '📂' : '📁'}</div>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontWeight: '600', fontSize: '13px', color: '#111827' }}>{subName}</div>
-                  <div style={{ fontSize: '11px', color: '#6b7280' }}>
+                  <div style={{ fontWeight: '600', fontSize: '15px', color: '#111827' }}>{subName}</div>
+                  <div style={{ fontSize: '12px', color: '#4b5563', marginTop: '1px' }}>
                     {isAttachment
                       ? `${assignment.team_leader_fullname || assignment.team_leader_username || 'Team Leader'} • ${subFiles.length} file${subFiles.length !== 1 ? 's' : ''}`
                       : `Submitted by ${subFirstFile.submitter_name || user.fullName || user.username} • ${subFiles.length} file${subFiles.length !== 1 ? 's' : ''}`}
                   </div>
                 </div>
                 <svg width="14" height="14" viewBox="0 0 16 16" fill="none" style={{ transform: isSubOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s', flexShrink: 0 }}>
-                  <path d="M4 6L8 10L12 6" stroke="#6B7280" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                  <path d="M4 6L8 10L12 6" stroke="#6B7280" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
               </div>
             </div>
@@ -1008,7 +1008,7 @@ const TasksTab = memo(({
 
       if (isAttachment) {
         subItems.push(
-          <div key={`file-${file.id}`} className="tl-tree-container" style={{ marginBottom: '6px' }}>
+          <div key={`file-${file.id}`} className="tl-tree-container" style={{ marginBottom: '7px' }}>
             {parentIsLastArr.map((isLastParent, i) => (
               <div key={i} className={isLastParent ? "tl-tree-line-empty" : "tl-tree-line-vertical"} />
             ))}
@@ -1023,14 +1023,15 @@ const TasksTab = memo(({
               style={{ 
                 cursor: 'pointer', 
                 backgroundColor: '#fafafa',
+                padding: '14px 20px',
                 flex: 1
               }}
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1 }}>
-                <FileIcon fileType={(file.original_name || 'file').split('.').pop().toLowerCase()} size="small" />
+                <FileIcon fileType={(file.original_name || 'file').split('.').pop().toLowerCase()} size="default" style={{ width: '34px', height: '34px', minWidth: '34px', minHeight: '34px' }} />
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontWeight: '500', fontSize: '14px', color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{file.original_name}</div>
-                  <div style={{ fontSize: '12px', color: '#6b7280' }}>{formatFileSize(file.file_size)}</div>
+                  <div style={{ fontWeight: '500', fontSize: '15px', color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{file.original_name}</div>
+                  <div style={{ fontSize: '12px', color: '#4b5563', marginTop: '1px' }}>{formatFileSize(file.file_size)}</div>
                 </div>
                 <AttachmentMoreMenu onDownload={() => handleDownloadFile(file)} onOpenPath={() => openFolderInExplorer(file.id)} />
               </div>
@@ -1041,7 +1042,7 @@ const TasksTab = memo(({
         const canDelete = file.status !== 'final_approved';
         const fileWithTitle = assignment.title ? { ...file, assignment_title: assignment.title } : file;
         subItems.push(
-          <div key={`file-${file.id}`} className="tl-tree-container" style={{ marginBottom: '6px' }}>
+          <div key={`file-${file.id}`} className="tl-tree-container" style={{ marginBottom: '7px' }}>
             {parentIsLastArr.map((isLastParent, i) => (
               <div key={i} className={isLastParent ? "tl-tree-line-empty" : "tl-tree-line-vertical"} />
             ))}
@@ -1056,21 +1057,22 @@ const TasksTab = memo(({
               style={{ 
                 cursor: 'pointer', 
                 backgroundColor: '#fafafa',
+                padding: '14px 20px',
                 flex: 1
               }}
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1 }}>
-                <FileIcon fileType={(file.original_name || file.filename || 'file').split('.').pop().toLowerCase()} size="small" />
+                <FileIcon fileType={(file.original_name || file.filename || 'file').split('.').pop().toLowerCase()} size="default" style={{ width: '34px', height: '34px', minWidth: '34px', minHeight: '34px' }} />
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontWeight: '500', fontSize: '14px', color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  <div style={{ fontWeight: '500', fontSize: '15px', color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {file.original_name || file.filename}
                   </div>
-                  <div style={{ fontSize: '12px', color: '#6b7280', display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                  <div style={{ fontSize: '12px', color: '#4b5563', display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap', marginTop: '1px' }}>
                     <span>by <span style={{ fontWeight: '500', color: '#2563eb' }}>{file.submitter_name || user.fullName || user.username}</span></span>
                     <span style={{ color: '#9ca3af' }}>•</span>
                     <span>{formatDate(file.submitted_at || file.uploaded_at)}</span>
                     {file.tag && (
-                      <span style={{ backgroundColor: '#eff6ff', color: '#1e40af', padding: '2px 8px', borderRadius: '4px', fontSize: '10px', fontWeight: '600' }}>🏷️ {file.tag}</span>
+                      <span style={{ backgroundColor: '#eff6ff', color: '#1e40af', padding: '2px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: '600' }}>🏷️ {file.tag}</span>
                     )}
                     {getFileStatusBadge(file.status)}
                   </div>

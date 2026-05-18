@@ -645,7 +645,7 @@ const TeamTasksTab = ({ user }) => {
 
       subItems.push(
         <div key={`subfolder-${subKey}`} style={{ display: 'flex', flexDirection: 'column' }}>
-          <div className="tl-tree-container" style={{ marginBottom: '6px' }}>
+          <div className="tl-tree-container" style={{ marginBottom: '7px' }}>
             {parentIsLastArr.map((isLastParent, i) => (
               <div key={i} className={isLastParent ? "tl-tree-line-empty" : "tl-tree-line-vertical"} />
             ))}
@@ -660,22 +660,22 @@ const TeamTasksTab = ({ user }) => {
               style={{ 
                 cursor: 'pointer', 
                 backgroundColor: isSubOpen ? '#C7D7FD' : '#DBE9FE', 
-                padding: '10px 12px',
+                padding: '14px 20px',
                 flex: 1
               }}
             >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: 1 }}>
-                <div style={{ fontSize: '26px', flexShrink: 0 }}>{isSubOpen ? '📂' : '📁'}</div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1 }}>
+                <div style={{ fontSize: '32px', flexShrink: 0 }}>{isSubOpen ? '📂' : '📁'}</div>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontWeight: '600', fontSize: '13px', color: '#111827' }}>{subName}</div>
-                  <div style={{ fontSize: '11px', color: '#6b7280' }}>
+                  <div style={{ fontWeight: '600', fontSize: '15px', color: '#111827' }}>{subName}</div>
+                  <div style={{ fontSize: '12px', color: '#4b5563', marginTop: '1px' }}>
                     {isAttachment
                       ? `${assignment.team_leader_fullname || assignment.team_leader_username || 'Team Leader'} • ${subFiles.length} file${subFiles.length !== 1 ? 's' : ''}`
                       : `Submitted by ${subFirstFile.fullName || subFirstFile.username} • ${subFiles.length} file${subFiles.length !== 1 ? 's' : ''}`}
                   </div>
                 </div>
                 <svg width="14" height="14" viewBox="0 0 16 16" fill="none" style={{ transform: isSubOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s', flexShrink: 0 }}>
-                  <path d="M4 6L8 10L12 6" stroke="#6B7280" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                  <path d="M4 6L8 10L12 6" stroke="#6B7280" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
               </div>
             </div>
@@ -690,7 +690,7 @@ const TeamTasksTab = ({ user }) => {
       const isLast = index === totalRootFiles - 1
       const file = fileItem.file || fileItem
       subItems.push(
-        <div key={`file-${file.id}`} className="tl-tree-container" style={{ marginBottom: '6px' }}>
+        <div key={`file-${file.id}`} className="tl-tree-container" style={{ marginBottom: '7px' }}>
           {parentIsLastArr.map((isLastParent, i) => (
             <div key={i} className={isLastParent ? "tl-tree-line-empty" : "tl-tree-line-vertical"} />
           ))}
@@ -706,17 +706,18 @@ const TeamTasksTab = ({ user }) => {
             }}
             style={{ 
               backgroundColor: openedFileIds.has(file.id) ? '#f0fdf4' : '#fafafa',
+              padding: '14px 20px',
               flex: 1
             }}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1 }}>
-              <FileIcon fileType={file.original_name.split('.').pop()} size="small" />
+              <FileIcon fileType={file.original_name.split('.').pop()} size="default" style={{ width: '34px', height: '34px', minWidth: '34px', minHeight: '34px' }} />
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontWeight: '500', fontSize: '14px', color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <div style={{ fontWeight: '500', fontSize: '15px', color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <span>{file.original_name}</span>
-                  {openedFileIds.has(file.id) && <span style={{ fontSize: '10px', color: '#16a34a' }}>✓ Viewed</span>}
+                  {openedFileIds.has(file.id) && <span style={{ fontSize: '10.5px', fontWeight: '600', color: '#16a34a', backgroundColor: '#dcfce7', border: '1px solid #86efac', padding: '1px 6px', borderRadius: '10px' }}>✓ Viewed</span>}
                 </div>
-                <div style={{ fontSize: '12px', color: '#6b7280' }}>
+                <div style={{ fontSize: '12px', color: '#4b5563', marginTop: '1px' }}>
                   {isAttachment
                     ? formatFileSize(file.file_size)
                     : `by ${file.fullName || file.username} • ${formatFileSize(file.file_size)}`}

@@ -8,6 +8,7 @@ import { AlertMessage, ConfirmationModal, CommentsModal, FileOpenModal } from '.
 import { useAuth, useNetwork } from '../../contexts'
 import { withErrorBoundary } from '../common'
 import { useSmartNavigation } from '../shared/SmartNavigation'
+import { recursiveGroupByPath } from '@utils/folderUtils'
 
 // Utility function to format file size
 const formatFileSize = (bytes) => {
@@ -886,9 +887,200 @@ const TaskManagement = ({
           ) : (
             <>
               {assignments.map(assignment => {
-                const { folders, individualFiles } = groupFilesByFolder(assignment.recent_submissions || [])
-                const folderEntries = Object.entries(folders)
-                const allItems = [...folderEntries.map(([name]) => ({ type: 'folder', name })), ...individualFiles.map(file => ({ type: 'file', file }))]
+                const renderRecursiveItems = (files, level = 1, parentKey = '', parentIsLastArr = [], isAttachment = true) => {
+                  const { subfolders, rootFiles } = recursiveGroupByPath(files);
+                  const subItems = [];
+
+                  const subfolderEntries = Object.entries(subfolders);
+                  const totalSubfolders = subfolderEntries.length;
+                  const totalRootFiles = rootFiles.length;
+
+                  // 1. Render subfolders
+                  subfolderEntries.forEach(([subName, subFiles], index) => {
+                    const isLast = (index === totalSubfolders - 1) && (totalRootFiles === 0);
+                    const subKey = parentKey ? `${parentKey}__${subName}` : `${assignment.id}__${subName}__${isAttachment ? 'att' : 'sub'}`;
+                    const isSubOpen = expandedFolders[subKey];
+                    const subFirstFile = subFiles[0].file || subFiles[0];
+
+                    subItems.push(
+                      <div key={`subfolder-${subKey}`} style={{ display: 'flex', flexDirection: 'column' }}>
+                        <div className="tl-tree-container" style={{ marginBottom: '7px' }}>
+                          {parentIsLastArr.map((isLastParent, i) => (
+                            <div key={i} className={isLastParent ? "tl-tree-line-empty" : "tl-tree-line-vertical"} />
+                          ))}
+                          {level > 0 && <div className={`tl-tree-line-connector ${isLast ? 'last-item' : ''}`} />}
+                          
+                          <div
+                            className="admin-file-item admin-folder-item"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setExpandedFolders(prev => ({ ...prev, [subKey]: !prev[subKey] }));
+                            }}
+                            style={{ 
+                              cursor: 'pointer', 
+                              backgroundColor: isSubOpen ? '#BFDBFE' : '#DBEAFE', 
+                              padding: '14px 20px',
+                              flex: 1,
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '12px',
+                              border: isAttachment ? '1px solid #000000' : '1px solid #93c5fd'
+                            }}
+                          >
+                            <div style={{ fontSize: '32px', flexShrink: 0 }}>{isSubOpen ? '📂' : '📁'}</div>
+                            <div className="admin-file-details" style={{ flex: 1, minWidth: 0 }}>
+                              <div className="admin-file-name" style={{ fontWeight: '600', fontSize: '15px', color: '#111827' }}>{subName}</div>
+                              <div className="admin-file-meta" style={{ fontSize: '12px', color: '#4b5563', marginTop: '1px' }}>
+                                {isAttachment
+                                  ? `Submitted by ${assignment.team_leader_fullname || assignment.team_leader_username || 'Team Leader'} • ${subFiles.length} file${subFiles.length !== 1 ? 's' : ''}`
+                                  : `Submitted by ${subFirstFile.fullName || subFirstFile.username || 'Member'} • ${subFiles.length} file${subFiles.length !== 1 ? 's' : ''}`}
+                              </div>
+                            </div>
+                            <button
+                              onClick={(e) => { e.stopPropagation(); handleDownloadFolder(subFiles.map(f => f.file || f), subName) }}
+                              title="Download folder as ZIP"
+                              style={{
+                                background: 'transparent', border: 'none', borderRadius: '6px',
+                                width: '32px', height: '32px', display: 'flex', alignItems: 'center',
+                                justifyContent: 'center', cursor: 'pointer', color: '#6b7280',
+                                flexShrink: 0, transition: 'all 0.15s'
+                              }}
+                              onMouseEnter={e => { e.currentTarget.style.backgroundColor = '#dbeafe'; e.currentTarget.style.color = '#1d4ed8' }}
+                              onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = '#6b7280' }}
+                            >
+                              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
+                                <polyline points="7 10 12 15 17 10" />
+                                <line x1="12" y1="15" x2="12" y2="3" />
+                              </svg>
+                            </button>
+                          </div>
+                        </div>
+                        {isSubOpen && renderRecursiveItems(subFiles, level + 1, subKey, [...parentIsLastArr, isLast], isAttachment)}
+                      </div>
+                    );
+                  });
+
+                  // 2. Render root files
+                  rootFiles.forEach((fileItem, index) => {
+                    const isLast = index === totalRootFiles - 1;
+                    const file = fileItem.file || fileItem;
+                    const hasViewed = openedFileIds.has(file.id);
+
+                    subItems.push(
+                      <div key={`file-${file.id}`} className="tl-tree-container" style={{ marginBottom: '7px' }}>
+                        {parentIsLastArr.map((isLastParent, i) => (
+                          <div key={i} className={isLastParent ? "tl-tree-line-empty" : "tl-tree-line-vertical"} />
+                        ))}
+                        {level > 0 && <div className={`tl-tree-line-connector ${isLast ? 'last-item' : ''}`} />}
+                        
+                        <div
+                          onClick={(e) => { e.stopPropagation(); setFileToOpen(file); setShowOpenFileConfirmation(true) }}
+                          className={`admin-file-item${hasViewed ? ' admin-file-card-opened' : ''}`}
+                          style={{ 
+                            cursor: 'pointer', 
+                            backgroundColor: '#fafafa',
+                            flex: 1,
+                            display: 'flex',
+                            alignItems: 'center',
+                            padding: '14px 20px',
+                            gap: '12px',
+                            border: isAttachment ? '1px solid #000000' : '1px solid #dbeafe'
+                          }}
+                        >
+                          <FileIcon fileType={file.original_name.split('.').pop()} size="default" style={{ width: '34px', height: '34px', minWidth: '34px', minHeight: '34px' }} />
+                          <div className="admin-file-details" style={{ flex: 1, minWidth: 0 }}>
+                            <div className="admin-file-name" style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: '500', fontSize: '15px' }}>
+                              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{file.original_name}</span>
+                              {hasViewed && (
+                                <span style={{ fontSize: '10.5px', fontWeight: '600', color: '#16a34a', backgroundColor: '#dcfce7', border: '1px solid #86efac', padding: '1px 6px', borderRadius: '10px', flexShrink: 0 }}>
+                                  ✓ Viewed
+                                </span>
+                              )}
+                            </div>
+                            <div className="admin-file-meta" style={{ fontSize: '12px', color: '#4b5563', marginTop: '1px', display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                              <span>Submitted by <span className="admin-file-submitter" style={{ fontWeight: '600', color: '#2563eb' }}>
+                                {isAttachment
+                                  ? (assignment.team_leader_fullname || assignment.team_leader_username || 'Team Leader')
+                                  : (file.fullName || file.username || 'Member')}
+                              </span> on {formatDate(file.submitted_at || file.uploaded_at || file.created_at)}</span>
+                              
+                              {file.tag && (
+                                <span style={{
+                                  backgroundColor: '#dbeafe',
+                                  color: '#1e40af',
+                                  padding: '2px 8px',
+                                  borderRadius: '12px',
+                                  fontSize: '11px',
+                                  fontWeight: '600',
+                                  border: '1px solid #93c5fd',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '4px'
+                                }}>
+                                  🏷️ {file.tag}
+                                </span>
+                              )}
+
+                              {isAttachment ? (
+                                <span className={`admin-file-status ${file.status === 'uploaded' ? 'reference' :
+                                    file.status === 'team_leader_approved' ? 'reference' :
+                                      file.status === 'final_approved' ? 'final-approved' :
+                                        file.status === 'rejected_by_team_leader' || file.status === 'rejected_by_admin' ? 'rejected' :
+                                          'reference'
+                                  }`}>
+                                  {file.status === 'uploaded' ? 'TASK REFERENCE' :
+                                    file.status === 'team_leader_approved' ? 'TASK REFERENCE' :
+                                      file.status === 'final_approved' ? '✓ APPROVED' :
+                                        file.status === 'rejected_by_team_leader' ? '✗ REJECTED' :
+                                          file.status === 'rejected_by_admin' ? '✗ REJECTED' :
+                                            'TASK REFERENCE'}
+                                </span>
+                              ) : (
+                                <span className={`admin-file-status ${file.status === 'uploaded' ? 'uploaded' :
+                                    file.status === 'revision' ? 'revision' :
+                                    file.status === 'team_leader_approved' ? 'team-leader-approved' :
+                                      file.status === 'final_approved' ? 'final-approved' :
+                                        file.status === 'rejected_by_team_leader' || file.status === 'rejected_by_admin' ? 'rejected' :
+                                          'uploaded'
+                                  }`}>
+                                  {file.status === 'uploaded' ? 'PENDING TEAM LEADER' :
+                                    file.status === 'revision' ? '✎ REVISION' :
+                                    file.status === 'team_leader_approved' ? 'PENDING ADMIN' :
+                                      file.status === 'final_approved' ? '✓ APPROVED' :
+                                        file.status === 'rejected_by_team_leader' ? '✗ REJECTED' :
+                                          file.status === 'rejected_by_admin' ? '✗ REJECTED' :
+                                            file.status}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          <FileViewersButton fileId={file.id} externalCount={viewerCounts[file.id]} />
+                          <button
+                            onClick={(e) => { e.stopPropagation(); handleDownloadFile(file) }}
+                            title="Download file"
+                            style={{
+                              background: 'transparent', border: 'none', borderRadius: '6px',
+                              width: '32px', height: '32px', display: 'flex', alignItems: 'center',
+                              justifyContent: 'center', cursor: 'pointer', color: '#9ca3af',
+                              flexShrink: 0, transition: 'all 0.15s'
+                            }}
+                            onMouseEnter={e => { e.currentTarget.style.backgroundColor = '#dbeafe'; e.currentTarget.style.color = '#1d4ed8' }}
+                            onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = '#9ca3af' }}
+                          >
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
+                              <polyline points="7 10 12 15 17 10" />
+                              <line x1="12" y1="15" x2="12" y2="3" />
+                            </svg>
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  });
+
+                  return subItems;
+                };
 
                 return (
                   <div key={assignment.id} id={`admin-assignment-${assignment.id}`} className="admin-assignment-card">
@@ -978,482 +1170,27 @@ const TaskManagement = ({
                     )}
 
                     {/* Attachments - Files attached by Team Leader */}
-                    {assignment.attachments && assignment.attachments.length > 0 && (() => {
-                      const { folders: attFolders, individualFiles: attIndividual } = groupFilesByFolder(assignment.attachments)
-                      const folderNames = Object.keys(attFolders)
-                      const totalItems = folderNames.length + attIndividual.length
-                      const attExpKey = `att-${assignment.id}`
-                      const attExpanded = expandedAttachments[attExpKey]
-                      const allAttTop = [
-                        ...folderNames.map(n => ({ type: 'folder', name: n })),
-                        ...attIndividual.map(f => ({ type: 'file', file: f }))
-                      ]
-                      const visibleAttTop = attExpanded ? allAttTop : allAttTop.slice(0, 5)
-                      const visAttFolderNames = new Set(visibleAttTop.filter(i => i.type === 'folder').map(i => i.name))
-                      const visAttFiles = visibleAttTop.filter(i => i.type === 'file').map(i => i.file)
-                      return (
-                        <div className="admin-attachment-section" style={{ marginBottom: '16px' }}>
-                          <div className="admin-submitted-file">
-                            <div className="admin-file-label admin-submitted-label">📎 Attachments ({totalItems === 1 ? '1 item' : `${folderNames.length > 0 ? `${folderNames.length} folder${folderNames.length !== 1 ? 's' : ''}` : ''}${folderNames.length > 0 && attIndividual.length > 0 ? ', ' : ''}${attIndividual.length > 0 ? `${attIndividual.length} file${attIndividual.length !== 1 ? 's' : ''}` : ''}`}):</div>
-
-                            {/* Folder attachments */}
-                            {folderNames.filter(fn => visAttFolderNames.has(fn)).map(folderName => {
-                              const folderFiles = attFolders[folderName]
-                              const isExpanded = expandedFolders[`att-${assignment.id}-${folderName}`]
-                              const attFolderChildKey = `attfc-${assignment.id}-${folderName}`
-                              const isFolderChildExpanded = expandedAttachments[attFolderChildKey]
-                              const visibleFolderFiles = isFolderChildExpanded ? folderFiles : folderFiles.slice(0, 5)
-                              return (
-                                <div key={folderName} style={{ marginBottom: '8px' }}>
-                                  <div
-                                    className="admin-file-item admin-folder-item"
-                                    onClick={() => toggleFolder(`att-${assignment.id}`, folderName)}
-                                    style={{ cursor: 'pointer', backgroundColor: isExpanded ? '#BFDBFE' : '#DBEAFE' }}
-                                  >
-                                    <div style={{ fontSize: '32px', flexShrink: 0 }}>
-                                      {isExpanded ? '📂' : '📁'}
-                                    </div>
-                                    <div className="admin-file-details">
-                                      <div className="admin-file-name" style={{ fontWeight: '600' }}>{folderName}</div>
-                                      <div className="admin-file-meta">
-                                        Submitted by <span className="admin-file-submitter">{assignment.team_leader_fullname || assignment.team_leader_username || 'Team Leader'}</span> • {folderFiles.length} file{folderFiles.length !== 1 ? 's' : ''}
-                                      </div>
-                                    </div>
-                                    {/* Download folder button */}
-                                    <button
-                                      onClick={(e) => { e.stopPropagation(); handleDownloadFolder(folderFiles, folderName) }}
-                                      title="Download folder as ZIP"
-                                      style={{
-                                        background: 'transparent', border: 'none', borderRadius: '6px',
-                                        width: '32px', height: '32px', display: 'flex', alignItems: 'center',
-                                        justifyContent: 'center', cursor: 'pointer', color: '#6b7280',
-                                        flexShrink: 0, transition: 'all 0.15s'
-                                      }}
-                                      onMouseEnter={e => { e.currentTarget.style.backgroundColor = '#dbeafe'; e.currentTarget.style.color = '#1d4ed8' }}
-                                      onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = '#6b7280' }}
-                                    >
-                                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                        <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
-                                        <polyline points="7 10 12 15 17 10" />
-                                        <line x1="12" y1="15" x2="12" y2="3" />
-                                      </svg>
-                                    </button>
-                                  </div>
-                                  {isExpanded && (
-                                    <div style={{ marginLeft: '8px', paddingLeft: '8px', marginTop: '4px' }}>
-                                      {visibleFolderFiles.map(file => (
-                                        <div
-                                          key={file.id}
-                                          onClick={(e) => { e.stopPropagation(); setFileToOpen(file); setShowOpenFileConfirmation(true) }}
-                                          className={`admin-file-item admin-folder-file-item${openedFileIds.has(file.id) ? ' admin-file-card-opened' : ''}`}
-                                          style={{ cursor: 'pointer', marginBottom: '4px' }}
-                                        >
-                                          <FileIcon fileType={file.original_name.split('.').pop()} size="small" />
-                                          <div className="admin-file-details">
-                                            <div className="admin-file-name" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{file.original_name}</span>{openedFileIds.has(file.id) && <span style={{ fontSize: '10px', fontWeight: '600', color: '#16a34a', backgroundColor: '#dcfce7', border: '1px solid #86efac', padding: '1px 7px', borderRadius: '10px', flexShrink: 0 }}>✓ Viewed</span>}</div>
-                                            <div className="admin-file-meta">
-                                              Submitted by <span className="admin-file-submitter">{assignment.team_leader_fullname || assignment.team_leader_username || 'Team Leader'}</span> on {formatDate(file.uploaded_at || file.created_at)}
-                                              {file.tag && (
-                                                <span style={{
-                                                  backgroundColor: '#dbeafe',
-                                                  color: '#1e40af',
-                                                  padding: '4px 10px',
-                                                  borderRadius: '12px',
-                                                  fontSize: '11px',
-                                                  fontWeight: '600',
-                                                  border: '1px solid #93c5fd',
-                                                  display: 'inline-flex',
-                                                  alignItems: 'center',
-                                                  gap: '4px',
-                                                  marginLeft: '8px'
-                                                }}>
-                                                  🏷️ {file.tag}
-                                                </span>
-                                              )}
-                                              <span className={`admin-file-status ${file.status === 'uploaded' ? 'reference' :
-                                                  file.status === 'team_leader_approved' ? 'reference' :
-                                                    file.status === 'final_approved' ? 'final-approved' :
-                                                      file.status === 'rejected_by_team_leader' || file.status === 'rejected_by_admin' ? 'rejected' :
-                                                        'reference'
-                                                }`}>
-                                                {file.status === 'uploaded' ? 'TASK REFERENCE' :
-                                                  file.status === 'team_leader_approved' ? 'TASK REFERENCE' :
-                                                    file.status === 'final_approved' ? '✓ APPROVED' :
-                                                      file.status === 'rejected_by_team_leader' ? '✗ REJECTED' :
-                                                        file.status === 'rejected_by_admin' ? '✗ REJECTED' :
-                                                          'TASK REFERENCE'}
-                                              </span>
-                                            </div>
-                                            </div>
-                                            <FileViewersButton fileId={file.id} externalCount={viewerCounts[file.id]} />
-                                            <button
-                                            onClick={(e) => { e.stopPropagation(); handleDownloadFile(file) }}
-                                            title="Download file"
-                                            style={{
-                                              background: 'transparent', border: 'none', borderRadius: '6px',
-                                              width: '30px', height: '30px', display: 'flex', alignItems: 'center',
-                                              justifyContent: 'center', cursor: 'pointer', color: '#9ca3af',
-                                              flexShrink: 0, transition: 'all 0.15s'
-                                            }}
-                                            onMouseEnter={e => { e.currentTarget.style.backgroundColor = '#dbeafe'; e.currentTarget.style.color = '#1d4ed8' }}
-                                            onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = '#9ca3af' }}
-                                          >
-                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                              <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
-                                              <polyline points="7 10 12 15 17 10" />
-                                              <line x1="12" y1="15" x2="12" y2="3" />
-                                            </svg>
-                                          </button>
-                                        </div>
-                                      ))}
-                                      {folderFiles.length > 5 && (
-                                        <div style={{ padding: '8px 16px', textAlign: 'center', cursor: 'pointer' }}
-                                          onClick={(e) => { e.stopPropagation(); toggleAttachments(attFolderChildKey) }}
-                                        >
-                                          <span style={{ color: '#0066cc', fontSize: '13px', fontWeight: '500', textDecoration: 'underline' }}>
-                                            {isFolderChildExpanded ? 'See less' : `See more (${folderFiles.length - 5} more)`}
-                                          </span>
-                                        </div>
-                                      )}
-                                    </div>
-                                  )}
-                                </div>
-                              )
-                            })}
-
-                            {/* Individual file attachments */}
-                            {visAttFiles.map((attachment, index) => (
-                              <div
-                                key={attachment.id}
-                                onClick={(e) => { e.stopPropagation(); setFileToOpen(attachment); setShowOpenFileConfirmation(true) }}
-                                className={`admin-file-item${openedFileIds.has(attachment.id) ? ' admin-file-card-opened' : ''}`}
-                                style={{ cursor: 'pointer', marginBottom: index < attIndividual.length - 1 ? '8px' : '0' }}
-                              >
-                                <FileIcon fileType={attachment.original_name.split('.').pop()} size="small" className="admin-file-icon" />
-                                <div className="admin-file-details">
-                                  <div className="admin-file-name" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{attachment.original_name}</span>{openedFileIds.has(attachment.id) && <span style={{ fontSize: '10px', fontWeight: '600', color: '#16a34a', backgroundColor: '#dcfce7', border: '1px solid #86efac', padding: '1px 7px', borderRadius: '10px', flexShrink: 0 }}>✓ Viewed</span>}</div>
-                                  <div className="admin-file-meta">
-                                    Submitted by <span className="admin-file-submitter">{assignment.team_leader_fullname || assignment.team_leader_username || 'Team Leader'}</span> on {formatDate(attachment.uploaded_at || attachment.created_at)}
-                                    {attachment.tag && (
-                                      <span style={{
-                                        backgroundColor: '#dbeafe',
-                                        color: '#1e40af',
-                                        padding: '4px 10px',
-                                        borderRadius: '12px',
-                                        fontSize: '11px',
-                                        fontWeight: '600',
-                                        border: '1px solid #93c5fd',
-                                        display: 'inline-flex',
-                                        alignItems: 'center',
-                                        gap: '4px',
-                                        marginLeft: '8px'
-                                      }}>
-                                        🏷️ {attachment.tag}
-                                      </span>
-                                    )}
-                                    <span className={`admin-file-status ${attachment.status === 'uploaded' ? 'reference' :
-                                        attachment.status === 'team_leader_approved' ? 'reference' :
-                                          attachment.status === 'final_approved' ? 'final-approved' :
-                                            attachment.status === 'rejected_by_team_leader' || attachment.status === 'rejected_by_admin' ? 'rejected' :
-                                              'reference'
-                                      }`}>
-                                      {attachment.status === 'uploaded' ? 'TASK REFERENCE' :
-                                        attachment.status === 'team_leader_approved' ? 'TASK REFERENCE' :
-                                          attachment.status === 'final_approved' ? '✓ APPROVED' :
-                                            attachment.status === 'rejected_by_team_leader' ? '✗ REJECTED' :
-                                              attachment.status === 'rejected_by_admin' ? '✗ REJECTED' :
-                                                'TASK REFERENCE'}
-                                    </span>
-                                  </div>
-                                </div>
-                                <FileViewersButton fileId={attachment.id} externalCount={viewerCounts[attachment.id]} />
-                                <button
-                                  onClick={(e) => { e.stopPropagation(); handleDownloadFile(attachment) }}
-                                  title="Download file"
-                                  style={{
-                                    background: 'transparent', border: 'none', borderRadius: '6px',
-                                    width: '30px', height: '30px', display: 'flex', alignItems: 'center',
-                                    justifyContent: 'center', cursor: 'pointer', color: '#9ca3af',
-                                    flexShrink: 0, transition: 'all 0.15s'
-                                  }}
-                                  onMouseEnter={e => { e.currentTarget.style.backgroundColor = '#dbeafe'; e.currentTarget.style.color = '#1d4ed8' }}
-                                  onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = '#9ca3af' }}
-                                >
-                                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                    <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
-                                    <polyline points="7 10 12 15 17 10" />
-                                    <line x1="12" y1="15" x2="12" y2="3" />
-                                  </svg>
-                                </button>
-                              </div>
-                            ))}
-                            {totalItems > 5 && (
-                              <div style={{ padding: '12px 16px', textAlign: 'center', cursor: 'pointer' }}
-                                onClick={() => toggleAttachments(attExpKey)}
-                              >
-                                <span style={{ color: '#0066cc', fontSize: '14px', fontWeight: '500', textDecoration: 'underline' }}>
-                                  {attExpanded ? 'See less' : `See more (${totalItems - 5} more)`}
-                                </span>
-                              </div>
-                            )}
-                          </div>
+                    {assignment.attachments && assignment.attachments.length > 0 ? (
+                      <div className="admin-attachment-section" style={{ marginBottom: '16px' }}>
+                        <div className="admin-submitted-file">
+                          <div className="admin-file-label admin-submitted-label">📎 Attachments ({assignment.attachments.length} item{assignment.attachments.length !== 1 ? 's' : ''}):</div>
+                          {renderRecursiveItems(assignment.attachments, 0, '', [], true)}
                         </div>
-                      )
-                    })()}
+                      </div>
+                    ) : null}
 
                     {/* Submitted Files */}
                     <div className="admin-attachment-section">
                       {assignment.recent_submissions && assignment.recent_submissions.length > 0 ? (
                         <div className="admin-submitted-file">
                           <div className="admin-file-label admin-submitted-label">📎 Submitted Files ({assignment.recent_submissions.length}):</div>
-                          {(() => {
-                            const { folders: allFolders, individualFiles: allIndividualFiles } = groupFilesByFolder(assignment.recent_submissions)
-                            const allTopLevelItems = [
-                              ...Object.keys(allFolders).map(name => ({ type: 'folder', name })),
-                              ...allIndividualFiles.map(f => ({ type: 'file', file: f }))
-                            ]
-                            const visibleItems = expandedAttachments[assignment.id]
-                              ? allTopLevelItems
-                              : allTopLevelItems.slice(0, 5)
-                            const visibleFolderNames = new Set(visibleItems.filter(i => i.type === 'folder').map(i => i.name))
-                            const visibleIndividualFiles = visibleItems.filter(i => i.type === 'file').map(i => i.file)
-                            const folders = Object.fromEntries(Object.entries(allFolders).filter(([k]) => visibleFolderNames.has(k)))
-                            const individualFiles = visibleIndividualFiles
-
-                            return (
-                              <>
-                                {Object.keys(folders).map((folderName) => {
-                                  const folderFiles = folders[folderName]
-                                  const isExpanded = expandedFolders[`${assignment.id}-${folderName}`]
-
-                                  return (
-                                    <div key={`folder-${folderName}`}>
-                                      <div
-                                        className="admin-file-item admin-folder-item"
-                                        onClick={(e) => {
-                                          e.stopPropagation()
-                                          toggleFolder(assignment.id, folderName)
-                                        }}
-                                        style={{ cursor: 'pointer', backgroundColor: isExpanded ? '#BFDBFE' : '#DBEAFE', marginBottom: '8px' }}
-                                      >
-                                        <div style={{ fontSize: '32px' }}>
-                                          {isExpanded ? '📂' : '📁'}
-                                        </div>
-                                        <div className="admin-file-details">
-                                          <div className="admin-file-name" style={{ fontWeight: '600' }}>
-                                            {folderName}
-                                          </div>
-                                          <div className="admin-file-meta">
-                                            Submitted by <span className="admin-file-submitter">{folderFiles[0].fullName || folderFiles[0].username}</span> • {folderFiles.length} files
-                                          </div>
-                                        </div>
-                                        {/* Download folder button */}
-                                        <button
-                                          onClick={(e) => { e.stopPropagation(); handleDownloadFolder(folderFiles, folderName) }}
-                                          title="Download folder as ZIP"
-                                          style={{
-                                            background: 'transparent', border: 'none', borderRadius: '6px',
-                                            width: '32px', height: '32px', display: 'flex', alignItems: 'center',
-                                            justifyContent: 'center', cursor: 'pointer', color: '#6b7280',
-                                            flexShrink: 0, transition: 'all 0.15s'
-                                          }}
-                                          onMouseEnter={e => { e.currentTarget.style.backgroundColor = '#dbeafe'; e.currentTarget.style.color = '#1d4ed8' }}
-                                          onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = '#6b7280' }}
-                                        >
-                                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                            <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
-                                            <polyline points="7 10 12 15 17 10" />
-                                            <line x1="12" y1="15" x2="12" y2="3" />
-                                          </svg>
-                                        </button>
-                                      </div>
-
-                                      {isExpanded && (
-                                        <div style={{ marginLeft: '8px', paddingLeft: '8px', marginTop: '4px' }}>
-                                          {folderFiles.map((file) => (
-                                            <div
-                                              key={file.id}
-                                              data-file-id={file.id}
-                                              className={`admin-file-item admin-folder-file-item${openedFileIds.has(file.id) ? ' admin-file-card-opened' : ''}`}
-                                              onClick={(e) => {
-                                                e.stopPropagation()
-                                                setFileToOpen(file)
-                                                setShowOpenFileConfirmation(true)
-                                              }}
-                                              style={{ cursor: 'pointer', marginBottom: '4px' }}
-                                            >
-                                              <FileIcon
-                                                fileType={file.original_name.split('.').pop()}
-                                                size="small"
-                                                className="admin-file-icon"
-                                              />
-                                              <div className="admin-file-details">
-                                                <div className="admin-file-name" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{file.original_name}</span>{openedFileIds.has(file.id) && <span style={{ fontSize: '10px', fontWeight: '600', color: '#16a34a', backgroundColor: '#dcfce7', border: '1px solid #86efac', padding: '1px 7px', borderRadius: '10px', flexShrink: 0 }}>✓ Viewed</span>}</div>
-                                                <div className="admin-file-meta">
-                                                  Submitted by <span className="admin-file-submitter">{file.fullName || file.username}</span> on {formatDate(file.submitted_at)}
-                                                  {file.tag && (
-                                                    <span style={{
-                                                      backgroundColor: '#dbeafe',
-                                                      color: '#1e40af',
-                                                      padding: '4px 10px',
-                                                      borderRadius: '12px',
-                                                      fontSize: '11px',
-                                                      fontWeight: '600',
-                                                      border: '1px solid #93c5fd',
-                                                      display: 'inline-flex',
-                                                      alignItems: 'center',
-                                                      gap: '4px',
-                                                      marginLeft: '8px'
-                                                    }}>
-                                                      🏷️ {file.tag}
-                                                    </span>
-                                                  )}
-                                                  <span className={`admin-file-status ${file.status === 'uploaded' ? 'uploaded' :
-                                                      file.status === 'revision' ? 'revision' :
-                                                      file.status === 'team_leader_approved' ? 'team-leader-approved' :
-                                                        file.status === 'final_approved' ? 'final-approved' :
-                                                          file.status === 'rejected_by_team_leader' || file.status === 'rejected_by_admin' ? 'rejected' :
-                                                            'uploaded'
-                                                    }`}>
-                                                    {file.status === 'uploaded' ? 'PENDING TEAM LEADER' :
-                                                      file.status === 'revision' ? '✎ REVISION' :
-                                                      file.status === 'team_leader_approved' ? 'PENDING ADMIN' :
-                                                        file.status === 'final_approved' ? '✓ APPROVED' :
-                                                          file.status === 'rejected_by_team_leader' ? '✗ REJECTED' :
-                                                            file.status === 'rejected_by_admin' ? '✗ REJECTED' :
-                                                              file.status}
-                                                  </span>
-                                                </div>
-                                              </div>
-                                              {/* Download icon */}
-                                              <FileViewersButton fileId={file.id} externalCount={viewerCounts[file.id]} />
-                                              <button
-                                                onClick={(e) => { e.stopPropagation(); handleDownloadFile(file) }}
-                                                title="Download file"
-                                                style={{
-                                                  background: 'transparent', border: 'none', borderRadius: '6px',
-                                                  width: '30px', height: '30px', display: 'flex', alignItems: 'center',
-                                                  justifyContent: 'center', cursor: 'pointer', color: '#9ca3af',
-                                                  flexShrink: 0, transition: 'all 0.15s'
-                                                }}
-                                                onMouseEnter={e => { e.currentTarget.style.backgroundColor = '#dbeafe'; e.currentTarget.style.color = '#1d4ed8' }}
-                                                onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = '#9ca3af' }}
-                                              >
-                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                                  <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
-                                                  <polyline points="7 10 12 15 17 10" />
-                                                  <line x1="12" y1="15" x2="12" y2="3" />
-                                                </svg>
-                                              </button>
-                                            </div>
-                                          ))}
-                                        </div>
-                                      )}
-                                    </div>
-                                  )
-                                })}
-
-                                {individualFiles.map((file, index) => (
-                                  <div
-                                    key={file.id}
-                                    data-file-id={file.id}
-                                    className={`admin-file-item${openedFileIds.has(file.id) ? ' admin-file-card-opened' : ''}`}
-                                    onClick={() => {
-                                      setFileToOpen(file)
-                                      setShowOpenFileConfirmation(true)
-                                    }}
-                                    style={{
-                                      cursor: 'pointer',
-                                      marginBottom: index < individualFiles.length - 1 ? '8px' : '0'
-                                    }}
-                                  >
-                                    <FileIcon
-                                      fileType={file.original_name.split('.').pop()}
-                                      size="small"
-                                      className="admin-file-icon"
-                                    />
-                                    <div className="admin-file-details">
-                                      <div className="admin-file-name" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{file.original_name}</span>{openedFileIds.has(file.id) && <span style={{ fontSize: '10px', fontWeight: '600', color: '#16a34a', backgroundColor: '#dcfce7', border: '1px solid #86efac', padding: '1px 7px', borderRadius: '10px', flexShrink: 0 }}>✓ Viewed</span>}</div>
-                                      <div className="admin-file-meta">
-                                        Submitted by <span className="admin-file-submitter">{file.fullName || file.username}</span> on {formatDate(file.submitted_at)}
-                                        {file.tag && (
-                                          <span style={{
-                                            backgroundColor: '#dbeafe',
-                                            color: '#1e40af',
-                                            padding: '4px 10px',
-                                            borderRadius: '12px',
-                                            fontSize: '11px',
-                                            fontWeight: '600',
-                                            border: '1px solid #93c5fd',
-                                            display: 'inline-flex',
-                                            alignItems: 'center',
-                                            gap: '4px',
-                                            marginLeft: '8px'
-                                          }}>
-                                            🏷️ {file.tag}
-                                          </span>
-                                        )}
-                                        <span className={`admin-file-status ${file.status === 'uploaded' ? 'uploaded' :
-                                            file.status === 'revision' ? 'revision' :
-                                            file.status === 'team_leader_approved' ? 'team-leader-approved' :
-                                              file.status === 'final_approved' ? 'final-approved' :
-                                                file.status === 'rejected_by_team_leader' || file.status === 'rejected_by_admin' ? 'rejected' :
-                                                  'uploaded'
-                                          }`}>
-                                          {file.status === 'uploaded' ? 'PENDING TEAM LEADER' :
-                                            file.status === 'revision' ? '✎ REVISION' :
-                                            file.status === 'team_leader_approved' ? 'PENDING ADMIN' :
-                                              file.status === 'final_approved' ? '✓ APPROVED' :
-                                                file.status === 'rejected_by_team_leader' ? '✗ REJECTED' :
-                                                  file.status === 'rejected_by_admin' ? '✗ REJECTED' :
-                                                    file.status}
-                                        </span>
-                                      </div>
-                                    </div>
-                                    {/* Eye + Download icon */}
-                                    <FileViewersButton fileId={file.id} externalCount={viewerCounts[file.id]} />
-                                    <button
-                                      onClick={(e) => { e.stopPropagation(); handleDownloadFile(file) }}
-                                      title="Download file"
-                                      style={{
-                                        background: 'transparent', border: 'none', borderRadius: '6px',
-                                        width: '30px', height: '30px', display: 'flex', alignItems: 'center',
-                                        justifyContent: 'center', cursor: 'pointer', color: '#9ca3af',
-                                        flexShrink: 0, transition: 'all 0.15s'
-                                      }}
-                                      onMouseEnter={e => { e.currentTarget.style.backgroundColor = '#dbeafe'; e.currentTarget.style.color = '#1d4ed8' }}
-                                      onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = '#9ca3af' }}
-                                    >
-                                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                        <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
-                                        <polyline points="7 10 12 15 17 10" />
-                                        <line x1="12" y1="15" x2="12" y2="3" />
-                                      </svg>
-                                    </button>
-                                  </div>
-                                ))}
-                              </>
-                            )
-                          })()}
-                          {(() => {
-                            const { folders: _f, individualFiles: _i } = groupFilesByFolder(assignment.recent_submissions)
-                            const totalTopLevel = Object.keys(_f).length + _i.length
-                            return totalTopLevel > 5 ? (
-                              <div style={{ padding: '12px 16px', textAlign: 'center', cursor: 'pointer' }}
-                                onClick={() => toggleAttachments(assignment.id)}
-                              >
-                                <span style={{ color: '#0066cc', fontSize: '14px', fontWeight: '500', textDecoration: 'underline' }}>
-                                  {expandedAttachments[assignment.id] ? 'See less' : `See more (${totalTopLevel - 5} more)`}
-                                </span>
-                              </div>
-                            ) : null
-                          })()}
+                          {renderRecursiveItems(assignment.recent_submissions, 0, '', [], false)}
                         </div>
                       ) : (
                         <div className="admin-no-attachment">
                           <span className="admin-no-attachment-icon">📄</span>
                           <span className="admin-no-attachment-text">
-                            No attachments yet
+                            No submissions yet
                           </span>
                         </div>
                       )}

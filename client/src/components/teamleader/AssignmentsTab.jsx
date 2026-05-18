@@ -975,9 +975,9 @@ const AssignmentsTab = ({
                                     style={{ 
                                       cursor: 'pointer', 
                                       background: isExpanded ? 'linear-gradient(90deg, #eff6ff 0%, #ffffff 100%)' : '#f8fafc', 
-                                      padding: '10px 14px', 
-                                      marginBottom: '6px', 
-                                      borderRadius: '10px',
+                                      padding: '14px 20px', 
+                                      marginBottom: '8px', 
+                                      borderRadius: '12px',
                                       marginLeft: level === 0 ? '0px' : '0px', // We use tree lines now
                                       boxShadow: isExpanded ? '0 2px 8px rgba(0, 0, 0, 0.08)' : 'none',
                                       transition: 'all 0.2s ease',
@@ -987,22 +987,25 @@ const AssignmentsTab = ({
                                     }}
                                   >
                                     <div style={{ 
-                                      fontSize: '22px', 
-                                      width: '36px', 
-                                      height: '36px', 
+                                      fontSize: '30px', 
+                                      width: '44px', 
+                                      height: '44px', 
                                       display: 'flex', 
                                       alignItems: 'center', 
                                       justifyContent: 'center',
                                       background: isExpanded ? '#dbeafe' : '#f1f5f9',
                                       color: isExpanded ? '#2563eb' : '#64748b',
                                       borderRadius: '8px',
-                                      marginRight: '14px'
+                                      marginRight: '14px',
+                                      flexShrink: 0,
+                                      position: 'relative',
+                                      zIndex: 2
                                     }}>
                                       {isExpanded ? '📂' : '📁'}
                                     </div>
                                     <div className="tl-assignment-file-details">
-                                      <div className="tl-assignment-file-name" style={{ fontWeight: '700', fontSize: '14px', color: '#1e293b' }}>{folderName}</div>
-                                      <div className="tl-assignment-file-meta">
+                                      <div className="tl-assignment-file-name" style={{ fontWeight: '700', fontSize: '15.5px', color: '#1e293b' }}>{folderName}</div>
+                                      <div className="tl-assignment-file-meta" style={{ fontSize: '12px' }}>
                                         <span style={{ color: '#64748b', fontWeight: '500' }}>{folderFiles.length} items</span>
                                         {isReference && <span className="tl-badge-reference" style={{ marginLeft: '8px' }}>Reference</span>}
                                         {!isReference && folderFiles.some(f => (f.file?.status || f.status) === 'revision') && (
@@ -1060,22 +1063,23 @@ const AssignmentsTab = ({
                                   style={{ 
                                     cursor: isReference ? 'default' : 'pointer', 
                                     marginLeft: level === 0 ? '0px' : '0px', 
-                                    padding: '10px 16px', 
-                                    marginBottom: '6px',
+                                    padding: '14px 20px', 
+                                    marginBottom: '8px',
                                     flex: 1
                                   }}
                                 >
                                   <FileIcon
                                     fileType={(submission.original_name || submission.file_name || '').split('.').pop()}
-                                    size="small"
+                                    size="default"
+                                    style={{ width: '34px', height: '34px', minWidth: '34px', minHeight: '34px', position: 'relative', zIndex: 2 }}
                                     className="tl-assignment-file-icon"
                                   />
                                   <div className="tl-assignment-file-details">
                                     <div className="tl-assignment-file-name" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '14.5px', fontWeight: '500' }}>{submission.original_name || submission.file_name}</span>
+                                      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '15px', fontWeight: '500' }}>{submission.original_name || submission.file_name}</span>
                                       {isViewed && <span className="tl-viewed-badge">✓ Viewed</span>}
                                     </div>
-                                    <div className="tl-assignment-file-meta">
+                                    <div className="tl-assignment-file-meta" style={{ fontSize: '12px' }}>
                                       {isReference ? (
                                         <span className="tl-badge-reference">Reference Attachment</span>
                                       ) : (
