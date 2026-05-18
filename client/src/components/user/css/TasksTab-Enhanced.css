@@ -1481,3 +1481,69 @@ textarea:focus {
   background-color: #fecaca;
   color: #b91c1c;
 }
+
+/* Hierarchy Tree Lines */
+.tl-tree-container {
+  display: flex;
+  align-items: stretch;
+  position: relative;
+  width: 100%;
+}
+
+.tl-tree-line-vertical {
+  width: 24px;
+  flex-shrink: 0;
+  position: relative;
+}
+
+.tl-tree-line-vertical::before {
+  content: '';
+  position: absolute;
+  left: 12px;
+  top: -24px; /* Connect to previous row */
+  bottom: -24px; /* Connect to next row */
+  width: 1.5px;
+  background-color: #cbd5e1;
+}
+
+.tl-tree-line-empty {
+  width: 24px;
+  flex-shrink: 0;
+}
+
+.tl-tree-line-connector {
+  width: 24px;
+  flex-shrink: 0;
+  position: relative;
+}
+
+.tl-tree-line-connector::before {
+  content: '';
+  position: absolute;
+  left: 12px;
+  top: -24px;
+  bottom: -24px;
+  width: 1.5px;
+  background-color: #cbd5e1;
+}
+
+.tl-tree-line-connector::after {
+  content: '';
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  width: 12px;
+  height: 1.5px;
+  background-color: #cbd5e1;
+}
+
+.tl-tree-line-connector.last-item::before {
+  height: calc(50% + 24px);
+  bottom: auto;
+}
+
+.nested-file-item .tl-tree-line-vertical::before,
+.nested-file-item .tl-tree-line-connector::before,
+.nested-file-item .tl-tree-line-connector::after {
+  background-color: #cbd5e1;
+}

@@ -160,23 +160,6 @@ class FileController {
     });
 
     /**
-     * Approve file by admin (Final Approval)
-     */
-    approveByAdmin = asyncHandler(async (req, res) => {
-        const { id } = req.params;
-        const { comments } = req.body;
-
-        const file = await fileService.approveByAdmin(id, req.user, comments);
-        invalidateCache();
-
-        res.json({
-            success: true,
-            message: 'File final approved by administrator',
-            file
-        });
-    });
-
-    /**
      * Reject file by admin
      */
     rejectByAdmin = asyncHandler(async (req, res) => {
@@ -399,15 +382,6 @@ class FileController {
         const { fileId } = req.body;
         await fileService.openFile(fileId);
         res.json({ success: true, message: 'File opened successfully' });
-    });
-
-    /**
-     * Delete folder
-     */
-    deleteFolder = asyncHandler(async (req, res) => {
-        const { folderName, fileIds } = req.body;
-        await fileService.deleteFolder(folderName, fileIds, req.user);
-        res.json({ success: true, message: `Folder "${folderName}" deleted successfully` });
     });
 
     /**
