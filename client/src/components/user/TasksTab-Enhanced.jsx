@@ -322,25 +322,36 @@ const getFileStatusBadge = (status) => {
   );
 };
 
-const getStatusBadge = (assignment, activeTab = 'my-tasks') => {
+const getStatusBadge = (assignment, activeTab = 'my-tasks', userId = null) => {
   if (assignment.status === 'completed') {
     return <span style={{ backgroundColor: '#F0FDF4', color: '#15803D', padding: '4px 12px', borderRadius: '20px', fontSize: '12px', fontWeight: '600', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>✓ COMPLETED</span>;
   }
   if (assignment.status === 'checked') {
     return <span style={{ backgroundColor: '#EFF6FF', color: '#1D4ED8', padding: '4px 12px', borderRadius: '20px', fontSize: '12px', fontWeight: '600', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>✓ CHECKED</span>;
   }
+  // In My Tasks: only count the current user's own submitted files for badge logic
+  const mySubmittedFiles = activeTab === 'for-checking'
+    ? assignment.submitted_files
+    : (assignment.submitted_files || []).filter(f =>
+        !f.submitter_name
+        || (userId && String(f.user_id) === String(userId))
+        || (userId && String(f.submitter_username) === String(userId))
+      );
   if (assignment.status === 'for_editing') {
     // For Checking tab: checker sees "FOR CHECKING"; My Tasks tab with submitted files: user sees "SUBMITTED"
     if (activeTab === 'for-checking') {
       return <span style={{ backgroundColor: 'transparent', color: '#C2410C', padding: '4px 12px', borderRadius: '20px', fontSize: '12px', fontWeight: '600', display: 'inline-flex', alignItems: 'center', border: '1px solid #FDBA74' }}>FOR CHECKING</span>;
     }
-    if (assignment.submitted_files?.length > 0) {
+    if (mySubmittedFiles?.length > 0) {
       return <span style={{ backgroundColor: '#F0FDF4', color: '#16A34A', padding: '4px 12px', borderRadius: '20px', fontSize: '12px', fontWeight: '600', display: 'inline-flex', alignItems: 'center', gap: '4px', border: '1px solid #86EFAC' }}>✓ SUBMITTED</span>;
     }
     return <span style={{ backgroundColor: '#FEF3C7', color: '#92400E', padding: '4px 12px', borderRadius: '20px', fontSize: '12px', fontWeight: '600', display: 'inline-flex', alignItems: 'center', gap: '4px', border: '1px solid #FCD34D' }}>✎ FOR EDITING</span>;
   }
-  if (assignment.submitted_files?.length > 0) {
-    return <span style={{ backgroundColor: 'transparent', color: '#C2410C', padding: '4px 12px', borderRadius: '20px', fontSize: '12px', fontWeight: '600', display: 'inline-flex', alignItems: 'center', border: '1px solid #FDBA74' }}>FOR CHECKING</span>;
+  if (mySubmittedFiles?.length > 0) {
+    if (activeTab === 'for-checking') {
+      return <span style={{ backgroundColor: 'transparent', color: '#C2410C', padding: '4px 12px', borderRadius: '20px', fontSize: '12px', fontWeight: '600', display: 'inline-flex', alignItems: 'center', border: '1px solid #FDBA74' }}>FOR CHECKING</span>;
+    }
+    return <span style={{ backgroundColor: '#F0FDF4', color: '#16A34A', padding: '4px 12px', borderRadius: '20px', fontSize: '12px', fontWeight: '600', display: 'inline-flex', alignItems: 'center', gap: '4px', border: '1px solid #86EFAC' }}>✓ SUBMITTED</span>;
   }
   if (!assignment.due_date) return null;
   const dueDate = new Date(assignment.due_date);
@@ -1406,9 +1417,15 @@ const TasksTab = memo(({
                         </div>
                       )
                     ) : assignment.submitted_files?.length > 0 ? (
-                      <div style={{ backgroundColor: 'transparent', color: '#C2410C', padding: '6px 12px', borderRadius: '20px', fontSize: '13px', fontWeight: '600', display: 'inline-flex', alignItems: 'center', border: '1.5px solid #FDBA74' }}>
+                      activeTab === 'for-checking' ? (
+                        <div style={{ backgroundColor: 'transparent', color: '#C2410C', padding: '6px 12px', borderRadius: '20px', fontSize: '13px', fontWeight: '600', display: 'inline-flex', alignItems: 'center', border: '1.5px solid #FDBA74' }}>
                           For Checking
                         </div>
+                      ) : (
+                        <div style={{ backgroundColor: '#F0FDF4', color: '#16A34A', padding: '6px 12px', borderRadius: '20px', fontSize: '13px', fontWeight: '600', display: 'inline-flex', alignItems: 'center', gap: '4px', border: '1px solid #86EFAC' }}>
+                          ✓ Submitted
+                        </div>
+                      )
                     ) : (
                       <div style={{ fontSize: '14px', fontWeight: '500', color: '#000000' }}>
                         Due: {assignment.due_date ? formatDate(assignment.due_date) : 'No due date'}
@@ -1429,7 +1446,7 @@ const TasksTab = memo(({
                 )}
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
-                  {getStatusBadge(assignment, activeTab)}
+                  {getStatusBadge(assignment, activeTab, user.id)}
                 </div>
 
                 {/* Team Leader Attachments */}
@@ -1520,7 +1537,19 @@ const TasksTab = memo(({
 
                 {/* Submitted Files */}
                 {assignment.submitted_files?.length > 0 && (() => {
-                  const sortedFiles = [...assignment.submitted_files].sort((a, b) =>
+                  // In My Tasks tab: only show the current user's own submitted files
+                  // In For Checking tab: show all members' files for review
+                  const visibleFiles = activeTab === 'for-checking'
+                    ? assignment.submitted_files
+                    : assignment.submitted_files.filter(f =>
+                        !f.submitter_name // attachment-style files (no submitter_name) always show
+                        || String(f.user_id) === String(user.id)
+                        || String(f.submitter_username) === String(user.username)
+                      );
+
+                  if (visibleFiles.length === 0) return null;
+
+                  const sortedFiles = [...visibleFiles].sort((a, b) =>
                     new Date(b.submitted_at || b.uploaded_at) - new Date(a.submitted_at || a.uploaded_at)
                   );
                   const { folders, individualFiles } = groupFilesByFolder(sortedFiles);
@@ -1549,7 +1578,7 @@ const TasksTab = memo(({
                     <div className="submitted-files-section">
                       <div className="submitted-files-header">
                         <span style={{ fontSize: '16px' }}>📎</span>
-                        Submitted Files ({assignment.submitted_files.length}):
+                        Submitted Files ({visibleFiles.length}):
                       </div>
 
                       {displayFolders.map(folderName => {

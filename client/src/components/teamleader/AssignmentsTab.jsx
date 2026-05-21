@@ -888,20 +888,6 @@ const AssignmentsTab = ({
                           );
                         })()} 
                       </div>
-                    ) : assignment.status === 'for_editing' ? (
-                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px' }}>
-                        <div style={{ backgroundColor: '#FEF3C7', color: '#92400E', padding: '6px 12px', borderRadius: '20px', fontSize: '13px', fontWeight: '600', display: 'inline-flex', alignItems: 'center', gap: '4px', border: '1px solid #FCD34D' }}>
-                          ✎ For Editing
-                        </div>
-                        {(assignment.due_date || assignment.dueDate) && (
-                          <div className="tl-assignment-due-date" style={{ fontSize: '12px' }}>
-                            Due {formatDate(assignment.due_date || assignment.dueDate)}
-                            <span className="tl-assignment-days-left" style={{ color: getStatusColor(assignment.due_date || assignment.dueDate) }}>
-                              {' '}({formatDaysLeft(assignment.due_date || assignment.dueDate)})
-                            </span>
-                          </div>
-                        )}
-                      </div>
                     ) : assignment.recent_submissions?.length > 0 ? (
                       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px' }}>
                         <div style={{ backgroundColor: 'transparent', color: '#C2410C', padding: '6px 12px', borderRadius: '20px', fontSize: '13px', fontWeight: '600', display: 'inline-flex', alignItems: 'center', border: '1.5px solid #FDBA74' }}>
@@ -1097,6 +1083,25 @@ const AssignmentsTab = ({
                                             Checked ({folderFiles.filter(f => (f.file?.status || f.status) === 'checked').length})
                                           </span>
                                         )}
+                                        {!isReference && (() => {
+                                          const rejectedCount = folderFiles.filter(f => {
+                                            const s = f.file?.status || f.status;
+                                            return s === 'rejected' || s === 'rejected_by_team_leader' || s === 'rejected_by_admin';
+                                          }).length;
+                                          return rejectedCount > 0 ? (
+                                            <span style={{ marginLeft: '8px', background: '#FEE2E2', color: '#DC2626', padding: '2px 8px', borderRadius: '10px', fontSize: '11px', fontWeight: '600', border: '1px solid #FECACA' }}>
+                                              ✕ Rejected ({rejectedCount})
+                                            </span>
+                                          ) : null;
+                                        })()}
+                                        {!isReference && (() => {
+                                          const pendingAdminCount = folderFiles.filter(f => (f.file?.status || f.status) === 'team_leader_approved').length;
+                                          return pendingAdminCount > 0 ? (
+                                            <span style={{ marginLeft: '8px', background: '#EFF6FF', color: '#1D4ED8', padding: '2px 8px', borderRadius: '10px', fontSize: '11px', fontWeight: '600', border: '1px solid #BFDBFE' }}>
+                                              Pending Admin ({pendingAdminCount})
+                                            </span>
+                                          ) : null;
+                                        })()}
                                       </div>
                                     </div>
                                     <div className="tl-folder-menu-wrapper" style={{ marginLeft: 'auto' }}>

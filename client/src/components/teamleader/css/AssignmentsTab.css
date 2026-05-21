@@ -528,6 +528,18 @@
   color: #92400e;
 }
 
+.tl-assignment-file-status.team_leader_approved {
+  background: #EFF6FF;
+  color: #1D4ED8;
+  border: 1px solid #BFDBFE;
+}
+
+.tl-assignment-file-status.checked {
+  background: #DCFCE7;
+  color: #15803D;
+  border: 1px solid #BBF7D0;
+}
+
 .tl-assignment-file-status.final-approved,
 .tl-assignment-file-status.final_approved {
   background: #dcfce7;

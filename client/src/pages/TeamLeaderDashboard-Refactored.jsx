@@ -214,6 +214,7 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
           if (now - lastFetch < 5000) return
           lastFetch = now
           fetchNotifications()
+          fetchAssignments()  // refresh assignments so new member submissions appear instantly
         }
       }
       es.onerror = () => {

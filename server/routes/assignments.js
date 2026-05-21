@@ -1450,8 +1450,13 @@ router.put('/:assignmentId/assign-checker', authenticateToken, authorizeRole(['T
     const { checkerIds, checkerNames } = req.body; // arrays
     if (!assignmentId) return res.status(400).json({ success: false, message: 'Missing assignmentId' });
 
-    const ids = Array.isArray(checkerIds) ? checkerIds : [];
+    const ids = Array.isArray(checkerIds) ? checkerIds.map(String) : [];
     const names = Array.isArray(checkerNames) ? checkerNames : [];
+
+    // Fetch current checker_ids BEFORE updating so we know who was removed
+    const current = await queryOne('SELECT checker_ids, title, team_leader_id, team_leader_username FROM assignments WHERE id = ?', [assignmentId]);
+    const previousIds = (() => { try { return JSON.parse(current?.checker_ids || '[]').map(String); } catch { return []; } })();
+    const removedIds = previousIds.filter(id => !ids.includes(id));
 
     await query('UPDATE assignments SET checker_ids = ?, checker_names = ? WHERE id = ?', [
       ids.length ? JSON.stringify(ids) : null,
@@ -1459,21 +1464,37 @@ router.put('/:assignmentId/assign-checker', authenticateToken, authorizeRole(['T
       assignmentId
     ]);
 
+    const assignment = current; // already fetched above
+
     // Notify each newly assigned checker
-    if (ids.length > 0) {
-      const assignment = await queryOne('SELECT title, team_leader_id, team_leader_username FROM assignments WHERE id = ?', [assignmentId]);
-      if (assignment) {
-        for (const checkerId of ids) {
-          try {
-            await query(
-              'INSERT INTO notifications (user_id, assignment_id, file_id, type, title, message, action_by_id, action_by_username, action_by_role) VALUES (?,?,?,?,?,?,?,?,?)',
-              [checkerId, assignmentId, null, 'assignment', 'You have been assigned as Checker',
-                `${assignment.team_leader_username} assigned you to check the submitted files for "${assignment.title}".`,
-                assignment.team_leader_id, assignment.team_leader_username, 'TEAM_LEADER']
-            );
-            pushToUser(checkerId);
-          } catch (e) { console.warn('Checker notification failed:', e.message); }
-        }
+    if (ids.length > 0 && assignment) {
+      // Only notify checkers who are genuinely NEW (not already in previousIds)
+      const newCheckerIds = ids.filter(id => !previousIds.includes(id));
+      for (const checkerId of newCheckerIds) {
+        try {
+          await query(
+            'INSERT INTO notifications (user_id, assignment_id, file_id, type, title, message, action_by_id, action_by_username, action_by_role) VALUES (?,?,?,?,?,?,?,?,?)',
+            [checkerId, assignmentId, null, 'assignment', 'You have been assigned as Checker',
+              `${assignment.team_leader_username} assigned you to check the submitted files for "${assignment.title}".`,
+              assignment.team_leader_id, assignment.team_leader_username, 'TEAM_LEADER']
+          );
+          pushToUser(checkerId);
+        } catch (e) { console.warn('Checker assigned notification failed:', e.message); }
+      }
+    }
+
+    // Notify each removed checker
+    if (removedIds.length > 0 && assignment) {
+      for (const removedId of removedIds) {
+        try {
+          await query(
+            'INSERT INTO notifications (user_id, assignment_id, file_id, type, title, message, action_by_id, action_by_username, action_by_role) VALUES (?,?,?,?,?,?,?,?,?)',
+            [removedId, assignmentId, null, 'assignment', 'You have been removed as Checker',
+              `${assignment.team_leader_username} removed you as a checker for "${assignment.title}".`,
+              assignment.team_leader_id, assignment.team_leader_username, 'TEAM_LEADER']
+          );
+          pushToUser(removedId);
+        } catch (e) { console.warn('Checker removed notification failed:', e.message); }
       }
     }
 
