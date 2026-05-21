@@ -223,6 +223,12 @@ const NotificationTab = ({ user, onOpenFile, onNavigateToTasks, onNavigate, onUp
         return <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="file-icon-svg"><path d="M3 3h14a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H6l-3 3V4a1 1 0 0 1 1-1z" /></svg>;
       case 'assignment':
         return <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="file-icon-svg"><path d="M12 2H4a1.5 1.5 0 0 0-1.5 1.5v13A1.5 1.5 0 0 0 4 18h10a1.5 1.5 0 0 0 1.5-1.5V6l-3.5-4z" /><path d="M12 2v4h3.5" /><path d="M6 10h6M6 13h6" /></svg>;
+      case 'submission':
+        return <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="file-icon-svg"><path d="M12 2H4a1.5 1.5 0 0 0-1.5 1.5v13A1.5 1.5 0 0 0 4 18h10a1.5 1.5 0 0 0 1.5-1.5V6l-3.5-4z" /><path d="M12 2v4h3.5" /><path d="M10 7v6M7 10l3-3 3 3" /></svg>;
+      case 'checker_done':
+        return <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="file-icon-svg"><circle cx="10" cy="10" r="8.5" /><path d="M6 10l2.5 2.5 5.5-5.5" /></svg>;
+      case 'revision_request': case 'for_editing':
+        return <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="file-icon-svg"><path d="M11 4H4a1.5 1.5 0 0 0-1.5 1.5v10A1.5 1.5 0 0 0 4 17h10a1.5 1.5 0 0 0 1.5-1.5V9" /><path d="M16.5 2.5a1.5 1.5 0 0 1 0 2.1L9 12l-3 1 1-3 7.5-7.5a1.5 1.5 0 0 1 2.1 0z" /></svg>;
       default:
         return <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="file-icon-svg"><path d="M12 2H4a1.5 1.5 0 0 0-1.5 1.5v13A1.5 1.5 0 0 0 4 18h10a1.5 1.5 0 0 0 1.5-1.5V6l-3.5-4z" /><path d="M12 2v4h3.5" /></svg>;
     }
@@ -233,7 +239,9 @@ const NotificationTab = ({ user, onOpenFile, onNavigateToTasks, onNavigate, onUp
       case 'approval': case 'final_approval': return 'notification-success';
       case 'rejection': case 'final_rejection': return 'notification-error';
       case 'comment': case 'mention': return 'notification-info';
-      case 'assignment': return 'notification-assignment';
+      case 'assignment': case 'submission': return 'notification-assignment';
+      case 'checker_done': return 'notification-success';
+      case 'revision_request': case 'for_editing': return 'notification-warning';
       default: return 'notification-default';
     }
   }, []);

@@ -108,6 +108,35 @@ export function parseNotification(notification, role) {
         };
     }
 
+    // CHECKER DONE NOTIFICATIONS — navigate to tasks/assignments and highlight the assignment
+    if (notification.type === 'checker_done') {
+        if (notification.assignment_id) {
+            return {
+                targetTab: tabs.tasks,
+                context: {
+                    assignmentId: notification.assignment_id,
+                    fileId: notification.file_id || null,
+                    shouldOpenComments: false
+                },
+                notificationType: 'checker_done'
+            };
+        }
+    }
+
+    // REVISION REQUEST / FOR EDITING — navigate to tasks so user can fix and resubmit
+    if (notification.type === 'revision_request' || notification.type === 'for_editing') {
+        if (notification.assignment_id) {
+            return {
+                targetTab: tabs.tasks,
+                context: {
+                    assignmentId: notification.assignment_id,
+                    shouldOpenComments: false
+                },
+                notificationType: 'revision_request'
+            };
+        }
+    }
+
     // ATTACHMENT / TASK-RELATED NOTIFICATIONS with no specific type
     if (
         notification.type === 'attachment' ||

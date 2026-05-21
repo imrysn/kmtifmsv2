@@ -89,7 +89,7 @@ const getAssignmentStatus = (assignment) => {
 };
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
-const FileMoreMenuInline = memo(({ onDelete, onViewDetails, onOpenPath, isFolder = false }) => {
+const FileMoreMenuInline = memo(({ onDelete, onViewDetails, onOpenPath, isFolder = false, onMarkForEditing, onDoneChecking }) => {
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
 
@@ -100,7 +100,7 @@ const FileMoreMenuInline = memo(({ onDelete, onViewDetails, onOpenPath, isFolder
     return () => document.removeEventListener('mousedown', handler);
   }, [open]);
 
-  if (!onDelete && !onViewDetails) return null;
+  if (!onDelete && !onViewDetails && !onMarkForEditing && !onDoneChecking) return null;
 
   return (
     <div ref={ref} style={{ position: 'relative', flexShrink: 0 }}>
@@ -126,7 +126,7 @@ const FileMoreMenuInline = memo(({ onDelete, onViewDetails, onOpenPath, isFolder
             position: 'absolute', right: 0, top: '34px', zIndex: 1000,
             backgroundColor: '#fff', border: '1px solid #e5e7eb',
             borderRadius: '8px', boxShadow: '0 4px 16px rgba(0,0,0,0.12)',
-            minWidth: '160px', overflow: 'hidden',
+            minWidth: '180px', overflow: 'hidden',
           }}
         >
           {onViewDetails && (
@@ -162,6 +162,46 @@ const FileMoreMenuInline = memo(({ onDelete, onViewDetails, onOpenPath, isFolder
               </svg>
               {isFolder ? 'Open Folder Path' : 'Open File Path'}
             </button>
+          )}
+          {(onMarkForEditing || onDoneChecking) && (onViewDetails || onOpenPath || onDelete) && (
+            <div style={{ height: '1px', backgroundColor: '#f3f4f6', margin: '2px 0' }} />
+          )}
+          {onMarkForEditing && (
+            <button
+              onClick={() => { setOpen(false); onMarkForEditing(); }}
+              style={{
+                width: '100%', textAlign: 'left', background: 'none', border: 'none',
+                padding: '10px 14px', fontSize: '13px', color: '#92400E',
+                cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', fontWeight: '600',
+              }}
+              onMouseEnter={e => { e.currentTarget.style.backgroundColor = '#FEF3C7'; }}
+              onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; }}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/>
+              </svg>
+              Mark as For Editing
+            </button>
+          )}
+          {onDoneChecking && (
+            <button
+              onClick={() => { setOpen(false); onDoneChecking(); }}
+              style={{
+                width: '100%', textAlign: 'left', background: 'none', border: 'none',
+                padding: '10px 14px', fontSize: '13px', color: '#1D4ED8',
+                cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', fontWeight: '600',
+              }}
+              onMouseEnter={e => { e.currentTarget.style.backgroundColor = '#EFF6FF'; }}
+              onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; }}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="20 6 9 17 4 12"/>
+              </svg>
+              Done Checking
+            </button>
+          )}
+          {onDelete && (onMarkForEditing || onDoneChecking) && (
+            <div style={{ height: '1px', backgroundColor: '#f3f4f6', margin: '2px 0' }} />
           )}
           {onDelete && (
             <button
@@ -264,6 +304,7 @@ AttachmentMoreMenu.displayName = 'AttachmentMoreMenu';
 
 const getFileStatusBadge = (status) => {
   const badges = {
+    new:      { bg: '#1d4ed8', color: '#fff', label: 'New', radius: '20px' },
     uploaded: { bg: '#1d4ed8', color: '#fff', label: 'New', radius: '20px' },
     team_leader_approved: { bg: '#fef9c3', color: '#92400e', label: 'Pending Admin', radius: '20px' },
     final_approved: { bg: '#d1fae5', color: '#065f46', label: '✓ APPROVED', radius: '4px', weight: '600' },
@@ -271,6 +312,7 @@ const getFileStatusBadge = (status) => {
     rejected_by_admin: { bg: '#ffe4e6', color: '#be123c', label: 'Rejected', radius: '20px' },
     under_revision: { bg: '#fef3c7', color: '#92400e', label: '✎ REVISED', radius: '4px', weight: '600' },
     revision: { bg: '#fef9c3', color: '#854d0e', label: '✎ REVISION', radius: '4px', weight: '600' },
+    checked: { bg: '#EFF6FF', color: '#1D4ED8', label: '✓ CHECKED', radius: '4px', weight: '600' },
   };
   const b = badges[status] || badges.uploaded;
   return (
@@ -280,23 +322,32 @@ const getFileStatusBadge = (status) => {
   );
 };
 
-const getStatusBadge = (assignment) => {
-  // ONLY show Completed if TL/admin explicitly marked the task done
+const getStatusBadge = (assignment, activeTab = 'my-tasks') => {
   if (assignment.status === 'completed') {
     return <span style={{ backgroundColor: '#F0FDF4', color: '#15803D', padding: '4px 12px', borderRadius: '20px', fontSize: '12px', fontWeight: '600', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>✓ COMPLETED</span>;
   }
-  // Show SUBMITTED if user has uploaded files (pending review)
+  if (assignment.status === 'checked') {
+    return <span style={{ backgroundColor: '#EFF6FF', color: '#1D4ED8', padding: '4px 12px', borderRadius: '20px', fontSize: '12px', fontWeight: '600', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>✓ CHECKED</span>;
+  }
+  if (assignment.status === 'for_editing') {
+    // For Checking tab: checker sees "FOR CHECKING"; My Tasks tab with submitted files: user sees "SUBMITTED"
+    if (activeTab === 'for-checking') {
+      return <span style={{ backgroundColor: 'transparent', color: '#C2410C', padding: '4px 12px', borderRadius: '20px', fontSize: '12px', fontWeight: '600', display: 'inline-flex', alignItems: 'center', border: '1px solid #FDBA74' }}>FOR CHECKING</span>;
+    }
+    if (assignment.submitted_files?.length > 0) {
+      return <span style={{ backgroundColor: '#F0FDF4', color: '#16A34A', padding: '4px 12px', borderRadius: '20px', fontSize: '12px', fontWeight: '600', display: 'inline-flex', alignItems: 'center', gap: '4px', border: '1px solid #86EFAC' }}>✓ SUBMITTED</span>;
+    }
+    return <span style={{ backgroundColor: '#FEF3C7', color: '#92400E', padding: '4px 12px', borderRadius: '20px', fontSize: '12px', fontWeight: '600', display: 'inline-flex', alignItems: 'center', gap: '4px', border: '1px solid #FCD34D' }}>✎ FOR EDITING</span>;
+  }
   if (assignment.submitted_files?.length > 0) {
-    return <span style={{ backgroundColor: '#F0FDF4', color: '#15803D', padding: '4px 12px', borderRadius: '20px', fontSize: '12px', fontWeight: '600', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>✓ SUBMITTED</span>;
+    return <span style={{ backgroundColor: 'transparent', color: '#C2410C', padding: '4px 12px', borderRadius: '20px', fontSize: '12px', fontWeight: '600', display: 'inline-flex', alignItems: 'center', border: '1px solid #FDBA74' }}>FOR CHECKING</span>;
   }
   if (!assignment.due_date) return null;
-
   const dueDate = new Date(assignment.due_date);
   const now = new Date();
   dueDate.setHours(0, 0, 0, 0);
   now.setHours(0, 0, 0, 0);
   const daysUntilDue = Math.ceil((dueDate - now) / (1000 * 60 * 60 * 24));
-
   if (assignment.user_status === 'submitted' && !assignment.submitted_files?.length) {
     return <span style={{ backgroundColor: '#FEF3C7', color: '#92400E', padding: '4px 12px', borderRadius: '20px', fontSize: '12px', fontWeight: '600', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>⚠ MISSING</span>;
   }
@@ -322,6 +373,9 @@ const TasksTab = memo(({
   // Core data
   const [assignments, setAssignments] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
+
+  // Tab toggle: 'my-tasks' | 'for-checking'
+  const [activeTab, setActiveTab] = useState('my-tasks');
 
   // UI state
   const [sortFilter, setSortFilter] = useState('all');
@@ -364,6 +418,19 @@ const TasksTab = memo(({
   // File Details modal
   const [showFileDetailsModal, setShowFileDetailsModal] = useState(false);
   const [fileDetailsTarget, setFileDetailsTarget] = useState(null);
+
+  // Checker three-dot menu
+  const [checkerMenuOpen, setCheckerMenuOpen] = useState(null); // assignmentId
+  const checkerMenuRef = useRef(null);
+
+  useEffect(() => {
+    if (!checkerMenuOpen) return;
+    const handler = (e) => {
+      if (checkerMenuRef.current && !checkerMenuRef.current.contains(e.target)) setCheckerMenuOpen(null);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [checkerMenuOpen]);
 
   // Refs
   const fileInputRef = useRef(null);
@@ -420,6 +487,57 @@ const TasksTab = memo(({
       setIsLoading(false);
     }
   }, [user.id, showError]);
+
+  // ─── Checker actions (must be after fetchAssignments & showError) ────────────
+  const handleMarkForEditing = useCallback(async (assignment, fileId = null) => {
+    setCheckerMenuOpen(null);
+    try {
+      const data = await apiFetch(`/api/assignments/${assignment.id}/mark-for-editing`, {
+        method: 'PUT',
+        body: JSON.stringify({ checkerId: user.id, checkerName: user.fullName || user.username, fileId }),
+      });
+      if (data.success) {
+        setSuccessModal({ isOpen: true, title: 'Status Updated', message: 'Marked as For Editing — user has been notified.', type: 'success' });
+        fetchAssignments();
+      } else { showError(data.message || 'Failed to update status'); }
+    } catch { showError('Failed to update status'); }
+  }, [user, fetchAssignments, showError]);
+
+  const handleMarkChecked = useCallback(async (assignment) => {
+    setCheckerMenuOpen(null);
+    try {
+      const data = await apiFetch(`/api/assignments/${assignment.id}/mark-checked`, {
+        method: 'PUT',
+        body: JSON.stringify({ checkerId: user.id, checkerName: user.fullName || user.username }),
+      });
+      if (data.success) {
+        setSuccessModal({ isOpen: true, title: 'Review Complete', message: `Done Checked by: ${user.fullName || user.username}. Team Leader has been notified.`, type: 'success' });
+        fetchAssignments();
+      } else { showError(data.message || 'Failed to update status'); }
+    } catch { showError('Failed to update status'); }
+  }, [user, fetchAssignments, showError]);
+
+  const handleMarkFileChecked = useCallback(async (assignment, fileId) => {
+    setCheckerMenuOpen(null);
+    if (!fileId) { showError('Cannot mark file: file ID is missing.'); return; }
+    try {
+      const data = await apiFetch(`/api/assignments/${assignment.id}/files/${fileId}/mark-file-checked`, {
+        method: 'PUT',
+        body: JSON.stringify({ checkerId: user.id, checkerName: user.fullName || user.username }),
+      });
+      if (data.success) {
+        if (data.allChecked) {
+          setSuccessModal({ isOpen: true, title: 'All Files Checked', message: `All files checked — Team Leader has been notified.`, type: 'success' });
+        } else {
+          setSuccessModal({ isOpen: true, title: 'File Checked', message: 'File marked as Checked.', type: 'success' });
+        }
+        await fetchAssignments();
+      } else { showError(data.message || 'Failed to update file status'); }
+    } catch (err) {
+      console.error('handleMarkFileChecked error:', err);
+      showError(err?.message || 'Failed to update file status');
+    }
+  }, [user, fetchAssignments, showError]);
 
   // ─── Session storage scroll-to on mount ────────────────────────────────────
   const openCommentsModal = useCallback((assignment) => {
@@ -708,23 +826,13 @@ const TasksTab = memo(({
     setUploadProgress(0);
 
     try {
-      // Build relative paths for every file.
-      // f.relativePath already holds the full path (e.g. "ParentFolder/SubFolder/file.txt")
-      // from either webkitRelativePath or the drag-drop readAllFilesFromEntry helper.
-      // Only when the user picked an existing targetFolder do we need to prepend it
-      // (but only for individual files that don't already have a folder prefix).
       const allPaths = uploadedFiles.map(f => {
         if (targetFolder) {
-          // Prepend the target folder only if the file doesn't already have its own folder
           return f.folderName ? f.relativePath : `${targetFolder}/${f.file.name}`;
         }
-        // Use the full relative path as-is to preserve nested folder structure
         return f.relativePath;
       });
 
-      // Send ALL files in a single multipart request.
-      // The field name MUST be 'files' — that's what
-      // upload.array('files', 10000) on /api/files/bulk-upload expects.
       const fd = new FormData();
       fd.append('userId', user.id);
       fd.append('username', user.username);
@@ -734,13 +842,11 @@ const TasksTab = memo(({
       fd.append('relativePaths', JSON.stringify(allPaths));
       uploadedFiles.forEach(f => fd.append('files', f.file));
 
-      // Cap upload XHR progress at 99% so bar stays visible while server processes
       const result = await uploadWithProgress(
         '/api/files/bulk-upload',
         fd,
         { onProgress: (p) => setUploadProgress(Math.min(p, 99)) }
       );
-      // Now server has responded — jump to 100%
       setUploadProgress(100);
 
       if (result.success) {
@@ -801,10 +907,8 @@ const TasksTab = memo(({
 
   const openFileDetails = useCallback(async (file) => {
     try {
-      // Use apiFetch to ensure Authorization headers are included
       const data = await apiFetch(`/api/files/${file.id}`);
       const fileData = data.file || file;
-      // Preserve assignment_title if passed in (from notification path or from tasks data)
       if (file.assignment_title && !fileData.assignment_title) {
         fileData.assignment_title = file.assignment_title;
       }
@@ -816,13 +920,11 @@ const TasksTab = memo(({
     setShowFileDetailsModal(true);
   }, []);
 
-  // Open FileModal when navigated from a notification
   useEffect(() => {
     const fileId = sessionStorage.getItem('openFileDetailsId');
     if (!fileId || assignments.length === 0) return;
     sessionStorage.removeItem('openFileDetailsId');
 
-    // Find assignment title from already-loaded assignments
     const fid = parseInt(fileId);
     let assignmentTitle = null;
     for (const a of assignments) {
@@ -837,21 +939,33 @@ const TasksTab = memo(({
 
   const openFolderInExplorer = useCallback(async (fileId, isAttachment = true, folderName = 'Folder Path') => {
     if (!window.electron?.openFolderInExplorer) return;
-    
-    // Instead of showing SuccessModal directly, show confirmation modal
     setFileToOpen({ id: fileId, isAttachment, folderName });
     setOpenModalType('folder');
     setShowOpenFileModal(true);
   }, []);
 
   // ─── Sorted + Filtered assignments ────────────────────────────────────────
+  const myTaskAssignments = useMemo(() => {
+    return assignments.filter(a => {
+      const isAssigned = a.assigned_to === 'all' || (a.assigned_member_details || []).some(m => String(m.id) === String(user.id))
+      return isAssigned
+    })
+  }, [assignments, user.id])
+
+  const forCheckingAssignments = useMemo(() => {
+    return assignments.filter(a => {
+      const checkerIds = (() => { try { return JSON.parse(a.checker_ids || '[]').map(String) } catch { return [] } })()
+      return checkerIds.includes(String(user.id))
+    })
+  }, [assignments, user.id])
+
   const filteredAssignments = useMemo(() => {
-    const sorted = [...assignments].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+    const base = activeTab === 'for-checking' ? forCheckingAssignments : myTaskAssignments
+    const sorted = [...base].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
     if (sortFilter === 'all') return sorted;
     return sorted.filter(a => getAssignmentStatus(a) === sortFilter);
-  }, [assignments, sortFilter]);
+  }, [myTaskAssignments, forCheckingAssignments, activeTab, sortFilter]);
 
-  // ─── Filter counts for badge ───────────────────────────────────────────────
   const filterCounts = useMemo(() => {
     const counts = { all: assignments.length, completed: 0, overdue: 0, no_due_date: 0 };
     for (const a of assignments) {
@@ -863,7 +977,6 @@ const TasksTab = memo(({
     return counts;
   }, [assignments]);
 
-  // ─── Drag-and-drop file reader helper ────────────────────────────────────
   const readAllFilesFromEntry = (entry, basePath = '') => new Promise((resolve) => {
     if (entry.isFile) {
       entry.file(file => resolve([{ file, relativePath: basePath + file.name, folderName: basePath ? basePath.split('/')[0] : null }]), () => resolve([]));
@@ -889,14 +1002,17 @@ const TasksTab = memo(({
     const tlApproved = folderFiles.filter(f => f.status === 'team_leader_approved').length;
     const rejected = folderFiles.filter(f => ['rejected_by_team_leader', 'rejected_by_admin'].includes(f.status)).length;
     const revision = folderFiles.filter(f => f.status === 'revision').length;
-    const pending = folderFiles.filter(f => !f.status || f.status === 'uploaded' || f.status === 'revision').length;
+    const checked = folderFiles.filter(f => f.status === 'checked').length;
+    const pending = folderFiles.filter(f => !f.status || f.status === 'uploaded').length;
 
     if (approved === total) return <span style={{ background: '#d1fae5', color: '#065f46', padding: '2px 8px', borderRadius: '10px', fontSize: '11px', fontWeight: '600' }}>✓ All Approved</span>;
+    if (checked === total) return <span style={{ background: '#EFF6FF', color: '#1D4ED8', padding: '2px 8px', borderRadius: '10px', fontSize: '11px', fontWeight: '600' }}>✓ All Checked</span>;
     if (rejected === total) return <span style={{ background: '#ffe4e6', color: '#be123c', padding: '2px 8px', borderRadius: '20px', fontSize: '11px', fontWeight: '500' }}>All Rejected</span>;
 
     return (
       <>
         {revision > 0 && <span style={{ background: '#fef9c3', color: '#854d0e', padding: '2px 8px', borderRadius: '10px', fontSize: '11px', fontWeight: '600', border: '1px solid #fef08a', marginRight: '4px' }}>Revision ({revision})</span>}
+        {checked > 0 && checked < total && <span style={{ background: '#EFF6FF', color: '#1D4ED8', padding: '2px 8px', borderRadius: '10px', fontSize: '11px', fontWeight: '600', marginRight: '4px' }}>Checked ({checked})</span>}
         {(tlApproved > 0 || (approved > 0 && !pending && !rejected)) && <span style={{ background: '#fef9c3', color: '#92400e', padding: '2px 8px', borderRadius: '10px', fontSize: '11px', fontWeight: '500', marginRight: '4px' }}>Pending Admin</span>}
         {pending > 0 && revision === 0 && <span style={{ background: '#e0e7ff', color: '#3730a3', padding: '2px 8px', borderRadius: '10px', fontSize: '11px', fontWeight: '600', marginRight: '4px' }}>Pending Review</span>}
         {rejected > 0 && <span style={{ background: '#ffe4e6', color: '#be123c', padding: '2px 8px', borderRadius: '20px', fontSize: '11px', fontWeight: '500', marginRight: '4px' }}>{rejected} Rejected</span>}
@@ -905,7 +1021,7 @@ const TasksTab = memo(({
     );
   };
 
-  const renderFileCard = (file, assignmentId, indented = false, assignmentTitle = null, isAttachment = false) => {
+  const renderFileCard = (file, assignmentId, indented = false, assignmentTitle = null, isAttachment = false, checkerActions = null) => {
     const canDelete = file.status !== 'final_approved';
     const fileWithTitle = assignmentTitle ? { ...file, assignment_title: assignmentTitle } : file;
     return (
@@ -938,6 +1054,8 @@ const TasksTab = memo(({
               onViewDetails={() => openFileDetails(fileWithTitle)}
               onOpenPath={() => openFolderInExplorer(file.id, false)}
               onDelete={canDelete ? () => confirmDeleteFile(assignmentId, file.id, file.original_name || file.filename) : undefined}
+              onMarkForEditing={checkerActions?.onMarkForEditing ? () => checkerActions.onMarkForEditing(file.id) : undefined}
+              onDoneChecking={checkerActions?.onDoneChecking ? () => checkerActions.onDoneChecking(file.id) : undefined}
             />
           </div>
         </div>
@@ -945,7 +1063,7 @@ const TasksTab = memo(({
     );
   };
 
-  const renderRecursiveItems = (assignment, files, level = 1, parentKey = '', parentIsLastArr = [], isAttachment = true) => {
+  const renderRecursiveItems = (assignment, files, level = 1, parentKey = '', parentIsLastArr = [], isAttachment = true, checkerActions = null) => {
     const { subfolders, rootFiles } = recursiveGroupByPath(files);
     const subItems = [];
 
@@ -997,7 +1115,7 @@ const TasksTab = memo(({
               </div>
             </div>
           </div>
-          {isSubOpen && renderRecursiveItems(assignment, subFiles, level + 1, subKey, [...parentIsLastArr, isLast], isAttachment)}
+          {isSubOpen && renderRecursiveItems(assignment, subFiles, level + 1, subKey, [...parentIsLastArr, isLast], isAttachment, checkerActions)}
         </div>
       );
     });
@@ -1083,6 +1201,8 @@ const TasksTab = memo(({
                     onViewDetails={() => openFileDetails(fileWithTitle)}
                     onOpenPath={() => openFolderInExplorer(file.id, false)}
                     onDelete={canDelete ? () => confirmDeleteFile(assignment.id, file.id, file.original_name || file.filename) : undefined}
+                    onMarkForEditing={checkerActions?.onMarkForEditing ? () => checkerActions.onMarkForEditing(file.id) : undefined}
+                    onDoneChecking={checkerActions?.onDoneChecking ? () => checkerActions.onDoneChecking(file.id) : undefined}
                   />
                 </div>
               </div>
@@ -1100,54 +1220,84 @@ const TasksTab = memo(({
     <div className="tasks-container">
       {/* Header */}
       <div className="tasks-header">
-        <div className="tasks-header-content" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
-          <div>
-            <h1>My Tasks</h1>
-            <p className="tasks-subtitle" style={{ margin: 0 }}>{assignments.length} assignment{assignments.length !== 1 ? 's' : ''}</p>
+        <div className="tasks-header-content">
+          <div style={{ marginBottom: '12px' }}>
+            <h1 style={{ margin: 0 }}>My Tasks</h1>
+            <p className="tasks-subtitle" style={{ margin: '2px 0 0' }}>
+              {activeTab === 'for-checking'
+                ? `${forCheckingAssignments.length} task${forCheckingAssignments.length !== 1 ? 's' : ''} to check`
+                : `${myTaskAssignments.length} assignment${myTaskAssignments.length !== 1 ? 's' : ''}`}
+            </p>
           </div>
 
-          {/* ── Sort Dropdown ── */}
-          <div style={{ position: 'relative' }}>
-            <select
-              value={sortFilter}
-              onChange={e => setSortFilter(e.target.value)}
-              style={{
-                appearance: 'none',
-                WebkitAppearance: 'none',
-                padding: '5px 30px 5px 12px',
-                borderRadius: '20px',
-                border: '1.5px solid #d1d5db',
-                backgroundColor: '#ffffff',
-                color: '#374151',
-                fontSize: '13px',
-                fontWeight: '500',
-                cursor: 'pointer',
-                outline: 'none',
-                boxShadow: '0 1px 2px rgba(0,0,0,0.06)',
-                transition: 'border-color 0.15s',
-              }}
-              onFocus={e => { e.currentTarget.style.borderColor = '#9ca3af'; }}
-              onBlur={e => { e.currentTarget.style.borderColor = '#d1d5db'; }}
-            >
-              {SORT_OPTIONS.map(opt => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label} ({filterCounts[opt.value] ?? 0})
-                </option>
-              ))}
-            </select>
-            {/* chevron icon */}
-            <svg
-              width="12" height="12" viewBox="0 0 24 24" fill="none"
-              stroke="#6b7280" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
-              style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}
-            >
-              <polyline points="6 9 12 15 18 9" />
-            </svg>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px' }}>
+            <div style={{
+              display: 'flex', alignItems: 'center',
+              border: '1.5px solid #d1d5db', borderRadius: '8px',
+              overflow: 'hidden', backgroundColor: '#f9fafb',
+            }}>
+              <button
+                onClick={() => setActiveTab('my-tasks')}
+                style={{
+                  padding: '7px 20px', border: 'none', cursor: 'pointer',
+                  fontSize: '13px', fontWeight: activeTab === 'my-tasks' ? '700' : '500',
+                  transition: 'all 0.18s',
+                  background: activeTab === 'my-tasks' ? '#ffffff' : 'transparent',
+                  color: activeTab === 'my-tasks' ? '#111827' : '#9ca3af',
+                  borderRight: '1.5px solid #d1d5db',
+                  boxShadow: activeTab === 'my-tasks' ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
+                }}
+              >
+                My Tasks
+              </button>
+              <button
+                onClick={() => setActiveTab('for-checking')}
+                style={{
+                  padding: '7px 20px', border: 'none', cursor: 'pointer',
+                  fontSize: '13px', fontWeight: activeTab === 'for-checking' ? '700' : '500',
+                  transition: 'all 0.18s',
+                  background: activeTab === 'for-checking' ? '#ffffff' : 'transparent',
+                  color: activeTab === 'for-checking' ? '#111827' : '#9ca3af',
+                  boxShadow: activeTab === 'for-checking' ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
+                }}
+              >
+                For Checking
+              </button>
+            </div>
+
+            <div style={{ position: 'relative' }}>
+              <select
+                value={sortFilter}
+                onChange={e => setSortFilter(e.target.value)}
+                style={{
+                  appearance: 'none', WebkitAppearance: 'none',
+                  padding: '5px 30px 5px 12px', borderRadius: '20px',
+                  border: '1.5px solid #d1d5db', backgroundColor: '#ffffff',
+                  color: '#374151', fontSize: '13px', fontWeight: '500',
+                  cursor: 'pointer', outline: 'none',
+                  boxShadow: '0 1px 2px rgba(0,0,0,0.06)', transition: 'border-color 0.15s',
+                }}
+                onFocus={e => { e.currentTarget.style.borderColor = '#9ca3af'; }}
+                onBlur={e => { e.currentTarget.style.borderColor = '#d1d5db'; }}
+              >
+                {SORT_OPTIONS.map(opt => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label} ({filterCounts[opt.value] ?? 0})
+                  </option>
+                ))}
+              </select>
+              <svg
+                width="12" height="12" viewBox="0 0 24 24" fill="none"
+                stroke="#6b7280" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+                style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}
+              >
+                <polyline points="6 9 12 15 18 9" />
+              </svg>
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Success Modal */}
       <SuccessModal
         isOpen={successModal.isOpen}
         onClose={() => setSuccessModal({ isOpen: false, title: '', message: '', type: 'success' })}
@@ -1156,7 +1306,6 @@ const TasksTab = memo(({
         type={successModal.type}
       />
 
-      {/* Content */}
       {isLoading ? (
         <div style={{ padding: '0 20px', maxWidth: '1400px', margin: '0 auto' }}>
           <LoadingCards count={3} />
@@ -1168,9 +1317,6 @@ const TasksTab = memo(({
               ? Math.ceil((new Date(assignment.due_date) - new Date()) / (1000 * 60 * 60 * 24))
               : null;
             const assignmentComments = comments[assignment.id] || [];
-            // Completed if TL marked the assignment done OR if the user submitted files
-            // isCompleted is ONLY true when the team leader/admin explicitly marks the task done.
-            // Submitting files does NOT complete a task — it just means files are pending review.
             const isCompleted = assignment.status === 'completed';
 
             return (
@@ -1205,6 +1351,22 @@ const TasksTab = memo(({
                           <span style={{ fontSize: '14px', color: '#6B7280' }}>assigned to <span style={{ fontWeight: '600', color: '#050505' }}>{assignment.assigned_user_fullname}</span></span>
                         )}
                       </div>
+                      {(() => {
+                        try {
+                          const names = JSON.parse(assignment.checker_names || '[]')
+                          if (!names.length) return null
+                          return (
+                            <div style={{ fontSize: '15px', color: '#6b7280', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '5px', flexWrap: 'wrap' }}>
+                              <span style={{ fontWeight: '700', color: '#374151' }}>Check by:</span>
+                              {names.map((name, i) => (
+                                <span key={i} style={{ color: '#4f46e5', fontWeight: '700' }}>
+                                  {name}{i < names.length - 1 ? ',' : ''}
+                                </span>
+                              ))}
+                            </div>
+                          )
+                        } catch { return null }
+                      })()}
                       <div style={{ fontSize: '13px', color: '#6B7280' }}>{formatDateTime(assignment.created_at)}</div>
                     </div>
                   </div>
@@ -1214,10 +1376,39 @@ const TasksTab = memo(({
                       <div style={{ backgroundColor: '#d1fae5', color: '#059669', padding: '6px 12px', borderRadius: '20px', fontSize: '13px', fontWeight: '600', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
                         ✓ Completed
                       </div>
-                    ) : assignment.submitted_files?.length > 0 ? (
-                      <div style={{ backgroundColor: '#F0FDF4', color: '#15803D', padding: '6px 12px', borderRadius: '20px', fontSize: '13px', fontWeight: '600', display: 'inline-flex', alignItems: 'center', gap: '4px', border: '1.5px solid #86EFAC' }}>
-                        ✓ Submitted
+                    ) : assignment.status === 'checked' ? (
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px' }}>
+                        <div style={{ backgroundColor: '#EFF6FF', color: '#1D4ED8', padding: '6px 12px', borderRadius: '20px', fontSize: '13px', fontWeight: '600', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                          ✓ Checked
+                        </div>
+                        {(() => {
+                          const checkerName = assignment.submitted_files?.find(f => f.checked_by)?.checked_by;
+                          if (!checkerName) return null;
+                          return (
+                            <div style={{ fontSize: '12px', color: '#6b7280', fontWeight: '500' }}>
+                              Checked by : <span style={{ color: '#1D4ED8', fontWeight: '700' }}>{checkerName}</span>
+                            </div>
+                          );
+                        })()}
                       </div>
+                    ) : assignment.status === 'for_editing' ? (
+                      activeTab === 'for-checking' ? (
+                        <div style={{ backgroundColor: 'transparent', color: '#C2410C', padding: '6px 12px', borderRadius: '20px', fontSize: '13px', fontWeight: '600', display: 'inline-flex', alignItems: 'center', border: '1.5px solid #FDBA74' }}>
+                          For Checking
+                        </div>
+                      ) : assignment.submitted_files?.length > 0 ? (
+                        <div style={{ backgroundColor: '#F0FDF4', color: '#16A34A', padding: '6px 12px', borderRadius: '20px', fontSize: '13px', fontWeight: '600', display: 'inline-flex', alignItems: 'center', gap: '4px', border: '1px solid #86EFAC' }}>
+                          ✓ Submitted
+                        </div>
+                      ) : (
+                        <div style={{ backgroundColor: '#FEF3C7', color: '#92400E', padding: '6px 12px', borderRadius: '20px', fontSize: '13px', fontWeight: '600', display: 'inline-flex', alignItems: 'center', gap: '4px', border: '1px solid #FCD34D' }}>
+                          ✎ For Editing
+                        </div>
+                      )
+                    ) : assignment.submitted_files?.length > 0 ? (
+                      <div style={{ backgroundColor: 'transparent', color: '#C2410C', padding: '6px 12px', borderRadius: '20px', fontSize: '13px', fontWeight: '600', display: 'inline-flex', alignItems: 'center', border: '1.5px solid #FDBA74' }}>
+                          For Checking
+                        </div>
                     ) : (
                       <div style={{ fontSize: '14px', fontWeight: '500', color: '#000000' }}>
                         Due: {assignment.due_date ? formatDate(assignment.due_date) : 'No due date'}
@@ -1231,17 +1422,14 @@ const TasksTab = memo(({
                   </div>
                 </div>
 
-                {/* Title */}
                 <div style={{ fontSize: '18px', fontWeight: '600', color: '#101828', marginBottom: '8px' }}>{assignment.title}</div>
 
-                {/* Description */}
                 {assignment.description && (
                   <div style={{ fontSize: '14px', color: '#4B5563', marginBottom: '16px', lineHeight: '1.5' }}>{assignment.description}</div>
                 )}
 
-                {/* Status badge */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
-                  {getStatusBadge(assignment)}
+                  {getStatusBadge(assignment, activeTab)}
                 </div>
 
                 {/* Team Leader Attachments */}
@@ -1274,9 +1462,7 @@ const TasksTab = memo(({
                               onClick={() => {
                                 const newState = !expandedFolders[key];
                                 setExpandedFolders(prev => ({ ...prev, [key]: newState }));
-                                if (newState && folderFiles) {
-                                  prefetchFolderFiles(folderFiles, 'attachment');
-                                }
+                                if (newState && folderFiles) prefetchFolderFiles(folderFiles, 'attachment');
                               }}
                               style={{ cursor: 'pointer', backgroundColor: isExpanded ? '#BFDBFE' : '#DBEAFE' }}
                             >
@@ -1307,19 +1493,14 @@ const TasksTab = memo(({
                           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                             <FileIcon fileType={attachment.original_name.split('.').pop()} size="small" />
                             <div style={{ flex: 1, minWidth: 0 }}>
-                              <div style={{ fontWeight: '500', fontSize: '14px', color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                {attachment.original_name}
-                              </div>
+                              <div style={{ fontWeight: '500', fontSize: '14px', color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{attachment.original_name}</div>
                               <div style={{ fontSize: '12px', color: '#6b7280', display: 'flex', alignItems: 'center', gap: '6px' }}>
                                 <span>by <span style={{ fontWeight: '500', color: '#2563eb' }}>{assignment.team_leader_fullname || assignment.team_leader_username || 'Team Leader'}</span></span>
                                 <span style={{ color: '#9ca3af' }}>•</span>
                                 <span>{formatFileSize(attachment.file_size)}</span>
                               </div>
                             </div>
-                            <AttachmentMoreMenu
-                              onDownload={() => handleDownloadFile(attachment)}
-                              onOpenPath={() => openFolderInExplorer(attachment.id)}
-                            />
+                            <AttachmentMoreMenu onDownload={() => handleDownloadFile(attachment)} onOpenPath={() => openFolderInExplorer(attachment.id)} />
                           </div>
                         </div>
                       ))}
@@ -1347,6 +1528,11 @@ const TasksTab = memo(({
                   const showAll = showAllSubmittedFiles[assignment.id];
                   const totalItems = foldersToShow.length + individualFiles.length;
                   const shouldShowSeeMore = totalItems > INITIAL_FILE_DISPLAY_LIMIT;
+
+                  const checkerActions = activeTab === 'for-checking' ? {
+                    onMarkForEditing: (fileId) => handleMarkForEditing(assignment, fileId),
+                    onDoneChecking: (fileId) => handleMarkFileChecked(assignment, fileId),
+                  } : null;
 
                   let displayFolders = foldersToShow;
                   let displayIndividualFiles = individualFiles;
@@ -1377,9 +1563,7 @@ const TasksTab = memo(({
                               onClick={() => {
                                 const newState = !expandedFolders[key];
                                 setExpandedFolders(prev => ({ ...prev, [key]: newState }));
-                                if (newState && folderFiles) {
-                                  prefetchFolderFiles(folderFiles, 'file');
-                                }
+                                if (newState && folderFiles) prefetchFolderFiles(folderFiles, 'file');
                               }}
                               style={{ cursor: 'pointer', backgroundColor: isExpanded ? '#BFDBFE' : '#DBEAFE' }}
                             >
@@ -1395,25 +1579,24 @@ const TasksTab = memo(({
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '2px', flexShrink: 0 }} onClick={e => e.stopPropagation()}>
                                   <FileMoreMenuInline
                                     isFolder
-                                    onViewDetails={() => {
-                                      const firstFile = folderFiles[0];
-                                      if (firstFile) openFileDetails(firstFile);
-                                    }}
+                                    onViewDetails={() => { const firstFile = folderFiles[0]; if (firstFile) openFileDetails(firstFile); }}
                                     onOpenPath={() => openFolderInExplorer(folderFiles[0]?.id, false, folderName)}
                                     onDelete={() => {
                                       setFileToDelete({ assignmentId: assignment.id, fileId: null, fileName: folderName, isFolderDelete: true, folderFiles });
                                       setShowDeleteModal(true);
                                     }}
+                                    onMarkForEditing={checkerActions?.onMarkForEditing}
+                                    onDoneChecking={undefined}
                                   />
                                 </div>
                               </div>
                             </div>
-                            {isExpanded && renderRecursiveItems(assignment, folderFiles, 1, key, [], false)}
+                            {isExpanded && renderRecursiveItems(assignment, folderFiles, 1, key, [], false, checkerActions)}
                           </div>
                         );
                       })}
 
-                      {displayIndividualFiles.map(file => renderFileCard(file, assignment.id, false, assignment.title))}
+                      {displayIndividualFiles.map(file => renderFileCard(file, assignment.id, false, assignment.title, false, checkerActions))}
 
                       {shouldShowSeeMore && (
                         <div style={{ marginTop: '12px', textAlign: 'center' }}>
@@ -1429,7 +1612,6 @@ const TasksTab = memo(({
                   );
                 })()}
 
-                {/* Warning: no files despite submitted/completed */}
                 {(assignment.user_status === 'submitted' || assignment.status === 'completed') && !assignment.submitted_files?.length && (
                   <div style={{ backgroundColor: '#FEF3C7', border: '1px solid #F59E0B', borderRadius: '8px', padding: '12px', marginBottom: '16px', display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
                     <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#92400E" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" /></svg>
@@ -1437,7 +1619,6 @@ const TasksTab = memo(({
                   </div>
                 )}
 
-                {/* Submit button */}
                 {(assignment.assigned_to === 'all' || assignment.assigned_member_details?.some(m => m.id === user.id)) && (
                   <div style={{ paddingTop: '16px' }}>
                     <button
@@ -1454,7 +1635,6 @@ const TasksTab = memo(({
                   </div>
                 )}
 
-                {/* Comments + File Details row */}
                 <div style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px solid #f3f4f6', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                   <button
                     onClick={() => openCommentsModal(assignment)}
@@ -1480,7 +1660,6 @@ const TasksTab = memo(({
                       );
                     })()}
                   </button>
-
                 </div>
               </div>
             );
@@ -1498,7 +1677,6 @@ const TasksTab = memo(({
         </div>
       )}
 
-      {/* Comments Modal */}
       {showCommentsModal && currentCommentsAssignment && (
         <CommentsModal
           isOpen={showCommentsModal}
@@ -1525,7 +1703,6 @@ const TasksTab = memo(({
         />
       )}
 
-      {/* Delete Confirmation Modal */}
       {showDeleteModal && fileToDelete && (
         <div className="tasks-modal-overlay" onClick={() => setShowDeleteModal(false)}>
           <div className="tasks-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: '500px' }}>
@@ -1545,9 +1722,7 @@ const TasksTab = memo(({
                 <div style={{ backgroundColor: '#fee2e2', border: '1px solid #fecaca', borderRadius: '8px', padding: '12px 16px', marginBottom: '16px' }}>
                   <span style={{ fontSize: '14px', fontWeight: '500', color: '#991b1b' }}>{fileToDelete.fileName}</span>
                 </div>
-                <p style={{ fontSize: '13px', color: '#6b7280', margin: 0 }}>
-                  This action is permanent and cannot be undone.
-                </p>
+                <p style={{ fontSize: '13px', color: '#6b7280', margin: 0 }}>This action is permanent and cannot be undone.</p>
               </div>
             </div>
             <div className="tasks-modal-footer" style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
@@ -1585,7 +1760,6 @@ const TasksTab = memo(({
         </div>
       )}
 
-      {/* File Open Modal */}
       <FileOpenModal
         isOpen={showOpenFileModal}
         onClose={() => { setShowOpenFileModal(false); setFileToOpen(null); }}
@@ -1602,7 +1776,6 @@ const TasksTab = memo(({
         type={successModal.type}
       />
 
-      {/* Download Toast */}
       {downloadToast.show && (
         <div style={{ position: 'fixed', top: '28px', right: '28px', zIndex: 9999, background: '#fff', border: '1px solid #bbf7d0', borderRadius: '16px', boxShadow: '0 8px 32px rgba(0,0,0,0.13)', padding: '18px 22px 14px 18px', display: 'flex', alignItems: 'flex-start', gap: '14px', minWidth: '280px', maxWidth: '380px', animation: 'slideInRight 0.25s ease' }}>
           <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: '#dcfce7', border: '2px solid #86efac', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
@@ -1626,7 +1799,6 @@ const TasksTab = memo(({
         @keyframes shrinkBar { from { width: 100%; } to { width: 0%; } }
       `}</style>
 
-      {/* File Details Modal */}
       {showFileDetailsModal && fileDetailsTarget && (
         <FileModal
           showFileModal={showFileDetailsModal}
@@ -1637,7 +1809,6 @@ const TasksTab = memo(({
         />
       )}
 
-      {/* Submit Modal */}
       {showSubmitModal && currentAssignment && (
         <div className="tasks-modal-overlay">
           <div className="tasks-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: '600px' }}>
@@ -1657,7 +1828,6 @@ const TasksTab = memo(({
             <div className="tasks-modal-body">
               <div className="tasks-file-selection">
                 <div className="upload-section">
-                  {/* Existing folder picker */}
                   {(() => {
                     const existingFolders = [...new Set((currentAssignment.submitted_files || []).filter(f => f.folder_name).map(f => f.folder_name))];
                     if (!existingFolders.length) return null;
@@ -1689,7 +1859,6 @@ const TasksTab = memo(({
                       e.target.value = '';
                     }} style={{ display: 'none' }} disabled={isUploading} />
 
-                    {/* Drop zone */}
                     <div
                       className="file-upload-label"
                       style={{ border: '2px dashed #d1d5db', borderRadius: '12px', padding: '32px', textAlign: 'center', cursor: 'pointer', backgroundColor: '#fafafa', transition: 'all 0.2s' }}
@@ -1771,7 +1940,6 @@ const TasksTab = memo(({
                       ))
                     )}
 
-                    {/* Tag + Description */}
                     <div style={{ marginTop: '24px', padding: '16px', backgroundColor: '#f9fafb', borderRadius: '10px', border: '1px solid #e5e7eb' }}>
                       <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', marginBottom: '8px', color: '#111827' }}>🏷️ Tag</label>
                       <SingleSelectTags selectedTag={fileTag} onChange={setFileTag} disabled={isUploading} user={user} />
@@ -1822,7 +1990,6 @@ const TasksTab = memo(({
         </div>
       )}
 
-      {/* File Details Modal */}
       <FileModal
         showFileModal={showFileDetailsModal}
         setShowFileModal={setShowFileDetailsModal}

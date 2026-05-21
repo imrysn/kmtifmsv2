@@ -153,8 +153,12 @@ router.get('/user/:userId', async (req, res) => {
     const { userId } = req.params;
     const { unreadOnly, page = 1, limit = 20 } = req.query;
 
-    // Ownership check: Users can only see their own notifications, ADMINs can see any
-    if (req.user.id !== parseInt(userId) && req.user.role !== 'ADMIN') {
+    // Ownership check: users can only see their own notifications; ADMIN can see any
+    // Use loose == comparison so string userId from URL matches integer req.user.id from JWT
+    const isOwner = req.user.id == userId; // intentional == not ===
+    const isAdmin = req.user.role === 'ADMIN';
+    console.log(`📬 Notifications fetch: reqUser.id=${req.user.id}(${typeof req.user.id}) userId=${userId}(${typeof userId}) isOwner=${isOwner} role=${req.user.role}`);
+    if (!isOwner && !isAdmin) {
       return res.status(403).json({ success: false, message: 'Access denied: You can only view your own notifications' });
     }
 
@@ -235,8 +239,8 @@ router.get('/user/:userId/unread-count', async (req, res) => {
   try {
     const { userId } = req.params;
 
-    // Ownership check
-    if (req.user.id !== parseInt(userId) && req.user.role !== 'ADMIN') {
+    // Ownership check (loose == to handle string/int mismatch between URL param and JWT)
+    if (req.user.id != userId && req.user.role !== 'ADMIN') {
       return res.status(403).json({ success: false, message: 'Access denied' });
     }
 
@@ -290,8 +294,8 @@ router.put('/user/:userId/read-all', async (req, res) => {
     const { userId } = req.params;
     const now = new Date().toISOString().slice(0, 19).replace('T', ' ');
 
-    // Ownership check
-    if (req.user.id !== parseInt(userId) && req.user.role !== 'ADMIN') {
+    // Ownership check (loose == to handle string/int mismatch between URL param and JWT)
+    if (req.user.id != userId && req.user.role !== 'ADMIN') {
       return res.status(403).json({ success: false, message: 'Access denied' });
     }
 
@@ -346,8 +350,8 @@ router.delete('/user/:userId/delete-all', async (req, res) => {
   try {
     const { userId } = req.params;
 
-    // Ownership check
-    if (req.user.id !== parseInt(userId) && req.user.role !== 'ADMIN') {
+    // Ownership check (loose == to handle string/int mismatch between URL param and JWT)
+    if (req.user.id != userId && req.user.role !== 'ADMIN') {
       return res.status(403).json({ success: false, message: 'Access denied' });
     }
 

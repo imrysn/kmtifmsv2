@@ -1,20 +1,4 @@
-/**
- * Assignment Routes
- *
- * MERGE RESOLUTION NOTES:
- * - HEAD had: clean controller-based thin routes with authenticateToken/authorizeRole,
- *   plus the /admin/all alias we added to fix the 404.
- * - THEIRS had: full inline implementation with many additional features:
- *     batched submission notifications, @mention notifications, SSE push (pushToUser),
- *     nonce-based Electron upload-replay protection, create-json route, upload-nonce route,
- *     archive route, update-members route, edit/delete replies, debug endpoint,
- *     and richer comment/reply inline SQL.
- *
- * RESOLUTION: Keep THEIRS (more feature-complete) as the base.
- * Add authenticateToken middleware from HEAD on every route (was missing entirely in THEIRS).
- * Keep /admin/all alias from HEAD alongside THEIRS' /admin/all inline handler.
- * The controller (assignmentController) is no longer used — all logic lives inline here.
- */
+// Assignment Routes
 
 const express = require('express');
 const router = express.Router();
@@ -22,11 +6,11 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
-const { query, queryOne } = require('../config/database');
+const { query, queryOne, networkDataPath } = require('../config/database');
 const { uploadsDir } = require('../config/middleware');
 const { authenticateToken, authorizeRole } = require('../middleware/auth');
 const { createAdminNotification, pushToUser } = require('./notifications');
-const { decodeUTF8Filename } = require('../utils/fileUtils');
+const { decodeUTF8Filename, ensureDirectory, moveToUserFolder } = require('../utils/fileUtils');
 
 // ── Multer: write to LOCAL temp disk, NOT the NAS ────────────────────────────
 // Previously multer wrote directly to uploadsDir (NAS), causing a double NAS
@@ -167,7 +151,6 @@ async function processAttachments(uploadedFiles, relativePaths, finalTeamLeaderU
             }
             // Delete now-empty folder directories on NAS
             for (const folderName of incomingFolders) {
-                const { networkDataPath } = require('../config/database');
                 const folderPath = path.join(networkDataPath, 'teamleader', finalTeamLeaderUsername, folderName);
                 try {
                     if (fs.existsSync(folderPath)) {
@@ -186,12 +169,11 @@ async function processAttachments(uploadedFiles, relativePaths, finalTeamLeaderU
     // Pre-create all unique directories once to avoid redundant NAS mkdir round-trips per file
     const uniqueDirs = new Set(uploadedFiles.map((file, i) => {
       const relPath = relativePaths[i] || file.originalname;
-      const baseDir = path.join(require('../config/database').networkDataPath, 'teamleader', finalTeamLeaderUsername);
+      const baseDir = path.join(networkDataPath, 'teamleader', finalTeamLeaderUsername);
       const sanitizedRelPath = (relPath || '').split('/').map(seg => seg.replace(/[<>:"/\\|?*\x00-\x1F]/g, '_')).join(path.sep);
       return path.dirname(path.join(baseDir, sanitizedRelPath));
     }));
     
-    const { ensureDirectory } = require('../utils/fileUtils');
     await Promise.all([...uniqueDirs].map(dir => ensureDirectory(dir)));
 
     const batchResults = await Promise.all(
@@ -203,7 +185,7 @@ async function processAttachments(uploadedFiles, relativePaths, finalTeamLeaderU
 
         // Move temp file → NAS teamleader folder. Do NOT silently swallow errors:
         // if move fails the temp path would be stored in DB, causing open/path failures.
-        const finalPath = await require('../utils/fileUtils').moveToUserFolder(
+        const finalPath = await moveToUserFolder(
           file.path, finalTeamLeaderUsername, fixedName,
           folderName || null, folderName ? relPath : null,
           null, true /* isTeamLeaderAttachment */
@@ -326,7 +308,7 @@ router.get('/admin/all', authenticateToken, authorizeRole(['ADMIN']), async (req
                 COALESCE(status, 'team_leader_approved') AS status, COALESCE(current_stage, 'pending_admin') AS current_stage
          FROM assignment_attachments WHERE assignment_id IN (${ph}) ORDER BY assignment_id, COALESCE(folder_name, ''), created_at DESC`, ids),
         query(`SELECT asub.assignment_id, f.id, f.original_name, f.filename, f.file_type, f.file_path, f.public_network_url, f.file_size,
-                f.tag, f.description, f.uploaded_at, f.status, f.folder_name, f.relative_path, f.is_folder,
+                f.tag, f.description, f.uploaded_at, f.status, f.checked_by, f.folder_name, f.relative_path, f.is_folder,
                 u.username, u.fullName, asub.submitted_at, asub.submitted_at as created_at, asub.user_id
          FROM assignment_submissions asub
          JOIN files f ON asub.file_id = f.id JOIN users u ON asub.user_id = u.id
@@ -474,7 +456,7 @@ router.get('/team/:team/all-tasks', authenticateToken, async (req, res) => {
                 COALESCE(status, 'team_leader_approved') AS status, COALESCE(current_stage, 'pending_admin') AS current_stage
          FROM assignment_attachments WHERE assignment_id IN (${ph}) ORDER BY assignment_id, COALESCE(folder_name, ''), created_at DESC`, ids),
         query(`SELECT asub.assignment_id, f.id, f.original_name, f.filename, f.file_type, f.file_path, f.public_network_url, f.file_size,
-                f.tag, f.description, f.uploaded_at, f.status, f.folder_name, f.relative_path, f.is_folder,
+                f.tag, f.description, f.uploaded_at, f.status, f.checked_by, f.folder_name, f.relative_path, f.is_folder,
                 u.username, u.fullName, asub.submitted_at, asub.submitted_at as created_at
          FROM assignment_submissions asub
          JOIN files f ON asub.file_id = f.id JOIN users u ON asub.user_id = u.id
@@ -538,7 +520,7 @@ router.get('/team-leader/:userId', authenticateToken, authorizeRole(['TEAM_LEADE
                 COALESCE(status, 'team_leader_approved') AS status, COALESCE(current_stage, 'pending_admin') AS current_stage
          FROM assignment_attachments WHERE assignment_id IN (${ph}) ORDER BY assignment_id, COALESCE(folder_name, ''), created_at DESC`, ids),
         query(`SELECT asub.assignment_id, f.id, f.original_name, f.filename, f.file_type, f.file_path, f.public_network_url, f.file_size,
-                f.tag, f.description, f.uploaded_at, f.status, f.folder_name, f.relative_path, f.is_folder, f.user_team,
+                f.tag, f.description, f.uploaded_at, f.status, f.checked_by, f.folder_name, f.relative_path, f.is_folder, f.user_team,
                 u.username, u.fullName, asub.submitted_at, asub.submitted_at as created_at, asub.user_id
          FROM assignment_submissions asub
          JOIN files f ON asub.file_id = f.id JOIN users u ON asub.user_id = u.id
@@ -1011,8 +993,11 @@ router.get('/user/:userId', authenticateToken, async (req, res) => {
        LEFT JOIN files fs ON am.file_id = fs.id
        LEFT JOIN users tl ON a.team_leader_id = tl.id
        WHERE (a.assigned_to = 'all' AND a.team = ?) OR (a.assigned_to = 'specific' AND am.user_id = ?)
+          OR (a.checker_ids IS NOT NULL AND a.checker_ids != '[]'
+              AND CONCAT(',', REPLACE(REPLACE(REPLACE(a.checker_ids,'[',''),']',''),'"',''), ',')
+                  LIKE CONCAT('%,', ?, ',%'))
        ORDER BY a.created_at DESC`,
-      [currentUser.fullName, currentUser.username, userId, currentUser.team, userId]
+      [currentUser.fullName, currentUser.username, userId, currentUser.team, userId, String(userId)]
     );
 
     // Batch sub-queries for all assignments instead of N×3 sequential round-trips
@@ -1024,12 +1009,48 @@ router.get('/user/:userId', authenticateToken, async (req, res) => {
         query(`SELECT id, assignment_id, original_name, filename, file_path, public_network_url, file_size, file_type, folder_name, relative_path, created_at,
                 COALESCE(status, 'team_leader_approved') AS status, COALESCE(current_stage, 'pending_admin') AS current_stage
          FROM assignment_attachments WHERE assignment_id IN (${ph}) ORDER BY assignment_id, COALESCE(folder_name, ''), created_at DESC`, ids),
-        query(`SELECT asub.assignment_id, f.id, f.original_name, f.filename, f.file_path, f.public_network_url, f.file_type, f.file_size,
+        // For checker assignments: fetch ALL members' submitted files (not just the current user's)
+        // so the checker can see and review every member's submission.
+        // For non-checker assignments (My Tasks), still only show the current user's own files.
+        (() => {
+          // Split assignments into two buckets
+          const checkerAssignmentIds = ids.filter(id => {
+            const a = userAssignments.find(a => a.id === id);
+            if (!a) return false;
+            try {
+              const checkerIds = JSON.parse(a.checker_ids || '[]').map(String);
+              return checkerIds.includes(String(userId));
+            } catch { return false; }
+          });
+          const myTaskIds = ids.filter(id => !checkerAssignmentIds.includes(id));
+
+          const queries = [];
+          // Checker assignments — ALL submitters
+          if (checkerAssignmentIds.length > 0) {
+            const cph = checkerAssignmentIds.map(() => '?').join(',');
+            queries.push(
+              query(`SELECT asub.assignment_id, f.id, f.original_name, f.filename, f.file_path, f.public_network_url, f.file_type, f.file_size,
                 f.tag, f.description, f.status, f.folder_name, f.relative_path, f.is_folder,
                 asub.submitted_at, u.fullName as submitter_name, u.username as submitter_username
-         FROM assignment_submissions asub
-         JOIN files f ON asub.file_id = f.id JOIN users u ON asub.user_id = u.id
-         WHERE asub.assignment_id IN (${ph}) AND asub.user_id = ? ORDER BY asub.submitted_at DESC`, [...ids, userId])
+               FROM assignment_submissions asub
+               JOIN files f ON asub.file_id = f.id JOIN users u ON asub.user_id = u.id
+               WHERE asub.assignment_id IN (${cph}) ORDER BY asub.submitted_at DESC`, checkerAssignmentIds)
+            );
+          }
+          // My Task assignments — only current user's own files
+          if (myTaskIds.length > 0) {
+            const mph = myTaskIds.map(() => '?').join(',');
+            queries.push(
+              query(`SELECT asub.assignment_id, f.id, f.original_name, f.filename, f.file_path, f.public_network_url, f.file_type, f.file_size,
+                f.tag, f.description, f.status, f.folder_name, f.relative_path, f.is_folder,
+                asub.submitted_at, u.fullName as submitter_name, u.username as submitter_username
+               FROM assignment_submissions asub
+               JOIN files f ON asub.file_id = f.id JOIN users u ON asub.user_id = u.id
+               WHERE asub.assignment_id IN (${mph}) AND asub.user_id = ? ORDER BY asub.submitted_at DESC`, [...myTaskIds, userId])
+            );
+          }
+          return Promise.all(queries).then(results => results.flat());
+        })()
       ]);
       const membersByAsgn = {}; const attachByAsgn = {}; const subsByAsgn = {};
       (allMembers || []).forEach(r => { const k = r.assignment_id; if (!membersByAsgn[k]) membersByAsgn[k] = []; membersByAsgn[k].push(r); });
@@ -1422,7 +1443,291 @@ router.patch('/:assignmentId/archive', authenticateToken, authorizeRole(['ADMIN'
   }
 });
 
-// PUT /:assignmentId/mark-done
+// PUT /:assignmentId/assign-checker
+router.put('/:assignmentId/assign-checker', authenticateToken, authorizeRole(['TEAM_LEADER', 'ADMIN']), async (req, res) => {
+  try {
+    const { assignmentId } = req.params;
+    const { checkerIds, checkerNames } = req.body; // arrays
+    if (!assignmentId) return res.status(400).json({ success: false, message: 'Missing assignmentId' });
+
+    const ids = Array.isArray(checkerIds) ? checkerIds : [];
+    const names = Array.isArray(checkerNames) ? checkerNames : [];
+
+    await query('UPDATE assignments SET checker_ids = ?, checker_names = ? WHERE id = ?', [
+      ids.length ? JSON.stringify(ids) : null,
+      names.length ? JSON.stringify(names) : null,
+      assignmentId
+    ]);
+
+    // Notify each newly assigned checker
+    if (ids.length > 0) {
+      const assignment = await queryOne('SELECT title, team_leader_id, team_leader_username FROM assignments WHERE id = ?', [assignmentId]);
+      if (assignment) {
+        for (const checkerId of ids) {
+          try {
+            await query(
+              'INSERT INTO notifications (user_id, assignment_id, file_id, type, title, message, action_by_id, action_by_username, action_by_role) VALUES (?,?,?,?,?,?,?,?,?)',
+              [checkerId, assignmentId, null, 'assignment', 'You have been assigned as Checker',
+                `${assignment.team_leader_username} assigned you to check the submitted files for "${assignment.title}".`,
+                assignment.team_leader_id, assignment.team_leader_username, 'TEAM_LEADER']
+            );
+            pushToUser(checkerId);
+          } catch (e) { console.warn('Checker notification failed:', e.message); }
+        }
+      }
+    }
+
+    const label = names.length === 0 ? 'Checkers removed' : names.length === 1 ? `${names[0]} assigned as checker` : `${names.length} members assigned as checkers`;
+    res.json({ success: true, message: label });
+  } catch (error) {
+    console.error('Error assigning checker:', error);
+    res.status(500).json({ success: false, message: 'Failed to assign checker', error: error.message });
+  }
+});
+
+// PUT /:assignmentId/mark-for-editing  — checker/TL requests revisions from user
+router.put('/:assignmentId/mark-for-editing', authenticateToken, async (req, res) => {
+  try {
+    const { assignmentId } = req.params;
+    const { checkerName, checkerId, note, fileId } = req.body;
+
+    const assignment = await queryOne('SELECT * FROM assignments WHERE id = ?', [assignmentId]);
+    if (!assignment) return res.status(404).json({ success: false, message: 'Assignment not found' });
+
+    const now = new Date().toISOString().slice(0, 19).replace('T', ' ');
+
+    if (fileId) {
+      // Per-file revision: only mark the specific file, keep assignment status as-is
+      await query(
+        `UPDATE files SET status = 'revision', updated_at = ? WHERE id = ?`,
+        [now, fileId]
+      );
+    } else {
+      // Whole-assignment revision: update assignment status and ALL submitted files
+      await query('UPDATE assignments SET status = ?, updated_at = ? WHERE id = ?', ['for_editing', now, assignmentId]);
+      await query(
+        `UPDATE files f
+         JOIN assignment_submissions asub ON asub.file_id = f.id
+         SET f.status = 'revision', f.updated_at = ?
+         WHERE asub.assignment_id = ?`,
+        [now, assignmentId]
+      );
+    }
+
+    // Notify every member assigned to this task that their submission needs revision
+    const members = await query(
+      'SELECT DISTINCT am.user_id FROM assignment_members am WHERE am.assignment_id = ?',
+      [assignmentId]
+    );
+    // Also include users who submitted files
+    const submitters = await query(
+      'SELECT DISTINCT user_id FROM assignment_submissions WHERE assignment_id = ?',
+      [assignmentId]
+    );
+    const allUserIds = new Set([
+      ...(members || []).map(m => m.user_id),
+      ...(submitters || []).map(s => s.user_id),
+    ]);
+
+    const notifMsg = note
+      ? `Your file${fileId ? '' : ' submission'} for "${assignment.title}" requires editing. Note: ${note}`
+      : `Your ${fileId ? 'file' : 'submission'} for "${assignment.title}" requires editing/revision. Please make the necessary changes and resubmit.`;
+
+    for (const uid of allUserIds) {
+      // Don't notify the checker themselves if they're also a member
+      if (String(uid) === String(checkerId)) continue;
+      try {
+        await query(
+          'INSERT INTO notifications (user_id, assignment_id, file_id, type, title, message, action_by_id, action_by_username, action_by_role) VALUES (?,?,?,?,?,?,?,?,?)',
+          [uid, assignmentId, null, 'revision_request', 'Submission Needs Editing',
+            notifMsg, checkerId, checkerName, req.user?.role || 'TEAM_LEADER']
+        );
+        pushToUser(uid);
+      } catch (e) { console.warn('For-editing notification failed:', e.message); }
+    }
+
+    // Notify the Team Leader that the checker flagged this submission for editing
+    const tlId = assignment.team_leader_id;
+    if (tlId && String(tlId) !== String(checkerId)) {
+      try {
+        const tlMsg = note
+          ? `${checkerName} marked ${fileId ? 'a file' : 'the submission'} for "${assignment.title}" as needing editing. Note: ${note}`
+          : `${checkerName} marked ${fileId ? 'a file' : 'the submission'} for "${assignment.title}" as needing editing/revision.`;
+        await query(
+          'INSERT INTO notifications (user_id, assignment_id, file_id, type, title, message, action_by_id, action_by_username, action_by_role) VALUES (?,?,?,?,?,?,?,?,?)',
+          [tlId, assignmentId, fileId || null, 'for_editing', 'Checker: Submission Needs Editing',
+            tlMsg, checkerId, checkerName, req.user?.role || 'USER']
+        );
+        pushToUser(tlId);
+        console.log(`🔔 mark-for-editing: notified TL ${tlId} — checker=${checkerName}`);
+      } catch (e) { console.warn('For-editing TL notification failed:', e.message); }
+    }
+
+    res.json({ success: true, message: fileId ? 'File marked as For Editing — user and Team Leader notified.' : 'Status changed to For Editing — users and Team Leader notified.' });
+  } catch (error) {
+    console.error('Error marking for editing:', error);
+    res.status(500).json({ success: false, message: 'Failed to update status', error: error.message });
+  }
+});
+
+// PUT /:assignmentId/mark-checked  — checker marks review as done, notifies TL
+router.put('/:assignmentId/mark-checked', authenticateToken, async (req, res) => {
+  try {
+    const { assignmentId } = req.params;
+    const { checkerName, checkerId } = req.body;
+
+    const assignment = await queryOne('SELECT * FROM assignments WHERE id = ?', [assignmentId]);
+    if (!assignment) return res.status(404).json({ success: false, message: 'Assignment not found' });
+
+    const now = new Date().toISOString().slice(0, 19).replace('T', ' ');
+    await query('UPDATE assignments SET status = ?, updated_at = ? WHERE id = ?', ['checked', now, assignmentId]);
+
+    // Update all submitted files for this assignment to 'checked' status
+    // and record who checked them
+    await query(
+      `UPDATE files f
+       JOIN assignment_submissions asub ON asub.file_id = f.id
+       SET f.status = 'checked', f.checked_by = ?, f.updated_at = ?
+       WHERE asub.assignment_id = ?`,
+      [checkerName, now, assignmentId]
+    );
+
+    // Notify the Team Leader
+    const tlId = assignment.team_leader_id;
+    console.log(`🔔 mark-checked: assignment.team_leader_id=${tlId}, assignment.id=${assignmentId}, checker=${checkerName}`);
+    if (tlId) {
+      try {
+        await query(
+          'INSERT INTO notifications (user_id, assignment_id, file_id, type, title, message, action_by_id, action_by_username, action_by_role) VALUES (?,?,?,?,?,?,?,?,?)',
+          [tlId, assignmentId, null, 'checker_done', 'Review Completed',
+            `Done Checked by: ${checkerName}. Task: "${assignment.title}"`,
+            checkerId, checkerName, 'USER']
+        );
+        pushToUser(tlId);
+      } catch (e) { console.warn('Checker-done TL notification failed:', e.message); }
+    }
+
+    res.json({ success: true, message: `Done Checked by: ${checkerName}` });
+  } catch (error) {
+    console.error('Error marking checked:', error);
+    res.status(500).json({ success: false, message: 'Failed to update status', error: error.message });
+  }
+});
+
+// PUT /:assignmentId/files/:fileId/mark-file-checked  — checker marks a single file as checked
+// If ALL submitted files for the assignment are now checked, auto-promotes assignment status to 'checked' and notifies TL
+router.put('/:assignmentId/files/:fileId/mark-file-checked', authenticateToken, async (req, res) => {
+  try {
+    const { assignmentId, fileId } = req.params;
+    const { checkerName, checkerId } = req.body;
+
+    const assignment = await queryOne('SELECT * FROM assignments WHERE id = ?', [assignmentId]);
+    if (!assignment) return res.status(404).json({ success: false, message: 'Assignment not found' });
+
+    // Verify this file belongs to this assignment (via submissions OR attachments)
+    const submission = await queryOne(
+      'SELECT asub.id FROM assignment_submissions asub WHERE asub.assignment_id = ? AND asub.file_id = ?',
+      [assignmentId, fileId]
+    );
+    const attachment = !submission
+      ? await queryOne(
+          'SELECT id FROM assignment_attachments WHERE assignment_id = ? AND id = ?',
+          [assignmentId, fileId]
+        )
+      : null;
+
+    if (!submission && !attachment) {
+      console.warn(`mark-file-checked: file ${fileId} not found in assignment ${assignmentId} (checked both submissions and attachments)`);
+      return res.status(404).json({ success: false, message: 'File not found in this assignment' });
+    }
+
+    const now = new Date().toISOString().slice(0, 19).replace('T', ' ');
+
+    // Mark this single file as checked (and record who checked it)
+    await query('UPDATE files SET status = ?, checked_by = ?, updated_at = ? WHERE id = ?', ['checked', checkerName, now, fileId]);
+
+    // Notify the file submitter that their file was checked
+    if (submission) {
+      const submitterRow = await queryOne(
+        'SELECT user_id FROM assignment_submissions WHERE assignment_id = ? AND file_id = ?',
+        [assignmentId, fileId]
+      );
+      if (submitterRow?.user_id && submitterRow.user_id !== Number(checkerId)) {
+        try {
+          await query(
+            'INSERT INTO notifications (user_id, assignment_id, file_id, type, title, message, action_by_id, action_by_username, action_by_role) VALUES (?,?,?,?,?,?,?,?,?)',
+            [submitterRow.user_id, assignmentId, fileId, 'checker_done',
+              'File Checked',
+              `Your file has been checked by ${checkerName} on task: "${assignment.title}"`,
+              checkerId, checkerName, 'USER']
+          );
+          pushToUser(submitterRow.user_id);
+        } catch (e) { console.warn('Checker-done submitter notification failed:', e.message); }
+      }
+    }
+
+    // Check if ALL submitted files for this assignment are now checked
+    const [totalRow] = await query(
+      'SELECT COUNT(*) as total FROM assignment_submissions WHERE assignment_id = ?',
+      [assignmentId]
+    );
+    const [checkedRow] = await query(
+      `SELECT COUNT(*) as checked_count FROM assignment_submissions asub
+       JOIN files f ON f.id = asub.file_id
+       WHERE asub.assignment_id = ? AND f.status = 'checked'`,
+      [assignmentId]
+    );
+
+    const allChecked = totalRow?.total > 0 && checkedRow?.checked_count >= totalRow?.total;
+
+    if (allChecked) {
+      // Promote assignment status to 'checked'
+      await query('UPDATE assignments SET status = ?, updated_at = ? WHERE id = ?', ['checked', now, assignmentId]);
+
+      // Notify the Team Leader — all files done
+      const tlId = assignment.team_leader_id;
+      if (tlId) {
+        try {
+          await query(
+            'INSERT INTO notifications (user_id, assignment_id, file_id, type, title, message, action_by_id, action_by_username, action_by_role) VALUES (?,?,?,?,?,?,?,?,?)',
+            [tlId, assignmentId, fileId, 'checker_done', 'Review Completed',
+              `All files checked by: ${checkerName}. Task: "${assignment.title}"`,
+              checkerId, checkerName, 'USER']
+          );
+          pushToUser(tlId);
+        } catch (e) { console.warn('Checker-done TL notification failed:', e.message); }
+      }
+    } else {
+      // Notify the Team Leader — progress update (not all files done yet)
+      const tlId = assignment.team_leader_id;
+      if (tlId && String(tlId) !== String(checkerId)) {
+        try {
+          const fileRow = await queryOne('SELECT original_name FROM files WHERE id = ?', [fileId]);
+          const fileName = fileRow?.original_name || 'a file';
+          await query(
+            'INSERT INTO notifications (user_id, assignment_id, file_id, type, title, message, action_by_id, action_by_username, action_by_role) VALUES (?,?,?,?,?,?,?,?,?)',
+            [tlId, assignmentId, fileId, 'checker_done', 'File Checked',
+              `${checkerName} checked "${fileName}" in task: "${assignment.title}"`,
+              checkerId, checkerName, 'USER']
+          );
+          pushToUser(tlId);
+          console.log(`🔔 mark-file-checked: notified TL ${tlId} — checker=${checkerName}, file=${fileId}`);
+        } catch (e) { console.warn('Checker-file TL notification failed:', e.message); }
+      }
+    }
+
+    res.json({
+      success: true,
+      message: allChecked ? `All files checked — assignment marked as Checked.` : `File marked as Checked.`,
+      allChecked,
+    });
+  } catch (error) {
+    console.error('Error marking file checked:', error);
+    res.status(500).json({ success: false, message: 'Failed to update file status', error: error.message });
+  }
+});
+
+
 router.put('/:assignmentId/mark-done', authenticateToken, authorizeRole(['TEAM_LEADER', 'ADMIN']), async (req, res) => {
   try {
     const { assignmentId } = req.params;
@@ -1453,7 +1758,6 @@ router.put('/:assignmentId/mark-done', authenticateToken, authorizeRole(['TEAM_L
     const folderDirsToRemove = new Set();
 
     // Build the base NAS directory for this TL's attachments
-    const { networkDataPath } = require('../config/database');
     const tlUsername = assignment.team_leader_username;
     const tlBaseDir = path.join(networkDataPath, 'teamleader', tlUsername);
 

@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback, memo } from 'react';
-import { apiFetch } from '@/config/api';
+import { apiFetch, API_BASE_URL } from '@/config/api';
+import useStore from '@/store/useStore';
 import './css/NotificationTab.css';
 import FileIcon from '../shared/FileIcon';
 import { useTaskbarFlash } from '../../utils/useTaskbarFlash';
@@ -75,83 +76,43 @@ const NotificationTab = ({ user, onNavigate, onRead }) => {
   const [unreadCount, setUnreadCount] = useState(0);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
-
-  // Enable taskbar flashing for new notifications
-  useTaskbarFlash(unreadCount);
-
-  // Pagination state
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
   const [totalCount, setTotalCount] = useState(0);
   const limit = 20;
 
-  // Ref for infinite scroll
+  // Keep latest notifications in a ref so SSE/poll closures never see stale state
+  const notificationsRef = useRef([]);
+  useEffect(() => { notificationsRef.current = notifications; }, [notifications]);
+
   const observerRef = useRef(null);
   const loadMoreRef = useRef(null);
 
-  useEffect(() => {
-    fetchNotifications(1, true);
-    // Poll for new notifications every 30 seconds (only first page)
-    const interval = setInterval(() => {
-      fetchNotifications(1, true, true);
-    }, 30000);
-    return () => clearInterval(interval);
-  }, [user.id]);
+  useTaskbarFlash(unreadCount);
 
-  // Set up intersection observer for infinite scroll
-  useEffect(() => {
-    if (loading || loadingMore || !hasMore) return;
-
-    const options = {
-      root: null,
-      rootMargin: '100px',
-      threshold: 0.1
-    };
-
-    observerRef.current = new IntersectionObserver((entries) => {
-      if (entries[0].isIntersecting && hasMore && !loadingMore) {
-        fetchNotifications(page + 1, false);
-      }
-    }, options);
-
-    if (loadMoreRef.current) {
-      observerRef.current.observe(loadMoreRef.current);
-    }
-
-    return () => {
-      if (observerRef.current) {
-        observerRef.current.disconnect();
-      }
-    };
-  }, [loading, loadingMore, hasMore, page]);
-
-  const fetchNotifications = async (pageNum, isInitial = false, isSilentRefresh = false) => {
+  // ── Core fetch — useCallback so it's stable and safe in effect deps ───────
+  const fetchNotifications = useCallback(async (pageNum, isInitial = false, isSilentRefresh = false) => {
     try {
-      if (isInitial && !isSilentRefresh) {
-        setLoading(true);
-      } else if (!isSilentRefresh) {
-        setLoadingMore(true);
-      }
+      if (isInitial && !isSilentRefresh) setLoading(true);
+      else if (!isSilentRefresh) setLoadingMore(true);
 
-      const data = await apiFetch(
-        `/api/notifications/user/${user.id}?page=${pageNum}&limit=${limit}`
-      );
+      const data = await apiFetch(`/api/notifications/user/${user.id}?page=${pageNum}&limit=${limit}`);
 
       if (data.success) {
-        const newNotifications = data.notifications || [];
+        const incoming = data.notifications || [];
 
-        if (isInitial) {
-          setNotifications(newNotifications);
-          setPage(1);
-        } else if (isSilentRefresh) {
-          // For silent refresh, only update if there are new notifications
-          const existingIds = new Set(notifications.map(n => n.id));
-          const truelyNew = newNotifications.filter(n => !existingIds.has(n.id));
-          if (truelyNew.length > 0) {
-            setNotifications([...truelyNew, ...notifications]);
+        if (isSilentRefresh) {
+          // Only prepend genuinely new items — read from ref to avoid stale closure
+          const existingIds = new Set(notificationsRef.current.map(n => n.id));
+          const brandNew = incoming.filter(n => !existingIds.has(n.id));
+          if (brandNew.length > 0) {
+            setNotifications(prev => [...brandNew, ...prev]);
           }
+        } else if (isInitial) {
+          setNotifications(incoming);
+          setPage(1);
         } else {
-          setNotifications(prev => [...prev, ...newNotifications]);
+          setNotifications(prev => [...prev, ...incoming]);
           setPage(pageNum);
         }
 
@@ -160,119 +121,132 @@ const NotificationTab = ({ user, onNavigate, onRead }) => {
         setTotalCount(data.totalCount || 0);
         setHasMore(data.hasMore || false);
       } else {
-        setError('Failed to fetch notifications');
+        if (!isSilentRefresh) setError('Failed to fetch notifications');
       }
-    } catch (error) {
-      console.error('Error fetching notifications:', error);
-      if (!isSilentRefresh) {
-        setError('Failed to fetch notifications');
-      }
+    } catch (err) {
+      console.error('Error fetching TL notifications:', err);
+      if (!isSilentRefresh) setError('Failed to fetch notifications');
     } finally {
-      if (isInitial && !isSilentRefresh) {
-        setLoading(false);
-      } else if (!isSilentRefresh) {
-        setLoadingMore(false);
-      }
+      if (isInitial && !isSilentRefresh) setLoading(false);
+      else if (!isSilentRefresh) setLoadingMore(false);
     }
-  };
+  }, [user.id, onRead]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const markAsRead = async (notificationId) => {
+  // ── Initial load + 30s fallback poll ──────────────────────────────────────
+  useEffect(() => {
+    fetchNotifications(1, true);
+    const interval = setInterval(() => fetchNotifications(1, true, true), 30000);
+    return () => clearInterval(interval);
+  }, [fetchNotifications]);
+
+  // ── SSE — instant push the moment a notification is created ───────────────
+  useEffect(() => {
+    let es;
+    let reconnectTimer;
+
+    const connect = () => {
+      const { token } = useStore.getState();
+      const url = `${API_BASE_URL}/api/notifications/user/${user.id}/stream${token ? `?token=${encodeURIComponent(token)}` : ''}`;
+      es = new EventSource(url);
+
+      es.onmessage = (event) => {
+        if (event.data === 'ping') {
+          fetchNotifications(1, true, true);
+        }
+      };
+
+      es.onerror = () => {
+        es.close();
+        reconnectTimer = setTimeout(connect, 5000);
+      };
+    };
+
+    connect();
+
+    return () => {
+      if (es) es.close();
+      clearTimeout(reconnectTimer);
+    };
+  }, [user.id, fetchNotifications]);
+
+  // ── Infinite scroll ────────────────────────────────────────────────────────
+  useEffect(() => {
+    if (loading || loadingMore || !hasMore) return;
+
+    const options = { root: null, rootMargin: '100px', threshold: 0.1 };
+    observerRef.current = new IntersectionObserver((entries) => {
+      if (entries[0].isIntersecting && hasMore && !loadingMore) {
+        fetchNotifications(page + 1, false);
+      }
+    }, options);
+
+    if (loadMoreRef.current) observerRef.current.observe(loadMoreRef.current);
+    return () => { if (observerRef.current) observerRef.current.disconnect(); };
+  }, [loading, loadingMore, hasMore, page, fetchNotifications]);
+
+  // ── Actions ────────────────────────────────────────────────────────────────
+  const markAsRead = useCallback(async (notificationId) => {
     try {
-      const data = await apiFetch(`/api/notifications/${notificationId}/read`, {
-        method: 'PUT'
-      });
+      const data = await apiFetch(`/api/notifications/${notificationId}/read`, { method: 'PUT' });
       if (data.success) {
-        // Update local state instead of refetching
-        setNotifications(prev => prev.map(n =>
-          n.id === notificationId ? { ...n, is_read: true } : n
-        ));
+        setNotifications(prev => prev.map(n => n.id === notificationId ? { ...n, is_read: true } : n));
         setUnreadCount(prev => Math.max(0, prev - 1));
       }
-    } catch (error) {
-      console.error('Error marking notification as read:', error);
-    }
-  };
+    } catch (err) { console.error('Error marking notification as read:', err); }
+  }, []);
 
-  const markAllAsRead = async () => {
+  const markAllAsRead = useCallback(async () => {
     try {
-      const data = await apiFetch(`/api/notifications/user/${user.id}/read-all`, {
-        method: 'PUT'
-      });
+      const data = await apiFetch(`/api/notifications/user/${user.id}/read-all`, { method: 'PUT' });
       if (data.success) {
-        // Update local state
         setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
         setUnreadCount(0);
         onRead?.();
       }
-    } catch (error) {
-      console.error('Error marking all as read:', error);
-    }
-  };
+    } catch (err) { console.error('Error marking all as read:', err); }
+  }, [user.id, onRead]);
 
-  const deleteNotification = async (notificationId) => {
+  const deleteNotification = useCallback(async (notificationId) => {
     try {
-      const data = await apiFetch(`/api/notifications/${notificationId}`, {
-        method: 'DELETE'
-      });
+      const data = await apiFetch(`/api/notifications/${notificationId}`, { method: 'DELETE' });
       if (data.success) {
-        // Update local state
-        const deletedNotification = notifications.find(n => n.id === notificationId);
+        const deleted = notificationsRef.current.find(n => n.id === notificationId);
         setNotifications(prev => prev.filter(n => n.id !== notificationId));
         setTotalCount(prev => prev - 1);
-        if (deletedNotification && !deletedNotification.is_read) {
-          setUnreadCount(prev => Math.max(0, prev - 1));
-        }
+        if (deleted && !deleted.is_read) setUnreadCount(prev => Math.max(0, prev - 1));
       }
-    } catch (error) {
-      console.error('Error deleting notification:', error);
-    }
-  };
+    } catch (err) { console.error('Error deleting notification:', err); }
+  }, []);
 
-  const handleDeleteAll = () => {
-    setShowDeleteModal(true);
-  };
-
-  const confirmDeleteAll = async () => {
+  const confirmDeleteAll = useCallback(async () => {
     setIsDeleting(true);
     try {
-      const data = await apiFetch(`/api/notifications/user/${user.id}/delete-all`, {
-        method: 'DELETE'
-      });
+      const data = await apiFetch(`/api/notifications/user/${user.id}/delete-all`, { method: 'DELETE' });
       if (data.success) {
         setNotifications([]);
         setUnreadCount(0);
         setTotalCount(0);
         setHasMore(false);
         setShowDeleteModal(false);
+        onRead?.();
       }
-    } catch (error) {
-      console.error('Error deleting all notifications:', error);
+    } catch (err) {
+      console.error('Error deleting all notifications:', err);
       setError('Failed to delete all notifications');
     } finally {
       setIsDeleting(false);
     }
-  };
+  }, [user.id, onRead]);
 
-  const handleNotificationClick = (notification) => {
-    console.log('🔔 Notification clicked:', notification);
-
-    // Mark as read
-    if (!notification.is_read) {
-      markAsRead(notification.id);
-    }
-
-    // Use shared notification parser
+  const handleNotificationClick = useCallback((notification) => {
+    if (!notification.is_read) markAsRead(notification.id);
     const { targetTab, context } = parseNotification(notification, 'teamleader');
+    if (targetTab && onNavigate) onNavigate(targetTab, context);
+    else console.warn('⚠️ Unable to navigate - no target tab determined');
+  }, [markAsRead, onNavigate]);
 
-    if (targetTab && onNavigate) {
-      onNavigate(targetTab, context);
-    } else {
-      console.warn('⚠️ Unable to navigate - no target tab determined');
-    }
-  };
-
-  // Notification icon component using FileIcon
-  const NotificationIcon = ({ type }) => {
+  // Notification icon component — original implementation using FileIcon
+  const NotificationIcon = useCallback(({ type }) => {
     return (
       <FileIcon
         fileType={type}
@@ -281,13 +255,12 @@ const NotificationTab = ({ user, onNavigate, onRead }) => {
         className="tl-notification-type-icon"
       />
     );
-  };
+  }, []);
 
   const formatTimeAgo = useCallback((timestamp) => {
     const now = new Date();
     const created = new Date(timestamp);
     const diffInSeconds = Math.floor((now - created) / 1000);
-
     if (diffInSeconds < 60) return `${diffInSeconds}s ago`;
     if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)}m ago`;
     if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)}h ago`;
@@ -339,7 +312,7 @@ const NotificationTab = ({ user, onNavigate, onRead }) => {
             </button>
           )}
           {notifications.length > 0 && (
-            <button className="tl-btn-delete-all" onClick={handleDeleteAll}>
+            <button className="tl-btn-delete-all" onClick={() => setShowDeleteModal(true)}>
               Delete All
             </button>
           )}
@@ -441,12 +414,10 @@ const NotificationTab = ({ user, onNavigate, onRead }) => {
                 </span>
                 <div className="warning-content">
                   <h4>Are you sure you want to delete all notifications?</h4>
-
                   <div className="item-info">
                     <div className="item-name">{totalCount} notification{totalCount !== 1 ? 's' : ''}</div>
                     <div className="item-details">Including {unreadCount} unread notification{unreadCount !== 1 ? 's' : ''}</div>
                   </div>
-
                   <p className="warning-text">
                     This action cannot be undone. All notifications will be permanently removed from your account.
                   </p>

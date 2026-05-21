@@ -28,7 +28,11 @@ async function runMigrations() {
       { name: '007-add-file-views',                 run: require('./007-add-file-views') },
       { name: '008-add-updated-at-to-files',        run: require('./008-add-updated-at-to-files') },
       { name: '009-add-performance-snapshots',      run: require('./009-add-performance-snapshots') },
-      { name: '010-ensure-assignment-attachments',  run: require('./010-ensure-assignment-attachments') }
+      { name: '010-ensure-assignment-attachments',  run: require('./010-ensure-assignment-attachments') },
+      { name: '011-add-checker-columns',             run: require('./011-add-checker-columns') },
+      { name: '012-fix-files-status-column',          run: require('./012-fix-files-status-column') },
+      { name: '013-fix-notifications-type-column',     run: require('./013-fix-notifications-type-column') },
+      { name: '014-add-checked-by-to-files',             run: require('./014-add-checked-by-to-files') }
     ];
 
     // Fetch all already-applied migrations in one query

@@ -262,6 +262,10 @@ const AssignmentsTab = ({
   const [folderReviewComment, setFolderReviewComment] = useState('')
   const [isFolderProcessing, setIsFolderProcessing] = useState(false)
 
+  const [assignCheckerModal, setAssignCheckerModal] = useState(null) // { assignment }
+  const [selectedCheckerIds, setSelectedCheckerIds] = useState(new Set())
+  const [isAssigningChecker, setIsAssigningChecker] = useState(false)
+
   // Loading state for Mark as Done
   const [markingDoneId, setMarkingDoneId] = useState(null)
 
@@ -834,7 +838,7 @@ const AssignmentsTab = ({
                     </div>
                     <div className="tl-assignment-header-info">
                       <div className="tl-assignment-team-leader-info">
-                        <span className="tl-assignment-team-leader-name">
+                        <span className="tl-assignment-team-leader-name" style={{ fontWeight: '700' }}>
                           {assignment.team_leader_fullname || assignment.team_leader_full_name || user.fullName || assignment.team_leader_username || 'KMTI Team Leader'}
                         </span>
                         <span className="tl-assignments-role-badge team-leader">TEAM LEADER</span>
@@ -843,6 +847,22 @@ const AssignmentsTab = ({
                           {renderAssignedTo(assignment)}
                         </span>
                       </div>
+                      {(() => {
+                        try {
+                          const names = JSON.parse(assignment.checker_names || '[]')
+                          if (!names.length) return null
+                          return (
+                            <div style={{ fontSize: '15px', color: '#6b7280', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '5px', flexWrap: 'wrap' }}>
+                              <span style={{ fontWeight: '700', color: '#374151' }}>Check by:</span>
+                              {names.map((name, i) => (
+                                <span key={i} style={{ color: '#4f46e5', fontWeight: '700' }}>
+                                  {name}{i < names.length - 1 ? ',' : ''}
+                                </span>
+                              ))}
+                            </div>
+                          )
+                        } catch { return null }
+                      })()}
                       <div className="tl-assignment-created">
                         {formatDateTime(assignment.created_at)}
                       </div>
@@ -852,6 +872,49 @@ const AssignmentsTab = ({
                     {assignment.status === 'completed' ? (
                       <div className="tl-assignment-status-badge completed">
                         ✓ Completed
+                      </div>
+                    ) : assignment.status === 'checked' ? (
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px' }}>
+                        <div style={{ backgroundColor: '#EFF6FF', color: '#1D4ED8', padding: '6px 12px', borderRadius: '20px', fontSize: '13px', fontWeight: '600', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                          ✓ Checked
+                        </div>
+                        {(() => {
+                          const checkerName = assignment.recent_submissions?.find(f => f.checked_by)?.checked_by;
+                          if (!checkerName) return null;
+                          return (
+                            <div style={{ fontSize: '12px', color: '#6b7280', fontWeight: '500' }}>
+                              Checked by : <span style={{ color: '#1D4ED8', fontWeight: '700' }}>{checkerName}</span>
+                            </div>
+                          );
+                        })()} 
+                      </div>
+                    ) : assignment.status === 'for_editing' ? (
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px' }}>
+                        <div style={{ backgroundColor: '#FEF3C7', color: '#92400E', padding: '6px 12px', borderRadius: '20px', fontSize: '13px', fontWeight: '600', display: 'inline-flex', alignItems: 'center', gap: '4px', border: '1px solid #FCD34D' }}>
+                          ✎ For Editing
+                        </div>
+                        {(assignment.due_date || assignment.dueDate) && (
+                          <div className="tl-assignment-due-date" style={{ fontSize: '12px' }}>
+                            Due {formatDate(assignment.due_date || assignment.dueDate)}
+                            <span className="tl-assignment-days-left" style={{ color: getStatusColor(assignment.due_date || assignment.dueDate) }}>
+                              {' '}({formatDaysLeft(assignment.due_date || assignment.dueDate)})
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    ) : assignment.recent_submissions?.length > 0 ? (
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px' }}>
+                        <div style={{ backgroundColor: 'transparent', color: '#C2410C', padding: '6px 12px', borderRadius: '20px', fontSize: '13px', fontWeight: '600', display: 'inline-flex', alignItems: 'center', border: '1.5px solid #FDBA74' }}>
+                          For Checking
+                        </div>
+                        {(assignment.due_date || assignment.dueDate) && (
+                          <div className="tl-assignment-due-date" style={{ fontSize: '12px' }}>
+                            Due {formatDate(assignment.due_date || assignment.dueDate)}
+                            <span className="tl-assignment-days-left" style={{ color: getStatusColor(assignment.due_date || assignment.dueDate) }}>
+                              {' '}({formatDaysLeft(assignment.due_date || assignment.dueDate)})
+                            </span>
+                          </div>
+                        )}
                       </div>
                     ) : (
                       (assignment.due_date || assignment.dueDate) && (
@@ -877,6 +940,17 @@ const AssignmentsTab = ({
                       </button>
                       {showMenuForAssignment === assignment.id && (
                         <div className="tl-assignment-menu-dropdown">
+                          <button
+                            className="tl-assignment-menu-item"
+                            onClick={() => {
+                              setAssignCheckerModal({ assignment })
+                              const existingIds = (() => { try { return new Set((JSON.parse(assignment.checker_ids || '[]')).map(String)) } catch { return new Set() } })()
+                              setSelectedCheckerIds(existingIds)
+                              setShowMenuForAssignment(null)
+                            }}
+                          >
+                            Assign Checker
+                          </button>
                           <button
                             className="tl-assignment-menu-item"
                             onClick={() => {
@@ -1013,6 +1087,16 @@ const AssignmentsTab = ({
                                             Revision ({folderFiles.filter(f => (f.file?.status || f.status) === 'revision').length})
                                           </span>
                                         )}
+                                        {!isReference && folderFiles.every(f => (f.file?.status || f.status) === 'checked') && (
+                                          <span style={{ marginLeft: '8px', background: '#EFF6FF', color: '#1D4ED8', padding: '2px 8px', borderRadius: '10px', fontSize: '11px', fontWeight: '600' }}>
+                                            ✓ All Checked
+                                          </span>
+                                        )}
+                                        {!isReference && !folderFiles.every(f => (f.file?.status || f.status) === 'checked') && folderFiles.some(f => (f.file?.status || f.status) === 'checked') && (
+                                          <span style={{ marginLeft: '8px', background: '#EFF6FF', color: '#1D4ED8', padding: '2px 8px', borderRadius: '10px', fontSize: '11px', fontWeight: '600' }}>
+                                            Checked ({folderFiles.filter(f => (f.file?.status || f.status) === 'checked').length})
+                                          </span>
+                                        )}
                                       </div>
                                     </div>
                                     <div className="tl-folder-menu-wrapper" style={{ marginLeft: 'auto' }}>
@@ -1087,12 +1171,18 @@ const AssignmentsTab = ({
                                           <span>by <span className="tl-assignment-file-submitter">{submission.fullName || submission.username || 'Unknown'}</span></span>
                                           {submission.tag && <span className="tl-assignment-file-tag">🏷️ {submission.tag}</span>}
                                           <span className={`tl-assignment-file-status ${submission.status}`}>
-                                            {submission.status === 'uploaded' ? 'New' : 
-                                             submission.status === 'revision' ? '⚠ Revision' :
-                                             submission.status === 'team_leader_approved' ? 'Pending Admin' : 
-                                             submission.status === 'final_approved' ? '✓ Approved' : 
-                                             (submission.status === 'rejected_by_team_leader' || submission.status === 'rejected_by_admin') ? 'X Rejected' : 'Pending'}
+                                            {submission.status === 'checked' ? '✓ Checked' :
+                                            submission.status === 'uploaded' ? 'New' : 
+                                            submission.status === 'revision' ? '⚠ Revision' :
+                                            submission.status === 'team_leader_approved' ? 'Pending Admin' : 
+                                            submission.status === 'final_approved' ? '✓ Approved' : 
+                             (submission.status === 'rejected_by_team_leader' || submission.status === 'rejected_by_admin') ? 'X Rejected' : 'Pending'}
                                           </span>
+                                          {submission.status === 'checked' && submission.checked_by && (
+                                            <span style={{ fontSize: '11px', color: '#6b7280', fontWeight: '500' }}>
+                                              Checked by : <span style={{ color: '#1D4ED8', fontWeight: '700' }}>{submission.checked_by}</span>
+                                            </span>
+                                          )}
                                         </>
                                       )}
                                     </div>
@@ -1355,10 +1445,17 @@ const AssignmentsTab = ({
                             <span className={`tl-assignment-file-status ${file.status}`}>
                               {file.status === 'uploaded' ? 'New' : 
                                file.status === 'revision' ? '⚠ Revision' :
+                               file.status === 'checked' ? '✓ Checked' :
                                file.status === 'team_leader_approved' ? 'Pending Admin' : 
                                file.status === 'final_approved' ? '✓ Approved' : 
                                (file.status === 'rejected_by_team_leader' || file.status === 'rejected_by_admin') ? 'X Rejected' : 'Pending Review'}
                             </span>
+                            {file.status === 'checked' && file.checked_by && (
+                              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', color: '#1D4ED8', fontWeight: '600', fontSize: '11px', background: '#EFF6FF', padding: '1px 7px', borderRadius: '8px', border: '1px solid #BFDBFE', marginLeft: '6px' }}>
+                                <svg width="10" height="10" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M16 7l-7 7-3-3"/></svg>
+                                {file.checked_by}
+                              </span>
+                            )}
                           </div>
                         </div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
@@ -1481,6 +1578,151 @@ const AssignmentsTab = ({
           </div>
         </div>
       )}
+
+      {/* Assign Checker Modal */}
+      {assignCheckerModal && (() => {
+        const { assignment } = assignCheckerModal
+        const members = assignment.assigned_member_details || []
+        const toggleMember = (id) => {
+          setSelectedCheckerIds(prev => {
+            const next = new Set(prev)
+            next.has(id) ? next.delete(id) : next.add(id)
+            return next
+          })
+        }
+        return (
+          <div
+            style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}
+            onClick={() => setAssignCheckerModal(null)}
+          >
+            <div
+              style={{ background: '#fff', borderRadius: '16px', boxShadow: '0 10px 40px rgba(0,0,0,0.18)', width: '460px', maxWidth: '95vw', overflow: 'hidden' }}
+              onClick={e => e.stopPropagation()}
+            >
+              {/* Header */}
+              <div style={{ padding: '20px 24px', borderBottom: '1px solid #e5e7eb', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: '17px', fontWeight: '700', color: '#111827' }}>Assign Checker</h3>
+                  <p style={{ margin: '4px 0 0', fontSize: '13px', color: '#6b7280' }}>{assignment.title}</p>
+                </div>
+                <button onClick={() => setAssignCheckerModal(null)} style={{ background: 'none', border: 'none', fontSize: '22px', cursor: 'pointer', color: '#9ca3af', lineHeight: 1 }}>×</button>
+              </div>
+
+              {/* Body */}
+              <div style={{ padding: '20px 24px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+                  <p style={{ margin: 0, fontSize: '13px', color: '#374151' }}>Select one or more members to review the submitted files.</p>
+                  {selectedCheckerIds.size > 0 && (
+                    <span style={{ fontSize: '12px', fontWeight: '600', color: '#4f46e5', background: '#eef2ff', padding: '2px 10px', borderRadius: '10px', whiteSpace: 'nowrap', marginLeft: '10px' }}>
+                      {selectedCheckerIds.size} selected
+                    </span>
+                  )}
+                </div>
+
+                {members.length === 0 ? (
+                  <div style={{ textAlign: 'center', padding: '24px', color: '#9ca3af', fontSize: '14px' }}>No assigned members found.</div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '300px', overflowY: 'auto' }}>
+                    {members.map(member => {
+                      const id = String(member.id)
+                      const isSelected = selectedCheckerIds.has(id)
+                      const existingIds = (() => { try { return new Set((JSON.parse(assignment.checker_ids || '[]')).map(String)) } catch { return new Set() } })()
+                      const isCurrent = existingIds.has(id)
+                      return (
+                        <div
+                          key={id}
+                          onClick={() => toggleMember(id)}
+                          style={{
+                            display: 'flex', alignItems: 'center', gap: '12px',
+                            padding: '12px 14px', borderRadius: '10px', cursor: 'pointer',
+                            border: `1.5px solid ${isSelected ? '#4f46e5' : '#e5e7eb'}`,
+                            background: isSelected ? '#eef2ff' : '#fafafa',
+                            transition: 'all 0.15s'
+                          }}
+                        >
+                          {/* Checkbox */}
+                          <div style={{
+                            width: '20px', height: '20px', borderRadius: '6px', flexShrink: 0,
+                            border: `2px solid ${isSelected ? '#4f46e5' : '#d1d5db'}`,
+                            background: isSelected ? '#4f46e5' : '#fff',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            transition: 'all 0.15s'
+                          }}>
+                            {isSelected && (
+                              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M20 6L9 17l-5-5"/>
+                              </svg>
+                            )}
+                          </div>
+                          {/* Avatar */}
+                          <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: isSelected ? '#4f46e5' : '#e5e7eb', display: 'flex', alignItems: 'center', justifyContent: 'center', color: isSelected ? '#fff' : '#374151', fontWeight: '700', fontSize: '14px', flexShrink: 0 }}>
+                            {getInitials(member.fullName || member.username)}
+                          </div>
+                          <div style={{ flex: 1 }}>
+                            <div style={{ fontWeight: '600', fontSize: '14px', color: '#111827' }}>{member.fullName || member.username}</div>
+                            <div style={{ fontSize: '12px', color: '#6b7280' }}>@{member.username}</div>
+                          </div>
+                          {isCurrent && (
+                            <span style={{ fontSize: '11px', color: '#059669', fontWeight: '600', background: '#d1fae5', padding: '2px 8px', borderRadius: '10px', flexShrink: 0 }}>Current</span>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* Footer */}
+              <div style={{ padding: '16px 24px', borderTop: '1px solid #e5e7eb', display: 'flex', gap: '10px', justifyContent: 'space-between', alignItems: 'center' }}>
+                <button
+                  onClick={() => setSelectedCheckerIds(new Set())}
+                  style={{ background: 'none', border: 'none', color: '#6b7280', fontSize: '13px', cursor: 'pointer', padding: '4px', textDecoration: 'underline' }}
+                >
+                  Clear all
+                </button>
+                <div style={{ display: 'flex', gap: '10px' }}>
+                  <button
+                    onClick={() => setAssignCheckerModal(null)}
+                    style={{ padding: '9px 18px', borderRadius: '8px', border: '1px solid #d1d5db', background: '#fff', color: '#374151', fontSize: '14px', fontWeight: '500', cursor: 'pointer' }}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    disabled={isAssigningChecker || members.length === 0}
+                    onClick={async () => {
+                      setIsAssigningChecker(true)
+                      try {
+                        const chosenMembers = members.filter(m => selectedCheckerIds.has(String(m.id)))
+                        const data = await apiFetch(`/api/assignments/${assignment.id}/assign-checker`, {
+                          method: 'PUT',
+                          body: JSON.stringify({
+                            checkerIds: chosenMembers.map(m => m.id),
+                            checkerNames: chosenMembers.map(m => m.fullName || m.username)
+                          })
+                        })
+                        if (data.success) {
+                          setToast({ isOpen: true, title: 'Success', message: data.message, type: 'success' })
+                          setAssignCheckerModal(null)
+                          if (onRefreshAssignments) onRefreshAssignments()
+                        } else {
+                          setToast({ isOpen: true, title: 'Error', message: data.message || 'Failed to assign checker', type: 'error' })
+                        }
+                      } catch (e) {
+                        setToast({ isOpen: true, title: 'Error', message: 'Failed to assign checker', type: 'error' })
+                      } finally {
+                        setIsAssigningChecker(false)
+                      }
+                    }}
+                    style={{ padding: '9px 18px', borderRadius: '8px', border: 'none', background: isAssigningChecker ? '#a5b4fc' : '#4f46e5', color: '#fff', fontSize: '14px', fontWeight: '600', cursor: isAssigningChecker ? 'not-allowed' : 'pointer' }}
+                  >
+                    {isAssigningChecker ? 'Saving...' : selectedCheckerIds.size === 0 ? 'Remove Checkers' : `Assign ${selectedCheckerIds.size} Checker${selectedCheckerIds.size > 1 ? 's' : ''}`}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )
+      })()}
 
       {/* Remove Attachment Confirmation Modal */}
       {removeAttachmentModal.isOpen && (

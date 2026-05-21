@@ -203,6 +203,18 @@
   stroke: #ef4444;
 }
 
+/* Info (comment/mention) */
+.user-notification-component .notification-card.notification-info .notification-icon svg {
+  color: #3b82f6;
+  stroke: #3b82f6;
+}
+
+/* Warning (revision_request / for_editing) */
+.user-notification-component .notification-card.notification-warning .notification-icon svg {
+  color: #f59e0b;
+  stroke: #f59e0b;
+}
+
 .user-notification-component .notification-card .notification-icon svg {
   width: 28px;
   height: 28px;
