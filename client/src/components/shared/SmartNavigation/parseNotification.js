@@ -62,6 +62,23 @@ export function parseNotification(notification, role) {
         notification.type === 'file_submitted' ||
         notification.type === 'assignment'
     ) {
+        // Special case: "assigned as Checker" notification — navigate to For Checking tab
+        const isCheckerAssigned =
+            notification.title === 'You have been assigned as Checker' ||
+            notification.title?.toLowerCase().includes('assigned as checker');
+
+        if (isCheckerAssigned && notification.assignment_id) {
+            return {
+                targetTab: tabs.tasks,
+                context: {
+                    assignmentId: notification.assignment_id,
+                    forChecking: true,
+                    shouldOpenComments: false
+                },
+                notificationType: 'checker_assigned'
+            };
+        }
+
         if (notification.assignment_id) {
             return {
                 targetTab: tabs.tasks,

@@ -162,6 +162,8 @@ const UserDashboard = ({ user, onLogout }) => {
     }
   }, [])
 
+  const [taskInitialTab, setTaskInitialTab] = useState(null) // 'for-checking' | null
+
   const handleSmartNavigation = useCallback((tab, context) => {
     const storedAssignmentId = sessionStorage.getItem('highlightAssignmentId')
     const storedFileId = sessionStorage.getItem('highlightFileId')
@@ -177,6 +179,7 @@ const UserDashboard = ({ user, onLogout }) => {
     setActiveTab(tab)
 
     if (mergedContext) {
+      if (mergedContext.forChecking) setTaskInitialTab('for-checking')
       if (mergedContext.assignmentId) setHighlightedAssignmentId(mergedContext.assignmentId)
       if (mergedContext.fileId) setHighlightedFileId(mergedContext.fileId)
       if (mergedContext.shouldOpenComments || mergedContext.expandAllReplies) {
@@ -270,6 +273,8 @@ const UserDashboard = ({ user, onLogout }) => {
               onClearHighlight={clearHighlight}
               onClearFileHighlight={clearFileHighlight}
               onClearNotificationContext={clearNotificationContext}
+              initialTab={taskInitialTab}
+              onClearInitialTab={() => setTaskInitialTab(null)}
             />
           </Suspense>
         )

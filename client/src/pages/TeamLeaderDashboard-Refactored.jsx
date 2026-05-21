@@ -1158,6 +1158,7 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
               markAssignmentAsDone={markAssignmentAsDone}
               handleEditAssignment={handleEditAssignment}
               onRefreshAssignments={fetchAssignments}
+              teamMembers={teamMembers}
             />
           </Suspense>
         )

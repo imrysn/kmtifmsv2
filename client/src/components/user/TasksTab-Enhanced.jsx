@@ -380,6 +380,8 @@ const TasksTab = memo(({
   onClearHighlight,
   onClearFileHighlight,
   onClearNotificationContext,
+  initialTab,
+  onClearInitialTab,
 }) => {
   // Core data
   const [assignments, setAssignments] = useState([]);
@@ -580,6 +582,14 @@ const TasksTab = memo(({
   }, [assignments.length]);
 
   useEffect(() => { fetchAssignments(); }, [fetchAssignments]);
+
+  // Apply initialTab from notification click (e.g. 'for-checking')
+  useEffect(() => {
+    if (initialTab) {
+      setActiveTab(initialTab);
+      if (onClearInitialTab) onClearInitialTab();
+    }
+  }, [initialTab]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Keep currentAssignmentIdRef in sync
   currentAssignmentIdRef.current = currentCommentsAssignment?.id;
@@ -1270,9 +1280,25 @@ const TasksTab = memo(({
                   background: activeTab === 'for-checking' ? '#ffffff' : 'transparent',
                   color: activeTab === 'for-checking' ? '#111827' : '#9ca3af',
                   boxShadow: activeTab === 'for-checking' ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
+                  display: 'flex', alignItems: 'center', gap: '6px',
                 }}
               >
                 For Checking
+                {forCheckingAssignments.length > 0 && (
+                  <span style={{
+                    backgroundColor: activeTab === 'for-checking' ? '#f97316' : '#f97316',
+                    color: '#fff',
+                    borderRadius: '50px',
+                    padding: '1px 7px',
+                    fontSize: '11px',
+                    fontWeight: '700',
+                    lineHeight: '18px',
+                    minWidth: '18px',
+                    textAlign: 'center',
+                  }}>
+                    {forCheckingAssignments.length}
+                  </span>
+                )}
               </button>
             </div>
 

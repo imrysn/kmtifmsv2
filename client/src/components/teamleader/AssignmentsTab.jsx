@@ -173,7 +173,8 @@ const AssignmentsTab = ({
   onClearFileHighlight,
   markAssignmentAsDone,
   handleEditAssignment,
-  onRefreshAssignments
+  onRefreshAssignments,
+  teamMembers
 }) => {
   const [showMembersModal, setShowMembersModal] = useState(false)
   const [selectedMembers, setSelectedMembers] = useState([])
@@ -1587,7 +1588,9 @@ const AssignmentsTab = ({
       {/* Assign Checker Modal */}
       {assignCheckerModal && (() => {
         const { assignment } = assignCheckerModal
-        const members = assignment.assigned_member_details || []
+        // Use all team members, not just those assigned to this task
+        const allMembers = (teamMembers || []).filter(m => m.role !== 'TEAM_LEADER' && m.id !== user.id)
+        const members = allMembers.length > 0 ? allMembers : (assignment.assigned_member_details || [])
         const toggleMember = (id) => {
           setSelectedCheckerIds(prev => {
             const next = new Set(prev)
