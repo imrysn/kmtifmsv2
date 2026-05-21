@@ -486,10 +486,30 @@ const FileCollectionTab = ({
                           <td><span className="user-name">{firstFile.fullName || firstFile.username || '-'}</span></td>
                           <td>{new Date(firstFile.submitted_at || firstFile.uploaded_at).toLocaleDateString()}</td>
                           {activeView === 'collection' && <td>{getFolderStatusBadge(folderFiles.map(f => f.file || f))}</td>}
-                          <td style={{ textAlign: 'center' }}>
-                            <button className="tl-menu-button" onClick={(e) => { e.stopPropagation(); toggleMenu(`folder-${currentKey}`, e) }}>
-                              <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="3" cy="8" r="1.5" fill="currentColor" /><circle cx="8" cy="8" r="1.5" fill="currentColor" /><circle cx="13" cy="8" r="1.5" fill="currentColor" /></svg>
-                            </button>
+                          <td style={{ textAlign: 'center' }} onClick={(e) => e.stopPropagation()}>
+                            <div className="tl-actions-menu-wrapper" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                              <button className="tl-menu-button" onClick={(e) => { e.stopPropagation(); toggleMenu(`folder-${currentKey}`, e) }}>
+                                <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="3" cy="8" r="1.5" fill="currentColor" /><circle cx="8" cy="8" r="1.5" fill="currentColor" /><circle cx="13" cy="8" r="1.5" fill="currentColor" /></svg>
+                              </button>
+                              {openMenuId === `folder-${currentKey}` && (
+                                <div className="tl-dropdown-menu">
+                                  {onNavigateToTask && (
+                                    <button
+                                      className="tl-dropdown-item"
+                                      style={!firstFile.assignment_id ? { opacity: 0.4, cursor: 'not-allowed' } : {}}
+                                      title={!firstFile.assignment_id ? 'This folder is not linked to a task' : 'Go to Task'}
+                                      onClick={(e) => { e.stopPropagation(); if (firstFile.assignment_id) onNavigateToTask(firstFile.assignment_id, null) }}
+                                    >
+                                      <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                                        <path d="M5.33333 2.66667H2.66667C2.29848 2.66667 2 2.96514 2 3.33333V13.3333C2 13.7015 2.29848 14 2.66667 14H12.6667C13.0349 14 13.3333 13.7015 13.3333 13.3333V10.6667" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                                        <path d="M12 2L14 4L8.66667 9.33333L6.66667 9.66667L7 7.66667L12 2Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                                      </svg>
+                                      Go to Task
+                                    </button>
+                                  )}
+                                </div>
+                              )}
+                            </div>
                           </td>
                         </tr>
                         {isExpanded && renderRecursiveItems(folderFiles, level + 1, currentKey, [...parentIsLastArr, isLast])}
@@ -537,10 +557,30 @@ const FileCollectionTab = ({
                           <td><span className="user-name">{firstFile.fullName || firstFile.username || '-'}</span></td>
                           <td>{new Date(firstFile.submitted_at || firstFile.uploaded_at).toLocaleDateString()}</td>
                           {activeView === 'collection' && <td>{getFolderStatusBadge(folderFiles)}</td>}
-                          <td style={{ textAlign: 'center' }}>
-                            <button className="tl-menu-button" onClick={(e) => { e.stopPropagation(); toggleMenu(`folder-${folderKey}`, e) }}>
-                              <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="3" cy="8" r="1.5" fill="currentColor" /><circle cx="8" cy="8" r="1.5" fill="currentColor" /><circle cx="13" cy="8" r="1.5" fill="currentColor" /></svg>
-                            </button>
+                          <td style={{ textAlign: 'center' }} onClick={(e) => e.stopPropagation()}>
+                            <div className="tl-actions-menu-wrapper" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                              <button className="tl-menu-button" onClick={(e) => { e.stopPropagation(); toggleMenu(`folder-${folderKey}`, e) }}>
+                                <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="3" cy="8" r="1.5" fill="currentColor" /><circle cx="8" cy="8" r="1.5" fill="currentColor" /><circle cx="13" cy="8" r="1.5" fill="currentColor" /></svg>
+                              </button>
+                              {openMenuId === `folder-${folderKey}` && (
+                                <div className="tl-dropdown-menu">
+                                  {onNavigateToTask && (
+                                    <button
+                                      className="tl-dropdown-item"
+                                      style={!firstFile.assignment_id ? { opacity: 0.4, cursor: 'not-allowed' } : {}}
+                                      title={!firstFile.assignment_id ? 'This folder is not linked to a task' : 'Go to Task'}
+                                      onClick={(e) => { e.stopPropagation(); if (firstFile.assignment_id) onNavigateToTask(firstFile.assignment_id, null) }}
+                                    >
+                                      <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                                        <path d="M5.33333 2.66667H2.66667C2.29848 2.66667 2 2.96514 2 3.33333V13.3333C2 13.7015 2.29848 14 2.66667 14H12.6667C13.0349 14 13.3333 13.7015 13.3333 13.3333V10.6667" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                                        <path d="M12 2L14 4L8.66667 9.33333L6.66667 9.66667L7 7.66667L12 2Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                                      </svg>
+                                      Go to Task
+                                    </button>
+                                  )}
+                                </div>
+                              )}
+                            </div>
                           </td>
                         </tr>
                         {isExpanded && renderRecursiveItems(
