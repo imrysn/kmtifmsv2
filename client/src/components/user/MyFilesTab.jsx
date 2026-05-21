@@ -35,11 +35,14 @@ const MyFilesTab = ({
     return () => document.removeEventListener('click', handler);
   }, [sortDropdownOpen]);
 
+  // FIX: Added 'revision' and 'pending_team_leader' statuses so files uploaded
+  // via tasks (which get status='revision' in bulkUploadFast) appear in My Files.
   const submittedFiles = useMemo(() =>
     filteredFiles.filter(f =>
       f.status === 'final_approved' || f.status === 'uploaded' ||
       f.status === 'team_leader_approved' || f.status === 'rejected_by_team_leader' ||
-      f.status === 'rejected_by_admin' || f.status === 'under_revision'
+      f.status === 'rejected_by_admin' || f.status === 'under_revision' ||
+      f.status === 'revision' || f.status === 'pending_team_leader'
     ), [filteredFiles]
   );
 
@@ -64,7 +67,7 @@ const MyFilesTab = ({
     // Apply status filter before grouping
     const statusFilterMap = {
       all: null,
-      pending_tl: (f) => f.status === 'uploaded' || f.status === 'under_revision',
+      pending_tl: (f) => f.status === 'uploaded' || f.status === 'under_revision' || f.status === 'revision' || f.status === 'pending_team_leader',
       pending_admin: (f) => f.status === 'team_leader_approved',
       approved: (f) => f.status === 'final_approved',
       rejected: (f) => f.status === 'rejected_by_team_leader' || f.status === 'rejected_by_admin',
@@ -172,6 +175,8 @@ const MyFilesTab = ({
 
     const statusMap = {
       'uploaded': 'Pending Team Leader',
+      'revision': 'Pending Team Leader',
+      'pending_team_leader': 'Pending Team Leader',
       'under_revision': 'Revision',
       'team_leader_approved': 'Pending Admin',
       'final_approved': 'Approved',
@@ -185,6 +190,8 @@ const MyFilesTab = ({
   const getStatusClass = useCallback((status) => {
     const classMap = {
       'uploaded': 'status-pending',
+      'revision': 'status-pending',
+      'pending_team_leader': 'status-pending',
       'team_leader_approved': 'status-pending',
       'under_revision': 'status-revised',
       'final_approved': 'status-approved',
@@ -196,27 +203,20 @@ const MyFilesTab = ({
   }, []);
 
   // Compute the folder-level status from all its files
-  // Rules:
-  //   - All final_approved                        → "Approved"
-  //   - ALL files are team_leader_approved (none still pending TL) → "Pending Admin"
-  //   - Any file still uploaded / under_revision  → "Pending Team Leader"
-  //   - Any rejected (and not all approved)       → "Rejected" (show the worst)
   const getFolderStatus = useCallback((folderFiles) => {
     if (!folderFiles || folderFiles.length === 0) return { label: 'Pending Team Leader', cls: 'status-pending' };
 
     const statuses = folderFiles.map(f => f.status);
     const allFinalApproved  = statuses.every(s => s === 'final_approved');
     const anyRejected       = statuses.some(s => s === 'rejected_by_team_leader' || s === 'rejected_by_admin');
-    const anyPendingTL      = statuses.some(s => s === 'uploaded' || s === 'under_revision');
+    const anyPendingTL      = statuses.some(s => s === 'uploaded' || s === 'under_revision' || s === 'revision' || s === 'pending_team_leader');
     const allTLApproved     = statuses.every(s => s === 'team_leader_approved' || s === 'final_approved');
 
     if (allFinalApproved)  return { label: 'Approved',            cls: 'status-approved' };
     if (anyPendingTL)      return { label: 'Pending Team Leader',  cls: 'status-pending'  };
     if (allTLApproved)     return { label: 'Pending Admin',        cls: 'status-pending'  };
-    // At least one file passed TL but not all — still show Pending Admin
     if (statuses.some(s => s === 'team_leader_approved')) return { label: 'Pending Admin', cls: 'status-pending' };
     if (anyRejected) {
-      // Show the most severe rejection label to match individual file tag sizing
       const hasTLRejection = statuses.some(s => s === 'rejected_by_team_leader');
       return hasTLRejection
         ? { label: 'Rejected by Team Leader', cls: 'status-rejected' }
@@ -243,7 +243,7 @@ const MyFilesTab = ({
   }, []);
 
   const pendingFiles = useMemo(() =>
-    submittedFiles.filter(f => f.status === 'uploaded' || f.status === 'team_leader_approved'),
+    submittedFiles.filter(f => f.status === 'uploaded' || f.status === 'team_leader_approved' || f.status === 'revision' || f.status === 'pending_team_leader'),
     [submittedFiles]
   );
 
@@ -266,7 +266,6 @@ const MyFilesTab = ({
     resetPagination();
   }, [filteredFiles, itemsPerPage, resetPagination]);
 
-  // Cleanup: ensure body overflow is restored if component unmounts with modal open
   useEffect(() => {
     return () => {
       document.body.style.overflow = '';
@@ -348,11 +347,12 @@ const MyFilesTab = ({
             console.error('Error deleting folder directory:', folderError);
           }
 
+          // FIX: Use type: 'delete' (red) instead of type: 'success' (green)
           setSuccessModal({
             isOpen: true,
             title: 'Folder Deleted',
             message: `All ${deleteModal.folderFiles.length} file(s) in "${deleteModal.folderName}" have been successfully deleted.`,
-            type: 'success'
+            type: 'delete'
           });
           if (fetchUserFiles) await fetchUserFiles();
         } else {
@@ -370,11 +370,12 @@ const MyFilesTab = ({
         });
 
         if (data.success) {
+          // FIX: Use type: 'delete' (red) instead of type: 'success' (green)
           setSuccessModal({
             isOpen: true,
             title: 'File Deleted',
             message: 'The file has been successfully deleted.',
-            type: 'success'
+            type: 'delete'
           });
           if (fetchUserFiles) await fetchUserFiles();
         } else {
@@ -404,8 +405,6 @@ const MyFilesTab = ({
   const toggleFolder = useCallback((folderName) => {
     setExpandedFolders(prev => ({ ...prev, [folderName]: !prev[folderName] }));
   }, []);
-
-  // The custom OpenFileModal useMemo is removed in favor of the shared component
 
   const DeleteModal = useMemo(() => {
     if (!deleteModal.isOpen) return null;
@@ -544,7 +543,6 @@ const MyFilesTab = ({
             const totalSubfolders = subfolderEntries.length;
             const totalRootFiles = rootFiles.length;
 
-            // 1. Render subfolders
             subfolderEntries.forEach(([subName, subFiles], index) => {
               const isLast = (index === totalSubfolders - 1) && (totalRootFiles === 0);
               const subKey = parentKey ? `${parentKey}__${subName}` : `${folderName}__${subName}`;
@@ -587,7 +585,6 @@ const MyFilesTab = ({
               );
             });
 
-            // 2. Render root files
             rootFiles.forEach((fileItem, index) => {
               const isLast = index === totalRootFiles - 1;
               const file = fileItem.file || fileItem;
@@ -710,7 +707,6 @@ const MyFilesTab = ({
               <div className="skeleton-box-inline" style={{ height: '32px', width: '140px', marginBottom: '12px', borderRadius: '8px' }} />
               <div className="skeleton-box-inline" style={{ height: '18px', width: '200px', borderRadius: '6px' }} />
             </div>
-
             <div className="stats-row">
               {[...Array(4)].map((_, i) => (
                 <div key={i} className="stat-box-skeleton">
@@ -727,53 +723,53 @@ const MyFilesTab = ({
           <>
             <div className="header-left">
               <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-              <h1>My Files</h1>
-              <div style={{ position: 'relative', display: 'inline-block' }}>
-              <button
-              onClick={(e) => { e.stopPropagation(); setSortDropdownOpen(prev => !prev); }}
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '6px',
-                padding: '6px 12px',
-                  border: '1px solid #d5d5d9',
-                borderRadius: '6px',
-                background: 'white',
-                fontSize: '14px',
-                color: '#1d1d1f',
-                fontWeight: 500,
-                  cursor: 'pointer',
-                  whiteSpace: 'nowrap',
-                    transition: 'border-color 0.15s ease, box-shadow 0.15s ease',
+                <h1>My Files</h1>
+                <div style={{ position: 'relative', display: 'inline-block' }}>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); setSortDropdownOpen(prev => !prev); }}
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      padding: '6px 12px',
+                      border: '1px solid #d5d5d9',
+                      borderRadius: '6px',
+                      background: 'white',
+                      fontSize: '14px',
+                      color: '#1d1d1f',
+                      fontWeight: 500,
+                      cursor: 'pointer',
+                      whiteSpace: 'nowrap',
+                      transition: 'border-color 0.15s ease, box-shadow 0.15s ease',
                     }}
-              >
-              {sortOrder === 'all' && `All Files (${submittedFiles.length})`}
-              {sortOrder === 'pending_tl' && `Pending Team Leader (${pendingFiles.filter(f => f.status === 'uploaded').length})`}
-              {sortOrder === 'pending_admin' && `Pending Admin (${pendingFiles.filter(f => f.status === 'team_leader_approved').length})`}
-              {sortOrder === 'approved' && `Approved (${approvedFiles.length})`}
-              {sortOrder === 'rejected' && `Rejected (${rejectedFiles.length})`}
-              <svg width="12" height="8" viewBox="0 0 12 8" fill="none">
-              <path d="M1 1.5L6 6.5L11 1.5" stroke="#1d1d1f" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-              </svg>
-              </button>
-              {sortDropdownOpen && (
-              <div style={{
-              position: 'absolute',
-              top: 'calc(100% + 4px)',
-                left: 0,
-                  background: 'white',
-                border: '1px solid #d5d5d9',
-                borderRadius: '8px',
-                boxShadow: '0 4px 16px rgba(0,0,0,0.12)',
-                zIndex: 100,
-                minWidth: '100%',
-                  whiteSpace: 'nowrap',
-                  overflow: 'hidden',
-                  animation: 'sortDropdownIn 0.15s ease',
-              }}>
-                  {[
-                      { value: 'all', label: `All Files (${submittedFiles.length})` },
-                        { value: 'pending_tl', label: `Pending Team Leader (${pendingFiles.filter(f => f.status === 'uploaded').length})` },
+                  >
+                    {sortOrder === 'all' && `All Files (${submittedFiles.length})`}
+                    {sortOrder === 'pending_tl' && `Pending Team Leader (${pendingFiles.filter(f => f.status === 'uploaded' || f.status === 'revision' || f.status === 'pending_team_leader').length})`}
+                    {sortOrder === 'pending_admin' && `Pending Admin (${pendingFiles.filter(f => f.status === 'team_leader_approved').length})`}
+                    {sortOrder === 'approved' && `Approved (${approvedFiles.length})`}
+                    {sortOrder === 'rejected' && `Rejected (${rejectedFiles.length})`}
+                    <svg width="12" height="8" viewBox="0 0 12 8" fill="none">
+                      <path d="M1 1.5L6 6.5L11 1.5" stroke="#1d1d1f" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                  </button>
+                  {sortDropdownOpen && (
+                    <div style={{
+                      position: 'absolute',
+                      top: 'calc(100% + 4px)',
+                      left: 0,
+                      background: 'white',
+                      border: '1px solid #d5d5d9',
+                      borderRadius: '8px',
+                      boxShadow: '0 4px 16px rgba(0,0,0,0.12)',
+                      zIndex: 100,
+                      minWidth: '100%',
+                      whiteSpace: 'nowrap',
+                      overflow: 'hidden',
+                      animation: 'sortDropdownIn 0.15s ease',
+                    }}>
+                      {[
+                        { value: 'all', label: `All Files (${submittedFiles.length})` },
+                        { value: 'pending_tl', label: `Pending Team Leader (${pendingFiles.filter(f => f.status === 'uploaded' || f.status === 'revision' || f.status === 'pending_team_leader').length})` },
                         { value: 'pending_admin', label: `Pending Admin (${pendingFiles.filter(f => f.status === 'team_leader_approved').length})` },
                         { value: 'approved', label: `Approved (${approvedFiles.length})` },
                         { value: 'rejected', label: `Rejected (${rejectedFiles.length})` },
@@ -806,11 +802,10 @@ const MyFilesTab = ({
               <div className="stat-box">
                 <div className="stat-icon">TL</div>
                 <div className="stat-text">
-                  <div className="stat-number">{pendingFiles.filter(f => f.status === 'uploaded').length}</div>
+                  <div className="stat-number">{pendingFiles.filter(f => f.status === 'uploaded' || f.status === 'revision' || f.status === 'pending_team_leader').length}</div>
                   <div className="stat-name">Pending Team Leader</div>
                 </div>
               </div>
-
               <div className="stat-box">
                 <div className="stat-icon">AD</div>
                 <div className="stat-text">
@@ -818,7 +813,6 @@ const MyFilesTab = ({
                   <div className="stat-name">Pending Admin</div>
                 </div>
               </div>
-
               <div className="stat-box">
                 <div className="stat-icon">AP</div>
                 <div className="stat-text">
@@ -826,7 +820,6 @@ const MyFilesTab = ({
                   <div className="stat-name">Approved Files</div>
                 </div>
               </div>
-
               <div className="stat-box">
                 <div className="stat-icon">RE</div>
                 <div className="stat-text">
