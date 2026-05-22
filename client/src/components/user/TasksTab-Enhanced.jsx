@@ -547,7 +547,6 @@ const TasksTab = memo(({
         await fetchAssignments();
       } else { showError(data.message || 'Failed to update file status'); }
     } catch (err) {
-      console.error('handleMarkFileChecked error:', err);
       showError(err?.message || 'Failed to update file status');
     }
   }, [user, fetchAssignments, showError]);
@@ -849,7 +848,14 @@ const TasksTab = memo(({
     try {
       const allPaths = uploadedFiles.map(f => {
         if (targetFolder) {
-          return f.folderName ? f.relativePath : `${targetFolder}/${f.file.name}`;
+          // If the file came from a folder drag-drop it already has the correct full
+          // relative path — keep it.
+          // If it's a plain individual file (no folderName), do NOT prepend the
+          // top-level folder name here.  Sending just the filename lets the server's
+          // path-inheritance logic look up the original subfolder path from the DB
+          // (e.g. "TESTING!/New folder/file.pdf") instead of landing flat at the
+          // top level ("TESTING!/file.pdf").
+          return f.folderName ? f.relativePath : f.file.name;
         }
         return f.relativePath;
       });
@@ -884,7 +890,7 @@ const TasksTab = memo(({
         throw new Error(result.message || 'Upload failed');
       }
     } catch (err) {
-      console.error('Upload error:', err);
+      // Error already shown via showError above
       showError(err.message || 'Failed to upload files');
     } finally {
       setIsUploading(false);
@@ -935,7 +941,7 @@ const TasksTab = memo(({
       }
       setFileDetailsTarget(fileData);
     } catch (err) {
-      console.error('Failed to fetch file details:', err);
+      showError('Failed to load file details. Please try again.');
       setFileDetailsTarget(file);
     }
     setShowFileDetailsModal(true);
@@ -1084,8 +1090,22 @@ const TasksTab = memo(({
     );
   };
 
-  const renderRecursiveItems = (assignment, files, level = 1, parentKey = '', parentIsLastArr = [], isAttachment = true, checkerActions = null) => {
-    const { subfolders, rootFiles } = recursiveGroupByPath(files);
+  const renderRecursiveItems = (assignment, files, level = 1, parentKey = '', parentIsLastArr = [], isAttachment = true, checkerActions = null, stripPrefix = null) => {
+    // Strip the top-level folder prefix from relative_path so recursiveGroupByPath
+    // sees paths relative to the current folder, not the global root.
+    // e.g. files with relative_path="TESTING!/New folder/file.pdf" inside the
+    // "TESTING!" folder should be processed as "New folder/file.pdf".
+    const normalizedFiles = stripPrefix
+      ? files.map(f => {
+          const file = f.file || f;
+          const rp = (file.relative_path || '').replace(/\\/g, '/');
+          const prefix = stripPrefix.replace(/\\/g, '/') + '/';
+          const stripped = rp.startsWith(prefix) ? rp.slice(prefix.length) : rp;
+          return { ...f, file: { ...file, relative_path: stripped } };
+        })
+      : files;
+
+    const { subfolders, rootFiles } = recursiveGroupByPath(normalizedFiles);
     const subItems = [];
 
     const subfolderEntries = Object.entries(subfolders);
@@ -1136,7 +1156,7 @@ const TasksTab = memo(({
               </div>
             </div>
           </div>
-          {isSubOpen && renderRecursiveItems(assignment, subFiles, level + 1, subKey, [...parentIsLastArr, isLast], isAttachment, checkerActions)}
+          {isSubOpen && renderRecursiveItems(assignment, subFiles, level + 1, subKey, [...parentIsLastArr, isLast], isAttachment, checkerActions, null)}
         </div>
       );
     });
@@ -1527,7 +1547,7 @@ const TasksTab = memo(({
                                 />
                               </div>
                             </div>
-                            {isExpanded && renderRecursiveItems(assignment, folderFiles, 1, key, [], true)}
+                            {isExpanded && renderRecursiveItems(assignment, folderFiles, 1, key, [], true, null, folderName)}
                           </div>
                         );
                       })}
@@ -1646,7 +1666,7 @@ const TasksTab = memo(({
                                 </div>
                               </div>
                             </div>
-                            {isExpanded && renderRecursiveItems(assignment, folderFiles, 1, key, [], false, checkerActions)}
+                            {isExpanded && renderRecursiveItems(assignment, folderFiles, 1, key, [], false, checkerActions, folderName)}
                           </div>
                         );
                       })}
@@ -1799,7 +1819,7 @@ const TasksTab = memo(({
                         method: 'POST',
                         body: JSON.stringify({ folderName, username: user.username, fileIds: folderFiles.map(f => f.id), userId: user.id, userRole: user.role, team: user.team }),
                       });
-                    } catch (e) { console.error('Error deleting folder directory:', e); }
+                    } catch (_e) { /* Directory cleanup failure is non-fatal — ignore */ }
                     setSuccessModal({ isOpen: true, title: 'Removed', message: 'Folder removed successfully', type: 'error' });
                     setTimeout(() => fetchAssignments(), 500);
                   } else {

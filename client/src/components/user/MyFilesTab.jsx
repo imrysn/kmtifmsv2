@@ -141,7 +141,6 @@ const MyFilesTab = ({
         window.open(fileUrl, '_blank', 'noopener,noreferrer');
       }
     } catch (error) {
-      console.error('Error opening file:', error);
       setSuccessModal({
         isOpen: true,
         title: 'Error',
@@ -343,8 +342,8 @@ const MyFilesTab = ({
                 team: user.team
               })
             });
-          } catch (folderError) {
-            console.error('Error deleting folder directory:', folderError);
+          } catch (_folderError) {
+            // Directory cleanup is best-effort; DB records are already deleted
           }
 
           // FIX: Use type: 'delete' (red) instead of type: 'success' (green)
@@ -383,7 +382,6 @@ const MyFilesTab = ({
         }
       }
     } catch (error) {
-      console.error('Error deleting:', error);
       setSuccessModal({
         isOpen: true,
         title: 'Error',

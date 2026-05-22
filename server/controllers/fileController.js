@@ -576,6 +576,92 @@ class FileController {
         const viewers = await fileService.getViewers(id);
         res.json({ success: true, viewers });
     });
+
+    /**
+     * Repair flat re-uploaded files for a given assignment — restores
+     * folder_name + relative_path from sibling files that still have path context,
+     * OR reconstructs the path by inferring which subfolder they belong to.
+     * POST /api/files/repair-folder-paths
+     * Body: { assignmentId }
+     */
+    repairFolderPaths = asyncHandler(async (req, res) => {
+        const { assignmentId } = req.body;
+        if (!assignmentId) throw new ValidationError('assignmentId is required');
+
+        const { query } = require('../config/database');
+
+        // 1. Get ALL files for this assignment with full context
+        const allFiles = await query(`
+            SELECT f.id, f.original_name, f.user_id, f.folder_name, f.relative_path, f.status
+            FROM files f
+            INNER JOIN assignment_submissions asub ON asub.file_id = f.id
+            WHERE asub.assignment_id = ?
+        `, [assignmentId]);
+
+        // 2. Build path lookup from files that DO have folder context.
+        //    Key: user_id:original_name -> { folder_name, relative_path }
+        //    Prefer deepest path (most specific subfolder info).
+        const pathMap = {};
+        for (const f of allFiles) {
+            if (f.folder_name && f.relative_path) {
+                const key = `${f.user_id}:${f.original_name}`;
+                const existing = pathMap[key];
+                const depth = (f.relative_path.match(/\//g) || []).length;
+                const existingDepth = existing ? (existing.relative_path.match(/\//g) || []).length : -1;
+                if (depth > existingDepth) {
+                    pathMap[key] = { folder_name: f.folder_name, relative_path: f.relative_path };
+                }
+            }
+        }
+
+        // 3. For flat files with no direct path match, try to infer from subfolders.
+        //    If a file has no folder context, find any sibling file in the same assignment
+        //    whose relative_path ends with the same filename at a deeper path level.
+        //    e.g. flat file "foo.pdf" -> find "TESTING!/New folder/foo.pdf" from a sibling.
+        const flatFiles = allFiles.filter(f => !f.folder_name);
+        for (const f of flatFiles) {
+            if (pathMap[`${f.user_id}:${f.original_name}`]) continue;
+            // Deep search: find any other file in the assignment for this user
+            // whose relative_path ends with '/' + original_name
+            const [deepMatch] = await query(`
+                SELECT f2.folder_name, f2.relative_path
+                FROM files f2
+                INNER JOIN assignment_submissions asub2 ON asub2.file_id = f2.id
+                WHERE asub2.assignment_id = ?
+                  AND f2.user_id = ?
+                  AND f2.folder_name IS NOT NULL
+                  AND f2.relative_path LIKE ?
+                ORDER BY CHAR_LENGTH(f2.relative_path) DESC
+                LIMIT 1
+            `, [assignmentId, f.user_id, `%/${f.original_name}`]);
+            if (deepMatch) {
+                pathMap[`${f.user_id}:${f.original_name}`] = {
+                    folder_name: deepMatch.folder_name,
+                    relative_path: deepMatch.relative_path
+                };
+            }
+        }
+
+        // 4. Apply fixes
+        let repaired = 0;
+        for (const f of flatFiles) {
+            const pathInfo = pathMap[`${f.user_id}:${f.original_name}`];
+            if (pathInfo) {
+                await query(
+                    'UPDATE files SET folder_name = ?, relative_path = ?, is_folder = 1 WHERE id = ?',
+                    [pathInfo.folder_name, pathInfo.relative_path, f.id]
+                );
+                repaired++;
+            }
+        }
+
+        res.json({
+            success: true,
+            message: `Repaired ${repaired} of ${flatFiles.length} flat file record${flatFiles.length !== 1 ? 's' : ''} for assignment ${assignmentId}`,
+            repaired,
+            total_flat: flatFiles.length
+        });
+    });
 }
 
 module.exports = new FileController();

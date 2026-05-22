@@ -66,6 +66,7 @@ router.get('/team/:team/status/:status', authenticateToken, fileController.getFi
 router.post('/folder/delete', authenticateToken, fileController.deleteFolder);
 router.post('/folder/delete-attachments', authenticateToken, authorizeRole(['ADMIN']), fileController.deleteAttachmentFolder);
 router.get('/folder/zip', authenticateToken, fileController.zipFolder);
+router.post('/repair-folder-paths', authenticateToken, authorizeRole(['ADMIN']), fileController.repairFolderPaths);
 
 // ─── File Actions ─────────────────────────────────────────────────────────────
 

@@ -67,6 +67,28 @@ async function uploadFile(fileData, user) {
         assignmentId
     );
 
+    // ── Path inheritance ───────────────────────────────────────────────
+    // When re-uploading a single file, the client sends no folder context.
+    // Recover the original subfolder path from any previous submission of
+    // this filename for this assignment (rejected, revision, or any status).
+    if (assignmentId && !fileData.folder_name) {
+        let pathSource = (existing && existing.folder_name) ? existing : null;
+        if (!pathSource) {
+            const historical = await fileRepository.findAnyByNameAndAssignment(
+                originalName, user.id, assignmentId
+            );
+            if (historical && historical.folder_name) pathSource = historical;
+        }
+        if (pathSource) {
+            fileData.folder_name = pathSource.folder_name;
+            if (pathSource.relative_path &&
+                (!fileData.relative_path || fileData.relative_path === originalName)) {
+                fileData.relative_path = pathSource.relative_path;
+            }
+            fileData.is_folder = !!(fileData.relative_path && fileData.relative_path.includes('/'));
+        }
+    }
+
     if (existing) {
         if (assignmentId) {
             // Check if this specific file is a revision (replacing a rejected file)
@@ -197,6 +219,44 @@ async function bulkUploadFast(filesData, user, assignmentId = null) {
             const existing = await fileRepository.findByNameAndUser(
                 originalName, user.id, fileData.folder_name, assignmentId
             );
+
+            // ── Path inheritance ─────────────────────────────────────────────────
+            // When the user re-uploads a single file (no folder drag-drop), the
+            // client sends relativePath = filename only and folderName = null.
+            // We need to recover the original subfolder path from ANY previous
+            // submission of this file to this assignment — not just rejected ones —
+            // because a previous re-upload may have already replaced the rejected
+            // record with a flat 'revision'/'uploaded' record.
+            //
+            // Strategy:
+            //   A) If we found an existing record AND it has a folder_name → inherit.
+            //   B) If the existing record is flat (no folder_name), do a secondary
+            //      lookup for the most path-rich historical record for this assignment.
+            if (assignmentId && !fileData.folder_name) {
+                let pathSource = null;
+
+                if (existing && existing.folder_name) {
+                    // Existing record already has folder context — use it
+                    pathSource = existing;
+                } else {
+                    // Either no existing record found, or existing is flat.
+                    // Do a broader search to find any historical record with path info.
+                    pathSource = await fileRepository.findAnyByNameAndAssignment(
+                        originalName, user.id, assignmentId
+                    );
+                    // If this returns the same flat record, ignore it.
+                    if (pathSource && !pathSource.folder_name) pathSource = null;
+                }
+
+                if (pathSource) {
+                    fileData.folder_name = pathSource.folder_name;
+                    if (pathSource.relative_path &&
+                        (!fileData.relative_path || fileData.relative_path === originalName)) {
+                        fileData.relative_path = pathSource.relative_path;
+                    }
+                    fileData.is_folder = !!(fileData.relative_path && fileData.relative_path.includes('/'));
+                }
+            }
 
             if (existing && assignmentId) {
                 // Check if this specific file is a revision (replacing a rejected file)
