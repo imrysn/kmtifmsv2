@@ -1140,7 +1140,6 @@ const AssignmentsTab = ({
                                   className={`tl-assignment-file-item ${isViewed ? 'file-card-opened' : ''} ${level > 0 ? 'tl-in-tree' : ''}`}
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    // Remove open file function for reference attachments as requested
                                     if (!isReference) {
                                       if (openReviewModal && submission.id) {
                                         openReviewModal(submission, null, (fileId) => {
@@ -1148,10 +1147,13 @@ const AssignmentsTab = ({
                                           markFileViewed(assignment.id, fileId);
                                         });
                                       }
+                                    } else {
+                                      setFileToOpen({ ...submission, isAttachment: true, assignmentId: assignment.id });
+                                      setShowOpenFileConfirmation(true);
                                     }
                                   }}
                                   style={{ 
-                                    cursor: isReference ? 'default' : 'pointer', 
+                                    cursor: 'pointer', 
                                     marginLeft: level === 0 ? '0px' : '0px', 
                                     padding: '14px 20px', 
                                     marginBottom: '8px',
@@ -1194,6 +1196,22 @@ const AssignmentsTab = ({
                                     </div>
                                   </div>
                                   <FileViewersButton fileId={submission.id} externalCount={viewerCounts[submission.id]} />
+                                  {isReference && (
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation()
+                                        setFileToOpen({ ...submission, isAttachment: true, assignmentId: assignment.id })
+                                        setShowOpenFileConfirmation(true)
+                                      }}
+                                      title="View file"
+                                      className="tl-download-button"
+                                      style={{ marginLeft: '4px', flexShrink: 0, background: 'transparent', border: 'none', cursor: 'pointer', color: '#9ca3af', width: '28px', height: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '6px', transition: 'all 0.2s' }}
+                                    >
+                                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
+                                      </svg>
+                                    </button>
+                                  )}
                                   <button
                                     onClick={async (e) => {
                                       e.stopPropagation()
