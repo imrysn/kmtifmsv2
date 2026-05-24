@@ -1115,3 +1115,17 @@
 .file-approval-section .file-row.nested-file td:first-child::before {
   display: none !important; /* Hide old simple nested line */
 }
+
+/* Notification deep-link highlight */
+@keyframes highlight-pulse {
+  0%   { box-shadow: inset 0 0 0 2px #3b82f6, 0 0 0 4px rgba(59, 130, 246, 0.15); }
+  50%  { box-shadow: inset 0 0 0 2px #2563eb, 0 0 0 8px rgba(59, 130, 246, 0.25); }
+  100% { box-shadow: inset 0 0 0 2px #3b82f6, 0 0 0 4px rgba(59, 130, 246, 0.15); }
+}
+
+.file-approval-section .file-row.highlighted-row {
+  background-color: #eff6ff !important;
+  animation: highlight-pulse 1.2s ease-in-out 2;
+  position: relative;
+  z-index: 1;
+}

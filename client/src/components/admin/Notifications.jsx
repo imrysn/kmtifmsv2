@@ -92,9 +92,6 @@ const Notifications = ({ user, onNavigate, onRead }) => {
   const observerRef = useRef(null);
   const loadMoreRef = useRef(null);
 
-  // Highlighted comment ref
-  const [highlightedCommentId, setHighlightedCommentId] = useState(null);
-
   // Keep latest notifications in a ref so SSE/poll closures never see stale state
   const notificationsRef = useRef([]);
   useEffect(() => { notificationsRef.current = notifications; }, [notifications]);
@@ -109,12 +106,6 @@ const Notifications = ({ user, onNavigate, onRead }) => {
 
       if (data.success) {
         const incoming = data.notifications || [];
-
-        // Debug: Log password reset notifications
-        const passwordResetNotifs = incoming.filter(n => n.type === 'password_reset_request');
-        if (passwordResetNotifs.length > 0) {
-          console.log('Password reset notifications found:', passwordResetNotifs.length);
-        }
 
         if (isSilentRefresh) {
           // Read from ref to avoid stale closure
@@ -200,7 +191,6 @@ const Notifications = ({ user, onNavigate, onRead }) => {
         method: 'PUT'
       });
       if (data.success) {
-        // Update local state instead of refetching
         setNotifications(prev => prev.map(n =>
           n.id === notificationId ? { ...n, is_read: true } : n
         ));
@@ -217,7 +207,6 @@ const Notifications = ({ user, onNavigate, onRead }) => {
         method: 'PUT'
       });
       if (data.success) {
-        // Update local state
         setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
         setUnreadCount(0);
         onRead?.();
@@ -233,7 +222,6 @@ const Notifications = ({ user, onNavigate, onRead }) => {
         method: 'DELETE'
       });
       if (data.success) {
-        // Update local state
         const deletedNotification = notifications.find(n => n.id === notificationId);
         setNotifications(prev => prev.filter(n => n.id !== notificationId));
         setTotalCount(prev => prev - 1);
@@ -244,7 +232,7 @@ const Notifications = ({ user, onNavigate, onRead }) => {
     } catch (error) {
       console.error('Error deleting notification:', error);
     }
-  }, []);
+  }, [notifications]);
 
   const handleDeleteAll = useCallback(async () => {
     setIsDeleting(true);
@@ -258,6 +246,7 @@ const Notifications = ({ user, onNavigate, onRead }) => {
         setTotalCount(0);
         setHasMore(false);
         setShowDeleteAllModal(false);
+        onRead?.();
       }
     } catch (error) {
       console.error('Error deleting all notifications:', error);
@@ -268,34 +257,28 @@ const Notifications = ({ user, onNavigate, onRead }) => {
   }, [user.id, onRead]);
 
   const handleNotificationClick = useCallback((notification) => {
-    // Mark as read
     if (!notification.is_read) {
       markAsRead(notification.id);
     }
 
-    console.log('Admin Notification clicked:', notification);
-
-    // Use shared notification parser
     const { targetTab, context } = parseNotification(notification, 'admin');
 
     if (targetTab && onNavigate) {
       onNavigate(targetTab, context);
     } else {
-      console.warn('Unable to navigate - no target tab determined');
+      console.warn('Unable to navigate - no target tab determined for type:', notification.type);
     }
   }, [markAsRead, onNavigate]);
 
   // Notification icon component using FileIcon
-  const NotificationIcon = ({ type }) => {
-    return (
-      <FileIcon
-        fileType={type}
-        size="medium"
-        altText={`${type} notification icon`}
-        className="notification-type-icon"
-      />
-    );
-  };
+  const NotificationIcon = useCallback(({ type }) => (
+    <FileIcon
+      fileType={type}
+      size="medium"
+      altText={`${type} notification icon`}
+      className="notification-type-icon"
+    />
+  ), []);
 
   const formatTimeAgo = useCallback((timestamp) => {
     const now = new Date();
@@ -340,7 +323,7 @@ const Notifications = ({ user, onNavigate, onRead }) => {
   }
 
   return (
-    <div className={`notifications-page ${loading ? 'loading-cursor' : ''}`}>
+    <div className="notifications-page">
       <div className="notifications-header">
         <div>
           <h2>Notifications</h2>
@@ -369,11 +352,11 @@ const Notifications = ({ user, onNavigate, onRead }) => {
       {notifications.length === 0 ? (
         <div className="no-notifications">
           <div className="no-notifications-icon">
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" width="56" height="56">
-            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
-            <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
-          </svg>
-        </div>
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" width="56" height="56">
+              <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+              <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+            </svg>
+          </div>
           <h3>No notifications</h3>
           <p>You're all caught up! Check back later for updates.</p>
         </div>
@@ -392,7 +375,6 @@ const Notifications = ({ user, onNavigate, onRead }) => {
             ))}
           </div>
 
-          {/* Load More Skeleton */}
           {loadingMore && (
             <div className="notifications-loading-more">
               <div className="notification-skeleton-item">
@@ -412,12 +394,10 @@ const Notifications = ({ user, onNavigate, onRead }) => {
             </div>
           )}
 
-          {/* Infinite Scroll Trigger */}
           {hasMore && !loadingMore && (
             <div ref={loadMoreRef} className="load-more-trigger" />
           )}
 
-          {/* End of List Message */}
           {!hasMore && notifications.length >= limit && (
             <div className="end-of-list">
               <p>You've reached the end of your notifications</p>
@@ -426,7 +406,6 @@ const Notifications = ({ user, onNavigate, onRead }) => {
         </>
       )}
 
-      {/* Delete All Confirmation Modal */}
       {showDeleteAllModal && (
         <ConfirmationModal
           isOpen={showDeleteAllModal}

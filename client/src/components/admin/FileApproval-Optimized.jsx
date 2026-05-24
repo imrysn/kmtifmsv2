@@ -72,10 +72,12 @@ const FolderRow = memo(({
   onApproveFolder,
   onOpenFolderPath,
   isReference = false,
+  isHighlighted = false,
 }) => {
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const dropdownRef = useRef(null)
   const btnRef = useRef(null)
+  const rowRef = useRef(null)
   const dropdownPos = useDropdownPosition(btnRef, dropdownOpen)
 
   useEffect(() => {
@@ -88,6 +90,12 @@ const FolderRow = memo(({
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
+
+  useEffect(() => {
+    if (isHighlighted && rowRef.current) {
+      rowRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    }
+  }, [isHighlighted])
 
   const handleClick = useCallback(() => {
     onToggle(folderName)
@@ -103,12 +111,15 @@ const FolderRow = memo(({
 
   return (
     <tr
-      className="file-row folder-row"
+      ref={rowRef}
+      className={`file-row folder-row${isHighlighted ? ' highlighted-row' : ''}`}
       onClick={handleClick}
       style={{
         cursor: 'pointer',
-        backgroundColor: isExpanded ? '#f9fafb' : '#ffffff',
-        fontWeight: '600'
+        backgroundColor: isHighlighted ? '#eff6ff' : isExpanded ? '#f9fafb' : '#ffffff',
+        fontWeight: '600',
+        outline: isHighlighted ? '2px solid #3b82f6' : 'none',
+        outlineOffset: '-2px',
       }}
     >
       <td>
@@ -194,10 +205,12 @@ const SubFolderRow = memo(({
   level,
   parentIsLastArr,
   isReference = false,
+  isHighlighted = false,
 }) => {
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const dropdownRef = useRef(null)
   const btnRef = useRef(null)
+  const rowRef = useRef(null)
   const dropdownPos = useDropdownPosition(btnRef, dropdownOpen)
 
   useEffect(() => {
@@ -210,6 +223,12 @@ const SubFolderRow = memo(({
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
+
+  useEffect(() => {
+    if (isHighlighted && rowRef.current) {
+      rowRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    }
+  }, [isHighlighted])
 
   const handleClick = useCallback(() => {
     onToggle()
@@ -226,12 +245,15 @@ const SubFolderRow = memo(({
 
   return (
     <tr
-      className="file-row folder-row"
+      ref={rowRef}
+      className={`file-row folder-row${isHighlighted ? ' highlighted-row' : ''}`}
       onClick={handleClick}
       style={{
         cursor: 'pointer',
-        backgroundColor: isExpanded ? '#f9fafb' : '#ffffff',
-        fontWeight: '600'
+        backgroundColor: isHighlighted ? '#eff6ff' : isExpanded ? '#f9fafb' : '#ffffff',
+        fontWeight: '600',
+        outline: isHighlighted ? '2px solid #3b82f6' : 'none',
+        outlineOffset: '-2px',
       }}
     >
       <td>
@@ -329,10 +351,12 @@ const FileRow = memo(({
   isLast = false,
   parentIsLastArr = [],
   isReference = false,
+  isHighlighted = false,
 }) => {
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const dropdownRef = useRef(null)
   const btnRef = useRef(null)
+  const rowRef = useRef(null)
   const dropdownPos = useDropdownPosition(btnRef, dropdownOpen)
 
   useEffect(() => {
@@ -346,36 +370,36 @@ const FileRow = memo(({
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
+  // Scroll into view and auto-open modal when highlighted from notification
+  useEffect(() => {
+    if (isHighlighted && rowRef.current) {
+      rowRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      // Small delay to let the scroll settle before opening modal
+      const timer = setTimeout(() => onOpenModal(file), 400)
+      return () => clearTimeout(timer)
+    }
+  }, [isHighlighted]) // eslint-disable-line react-hooks/exhaustive-deps
+
   const handleRowClick = useCallback(() => {
     onOpenModal(file)
   }, [file, onOpenModal])
 
-  const getFileExtension = useCallback((filename, fileType) => {
-    if (filename) {
-      const parts = filename.split('.')
-      if (parts.length > 1) return parts[parts.length - 1].toLowerCase()
-    }
-    return fileType ? fileType.replace(/^\./, '').toLowerCase() : ''
-  }, [])
-
-  const fileExtension = getFileExtension(file.original_name, file.file_type)
+  const fileStatus = mapFileStatus(file.status)
+  const statusLabel = getStatusDisplayName(file.status)
   const formattedDate = useMemo(() => new Date(file.uploaded_at).toLocaleDateString(), [file.uploaded_at])
   const formattedTime = useMemo(() => new Date(file.uploaded_at).toLocaleTimeString(), [file.uploaded_at])
 
-  let displayName = file.original_name
-  if (isNested) {
-    const cleanPath = (file.relative_path || file.original_name || '').replace(/\\/g, '/');
-    const parts = cleanPath.split('/').filter(Boolean)
-    if (parts.length > 0) {
-      displayName = parts[parts.length - 1]
-    }
-  }
-
   return (
     <tr
-      className={`file-row ${isNested ? 'nested-file' : ''}`}
+      ref={rowRef}
+      className={`file-row${isHighlighted ? ' highlighted-row' : ''}`}
       onClick={handleRowClick}
-      style={isNested ? { backgroundColor: '#fafafa' } : {}}
+      style={{
+        cursor: 'pointer',
+        backgroundColor: isHighlighted ? '#eff6ff' : undefined,
+        outline: isHighlighted ? '2px solid #3b82f6' : 'none',
+        outlineOffset: '-2px',
+      }}
     >
       <td>
         {isNested ? (
@@ -385,21 +409,23 @@ const FileRow = memo(({
             ))}
             <div className={`tl-tree-line-connector ${isLast ? 'last-item' : ''}`} />
             <div className="file-cell" style={{ flex: 1 }}>
-              <div className="file-icon" style={{ width: '34px', height: '34px', position: 'relative', zIndex: 2 }}>
-                <FileIcon fileType={fileExtension} isFolder={false} altText={`Icon for ${file.original_name}`} size="medium" style={{ position: 'relative', zIndex: 2 }} />
+              <div className="file-icon">
+                <FileIcon fileType={file.original_name} altText={`File: ${file.original_name}`} size="medium" />
               </div>
               <div className="file-details">
-                <span className="file-name">{displayName}</span>
+                <span className="file-name" title={file.original_name}>{file.original_name}</span>
+                <span className="file-size">{formatFileSize(file.file_size)}</span>
               </div>
             </div>
           </div>
         ) : (
           <div className="file-cell">
-            <div className="file-icon" style={{ width: '34px', height: '34px', position: 'relative', zIndex: 2 }}>
-              <FileIcon fileType={fileExtension} isFolder={false} altText={`Icon for ${file.original_name}`} size="medium" style={{ position: 'relative', zIndex: 2 }} />
+            <div className="file-icon">
+              <FileIcon fileType={file.original_name} altText={`File: ${file.original_name}`} size="medium" />
             </div>
             <div className="file-details">
-              <span className="file-name">{displayName}</span>
+              <span className="file-name" title={file.original_name}>{file.original_name}</span>
+              <span className="file-size">{formatFileSize(file.file_size)}</span>
             </div>
           </div>
         )}
@@ -412,10 +438,11 @@ const FileRow = memo(({
         </div>
       </td>
       <td><span className="team-badge">{file.user_team}</span></td>
-      {!isReference && (
+      {!isReference && <td><span className={`status-badge status-${fileStatus}`}>{statusLabel}</span></td>}
+      {isReference && (
         <td>
-          <span className={`status-badge status-${mapFileStatus(file.status)}`}>
-            {getStatusDisplayName(file.status)}
+          <span className="status-badge" style={{ border: '1px solid #6b7280', color: '#6b7280' }}>
+            Reference Task
           </span>
         </td>
       )}
@@ -454,7 +481,7 @@ const FileRow = memo(({
   )
 })
 
-const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) => {
+const FileApproval = ({ clearMessages, error, success, setError, setSuccess, highlightedFileId, onClearFileHighlight }) => {
   const { user: authUser } = useAuth()
   const { isConnected } = useNetwork()
 
@@ -516,6 +543,42 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
     if (isConnected) fetchFiles()
     return () => { if (fetchAbortController.current) fetchAbortController.current.abort() }
   }, [isConnected, fetchFiles])
+
+  // When a highlighted file arrives from a notification, navigate to it
+  useEffect(() => {
+    if (!highlightedFileId || isLoading || files.length === 0) return
+
+    const targetFile = files.find(f => f.id === highlightedFileId || String(f.id) === String(highlightedFileId))
+    if (!targetFile) return
+
+    // Switch to the correct view
+    const isAttachment = targetFile.source_type === 'assignment_attachment'
+    setActiveView(isAttachment ? 'reference' : 'approval')
+
+    // Remove search/filter so the file is visible
+    setFileFilter('all')
+    setFileSearchInput('')
+    setFileSearchQuery('')
+
+    // If in a folder, expand it
+    if (targetFile.folder_name) {
+      const folderKey = `${targetFile.folder_name}||${targetFile.user_id || targetFile.username || ''}`
+      setExpandedFolders(prev => ({ ...prev, [folderKey]: true }))
+    }
+
+    // Navigate to the correct page — find item index in paginationItems after filter reset
+    // We'll handle it by resetting to page 1 and letting the FileRow highlight do the scroll
+    setCurrentPage(1)
+  }, [highlightedFileId, isLoading, files])
+
+  // Clear highlight after a short delay so the animation plays once
+  useEffect(() => {
+    if (!highlightedFileId) return
+    const timer = setTimeout(() => {
+      onClearFileHighlight?.()
+    }, 3000)
+    return () => clearTimeout(timer)
+  }, [highlightedFileId, onClearFileHighlight])
 
   useEffect(() => {
     const timer = setTimeout(() => setFileSearchQuery(fileSearchInput), 300)
@@ -664,6 +727,20 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
 
     return allItems
   }, [groupedData, viewMode, fileSortBy, getDateLabel])
+
+  // When highlighted file is set, jump to the correct page in paginationItems
+  useEffect(() => {
+    if (!highlightedFileId || paginationItems.length === 0) return
+    const idx = paginationItems.findIndex(item => {
+      if (item.type === 'file') return String(item.file.id) === String(highlightedFileId)
+      if (item.type === 'folder') return item.files.some(f => String(f.id) === String(highlightedFileId))
+      return false
+    })
+    if (idx >= 0) {
+      const targetPage = Math.floor(idx / filesPerPage) + 1
+      setCurrentPage(targetPage)
+    }
+  }, [highlightedFileId, paginationItems, filesPerPage])
 
   const currentPageItems = useMemo(() => {
     const start = (currentPage - 1) * filesPerPage
@@ -865,11 +942,9 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
       const isAttachment = file.source_type === 'assignment_attachment'
       const params = new URLSearchParams()
       if (isAttachment) params.set('type', 'attachment')
-      // No folderName — we want the exact file path, not the parent folder
       const query = params.toString() ? `?${params.toString()}` : ''
       const pathData = await apiFetch(`${API_BASE}/files/${file.id}/path${query}`)
       if (!pathData.success) throw new Error('Failed to get file path')
-      // Reveal the file in Explorer (highlight it), not launch it
       if (window.electron && typeof window.electron.openFolderInExplorer === 'function') {
         const result = await window.electron.openFolderInExplorer(pathData.filePath)
         if (!result.success) throw new Error(result.error || 'Failed to reveal file in Explorer')
@@ -948,7 +1023,6 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
     }
   }, [folderReviewModal, folderReviewComment, authUser, setError, setSuccess, fetchFiles])
 
-  // ✅ FIX: Use setError (red) for rejection notifications, not setSuccess (green)
   const confirmRejectFolder = useCallback(async () => {
     if (!folderReviewModal) return
     setIsLoading(true)
@@ -979,7 +1053,7 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
       const rejectedFolderName = folderReviewModal.folderName
       setFolderReviewModal(null)
       setFolderReviewComment('')
-      setError(`Folder "${rejectedFolderName}" rejected successfully`) // ✅ red alert
+      setError(`Folder "${rejectedFolderName}" rejected successfully`)
       fetchFiles()
     } catch (err) {
       console.error('Folder rejection error:', err)
@@ -1057,7 +1131,6 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
     }
   }, [selectedFile, authUser, setError, setSuccess, closeFileModal, fetchFiles])
 
-  // ✅ FIX: Use setError (red) for rejection notifications, not setSuccess (green)
   const confirmRejectFile = useCallback(async () => {
     if (!fileToReject) return
     setIsLoading(true)
@@ -1078,7 +1151,7 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
         setFiles(prev => prev.map(f => f.id === fileToReject.id ? { ...f, status: 'rejected_by_admin' } : f))
         closeFileModal()
         closeRejectModal()
-        setError('File rejected successfully') // ✅ red alert
+        setError('File rejected successfully')
         fetchFiles()
       } else {
         setError(data.message || 'Failed to reject file')
@@ -1102,11 +1175,14 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
       const totalSubfolders = subfolderEntries.length;
       const totalRootFiles = rootFiles.length;
 
-      // 1. Render subfolders
       subfolderEntries.forEach(([subfolderName, folderFiles], index) => {
         const isLast = (index === totalSubfolders - 1) && (totalRootFiles === 0);
         const currentKey = parentKey ? `${parentKey}__${subfolderName}` : subfolderName;
         const isSubFolderExpanded = expandedFolders[currentKey];
+        const folderHasHighlight = highlightedFileId && folderFiles.some(f => {
+          const file = f.file || f
+          return String(file.id) === String(highlightedFileId)
+        })
 
         items.push(
           <React.Fragment key={`folder-${currentKey}`}>
@@ -1122,13 +1198,13 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
               level={level}
               parentIsLastArr={parentIsLastArr}
               isReference={activeView === 'reference'}
+              isHighlighted={!!folderHasHighlight}
             />
             {isSubFolderExpanded && renderRecursiveItems(folderFiles, level + 1, currentKey, [...parentIsLastArr, isLast])}
           </React.Fragment>
         );
       });
 
-      // 2. Render root files
       rootFiles.forEach((item, index) => {
         const isLast = index === totalRootFiles - 1;
         const file = item.file || item;
@@ -1146,6 +1222,7 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
             isLast={isLast}
             parentIsLastArr={parentIsLastArr}
             isReference={activeView === 'reference'}
+            isHighlighted={String(file.id) === String(highlightedFileId)}
           />
         );
       });
@@ -1168,6 +1245,7 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
       } else if (item.type === 'folder') {
         const folderKey = item.folderKey || item.name
         const isExpanded = expandedFolders[folderKey]
+        const folderHasHighlight = highlightedFileId && item.files.some(f => String(f.id) === String(highlightedFileId))
 
         rows.push(
           <FolderRow
@@ -1179,8 +1257,8 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
             onDelete={openFolderDeleteModal}
             onApproveFolder={(name, files) => openFolderReviewModal(name, files, 'approve')}
             onOpenFolderPath={openFilePath}
-            formatFileSize={formatFileSize}
             isReference={activeView === 'reference'}
+            isHighlighted={!!folderHasHighlight}
           />
         )
 
@@ -1192,10 +1270,7 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
             if (parts.length > 0 && parts[0].trim() === item.name) {
               remainingPath = parts.slice(1).join('/');
             }
-            return {
-              file,
-              _temp_path: remainingPath
-            };
+            return { file, _temp_path: remainingPath };
           });
 
           rows.push(...renderRecursiveItems(mappedFilesForRecursion, 1, folderKey, []));
@@ -1213,13 +1288,14 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
             onOpenFilePath={openFile}
             isNested={false}
             isReference={activeView === 'reference'}
+            isHighlighted={String(item.file.id) === String(highlightedFileId)}
           />
         )
       }
     })
 
     return rows
-  }, [currentPageItems, expandedFolders, activeView, toggleFolder, openFolderDeleteModal, openFolderReviewModal, openFilePath, openDeleteModal, openFileModal, formatFileSize, mapFileStatus, getStatusDisplayName])
+  }, [currentPageItems, expandedFolders, activeView, highlightedFileId, toggleFolder, openFolderDeleteModal, openFolderReviewModal, openFilePath, openDeleteModal, openFileModal, formatFileSize, mapFileStatus, getStatusDisplayName])
 
   const renderPaginationNumbers = useMemo(() => {
     const pageNumbers = []
@@ -1458,7 +1534,6 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess }) =
         </p>
       </ConfirmationModal>
 
-      {/* Folder Review Modal */}
       {folderReviewModal && (
         <div className="file-details-modal-component">
           <div className="modal-overlay" onClick={() => { if (!isLoading) { setFolderReviewModal(null); setFolderReviewComment('') } }}>
