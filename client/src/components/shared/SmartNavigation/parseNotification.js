@@ -140,6 +140,20 @@ export function parseNotification(notification, role) {
         }
     }
 
+    // DUE SOON / OVERDUE — navigate to tasks and highlight the assignment
+    if (notification.type === 'due_soon' || notification.type === 'overdue') {
+        if (notification.assignment_id) {
+            return {
+                targetTab: tabs.tasks,
+                context: {
+                    assignmentId: notification.assignment_id,
+                    shouldOpenComments: false
+                },
+                notificationType: notification.type
+            };
+        }
+    }
+
     // REVISION REQUEST / FOR EDITING — navigate to tasks so user can fix and resubmit
     if (notification.type === 'revision_request' || notification.type === 'for_editing') {
         if (notification.assignment_id) {

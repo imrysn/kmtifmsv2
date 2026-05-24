@@ -372,6 +372,14 @@ async function startServer() {
     initDbWithRetry().then(() => {
       // 4. Start weekly performance snapshots once DB is ready
       scheduleWeeklyJob();
+
+      // 5. Start due-date notifier (due-soon + overdue notifications for users)
+      try {
+        const { startDueDateNotifier } = require('./services/dueDateNotifier');
+        startDueDateNotifier();
+      } catch (notifierErr) {
+        console.warn('⚠️ Due-date notifier could not start:', notifierErr.message);
+      }
     });
 
   } catch (error) {
