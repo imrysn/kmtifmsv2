@@ -956,7 +956,7 @@ const AssignmentsTab = ({
                         } catch { return null }
                       })()}
                       <div className="tl-assignment-created">
-                        {formatDateTime(assignment.created_at)}
+                        📅 Assigned on: {formatDateTime(assignment.created_at)}
                       </div>
                     </div>
                   </div>
@@ -1269,6 +1269,14 @@ const AssignmentsTab = ({
                                       ) : (
                                         <>
                                           <span>by <span className="tl-assignment-file-submitter">{submission.fullName || submission.username || 'Unknown'}</span></span>
+                                          {submission.submitted_at || submission.uploaded_at ? (
+                                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', color: '#6b7280' }}>
+                                              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                                                <circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" />
+                                              </svg>
+                                              {formatDateTime(submission.submitted_at || submission.uploaded_at)}
+                                            </span>
+                                          ) : null}
                                           {submission.tag && <span className="tl-assignment-file-tag">🏷️ {submission.tag}</span>}
                                           <span className={`tl-assignment-file-status ${submission.status}`}>
                                             {submission.status === 'checked' ? '✓ Checked' :

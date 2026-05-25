@@ -1050,7 +1050,14 @@ const TaskManagement = ({
                                 {isAttachment
                                   ? (assignment.team_leader_fullname || assignment.team_leader_username || 'Team Leader')
                                   : (file.fullName || file.username || 'Member')}
-                              </span> on {formatDate(file.submitted_at || file.uploaded_at || file.created_at)}</span>
+                              </span></span>
+                              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', color: '#6b7280', fontWeight: '500' }}>
+                                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                                  <circle cx="12" cy="12" r="10" />
+                                  <polyline points="12 6 12 12 16 14" />
+                                </svg>
+                                {formatDateTime(file.submitted_at || file.uploaded_at || file.created_at)}
+                              </span>
                               
                               {file.tag && (
                                 <span style={{
@@ -1155,7 +1162,9 @@ const TaskManagement = ({
                             </span>
                           </div>
                           <div className="admin-assignment-created">
-                            {assignment.created_at ? formatDateTime(assignment.created_at) : 'Unknown creation date'}
+                            {assignment.created_at
+                              ? <>📅 Assigned on: {formatDateTime(assignment.created_at)}</>
+                              : 'Unknown creation date'}
                           </div>
                         </div>
                       </div>

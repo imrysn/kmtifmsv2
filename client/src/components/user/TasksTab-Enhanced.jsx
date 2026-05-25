@@ -1097,7 +1097,12 @@ const TasksTab = memo(({
             <div style={{ fontSize: indented ? '12px' : '13px', color: '#6b7280', display: 'flex', alignItems: 'center', gap: indented ? '6px' : '8px', flexWrap: 'wrap' }}>
               <span>by <span style={{ fontWeight: '500', color: '#2563eb' }}>{file.submitter_name || user.fullName || user.username}</span></span>
               <span style={{ color: '#9ca3af' }}>•</span>
-              <span>{formatDate(file.submitted_at || file.uploaded_at)}</span>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" />
+                </svg>
+                {formatDateTime(file.submitted_at || file.uploaded_at)}
+              </span>
               {file.tag && (
                 <span style={{ backgroundColor: '#eff6ff', color: '#1e40af', padding: '2px 8px', borderRadius: '4px', fontSize: '10px', fontWeight: '600' }}>🏷️ {file.tag}</span>
               )}
@@ -1260,7 +1265,12 @@ const TasksTab = memo(({
                   <div style={{ fontSize: '12px', color: '#4b5563', display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap', marginTop: '1px' }}>
                     <span>by <span style={{ fontWeight: '500', color: '#2563eb' }}>{file.submitter_name || user.fullName || user.username}</span></span>
                     <span style={{ color: '#9ca3af' }}>•</span>
-                    <span>{formatDate(file.submitted_at || file.uploaded_at)}</span>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                        <circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" />
+                      </svg>
+                      {formatDateTime(file.submitted_at || file.uploaded_at)}
+                    </span>
                     {file.tag && (
                       <span style={{ backgroundColor: '#eff6ff', color: '#1e40af', padding: '2px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: '600' }}>🏷️ {file.tag}</span>
                     )}
@@ -1485,7 +1495,7 @@ const TasksTab = memo(({
                           )
                         } catch { return null }
                       })()}
-                      <div style={{ fontSize: '13px', color: '#6B7280' }}>{formatDateTime(assignment.created_at)}</div>
+                      <div style={{ fontSize: '13px', color: '#6B7280' }}>📅 Assigned on: {formatDateTime(assignment.created_at)}</div>
                     </div>
                   </div>
 
