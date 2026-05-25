@@ -13,7 +13,6 @@
  * @returns {Object} { targetTab, context, notificationType }
  */
 export function parseNotification(notification, role) {
-    console.log('🔍 Parsing notification:', { type: notification.type, role });
 
     // Detect reply notifications
     const isReplyNotification =
@@ -104,7 +103,19 @@ export function parseNotification(notification, role) {
         notification.type === 'admin_approved' ||
         notification.type === 'admin_rejected'
     ) {
-        // Always navigate to files/approval tab even for folder-level notifications (file_id may be null)
+        // For users: if there's an assignment link, always go to Tasks
+        if (role === 'user' && notification.file_id && notification.assignment_id) {
+            return {
+                targetTab: tabs.tasks,
+                context: {
+                    assignmentId: notification.assignment_id,
+                    fileId: notification.file_id,
+                    shouldOpenComments: false
+                },
+                notificationType: (notification.type.includes('reject') || notification.type.includes('rejected')) ? 'rejection' : 'approval'
+            };
+        }
+        // Non-user roles or no assignment → files/approval tab
         return {
             targetTab: role === 'admin' ? tabs.fileApproval : tabs.files,
             context: notification.file_id ? { fileId: notification.file_id } : {},
@@ -188,11 +199,8 @@ export function parseNotification(notification, role) {
 
     // INTELLIGENT FALLBACK for missing/empty types
     if (!notification.type || notification.type === '') {
-        console.log('⚠️ Empty notification type, using intelligent fallback');
-
         // Both file_id and assignment_id → File submission
         if (notification.file_id && notification.assignment_id) {
-            console.log('📄 Fallback: File submission detected');
             return {
                 targetTab: tabs.tasks,
                 context: {
@@ -207,7 +215,6 @@ export function parseNotification(notification, role) {
 
         // Only assignment_id → Assignment notification
         if (notification.assignment_id) {
-            console.log('📋 Fallback: Assignment detected');
             return {
                 targetTab: tabs.tasks,
                 context: {
@@ -220,19 +227,15 @@ export function parseNotification(notification, role) {
 
         // Only file_id → File notification
         if (notification.file_id) {
-            console.log('📁 Fallback: File detected');
             return {
                 targetTab: role === 'admin' ? tabs.fileApproval : tabs.files,
-                context: {
-                    fileId: notification.file_id
-                },
+                context: { fileId: notification.file_id },
                 notificationType: 'file'
             };
         }
     }
 
-    // Unknown notification type
-    console.warn('⚠️ Unknown notification type:', notification.type);
+    // Unknown notification type — no navigation
     return {
         targetTab: null,
         context: null,

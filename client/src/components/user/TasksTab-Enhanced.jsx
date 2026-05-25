@@ -376,6 +376,7 @@ const TasksTab = memo(({
   user,
   highlightedAssignmentId,
   highlightedFileId,
+  highlightedFileStatus,
   notificationCommentContext,
   onClearHighlight,
   onClearFileHighlight,
@@ -599,6 +600,7 @@ const TasksTab = memo(({
     items: assignments,
     highlightedItemId: highlightedAssignmentId,
     highlightedFileId,
+    highlightedFileStatus,
     notificationContext: notificationCommentContext,
     onClearHighlight,
     onClearFileHighlight,
@@ -609,6 +611,23 @@ const TasksTab = memo(({
     selectedItem: currentCommentsAssignment,
     comments: comments[currentCommentsAssignment?.id] || [],
   });
+
+  // Auto-expand the folder that contains highlightedFileId so the file is visible
+  useEffect(() => {
+    if (!highlightedFileId || assignments.length === 0) return;
+    const fid = parseInt(highlightedFileId);
+    for (const assignment of assignments) {
+      const allFiles = assignment.submitted_files || [];
+      const targetFile = allFiles.find(f => f.id === fid);
+      if (targetFile && targetFile.folder_name) {
+        const key = `${assignment.id}-${targetFile.folder_name}`;
+        setExpandedFolders(prev => prev[key] ? prev : { ...prev, [key]: true });
+        // Also show all submitted files in case it's behind "See more"
+        setShowAllSubmittedFiles(prev => prev[assignment.id] ? prev : { ...prev, [assignment.id]: true });
+        break;
+      }
+    }
+  }, [highlightedFileId, assignments]);
 
   // ─── Comment actions ───────────────────────────────────────────────────────
   const postComment = useCallback(async (assignmentId, commentText) => {
@@ -1054,6 +1073,7 @@ const TasksTab = memo(({
     return (
       <div
         key={file.id}
+        data-file-id={file.id}
         className="submitted-file-card"
         onClick={() => confirmOpenFile({ ...file, isAttachment })}
         style={{ cursor: 'pointer', marginBottom: indented ? '4px' : undefined }}
@@ -1176,6 +1196,7 @@ const TasksTab = memo(({
             
             <div
               className="submitted-file-card nested-file-item"
+              data-file-id={file.id}
               onClick={(e) => {
                 e.stopPropagation();
                 confirmOpenFile({ ...file, isAttachment: true });
@@ -1210,6 +1231,7 @@ const TasksTab = memo(({
             
             <div
               className="submitted-file-card nested-file-item"
+              data-file-id={file.id}
               onClick={(e) => {
                 e.stopPropagation();
                 confirmOpenFile({ ...file, isAttachment: false });

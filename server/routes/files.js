@@ -84,6 +84,22 @@ router.get('/:id/history', authenticateToken, fileController.getHistory);
 router.post('/:id/view', authenticateToken, fileController.recordView);
 router.get('/:id/views', authenticateToken, fileController.getViewers);
 
+// Look up which assignment a file belongs to (used by notification click routing)
+router.get('/:id/assignment', authenticateToken, async (req, res) => {
+  try {
+    const { queryOne } = require('../config/database');
+    const row = await queryOne(
+      'SELECT assignment_id FROM assignment_submissions WHERE file_id = ? LIMIT 1',
+      [req.params.id]
+    );
+    // Also fetch the file status so the frontend can pick the correct highlight color
+    const fileRow = await queryOne('SELECT status FROM files WHERE id = ? LIMIT 1', [req.params.id]);
+    res.json({ success: true, assignment_id: row ? row.assignment_id : null, file_status: fileRow ? fileRow.status : null });
+  } catch (err) {
+    res.json({ success: false, assignment_id: null, file_status: null });
+  }
+});
+
 // ─── Download & Stream ────────────────────────────────────────────────────────
 
 router.get('/:id/download', authenticateToken, fileController.download);

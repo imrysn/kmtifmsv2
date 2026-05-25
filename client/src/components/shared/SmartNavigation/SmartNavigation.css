@@ -5,46 +5,83 @@
  * Use with role-specific prefixes: admin-, tl-, user-
  */
 
-/* Assignment/Item highlighting */
+/* Assignment/Item highlighting — blue glow pulse */
 .admin-assignment-highlighted,
 .tl-assignment-highlighted,
 .user-assignment-highlighted {
-    animation: snPulseHighlight 1.5s ease-in-out;
-    box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.3) !important;
-    border-color: rgba(59, 130, 246, 0.5) !important;
+    animation: snPulseAssignment 2.4s cubic-bezier(0.4, 0, 0.2, 1) forwards;
 }
 
-/* File highlighting (standalone) */
+/* File highlighting (standalone) — blue fade-in then fade-out */
 .admin-file-highlighted,
 .tl-file-highlighted,
 .user-file-highlighted {
-    animation: snPulseHighlight 1.5s ease-in-out;
-    background-color: rgba(59, 130, 246, 0.1) !important;
+    animation: snFadeFile 2.4s cubic-bezier(0.4, 0, 0.2, 1) forwards;
     border-left: 3px solid rgba(59, 130, 246, 0.8) !important;
 }
 
-/* File within assignment highlighting (cascading) */
+/* File within assignment highlighting — approved (green) */
 .admin-assignment-file-highlighted,
 .tl-assignment-file-highlighted,
 .user-assignment-file-highlighted {
-    animation: snPulseHighlight 1.5s ease-in-out;
-    background-color: rgba(34, 197, 94, 0.15) !important;
-    border-left: 3px solid rgba(34, 197, 94, 0.8) !important;
+    animation: snFadeFileGreen 2.8s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+    border-left: 3px solid rgba(34, 197, 94, 0.9) !important;
 }
 
-/* Pulse animation keyframes */
-@keyframes snPulseHighlight {
+/* File within assignment highlighting — rejected (red) */
+.admin-assignment-file-highlighted-rejected,
+.tl-assignment-file-highlighted-rejected,
+.user-assignment-file-highlighted-rejected {
+    animation: snFadeFileRed 2.8s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+    border-left: 3px solid rgba(239, 68, 68, 0.9) !important;
+}
 
-    0%,
-    100% {
-        opacity: 1;
-        transform: scale(1);
-    }
+/* File within assignment highlighting — needs editing/revision (amber) */
+.admin-assignment-file-highlighted-revision,
+.tl-assignment-file-highlighted-revision,
+.user-assignment-file-highlighted-revision {
+    animation: snFadeFileAmber 2.8s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+    border-left: 3px solid rgba(245, 158, 11, 0.9) !important;
+}
 
-    50% {
-        opacity: 0.85;
-        transform: scale(1.015);
-    }
+/* Assignment card: glow pulses in, holds, then fades cleanly */
+@keyframes snPulseAssignment {
+    0%   { box-shadow: 0 0 0 0   rgba(59, 130, 246, 0);   border-color: transparent; }
+    15%  { box-shadow: 0 0 0 5px rgba(59, 130, 246, 0.35); border-color: rgba(59, 130, 246, 0.55); }
+    60%  { box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.25); border-color: rgba(59, 130, 246, 0.4); }
+    100% { box-shadow: 0 0 0 0   rgba(59, 130, 246, 0);   border-color: transparent; }
+}
+
+/* Standalone file: background washes in then fades */
+@keyframes snFadeFile {
+    0%   { background-color: rgba(59, 130, 246, 0); }
+    20%  { background-color: rgba(59, 130, 246, 0.14); }
+    65%  { background-color: rgba(59, 130, 246, 0.1); }
+    100% { background-color: rgba(59, 130, 246, 0); }
+}
+
+/* Green wash — approved */
+@keyframes snFadeFileGreen {
+    0%   { background-color: rgba(34, 197, 94, 0); }
+    18%  { background-color: rgba(34, 197, 94, 0.22); }
+    60%  { background-color: rgba(34, 197, 94, 0.14); }
+    100% { background-color: rgba(34, 197, 94, 0); }
+}
+
+/* Red wash — rejected */
+@keyframes snFadeFileRed {
+    0%   { background-color: rgba(239, 68, 68, 0); }
+    18%  { background-color: rgba(239, 68, 68, 0.18); }
+    60%  { background-color: rgba(239, 68, 68, 0.12); }
+    100% { background-color: rgba(239, 68, 68, 0); }
+}
+
+/* Amber wash — needs editing */
+@keyframes snFadeFileAmber {
+    0%   { background-color: rgba(245, 158, 11, 0); }
+    18%  { background-color: rgba(245, 158, 11, 0.18); }
+    60%  { background-color: rgba(245, 158, 11, 0.12); }
+    100% { background-color: rgba(245, 158, 11, 0); }
 }
 
 /* Smooth scroll behavior for navigation */

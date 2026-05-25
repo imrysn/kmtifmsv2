@@ -75,6 +75,7 @@ const UserDashboard = ({ user, onLogout }) => {
   // Smart Navigation State
   const [highlightedAssignmentId, setHighlightedAssignmentId] = useState(null)
   const [highlightedFileId, setHighlightedFileId] = useState(null)
+  const [highlightedFileStatus, setHighlightedFileStatus] = useState(null)
   const [notificationCommentContext, setNotificationCommentContext] = useState(null)
 
   const fetchUserFiles = useCallback(async () => {
@@ -182,11 +183,9 @@ const UserDashboard = ({ user, onLogout }) => {
       if (mergedContext.forChecking) setTaskInitialTab('for-checking')
       if (mergedContext.assignmentId) setHighlightedAssignmentId(mergedContext.assignmentId)
       if (mergedContext.fileId) setHighlightedFileId(mergedContext.fileId)
+      if (mergedContext.fileStatus) setHighlightedFileStatus(mergedContext.fileStatus)
       if (mergedContext.shouldOpenComments || mergedContext.expandAllReplies) {
         setNotificationCommentContext(mergedContext)
-      }
-      if (tab === 'my-files' && mergedContext.fileId) {
-        openFileByIdFromNotification(mergedContext.fileId)
       }
     }
 
@@ -194,7 +193,7 @@ const UserDashboard = ({ user, onLogout }) => {
     sessionStorage.removeItem('highlightFileId')
     sessionStorage.removeItem('notificationContext')
     sessionStorage.removeItem('fromNotificationId')
-  }, [openFileByIdFromNotification])
+  }, [])
 
   const handleToastNavigation = useCallback(async (tabName, contextData) => {
     if (tabName === 'my-files' && contextData) {
@@ -209,7 +208,10 @@ const UserDashboard = ({ user, onLogout }) => {
 
   // Stable callbacks for clearing highlights — created once
   const clearHighlight = useCallback(() => setHighlightedAssignmentId(null), [])
-  const clearFileHighlight = useCallback(() => setHighlightedFileId(null), [])
+  const clearFileHighlight = useCallback(() => {
+    setHighlightedFileId(null)
+    setHighlightedFileStatus(null)
+  }, [])
   const clearNotificationContext = useCallback(() => setNotificationCommentContext(null), [])
 
   // filesCount derived without recreating on every render
@@ -247,6 +249,8 @@ const UserDashboard = ({ user, onLogout }) => {
               formatFileSize={formatFileSize}
               files={files}
               user={user}
+              highlightFileId={highlightedFileId}
+              onClearFileHighlight={clearFileHighlight}
             />
           </Suspense>
         )
@@ -269,6 +273,7 @@ const UserDashboard = ({ user, onLogout }) => {
               user={user}
               highlightedAssignmentId={highlightedAssignmentId}
               highlightedFileId={highlightedFileId}
+              highlightedFileStatus={highlightedFileStatus}
               notificationCommentContext={notificationCommentContext}
               onClearHighlight={clearHighlight}
               onClearFileHighlight={clearFileHighlight}

@@ -419,6 +419,12 @@
   background: transparent;
 }
 
+.status-tag.status-checked {
+  color: #6366f1;
+  border-color: #6366f1;
+  background: transparent;
+}
+
 /* Empty State */
 .empty-state {
   display: flex;
@@ -984,6 +990,23 @@
 .tl-tree-line-empty {
   width: 30px;
   flex-shrink: 0;
+}
+
+/* ============================================================
+   File-row highlight: triggered from notification click
+   ============================================================ */
+@keyframes fileRowPulse {
+  0%   { background-color: #fffbea; box-shadow: 0 0 0 3px #f59e0b55; }
+  30%  { background-color: #fef3c7; box-shadow: 0 0 0 5px #f59e0b44; }
+  70%  { background-color: #fef9ee; box-shadow: 0 0 0 3px #f59e0b22; }
+  100% { background-color: transparent; box-shadow: none; }
+}
+
+.file-row-new.file-row-highlighted {
+  animation: fileRowPulse 3s ease forwards;
+  border-radius: 8px;
+  position: relative;
+  z-index: 1;
 }
 
 .tl-tree-line-connector {

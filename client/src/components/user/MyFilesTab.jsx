@@ -1,6 +1,6 @@
 import './css/MyFilesTab.css';
 import { apiFetch, API_BASE_URL } from '@/config/api';
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import SuccessModal from './SuccessModal';
 import { FileIcon, FileOpenModal } from '../shared';
@@ -16,7 +16,9 @@ const MyFilesTab = ({
   fetchUserFiles,
   formatFileSize,
   files,
-  user
+  user,
+  highlightFileId,
+  onClearFileHighlight,
 }) => {
   const [successModal, setSuccessModal] = useState({ isOpen: false, title: '', message: '', type: 'success' });
   const [deleteModal, setDeleteModal] = useState({ isOpen: false, fileId: null, fileName: '', isFolder: false, folderName: null, folderFiles: [] });
@@ -26,8 +28,12 @@ const MyFilesTab = ({
   const [expandedFolders, setExpandedFolders] = useState({});
   const [sortOrder, setSortOrder] = useState('all');
   const [sortDropdownOpen, setSortDropdownOpen] = useState(false);
+  const highlightedRowRef = useRef(null);
+  const highlightTimerRef = useRef(null);
 
-  // Close dropdown when clicking outside
+  // Cleanup highlight timer on unmount
+  useEffect(() => () => clearTimeout(highlightTimerRef.current), []);
+
   useEffect(() => {
     if (!sortDropdownOpen) return;
     const handler = () => setSortDropdownOpen(false);
@@ -42,9 +48,41 @@ const MyFilesTab = ({
       f.status === 'final_approved' || f.status === 'uploaded' ||
       f.status === 'team_leader_approved' || f.status === 'rejected_by_team_leader' ||
       f.status === 'rejected_by_admin' || f.status === 'under_revision' ||
-      f.status === 'revision' || f.status === 'pending_team_leader'
+      f.status === 'revision' || f.status === 'pending_team_leader' ||
+      f.status === 'checked'
     ), [filteredFiles]
   );
+
+  // When highlightFileId changes: find the file, reset filter to 'all', expand its folder,
+  // then scroll + pulse-highlight the row.
+  useEffect(() => {
+    if (!highlightFileId || submittedFiles.length === 0) return;
+
+    const targetFile = submittedFiles.find(f => f.id === parseInt(highlightFileId));
+    if (!targetFile) return;
+
+    // Reset status filter so the file is guaranteed to be visible
+    setSortOrder('all');
+
+    // If the file is inside a folder, expand that folder
+    if (targetFile.folder_name) {
+      setExpandedFolders(prev => ({ ...prev, [targetFile.folder_name]: true }));
+    }
+
+    // Wait for DOM to settle, then scroll + highlight
+    clearTimeout(highlightTimerRef.current);
+    highlightTimerRef.current = setTimeout(() => {
+      const el = document.querySelector(`[data-file-id="${highlightFileId}"]`);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        el.classList.add('file-row-highlighted');
+        setTimeout(() => {
+          el.classList.remove('file-row-highlighted');
+          if (onClearFileHighlight) onClearFileHighlight();
+        }, 3000);
+      }
+    }, 300);
+  }, [highlightFileId, submittedFiles, onClearFileHighlight]);
 
   const groupFilesByFolder = useCallback((files) => {
     const folders = {};
@@ -180,7 +218,8 @@ const MyFilesTab = ({
       'team_leader_approved': 'Pending Admin',
       'final_approved': 'Approved',
       'rejected_by_team_leader': 'Rejected by Team Leader',
-      'rejected_by_admin': 'Rejected by Admin'
+      'rejected_by_admin': 'Rejected by Admin',
+      'checked': 'Checked',
     };
 
     return statusMap[dbStatus] || 'Pending';
@@ -195,7 +234,8 @@ const MyFilesTab = ({
       'under_revision': 'status-revised',
       'final_approved': 'status-approved',
       'rejected_by_team_leader': 'status-rejected',
-      'rejected_by_admin': 'status-rejected'
+      'rejected_by_admin': 'status-rejected',
+      'checked': 'status-checked',
     };
 
     return classMap[status] || 'status-default';
@@ -210,6 +250,8 @@ const MyFilesTab = ({
     const anyRejected       = statuses.some(s => s === 'rejected_by_team_leader' || s === 'rejected_by_admin');
     const anyPendingTL      = statuses.some(s => s === 'uploaded' || s === 'under_revision' || s === 'revision' || s === 'pending_team_leader');
     const allTLApproved     = statuses.every(s => s === 'team_leader_approved' || s === 'final_approved');
+    const allChecked        = statuses.every(s => s === 'checked' || s === 'final_approved' || s === 'team_leader_approved');
+    const anyChecked        = statuses.some(s => s === 'checked');
 
     if (allFinalApproved)  return { label: 'Approved',            cls: 'status-approved' };
     if (anyPendingTL)      return { label: 'Pending Team Leader',  cls: 'status-pending'  };
@@ -221,6 +263,7 @@ const MyFilesTab = ({
         ? { label: 'Rejected by Team Leader', cls: 'status-rejected' }
         : { label: 'Rejected by Admin',       cls: 'status-rejected' };
     }
+    if (anyChecked)        return { label: 'Checked',              cls: 'status-checked'  };
 
     return { label: 'Pending Team Leader', cls: 'status-pending' };
   }, []);
@@ -590,9 +633,10 @@ const MyFilesTab = ({
               subItems.push(
                 <div
                   key={file.id}
+                  data-file-id={file.id}
                   className="file-row-new"
-                  onClick={(e) => handleFileClick(file, e)}
-                >
+                onClick={(e) => handleFileClick(file, e)}
+            >
                   <div className="col-filename">
                     <div className="tl-tree-container">
                       {parentIsLastArr.map((isLastParent, i) => (
@@ -646,6 +690,7 @@ const MyFilesTab = ({
         items.push(
           <div
             key={file.id}
+            data-file-id={file.id}
             className="file-row-new"
             onClick={(e) => handleFileClick(file, e)}
             title="Click to open file"

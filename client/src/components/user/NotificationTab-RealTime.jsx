@@ -5,7 +5,17 @@ import './css/NotificationTab.css';
 import { parseNotification } from '../shared/SmartNavigation';
 
 
-const FILE_DETAIL_TYPES = new Set(['approval', 'final_approval', 'rejection', 'final_rejection', 'comment']);
+// Notification types that have a file_id and need Tasks routing (with optional assignment lookup)
+const FILE_NOTIFICATION_TYPES = new Set([
+  'approval', 'final_approval',
+  'rejection', 'final_rejection',
+  'checker_done',
+]);
+
+// Notification types that go directly to Tasks via their stored assignment_id (no file_id needed)
+const ASSIGNMENT_NOTIFICATION_TYPES = new Set([
+  'revision_request', 'for_editing',
+]);
 
 const POLL_INTERVAL = 30000; // 30s fallback poll (SSE handles real-time; this catches missed events)
 
@@ -113,15 +123,60 @@ const NotificationTab = ({ user, onOpenFile, onNavigateToTasks, onNavigate, onUp
       }
     }
 
-    // File approval/rejection/comment notifications → navigate to Tasks and open FileModal there
-    if (FILE_DETAIL_TYPES.has(notification.type) && notification.file_id && !isFolderNotification(notification)) {
-      sessionStorage.setItem('openFileDetailsId', notification.file_id.toString());
-      if (onNavigate) onNavigate('tasks', null);
+    // File-level notifications → always try Tasks first via assignment lookup.
+    // Only fall back to My Files if the file genuinely has no assignment.
+    if (FILE_NOTIFICATION_TYPES.has(notification.type) && notification.file_id && !isFolderNotification(notification)) {
+      let assignmentId = notification.assignment_id || null;
+      let fileStatus = notification.file_status || null;
+
+      // If assignment_id wasn't stored on the notification, look it up live
+      if (!assignmentId) {
+        try {
+          const data = await apiFetch(`/api/files/${notification.file_id}/assignment`);
+          if (data.success && data.assignment_id) {
+            assignmentId = data.assignment_id;
+            fileStatus = data.file_status || fileStatus;
+          }
+        } catch (_) {}
+      }
+
+      if (assignmentId) {
+        if (onNavigate) onNavigate('tasks', { assignmentId, fileId: notification.file_id, fileStatus });
+        return;
+      }
+
+      // Truly no assignment — fall back to My Files
+      if (onNavigate) onNavigate('my-files', { fileId: notification.file_id, highlightFile: true });
       return;
     }
 
+    // Assignment-level notifications (revision_request, for_editing) — assignment_id is stored
+    // directly. Look up the file_id from assignment_submissions so we can highlight the specific
+    // file that needs editing (amber highlight).
+    if (ASSIGNMENT_NOTIFICATION_TYPES.has(notification.type) && !isFolderNotification(notification)) {
+      const assignmentId = notification.assignment_id || null;
+      if (assignmentId) {
+        // Use file_id from the notification if present; otherwise look up the latest revision file
+        let fileId = notification.file_id || null;
+        if (!fileId) {
+          try {
+            const data = await apiFetch(`/api/assignments/${assignmentId}/revision-file`);
+            if (data.success && data.file_id) fileId = data.file_id;
+          } catch (_) {}
+        }
+        if (onNavigate) onNavigate('tasks', { assignmentId, fileId, fileStatus: 'revision' });
+        return;
+      }
+    }
+
     if (isFolderNotification(notification)) {
-      if (onNavigate) onNavigate('my-files', null);
+      // If the folder belongs to an assignment, go to Tasks; otherwise My Files
+      const assignmentId = notification.assignment_id || null;
+      if (assignmentId) {
+        if (onNavigate) onNavigate('tasks', { assignmentId, fileId: null, fileStatus: null });
+      } else {
+        if (onNavigate) onNavigate('my-files', null);
+      }
       return;
     }
 

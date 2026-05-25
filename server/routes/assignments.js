@@ -1580,7 +1580,7 @@ router.put('/:assignmentId/mark-for-editing', authenticateToken, async (req, res
             tlMsg, checkerId, checkerName, req.user?.role || 'USER']
         );
         pushToUser(tlId);
-        console.log(`🔔 mark-for-editing: notified TL ${tlId} — checker=${checkerName}`);
+        console.log(`mark-for-editing: notified TL ${tlId} — checker=${checkerName}`);
       } catch (e) { console.warn('For-editing TL notification failed:', e.message); }
     }
 
@@ -2059,6 +2059,25 @@ router.get('/debug/:assignmentId/members', authenticateToken, authorizeRole(['AD
   } catch (error) {
     console.error('Error in debug endpoint:', error);
     res.status(500).json({ success: false, message: 'Failed to fetch debug data', error: error.message });
+  }
+});
+
+// GET /:assignmentId/revision-file — returns the most recent file needing revision for an assignment
+// Used by notification click to highlight the specific file with an amber glow.
+router.get('/:assignmentId/revision-file', authenticateToken, async (req, res) => {
+  try {
+    const { assignmentId } = req.params;
+    const row = await queryOne(
+      `SELECT f.id AS file_id, f.status
+       FROM assignment_submissions asub
+       JOIN files f ON f.id = asub.file_id
+       WHERE asub.assignment_id = ? AND f.status IN ('revision', 'under_revision', 'for_editing')
+       ORDER BY f.updated_at DESC LIMIT 1`,
+      [assignmentId]
+    );
+    res.json({ success: true, file_id: row ? row.file_id : null, file_status: row ? row.status : null });
+  } catch (err) {
+    res.json({ success: false, file_id: null, file_status: null });
   }
 });
 

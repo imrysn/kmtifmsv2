@@ -559,10 +559,21 @@ async function approveByTeamLeader(fileId, teamLeader, comments = '') {
     logActivity(db, teamLeader.id, teamLeader.username, teamLeader.role, teamLeader.team,
         `Approved ${isAttachment ? 'attachment' : 'file'}: ${file.original_name}`);
 
+    // Look up the assignment_id so the notification click routes to Tasks tab, not My Files
+    let fileAssignmentIdTL = null;
+    try {
+        const subRow = await queryOne(
+            'SELECT assignment_id FROM assignment_submissions WHERE file_id = ? LIMIT 1',
+            [fileId]
+        );
+        fileAssignmentIdTL = subRow ? subRow.assignment_id : null;
+    } catch (_) {}
+
     await notificationService.createNotification(
         file.user_id || file.uploaded_by_id, isAttachment ? null : fileId, 'approval', 'File Approved by Team Leader',
         `Your file "${file.original_name}" has been approved by ${teamLeader.username} and is now pending admin review.`,
-        teamLeader.id, teamLeader.username, teamLeader.role
+        teamLeader.id, teamLeader.username, teamLeader.role,
+        fileAssignmentIdTL
     );
 
     await notificationService.createAdminNotification(
@@ -623,10 +634,21 @@ async function rejectByTeamLeader(fileId, teamLeader, reason) {
     logActivity(db, teamLeader.id, teamLeader.username, teamLeader.role, teamLeader.team,
         `Rejected ${isAttachment ? 'attachment' : 'file'}: ${file.original_name} - Reason: ${reason}`);
 
+    // Look up the assignment_id so the notification click routes to Tasks tab, not My Files
+    let fileAssignmentId = null;
+    try {
+        const subRow = await queryOne(
+            'SELECT assignment_id FROM assignment_submissions WHERE file_id = ? LIMIT 1',
+            [fileId]
+        );
+        fileAssignmentId = subRow ? subRow.assignment_id : null;
+    } catch (_) {}
+
     await notificationService.createNotification(
         file.user_id || file.uploaded_by_id, isAttachment ? null : fileId, 'rejection', 'File Rejected by Team Leader',
         `Your file "${file.original_name}" has been rejected by ${teamLeader.username}. Reason: ${reason}`,
-        teamLeader.id, teamLeader.username, teamLeader.role
+        teamLeader.id, teamLeader.username, teamLeader.role,
+        fileAssignmentId
     );
 
     // CRITICAL: We should NOT call createAdminNotification here unless explicitly needed,
@@ -683,11 +705,22 @@ async function approveByAdmin(fileId, admin, comments = '') {
     logActivity(db, admin.id, admin.username, admin.role, admin.team,
         `Final approved ${isAttachment ? 'attachment' : 'file'}: ${targetFile.original_name}`);
 
+    // Look up the assignment_id so the notification click routes to Tasks tab, not My Files
+    let fileAssignmentIdAdmin = null;
+    try {
+        const subRow = await queryOne(
+            'SELECT assignment_id FROM assignment_submissions WHERE file_id = ? LIMIT 1',
+            [fileId]
+        );
+        fileAssignmentIdAdmin = subRow ? subRow.assignment_id : null;
+    } catch (_) {}
+
     await notificationService.createNotification(
         targetFile.user_id || targetFile.uploaded_by_id,
         isAttachment ? null : fileId, 'approval', 'File Final Approved',
         `Your file "${targetFile.original_name}" has received final approval from the administrator and is now published.`,
-        admin.id, admin.username, admin.role
+        admin.id, admin.username, admin.role,
+        fileAssignmentIdAdmin
     );
 
     return isAttachment ? await fileRepository.findAttachmentById(fileId) : await fileRepository.findById(fileId);
@@ -737,11 +770,22 @@ async function rejectByAdmin(fileId, admin, reason) {
     logActivity(db, admin.id, admin.username, admin.role, admin.team,
         `Rejected ${isAttachment ? 'attachment' : 'file'}: ${targetFile.original_name} - Reason: ${reason}`);
 
+    // Look up the assignment_id so the notification click routes to Tasks tab, not My Files
+    let fileAssignmentIdAdmin = null;
+    try {
+        const subRow = await queryOne(
+            'SELECT assignment_id FROM assignment_submissions WHERE file_id = ? LIMIT 1',
+            [fileId]
+        );
+        fileAssignmentIdAdmin = subRow ? subRow.assignment_id : null;
+    } catch (_) {}
+
     await notificationService.createNotification(
         targetFile.user_id || targetFile.uploaded_by_id,
         isAttachment ? null : fileId, 'rejection', 'File Rejected by Admin',
         `Your file "${targetFile.original_name}" has been rejected by the administrator. Reason: ${reason}`,
-        admin.id, admin.username, admin.role
+        admin.id, admin.username, admin.role,
+        fileAssignmentIdAdmin
     );
 
     return isAttachment ? await fileRepository.findAttachmentById(fileId) : await fileRepository.findById(fileId);
@@ -1506,10 +1550,23 @@ async function moveFolderToNas({ folderName, username, fileIds, destinationPath,
     }
     for (const [userId, files] of Object.entries(userFileMap)) {
         const count = files.length;
+        // Look up the assignment_id from any of this user's files in the folder
+        // so the notification click can route directly to Tasks instead of My Files.
+        let folderAssignmentId = null;
+        try {
+            const anyFile = files.find(f => f.source_type !== 'assignment_attachment');
+            if (anyFile) {
+                const sub = await queryOne(
+                    'SELECT assignment_id FROM assignment_submissions WHERE file_id = ? LIMIT 1',
+                    [anyFile.id]
+                );
+                folderAssignmentId = sub ? sub.assignment_id : null;
+            }
+        } catch (_) {}
         notificationService.createNotification(
             userId, null, 'final_approval', `Folder Approved: "${folderName}"`,
             `All ${count} file${count !== 1 ? 's' : ''} in your folder "${folderName}" have been approved and saved to the NAS.`,
-            admin.id, admin.username, admin.role
+            admin.id, admin.username, admin.role, folderAssignmentId
         ).catch(() => {});
     }
 
