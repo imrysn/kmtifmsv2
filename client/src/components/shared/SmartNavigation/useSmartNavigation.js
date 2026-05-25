@@ -123,19 +123,27 @@ export function useSmartNavigation({
     }, [highlightedItemId, items]);
 
     // EFFECT 4: Highlight file within item
+    // Uses a retry loop instead of a fixed delay so it works regardless of how long
+    // folder expansion + DOM paint takes (slow machines, large lists, etc.)
     useEffect(() => {
         if (!highlightedFileId || items.length === 0) return;
 
-        // Give the folder-expand effect time to run + DOM to repaint before querying
-        const delay = highlightedItemId ? 900 : 400;
-        const timer = setTimeout(() => {
+        let attempts = 0;
+        const MAX_ATTEMPTS = 30;   // 30 × 100ms = 3 seconds max wait
+        const INTERVAL_MS  = 100;
+
+        const tryHighlight = () => {
             const el = document.querySelector(`[data-file-id="${highlightedFileId}"]`);
-            if (!el) return;
+
+            if (!el) {
+                if (++attempts < MAX_ATTEMPTS) {
+                    timer = setTimeout(tryHighlight, INTERVAL_MS);
+                }
+                return;
+            }
 
             el.scrollIntoView({ behavior: 'smooth', block: 'center' });
 
-            // Pick highlight color based on file status:
-            // red = rejected, amber = revision/for_editing, green = everything else
             const isRejected = highlightedFileStatus &&
                 (highlightedFileStatus === 'rejected_by_team_leader' ||
                  highlightedFileStatus === 'rejected_by_admin');
@@ -155,8 +163,9 @@ export function useSmartNavigation({
                 el.classList.remove(highlightClass);
                 if (onClearFileHighlight) onClearFileHighlight();
             }, 3000);
-        }, delay);
+        };
 
+        let timer = setTimeout(tryHighlight, 80); // small initial delay so folder expand fires first
         return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [highlightedFileId, highlightedItemId, highlightedFileStatus, items]);

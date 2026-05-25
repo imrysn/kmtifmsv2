@@ -170,6 +170,7 @@ const AssignmentsTab = ({
   highlightedAssignmentId,
   onClearHighlight,
   highlightedFileId,
+  highlightedFileStatus,
   onClearFileHighlight,
   markAssignmentAsDone,
   handleEditAssignment,
@@ -426,20 +427,13 @@ const AssignmentsTab = ({
   const fetchComments = async (assignmentId) => {
     setLoadingComments(true)
     try {
-      console.log(`🔍 Fetching comments for assignment ${assignmentId}`)
       const data = await apiFetch(`/api/assignments/${assignmentId}/comments`)
-
-      console.log(`💬 Comments response for ${assignmentId}:`, data)
-
       if (data.success) {
-        console.log(`✅ Setting ${data.comments?.length || 0} comments for assignment ${assignmentId}`)
         setComments(data.comments || [])
       } else {
-        console.log(`❌ Failed to fetch comments for assignment ${assignmentId}`)
         setComments([])
       }
-    } catch (error) {
-      console.error('Error fetching comments:', error)
+    } catch {
       setComments([])
     } finally {
       setLoadingComments(false)
@@ -588,6 +582,7 @@ const AssignmentsTab = ({
     items: assignments,
     highlightedItemId: highlightedAssignmentId,
     highlightedFileId,
+    highlightedFileStatus,
     notificationContext: notificationCommentContext,
     onClearHighlight,
     onClearFileHighlight,
@@ -598,6 +593,53 @@ const AssignmentsTab = ({
     selectedItem: selectedAssignment,
     comments
   });
+
+  // Track which highlightedFileId we've already processed so the effect
+  // doesn't re-fire when `assignments` refreshes via SSE while the same
+  // highlightedFileId is still set.
+  const processedHighlightFileIdRef = React.useRef(null);
+  // Reset the ref whenever highlightedFileId is cleared so the next
+  // notification click for the same fileId works correctly.
+  useEffect(() => {
+    if (!highlightedFileId) processedHighlightFileIdRef.current = null;
+  }, [highlightedFileId]);
+  // Expand the submissions panel for the assignment containing highlightedFileId,
+  // then highlight the folder row (WITHOUT opening it) and scroll it into view.
+  useEffect(() => {
+    if (!highlightedFileId || assignments.length === 0) return;
+    // Already handled this fileId — don't re-run on assignments refresh
+    if (processedHighlightFileIdRef.current === highlightedFileId) return;
+    const fid = parseInt(highlightedFileId);
+    for (const assignment of assignments) {
+      const allFiles = assignment.recent_submissions || assignment.submitted_files || [];
+      const targetFile = allFiles.find(f => f.id === fid);
+      if (targetFile) {
+        // Mark as processed BEFORE any async/timeout work
+        processedHighlightFileIdRef.current = highlightedFileId;
+        // 1. Expand the submissions section for this assignment (so the folder row is visible)
+        setExpandedSubmissions(prev => prev[assignment.id] ? prev : { ...prev, [assignment.id]: true });
+        // 2. If the file is inside a folder, highlight the folder row — do NOT open it.
+        if (targetFile.folder_name) {
+          const folderKey = `${assignment.id}__file__${targetFile.folder_name}`;
+          // 3. Poll until the folder row is in the DOM (it appears once submissions section expands)
+          let attempts = 0;
+          const MAX = 30;
+          const tryHighlightFolder = () => {
+            const folderEl = document.querySelector(`[data-folder-key="${folderKey}"]`);
+            if (!folderEl) {
+              if (++attempts < MAX) setTimeout(tryHighlightFolder, 100);
+              return;
+            }
+            folderEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            folderEl.classList.add('tl-assignment-folder-highlighted');
+            setTimeout(() => folderEl.classList.remove('tl-assignment-folder-highlighted'), 3000);
+          };
+          setTimeout(tryHighlightFolder, 80);
+        }
+        break;
+      }
+    }
+  }, [highlightedFileId, assignments]);
 
   const toggleAttachments = (assignmentId) => {
     setExpandedAttachments(prev => {
@@ -1025,6 +1067,7 @@ const AssignmentsTab = ({
                                   ))}
                                   {level > 0 && <div className={`tl-tree-line-connector ${isLast ? 'last-item' : ''}`} />}
                                   <div
+                                    data-folder-key={`${assignment.id}__${currentKey}`}
                                     className={`tl-assignment-file-item tl-folder-row ${level > 0 ? 'tl-in-tree' : ''}`}
                                     onClick={(e) => {
                                       e.stopPropagation();
@@ -1530,7 +1573,6 @@ const AssignmentsTab = ({
                             team: user.team
                           })
                         })
-                        console.log('Bulk approve response:', JSON.stringify(data, null, 2))
                         if (data.success) {
                           if (data.results?.failed?.length > 0) {
                             alert(`⚠️ ${data.results.failed.length} file(s) could not be approved:\n${data.results.failed.map(f => `${f.fileName}: ${f.reason}`).join('\n')}`)

@@ -238,11 +238,50 @@ const NotificationTab = ({ user, onNavigate, onRead }) => {
     }
   }, [user.id, onRead]);
 
-  const handleNotificationClick = useCallback((notification) => {
+  const handleNotificationClick = useCallback(async (notification) => {
     if (!notification.is_read) markAsRead(notification.id);
+
+    // for_editing / revision_request — route to assignments with amber file highlight
+    if (notification.type === 'for_editing' || notification.type === 'revision_request') {
+      const assignmentId = notification.assignment_id || null;
+      if (assignmentId && onNavigate) {
+        let fileId = notification.file_id || null;
+        let fileStatus = 'revision';
+        if (!fileId) {
+          try {
+            const res = await apiFetch(`/api/assignments/${assignmentId}/revision-file`);
+            if (res.success && res.file_id) {
+              fileId = res.file_id;
+              fileStatus = res.file_status || 'revision';
+            }
+          } catch (_) {}
+        }
+        onNavigate('assignments', { assignmentId, fileId, fileStatus });
+        return;
+      }
+    }
+
+    // file_submitted (New / Revised File Submission) — route to assignments and
+    // open the folder containing the submitted file.
+    // If file_id is null (old notifications pre-fix), look up the most recently
+    // submitted file for this assignment as a fallback.
+    if (notification.type === 'file_submitted' || notification.type === 'submission') {
+      const assignmentId = notification.assignment_id || null;
+      if (assignmentId && onNavigate) {
+        let fileId = notification.file_id || null;
+        if (!fileId) {
+          try {
+            const res = await apiFetch(`/api/assignments/${assignmentId}/latest-submission`);
+            if (res.success && res.file_id) fileId = res.file_id;
+          } catch (_) {}
+        }
+        onNavigate('assignments', { assignmentId, fileId, fileStatus: null });
+        return;
+      }
+    }
+
     const { targetTab, context } = parseNotification(notification, 'teamleader');
     if (targetTab && onNavigate) onNavigate(targetTab, context);
-    else console.warn('⚠️ Unable to navigate - no target tab determined');
   }, [markAsRead, onNavigate]);
 
   // Notification icon component — original implementation using FileIcon

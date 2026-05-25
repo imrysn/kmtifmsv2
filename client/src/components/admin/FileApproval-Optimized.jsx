@@ -945,11 +945,23 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess, hig
       const query = params.toString() ? `?${params.toString()}` : ''
       const pathData = await apiFetch(`${API_BASE}/files/${file.id}/path${query}`)
       if (!pathData.success) throw new Error('Failed to get file path')
-      if (window.electron && typeof window.electron.openFolderInExplorer === 'function') {
-        const result = await window.electron.openFolderInExplorer(pathData.filePath)
-        if (!result.success) throw new Error(result.error || 'Failed to reveal file in Explorer')
+      if (window.electron && typeof window.electron.openFileInApp === 'function') {
+        // Open the file with its default application
+        const result = await window.electron.openFileInApp(pathData.filePath)
+        if (!result.success) throw new Error(result.error || 'Failed to open file')
       } else {
-        setError('File path opening not available in browser mode')
+        // Web fallback: stream the file in a new tab
+        const ext = (pathData.filePath.split('.').pop() || '').toLowerCase()
+        const browserViewable = ['pdf','png','jpg','jpeg','gif','svg','webp','txt','html','css','js','json','xml','mp4','mp3']
+        if (browserViewable.includes(ext)) {
+          window.open(`/api/files/${file.id}/stream`, '_blank', 'noopener,noreferrer')
+        } else {
+          const a = Object.assign(document.createElement('a'), {
+            href: `/api/files/${file.id}/stream`,
+            download: file.original_name || 'file',
+          })
+          a.click()
+        }
       }
     } catch (err) {
       console.error('Error opening file:', err)
@@ -1095,7 +1107,7 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess, hig
             adminUsername: authUser.username,
             adminRole: authUser.role,
             team: authUser.team,
-            deleteFromUploads: true
+            deleteFromUploads: false  // Keep source file — user files must remain visible after approval
           })
         })
         if (!moveData.success) throw new Error(moveData.message || 'Failed to move file')

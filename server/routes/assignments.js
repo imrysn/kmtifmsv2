@@ -2081,5 +2081,24 @@ router.get('/:assignmentId/revision-file', authenticateToken, async (req, res) =
   }
 });
 
+// GET /:assignmentId/latest-submission — returns the most recently submitted file for an assignment.
+// Used as a fallback when a submission notification has file_id = null (pre-fix notifications).
+router.get('/:assignmentId/latest-submission', authenticateToken, async (req, res) => {
+  try {
+    const { assignmentId } = req.params;
+    const row = await queryOne(
+      `SELECT f.id AS file_id, f.folder_name, f.status
+       FROM assignment_submissions asub
+       JOIN files f ON f.id = asub.file_id
+       WHERE asub.assignment_id = ?
+       ORDER BY asub.submitted_at DESC LIMIT 1`,
+      [assignmentId]
+    );
+    res.json({ success: true, file_id: row ? row.file_id : null, folder_name: row ? row.folder_name : null, file_status: row ? row.status : null });
+  } catch (err) {
+    res.json({ success: false, file_id: null, folder_name: null, file_status: null });
+  }
+});
+
 console.log('✅ Assignments routes registered');
 module.exports = router;

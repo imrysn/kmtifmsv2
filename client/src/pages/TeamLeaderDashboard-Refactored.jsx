@@ -118,22 +118,17 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
   const [highlightedAssignmentId, setHighlightedAssignmentId] = useState(null)
   const [highlightedFileId, setHighlightedFileId] = useState(null)
   const [highlightedSubmissionFileId, setHighlightedSubmissionFileId] = useState(null)
+  const [highlightedFileStatus, setHighlightedFileStatus] = useState(null)
   const updateUser = useStore(state => state.updateUser)
 
   const refreshUserProfile = async () => {
     try {
       const data = await apiFetch('/api/users/profile')
       if (data.success && data.user) {
-        // Sync the local store with the latest server data
-        // This fixes the stale team tag issue when an admin updates the assignment
         updateUser(data.user)
-        console.log('👤 Profile refreshed:', { 
-          team: data.user.team, 
-          ledTeams: data.user.ledTeams?.map(t => t.name) 
-        })
       }
-    } catch (err) {
-      console.warn('⚠️ Failed to refresh user profile:', err)
+    } catch {
+      // non-critical, ignore
     }
   }
 
@@ -423,9 +418,6 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
     createAssignmentAbortController.current = abortController
 
     const removeAttachmentIds = removedAttachmentIds || [];
-    if (removeAttachmentIds.length > 0) {
-      console.log('📤 Sending removedAttachmentIds to server:', removeAttachmentIds);
-    }
     if (!assignmentForm.title.trim()) {
       setError('Please enter assignment title')
       return
@@ -1040,6 +1032,20 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
     setSuccess('')
   }
 
+  // Clear all highlight/navigation state when manually switching tabs.
+  // Without this, highlight IDs linger and re-trigger effects every time
+  // the assignments tab is visited after a notification click.
+  const switchTab = (tab) => {
+    if (tab !== activeTab) {
+      setHighlightedAssignmentId(null)
+      setHighlightedSubmissionFileId(null)
+      setHighlightedFileStatus(null)
+      setHighlightedFileId(null)
+      setNotificationCommentContext(null)
+    }
+    setActiveTab(tab)
+  }
+
   const toggleSidebar = () => {
     setSidebarOpen(!sidebarOpen)
   }
@@ -1154,7 +1160,11 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
               highlightedAssignmentId={highlightedAssignmentId}
               onClearHighlight={() => setHighlightedAssignmentId(null)}
               highlightedFileId={highlightedSubmissionFileId}
-              onClearFileHighlight={() => setHighlightedSubmissionFileId(null)}
+              highlightedFileStatus={highlightedFileStatus}
+              onClearFileHighlight={() => {
+                setHighlightedSubmissionFileId(null)
+                setHighlightedFileStatus(null)
+              }}
               markAssignmentAsDone={markAssignmentAsDone}
               handleEditAssignment={handleEditAssignment}
               onRefreshAssignments={fetchAssignments}
@@ -1168,29 +1178,35 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
             <NotificationTab
               user={user}
               onRead={() => setUnreadCount(0)}
-              onNavigate={(tab, data) => {
+              onNavigate={async (tab, data) => {
                 if (tab === 'assignments') {
-                  // Switch tab immediately — don't await fetch, assignments load via useEffect
                   setActiveTab('assignments')
 
-                  // Handle both object and primitive data formats
                   const assignmentId = typeof data === 'object' ? data.assignmentId : data
                   const shouldOpenComments = typeof data === 'object' ? data.shouldOpenComments : false
                   const expandAllReplies = typeof data === 'object' ? data.expandAllReplies : false
                   const fileId = typeof data === 'object' ? data.fileId : null
+                  const fileStatus = typeof data === 'object' ? data.fileStatus : null
 
                   if (assignmentId) {
                     setHighlightedAssignmentId(assignmentId)
 
                     if (fileId) {
                       setHighlightedSubmissionFileId(fileId)
+                      setHighlightedFileStatus(fileStatus)
+                    } else if (fileStatus === 'revision') {
+                      // No file_id yet — look up the latest revision file for this assignment
+                      try {
+                        const res = await apiFetch(`/api/assignments/${assignmentId}/revision-file`)
+                        if (res.success && res.file_id) {
+                          setHighlightedSubmissionFileId(res.file_id)
+                          setHighlightedFileStatus(res.file_status || 'revision')
+                        }
+                      } catch (_) {}
                     }
 
                     if (shouldOpenComments) {
-                      setNotificationCommentContext({
-                        assignmentId: assignmentId,
-                        expandAllReplies: expandAllReplies
-                      })
+                      setNotificationCommentContext({ assignmentId, expandAllReplies })
                     }
                   }
                 } else if (tab === 'file-collection') {
@@ -1234,7 +1250,7 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
       <div className="tl-dashboard">
         <Sidebar
           activeTab={activeTab}
-          setActiveTab={setActiveTab}
+          setActiveTab={switchTab}
           clearMessages={clearMessages}
           setSidebarOpen={setSidebarOpen}
           sidebarOpen={sidebarOpen}

@@ -356,13 +356,14 @@ async function bulkUploadFast(filesData, user, assignmentId = null) {
             );
             if (assignment && assignment.team_leader_id) {
                 const successCount = fileRecords.filter(r => r.success).length;
+                const firstFileId = successLinks.length > 0 ? successLinks[0].fileId : null;
                 const notificationTitle = batchHasRevision ? 'Revised File Submission' : 'New File Submission';
                 const notificationMessage = batchHasRevision 
                     ? `${user.fullName || user.username} submitted ${successCount} file${successCount !== 1 ? 's' : ''} (including ${revisionCount} revision${revisionCount !== 1 ? 's' : ''}) for "${assignment.title}".`
                     : `${user.fullName || user.username} submitted ${successCount} file${successCount !== 1 ? 's' : ''} for "${assignment.title}".`;
 
                 await notificationService.createNotification(
-                    assignment.team_leader_id, null, 'file_submitted',
+                    assignment.team_leader_id, firstFileId, 'file_submitted',
                     notificationTitle,
                     notificationMessage,
                     user.id, user.username, user.role, parseInt(assignmentId, 10)
@@ -1439,57 +1440,12 @@ async function moveFolderToNas({ folderName, username, fileIds, destinationPath,
 
     const isAttachmentFolder = dbFiles.some(f => f.source_type === 'assignment_attachment');
     const destFolderPath = path.join(destinationPath, folderName);
-    await fs.mkdir(destFolderPath, { recursive: true });
-
-    let sourceExists = false;
-
-    if (!isAttachmentFolder) {
-        let sourceFolderPath = path.join(uploadsDir, username, folderName);
-        sourceExists = await fs.access(sourceFolderPath).then(() => true).catch(() => false);
-
-        if (!sourceExists && dbFiles[0]?.file_path) {
-            const relPart = dbFiles[0].file_path.startsWith('/uploads/') ? dbFiles[0].file_path.substring(9) : dbFiles[0].file_path;
-            const parts = relPart.replace(/\\/g, '/').split('/');
-            if (parts.length >= 2) {
-                const alt = path.join(uploadsDir, parts[0], parts[1]);
-                if (await fs.access(alt).then(() => true).catch(() => false)) { sourceFolderPath = alt; sourceExists = true; }
-            }
-        }
-
-        if (!sourceExists) {
-            const topFolder = (dbFiles[0]?.relative_path || '').replace(/\\/g, '/').split('/')[0];
-            if (topFolder) {
-                const alt2 = path.join(uploadsDir, username, topFolder);
-                if (await fs.access(alt2).then(() => true).catch(() => false)) { sourceFolderPath = alt2; sourceExists = true; }
-            }
-        }
-
-        if (sourceExists) {
-            async function copyDir(src, dest) {
-                const entries = await fs.readdir(src, { withFileTypes: true });
-                const BATCH = 8;
-                for (let i = 0; i < entries.length; i += BATCH) {
-                    await Promise.all(entries.slice(i, i + BATCH).map(async entry => {
-                        const srcPath = path.join(src, entry.name);
-                        const destPath = path.join(dest, entry.name);
-                        if (entry.isDirectory()) { await fs.mkdir(destPath, { recursive: true }); await copyDir(srcPath, destPath); }
-                        else { await streamCopy(srcPath, destPath); }
-                    }));
-                }
-            }
-            await copyDir(sourceFolderPath, destFolderPath);
-            await fs.rm(sourceFolderPath, { recursive: true, force: true });
-            logInfo('Folder copied to NAS and source deleted', { destFolderPath });
-        } else {
-            logInfo('Source folder not found — falling back to file-by-file copy', { sourceFolderPath });
-        }
-    }
-
     const nowSql = new Date().toISOString().slice(0, 19).replace('T', ' ');
 
+    // ── Phase 1: Update DB status immediately so UI reflects approval at once ──
     for (const file of dbFiles) {
         if (!file) continue;
-
+        // Compute the expected NAS path for this file (used as public_network_url)
         let nasFilePath;
         if (file.relative_path) {
             const relParts = file.relative_path.replace(/\\/g, '/').split('/');
@@ -1499,49 +1455,27 @@ async function moveFolderToNas({ folderName, username, fileIds, destinationPath,
             nasFilePath = path.join(destFolderPath, file.original_name);
         }
 
-        if (!sourceExists) {
-            let srcFilePath;
-            if (path.isAbsolute(file.file_path) || file.file_path.startsWith('\\\\')) {
-                srcFilePath = file.file_path;
-            } else if (file.file_path.startsWith('/uploads/')) {
-                srcFilePath = path.join(uploadsDir, file.file_path.substring(9));
-            } else {
-                srcFilePath = path.join(uploadsDir, file.file_path);
-            }
-
-            await fs.mkdir(path.dirname(nasFilePath), { recursive: true });
-            const srcOk = await fs.access(srcFilePath).then(() => true).catch(() => false);
-            if (srcOk) {
-                const normalSrc = path.normalize(srcFilePath).toLowerCase();
-                const normalDst = path.normalize(nasFilePath).toLowerCase();
-                if (normalSrc !== normalDst) {
-                    await fs.copyFile(srcFilePath, nasFilePath);
-                    await safeDeleteFile(srcFilePath);
-                    logInfo('Copied file to NAS', { nasFilePath });
-                }
-            } else {
-                logInfo('Source file not found — may already have been moved', { srcFilePath });
-            }
-        }
-
         if (file.source_type === 'assignment_attachment') {
             await query(
                 `UPDATE assignment_attachments SET status='final_approved', current_stage='published_to_public',
-                    admin_reviewed_at=?, admin_comments=?, file_path=?, public_network_url=?, final_approved_at=? WHERE id=?`,
-                [nowSql, comments || null, nasFilePath, nasFilePath, nowSql, file.id]
+                    admin_reviewed_at=?, admin_comments=?, public_network_url=?, final_approved_at=? WHERE id=?`,
+                [nowSql, comments || null, nasFilePath, nowSql, file.id]
             ).catch(err => logError(err, { context: 'moveFolderToNas-attachment-update' }));
         } else {
             await query(
                 `UPDATE files SET status='final_approved', current_stage='published_to_public',
                     admin_id=?, admin_username=?, admin_reviewed_at=?, admin_comments=?,
-                    file_path=?, public_network_url=?, final_approved_at=? WHERE id=?`,
-                [admin.id, admin.username, nowSql, comments || null, nasFilePath, nasFilePath, nowSql, file.id]
+                    public_network_url=?, final_approved_at=? WHERE id=?`,
+                [admin.id, admin.username, nowSql, comments || null, nasFilePath, nowSql, file.id]
             );
+            // NOTE: file_path is intentionally NOT updated — the original uploads path
+            // must remain intact so the user can still see and download their file.
             logFileStatusChange(db, file.id, file.status, 'final_approved', file.current_stage, 'published_to_public',
                 admin.id, admin.username, admin.role, `Folder approved & moved to NAS: ${comments || 'No comments'}`);
         }
     }
 
+    // ── Phase 2: Send notifications immediately ────────────────────────────────
     const userFileMap = {};
     for (const file of dbFiles) {
         const uid = String(file.user_id);
@@ -1550,8 +1484,6 @@ async function moveFolderToNas({ folderName, username, fileIds, destinationPath,
     }
     for (const [userId, files] of Object.entries(userFileMap)) {
         const count = files.length;
-        // Look up the assignment_id from any of this user's files in the folder
-        // so the notification click can route directly to Tasks instead of My Files.
         let folderAssignmentId = null;
         try {
             const anyFile = files.find(f => f.source_type !== 'assignment_attachment');
@@ -1572,6 +1504,97 @@ async function moveFolderToNas({ folderName, username, fileIds, destinationPath,
 
     logActivity(db, admin.id, admin.username, admin.role, admin.team,
         `Folder approved & moved to NAS: ${folderName} (${fileIds.length} files) -> ${destFolderPath}`);
+
+    // ── Phase 3: Copy files to NAS in the background (non-blocking) ───────────
+    // The client already got its response — NAS I/O happens after.
+    setImmediate(async () => {
+        try {
+            await fs.mkdir(destFolderPath, { recursive: true });
+
+            let sourceExists = false;
+
+            if (!isAttachmentFolder) {
+                let sourceFolderPath = path.join(uploadsDir, username, folderName);
+                sourceExists = await fs.access(sourceFolderPath).then(() => true).catch(() => false);
+
+                if (!sourceExists && dbFiles[0]?.file_path) {
+                    const relPart = dbFiles[0].file_path.startsWith('/uploads/') ? dbFiles[0].file_path.substring(9) : dbFiles[0].file_path;
+                    const parts = relPart.replace(/\\/g, '/').split('/');
+                    if (parts.length >= 2) {
+                        const alt = path.join(uploadsDir, parts[0], parts[1]);
+                        if (await fs.access(alt).then(() => true).catch(() => false)) { sourceFolderPath = alt; sourceExists = true; }
+                    }
+                }
+
+                if (!sourceExists) {
+                    const topFolder = (dbFiles[0]?.relative_path || '').replace(/\\/g, '/').split('/')[0];
+                    if (topFolder) {
+                        const alt2 = path.join(uploadsDir, username, topFolder);
+                        if (await fs.access(alt2).then(() => true).catch(() => false)) { sourceFolderPath = alt2; sourceExists = true; }
+                    }
+                }
+
+                if (sourceExists) {
+                    const copyDir = async (src, dest) => {
+                        const entries = await fs.readdir(src, { withFileTypes: true });
+                        const BATCH = 8;
+                        for (let i = 0; i < entries.length; i += BATCH) {
+                            await Promise.all(entries.slice(i, i + BATCH).map(async entry => {
+                                const srcPath = path.join(src, entry.name);
+                                const destPath = path.join(dest, entry.name);
+                                if (entry.isDirectory()) { await fs.mkdir(destPath, { recursive: true }); await copyDir(srcPath, destPath); }
+                                else { await streamCopy(srcPath, destPath); }
+                            }));
+                        }
+                    };
+                    await copyDir(sourceFolderPath, destFolderPath);
+                    // DO NOT delete source — user files must remain accessible after admin approval
+                    logInfo('Folder copied to NAS in background (source kept intact)', { destFolderPath });
+                } else {
+                    logInfo('Source folder not found — falling back to file-by-file copy in background', { sourceFolderPath: path.join(uploadsDir, username, folderName) });
+                }
+            }
+
+            // File-by-file fallback if folder copy wasn't possible
+            if (!sourceExists || isAttachmentFolder) {
+                for (const file of dbFiles) {
+                    if (!file) continue;
+                    let nasFilePath;
+                    if (file.relative_path) {
+                        const relParts = file.relative_path.replace(/\\/g, '/').split('/');
+                        const relativeInFolder = relParts.slice(1).join('/');
+                        nasFilePath = relativeInFolder ? path.join(destFolderPath, relativeInFolder) : path.join(destFolderPath, file.original_name);
+                    } else {
+                        nasFilePath = path.join(destFolderPath, file.original_name);
+                    }
+
+                    let srcFilePath;
+                    if (path.isAbsolute(file.file_path) || file.file_path.startsWith('\\\\')) {
+                        srcFilePath = file.file_path;
+                    } else if (file.file_path.startsWith('/uploads/')) {
+                        srcFilePath = path.join(uploadsDir, file.file_path.substring(9));
+                    } else {
+                        srcFilePath = path.join(uploadsDir, file.file_path);
+                    }
+
+                    await fs.mkdir(path.dirname(nasFilePath), { recursive: true });
+                    const srcOk = await fs.access(srcFilePath).then(() => true).catch(() => false);
+                    if (srcOk) {
+                        const normalSrc = path.normalize(srcFilePath).toLowerCase();
+                        const normalDst = path.normalize(nasFilePath).toLowerCase();
+                        if (normalSrc !== normalDst) {
+                            await streamCopy(srcFilePath, nasFilePath);
+                            logInfo('Copied file to NAS in background (source kept intact)', { nasFilePath });
+                        }
+                    } else {
+                        logInfo('Background NAS copy: source file not found', { srcFilePath });
+                    }
+                }
+            }
+        } catch (err) {
+            logError(err, { context: 'moveFolderToNas-background-copy', folderName });
+        }
+    });
 
     return { nasPath: destFolderPath };
 }
