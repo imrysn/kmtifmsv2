@@ -1160,6 +1160,37 @@ const AssignmentsTab = ({
                                       <div className="tl-assignment-file-name" style={{ fontWeight: '700', fontSize: '15.5px', color: '#1e293b' }}>{folderName}</div>
                                       <div className="tl-assignment-file-meta" style={{ fontSize: '12px' }}>
                                         <span style={{ color: '#64748b', fontWeight: '500' }}>{folderFiles.length} items</span>
+                                        {!isReference && (() => {
+                                          const firstFile = folderFiles[0]?.file || folderFiles[0];
+                                          const submitter = firstFile?.fullName || firstFile?.username;
+                                          const submittedAt = firstFile?.submitted_at || firstFile?.uploaded_at;
+                                          return submitter ? (
+                                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', flexWrap: 'wrap', marginLeft: '6px' }}>
+                                              <span style={{ color: '#9ca3af' }}>•</span>
+                                              <span style={{ color: '#374151' }}>by <span style={{ fontWeight: '600', color: '#2563eb' }}>{submitter}</span></span>
+                                              {submittedAt && (
+                                                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', color: '#6b7280' }}>
+                                                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                                                    <circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" />
+                                                  </svg>
+                                                  {formatDateTime(submittedAt)}
+                                                </span>
+                                              )}
+                                            </span>
+                                          ) : null;
+                                        })()}
+                                        {isReference && (() => {
+                                          const firstFile = folderFiles[0]?.file || folderFiles[0];
+                                          const uploadedAt = firstFile?.created_at || firstFile?.uploaded_at;
+                                          return uploadedAt ? (
+                                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', color: '#6b7280', marginLeft: '6px' }}>
+                                              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                                                <circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" />
+                                              </svg>
+                                              {formatDateTime(uploadedAt)}
+                                            </span>
+                                          ) : null;
+                                        })()}
                                         {isReference && <span className="tl-badge-reference" style={{ marginLeft: '8px' }}>Reference</span>}
                                         {!isReference && folderFiles.some(f => (f.file?.status || f.status) === 'revision') && (
                                           <span className="tl-badge-revision" style={{ marginLeft: '8px' }}>

@@ -1178,9 +1178,35 @@ const TasksTab = memo(({
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontWeight: '600', fontSize: '15px', color: '#111827' }}>{subName}</div>
                   <div style={{ fontSize: '12px', color: '#4b5563', marginTop: '1px' }}>
-                    {isAttachment
-                      ? `${assignment.team_leader_fullname || assignment.team_leader_username || 'Team Leader'} • ${subFiles.length} file${subFiles.length !== 1 ? 's' : ''}`
-                      : `Submitted by ${subFirstFile.submitter_name || user.fullName || user.username} • ${subFiles.length} file${subFiles.length !== 1 ? 's' : ''}`}
+                    {isAttachment ? (
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', flexWrap: 'wrap' }}>
+                        <span>{assignment.team_leader_fullname || assignment.team_leader_username || 'Team Leader'}</span>
+                        <span style={{ color: '#9ca3af' }}>•</span>
+                        <span>{subFiles.length} file{subFiles.length !== 1 ? 's' : ''}</span>
+                        {(subFirstFile.submitted_at || subFirstFile.uploaded_at || subFirstFile.created_at) && (
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', color: '#6b7280' }}>
+                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                              <circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" />
+                            </svg>
+                            {formatDateTime(subFirstFile.submitted_at || subFirstFile.uploaded_at || subFirstFile.created_at)}
+                          </span>
+                        )}
+                      </span>
+                    ) : (
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', flexWrap: 'wrap' }}>
+                        <span>Submitted by <span style={{ fontWeight: '500', color: '#2563eb' }}>{subFirstFile.submitter_name || user.fullName || user.username}</span></span>
+                        <span style={{ color: '#9ca3af' }}>•</span>
+                        <span>{subFiles.length} file{subFiles.length !== 1 ? 's' : ''}</span>
+                        {(subFirstFile.submitted_at || subFirstFile.uploaded_at) && (
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', color: '#6b7280' }}>
+                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                              <circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" />
+                            </svg>
+                            {formatDateTime(subFirstFile.submitted_at || subFirstFile.uploaded_at)}
+                          </span>
+                        )}
+                      </span>
+                    )}
                   </div>
                 </div>
                 <svg width="14" height="14" viewBox="0 0 16 16" fill="none" style={{ transform: isSubOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s', flexShrink: 0 }}>
