@@ -176,6 +176,7 @@ const TeamTasksTab = ({ user }) => {
   const [assignments, setAssignments] = useState([])
   const [loading, setLoading] = useState(true)
   const [loadingMore, setLoadingMore] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
   const [expandedAssignments, setExpandedAssignments] = useState({})
   const [error, setError] = useState('')
   const [successModal, setSuccessModal] = useState({ isOpen: false, title: '', message: '', type: 'success' })
@@ -752,21 +753,66 @@ const TeamTasksTab = ({ user }) => {
         <p className="team-tasks-subtitle">Tasks assigned to your team members</p>
       </div>
 
+      {/* Search Bar */}
+      <div style={{ margin: '0 0 4px 0', position: 'relative', maxWidth: '320px' }}>
+        <svg style={{ position: 'absolute', left: '9px', top: '50%', transform: 'translateY(-50%)', color: '#c4c9d4', pointerEvents: 'none' }} width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <circle cx="11" cy="11" r="8" />
+          <line x1="21" y1="21" x2="16.65" y2="16.65" />
+        </svg>
+        <input
+          type="text"
+          placeholder="Search tasks..."
+          value={searchQuery}
+          onChange={e => setSearchQuery(e.target.value)}
+          style={{
+            width: '100%', boxSizing: 'border-box',
+            padding: '8px 28px 8px 28px',
+            border: '1.5px solid #e8eaed', borderRadius: '8px',
+            fontSize: '13.5px', color: '#374151',
+            outline: 'none', background: '#fff',
+            transition: 'border-color 0.15s',
+            boxShadow: 'none'
+          }}
+          onFocus={e => e.target.style.borderColor = '#c4c9d4'}
+          onBlur={e => e.target.style.borderColor = '#e8eaed'}
+        />
+        {searchQuery && (
+          <button
+            onClick={() => setSearchQuery('')}
+            style={{ position: 'absolute', right: '8px', top: '50%', transform: 'translateY(-50%)', background: 'transparent', border: 'none', cursor: 'pointer', color: '#c4c9d4', fontSize: '15px', lineHeight: 1, padding: '1px' }}
+          >×</button>
+        )}
+      </div>
+
       <div className="team-tasks-count">
-        {assignments.length} task{assignments.length !== 1 ? 's' : ''}
-        {hasMore && ' • Scroll for more'}
+        {searchQuery
+          ? `${assignments.filter(a => { const q = searchQuery.toLowerCase(); return (a.title||'').toLowerCase().includes(q)||(a.description||'').toLowerCase().includes(q)||(a.team_leader_fullname||'').toLowerCase().includes(q)||(a.team_leader_username||'').toLowerCase().includes(q) }).length} result${assignments.filter(a => { const q = searchQuery.toLowerCase(); return (a.title||'').toLowerCase().includes(q)||(a.description||'').toLowerCase().includes(q)||(a.team_leader_fullname||'').toLowerCase().includes(q)||(a.team_leader_username||'').toLowerCase().includes(q) }).length !== 1 ? 's' : ''} for "${searchQuery}"`
+          : `${assignments.length} task${assignments.length !== 1 ? 's' : ''}${hasMore ? ' • Scroll for more' : ''}`
+        }
       </div>
 
       <div className="team-tasks-container">
-        {assignments.length === 0 ? (
+        {(() => {
+          const filtered = searchQuery.trim()
+            ? assignments.filter(a => {
+                const q = searchQuery.toLowerCase()
+                return (
+                  (a.title || '').toLowerCase().includes(q) ||
+                  (a.description || '').toLowerCase().includes(q) ||
+                  (a.team_leader_fullname || '').toLowerCase().includes(q) ||
+                  (a.team_leader_username || '').toLowerCase().includes(q)
+                )
+              })
+            : assignments
+          return filtered.length === 0 ? (
           <div className="empty-team-tasks">
             <div className="empty-icon">📋</div>
-            <h3>No Team Tasks Yet</h3>
-            <p>Your team leader hasn't created any assignments yet.</p>
+            <h3>{searchQuery ? 'No Results Found' : 'No Team Tasks Yet'}</h3>
+            <p>{searchQuery ? `No tasks match "${searchQuery}".` : "Your team leader hasn't created any assignments yet."}</p>
           </div>
         ) : (
           <>
-            {assignments.map(assignment => (
+            {filtered.map(assignment => (
               <div key={assignment.id} className="team-task-card">
                 {/* Card Header */}
                 <div className="team-task-header">
@@ -1112,7 +1158,9 @@ const TeamTasksTab = ({ user }) => {
               <div ref={loadMoreRef} style={{ height: '20px', margin: '20px 0' }}/>
             )}
           </>
-        )}
+        )
+        })()
+      }
       </div>
 
       {/* Comments Modal */}

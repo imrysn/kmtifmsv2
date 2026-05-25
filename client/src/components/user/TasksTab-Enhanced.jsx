@@ -393,6 +393,7 @@ const TasksTab = memo(({
 
   // UI state
   const [sortFilter, setSortFilter] = useState('all');
+  const [searchQuery, setSearchQuery] = useState('');
   const [successModal, setSuccessModal] = useState({ isOpen: false, title: '', message: '', type: 'success' });
   const [downloadToast, setDownloadToast] = useState({ show: false, fileName: '' });
   const [uploadProgress, setUploadProgress] = useState(0);
@@ -1008,9 +1009,16 @@ const TasksTab = memo(({
   const filteredAssignments = useMemo(() => {
     const base = activeTab === 'for-checking' ? forCheckingAssignments : myTaskAssignments
     const sorted = [...base].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-    if (sortFilter === 'all') return sorted;
-    return sorted.filter(a => getAssignmentStatus(a) === sortFilter);
-  }, [myTaskAssignments, forCheckingAssignments, activeTab, sortFilter]);
+    const bySort = sortFilter === 'all' ? sorted : sorted.filter(a => getAssignmentStatus(a) === sortFilter);
+    if (!searchQuery.trim()) return bySort;
+    const q = searchQuery.toLowerCase();
+    return bySort.filter(a =>
+      (a.title || '').toLowerCase().includes(q) ||
+      (a.description || '').toLowerCase().includes(q) ||
+      (a.team_leader_username || '').toLowerCase().includes(q) ||
+      (a.team_leader_fullname || '').toLowerCase().includes(q)
+    );
+  }, [myTaskAssignments, forCheckingAssignments, activeTab, sortFilter, searchQuery]);
 
   const filterCounts = useMemo(() => {
     const counts = { all: assignments.length, completed: 0, overdue: 0, no_due_date: 0 };
@@ -1375,6 +1383,37 @@ const TasksTab = memo(({
             </div>
           </div>
         </div>
+      </div>
+
+      {/* Search Bar */}
+      <div style={{ padding: '0 20px 4px', maxWidth: '340px', margin: '0 auto 0 20px', position: 'relative' }}>
+        <svg style={{ position: 'absolute', left: '29px', top: '50%', transform: 'translateY(-50%)', color: '#c4c9d4', pointerEvents: 'none' }} width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <circle cx="11" cy="11" r="8" />
+          <line x1="21" y1="21" x2="16.65" y2="16.65" />
+        </svg>
+        <input
+          type="text"
+          placeholder="Search tasks..."
+          value={searchQuery}
+          onChange={e => setSearchQuery(e.target.value)}
+          style={{
+            width: '100%', boxSizing: 'border-box',
+            padding: '8px 28px 8px 28px',
+            border: '1.5px solid #e8eaed', borderRadius: '8px',
+            fontSize: '13.5px', color: '#374151',
+            outline: 'none', background: '#fff',
+            transition: 'border-color 0.15s',
+            boxShadow: 'none'
+          }}
+          onFocus={e => e.target.style.borderColor = '#c4c9d4'}
+          onBlur={e => e.target.style.borderColor = '#e8eaed'}
+        />
+        {searchQuery && (
+          <button
+            onClick={() => setSearchQuery('')}
+            style={{ position: 'absolute', right: '28px', top: '50%', transform: 'translateY(-50%)', background: 'transparent', border: 'none', cursor: 'pointer', color: '#c4c9d4', fontSize: '15px', lineHeight: 1, padding: '1px' }}
+          >×</button>
+        )}
       </div>
 
       <SuccessModal
@@ -1769,8 +1808,8 @@ const TasksTab = memo(({
               <path d="M16 4h2a2 2 0 012 2v14a2 2 0 01-2 2H6a2 2 0 01-2-2V6a2 2 0 012-2h2" /><rect x="8" y="2" width="8" height="4" rx="1" ry="1" />
             </svg>
           </div>
-          <h3>{sortFilter === 'all' ? 'No assignments' : `No ${SORT_OPTIONS.find(o => o.value === sortFilter)?.label.toLowerCase()} assignments`}</h3>
-          <p>{sortFilter === 'all' ? "You don't have any assignments at this time." : 'Try a different filter.'}</p>
+          <h3>{searchQuery ? 'No Results Found' : sortFilter === 'all' ? 'No assignments' : `No ${SORT_OPTIONS.find(o => o.value === sortFilter)?.label.toLowerCase()} assignments`}</h3>
+          <p>{searchQuery ? `No tasks match "${searchQuery}".` : sortFilter === 'all' ? "You don't have any assignments at this time." : 'Try a different filter.'}</p>
         </div>
       )}
 

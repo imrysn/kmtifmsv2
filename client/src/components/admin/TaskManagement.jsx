@@ -39,6 +39,7 @@ const TaskManagement = ({
   const { isConnected } = useNetwork()
 
   const [assignments, setAssignments] = useState([])
+  const [searchQuery, setSearchQuery] = useState('')
   const [loading, setLoading] = useState(true)
   const [loadingMore, setLoadingMore] = useState(false)
   const [expandedAssignments, setExpandedAssignments] = useState({})
@@ -99,6 +100,22 @@ const TaskManagement = ({
   // Ref for infinite scroll
   const observerRef = useRef(null)
   const loadMoreRef = useRef(null)
+
+  // Filtered assignments based on search
+  const filteredAssignments = useMemo(() => {
+    if (!searchQuery.trim()) return assignments
+    const q = searchQuery.toLowerCase()
+    return assignments.filter(a =>
+      (a.title || '').toLowerCase().includes(q) ||
+      (a.description || '').toLowerCase().includes(q) ||
+      (a.team_leader_fullname || '').toLowerCase().includes(q) ||
+      (a.team_leader_username || '').toLowerCase().includes(q) ||
+      (a.assigned_member_details || []).some(m =>
+        (m.fullName || '').toLowerCase().includes(q) ||
+        (m.username || '').toLowerCase().includes(q)
+      )
+    )
+  }, [assignments, searchQuery])
 
   useEffect(() => {
     fetchInitialAssignments()
@@ -870,23 +887,53 @@ const TaskManagement = ({
           <h2>All Tasks</h2>
         </div>
 
+        {/* Search Bar */}
+        <div style={{ margin: '0 0 10px 0', position: 'relative', maxWidth: '320px' }}>
+          <svg style={{ position: 'absolute', left: '9px', top: '50%', transform: 'translateY(-50%)', color: '#c4c9d4', pointerEvents: 'none' }} width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="11" cy="11" r="8" />
+            <line x1="21" y1="21" x2="16.65" y2="16.65" />
+          </svg>
+          <input
+            type="text"
+            placeholder="Search tasks..."
+            value={searchQuery}
+            onChange={e => setSearchQuery(e.target.value)}
+            style={{
+              width: '100%', boxSizing: 'border-box',
+              padding: '8px 28px 8px 28px',
+              border: '1.5px solid #e8eaed', borderRadius: '8px',
+              fontSize: '13.5px', color: '#374151',
+              outline: 'none', background: '#fff',
+              transition: 'border-color 0.15s',
+              boxShadow: 'none'
+            }}
+            onFocus={e => e.target.style.borderColor = '#c4c9d4'}
+            onBlur={e => e.target.style.borderColor = '#e8eaed'}
+          />
+          {searchQuery && (
+            <button
+              onClick={() => setSearchQuery('')}
+              style={{ position: 'absolute', right: '8px', top: '50%', transform: 'translateY(-50%)', background: 'transparent', border: 'none', cursor: 'pointer', color: '#c4c9d4', fontSize: '15px', lineHeight: 1, padding: '1px' }}
+            >×</button>
+          )}
+        </div>
+
         {/* Task Count */}
         <div className="task-count">
-          {assignments.length} task{assignments.length !== 1 ? 's' : ''}
-          {hasMore && ' • Scroll for more'}
+          {searchQuery ? `${filteredAssignments.length} result${filteredAssignments.length !== 1 ? 's' : ''} for "${searchQuery}"` : `${assignments.length} task${assignments.length !== 1 ? 's' : ''}${hasMore ? ' • Scroll for more' : ''}`}
         </div>
 
         {/* Feed */}
         <div className="feed-container">
-          {assignments.length === 0 ? (
+          {filteredAssignments.length === 0 ? (
             <div className="empty-feed">
               <div className="empty-icon"><svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M22 12h-6l-2 3h-4l-2-3H2" /><path d="M5.45 5.11L2 12v6a2 2 0 002 2h16a2 2 0 002-2v-6l-3.45-6.89A2 2 0 0016.76 4H7.24a2 2 0 00-1.79 1.11z" /></svg></div>
-              <h3>No Tasks Yet</h3>
-              <p>Team leaders haven't created any assignments yet.</p>
+              <h3>{searchQuery ? 'No Results Found' : 'No Tasks Yet'}</h3>
+              <p>{searchQuery ? `No tasks match "${searchQuery}".` : "Team leaders haven't created any assignments yet."}</p>
             </div>
           ) : (
             <>
-              {assignments.map(assignment => {
+              {filteredAssignments.map(assignment => {
                 const renderRecursiveItems = (files, level = 1, parentKey = '', parentIsLastArr = [], isAttachment = true) => {
                   const { subfolders, rootFiles } = recursiveGroupByPath(files);
                   const subItems = [];

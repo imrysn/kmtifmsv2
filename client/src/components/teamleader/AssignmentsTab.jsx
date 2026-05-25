@@ -181,6 +181,7 @@ const AssignmentsTab = ({
   const [selectedMembers, setSelectedMembers] = useState([])
 
   // Shared modal state - simplified to work like admin/user
+  const [searchQuery, setSearchQuery] = useState('')
   const [showCommentsModal, setShowCommentsModal] = useState(false)
   const [selectedAssignment, setSelectedAssignment] = useState(null)
   const [comments, setComments] = useState([])
@@ -857,18 +858,66 @@ const AssignmentsTab = ({
           </button>
         </div>
 
-        {assignments.length === 0 ? (
+        {/* Search Bar */}
+        <div style={{ margin: '0 0 16px 0', position: 'relative', maxWidth: '320px' }}>
+          <svg style={{ position: 'absolute', left: '9px', top: '50%', transform: 'translateY(-50%)', color: '#c4c9d4', pointerEvents: 'none' }} width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="11" cy="11" r="8" />
+            <line x1="21" y1="21" x2="16.65" y2="16.65" />
+          </svg>
+          <input
+            type="text"
+            placeholder="Search tasks..."
+            value={searchQuery}
+            onChange={e => setSearchQuery(e.target.value)}
+            style={{
+              width: '100%', boxSizing: 'border-box',
+              padding: '8px 28px 8px 28px',
+              border: '1.5px solid #e8eaed', borderRadius: '8px',
+              fontSize: '13.5px', color: '#374151',
+              outline: 'none', background: '#fff',
+              transition: 'border-color 0.15s',
+              boxShadow: 'none'
+            }}
+            onFocus={e => e.target.style.borderColor = '#c4c9d4'}
+            onBlur={e => e.target.style.borderColor = '#e8eaed'}
+          />
+          {searchQuery && (
+            <button
+              onClick={() => setSearchQuery('')}
+              style={{ position: 'absolute', right: '8px', top: '50%', transform: 'translateY(-50%)', background: 'transparent', border: 'none', cursor: 'pointer', color: '#c4c9d4', fontSize: '15px', lineHeight: 1, padding: '1px' }}
+            >×</button>
+          )}
+        </div>
+
+        {(() => {
+          const filteredAssignments = searchQuery.trim()
+            ? assignments.filter(a => {
+                const q = searchQuery.toLowerCase()
+                return (
+                  (a.title || '').toLowerCase().includes(q) ||
+                  (a.description || '').toLowerCase().includes(q) ||
+                  (a.team_leader_username || '').toLowerCase().includes(q) ||
+                  (a.assigned_member_details || []).some(m =>
+                    (m.fullName || '').toLowerCase().includes(q) ||
+                    (m.username || '').toLowerCase().includes(q)
+                  )
+                )
+              })
+            : assignments
+          return filteredAssignments.length === 0 ? (
           <div className="tl-empty-state">
             <div className="tl-empty-state-icon">📋</div>
-            <h3>No tasks yet</h3>
-            <p>Create your first task to get started</p>
-            <button className="tl-btn success" onClick={() => setShowCreateAssignmentModal(true)}>
-              Create Task
-            </button>
+            <h3>{searchQuery ? 'No Results Found' : 'No tasks yet'}</h3>
+            <p>{searchQuery ? `No tasks match "${searchQuery}".` : 'Create your first task to get started'}</p>
+            {!searchQuery && (
+              <button className="tl-btn success" onClick={() => setShowCreateAssignmentModal(true)}>
+                Create Task
+              </button>
+            )}
           </div>
         ) : (
           <div className="tl-assignments-feed-container">
-            {assignments.map((assignment) => (
+            {filteredAssignments.map((assignment) => (
               <div
                 key={assignment.id}
                 id={`tl-assignment-${assignment.id}`}
@@ -1348,7 +1397,9 @@ const AssignmentsTab = ({
               </div>
             ))}
           </div>
-        )}
+        )
+        })()
+      }
       </div>
 
       <CommentsModal
