@@ -166,9 +166,10 @@ async function processAttachments(uploadedFiles, relativePaths, finalTeamLeaderU
 
     for (let i = 0; i < uploadedFiles.length; i += batchSize) {
         const batch = uploadedFiles.slice(i, i + batchSize);
-    // Pre-create all unique directories once to avoid redundant NAS mkdir round-trips per file
-    const uniqueDirs = new Set(uploadedFiles.map((file, i) => {
-      const relPath = relativePaths[i] || file.originalname;
+    // Pre-create all unique directories for this batch only (not all files every iteration)
+    const uniqueDirs = new Set(batch.map((file, batchIdx) => {
+      const idx = i + batchIdx;
+      const relPath = relativePaths[idx] || file.originalname;
       const baseDir = path.join(networkDataPath, 'teamleader', finalTeamLeaderUsername);
       const sanitizedRelPath = (relPath || '').split('/').map(seg => seg.replace(/[<>:"/\\|?*\x00-\x1F]/g, '_')).join(path.sep);
       return path.dirname(path.join(baseDir, sanitizedRelPath));
@@ -338,10 +339,65 @@ router.get('/admin/all', authenticateToken, authorizeRole(['ADMIN']), async (req
   }
 });
 
-// Legacy alias — same handler as /admin/all
+// Legacy alias — shares the same inline handler as /admin/all above
 router.get('/all', authenticateToken, authorizeRole(['ADMIN']), async (req, res) => {
-  req.url = '/admin/all';
-  return router.handle(req, res, () => { });
+  // Duplicate the /admin/all handler inline — router.handle() is not a public Express API
+  try {
+    const { cursor, limit = 20 } = req.query;
+    const parsedLimit = parseInt(limit, 10);
+
+    let queryStr = `
+      SELECT a.*,
+        COUNT(DISTINCT asub.id) as submission_count,
+        COUNT(DISTINCT am.id)   as assigned_members_count,
+        COUNT(DISTINCT ac.id)   as comment_count
+      FROM assignments a
+      LEFT JOIN assignment_members am      ON a.id = am.assignment_id
+      LEFT JOIN assignment_submissions asub ON a.id = asub.assignment_id
+      LEFT JOIN assignment_comments ac     ON a.id = ac.assignment_id
+    `;
+    const queryParams = [];
+    const conditions = [];
+    if (cursor) { conditions.push('a.id < ?'); queryParams.push(cursor); }
+    if (conditions.length > 0) queryStr += ' WHERE ' + conditions.join(' AND ');
+    queryStr += ' GROUP BY a.id ORDER BY a.created_at DESC, a.id DESC LIMIT ?';
+    queryParams.push(parsedLimit + 1);
+
+    const assignments = await query(queryStr, queryParams);
+    const hasMore = assignments.length > parsedLimit;
+    const assignmentsToReturn = hasMore ? assignments.slice(0, parsedLimit) : assignments;
+    const nextCursor = hasMore && assignmentsToReturn.length > 0
+      ? assignmentsToReturn[assignmentsToReturn.length - 1].id : null;
+
+    if (assignmentsToReturn.length > 0) {
+      const ids = assignmentsToReturn.map(a => a.id);
+      const ph = ids.map(() => '?').join(',');
+      const tlIds = [...new Set(assignmentsToReturn.map(a => a.team_leader_id || a.teamLeaderId).filter(Boolean))];
+      const tlPh = tlIds.length > 0 ? tlIds.map(() => '?').join(',') : '0';
+      const [allMembers, allAttachments, allSubmissions, allTLs] = await Promise.all([
+        query(`SELECT am.assignment_id, u.id, u.username, u.fullName FROM assignment_members am JOIN users u ON am.user_id = u.id WHERE am.assignment_id IN (${ph})`, ids),
+        query(`SELECT id, assignment_id, original_name, filename, file_path, public_network_url, file_size, file_type, folder_name, relative_path, created_at, COALESCE(status, 'team_leader_approved') AS status, COALESCE(current_stage, 'pending_admin') AS current_stage FROM assignment_attachments WHERE assignment_id IN (${ph}) ORDER BY assignment_id, COALESCE(folder_name, ''), created_at DESC`, ids),
+        query(`SELECT asub.assignment_id, f.id, f.original_name, f.filename, f.file_type, f.file_path, f.public_network_url, f.file_size, f.tag, f.description, f.uploaded_at, f.status, f.checked_by, f.folder_name, f.relative_path, f.is_folder, u.username, u.fullName, asub.submitted_at, asub.submitted_at as created_at, asub.user_id FROM assignment_submissions asub JOIN files f ON asub.file_id = f.id JOIN users u ON asub.user_id = u.id WHERE asub.assignment_id IN (${ph}) ORDER BY asub.submitted_at DESC`, ids),
+        tlIds.length > 0 ? query(`SELECT id, fullName, username, email FROM users WHERE id IN (${tlPh})`, tlIds) : []
+      ]);
+      const membersByAsgn = {}; const attachByAsgn = {}; const subsByAsgn = {};
+      (allMembers || []).forEach(r => { const k = r.assignment_id; if (!membersByAsgn[k]) membersByAsgn[k] = []; membersByAsgn[k].push(r); });
+      (allAttachments || []).forEach(r => { const k = r.assignment_id; if (!attachByAsgn[k]) attachByAsgn[k] = []; attachByAsgn[k].push(r); });
+      (allSubmissions || []).forEach(r => { const k = r.assignment_id; if (!subsByAsgn[k]) subsByAsgn[k] = []; subsByAsgn[k].push(r); });
+      const tlMap = {}; (allTLs || []).forEach(u => { tlMap[u.id] = u; });
+      assignmentsToReturn.forEach(assignment => {
+        assignment.assigned_member_details = membersByAsgn[assignment.id] || [];
+        assignment.attachments = attachByAsgn[assignment.id] || [];
+        assignment.recent_submissions = subsByAsgn[assignment.id] || [];
+        const tl = tlMap[assignment.team_leader_id || assignment.teamLeaderId];
+        if (tl) { assignment.team_leader_fullname = tl.fullName; assignment.team_leader_username = tl.username; assignment.team_leader_email = tl.email; }
+      });
+    }
+    res.json({ success: true, assignments: assignmentsToReturn || [], nextCursor, hasMore });
+  } catch (error) {
+    console.error('Error in /all alias route:', error);
+    res.status(500).json({ success: false, message: 'Failed to fetch assignments', error: error.message });
+  }
 });
 
 // GET /team-leader/:userId/all-submissions

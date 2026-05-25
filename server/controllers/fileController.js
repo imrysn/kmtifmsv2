@@ -328,7 +328,8 @@ class FileController {
     stream = asyncHandler(async (req, res) => {
         const id = req.params.id || req.params.fileId;
         const fileInfo = await fileService.resolvePhysicalPath(id);
-        res.sendFile(fileInfo.path);
+        const path = require('path');
+        res.sendFile(path.resolve(fileInfo.path));
     });
 
     /**

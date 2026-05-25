@@ -891,9 +891,9 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
       })
 
       if (data.success) {
-        setSuccess(`Successfully ${bulkAction}d ${data.results.success.length} file(s)`)
-        if (data.results.failed.length > 0) {
-          setError(`Failed to process ${data.results.failed.length} file(s)`)
+        setSuccess(`Successfully ${bulkAction}d ${(data.successful || []).length} file(s)`)
+        if ((data.failed || []).length > 0) {
+          setError(`Failed to process ${data.failed.length} file(s)`)
         }
         setShowBulkActionModal(false)
         setBulkAction('')
@@ -1058,14 +1058,16 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
   const handleOpenInExplorer = async (filePath, e) => {
     e.stopPropagation()
     try {
-      const data = await apiFetch(`/api/files/open-in-explorer`, {
-        method: 'POST',
-        body: JSON.stringify({ filePath })
-      })
-      if (data.success) {
-        setSuccess('File opened in explorer')
+      if (window.electron && typeof window.electron.openFolderInExplorer === 'function') {
+        // Electron: open the folder directly without a server round-trip
+        const result = await window.electron.openFolderInExplorer(filePath)
+        if (result && result.success) {
+          setSuccess('File opened in explorer')
+        } else {
+          setError((result && result.error) || 'Failed to open file in explorer')
+        }
       } else {
-        setError('Failed to open file in explorer')
+        setError('Open in explorer is only available in the desktop app')
       }
     } catch (error) {
       console.error('Error opening file in explorer:', error)
