@@ -5,7 +5,7 @@
  */
 
 async function runMigrations() {
-  const { query } = require('../../database/config');
+  const { query } = require('../config/database');
 
   try {
     // Create the tracking table if it doesn't exist (one-time, fast)
@@ -32,7 +32,8 @@ async function runMigrations() {
       { name: '011-add-checker-columns',             run: require('./011-add-checker-columns') },
       { name: '012-fix-files-status-column',          run: require('./012-fix-files-status-column') },
       { name: '013-fix-notifications-type-column',     run: require('./013-fix-notifications-type-column') },
-      { name: '014-add-checked-by-to-files',             run: require('./014-add-checked-by-to-files') }
+      { name: '014-add-checked-by-to-files',             run: require('./014-add-checked-by-to-files') },
+      { name: '016-add-due-date-edited',                  run: require('./016-add-due-date-edited') }
     ];
 
     // Fetch all already-applied migrations in one query

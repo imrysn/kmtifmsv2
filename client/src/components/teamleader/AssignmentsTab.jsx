@@ -993,17 +993,31 @@ const AssignmentsTab = ({
                             </span>
                           </div>
                         )}
+                        {assignment.due_date_edited ? (
+                          <div style={{ marginTop: '4px' }}>
+                            <span style={{ backgroundColor: '#fef3c7', color: '#92400e', padding: '2px 8px', borderRadius: '10px', fontSize: '11px', fontWeight: '600', border: '1px solid #fde68a', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                              ✎ Due Date Edited
+                            </span>
+                          </div>
+                        ) : null}
                       </div>
                     ) : (
                       (assignment.due_date || assignment.dueDate) && (
-                        <div className="tl-assignment-due-date">
-                          Due {formatDate(assignment.due_date || assignment.dueDate)}
-                          <span
-                            className="tl-assignment-days-left"
-                            style={{ color: getStatusColor(assignment.due_date || assignment.dueDate) }}
-                          >
-                            {' '}({formatDaysLeft(assignment.due_date || assignment.dueDate)})
-                          </span>
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px' }}>
+                          <div className="tl-assignment-due-date">
+                            Due {formatDate(assignment.due_date || assignment.dueDate)}
+                            <span
+                              className="tl-assignment-days-left"
+                              style={{ color: getStatusColor(assignment.due_date || assignment.dueDate) }}
+                            >
+                              {' '}({formatDaysLeft(assignment.due_date || assignment.dueDate)})
+                            </span>
+                          </div>
+                          {assignment.due_date_edited ? (
+                            <span style={{ backgroundColor: '#fef3c7', color: '#92400e', padding: '2px 8px', borderRadius: '10px', fontSize: '11px', fontWeight: '600', border: '1px solid #fde68a', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                              ✎ Due Date Edited
+                            </span>
+                          ) : null}
                         </div>
                       )
                     )}

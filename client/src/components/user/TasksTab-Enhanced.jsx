@@ -1547,37 +1547,81 @@ const TasksTab = memo(({
                       </div>
                     ) : assignment.status === 'for_editing' ? (
                       activeTab === 'for-checking' ? (
-                        <div style={{ backgroundColor: 'transparent', color: '#C2410C', padding: '6px 12px', borderRadius: '20px', fontSize: '13px', fontWeight: '600', display: 'inline-flex', alignItems: 'center', border: '1.5px solid #FDBA74' }}>
-                          For Checking
-                        </div>
+                        <>
+                          <div style={{ backgroundColor: 'transparent', color: '#C2410C', padding: '6px 12px', borderRadius: '20px', fontSize: '13px', fontWeight: '600', display: 'inline-flex', alignItems: 'center', border: '1.5px solid #FDBA74' }}>
+                            For Checking
+                          </div>
+                          {assignment.due_date_edited ? (
+                            <div style={{ marginTop: '4px', textAlign: 'right' }}>
+                              <span style={{ backgroundColor: '#fef3c7', color: '#92400e', padding: '2px 8px', borderRadius: '10px', fontSize: '11px', fontWeight: '600', border: '1px solid #fde68a', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>✎ Due Date Edited</span>
+                            </div>
+                          ) : null}
+                        </>
                       ) : assignment.submitted_files?.length > 0 ? (
-                        <div style={{ backgroundColor: '#F0FDF4', color: '#16A34A', padding: '6px 12px', borderRadius: '20px', fontSize: '13px', fontWeight: '600', display: 'inline-flex', alignItems: 'center', gap: '4px', border: '1px solid #86EFAC' }}>
-                          ✓ Submitted
-                        </div>
+                        <>
+                          <div style={{ backgroundColor: '#F0FDF4', color: '#16A34A', padding: '6px 12px', borderRadius: '20px', fontSize: '13px', fontWeight: '600', display: 'inline-flex', alignItems: 'center', gap: '4px', border: '1px solid #86EFAC' }}>
+                            ✓ Submitted
+                          </div>
+                          {assignment.due_date_edited ? (
+                            <div style={{ marginTop: '4px', textAlign: 'right' }}>
+                              <span style={{ backgroundColor: '#fef3c7', color: '#92400e', padding: '2px 8px', borderRadius: '10px', fontSize: '11px', fontWeight: '600', border: '1px solid #fde68a', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>✎ Due Date Edited</span>
+                            </div>
+                          ) : null}
+                        </>
                       ) : (
-                        <div style={{ backgroundColor: '#FEF3C7', color: '#92400E', padding: '6px 12px', borderRadius: '20px', fontSize: '13px', fontWeight: '600', display: 'inline-flex', alignItems: 'center', gap: '4px', border: '1px solid #FCD34D' }}>
-                          ✎ For Editing
-                        </div>
+                        <>
+                          <div style={{ backgroundColor: '#FEF3C7', color: '#92400E', padding: '6px 12px', borderRadius: '20px', fontSize: '13px', fontWeight: '600', display: 'inline-flex', alignItems: 'center', gap: '4px', border: '1px solid #FCD34D' }}>
+                            ✎ For Editing
+                          </div>
+                          {assignment.due_date_edited ? (
+                            <div style={{ marginTop: '4px', textAlign: 'right' }}>
+                              <span style={{ backgroundColor: '#fef3c7', color: '#92400e', padding: '2px 8px', borderRadius: '10px', fontSize: '11px', fontWeight: '600', border: '1px solid #fde68a', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>✎ Due Date Edited</span>
+                            </div>
+                          ) : null}
+                        </>
                       )
                     ) : assignment.submitted_files?.length > 0 ? (
                       activeTab === 'for-checking' ? (
-                        <div style={{ backgroundColor: 'transparent', color: '#C2410C', padding: '6px 12px', borderRadius: '20px', fontSize: '13px', fontWeight: '600', display: 'inline-flex', alignItems: 'center', border: '1.5px solid #FDBA74' }}>
-                          For Checking
-                        </div>
+                        <>
+                          <div style={{ backgroundColor: 'transparent', color: '#C2410C', padding: '6px 12px', borderRadius: '20px', fontSize: '13px', fontWeight: '600', display: 'inline-flex', alignItems: 'center', border: '1.5px solid #FDBA74' }}>
+                            For Checking
+                          </div>
+                          {assignment.due_date_edited ? (
+                            <div style={{ marginTop: '4px', textAlign: 'right' }}>
+                              <span style={{ backgroundColor: '#fef3c7', color: '#92400e', padding: '2px 8px', borderRadius: '10px', fontSize: '11px', fontWeight: '600', border: '1px solid #fde68a', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>✎ Due Date Edited</span>
+                            </div>
+                          ) : null}
+                        </>
                       ) : (
-                        <div style={{ backgroundColor: '#F0FDF4', color: '#16A34A', padding: '6px 12px', borderRadius: '20px', fontSize: '13px', fontWeight: '600', display: 'inline-flex', alignItems: 'center', gap: '4px', border: '1px solid #86EFAC' }}>
-                          ✓ Submitted
-                        </div>
+                        <>
+                          <div style={{ backgroundColor: '#F0FDF4', color: '#16A34A', padding: '6px 12px', borderRadius: '20px', fontSize: '13px', fontWeight: '600', display: 'inline-flex', alignItems: 'center', gap: '4px', border: '1px solid #86EFAC' }}>
+                            ✓ Submitted
+                          </div>
+                          {assignment.due_date_edited ? (
+                            <div style={{ marginTop: '4px', textAlign: 'right' }}>
+                              <span style={{ backgroundColor: '#fef3c7', color: '#92400e', padding: '2px 8px', borderRadius: '10px', fontSize: '11px', fontWeight: '600', border: '1px solid #fde68a', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>✎ Due Date Edited</span>
+                            </div>
+                          ) : null}
+                        </>
                       )
                     ) : (
-                      <div style={{ fontSize: '14px', fontWeight: '500', color: '#000000' }}>
-                        Due: {assignment.due_date ? formatDate(assignment.due_date) : 'No due date'}
-                        {daysLeft !== null && (
-                          <span style={{ color: daysLeft < 0 ? '#DC2626' : '#16A34A', fontWeight: '400', marginLeft: '4px' }}>
-                            {daysLeft < 0 ? `(${Math.abs(daysLeft)} days overdue)` : `(${daysLeft} days left)`}
-                          </span>
-                        )}
-                      </div>
+                      <>
+                        <div style={{ fontSize: '14px', fontWeight: '500', color: '#000000' }}>
+                          Due: {assignment.due_date ? formatDate(assignment.due_date) : 'No due date'}
+                          {daysLeft !== null && (
+                            <span style={{ color: daysLeft < 0 ? '#DC2626' : '#16A34A', fontWeight: '400', marginLeft: '4px' }}>
+                              {daysLeft < 0 ? `(${Math.abs(daysLeft)} days overdue)` : `(${daysLeft} days left)`}
+                            </span>
+                          )}
+                        </div>
+                        {assignment.due_date_edited ? (
+                          <div style={{ marginTop: '4px', textAlign: 'right' }}>
+                            <span style={{ backgroundColor: '#fef3c7', color: '#92400e', padding: '2px 8px', borderRadius: '10px', fontSize: '11px', fontWeight: '600', border: '1px solid #fde68a', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                              ✎ Due Date Edited
+                            </span>
+                          </div>
+                        ) : null}
+                      </>
                     )}
                   </div>
                 </div>

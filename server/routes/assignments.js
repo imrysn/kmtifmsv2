@@ -968,9 +968,30 @@ router.put('/:id', authenticateToken, authorizeRole(['TEAM_LEADER', 'ADMIN']), u
       return res.status(404).json({ success: false, message: 'Assignment not found' });
     }
 
+    // Detect due date change — store original and flag as edited
+    const prevDueDate = existingAssignment.due_date
+      ? new Date(existingAssignment.due_date).toISOString().slice(0, 10)
+      : null;
+    const nextDueDate = finalDueDate
+      ? new Date(finalDueDate).toISOString().slice(0, 10)
+      : null;
+    const dueDateChanged = prevDueDate !== nextDueDate;
+
+    let dueDateEdited = existingAssignment.due_date_edited ? 1 : 0;
+    let originalDueDate = existingAssignment.original_due_date || null;
+
+    // Only flag as edited when there WAS a previous due date and it actually changed
+    if (dueDateChanged && prevDueDate && nextDueDate) {
+      dueDateEdited = 1;
+      // Only record the very first original due date, never overwrite it
+      if (!originalDueDate) {
+        originalDueDate = existingAssignment.due_date;
+      }
+    }
+
     await query(
-      'UPDATE assignments SET title=?, description=?, due_date=?, file_type_required=?, assigned_to=?, max_file_size=? WHERE id=?',
-      [title, description || null, finalDueDate || null, finalFileType || null, finalAssignedTo || existingAssignment.assigned_to, finalMaxSize, id]
+      'UPDATE assignments SET title=?, description=?, due_date=?, file_type_required=?, assigned_to=?, max_file_size=?, due_date_edited=?, original_due_date=? WHERE id=?',
+      [title, description || null, finalDueDate || null, finalFileType || null, finalAssignedTo || existingAssignment.assigned_to, finalMaxSize, dueDateEdited, originalDueDate, id]
     );
 
     let membersAssigned = 0;
