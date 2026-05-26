@@ -263,8 +263,8 @@ router.post('/upload-nonce', authenticateToken, (req, res) => {
 // (HEAD added /all as a legacy alias; both are kept)
 router.get('/admin/all', authenticateToken, authorizeRole(['ADMIN']), async (req, res) => {
   try {
-    const { cursor, limit = 20 } = req.query;
-    const parsedLimit = parseInt(limit, 10);
+    const { cursor, limit } = req.query;
+    const parsedLimit = limit ? parseInt(limit, 10) : null;
 
     let queryStr = `
       SELECT a.*,
@@ -286,12 +286,15 @@ router.get('/admin/all', authenticateToken, authorizeRole(['ADMIN']), async (req
     if (conditions.length > 0) {
       queryStr += ' WHERE ' + conditions.join(' AND ');
     }
-    queryStr += ' GROUP BY a.id ORDER BY a.created_at DESC, a.id DESC LIMIT ?';
-    queryParams.push(parsedLimit + 1);
+    queryStr += ' GROUP BY a.id ORDER BY a.created_at DESC, a.id DESC';
+    if (parsedLimit) {
+      queryStr += ' LIMIT ?';
+      queryParams.push(parsedLimit + 1);
+    }
 
     const assignments = await query(queryStr, queryParams);
-    const hasMore = assignments.length > parsedLimit;
-    const assignmentsToReturn = hasMore ? assignments.slice(0, parsedLimit) : assignments;
+    const hasMore = parsedLimit ? assignments.length > parsedLimit : false;
+    const assignmentsToReturn = (parsedLimit && hasMore) ? assignments.slice(0, parsedLimit) : assignments;
     const nextCursor = hasMore && assignmentsToReturn.length > 0
       ? assignmentsToReturn[assignmentsToReturn.length - 1].id
       : null;
@@ -343,8 +346,8 @@ router.get('/admin/all', authenticateToken, authorizeRole(['ADMIN']), async (req
 router.get('/all', authenticateToken, authorizeRole(['ADMIN']), async (req, res) => {
   // Duplicate the /admin/all handler inline — router.handle() is not a public Express API
   try {
-    const { cursor, limit = 20 } = req.query;
-    const parsedLimit = parseInt(limit, 10);
+    const { cursor, limit } = req.query;
+    const parsedLimit = limit ? parseInt(limit, 10) : null;
 
     let queryStr = `
       SELECT a.*,
@@ -360,12 +363,15 @@ router.get('/all', authenticateToken, authorizeRole(['ADMIN']), async (req, res)
     const conditions = [];
     if (cursor) { conditions.push('a.id < ?'); queryParams.push(cursor); }
     if (conditions.length > 0) queryStr += ' WHERE ' + conditions.join(' AND ');
-    queryStr += ' GROUP BY a.id ORDER BY a.created_at DESC, a.id DESC LIMIT ?';
-    queryParams.push(parsedLimit + 1);
+    queryStr += ' GROUP BY a.id ORDER BY a.created_at DESC, a.id DESC';
+    if (parsedLimit) {
+      queryStr += ' LIMIT ?';
+      queryParams.push(parsedLimit + 1);
+    }
 
     const assignments = await query(queryStr, queryParams);
-    const hasMore = assignments.length > parsedLimit;
-    const assignmentsToReturn = hasMore ? assignments.slice(0, parsedLimit) : assignments;
+    const hasMore = parsedLimit ? assignments.length > parsedLimit : false;
+    const assignmentsToReturn = (parsedLimit && hasMore) ? assignments.slice(0, parsedLimit) : assignments;
     const nextCursor = hasMore && assignmentsToReturn.length > 0
       ? assignmentsToReturn[assignmentsToReturn.length - 1].id : null;
 
@@ -475,8 +481,8 @@ router.get('/team-leader/:userId/all-submissions', authenticateToken, authorizeR
 router.get('/team/:team/all-tasks', authenticateToken, async (req, res) => {
   try {
     const { team } = req.params;
-    const { cursor, limit = 20 } = req.query;
-    const parsedLimit = parseInt(limit, 10);
+    const { cursor, limit } = req.query;
+    const parsedLimit = limit ? parseInt(limit, 10) : null;
 
     let queryStr = `
       SELECT a.*,
@@ -492,12 +498,15 @@ router.get('/team/:team/all-tasks', authenticateToken, async (req, res) => {
     if (cursor) {
       queryStr += ' AND a.id < ?'; queryParams.push(cursor);
     }
-    queryStr += ' GROUP BY a.id ORDER BY a.created_at DESC, a.id DESC LIMIT ?';
-    queryParams.push(parsedLimit + 1);
+    queryStr += ' GROUP BY a.id ORDER BY a.created_at DESC, a.id DESC';
+    if (parsedLimit) {
+      queryStr += ' LIMIT ?';
+      queryParams.push(parsedLimit + 1);
+    }
 
     const assignments = await query(queryStr, queryParams);
-    const hasMore = assignments.length > parsedLimit;
-    const assignmentsToReturn = hasMore ? assignments.slice(0, parsedLimit) : assignments;
+    const hasMore = parsedLimit ? assignments.length > parsedLimit : false;
+    const assignmentsToReturn = (parsedLimit && hasMore) ? assignments.slice(0, parsedLimit) : assignments;
     const nextCursor = hasMore && assignmentsToReturn.length > 0
       ? assignmentsToReturn[assignmentsToReturn.length - 1].id : null;
 

@@ -199,7 +199,7 @@ const TaskManagement = ({
       setLoading(true)
       clearMessages()
 
-      const data = await apiFetch(`/api/assignments/admin/all?limit=20`)
+      const data = await apiFetch(`/api/assignments/admin/all`)
 
       console.log('Initial assignments response:', data)
 
@@ -231,7 +231,7 @@ const TaskManagement = ({
 
     try {
       setLoadingMore(true)
-      const data = await apiFetch(`/api/assignments/admin/all?cursor=${nextCursor}&limit=20`)
+      const data = await apiFetch(`/api/assignments/admin/all?cursor=${nextCursor}`)
 
       console.log('More assignments response:', data)
 
@@ -625,7 +625,8 @@ const TaskManagement = ({
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
 
     if (diffDays < 0) {
-      return `${Math.abs(diffDays)} days overdue`
+      const absDays = Math.abs(diffDays)
+      return `${absDays} ${absDays === 1 ? 'day' : 'days'} overdue`
     } else if (diffDays === 0) {
       return 'Due today'
     } else if (diffDays === 1) {
@@ -918,10 +919,12 @@ const TaskManagement = ({
           )}
         </div>
 
-        {/* Task Count */}
-        <div className="task-count">
-          {searchQuery ? `${filteredAssignments.length} result${filteredAssignments.length !== 1 ? 's' : ''} for "${searchQuery}"` : `${assignments.length} task${assignments.length !== 1 ? 's' : ''}${hasMore ? ' • Scroll for more' : ''}`}
-        </div>
+        {/* Task Count - search results only */}
+        {searchQuery && (
+          <div className="task-count">
+            {filteredAssignments.length} result{filteredAssignments.length !== 1 ? 's' : ''} for "{searchQuery}"
+          </div>
+        )}
 
         {/* Feed */}
         <div className="feed-container">
@@ -1135,7 +1138,7 @@ const TaskManagement = ({
                               )}
                             </div>
                           </div>
-                          <FileViewersButton fileId={file.id} externalCount={viewerCounts[file.id]} />
+                          <FileViewersButton fileId={file.id} externalCount={viewerCounts[file.id]} minDate={file.submitted_at || file.uploaded_at || file.created_at} />
                           <button
                             onClick={(e) => { e.stopPropagation(); handleDownloadFile(file) }}
                             title="Download file"
