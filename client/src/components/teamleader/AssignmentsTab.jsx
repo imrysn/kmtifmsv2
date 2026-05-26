@@ -269,6 +269,9 @@ const AssignmentsTab = ({
   const [selectedCheckerIds, setSelectedCheckerIds] = useState(new Set())
   const [isAssigningChecker, setIsAssigningChecker] = useState(false)
 
+  // Tab toggle: 'tasks' = active tasks, 'done' = completed tasks
+  const [activeTaskTab, setActiveTaskTab] = useState('tasks')
+
   // Loading state for Mark as Done
   const [markingDoneId, setMarkingDoneId] = useState(null)
 
@@ -858,6 +861,52 @@ const AssignmentsTab = ({
           </button>
         </div>
 
+        {/* Tasks / Done Tasks Toggle */}
+        <div style={{ display: 'flex', gap: '0', marginBottom: '18px', background: '#f3f4f6', borderRadius: '10px', padding: '4px', width: 'fit-content' }}>
+          <button
+            onClick={() => setActiveTaskTab('tasks')}
+            style={{
+              padding: '7px 22px', borderRadius: '8px', border: 'none',
+              fontWeight: '600', fontSize: '13.5px', cursor: 'pointer',
+              transition: 'all 0.18s',
+              background: activeTaskTab === 'tasks' ? '#fff' : 'transparent',
+              color: activeTaskTab === 'tasks' ? '#111827' : '#6b7280',
+              boxShadow: activeTaskTab === 'tasks' ? '0 1px 4px rgba(0,0,0,0.10)' : 'none',
+            }}
+          >
+            📋 Tasks
+            <span style={{
+              marginLeft: '7px', fontSize: '12px', fontWeight: '700',
+              background: activeTaskTab === 'tasks' ? '#e0e7ff' : '#e5e7eb',
+              color: activeTaskTab === 'tasks' ? '#4338ca' : '#9ca3af',
+              padding: '1px 8px', borderRadius: '10px'
+            }}>
+              {assignments.filter(a => a.status !== 'completed').length}
+            </span>
+          </button>
+          <button
+            onClick={() => setActiveTaskTab('done')}
+            style={{
+              padding: '7px 22px', borderRadius: '8px', border: 'none',
+              fontWeight: '600', fontSize: '13.5px', cursor: 'pointer',
+              transition: 'all 0.18s',
+              background: activeTaskTab === 'done' ? '#fff' : 'transparent',
+              color: activeTaskTab === 'done' ? '#111827' : '#6b7280',
+              boxShadow: activeTaskTab === 'done' ? '0 1px 4px rgba(0,0,0,0.10)' : 'none',
+            }}
+          >
+            ✅ Done Tasks
+            <span style={{
+              marginLeft: '7px', fontSize: '12px', fontWeight: '700',
+              background: activeTaskTab === 'done' ? '#dcfce7' : '#e5e7eb',
+              color: activeTaskTab === 'done' ? '#15803d' : '#9ca3af',
+              padding: '1px 8px', borderRadius: '10px'
+            }}>
+              {assignments.filter(a => a.status === 'completed').length}
+            </span>
+          </button>
+        </div>
+
         {/* Search Bar */}
         <div style={{ margin: '0 0 16px 0', position: 'relative', maxWidth: '320px' }}>
           <svg style={{ position: 'absolute', left: '9px', top: '50%', transform: 'translateY(-50%)', color: '#c4c9d4', pointerEvents: 'none' }} width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -890,8 +939,11 @@ const AssignmentsTab = ({
         </div>
 
         {(() => {
+          const tabFiltered = assignments.filter(a =>
+            activeTaskTab === 'done' ? a.status === 'completed' : a.status !== 'completed'
+          )
           const filteredAssignments = searchQuery.trim()
-            ? assignments.filter(a => {
+            ? tabFiltered.filter(a => {
                 const q = searchQuery.toLowerCase()
                 return (
                   (a.title || '').toLowerCase().includes(q) ||
@@ -903,13 +955,13 @@ const AssignmentsTab = ({
                   )
                 )
               })
-            : assignments
+            : tabFiltered
           return filteredAssignments.length === 0 ? (
           <div className="tl-empty-state">
-            <div className="tl-empty-state-icon">📋</div>
-            <h3>{searchQuery ? 'No Results Found' : 'No tasks yet'}</h3>
-            <p>{searchQuery ? `No tasks match "${searchQuery}".` : 'Create your first task to get started'}</p>
-            {!searchQuery && (
+            <div className="tl-empty-state-icon">{activeTaskTab === 'done' ? '✅' : '📋'}</div>
+            <h3>{searchQuery ? 'No Results Found' : activeTaskTab === 'done' ? 'No completed tasks yet' : 'No tasks yet'}</h3>
+            <p>{searchQuery ? `No tasks match "${searchQuery}".` : activeTaskTab === 'done' ? 'Tasks marked as done will appear here.' : 'Create your first task to get started'}</p>
+            {!searchQuery && activeTaskTab === 'tasks' && (
               <button className="tl-btn success" onClick={() => setShowCreateAssignmentModal(true)}>
                 Create Task
               </button>
