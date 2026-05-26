@@ -82,9 +82,19 @@ function App() {
     logger.logStateUpdate('User authenticated and saved')
   }
 
-  // Handle logout
-  const handleLogout = () => {
+  // Handle logout — mark offline BEFORE clearing the token so the DELETE request is authenticated
+  const handleLogout = async () => {
     logger.logLogout()
+    const { token } = useStore.getState()
+    if (token) {
+      try {
+        await fetch(`${API_BASE_URL}/api/presence/ping`, {
+          method: 'DELETE',
+          headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+          keepalive: true, // ensures the request completes even if the page navigates away
+        })
+      } catch { /* non-critical */ }
+    }
     logout()
   }
 

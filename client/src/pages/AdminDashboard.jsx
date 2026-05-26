@@ -6,6 +6,7 @@ import SkeletonLoader from '../components/common/SkeletonLoader'
 import { getSidebarIcon } from '../components/shared/FileIcon'
 import { AuthProvider, NetworkProvider } from '../contexts'
 import { ToastNotification } from '../components/shared'
+import OnlineMembersPanel from '../components/shared/OnlineMembersPanel'
 import useStore from '../store/useStore'
 
 // Sync unread count to Electron taskbar badge + icon flash
@@ -308,6 +309,11 @@ const AdminDashboard = ({ user, onLogout }) => {
               />
               {/* Main Content */}
               <div className="admin-main-content" ref={mainContentRef}>
+
+                {/* Online Members Panel — top right */}
+                <div style={{ position: 'fixed', top: '16px', right: '24px', zIndex: 1000 }}>
+                  <OnlineMembersPanel user={user} />
+                </div>
 
                 {/* Content Area */}
                 <div className="content-area">

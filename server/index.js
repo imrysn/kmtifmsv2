@@ -61,6 +61,7 @@ const fileViewerRoutes = require('./routes/fileViewer');
 const { router: notificationsRoutes } = require('./routes/notifications');
 const assignmentsRoutes = require('./routes/assignments');
 const customTagsRoutes = require('./routes/customTags');
+const presenceRoutes = require('./routes/presence');
 
 const app = express();
 const PORT = process.env.SERVER_PORT || 3001;
@@ -146,6 +147,7 @@ app.use('/api/file-viewer', dbReadyGuard, fileViewerRoutes);
 app.use('/api/notifications', dbReadyGuard, notificationsRoutes);
 app.use('/api/assignments', dbReadyGuard, assignmentsRoutes);
 app.use('/api/custom-tags', dbReadyGuard, customTagsRoutes);
+app.use('/api/presence', dbReadyGuard, presenceRoutes);
 
 // Serve static files from the React app build directory
 // In bundled mode, client files are in client-dist, otherwise in ../client/dist

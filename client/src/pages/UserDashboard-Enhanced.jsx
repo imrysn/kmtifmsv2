@@ -4,6 +4,7 @@ import useStore from '../store/useStore'
 import '../css/UserDashboard.css'
 import SkeletonLoader from '../components/common/SkeletonLoader'
 import { AlertMessage } from '../components/shared'
+import OnlineMembersPanel from '../components/shared/OnlineMembersPanel'
 
 // Sync unread count to Electron taskbar badge + icon flash
 const syncElectronBadge = (count) => {
@@ -310,6 +311,11 @@ const UserDashboard = ({ user, onLogout }) => {
 
         {/* Main Content */}
         <div className="main-content">
+          {/* Online Members Panel — top right */}
+          <div style={{ position: 'fixed', top: '16px', right: '24px', zIndex: 1000 }}>
+            <OnlineMembersPanel user={user} teamFilter={user?.team} />
+          </div>
+
           <div className="dashboard-content">
             <AlertMessage
               type="error"

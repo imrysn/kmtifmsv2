@@ -4,6 +4,7 @@ import useStore from '../store/useStore'
 import '../css/TeamLeaderDashboard.css'
 import SkeletonLoader from '../components/common/SkeletonLoader'
 import { AlertMessage } from '../components/shared'
+import OnlineMembersPanel from '../components/shared/OnlineMembersPanel'
 
 // Sync unread count to Electron taskbar badge + icon flash
 const syncElectronBadge = (count) => {
@@ -1262,6 +1263,11 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
         />
 
         <main className="tl-main">
+          {/* Online Members Panel — top right */}
+          <div style={{ position: 'fixed', top: '16px', right: '24px', zIndex: 1000 }}>
+            <OnlineMembersPanel user={user} teamFilter={user?.team} />
+          </div>
+
           <AlertMessage
             type="error"
             message={error}
