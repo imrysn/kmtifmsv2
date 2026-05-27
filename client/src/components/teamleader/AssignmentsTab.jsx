@@ -33,8 +33,64 @@ const useDropdownPosition = (btnRef, menuRef, isOpen) => {
   return pos
 }
 
+const FolderPathErrorModal = ({ isOpen, onClose, message, storageLabel }) => {
+  if (!isOpen) return null
+  return ReactDOM.createPortal(
+    <div
+      style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 99999 }}
+      onClick={onClose}
+    >
+      <div
+        style={{ background: '#fff', borderRadius: '20px', boxShadow: '0 20px 60px rgba(0,0,0,0.18)', width: '380px', maxWidth: '95vw', overflow: 'hidden' }}
+        onClick={e => e.stopPropagation()}
+      >
+        <div style={{ background: 'linear-gradient(135deg, #f97316, #ea580c)', padding: '20px 22px', display: 'flex', alignItems: 'center', gap: '14px' }}>
+          <div style={{ width: '44px', height: '44px', borderRadius: '12px', background: 'rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+              <line x1="12" y1="10" x2="12" y2="14"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+            </svg>
+          </div>
+          <div>
+            <div style={{ fontWeight: '700', fontSize: '16px', color: '#fff', lineHeight: 1.2 }}>Folder No Longer Available</div>
+            <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.8)', marginTop: '3px' }}>kmti-file-management</div>
+          </div>
+        </div>
+        <div style={{ padding: '22px' }}>
+          <div style={{ background: '#fff9f0', border: '1px solid #fed7aa', borderRadius: '12px', padding: '14px 16px', display: 'flex', alignItems: 'flex-start', gap: '10px', marginBottom: '16px' }}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#ea580c" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: '1px' }}>
+              <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+            </svg>
+            <p style={{ margin: 0, fontSize: '14px', color: '#7c2d12', lineHeight: 1.5 }}>
+              {message || 'Unable to open folder path. This task is already done — the reference folder has been deleted from the NAS.'}
+            </p>
+          </div>
+          {storageLabel && (
+            <div style={{ background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: '10px', padding: '10px 14px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6b7280" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/>
+              </svg>
+              <span style={{ fontSize: '13px', color: '#374151', fontWeight: '500' }}>{storageLabel}</span>
+            </div>
+          )}
+        </div>
+        <div style={{ padding: '0 22px 20px', display: 'flex', justifyContent: 'flex-end' }}>
+          <button
+            onClick={onClose}
+            style={{ padding: '10px 28px', borderRadius: '10px', border: 'none', background: 'linear-gradient(135deg, #f97316, #ea580c)', color: '#fff', fontSize: '14px', fontWeight: '700', cursor: 'pointer', boxShadow: '0 4px 12px rgba(234,88,12,0.35)' }}
+          >
+            OK
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body
+  )
+}
+
 const FolderActionDropdown = ({ assignment, folderName, folderFiles, handleDownloadFolder, setFolderReviewModal, setFolderReviewComment, setToast }) => {
   const [isOpen, setIsOpen] = useState(false)
+  const [folderErrorModal, setFolderErrorModal] = useState({ isOpen: false, message: '', storageLabel: '' })
   const btnRef = useRef(null)
   const menuRef = useRef(null)
   const pos = useDropdownPosition(btnRef, menuRef, isOpen)
@@ -90,12 +146,9 @@ const FolderActionDropdown = ({ assignment, folderName, folderFiles, handleDownl
             style={{ fontWeight: '600' }}
             onClick={async (e) => {
               e.stopPropagation()
-              if (setToast) {
-                setToast({ isOpen: true, title: 'Opening Folder', message: `Opening path for ${folderName}...`, type: 'success' });
-              }
               setIsOpen(false)
               if (!window.electron || !window.electron.openFolderInExplorer) {
-                alert('Open Folder Path is only available in the desktop app.')
+                setFolderErrorModal({ isOpen: true, message: 'Open Folder Path is only available in the desktop app.', storageLabel: 'NAS Storage · Reference File' })
                 return
               }
               const firstFile = folderFiles[0]
@@ -104,12 +157,16 @@ const FolderActionDropdown = ({ assignment, folderName, folderFiles, handleDownl
                 const data = await apiFetch(`/api/files/${firstFile.id}/path?type=${type}`)
                 if (data.success && data.filePath) {
                   const result = await window.electron.openFolderInExplorer(data.filePath)
-                  if (!result.success) alert('Could not open folder: ' + (result.error || 'Unknown error'))
+                  if (!result.success) {
+                    setFolderErrorModal({ isOpen: true, message: 'Could not open folder: ' + (result.error || 'Unknown error'), storageLabel: 'NAS Storage · Reference File' })
+                  } else {
+                    if (setToast) setToast({ isOpen: true, title: 'Opening Folder', message: `Opening path for ${folderName}...`, type: 'success' });
+                  }
                 } else {
-                  alert('Could not retrieve folder path.')
+                  setFolderErrorModal({ isOpen: true, message: 'Unable to open folder path. This task is already done — the reference folder has been deleted from the NAS.', storageLabel: 'NAS Storage · Reference File' })
                 }
               } catch (err) {
-                alert('Failed to open folder path.')
+                setFolderErrorModal({ isOpen: true, message: 'Unable to open folder path. This task is already done — the reference folder has been deleted from the NAS.', storageLabel: 'NAS Storage · Reference File' })
               }
             }}
           >
@@ -153,6 +210,12 @@ const FolderActionDropdown = ({ assignment, folderName, folderFiles, handleDownl
         </div>,
         document.body
       )}
+      <FolderPathErrorModal
+        isOpen={folderErrorModal.isOpen}
+        onClose={() => setFolderErrorModal({ isOpen: false, message: '', storageLabel: '' })}
+        message={folderErrorModal.message}
+        storageLabel={folderErrorModal.storageLabel}
+      />
     </>
   )
 }
