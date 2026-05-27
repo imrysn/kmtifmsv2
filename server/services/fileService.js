@@ -91,8 +91,8 @@ async function uploadFile(fileData, user) {
 
     if (existing) {
         if (assignmentId) {
-            // Check if this specific file is a revision (replacing a rejected file)
-            if (existing.status === 'rejected_by_team_leader' || existing.status === 'rejected_by_admin') {
+            // Check if this specific file is a revision (replacing a rejected, checked, or need-edit file)
+            if (existing.status === 'rejected_by_team_leader' || existing.status === 'rejected_by_admin' || existing.status === 'revision' || existing.status === 'under_revision' || existing.status === 'checked') {
                 isRevision = true;
             }
 
@@ -157,7 +157,7 @@ async function uploadFile(fileData, user) {
         user_id: user.id,
         username: user.username,
         user_team: user.team,
-        status: isRevision ? 'revision' : 'uploaded',
+        status: isRevision ? 'under_revision' : 'uploaded',
         current_stage: 'pending_team_leader'
     };
 
@@ -259,8 +259,8 @@ async function bulkUploadFast(filesData, user, assignmentId = null) {
             }
 
             if (existing && assignmentId) {
-                // Check if this specific file is a revision (replacing a rejected file)
-                if (existing.status === 'rejected_by_team_leader' || existing.status === 'rejected_by_admin') {
+                // Check if this specific file is a revision (replacing a rejected, checked, or need-edit file)
+                if (existing.status === 'rejected_by_team_leader' || existing.status === 'rejected_by_admin' || existing.status === 'revision' || existing.status === 'under_revision' || existing.status === 'checked') {
                     batchHasRevision = true;
                     revisionCount++;
                     fileData.isThisFileRevision = true;
@@ -289,11 +289,11 @@ async function bulkUploadFast(filesData, user, assignmentId = null) {
                 username: user.username,
                 user_team: user.team,
                 current_stage: 'pending_team_leader',
-                status: fileData.isThisFileRevision ? 'revision' : 'uploaded'
+                status: fileData.isThisFileRevision ? 'under_revision' : 'uploaded'
             };
             
             // Explicitly ensure status is set correctly even if fileData had a status property
-            if (fileData.isThisFileRevision) dbData.status = 'revision';
+            if (fileData.isThisFileRevision) dbData.status = 'under_revision';
             else if (!dbData.status || dbData.status === '') dbData.status = 'uploaded';
 
             const fileId = await fileRepository.create(dbData);
@@ -1729,20 +1729,20 @@ async function deleteAttachmentFolder({ folderName, fileIds }, admin) {
     return true;
 }
 
-async function recordView(fileId, { userId, username, fullName, role }) {
+async function recordView(fileId, { userId, username, fullName, role }, fileSource = 'submission') {
     await query(
-        `INSERT INTO file_views (file_id, user_id, username, full_name, role, viewed_at)
-         VALUES (?, ?, ?, ?, ?, NOW())
+        `INSERT INTO file_views (file_id, file_source, user_id, username, full_name, role, viewed_at)
+         VALUES (?, ?, ?, ?, ?, ?, NOW())
          ON DUPLICATE KEY UPDATE full_name = VALUES(full_name), role = VALUES(role), viewed_at = NOW()`,
-        [fileId, userId, username || '', fullName || '', role || '']
+        [fileId, fileSource, userId, username || '', fullName || '', role || '']
     );
     return true;
 }
 
-async function getViewers(fileId) {
+async function getViewers(fileId, fileSource = 'submission') {
     const rows = await query(
-        'SELECT user_id, username, full_name, role, viewed_at FROM file_views WHERE file_id = ? ORDER BY viewed_at DESC',
-        [fileId]
+        'SELECT user_id, username, full_name, role, viewed_at FROM file_views WHERE file_id = ? AND file_source = ? ORDER BY viewed_at DESC',
+        [fileId, fileSource]
     );
     return rows || [];
 }

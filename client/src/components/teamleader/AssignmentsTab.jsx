@@ -367,12 +367,12 @@ const AssignmentsTab = ({
     setTimeout(() => setDownloadToast({ show: false, fileName: '' }), 3500)
   }
 
-  const recordView = async (fileId) => {
+  const recordView = async (fileId, isAttachment = false) => {
     if (!user || !fileId) return
     // Instantly bump the count in UI
     setViewerCounts(prev => ({ ...prev, [fileId]: (prev[fileId] ?? 0) + 1 }))
     try {
-      await apiFetch(`/api/files/${fileId}/view`, {
+      await apiFetch(`/api/files/${fileId}/view?type=${isAttachment ? 'attachment' : 'submission'}`, {
         method: 'POST',
         body: JSON.stringify({
           userId: user.id,
@@ -1353,7 +1353,7 @@ const AssignmentsTab = ({
                                         {isReference && <span className="tl-badge-reference" style={{ marginLeft: '8px' }}>Reference</span>}
                                         {!isReference && folderFiles.some(f => (f.file?.status || f.status) === 'revision') && (
                                           <span className="tl-badge-revision" style={{ marginLeft: '8px' }}>
-                                            Revision ({folderFiles.filter(f => (f.file?.status || f.status) === 'revision').length})
+                                            Checked - Need to Edit ({folderFiles.filter(f => (f.file?.status || f.status) === 'revision').length})
                                           </span>
                                         )}
                                         {!isReference && folderFiles.every(f => (f.file?.status || f.status) === 'checked') && (
@@ -1471,7 +1471,8 @@ const AssignmentsTab = ({
                                           <span className={`tl-assignment-file-status ${submission.status}`}>
                                             {submission.status === 'checked' ? '✓ Checked' :
                                             submission.status === 'uploaded' ? 'New' : 
-                                            submission.status === 'revision' ? '⚠ Revision' :
+                                            submission.status === 'under_revision' ? '✎ Revised' :
+                                            submission.status === 'revision' ? '⚠ Checked - Need to Edit' :
                                             submission.status === 'team_leader_approved' ? 'Pending Admin' : 
                                             submission.status === 'final_approved' ? '✓ Approved' : 
                              (submission.status === 'rejected_by_team_leader' || submission.status === 'rejected_by_admin') ? 'X Rejected' : 'Pending'}
@@ -1485,7 +1486,7 @@ const AssignmentsTab = ({
                                       )}
                                     </div>
                                   </div>
-                                  <FileViewersButton fileId={submission.id} externalCount={viewerCounts[submission.id]} />
+                                  <FileViewersButton fileId={submission.id} externalCount={viewerCounts[submission.id]} fileSource={isReference ? 'attachment' : 'submission'} />
                                   {isReference && (
                                     <button
                                       onClick={(e) => {
@@ -1760,7 +1761,8 @@ const AssignmentsTab = ({
                           <div className="tl-assignment-file-meta" style={{ fontSize: '11px', color: '#6b7280' }}>
                             <span className={`tl-assignment-file-status ${file.status}`}>
                               {file.status === 'uploaded' ? 'New' : 
-                               file.status === 'revision' ? '⚠ Revision' :
+                               file.status === 'under_revision' ? '✎ Revised' :
+                               file.status === 'revision' ? '⚠ Checked - Need to Edit' :
                                file.status === 'checked' ? '✓ Checked' :
                                file.status === 'team_leader_approved' ? 'Pending Admin' : 
                                file.status === 'final_approved' ? '✓ Approved' : 
@@ -1775,7 +1777,7 @@ const AssignmentsTab = ({
                           </div>
                         </div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                          <FileViewersButton fileId={file.id} externalCount={viewerCounts[file.id]} />
+                           <FileViewersButton fileId={file.id} externalCount={viewerCounts[file.id]} fileSource="submission" />
                         </div>
                       </div>
                     );
@@ -2275,7 +2277,7 @@ const AssignmentsTab = ({
                   alert('Failed to open file locally: ' + (result.error || 'Unknown error'));
                 } else {
                   markFileViewed(file.assignmentId, fileId)
-                  recordView(fileId)
+                  recordView(fileId, file.isAttachment)
                 }
               } else {
                 alert('Could not retrieve file path');
@@ -2295,7 +2297,7 @@ const AssignmentsTab = ({
 
               window.open(fileUrl, '_blank', 'noopener,noreferrer');
               markFileViewed(file.assignmentId, fileId)
-              recordView(fileId)
+              recordView(fileId, file.isAttachment)
             }
           } catch (error) {
             console.error('Error opening file:', error);

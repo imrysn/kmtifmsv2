@@ -311,7 +311,7 @@ const getFileStatusBadge = (status) => {
     rejected_by_team_leader: { bg: '#ffe4e6', color: '#be123c', label: 'Rejected', radius: '20px' },
     rejected_by_admin: { bg: '#ffe4e6', color: '#be123c', label: 'Rejected', radius: '20px' },
     under_revision: { bg: '#fef3c7', color: '#92400e', label: '✎ REVISED', radius: '4px', weight: '600' },
-    revision: { bg: '#fef9c3', color: '#854d0e', label: '✎ REVISION', radius: '4px', weight: '600' },
+    revision: { bg: '#fef9c3', color: '#854d0e', label: '✎ CHECKED - NEED TO EDIT', radius: '4px', weight: '600' },
     checked: { bg: '#EFF6FF', color: '#1D4ED8', label: '✓ CHECKED', radius: '4px', weight: '600' },
   };
   const b = badges[status] || badges.uploaded;
@@ -1080,7 +1080,7 @@ const TasksTab = memo(({
 
     return (
       <>
-        {revision > 0 && <span style={{ background: '#fef9c3', color: '#854d0e', padding: '2px 8px', borderRadius: '10px', fontSize: '11px', fontWeight: '600', border: '1px solid #fef08a', marginRight: '4px' }}>Revision ({revision})</span>}
+        {revision > 0 && <span style={{ background: '#fef9c3', color: '#854d0e', padding: '2px 8px', borderRadius: '10px', fontSize: '11px', fontWeight: '600', border: '1px solid #fef08a', marginRight: '4px' }}>Checked - Need to Edit ({revision})</span>}
         {checked > 0 && checked < total && <span style={{ background: '#EFF6FF', color: '#1D4ED8', padding: '2px 8px', borderRadius: '10px', fontSize: '11px', fontWeight: '600', marginRight: '4px' }}>Checked ({checked})</span>}
         {(tlApproved > 0 || (approved > 0 && !pending && !rejected)) && <span style={{ background: '#fef9c3', color: '#92400e', padding: '2px 8px', borderRadius: '10px', fontSize: '11px', fontWeight: '500', marginRight: '4px' }}>Pending Admin</span>}
         {pending > 0 && revision === 0 && <span style={{ background: '#e0e7ff', color: '#3730a3', padding: '2px 8px', borderRadius: '10px', fontSize: '11px', fontWeight: '600', marginRight: '4px' }}>Pending Review</span>}

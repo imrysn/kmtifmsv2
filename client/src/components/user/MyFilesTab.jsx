@@ -214,7 +214,7 @@ const MyFilesTab = ({
       'uploaded': 'Pending Team Leader',
       'revision': 'Pending Team Leader',
       'pending_team_leader': 'Pending Team Leader',
-      'under_revision': 'Revision',
+      'under_revision': 'Checked - Need to Edit',
       'team_leader_approved': 'Pending Admin',
       'final_approved': 'Approved',
       'rejected_by_team_leader': 'Rejected by Team Leader',

@@ -61,14 +61,16 @@ const MemberFilesModal = ({
       case 'rejected_by_team_leader': return 'Rejected by Team Leader'
       case 'rejected_by_admin': return 'Rejected by Admin'
       case 'rejected': return 'Rejected'
-      case 'revision': return 'Revision'
+      case 'revision': return 'Checked - Need to Edit'
+      case 'under_revision': return 'Revised'
       default: return 'Pending Review'
     }
   }
 
   const getStatusLabel = (file) => {
     return file.status === 'uploaded' ? 'New' : 
-           file.status === 'revision' ? '⚠ Revision' :
+           file.status === 'under_revision' ? '✎ Revised' :
+           file.status === 'revision' ? '⚠ Checked - Need to Edit' :
            file.status === 'team_leader_approved' ? 'Pending Admin' : 
            file.status === 'final_approved' ? '✓ Approved' : 
            (file.status === 'rejected_by_team_leader' || file.status === 'rejected_by_admin') ? 'X Rejected' : 'Pending Review'
@@ -77,7 +79,7 @@ const MemberFilesModal = ({
   const getStatusClass = (file) => {
     if (file.status === 'approved' || file.status === 'final_approved') return 'approved'
     if (file.status === 'rejected' || file.status === 'rejected_by_team_leader' || file.status === 'rejected_by_admin') return 'rejected'
-    if (file.status === 'revision') return 'revision'
+    if (file.status === 'revision' || file.status === 'under_revision') return 'revision'
     return 'pending'
   }
 

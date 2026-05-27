@@ -541,12 +541,12 @@ const TaskManagement = ({
     setTimeout(() => setDownloadToast({ show: false, fileName: '' }), 3500)
   }
 
-  const recordView = async (fileId) => {
+  const recordView = async (fileId, isAttachment = false) => {
     if (!user || !fileId) return
     // Instantly bump badge count
     setViewerCounts(prev => ({ ...prev, [fileId]: (prev[fileId] ?? 0) + 1 }))
     try {
-      await apiFetch(`/api/files/${fileId}/view`, {
+      await apiFetch(`/api/files/${fileId}/view?type=${isAttachment ? 'attachment' : 'submission'}`, {
         method: 'POST',
         body: JSON.stringify({
           userId: user.id,
@@ -1144,7 +1144,7 @@ const TaskManagement = ({
                               )}
                             </div>
                           </div>
-                          <FileViewersButton fileId={file.id} externalCount={viewerCounts[file.id]} minDate={file.submitted_at || file.uploaded_at || file.created_at} />
+                          <FileViewersButton fileId={file.id} externalCount={viewerCounts[file.id]} minDate={file.submitted_at || file.uploaded_at || file.created_at} fileSource={isAttachment ? 'attachment' : 'submission'} />
                           <button
                             onClick={(e) => { e.stopPropagation(); handleDownloadFile(file) }}
                             title="Download file"
@@ -1453,7 +1453,7 @@ const TaskManagement = ({
               const opened = await handleOpenFile(fileToOpen.file_path, fileToOpen.id)
               if (opened) {
                 setOpenedFileIds(prev => new Set([...prev, fileId]))
-                recordView(fileId)
+                recordView(fileId, fileToOpen.isAttachment)
               }
             } finally {
               setShowOpenFileConfirmation(false)

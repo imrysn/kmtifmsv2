@@ -502,11 +502,11 @@ const TeamTasksTab = ({ user }) => {
   }
 
   // ── View tracking ─────────────────────────────────────────────────────────
-  const recordView = async (fileId) => {
+  const recordView = async (fileId, isAttachment = false) => {
     if (!user || !fileId) return
     setViewerCounts(prev => ({ ...prev, [fileId]: (prev[fileId] ?? 0) + 1 }))
     try {
-      await apiFetch(`/api/files/${fileId}/view`, {
+      await apiFetch(`/api/files/${fileId}/view?type=${isAttachment ? 'attachment' : 'submission'}`, {
         method: 'POST',
         body: JSON.stringify({
           userId: user.id,
@@ -739,7 +739,7 @@ const TeamTasksTab = ({ user }) => {
                     : `by ${file.fullName || file.username} • ${formatFileSize(file.file_size)}`}
                 </div>
               </div>
-              <FileViewersButton fileId={file.id} externalCount={viewerCounts[file.id]} minDate={assignment.created_at}/>
+              <FileViewersButton fileId={file.id} externalCount={viewerCounts[file.id]} minDate={assignment.created_at} fileSource={isAttachment ? 'attachment' : 'submission'}/>
               <FileMoreMenu onDownload={() => handleDownloadFile(file)} onOpenPath={() => handleOpenFolderPath(file.id, isAttachment)} />
             </div>
           </div>
@@ -968,7 +968,7 @@ const TeamTasksTab = ({ user }) => {
                                     <span>{formatFileSize(file.file_size)}</span>
                                   </div>
                                 </div>
-                                <FileViewersButton fileId={file.id} externalCount={viewerCounts[file.id]} minDate={assignment.created_at}/>
+                                <FileViewersButton fileId={file.id} externalCount={viewerCounts[file.id]} minDate={assignment.created_at} fileSource="attachment"/>
                                 <FileMoreMenu
                                   onDownload={() => handleDownloadFile(file)}
                                   onOpenPath={() => handleOpenFolderPath(file.id, true)}
@@ -1078,7 +1078,7 @@ const TeamTasksTab = ({ user }) => {
                                     Submitted by {file.fullName || file.username} on {formatDate(file.submitted_at)}
                                   </div>
                                 </div>
-                                <FileViewersButton fileId={file.id} externalCount={viewerCounts[file.id]} minDate={assignment.created_at}/>
+                                <FileViewersButton fileId={file.id} externalCount={viewerCounts[file.id]} minDate={assignment.created_at} fileSource="submission"/>
                                 <FileMoreMenu
                                   onDownload={() => handleDownloadFile(file)}
                                   onOpenPath={() => handleOpenFolderPath(file.id, false)}
@@ -1221,7 +1221,7 @@ const TeamTasksTab = ({ user }) => {
           const fileId = fileToOpen.id
           try {
             await handleOpenFile(fileToOpen.file_path, fileId)
-            if (openModalType === 'file') recordView(fileId)
+            if (openModalType === 'file') recordView(fileId, fileToOpen.isAttachment)
           } finally {
             setShowOpenFileConfirmation(false)
             setFileToOpen(null)

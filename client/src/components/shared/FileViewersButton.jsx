@@ -7,7 +7,7 @@ import { apiFetch, API_BASE_URL } from '@/config/api'
  * Eye icon button that shows a popover listing everyone who has viewed a file.
  * Usage: <FileViewersButton fileId={file.id} />
  */
-const FileViewersButton = ({ fileId, size = 14, externalCount, minDate }) => {
+const FileViewersButton = ({ fileId, size = 14, externalCount, minDate, fileSource = 'submission' }) => {
   const [viewers, setViewers] = useState([])
   const [loading, setLoading] = useState(false)
   const [open, setOpen] = useState(false)
@@ -55,7 +55,7 @@ const FileViewersButton = ({ fileId, size = 14, externalCount, minDate }) => {
   // Fetch count on mount
   useEffect(() => {
     if (!fileId) return
-    apiFetch(`${API_BASE_URL}/api/files/${fileId}/views`)
+    apiFetch(`${API_BASE_URL}/api/files/${fileId}/views?type=${fileSource}`)
       .then(d => { 
         if (d.success) {
           let v = d.viewers || [];
@@ -67,12 +67,12 @@ const FileViewersButton = ({ fileId, size = 14, externalCount, minDate }) => {
         }
       })
       .catch(() => {})
-  }, [fileId, minDate])
+  }, [fileId, minDate, fileSource])
 
   const fetchViewers = async () => {
     setLoading(true)
     try {
-      const data = await apiFetch(`${API_BASE_URL}/api/files/${fileId}/views`)
+      const data = await apiFetch(`${API_BASE_URL}/api/files/${fileId}/views?type=${fileSource}`)
       if (data.success) {
         let v = data.viewers || [];
         if (minDate) {

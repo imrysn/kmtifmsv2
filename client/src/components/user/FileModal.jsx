@@ -28,7 +28,7 @@ const getStatusText = (status) => {
     'admin_approved': 'Admin Approved',
     'admin_rejected': 'Admin Rejected',
     'rejected_by_admin': 'Rejected by Admin',
-    'revision': 'Revision'
+    'revision': 'Checked - Need to Edit'
   };
   return map[status] || (status ? status.charAt(0).toUpperCase() + status.slice(1).replace(/_/g, ' ') : 'Unknown');
 };
