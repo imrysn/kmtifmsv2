@@ -462,7 +462,7 @@ async function markAssignmentDone(assignmentId, user) {
     setImmediate(async () => {
         try {
             const { networkDataPath } = require('../config/database');
-            const teamleaderBase = path.join(path.dirname(networkDataPath), 'teamleader');
+            const teamleaderBase = path.join(networkDataPath, 'teamleader');
             const userDir = path.join(teamleaderBase, user.username);
 
             // Get all attachment folders for this assignment

@@ -21,6 +21,9 @@ try {
     // Open folder in Windows Explorer
     openFolderInExplorer: (folderPath) => ipcRenderer.invoke('folder:openInExplorer', folderPath),
 
+    // Download a folder as a real folder (not zip) to the Downloads directory
+    downloadFolder: (folderName, fileInfoList) => ipcRenderer.invoke('folder:download', { folderName, fileInfoList }),
+
     // Get default network projects path
     getNetworkProjectsPath: () => ipcRenderer.invoke('app:getNetworkProjectsPath'),
 

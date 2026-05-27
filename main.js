@@ -1484,6 +1484,68 @@ if (ipcMain) {
     }
   });
 
+  // Download a folder as a real folder (not zip) into the user's Downloads directory.
+  // fileInfoList: [{ id, name, relativePath }]  — resolved on the server side.
+  ipcMain.handle('folder:download', async (event, { folderName, fileInfoList }) => {
+    log(LogLevel.INFO, `IPC: folder:download - folderName="${folderName}", files=${fileInfoList?.length}`);
+    try {
+      if (!folderName || !Array.isArray(fileInfoList) || fileInfoList.length === 0) {
+        return { success: false, error: 'Invalid arguments' };
+      }
+
+      const downloadsDir = app.getPath('downloads');
+      // Build a safe folder name for the filesystem (replace characters Windows forbids)
+      const safeFolderName = folderName.replace(/[<>:"/\\|?*]/g, '_');
+      let destFolder = path.join(downloadsDir, safeFolderName);
+
+      // If the folder already exists, add a numeric suffix
+      let suffix = 1;
+      while (fs.existsSync(destFolder)) {
+        destFolder = path.join(downloadsDir, `${safeFolderName} (${suffix++})`);
+      }
+      fs.mkdirSync(destFolder, { recursive: true });
+
+      let copied = 0;
+      const failed = [];
+
+      for (const fileInfo of fileInfoList) {
+        const { srcPath, relativePath, name } = fileInfo;
+        if (!srcPath) { failed.push(name || 'unknown'); continue; }
+
+        const normalizedSrc = path.normalize(srcPath);
+        try {
+          // Determine dest path — preserve subfolder structure if relativePath provided
+          let relParts = (relativePath || '').replace(/\\/g, '/').split('/').filter(Boolean);
+          // Drop the top-level folder name if it matches folderName
+          if (relParts.length > 0 && relParts[0] === folderName) relParts = relParts.slice(1);
+          const destFile = relParts.length > 0
+            ? path.join(destFolder, ...relParts)
+            : path.join(destFolder, name || path.basename(normalizedSrc));
+
+          fs.mkdirSync(path.dirname(destFile), { recursive: true });
+          fs.copyFileSync(normalizedSrc, destFile);
+          copied++;
+        } catch (e) {
+          log(LogLevel.WARN, `folder:download - failed to copy ${normalizedSrc}: ${e.message}`);
+          failed.push(name || path.basename(normalizedSrc));
+        }
+      }
+
+      if (copied === 0) {
+        // Clean up empty folder
+        try { fs.rmdirSync(destFolder); } catch (_) {}
+        return { success: false, error: `No files could be copied. ${failed.length} failed.` };
+      }
+
+      // Highlight the folder in its parent folder (Downloads) in Explorer
+      shell.showItemInFolder(destFolder);
+      return { success: true, destFolder, copied, failed };
+    } catch (error) {
+      log(LogLevel.ERROR, 'folder:download failed:', error.message);
+      return { success: false, error: error.message };
+    }
+  });
+
   // ── Notification badge + taskbar flash ─────────────────────────────────────
   // Strategy: track unread state in main process. Flash starts when window
   // loses focus (blur) while there are unread notifications. Stops when

@@ -735,16 +735,31 @@ const TasksTab = memo(({
   }, [showError]);
 
   const handleDownloadFolder = useCallback(async (folderFiles, folderName) => {
-    const fileIds = folderFiles.map(f => f.id).join(',');
-    const fileUrl = `${API_BASE_URL}/api/files/folder/zip?fileIds=${fileIds}&folderName=${encodeURIComponent(folderName)}`;
-    const fileName = `${folderName}.zip`;
-    if (window.electron?.downloadFile) {
-      const result = await window.electron.downloadFile(fileUrl, fileName);
-      if (result && !result.success && !result.canceled) showError(result.error || 'Folder download failed');
-    } else {
-      const a = Object.assign(document.createElement('a'), { href: fileUrl, download: fileName });
+    if (!window.electron?.downloadFolder) {
+      const fileIds = folderFiles.map(f => f.id).join(',');
+      const a = Object.assign(document.createElement('a'), {
+        href: `${API_BASE_URL}/api/files/folder/zip?fileIds=${fileIds}&folderName=${encodeURIComponent(folderName)}`,
+        download: `${folderName}.zip`
+      });
       document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      return;
     }
+    try {
+      const fileIds = folderFiles.map(f => f.id).filter(Boolean);
+      const data = await apiFetch('/api/files/bulk-path', {
+        method: 'POST',
+        body: JSON.stringify({ fileIds, type: 'file' })
+      });
+      const fileInfoList = (data.results || []).map((r, i) => {
+        const file = folderFiles.find(f => f.id === r.id) || folderFiles[i] || {};
+        return { srcPath: r.success ? r.path : null, name: file.original_name || r.originalName, relativePath: file.relative_path || null };
+      });
+      const result = await window.electron.downloadFolder(folderName, fileInfoList);
+      if (result?.success) {
+        setDownloadToast({ show: true, fileName: folderName });
+        setTimeout(() => setDownloadToast({ show: false, fileName: '' }), 3500);
+      } else if (result && !result.success) { showError(result.error || 'Folder download failed'); }
+    } catch (err) { showError(err.message || 'Folder download failed'); }
   }, [showError]);
 
   const handleOpenFile = useCallback(async () => {

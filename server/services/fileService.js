@@ -1048,36 +1048,84 @@ async function deleteFolder(folderName, fileIds, user) {
 
 /**
  * Zip a folder of files
+ * NOTE: PowerShell Compress-Archive cannot handle non-ASCII characters in the
+ * *path* of the zip file itself (it will create a corrupt/empty archive).
+ * We therefore use a plain ASCII temp name on disk and let the HTTP layer set
+ * the correct Unicode filename via Content-Disposition.
  */
 async function zipFolder(fileIds, folderName) {
-    const tmpDir = path.join(os.tmpdir(), `kmti-folder-${Date.now()}`);
-    const zipPath = path.join(os.tmpdir(), `${folderName}-${Date.now()}.zip`);
+    const safeId = `kmti-${Date.now()}`; // ASCII-only — safe for PowerShell paths
+    const tmpDir  = path.join(os.tmpdir(), safeId);
+    const zipPath = path.join(os.tmpdir(), `${safeId}.zip`);
 
     await fs.mkdir(tmpDir, { recursive: true });
+
+    let copiedCount = 0;
+    const failedFiles = [];
 
     for (const fileId of fileIds) {
         // zipFolder must handle both regular files and attachments
         const regularFile = await fileRepository.findById(fileId);
         const file = regularFile || await fileRepository.findAttachmentById(fileId);
-        if (file) {
-            const resolved = await resolvePhysicalPath(fileId);
-            if (resolved.path) {
-                const relPath = file.relative_path
-                    ? file.relative_path.replace(/\\/g, '/').split('/').slice(1).join('/')
-                    : file.original_name;
-                const destFile = path.join(tmpDir, relPath || file.original_name);
-                await fs.mkdir(path.dirname(destFile), { recursive: true });
-                try { await fs.copyFile(resolved.path, destFile); } catch (_) {}
-            }
+        if (!file) {
+            failedFiles.push({ id: fileId, reason: 'Not found in DB' });
+            continue;
+        }
+
+        const resolved = await resolvePhysicalPath(fileId);
+        if (!resolved.path) {
+            failedFiles.push({ id: fileId, name: file.original_name, reason: 'Path could not be resolved' });
+            continue;
+        }
+
+        // Verify the physical file actually exists on disk before trying to copy
+        try { await fs.access(resolved.path); } catch (_) {
+            failedFiles.push({ id: fileId, name: file.original_name, reason: `File not on disk: ${resolved.path}` });
+            continue;
+        }
+
+        const relPath = file.relative_path
+            ? file.relative_path.replace(/\\/g, '/').split('/').slice(1).join('/')
+            : file.original_name;
+        const destFile = path.join(tmpDir, relPath || file.original_name);
+        await fs.mkdir(path.dirname(destFile), { recursive: true });
+        try {
+            await fs.copyFile(resolved.path, destFile);
+            copiedCount++;
+        } catch (copyErr) {
+            failedFiles.push({ id: fileId, name: file.original_name, reason: `Copy failed: ${copyErr.message}` });
         }
     }
 
+    if (failedFiles.length > 0) {
+        logWarn('zipFolder: some files could not be included', { folderName, copiedCount, failed: failedFiles });
+    }
+
+    if (copiedCount === 0) {
+        // Clean up empty tmp dir and throw — no point sending a corrupt zip
+        try { await fs.rm(tmpDir, { recursive: true, force: true }); } catch (_) {}
+        const { ValidationError } = require('../middleware/errorHandler');
+        throw new ValidationError(
+            `None of the ${fileIds.length} file(s) in "${folderName}" could be found on disk. ` +
+            `Details: ${failedFiles.map(f => `${f.name || f.id}: ${f.reason}`).join('; ')}`
+        );
+    }
+
+    // Use ASCII-only paths for PowerShell — non-ASCII characters in the path
+    // cause Compress-Archive to silently produce a corrupt/empty archive.
     const cmd = `powershell -NoProfile -Command "Compress-Archive -Path '${tmpDir}\\*' -DestinationPath '${zipPath}' -Force"`;
     await new Promise((resolve, reject) => {
-        exec(cmd, (err) => { if (err) reject(err); else resolve(); });
+        exec(cmd, (err, stdout, stderr) => {
+            if (err) {
+                logError(err, { context: 'zipFolder-compress', stderr, folderName });
+                reject(new Error(`Compress-Archive failed: ${stderr || err.message}`));
+            } else {
+                resolve();
+            }
+        });
     });
 
-    return { zipPath, tmpDir };
+    return { zipPath, tmpDir, folderName };
 }
 
 /**
@@ -1100,8 +1148,8 @@ async function resolvePhysicalPath(fileId, requestedType = null, folderName = nu
     const { networkDataPath } = require('../config/database');
     const { uploadsDir } = require('../config/middleware');
     
-    // Correct teamleader base directory is a peer to the 'data' folder on the NAS
-    const teamleaderDir = path.join(path.dirname(networkDataPath), 'teamleader');
+    // Correct teamleader base directory is inside the 'data' folder on the NAS
+    const teamleaderDir = path.join(networkDataPath, 'teamleader');
     
     logInfo('Resolving path for file', { fileId, requestedType, folderName });
 
@@ -1152,7 +1200,68 @@ async function resolvePhysicalPath(fileId, requestedType = null, folderName = nu
     // ── Priority 2: absolute Windows/UNC path — includes valid temp paths ──────
     if (file.file_path && !file.file_path.startsWith('/uploads/') &&
         (file.file_path.startsWith('\\\\') || /^[A-Za-z]:[\\/]/.test(file.file_path))) {
-        if (await diskExists(file.file_path)) return returnAndCache(file.file_path);
+        if (await diskExists(file.file_path)) {
+            return returnAndCache(file.file_path);
+        } else {
+            // Smart healing heuristic for folder prefix mismatches and extension subfolders on NAS
+            try {
+                const parentDir = path.dirname(file.file_path);
+                const grandparentDir = path.dirname(parentDir);
+                const fileName = path.basename(file.file_path);
+                const folderName = path.basename(parentDir);
+
+                if (await diskExists(grandparentDir)) {
+                    const cleanFolder = folderName.replace(/^\d+_/, '').toLowerCase();
+                    const entries = await fs.readdir(grandparentDir, { withFileTypes: true });
+                    
+                    let matchedDir = null;
+                    for (const entry of entries) {
+                        if (entry.isDirectory()) {
+                            const entryName = entry.name;
+                            const cleanEntry = entryName.replace(/^\d+_/, '').toLowerCase();
+                            
+                            if (entryName.toLowerCase() === folderName.toLowerCase() ||
+                                cleanEntry === cleanFolder ||
+                                entryName.toLowerCase() === cleanFolder ||
+                                cleanEntry === folderName.toLowerCase()) {
+                                matchedDir = path.join(grandparentDir, entryName);
+                                break;
+                            }
+                        }
+                    }
+
+                    if (matchedDir) {
+                        // Check if file exists directly under matchedDir
+                        const directCandidate = path.join(matchedDir, fileName);
+                        if (await diskExists(directCandidate)) {
+                            return returnAndCache(directCandidate);
+                        }
+                        
+                        // Otherwise, do a recursive scan up to depth 3 inside matchedDir (e.g. for DWG/PDF/ICAD subdirs)
+                        const scanDir = async (dir, depth = 0) => {
+                            if (depth > 3) return null;
+                            try {
+                                const subEntries = await fs.readdir(dir, { withFileTypes: true });
+                                for (const subEntry of subEntries) {
+                                    const subPath = path.join(dir, subEntry.name);
+                                    if (subEntry.isDirectory()) {
+                                        const found = await scanDir(subPath, depth + 1);
+                                        if (found) return found;
+                                    } else if (subEntry.name.toLowerCase() === fileName.toLowerCase()) {
+                                        return subPath;
+                                    }
+                                }
+                            } catch (_) {}
+                            return null;
+                        };
+                        const deepWinner = await scanDir(matchedDir);
+                        if (deepWinner) return returnAndCache(deepWinner);
+                    }
+                }
+            } catch (e) {
+                logWarn('Smart path healing failed', { error: e.message });
+            }
+        }
     }
 
     // ── Priority 3: /uploads/-relative path — skip stale temp paths ──────────
@@ -1658,6 +1767,7 @@ module.exports = {
     addFileComment,
     getFileHistory,
     resolvePhysicalPath,
+    resolveBulkPhysicalPaths,
     setFilePriority,
     openFile,
     deleteFolder,

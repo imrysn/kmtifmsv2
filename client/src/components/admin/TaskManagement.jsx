@@ -580,25 +580,31 @@ const TaskManagement = ({
   }
 
   const handleDownloadFolder = async (folderFiles, folderName) => {
-    const fileIds = folderFiles.map(f => f.id).join(',')
-    const fileUrl = `${API_BASE_URL}/api/files/folder/zip?fileIds=${fileIds}&folderName=${encodeURIComponent(folderName)}`
-    const fileName = `${folderName}.zip`
-    if (window.electron && window.electron.downloadFile) {
-      const result = await window.electron.downloadFile(fileUrl, fileName)
-      if (result && !result.success && !result.canceled) {
-        setError(result.error || 'Folder download failed')
-      } else if (result && result.success) {
-        triggerDownloadToast(fileName)
-      }
-    } else {
+    if (!window.electron || !window.electron.downloadFolder) {
+      const fileIds = folderFiles.map(f => f.id).join(',')
+      const fileUrl = `${API_BASE_URL}/api/files/folder/zip?fileIds=${fileIds}&folderName=${encodeURIComponent(folderName)}`
       const a = document.createElement('a')
       a.href = fileUrl
-      a.download = fileName
+      a.download = `${folderName}.zip`
       document.body.appendChild(a)
       a.click()
       document.body.removeChild(a)
-      triggerDownloadToast(fileName)
+      return
     }
+    try {
+      const fileIds = folderFiles.map(f => f.id).filter(Boolean)
+      const data = await apiFetch('/api/files/bulk-path', {
+        method: 'POST',
+        body: JSON.stringify({ fileIds, type: 'file' })
+      })
+      const fileInfoList = (data.results || []).map((r, i) => {
+        const file = folderFiles.find(f => f.id === r.id) || folderFiles[i] || {}
+        return { srcPath: r.success ? r.path : null, name: file.original_name || r.originalName, relativePath: file.relative_path || null }
+      })
+      const result = await window.electron.downloadFolder(folderName, fileInfoList)
+      if (result && result.success) { triggerDownloadToast(folderName) }
+      else if (result && !result.success) { setError(result.error || 'Folder download failed') }
+    } catch (err) { setError(err.message || 'Folder download failed') }
   }
 
   // ⚡ OPTIMIZATION: Memoized utility function

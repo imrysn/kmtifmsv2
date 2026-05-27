@@ -405,26 +405,47 @@ const AssignmentsTab = ({
   }
 
   const handleDownloadFolder = async (folderFiles, folderName) => {
-    const fileIds = folderFiles.map(f => f.id).join(',')
-    const fileUrl = `${API_BASE_URL}/api/files/folder/zip?fileIds=${fileIds}&folderName=${encodeURIComponent(folderName)}`
-    const fileName = `${folderName}.zip`
-    if (window.electron && window.electron.downloadFile) {
-      const result = await window.electron.downloadFile(fileUrl, fileName)
-      if (result && !result.success && !result.canceled) {
-        alert('Download failed: ' + (result.error || 'Unknown error'))
-      } else if (result && result.success) {
-        triggerDownloadToast(fileName)
-      }
-    } else {
+    if (!window.electron || !window.electron.downloadFolder) {
+      // Fallback for non-Electron (browser): use old zip approach
+      const fileIds = folderFiles.map(f => f.id).join(',')
+      const fileUrl = `${API_BASE_URL}/api/files/folder/zip?fileIds=${fileIds}&folderName=${encodeURIComponent(folderName)}`
       const a = document.createElement('a')
       a.href = fileUrl
-      a.download = fileName
+      a.download = `${folderName}.zip`
       document.body.appendChild(a)
       a.click()
       document.body.removeChild(a)
-      triggerDownloadToast(fileName)
+      return
+    }
+
+    try {
+      // Resolve physical paths for all files in one batched server call
+      const fileIds = folderFiles.map(f => f.id).filter(Boolean)
+      const data = await apiFetch('/api/files/bulk-path', {
+        method: 'POST',
+        body: JSON.stringify({ fileIds, type: 'file' })
+      })
+
+      const fileInfoList = (data.results || []).map((r, i) => {
+        const file = folderFiles.find(f => f.id === r.id) || folderFiles[i] || {}
+        return {
+          srcPath: r.success ? r.path : null,
+          name: file.original_name || r.originalName,
+          relativePath: file.relative_path || null
+        }
+      })
+
+      const result = await window.electron.downloadFolder(folderName, fileInfoList)
+      if (result && result.success) {
+        triggerDownloadToast(folderName)
+      } else if (result && !result.success) {
+        alert('Download failed: ' + (result.error || 'Unknown error'))
+      }
+    } catch (err) {
+      alert('Download failed: ' + err.message)
     }
   }
+
 
   // Remove entire folder via dedicated folder-delete endpoint
   const handleRemoveAttachmentFolder = async (assignmentId, folderFiles) => {
