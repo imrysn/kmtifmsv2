@@ -104,19 +104,40 @@ export function useSmartNavigation({
     }, [showCommentsModal, selectedItem, comments, setVisibleReplies]);
 
     // EFFECT 3: Highlight item (scroll to assignment card)
+    // Uses a retry loop so the scroll works even when the tab has just switched
+    // and the DOM hasn't finished rendering the target card yet.
     useEffect(() => {
         if (!highlightedItemId || items.length === 0) return;
 
-        const element = document.getElementById(`${idPrefix}-${highlightedItemId}`);
-        if (!element) return;
+        let attempts = 0;
+        const MAX_ATTEMPTS = 30;  // 30 × 100ms = 3 seconds max wait
+        const INTERVAL_MS  = 100;
+        let timer;
 
-        element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        element.classList.add(`${prefix}-assignment-highlighted`);
+        const tryHighlight = () => {
+            const element = document.getElementById(`${idPrefix}-${highlightedItemId}`);
 
-        const timer = setTimeout(() => {
-            element.classList.remove(`${prefix}-assignment-highlighted`);
-            if (onClearHighlight) onClearHighlight();
-        }, 3000);
+            if (!element) {
+                if (++attempts < MAX_ATTEMPTS) {
+                    timer = setTimeout(tryHighlight, INTERVAL_MS);
+                }
+                return;
+            }
+
+            element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            element.classList.add(`${prefix}-assignment-highlighted`);
+
+            const clearTimer = setTimeout(() => {
+                element.classList.remove(`${prefix}-assignment-highlighted`);
+                if (onClearHighlight) onClearHighlight();
+            }, 3000);
+
+            // Replace cleanup timer reference so the return below cancels it too
+            timer = clearTimer;
+        };
+
+        // Small initial delay so a simultaneous tab-switch re-render can settle first
+        timer = setTimeout(tryHighlight, 80);
 
         return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps

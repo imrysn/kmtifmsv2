@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react'
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react'
+import ReactDOM from 'react-dom'
 import './css/FileCollectionTab.css'
 import '../shared/SmartNavigation/SmartNavigation.css'
 import FileIcon from '../shared/FileIcon'
@@ -34,6 +35,42 @@ const FileCollectionTab = ({
   const [folderShowAll, setFolderShowAll] = useState({})
   const [activeView, setActiveView] = useState('collection') // 'collection' | 'reference'
   const FOLDER_PREVIEW_COUNT = 5
+
+  // Fully local dropdown state — position + which menu is open.
+  // Using local state avoids race conditions with the parent's openMenuId/toggleMenu.
+  const [localMenuId, setLocalMenuId] = useState(null)
+  const [menuPos, setMenuPos] = useState({ top: 0, left: 0 })
+
+  // Close menu when clicking anywhere outside
+  useEffect(() => {
+    if (!localMenuId) return
+    const close = () => setLocalMenuId(null)
+    document.addEventListener('click', close)
+    return () => document.removeEventListener('click', close)
+  }, [localMenuId])
+
+  const openLocalMenu = useCallback((id, btnEl) => {
+    setLocalMenuId(prev => {
+      if (prev === id) return null // toggle off
+      const rect = btnEl.getBoundingClientRect()
+      const MENU_HEIGHT = 100
+      const MENU_WIDTH = 180
+      const spaceBelow = window.innerHeight - rect.bottom
+      const spaceAbove = rect.top
+
+      // Prefer below; flip above if not enough room below
+      let top = spaceBelow >= MENU_HEIGHT + 8
+        ? rect.bottom + 4
+        : rect.top - MENU_HEIGHT - 4
+
+      // Hard-clamp: never let the menu go off the top or bottom of the viewport
+      top = Math.max(4, Math.min(top, window.innerHeight - MENU_HEIGHT - 4))
+
+      const left = Math.max(4, rect.right - MENU_WIDTH)
+      setMenuPos({ top, left })
+      return id
+    })
+  }, [])
 
   const uniqueTeams = useMemo(() => {
     const teams = new Set()
@@ -310,15 +347,15 @@ const FileCollectionTab = ({
         {activeView === 'collection' && <td>{getStatusBadge(submission)}</td>}
         <td style={{ textAlign: 'center', verticalAlign: 'middle' }}>
           <div className="tl-actions-menu-wrapper" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-            <button className="tl-menu-button" onClick={(e) => toggleMenu(submission.id, e)} title="Options">
+            <button className="tl-menu-button" onClick={(e) => { e.stopPropagation(); openLocalMenu(submission.id, e.currentTarget) }} title="Options">
               <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
                 <circle cx="3" cy="8" r="1.5" fill="currentColor" />
                 <circle cx="8" cy="8" r="1.5" fill="currentColor" />
                 <circle cx="13" cy="8" r="1.5" fill="currentColor" />
               </svg>
             </button>
-            {openMenuId === submission.id && (
-              <div className="tl-dropdown-menu">
+            {localMenuId === submission.id && ReactDOM.createPortal(
+              <div className="tl-dropdown-menu" style={{ position: 'fixed', top: menuPos.top, left: menuPos.left, zIndex: 9999, minWidth: '160px' }}>
                 {submission.assignment_id && onNavigateToTask && (
                   <button className="tl-dropdown-item" onClick={(e) => { e.stopPropagation(); onNavigateToTask(submission.assignment_id, submission.id) }}>
                     <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
@@ -328,7 +365,8 @@ const FileCollectionTab = ({
                     Go to Task
                   </button>
                 )}
-              </div>
+              </div>,
+              document.body
             )}
           </div>
         </td>
@@ -488,11 +526,11 @@ const FileCollectionTab = ({
                           {activeView === 'collection' && <td>{getFolderStatusBadge(folderFiles.map(f => f.file || f))}</td>}
                           <td style={{ textAlign: 'center' }} onClick={(e) => e.stopPropagation()}>
                             <div className="tl-actions-menu-wrapper" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-                              <button className="tl-menu-button" onClick={(e) => { e.stopPropagation(); toggleMenu(`folder-${currentKey}`, e) }}>
+                              <button className="tl-menu-button" onClick={(e) => { e.stopPropagation(); openLocalMenu(`folder-${currentKey}`, e.currentTarget) }}>
                                 <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="3" cy="8" r="1.5" fill="currentColor" /><circle cx="8" cy="8" r="1.5" fill="currentColor" /><circle cx="13" cy="8" r="1.5" fill="currentColor" /></svg>
                               </button>
-                              {openMenuId === `folder-${currentKey}` && (
-                                <div className="tl-dropdown-menu">
+                              {localMenuId === `folder-${currentKey}` && ReactDOM.createPortal(
+                                <div className="tl-dropdown-menu" style={{ position: 'fixed', top: menuPos.top, left: menuPos.left, zIndex: 9999, minWidth: '160px' }}>
                                   {onNavigateToTask && (
                                     <button
                                       className="tl-dropdown-item"
@@ -507,7 +545,8 @@ const FileCollectionTab = ({
                                       Go to Task
                                     </button>
                                   )}
-                                </div>
+                                </div>,
+                                document.body
                               )}
                             </div>
                           </td>
@@ -559,11 +598,11 @@ const FileCollectionTab = ({
                           {activeView === 'collection' && <td>{getFolderStatusBadge(folderFiles)}</td>}
                           <td style={{ textAlign: 'center' }} onClick={(e) => e.stopPropagation()}>
                             <div className="tl-actions-menu-wrapper" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-                              <button className="tl-menu-button" onClick={(e) => { e.stopPropagation(); toggleMenu(`folder-${folderKey}`, e) }}>
+                              <button className="tl-menu-button" onClick={(e) => { e.stopPropagation(); openLocalMenu(`folder-${folderKey}`, e.currentTarget) }}>
                                 <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="3" cy="8" r="1.5" fill="currentColor" /><circle cx="8" cy="8" r="1.5" fill="currentColor" /><circle cx="13" cy="8" r="1.5" fill="currentColor" /></svg>
                               </button>
-                              {openMenuId === `folder-${folderKey}` && (
-                                <div className="tl-dropdown-menu">
+                              {localMenuId === `folder-${folderKey}` && ReactDOM.createPortal(
+                                <div className="tl-dropdown-menu" style={{ position: 'fixed', top: menuPos.top, left: menuPos.left, zIndex: 9999, minWidth: '160px' }}>
                                   {onNavigateToTask && (
                                     <button
                                       className="tl-dropdown-item"
@@ -578,7 +617,8 @@ const FileCollectionTab = ({
                                       Go to Task
                                     </button>
                                   )}
-                                </div>
+                                </div>,
+                                document.body
                               )}
                             </div>
                           </td>

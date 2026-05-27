@@ -335,6 +335,15 @@ const AssignmentsTab = ({
   // Tab toggle: 'tasks' = active tasks, 'done' = completed tasks
   const [activeTaskTab, setActiveTaskTab] = useState('tasks')
 
+  // Auto-switch to 'done' tab when navigating to a completed task (e.g. from File Collection "Go to Task")
+  useEffect(() => {
+    if (!highlightedAssignmentId || assignments.length === 0) return
+    const target = assignments.find(a => a.id === highlightedAssignmentId || String(a.id) === String(highlightedAssignmentId))
+    if (target && target.status === 'completed') {
+      setActiveTaskTab('done')
+    }
+  }, [highlightedAssignmentId, assignments])
+
   // Loading state for Mark as Done
   const [markingDoneId, setMarkingDoneId] = useState(null)
 
