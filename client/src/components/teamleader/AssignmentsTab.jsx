@@ -1159,23 +1159,41 @@ const AssignmentsTab = ({
           const filteredAssignments = searchQuery.trim()
             ? tabFiltered.filter(a => {
                 const q = searchQuery.toLowerCase()
+                const matchesQuery = (text) => {
+                  if (!text) return false;
+                  const normText = String(text).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+                  const normQuery = q.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+                  
+                  if (normText.includes(normQuery)) return true;
+                  
+                  // Michael/Micheal typo tolerance
+                  const altQuery = normQuery.replace(/micheal/g, 'michael').replace(/michael/g, 'micheal');
+                  if (normText.includes(altQuery)) return true;
+                  
+                  const altText = normText.replace(/micheal/g, 'michael').replace(/michael/g, 'micheal');
+                  if (altText.includes(normQuery) || altText.includes(altQuery)) return true;
+                  
+                  return false;
+                };
+
                 return (
-                  (a.title || '').toLowerCase().includes(q) ||
-                  (a.description || '').toLowerCase().includes(q) ||
-                  (a.team_leader_username || '').toLowerCase().includes(q) ||
+                  matchesQuery(a.title) ||
+                  matchesQuery(a.description) ||
+                  matchesQuery(a.team_leader_username) ||
+                  matchesQuery(a.team_leader_fullname) ||
                   (a.assigned_member_details || []).some(m =>
-                    (m.fullName || '').toLowerCase().includes(q) ||
-                    (m.username || '').toLowerCase().includes(q)
+                    matchesQuery(m.fullName) ||
+                    matchesQuery(m.username)
                   ) ||
                   (a.attachments || []).some(f => 
-                    (f.original_name || '').toLowerCase().includes(q) ||
-                    (f.file_name || '').toLowerCase().includes(q) ||
-                    (f.folder_name || '').toLowerCase().includes(q)
+                    matchesQuery(f.original_name) ||
+                    matchesQuery(f.file_name) ||
+                    matchesQuery(f.folder_name)
                   ) ||
                   (a.submissions || a.recent_submissions || []).some(f => 
-                    (f.original_name || '').toLowerCase().includes(q) ||
-                    (f.file_name || '').toLowerCase().includes(q) ||
-                    (f.folder_name || '').toLowerCase().includes(q)
+                    matchesQuery(f.original_name) ||
+                    matchesQuery(f.file_name) ||
+                    matchesQuery(f.folder_name)
                   )
                 )
               })
