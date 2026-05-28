@@ -87,7 +87,15 @@ const MyFilesTab = ({
   const groupFilesByFolder = useCallback((files) => {
     const folders = {};
     const individualFiles = [];
-    for (const file of files) {
+    if (!files || !Array.isArray(files)) return { folders, individualFiles };
+
+    const sortedFiles = [...files].sort((a, b) => {
+      const nameA = (a.original_name || a.filename || '').toLowerCase();
+      const nameB = (b.original_name || b.filename || '').toLowerCase();
+      return nameA.localeCompare(nameB, undefined, { numeric: true, sensitivity: 'base' });
+    });
+
+    for (const file of sortedFiles) {
       if (file.folder_name) {
         if (!folders[file.folder_name]) folders[file.folder_name] = [];
         folders[file.folder_name].push(file);
@@ -95,7 +103,13 @@ const MyFilesTab = ({
         individualFiles.push(file);
       }
     }
-    return { folders, individualFiles };
+
+    const sortedFolders = {};
+    Object.keys(folders).sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' })).forEach(key => {
+      sortedFolders[key] = folders[key];
+    });
+
+    return { folders: sortedFolders, individualFiles };
   }, []);
 
   // Build display items FIRST so folders count as 1 row each, then paginate.

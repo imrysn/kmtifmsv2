@@ -84,7 +84,15 @@ const FileCollectionTab = ({
   const groupFilesByFolder = useCallback((files) => {
     const folders = {}
     const individualFiles = []
-    files.forEach(file => {
+    if (!files || !Array.isArray(files)) return { folders, individualFiles }
+
+    const sortedFiles = [...files].sort((a, b) => {
+      const nameA = (a.original_name || a.filename || '').toLowerCase();
+      const nameB = (b.original_name || b.filename || '').toLowerCase();
+      return nameA.localeCompare(nameB, undefined, { numeric: true, sensitivity: 'base' });
+    });
+
+    sortedFiles.forEach(file => {
       let folderName = file.folder_name
       
       // Fallback: if folder_name is missing, try to extract it from the path in original_name
@@ -105,7 +113,13 @@ const FileCollectionTab = ({
         individualFiles.push(file)
       }
     })
-    return { folders, individualFiles }
+
+    const sortedFolders = {}
+    Object.keys(folders).sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' })).forEach(key => {
+      sortedFolders[key] = folders[key];
+    });
+
+    return { folders: sortedFolders, individualFiles }
   }, [])
 
   useEffect(() => {

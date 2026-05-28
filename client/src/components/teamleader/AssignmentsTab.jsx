@@ -995,8 +995,15 @@ const AssignmentsTab = ({
   const groupFilesByFolder = useCallback((files) => {
     const folders = {}
     const individualFiles = []
+    if (!files || !Array.isArray(files)) return { folders, individualFiles }
 
-    files.forEach(file => {
+    const sortedFiles = [...files].sort((a, b) => {
+      const nameA = (a.original_name || a.filename || a.file_name || '').toLowerCase();
+      const nameB = (b.original_name || b.filename || b.file_name || '').toLowerCase();
+      return nameA.localeCompare(nameB, undefined, { numeric: true, sensitivity: 'base' });
+    });
+
+    sortedFiles.forEach(file => {
       if (file.folder_name) {
         // File is part of a folder
         if (!folders[file.folder_name]) {
@@ -1009,7 +1016,12 @@ const AssignmentsTab = ({
       }
     })
 
-    return { folders, individualFiles }
+    const sortedFolders = {}
+    Object.keys(folders).sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' })).forEach(key => {
+      sortedFolders[key] = folders[key];
+    });
+
+    return { folders: sortedFolders, individualFiles }
   }, [])
 
   const formatFileSize = (bytes) => {
