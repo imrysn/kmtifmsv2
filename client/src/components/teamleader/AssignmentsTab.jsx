@@ -1166,6 +1166,16 @@ const AssignmentsTab = ({
                   (a.assigned_member_details || []).some(m =>
                     (m.fullName || '').toLowerCase().includes(q) ||
                     (m.username || '').toLowerCase().includes(q)
+                  ) ||
+                  (a.attachments || []).some(f => 
+                    (f.original_name || '').toLowerCase().includes(q) ||
+                    (f.file_name || '').toLowerCase().includes(q) ||
+                    (f.folder_name || '').toLowerCase().includes(q)
+                  ) ||
+                  (a.submissions || a.recent_submissions || []).some(f => 
+                    (f.original_name || '').toLowerCase().includes(q) ||
+                    (f.file_name || '').toLowerCase().includes(q) ||
+                    (f.folder_name || '').toLowerCase().includes(q)
                   )
                 )
               })

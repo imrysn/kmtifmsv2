@@ -1040,12 +1040,48 @@ const TasksTab = memo(({
     const sorted = [...base].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
     const bySort = sortFilter === 'all' ? sorted : sorted.filter(a => getAssignmentStatus(a) === sortFilter);
     if (!searchQuery.trim()) return bySort;
+    
     const q = searchQuery.toLowerCase();
+    
+    // Normalization helper to handle accents like ñ and common typos like Micheal/Michael
+    const matchesQuery = (text) => {
+      if (!text) return false;
+      const normText = String(text).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+      const normQuery = q.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+      
+      if (normText.includes(normQuery)) return true;
+      
+      // Michael/Micheal typo tolerance
+      const altQuery = normQuery.replace(/micheal/g, 'michael').replace(/michael/g, 'micheal');
+      if (normText.includes(altQuery)) return true;
+      
+      const altText = normText.replace(/micheal/g, 'michael').replace(/michael/g, 'micheal');
+      if (altText.includes(normQuery) || altText.includes(altQuery)) return true;
+      
+      return false;
+    };
+
     return bySort.filter(a =>
-      (a.title || '').toLowerCase().includes(q) ||
-      (a.description || '').toLowerCase().includes(q) ||
-      (a.team_leader_username || '').toLowerCase().includes(q) ||
-      (a.team_leader_fullname || '').toLowerCase().includes(q)
+      matchesQuery(a.title) ||
+      matchesQuery(a.description) ||
+      matchesQuery(a.team_leader_username) ||
+      matchesQuery(a.team_leader_fullname) ||
+      matchesQuery(a.assigned_user_fullname) ||
+      matchesQuery(a.assigned_to) ||
+      (a.assigned_member_details || []).some(m =>
+        matchesQuery(m.fullName) ||
+        matchesQuery(m.username)
+      ) ||
+      (a.attachments || []).some(f => 
+        matchesQuery(f.original_name) ||
+        matchesQuery(f.file_name) ||
+        matchesQuery(f.folder_name)
+      ) ||
+      (a.submitted_files || a.recent_submissions || []).some(f => 
+        matchesQuery(f.original_name) ||
+        matchesQuery(f.file_name) ||
+        matchesQuery(f.folder_name)
+      )
     );
   }, [myTaskAssignments, forCheckingAssignments, activeTab, sortFilter, searchQuery]);
 

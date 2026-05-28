@@ -101,18 +101,46 @@ const TaskManagement = ({
   const observerRef = useRef(null)
   const loadMoreRef = useRef(null)
 
-  // Filtered assignments based on search
   const filteredAssignments = useMemo(() => {
     if (!searchQuery.trim()) return assignments
     const q = searchQuery.toLowerCase()
+    
+    // Normalization helper to handle accents like ñ and common typos like Micheal/Michael
+    const matchesQuery = (text) => {
+      if (!text) return false;
+      const normText = String(text).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+      const normQuery = q.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+      
+      if (normText.includes(normQuery)) return true;
+      
+      // Michael/Micheal typo tolerance
+      const altQuery = normQuery.replace(/micheal/g, 'michael').replace(/michael/g, 'micheal');
+      if (normText.includes(altQuery)) return true;
+      
+      const altText = normText.replace(/micheal/g, 'michael').replace(/michael/g, 'micheal');
+      if (altText.includes(normQuery) || altText.includes(altQuery)) return true;
+      
+      return false;
+    };
+
     return assignments.filter(a =>
-      (a.title || '').toLowerCase().includes(q) ||
-      (a.description || '').toLowerCase().includes(q) ||
-      (a.team_leader_fullname || '').toLowerCase().includes(q) ||
-      (a.team_leader_username || '').toLowerCase().includes(q) ||
+      matchesQuery(a.title) ||
+      matchesQuery(a.description) ||
+      matchesQuery(a.team_leader_fullname) ||
+      matchesQuery(a.team_leader_username) ||
       (a.assigned_member_details || []).some(m =>
-        (m.fullName || '').toLowerCase().includes(q) ||
-        (m.username || '').toLowerCase().includes(q)
+        matchesQuery(m.fullName) ||
+        matchesQuery(m.username)
+      ) ||
+      (a.attachments || []).some(f => 
+        matchesQuery(f.original_name) ||
+        matchesQuery(f.file_name) ||
+        matchesQuery(f.folder_name)
+      ) ||
+      (a.submissions || a.recent_submissions || []).some(f => 
+        matchesQuery(f.original_name) ||
+        matchesQuery(f.file_name) ||
+        matchesQuery(f.folder_name)
       )
     )
   }, [assignments, searchQuery])

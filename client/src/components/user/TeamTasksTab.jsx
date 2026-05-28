@@ -813,7 +813,43 @@ const TeamTasksTab = ({ user }) => {
 
       <div className="team-tasks-count">
         {searchQuery
-          ? `${assignments.filter(a => { const q = searchQuery.toLowerCase(); return (a.title||'').toLowerCase().includes(q)||(a.description||'').toLowerCase().includes(q)||(a.team_leader_fullname||'').toLowerCase().includes(q)||(a.team_leader_username||'').toLowerCase().includes(q) }).length} result${assignments.filter(a => { const q = searchQuery.toLowerCase(); return (a.title||'').toLowerCase().includes(q)||(a.description||'').toLowerCase().includes(q)||(a.team_leader_fullname||'').toLowerCase().includes(q)||(a.team_leader_username||'').toLowerCase().includes(q) }).length !== 1 ? 's' : ''} for "${searchQuery}"`
+          ? `${assignments.filter(a => {
+              const q = searchQuery.toLowerCase();
+              return (
+                (a.title||'').toLowerCase().includes(q) ||
+                (a.description||'').toLowerCase().includes(q) ||
+                (a.team_leader_fullname||'').toLowerCase().includes(q) ||
+                (a.team_leader_username||'').toLowerCase().includes(q) ||
+                (a.attachments || []).some(f => 
+                  (f.original_name || '').toLowerCase().includes(q) ||
+                  (f.file_name || '').toLowerCase().includes(q) ||
+                  (f.folder_name || '').toLowerCase().includes(q)
+                ) ||
+                (a.recent_submissions || []).some(f => 
+                  (f.original_name || '').toLowerCase().includes(q) ||
+                  (f.file_name || '').toLowerCase().includes(q) ||
+                  (f.folder_name || '').toLowerCase().includes(q)
+                )
+              );
+            }).length} result${assignments.filter(a => {
+              const q = searchQuery.toLowerCase();
+              return (
+                (a.title||'').toLowerCase().includes(q) ||
+                (a.description||'').toLowerCase().includes(q) ||
+                (a.team_leader_fullname||'').toLowerCase().includes(q) ||
+                (a.team_leader_username||'').toLowerCase().includes(q) ||
+                (a.attachments || []).some(f => 
+                  (f.original_name || '').toLowerCase().includes(q) ||
+                  (f.file_name || '').toLowerCase().includes(q) ||
+                  (f.folder_name || '').toLowerCase().includes(q)
+                ) ||
+                (a.recent_submissions || []).some(f => 
+                  (f.original_name || '').toLowerCase().includes(q) ||
+                  (f.file_name || '').toLowerCase().includes(q) ||
+                  (f.folder_name || '').toLowerCase().includes(q)
+                )
+              );
+            }).length !== 1 ? 's' : ''} for "${searchQuery}"`
           : `${assignments.length} task${assignments.length !== 1 ? 's' : ''}${hasMore ? ' • Scroll for more' : ''}`
         }
       </div>
@@ -827,7 +863,17 @@ const TeamTasksTab = ({ user }) => {
                   (a.title || '').toLowerCase().includes(q) ||
                   (a.description || '').toLowerCase().includes(q) ||
                   (a.team_leader_fullname || '').toLowerCase().includes(q) ||
-                  (a.team_leader_username || '').toLowerCase().includes(q)
+                  (a.team_leader_username || '').toLowerCase().includes(q) ||
+                  (a.attachments || []).some(f => 
+                    (f.original_name || '').toLowerCase().includes(q) ||
+                    (f.file_name || '').toLowerCase().includes(q) ||
+                    (f.folder_name || '').toLowerCase().includes(q)
+                  ) ||
+                  (a.recent_submissions || []).some(f => 
+                    (f.original_name || '').toLowerCase().includes(q) ||
+                    (f.file_name || '').toLowerCase().includes(q) ||
+                    (f.folder_name || '').toLowerCase().includes(q)
+                  )
                 )
               })
             : assignments
