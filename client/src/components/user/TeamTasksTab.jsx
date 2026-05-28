@@ -107,7 +107,7 @@ function FileMoreMenu({ onDownload, onOpenPath, isFolder = false }) {
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/>
               </svg>
-              Open Folder Path
+              {isFolder ? 'Open Folder Path' : 'Open File Path'}
             </button>
           )}
           <button
@@ -399,7 +399,7 @@ const TeamTasksTab = ({ user }) => {
     })
 
     try {
-      if (openModalType === 'folder') {
+      if (openModalType === 'folder' || openModalType === 'filePath') {
         if (!window.electron?.openFolderInExplorer) return
         const pathType = fileToOpen?.isAttachment ? 'attachment' : 'file'
         const data = await apiFetch(`/api/files/${fileId}/path?type=${pathType}`)
@@ -451,14 +451,14 @@ const TeamTasksTab = ({ user }) => {
    * isAttachment=true → uses ?type=attachment (TL reference files)
    * isAttachment=false → uses ?type=file (user submitted files)
    */
-  const handleOpenFolderPath = async (fileId, isAttachment = false) => {
+  const handleOpenFolderPath = async (fileId, isAttachment = false, isFolder = false, originalName = '') => {
     if (!window.electron?.openFolderInExplorer) return
     try {
       const pathType = isAttachment ? 'attachment' : 'file'
       const data = await apiFetch(`/api/files/${fileId}/path?type=${pathType}`)
       if (data.success && data.filePath) {
-        setFileToOpen({ id: fileId, file_path: data.filePath, original_name: 'Folder Path', isAttachment })
-        setOpenModalType('folder')
+        setFileToOpen({ id: fileId, file_path: data.filePath, original_name: originalName || (isFolder ? 'Folder Path' : 'File Path'), isAttachment })
+        setOpenModalType(isFolder ? 'folder' : 'filePath')
         setShowOpenFileConfirmation(true)
       }
     } catch { /* ignore */ }
@@ -740,7 +740,7 @@ const TeamTasksTab = ({ user }) => {
                 </div>
               </div>
               <FileViewersButton fileId={file.id} externalCount={viewerCounts[file.id]} minDate={assignment.created_at} fileSource={isAttachment ? 'attachment' : 'submission'}/>
-              <FileMoreMenu onDownload={() => handleDownloadFile(file)} onOpenPath={() => handleOpenFolderPath(file.id, isAttachment)} />
+              <FileMoreMenu onDownload={() => handleDownloadFile(file)} onOpenPath={() => handleOpenFolderPath(file.id, isAttachment, file.original_name)} />
             </div>
           </div>
         </div>
@@ -929,7 +929,7 @@ const TeamTasksTab = ({ user }) => {
                                     <FileMoreMenu
                                       isFolder
                                       onDownload={() => handleDownloadFolder(folderFiles, folderName)}
-                                      onOpenPath={() => handleOpenFolderPath(firstFile.id, true)}
+                                      onOpenPath={() => handleOpenFolderPath(firstFile.id, true, true, folderName)}
                                     />
                                   </div>
                                 </div>
@@ -971,7 +971,7 @@ const TeamTasksTab = ({ user }) => {
                                 <FileViewersButton fileId={file.id} externalCount={viewerCounts[file.id]} minDate={assignment.created_at} fileSource="attachment"/>
                                 <FileMoreMenu
                                   onDownload={() => handleDownloadFile(file)}
-                                  onOpenPath={() => handleOpenFolderPath(file.id, true)}
+                                  onOpenPath={() => handleOpenFolderPath(file.id, true, false, file.original_name)}
                                 />
                               </div>
                             </div>
@@ -1043,7 +1043,7 @@ const TeamTasksTab = ({ user }) => {
                                 <FileMoreMenu
                                   isFolder
                                   onDownload={() => handleDownloadFolder(folderFiles, folderName)}
-                                  onOpenPath={() => handleOpenFolderPath(firstFile.id, false)}
+                                  onOpenPath={() => handleOpenFolderPath(firstFile.id, false, true, folderName)}
                                 />
                               </div>
                             </div>
@@ -1081,7 +1081,7 @@ const TeamTasksTab = ({ user }) => {
                                 <FileViewersButton fileId={file.id} externalCount={viewerCounts[file.id]} minDate={assignment.created_at} fileSource="submission"/>
                                 <FileMoreMenu
                                   onDownload={() => handleDownloadFile(file)}
-                                  onOpenPath={() => handleOpenFolderPath(file.id, false)}
+                                  onOpenPath={() => handleOpenFolderPath(file.id, false, false, file.original_name)}
                                 />
                               </div>
                             </div>

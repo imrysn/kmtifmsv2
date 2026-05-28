@@ -74,10 +74,12 @@ const db = {
 
 const dbPath = `${mysqlConfig.config.database} @ ${mysqlConfig.config.host}:${mysqlConfig.config.port}`;
 const networkDataPath = mysqlConfig.networkDataPath;
+const projectsDataPath = mysqlConfig.projectsDataPath;
 const networkProjectsPath = mysqlConfig.networkProjectsPath;
 
 console.log(`📊 MySQL: ${dbPath}`);
 console.log(`📁 Network Data: ${networkDataPath}`);
+console.log(`📁 Projects Data: ${projectsDataPath}`);
 console.log(`📁 Network Projects: ${networkProjectsPath}`);
 
 function closeDatabase() {
@@ -93,6 +95,7 @@ module.exports = {
   transaction: mysqlConfig.transaction,
   dbPath,
   networkDataPath,
+  projectsDataPath,
   networkProjectsPath,
   USE_MYSQL: true,
   closeDatabase

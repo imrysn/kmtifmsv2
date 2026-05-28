@@ -54,18 +54,42 @@ function fixFilename(name) {
  */
 async function uploadFile(fileData, user) {
     const originalName = fixFilename(fileData.original_name);
-    const { moveToUserFolder } = require('../utils/fileUtils');
+    const { moveToUserFolder, moveToProjectFolder } = require('../utils/fileUtils');
+    const { queryOne, query } = require('../config/database');
     const assignmentId = fileData.assignment_id ? parseInt(fileData.assignment_id) : null;
     
     logInfo('Uploading file', { filename: originalName, userId: user.id, assignmentId });
 
     let isRevision = false;
-    const existing = await fileRepository.findByNameAndUser(
-        originalName,
-        user.id,
-        fileData.folder_name,
-        assignmentId
-    );
+    let isNewPipeline = false;
+    let assignment = null;
+
+    if (assignmentId) {
+        assignment = await queryOne(
+            'SELECT id, title, team_leader_id, team_leader_username, project_folder_path FROM assignments WHERE id = ?',
+            [assignmentId]
+        );
+        if (assignment && assignment.project_folder_path) {
+            isNewPipeline = true;
+        }
+    }
+
+    let existing;
+    if (isNewPipeline) {
+        existing = await queryOne(`
+            SELECT f.* FROM files f
+            INNER JOIN assignment_submissions asub ON f.id = asub.file_id
+            WHERE asub.assignment_id = ? AND f.original_name = ? AND (f.folder_name = ? OR (f.folder_name IS NULL AND ? IS NULL))
+            ORDER BY f.uploaded_at DESC LIMIT 1
+        `, [assignmentId, originalName, fileData.folder_name || null, fileData.folder_name || null]);
+    } else {
+        existing = await fileRepository.findByNameAndUser(
+            originalName,
+            user.id,
+            fileData.folder_name,
+            assignmentId
+        );
+    }
 
     // ── Path inheritance ───────────────────────────────────────────────
     // When re-uploading a single file, the client sends no folder context.
@@ -89,31 +113,42 @@ async function uploadFile(fileData, user) {
         }
     }
 
+    let skipCreate = false;
+    let existingFileId = null;
+
     if (existing) {
         if (assignmentId) {
-            // Check if this specific file is a revision (replacing a rejected, checked, or need-edit file)
-            if (existing.status === 'rejected_by_team_leader' || existing.status === 'rejected_by_admin' || existing.status === 'revision' || existing.status === 'under_revision' || existing.status === 'checked') {
+            if (isNewPipeline) {
+                // New pipeline: overwrite physical file, update existing DB record to status 'modified by {username}'
                 isRevision = true;
-            }
-
-            logInfo('Replacing existing file for same task', { oldFileId: existing.id, assignmentId, isRevision });
-            const tempPath = fileData.file_path.startsWith('/uploads/')
-                ? path.join(uploadsDir, fileData.file_path.substring('/uploads/'.length))
-                : fileData.file_path;
-            try {
-                if (existing.file_path) {
-                    const oldPhysical = existing.file_path.startsWith('/uploads/')
-                        ? path.join(uploadsDir, existing.file_path.substring('/uploads/'.length))
-                        : existing.file_path;
-                    await safeDeleteFile(oldPhysical);
+                skipCreate = true;
+                existingFileId = existing.id;
+                logInfo('Overwriting existing file for new task pipeline', { existingFileId, assignmentId });
+            } else {
+                // Old pipeline: delete old physical + DB record
+                if (existing.status === 'rejected_by_team_leader' || existing.status === 'rejected_by_admin' || existing.status === 'revision' || existing.status === 'under_revision' || existing.status === 'checked') {
+                    isRevision = true;
                 }
-                await require('../config/database').query(
-                    'DELETE FROM assignment_submissions WHERE file_id = ? AND assignment_id = ?',
-                    [existing.id, assignmentId]
-                );
-                await fileRepository.deleteById(existing.id);
-            } catch (replaceErr) {
-                logError(replaceErr, { context: 'uploadFile-replace', oldFileId: existing.id });
+
+                logInfo('Replacing existing file for same task (old pipeline)', { oldFileId: existing.id, assignmentId, isRevision });
+                const tempPath = fileData.file_path.startsWith('/uploads/')
+                    ? path.join(uploadsDir, fileData.file_path.substring('/uploads/'.length))
+                    : fileData.file_path;
+                try {
+                    if (existing.file_path) {
+                        const oldPhysical = existing.file_path.startsWith('/uploads/')
+                            ? path.join(uploadsDir, existing.file_path.substring('/uploads/'.length))
+                            : existing.file_path;
+                        await safeDeleteFile(oldPhysical);
+                    }
+                    await require('../config/database').query(
+                        'DELETE FROM assignment_submissions WHERE file_id = ? AND assignment_id = ?',
+                        [existing.id, assignmentId]
+                    );
+                    await fileRepository.deleteById(existing.id);
+                } catch (replaceErr) {
+                    logError(replaceErr, { context: 'uploadFile-replace', oldFileId: existing.id });
+                }
             }
         } else {
             logInfo('Duplicate file found (no task context), cleaning up...', { fileId: existing.id });
@@ -129,39 +164,60 @@ async function uploadFile(fileData, user) {
             ? path.join(uploadsDir, fileData.file_path.substring('/uploads/'.length))
             : fileData.file_path;
 
-        // Group individual files by task, but let folders be at the root of the user directory 
-        // so they maintain their original names as requested by the user.
-        const taskPrefix = null; // No task_N subfolders as requested
+        if (isNewPipeline) {
+            finalFilePath = await moveToProjectFolder(
+                tempPath,
+                assignment.team_leader_username,
+                assignment.title,
+                originalName,
+                fileData.folder_name || null,
+                fileData.relative_path || null
+            );
+        } else {
+            // Group individual files by task, but let folders be at the root of the user directory 
+            // so they maintain their original names as requested by the user.
+            const taskPrefix = null; // No task_N subfolders as requested
 
-        const movedPath = await moveToUserFolder(
-            tempPath,
-            user.username,
-            originalName,
-            fileData.folder_name || null,
-            fileData.relative_path || null,
-            taskPrefix
-        );
+            const movedPath = await moveToUserFolder(
+                tempPath,
+                user.username,
+                originalName,
+                fileData.folder_name || null,
+                fileData.relative_path || null,
+                taskPrefix
+            );
 
-        const relativeToUploads = movedPath.startsWith(uploadsDir)
-            ? movedPath.substring(uploadsDir.length).replace(/\\/g, '/')
-            : movedPath;
-        finalFilePath = `/uploads${relativeToUploads.startsWith('/') ? '' : '/'}${relativeToUploads}`;
+            const relativeToUploads = movedPath.startsWith(uploadsDir)
+                ? movedPath.substring(uploadsDir.length).replace(/\\/g, '/')
+                : movedPath;
+            finalFilePath = `/uploads${relativeToUploads.startsWith('/') ? '' : '/'}${relativeToUploads}`;
+        }
     } catch (moveErr) {
-        logError(moveErr, { context: 'uploadFile-moveToUserFolder', filename: originalName });
+        logError(moveErr, { context: isNewPipeline ? 'uploadFile-moveToProjectFolder' : 'uploadFile-moveToUserFolder', filename: originalName });
     }
 
-    const data = {
-        ...fileData,
-        original_name: originalName,
-        file_path: finalFilePath,
-        user_id: user.id,
-        username: user.username,
-        user_team: user.team,
-        status: isRevision ? 'under_revision' : 'uploaded',
-        current_stage: 'pending_team_leader'
-    };
-
-    const fileId = await fileRepository.create(data);
+    let fileId;
+    if (skipCreate) {
+        // Update existing file record and set status to 'modified by {username}'
+        const statusText = `modified by ${user.username}`;
+        await query(
+            'UPDATE files SET file_path = ?, status = ?, current_stage = ?, user_id = ?, username = ?, user_team = ?, uploaded_at = NOW(), updated_at = NOW() WHERE id = ?',
+            [finalFilePath, statusText.substring(0, 50), 'pending_team_leader', user.id, user.username, user.team, existingFileId]
+        );
+        fileId = existingFileId;
+    } else {
+        const data = {
+            ...fileData,
+            original_name: originalName,
+            file_path: finalFilePath,
+            user_id: user.id,
+            username: user.username,
+            user_team: user.team,
+            status: isRevision ? 'under_revision' : 'uploaded',
+            current_stage: 'pending_team_leader'
+        };
+        fileId = await fileRepository.create(data);
+    }
 
     logActivity(db, user.id, user.username, user.role, user.team,
         `Uploaded file: ${fileData.original_name}`);
@@ -170,10 +226,6 @@ async function uploadFile(fileData, user) {
     if (assignmentId) {
         try {
             const { pushToUser } = require('../routes/notifications');
-            const assignment = await queryOne(
-                'SELECT id, title, team_leader_id FROM assignments WHERE id = ?',
-                [assignmentId]
-            );
             if (assignment && assignment.team_leader_id) {
                 await notificationService.createNotification(
                     assignment.team_leader_id,
@@ -211,14 +263,35 @@ async function bulkUploadFast(filesData, user, assignmentId = null) {
     let batchHasRevision = false;
     let revisionCount = 0;
 
+    let isNewPipeline = false;
+    if (assignmentId) {
+        const assignment = await queryOne(
+            'SELECT project_folder_path FROM assignments WHERE id = ?',
+            [parseInt(assignmentId, 10)]
+        );
+        if (assignment && assignment.project_folder_path) {
+            isNewPipeline = true;
+        }
+    }
+
     async function processFileFast(fileData) {
         try {
             const originalName = fixFilename(fileData.original_name);
 
             // 1. Duplicate check (DB only — fast)
-            const existing = await fileRepository.findByNameAndUser(
-                originalName, user.id, fileData.folder_name, assignmentId
-            );
+            let existing;
+            if (isNewPipeline) {
+                existing = await queryOne(`
+                    SELECT f.* FROM files f
+                    INNER JOIN assignment_submissions asub ON f.id = asub.file_id
+                    WHERE asub.assignment_id = ? AND f.original_name = ? AND (f.folder_name = ? OR (f.folder_name IS NULL AND ? IS NULL))
+                    ORDER BY f.uploaded_at DESC LIMIT 1
+                `, [assignmentId, originalName, fileData.folder_name || null, fileData.folder_name || null]);
+            } else {
+                existing = await fileRepository.findByNameAndUser(
+                    originalName, user.id, fileData.folder_name, assignmentId
+                );
+            }
 
             // ── Path inheritance ─────────────────────────────────────────────────
             // When the user re-uploads a single file (no folder drag-drop), the
@@ -241,9 +314,21 @@ async function bulkUploadFast(filesData, user, assignmentId = null) {
                 } else {
                     // Either no existing record found, or existing is flat.
                     // Do a broader search to find any historical record with path info.
-                    pathSource = await fileRepository.findAnyByNameAndAssignment(
-                        originalName, user.id, assignmentId
-                    );
+                    if (isNewPipeline) {
+                        pathSource = await queryOne(`
+                            SELECT f.* FROM files f
+                            INNER JOIN assignment_submissions asub ON f.id = asub.file_id
+                            WHERE asub.assignment_id = ? AND f.original_name = ?
+                            ORDER BY
+                                CASE WHEN f.folder_name IS NOT NULL AND f.folder_name != '' THEN 0 ELSE 1 END,
+                                f.uploaded_at DESC
+                            LIMIT 1
+                        `, [assignmentId, originalName]);
+                    } else {
+                        pathSource = await fileRepository.findAnyByNameAndAssignment(
+                            originalName, user.id, assignmentId
+                        );
+                    }
                     // If this returns the same flat record, ignore it.
                     if (pathSource && !pathSource.folder_name) pathSource = null;
                 }
@@ -258,48 +343,72 @@ async function bulkUploadFast(filesData, user, assignmentId = null) {
                 }
             }
 
+            let skipCreate = false;
+            let existingFileId = null;
+
             if (existing && assignmentId) {
-                // Check if this specific file is a revision (replacing a rejected, checked, or need-edit file)
-                if (existing.status === 'rejected_by_team_leader' || existing.status === 'rejected_by_admin' || existing.status === 'revision' || existing.status === 'under_revision' || existing.status === 'checked') {
+                if (isNewPipeline) {
+                    // New pipeline: overwrite in-place, DB status -> modified by {username}. Keep existing file record.
                     batchHasRevision = true;
                     revisionCount++;
                     fileData.isThisFileRevision = true;
-                }
+                    skipCreate = true;
+                    existingFileId = existing.id;
 
-                // Remove old record so we replace it
-                const oldPhysical = existing.file_path.startsWith('/uploads/')
-                    ? path.join(uploadsDir, existing.file_path.substring('/uploads/'.length))
-                    : existing.file_path;
-                await safeDeleteFile(oldPhysical);
-                await query('DELETE FROM assignment_submissions WHERE file_id = ? AND assignment_id = ?',
-                    [existing.id, assignmentId]);
-                await fileRepository.deleteById(existing.id);
+                    // Update existing record with the new uploader's info and set status to "modified by {username}" immediately
+                    const statusText = `modified by ${user.username}`;
+                    await query(
+                        'UPDATE files SET status = ?, current_stage = ?, user_id = ?, username = ?, user_team = ?, uploaded_at = NOW(), updated_at = NOW() WHERE id = ?',
+                        [statusText.substring(0, 50), 'pending_team_leader', user.id, user.username, user.team, existingFileId]
+                    );
+                } else {
+                    // Check if this specific file is a revision (replacing a rejected, checked, or need-edit file)
+                    if (existing.status === 'rejected_by_team_leader' || existing.status === 'rejected_by_admin' || existing.status === 'revision' || existing.status === 'under_revision' || existing.status === 'checked') {
+                        batchHasRevision = true;
+                        revisionCount++;
+                        fileData.isThisFileRevision = true;
+                    }
+
+                    // Remove old record so we replace it
+                    const oldPhysical = existing.file_path.startsWith('/uploads/')
+                        ? path.join(uploadsDir, existing.file_path.substring('/uploads/'.length))
+                        : existing.file_path;
+                    await safeDeleteFile(oldPhysical);
+                    await query('DELETE FROM assignment_submissions WHERE file_id = ? AND assignment_id = ?',
+                        [existing.id, assignmentId]);
+                    await fileRepository.deleteById(existing.id);
+                }
             }
 
             // 2. Insert DB record with the current temp path so the file appears in the UI
             //    instantly. The background job will update file_path once NAS move is done.
             const tempPath = fileData.file_path; // e.g. C:\Users\...\AppData\Local\Temp\temp_xxx
 
-            // Relative path for the UI (we'll use a placeholder until NAS move completes)
-            const dbData = {
-                ...fileData,
-                original_name: originalName,
-                file_path: tempPath,
-                user_id: user.id,
-                username: user.username,
-                user_team: user.team,
-                current_stage: 'pending_team_leader',
-                status: fileData.isThisFileRevision ? 'under_revision' : 'uploaded'
-            };
-            
-            // Explicitly ensure status is set correctly even if fileData had a status property
-            if (fileData.isThisFileRevision) dbData.status = 'under_revision';
-            else if (!dbData.status || dbData.status === '') dbData.status = 'uploaded';
+            let fileId;
+            if (skipCreate) {
+                fileId = existingFileId;
+            } else {
+                // Relative path for the UI (we'll use a placeholder until NAS move completes)
+                const dbData = {
+                    ...fileData,
+                    original_name: originalName,
+                    file_path: tempPath,
+                    user_id: user.id,
+                    username: user.username,
+                    user_team: user.team,
+                    current_stage: 'pending_team_leader',
+                    status: fileData.isThisFileRevision ? 'under_revision' : 'uploaded'
+                };
+                
+                // Explicitly ensure status is set correctly even if fileData had a status property
+                if (fileData.isThisFileRevision) dbData.status = 'under_revision';
+                else if (!dbData.status || dbData.status === '') dbData.status = 'uploaded';
 
-            const fileId = await fileRepository.create(dbData);
+                fileId = await fileRepository.create(dbData);
+            }
 
             // 3. Queue for background NAS move
-            assignmentLinks.push({ fileId, tempPath, originalName, fileData });
+            assignmentLinks.push({ fileId, tempPath, originalName, fileData, isOverwrite: skipCreate });
 
             return { success: true, fileId, originalName };
         } catch (err) {
@@ -383,33 +492,94 @@ async function bulkUploadFast(filesData, user, assignmentId = null) {
  * Kept for reference; the active path is bulkUploadFast + bulkUploadMoveToNas.
  */
 async function bulkUpload(filesData, user, assignmentId = null) {
-    const { moveToUserFolder } = require('../utils/fileUtils');
+    const { moveToUserFolder, moveToProjectFolder } = require('../utils/fileUtils');
     const MAX_CONCURRENT = 50;
     const assignmentLinks = [];
+
+    let isNewPipeline = false;
+    let assignment = null;
+    if (assignmentId) {
+        assignment = await queryOne(
+            'SELECT id, title, team_leader_username, project_folder_path FROM assignments WHERE id = ?',
+            [parseInt(assignmentId, 10)]
+        );
+        if (assignment && assignment.project_folder_path) {
+            isNewPipeline = true;
+        }
+    }
 
     async function processFile(fileData) {
         try {
             const originalName = fixFilename(fileData.original_name);
-            const existing = await fileRepository.findByNameAndUser(originalName, user.id, fileData.folder_name, assignmentId);
-            if (existing && assignmentId) {
-                const oldPhysical = existing.file_path.startsWith('/uploads/')
-                    ? path.join(uploadsDir, existing.file_path.substring('/uploads/'.length))
-                    : existing.file_path;
-                await safeDeleteFile(oldPhysical);
-                await query('DELETE FROM assignment_submissions WHERE file_id = ? AND assignment_id = ?', [existing.id, assignmentId]);
-                await fileRepository.deleteById(existing.id);
+            
+            let existing;
+            if (isNewPipeline) {
+                existing = await queryOne(`
+                    SELECT f.* FROM files f
+                    INNER JOIN assignment_submissions asub ON f.id = asub.file_id
+                    WHERE asub.assignment_id = ? AND f.original_name = ? AND (f.folder_name = ? OR (f.folder_name IS NULL AND ? IS NULL))
+                    ORDER BY f.uploaded_at DESC LIMIT 1
+                `, [assignmentId, originalName, fileData.folder_name || null, fileData.folder_name || null]);
+            } else {
+                existing = await fileRepository.findByNameAndUser(originalName, user.id, fileData.folder_name, assignmentId);
             }
+            
+            let skipCreate = false;
+            let existingFileId = null;
+
+            if (existing && assignmentId) {
+                if (isNewPipeline) {
+                    skipCreate = true;
+                    existingFileId = existing.id;
+                } else {
+                    const oldPhysical = existing.file_path.startsWith('/uploads/')
+                        ? path.join(uploadsDir, existing.file_path.substring('/uploads/'.length))
+                        : existing.file_path;
+                    await safeDeleteFile(oldPhysical);
+                    await query('DELETE FROM assignment_submissions WHERE file_id = ? AND assignment_id = ?', [existing.id, assignmentId]);
+                    await fileRepository.deleteById(existing.id);
+                }
+            }
+
             const tempPath = fileData.file_path.startsWith('/uploads/')
                 ? path.join(uploadsDir, fileData.file_path.substring('/uploads/'.length))
                 : fileData.file_path;
-            const movedPath = await moveToUserFolder(tempPath, user.username, originalName, fileData.folder_name || null, fileData.relative_path || null, null);
-            const relativeToUploads = movedPath.startsWith(uploadsDir)
-                ? movedPath.substring(uploadsDir.length).replace(/\\/g, '/')
-                : movedPath;
-            const finalFilePath = `/uploads${relativeToUploads.startsWith('/') ? '' : '/'}${relativeToUploads}`;
-            const dbData = { ...fileData, original_name: originalName, file_path: finalFilePath, user_id: user.id, username: user.username, user_team: user.team, status: 'uploaded', current_stage: 'pending_team_leader' };
-            const fileId = await fileRepository.create(dbData);
-            if (assignmentId) assignmentLinks.push(['INSERT INTO assignment_submissions (assignment_id, user_id, file_id, submitted_at) VALUES (?, ?, ?, NOW())', [assignmentId, user.id, fileId]]);
+
+            let finalFilePath;
+            if (isNewPipeline) {
+                finalFilePath = await moveToProjectFolder(
+                    tempPath,
+                    assignment.team_leader_username,
+                    assignment.title,
+                    originalName,
+                    fileData.folder_name || null,
+                    fileData.relative_path || null
+                );
+            } else {
+                const movedPath = await moveToUserFolder(tempPath, user.username, originalName, fileData.folder_name || null, fileData.relative_path || null, null);
+                const relativeToUploads = movedPath.startsWith(uploadsDir)
+                    ? movedPath.substring(uploadsDir.length).replace(/\\/g, '/')
+                    : movedPath;
+                finalFilePath = `/uploads${relativeToUploads.startsWith('/') ? '' : '/'}${relativeToUploads}`;
+            }
+
+            let fileId;
+            if (skipCreate) {
+                const statusText = `modified by ${user.username}`;
+                await query(
+                    'UPDATE files SET file_path = ?, status = ?, current_stage = ?, user_id = ?, username = ?, user_team = ?, uploaded_at = NOW(), updated_at = NOW() WHERE id = ?',
+                    [finalFilePath, statusText.substring(0, 50), 'pending_team_leader', user.id, user.username, user.team, existingFileId]
+                );
+                fileId = existingFileId;
+            } else {
+                const dbData = { ...fileData, original_name: originalName, file_path: finalFilePath, user_id: user.id, username: user.username, user_team: user.team, status: 'uploaded', current_stage: 'pending_team_leader' };
+                fileId = await fileRepository.create(dbData);
+            }
+
+            if (assignmentId && !skipCreate) {
+                assignmentLinks.push(['INSERT INTO assignment_submissions (assignment_id, user_id, file_id, submitted_at) VALUES (?, ?, ?, NOW())', [assignmentId, user.id, fileId]]);
+            }
+
             return { success: true, fileId, originalName };
         } catch (err) {
             logError(err, { context: 'bulkUpload-item', filename: fileData.original_name });
@@ -467,27 +637,59 @@ async function bulkUpload(filesData, user, assignmentId = null) {
  * Runs in the background after the HTTP response has already been sent.
  */
 async function bulkUploadMoveToNas(fileRecords, user, assignmentId, assignmentLinks) {
-    const { moveToUserFolder } = require('../utils/fileUtils');
+    const { moveToUserFolder, moveToProjectFolder } = require('../utils/fileUtils');
+    const { query, queryOne } = require('../config/database');
     // Run all NAS moves concurrently — sequential for-loop was the main cause of slow
     // background finalization when uploading many files at once.
     const MAX_CONCURRENT = 8; // conservative to avoid hammering the NAS SMB share
     const validLinks = assignmentLinks.filter(l => l.tempPath && l.fileId);
 
+    let projectContext = null;
+    if (assignmentId) {
+        const assignment = await queryOne(
+            'SELECT title, team_leader_username, project_folder_path FROM assignments WHERE id = ?',
+            [parseInt(assignmentId, 10)]
+        );
+        if (assignment && assignment.project_folder_path) {
+            projectContext = {
+                title: assignment.title,
+                tlUsername: assignment.team_leader_username
+            };
+        }
+    }
+
     const moveOne = async (link) => {
         try {
-            const movedPath = await moveToUserFolder(
-                link.tempPath,
-                user.username,
-                link.originalName,
-                link.fileData.folder_name || null,
-                link.fileData.relative_path || null,
-                null   // no taskPrefix
-            );
-            const relativeToUploads = movedPath.startsWith(uploadsDir)
-                ? movedPath.substring(uploadsDir.length).replace(/\\/g, '/')
-                : movedPath;
-            const finalFilePath = `/uploads${relativeToUploads.startsWith('/') ? '' : '/'}${relativeToUploads}`;
-            await query('UPDATE files SET file_path = ? WHERE id = ?', [finalFilePath, link.fileId]);
+            let finalFilePath;
+            if (projectContext) {
+                finalFilePath = await moveToProjectFolder(
+                    link.tempPath,
+                    projectContext.tlUsername,
+                    projectContext.title,
+                    link.originalName,
+                    link.fileData.folder_name || null,
+                    link.fileData.relative_path || null
+                );
+            } else {
+                const movedPath = await moveToUserFolder(
+                    link.tempPath,
+                    user.username,
+                    link.originalName,
+                    link.fileData.folder_name || null,
+                    link.fileData.relative_path || null,
+                    null   // no taskPrefix
+                );
+                const relativeToUploads = movedPath.startsWith(uploadsDir)
+                    ? movedPath.substring(uploadsDir.length).replace(/\\/g, '/')
+                    : movedPath;
+                finalFilePath = `/uploads${relativeToUploads.startsWith('/') ? '' : '/'}${relativeToUploads}`;
+            }
+
+            if (link.isOverwrite) {
+                await query('UPDATE files SET file_path = ?, status = "updated" WHERE id = ?', [finalFilePath, link.fileId]);
+            } else {
+                await query('UPDATE files SET file_path = ? WHERE id = ?', [finalFilePath, link.fileId]);
+            }
         } catch (err) {
             logError(err, { context: 'bulkUploadMoveToNas-item', fileId: link.fileId, filename: link.originalName });
         }

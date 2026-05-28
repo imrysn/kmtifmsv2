@@ -1,6 +1,6 @@
 import './css/MyFilesTab.css';
 import { apiFetch, API_BASE_URL } from '@/config/api';
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import SuccessModal from './SuccessModal';
 import { FileIcon, FileOpenModal } from '../shared';

@@ -220,6 +220,115 @@ const FolderActionDropdown = ({ assignment, folderName, folderFiles, handleDownl
   )
 }
 
+const FileActionDropdown = ({ assignment, submission, isReference, handleDownloadFile, setToast }) => {
+  const [isOpen, setIsOpen] = useState(false)
+  const [fileErrorModal, setFileErrorModal] = useState({ isOpen: false, message: '', storageLabel: '' })
+  const btnRef = useRef(null)
+  const menuRef = useRef(null)
+  const pos = useDropdownPosition(btnRef, menuRef, isOpen)
+
+  useEffect(() => {
+    if (!isOpen) return
+    const handleClose = (e) => {
+      if (menuRef.current && !menuRef.current.contains(e.target) && !btnRef.current.contains(e.target)) {
+        setIsOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClose)
+    return () => document.removeEventListener('mousedown', handleClose)
+  }, [isOpen])
+
+  return (
+    <>
+      <button
+        ref={btnRef}
+        className="tl-assignment-menu-btn"
+        style={{ fontSize: '13px', padding: '2px 6px', letterSpacing: '1px' }}
+        onClick={(e) => { e.stopPropagation(); setIsOpen(!isOpen) }}
+        title="More options"
+      >
+        •••
+      </button>
+      {isOpen && ReactDOM.createPortal(
+        <div 
+          ref={menuRef}
+          className="tl-assignment-menu-dropdown" 
+          style={{ 
+            position: 'fixed', 
+            top: pos.top, 
+            left: pos.left, 
+            visibility: pos.ready ? 'visible' : 'hidden',
+            width: 'fit-content',
+            minWidth: 'unset',
+            maxWidth: 'fit-content',
+            zIndex: 99999, 
+            whiteSpace: 'normal',
+            background: 'white',
+            border: '1px solid #e5e7eb',
+            borderRadius: '8px',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+            transformOrigin: pos.up ? 'bottom right' : 'top right',
+            animation: 'dropdownFadeIn 0.15s ease-out',
+            padding: '4px'
+          }}
+        >
+          <button
+            className="tl-assignment-menu-item"
+            style={{ fontWeight: '600' }}
+            onClick={async (e) => {
+              e.stopPropagation()
+              setIsOpen(false)
+              if (!window.electron || !window.electron.openFolderInExplorer) {
+                setFileErrorModal({ isOpen: true, message: 'Open File Path is only available in the desktop app.', storageLabel: 'NAS Storage · File' })
+                return
+              }
+              const type = isReference ? 'attachment' : 'file'
+              try {
+                const data = await apiFetch(`/api/files/${submission.id}/path?type=${type}`)
+                if (data.success && data.filePath) {
+                  const result = await window.electron.openFolderInExplorer(data.filePath)
+                  if (!result.success) {
+                    setFileErrorModal({ isOpen: true, message: 'Could not open file path: ' + (result.error || 'Unknown error'), storageLabel: 'NAS Storage · File' })
+                  } else {
+                    if (setToast) setToast({ isOpen: true, title: 'Opening File Path', message: `Opening path for ${submission.original_name || submission.file_name}...`, type: 'success' });
+                  }
+                } else {
+                  setFileErrorModal({ isOpen: true, message: 'Unable to open file path.', storageLabel: 'NAS Storage · File' })
+                }
+              } catch (err) {
+                setFileErrorModal({ isOpen: true, message: 'Unable to open file path.', storageLabel: 'NAS Storage · File' })
+              }
+            }}
+          >
+            📁 Open File Path
+          </button>
+          <button
+            className="tl-assignment-menu-item"
+            style={{ fontWeight: '600', display: 'flex', alignItems: 'center', gap: '8px' }}
+            onClick={async (e) => {
+              e.stopPropagation()
+              setIsOpen(false)
+              await (isReference ? handleDownloadFile(submission.id, submission.original_name, true) : handleDownloadFile(submission.id, submission.original_name || submission.file_name))
+            }}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+            </svg>
+            Download File
+          </button>
+        </div>,
+        document.body
+      )}
+      <FolderPathErrorModal
+        isOpen={fileErrorModal.isOpen}
+        onClose={() => setFileErrorModal({ isOpen: false, message: '', storageLabel: '' })}
+        message={fileErrorModal.message}
+        storageLabel={fileErrorModal.storageLabel}
+      />
+    </>
+  )
+}
+
 const AssignmentsTab = ({
   isLoadingAssignments,
   assignments,
@@ -1487,35 +1596,16 @@ const AssignmentsTab = ({
                                     </div>
                                   </div>
                                   <FileViewersButton fileId={submission.id} externalCount={viewerCounts[submission.id]} fileSource={isReference ? 'attachment' : 'submission'} />
-                                  {isReference && (
-                                    <button
-                                      onClick={(e) => {
-                                        e.stopPropagation()
-                                        setFileToOpen({ ...submission, isAttachment: true, assignmentId: assignment.id })
-                                        setShowOpenFileConfirmation(true)
-                                      }}
-                                      title="View file"
-                                      className="tl-download-button"
-                                      style={{ marginLeft: '4px', flexShrink: 0, background: 'transparent', border: 'none', cursor: 'pointer', color: '#9ca3af', width: '28px', height: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '6px', transition: 'all 0.2s' }}
-                                    >
-                                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
-                                      </svg>
-                                    </button>
-                                  )}
-                                  <button
-                                    onClick={async (e) => {
-                                      e.stopPropagation()
-                                      await (isReference ? handleDownloadFile(submission.id, submission.original_name, true) : handleDownloadFile(submission.id, submission.original_name || submission.file_name))
-                                    }}
-                                    title="Download file"
-                                    className="tl-download-button"
-                                    style={{ marginLeft: '4px', flexShrink: 0, background: 'transparent', border: 'none', cursor: 'pointer', color: '#9ca3af', width: '28px', height: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '6px', transition: 'all 0.2s' }}
-                                  >
-                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                      <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
-                                    </svg>
-                                  </button>
+
+                                  <div className="tl-folder-menu-wrapper" style={{ marginLeft: '4px' }} onClick={e => e.stopPropagation()}>
+                                    <FileActionDropdown
+                                      assignment={assignment}
+                                      submission={submission}
+                                      isReference={isReference}
+                                      handleDownloadFile={handleDownloadFile}
+                                      setToast={setToast}
+                                    />
+                                  </div>
                                 </div>
                               </div>
                             );

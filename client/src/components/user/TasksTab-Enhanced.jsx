@@ -774,7 +774,7 @@ const TasksTab = memo(({
     setSuccessModal({ isOpen: true, title: 'Success', message: type === 'folder' ? 'Folder opened successfully!' : 'File opened successfully!', type: 'success' });
 
     try {
-      if (type === 'folder') {
+      if (type === 'folder' || type === 'filePath') {
         const pathType = file.isAttachment ? 'attachment' : 'file';
         const folderParam = file.folderName && file.folderName !== 'Folder Path' ? `&folderName=${encodeURIComponent(file.folderName)}` : '';
         const data = await apiFetch(`/api/files/${file.id}/path?type=${pathType}${folderParam}`);
@@ -999,10 +999,10 @@ const TasksTab = memo(({
     openFileDetails({ id: fid, assignment_title: assignmentTitle });
   }, [assignments, openFileDetails]);
 
-  const openFolderInExplorer = useCallback(async (fileId, isAttachment = true, folderName = 'Folder Path') => {
+  const openFolderInExplorer = useCallback(async (fileId, isAttachment = true, folderName = 'Folder Path', isFolder = false) => {
     if (!window.electron?.openFolderInExplorer) return;
     setFileToOpen({ id: fileId, isAttachment, folderName });
-    setOpenModalType('folder');
+    setOpenModalType(isFolder ? 'folder' : 'filePath');
     setShowOpenFileModal(true);
   }, []);
 
@@ -1127,7 +1127,7 @@ const TasksTab = memo(({
           <div style={{ display: 'flex', alignItems: 'center', gap: '2px', flexShrink: 0 }} onClick={e => e.stopPropagation()}>
             <FileMoreMenuInline
               onViewDetails={() => openFileDetails(fileWithTitle)}
-              onOpenPath={() => openFolderInExplorer(file.id, false)}
+              onOpenPath={() => openFolderInExplorer(file.id, false, file.original_name || file.filename, false)}
               onDelete={canDelete ? () => confirmDeleteFile(assignmentId, file.id, file.original_name || file.filename) : undefined}
               onMarkForEditing={checkerActions?.onMarkForEditing ? () => checkerActions.onMarkForEditing(file.id) : undefined}
               onDoneChecking={checkerActions?.onDoneChecking ? () => checkerActions.onDoneChecking(file.id) : undefined}
@@ -1268,7 +1268,7 @@ const TasksTab = memo(({
                   <div style={{ fontWeight: '500', fontSize: '15px', color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{file.original_name}</div>
                   <div style={{ fontSize: '12px', color: '#4b5563', marginTop: '1px' }}>{formatFileSize(file.file_size)}</div>
                 </div>
-                <AttachmentMoreMenu onDownload={() => handleDownloadFile(file)} onOpenPath={() => openFolderInExplorer(file.id)} />
+                <AttachmentMoreMenu onDownload={() => handleDownloadFile(file)} onOpenPath={() => openFolderInExplorer(file.id, true, file.original_name, false)} />
               </div>
             </div>
           </div>
@@ -1321,7 +1321,7 @@ const TasksTab = memo(({
                 <div style={{ display: 'flex', alignItems: 'center', gap: '2px', flexShrink: 0 }} onClick={e => e.stopPropagation()}>
                   <FileMoreMenuInline
                     onViewDetails={() => openFileDetails(fileWithTitle)}
-                    onOpenPath={() => openFolderInExplorer(file.id, false)}
+                    onOpenPath={() => openFolderInExplorer(file.id, false, file.original_name || file.filename, false)}
                     onDelete={canDelete ? () => confirmDeleteFile(assignment.id, file.id, file.original_name || file.filename) : undefined}
                     onMarkForEditing={checkerActions?.onMarkForEditing ? () => checkerActions.onMarkForEditing(file.id) : undefined}
                     onDoneChecking={checkerActions?.onDoneChecking ? () => checkerActions.onDoneChecking(file.id) : undefined}
@@ -1624,7 +1624,7 @@ const TasksTab = memo(({
                         <div style={{ fontSize: '14px', fontWeight: '500', color: '#000000' }}>
                           Due: {assignment.due_date ? formatDate(assignment.due_date) : 'No due date'}
                           {daysLeft !== null && (
-                            <span style={{ color: daysLeft < 0 ? '#DC2626' : '#16A34A', fontWeight: '400', marginLeft: '4px' }}>
+                            <span style={{ color: daysLeft <= 1 ? '#DC2626' : '#16A34A', fontWeight: '400', marginLeft: '4px' }}>
                               {daysLeft < 0 ? `(${Math.abs(daysLeft)} days overdue)` : `(${daysLeft} days left)`}
                             </span>
                           )}
@@ -1699,7 +1699,7 @@ const TasksTab = memo(({
                                 <AttachmentMoreMenu
                                   isFolder
                                   onDownload={() => handleDownloadFolder(folderFiles, folderName)}
-                                  onOpenPath={() => openFolderInExplorer(folderFiles[0]?.id, true, folderName)}
+                                  onOpenPath={() => openFolderInExplorer(folderFiles[0]?.id, true, folderName, true)}
                                 />
                               </div>
                             </div>
@@ -1719,7 +1719,7 @@ const TasksTab = memo(({
                                 <span>{formatFileSize(attachment.file_size)}</span>
                               </div>
                             </div>
-                            <AttachmentMoreMenu onDownload={() => handleDownloadFile(attachment)} onOpenPath={() => openFolderInExplorer(attachment.id)} />
+                            <AttachmentMoreMenu onDownload={() => handleDownloadFile(attachment)} onOpenPath={() => openFolderInExplorer(attachment.id, true, attachment.original_name, false)} />
                           </div>
                         </div>
                       ))}
@@ -1811,7 +1811,7 @@ const TasksTab = memo(({
                                   <FileMoreMenuInline
                                     isFolder
                                     onViewDetails={() => { const firstFile = folderFiles[0]; if (firstFile) openFileDetails(firstFile); }}
-                                    onOpenPath={() => openFolderInExplorer(folderFiles[0]?.id, false, folderName)}
+                                    onOpenPath={() => openFolderInExplorer(folderFiles[0]?.id, false, folderName, true)}
                                     onDelete={() => {
                                       setFileToDelete({ assignmentId: assignment.id, fileId: null, fileName: folderName, isFolderDelete: true, folderFiles });
                                       setShowDeleteModal(true);

@@ -165,8 +165,75 @@ async function ensureDirectory(dirPath) {
   }
 }
 
+/**
+ * Move an uploaded file into a task's project folder on the NAS.
+ *
+ * Flat layout — no user sub-folder:
+ *   projectsDataPath / {tlUsername} / {sanitized taskTitle} / {relativePath or filename}
+ *
+ * If the destination file already exists it is overwritten (same-filename replacement).
+ *
+ * @param {string} tempPath         - OS temp path from multer
+ * @param {string} tlUsername       - Team leader's username (project owner)
+ * @param {string} taskTitle        - Assignment title (used as the folder name)
+ * @param {string} originalFilename - File's original name
+ * @param {string|null} folderName  - Top-level folder from drag-drop (or null)
+ * @param {string|null} relativePath - Full relative path from drag-drop (or null)
+ * @returns {string} finalPath      - Absolute NAS path where the file now lives
+ */
+async function moveToProjectFolder(
+  tempPath, tlUsername, taskTitle,
+  originalFilename, folderName = null, relativePath = null
+) {
+  const { projectsDataPath } = require('../config/database');
+
+  const safeTitle    = sanitizeFilename(taskTitle) || 'untitled_task';
+  const taskDir      = path.join(projectsDataPath, tlUsername, safeTitle);
+
+  const decodedFilename   = decodeUTF8Filename(originalFilename);
+  const sanitizedFilename = sanitizeFilename(decodedFilename);
+
+  let finalPath;
+
+  if (folderName && relativePath) {
+    // Folder upload — preserve full relative path inside taskDir
+    const normalizedRelPath = relativePath.replace(/\\/g, '/');
+    const segments = normalizedRelPath.split('/');
+    const sanitizedSegments = segments.map((seg, i) =>
+      i === segments.length - 1
+        ? sanitizeFilename(seg)
+        : (sanitizeFilename(seg) || seg)
+    );
+    const sanitizedRelPath = sanitizedSegments.join(path.sep);
+    const subfolderPath = path.dirname(path.join(taskDir, sanitizedRelPath));
+    await ensureDirCached(subfolderPath);
+    finalPath = path.join(taskDir, sanitizedRelPath);
+  } else if (relativePath) {
+    await ensureDirCached(taskDir);
+    finalPath = path.join(taskDir, sanitizeFilename(relativePath));
+  } else {
+    await ensureDirCached(taskDir);
+    finalPath = path.join(taskDir, sanitizedFilename);
+  }
+
+  // Move: rename (fast) → fallback to streaming copy for cross-device NAS targets
+  try {
+    await fs.rename(tempPath, finalPath);
+  } catch (renameError) {
+    if (renameError.code === 'EXDEV') {
+      await streamCopy(tempPath, finalPath);   // overwrite if exists — intentional
+      await fs.unlink(tempPath).catch(() => {});
+    } else {
+      throw new Error(`Failed to move file to project folder: ${renameError.message}`);
+    }
+  }
+
+  return finalPath;
+}
+
 module.exports = {
   moveToUserFolder,
+  moveToProjectFolder,
   streamCopy,          // exported so fileService can reuse the large-buffer copy
   decodeUTF8Filename,
   sanitizeFilename,

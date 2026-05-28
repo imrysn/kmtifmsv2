@@ -169,10 +169,10 @@ const FileViewersButton = ({ fileId, size = 14, externalCount, minDate, fileSour
           }
         }}
       >
-        {/* Eye icon */}
+        {/* Eye icon representing viewers list */}
         <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-          <circle cx="12" cy="12" r="3"/>
+          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+          <circle cx="12" cy="12" r="3" />
         </svg>
         {/* Viewer count badge */}
         {displayCount > 0 && (
@@ -222,8 +222,8 @@ const FileViewersButton = ({ fileId, size = 14, externalCount, minDate, fileSour
             borderBottom: '1px solid #f3f4f6'
           }}>
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-              <circle cx="12" cy="12" r="3"/>
+              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+              <circle cx="12" cy="12" r="3" />
             </svg>
             <span style={{ fontSize: '12px', fontWeight: '700', color: '#374151' }}>
               Viewed by{!loading && viewers.length > 0 ? ` (${viewers.length})` : ''}

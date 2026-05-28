@@ -661,6 +661,26 @@ router.post('/create-json', authenticateToken, authorizeRole(['TEAM_LEADER', 'AD
       [title, description || null, dueDate || null, fileTypeRequired || null, assignedTo || 'specific', 10485760, teamLeaderId, teamLeaderUsername, team]
     );
     const assignmentId = assignmentResult.insertId;
+
+    // Provision task project folder on NAS (non-blocking)
+    setImmediate(async () => {
+      try {
+        const { projectsDataPath } = require('../config/database');
+        const { sanitizeFilename } = require('../utils/fileUtils');
+        const safeTitle = sanitizeFilename(title) || 'unnamed_task';
+        const taskFolderPath = path.join(projectsDataPath, teamLeaderUsername, safeTitle);
+        const fsPromises = require('fs').promises;
+        await fsPromises.mkdir(taskFolderPath, { recursive: true });
+        console.log(`[POST /create-json] Task project folder provisioned: ${taskFolderPath}`);
+        await query(
+          'UPDATE assignments SET project_folder_path = ? WHERE id = ?',
+          [taskFolderPath, assignmentId]
+        );
+      } catch (err) {
+        console.error('❌ [POST /create-json] Failed to provision task project folder:', err);
+      }
+    });
+
     let membersAssigned = 0;
 
     if (finalMembers.length > 0) {
@@ -771,6 +791,26 @@ router.post('/create', authenticateToken, authorizeRole(['TEAM_LEADER', 'ADMIN']
       [title, description || null, finalDueDate || null, finalFileType || null, finalAssignedTo, finalMaxSize, finalTeamLeaderId, finalTeamLeaderUsername, team]
     );
     const assignmentId = assignmentResult.insertId;
+
+    // Provision task project folder on NAS (non-blocking)
+    setImmediate(async () => {
+      try {
+        const { projectsDataPath } = require('../config/database');
+        const { sanitizeFilename } = require('../utils/fileUtils');
+        const safeTitle = sanitizeFilename(title) || 'unnamed_task';
+        const taskFolderPath = path.join(projectsDataPath, finalTeamLeaderUsername, safeTitle);
+        const fsPromises = require('fs').promises;
+        await fsPromises.mkdir(taskFolderPath, { recursive: true });
+        console.log(`[POST /create] Task project folder provisioned: ${taskFolderPath}`);
+        await query(
+          'UPDATE assignments SET project_folder_path = ? WHERE id = ?',
+          [taskFolderPath, assignmentId]
+        );
+      } catch (err) {
+        console.error('❌ [POST /create] Failed to provision task project folder:', err);
+      }
+    });
+
     let membersAssigned = 0;
     let attachmentsCreated = 0;
 

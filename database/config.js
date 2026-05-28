@@ -175,6 +175,10 @@ const networkDataPath = isProduction
   ? '\\\\KMTI-NAS\\Shared\\data'
   : path.join(__dirname, '..', 'local-test', 'data');
 
+const projectsDataPath = isProduction
+  ? '\\\\KMTI-NAS\\Shared\\data\\projects'
+  : path.join(__dirname, '..', 'local-test', 'projects');
+
 const networkProjectsPath = isProduction
   ? '\\\\KMTI-NAS\\Shared\\Public\\PROJECTS'
   : path.join(__dirname, '..', 'local-test', 'PROJECTS');
@@ -213,6 +217,7 @@ module.exports = {
   transaction,
   config: currentConfig,
   networkDataPath,
+  projectsDataPath,
   networkProjectsPath,
   isProduction,
   isDevelopment,
