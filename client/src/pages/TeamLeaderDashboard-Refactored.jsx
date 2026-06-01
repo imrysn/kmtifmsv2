@@ -406,7 +406,7 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
     }
   }
 
-  const createAssignment = async (attachedFiles = [], removedAttachmentIds = []) => {
+  const createAssignment = async (attachedFiles = [], removedAttachmentIds = [], otDates = []) => {
     // Guard: if the modal was closed before this runs, abort silently
     if (!showCreateAssignmentModal) return
 
@@ -475,7 +475,8 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
           dueDate: '',
           fileTypeRequired: '',
           assignedMembers: [],
-          selectedTeam: uniqueTeams && uniqueTeams.length === 1 ? uniqueTeams[0] : ''
+          selectedTeam: uniqueTeams && uniqueTeams.length === 1 ? uniqueTeams[0] : '',
+          otDates: []
         })
         fetchAssignments()
       } else {
@@ -516,6 +517,7 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
         formData.append('title', assignmentForm.title)
         formData.append('description', assignmentForm.description || '')
         formData.append('dueDate', assignmentForm.dueDate || '')
+        formData.append('otDates', JSON.stringify(otDates || []))
         formData.append('fileTypeRequired', assignmentForm.fileTypeRequired || '')
         formData.append('assignedTo', assignmentForm.assignedMembers.includes('__ALL__') ? 'all' : 'specific')
         formData.append('assignedMembers', JSON.stringify(
@@ -560,6 +562,7 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
               title: assignmentForm.title,
               description: assignmentForm.description || '',
               dueDate: assignmentForm.dueDate || '',
+              otDates: JSON.stringify(otDates || []),
               fileTypeRequired: assignmentForm.fileTypeRequired || '',
               assignedTo: assignmentForm.assignedMembers.includes('__ALL__') ? 'all' : 'specific',
               assignedMembers: assignmentForm.assignedMembers.includes('__ALL__') ? [] : assignmentForm.assignedMembers,
@@ -587,6 +590,7 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
             title: assignmentForm.title,
             description: assignmentForm.description || '',
             dueDate: assignmentForm.dueDate || '',
+            otDates: JSON.stringify(otDates || []),
             fileTypeRequired: assignmentForm.fileTypeRequired || '',
             assignedTo: assignmentForm.assignedMembers.includes('__ALL__') ? 'all' : 'specific',
             assignedMembers: assignmentForm.assignedMembers.includes('__ALL__') ? [] : assignmentForm.assignedMembers,
@@ -648,7 +652,8 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
       dueDate: formattedDueDate,
       fileTypeRequired: assignment.file_type_required || assignment.fileTypeRequired || '',
       assignedMembers: assignedMemberIds,
-      selectedTeam: assignment.team || ''
+      selectedTeam: assignment.team || '',
+      otDates: (() => { try { return JSON.parse(assignment.ot_dates || '[]') } catch { return [] } })()
     })
 
     setShowCreateAssignmentModal(true)
@@ -1377,7 +1382,8 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
                   dueDate: '',
                   fileTypeRequired: '',
                   assignedMembers: [],
-                  selectedTeam: uniqueTeams && uniqueTeams.length === 1 ? uniqueTeams[0] : ''
+                  selectedTeam: uniqueTeams && uniqueTeams.length === 1 ? uniqueTeams[0] : '',
+                  otDates: []
                 })
               }}
             />

@@ -6,6 +6,7 @@ import { FileIcon, FileOpenModal } from '../shared';
 import FileModal from './FileModal';
 import CommentsModal from '../shared/CommentsModal';
 import { recursiveGroupByPath } from '@utils/folderUtils';
+import { formatBusinessDaysLeft, getBusinessDaysColor } from '@utils/otDatesUtils';
 import SingleSelectTags from './SingleSelectTags';
 import { LoadingCards } from '../common/InlineSkeletonLoader';
 import SuccessModal from './SuccessModal';
@@ -1532,9 +1533,6 @@ const TasksTab = memo(({
       ) : filteredAssignments.length > 0 ? (
         <div style={{ maxWidth: '1400px', margin: '0 auto', padding: '16px 20px' }}>
           {filteredAssignments.map((assignment) => {
-            const daysLeft = assignment.due_date
-              ? Math.ceil((new Date(assignment.due_date) - new Date()) / (1000 * 60 * 60 * 24))
-              : null;
             const assignmentComments = comments[assignment.id] || [];
             const isCompleted = assignment.status === 'completed';
 
@@ -1673,9 +1671,9 @@ const TasksTab = memo(({
                       <>
                         <div style={{ fontSize: '14px', fontWeight: '500', color: '#000000' }}>
                           Due: {assignment.due_date ? formatDate(assignment.due_date) : 'No due date'}
-                          {daysLeft !== null && (
-                            <span style={{ color: daysLeft <= 1 ? '#DC2626' : '#16A34A', fontWeight: '400', marginLeft: '4px' }}>
-                              {daysLeft < 0 ? `(${Math.abs(daysLeft)} days overdue)` : `(${daysLeft} days left)`}
+                          {assignment.due_date && (
+                            <span style={{ color: getBusinessDaysColor(assignment.due_date, assignment.ot_dates), fontWeight: '400', marginLeft: '4px' }}>
+                              ({formatBusinessDaysLeft(assignment.due_date, assignment.ot_dates)})
                             </span>
                           )}
                         </div>

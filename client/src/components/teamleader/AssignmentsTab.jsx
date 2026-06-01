@@ -10,6 +10,7 @@ import '../shared/SmartNavigation/SmartNavigation.css'
 import SuccessModal from '../user/SuccessModal'
 
 import { recursiveGroupByPath } from '@utils/folderUtils'
+import { formatBusinessDaysLeft, getBusinessDaysColor } from '@utils/otDatesUtils'
 
 const useDropdownPosition = (btnRef, menuRef, isOpen) => {
   const [pos, setPos] = useState({ top: 0, left: 0, up: false, ready: false })
@@ -899,35 +900,6 @@ const AssignmentsTab = ({
     })
   }
 
-  const formatDaysLeft = (dateString) => {
-    if (!dateString) return ''
-    const date = new Date(dateString)
-    const now = new Date()
-    const diffTime = date - now
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
-
-    if (diffDays < 0) {
-      return `${Math.abs(diffDays)} days overdue`
-    } else if (diffDays === 0) {
-      return 'Due today'
-    } else if (diffDays === 1) {
-      return '1 day left'
-    } else {
-      return `${diffDays} days left`
-    }
-  }
-
-  const getStatusColor = (dueDate) => {
-    if (!dueDate) return '#95a5a6'
-    const date = new Date(dueDate)
-    const now = new Date()
-    const diffDays = Math.ceil((date - now) / (1000 * 60 * 60 * 24))
-
-    if (diffDays < 0) return '#e74c3c'
-    if (diffDays <= 2) return '#f39c12'
-    return '#27ae60'
-  }
-
   const handleShowMembers = (members, e) => {
     e.stopPropagation()
     setSelectedMembers(members)
@@ -1275,18 +1247,18 @@ const AssignmentsTab = ({
                         })()} 
                       </div>
                     ) : assignment.recent_submissions?.length > 0 ? (
-                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px' }}>
-                        <div style={{ backgroundColor: 'transparent', color: '#C2410C', padding: '6px 12px', borderRadius: '20px', fontSize: '13px', fontWeight: '600', display: 'inline-flex', alignItems: 'center', border: '1.5px solid #FDBA74' }}>
-                          For Checking
-                        </div>
-                        {(assignment.due_date || assignment.dueDate) && (
-                          <div className="tl-assignment-due-date" style={{ fontSize: '12px' }}>
-                            Due {formatDate(assignment.due_date || assignment.dueDate)}
-                            <span className="tl-assignment-days-left" style={{ color: getStatusColor(assignment.due_date || assignment.dueDate) }}>
-                              {' '}({formatDaysLeft(assignment.due_date || assignment.dueDate)})
-                            </span>
-                          </div>
-                        )}
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px' }}>
+                    <div style={{ backgroundColor: 'transparent', color: '#C2410C', padding: '6px 12px', borderRadius: '20px', fontSize: '13px', fontWeight: '600', display: 'inline-flex', alignItems: 'center', border: '1.5px solid #FDBA74' }}>
+                    For Checking
+                    </div>
+                    {(assignment.due_date || assignment.dueDate) && (
+                    <div className="tl-assignment-due-date" style={{ fontSize: '12px' }}>
+                    Due {formatDate(assignment.due_date || assignment.dueDate)}
+                    <span className="tl-assignment-days-left" style={{ color: getBusinessDaysColor(assignment.due_date || assignment.dueDate, assignment.ot_dates) }}>
+                    {' '}({formatBusinessDaysLeft(assignment.due_date || assignment.dueDate, assignment.ot_dates)})
+                    </span>
+                    </div>
+                    )}
                         {assignment.due_date_edited ? (
                           <div style={{ marginTop: '4px' }}>
                             <span style={{ backgroundColor: '#fef3c7', color: '#92400e', padding: '2px 8px', borderRadius: '10px', fontSize: '11px', fontWeight: '600', border: '1px solid #fde68a', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
@@ -1302,9 +1274,9 @@ const AssignmentsTab = ({
                             Due {formatDate(assignment.due_date || assignment.dueDate)}
                             <span
                               className="tl-assignment-days-left"
-                              style={{ color: getStatusColor(assignment.due_date || assignment.dueDate) }}
+                              style={{ color: getBusinessDaysColor(assignment.due_date || assignment.dueDate, assignment.ot_dates) }}
                             >
-                              {' '}({formatDaysLeft(assignment.due_date || assignment.dueDate)})
+                              {' '}({formatBusinessDaysLeft(assignment.due_date || assignment.dueDate, assignment.ot_dates)})
                             </span>
                           </div>
                           {assignment.due_date_edited ? (

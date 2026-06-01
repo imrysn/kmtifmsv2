@@ -34,7 +34,8 @@ async function runMigrations() {
       { name: '013-fix-notifications-type-column',     run: require('./013-fix-notifications-type-column') },
       { name: '014-add-checked-by-to-files',             run: require('./014-add-checked-by-to-files') },
       { name: '016-add-due-date-edited',                  run: require('./016-add-due-date-edited') },
-      { name: '017-add-project-folder-path',              run: require('./017-add-project-folder-path') }
+      { name: '017-add-project-folder-path',              run: require('./017-add-project-folder-path') },
+      { name: '018-add-ot-dates',                          run: require('./018-add-ot-dates') }
     ];
 
     // Fetch all already-applied migrations in one query

@@ -9,6 +9,7 @@ import { useAuth, useNetwork } from '../../contexts'
 import { withErrorBoundary } from '../common'
 import { useSmartNavigation } from '../shared/SmartNavigation'
 import { recursiveGroupByPath } from '@utils/folderUtils'
+import { formatBusinessDaysLeft, getBusinessDaysColor } from '@utils/otDatesUtils'
 
 // Utility function to format file size
 const formatFileSize = (bytes) => {
@@ -651,25 +652,6 @@ const TaskManagement = ({
     })
   }
 
-  const formatDaysLeft = (dateString) => {
-    if (!dateString) return ''
-    const date = new Date(dateString)
-    const now = new Date()
-    const diffTime = date - now
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
-
-    if (diffDays < 0) {
-      const absDays = Math.abs(diffDays)
-      return `${absDays} ${absDays === 1 ? 'day' : 'days'} overdue`
-    } else if (diffDays === 0) {
-      return 'Due today'
-    } else if (diffDays === 1) {
-      return '1 day left'
-    } else {
-      return `${diffDays} days left`
-    }
-  }
-
   const formatDateTime = (dateString) => {
     if (!dateString) return 'Unknown'
     const date = new Date(dateString)
@@ -695,17 +677,6 @@ const TaskManagement = ({
     if (seconds < 604800) return `${Math.floor(seconds / 86400)}d ago`
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
   }, [])
-
-  const getStatusColor = (dueDate) => {
-    if (!dueDate) return '#95a5a6'
-    const date = new Date(dueDate)
-    const now = new Date()
-    const diffDays = Math.ceil((date - now) / (1000 * 60 * 60 * 24))
-
-    if (diffDays < 0) return '#e74c3c'
-    if (diffDays <= 2) return '#f39c12'
-    return '#27ae60'
-  }
 
   // ⚡ OPTIMIZATION: Memoized toggle handler
   const toggleRepliesVisibility = useCallback((commentId) => {
@@ -1252,9 +1223,9 @@ const TaskManagement = ({
                               Due: {formatDate(assignment.due_date)}
                               <span
                                 className="admin-days-left"
-                                style={{ color: getStatusColor(assignment.due_date) }}
+                                style={{ color: getBusinessDaysColor(assignment.due_date, assignment.ot_dates) }}
                               >
-                                {' '}({formatDaysLeft(assignment.due_date)})
+                                {' '}({formatBusinessDaysLeft(assignment.due_date, assignment.ot_dates)})
                               </span>
                             </div>
                           )

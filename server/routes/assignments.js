@@ -741,6 +741,13 @@ router.post('/create', authenticateToken, authorizeRole(['TEAM_LEADER', 'ADMIN']
     const finalMembers = typeof assignedMembers === 'string' ? JSON.parse(assignedMembers) : (assignedMembers || assigned_members);
     const finalTeamLeaderId = teamLeaderId || team_leader_id;
     const finalTeamLeaderUsername = teamLeaderUsername || team_leader_username;
+    // Parse approved OT weekend dates (JSON array of "YYYY-MM-DD" strings)
+    let finalOtDates = null;
+    try {
+      const raw = req.body.otDates || req.body.ot_dates;
+      const parsed = typeof raw === 'string' ? JSON.parse(raw) : (Array.isArray(raw) ? raw : []);
+      finalOtDates = parsed.length > 0 ? JSON.stringify(parsed) : null;
+    } catch (_) { finalOtDates = null; }
 
     // Nonce validation for multipart requests only
     const isMultipart = req.is('multipart/form-data');
@@ -786,9 +793,9 @@ router.post('/create', authenticateToken, authorizeRole(['TEAM_LEADER', 'ADMIN']
     }
 
     const assignmentResult = await query(
-      `INSERT INTO assignments (title, description, due_date, file_type_required, assigned_to, max_file_size, team_leader_id, team_leader_username, team, created_at, status)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), 'active')`,
-      [title, description || null, finalDueDate || null, finalFileType || null, finalAssignedTo, finalMaxSize, finalTeamLeaderId, finalTeamLeaderUsername, team]
+      `INSERT INTO assignments (title, description, due_date, ot_dates, file_type_required, assigned_to, max_file_size, team_leader_id, team_leader_username, team, created_at, status)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), 'active')`,
+      [title, description || null, finalDueDate || null, finalOtDates, finalFileType || null, finalAssignedTo, finalMaxSize, finalTeamLeaderId, finalTeamLeaderUsername, team]
     );
     const assignmentId = assignmentResult.insertId;
 
@@ -930,6 +937,15 @@ router.put('/:id', authenticateToken, authorizeRole(['TEAM_LEADER', 'ADMIN']), u
     const finalMembers = typeof assignedMembers === 'string' ? JSON.parse(assignedMembers) : (assignedMembers || assigned_members);
     const finalTeamLeaderId = teamLeaderId || team_leader_id;
     const finalTeamLeaderUsername = teamLeaderUsername || team_leader_username;
+    // Parse approved OT weekend dates for PUT (update)
+    let finalOtDates = undefined; // undefined = don't change
+    try {
+      const raw = req.body.otDates || req.body.ot_dates;
+      if (raw !== undefined) {
+        const parsed = typeof raw === 'string' ? JSON.parse(raw) : (Array.isArray(raw) ? raw : []);
+        finalOtDates = parsed.length > 0 ? JSON.stringify(parsed) : null;
+      }
+    } catch (_) { finalOtDates = undefined; }
 
     // Nonce validation for multipart
     const isMultipart = req.is('multipart/form-data');
@@ -1030,8 +1046,8 @@ router.put('/:id', authenticateToken, authorizeRole(['TEAM_LEADER', 'ADMIN']), u
     }
 
     await query(
-      'UPDATE assignments SET title=?, description=?, due_date=?, file_type_required=?, assigned_to=?, max_file_size=?, due_date_edited=?, original_due_date=? WHERE id=?',
-      [title, description || null, finalDueDate || null, finalFileType || null, finalAssignedTo || existingAssignment.assigned_to, finalMaxSize, dueDateEdited, originalDueDate, id]
+      'UPDATE assignments SET title=?, description=?, due_date=?, ot_dates=COALESCE(?,ot_dates), file_type_required=?, assigned_to=?, max_file_size=?, due_date_edited=?, original_due_date=? WHERE id=?',
+      [title, description || null, finalDueDate || null, finalOtDates !== undefined ? finalOtDates : null, finalFileType || null, finalAssignedTo || existingAssignment.assigned_to, finalMaxSize, dueDateEdited, originalDueDate, id]
     );
 
     let membersAssigned = 0;
