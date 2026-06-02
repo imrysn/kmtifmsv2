@@ -2004,8 +2004,8 @@ const AssignmentsTab = ({
       {/* Assign Checker Modal */}
       {assignCheckerModal && (() => {
         const { assignment } = assignCheckerModal
-        // Use all team members, not just those assigned to this task
-        const allMembers = (teamMembers || []).filter(m => m.role !== 'TEAM_LEADER' && m.id !== user.id)
+        // Use all team members, including the team leader, as requested
+        const allMembers = teamMembers || []
         const members = allMembers.length > 0 ? allMembers : (assignment.assigned_member_details || [])
         const toggleMember = (id) => {
           setSelectedCheckerIds(prev => {
