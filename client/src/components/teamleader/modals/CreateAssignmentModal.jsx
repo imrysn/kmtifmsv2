@@ -471,32 +471,36 @@ const CreateAssignmentModal = ({
                   }}>
                     {weekends.map(dateStr => {
                       const d = new Date(dateStr + 'T00:00:00');
-                      const label = d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+                      const dateLabel = d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
                       const checked = selectedOtDates.includes(dateStr);
                       return (
-                        <label key={dateStr} style={{
-                          display: 'flex', alignItems: 'center', gap: '6px',
-                          padding: '6px 10px', borderRadius: '20px', cursor: 'pointer',
-                          fontSize: '12.5px', fontWeight: '500', userSelect: 'none',
-                          background: checked ? '#EEF2FF' : '#fff',
-                          border: checked ? '1.5px solid #6366F1' : '1.5px solid #D1D5DB',
-                          color: checked ? '#4338CA' : '#374151',
-                          transition: 'all 0.12s'
-                        }}>
-                          <input
-                            type="checkbox"
-                            checked={checked}
-                            onChange={() => {
-                              const next = checked
-                                ? selectedOtDates.filter(d => d !== dateStr)
-                                : [...selectedOtDates, dateStr];
-                              setAssignmentForm({ ...assignmentForm, otDates: next });
-                            }}
-                            style={{ display: 'none' }}
-                          />
+                        <div
+                          key={dateStr}
+                          role="checkbox"
+                          aria-checked={checked}
+                          onClick={() => {
+                            setAssignmentForm(prev => {
+                              const current = prev.otDates || [];
+                              const isChecked = current.includes(dateStr);
+                              const next = isChecked
+                                ? current.filter(d => d !== dateStr)
+                                : [...current, dateStr];
+                              return { ...prev, otDates: next };
+                            });
+                          }}
+                          style={{
+                            display: 'flex', alignItems: 'center', gap: '6px',
+                            padding: '6px 10px', borderRadius: '20px', cursor: 'pointer',
+                            fontSize: '12.5px', fontWeight: '500', userSelect: 'none',
+                            background: checked ? '#EEF2FF' : '#fff',
+                            border: checked ? '1.5px solid #6366F1' : '1.5px solid #D1D5DB',
+                            color: checked ? '#4338CA' : '#374151',
+                            transition: 'all 0.12s'
+                          }}
+                        >
                           {checked && <span style={{ fontSize: '10px', color: '#4338CA' }}>✓</span>}
-                          {label}
-                        </label>
+                          {dateLabel}
+                        </div>
                       );
                     })}
                   </div>

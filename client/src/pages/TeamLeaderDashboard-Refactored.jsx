@@ -108,7 +108,8 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
     dueDate: '',
     fileTypeRequired: '',
     assignedMembers: [],
-    selectedTeam: '' // Add selectedTeam to state
+    selectedTeam: '',
+    otDates: []
   })
   const [editingAssignmentId, setEditingAssignmentId] = useState(null)
   const [modalInitialAttachments, setModalInitialAttachments] = useState([])
@@ -646,6 +647,16 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
     // Get assigned member IDs
     const assignedMemberIds = (assignment.assigned_member_details || []).map(m => m.id)
 
+    // Parse ot_dates — handles: null, JS array (MySQL JSON column), or JSON string
+    const parseOtDates = (raw) => {
+      try {
+        if (!raw) return [];
+        if (Array.isArray(raw)) return raw;
+        if (typeof raw === 'string') return JSON.parse(raw);
+        return [];
+      } catch { return []; }
+    };
+
     setAssignmentForm({
       title: assignment.title || '',
       description: assignment.description || '',
@@ -653,7 +664,7 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
       fileTypeRequired: assignment.file_type_required || assignment.fileTypeRequired || '',
       assignedMembers: assignedMemberIds,
       selectedTeam: assignment.team || '',
-      otDates: (() => { try { return JSON.parse(assignment.ot_dates || '[]') } catch { return [] } })()
+      otDates: parseOtDates(assignment.ot_dates)
     })
 
     setShowCreateAssignmentModal(true)

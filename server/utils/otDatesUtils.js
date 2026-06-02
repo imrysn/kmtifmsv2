@@ -13,17 +13,20 @@ function getWeekendDatesBetween(startDateStr, dueDateStr) {
   const start = new Date(startDateStr || new Date());
   const end   = new Date(dueDateStr);
 
-  // Normalise to midnight local
   start.setHours(0, 0, 0, 0);
   end.setHours(0, 0, 0, 0);
+
+  // Use local date to avoid UTC timezone shift (e.g. UTC+8 midnight = prev day UTC)
+  const toLocalISO = (d) =>
+    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 
   const weekends = [];
   const cursor = new Date(start);
 
   while (cursor <= end) {
-    const day = cursor.getDay(); // 0 = Sun, 6 = Sat
-    if (day === 0 || day === 6) {
-      weekends.push(cursor.toISOString().slice(0, 10));
+    const day = cursor.getDay();
+    if (day === 6) { // Saturday only
+      weekends.push(toLocalISO(cursor));
     }
     cursor.setDate(cursor.getDate() + 1);
   }
@@ -55,12 +58,16 @@ function calcBusinessDaysLeft(dueDateStr, otDates = [], from = new Date()) {
 
   const otSet = new Set(Array.isArray(otDates) ? otDates : []);
 
+  // Use local date to avoid UTC timezone shift
+  const toLocalISO = (d) =>
+    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
   let businessDays = 0;
   const cursor = new Date(today);
 
   while (cursor <= due) {
     const day = cursor.getDay();
-    const iso = cursor.toISOString().slice(0, 10);
+    const iso = toLocalISO(cursor);
     const isWeekend = (day === 0 || day === 6);
 
     if (!isWeekend || otSet.has(iso)) {
@@ -77,7 +84,7 @@ function calcBusinessDaysLeft(dueDateStr, otDates = [], from = new Date()) {
     c2.setDate(c2.getDate() + 1); // start from day after due
     while (c2 <= today) {
       const day = c2.getDay();
-      const iso = c2.toISOString().slice(0, 10);
+      const iso = toLocalISO(c2);
       if (day !== 0 && day !== 6) overdue++;
       else if (otSet.has(iso)) overdue++;
       c2.setDate(c2.getDate() + 1);

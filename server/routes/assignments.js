@@ -12,6 +12,24 @@ const { authenticateToken, authorizeRole } = require('../middleware/auth');
 const { createAdminNotification, pushToUser } = require('./notifications');
 const { decodeUTF8Filename, ensureDirectory, moveToUserFolder } = require('../utils/fileUtils');
 
+// ── Ensure ot_dates column exists (one-time silent migration) ──────────────────────────────
+let otDatesColumnReady = false;
+async function ensureOtDatesColumn() {
+  if (otDatesColumnReady) return;
+  try {
+    const cols = await query(`SHOW COLUMNS FROM assignments LIKE 'ot_dates'`);
+    if (!cols || cols.length === 0) {
+      await query(`ALTER TABLE assignments ADD COLUMN ot_dates TEXT NULL AFTER due_date`);
+      console.log('✅ ot_dates column added to assignments table');
+    }
+    otDatesColumnReady = true;
+  } catch (e) {
+    console.warn('⚠️ Could not ensure ot_dates column:', e.message);
+  }
+}
+// Run immediately on module load
+ensureOtDatesColumn();
+
 // ── Multer: write to LOCAL temp disk, NOT the NAS ────────────────────────────
 // Previously multer wrote directly to uploadsDir (NAS), causing a double NAS
 // write: multer NAS write + moveToUserFolder NAS write = 2× slow.
@@ -620,6 +638,7 @@ router.get('/team-leader/:userId', authenticateToken, authorizeRole(['TEAM_LEADE
 router.get('/:assignmentId/details', authenticateToken, async (req, res) => {
   try {
     const { assignmentId } = req.params;
+    await ensureOtDatesColumn();
     const assignment = await queryOne('SELECT * FROM assignments WHERE id = ?', [assignmentId]);
     if (!assignment) {
       return res.status(404).json({ success: false, message: 'Assignment not found' });
@@ -627,6 +646,13 @@ router.get('/:assignmentId/details', authenticateToken, async (req, res) => {
 
     assignment.assigned_member_details = await query(
       'SELECT u.id, u.username, u.fullName FROM assignment_members am JOIN users u ON am.user_id = u.id WHERE am.assignment_id = ?',
+      [assignmentId]
+    ) || [];
+
+    assignment.attachments = await query(
+      `SELECT id, assignment_id, original_name, filename, file_path, public_network_url, file_size, file_type, folder_name, relative_path, created_at,
+              COALESCE(status, 'team_leader_approved') AS status, COALESCE(current_stage, 'pending_admin') AS current_stage
+       FROM assignment_attachments WHERE assignment_id = ? ORDER BY COALESCE(folder_name, ''), created_at DESC`,
       [assignmentId]
     ) || [];
 
@@ -655,11 +681,36 @@ router.post('/create-json', authenticateToken, authorizeRole(['TEAM_LEADER', 'AD
     }
 
     const finalMembers = Array.isArray(assignedMembers) ? assignedMembers : JSON.parse(assignedMembers || '[]');
-    const assignmentResult = await query(
-      `INSERT INTO assignments (title, description, due_date, file_type_required, assigned_to, max_file_size, team_leader_id, team_leader_username, team, created_at, status)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), 'active')`,
-      [title, description || null, dueDate || null, fileTypeRequired || null, assignedTo || 'specific', 10485760, teamLeaderId, teamLeaderUsername, team]
-    );
+
+    // Parse OT dates
+    let finalOtDates = null;
+    try {
+      const raw = req.body.otDates || req.body.ot_dates;
+      if (raw !== undefined) {
+        const parsed = typeof raw === 'string' ? JSON.parse(raw) : (Array.isArray(raw) ? raw : []);
+        finalOtDates = parsed.length > 0 ? JSON.stringify(parsed) : null;
+      }
+    } catch (_) { finalOtDates = null; }
+
+    const assignmentResult = await (async () => {
+      try {
+        return await query(
+          `INSERT INTO assignments (title, description, due_date, ot_dates, file_type_required, assigned_to, max_file_size, team_leader_id, team_leader_username, team, created_at, status)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), 'active')`,
+          [title, description || null, dueDate || null, finalOtDates, fileTypeRequired || null, assignedTo || 'specific', 10485760, teamLeaderId, teamLeaderUsername, team]
+        );
+      } catch (insertErr) {
+        if (insertErr.message && insertErr.message.toLowerCase().includes('ot_dates')) {
+          try { await query(`ALTER TABLE assignments ADD COLUMN ot_dates TEXT NULL AFTER due_date`); } catch (_) {}
+          return await query(
+            `INSERT INTO assignments (title, description, due_date, ot_dates, file_type_required, assigned_to, max_file_size, team_leader_id, team_leader_username, team, created_at, status)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), 'active')`,
+            [title, description || null, dueDate || null, finalOtDates, fileTypeRequired || null, assignedTo || 'specific', 10485760, teamLeaderId, teamLeaderUsername, team]
+          );
+        }
+        throw insertErr;
+      }
+    })();
     const assignmentId = assignmentResult.insertId;
 
     // Provision task project folder on NAS (non-blocking)
@@ -793,10 +844,10 @@ router.post('/create', authenticateToken, authorizeRole(['TEAM_LEADER', 'ADMIN']
     }
 
     const assignmentResult = await query(
-      `INSERT INTO assignments (title, description, due_date, ot_dates, file_type_required, assigned_to, max_file_size, team_leader_id, team_leader_username, team, created_at, status)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), 'active')`,
-      [title, description || null, finalDueDate || null, finalOtDates, finalFileType || null, finalAssignedTo, finalMaxSize, finalTeamLeaderId, finalTeamLeaderUsername, team]
-    );
+          `INSERT INTO assignments (title, description, due_date, ot_dates, file_type_required, assigned_to, max_file_size, team_leader_id, team_leader_username, team, created_at, status)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), 'active')`,
+          [title, description || null, finalDueDate || null, finalOtDates, finalFileType || null, finalAssignedTo, finalMaxSize, finalTeamLeaderId, finalTeamLeaderUsername, team]
+        );
     const assignmentId = assignmentResult.insertId;
 
     // Provision task project folder on NAS (non-blocking)
@@ -1045,10 +1096,14 @@ router.put('/:id', authenticateToken, authorizeRole(['TEAM_LEADER', 'ADMIN']), u
       }
     }
 
-    await query(
-      'UPDATE assignments SET title=?, description=?, due_date=?, ot_dates=COALESCE(?,ot_dates), file_type_required=?, assigned_to=?, max_file_size=?, due_date_edited=?, original_due_date=? WHERE id=?',
-      [title, description || null, finalDueDate || null, finalOtDates !== undefined ? finalOtDates : null, finalFileType || null, finalAssignedTo || existingAssignment.assigned_to, finalMaxSize, dueDateEdited, originalDueDate, id]
-    );
+    try {
+      await query(
+        'UPDATE assignments SET title=?, description=?, due_date=?, ot_dates=COALESCE(?,ot_dates), file_type_required=?, assigned_to=?, max_file_size=?, due_date_edited=?, original_due_date=? WHERE id=?',
+        [title, description || null, finalDueDate || null, finalOtDates !== undefined ? finalOtDates : null, finalFileType || null, finalAssignedTo || existingAssignment.assigned_to, finalMaxSize, dueDateEdited, originalDueDate, id]
+      );
+    } catch (updateErr) {
+      throw updateErr;
+    }
 
     let membersAssigned = 0;
     let attachmentsCreated = 0;

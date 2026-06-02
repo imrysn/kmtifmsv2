@@ -18,12 +18,16 @@ export function getWeekendDatesBetween(dueDateStr, from = new Date()) {
   const end = new Date(dueDateStr);
   end.setHours(0, 0, 0, 0);
 
+  // Helper: format a Date as local YYYY-MM-DD (avoids UTC shift from toISOString)
+  const toLocalISO = (d) =>
+    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
   const weekends = [];
   const cursor = new Date(start);
   while (cursor <= end) {
     const day = cursor.getDay();
-    if (day === 0 || day === 6) {
-      weekends.push(cursor.toISOString().slice(0, 10));
+    if (day === 6) { // Saturday only
+      weekends.push(toLocalISO(cursor));
     }
     cursor.setDate(cursor.getDate() + 1);
   }
@@ -56,6 +60,10 @@ export function calcBusinessDaysLeft(dueDateStr, otDates = [], from = new Date()
 
   const otSet = new Set(Array.isArray(otArr) ? otArr : []);
 
+  // Use local date formatting to avoid UTC timezone shift (e.g. UTC+8 sees Sat as Fri via toISOString)
+  const toLocalISO = (d) =>
+    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
   const today = new Date(from);
   today.setHours(0, 0, 0, 0);
 
@@ -69,7 +77,7 @@ export function calcBusinessDaysLeft(dueDateStr, otDates = [], from = new Date()
     c.setDate(c.getDate() + 1);
     while (c <= today) {
       const day = c.getDay();
-      const iso = c.toISOString().slice(0, 10);
+      const iso = toLocalISO(c);
       if (day !== 0 && day !== 6) overdue++;
       else if (otSet.has(iso)) overdue++;
       c.setDate(c.getDate() + 1);
@@ -82,7 +90,7 @@ export function calcBusinessDaysLeft(dueDateStr, otDates = [], from = new Date()
   const cursor = new Date(today);
   while (cursor <= due) {
     const day = cursor.getDay();
-    const iso = cursor.toISOString().slice(0, 10);
+    const iso = toLocalISO(cursor);
     if (day !== 0 && day !== 6) businessDays++;
     else if (otSet.has(iso)) businessDays++;
     cursor.setDate(cursor.getDate() + 1);
@@ -104,11 +112,11 @@ export function formatBusinessDaysLeft(dueDateStr, otDates = []) {
   if (days === null) return '';
   if (days < 0) {
     const abs = Math.abs(days);
-    return `${abs} business ${abs === 1 ? 'day' : 'days'} overdue`;
+    return `${abs} working ${abs === 1 ? 'day' : 'days'} overdue`;
   }
   if (days === 0) return 'Due today';
-  if (days === 1) return '1 business day left';
-  return `${days} business days left`;
+  if (days === 1) return '1 working day left';
+  return `${days} working days left`;
 }
 
 /**

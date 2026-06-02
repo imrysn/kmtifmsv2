@@ -9,7 +9,7 @@ async function run() {
   // Add ot_dates column if it doesn't already exist
   const columns = await query(`SHOW COLUMNS FROM assignments LIKE 'ot_dates'`);
   if (!columns || columns.length === 0) {
-    await query(`ALTER TABLE assignments ADD COLUMN ot_dates JSON NULL AFTER due_date`);
+    await query(`ALTER TABLE assignments ADD COLUMN ot_dates TEXT NULL AFTER due_date`);
     console.log('✅ Migration 018: ot_dates column added to assignments table');
   } else {
     console.log('ℹ️  Migration 018: ot_dates column already exists — skipping');
