@@ -70,7 +70,12 @@ async function uploadFile(fileData, user) {
             [assignmentId]
         );
         if (assignment && assignment.project_folder_path) {
-            isNewPipeline = true;
+            // Only treat as new pipeline for regular users — team leaders uploading
+            // reference attachments use a different path (teamleader/) and should
+            // never overwrite a member's submitted file record.
+            if (user.role !== 'TEAM_LEADER' && user.role !== 'ADMIN') {
+                isNewPipeline = true;
+            }
         }
     }
 
@@ -270,7 +275,11 @@ async function bulkUploadFast(filesData, user, assignmentId = null) {
             [parseInt(assignmentId, 10)]
         );
         if (assignment && assignment.project_folder_path) {
-            isNewPipeline = true;
+            // Only treat as new pipeline for regular users — team leaders uploading
+            // reference attachments should never overwrite a member's submitted file.
+            if (user.role !== 'TEAM_LEADER' && user.role !== 'ADMIN') {
+                isNewPipeline = true;
+            }
         }
     }
 
@@ -437,12 +446,18 @@ async function bulkUploadFast(filesData, user, assignmentId = null) {
         try {
             const assignmentIdInt = parseInt(assignmentId, 10);
             const fileIds = successLinks.map(l => l.fileId);
-            const subPlaceholders = fileIds.map(() => '(?, ?, ?, NOW())').join(', ');
-            const subValues = fileIds.flatMap(fid => [assignmentIdInt, user.id, fid]);
-            await query(
-                `INSERT IGNORE INTO assignment_submissions (assignment_id, user_id, file_id, submitted_at) VALUES ${subPlaceholders}`,
-                subValues
-            );
+            // Only insert submissions for new files (isOverwrite=false).
+            // Overwritten files already have a submission record — re-inserting
+            // would violate UNIQUE constraints and reset the submitted_at timestamp.
+            const newFileLinks = successLinks.filter(l => !l.isOverwrite);
+            if (newFileLinks.length > 0) {
+                const subPlaceholders = newFileLinks.map(() => '(?, ?, ?, NOW())').join(', ');
+                const subValues = newFileLinks.map(l => l.fileId).flatMap(fid => [assignmentIdInt, user.id, fid]);
+                await query(
+                    `INSERT IGNORE INTO assignment_submissions (assignment_id, user_id, file_id, submitted_at) VALUES ${subPlaceholders}`,
+                    subValues
+                );
+            }
             await query(
                 'UPDATE assignment_members SET file_id = ?, submitted_at = NOW(), status = "submitted" WHERE assignment_id = ? AND user_id = ?',
                 [fileIds[fileIds.length - 1], assignmentIdInt, user.id]
@@ -504,7 +519,11 @@ async function bulkUpload(filesData, user, assignmentId = null) {
             [parseInt(assignmentId, 10)]
         );
         if (assignment && assignment.project_folder_path) {
-            isNewPipeline = true;
+            // Only treat as new pipeline for regular users — team leaders should
+            // never overwrite a member's submitted file record.
+            if (user.role !== 'TEAM_LEADER' && user.role !== 'ADMIN') {
+                isNewPipeline = true;
+            }
         }
     }
 

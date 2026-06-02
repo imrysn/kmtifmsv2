@@ -479,8 +479,6 @@ const AssignmentsTab = ({
 
   const recordView = async (fileId, isAttachment = false) => {
     if (!user || !fileId) return
-    // Instantly bump the count in UI
-    setViewerCounts(prev => ({ ...prev, [fileId]: (prev[fileId] ?? 0) + 1 }))
     try {
       await apiFetch(`/api/files/${fileId}/view?type=${isAttachment ? 'attachment' : 'submission'}`, {
         method: 'POST',
@@ -491,6 +489,11 @@ const AssignmentsTab = ({
           role: user.role || 'TEAM_LEADER'
         })
       })
+      // Fetch the real updated count so the badge matches the popover list
+      const data = await apiFetch(`/api/files/${fileId}/views?type=${isAttachment ? 'attachment' : 'submission'}`)
+      if (data.success) {
+        setViewerCounts(prev => ({ ...prev, [fileId]: (data.viewers || []).length }))
+      }
     } catch {}
   }
 

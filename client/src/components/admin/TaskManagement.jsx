@@ -572,8 +572,6 @@ const TaskManagement = ({
 
   const recordView = async (fileId, isAttachment = false) => {
     if (!user || !fileId) return
-    // Instantly bump badge count
-    setViewerCounts(prev => ({ ...prev, [fileId]: (prev[fileId] ?? 0) + 1 }))
     try {
       await apiFetch(`/api/files/${fileId}/view?type=${isAttachment ? 'attachment' : 'submission'}`, {
         method: 'POST',
@@ -584,6 +582,12 @@ const TaskManagement = ({
           role: user.role || 'admin'
         })
       })
+      // Fetch the real updated count from server after recording the view
+      // so the badge always reflects the true number (not an optimistic guess from 0)
+      const data = await apiFetch(`/api/files/${fileId}/views?type=${isAttachment ? 'attachment' : 'submission'}`)
+      if (data.success) {
+        setViewerCounts(prev => ({ ...prev, [fileId]: (data.viewers || []).length }))
+      }
     } catch { }
   }
 

@@ -52,7 +52,8 @@ const FileViewersButton = ({ fileId, size = 14, externalCount, minDate, fileSour
     }
   }, [open])
 
-  // Fetch count on mount
+  // Fetch count on mount — also surfaces the real count to parent via a callback
+  // so that externalCount (used for optimistic +1) is seeded correctly.
   useEffect(() => {
     if (!fileId) return
     apiFetch(`${API_BASE_URL}/api/files/${fileId}/views?type=${fileSource}`)
@@ -68,6 +69,14 @@ const FileViewersButton = ({ fileId, size = 14, externalCount, minDate, fileSour
       })
       .catch(() => {})
   }, [fileId, minDate, fileSource])
+
+  // When externalCount is provided by the parent (optimistic bump), keep internal
+  // count in sync so that after the popover is opened the badge doesn't reset.
+  useEffect(() => {
+    if (externalCount !== undefined) {
+      setCount(externalCount);
+    }
+  }, [externalCount])
 
   const fetchViewers = async () => {
     setLoading(true)

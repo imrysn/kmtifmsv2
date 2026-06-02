@@ -159,17 +159,28 @@ async function processAttachments(uploadedFiles, relativePaths, finalTeamLeaderU
                 return false;
             });
             for (const att of toDelete) {
-                // Delete physical file from NAS
+                // SAFETY: Only delete files that are in the teamleader/ path.
+                // Never delete files in the projects/ path (those are user-submitted files).
                 if (att.file_path) {
                     try {
-                        if (fs.existsSync(att.file_path)) fs.unlinkSync(att.file_path);
+                        // Verify the file is in the teamleader directory before deleting
+                        const teamleaderBase = path.join(networkDataPath, 'teamleader');
+                        const isTeamLeaderFile = att.file_path.startsWith(teamleaderBase) ||
+                            att.file_path.replace(/\\/g, '/').includes('/teamleader/');
+                        if (isTeamLeaderFile && fs.existsSync(att.file_path)) {
+                            fs.unlinkSync(att.file_path);
+                        } else if (!isTeamLeaderFile) {
+                            console.warn(`⚠️ processAttachments: skipping deletion of non-teamleader file: ${att.file_path}`);
+                        }
                     } catch (_) {}
                 }
                 await query('DELETE FROM assignment_attachments WHERE id = ?', [att.id]);
             }
-            // Delete now-empty folder directories on NAS
+            // Delete now-empty folder directories on NAS — only in the teamleader/ path.
+            // NEVER delete folders in the projects/ path (user submitted files live there).
+            const teamleaderBase = path.join(networkDataPath, 'teamleader');
             for (const folderName of incomingFolders) {
-                const folderPath = path.join(networkDataPath, 'teamleader', finalTeamLeaderUsername, folderName);
+                const folderPath = path.join(teamleaderBase, finalTeamLeaderUsername, folderName);
                 try {
                     if (fs.existsSync(folderPath)) {
                         fs.rmSync(folderPath, { recursive: true, force: true });
@@ -1027,6 +1038,8 @@ router.put('/:id', authenticateToken, authorizeRole(['TEAM_LEADER', 'ADMIN']), u
     }
 
     // Handle removed attachments
+    // SAFETY: Only delete from assignment_attachments (TL reference files).
+    // Never touch assignment_submissions (user-submitted files).
     let removeAttachmentIds = [];
     try {
       const raw = req.body.removeAttachmentIds;
@@ -1037,11 +1050,18 @@ router.put('/:id', authenticateToken, authorizeRole(['TEAM_LEADER', 'ADMIN']), u
 
     for (const attId of removeAttachmentIds) {
       try {
-        const att = await queryOne('SELECT * FROM assignment_attachments WHERE id = ? AND assignment_id = ?', [attId, id]);
+        // Double-check: only delete records that exist in assignment_attachments for this assignment.
+        // This prevents accidental deletion of user files if wrong IDs are sent.
+        const att = await queryOne(
+          'SELECT * FROM assignment_attachments WHERE id = ? AND assignment_id = ?',
+          [attId, id]
+        );
         if (att) {
           if (att.file_path) {
             try {
-              const fp = att.file_path.startsWith('/uploads/') ? path.join(uploadsDir, att.file_path.substring(9)) : att.file_path;
+              const fp = att.file_path.startsWith('/uploads/')
+                ? path.join(uploadsDir, att.file_path.substring(9))
+                : att.file_path;
               if (fs.existsSync(fp)) {
                 fs.unlinkSync(fp);
               }
@@ -1049,7 +1069,10 @@ router.put('/:id', authenticateToken, authorizeRole(['TEAM_LEADER', 'ADMIN']), u
               console.warn('⚠️ Could not delete physical attachment:', e.message);
             }
           }
-          await query('DELETE FROM assignment_attachments WHERE id = ?', [attId]);
+          await query('DELETE FROM assignment_attachments WHERE id = ? AND assignment_id = ?', [attId, id]);
+          console.log(`✅ Removed TL attachment id=${attId} from assignment ${id}`);
+        } else {
+          console.warn(`⚠️ removeAttachmentId=${attId} not found in assignment_attachments for assignment ${id} — skipping (safety check)`);
         }
       } catch (e) {
         console.warn('⚠️ Failed to remove attachment', attId, e.message);
