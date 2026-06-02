@@ -409,6 +409,7 @@ const TasksTab = memo(({
   // UI state
   const [sortFilter, setSortFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const prevSearchQueryRef = useRef('');
   const [successModal, setSuccessModal] = useState({ isOpen: false, title: '', message: '', type: 'success' });
   const [downloadToast, setDownloadToast] = useState({ show: false, fileName: '' });
   const [uploadProgress, setUploadProgress] = useState(0);
@@ -598,6 +599,15 @@ const TasksTab = memo(({
   }, [assignments.length]);
 
   useEffect(() => { fetchAssignments(); }, [fetchAssignments]);
+
+  // Reset display state when search query changes so results refresh cleanly
+  useEffect(() => {
+    if (prevSearchQueryRef.current !== searchQuery) {
+      prevSearchQueryRef.current = searchQuery;
+      setShowAllSubmittedFiles({});
+      setExpandedFolders({});
+    }
+  }, [searchQuery]);
 
   // Apply initialTab from notification click (e.g. 'for-checking')
   useEffect(() => {
@@ -1517,14 +1527,6 @@ const TasksTab = memo(({
           >×</button>
         )}
       </div>
-
-      <SuccessModal
-        isOpen={successModal.isOpen}
-        onClose={() => setSuccessModal({ isOpen: false, title: '', message: '', type: 'success' })}
-        title={successModal.title}
-        message={successModal.message}
-        type={successModal.type}
-      />
 
       {isLoading ? (
         <div style={{ padding: '0 20px', maxWidth: '1400px', margin: '0 auto' }}>
