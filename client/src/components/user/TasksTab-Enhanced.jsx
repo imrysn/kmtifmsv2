@@ -1669,10 +1669,10 @@ const TasksTab = memo(({
                       )
                     ) : (
                       <>
-                        <div style={{ fontSize: '14px', fontWeight: '500', color: '#000000' }}>
+                        <div style={{ fontSize: '14px', fontWeight: '500', color: '#000000', whiteSpace: 'nowrap' }}>
                           Due: {assignment.due_date ? formatDate(assignment.due_date) : 'No due date'}
                           {assignment.due_date && (
-                            <span style={{ color: getBusinessDaysColor(assignment.due_date, assignment.ot_dates), fontWeight: '400', marginLeft: '4px' }}>
+                            <span style={{ color: getBusinessDaysColor(assignment.due_date, assignment.ot_dates), fontWeight: '400', marginLeft: '4px', whiteSpace: 'nowrap' }}>
                               ({formatBusinessDaysLeft(assignment.due_date, assignment.ot_dates)})
                             </span>
                           )}
