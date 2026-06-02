@@ -2129,6 +2129,29 @@ router.delete('/:assignmentId', authenticateToken, authorizeRole(['TEAM_LEADER',
     await query('DELETE FROM assignment_comments WHERE assignment_id = ?', [assignmentId]);
     await query('DELETE FROM assignments WHERE id = ?', [assignmentId]);
 
+    // Delete the NAS project folder for this task
+    try {
+      const { projectsDataPath } = require('../config/database');
+      const { sanitizeFilename } = require('../utils/fileUtils');
+
+      // Try stored path first, fall back to reconstructing from title
+      let taskFolderPath = assignment.project_folder_path;
+      if (!taskFolderPath) {
+        const safeTitle = sanitizeFilename(assignment.title) || 'unnamed_task';
+        taskFolderPath = path.join(projectsDataPath, assignment.team_leader_username, safeTitle);
+      }
+
+      if (taskFolderPath && fs.existsSync(taskFolderPath)) {
+        fs.rmSync(taskFolderPath, { recursive: true, force: true });
+        console.log(`🗑️  NAS project folder deleted on task delete: ${taskFolderPath}`);
+      } else {
+        console.log(`ℹ️  NAS project folder not found (already gone or never created): ${taskFolderPath}`);
+      }
+    } catch (nasErr) {
+      // Non-fatal: log but don't fail the delete response
+      console.warn(`⚠️  Could not delete NAS project folder for assignment ${assignmentId}:`, nasErr.message);
+    }
+
     res.json({ success: true, message: 'Assignment deleted permanently', deletedFiles: submittedFiles ? submittedFiles.length : 0 });
   } catch (error) {
     console.error('Error in delete assignment route:', error);
