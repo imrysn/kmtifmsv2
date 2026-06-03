@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 import { apiFetch, API_BASE_URL } from '@/config/api'
-import { FileOpenModal, FileIcon, UserPerformanceCard } from '../../shared'
+import { FileOpenModal, FileIcon } from '../../shared'
 import '../css/FileCollectionTab.css'
 
 import { recursiveGroupByPath } from '@utils/folderUtils'
@@ -342,11 +342,6 @@ const MemberFilesModal = ({
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
               
-              {/* Performance Section */}
-              <div className="performance-section-modal">
-                <UserPerformanceCard user={selectedMember} isCollapsible={true} />
-              </div>
-
               {/* ── FOLDERS ── */}
               {displayedFolders.length > 0 && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>

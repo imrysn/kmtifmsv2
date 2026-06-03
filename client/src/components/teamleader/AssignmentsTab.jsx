@@ -1061,9 +1061,11 @@ const AssignmentsTab = ({
               background: activeTaskTab === 'tasks' ? '#fff' : 'transparent',
               color: activeTaskTab === 'tasks' ? '#111827' : '#6b7280',
               boxShadow: activeTaskTab === 'tasks' ? '0 1px 4px rgba(0,0,0,0.10)' : 'none',
+              display: 'flex', alignItems: 'center', gap: '6px',
             }}
           >
-            📋 Tasks
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><path d="M9 12h6M9 16h4"/></svg>
+            Tasks
             <span style={{
               marginLeft: '7px', fontSize: '12px', fontWeight: '700',
               background: activeTaskTab === 'tasks' ? '#e0e7ff' : '#e5e7eb',
@@ -1082,9 +1084,11 @@ const AssignmentsTab = ({
               background: activeTaskTab === 'done' ? '#fff' : 'transparent',
               color: activeTaskTab === 'done' ? '#111827' : '#6b7280',
               boxShadow: activeTaskTab === 'done' ? '0 1px 4px rgba(0,0,0,0.10)' : 'none',
+              display: 'flex', alignItems: 'center', gap: '6px',
             }}
           >
-            ✅ Done Tasks
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+            Done Tasks
             <span style={{
               marginLeft: '7px', fontSize: '12px', fontWeight: '700',
               background: activeTaskTab === 'done' ? '#dcfce7' : '#e5e7eb',
