@@ -9,6 +9,7 @@ import { useAuth, useNetwork } from '../../contexts'
 import { withErrorBoundary } from '../common'
 import { useSmartNavigation } from '../shared/SmartNavigation'
 import { recursiveGroupByPath } from '@utils/folderUtils'
+import { formatBusinessDaysLeft, getBusinessDaysColor } from '@utils/otDatesUtils'
 
 // Utility function to format file size
 const formatFileSize = (bytes) => {
@@ -101,18 +102,46 @@ const TaskManagement = ({
   const observerRef = useRef(null)
   const loadMoreRef = useRef(null)
 
-  // Filtered assignments based on search
   const filteredAssignments = useMemo(() => {
     if (!searchQuery.trim()) return assignments
     const q = searchQuery.toLowerCase()
+    
+    // Normalization helper to handle accents like ñ and common typos like Micheal/Michael
+    const matchesQuery = (text) => {
+      if (!text) return false;
+      const normText = String(text).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+      const normQuery = q.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+      
+      if (normText.includes(normQuery)) return true;
+      
+      // Michael/Micheal typo tolerance
+      const altQuery = normQuery.replace(/micheal/g, 'michael').replace(/michael/g, 'micheal');
+      if (normText.includes(altQuery)) return true;
+      
+      const altText = normText.replace(/micheal/g, 'michael').replace(/michael/g, 'micheal');
+      if (altText.includes(normQuery) || altText.includes(altQuery)) return true;
+      
+      return false;
+    };
+
     return assignments.filter(a =>
-      (a.title || '').toLowerCase().includes(q) ||
-      (a.description || '').toLowerCase().includes(q) ||
-      (a.team_leader_fullname || '').toLowerCase().includes(q) ||
-      (a.team_leader_username || '').toLowerCase().includes(q) ||
+      matchesQuery(a.title) ||
+      matchesQuery(a.description) ||
+      matchesQuery(a.team_leader_fullname) ||
+      matchesQuery(a.team_leader_username) ||
       (a.assigned_member_details || []).some(m =>
-        (m.fullName || '').toLowerCase().includes(q) ||
-        (m.username || '').toLowerCase().includes(q)
+        matchesQuery(m.fullName) ||
+        matchesQuery(m.username)
+      ) ||
+      (a.attachments || []).some(f => 
+        matchesQuery(f.original_name) ||
+        matchesQuery(f.file_name) ||
+        matchesQuery(f.folder_name)
+      ) ||
+      (a.submissions || a.recent_submissions || []).some(f => 
+        matchesQuery(f.original_name) ||
+        matchesQuery(f.file_name) ||
+        matchesQuery(f.folder_name)
       )
     )
   }, [assignments, searchQuery])
@@ -541,12 +570,10 @@ const TaskManagement = ({
     setTimeout(() => setDownloadToast({ show: false, fileName: '' }), 3500)
   }
 
-  const recordView = async (fileId) => {
+  const recordView = async (fileId, isAttachment = false) => {
     if (!user || !fileId) return
-    // Instantly bump badge count
-    setViewerCounts(prev => ({ ...prev, [fileId]: (prev[fileId] ?? 0) + 1 }))
     try {
-      await apiFetch(`/api/files/${fileId}/view`, {
+      await apiFetch(`/api/files/${fileId}/view?type=${isAttachment ? 'attachment' : 'submission'}`, {
         method: 'POST',
         body: JSON.stringify({
           userId: user.id,
@@ -555,6 +582,12 @@ const TaskManagement = ({
           role: user.role || 'admin'
         })
       })
+      // Fetch the real updated count from server after recording the view
+      // so the badge always reflects the true number (not an optimistic guess from 0)
+      const data = await apiFetch(`/api/files/${fileId}/views?type=${isAttachment ? 'attachment' : 'submission'}`)
+      if (data.success) {
+        setViewerCounts(prev => ({ ...prev, [fileId]: (data.viewers || []).length }))
+      }
     } catch { }
   }
 
@@ -623,25 +656,6 @@ const TaskManagement = ({
     })
   }
 
-  const formatDaysLeft = (dateString) => {
-    if (!dateString) return ''
-    const date = new Date(dateString)
-    const now = new Date()
-    const diffTime = date - now
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
-
-    if (diffDays < 0) {
-      const absDays = Math.abs(diffDays)
-      return `${absDays} ${absDays === 1 ? 'day' : 'days'} overdue`
-    } else if (diffDays === 0) {
-      return 'Due today'
-    } else if (diffDays === 1) {
-      return '1 day left'
-    } else {
-      return `${diffDays} days left`
-    }
-  }
-
   const formatDateTime = (dateString) => {
     if (!dateString) return 'Unknown'
     const date = new Date(dateString)
@@ -667,17 +681,6 @@ const TaskManagement = ({
     if (seconds < 604800) return `${Math.floor(seconds / 86400)}d ago`
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
   }, [])
-
-  const getStatusColor = (dueDate) => {
-    if (!dueDate) return '#95a5a6'
-    const date = new Date(dueDate)
-    const now = new Date()
-    const diffDays = Math.ceil((date - now) / (1000 * 60 * 60 * 24))
-
-    if (diffDays < 0) return '#e74c3c'
-    if (diffDays <= 2) return '#f39c12'
-    return '#27ae60'
-  }
 
   // ⚡ OPTIMIZATION: Memoized toggle handler
   const toggleRepliesVisibility = useCallback((commentId) => {
@@ -779,15 +782,15 @@ const TaskManagement = ({
       setIsDeleting(true)
       clearMessages()
 
-      const data = await apiFetch(`/api/assignments/${assignmentIdToDelete.id}`, {
+      const data = await apiFetch(`/api/assignments/${assignmentToDelete.id}`, {
         method: 'DELETE'
       })
 
       if (data.success) {
         // Remove the assignment from the local state
         setAssignments(prev => prev.filter(assignment => assignment.id !== assignmentToDelete.id))
-        setError('Assignment deleted successfully')
-        setTimeout(() => setError(''), 3000)
+        setSuccess('Assignment deleted successfully')
+        setTimeout(() => setSuccess(''), 3000)
         setShowDeleteModal(false)
         setAssignmentToDelete(null)
       } else {
@@ -1144,7 +1147,7 @@ const TaskManagement = ({
                               )}
                             </div>
                           </div>
-                          <FileViewersButton fileId={file.id} externalCount={viewerCounts[file.id]} minDate={file.submitted_at || file.uploaded_at || file.created_at} />
+                          <FileViewersButton fileId={file.id} externalCount={viewerCounts[file.id]} minDate={file.submitted_at || file.uploaded_at || file.created_at} fileSource={isAttachment ? 'attachment' : 'submission'} />
                           <button
                             onClick={(e) => { e.stopPropagation(); handleDownloadFile(file) }}
                             title="Download file"
@@ -1224,9 +1227,9 @@ const TaskManagement = ({
                               Due: {formatDate(assignment.due_date)}
                               <span
                                 className="admin-days-left"
-                                style={{ color: getStatusColor(assignment.due_date) }}
+                                style={{ color: getBusinessDaysColor(assignment.due_date, assignment.ot_dates) }}
                               >
-                                {' '}({formatDaysLeft(assignment.due_date)})
+                                {' '}({formatBusinessDaysLeft(assignment.due_date, assignment.ot_dates)})
                               </span>
                             </div>
                           )
@@ -1453,7 +1456,7 @@ const TaskManagement = ({
               const opened = await handleOpenFile(fileToOpen.file_path, fileToOpen.id)
               if (opened) {
                 setOpenedFileIds(prev => new Set([...prev, fileId]))
-                recordView(fileId)
+                recordView(fileId, fileToOpen.isAttachment)
               }
             } finally {
               setShowOpenFileConfirmation(false)

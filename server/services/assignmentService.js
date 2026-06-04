@@ -77,6 +77,25 @@ async function createAssignment(data, attachments, user) {
         status: 'active'
     });
 
+    // Provision task project folder on NAS (non-blocking)
+    setImmediate(async () => {
+        try {
+            const { projectsDataPath } = require('../config/database');
+            const { sanitizeFilename } = require('../utils/fileUtils');
+            const safeTitle = sanitizeFilename(title) || 'untitled_task';
+            const taskFolderPath = path.join(projectsDataPath, user.username, safeTitle);
+            await fs.mkdir(taskFolderPath, { recursive: true });
+            logInfo('Task project folder provisioned on NAS', { taskFolderPath, assignmentId });
+            // Persist the resolved path in the DB for fast lookups
+            await db.run(
+                'UPDATE assignments SET project_folder_path = ? WHERE id = ?',
+                [taskFolderPath, assignmentId]
+            );
+        } catch (err) {
+            logError(err, { context: 'createAssignment-provisionFolder', assignmentId });
+        }
+    });
+
     // 2. Handle attachments — move to NAS in parallel, then batch insert
     if (attachments && attachments.length > 0) {
         let relativePaths = [];

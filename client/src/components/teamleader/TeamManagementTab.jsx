@@ -2,7 +2,6 @@ import { LoadingTable } from '../common/InlineSkeletonLoader'
 import { useState, useMemo, useCallback, useEffect, memo } from 'react'
 import { apiFetch } from '@/config/api'
 import UserPerformanceCard from '../shared/UserPerformanceCard'
-import PerformanceDemo from '../shared/PerformanceDemo'
 
 const MemberCard = memo(({ member, bulkPerformance, memberScores, handleScoreLoad }) => {
   const score = memberScores[member.id] || 0;
@@ -177,29 +176,6 @@ const TeamManagementTab = ({
 
   return (
     <div className="tl-content">
-      {/* DEMO SECTION - REMOVE AFTER PREVIEW */}
-      <div style={{
-        background: '#fff7ed',
-        border: '1px dashed #fb923c',
-        borderRadius: '16px',
-        padding: '24px',
-        marginBottom: '40px'
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '20px' }}>
-          <span style={{
-            background: '#ea580c',
-            color: 'white',
-            fontSize: '10px',
-            fontWeight: '900',
-            padding: '2px 6px',
-            borderRadius: '4px',
-            textTransform: 'uppercase'
-          }}>Preview</span>
-          <h2 style={{ fontSize: '18px', fontWeight: '800', color: '#9a3412', margin: 0 }}>Visual Tier Demo</h2>
-        </div>
-        <PerformanceDemo />
-      </div>
-
       {/* Page Header - EXACT Admin Match */}
       <div className="tl-page-header">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>

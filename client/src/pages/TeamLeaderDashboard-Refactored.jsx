@@ -108,7 +108,8 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
     dueDate: '',
     fileTypeRequired: '',
     assignedMembers: [],
-    selectedTeam: '' // Add selectedTeam to state
+    selectedTeam: '',
+    otDates: []
   })
   const [editingAssignmentId, setEditingAssignmentId] = useState(null)
   const [modalInitialAttachments, setModalInitialAttachments] = useState([])
@@ -406,7 +407,7 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
     }
   }
 
-  const createAssignment = async (attachedFiles = [], removedAttachmentIds = []) => {
+  const createAssignment = async (attachedFiles = [], removedAttachmentIds = [], otDates = []) => {
     // Guard: if the modal was closed before this runs, abort silently
     if (!showCreateAssignmentModal) return
 
@@ -475,7 +476,8 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
           dueDate: '',
           fileTypeRequired: '',
           assignedMembers: [],
-          selectedTeam: uniqueTeams && uniqueTeams.length === 1 ? uniqueTeams[0] : ''
+          selectedTeam: uniqueTeams && uniqueTeams.length === 1 ? uniqueTeams[0] : '',
+          otDates: []
         })
         fetchAssignments()
       } else {
@@ -516,6 +518,7 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
         formData.append('title', assignmentForm.title)
         formData.append('description', assignmentForm.description || '')
         formData.append('dueDate', assignmentForm.dueDate || '')
+        formData.append('otDates', JSON.stringify(otDates || []))
         formData.append('fileTypeRequired', assignmentForm.fileTypeRequired || '')
         formData.append('assignedTo', assignmentForm.assignedMembers.includes('__ALL__') ? 'all' : 'specific')
         formData.append('assignedMembers', JSON.stringify(
@@ -560,6 +563,7 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
               title: assignmentForm.title,
               description: assignmentForm.description || '',
               dueDate: assignmentForm.dueDate || '',
+              otDates: JSON.stringify(otDates || []),
               fileTypeRequired: assignmentForm.fileTypeRequired || '',
               assignedTo: assignmentForm.assignedMembers.includes('__ALL__') ? 'all' : 'specific',
               assignedMembers: assignmentForm.assignedMembers.includes('__ALL__') ? [] : assignmentForm.assignedMembers,
@@ -587,6 +591,7 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
             title: assignmentForm.title,
             description: assignmentForm.description || '',
             dueDate: assignmentForm.dueDate || '',
+            otDates: JSON.stringify(otDates || []),
             fileTypeRequired: assignmentForm.fileTypeRequired || '',
             assignedTo: assignmentForm.assignedMembers.includes('__ALL__') ? 'all' : 'specific',
             assignedMembers: assignmentForm.assignedMembers.includes('__ALL__') ? [] : assignmentForm.assignedMembers,
@@ -642,13 +647,24 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
     // Get assigned member IDs
     const assignedMemberIds = (assignment.assigned_member_details || []).map(m => m.id)
 
+    // Parse ot_dates — handles: null, JS array (MySQL JSON column), or JSON string
+    const parseOtDates = (raw) => {
+      try {
+        if (!raw) return [];
+        if (Array.isArray(raw)) return raw;
+        if (typeof raw === 'string') return JSON.parse(raw);
+        return [];
+      } catch { return []; }
+    };
+
     setAssignmentForm({
       title: assignment.title || '',
       description: assignment.description || '',
       dueDate: formattedDueDate,
       fileTypeRequired: assignment.file_type_required || assignment.fileTypeRequired || '',
       assignedMembers: assignedMemberIds,
-      selectedTeam: assignment.team || ''
+      selectedTeam: assignment.team || '',
+      otDates: parseOtDates(assignment.ot_dates)
     })
 
     setShowCreateAssignmentModal(true)
@@ -1377,7 +1393,8 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
                   dueDate: '',
                   fileTypeRequired: '',
                   assignedMembers: [],
-                  selectedTeam: uniqueTeams && uniqueTeams.length === 1 ? uniqueTeams[0] : ''
+                  selectedTeam: uniqueTeams && uniqueTeams.length === 1 ? uniqueTeams[0] : '',
+                  otDates: []
                 })
               }}
             />

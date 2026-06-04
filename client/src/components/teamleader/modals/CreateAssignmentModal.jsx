@@ -1,4 +1,5 @@
 import { FileIcon } from '../../shared';
+import { getWeekendDatesBetween } from '@utils/otDatesUtils';
 
 const recursiveGroupByPath = (files, pathKey = 'relative_path') => {
   const result = { subfolders: {}, rootFiles: [] };
@@ -407,7 +408,7 @@ const CreateAssignmentModal = ({
                 <input
                   type="date"
                   value={assignmentForm.dueDate}
-                  onChange={(e) => setAssignmentForm({ ...assignmentForm, dueDate: e.target.value })}
+                  onChange={(e) => setAssignmentForm({ ...assignmentForm, dueDate: e.target.value, otDates: [] })}
                 />
               </div>
 
@@ -449,6 +450,68 @@ const CreateAssignmentModal = ({
                 </div>
               </div>
             </div>
+
+            {/* ── Approved OT Weekend Dates ─────────────────────────── */}
+            {assignmentForm.dueDate && (() => {
+              const weekends = getWeekendDatesBetween(assignmentForm.dueDate);
+              if (weekends.length === 0) return null;
+              const selectedOtDates = assignmentForm.otDates || [];
+              return (
+                <div className="tl-form-group" style={{ marginTop: '4px' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    Approved Overtime (OT) Weekends
+                    <span style={{ fontSize: '11px', fontWeight: '400', color: '#6B7280', fontStyle: 'italic' }}>
+                      — counted as working days in the countdown
+                    </span>
+                  </label>
+                  <div style={{
+                    display: 'flex', flexWrap: 'wrap', gap: '8px',
+                    padding: '12px', background: '#F9FAFB', borderRadius: '8px',
+                    border: '1px solid #E5E7EB', maxHeight: '180px', overflowY: 'auto'
+                  }}>
+                    {weekends.map(dateStr => {
+                      const d = new Date(dateStr + 'T00:00:00');
+                      const dateLabel = d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+                      const checked = selectedOtDates.includes(dateStr);
+                      return (
+                        <div
+                          key={dateStr}
+                          role="checkbox"
+                          aria-checked={checked}
+                          onClick={() => {
+                            setAssignmentForm(prev => {
+                              const current = prev.otDates || [];
+                              const isChecked = current.includes(dateStr);
+                              const next = isChecked
+                                ? current.filter(d => d !== dateStr)
+                                : [...current, dateStr];
+                              return { ...prev, otDates: next };
+                            });
+                          }}
+                          style={{
+                            display: 'flex', alignItems: 'center', gap: '6px',
+                            padding: '6px 10px', borderRadius: '20px', cursor: 'pointer',
+                            fontSize: '12.5px', fontWeight: '500', userSelect: 'none',
+                            background: checked ? '#EEF2FF' : '#fff',
+                            border: checked ? '1.5px solid #6366F1' : '1.5px solid #D1D5DB',
+                            color: checked ? '#4338CA' : '#374151',
+                            transition: 'all 0.12s'
+                          }}
+                        >
+                          {checked && <span style={{ fontSize: '10px', color: '#4338CA' }}>✓</span>}
+                          {dateLabel}
+                        </div>
+                      );
+                    })}
+                  </div>
+                  {selectedOtDates.length > 0 && (
+                    <div style={{ fontSize: '11.5px', color: '#4338CA', marginTop: '4px' }}>
+                      {selectedOtDates.length} OT {selectedOtDates.length === 1 ? 'day' : 'days'} approved
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
 
             <div className="tl-form-row">
               {teams && teams.length > 1 && (
@@ -687,7 +750,7 @@ const CreateAssignmentModal = ({
               <button
                 type="button"
                 className="tl-btn success"
-                onClick={() => createAssignment(attachedFiles, attachmentsToRemove)}
+                onClick={() => createAssignment(attachedFiles, attachmentsToRemove, assignmentForm.otDates || [])}
                 disabled={isProcessing || !assignmentForm.title.trim()}
               >
                 {isProcessing

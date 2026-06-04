@@ -12,6 +12,24 @@ const { authenticateToken, authorizeRole } = require('../middleware/auth');
 const { createAdminNotification, pushToUser } = require('./notifications');
 const { decodeUTF8Filename, ensureDirectory, moveToUserFolder } = require('../utils/fileUtils');
 
+// ── Ensure ot_dates column exists (one-time silent migration) ──────────────────────────────
+let otDatesColumnReady = false;
+async function ensureOtDatesColumn() {
+  if (otDatesColumnReady) return;
+  try {
+    const cols = await query(`SHOW COLUMNS FROM assignments LIKE 'ot_dates'`);
+    if (!cols || cols.length === 0) {
+      await query(`ALTER TABLE assignments ADD COLUMN ot_dates TEXT NULL AFTER due_date`);
+      console.log('✅ ot_dates column added to assignments table');
+    }
+    otDatesColumnReady = true;
+  } catch (e) {
+    console.warn('⚠️ Could not ensure ot_dates column:', e.message);
+  }
+}
+// Run immediately on module load
+ensureOtDatesColumn();
+
 // ── Multer: write to LOCAL temp disk, NOT the NAS ────────────────────────────
 // Previously multer wrote directly to uploadsDir (NAS), causing a double NAS
 // write: multer NAS write + moveToUserFolder NAS write = 2× slow.
@@ -141,17 +159,28 @@ async function processAttachments(uploadedFiles, relativePaths, finalTeamLeaderU
                 return false;
             });
             for (const att of toDelete) {
-                // Delete physical file from NAS
+                // SAFETY: Only delete files that are in the teamleader/ path.
+                // Never delete files in the projects/ path (those are user-submitted files).
                 if (att.file_path) {
                     try {
-                        if (fs.existsSync(att.file_path)) fs.unlinkSync(att.file_path);
+                        // Verify the file is in the teamleader directory before deleting
+                        const teamleaderBase = path.join(networkDataPath, 'teamleader');
+                        const isTeamLeaderFile = att.file_path.startsWith(teamleaderBase) ||
+                            att.file_path.replace(/\\/g, '/').includes('/teamleader/');
+                        if (isTeamLeaderFile && fs.existsSync(att.file_path)) {
+                            fs.unlinkSync(att.file_path);
+                        } else if (!isTeamLeaderFile) {
+                            console.warn(`⚠️ processAttachments: skipping deletion of non-teamleader file: ${att.file_path}`);
+                        }
                     } catch (_) {}
                 }
                 await query('DELETE FROM assignment_attachments WHERE id = ?', [att.id]);
             }
-            // Delete now-empty folder directories on NAS
+            // Delete now-empty folder directories on NAS — only in the teamleader/ path.
+            // NEVER delete folders in the projects/ path (user submitted files live there).
+            const teamleaderBase = path.join(networkDataPath, 'teamleader');
             for (const folderName of incomingFolders) {
-                const folderPath = path.join(networkDataPath, 'teamleader', finalTeamLeaderUsername, folderName);
+                const folderPath = path.join(teamleaderBase, finalTeamLeaderUsername, folderName);
                 try {
                     if (fs.existsSync(folderPath)) {
                         fs.rmSync(folderPath, { recursive: true, force: true });
@@ -312,7 +341,7 @@ router.get('/admin/all', authenticateToken, authorizeRole(['ADMIN']), async (req
                 COALESCE(status, 'team_leader_approved') AS status, COALESCE(current_stage, 'pending_admin') AS current_stage
          FROM assignment_attachments WHERE assignment_id IN (${ph}) ORDER BY assignment_id, COALESCE(folder_name, ''), created_at DESC`, ids),
         query(`SELECT asub.assignment_id, f.id, f.original_name, f.filename, f.file_type, f.file_path, f.public_network_url, f.file_size,
-                f.tag, f.description, f.uploaded_at, f.status, f.checked_by, f.folder_name, f.relative_path, f.is_folder,
+                f.tag, f.description, f.uploaded_at, f.status, f.checked_by, f.checker_note, f.folder_name, f.relative_path, f.is_folder,
                 u.username, u.fullName, asub.submitted_at, asub.submitted_at as created_at, asub.user_id
          FROM assignment_submissions asub
          JOIN files f ON asub.file_id = f.id JOIN users u ON asub.user_id = u.id
@@ -383,7 +412,7 @@ router.get('/all', authenticateToken, authorizeRole(['ADMIN']), async (req, res)
       const [allMembers, allAttachments, allSubmissions, allTLs] = await Promise.all([
         query(`SELECT am.assignment_id, u.id, u.username, u.fullName FROM assignment_members am JOIN users u ON am.user_id = u.id WHERE am.assignment_id IN (${ph})`, ids),
         query(`SELECT id, assignment_id, original_name, filename, file_path, public_network_url, file_size, file_type, folder_name, relative_path, created_at, COALESCE(status, 'team_leader_approved') AS status, COALESCE(current_stage, 'pending_admin') AS current_stage FROM assignment_attachments WHERE assignment_id IN (${ph}) ORDER BY assignment_id, COALESCE(folder_name, ''), created_at DESC`, ids),
-        query(`SELECT asub.assignment_id, f.id, f.original_name, f.filename, f.file_type, f.file_path, f.public_network_url, f.file_size, f.tag, f.description, f.uploaded_at, f.status, f.checked_by, f.folder_name, f.relative_path, f.is_folder, u.username, u.fullName, asub.submitted_at, asub.submitted_at as created_at, asub.user_id FROM assignment_submissions asub JOIN files f ON asub.file_id = f.id JOIN users u ON asub.user_id = u.id WHERE asub.assignment_id IN (${ph}) ORDER BY asub.submitted_at DESC`, ids),
+        query(`SELECT asub.assignment_id, f.id, f.original_name, f.filename, f.file_type, f.file_path, f.public_network_url, f.file_size, f.tag, f.description, f.uploaded_at, f.status, f.checked_by, f.checker_note, f.folder_name, f.relative_path, f.is_folder, u.username, u.fullName, asub.submitted_at, asub.submitted_at as created_at, asub.user_id FROM assignment_submissions asub JOIN files f ON asub.file_id = f.id JOIN users u ON asub.user_id = u.id WHERE asub.assignment_id IN (${ph}) ORDER BY asub.submitted_at DESC`, ids),
         tlIds.length > 0 ? query(`SELECT id, fullName, username, email FROM users WHERE id IN (${tlPh})`, tlIds) : []
       ]);
       const membersByAsgn = {}; const attachByAsgn = {}; const subsByAsgn = {};
@@ -521,7 +550,7 @@ router.get('/team/:team/all-tasks', authenticateToken, async (req, res) => {
                 COALESCE(status, 'team_leader_approved') AS status, COALESCE(current_stage, 'pending_admin') AS current_stage
          FROM assignment_attachments WHERE assignment_id IN (${ph}) ORDER BY assignment_id, COALESCE(folder_name, ''), created_at DESC`, ids),
         query(`SELECT asub.assignment_id, f.id, f.original_name, f.filename, f.file_type, f.file_path, f.public_network_url, f.file_size,
-                f.tag, f.description, f.uploaded_at, f.status, f.checked_by, f.folder_name, f.relative_path, f.is_folder,
+                f.tag, f.description, f.uploaded_at, f.status, f.checked_by, f.checker_note, f.folder_name, f.relative_path, f.is_folder,
                 u.username, u.fullName, asub.submitted_at, asub.submitted_at as created_at
          FROM assignment_submissions asub
          JOIN files f ON asub.file_id = f.id JOIN users u ON asub.user_id = u.id
@@ -585,7 +614,7 @@ router.get('/team-leader/:userId', authenticateToken, authorizeRole(['TEAM_LEADE
                 COALESCE(status, 'team_leader_approved') AS status, COALESCE(current_stage, 'pending_admin') AS current_stage
          FROM assignment_attachments WHERE assignment_id IN (${ph}) ORDER BY assignment_id, COALESCE(folder_name, ''), created_at DESC`, ids),
         query(`SELECT asub.assignment_id, f.id, f.original_name, f.filename, f.file_type, f.file_path, f.public_network_url, f.file_size,
-                f.tag, f.description, f.uploaded_at, f.status, f.checked_by, f.folder_name, f.relative_path, f.is_folder, f.user_team,
+                f.tag, f.description, f.uploaded_at, f.status, f.checked_by, f.checker_note, f.folder_name, f.relative_path, f.is_folder, f.user_team,
                 u.username, u.fullName, asub.submitted_at, asub.submitted_at as created_at, asub.user_id
          FROM assignment_submissions asub
          JOIN files f ON asub.file_id = f.id JOIN users u ON asub.user_id = u.id
@@ -620,6 +649,7 @@ router.get('/team-leader/:userId', authenticateToken, authorizeRole(['TEAM_LEADE
 router.get('/:assignmentId/details', authenticateToken, async (req, res) => {
   try {
     const { assignmentId } = req.params;
+    await ensureOtDatesColumn();
     const assignment = await queryOne('SELECT * FROM assignments WHERE id = ?', [assignmentId]);
     if (!assignment) {
       return res.status(404).json({ success: false, message: 'Assignment not found' });
@@ -627,6 +657,13 @@ router.get('/:assignmentId/details', authenticateToken, async (req, res) => {
 
     assignment.assigned_member_details = await query(
       'SELECT u.id, u.username, u.fullName FROM assignment_members am JOIN users u ON am.user_id = u.id WHERE am.assignment_id = ?',
+      [assignmentId]
+    ) || [];
+
+    assignment.attachments = await query(
+      `SELECT id, assignment_id, original_name, filename, file_path, public_network_url, file_size, file_type, folder_name, relative_path, created_at,
+              COALESCE(status, 'team_leader_approved') AS status, COALESCE(current_stage, 'pending_admin') AS current_stage
+       FROM assignment_attachments WHERE assignment_id = ? ORDER BY COALESCE(folder_name, ''), created_at DESC`,
       [assignmentId]
     ) || [];
 
@@ -655,12 +692,57 @@ router.post('/create-json', authenticateToken, authorizeRole(['TEAM_LEADER', 'AD
     }
 
     const finalMembers = Array.isArray(assignedMembers) ? assignedMembers : JSON.parse(assignedMembers || '[]');
-    const assignmentResult = await query(
-      `INSERT INTO assignments (title, description, due_date, file_type_required, assigned_to, max_file_size, team_leader_id, team_leader_username, team, created_at, status)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), 'active')`,
-      [title, description || null, dueDate || null, fileTypeRequired || null, assignedTo || 'specific', 10485760, teamLeaderId, teamLeaderUsername, team]
-    );
+
+    // Parse OT dates
+    let finalOtDates = null;
+    try {
+      const raw = req.body.otDates || req.body.ot_dates;
+      if (raw !== undefined) {
+        const parsed = typeof raw === 'string' ? JSON.parse(raw) : (Array.isArray(raw) ? raw : []);
+        finalOtDates = parsed.length > 0 ? JSON.stringify(parsed) : null;
+      }
+    } catch (_) { finalOtDates = null; }
+
+    const assignmentResult = await (async () => {
+      try {
+        return await query(
+          `INSERT INTO assignments (title, description, due_date, ot_dates, file_type_required, assigned_to, max_file_size, team_leader_id, team_leader_username, team, created_at, status)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), 'active')`,
+          [title, description || null, dueDate || null, finalOtDates, fileTypeRequired || null, assignedTo || 'specific', 10485760, teamLeaderId, teamLeaderUsername, team]
+        );
+      } catch (insertErr) {
+        if (insertErr.message && insertErr.message.toLowerCase().includes('ot_dates')) {
+          try { await query(`ALTER TABLE assignments ADD COLUMN ot_dates TEXT NULL AFTER due_date`); } catch (_) {}
+          return await query(
+            `INSERT INTO assignments (title, description, due_date, ot_dates, file_type_required, assigned_to, max_file_size, team_leader_id, team_leader_username, team, created_at, status)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), 'active')`,
+            [title, description || null, dueDate || null, finalOtDates, fileTypeRequired || null, assignedTo || 'specific', 10485760, teamLeaderId, teamLeaderUsername, team]
+          );
+        }
+        throw insertErr;
+      }
+    })();
     const assignmentId = assignmentResult.insertId;
+
+    // Provision task project folder on NAS (non-blocking)
+    setImmediate(async () => {
+      try {
+        const { projectsDataPath } = require('../config/database');
+        const { sanitizeFilename } = require('../utils/fileUtils');
+        const safeTitle = sanitizeFilename(title) || 'unnamed_task';
+        const taskFolderPath = path.join(projectsDataPath, teamLeaderUsername, safeTitle);
+        const fsPromises = require('fs').promises;
+        await fsPromises.mkdir(taskFolderPath, { recursive: true });
+        console.log(`[POST /create-json] Task project folder provisioned: ${taskFolderPath}`);
+        await query(
+          'UPDATE assignments SET project_folder_path = ? WHERE id = ?',
+          [taskFolderPath, assignmentId]
+        );
+      } catch (err) {
+        console.error('❌ [POST /create-json] Failed to provision task project folder:', err);
+      }
+    });
+
     let membersAssigned = 0;
 
     if (finalMembers.length > 0) {
@@ -721,6 +803,13 @@ router.post('/create', authenticateToken, authorizeRole(['TEAM_LEADER', 'ADMIN']
     const finalMembers = typeof assignedMembers === 'string' ? JSON.parse(assignedMembers) : (assignedMembers || assigned_members);
     const finalTeamLeaderId = teamLeaderId || team_leader_id;
     const finalTeamLeaderUsername = teamLeaderUsername || team_leader_username;
+    // Parse approved OT weekend dates (JSON array of "YYYY-MM-DD" strings)
+    let finalOtDates = null;
+    try {
+      const raw = req.body.otDates || req.body.ot_dates;
+      const parsed = typeof raw === 'string' ? JSON.parse(raw) : (Array.isArray(raw) ? raw : []);
+      finalOtDates = parsed.length > 0 ? JSON.stringify(parsed) : null;
+    } catch (_) { finalOtDates = null; }
 
     // Nonce validation for multipart requests only
     const isMultipart = req.is('multipart/form-data');
@@ -766,11 +855,31 @@ router.post('/create', authenticateToken, authorizeRole(['TEAM_LEADER', 'ADMIN']
     }
 
     const assignmentResult = await query(
-      `INSERT INTO assignments (title, description, due_date, file_type_required, assigned_to, max_file_size, team_leader_id, team_leader_username, team, created_at, status)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), 'active')`,
-      [title, description || null, finalDueDate || null, finalFileType || null, finalAssignedTo, finalMaxSize, finalTeamLeaderId, finalTeamLeaderUsername, team]
-    );
+          `INSERT INTO assignments (title, description, due_date, ot_dates, file_type_required, assigned_to, max_file_size, team_leader_id, team_leader_username, team, created_at, status)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), 'active')`,
+          [title, description || null, finalDueDate || null, finalOtDates, finalFileType || null, finalAssignedTo, finalMaxSize, finalTeamLeaderId, finalTeamLeaderUsername, team]
+        );
     const assignmentId = assignmentResult.insertId;
+
+    // Provision task project folder on NAS (non-blocking)
+    setImmediate(async () => {
+      try {
+        const { projectsDataPath } = require('../config/database');
+        const { sanitizeFilename } = require('../utils/fileUtils');
+        const safeTitle = sanitizeFilename(title) || 'unnamed_task';
+        const taskFolderPath = path.join(projectsDataPath, finalTeamLeaderUsername, safeTitle);
+        const fsPromises = require('fs').promises;
+        await fsPromises.mkdir(taskFolderPath, { recursive: true });
+        console.log(`[POST /create] Task project folder provisioned: ${taskFolderPath}`);
+        await query(
+          'UPDATE assignments SET project_folder_path = ? WHERE id = ?',
+          [taskFolderPath, assignmentId]
+        );
+      } catch (err) {
+        console.error('❌ [POST /create] Failed to provision task project folder:', err);
+      }
+    });
+
     let membersAssigned = 0;
     let attachmentsCreated = 0;
 
@@ -890,6 +999,15 @@ router.put('/:id', authenticateToken, authorizeRole(['TEAM_LEADER', 'ADMIN']), u
     const finalMembers = typeof assignedMembers === 'string' ? JSON.parse(assignedMembers) : (assignedMembers || assigned_members);
     const finalTeamLeaderId = teamLeaderId || team_leader_id;
     const finalTeamLeaderUsername = teamLeaderUsername || team_leader_username;
+    // Parse approved OT weekend dates for PUT (update)
+    let finalOtDates = undefined; // undefined = don't change
+    try {
+      const raw = req.body.otDates || req.body.ot_dates;
+      if (raw !== undefined) {
+        const parsed = typeof raw === 'string' ? JSON.parse(raw) : (Array.isArray(raw) ? raw : []);
+        finalOtDates = parsed.length > 0 ? JSON.stringify(parsed) : null;
+      }
+    } catch (_) { finalOtDates = undefined; }
 
     // Nonce validation for multipart
     const isMultipart = req.is('multipart/form-data');
@@ -920,6 +1038,8 @@ router.put('/:id', authenticateToken, authorizeRole(['TEAM_LEADER', 'ADMIN']), u
     }
 
     // Handle removed attachments
+    // SAFETY: Only delete from assignment_attachments (TL reference files).
+    // Never touch assignment_submissions (user-submitted files).
     let removeAttachmentIds = [];
     try {
       const raw = req.body.removeAttachmentIds;
@@ -930,11 +1050,18 @@ router.put('/:id', authenticateToken, authorizeRole(['TEAM_LEADER', 'ADMIN']), u
 
     for (const attId of removeAttachmentIds) {
       try {
-        const att = await queryOne('SELECT * FROM assignment_attachments WHERE id = ? AND assignment_id = ?', [attId, id]);
+        // Double-check: only delete records that exist in assignment_attachments for this assignment.
+        // This prevents accidental deletion of user files if wrong IDs are sent.
+        const att = await queryOne(
+          'SELECT * FROM assignment_attachments WHERE id = ? AND assignment_id = ?',
+          [attId, id]
+        );
         if (att) {
           if (att.file_path) {
             try {
-              const fp = att.file_path.startsWith('/uploads/') ? path.join(uploadsDir, att.file_path.substring(9)) : att.file_path;
+              const fp = att.file_path.startsWith('/uploads/')
+                ? path.join(uploadsDir, att.file_path.substring(9))
+                : att.file_path;
               if (fs.existsSync(fp)) {
                 fs.unlinkSync(fp);
               }
@@ -942,7 +1069,10 @@ router.put('/:id', authenticateToken, authorizeRole(['TEAM_LEADER', 'ADMIN']), u
               console.warn('⚠️ Could not delete physical attachment:', e.message);
             }
           }
-          await query('DELETE FROM assignment_attachments WHERE id = ?', [attId]);
+          await query('DELETE FROM assignment_attachments WHERE id = ? AND assignment_id = ?', [attId, id]);
+          console.log(`✅ Removed TL attachment id=${attId} from assignment ${id}`);
+        } else {
+          console.warn(`⚠️ removeAttachmentId=${attId} not found in assignment_attachments for assignment ${id} — skipping (safety check)`);
         }
       } catch (e) {
         console.warn('⚠️ Failed to remove attachment', attId, e.message);
@@ -989,10 +1119,14 @@ router.put('/:id', authenticateToken, authorizeRole(['TEAM_LEADER', 'ADMIN']), u
       }
     }
 
-    await query(
-      'UPDATE assignments SET title=?, description=?, due_date=?, file_type_required=?, assigned_to=?, max_file_size=?, due_date_edited=?, original_due_date=? WHERE id=?',
-      [title, description || null, finalDueDate || null, finalFileType || null, finalAssignedTo || existingAssignment.assigned_to, finalMaxSize, dueDateEdited, originalDueDate, id]
-    );
+    try {
+      await query(
+        'UPDATE assignments SET title=?, description=?, due_date=?, ot_dates=COALESCE(?,ot_dates), file_type_required=?, assigned_to=?, max_file_size=?, due_date_edited=?, original_due_date=? WHERE id=?',
+        [title, description || null, finalDueDate || null, finalOtDates !== undefined ? finalOtDates : null, finalFileType || null, finalAssignedTo || existingAssignment.assigned_to, finalMaxSize, dueDateEdited, originalDueDate, id]
+      );
+    } catch (updateErr) {
+      throw updateErr;
+    }
 
     let membersAssigned = 0;
     let attachmentsCreated = 0;
@@ -1116,7 +1250,7 @@ router.get('/user/:userId', authenticateToken, async (req, res) => {
             const cph = checkerAssignmentIds.map(() => '?').join(',');
             queries.push(
               query(`SELECT asub.assignment_id, f.id, f.original_name, f.filename, f.file_path, f.public_network_url, f.file_type, f.file_size,
-                f.tag, f.description, f.status, f.folder_name, f.relative_path, f.is_folder,
+                f.tag, f.description, f.status, f.checked_by, f.checker_note, f.folder_name, f.relative_path, f.is_folder,
                 asub.submitted_at, u.fullName as submitter_name, u.username as submitter_username
                FROM assignment_submissions asub
                JOIN files f ON asub.file_id = f.id JOIN users u ON asub.user_id = u.id
@@ -1128,7 +1262,7 @@ router.get('/user/:userId', authenticateToken, async (req, res) => {
             const mph = myTaskIds.map(() => '?').join(',');
             queries.push(
               query(`SELECT asub.assignment_id, f.id, f.original_name, f.filename, f.file_path, f.public_network_url, f.file_type, f.file_size,
-                f.tag, f.description, f.status, f.folder_name, f.relative_path, f.is_folder,
+                f.tag, f.description, f.status, f.checked_by, f.checker_note, f.folder_name, f.relative_path, f.is_folder,
                 asub.submitted_at, u.fullName as submitter_name, u.username as submitter_username
                FROM assignment_submissions asub
                JOIN files f ON asub.file_id = f.id JOIN users u ON asub.user_id = u.id
@@ -1552,11 +1686,11 @@ router.put('/:assignmentId/assign-checker', authenticateToken, authorizeRole(['T
 
     const assignment = current; // already fetched above
 
-    // Notify each newly assigned checker
+    // Notify ALL currently assigned checkers (not just new ones).
+    // This ensures the user always gets notified when the TL assigns them as checker,
+    // even if they were previously assigned (e.g. the submitter being assigned as their own checker).
     if (ids.length > 0 && assignment) {
-      // Only notify checkers who are genuinely NEW (not already in previousIds)
-      const newCheckerIds = ids.filter(id => !previousIds.includes(id));
-      for (const checkerId of newCheckerIds) {
+      for (const checkerId of ids) {
         try {
           await query(
             'INSERT INTO notifications (user_id, assignment_id, file_id, type, title, message, action_by_id, action_by_username, action_by_role) VALUES (?,?,?,?,?,?,?,?,?)',
@@ -1606,8 +1740,8 @@ router.put('/:assignmentId/mark-for-editing', authenticateToken, async (req, res
     if (fileId) {
       // Per-file revision: only mark the specific file, keep assignment status as-is
       await query(
-        `UPDATE files SET status = 'revision', updated_at = ? WHERE id = ?`,
-        [now, fileId]
+        `UPDATE files SET status = 'revision', checker_note = ?, updated_at = ? WHERE id = ?`,
+        [note || null, now, fileId]
       );
     } else {
       // Whole-assignment revision: update assignment status and ALL submitted files
@@ -1615,9 +1749,9 @@ router.put('/:assignmentId/mark-for-editing', authenticateToken, async (req, res
       await query(
         `UPDATE files f
          JOIN assignment_submissions asub ON asub.file_id = f.id
-         SET f.status = 'revision', f.updated_at = ?
+         SET f.status = 'revision', f.checker_note = ?, f.updated_at = ?
          WHERE asub.assignment_id = ?`,
-        [now, assignmentId]
+        [note || null, now, assignmentId]
       );
     }
 
@@ -1641,7 +1775,9 @@ router.put('/:assignmentId/mark-for-editing', authenticateToken, async (req, res
       : `Your ${fileId ? 'file' : 'submission'} for "${assignment.title}" requires editing/revision. Please make the necessary changes and resubmit.`;
 
     for (const uid of allUserIds) {
-      // Don't notify the checker themselves if they're also a member
+      // Skip the checker who performed the action — they already know what they marked.
+      // This prevents the checker from receiving a "Submission Needs Editing" notification
+      // on a task they are also assigned to (e.g. checker is a team member too).
       if (String(uid) === String(checkerId)) continue;
       try {
         await query(
@@ -1759,7 +1895,8 @@ router.put('/:assignmentId/files/:fileId/mark-file-checked', authenticateToken, 
         'SELECT user_id FROM assignment_submissions WHERE assignment_id = ? AND file_id = ?',
         [assignmentId, fileId]
       );
-      if (submitterRow?.user_id && submitterRow.user_id !== Number(checkerId)) {
+      // Notify the submitter even if they are the checker (self-check scenario)
+      if (submitterRow?.user_id) {
         try {
           await query(
             'INSERT INTO notifications (user_id, assignment_id, file_id, type, title, message, action_by_id, action_by_username, action_by_role) VALUES (?,?,?,?,?,?,?,?,?)',
@@ -1994,6 +2131,29 @@ router.delete('/:assignmentId', authenticateToken, authorizeRole(['TEAM_LEADER',
     await query('DELETE FROM assignment_members WHERE assignment_id = ?', [assignmentId]);
     await query('DELETE FROM assignment_comments WHERE assignment_id = ?', [assignmentId]);
     await query('DELETE FROM assignments WHERE id = ?', [assignmentId]);
+
+    // Delete the NAS project folder for this task
+    try {
+      const { projectsDataPath } = require('../config/database');
+      const { sanitizeFilename } = require('../utils/fileUtils');
+
+      // Try stored path first, fall back to reconstructing from title
+      let taskFolderPath = assignment.project_folder_path;
+      if (!taskFolderPath) {
+        const safeTitle = sanitizeFilename(assignment.title) || 'unnamed_task';
+        taskFolderPath = path.join(projectsDataPath, assignment.team_leader_username, safeTitle);
+      }
+
+      if (taskFolderPath && fs.existsSync(taskFolderPath)) {
+        fs.rmSync(taskFolderPath, { recursive: true, force: true });
+        console.log(`🗑️  NAS project folder deleted on task delete: ${taskFolderPath}`);
+      } else {
+        console.log(`ℹ️  NAS project folder not found (already gone or never created): ${taskFolderPath}`);
+      }
+    } catch (nasErr) {
+      // Non-fatal: log but don't fail the delete response
+      console.warn(`⚠️  Could not delete NAS project folder for assignment ${assignmentId}:`, nasErr.message);
+    }
 
     res.json({ success: true, message: 'Assignment deleted permanently', deletedFiles: submittedFiles ? submittedFiles.length : 0 });
   } catch (error) {

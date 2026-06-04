@@ -17,10 +17,11 @@ const FileOpenModal = ({ isOpen, onClose, onConfirm, file, isLoading = false, ty
     if (!isOpen || !file) return null
 
     const isFolder = type === 'folder'
-    const title = isFolder ? 'Open Folder' : 'Open File'
-    const question = isFolder ? 'Do you want to open this folder path?' : 'Do you want to open this file?'
-    const hint = isFolder ? 'The folder will open in your file explorer.' : 'The file will open in your default application.'
-    const confirmLabel = isLoading ? 'Opening...' : (isFolder ? 'Open Folder' : 'Open File')
+    const isFilePath = type === 'filePath'
+    const title = isFolder ? 'Open Folder' : (isFilePath ? 'Open File Path' : 'Open File')
+    const question = isFolder ? 'Do you want to open this folder path?' : (isFilePath ? 'Do you want to open this file path?' : 'Do you want to open this file?')
+    const hint = isFolder ? 'The folder will open in your file explorer.' : (isFilePath ? 'The folder containing the file will open in your file explorer.' : 'The file will open in your default application.')
+    const confirmLabel = isLoading ? 'Opening...' : (isFolder ? 'Open Folder' : (isFilePath ? 'Open File Path' : 'Open File'))
 
     const handleOverlayClick = (e) => {
         if (e.target === e.currentTarget && !isLoading) {
@@ -45,7 +46,7 @@ const FileOpenModal = ({ isOpen, onClose, onConfirm, file, isLoading = false, ty
             <div className="file-open-modal-new">
                 <div className="file-open-header">
                     <div className="file-open-icon">
-                        {isFolder ? (
+                        {isFolder || isFilePath ? (
                             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                                 <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 2h9a2 2 0 0 1 2 2v12z" />
                             </svg>
@@ -62,7 +63,7 @@ const FileOpenModal = ({ isOpen, onClose, onConfirm, file, isLoading = false, ty
                 <div className="file-open-body">
                     <p className="file-open-question">{question}</p>
                     <div className="file-open-name-box">
-                        {isFolder ? (
+                        {isFolder || isFilePath ? (
                             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                                 <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 2h9a2 2 0 0 1 2 2v12z" />
                             </svg>

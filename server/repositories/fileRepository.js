@@ -318,9 +318,9 @@ async function findByNameAndUser(originalName, userId, folderName = null, assign
         let whereExtra = '';
         if (folderName) {
             whereExtra = ' AND f.folder_name = ?';
-            params.push(assignmentId, userId, originalName, userId, folderName);
+            params.push(assignmentId, userId, originalName, originalName, userId, folderName);
         } else {
-            params.push(assignmentId, userId, originalName, userId);
+            params.push(assignmentId, userId, originalName, originalName, userId);
         }
         query = `
             SELECT f.* FROM files f
@@ -328,7 +328,7 @@ async function findByNameAndUser(originalName, userId, folderName = null, assign
                 ON asub.file_id = f.id
                 AND asub.assignment_id = ?
                 AND asub.user_id = ?
-            WHERE f.original_name = ? AND f.user_id = ?${whereExtra}
+            WHERE (f.original_name = ? OR SUBSTRING_INDEX(f.original_name, '.', 1) = SUBSTRING_INDEX(?, '.', 1)) AND f.user_id = ?${whereExtra}
             ORDER BY
                 CASE WHEN f.folder_name IS NOT NULL AND f.folder_name != '' THEN 0 ELSE 1 END,
                 CASE WHEN f.status IN ('rejected_by_team_leader','rejected_by_admin') THEN 0 ELSE 1 END,
@@ -367,13 +367,13 @@ async function findAnyByNameAndAssignment(originalName, userId, assignmentId) {
             ON asub.file_id = f.id
             AND asub.assignment_id = ?
             AND asub.user_id = ?
-        WHERE f.original_name = ? AND f.user_id = ?
+        WHERE (f.original_name = ? OR SUBSTRING_INDEX(f.original_name, '.', 1) = SUBSTRING_INDEX(?, '.', 1)) AND f.user_id = ?
         ORDER BY
             CASE WHEN f.folder_name IS NOT NULL AND f.folder_name != '' THEN 0 ELSE 1 END,
             f.uploaded_at DESC
         LIMIT 1`;
     try {
-        const file = await db.get(query, [assignmentId, userId, originalName, userId]);
+        const file = await db.get(query, [assignmentId, userId, originalName, originalName, userId]);
         return file || null;
     } catch (err) {
         throw new DatabaseError('Failed to find file by name and assignment', err);

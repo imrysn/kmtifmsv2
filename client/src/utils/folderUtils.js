@@ -6,8 +6,18 @@
  */
 export const recursiveGroupByPath = (files, pathKey = 'relative_path') => {
   const result = { subfolders: {}, rootFiles: [] };
+  if (!files || !Array.isArray(files)) return result;
   
-  files.forEach((item, originalIdx) => {
+  // Sort files alphabetically by their original name or file name (numeric: true natural sort)
+  const sortedFiles = [...files].sort((a, b) => {
+    const fileA = a.file || a;
+    const fileB = b.file || b;
+    const nameA = (fileA.original_name || fileA.file_name || '').toLowerCase();
+    const nameB = (fileB.original_name || fileB.file_name || '').toLowerCase();
+    return nameA.localeCompare(nameB, undefined, { numeric: true, sensitivity: 'base' });
+  });
+  
+  sortedFiles.forEach((item, originalIdx) => {
     // Handle both raw File objects and wrapped objects
     const file = item.file || item;
     const info = {
@@ -38,6 +48,13 @@ export const recursiveGroupByPath = (files, pathKey = 'relative_path') => {
       });
     }
   });
+  
+  // Sort subfolders keys alphabetically
+  const sortedSubfolders = {};
+  Object.keys(result.subfolders).sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' })).forEach(key => {
+    sortedSubfolders[key] = result.subfolders[key];
+  });
+  result.subfolders = sortedSubfolders;
   
   return result;
 };

@@ -10,6 +10,7 @@ import '../shared/SmartNavigation/SmartNavigation.css'
 import SuccessModal from '../user/SuccessModal'
 
 import { recursiveGroupByPath } from '@utils/folderUtils'
+import { formatBusinessDaysLeft, getBusinessDaysColor } from '@utils/otDatesUtils'
 
 const useDropdownPosition = (btnRef, menuRef, isOpen) => {
   const [pos, setPos] = useState({ top: 0, left: 0, up: false, ready: false })
@@ -220,6 +221,115 @@ const FolderActionDropdown = ({ assignment, folderName, folderFiles, handleDownl
   )
 }
 
+const FileActionDropdown = ({ assignment, submission, isReference, handleDownloadFile, setToast }) => {
+  const [isOpen, setIsOpen] = useState(false)
+  const [fileErrorModal, setFileErrorModal] = useState({ isOpen: false, message: '', storageLabel: '' })
+  const btnRef = useRef(null)
+  const menuRef = useRef(null)
+  const pos = useDropdownPosition(btnRef, menuRef, isOpen)
+
+  useEffect(() => {
+    if (!isOpen) return
+    const handleClose = (e) => {
+      if (menuRef.current && !menuRef.current.contains(e.target) && !btnRef.current.contains(e.target)) {
+        setIsOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClose)
+    return () => document.removeEventListener('mousedown', handleClose)
+  }, [isOpen])
+
+  return (
+    <>
+      <button
+        ref={btnRef}
+        className="tl-assignment-menu-btn"
+        style={{ fontSize: '13px', padding: '2px 6px', letterSpacing: '1px' }}
+        onClick={(e) => { e.stopPropagation(); setIsOpen(!isOpen) }}
+        title="More options"
+      >
+        •••
+      </button>
+      {isOpen && ReactDOM.createPortal(
+        <div 
+          ref={menuRef}
+          className="tl-assignment-menu-dropdown" 
+          style={{ 
+            position: 'fixed', 
+            top: pos.top, 
+            left: pos.left, 
+            visibility: pos.ready ? 'visible' : 'hidden',
+            width: 'fit-content',
+            minWidth: 'unset',
+            maxWidth: 'fit-content',
+            zIndex: 99999, 
+            whiteSpace: 'normal',
+            background: 'white',
+            border: '1px solid #e5e7eb',
+            borderRadius: '8px',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+            transformOrigin: pos.up ? 'bottom right' : 'top right',
+            animation: 'dropdownFadeIn 0.15s ease-out',
+            padding: '4px'
+          }}
+        >
+          <button
+            className="tl-assignment-menu-item"
+            style={{ fontWeight: '600' }}
+            onClick={async (e) => {
+              e.stopPropagation()
+              setIsOpen(false)
+              if (!window.electron || !window.electron.openFolderInExplorer) {
+                setFileErrorModal({ isOpen: true, message: 'Open File Path is only available in the desktop app.', storageLabel: 'NAS Storage · File' })
+                return
+              }
+              const type = isReference ? 'attachment' : 'file'
+              try {
+                const data = await apiFetch(`/api/files/${submission.id}/path?type=${type}`)
+                if (data.success && data.filePath) {
+                  const result = await window.electron.openFolderInExplorer(data.filePath)
+                  if (!result.success) {
+                    setFileErrorModal({ isOpen: true, message: 'Could not open file path: ' + (result.error || 'Unknown error'), storageLabel: 'NAS Storage · File' })
+                  } else {
+                    if (setToast) setToast({ isOpen: true, title: 'Opening File Path', message: `Opening path for ${submission.original_name || submission.file_name}...`, type: 'success' });
+                  }
+                } else {
+                  setFileErrorModal({ isOpen: true, message: 'Unable to open file path.', storageLabel: 'NAS Storage · File' })
+                }
+              } catch (err) {
+                setFileErrorModal({ isOpen: true, message: 'Unable to open file path.', storageLabel: 'NAS Storage · File' })
+              }
+            }}
+          >
+            📁 Open File Path
+          </button>
+          <button
+            className="tl-assignment-menu-item"
+            style={{ fontWeight: '600', display: 'flex', alignItems: 'center', gap: '8px' }}
+            onClick={async (e) => {
+              e.stopPropagation()
+              setIsOpen(false)
+              await (isReference ? handleDownloadFile(submission.id, submission.original_name, true) : handleDownloadFile(submission.id, submission.original_name || submission.file_name))
+            }}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+            </svg>
+            Download File
+          </button>
+        </div>,
+        document.body
+      )}
+      <FolderPathErrorModal
+        isOpen={fileErrorModal.isOpen}
+        onClose={() => setFileErrorModal({ isOpen: false, message: '', storageLabel: '' })}
+        message={fileErrorModal.message}
+        storageLabel={fileErrorModal.storageLabel}
+      />
+    </>
+  )
+}
+
 const AssignmentsTab = ({
   isLoadingAssignments,
   assignments,
@@ -367,12 +477,10 @@ const AssignmentsTab = ({
     setTimeout(() => setDownloadToast({ show: false, fileName: '' }), 3500)
   }
 
-  const recordView = async (fileId) => {
+  const recordView = async (fileId, isAttachment = false) => {
     if (!user || !fileId) return
-    // Instantly bump the count in UI
-    setViewerCounts(prev => ({ ...prev, [fileId]: (prev[fileId] ?? 0) + 1 }))
     try {
-      await apiFetch(`/api/files/${fileId}/view`, {
+      await apiFetch(`/api/files/${fileId}/view?type=${isAttachment ? 'attachment' : 'submission'}`, {
         method: 'POST',
         body: JSON.stringify({
           userId: user.id,
@@ -381,6 +489,11 @@ const AssignmentsTab = ({
           role: user.role || 'TEAM_LEADER'
         })
       })
+      // Fetch the real updated count so the badge matches the popover list
+      const data = await apiFetch(`/api/files/${fileId}/views?type=${isAttachment ? 'attachment' : 'submission'}`)
+      if (data.success) {
+        setViewerCounts(prev => ({ ...prev, [fileId]: (data.viewers || []).length }))
+      }
     } catch {}
   }
 
@@ -790,35 +903,6 @@ const AssignmentsTab = ({
     })
   }
 
-  const formatDaysLeft = (dateString) => {
-    if (!dateString) return ''
-    const date = new Date(dateString)
-    const now = new Date()
-    const diffTime = date - now
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
-
-    if (diffDays < 0) {
-      return `${Math.abs(diffDays)} days overdue`
-    } else if (diffDays === 0) {
-      return 'Due today'
-    } else if (diffDays === 1) {
-      return '1 day left'
-    } else {
-      return `${diffDays} days left`
-    }
-  }
-
-  const getStatusColor = (dueDate) => {
-    if (!dueDate) return '#95a5a6'
-    const date = new Date(dueDate)
-    const now = new Date()
-    const diffDays = Math.ceil((date - now) / (1000 * 60 * 60 * 24))
-
-    if (diffDays < 0) return '#e74c3c'
-    if (diffDays <= 2) return '#f39c12'
-    return '#27ae60'
-  }
-
   const handleShowMembers = (members, e) => {
     e.stopPropagation()
     setSelectedMembers(members)
@@ -886,8 +970,15 @@ const AssignmentsTab = ({
   const groupFilesByFolder = useCallback((files) => {
     const folders = {}
     const individualFiles = []
+    if (!files || !Array.isArray(files)) return { folders, individualFiles }
 
-    files.forEach(file => {
+    const sortedFiles = [...files].sort((a, b) => {
+      const nameA = (a.original_name || a.filename || a.file_name || '').toLowerCase();
+      const nameB = (b.original_name || b.filename || b.file_name || '').toLowerCase();
+      return nameA.localeCompare(nameB, undefined, { numeric: true, sensitivity: 'base' });
+    });
+
+    sortedFiles.forEach(file => {
       if (file.folder_name) {
         // File is part of a folder
         if (!folders[file.folder_name]) {
@@ -900,7 +991,12 @@ const AssignmentsTab = ({
       }
     })
 
-    return { folders, individualFiles }
+    const sortedFolders = {}
+    Object.keys(folders).sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' })).forEach(key => {
+      sortedFolders[key] = folders[key];
+    });
+
+    return { folders: sortedFolders, individualFiles }
   }, [])
 
   const formatFileSize = (bytes) => {
@@ -965,9 +1061,11 @@ const AssignmentsTab = ({
               background: activeTaskTab === 'tasks' ? '#fff' : 'transparent',
               color: activeTaskTab === 'tasks' ? '#111827' : '#6b7280',
               boxShadow: activeTaskTab === 'tasks' ? '0 1px 4px rgba(0,0,0,0.10)' : 'none',
+              display: 'flex', alignItems: 'center', gap: '6px',
             }}
           >
-            📋 Tasks
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><path d="M9 12h6M9 16h4"/></svg>
+            Tasks
             <span style={{
               marginLeft: '7px', fontSize: '12px', fontWeight: '700',
               background: activeTaskTab === 'tasks' ? '#e0e7ff' : '#e5e7eb',
@@ -986,9 +1084,11 @@ const AssignmentsTab = ({
               background: activeTaskTab === 'done' ? '#fff' : 'transparent',
               color: activeTaskTab === 'done' ? '#111827' : '#6b7280',
               boxShadow: activeTaskTab === 'done' ? '0 1px 4px rgba(0,0,0,0.10)' : 'none',
+              display: 'flex', alignItems: 'center', gap: '6px',
             }}
           >
-            ✅ Done Tasks
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+            Done Tasks
             <span style={{
               marginLeft: '7px', fontSize: '12px', fontWeight: '700',
               background: activeTaskTab === 'done' ? '#dcfce7' : '#e5e7eb',
@@ -1038,13 +1138,41 @@ const AssignmentsTab = ({
           const filteredAssignments = searchQuery.trim()
             ? tabFiltered.filter(a => {
                 const q = searchQuery.toLowerCase()
+                const matchesQuery = (text) => {
+                  if (!text) return false;
+                  const normText = String(text).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+                  const normQuery = q.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+                  
+                  if (normText.includes(normQuery)) return true;
+                  
+                  // Michael/Micheal typo tolerance
+                  const altQuery = normQuery.replace(/micheal/g, 'michael').replace(/michael/g, 'micheal');
+                  if (normText.includes(altQuery)) return true;
+                  
+                  const altText = normText.replace(/micheal/g, 'michael').replace(/michael/g, 'micheal');
+                  if (altText.includes(normQuery) || altText.includes(altQuery)) return true;
+                  
+                  return false;
+                };
+
                 return (
-                  (a.title || '').toLowerCase().includes(q) ||
-                  (a.description || '').toLowerCase().includes(q) ||
-                  (a.team_leader_username || '').toLowerCase().includes(q) ||
+                  matchesQuery(a.title) ||
+                  matchesQuery(a.description) ||
+                  matchesQuery(a.team_leader_username) ||
+                  matchesQuery(a.team_leader_fullname) ||
                   (a.assigned_member_details || []).some(m =>
-                    (m.fullName || '').toLowerCase().includes(q) ||
-                    (m.username || '').toLowerCase().includes(q)
+                    matchesQuery(m.fullName) ||
+                    matchesQuery(m.username)
+                  ) ||
+                  (a.attachments || []).some(f => 
+                    matchesQuery(f.original_name) ||
+                    matchesQuery(f.file_name) ||
+                    matchesQuery(f.folder_name)
+                  ) ||
+                  (a.submissions || a.recent_submissions || []).some(f => 
+                    matchesQuery(f.original_name) ||
+                    matchesQuery(f.file_name) ||
+                    matchesQuery(f.folder_name)
                   )
                 )
               })
@@ -1126,18 +1254,18 @@ const AssignmentsTab = ({
                         })()} 
                       </div>
                     ) : assignment.recent_submissions?.length > 0 ? (
-                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px' }}>
-                        <div style={{ backgroundColor: 'transparent', color: '#C2410C', padding: '6px 12px', borderRadius: '20px', fontSize: '13px', fontWeight: '600', display: 'inline-flex', alignItems: 'center', border: '1.5px solid #FDBA74' }}>
-                          For Checking
-                        </div>
-                        {(assignment.due_date || assignment.dueDate) && (
-                          <div className="tl-assignment-due-date" style={{ fontSize: '12px' }}>
-                            Due {formatDate(assignment.due_date || assignment.dueDate)}
-                            <span className="tl-assignment-days-left" style={{ color: getStatusColor(assignment.due_date || assignment.dueDate) }}>
-                              {' '}({formatDaysLeft(assignment.due_date || assignment.dueDate)})
-                            </span>
-                          </div>
-                        )}
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px' }}>
+                    <div style={{ backgroundColor: 'transparent', color: '#C2410C', padding: '6px 12px', borderRadius: '20px', fontSize: '13px', fontWeight: '600', display: 'inline-flex', alignItems: 'center', border: '1.5px solid #FDBA74' }}>
+                    For Checking
+                    </div>
+                    {(assignment.due_date || assignment.dueDate) && (
+                    <div className="tl-assignment-due-date" style={{ fontSize: '12px' }}>
+                    Due {formatDate(assignment.due_date || assignment.dueDate)}
+                    <span className="tl-assignment-days-left" style={{ color: getBusinessDaysColor(assignment.due_date || assignment.dueDate, assignment.ot_dates) }}>
+                    {' '}({formatBusinessDaysLeft(assignment.due_date || assignment.dueDate, assignment.ot_dates)})
+                    </span>
+                    </div>
+                    )}
                         {assignment.due_date_edited ? (
                           <div style={{ marginTop: '4px' }}>
                             <span style={{ backgroundColor: '#fef3c7', color: '#92400e', padding: '2px 8px', borderRadius: '10px', fontSize: '11px', fontWeight: '600', border: '1px solid #fde68a', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
@@ -1153,9 +1281,9 @@ const AssignmentsTab = ({
                             Due {formatDate(assignment.due_date || assignment.dueDate)}
                             <span
                               className="tl-assignment-days-left"
-                              style={{ color: getStatusColor(assignment.due_date || assignment.dueDate) }}
+                              style={{ color: getBusinessDaysColor(assignment.due_date || assignment.dueDate, assignment.ot_dates) }}
                             >
-                              {' '}({formatDaysLeft(assignment.due_date || assignment.dueDate)})
+                              {' '}({formatBusinessDaysLeft(assignment.due_date || assignment.dueDate, assignment.ot_dates)})
                             </span>
                           </div>
                           {assignment.due_date_edited ? (
@@ -1353,7 +1481,7 @@ const AssignmentsTab = ({
                                         {isReference && <span className="tl-badge-reference" style={{ marginLeft: '8px' }}>Reference</span>}
                                         {!isReference && folderFiles.some(f => (f.file?.status || f.status) === 'revision') && (
                                           <span className="tl-badge-revision" style={{ marginLeft: '8px' }}>
-                                            Revision ({folderFiles.filter(f => (f.file?.status || f.status) === 'revision').length})
+                                            Checked - Need to Edit ({folderFiles.filter(f => (f.file?.status || f.status) === 'revision').length})
                                           </span>
                                         )}
                                         {!isReference && folderFiles.every(f => (f.file?.status || f.status) === 'checked') && (
@@ -1471,7 +1599,8 @@ const AssignmentsTab = ({
                                           <span className={`tl-assignment-file-status ${submission.status}`}>
                                             {submission.status === 'checked' ? '✓ Checked' :
                                             submission.status === 'uploaded' ? 'New' : 
-                                            submission.status === 'revision' ? '⚠ Revision' :
+                                            submission.status === 'under_revision' ? '✎ Revised' :
+                                            submission.status === 'revision' ? '⚠ Checked - Need to Edit' :
                                             submission.status === 'team_leader_approved' ? 'Pending Admin' : 
                                             submission.status === 'final_approved' ? '✓ Approved' : 
                              (submission.status === 'rejected_by_team_leader' || submission.status === 'rejected_by_admin') ? 'X Rejected' : 'Pending'}
@@ -1485,36 +1614,17 @@ const AssignmentsTab = ({
                                       )}
                                     </div>
                                   </div>
-                                  <FileViewersButton fileId={submission.id} externalCount={viewerCounts[submission.id]} />
-                                  {isReference && (
-                                    <button
-                                      onClick={(e) => {
-                                        e.stopPropagation()
-                                        setFileToOpen({ ...submission, isAttachment: true, assignmentId: assignment.id })
-                                        setShowOpenFileConfirmation(true)
-                                      }}
-                                      title="View file"
-                                      className="tl-download-button"
-                                      style={{ marginLeft: '4px', flexShrink: 0, background: 'transparent', border: 'none', cursor: 'pointer', color: '#9ca3af', width: '28px', height: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '6px', transition: 'all 0.2s' }}
-                                    >
-                                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
-                                      </svg>
-                                    </button>
-                                  )}
-                                  <button
-                                    onClick={async (e) => {
-                                      e.stopPropagation()
-                                      await (isReference ? handleDownloadFile(submission.id, submission.original_name, true) : handleDownloadFile(submission.id, submission.original_name || submission.file_name))
-                                    }}
-                                    title="Download file"
-                                    className="tl-download-button"
-                                    style={{ marginLeft: '4px', flexShrink: 0, background: 'transparent', border: 'none', cursor: 'pointer', color: '#9ca3af', width: '28px', height: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '6px', transition: 'all 0.2s' }}
-                                  >
-                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                      <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
-                                    </svg>
-                                  </button>
+                                  <FileViewersButton fileId={submission.id} externalCount={viewerCounts[submission.id]} fileSource={isReference ? 'attachment' : 'submission'} />
+
+                                  <div className="tl-folder-menu-wrapper" style={{ marginLeft: '4px' }} onClick={e => e.stopPropagation()}>
+                                    <FileActionDropdown
+                                      assignment={assignment}
+                                      submission={submission}
+                                      isReference={isReference}
+                                      handleDownloadFile={handleDownloadFile}
+                                      setToast={setToast}
+                                    />
+                                  </div>
                                 </div>
                               </div>
                             );
@@ -1760,7 +1870,8 @@ const AssignmentsTab = ({
                           <div className="tl-assignment-file-meta" style={{ fontSize: '11px', color: '#6b7280' }}>
                             <span className={`tl-assignment-file-status ${file.status}`}>
                               {file.status === 'uploaded' ? 'New' : 
-                               file.status === 'revision' ? '⚠ Revision' :
+                               file.status === 'under_revision' ? '✎ Revised' :
+                               file.status === 'revision' ? '⚠ Checked - Need to Edit' :
                                file.status === 'checked' ? '✓ Checked' :
                                file.status === 'team_leader_approved' ? 'Pending Admin' : 
                                file.status === 'final_approved' ? '✓ Approved' : 
@@ -1775,7 +1886,7 @@ const AssignmentsTab = ({
                           </div>
                         </div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                          <FileViewersButton fileId={file.id} externalCount={viewerCounts[file.id]} />
+                           <FileViewersButton fileId={file.id} externalCount={viewerCounts[file.id]} fileSource="submission" />
                         </div>
                       </div>
                     );
@@ -1897,8 +2008,8 @@ const AssignmentsTab = ({
       {/* Assign Checker Modal */}
       {assignCheckerModal && (() => {
         const { assignment } = assignCheckerModal
-        // Use all team members, not just those assigned to this task
-        const allMembers = (teamMembers || []).filter(m => m.role !== 'TEAM_LEADER' && m.id !== user.id)
+        // Use all team members, including the team leader, as requested
+        const allMembers = teamMembers || []
         const members = allMembers.length > 0 ? allMembers : (assignment.assigned_member_details || [])
         const toggleMember = (id) => {
           setSelectedCheckerIds(prev => {
@@ -2275,7 +2386,7 @@ const AssignmentsTab = ({
                   alert('Failed to open file locally: ' + (result.error || 'Unknown error'));
                 } else {
                   markFileViewed(file.assignmentId, fileId)
-                  recordView(fileId)
+                  recordView(fileId, file.isAttachment)
                 }
               } else {
                 alert('Could not retrieve file path');
@@ -2295,7 +2406,7 @@ const AssignmentsTab = ({
 
               window.open(fileUrl, '_blank', 'noopener,noreferrer');
               markFileViewed(file.assignmentId, fileId)
-              recordView(fileId)
+              recordView(fileId, file.isAttachment)
             }
           } catch (error) {
             console.error('Error opening file:', error);

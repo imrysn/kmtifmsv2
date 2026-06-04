@@ -563,18 +563,16 @@ class FileController {
     recordView = asyncHandler(async (req, res) => {
         const id = req.params.id || req.params.fileId;
         const { userId, username, fullName, role } = req.body;
+        const type = req.query.type || req.body.type || 'submission';
         if (!id || !userId) throw new ValidationError('fileId and userId are required');
-        await fileService.recordView(id, { userId, username, fullName, role });
+        await fileService.recordView(id, { userId, username, fullName, role }, type);
         res.json({ success: true });
     });
 
-    /**
-     * Get all users who have viewed a file, most recent first.
-     * GET /api/files/:id/views
-     */
     getViewers = asyncHandler(async (req, res) => {
         const id = req.params.id || req.params.fileId;
-        const viewers = await fileService.getViewers(id);
+        const type = req.query.type || 'submission';
+        const viewers = await fileService.getViewers(id, type);
         res.json({ success: true, viewers });
     });
 

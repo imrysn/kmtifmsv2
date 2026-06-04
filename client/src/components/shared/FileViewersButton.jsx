@@ -7,7 +7,7 @@ import { apiFetch, API_BASE_URL } from '@/config/api'
  * Eye icon button that shows a popover listing everyone who has viewed a file.
  * Usage: <FileViewersButton fileId={file.id} />
  */
-const FileViewersButton = ({ fileId, size = 14, externalCount, minDate }) => {
+const FileViewersButton = ({ fileId, size = 14, externalCount, minDate, fileSource = 'submission' }) => {
   const [viewers, setViewers] = useState([])
   const [loading, setLoading] = useState(false)
   const [open, setOpen] = useState(false)
@@ -52,10 +52,11 @@ const FileViewersButton = ({ fileId, size = 14, externalCount, minDate }) => {
     }
   }, [open])
 
-  // Fetch count on mount
+  // Fetch count on mount — also surfaces the real count to parent via a callback
+  // so that externalCount (used for optimistic +1) is seeded correctly.
   useEffect(() => {
     if (!fileId) return
-    apiFetch(`${API_BASE_URL}/api/files/${fileId}/views`)
+    apiFetch(`${API_BASE_URL}/api/files/${fileId}/views?type=${fileSource}`)
       .then(d => { 
         if (d.success) {
           let v = d.viewers || [];
@@ -67,12 +68,20 @@ const FileViewersButton = ({ fileId, size = 14, externalCount, minDate }) => {
         }
       })
       .catch(() => {})
-  }, [fileId, minDate])
+  }, [fileId, minDate, fileSource])
+
+  // When externalCount is provided by the parent (optimistic bump), keep internal
+  // count in sync so that after the popover is opened the badge doesn't reset.
+  useEffect(() => {
+    if (externalCount !== undefined) {
+      setCount(externalCount);
+    }
+  }, [externalCount])
 
   const fetchViewers = async () => {
     setLoading(true)
     try {
-      const data = await apiFetch(`${API_BASE_URL}/api/files/${fileId}/views`)
+      const data = await apiFetch(`${API_BASE_URL}/api/files/${fileId}/views?type=${fileSource}`)
       if (data.success) {
         let v = data.viewers || [];
         if (minDate) {
@@ -169,10 +178,10 @@ const FileViewersButton = ({ fileId, size = 14, externalCount, minDate }) => {
           }
         }}
       >
-        {/* Eye icon */}
+        {/* Eye icon representing viewers list */}
         <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-          <circle cx="12" cy="12" r="3"/>
+          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+          <circle cx="12" cy="12" r="3" />
         </svg>
         {/* Viewer count badge */}
         {displayCount > 0 && (
@@ -222,8 +231,8 @@ const FileViewersButton = ({ fileId, size = 14, externalCount, minDate }) => {
             borderBottom: '1px solid #f3f4f6'
           }}>
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-              <circle cx="12" cy="12" r="3"/>
+              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+              <circle cx="12" cy="12" r="3" />
             </svg>
             <span style={{ fontSize: '12px', fontWeight: '700', color: '#374151' }}>
               Viewed by{!loading && viewers.length > 0 ? ` (${viewers.length})` : ''}
