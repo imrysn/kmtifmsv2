@@ -1,236 +1,334 @@
 import { memo, useMemo, useCallback, useEffect } from 'react';
 import './css/FileModal.css';
 
-// Local helper to format dates reliably
 const formatDate = (dateString) => {
-  if (!dateString) return 'Unknown';
+  if (!dateString) return null;
   try {
     const date = new Date(dateString);
-    if (isNaN(date.getTime())) return 'Unknown';
-    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) + 
+    if (isNaN(date.getTime())) return null;
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) +
            ' ' + date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
-  } catch {
-    return 'Unknown';
+  } catch { return null; }
+};
+
+const STATUS_CONFIG = {
+  uploaded:                 { label: 'Pending Review',          bg: '#eff6ff', color: '#1d4ed8', border: '#bfdbfe', icon: '⏳' },
+  revision:                 { label: 'Checked – Need to Edit',  bg: '#fffbeb', color: '#92400e', border: '#fde68a', icon: '✎' },
+  under_revision:           { label: 'Under Revision',          bg: '#fffbeb', color: '#92400e', border: '#fde68a', icon: '✎' },
+  checked:                  { label: 'Checked',                 bg: '#eff6ff', color: '#1d4ed8', border: '#bfdbfe', icon: '✓' },
+  team_leader_approved:     { label: 'Pending Admin',           bg: '#fefce8', color: '#713f12', border: '#fde68a', icon: '⏳' },
+  final_approved:           { label: 'Approved',                bg: '#f0fdf4', color: '#15803d', border: '#bbf7d0', icon: '✓' },
+  rejected_by_team_leader:  { label: 'Rejected by Team Leader', bg: '#fef2f2', color: '#b91c1c', border: '#fecaca', icon: '✕' },
+  rejected_by_admin:        { label: 'Rejected by Admin',       bg: '#fef2f2', color: '#b91c1c', border: '#fecaca', icon: '✕' },
+};
+
+const getStatusConfig = (status) => {
+  if (!status) return { label: 'Unknown', bg: '#f9fafb', color: '#6b7280', border: '#e5e7eb', icon: '?' };
+  return STATUS_CONFIG[status] || { label: status.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()), bg: '#f9fafb', color: '#6b7280', border: '#e5e7eb', icon: '•' };
+};
+
+const STAGE_LABELS = {
+  pending_team_leader: 'Team Leader Review',
+  pending_admin: 'Admin Review',
+  team_leader_approved: 'Waiting for Admin',
+  admin_approved: 'Finalized',
+  published_to_public: 'Published',
+  rejected_by_team_leader: 'Rejected by Team Leader',
+  rejected_by_admin: 'Rejected by Admin',
+};
+
+// Parse "Wrong items: Scale, Standard Notes" from checker_note
+const parseWrongItems = (note) => {
+  if (!note) return [];
+  const match = note.match(/Wrong items?:\s*(.+)/i);
+  if (match) {
+    return match[1].split(',').map(s => s.trim()).filter(Boolean);
   }
+  return [];
 };
 
-const getStatusText = (status) => {
-  const map = {
-    'pending': 'Pending',
-    'approved': 'Approved',
-    'rejected': 'Rejected',
-    'pending_team_leader': 'Pending TL',
-    'approved_by_team_leader': 'TL Approved',
-    'rejected_by_team_leader': 'Rejected by TL',
-    'pending_admin': 'Pending Admin',
-    'team_leader_approved': 'TL Approved',
-    'team_leader_rejected': 'Rejected by TL',
-    'admin_approved': 'Admin Approved',
-    'admin_rejected': 'Admin Rejected',
-    'rejected_by_admin': 'Rejected by Admin',
-    'revision': 'Checked - Need to Edit'
-  };
-  return map[status] || (status ? status.charAt(0).toUpperCase() + status.slice(1).replace(/_/g, ' ') : 'Unknown');
-};
+const InfoRow = ({ label, value, mono = false }) => (
+  value ? (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+      <span style={{ fontSize: '10px', fontWeight: '700', color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.07em' }}>{label}</span>
+      <span style={{ fontSize: '13.5px', fontWeight: '500', color: '#1f2937', wordBreak: mono ? 'break-all' : 'normal', fontFamily: mono ? 'monospace' : 'inherit' }}>{value}</span>
+    </div>
+  ) : null
+);
 
-const getStatusBadgeClass = (status) => {
-  if (!status) return 'status-uploaded';
-  const s = status.toLowerCase();
-  if (s.includes('approved')) return 'status-approved';
-  if (s.includes('rejected')) return 'status-rejected';
-  if (s.includes('pending')) return 'status-pending';
-  if (s === 'revision') return 'status-revision';
-  return 'status-uploaded';
-};
-
-const getCurrentStageText = (currentStage) => {
-  const map = {
-    'pending_team_leader': 'Team Leader Review',
-    'pending_admin': 'Admin Review',
-    'team_leader_approved': 'Waiting for Admin',
-    'admin_approved': 'Finalized',
-    'rejected_by_team_leader': 'Rejected by Team Leader',
-    'rejected_by_admin': 'Rejected by Admin'
-  };
-  return map[currentStage] || (currentStage ? currentStage.charAt(0).toUpperCase() + currentStage.slice(1).replace(/_/g, ' ') : 'Unknown');
-};
-
-const FileModal = memo(({ 
-  showFileModal, 
-  setShowFileModal, 
-  selectedFile, 
+const FileModal = memo(({
+  showFileModal,
+  setShowFileModal,
+  selectedFile,
   formatFileSize,
   onOpenFile
 }) => {
   const handleClose = useCallback(() => setShowFileModal(false), [setShowFileModal]);
 
   useEffect(() => {
-    if (showFileModal) {
-      document.body.style.overflow = 'hidden';
-    } else {
-      document.body.style.overflow = 'auto';
-    }
+    document.body.style.overflow = showFileModal ? 'hidden' : 'auto';
     return () => { document.body.style.overflow = 'auto'; };
   }, [showFileModal]);
 
   const tags = useMemo(() => {
     if (!selectedFile?.tags) return [];
     try {
-      const parsed = typeof selectedFile.tags === 'string' ? JSON.parse(selectedFile.tags) : selectedFile.tags;
-      return Array.isArray(parsed) ? parsed : [];
+      const p = typeof selectedFile.tags === 'string' ? JSON.parse(selectedFile.tags) : selectedFile.tags;
+      return Array.isArray(p) ? p : [];
     } catch { return []; }
   }, [selectedFile?.tags]);
 
-  const formattedCategory = useMemo(() => {
-    const cat = selectedFile?.category;
-    if (!cat) return '';
-    const words = cat.replace(/([A-Z])/g, ' $1').trim().split(/\s+/).filter(Boolean);
-    if (words.length <= 1) return cat;
-    return `${words[0]} : ${words.slice(1).join(' ')}`;
-  }, [selectedFile?.category]);
-
   if (!showFileModal || !selectedFile) return null;
 
-  const isRejectedByTL = selectedFile.status === 'rejected_by_team_leader';
-  const isRejectedByAdmin = selectedFile.status === 'rejected_by_admin';
+  const st = getStatusConfig(selectedFile.status);
+  const isRejected = selectedFile.status === 'rejected_by_team_leader' || selectedFile.status === 'rejected_by_admin';
+  const isCheckerRevision = selectedFile.status === 'revision';
+  const isChecked = selectedFile.status === 'checked';
+  const wrongItems = parseWrongItems(selectedFile.checker_note);
+  const stageLabel = STAGE_LABELS[selectedFile.current_stage] || (selectedFile.current_stage ? selectedFile.current_stage.replace(/_/g, ' ') : null);
+
+  const filename = selectedFile.original_name || selectedFile.filename || selectedFile.fileName || 'Unknown';
+  const ext = filename.includes('.') ? filename.split('.').pop().toUpperCase() : null;
 
   return (
     <div
-      className="user-file-modal-component modal-overlay"
       onClick={handleClose}
-      style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, width: '100vw', height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, margin: 0, padding: 0, backgroundColor: 'rgba(0,0,0,0.5)' }}
+      style={{
+        position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.55)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        zIndex: 9999, padding: '20px', backdropFilter: 'blur(2px)',
+      }}
     >
       <div
-        className="modal file-modal"
         onClick={e => e.stopPropagation()}
-        style={{ 
-          margin: '0 auto', 
-          maxWidth: '650px', 
-          width: '90%', 
-          maxHeight: '85vh', 
-          display: 'flex', 
-          flexDirection: 'column', 
-          overflow: 'hidden',
-          borderRadius: '16px',
-          boxShadow: '0 20px 50px rgba(0,0,0,0.2)',
-          background: '#fff'
+        style={{
+          background: '#fff', borderRadius: '20px', width: '100%', maxWidth: '580px',
+          maxHeight: '88vh', display: 'flex', flexDirection: 'column', overflow: 'hidden',
+          boxShadow: '0 25px 60px rgba(0,0,0,0.25)',
         }}
       >
-        <div className="modal-header" style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid #f3f4f6', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <h3 style={{ margin: 0, fontSize: '1.25rem', fontWeight: '700', color: '#111827' }}>File Details</h3>
-          <button onClick={handleClose} className="modal-close" style={{ background: 'none', border: 'none', fontSize: '1.5rem', cursor: 'pointer', color: '#9ca3af' }}>×</button>
-        </div>
-        
-        <div className="modal-body" style={{ flex: 1, overflowY: 'auto', padding: '1.5rem' }}>
-          <div className="file-details-section">
-            {selectedFile.assignment_title && (
-              <div className="file-detail-row" style={{ borderBottom: '2px solid #4f46e5', marginBottom: '16px', paddingBottom: '12px' }}>
-                <span className="detail-label" style={{ fontSize: '12px', fontWeight: '700', color: '#6366f1', textTransform: 'uppercase', letterSpacing: '0.05em' }}>TASK:</span>
-                <span className="detail-value" style={{ color: '#111827', fontWeight: '700', fontSize: '16px' }}>{selectedFile.assignment_title}</span>
-              </div>
+        {/* ── Header ── */}
+        <div style={{
+          background: 'linear-gradient(135deg, #4f46e5 0%, #6366f1 100%)',
+          padding: '20px 22px 18px',
+          position: 'relative',
+          flexShrink: 0,
+        }}>
+          {/* close */}
+          <button onClick={handleClose} style={{
+            position: 'absolute', top: '14px', right: '16px',
+            background: 'rgba(255,255,255,0.2)', border: 'none', borderRadius: '50%',
+            width: '28px', height: '28px', cursor: 'pointer', color: '#fff',
+            fontSize: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}>×</button>
+
+          {/* file type chip + name */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '14px' }}>
+            {ext && (
+              <div style={{
+                background: 'rgba(255,255,255,0.2)', border: '1px solid rgba(255,255,255,0.3)',
+                borderRadius: '8px', padding: '4px 10px', fontSize: '11px',
+                fontWeight: '700', color: '#fff', letterSpacing: '0.08em',
+              }}>{ext}</div>
             )}
-            
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '20px' }}>
-              <div className="file-detail-item">
-                <span className="detail-label" style={{ display: 'block', fontSize: '11px', fontWeight: '600', color: '#9ca3af', textTransform: 'uppercase', marginBottom: '4px' }}>Filename</span>
-                <span className="detail-value" style={{ fontWeight: '500', color: '#374151', wordBreak: 'break-all' }}>{selectedFile.original_name || selectedFile.filename || selectedFile.fileName || 'Unknown'}</span>
-              </div>
-              <div className="file-detail-item">
-                <span className="detail-label" style={{ display: 'block', fontSize: '11px', fontWeight: '600', color: '#9ca3af', textTransform: 'uppercase', marginBottom: '4px' }}>File Type</span>
-                <span className="detail-value" style={{ fontWeight: '500', color: '#374151' }}>{selectedFile.file_type || selectedFile.fileType || selectedFile.extension || 'Unknown'}</span>
-              </div>
-              <div className="file-detail-item">
-                <span className="detail-label" style={{ display: 'block', fontSize: '11px', fontWeight: '600', color: '#9ca3af', textTransform: 'uppercase', marginBottom: '4px' }}>File Size</span>
-                <span className="detail-value" style={{ fontWeight: '500', color: '#374151' }}>{formatFileSize(selectedFile.file_size || selectedFile.fileSize || selectedFile.size || 0)}</span>
-              </div>
-              <div className="file-detail-item">
-                <span className="detail-label" style={{ display: 'block', fontSize: '11px', fontWeight: '600', color: '#9ca3af', textTransform: 'uppercase', marginBottom: '4px' }}>Uploaded</span>
-                <span className="detail-value" style={{ fontWeight: '500', color: '#374151' }}>{formatDate(selectedFile.uploaded_at || selectedFile.submitted_at || selectedFile.createdAt) || 'Unknown'}</span>
-              </div>
+            <span style={{
+              fontSize: '13px', color: 'rgba(255,255,255,0.85)', fontWeight: '500',
+              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1,
+            }}>{filename}</span>
+          </div>
+
+          {/* task name */}
+          {selectedFile.assignment_title && (
+            <div style={{ marginBottom: '14px' }}>
+              <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.6)', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '3px' }}>Task</div>
+              <div style={{ fontSize: '15px', fontWeight: '700', color: '#fff' }}>{selectedFile.assignment_title}</div>
             </div>
+          )}
 
-            {selectedFile.description && (
-              <div className="file-detail-row" style={{ marginBottom: '16px' }}>
-                <span className="detail-label" style={{ display: 'block', fontSize: '11px', fontWeight: '600', color: '#9ca3af', textTransform: 'uppercase', marginBottom: '4px' }}>Description</span>
-                <span className="detail-value description-text" style={{ color: '#4b5563', lineHeight: '1.5' }}>{selectedFile.description}</span>
-              </div>
-            )}
-
-            <div style={{ display: 'flex', gap: '24px', marginBottom: '20px' }}>
-              {selectedFile.category && (
-                <div className="file-detail-item">
-                  <span className="detail-label" style={{ display: 'block', fontSize: '11px', fontWeight: '600', color: '#9ca3af', textTransform: 'uppercase', marginBottom: '6px' }}>Category</span>
-                  <span className="category-badge" style={{ background: '#f3f4f6', color: '#374151', padding: '4px 10px', borderRadius: '6px', fontSize: '13px', fontWeight: '500' }}>{formattedCategory}</span>
-                </div>
-              )}
-              {tags.length > 0 && (
-                <div className="file-detail-item">
-                  <span className="detail-label" style={{ display: 'block', fontSize: '11px', fontWeight: '600', color: '#9ca3af', textTransform: 'uppercase', marginBottom: '6px' }}>Tags</span>
-                  <div className="tags-display" style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-                    {tags.map((tag, i) => <span key={i} className="tag-badge" style={{ background: '#eff6ff', color: '#1e40af', padding: '2px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: '600' }}>{tag}</span>)}
-                  </div>
-                </div>
-              )}
-            </div>
-
-            <div className="file-detail-row" style={{ background: '#f9fafb', padding: '16px', borderRadius: '12px', border: '1px solid #f3f4f6' }}>
-              <span className="detail-label" style={{ display: 'block', fontSize: '11px', fontWeight: '600', color: '#9ca3af', textTransform: 'uppercase', marginBottom: '8px' }}>Current Status</span>
-              <div className="status-container" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <span className={`status-badge ${getStatusBadgeClass(selectedFile.status)}`} style={{ padding: '4px 12px', borderRadius: '20px', fontSize: '12px', fontWeight: '600' }}>
-                  {getStatusText(selectedFile.status)}
-                </span>
-                <div className="stage-text" style={{ fontSize: '13px', color: '#6b7280', fontWeight: '500' }}>{getCurrentStageText(selectedFile.current_stage)}</div>
-              </div>
-            </div>
-
-            {(selectedFile.team_leader_reviewed_at || selectedFile.team_leader_comments || (isRejectedByTL && (selectedFile.rejected_at || selectedFile.rejection_reason))) && (
-              <div className="review-section" style={{ marginTop: '24px', padding: '16px', borderRadius: '12px', background: isRejectedByTL ? '#fef2f2' : '#fff9f2', border: `1px solid ${isRejectedByTL ? '#fecaca' : '#ffedd5'}` }}>
-                <h4 style={{ margin: '0 0 12px', fontSize: '14px', fontWeight: '700', color: isRejectedByTL ? '#991b1b' : '#9a3412' }}>Team Leader Review</h4>
-                <div className="review-info" style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                  <div className="review-detail" style={{ fontSize: '13px' }}><span className="review-label" style={{ color: isRejectedByTL ? '#b91c1c' : '#c2410c', fontWeight: '600', marginRight: '8px' }}>Reviewed by:</span><span className="review-value" style={{ color: '#431407' }}>{selectedFile.team_leader_username || (isRejectedByTL ? selectedFile.rejected_by : null)}</span></div>
-                  <div className="review-detail" style={{ fontSize: '13px' }}><span className="review-label" style={{ color: isRejectedByTL ? '#b91c1c' : '#c2410c', fontWeight: '600', marginRight: '8px' }}>Review Date:</span><span className="review-value" style={{ color: '#431407' }}>{formatDate(selectedFile.team_leader_reviewed_at || (isRejectedByTL ? selectedFile.rejected_at : null))}</span></div>
-                  {(selectedFile.team_leader_comments || (isRejectedByTL && selectedFile.rejection_reason)) && (
-                    <div className="review-detail" style={{ fontSize: '13px', marginTop: '4px' }}>
-                      <span className="review-label" style={{ color: isRejectedByTL ? '#b91c1c' : '#c2410c', fontWeight: '600', display: 'block', marginBottom: '4px' }}>Comments / Reason:</span>
-                      <span className="review-value" style={{ color: '#431407', background: 'rgba(255,255,255,0.5)', padding: '8px', borderRadius: '6px', display: 'block' }}>
-                        {selectedFile.team_leader_comments || (isRejectedByTL ? selectedFile.rejection_reason : null)}
-                      </span>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {(selectedFile.admin_reviewed_at || selectedFile.admin_comments || (isRejectedByAdmin && (selectedFile.rejected_at || selectedFile.rejection_reason))) && (
-              <div className="review-section" style={{ marginTop: '24px', padding: '16px', borderRadius: '12px', background: isRejectedByAdmin ? '#fef2f2' : '#f5f3ff', border: `1px solid ${isRejectedByAdmin ? '#fecaca' : '#ddd6fe'}` }}>
-                <h4 style={{ margin: '0 0 12px', fontSize: '14px', fontWeight: '700', color: isRejectedByAdmin ? '#991b1b' : '#5b21b6' }}>Admin Review</h4>
-                <div className="review-info" style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                  <div className="review-detail" style={{ fontSize: '13px' }}><span className="review-label" style={{ color: isRejectedByAdmin ? '#b91c1c' : '#7c3aed', fontWeight: '600', marginRight: '8px' }}>Reviewed by:</span><span className="review-value" style={{ color: '#1e1b4b' }}>{selectedFile.admin_username || (isRejectedByAdmin ? selectedFile.rejected_by : null)}</span></div>
-                  <div className="review-detail" style={{ fontSize: '13px' }}><span className="review-label" style={{ color: isRejectedByAdmin ? '#b91c1c' : '#7c3aed', fontWeight: '600', marginRight: '8px' }}>Review Date:</span><span className="review-value" style={{ color: '#1e1b4b' }}>{formatDate(selectedFile.admin_reviewed_at || (isRejectedByAdmin ? selectedFile.rejected_at : null))}</span></div>
-                  {(selectedFile.admin_comments || (isRejectedByAdmin && selectedFile.rejection_reason)) && (
-                    <div className="review-detail" style={{ fontSize: '13px', marginTop: '4px' }}>
-                      <span className="review-label" style={{ color: isRejectedByAdmin ? '#b91c1c' : '#7c3aed', fontWeight: '600', display: 'block', marginBottom: '4px' }}>Comments / Reason:</span>
-                      <span className="review-value" style={{ color: '#1e1b4b', background: 'rgba(255,255,255,0.5)', padding: '8px', borderRadius: '6px', display: 'block' }}>
-                        {selectedFile.admin_comments || (isRejectedByAdmin ? selectedFile.rejection_reason : null)}
-                      </span>
-                    </div>
-                  )}
-                </div>
-              </div>
+          {/* Status pill */}
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: st.bg, border: `1px solid ${st.border}`, borderRadius: '20px', padding: '5px 14px' }}>
+            <span style={{ fontSize: '13px', fontWeight: '700', color: st.color }}>{st.icon} {st.label}</span>
+            {stageLabel && (
+              <span style={{ fontSize: '11px', color: st.color, opacity: 0.75, borderLeft: `1px solid ${st.border}`, paddingLeft: '8px', marginLeft: '2px' }}>{stageLabel}</span>
             )}
           </div>
         </div>
 
-        <div className="modal-footer" style={{ padding: '1.25rem 1.5rem', borderTop: '1px solid #f3f4f6', background: '#f9fafb', display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
-          <button onClick={handleClose} style={{ padding: '10px 20px', borderRadius: '8px', border: '1px solid #d1d5db', background: '#fff', color: '#374151', fontSize: '14px', fontWeight: '500', cursor: 'pointer' }}>Close</button>
-          
+        {/* ── Body ── */}
+        <div style={{ flex: 1, overflowY: 'auto', padding: '20px 22px' }}>
+
+          {/* Checker revision alert */}
+          {isCheckerRevision && (
+            <div style={{
+              background: '#fffbeb', border: '1px solid #fde68a', borderRadius: '12px',
+              padding: '14px 16px', marginBottom: '18px',
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: wrongItems.length ? '10px' : 0 }}>
+                <span style={{ fontSize: '16px' }}>✎</span>
+                <div>
+                  <div style={{ fontSize: '13px', fontWeight: '700', color: '#92400e' }}>Checked – Needs Editing</div>
+                  {selectedFile.checked_by && (
+                    <div style={{ fontSize: '12px', color: '#b45309', marginTop: '2px' }}>
+                      Reviewed by <strong>{selectedFile.checked_by}</strong>
+                    </div>
+                  )}
+                </div>
+              </div>
+              {wrongItems.length > 0 && (
+                <div>
+                  <div style={{ fontSize: '11px', fontWeight: '700', color: '#92400e', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '6px' }}>Wrong Items Found</div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                    {wrongItems.map((item, i) => (
+                      <span key={i} style={{
+                        background: '#fef3c7', border: '1px solid #fcd34d',
+                        borderRadius: '6px', padding: '3px 10px',
+                        fontSize: '12px', fontWeight: '600', color: '#92400e',
+                      }}>{item}</span>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {selectedFile.checker_note && !wrongItems.length && (
+                <div style={{ fontSize: '12.5px', color: '#92400e', marginTop: '4px', fontStyle: 'italic' }}>{selectedFile.checker_note}</div>
+              )}
+            </div>
+          )}
+
+          {/* Checked OK banner */}
+          {isChecked && selectedFile.checked_by && (
+            <div style={{
+              background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '12px',
+              padding: '12px 16px', marginBottom: '18px',
+              display: 'flex', alignItems: 'center', gap: '10px',
+            }}>
+              <span style={{ fontSize: '20px' }}>✓</span>
+              <div>
+                <div style={{ fontSize: '13px', fontWeight: '700', color: '#1d4ed8' }}>Checked & Approved</div>
+                <div style={{ fontSize: '12px', color: '#3b82f6', marginTop: '1px' }}>
+                  Checked by <strong>{selectedFile.checked_by}</strong>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Rejection banner */}
+          {isRejected && (
+            <div style={{
+              background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '12px',
+              padding: '14px 16px', marginBottom: '18px',
+            }}>
+              <div style={{ fontSize: '13px', fontWeight: '700', color: '#b91c1c', marginBottom: '4px' }}>
+                ✕ {selectedFile.status === 'rejected_by_team_leader' ? 'Rejected by Team Leader' : 'Rejected by Admin'}
+              </div>
+              {(selectedFile.rejection_reason || selectedFile.team_leader_comments || selectedFile.admin_comments) && (
+                <div style={{ fontSize: '12.5px', color: '#dc2626', fontStyle: 'italic' }}>
+                  "{selectedFile.rejection_reason || selectedFile.team_leader_comments || selectedFile.admin_comments}"
+                </div>
+              )}
+              {selectedFile.rejected_by && (
+                <div style={{ fontSize: '11.5px', color: '#ef4444', marginTop: '4px' }}>
+                  By: <strong>{selectedFile.rejected_by}</strong>
+                  {selectedFile.rejected_at && <> · {formatDate(selectedFile.rejected_at)}</>}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* File Info grid */}
+          <div style={{
+            display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px',
+            background: '#f9fafb', borderRadius: '12px', padding: '16px',
+            marginBottom: '16px', border: '1px solid #f3f4f6',
+          }}>
+            <InfoRow label="Filename" value={filename} mono />
+            <InfoRow label="File Type" value={selectedFile.file_type || selectedFile.fileType || 'Unknown'} />
+            <InfoRow label="File Size" value={formatFileSize(selectedFile.file_size || selectedFile.fileSize || 0)} />
+            <InfoRow label="Uploaded" value={formatDate(selectedFile.uploaded_at || selectedFile.submitted_at || selectedFile.createdAt)} />
+            {selectedFile.username && <InfoRow label="Submitted By" value={selectedFile.username} />}
+            {selectedFile.user_team && <InfoRow label="Team" value={selectedFile.user_team} />}
+          </div>
+
+          {/* Description */}
+          {selectedFile.description && (
+            <div style={{ marginBottom: '16px', background: '#f9fafb', borderRadius: '10px', padding: '12px 14px', border: '1px solid #f3f4f6' }}>
+              <div style={{ fontSize: '10px', fontWeight: '700', color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: '5px' }}>Description</div>
+              <div style={{ fontSize: '13px', color: '#374151', lineHeight: '1.6' }}>{selectedFile.description}</div>
+            </div>
+          )}
+
+          {/* Tags */}
+          {(tags.length > 0 || selectedFile.tag) && (
+            <div style={{ marginBottom: '16px' }}>
+              <div style={{ fontSize: '10px', fontWeight: '700', color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: '6px' }}>Tags</div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                {(tags.length > 0 ? tags : [selectedFile.tag]).filter(Boolean).map((tag, i) => (
+                  <span key={i} style={{
+                    background: '#eff6ff', color: '#1e40af', border: '1px solid #bfdbfe',
+                    padding: '3px 10px', borderRadius: '20px', fontSize: '12px', fontWeight: '600',
+                  }}>🏷 {tag}</span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* TL Review section */}
+          {(selectedFile.team_leader_reviewed_at || (selectedFile.team_leader_comments && !isRejected)) && (
+            <div style={{
+              background: selectedFile.status === 'rejected_by_team_leader' ? '#fef2f2' : '#fff9f2',
+              border: `1px solid ${selectedFile.status === 'rejected_by_team_leader' ? '#fecaca' : '#fed7aa'}`,
+              borderRadius: '10px', padding: '12px 14px', marginBottom: '12px',
+            }}>
+              <div style={{ fontSize: '11px', fontWeight: '700', color: selectedFile.status === 'rejected_by_team_leader' ? '#b91c1c' : '#c2410c', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: '8px' }}>
+                Team Leader Review
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                {selectedFile.team_leader_username && <div style={{ fontSize: '12.5px', color: '#374151' }}><span style={{ fontWeight: '600' }}>Reviewed by:</span> {selectedFile.team_leader_username}</div>}
+                {selectedFile.team_leader_reviewed_at && <div style={{ fontSize: '12.5px', color: '#374151' }}><span style={{ fontWeight: '600' }}>Date:</span> {formatDate(selectedFile.team_leader_reviewed_at)}</div>}
+                {selectedFile.team_leader_comments && <div style={{ fontSize: '12.5px', color: '#374151', marginTop: '4px', fontStyle: 'italic' }}>"{selectedFile.team_leader_comments}"</div>}
+              </div>
+            </div>
+          )}
+
+          {/* Admin Review section */}
+          {(selectedFile.admin_reviewed_at || (selectedFile.admin_comments && !isRejected)) && (
+            <div style={{
+              background: selectedFile.status === 'rejected_by_admin' ? '#fef2f2' : '#f5f3ff',
+              border: `1px solid ${selectedFile.status === 'rejected_by_admin' ? '#fecaca' : '#ddd6fe'}`,
+              borderRadius: '10px', padding: '12px 14px',
+            }}>
+              <div style={{ fontSize: '11px', fontWeight: '700', color: selectedFile.status === 'rejected_by_admin' ? '#b91c1c' : '#5b21b6', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: '8px' }}>
+                Admin Review
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                {selectedFile.admin_username && <div style={{ fontSize: '12.5px', color: '#374151' }}><span style={{ fontWeight: '600' }}>Reviewed by:</span> {selectedFile.admin_username}</div>}
+                {selectedFile.admin_reviewed_at && <div style={{ fontSize: '12.5px', color: '#374151' }}><span style={{ fontWeight: '600' }}>Date:</span> {formatDate(selectedFile.admin_reviewed_at)}</div>}
+                {selectedFile.admin_comments && <div style={{ fontSize: '12.5px', color: '#374151', marginTop: '4px', fontStyle: 'italic' }}>"{selectedFile.admin_comments}"</div>}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* ── Footer ── */}
+        <div style={{
+          padding: '14px 22px', borderTop: '1px solid #f3f4f6',
+          background: '#fafafa', display: 'flex', gap: '10px', justifyContent: 'flex-end', flexShrink: 0,
+        }}>
+          <button onClick={handleClose} style={{
+            padding: '9px 20px', borderRadius: '8px', border: '1px solid #d1d5db',
+            background: '#fff', color: '#374151', fontSize: '14px', fontWeight: '500', cursor: 'pointer',
+          }}>Close</button>
+
           {onOpenFile && (
-            <button 
-              onClick={onOpenFile} 
-              style={{ padding: '10px 20px', borderRadius: '8px', border: 'none', background: '#4f46e5', color: '#fff', fontSize: '14px', fontWeight: '500', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>
+            <button onClick={onOpenFile} style={{
+              padding: '9px 20px', borderRadius: '8px', border: 'none',
+              background: 'linear-gradient(135deg, #4f46e5, #6366f1)', color: '#fff',
+              fontSize: '14px', fontWeight: '600', cursor: 'pointer',
+              display: 'flex', alignItems: 'center', gap: '7px',
+              boxShadow: '0 2px 8px rgba(79,70,229,0.3)',
+            }}>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/>
+                <polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>
               </svg>
               Open File
             </button>

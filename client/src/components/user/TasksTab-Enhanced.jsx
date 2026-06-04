@@ -103,8 +103,316 @@ const getAssignmentStatus = (assignment) => {
   return 'active';
 };
 
+// ─── Checklist categories & items (from the drawing review sheet) ────────────
+const CHECKLIST_SECTIONS = [
+  {
+    section: 'Drawing Views',
+    items: ['Origin','Alignment of Views','Line Attributes','Dimensions','Hole Properties','Chamfer/Radius','Machining Symbol','Welding Symbol','Geometric/Fitting Tolerances','Additional Views','Text Attributes'],
+  },
+  {
+    section: 'Notes',
+    items: ['Standard Notes','Special Notes'],
+  },
+  {
+    section: 'Bill of Materials',
+    items: ['Material Type','Material Specification','Quantity','Material Weight','Remarks','Balloon','Numbering & Arrangement (Assy)'],
+  },
+  {
+    section: 'Title Block',
+    items: ['Machine name','Part Name','Scale','Designed','Drawn','Quantity','Job Number','Cross Reference Number','Previous Drawing Number','Revision Details (if necessary)'],
+  },
+  {
+    section: 'Isometric View',
+    items: ['Orientation','Scale','Location'],
+  },
+  {
+    section: 'Others',
+    items: ['Tree View Properties / Link','Excel (Additional Info)'],
+  },
+];
+
+// ─── Checking Modal ───────────────────────────────────────────────────────────
+const CheckingModal = memo(({ isOpen, onClose, file, assignment, onMarkForEditing, onDoneChecking }) => {
+  const [checkedItems, setCheckedItems] = useState({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (isOpen) setCheckedItems({});
+  }, [isOpen, file?.id]);
+
+  if (!isOpen || !file) return null;
+
+  const wrongItems = Object.entries(checkedItems)
+    .filter(([, v]) => v)
+    .map(([k]) => k);
+
+  const handleMarkForEditing = async () => {
+    setIsSubmitting(true);
+    try {
+      await onMarkForEditing(file.id, wrongItems);
+      onClose();
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleDoneChecking = async () => {
+    setIsSubmitting(true);
+    try {
+      await onDoneChecking(file.id);
+      onClose();
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const toggleItem = (item) =>
+    setCheckedItems(prev => ({ ...prev, [item]: !prev[item] }));
+
+  return (
+    <div
+      style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}
+      onClick={onClose}
+    >
+      <div
+        style={{ background: '#fff', borderRadius: '16px', boxShadow: '0 20px 60px rgba(0,0,0,0.2)', width: '560px', maxWidth: '100%', maxHeight: '90vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}
+        onClick={e => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div style={{ padding: '20px 24px 16px', borderBottom: '1px solid #e5e7eb', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '12px' }}>
+          <div>
+            <h3 style={{ margin: 0, fontSize: '17px', fontWeight: '700', color: '#111827' }}>Checking</h3>
+            <p style={{ margin: '4px 0 0', fontSize: '13px', color: '#6b7280', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '420px' }}>
+              {file.original_name || file.filename}
+            </p>
+            <p style={{ margin: '2px 0 0', fontSize: '12px', color: '#9ca3af' }}>
+              Check items that are <span style={{ color: '#dc2626', fontWeight: '600' }}>wrong</span> in this file
+            </p>
+          </div>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: '22px', cursor: 'pointer', color: '#9ca3af', lineHeight: 1, padding: '0', flexShrink: 0 }}>×</button>
+        </div>
+
+        {/* Wrong items summary */}
+        {wrongItems.length > 0 && (
+          <div style={{ margin: '0 24px 0', padding: '10px 14px', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '8px', marginTop: '14px' }}>
+            <p style={{ margin: 0, fontSize: '12px', fontWeight: '600', color: '#dc2626' }}>
+              ⚠ {wrongItems.length} item{wrongItems.length !== 1 ? 's' : ''} marked as wrong: {wrongItems.join(', ')}
+            </p>
+          </div>
+        )}
+
+        {/* Checklist */}
+        <div style={{ overflowY: 'auto', flex: 1, padding: '16px 24px' }}>
+          {CHECKLIST_SECTIONS.map(({ section, items }) => (
+            <div key={section} style={{ marginBottom: '16px' }}>
+              <div style={{ fontSize: '11px', fontWeight: '700', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.08em', padding: '6px 10px', background: '#f3f4f6', borderRadius: '6px', marginBottom: '6px' }}>
+                {section}
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                {items.map(item => {
+                  const isWrong = !!checkedItems[item];
+                  return (
+                    <label
+                      key={item}
+                      style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 10px', borderRadius: '6px', cursor: 'pointer', background: isWrong ? '#fef2f2' : 'transparent', border: isWrong ? '1px solid #fecaca' : '1px solid transparent', transition: 'all 0.12s' }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={isWrong}
+                        onChange={() => toggleItem(item)}
+                        style={{ width: '15px', height: '15px', accentColor: '#dc2626', cursor: 'pointer', flexShrink: 0 }}
+                      />
+                      <span style={{ fontSize: '13.5px', color: isWrong ? '#dc2626' : '#374151', fontWeight: isWrong ? '600' : '400' }}>
+                        {item}
+                      </span>
+                      {isWrong && (
+                        <span style={{ marginLeft: 'auto', fontSize: '11px', color: '#dc2626', fontWeight: '600', background: '#fee2e2', padding: '1px 7px', borderRadius: '10px', flexShrink: 0 }}>Wrong</span>
+                      )}
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Footer */}
+        <div style={{ padding: '16px 24px', borderTop: '1px solid #e5e7eb', display: 'flex', gap: '10px', justifyContent: 'flex-end', background: '#fafafa' }}>
+          <button
+            onClick={onClose}
+            disabled={isSubmitting}
+            style={{ padding: '9px 18px', borderRadius: '8px', border: '1px solid #d1d5db', background: '#fff', color: '#374151', fontSize: '14px', fontWeight: '500', cursor: 'pointer' }}
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleMarkForEditing}
+            disabled={isSubmitting || wrongItems.length === 0}
+            style={{ padding: '9px 18px', borderRadius: '8px', border: 'none', background: wrongItems.length === 0 ? '#e5e7eb' : '#f59e0b', color: wrongItems.length === 0 ? '#9ca3af' : '#fff', fontSize: '14px', fontWeight: '600', cursor: wrongItems.length === 0 || isSubmitting ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}
+            title={wrongItems.length === 0 ? 'Check at least one wrong item first' : ''}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/>
+            </svg>
+            Mark as For Editing
+          </button>
+          <button
+            onClick={handleDoneChecking}
+            disabled={isSubmitting}
+            style={{ padding: '9px 18px', borderRadius: '8px', border: 'none', background: '#1d4ed8', color: '#fff', fontSize: '14px', fontWeight: '600', cursor: isSubmitting ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="20 6 9 17 4 12"/>
+            </svg>
+            Done Checking
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+});
+CheckingModal.displayName = 'CheckingModal';
+
 // ─── Sub-components ───────────────────────────────────────────────────────────
-const FileMoreMenuInline = memo(({ onDelete, onViewDetails, onOpenPath, isFolder = false, onMarkForEditing, onDoneChecking }) => {
+// ─── Checklist View Modal (read-only wrong items viewer) ──────────────────────
+const ChecklistViewModal = memo(({ isOpen, onClose, file }) => {
+  const [resolvedNote, setResolvedNote] = useState(null);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (!isOpen || !file) { setResolvedNote(null); setLoading(false); return; }
+    // If checker_note is already on the file object, use it directly
+    if (file.checker_note !== undefined) {
+      setResolvedNote(file.checker_note || '');
+      setLoading(false);
+      return;
+    }
+    // Otherwise fetch the full file details to get checker_note
+    setLoading(true);
+    apiFetch(`/api/files/${file.id}`)
+      .then(data => setResolvedNote((data.file || data)?.checker_note || ''))
+      .catch(() => setResolvedNote(''))
+      .finally(() => setLoading(false));
+  }, [isOpen, file?.id]);
+
+  if (!isOpen || !file) return null;
+
+  // Parse wrong items from checker_note
+  const wrongItems = (() => {
+    if (!resolvedNote) return [];
+    const match = resolvedNote.match(/Wrong items?:\s*(.+)/i);
+    if (match) return match[1].split(',').map(s => s.trim()).filter(Boolean);
+    return [];
+  })();
+
+  const wrongSet = new Set(wrongItems);
+  const filename = file.original_name || file.filename || 'Unknown';
+
+  return (
+    <div
+      style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 2100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}
+      onClick={onClose}
+    >
+      <div
+        style={{ background: '#fff', borderRadius: '16px', boxShadow: '0 20px 60px rgba(0,0,0,0.2)', width: '560px', maxWidth: '100%', maxHeight: '90vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}
+        onClick={e => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div style={{ padding: '18px 22px 14px', borderBottom: '1px solid #e5e7eb', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '12px' }}>
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/>
+              </svg>
+              <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '700', color: '#111827' }}>Checklist Results</h3>
+            </div>
+            <p style={{ margin: 0, fontSize: '12px', color: '#6b7280', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '400px' }}>
+              {filename}
+            </p>
+          </div>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: '22px', cursor: 'pointer', color: '#9ca3af', lineHeight: 1, padding: '0', flexShrink: 0 }}>×</button>
+        </div>
+
+        {/* Wrong items summary banner */}
+        {loading ? (
+          <div style={{ margin: '14px 22px 0', padding: '10px 14px', background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: '8px', textAlign: 'center' }}>
+            <p style={{ margin: 0, fontSize: '13px', color: '#6b7280' }}>Loading checklist...</p>
+          </div>
+        ) : wrongItems.length > 0 ? (
+          <div style={{ margin: '14px 22px 0', padding: '10px 14px', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '8px' }}>
+            <p style={{ margin: 0, fontSize: '13px', fontWeight: '600', color: '#dc2626' }}>
+              ⚠ {wrongItems.length} item{wrongItems.length !== 1 ? 's' : ''} marked as wrong: {wrongItems.join(', ')}
+            </p>
+          </div>
+        ) : (
+          <div style={{ margin: '14px 22px 0', padding: '10px 14px', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '8px' }}>
+            <p style={{ margin: 0, fontSize: '13px', fontWeight: '600', color: '#15803d' }}>✓ No issues found — all items passed</p>
+          </div>
+        )}
+
+        {/* Checklist (read-only) */}
+        <div style={{ overflowY: 'auto', flex: 1, padding: '14px 22px 18px' }}>
+          {CHECKLIST_SECTIONS.map(({ section, items }) => (
+            <div key={section} style={{ marginBottom: '14px' }}>
+              <div style={{ fontSize: '11px', fontWeight: '700', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.08em', padding: '5px 10px', background: '#f3f4f6', borderRadius: '6px', marginBottom: '4px' }}>
+                {section}
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                {items.map(item => {
+                  const isWrong = wrongSet.has(item);
+                  return (
+                    <div
+                      key={item}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: '10px',
+                        padding: '7px 10px', borderRadius: '6px',
+                        background: isWrong ? '#fef2f2' : 'transparent',
+                        border: isWrong ? '1px solid #fecaca' : '1px solid transparent',
+                      }}
+                    >
+                      {/* Read-only indicator */}
+                      <div style={{
+                        width: '16px', height: '16px', borderRadius: '3px', flexShrink: 0,
+                        border: isWrong ? '2px solid #dc2626' : '2px solid #d1d5db',
+                        background: isWrong ? '#dc2626' : 'transparent',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      }}>
+                        {isWrong && (
+                          <svg width="10" height="10" viewBox="0 0 12 12" fill="none">
+                            <path d="M2 6l3 3 5-5" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                          </svg>
+                        )}
+                      </div>
+                      <span style={{ fontSize: '13.5px', color: isWrong ? '#dc2626' : '#374151', fontWeight: isWrong ? '600' : '400', flex: 1 }}>
+                        {item}
+                      </span>
+                      {isWrong && (
+                        <span style={{ fontSize: '11px', color: '#dc2626', fontWeight: '600', background: '#fee2e2', padding: '2px 8px', borderRadius: '10px', flexShrink: 0 }}>Wrong</span>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Footer */}
+        <div style={{ padding: '14px 22px', borderTop: '1px solid #e5e7eb', background: '#fafafa', display: 'flex', justifyContent: 'flex-end' }}>
+          <button
+            onClick={onClose}
+            style={{ padding: '9px 22px', borderRadius: '8px', border: '1px solid #d1d5db', background: '#fff', color: '#374151', fontSize: '14px', fontWeight: '500', cursor: 'pointer' }}
+          >
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+});
+ChecklistViewModal.displayName = 'ChecklistViewModal';
+
+const FileMoreMenuInline = memo(({ onDelete, onViewDetails, onOpenPath, isFolder = false, onChecking, onChecklist, onMarkForEditing, onDoneChecking }) => {
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
 
@@ -115,7 +423,7 @@ const FileMoreMenuInline = memo(({ onDelete, onViewDetails, onOpenPath, isFolder
     return () => document.removeEventListener('mousedown', handler);
   }, [open]);
 
-  if (!onDelete && !onViewDetails && !onMarkForEditing && !onDoneChecking) return null;
+  if (!onDelete && !onViewDetails && !onChecking && !onChecklist) return null;
 
   return (
     <div ref={ref} style={{ position: 'relative', flexShrink: 0 }}>
@@ -178,44 +486,44 @@ const FileMoreMenuInline = memo(({ onDelete, onViewDetails, onOpenPath, isFolder
               {isFolder ? 'Open Folder Path' : 'Open File Path'}
             </button>
           )}
-          {(onMarkForEditing || onDoneChecking) && (onViewDetails || onOpenPath || onDelete) && (
+          {onChecking && (onViewDetails || onOpenPath) && (
             <div style={{ height: '1px', backgroundColor: '#f3f4f6', margin: '2px 0' }} />
           )}
-          {onMarkForEditing && (
+          {onChecklist && (
             <button
-              onClick={() => { setOpen(false); onMarkForEditing(); }}
+              onClick={() => { setOpen(false); onChecklist(); }}
               style={{
                 width: '100%', textAlign: 'left', background: 'none', border: 'none',
-                padding: '10px 14px', fontSize: '13px', color: '#92400E',
+                padding: '10px 14px', fontSize: '13px', color: '#d97706',
                 cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', fontWeight: '600',
               }}
-              onMouseEnter={e => { e.currentTarget.style.backgroundColor = '#FEF3C7'; }}
+              onMouseEnter={e => { e.currentTarget.style.backgroundColor = '#fef3c7'; }}
               onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; }}
             >
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/>
+                <path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/>
               </svg>
-              Mark as For Editing
+              Checklist
             </button>
           )}
-          {onDoneChecking && (
+          {onChecking && (
             <button
-              onClick={() => { setOpen(false); onDoneChecking(); }}
+              onClick={() => { setOpen(false); onChecking(); }}
               style={{
                 width: '100%', textAlign: 'left', background: 'none', border: 'none',
-                padding: '10px 14px', fontSize: '13px', color: '#1D4ED8',
+                padding: '10px 14px', fontSize: '13px', color: '#4f46e5',
                 cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', fontWeight: '600',
               }}
-              onMouseEnter={e => { e.currentTarget.style.backgroundColor = '#EFF6FF'; }}
+              onMouseEnter={e => { e.currentTarget.style.backgroundColor = '#ede9fe'; }}
               onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; }}
             >
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <polyline points="20 6 9 17 4 12"/>
+                <path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/>
               </svg>
-              Done Checking
+              Checking
             </button>
           )}
-          {onDelete && (onMarkForEditing || onDoneChecking) && (
+          {onDelete && (onChecking || onChecklist) && (
             <div style={{ height: '1px', backgroundColor: '#f3f4f6', margin: '2px 0' }} />
           )}
           {onDelete && (
@@ -450,6 +758,11 @@ const TasksTab = memo(({
   const [showFileDetailsModal, setShowFileDetailsModal] = useState(false);
   const [fileDetailsTarget, setFileDetailsTarget] = useState(null);
 
+  // Checking modal (per-file checklist)
+  const [checkingModal, setCheckingModal] = useState({ isOpen: false, file: null, assignment: null });
+  // Checklist view modal (read-only wrong items viewer)
+  const [checklistViewModal, setChecklistViewModal] = useState({ isOpen: false, file: null });
+
   // Checker three-dot menu
   const [checkerMenuOpen, setCheckerMenuOpen] = useState(null); // assignmentId
   const checkerMenuRef = useRef(null);
@@ -520,12 +833,12 @@ const TasksTab = memo(({
   }, [user.id, showError]);
 
   // ─── Checker actions (must be after fetchAssignments & showError) ────────────
-  const handleMarkForEditing = useCallback(async (assignment, fileId = null) => {
+  const handleMarkForEditing = useCallback(async (assignment, fileId = null, note = null) => {
     setCheckerMenuOpen(null);
     try {
       const data = await apiFetch(`/api/assignments/${assignment.id}/mark-for-editing`, {
         method: 'PUT',
-        body: JSON.stringify({ checkerId: user.id, checkerName: user.fullName || user.username, fileId }),
+        body: JSON.stringify({ checkerId: user.id, checkerName: user.fullName || user.username, fileId, note }),
       });
       if (data.success) {
         setSuccessModal({ isOpen: true, title: 'Status Updated', message: 'Marked as For Editing — user has been notified.', type: 'success' });
@@ -654,6 +967,23 @@ const TasksTab = memo(({
       }
     }
   }, [highlightedFileId, assignments]);
+
+  // Auto-open ChecklistViewModal when navigating from a "Submission Needs Editing" notification
+  useEffect(() => {
+    if (!highlightedFileId || highlightedFileStatus !== 'revision' || assignments.length === 0) return;
+    const fid = parseInt(highlightedFileId);
+    for (const assignment of assignments) {
+      const targetFile = (assignment.submitted_files || []).find(f => f.id === fid);
+      if (targetFile) {
+        // Small delay so the task card has time to scroll into view first
+        const timer = setTimeout(() => {
+          setChecklistViewModal({ isOpen: true, file: targetFile });
+          if (onClearFileHighlight) onClearFileHighlight();
+        }, 600);
+        return () => clearTimeout(timer);
+      }
+    }
+  }, [highlightedFileId, highlightedFileStatus, assignments]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ─── Comment actions ───────────────────────────────────────────────────────
   const postComment = useCallback(async (assignmentId, commentText) => {
@@ -1190,8 +1520,8 @@ const TasksTab = memo(({
               onViewDetails={() => openFileDetails(fileWithTitle)}
               onOpenPath={() => openFolderInExplorer(file.id, false, file.original_name || file.filename, false)}
               onDelete={canDelete ? () => confirmDeleteFile(assignmentId, file.id, file.original_name || file.filename) : undefined}
-              onMarkForEditing={checkerActions?.onMarkForEditing ? () => checkerActions.onMarkForEditing(file.id) : undefined}
-              onDoneChecking={checkerActions?.onDoneChecking ? () => checkerActions.onDoneChecking(file.id) : undefined}
+              onChecking={checkerActions?.onChecking ? () => checkerActions.onChecking(file) : undefined}
+              onChecklist={(file.checker_note || file.status === 'revision' || file.status === 'checked') ? () => setChecklistViewModal({ isOpen: true, file }) : undefined}
             />
           </div>
         </div>
@@ -1384,8 +1714,8 @@ const TasksTab = memo(({
                     onViewDetails={() => openFileDetails(fileWithTitle)}
                     onOpenPath={() => openFolderInExplorer(file.id, false, file.original_name || file.filename, false)}
                     onDelete={canDelete ? () => confirmDeleteFile(assignment.id, file.id, file.original_name || file.filename) : undefined}
-                    onMarkForEditing={checkerActions?.onMarkForEditing ? () => checkerActions.onMarkForEditing(file.id) : undefined}
-                    onDoneChecking={checkerActions?.onDoneChecking ? () => checkerActions.onDoneChecking(file.id) : undefined}
+                    onChecking={checkerActions?.onChecking ? () => checkerActions.onChecking(file) : undefined}
+                    onChecklist={(file.checker_note || file.status === 'revision' || file.status === 'checked') ? () => setChecklistViewModal({ isOpen: true, file }) : undefined}
                   />
                 </div>
               </div>
@@ -1811,8 +2141,7 @@ const TasksTab = memo(({
                   const shouldShowSeeMore = totalItems > INITIAL_FILE_DISPLAY_LIMIT;
 
                   const checkerActions = activeTab === 'for-checking' ? {
-                    onMarkForEditing: (fileId) => handleMarkForEditing(assignment, fileId),
-                    onDoneChecking: (fileId) => handleMarkFileChecked(assignment, fileId),
+                    onChecking: (file) => setCheckingModal({ isOpen: true, file, assignment }),
                   } : null;
 
                   let displayFolders = foldersToShow;
@@ -1859,15 +2188,13 @@ const TasksTab = memo(({
                                 </div>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '2px', flexShrink: 0 }} onClick={e => e.stopPropagation()}>
                                   <FileMoreMenuInline
-                                    isFolder
-                                    onViewDetails={() => { const firstFile = folderFiles[0]; if (firstFile) openFileDetails(firstFile); }}
-                                    onOpenPath={() => openFolderInExplorer(folderFiles[0]?.id, false, folderName, true)}
-                                    onDelete={() => {
-                                      setFileToDelete({ assignmentId: assignment.id, fileId: null, fileName: folderName, isFolderDelete: true, folderFiles });
-                                      setShowDeleteModal(true);
-                                    }}
-                                    onMarkForEditing={checkerActions?.onMarkForEditing}
-                                    onDoneChecking={undefined}
+                                  isFolder
+                                  onViewDetails={() => { const firstFile = folderFiles[0]; if (firstFile) openFileDetails(firstFile); }}
+                                  onOpenPath={() => openFolderInExplorer(folderFiles[0]?.id, false, folderName, true)}
+                                  onDelete={() => {
+                                  setFileToDelete({ assignmentId: assignment.id, fileId: null, fileName: folderName, isFolderDelete: true, folderFiles });
+                                  setShowDeleteModal(true);
+                                  }}
                                   />
                                 </div>
                               </div>
@@ -2049,6 +2376,30 @@ const TasksTab = memo(({
         type={openModalType}
       />
 
+      <ChecklistViewModal
+        isOpen={checklistViewModal.isOpen}
+        onClose={() => setChecklistViewModal({ isOpen: false, file: null })}
+        file={checklistViewModal.file}
+      />
+
+      <CheckingModal
+        isOpen={checkingModal.isOpen}
+        onClose={() => setCheckingModal({ isOpen: false, file: null, assignment: null })}
+        file={checkingModal.file}
+        assignment={checkingModal.assignment}
+        onMarkForEditing={async (fileId, wrongItems) => {
+          const note = wrongItems.length > 0
+            ? `Wrong items: ${wrongItems.join(', ')}`
+            : 'Marked for editing by checker.';
+          await handleMarkForEditing(checkingModal.assignment, fileId, note);
+          setCheckingModal({ isOpen: false, file: null, assignment: null });
+        }}
+        onDoneChecking={async (fileId) => {
+          await handleMarkFileChecked(checkingModal.assignment, fileId);
+          setCheckingModal({ isOpen: false, file: null, assignment: null });
+        }}
+      />
+
       <SuccessModal
         isOpen={successModal.isOpen}
         onClose={() => setSuccessModal({ ...successModal, isOpen: false })}
@@ -2079,16 +2430,6 @@ const TasksTab = memo(({
         @keyframes slideInRight { from { opacity: 0; transform: translateX(40px); } to { opacity: 1; transform: translateX(0); } }
         @keyframes shrinkBar { from { width: 100%; } to { width: 0%; } }
       `}</style>
-
-      {showFileDetailsModal && fileDetailsTarget && (
-        <FileModal
-          showFileModal={showFileDetailsModal}
-          setShowFileModal={setShowFileDetailsModal}
-          selectedFile={fileDetailsTarget}
-          fileComments={[]}
-          formatFileSize={formatFileSize}
-        />
-      )}
 
       {showSubmitModal && currentAssignment && (
         <div className="tasks-modal-overlay">

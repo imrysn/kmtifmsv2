@@ -341,7 +341,7 @@ router.get('/admin/all', authenticateToken, authorizeRole(['ADMIN']), async (req
                 COALESCE(status, 'team_leader_approved') AS status, COALESCE(current_stage, 'pending_admin') AS current_stage
          FROM assignment_attachments WHERE assignment_id IN (${ph}) ORDER BY assignment_id, COALESCE(folder_name, ''), created_at DESC`, ids),
         query(`SELECT asub.assignment_id, f.id, f.original_name, f.filename, f.file_type, f.file_path, f.public_network_url, f.file_size,
-                f.tag, f.description, f.uploaded_at, f.status, f.checked_by, f.folder_name, f.relative_path, f.is_folder,
+                f.tag, f.description, f.uploaded_at, f.status, f.checked_by, f.checker_note, f.folder_name, f.relative_path, f.is_folder,
                 u.username, u.fullName, asub.submitted_at, asub.submitted_at as created_at, asub.user_id
          FROM assignment_submissions asub
          JOIN files f ON asub.file_id = f.id JOIN users u ON asub.user_id = u.id
@@ -412,7 +412,7 @@ router.get('/all', authenticateToken, authorizeRole(['ADMIN']), async (req, res)
       const [allMembers, allAttachments, allSubmissions, allTLs] = await Promise.all([
         query(`SELECT am.assignment_id, u.id, u.username, u.fullName FROM assignment_members am JOIN users u ON am.user_id = u.id WHERE am.assignment_id IN (${ph})`, ids),
         query(`SELECT id, assignment_id, original_name, filename, file_path, public_network_url, file_size, file_type, folder_name, relative_path, created_at, COALESCE(status, 'team_leader_approved') AS status, COALESCE(current_stage, 'pending_admin') AS current_stage FROM assignment_attachments WHERE assignment_id IN (${ph}) ORDER BY assignment_id, COALESCE(folder_name, ''), created_at DESC`, ids),
-        query(`SELECT asub.assignment_id, f.id, f.original_name, f.filename, f.file_type, f.file_path, f.public_network_url, f.file_size, f.tag, f.description, f.uploaded_at, f.status, f.checked_by, f.folder_name, f.relative_path, f.is_folder, u.username, u.fullName, asub.submitted_at, asub.submitted_at as created_at, asub.user_id FROM assignment_submissions asub JOIN files f ON asub.file_id = f.id JOIN users u ON asub.user_id = u.id WHERE asub.assignment_id IN (${ph}) ORDER BY asub.submitted_at DESC`, ids),
+        query(`SELECT asub.assignment_id, f.id, f.original_name, f.filename, f.file_type, f.file_path, f.public_network_url, f.file_size, f.tag, f.description, f.uploaded_at, f.status, f.checked_by, f.checker_note, f.folder_name, f.relative_path, f.is_folder, u.username, u.fullName, asub.submitted_at, asub.submitted_at as created_at, asub.user_id FROM assignment_submissions asub JOIN files f ON asub.file_id = f.id JOIN users u ON asub.user_id = u.id WHERE asub.assignment_id IN (${ph}) ORDER BY asub.submitted_at DESC`, ids),
         tlIds.length > 0 ? query(`SELECT id, fullName, username, email FROM users WHERE id IN (${tlPh})`, tlIds) : []
       ]);
       const membersByAsgn = {}; const attachByAsgn = {}; const subsByAsgn = {};
@@ -550,7 +550,7 @@ router.get('/team/:team/all-tasks', authenticateToken, async (req, res) => {
                 COALESCE(status, 'team_leader_approved') AS status, COALESCE(current_stage, 'pending_admin') AS current_stage
          FROM assignment_attachments WHERE assignment_id IN (${ph}) ORDER BY assignment_id, COALESCE(folder_name, ''), created_at DESC`, ids),
         query(`SELECT asub.assignment_id, f.id, f.original_name, f.filename, f.file_type, f.file_path, f.public_network_url, f.file_size,
-                f.tag, f.description, f.uploaded_at, f.status, f.checked_by, f.folder_name, f.relative_path, f.is_folder,
+                f.tag, f.description, f.uploaded_at, f.status, f.checked_by, f.checker_note, f.folder_name, f.relative_path, f.is_folder,
                 u.username, u.fullName, asub.submitted_at, asub.submitted_at as created_at
          FROM assignment_submissions asub
          JOIN files f ON asub.file_id = f.id JOIN users u ON asub.user_id = u.id
@@ -614,7 +614,7 @@ router.get('/team-leader/:userId', authenticateToken, authorizeRole(['TEAM_LEADE
                 COALESCE(status, 'team_leader_approved') AS status, COALESCE(current_stage, 'pending_admin') AS current_stage
          FROM assignment_attachments WHERE assignment_id IN (${ph}) ORDER BY assignment_id, COALESCE(folder_name, ''), created_at DESC`, ids),
         query(`SELECT asub.assignment_id, f.id, f.original_name, f.filename, f.file_type, f.file_path, f.public_network_url, f.file_size,
-                f.tag, f.description, f.uploaded_at, f.status, f.checked_by, f.folder_name, f.relative_path, f.is_folder, f.user_team,
+                f.tag, f.description, f.uploaded_at, f.status, f.checked_by, f.checker_note, f.folder_name, f.relative_path, f.is_folder, f.user_team,
                 u.username, u.fullName, asub.submitted_at, asub.submitted_at as created_at, asub.user_id
          FROM assignment_submissions asub
          JOIN files f ON asub.file_id = f.id JOIN users u ON asub.user_id = u.id
@@ -1250,7 +1250,7 @@ router.get('/user/:userId', authenticateToken, async (req, res) => {
             const cph = checkerAssignmentIds.map(() => '?').join(',');
             queries.push(
               query(`SELECT asub.assignment_id, f.id, f.original_name, f.filename, f.file_path, f.public_network_url, f.file_type, f.file_size,
-                f.tag, f.description, f.status, f.folder_name, f.relative_path, f.is_folder,
+                f.tag, f.description, f.status, f.checked_by, f.checker_note, f.folder_name, f.relative_path, f.is_folder,
                 asub.submitted_at, u.fullName as submitter_name, u.username as submitter_username
                FROM assignment_submissions asub
                JOIN files f ON asub.file_id = f.id JOIN users u ON asub.user_id = u.id
@@ -1262,7 +1262,7 @@ router.get('/user/:userId', authenticateToken, async (req, res) => {
             const mph = myTaskIds.map(() => '?').join(',');
             queries.push(
               query(`SELECT asub.assignment_id, f.id, f.original_name, f.filename, f.file_path, f.public_network_url, f.file_type, f.file_size,
-                f.tag, f.description, f.status, f.folder_name, f.relative_path, f.is_folder,
+                f.tag, f.description, f.status, f.checked_by, f.checker_note, f.folder_name, f.relative_path, f.is_folder,
                 asub.submitted_at, u.fullName as submitter_name, u.username as submitter_username
                FROM assignment_submissions asub
                JOIN files f ON asub.file_id = f.id JOIN users u ON asub.user_id = u.id
@@ -1740,8 +1740,8 @@ router.put('/:assignmentId/mark-for-editing', authenticateToken, async (req, res
     if (fileId) {
       // Per-file revision: only mark the specific file, keep assignment status as-is
       await query(
-        `UPDATE files SET status = 'revision', updated_at = ? WHERE id = ?`,
-        [now, fileId]
+        `UPDATE files SET status = 'revision', checker_note = ?, updated_at = ? WHERE id = ?`,
+        [note || null, now, fileId]
       );
     } else {
       // Whole-assignment revision: update assignment status and ALL submitted files
@@ -1749,9 +1749,9 @@ router.put('/:assignmentId/mark-for-editing', authenticateToken, async (req, res
       await query(
         `UPDATE files f
          JOIN assignment_submissions asub ON asub.file_id = f.id
-         SET f.status = 'revision', f.updated_at = ?
+         SET f.status = 'revision', f.checker_note = ?, f.updated_at = ?
          WHERE asub.assignment_id = ?`,
-        [now, assignmentId]
+        [note || null, now, assignmentId]
       );
     }
 
