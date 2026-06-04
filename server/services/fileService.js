@@ -66,7 +66,7 @@ async function uploadFile(fileData, user) {
 
     if (assignmentId) {
         assignment = await queryOne(
-            'SELECT id, title, team_leader_id, team_leader_username, project_folder_path FROM assignments WHERE id = ?',
+            'SELECT id, title, team_leader_id, team_leader_username, project_folder_path, checker_ids FROM assignments WHERE id = ?',
             [assignmentId]
         );
         if (assignment && assignment.project_folder_path) {
@@ -235,7 +235,7 @@ async function uploadFile(fileData, user) {
                 await notificationService.createNotification(
                     assignment.team_leader_id,
                     fileId,
-                    'file_submitted',
+                    'submission',
                     'New File Submission',
                     `${user.fullName || user.username} submitted "${originalName}" for "${assignment.title}".`,
                     user.id,
@@ -244,6 +244,30 @@ async function uploadFile(fileData, user) {
                     assignmentId
                 );
                 pushToUser(assignment.team_leader_id);
+
+                // Notify assigned checkers that a new file is ready to review.
+                // Skip the submitter themselves and the TL (already notified above).
+                try {
+                    const checkerIds = (() => { try { return JSON.parse(assignment.checker_ids || '[]').map(String); } catch { return []; } })();
+                    for (const checkerId of checkerIds) {
+                        if (String(checkerId) === String(user.id)) continue;                        // submitter is the checker
+                        if (String(checkerId) === String(assignment.team_leader_id)) continue;    // TL already notified
+                        await notificationService.createNotification(
+                            parseInt(checkerId, 10),
+                            fileId,
+                            'submission',
+                            'New File Submitted for Checking',
+                            `${user.fullName || user.username} submitted "${originalName}" for "${assignment.title}".`,
+                            user.id,
+                            user.username,
+                            user.role,
+                            assignmentId
+                        );
+                        pushToUser(checkerId);
+                    }
+                } catch (checkerNotifErr) {
+                    logError(checkerNotifErr, { context: 'uploadFile-checker-notification' });
+                }
             }
         } catch (notifErr) {
             logError(notifErr, { context: 'uploadFile-TL-notification' });
@@ -475,7 +499,7 @@ async function bulkUploadFast(filesData, user, assignmentId = null) {
         try {
             const { pushToUser } = require('../routes/notifications');
             const assignment = await queryOne(
-                'SELECT id, title, team_leader_id FROM assignments WHERE id = ?',
+                'SELECT id, title, team_leader_id, checker_ids FROM assignments WHERE id = ?',
                 [parseInt(assignmentId, 10)]
             );
             if (assignment && assignment.team_leader_id) {
@@ -493,6 +517,25 @@ async function bulkUploadFast(filesData, user, assignmentId = null) {
                     user.id, user.username, user.role, parseInt(assignmentId, 10)
                 );
                 pushToUser(assignment.team_leader_id);
+
+                // Notify assigned checkers that new files are ready to review.
+                // Skip the submitter themselves and the TL (already notified above).
+                try {
+                    const checkerIds = (() => { try { return JSON.parse(assignment.checker_ids || '[]').map(String); } catch { return []; } })();
+                    for (const checkerId of checkerIds) {
+                        if (String(checkerId) === String(user.id)) continue;                          // submitter is the checker
+                        if (String(checkerId) === String(assignment.team_leader_id)) continue;        // TL already notified
+                        await notificationService.createNotification(
+                            parseInt(checkerId, 10), firstFileId, 'submission',
+                            'New File Submitted for Checking',
+                            notificationMessage,
+                            user.id, user.username, user.role, parseInt(assignmentId, 10)
+                        );
+                        pushToUser(checkerId);
+                    }
+                } catch (checkerNotifErr) {
+                    logError(checkerNotifErr, { context: 'bulkUploadFast-checker-notification' });
+                }
             }
         } catch (notifErr) {
             logError(notifErr, { context: 'bulkUploadFast-TL-notification' });

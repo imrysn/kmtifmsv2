@@ -107,6 +107,28 @@ async function createBatchedSubmissionNotification(teamLeaderId, assignmentId, s
 
     console.log(`✅ Batched notification sent to TL ${finalTeamLeaderId}`);
     pushToUser(finalTeamLeaderId);
+
+    // Notify assigned checkers so they know new files are ready to review.
+    // Skip the submitter themselves and the TL (already notified above).
+    try {
+      const checkerAssignment = await queryOne('SELECT checker_ids, title FROM assignments WHERE id = ?', [assignmentId]);
+      const checkerIds = (() => { try { return JSON.parse(checkerAssignment?.checker_ids || '[]').map(String); } catch { return []; } })();
+      for (const checkerId of checkerIds) {
+        if (String(checkerId) === String(firstSubmission.userId)) continue; // submitter is the checker
+        if (String(checkerId) === String(finalTeamLeaderId)) continue;       // TL already notified
+        await query(
+          `INSERT INTO notifications (user_id, assignment_id, file_id, type, title, message, action_by_id, action_by_username, action_by_role)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [checkerId, assignmentId, firstSubmission.fileId, 'submission',
+            'New File Submitted for Checking',
+            message,
+            firstSubmission.userId, firstSubmission.username, 'USER']
+        );
+        pushToUser(checkerId);
+      }
+    } catch (checkerNotifErr) {
+      console.warn('⚠️ Failed to notify checkers of submission:', checkerNotifErr.message);
+    }
   } catch (error) {
     console.error('⚠️ Failed to create batched submission notification:', error);
   }

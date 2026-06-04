@@ -181,7 +181,7 @@ const UserDashboard = ({ user, onLogout }) => {
     setActiveTab(tab)
 
     if (mergedContext) {
-      if (mergedContext.forChecking) setTaskInitialTab('for-checking')
+      if (mergedContext.forChecking || mergedContext.initialTab === 'for-checking') setTaskInitialTab('for-checking')
       if (mergedContext.assignmentId) setHighlightedAssignmentId(mergedContext.assignmentId)
       if (mergedContext.fileId) setHighlightedFileId(mergedContext.fileId)
       if (mergedContext.fileStatus) setHighlightedFileStatus(mergedContext.fileStatus)

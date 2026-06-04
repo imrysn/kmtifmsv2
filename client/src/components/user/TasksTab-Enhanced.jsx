@@ -71,25 +71,6 @@ const groupFilesByFolder = (files) => {
   return { folders: sortedFolders, individualFiles };
 };
 
-// Groups files within an already-resolved top-level folder into their immediate subfolders.
-// e.g. relative_path="checklist-main/ChecklistApp/file.php" → subfolderName="ChecklistApp"
-const groupBySubfolder = (files) => {
-  const subfolders = {};
-  const rootFiles = [];
-  for (const file of files) {
-    const parts = (file.relative_path || '').split('/');
-    // parts[0]=topFolder, parts[last]=filename, parts[1..-2]=subfolder chain
-    if (parts.length > 2) {
-      const subName = parts[1];
-      if (!subfolders[subName]) subfolders[subName] = [];
-      subfolders[subName].push(file);
-    } else {
-      rootFiles.push(file);
-    }
-  }
-  return { subfolders, rootFiles };
-};
-
 const getAssignmentStatus = (assignment) => {
   // Only truly completed when the team leader/admin explicitly marks it done
   if (assignment.status === 'completed') return 'completed';
@@ -1002,22 +983,52 @@ const TasksTab = memo(({
     comments: comments[currentCommentsAssignment?.id] || [],
   });
 
-  // Auto-expand the folder that contains highlightedFileId so the file is visible
+  // Auto-expand the folder that contains highlightedFileId so the file is visible.
+  // activeTab dependency ensures this runs after the tab has switched (For Checking vs My Tasks).
   useEffect(() => {
     if (!highlightedFileId || assignments.length === 0) return;
     const fid = parseInt(highlightedFileId);
     for (const assignment of assignments) {
       const allFiles = assignment.submitted_files || [];
       const targetFile = allFiles.find(f => f.id === fid);
-      if (targetFile && targetFile.folder_name) {
-        const key = `${assignment.id}-${targetFile.folder_name}`;
-        setExpandedFolders(prev => prev[key] ? prev : { ...prev, [key]: true });
-        // Also show all submitted files in case it's behind "See more"
+      if (targetFile) {
+        // Always expand "See more" so the file isn't hidden behind the limit
         setShowAllSubmittedFiles(prev => prev[assignment.id] ? prev : { ...prev, [assignment.id]: true });
+        // If the file is inside a folder, expand that folder too
+        if (targetFile.folder_name) {
+          const key = `${assignment.id}-${targetFile.folder_name}`;
+          setExpandedFolders(prev => prev[key] ? prev : { ...prev, [key]: true });
+        }
         break;
       }
     }
-  }, [highlightedFileId, assignments]);
+  }, [highlightedFileId, assignments, activeTab]);
+
+  // Scroll to and visually highlight the file card after expand/show-all state settles.
+  // activeTab is a dependency so this re-runs after the tab switch renders the correct cards.
+  // NOTE: onClearFileHighlight is NOT called here — useSmartNavigation.js EFFECT 4 handles
+  // that cleanup via its own retry loop. Calling it here too would double-clear and cause
+  // a second re-render. This effect only handles the visual scroll+pulse.
+  useEffect(() => {
+    if (!highlightedFileId || assignments.length === 0) return;
+    const fid = parseInt(highlightedFileId);
+    // 500ms gives time for: tab switch render + folder auto-expand render + show-all render
+    const timer = setTimeout(() => {
+      const el = document.querySelector(`[data-file-id="${fid}"]`);
+      if (!el) return;
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      // Pulse highlight: indigo ring + light indigo background, fades after 2.5s
+      el.style.transition = 'box-shadow 0.3s, background-color 0.3s';
+      el.style.boxShadow = '0 0 0 3px #6366f1';
+      el.style.backgroundColor = '#eef2ff';
+      const cleanup = setTimeout(() => {
+        el.style.boxShadow = '';
+        el.style.backgroundColor = '';
+      }, 2500);
+      return () => clearTimeout(cleanup);
+    }, 500); // 500ms — tab switch + folder expand + see-all settle
+    return () => clearTimeout(timer);
+  }, [highlightedFileId, assignments, activeTab]); // activeTab ensures re-run after tab switch
 
   // Auto-open ChecklistViewModal when navigating from a "Submission Needs Editing" notification
   useEffect(() => {
