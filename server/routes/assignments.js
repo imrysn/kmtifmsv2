@@ -1775,8 +1775,10 @@ router.put('/:assignmentId/mark-for-editing', authenticateToken, async (req, res
       : `Your ${fileId ? 'file' : 'submission'} for "${assignment.title}" requires editing/revision. Please make the necessary changes and resubmit.`;
 
     for (const uid of allUserIds) {
-      // When the checker is also the submitter (self-check), still notify them
-      // so they receive the revision_request on their own submission.
+      // Skip the checker who performed the action — they already know what they marked.
+      // This prevents the checker from receiving a "Submission Needs Editing" notification
+      // on a task they are also assigned to (e.g. checker is a team member too).
+      if (String(uid) === String(checkerId)) continue;
       try {
         await query(
           'INSERT INTO notifications (user_id, assignment_id, file_id, type, title, message, action_by_id, action_by_username, action_by_role) VALUES (?,?,?,?,?,?,?,?,?)',
