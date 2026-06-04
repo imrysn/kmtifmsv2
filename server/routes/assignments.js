@@ -1686,11 +1686,11 @@ router.put('/:assignmentId/assign-checker', authenticateToken, authorizeRole(['T
 
     const assignment = current; // already fetched above
 
-    // Notify each newly assigned checker
+    // Notify ALL currently assigned checkers (not just new ones).
+    // This ensures the user always gets notified when the TL assigns them as checker,
+    // even if they were previously assigned (e.g. the submitter being assigned as their own checker).
     if (ids.length > 0 && assignment) {
-      // Only notify checkers who are genuinely NEW (not already in previousIds)
-      const newCheckerIds = ids.filter(id => !previousIds.includes(id));
-      for (const checkerId of newCheckerIds) {
+      for (const checkerId of ids) {
         try {
           await query(
             'INSERT INTO notifications (user_id, assignment_id, file_id, type, title, message, action_by_id, action_by_username, action_by_role) VALUES (?,?,?,?,?,?,?,?,?)',
@@ -1775,8 +1775,8 @@ router.put('/:assignmentId/mark-for-editing', authenticateToken, async (req, res
       : `Your ${fileId ? 'file' : 'submission'} for "${assignment.title}" requires editing/revision. Please make the necessary changes and resubmit.`;
 
     for (const uid of allUserIds) {
-      // Don't notify the checker themselves if they're also a member
-      if (String(uid) === String(checkerId)) continue;
+      // When the checker is also the submitter (self-check), still notify them
+      // so they receive the revision_request on their own submission.
       try {
         await query(
           'INSERT INTO notifications (user_id, assignment_id, file_id, type, title, message, action_by_id, action_by_username, action_by_role) VALUES (?,?,?,?,?,?,?,?,?)',
@@ -1893,7 +1893,8 @@ router.put('/:assignmentId/files/:fileId/mark-file-checked', authenticateToken, 
         'SELECT user_id FROM assignment_submissions WHERE assignment_id = ? AND file_id = ?',
         [assignmentId, fileId]
       );
-      if (submitterRow?.user_id && submitterRow.user_id !== Number(checkerId)) {
+      // Notify the submitter even if they are the checker (self-check scenario)
+      if (submitterRow?.user_id) {
         try {
           await query(
             'INSERT INTO notifications (user_id, assignment_id, file_id, type, title, message, action_by_id, action_by_username, action_by_role) VALUES (?,?,?,?,?,?,?,?,?)',
