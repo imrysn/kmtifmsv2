@@ -134,10 +134,11 @@ const CHECKLIST_SECTIONS = [
 // ─── Checking Modal ───────────────────────────────────────────────────────────
 const CheckingModal = memo(({ isOpen, onClose, file, assignment, onMarkForEditing, onDoneChecking }) => {
   const [checkedItems, setCheckedItems] = useState({});
+  const [additionalComment, setAdditionalComment] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
-    if (isOpen) setCheckedItems({});
+    if (isOpen) { setCheckedItems({}); setAdditionalComment(''); }
   }, [isOpen, file?.id]);
 
   if (!isOpen || !file) return null;
@@ -149,7 +150,7 @@ const CheckingModal = memo(({ isOpen, onClose, file, assignment, onMarkForEditin
   const handleMarkForEditing = async () => {
     setIsSubmitting(true);
     try {
-      await onMarkForEditing(file.id, wrongItems);
+      await onMarkForEditing(file.id, wrongItems, additionalComment.trim());
       onClose();
     } finally {
       setIsSubmitting(false);
@@ -172,7 +173,6 @@ const CheckingModal = memo(({ isOpen, onClose, file, assignment, onMarkForEditin
   return (
     <div
       style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}
-      onClick={onClose}
     >
       <div
         style={{ background: '#fff', borderRadius: '16px', boxShadow: '0 20px 60px rgba(0,0,0,0.2)', width: '560px', maxWidth: '100%', maxHeight: '90vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}
@@ -216,12 +216,23 @@ const CheckingModal = memo(({ isOpen, onClose, file, assignment, onMarkForEditin
                       key={item}
                       style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 10px', borderRadius: '6px', cursor: 'pointer', background: isWrong ? '#fef2f2' : 'transparent', border: isWrong ? '1px solid #fecaca' : '1px solid transparent', transition: 'all 0.12s' }}
                     >
-                      <input
-                        type="checkbox"
-                        checked={isWrong}
-                        onChange={() => toggleItem(item)}
-                        style={{ width: '15px', height: '15px', accentColor: '#dc2626', cursor: 'pointer', flexShrink: 0 }}
-                      />
+                      {/* Custom white checkbox */}
+                      <div
+                        onClick={() => toggleItem(item)}
+                        style={{
+                          width: '16px', height: '16px', borderRadius: '3px', flexShrink: 0, cursor: 'pointer',
+                          border: isWrong ? '2px solid #dc2626' : '2px solid #d1d5db',
+                          background: isWrong ? '#dc2626' : '#ffffff',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          transition: 'all 0.12s',
+                        }}
+                      >
+                        {isWrong && (
+                          <svg width="10" height="10" viewBox="0 0 12 12" fill="none">
+                            <path d="M2 6l3 3 5-5" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                          </svg>
+                        )}
+                      </div>
                       <span style={{ fontSize: '13.5px', color: isWrong ? '#dc2626' : '#374151', fontWeight: isWrong ? '600' : '400' }}>
                         {item}
                       </span>
@@ -236,8 +247,28 @@ const CheckingModal = memo(({ isOpen, onClose, file, assignment, onMarkForEditin
           ))}
         </div>
 
+        {/* Additional Comment */}
+        <div style={{ padding: '0 24px 14px', borderTop: '1px solid #f3f4f6', paddingTop: '14px' }}>
+          <label style={{ fontSize: '12px', fontWeight: '600', color: '#374151', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px' }}>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#6b7280" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/>
+            </svg>
+            Additional Comment <span style={{ color: '#9ca3af', fontWeight: '400' }}>(optional)</span>
+          </label>
+          <textarea
+            value={additionalComment}
+            onChange={e => setAdditionalComment(e.target.value)}
+            placeholder="Add any other remarks or notes for the user..."
+            rows={2}
+            disabled={isSubmitting}
+            style={{ width: '100%', boxSizing: 'border-box', padding: '8px 12px', border: '1px solid #e5e7eb', borderRadius: '8px', fontSize: '13px', fontFamily: 'inherit', resize: 'vertical', outline: 'none', color: '#374151', background: '#fff', transition: 'border-color 0.12s' }}
+            onFocus={e => { e.target.style.borderColor = '#f59e0b'; }}
+            onBlur={e => { e.target.style.borderColor = '#e5e7eb'; }}
+          />
+        </div>
+
         {/* Footer */}
-        <div style={{ padding: '16px 24px', borderTop: '1px solid #e5e7eb', display: 'flex', gap: '10px', justifyContent: 'flex-end', background: '#fafafa' }}>
+        <div style={{ padding: '12px 24px 16px', borderTop: '1px solid #e5e7eb', display: 'flex', gap: '10px', justifyContent: 'flex-end', background: '#fafafa' }}>
           <button
             onClick={onClose}
             disabled={isSubmitting}
@@ -297,12 +328,20 @@ const ChecklistViewModal = memo(({ isOpen, onClose, file }) => {
 
   if (!isOpen || !file) return null;
 
-  // Parse wrong items from checker_note
+  // Parse wrong items and additional comment from checker_note
   const wrongItems = (() => {
     if (!resolvedNote) return [];
-    const match = resolvedNote.match(/Wrong items?:\s*(.+)/i);
-    if (match) return match[1].split(',').map(s => s.trim()).filter(Boolean);
+    // Note format: "Wrong items: X, Y | Comment: Z"
+    const noteBody = resolvedNote.split('|')[0];
+    const match = noteBody.match(/Wrong items?:\s*(.+)/i);
+    if (match) return match[1].trim().split(',').map(s => s.trim()).filter(Boolean);
     return [];
+  })();
+
+  const additionalComment = (() => {
+    if (!resolvedNote) return '';
+    const match = resolvedNote.match(/\|\s*Comment:\s*(.+)/i);
+    return match ? match[1].trim() : '';
   })();
 
   const wrongSet = new Set(wrongItems);
@@ -311,7 +350,6 @@ const ChecklistViewModal = memo(({ isOpen, onClose, file }) => {
   return (
     <div
       style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 2100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}
-      onClick={onClose}
     >
       <div
         style={{ background: '#fff', borderRadius: '16px', boxShadow: '0 20px 60px rgba(0,0,0,0.2)', width: '560px', maxWidth: '100%', maxHeight: '90vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}
@@ -347,6 +385,19 @@ const ChecklistViewModal = memo(({ isOpen, onClose, file }) => {
         ) : (
           <div style={{ margin: '14px 22px 0', padding: '10px 14px', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '8px' }}>
             <p style={{ margin: 0, fontSize: '13px', fontWeight: '600', color: '#15803d' }}>✓ No issues found — all items passed</p>
+          </div>
+        )}
+
+        {/* Additional comment from checker */}
+        {!loading && additionalComment && (
+          <div style={{ margin: '10px 22px 0', padding: '10px 14px', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: '8px', display: 'flex', gap: '8px', alignItems: 'flex-start' }}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#d97706" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: '1px' }}>
+              <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/>
+            </svg>
+            <div>
+              <p style={{ margin: 0, fontSize: '11px', fontWeight: '700', color: '#92400e', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '2px' }}>Checker Note</p>
+              <p style={{ margin: 0, fontSize: '13px', color: '#78350f' }}>{additionalComment}</p>
+            </div>
           </div>
         )}
 
@@ -2387,10 +2438,11 @@ const TasksTab = memo(({
         onClose={() => setCheckingModal({ isOpen: false, file: null, assignment: null })}
         file={checkingModal.file}
         assignment={checkingModal.assignment}
-        onMarkForEditing={async (fileId, wrongItems) => {
-          const note = wrongItems.length > 0
-            ? `Wrong items: ${wrongItems.join(', ')}`
-            : 'Marked for editing by checker.';
+        onMarkForEditing={async (fileId, wrongItems, additionalComment) => {
+          const parts = [];
+          if (wrongItems.length > 0) parts.push(`Wrong items: ${wrongItems.join(', ')}`);
+          if (additionalComment) parts.push(`Comment: ${additionalComment}`);
+          const note = parts.length > 0 ? parts.join(' | ') : 'Marked for editing by checker.';
           await handleMarkForEditing(checkingModal.assignment, fileId, note);
           setCheckingModal({ isOpen: false, file: null, assignment: null });
         }}
