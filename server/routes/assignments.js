@@ -1181,10 +1181,38 @@ router.put('/:id', authenticateToken, authorizeRole(['TEAM_LEADER', 'ADMIN']), u
       if (finalMembers && Array.isArray(finalMembers) && finalMembers.length > 0) {
         // Only update members if the client actually sent a non-empty list.
         // An empty list means "don't change members" — not "remove all members".
+
+        // Capture previous members BEFORE deleting, so we can detect newly added ones.
+        const previousMembers = await query('SELECT user_id FROM assignment_members WHERE assignment_id = ?', [id]);
+        const previousMemberIds = new Set((previousMembers || []).map(m => String(m.user_id)));
+
         await query('DELETE FROM assignment_members WHERE assignment_id = ?', [id]);
         const placeholders = finalMembers.map(() => '(?, ?)').join(', ');
         await query(`INSERT INTO assignment_members (assignment_id, user_id) VALUES ${placeholders}`, finalMembers.flatMap(uid => [id, uid]));
         membersAssigned = finalMembers.length;
+
+        // Notify only users who were NOT previously assigned to this task.
+        const tlId = finalTeamLeaderId || existingAssignment.team_leader_id;
+        const tlUsername = finalTeamLeaderUsername || existingAssignment.team_leader_username;
+        const newlyAddedIds = finalMembers.filter(uid => !previousMemberIds.has(String(uid)) && String(uid) !== String(tlId));
+
+        if (newlyAddedIds.length > 0) {
+          try {
+            const notificationPlaceholders = newlyAddedIds.map(() => '(?,?,?,?,?,?,?,?,?)').join(',');
+            const notificationValues = newlyAddedIds.flatMap(uid => [
+              uid, id, null, 'assignment', 'New Assignment',
+              `${tlUsername} assigned you a new task: "${title}"${finalDueDate ? ` - Due: ${new Date(finalDueDate).toLocaleDateString()}` : ''}`,
+              tlId, tlUsername, 'TEAM_LEADER'
+            ]);
+            await query(
+              `INSERT INTO notifications (user_id, assignment_id, file_id, type, title, message, action_by_id, action_by_username, action_by_role) VALUES ${notificationPlaceholders}`,
+              notificationValues
+            );
+            newlyAddedIds.forEach(uid => pushToUser(uid));
+          } catch (notifErr) {
+            console.warn('⚠️ Failed to send assignment notifications to newly added members:', notifErr.message);
+          }
+        }
       }
       try {
         await query('INSERT INTO activity_logs (user_id, username, role, team, activity) VALUES (?, ?, ?, ?, ?)',
