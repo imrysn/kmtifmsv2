@@ -241,110 +241,159 @@ router.put('/:id', authorizeRole('ADMIN'), (req, res) => {
       console.log(`✅ Team ${teamId} basic info updated`);
 
       // Now update team leaders
-      // Step 1: Delete existing team leader assignments
-      db.run('DELETE FROM team_leaders WHERE team_id = ?', [teamId], (err) => {
+      // Step 1: Find existing leaders so we can reset their team field if removed
+      db.all('SELECT user_id, username FROM team_leaders WHERE team_id = ?', [teamId], (err, oldLeaders) => {
         if (err) {
-          console.error('❌ Error deleting old team leaders:', err);
-          return res.status(500).json({
-            success: false,
-            message: 'Failed to update team leaders'
-          });
+          console.error('❌ Error fetching old team leaders:', err);
+          oldLeaders = [];
         }
 
-        console.log('✅ Cleared existing team leaders');
+        // Step 2: Delete existing team leader assignments for this team
+        db.run('DELETE FROM team_leaders WHERE team_id = ?', [teamId], (err) => {
+          if (err) {
+            console.error('❌ Error deleting old team leaders:', err);
+            return res.status(500).json({
+              success: false,
+              message: 'Failed to update team leaders'
+            });
+          }
 
-        // Step 2: Insert new team leaders if any
-        if (leaderIds && leaderIds.length > 0) {
-          console.log(`📝 Assigning ${leaderIds.length} new team leader(s)...`);
+          console.log('✅ Cleared existing team leaders');
 
-          // Get user details for the leaders
-          const placeholders = leaderIds.map(() => '?').join(',');
-          db.all(
-            `SELECT id, username FROM users WHERE id IN (${placeholders}) AND role IN ('TEAM_LEADER', 'ADMIN')`,
-            leaderIds,
-            (err, users) => {
-              if (err) {
-                console.error('❌ Error fetching leader details:', err);
-                return finishUpdate(null, null);
-              }
+          // Step 3: Reset team field for removed leaders who don't lead any other team
+          const newLeaderIdSet = new Set((leaderIds || []).map(id => String(id)));
+          const removedLeaders = (oldLeaders || []).filter(l => !newLeaderIdSet.has(String(l.user_id)));
 
-              if (users.length === 0) {
-                console.log('⚠️  No valid team leaders found');
-                return finishUpdate(null, null);
-              }
-
-              // Insert into team_leaders table
-              let completed = 0;
-              let firstLeader = users[0];
-
-              console.log(`🔍 DEBUG: About to insert ${users.length} leaders:`, users.map(u => `${u.username}(${u.id})`));
-
-              users.forEach((user) => {
+          const resetPromises = removedLeaders.map(leader => new Promise(resolve => {
+            // Check if this user still leads any other team
+            db.get(
+              'SELECT COUNT(*) as cnt FROM team_leaders WHERE user_id = ?',
+              [leader.user_id],
+              (err, row) => {
+                if (err || (row && row.cnt > 0)) {
+                  // Still leads another team — don't reset
+                  return resolve();
+                }
+                // No other team leadership — reset their team to 'General'
                 db.run(
-                  'INSERT INTO team_leaders (team_id, user_id, username) VALUES (?, ?, ?)',
-                  [teamId, user.id, user.username],
-                  (err) => {
-                    if (err) {
-                      console.error(`❌ Error assigning leader ${user.username}:`, err);
+                  'UPDATE users SET team = ? WHERE id = ?',
+                  ['General', leader.user_id],
+                  (updateErr) => {
+                    if (updateErr) {
+                      console.error(`❌ Error resetting team for removed leader ${leader.username}:`, updateErr);
                     } else {
-                      console.log(`✅ Assigned ${user.username} as team leader`);
-
-                      // Automatically update user's team to match the team they're leading
-                      db.run(
-                        'UPDATE users SET team = ? WHERE id = ?',
-                        [name.trim(), user.id],
-                        (updateErr) => {
-                          if (updateErr) {
-                            console.error(`❌ Error updating team for ${user.username}:`, updateErr);
-                          } else {
-                            console.log(`✅ Updated ${user.username}'s team to ${name.trim()}`);
-                          }
-                        }
-                      );
+                      console.log(`📡 ✅ Reset ${leader.username}'s team to General (removed from team)`);
                     }
-
-                    completed++;
-                    console.log(`🔍 DEBUG: Completed ${completed} of ${users.length} insertions`);
-                    if (completed === users.length) {
-                      finishUpdate(firstLeader.id, firstLeader.username);
-                    }
+                    resolve();
                   }
                 );
-              });
-            }
-          );
-        } else {
-          // No leaders selected
-          finishUpdate(null, null);
-        }
-
-        function finishUpdate(leaderId, leaderUsername) {
-          // Update team's leader_id for backward compatibility
-          db.run(
-            'UPDATE teams SET leader_id = ?, leader_username = ? WHERE id = ?',
-            [leaderId, leaderUsername, teamId],
-            (err) => {
-              if (err) {
-                console.error('❌ Error updating team leader_id:', err);
               }
+            );
+          }));
 
-              // Log activity
-              logActivity(
-                db,
-                null,
-                'System',
-                'ADMIN',
-                'System',
-                `Team updated: ${name} (ID: ${teamId})`
-              );
+          Promise.all(resetPromises).then(() => {
 
-              res.json({
-                success: true,
-                message: 'Team updated successfully'
-              });
-            }
-          );
-        }
+          // Step 4: Insert new team leaders if any
+          if (leaderIds && leaderIds.length > 0) {
+            console.log(`📝 Assigning ${leaderIds.length} new team leader(s)...`);
+
+            // Get user details for the leaders
+            const placeholders = leaderIds.map(() => '?').join(',');
+            db.all(
+              `SELECT id, username FROM users WHERE id IN (${placeholders}) AND role IN ('TEAM_LEADER', 'ADMIN')`,
+              leaderIds,
+              (err, users) => {
+                if (err) {
+                  console.error('❌ Error fetching leader details:', err);
+                  return finishUpdate(null, null);
+                }
+
+                if (users.length === 0) {
+                  console.log('⚠️  No valid team leaders found');
+                  return finishUpdate(null, null);
+                }
+
+                // Insert into team_leaders table
+                let completed = 0;
+                let firstLeader = users[0];
+
+                console.log(`🔍 DEBUG: About to insert ${users.length} leaders:`, users.map(u => `${u.username}(${u.id})`));
+
+                users.forEach((user) => {
+                  db.run(
+                    'INSERT INTO team_leaders (team_id, user_id, username) VALUES (?, ?, ?)',
+                    [teamId, user.id, user.username],
+                    (err) => {
+                      if (err) {
+                        console.error(`❌ Error assigning leader ${user.username}:`, err);
+                      } else {
+                        console.log(`✅ Assigned ${user.username} as team leader`);
+
+                        // Automatically update user's team to match the team they're leading
+                        db.run(
+                          'UPDATE users SET team = ? WHERE id = ?',
+                          [name.trim(), user.id],
+                          (updateErr) => {
+                            if (updateErr) {
+                              console.error(`❌ Error updating team for ${user.username}:`, updateErr);
+                            } else {
+                              console.log(`📡 ✅ Updated ${user.username}'s team to ${name.trim()}`);
+                            }
+                          }
+                        );
+                      }
+
+                      completed++;
+                      console.log(`🔍 DEBUG: Completed ${completed} of ${users.length} insertions`);
+                      if (completed === users.length) {
+                        finishUpdate(firstLeader.id, firstLeader.username);
+                      }
+                    }
+                  );
+                });
+              }
+            );
+          } else {
+            // No leaders selected
+            finishUpdate(null, null);
+          }
+
+          }); // end Promise.all(resetPromises).then
+
+          function finishUpdate(leaderId, leaderUsername) {
+            // Update team's leader_id for backward compatibility
+            db.run(
+              'UPDATE teams SET leader_id = ?, leader_username = ? WHERE id = ?',
+              [leaderId, leaderUsername, teamId],
+              (err) => {
+                if (err) {
+                  console.error('❌ Error updating team leader_id:', err);
+                }
+
+                // Clear users cache so User Management shows fresh data
+                try {
+                  const { clearCache } = require('../utils/cache');
+                  clearCache('all_users');
+                } catch (_) { /* cache clear is best-effort */ }
+
+                // Log activity
+                logActivity(
+                  db,
+                  null,
+                  'System',
+                  'ADMIN',
+                  'System',
+                  `Team updated: ${name} (ID: ${teamId})`
+                );
+
+                res.json({
+                  success: true,
+                  message: 'Team updated successfully'
+                });
+              }
+            );
+          }
+        });
       });
     }
   );

@@ -52,6 +52,14 @@ const UserDashboard = ({ user, onLogout }) => {
   // SSE — instant badge + flash when a new notification arrives (runs regardless of active tab)
   useEffect(() => {
     fetchUnreadCount() // get initial count on mount
+
+    // Fetch full user profile to ensure ledTeams are updated in the store
+    apiFetch('/api/users/profile').then(data => {
+      if (data.success && data.user) {
+        useStore.getState().updateUser(data.user)
+      }
+    }).catch(err => console.error('Failed to fetch user profile:', err))
+
     let es
     let reconnectTimer
     const connect = () => {

@@ -748,6 +748,8 @@ const TasksTab = memo(({
 
   // UI state
   const [sortFilter, setSortFilter] = useState('all');
+  // Team filter toggle: 'all' | 'KUSAKABE' | 'IT Dept'
+  const [teamFilter, setTeamFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const prevSearchQueryRef = useRef('');
   const [successModal, setSuccessModal] = useState({ isOpen: false, title: '', message: '', type: 'success' });
@@ -1442,7 +1444,8 @@ const TasksTab = memo(({
     const base = activeTab === 'for-checking' ? forCheckingAssignments : myTaskAssignments
     const sorted = [...base].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
     const bySort = sortFilter === 'all' ? sorted : sorted.filter(a => getAssignmentStatus(a) === sortFilter);
-    if (!searchQuery.trim()) return bySort;
+    const byTeam = teamFilter === 'all' ? bySort : bySort.filter(a => (a.team || 'IT Dept') === teamFilter);
+    if (!searchQuery.trim()) return byTeam;
     
     const q = searchQuery.toLowerCase();
     
@@ -1464,7 +1467,7 @@ const TasksTab = memo(({
       return false;
     };
 
-    return bySort.filter(a =>
+    return byTeam.filter(a =>
       matchesQuery(a.title) ||
       matchesQuery(a.description) ||
       matchesQuery(a.team_leader_username) ||
@@ -1486,7 +1489,7 @@ const TasksTab = memo(({
         matchesQuery(f.folder_name)
       )
     );
-  }, [myTaskAssignments, forCheckingAssignments, activeTab, sortFilter, searchQuery]);
+  }, [myTaskAssignments, forCheckingAssignments, activeTab, sortFilter, teamFilter, searchQuery]);
 
   const filterCounts = useMemo(() => {
     const counts = { all: assignments.length, completed: 0, overdue: 0, no_due_date: 0 };
@@ -1919,6 +1922,58 @@ const TasksTab = memo(({
           >×</button>
         )}
       </div>
+
+      {/* Team Filter Toggle */}
+      {(() => {
+        const teams = (user?.role === 'TEAM_LEADER' || user?.role === 'ADMIN') && user?.ledTeams?.length > 0
+          ? user.ledTeams.map(t => t.name).sort()
+          : [...new Set(assignments.map(a => a.team).filter(Boolean))].sort()
+        if (teams.length < 2) return null
+        const palette = [
+          { bg: '#7c3aed', shadow: 'rgba(124,58,237,0.30)', dot: '#7c3aed' },
+          { bg: '#0284c7', shadow: 'rgba(2,132,199,0.30)',   dot: '#0284c7' },
+          { bg: '#059669', shadow: 'rgba(5,150,105,0.30)',   dot: '#059669' },
+          { bg: '#d97706', shadow: 'rgba(217,119,6,0.30)',   dot: '#d97706' },
+          { bg: '#dc2626', shadow: 'rgba(220,38,38,0.30)',   dot: '#dc2626' },
+          { bg: '#db2777', shadow: 'rgba(219,39,119,0.30)',  dot: '#db2777' },
+        ]
+        const filterOptions = [
+          { value: 'all', label: 'All Teams', color: null },
+          ...teams.map((t, i) => ({ value: t, label: t, color: palette[i % palette.length] }))
+        ]
+        return (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 20px 10px', flexWrap: 'wrap' }}>
+            <span style={{ fontSize: '12.5px', fontWeight: '600', color: '#6b7280', letterSpacing: '0.03em', userSelect: 'none' }}>Filter by team:</span>
+            <div style={{ display: 'flex', gap: '0', background: '#f3f4f6', borderRadius: '10px', padding: '3px', flexWrap: 'wrap' }}>
+              {filterOptions.map(opt => {
+                const isActive = teamFilter === opt.value
+                const c = opt.color
+                const activeBg = c && isActive ? c.bg : (isActive ? '#fff' : 'transparent')
+                const activeColor = c && isActive ? '#fff' : (isActive ? '#111827' : '#6b7280')
+                const activeShadow = c && isActive ? `0 2px 8px ${c.shadow}` : (isActive ? '0 1px 4px rgba(0,0,0,0.10)' : 'none')
+                return (
+                  <button
+                    key={opt.value}
+                    onClick={() => setTeamFilter(opt.value)}
+                    style={{
+                      padding: '5px 16px', borderRadius: '8px', border: 'none',
+                      fontWeight: '600', fontSize: '12.5px', cursor: 'pointer',
+                      transition: 'all 0.18s',
+                      background: activeBg, color: activeColor, boxShadow: activeShadow,
+                      display: 'flex', alignItems: 'center', gap: '5px',
+                    }}
+                  >
+                    {c && (
+                      <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: isActive ? 'rgba(255,255,255,0.7)' : c.dot, display: 'inline-block', flexShrink: 0 }} />
+                    )}
+                    {opt.label}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        )
+      })()}
 
       {isLoading ? (
         <div style={{ padding: '0 20px', maxWidth: '1400px', margin: '0 auto' }}>

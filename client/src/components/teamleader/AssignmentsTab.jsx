@@ -1106,25 +1106,32 @@ const AssignmentsTab = ({
         {/* Team Filter Toggle */}
         {(() => {
           // Derive which teams actually exist in the assignments list
-          const teams = [...new Set(assignments.map(a => a.team).filter(Boolean))]
-          // Only show the toggle if there are multiple teams
-          if (teams.length < 2 && !teams.includes('KUSAKABE') && !teams.includes('IT Dept')) return null
+          const teams = [...new Set(assignments.map(a => a.team).filter(Boolean))].sort()
+          // Only show the toggle if there are 2+ distinct teams
+          if (teams.length < 2) return null
+          // Color palette — cycles for any number of teams
+          const palette = [
+            { bg: '#7c3aed', shadow: 'rgba(124,58,237,0.30)', dot: '#7c3aed' },
+            { bg: '#0284c7', shadow: 'rgba(2,132,199,0.30)',   dot: '#0284c7' },
+            { bg: '#059669', shadow: 'rgba(5,150,105,0.30)',   dot: '#059669' },
+            { bg: '#d97706', shadow: 'rgba(217,119,6,0.30)',   dot: '#d97706' },
+            { bg: '#dc2626', shadow: 'rgba(220,38,38,0.30)',   dot: '#dc2626' },
+            { bg: '#db2777', shadow: 'rgba(219,39,119,0.30)',  dot: '#db2777' },
+          ]
           const filterOptions = [
-            { value: 'all', label: 'All Teams' },
-            { value: 'KUSAKABE', label: 'KUSAKABE' },
-            { value: 'IT Dept', label: 'IT Dept' },
+            { value: 'all', label: 'All Teams', color: null },
+            ...teams.map((t, i) => ({ value: t, label: t, color: palette[i % palette.length] }))
           ]
           return (
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px', flexWrap: 'wrap' }}>
               <span style={{ fontSize: '12.5px', fontWeight: '600', color: '#6b7280', letterSpacing: '0.03em', userSelect: 'none' }}>Filter by team:</span>
-              <div style={{ display: 'flex', gap: '0', background: '#f3f4f6', borderRadius: '10px', padding: '3px' }}>
+              <div style={{ display: 'flex', gap: '0', background: '#f3f4f6', borderRadius: '10px', padding: '3px', flexWrap: 'wrap' }}>
                 {filterOptions.map(opt => {
                   const isActive = teamFilter === opt.value
-                  let activeBg = '#fff'
-                  let activeColor = '#111827'
-                  let activeShadow = '0 1px 4px rgba(0,0,0,0.10)'
-                  if (opt.value === 'KUSAKABE' && isActive) { activeBg = '#7c3aed'; activeColor = '#fff'; activeShadow = '0 2px 8px rgba(124,58,237,0.30)' }
-                  if (opt.value === 'IT Dept' && isActive) { activeBg = '#0284c7'; activeColor = '#fff'; activeShadow = '0 2px 8px rgba(2,132,199,0.30)' }
+                  const c = opt.color
+                  const activeBg = c && isActive ? c.bg : (isActive ? '#fff' : 'transparent')
+                  const activeColor = c && isActive ? '#fff' : (isActive ? '#111827' : '#6b7280')
+                  const activeShadow = c && isActive ? `0 2px 8px ${c.shadow}` : (isActive ? '0 1px 4px rgba(0,0,0,0.10)' : 'none')
                   return (
                     <button
                       key={opt.value}
@@ -1133,17 +1140,14 @@ const AssignmentsTab = ({
                         padding: '5px 16px', borderRadius: '8px', border: 'none',
                         fontWeight: '600', fontSize: '12.5px', cursor: 'pointer',
                         transition: 'all 0.18s',
-                        background: isActive ? activeBg : 'transparent',
-                        color: isActive ? activeColor : '#6b7280',
-                        boxShadow: isActive ? activeShadow : 'none',
+                        background: activeBg,
+                        color: activeColor,
+                        boxShadow: activeShadow,
                         display: 'flex', alignItems: 'center', gap: '5px',
                       }}
                     >
-                      {opt.value === 'KUSAKABE' && (
-                        <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: isActive ? 'rgba(255,255,255,0.7)' : '#7c3aed', display: 'inline-block', flexShrink: 0 }} />
-                      )}
-                      {opt.value === 'IT Dept' && (
-                        <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: isActive ? 'rgba(255,255,255,0.7)' : '#0284c7', display: 'inline-block', flexShrink: 0 }} />
+                      {c && (
+                        <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: isActive ? 'rgba(255,255,255,0.7)' : c.dot, display: 'inline-block', flexShrink: 0 }} />
                       )}
                       {opt.label}
                     </button>

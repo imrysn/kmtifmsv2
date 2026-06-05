@@ -604,24 +604,46 @@ router.get('/team/:team/all-tasks', authenticateToken, async (req, res) => {
 router.get('/team-leader/:userId', authenticateToken, authorizeRole(['TEAM_LEADER', 'ADMIN']), async (req, res) => {
   try {
     const { userId } = req.params;
+    const { cursor, limit } = req.query;
+    const parsedLimit = limit ? parseInt(limit, 10) : null;
+
     const ledTeams = await query(
       'SELECT DISTINCT t.name FROM team_leaders tl JOIN teams t ON tl.team_id = t.id WHERE tl.user_id = ?',
       [userId]
     );
     if (!ledTeams || ledTeams.length === 0) {
-      return res.json({ success: true, assignments: [] });
+      return res.json({ success: true, assignments: [], hasMore: false, nextCursor: null });
     }
 
     const teamNames = ledTeams.map(t => t.name);
     const placeholders = teamNames.map(() => '?').join(',');
-    const tlAssignments = await query(
-      `SELECT a.*, COUNT(DISTINCT asub.id) as submission_count, COUNT(DISTINCT am.id) as assigned_members_count
-       FROM assignments a
-       LEFT JOIN assignment_members am ON a.id = am.assignment_id
-       LEFT JOIN assignment_submissions asub ON a.id = asub.assignment_id
-       WHERE a.team IN (${placeholders}) GROUP BY a.id ORDER BY a.created_at DESC`,
-      teamNames
-    );
+    
+    let queryStr = `
+      SELECT a.*, COUNT(DISTINCT asub.id) as submission_count, COUNT(DISTINCT am.id) as assigned_members_count
+      FROM assignments a
+      LEFT JOIN assignment_members am ON a.id = am.assignment_id
+      LEFT JOIN assignment_submissions asub ON a.id = asub.assignment_id
+      WHERE a.team IN (${placeholders})
+    `;
+    const queryParams = [...teamNames];
+    
+    if (cursor) {
+      queryStr += ' AND a.id < ?';
+      queryParams.push(cursor);
+    }
+    
+    queryStr += ' GROUP BY a.id ORDER BY a.created_at DESC, a.id DESC';
+    
+    if (parsedLimit) {
+      queryStr += ' LIMIT ?';
+      queryParams.push(parsedLimit + 1);
+    }
+
+    const assignments = await query(queryStr, queryParams);
+    const hasMore = parsedLimit ? assignments.length > parsedLimit : false;
+    const tlAssignments = (parsedLimit && hasMore) ? assignments.slice(0, parsedLimit) : assignments;
+    const nextCursor = hasMore && tlAssignments.length > 0
+      ? tlAssignments[tlAssignments.length - 1].id : null;
 
     // Batch all sub-queries across all assignments in 4 bulk queries instead of N×4
     if (tlAssignments.length > 0) {
@@ -660,7 +682,7 @@ router.get('/team-leader/:userId', authenticateToken, authorizeRole(['TEAM_LEADE
       });
     }
 
-    res.json({ success: true, assignments: tlAssignments || [] });
+    res.json({ success: true, assignments: tlAssignments || [], nextCursor, hasMore });
   } catch (error) {
     console.error('Error in fetchAssignments route:', error);
     res.status(500).json({ success: false, message: 'Failed to fetch assignments', error: error.message });
@@ -1245,10 +1267,24 @@ router.put('/:id', authenticateToken, authorizeRole(['TEAM_LEADER', 'ADMIN']), u
 router.get('/user/:userId', authenticateToken, async (req, res) => {
   try {
     const { userId } = req.params;
-    const currentUser = await queryOne('SELECT username, fullName, team FROM users WHERE id = ?', [userId]);
+    const currentUser = await queryOne('SELECT username, fullName, team, role FROM users WHERE id = ?', [userId]);
     if (!currentUser) {
       return res.status(404).json({ success: false, message: 'User not found' });
     }
+
+    // Get all teams this user belongs to (primary team + any teams they lead)
+    const userTeams = new Set([currentUser.team]);
+    if (currentUser.role === 'TEAM_LEADER' || currentUser.role === 'ADMIN') {
+      const ledTeams = await query(
+        'SELECT DISTINCT t.name FROM team_leaders tl JOIN teams t ON tl.team_id = t.id WHERE tl.user_id = ?',
+        [userId]
+      );
+      if (ledTeams) {
+        ledTeams.forEach(t => userTeams.add(t.name));
+      }
+    }
+    const teamArray = Array.from(userTeams);
+    const teamPlaceholders = teamArray.map(() => '?').join(',');
 
     const userAssignments = await query(
       `SELECT a.*, am.status as user_status, am.submitted_at as user_submitted_at,
@@ -1262,12 +1298,12 @@ router.get('/user/:userId', authenticateToken, async (req, res) => {
        LEFT JOIN assignment_members am ON a.id = am.assignment_id AND am.user_id = ?
        LEFT JOIN files fs ON am.file_id = fs.id
        LEFT JOIN users tl ON a.team_leader_id = tl.id
-       WHERE (a.assigned_to = 'all' AND a.team = ?) OR (a.assigned_to = 'specific' AND am.user_id = ?)
+       WHERE (a.assigned_to = 'all' AND a.team IN (${teamPlaceholders})) OR (a.assigned_to = 'specific' AND am.user_id = ?)
           OR (a.checker_ids IS NOT NULL AND a.checker_ids != '[]'
               AND CONCAT(',', REPLACE(REPLACE(REPLACE(a.checker_ids,'[',''),']',''),'"',''), ',')
                   LIKE CONCAT('%,', ?, ',%'))
        ORDER BY a.created_at DESC`,
-      [currentUser.fullName, currentUser.username, userId, currentUser.team, userId, String(userId)]
+      [currentUser.fullName, currentUser.username, userId, ...teamArray, userId, String(userId)]
     );
 
     // Batch sub-queries for all assignments instead of N×3 sequential round-trips

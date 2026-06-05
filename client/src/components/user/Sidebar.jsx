@@ -13,7 +13,11 @@ const Sidebar = memo(({ activeTab, setActiveTab, filesCount, notificationCount, 
       <div className="sidebar-header">
         <div className="user-info">
           <div className="user-name">{user?.fullName || 'User'}</div>
-          <div className="user-role">{user?.team || 'No Team'}</div>
+          <div className="user-role">
+            {user?.role === 'TEAM_LEADER' || user?.role === 'ADMIN'
+              ? (user?.ledTeams?.length > 0 ? user.ledTeams.map(t => t.name).join(', ') : (user?.team || 'No Team'))
+              : (user?.team || 'No Team')}
+          </div>
         </div>
       </div>
 
