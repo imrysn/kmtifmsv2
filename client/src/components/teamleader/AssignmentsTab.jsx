@@ -448,12 +448,17 @@ const AssignmentsTab = ({
   // Team filter toggle: 'all' | 'KUSAKABE' | 'IT Dept'
   const [teamFilter, setTeamFilter] = useState('all')
 
-  // Auto-switch to 'done' tab when navigating to a completed task (e.g. from File Collection "Go to Task")
+  // Auto-switch to 'done' tab and correct team filter when navigating to a task
   useEffect(() => {
     if (!highlightedAssignmentId || assignments.length === 0) return
     const target = assignments.find(a => a.id === highlightedAssignmentId || String(a.id) === String(highlightedAssignmentId))
-    if (target && target.status === 'completed') {
-      setActiveTaskTab('done')
+    if (target) {
+      if (target.status === 'completed') {
+        setActiveTaskTab('done')
+      }
+      if (target.team) {
+        setTeamFilter(target.team)
+      }
     }
   }, [highlightedAssignmentId, assignments])
 

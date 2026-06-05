@@ -985,6 +985,17 @@ const TasksTab = memo(({
     comments: comments[currentCommentsAssignment?.id] || [],
   });
 
+  // Auto-set team filter to ensure the highlighted assignment is visible
+  useEffect(() => {
+    if (highlightedAssignmentId && assignments.length > 0) {
+      const assignment = assignments.find(a => a.id === parseInt(highlightedAssignmentId));
+      if (assignment) {
+        const assignmentTeam = assignment.team || user?.team || 'IT Dept';
+        setTeamFilter(assignmentTeam);
+      }
+    }
+  }, [highlightedAssignmentId, assignments, user?.team]);
+
   // Auto-expand the folder that contains highlightedFileId so the file is visible.
   // activeTab dependency ensures this runs after the tab has switched (For Checking vs My Tasks).
   useEffect(() => {

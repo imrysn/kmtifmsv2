@@ -981,8 +981,6 @@ router.post('/create', authenticateToken, authorizeRole(['TEAM_LEADER', 'ADMIN']
           const notificationPlaceholders = [];
           
           for (const uid of memberIds) {
-            if (String(uid) === String(finalTeamLeaderId)) continue;
-            
             notificationPlaceholders.push('(?,?,?,?,?,?,?,?,?)');
             notificationValues.push(
               uid, assignmentId, null, 'assignment', 'New Assignment',
@@ -999,7 +997,7 @@ router.post('/create', authenticateToken, authorizeRole(['TEAM_LEADER', 'ADMIN']
             );
             // Trigger SSE for all notified users
             memberIds.forEach(uid => {
-              if (String(uid) !== String(finalTeamLeaderId)) pushToUser(uid);
+              pushToUser(uid);
             });
           }
         }
@@ -1216,7 +1214,7 @@ router.put('/:id', authenticateToken, authorizeRole(['TEAM_LEADER', 'ADMIN']), u
         // Notify only users who were NOT previously assigned to this task.
         const tlId = finalTeamLeaderId || existingAssignment.team_leader_id;
         const tlUsername = finalTeamLeaderUsername || existingAssignment.team_leader_username;
-        const newlyAddedIds = finalMembers.filter(uid => !previousMemberIds.has(String(uid)) && String(uid) !== String(tlId));
+        const newlyAddedIds = finalMembers.filter(uid => !previousMemberIds.has(String(uid)));
 
         if (newlyAddedIds.length > 0) {
           try {
@@ -2175,8 +2173,6 @@ router.put('/:assignmentId/update-members', authenticateToken, authorizeRole(['T
         const placeholders = toAdd.map(() => '(?, ?)').join(', ');
         await query(`INSERT INTO assignment_members (assignment_id, user_id) VALUES ${placeholders}`, toAdd.flatMap(uid => [assignmentId, uid]));
         for (const uid of toAdd) {
-          // Don't notify the team leader who made the change
-          if (String(uid) === String(teamLeaderId)) continue;
           try {
             await query('INSERT INTO notifications (user_id,assignment_id,file_id,type,title,message,action_by_id,action_by_username,action_by_role) VALUES (?,?,?,?,?,?,?,?,?)',
               [uid, assignmentId, null, 'assignment', 'Added to Assignment',
