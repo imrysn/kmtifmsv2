@@ -445,6 +445,9 @@ const AssignmentsTab = ({
   // Tab toggle: 'tasks' = active tasks, 'done' = completed tasks
   const [activeTaskTab, setActiveTaskTab] = useState('tasks')
 
+  // Team filter toggle: 'all' | 'KUSAKABE' | 'IT Dept'
+  const [teamFilter, setTeamFilter] = useState('all')
+
   // Auto-switch to 'done' tab when navigating to a completed task (e.g. from File Collection "Go to Task")
   useEffect(() => {
     if (!highlightedAssignmentId || assignments.length === 0) return
@@ -1072,7 +1075,7 @@ const AssignmentsTab = ({
               color: activeTaskTab === 'tasks' ? '#4338ca' : '#9ca3af',
               padding: '1px 8px', borderRadius: '10px'
             }}>
-              {assignments.filter(a => a.status !== 'completed').length}
+              {assignments.filter(a => a.status !== 'completed' && (teamFilter === 'all' || (a.team || 'IT Dept') === teamFilter)).length}
             </span>
           </button>
           <button
@@ -1095,10 +1098,61 @@ const AssignmentsTab = ({
               color: activeTaskTab === 'done' ? '#15803d' : '#9ca3af',
               padding: '1px 8px', borderRadius: '10px'
             }}>
-              {assignments.filter(a => a.status === 'completed').length}
+              {assignments.filter(a => a.status === 'completed' && (teamFilter === 'all' || (a.team || 'IT Dept') === teamFilter)).length}
             </span>
           </button>
         </div>
+
+        {/* Team Filter Toggle */}
+        {(() => {
+          // Derive which teams actually exist in the assignments list
+          const teams = [...new Set(assignments.map(a => a.team).filter(Boolean))]
+          // Only show the toggle if there are multiple teams
+          if (teams.length < 2 && !teams.includes('KUSAKABE') && !teams.includes('IT Dept')) return null
+          const filterOptions = [
+            { value: 'all', label: 'All Teams' },
+            { value: 'KUSAKABE', label: 'KUSAKABE' },
+            { value: 'IT Dept', label: 'IT Dept' },
+          ]
+          return (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px', flexWrap: 'wrap' }}>
+              <span style={{ fontSize: '12.5px', fontWeight: '600', color: '#6b7280', letterSpacing: '0.03em', userSelect: 'none' }}>Filter by team:</span>
+              <div style={{ display: 'flex', gap: '0', background: '#f3f4f6', borderRadius: '10px', padding: '3px' }}>
+                {filterOptions.map(opt => {
+                  const isActive = teamFilter === opt.value
+                  let activeBg = '#fff'
+                  let activeColor = '#111827'
+                  let activeShadow = '0 1px 4px rgba(0,0,0,0.10)'
+                  if (opt.value === 'KUSAKABE' && isActive) { activeBg = '#7c3aed'; activeColor = '#fff'; activeShadow = '0 2px 8px rgba(124,58,237,0.30)' }
+                  if (opt.value === 'IT Dept' && isActive) { activeBg = '#0284c7'; activeColor = '#fff'; activeShadow = '0 2px 8px rgba(2,132,199,0.30)' }
+                  return (
+                    <button
+                      key={opt.value}
+                      onClick={() => setTeamFilter(opt.value)}
+                      style={{
+                        padding: '5px 16px', borderRadius: '8px', border: 'none',
+                        fontWeight: '600', fontSize: '12.5px', cursor: 'pointer',
+                        transition: 'all 0.18s',
+                        background: isActive ? activeBg : 'transparent',
+                        color: isActive ? activeColor : '#6b7280',
+                        boxShadow: isActive ? activeShadow : 'none',
+                        display: 'flex', alignItems: 'center', gap: '5px',
+                      }}
+                    >
+                      {opt.value === 'KUSAKABE' && (
+                        <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: isActive ? 'rgba(255,255,255,0.7)' : '#7c3aed', display: 'inline-block', flexShrink: 0 }} />
+                      )}
+                      {opt.value === 'IT Dept' && (
+                        <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: isActive ? 'rgba(255,255,255,0.7)' : '#0284c7', display: 'inline-block', flexShrink: 0 }} />
+                      )}
+                      {opt.label}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          )
+        })()}
 
         {/* Search Bar */}
         <div style={{ margin: '0 0 16px 0', position: 'relative', maxWidth: '320px' }}>
@@ -1132,9 +1186,11 @@ const AssignmentsTab = ({
         </div>
 
         {(() => {
-          const tabFiltered = assignments.filter(a =>
-            activeTaskTab === 'done' ? a.status === 'completed' : a.status !== 'completed'
-          )
+          const tabFiltered = assignments.filter(a => {
+            const tabMatch = activeTaskTab === 'done' ? a.status === 'completed' : a.status !== 'completed'
+            const teamMatch = teamFilter === 'all' || (a.team || 'IT Dept') === teamFilter
+            return tabMatch && teamMatch
+          })
           const filteredAssignments = searchQuery.trim()
             ? tabFiltered.filter(a => {
                 const q = searchQuery.toLowerCase()
