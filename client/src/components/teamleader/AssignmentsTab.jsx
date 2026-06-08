@@ -465,6 +465,9 @@ const AssignmentsTab = ({
   // Loading state for Mark as Done
   const [markingDoneId, setMarkingDoneId] = useState(null)
 
+  // Confirmation modal state for Mark as Done
+  const [markDoneConfirmModal, setMarkDoneConfirmModal] = useState({ isOpen: false, assignmentId: null, title: '' })
+
   const handleMarkAsDone = async (assignmentId, title) => {
     setMarkingDoneId(assignmentId)
     try {
@@ -1384,7 +1387,7 @@ const AssignmentsTab = ({
                           <button
                             className="tl-assignment-menu-item"
                             onClick={() => {
-                              handleMarkAsDone(assignment.id, assignment.title)
+                              setMarkDoneConfirmModal({ isOpen: true, assignmentId: assignment.id, title: assignment.title })
                               setShowMenuForAssignment(null)
                             }}
                             disabled={assignment.status === 'completed'}
@@ -2288,6 +2291,101 @@ const AssignmentsTab = ({
         message={toast.message}
         type={toast.type}
       />
+
+      {/* Mark as Done Confirmation Modal */}
+      {markDoneConfirmModal.isOpen && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+          backgroundColor: 'rgba(0,0,0,0.45)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          zIndex: 9999
+        }}>
+          <div style={{
+            background: '#fff',
+            borderRadius: '20px',
+            boxShadow: '0 20px 60px rgba(0,0,0,0.2)',
+            padding: '32px 36px',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: '16px',
+            minWidth: '320px',
+            maxWidth: '420px',
+            textAlign: 'center'
+          }}>
+            {/* Icon */}
+            <div style={{
+              width: '60px', height: '60px',
+              borderRadius: '50%',
+              background: 'linear-gradient(135deg, #16a34a 0%, #22c55e 100%)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              boxShadow: '0 4px 16px rgba(22,163,74,0.3)',
+              flexShrink: 0
+            }}>
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M20 6L9 17l-5-5"/>
+              </svg>
+            </div>
+
+            {/* Text */}
+            <div>
+              <div style={{ fontSize: '18px', fontWeight: '700', color: '#111827', marginBottom: '8px' }}>Mark as Done?</div>
+              <div style={{ fontSize: '13px', color: '#6b7280', lineHeight: 1.6 }}>
+                Are you sure you want to mark
+                <span style={{ fontWeight: '600', color: '#374151' }}> "{markDoneConfirmModal.title}" </span>
+                as done? This will complete the task and clean up associated files.
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div style={{ display: 'flex', gap: '12px', width: '100%', marginTop: '4px' }}>
+              <button
+                onClick={() => setMarkDoneConfirmModal({ isOpen: false, assignmentId: null, title: '' })}
+                style={{
+                  flex: 1,
+                  padding: '11px 0',
+                  borderRadius: '10px',
+                  border: '1.5px solid #e5e7eb',
+                  background: '#f9fafb',
+                  color: '#374151',
+                  fontWeight: '600',
+                  fontSize: '14px',
+                  cursor: 'pointer',
+                  transition: 'all 0.15s'
+                }}
+                onMouseEnter={e => { e.currentTarget.style.background = '#f3f4f6'; e.currentTarget.style.borderColor = '#d1d5db' }}
+                onMouseLeave={e => { e.currentTarget.style.background = '#f9fafb'; e.currentTarget.style.borderColor = '#e5e7eb' }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  const { assignmentId, title } = markDoneConfirmModal
+                  setMarkDoneConfirmModal({ isOpen: false, assignmentId: null, title: '' })
+                  handleMarkAsDone(assignmentId, title)
+                }}
+                style={{
+                  flex: 1,
+                  padding: '11px 0',
+                  borderRadius: '10px',
+                  border: 'none',
+                  background: 'linear-gradient(135deg, #16a34a 0%, #22c55e 100%)',
+                  color: '#fff',
+                  fontWeight: '600',
+                  fontSize: '14px',
+                  cursor: 'pointer',
+                  boxShadow: '0 2px 8px rgba(22,163,74,0.3)',
+                  transition: 'all 0.15s'
+                }}
+                onMouseEnter={e => { e.currentTarget.style.opacity = '0.9'; e.currentTarget.style.transform = 'translateY(-1px)' }}
+                onMouseLeave={e => { e.currentTarget.style.opacity = '1'; e.currentTarget.style.transform = 'translateY(0)' }}
+              >
+                Confirm
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Mark as Done Loading Overlay */}
       {markingDoneId !== null && (
