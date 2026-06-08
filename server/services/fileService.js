@@ -81,12 +81,27 @@ async function uploadFile(fileData, user) {
 
     let existing;
     if (isNewPipeline) {
-        existing = await queryOne(`
-            SELECT f.* FROM files f
-            INNER JOIN assignment_submissions asub ON f.id = asub.file_id
-            WHERE asub.assignment_id = ? AND f.original_name = ? AND (f.folder_name = ? OR (f.folder_name IS NULL AND ? IS NULL))
-            ORDER BY f.uploaded_at DESC LIMIT 1
-        `, [assignmentId, originalName, fileData.folder_name || null, fileData.folder_name || null]);
+        if (fileData.folder_name) {
+            // Folder upload: scope to the exact folder to avoid false matches across folders
+            existing = await queryOne(`
+                SELECT f.* FROM files f
+                INNER JOIN assignment_submissions asub ON f.id = asub.file_id
+                WHERE asub.assignment_id = ? AND f.original_name = ? AND f.folder_name = ?
+                ORDER BY
+                    CASE WHEN f.status IN ('revision','checked','under_revision') OR f.status LIKE 'modified by %' THEN 0 ELSE 1 END,
+                    f.uploaded_at DESC LIMIT 1
+            `, [assignmentId, originalName, fileData.folder_name]);
+        } else {
+            // Single-file re-upload: match by name only (folder_name inherited later)
+            existing = await queryOne(`
+                SELECT f.* FROM files f
+                INNER JOIN assignment_submissions asub ON f.id = asub.file_id
+                WHERE asub.assignment_id = ? AND f.original_name = ?
+                ORDER BY
+                    CASE WHEN f.status IN ('revision','checked','under_revision') OR f.status LIKE 'modified by %' THEN 0 ELSE 1 END,
+                    f.uploaded_at DESC LIMIT 1
+            `, [assignmentId, originalName]);
+        }
     } else {
         existing = await fileRepository.findByNameAndUser(
             originalName,
@@ -94,6 +109,24 @@ async function uploadFile(fileData, user) {
             fileData.folder_name,
             assignmentId
         );
+    }
+
+    // ── Fallback: catch 'checked' files whose assignment_submissions row may be missing ──
+    // If no existing record found but this is an assignment upload, do a direct files lookup
+    // for any checked/need-edit record for this user+filename. Without this, a file marked
+    // 'checked' that lost its submission join will never be cleaned up on re-upload.
+    if (!existing && assignmentId) {
+        existing = await queryOne(`
+            SELECT f.* FROM files f
+            LEFT JOIN assignment_submissions asub ON f.id = asub.file_id AND asub.assignment_id = ?
+            WHERE f.original_name = ? AND f.user_id = ?
+              AND (f.status IN ('checked','revision','under_revision') OR f.status LIKE 'modified by %')
+              AND (asub.assignment_id = ? OR asub.assignment_id IS NULL)
+            ORDER BY
+                CASE WHEN asub.assignment_id = ? THEN 0 ELSE 1 END,
+                f.uploaded_at DESC LIMIT 1
+        `, [assignmentId, originalName, user.id, assignmentId, assignmentId]);
+        if (existing) logInfo('Found checked/revision file via fallback lookup (no submissions join)', { fileId: existing.id, status: existing.status });
     }
 
     // ── Path inheritance ───────────────────────────────────────────────
@@ -124,21 +157,18 @@ async function uploadFile(fileData, user) {
     if (existing) {
         if (assignmentId) {
             if (isNewPipeline) {
-                // New pipeline: overwrite physical file, update existing DB record to status 'modified by {username}'
+                // New pipeline: overwrite physical file in-place, set status to 'under_revision'
                 isRevision = true;
                 skipCreate = true;
                 existingFileId = existing.id;
                 logInfo('Overwriting existing file for new task pipeline', { existingFileId, assignmentId });
             } else {
                 // Old pipeline: delete old physical + DB record
-                if (existing.status === 'rejected_by_team_leader' || existing.status === 'rejected_by_admin' || existing.status === 'revision' || existing.status === 'under_revision' || existing.status === 'checked') {
+                if (existing.status === 'rejected_by_team_leader' || existing.status === 'rejected_by_admin' || existing.status === 'revision' || existing.status === 'under_revision' || existing.status === 'checked' || (existing.status && existing.status.startsWith('modified by '))) {
                     isRevision = true;
                 }
 
                 logInfo('Replacing existing file for same task (old pipeline)', { oldFileId: existing.id, assignmentId, isRevision });
-                const tempPath = fileData.file_path.startsWith('/uploads/')
-                    ? path.join(uploadsDir, fileData.file_path.substring('/uploads/'.length))
-                    : fileData.file_path;
                 try {
                     if (existing.file_path) {
                         const oldPhysical = existing.file_path.startsWith('/uploads/')
@@ -203,11 +233,10 @@ async function uploadFile(fileData, user) {
 
     let fileId;
     if (skipCreate) {
-        // Update existing file record and set status to 'modified by {username}'
-        const statusText = `modified by ${user.username}`;
+        // Update existing file record — mark as revised so badge shows 'Revised'
         await query(
             'UPDATE files SET file_path = ?, status = ?, current_stage = ?, user_id = ?, username = ?, user_team = ?, uploaded_at = NOW(), updated_at = NOW() WHERE id = ?',
-            [finalFilePath, statusText.substring(0, 50), 'pending_team_leader', user.id, user.username, user.team, existingFileId]
+            [finalFilePath, 'under_revision', 'pending_team_leader', user.id, user.username, user.team, existingFileId]
         );
         fileId = existingFileId;
     } else {
@@ -314,16 +343,46 @@ async function bulkUploadFast(filesData, user, assignmentId = null) {
             // 1. Duplicate check (DB only — fast)
             let existing;
             if (isNewPipeline) {
-                existing = await queryOne(`
-                    SELECT f.* FROM files f
-                    INNER JOIN assignment_submissions asub ON f.id = asub.file_id
-                    WHERE asub.assignment_id = ? AND f.original_name = ? AND (f.folder_name = ? OR (f.folder_name IS NULL AND ? IS NULL))
-                    ORDER BY f.uploaded_at DESC LIMIT 1
-                `, [assignmentId, originalName, fileData.folder_name || null, fileData.folder_name || null]);
+                if (fileData.folder_name) {
+                    // Folder upload: scope to the exact folder to avoid false matches
+                    existing = await queryOne(`
+                        SELECT f.* FROM files f
+                        INNER JOIN assignment_submissions asub ON f.id = asub.file_id
+                        WHERE asub.assignment_id = ? AND f.original_name = ? AND f.folder_name = ?
+                        ORDER BY
+                            CASE WHEN f.status IN ('revision','checked','under_revision') OR f.status LIKE 'modified by %' THEN 0 ELSE 1 END,
+                            f.uploaded_at DESC LIMIT 1
+                    `, [assignmentId, originalName, fileData.folder_name]);
+                } else {
+                    // Single-file re-upload: match by name only (folder_name inherited later)
+                    existing = await queryOne(`
+                        SELECT f.* FROM files f
+                        INNER JOIN assignment_submissions asub ON f.id = asub.file_id
+                        WHERE asub.assignment_id = ? AND f.original_name = ?
+                        ORDER BY
+                            CASE WHEN f.status IN ('revision','checked','under_revision') OR f.status LIKE 'modified by %' THEN 0 ELSE 1 END,
+                            f.uploaded_at DESC LIMIT 1
+                    `, [assignmentId, originalName]);
+                }
             } else {
                 existing = await fileRepository.findByNameAndUser(
                     originalName, user.id, fileData.folder_name, assignmentId
                 );
+            }
+
+            // ── Fallback: catch 'checked' files whose assignment_submissions row may be missing ──
+            if (!existing && assignmentId) {
+                existing = await queryOne(`
+                    SELECT f.* FROM files f
+                    LEFT JOIN assignment_submissions asub ON f.id = asub.file_id AND asub.assignment_id = ?
+                    WHERE f.original_name = ? AND f.user_id = ?
+                      AND (f.status IN ('checked','revision','under_revision') OR f.status LIKE 'modified by %')
+                      AND (asub.assignment_id = ? OR asub.assignment_id IS NULL)
+                    ORDER BY
+                        CASE WHEN asub.assignment_id = ? THEN 0 ELSE 1 END,
+                        f.uploaded_at DESC LIMIT 1
+                `, [assignmentId, originalName, user.id, assignmentId, assignmentId]);
+                if (existing) logInfo('bulkUpload: Found checked/revision file via fallback lookup', { fileId: existing.id, status: existing.status });
             }
 
             // ── Path inheritance ─────────────────────────────────────────────────
@@ -381,32 +440,33 @@ async function bulkUploadFast(filesData, user, assignmentId = null) {
 
             if (existing && assignmentId) {
                 if (isNewPipeline) {
-                    // New pipeline: overwrite in-place, DB status -> modified by {username}. Keep existing file record.
+                    // New pipeline: overwrite in-place, set status to 'under_revision' so badge shows 'Revised'.
                     batchHasRevision = true;
                     revisionCount++;
                     fileData.isThisFileRevision = true;
                     skipCreate = true;
                     existingFileId = existing.id;
 
-                    // Update existing record with the new uploader's info and set status to "modified by {username}" immediately
-                    const statusText = `modified by ${user.username}`;
+                    // Mark as revised so the badge shows 'Revised'
                     await query(
                         'UPDATE files SET status = ?, current_stage = ?, user_id = ?, username = ?, user_team = ?, uploaded_at = NOW(), updated_at = NOW() WHERE id = ?',
-                        [statusText.substring(0, 50), 'pending_team_leader', user.id, user.username, user.team, existingFileId]
+                        ['under_revision', 'pending_team_leader', user.id, user.username, user.team, existingFileId]
                     );
                 } else {
                     // Check if this specific file is a revision (replacing a rejected, checked, or need-edit file)
-                    if (existing.status === 'rejected_by_team_leader' || existing.status === 'rejected_by_admin' || existing.status === 'revision' || existing.status === 'under_revision' || existing.status === 'checked') {
+                    if (existing.status === 'rejected_by_team_leader' || existing.status === 'rejected_by_admin' || existing.status === 'revision' || existing.status === 'under_revision' || existing.status === 'checked' || (existing.status && existing.status.startsWith('modified by '))) {
                         batchHasRevision = true;
                         revisionCount++;
                         fileData.isThisFileRevision = true;
                     }
 
                     // Remove old record so we replace it
-                    const oldPhysical = existing.file_path.startsWith('/uploads/')
-                        ? path.join(uploadsDir, existing.file_path.substring('/uploads/'.length))
-                        : existing.file_path;
-                    await safeDeleteFile(oldPhysical);
+                    const oldPhysical = existing.file_path
+                        ? (existing.file_path.startsWith('/uploads/')
+                            ? path.join(uploadsDir, existing.file_path.substring('/uploads/'.length))
+                            : existing.file_path)
+                        : null;
+                    if (oldPhysical) await safeDeleteFile(oldPhysical);
                     await query('DELETE FROM assignment_submissions WHERE file_id = ? AND assignment_id = ?',
                         [existing.id, assignmentId]);
                     await fileRepository.deleteById(existing.id);
@@ -576,12 +636,21 @@ async function bulkUpload(filesData, user, assignmentId = null) {
             
             let existing;
             if (isNewPipeline) {
-                existing = await queryOne(`
-                    SELECT f.* FROM files f
-                    INNER JOIN assignment_submissions asub ON f.id = asub.file_id
-                    WHERE asub.assignment_id = ? AND f.original_name = ? AND (f.folder_name = ? OR (f.folder_name IS NULL AND ? IS NULL))
-                    ORDER BY f.uploaded_at DESC LIMIT 1
-                `, [assignmentId, originalName, fileData.folder_name || null, fileData.folder_name || null]);
+                if (fileData.folder_name) {
+                    existing = await queryOne(`
+                        SELECT f.* FROM files f
+                        INNER JOIN assignment_submissions asub ON f.id = asub.file_id
+                        WHERE asub.assignment_id = ? AND f.original_name = ? AND f.folder_name = ?
+                        ORDER BY CASE WHEN f.status IN ('revision','checked','under_revision') OR f.status LIKE 'modified by %' THEN 0 ELSE 1 END, f.uploaded_at DESC LIMIT 1
+                    `, [assignmentId, originalName, fileData.folder_name]);
+                } else {
+                    existing = await queryOne(`
+                        SELECT f.* FROM files f
+                        INNER JOIN assignment_submissions asub ON f.id = asub.file_id
+                        WHERE asub.assignment_id = ? AND f.original_name = ?
+                        ORDER BY CASE WHEN f.status IN ('revision','checked','under_revision') OR f.status LIKE 'modified by %' THEN 0 ELSE 1 END, f.uploaded_at DESC LIMIT 1
+                    `, [assignmentId, originalName]);
+                }
             } else {
                 existing = await fileRepository.findByNameAndUser(originalName, user.id, fileData.folder_name, assignmentId);
             }
@@ -627,14 +696,15 @@ async function bulkUpload(filesData, user, assignmentId = null) {
 
             let fileId;
             if (skipCreate) {
-                const statusText = `modified by ${user.username}`;
+                // In-place overwrite — set to under_revision so badge shows 'Revised'
                 await query(
                     'UPDATE files SET file_path = ?, status = ?, current_stage = ?, user_id = ?, username = ?, user_team = ?, uploaded_at = NOW(), updated_at = NOW() WHERE id = ?',
-                    [finalFilePath, statusText.substring(0, 50), 'pending_team_leader', user.id, user.username, user.team, existingFileId]
+                    [finalFilePath, 'under_revision', 'pending_team_leader', user.id, user.username, user.team, existingFileId]
                 );
                 fileId = existingFileId;
             } else {
-                const dbData = { ...fileData, original_name: originalName, file_path: finalFilePath, user_id: user.id, username: user.username, user_team: user.team, status: 'uploaded', current_stage: 'pending_team_leader' };
+                const isLegacyRevision = existing && (existing.status === 'rejected_by_team_leader' || existing.status === 'rejected_by_admin' || existing.status === 'revision' || existing.status === 'under_revision' || existing.status === 'checked' || (existing.status && existing.status.startsWith('modified by ')));
+                const dbData = { ...fileData, original_name: originalName, file_path: finalFilePath, user_id: user.id, username: user.username, user_team: user.team, status: isLegacyRevision ? 'under_revision' : 'uploaded', current_stage: 'pending_team_leader' };
                 fileId = await fileRepository.create(dbData);
             }
 
@@ -704,6 +774,7 @@ async function bulkUploadMoveToNas(fileRecords, user, assignmentId, assignmentLi
     // Run all NAS moves concurrently — sequential for-loop was the main cause of slow
     // background finalization when uploading many files at once.
     const MAX_CONCURRENT = 8; // conservative to avoid hammering the NAS SMB share
+    if (!assignmentLinks || assignmentLinks.length === 0) return;
     const validLinks = assignmentLinks.filter(l => l.tempPath && l.fileId);
 
     let projectContext = null;
@@ -747,11 +818,8 @@ async function bulkUploadMoveToNas(fileRecords, user, assignmentId, assignmentLi
                 finalFilePath = `/uploads${relativeToUploads.startsWith('/') ? '' : '/'}${relativeToUploads}`;
             }
 
-            if (link.isOverwrite) {
-                await query('UPDATE files SET file_path = ?, status = "updated" WHERE id = ?', [finalFilePath, link.fileId]);
-            } else {
-                await query('UPDATE files SET file_path = ? WHERE id = ?', [finalFilePath, link.fileId]);
-            }
+            // Only update file_path — status was already correctly set in Phase 1
+            await query('UPDATE files SET file_path = ? WHERE id = ?', [finalFilePath, link.fileId]);
         } catch (err) {
             logError(err, { context: 'bulkUploadMoveToNas-item', fileId: link.fileId, filename: link.originalName });
         }
@@ -764,7 +832,7 @@ async function bulkUploadMoveToNas(fileRecords, user, assignmentId, assignmentLi
         p.finally(() => executing.delete(p));
         if (executing.size >= MAX_CONCURRENT) await Promise.race(executing);
     }
-    await Promise.all(executing);
+    if (executing.size > 0) await Promise.all(executing);
 }
 
 /**
@@ -1164,7 +1232,9 @@ async function getAllFiles(options = {}) {
     const attachments = await fileRepository.findAllAttachmentsWithDetails(options);
     // Use namespaced keys to avoid ID collisions between the two separate tables
     const fileKeys = new Set(files.map(f => `file:${f.id}`));
-    const uniqueAttachments = attachments.filter(a => !fileKeys.has(`attachment:${a.id}`));
+    // BUG FIX: was checking `attachment:${a.id}` against `file:${f.id}` keys — those never match,
+    // so ALL attachments were included even if they were duplicates. Now correctly deduplicates by file id.
+    const uniqueAttachments = attachments.filter(a => !fileKeys.has(`file:${a.id}`));
     return [...files, ...uniqueAttachments].sort((a, b) =>
         new Date(b.uploaded_at) - new Date(a.uploaded_at)
     );

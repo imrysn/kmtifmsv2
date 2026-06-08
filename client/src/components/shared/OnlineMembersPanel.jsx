@@ -146,7 +146,7 @@ const OnlineMembersPanel = ({ user, teamFilter }) => {
       clearTimeout(reconnectTimer.current)
       const { token } = useStore.getState()
       if (token) {
-        apiFetch('/api/presence/ping', { method: 'DELETE' }).catch(() => {})
+        apiFetch('/api/presence/ping', { method: 'DELETE' }).catch(() => { })
       }
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps

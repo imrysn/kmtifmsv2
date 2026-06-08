@@ -331,7 +331,7 @@ async function findByNameAndUser(originalName, userId, folderName = null, assign
             WHERE (f.original_name = ? OR SUBSTRING_INDEX(f.original_name, '.', 1) = SUBSTRING_INDEX(?, '.', 1)) AND f.user_id = ?${whereExtra}
             ORDER BY
                 CASE WHEN f.folder_name IS NOT NULL AND f.folder_name != '' THEN 0 ELSE 1 END,
-                CASE WHEN f.status IN ('rejected_by_team_leader','rejected_by_admin') THEN 0 ELSE 1 END,
+                CASE WHEN f.status IN ('rejected_by_team_leader','rejected_by_admin','checked','under_revision','revision') OR f.status LIKE 'modified by %' THEN 0 ELSE 1 END,
                 f.uploaded_at DESC
             LIMIT 1`;
     } else {
