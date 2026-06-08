@@ -636,11 +636,16 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
     setModalInitialAttachments(assignment.attachments || [])
 
     // Format the due date for the input field (YYYY-MM-DD format)
+    // IMPORTANT: use local date parts, NOT toISOString() — toISOString() returns
+    // UTC midnight which in UTC+8 is the previous calendar day, causing a −1 day shift.
     let formattedDueDate = ''
     if (assignment.due_date || assignment.dueDate) {
       const dueDate = new Date(assignment.due_date || assignment.dueDate)
       if (!isNaN(dueDate.getTime())) {
-        formattedDueDate = dueDate.toISOString().split('T')[0]
+        const y = dueDate.getFullYear()
+        const m = String(dueDate.getMonth() + 1).padStart(2, '0')
+        const d = String(dueDate.getDate()).padStart(2, '0')
+        formattedDueDate = `${y}-${m}-${d}`
       }
     }
 
