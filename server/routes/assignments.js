@@ -1855,7 +1855,7 @@ router.put('/:assignmentId/mark-for-editing', authenticateToken, async (req, res
     ]);
 
     const notifMsg = note
-      ? `Your file${fileId ? '' : ' submission'} for "${assignment.title}" requires editing. Note: ${note}`
+      ? `Your file${fileId ? '' : ' submission'} for "${assignment.title}" requires editing. Note: ${note.replace(/^Comment:\s*/i, '')}`
       : `Your ${fileId ? 'file' : 'submission'} for "${assignment.title}" requires editing/revision. Please make the necessary changes and resubmit.`;
 
     for (const uid of allUserIds) {
@@ -1946,7 +1946,7 @@ router.put('/:assignmentId/mark-checked', authenticateToken, async (req, res) =>
 router.put('/:assignmentId/files/:fileId/mark-file-checked', authenticateToken, async (req, res) => {
   try {
     const { assignmentId, fileId } = req.params;
-    const { checkerName, checkerId } = req.body;
+    const { checkerName, checkerId, checkerNote } = req.body;
 
     const assignment = await queryOne('SELECT * FROM assignments WHERE id = ?', [assignmentId]);
     if (!assignment) return res.status(404).json({ success: false, message: 'Assignment not found' });
@@ -1970,8 +1970,8 @@ router.put('/:assignmentId/files/:fileId/mark-file-checked', authenticateToken, 
 
     const now = new Date().toISOString().slice(0, 19).replace('T', ' ');
 
-    // Mark this single file as checked (and record who checked it)
-    await query('UPDATE files SET status = ?, checked_by = ?, updated_at = ? WHERE id = ?', ['checked', checkerName, now, fileId]);
+    // Mark this single file as checked (record who checked it and save any note)
+    await query('UPDATE files SET status = ?, checked_by = ?, checker_note = ?, updated_at = ? WHERE id = ?', ['checked', checkerName, checkerNote || null, now, fileId]);
 
     // Notify the file submitter that their file was checked
     if (submission) {

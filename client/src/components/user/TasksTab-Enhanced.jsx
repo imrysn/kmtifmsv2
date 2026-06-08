@@ -141,7 +141,7 @@ const CheckingModal = memo(({ isOpen, onClose, file, assignment, onMarkForEditin
   const handleDoneChecking = async () => {
     setIsSubmitting(true);
     try {
-      await onDoneChecking(file.id);
+      await onDoneChecking(file.id, additionalComment.trim());
       onClose();
     } finally {
       setIsSubmitting(false);
@@ -259,9 +259,9 @@ const CheckingModal = memo(({ isOpen, onClose, file, assignment, onMarkForEditin
           </button>
           <button
             onClick={handleMarkForEditing}
-            disabled={isSubmitting || wrongItems.length === 0}
-            style={{ padding: '9px 18px', borderRadius: '8px', border: 'none', background: wrongItems.length === 0 ? '#e5e7eb' : '#f59e0b', color: wrongItems.length === 0 ? '#9ca3af' : '#fff', fontSize: '14px', fontWeight: '600', cursor: wrongItems.length === 0 || isSubmitting ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}
-            title={wrongItems.length === 0 ? 'Check at least one wrong item first' : ''}
+            disabled={isSubmitting}
+            style={{ padding: '9px 18px', borderRadius: '8px', border: 'none', background: '#f59e0b', color: '#fff', fontSize: '14px', fontWeight: '600', cursor: isSubmitting ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}
+            title="Mark this file as needing edits"
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
               <path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/>
@@ -321,8 +321,14 @@ const ChecklistViewModal = memo(({ isOpen, onClose, file }) => {
 
   const additionalComment = (() => {
     if (!resolvedNote) return '';
-    const match = resolvedNote.match(/\|\s*Comment:\s*(.+)/i);
-    return match ? match[1].trim() : '';
+    // Handles both formats:
+    //   "Wrong items: X, Y | Comment: Z"  (mark-for-editing with wrong items)
+    //   "Comment: Z"                       (done-checking with note only)
+    const pipeMatch = resolvedNote.match(/\|\s*Comment:\s*(.+)/i);
+    if (pipeMatch) return pipeMatch[1].trim();
+    const directMatch = resolvedNote.match(/^Comment:\s*(.+)/i);
+    if (directMatch) return directMatch[1].trim();
+    return '';
   })();
 
   const wrongSet = new Set(wrongItems);
@@ -362,6 +368,14 @@ const ChecklistViewModal = memo(({ isOpen, onClose, file }) => {
             <p style={{ margin: 0, fontSize: '13px', fontWeight: '600', color: '#dc2626' }}>
               ⚠ {wrongItems.length} item{wrongItems.length !== 1 ? 's' : ''} marked as wrong: {wrongItems.join(', ')}
             </p>
+          </div>
+        ) : file?.status === 'revision' ? (
+          <div style={{ margin: '14px 22px 0', padding: '10px 14px', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '8px' }}>
+            <p style={{ margin: 0, fontSize: '13px', fontWeight: '600', color: '#dc2626' }}>✎ Need to Edit{additionalComment ? ' — see note below' : ''}</p>
+          </div>
+        ) : additionalComment ? (
+          <div style={{ margin: '14px 22px 0', padding: '10px 14px', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '8px' }}>
+            <p style={{ margin: 0, fontSize: '13px', fontWeight: '600', color: '#15803d' }}>✓ No wrong items — checker left a note below</p>
           </div>
         ) : (
           <div style={{ margin: '14px 22px 0', padding: '10px 14px', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '8px' }}>
@@ -895,13 +909,13 @@ const TasksTab = memo(({
     } catch { showError('Failed to update status'); }
   }, [user, fetchAssignments, showError]);
 
-  const handleMarkFileChecked = useCallback(async (assignment, fileId) => {
+  const handleMarkFileChecked = useCallback(async (assignment, fileId, checkerNote = '') => {
     setCheckerMenuOpen(null);
     if (!fileId) { showError('Cannot mark file: file ID is missing.'); return; }
     try {
       const data = await apiFetch(`/api/assignments/${assignment.id}/files/${fileId}/mark-file-checked`, {
         method: 'PUT',
-        body: JSON.stringify({ checkerId: user.id, checkerName: user.fullName || user.username }),
+        body: JSON.stringify({ checkerId: user.id, checkerName: user.fullName || user.username, checkerNote }),
       });
       if (data.success) {
         if (data.allChecked) {
@@ -2523,8 +2537,9 @@ const TasksTab = memo(({
           await handleMarkForEditing(checkingModal.assignment, fileId, note);
           setCheckingModal({ isOpen: false, file: null, assignment: null });
         }}
-        onDoneChecking={async (fileId) => {
-          await handleMarkFileChecked(checkingModal.assignment, fileId);
+        onDoneChecking={async (fileId, additionalComment) => {
+          const note = additionalComment ? `Comment: ${additionalComment}` : '';
+          await handleMarkFileChecked(checkingModal.assignment, fileId, note);
           setCheckingModal({ isOpen: false, file: null, assignment: null });
         }}
       />
