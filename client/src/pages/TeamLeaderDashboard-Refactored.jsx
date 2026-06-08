@@ -728,7 +728,8 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
     if (onFileViewed) setOnFileViewedCallback(() => onFileViewed)
 
     try {
-      const data = await apiFetch(`/api/files/${file.id}/comments`)
+      const fileIdToUse = file.file_id || file.id;
+      const data = await apiFetch(`/api/files/${fileIdToUse}/comments`)
       if (data.success) {
         setFileComments(data.comments || [])
       }
@@ -740,12 +741,13 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
 
   const openFileViewModal = async (file) => {
     try {
+      const actualFileId = file.file_id || file.id;
       setSuccess(`Opening ${file.original_name || file.name || 'file'}...`);
       setError('');
       // Check if running in Electron and has capability to open files locally
       if (window.electron && window.electron.openFileInApp) {
         // Get the absolute file path from server
-        const data = await apiFetch(`/api/files/${file.id}/path?type=file`);
+        const data = await apiFetch(`/api/files/${actualFileId}/path?type=file`);
 
         if (data.success && data.filePath) {
           const result = await window.electron.openFileInApp(data.filePath);
@@ -755,8 +757,8 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
           } else {
             setSuccess('File opened successfully');
             // Record view only when file is actually opened
-            try { await apiFetch(`/api/files/${file.id}/view`, { method: 'POST', body: JSON.stringify({ userId: user.id, username: user.username, fullName: user.fullName, role: user.role || 'TEAM_LEADER' }) }) } catch {}
-            if (onFileViewedCallback) { onFileViewedCallback(file.id); setOnFileViewedCallback(null) }
+            try { await apiFetch(`/api/files/${actualFileId}/view`, { method: 'POST', body: JSON.stringify({ userId: user.id, username: user.username, fullName: user.fullName, role: user.role || 'TEAM_LEADER' }) }) } catch {}
+            if (onFileViewedCallback) { onFileViewedCallback(actualFileId); setOnFileViewedCallback(null) }
           }
         } else {
           setError('Could not retrieve file path');
@@ -766,12 +768,12 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
         // We'll keep API_BASE_URL for window.open but use it sparingly
         const data = await apiFetch(`/api/files/open-file`, {
           method: 'POST',
-          body: JSON.stringify({ fileId: file.id })
+          body: JSON.stringify({ fileId: actualFileId })
         });
         setSuccess('File opened in new tab');
         // Record view only when file is actually opened
-        try { await apiFetch(`/api/files/${file.id}/view`, { method: 'POST', body: JSON.stringify({ userId: user.id, username: user.username, fullName: user.fullName, role: user.role || 'TEAM_LEADER' }) }) } catch {}
-        if (onFileViewedCallback) { onFileViewedCallback(file.id); setOnFileViewedCallback(null) }
+        try { await apiFetch(`/api/files/${actualFileId}/view`, { method: 'POST', body: JSON.stringify({ userId: user.id, username: user.username, fullName: user.fullName, role: user.role || 'TEAM_LEADER' }) }) } catch {}
+        if (onFileViewedCallback) { onFileViewedCallback(actualFileId); setOnFileViewedCallback(null) }
       }
     } catch (error) {
       console.error('Error opening file:', error);
@@ -792,8 +794,8 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
     try {
       // Use the correct endpoint: reject goes to team-leader-reject, approve to team-leader-review
       const endpoint = actionToUse === 'reject'
-        ? `/api/files/${selectedFile.id}/team-leader-reject`
-        : `/api/files/${selectedFile.id}/team-leader-review`
+        ? `/api/files/${fileIdToProcess}/team-leader-reject`
+        : `/api/files/${fileIdToProcess}/team-leader-review`
 
       const data = await apiFetch(endpoint, {
         method: 'POST',

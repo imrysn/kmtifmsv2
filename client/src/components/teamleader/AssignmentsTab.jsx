@@ -830,7 +830,7 @@ const AssignmentsTab = ({
     const fid = parseInt(highlightedFileId);
     for (const assignment of assignments) {
       const allFiles = assignment.recent_submissions || assignment.submitted_files || [];
-      const targetFile = allFiles.find(f => f.id === fid);
+      const targetFile = allFiles.find(f => f.id === fid || f.file_id === fid);
       if (targetFile) {
         // Mark as processed BEFORE any async/timeout work
         processedHighlightFileIdRef.current = highlightedFileId;
@@ -843,7 +843,7 @@ const AssignmentsTab = ({
           let attempts = 0;
           const MAX = 30;
           const tryHighlightFolder = () => {
-            const folderEl = document.querySelector(`[data-folder-key="${folderKey}"]`);
+            const folderEl = document.querySelector(`[data-folder-key=${CSS.escape(folderKey)}]`);
             if (!folderEl) {
               if (++attempts < MAX) setTimeout(tryHighlightFolder, 100);
               return;
@@ -1611,7 +1611,7 @@ const AssignmentsTab = ({
                                 ))}
                                 {level > 0 && <div className={`tl-tree-line-connector ${isLast ? 'last-item' : ''}`} />}
                                 <div
-                                  data-file-id={submission.id}
+                                  data-file-id={submission.file_id || submission.id}
                                   className={`tl-assignment-file-item ${isViewed ? 'file-card-opened' : ''} ${level > 0 ? 'tl-in-tree' : ''}`}
                                   onClick={(e) => {
                                     e.stopPropagation();
