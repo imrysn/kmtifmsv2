@@ -319,13 +319,10 @@ router.get('/admin/all', authenticateToken, authorizeRole(['ADMIN']), async (req
 
     let queryStr = `
       SELECT a.*,
-        COUNT(DISTINCT asub.id) as submission_count,
-        COUNT(DISTINCT am.id)   as assigned_members_count,
-        COUNT(DISTINCT ac.id)   as comment_count
+        (SELECT COUNT(id) FROM assignment_submissions WHERE assignment_id = a.id) as submission_count,
+        (SELECT COUNT(id) FROM assignment_members WHERE assignment_id = a.id) as assigned_members_count,
+        (SELECT COUNT(id) FROM assignment_comments WHERE assignment_id = a.id) as comment_count
       FROM assignments a
-      LEFT JOIN assignment_members am      ON a.id = am.assignment_id
-      LEFT JOIN assignment_submissions asub ON a.id = asub.assignment_id
-      LEFT JOIN assignment_comments ac     ON a.id = ac.assignment_id
     `;
     const queryParams = [];
     const conditions = [];
@@ -337,7 +334,7 @@ router.get('/admin/all', authenticateToken, authorizeRole(['ADMIN']), async (req
     if (conditions.length > 0) {
       queryStr += ' WHERE ' + conditions.join(' AND ');
     }
-    queryStr += ' GROUP BY a.id ORDER BY a.created_at DESC, a.id DESC';
+    queryStr += ' ORDER BY a.created_at DESC, a.id DESC';
     if (parsedLimit) {
       queryStr += ' LIMIT ?';
       queryParams.push(parsedLimit + 1);
@@ -402,19 +399,16 @@ router.get('/all', authenticateToken, authorizeRole(['ADMIN']), async (req, res)
 
     let queryStr = `
       SELECT a.*,
-        COUNT(DISTINCT asub.id) as submission_count,
-        COUNT(DISTINCT am.id)   as assigned_members_count,
-        COUNT(DISTINCT ac.id)   as comment_count
+        (SELECT COUNT(id) FROM assignment_submissions WHERE assignment_id = a.id) as submission_count,
+        (SELECT COUNT(id) FROM assignment_members WHERE assignment_id = a.id) as assigned_members_count,
+        (SELECT COUNT(id) FROM assignment_comments WHERE assignment_id = a.id) as comment_count
       FROM assignments a
-      LEFT JOIN assignment_members am      ON a.id = am.assignment_id
-      LEFT JOIN assignment_submissions asub ON a.id = asub.assignment_id
-      LEFT JOIN assignment_comments ac     ON a.id = ac.assignment_id
     `;
     const queryParams = [];
     const conditions = [];
     if (cursor) { conditions.push('a.id < ?'); queryParams.push(cursor); }
     if (conditions.length > 0) queryStr += ' WHERE ' + conditions.join(' AND ');
-    queryStr += ' GROUP BY a.id ORDER BY a.created_at DESC, a.id DESC';
+    queryStr += ' ORDER BY a.created_at DESC, a.id DESC';
     if (parsedLimit) {
       queryStr += ' LIMIT ?';
       queryParams.push(parsedLimit + 1);
@@ -513,8 +507,7 @@ router.get('/team-leader/:userId/all-submissions', authenticateToken, authorizeR
          FROM assignment_attachments aa
          JOIN assignments a ON aa.assignment_id = a.id
          JOIN users u ON aa.uploaded_by_id = u.id
-         WHERE a.team IN (${placeholders}) OR aa.uploaded_by_id = ? ORDER BY aa.created_at DESC`,
-        [...teamNames, userId]
+         ORDER BY aa.created_at DESC`
       );
     } else {
       tlAttachments = await query(
@@ -530,8 +523,7 @@ router.get('/team-leader/:userId/all-submissions', authenticateToken, authorizeR
          FROM assignment_attachments aa
          JOIN assignments a ON aa.assignment_id = a.id
          JOIN users u ON aa.uploaded_by_id = u.id
-         WHERE aa.uploaded_by_id = ? ORDER BY aa.created_at DESC`,
-        [userId]
+         ORDER BY aa.created_at DESC`
       );
     }
 
@@ -558,19 +550,17 @@ router.get('/team/:team/all-tasks', authenticateToken, async (req, res) => {
 
     let queryStr = `
       SELECT a.*,
-        COUNT(DISTINCT CASE WHEN am.status = 'submitted' AND am.file_id IS NOT NULL THEN am.id END) as submission_count,
-        COUNT(DISTINCT am.id) as assigned_members_count,
-        COUNT(DISTINCT ac.id) as comment_count
+        (SELECT COUNT(id) FROM assignment_submissions WHERE assignment_id = a.id AND status = 'submitted') as submission_count,
+        (SELECT COUNT(id) FROM assignment_members WHERE assignment_id = a.id) as assigned_members_count,
+        (SELECT COUNT(id) FROM assignment_comments WHERE assignment_id = a.id) as comment_count
       FROM assignments a
-      LEFT JOIN assignment_members am ON a.id = am.assignment_id
-      LEFT JOIN assignment_comments ac ON a.id = ac.assignment_id
       WHERE a.team = ?
     `;
     const queryParams = [team];
     if (cursor) {
       queryStr += ' AND a.id < ?'; queryParams.push(cursor);
     }
-    queryStr += ' GROUP BY a.id ORDER BY a.created_at DESC, a.id DESC';
+    queryStr += ' ORDER BY a.created_at DESC, a.id DESC';
     if (parsedLimit) {
       queryStr += ' LIMIT ?';
       queryParams.push(parsedLimit + 1);
@@ -640,10 +630,10 @@ router.get('/team-leader/:userId', authenticateToken, authorizeRole(['TEAM_LEADE
     const placeholders = teamNames.map(() => '?').join(',');
     
     let queryStr = `
-      SELECT a.*, COUNT(DISTINCT asub.id) as submission_count, COUNT(DISTINCT am.id) as assigned_members_count
+      SELECT a.*, 
+        (SELECT COUNT(id) FROM assignment_submissions WHERE assignment_id = a.id) as submission_count, 
+        (SELECT COUNT(id) FROM assignment_members WHERE assignment_id = a.id) as assigned_members_count
       FROM assignments a
-      LEFT JOIN assignment_members am ON a.id = am.assignment_id
-      LEFT JOIN assignment_submissions asub ON a.id = asub.assignment_id
       WHERE a.team IN (${placeholders})
     `;
     const queryParams = [...teamNames];
@@ -653,7 +643,7 @@ router.get('/team-leader/:userId', authenticateToken, authorizeRole(['TEAM_LEADE
       queryParams.push(cursor);
     }
     
-    queryStr += ' GROUP BY a.id ORDER BY a.created_at DESC, a.id DESC';
+    queryStr += ' ORDER BY a.created_at DESC, a.id DESC';
     
     if (parsedLimit) {
       queryStr += ' LIMIT ?';

@@ -47,8 +47,7 @@ const OnlineMembersPanel = ({ user, teamFilter }) => {
   const fetchMembers = useCallback(async () => {
     if (!user?.id) return
     try {
-      const params = teamFilter ? `?team=${encodeURIComponent(teamFilter)}` : ''
-      const data = await apiFetch(`/api/presence/members${params}`)
+      const data = await apiFetch(`/api/presence/members`)
       if (data.success) {
         setAllMembers(data.members || [])
         // Sync onlineIds from the fresh server snapshot
@@ -57,7 +56,7 @@ const OnlineMembersPanel = ({ user, teamFilter }) => {
         forceUpdate(n => n + 1)
       }
     } catch { }
-  }, [user, teamFilter])
+  }, [user])
 
   // ── Heartbeat ping ────────────────────────────────────────────────────────
   const ping = useCallback(async () => {
@@ -92,9 +91,7 @@ const OnlineMembersPanel = ({ user, teamFilter }) => {
         const { online } = JSON.parse(event.data)
         // Update onlineIds from SSE push, then re-apply to allMembers
         const ids = new Set(
-          (online || [])
-            .filter(u => !teamFilter || u.team === teamFilter)
-            .map(u => u.userId)
+          (online || []).map(u => u.userId)
         )
         onlineIdsRef.current = ids
         // Update allMembers online flags in-place and re-sort

@@ -1634,7 +1634,7 @@ async function resolvePhysicalPath(fileId, requestedType = null, folderName = nu
         if (file.original_name) {
             try {
                 const deepScan = async (dir, depth = 0) => {
-                    if (depth > 4) return null;
+                    if (depth > 2) return null;
                     let entries;
                     try { entries = await fs.readdir(dir, { withFileTypes: true }); } catch (_) { return null; }
                     for (const entry of entries) {
@@ -1698,7 +1698,7 @@ async function resolvePhysicalPath(fileId, requestedType = null, folderName = nu
         if (file.original_name) {
             try {
                 const deepScan = async (dir, depth = 0) => {
-                    if (depth > 4) return null;
+                    if (depth > 2) return null;
                     let entries;
                     try { entries = await fs.readdir(dir, { withFileTypes: true }); } catch (_) { return null; }
                     for (const entry of entries) {

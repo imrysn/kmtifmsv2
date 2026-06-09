@@ -1389,7 +1389,9 @@ const AssignmentsTab = ({
                         <div className="tl-assignment-menu-dropdown">
                           <button
                             className="tl-assignment-menu-item"
-                            onClick={() => {
+                            onClick={(e) => {
+                              e.preventDefault()
+                              e.stopPropagation()
                               setAssignCheckerModal({ assignment })
                               const existingIds = (() => { try { return new Set((JSON.parse(assignment.checker_ids || '[]')).map(String)) } catch { return new Set() } })()
                               setSelectedCheckerIds(existingIds)
@@ -1400,7 +1402,9 @@ const AssignmentsTab = ({
                           </button>
                           <button
                             className="tl-assignment-menu-item"
-                            onClick={() => {
+                            onClick={(e) => {
+                              e.preventDefault()
+                              e.stopPropagation()
                               setMarkDoneConfirmModal({ isOpen: true, assignmentId: assignment.id, title: assignment.title })
                               setShowMenuForAssignment(null)
                             }}
@@ -1422,7 +1426,9 @@ const AssignmentsTab = ({
                           )}
                           <button
                             className="tl-assignment-menu-item"
-                            onClick={() => {
+                            onClick={(e) => {
+                              e.preventDefault()
+                              e.stopPropagation()
                               handleEditAssignment(assignment)
                               setShowMenuForAssignment(null)
                             }}
@@ -1431,7 +1437,9 @@ const AssignmentsTab = ({
                           </button>
                           <button
                             className="tl-assignment-menu-item tl-assignment-delete-menu-item"
-                            onClick={() => {
+                            onClick={(e) => {
+                              e.preventDefault()
+                              e.stopPropagation()
                               setAssignmentToDelete({ id: assignment.id, title: assignment.title })
                               setShowDeleteConfirmation(true)
                               setShowMenuForAssignment(null)

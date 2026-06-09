@@ -668,8 +668,20 @@ const TeamTasksTab = ({ user }) => {
     )
   }
 
-  const renderRecursiveItems = (assignment, files, level = 1, parentKey = '', parentIsLastArr = [], isAttachment = true) => {
-    const { subfolders, rootFiles } = recursiveGroupByPath(files)
+  const renderRecursiveItems = (assignment, files, level = 1, parentKey = '', parentIsLastArr = [], isAttachment = true, stripPrefix = null) => {
+    // Strip the top-level folder prefix from relative_path so recursiveGroupByPath
+    // sees paths relative to the current folder, not the global root.
+    const normalizedFiles = stripPrefix
+      ? files.map(f => {
+          const file = f.file || f;
+          const rp = (file.relative_path || '').replace(/\\/g, '/');
+          const prefix = stripPrefix.replace(/\\/g, '/') + '/';
+          const stripped = rp.startsWith(prefix) ? rp.slice(prefix.length) : rp;
+          return { ...f, file: { ...file, relative_path: stripped } };
+        })
+      : files;
+
+    const { subfolders, rootFiles } = recursiveGroupByPath(normalizedFiles)
     const subItems = []
 
     const subfolderEntries = Object.entries(subfolders)
@@ -1061,7 +1073,7 @@ const TeamTasksTab = ({ user }) => {
                           )
 
                           if (isExpanded) {
-                            items.push(...renderRecursiveItems(assignment, folderFiles, 1, folderKey, [], true))
+                            items.push(...renderRecursiveItems(assignment, folderFiles, 1, folderKey, [], true, folderName))
                           }
                         })
 
@@ -1173,7 +1185,7 @@ const TeamTasksTab = ({ user }) => {
                           )
 
                           if (isExpanded) {
-                            items.push(...renderRecursiveItems(assignment, folderFiles, 1, folderKey, [], false))
+                            items.push(...renderRecursiveItems(assignment, folderFiles, 1, folderKey, [], false, folderName))
                           }
                         })
 
