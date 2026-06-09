@@ -2145,6 +2145,31 @@ router.put('/:assignmentId/mark-done', authenticateToken, authorizeRole(['TEAM_L
 });
 
 
+// PUT /:assignmentId/undo-mark-done — revert a completed assignment back to active
+router.put('/:assignmentId/undo-mark-done', authenticateToken, authorizeRole(['TEAM_LEADER', 'ADMIN']), async (req, res) => {
+  try {
+    const { assignmentId } = req.params;
+    const assignment = await queryOne('SELECT * FROM assignments WHERE id = ?', [assignmentId]);
+    if (!assignment) return res.status(404).json({ success: false, message: 'Assignment not found' });
+
+    if (assignment.status !== 'completed') {
+      return res.status(400).json({ success: false, message: 'Assignment is not completed — nothing to undo.' });
+    }
+
+    const now = new Date().toISOString().slice(0, 19).replace('T', ' ');
+
+    // Revert assignment status back to active (for_checking if checked, otherwise active)
+    const previousStatus = 'active';
+    await query('UPDATE assignments SET status = ?, updated_at = ? WHERE id = ?', [previousStatus, now, assignmentId]);
+
+    res.json({ success: true, message: 'Assignment status reverted to active.', assignment: { ...assignment, status: previousStatus, updated_at: now } });
+  } catch (error) {
+    console.error('Error undoing mark-done:', error);
+    res.status(500).json({ success: false, message: 'Failed to undo mark as done', error: error.message });
+  }
+});
+
+
 // PUT /:assignmentId/update-members
 router.put('/:assignmentId/update-members', authenticateToken, authorizeRole(['TEAM_LEADER', 'ADMIN']), async (req, res) => {
   try {

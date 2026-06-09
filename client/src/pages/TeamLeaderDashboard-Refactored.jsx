@@ -407,6 +407,19 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
     }
   }
 
+  // Silent background refresh — updates data without showing the skeleton loader.
+  // Use this after optimistic updates so the UI doesn’t flash the loading state.
+  const silentFetchAssignments = async () => {
+    try {
+      const data = await apiFetch(`/api/assignments/team-leader/${user.id}`)
+      if (data.success) {
+        setAssignments(data.assignments || [])
+      }
+    } catch (error) {
+      console.error('Error silently refreshing assignments:', error)
+    }
+  }
+
   const createAssignment = async (attachedFiles = [], removedAttachmentIds = [], otDates = []) => {
     // Guard: if the modal was closed before this runs, abort silently
     if (!showCreateAssignmentModal) return
@@ -717,6 +730,42 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
     } catch (error) {
       console.error('Error marking assignment as done:', error)
       setError('Failed to mark assignment as done')
+    }
+  }
+
+  const undoMarkAsDone = async (assignmentId, title) => {
+    // ── Optimistic update: flip the status locally right away so the UI
+    // responds instantly without waiting for a full re-fetch.
+    setAssignments(prev =>
+      prev.map(a =>
+        a.id === assignmentId ? { ...a, status: 'active' } : a
+      )
+    )
+
+    try {
+      const data = await apiFetch(`/api/assignments/${assignmentId}/undo-mark-done`, {
+        method: 'PUT',
+        body: JSON.stringify({
+          teamLeaderId: user.id,
+          teamLeaderUsername: user.username,
+          team: user.team
+        })
+      })
+
+      if (data.success) {
+        setSuccess(`Task "${title}" moved back to active`)
+        // Silent background refresh — keeps data in sync without showing skeleton loader
+        silentFetchAssignments()
+      } else {
+        // Revert the optimistic update on failure using functional update
+        setAssignments(prev => prev.map(a => a.id === assignmentId ? { ...a, status: 'completed' } : a))
+        setError(data.message || 'Failed to undo mark as done')
+      }
+    } catch (error) {
+      // Revert the optimistic update on network error using functional update
+      setAssignments(prev => prev.map(a => a.id === assignmentId ? { ...a, status: 'completed' } : a))
+      console.error('Error undoing mark as done:', error)
+      setError('Failed to undo mark as done')
     }
   }
 
@@ -1192,6 +1241,7 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
                 setHighlightedFileStatus(null)
               }}
               markAssignmentAsDone={markAssignmentAsDone}
+              undoMarkAsDone={undoMarkAsDone}
               handleEditAssignment={handleEditAssignment}
               onRefreshAssignments={fetchAssignments}
               teamMembers={teamMembers}

@@ -346,6 +346,7 @@ const AssignmentsTab = ({
   highlightedFileStatus,
   onClearFileHighlight,
   markAssignmentAsDone,
+  undoMarkAsDone,
   handleEditAssignment,
   onRefreshAssignments,
   teamMembers
@@ -475,6 +476,19 @@ const AssignmentsTab = ({
     } finally {
       setMarkingDoneId(null)
     }
+  }
+
+  // Undo Mark as Done
+  const [undoConfirmModal, setUndoConfirmModal] = useState({ isOpen: false, assignmentId: null, title: '' })
+  const [undoingDoneId, setUndoingDoneId] = useState(null)
+
+  const handleUndoMarkAsDone = (assignmentId, title) => {
+    setUndoingDoneId(assignmentId)
+    // Fire API call in the background — don't block on it since the
+    // optimistic update already updated the UI instantly.
+    // Dismiss the loading overlay after a short visual-feedback window.
+    undoMarkAsDone(assignmentId, title)
+    setTimeout(() => setUndoingDoneId(null), 700)
   }
 
   // Remove attachment confirmation modal
@@ -1394,6 +1408,18 @@ const AssignmentsTab = ({
                           >
                             {assignment.status === 'completed' ? '✓ Marked as Done' : 'Mark as Done'}
                           </button>
+                          {assignment.status === 'completed' && (
+                            <button
+                              className="tl-assignment-menu-item"
+                              style={{ color: '#d97706' }}
+                              onClick={() => {
+                                setUndoConfirmModal({ isOpen: true, assignmentId: assignment.id, title: assignment.title })
+                                setShowMenuForAssignment(null)
+                              }}
+                            >
+                              ↩ Undo Mark as Done
+                            </button>
+                          )}
                           <button
                             className="tl-assignment-menu-item"
                             onClick={() => {
@@ -2387,6 +2413,104 @@ const AssignmentsTab = ({
         </div>
       )}
 
+      {/* Undo Mark as Done Confirmation Modal */}
+      {undoConfirmModal.isOpen && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+          backgroundColor: 'rgba(0,0,0,0.45)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          zIndex: 9999
+        }}>
+          <div style={{
+            background: '#fff',
+            borderRadius: '20px',
+            boxShadow: '0 20px 60px rgba(0,0,0,0.2)',
+            padding: '32px 36px',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: '16px',
+            minWidth: '320px',
+            maxWidth: '440px',
+            textAlign: 'center'
+          }}>
+            {/* Icon */}
+            <div style={{
+              width: '60px', height: '60px',
+              borderRadius: '50%',
+              background: 'linear-gradient(135deg, #d97706 0%, #f59e0b 100%)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              boxShadow: '0 4px 16px rgba(217,119,6,0.3)',
+              flexShrink: 0
+            }}>
+              <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M3 7v6h6"/>
+                <path d="M21 17a9 9 0 00-9-9 9 9 0 00-6 2.3L3 13"/>
+              </svg>
+            </div>
+
+            {/* Text */}
+            <div>
+              <div style={{ fontSize: '18px', fontWeight: '700', color: '#111827', marginBottom: '8px' }}>Undo Mark as Done?</div>
+              <div style={{ fontSize: '13px', color: '#6b7280', lineHeight: 1.6 }}>
+                This will move
+                <span style={{ fontWeight: '600', color: '#374151' }}> "{undoConfirmModal.title}" </span>
+                back to <strong>Active</strong> status.
+                <br/>
+                <span style={{ color: '#dc2626', fontWeight: '500' }}>Note:</span> Attachment files that were deleted when the task was marked as done cannot be restored.
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div style={{ display: 'flex', gap: '12px', width: '100%', marginTop: '4px' }}>
+              <button
+                onClick={() => setUndoConfirmModal({ isOpen: false, assignmentId: null, title: '' })}
+                style={{
+                  flex: 1,
+                  padding: '11px 0',
+                  borderRadius: '10px',
+                  border: '1.5px solid #e5e7eb',
+                  background: '#f9fafb',
+                  color: '#374151',
+                  fontWeight: '600',
+                  fontSize: '14px',
+                  cursor: 'pointer',
+                  transition: 'all 0.15s'
+                }}
+                onMouseEnter={e => { e.currentTarget.style.background = '#f3f4f6'; e.currentTarget.style.borderColor = '#d1d5db' }}
+                onMouseLeave={e => { e.currentTarget.style.background = '#f9fafb'; e.currentTarget.style.borderColor = '#e5e7eb' }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  const { assignmentId, title } = undoConfirmModal
+                  setUndoConfirmModal({ isOpen: false, assignmentId: null, title: '' })
+                  handleUndoMarkAsDone(assignmentId, title)
+                }}
+                style={{
+                  flex: 1,
+                  padding: '11px 0',
+                  borderRadius: '10px',
+                  border: 'none',
+                  background: 'linear-gradient(135deg, #d97706 0%, #f59e0b 100%)',
+                  color: '#fff',
+                  fontWeight: '600',
+                  fontSize: '14px',
+                  cursor: 'pointer',
+                  boxShadow: '0 2px 8px rgba(217,119,6,0.3)',
+                  transition: 'all 0.15s'
+                }}
+                onMouseEnter={e => { e.currentTarget.style.opacity = '0.9'; e.currentTarget.style.transform = 'translateY(-1px)' }}
+                onMouseLeave={e => { e.currentTarget.style.opacity = '1'; e.currentTarget.style.transform = 'translateY(0)' }}
+              >
+                Undo
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Mark as Done Loading Overlay */}
       {markingDoneId !== null && (
         <div style={{
@@ -2430,6 +2554,56 @@ const AssignmentsTab = ({
               <div style={{
                 height: '100%', borderRadius: '2px',
                 background: 'linear-gradient(90deg, #16a34a, #22c55e)',
+                animation: 'markDoneBar 1.5s ease-in-out infinite alternate'
+              }} />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Undo Mark as Done Loading Overlay */}
+      {undoingDoneId !== null && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+          backgroundColor: 'rgba(0,0,0,0.45)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          zIndex: 9998
+        }}>
+          <div style={{
+            background: '#fff',
+            borderRadius: '20px',
+            boxShadow: '0 20px 60px rgba(0,0,0,0.2)',
+            padding: '36px 44px',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: '20px',
+            minWidth: '280px'
+          }}>
+            <div style={{
+              width: '56px', height: '56px',
+              borderRadius: '50%',
+              background: 'linear-gradient(135deg, #d97706, #f59e0b)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              boxShadow: '0 4px 16px rgba(217,119,6,0.3)'
+            }}>
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+                style={{ animation: 'markDoneSpin 1.2s linear infinite' }}>
+                <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
+              </svg>
+            </div>
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ fontSize: '17px', fontWeight: '700', color: '#111827', marginBottom: '6px' }}>
+                Undoing Mark as Done…
+              </div>
+              <div style={{ fontSize: '13px', color: '#6b7280', lineHeight: 1.5 }}>
+                Moving task back to active.<br/>Please wait.
+              </div>
+            </div>
+            <div style={{ width: '100%', height: '4px', background: '#e5e7eb', borderRadius: '2px', overflow: 'hidden' }}>
+              <div style={{
+                height: '100%', borderRadius: '2px',
+                background: 'linear-gradient(90deg, #d97706, #f59e0b)',
                 animation: 'markDoneBar 1.5s ease-in-out infinite alternate'
               }} />
             </div>
