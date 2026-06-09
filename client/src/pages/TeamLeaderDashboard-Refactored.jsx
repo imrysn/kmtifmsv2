@@ -1338,7 +1338,7 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
         <main className="tl-main">
           {/* Online Members Panel — top right */}
           <div style={{ position: 'fixed', top: '16px', right: '24px', zIndex: 1000 }}>
-            <OnlineMembersPanel user={user} teamFilter={user?.team} />
+            <OnlineMembersPanel user={user} />
           </div>
 
           <AlertMessage

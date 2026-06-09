@@ -127,12 +127,10 @@ router.get('/members', authenticateToken, asyncHandler(async (req, res) => {
       `SELECT id, fullName, username, role, team FROM users WHERE team = ? ORDER BY fullName`,
       [team]
     );
-  } else if (role === 'ADMIN') {
+  } else {
     members = await dbQuery(
       `SELECT id, fullName, username, role, team FROM users ORDER BY fullName`
     );
-  } else {
-    return res.status(400).json({ success: false, message: 'team parameter required' });
   }
 
   // Merge with presence store

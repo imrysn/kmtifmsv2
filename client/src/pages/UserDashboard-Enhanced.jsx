@@ -321,7 +321,7 @@ const UserDashboard = ({ user, onLogout }) => {
         <div className="main-content">
           {/* Online Members Panel — top right */}
           <div style={{ position: 'fixed', top: '16px', right: '24px', zIndex: 1000 }}>
-            <OnlineMembersPanel user={user} teamFilter={user?.team} />
+            <OnlineMembersPanel user={user} />
           </div>
 
           <div className="dashboard-content">
