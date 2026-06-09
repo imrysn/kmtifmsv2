@@ -542,6 +542,17 @@ async function bulkUploadFast(filesData, user, assignmentId = null) {
                     subValues
                 );
             }
+            
+            // Update submitted_at for overwritten files so the UI shows the new date
+            const overwrittenFileLinks = successLinks.filter(l => l.isOverwrite);
+            if (overwrittenFileLinks.length > 0) {
+                const overwriteFileIds = overwrittenFileLinks.map(l => l.fileId);
+                const fileIdsPlaceholders = overwriteFileIds.map(() => '?').join(',');
+                await query(
+                    `UPDATE assignment_submissions SET submitted_at = NOW() WHERE assignment_id = ? AND file_id IN (${fileIdsPlaceholders})`,
+                    [assignmentIdInt, ...overwriteFileIds]
+                );
+            }
             await query(
                 'UPDATE assignment_members SET file_id = ?, submitted_at = NOW(), status = "submitted" WHERE assignment_id = ? AND user_id = ?',
                 [fileIds[fileIds.length - 1], assignmentIdInt, user.id]
