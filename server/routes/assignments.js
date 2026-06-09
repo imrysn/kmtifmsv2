@@ -497,22 +497,43 @@ router.get('/team-leader/:userId/all-submissions', authenticateToken, authorizeR
       [userId]
     );
 
-    const tlAttachments = await query(
-      `SELECT aa.id, aa.original_name, aa.filename, aa.file_type, aa.file_path,
-              COALESCE(aa.public_network_url, NULL) as public_network_url,
-              aa.file_size, aa.created_at as uploaded_at,
-              COALESCE(aa.status, 'team_leader_approved') as status,
-              u.team as user_team, aa.folder_name, aa.relative_path, 0 as is_folder,
-              aa.uploaded_by_username as username, u.fullName,
-              aa.created_at as submitted_at, aa.created_at as created_at,
-              a.id as assignment_id, a.title as assignment_title, a.due_date as assignment_due_date,
-              u.team as team, 'assignment_attachment' as source_type
-       FROM assignment_attachments aa
-       JOIN assignments a ON aa.assignment_id = a.id
-       JOIN users u ON aa.uploaded_by_id = u.id
-       WHERE aa.uploaded_by_id = ? ORDER BY aa.created_at DESC`,
-      [userId]
-    );
+    let tlAttachments = [];
+    if (teamNames.length > 0) {
+      const placeholders = teamNames.map(() => '?').join(',');
+      tlAttachments = await query(
+        `SELECT aa.id, aa.original_name, aa.filename, aa.file_type, aa.file_path,
+                COALESCE(aa.public_network_url, NULL) as public_network_url,
+                aa.file_size, aa.created_at as uploaded_at,
+                COALESCE(aa.status, 'team_leader_approved') as status,
+                a.team as user_team, aa.folder_name, aa.relative_path, 0 as is_folder,
+                aa.uploaded_by_username as username, u.fullName,
+                aa.created_at as submitted_at, aa.created_at as created_at,
+                a.id as assignment_id, a.title as assignment_title, a.due_date as assignment_due_date,
+                a.team as team, 'assignment_attachment' as source_type
+         FROM assignment_attachments aa
+         JOIN assignments a ON aa.assignment_id = a.id
+         JOIN users u ON aa.uploaded_by_id = u.id
+         WHERE a.team IN (${placeholders}) OR aa.uploaded_by_id = ? ORDER BY aa.created_at DESC`,
+        [...teamNames, userId]
+      );
+    } else {
+      tlAttachments = await query(
+        `SELECT aa.id, aa.original_name, aa.filename, aa.file_type, aa.file_path,
+                COALESCE(aa.public_network_url, NULL) as public_network_url,
+                aa.file_size, aa.created_at as uploaded_at,
+                COALESCE(aa.status, 'team_leader_approved') as status,
+                a.team as user_team, aa.folder_name, aa.relative_path, 0 as is_folder,
+                aa.uploaded_by_username as username, u.fullName,
+                aa.created_at as submitted_at, aa.created_at as created_at,
+                a.id as assignment_id, a.title as assignment_title, a.due_date as assignment_due_date,
+                a.team as team, 'assignment_attachment' as source_type
+         FROM assignment_attachments aa
+         JOIN assignments a ON aa.assignment_id = a.id
+         JOIN users u ON aa.uploaded_by_id = u.id
+         WHERE aa.uploaded_by_id = ? ORDER BY aa.created_at DESC`,
+        [userId]
+      );
+    }
 
     const memberFileIds = new Set(memberSubmissions.map(f => String(f.id)));
     const uniqueTLFiles = tlFiles.filter(f => !memberFileIds.has(String(f.id)));

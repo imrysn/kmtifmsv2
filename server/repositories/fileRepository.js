@@ -703,19 +703,20 @@ async function findAllAttachmentsWithDetails(options = {}) {
             COALESCE(aa.status, 'team_leader_approved') AS status,
             COALESCE(aa.current_stage, 'pending_admin') AS current_stage,
             aa.uploaded_by_username AS username, aa.uploaded_by_id AS user_id,
-            u.team AS user_team, u.fullName AS user_fullname,
+            COALESCE(a.team, u.team) AS user_team, u.fullName AS user_fullname,
             COALESCE(aa.folder_name, NULL) AS folder_name,
             COALESCE(aa.relative_path, NULL) AS relative_path,
             'assignment_attachment' AS source_type,
             aa.assignment_id
         FROM assignment_attachments aa
+        LEFT JOIN assignments a ON aa.assignment_id = a.id
         LEFT JOIN users u ON aa.uploaded_by_id = u.id
         WHERE 1=1
     `;
     const params = [];
 
     if (team) {
-        query += ' AND u.team = ?';
+        query += ' AND COALESCE(a.team, u.team) = ?';
         params.push(team);
     }
 
