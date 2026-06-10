@@ -1058,9 +1058,33 @@ router.put('/:id', authenticateToken, authorizeRole(['TEAM_LEADER', 'ADMIN']), u
       const raw = req.body.otDates || req.body.ot_dates;
       if (raw !== undefined) {
         const parsed = typeof raw === 'string' ? JSON.parse(raw) : (Array.isArray(raw) ? raw : []);
-        finalOtDates = parsed.length > 0 ? JSON.stringify(parsed) : null;
+        // Always store a JSON string (even '[]') so COALESCE doesn't keep the old value
+        finalOtDates = JSON.stringify(parsed);
       }
     } catch (_) { finalOtDates = undefined; }
+
+    // ── Fast path: JSON-only edit with no file changes and no member changes ──
+    // Skip the expensive queryOne + member diff + notifications for simple metadata updates.
+    const isJsonOnly = !req.is('multipart/form-data') && (!req.body.removeAttachmentIds || req.body.removeAttachmentIds === '[]');
+    if (isJsonOnly) {
+      const now = new Date().toISOString().slice(0, 19).replace('T', ' ');
+      // Track due date change (need the existing row to compare)
+      const existingForFast = await queryOne('SELECT due_date, due_date_edited, original_due_date FROM assignments WHERE id = ?', [id]);
+      if (!existingForFast) return res.status(404).json({ success: false, message: 'Assignment not found' });
+      const prevDD = existingForFast.due_date ? new Date(existingForFast.due_date).toISOString().slice(0, 10) : null;
+      const nextDD = finalDueDate ? new Date(finalDueDate).toISOString().slice(0, 10) : null;
+      let dueDateEdited = existingForFast.due_date_edited ? 1 : 0;
+      let originalDueDate = existingForFast.original_due_date || null;
+      if (prevDD && nextDD && prevDD !== nextDD) {
+        dueDateEdited = 1;
+        if (!originalDueDate) originalDueDate = existingForFast.due_date;
+      }
+      await query(
+        'UPDATE assignments SET title=?, description=?, due_date=?, ot_dates=COALESCE(?,ot_dates), file_type_required=?, due_date_edited=?, original_due_date=?, updated_at=? WHERE id=?',
+        [title, description || null, finalDueDate || null, finalOtDates !== undefined ? finalOtDates : null, finalFileType || null, dueDateEdited, originalDueDate, now, id]
+      );
+      return res.json({ success: true, message: 'Assignment updated successfully', membersAssigned: 0, attachmentsCreated: 0 });
+    }
 
     // Nonce validation for multipart
     const isMultipart = req.is('multipart/form-data');

@@ -452,10 +452,73 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
 
     setIsProcessing(true)
 
+    // Capture editingAssignmentId now before any optimistic state resets
+    const capturedEditingId = editingAssignmentId
+    // and update the local assignments list instantly, then confirm with the server.
+    const isEditOnly = !!editingAssignmentId && !(attachedFiles && attachedFiles.length > 0) && !(removedAttachmentIds && removedAttachmentIds.length > 0)
+    if (isEditOnly) {
+      const optimisticOtDates = JSON.stringify(otDates || [])
+      setAssignments(prev => prev.map(a =>
+        a.id === editingAssignmentId
+          ? { ...a, title: assignmentForm.title, description: assignmentForm.description || '', due_date: assignmentForm.dueDate || a.due_date, ot_dates: optimisticOtDates, file_type_required: assignmentForm.fileTypeRequired || a.file_type_required }
+          : a
+      ))
+      setSuccess('Task updated successfully!')
+      setIsProcessing(false) // reset immediately so re-opening Edit doesn't show stale "Updating..." state
+      setShowCreateAssignmentModal(false)
+      setEditingAssignmentId(null)
+      setAssignmentForm({
+        title: '',
+        description: '',
+        dueDate: '',
+        fileTypeRequired: '',
+        assignedMembers: [],
+        selectedTeam: uniqueTeams && uniqueTeams.length === 1 ? uniqueTeams[0] : '',
+        otDates: []
+      })
+    }
+
+    // For create with no attachments, also close optimistically
+    const isCreateOnly = !editingAssignmentId && !(attachedFiles && attachedFiles.length > 0)
+    if (isCreateOnly) {
+      // Add a placeholder task immediately so the list updates right away
+      const tempId = `temp_${Date.now()}`
+      const tempTask = {
+        id: tempId,
+        title: assignmentForm.title,
+        description: assignmentForm.description || '',
+        due_date: assignmentForm.dueDate || null,
+        ot_dates: JSON.stringify(otDates || []),
+        file_type_required: assignmentForm.fileTypeRequired || null,
+        team: assignmentForm.selectedTeam || user.team,
+        team_leader_id: user.id,
+        team_leader_username: user.username,
+        status: 'active',
+        assigned_member_details: [],
+        attachments: [],
+        recent_submissions: [],
+        created_at: new Date().toISOString(),
+        _isTemp: true
+      }
+      setAssignments(prev => [tempTask, ...prev])
+      setSuccess('Assignment created!')
+      setIsProcessing(false)
+      setShowCreateAssignmentModal(false)
+      setAssignmentForm({
+        title: '',
+        description: '',
+        dueDate: '',
+        fileTypeRequired: '',
+        assignedMembers: [],
+        selectedTeam: uniqueTeams && uniqueTeams.length === 1 ? uniqueTeams[0] : '',
+        otDates: []
+      })
+    }
+
     const handlePostDataResult = (data, removeAttachmentIds) => {
       // Check the ref — this is synchronous and works even in Electron
       if (createAssignmentCancelled.current) {
-        if (data.success && data.assignmentId && !editingAssignmentId) {
+        if (data.success && data.assignmentId && !capturedEditingId) {
           // User cancelled after server already created it — delete it immediately
           apiFetch(`/api/assignments/${data.assignmentId}`, {
             method: 'DELETE',
@@ -465,36 +528,47 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
         return
       }
       if (data.success) {
-        setSuccess(editingAssignmentId
-          ? 'Task updated successfully!'
-          : `Assignment created! ${data.membersAssigned} members assigned.`
-        )
-        // immediately remove attachments locally so UI reflects change even before server refetch
-        if (editingAssignmentId && removeAttachmentIds.length > 0) {
-          setAssignments(prev => prev.map(a => {
-            if (a.id === editingAssignmentId) {
-              return {
-                ...a,
-                attachments: (a.attachments || []).filter(att => !removeAttachmentIds.includes(att.id))
+        if (!isEditOnly && !isCreateOnly) {
+          setSuccess(capturedEditingId
+            ? 'Task updated successfully!'
+            : `Assignment created! ${data.membersAssigned} members assigned.`
+          )
+          // immediately remove attachments locally so UI reflects change even before server refetch
+          if (capturedEditingId && removeAttachmentIds.length > 0) {
+            setAssignments(prev => prev.map(a => {
+              if (a.id === capturedEditingId) {
+                return {
+                  ...a,
+                  attachments: (a.attachments || []).filter(att => !removeAttachmentIds.includes(att.id))
+                }
               }
-            }
-            return a
-          }))
+              return a
+            }))
+          }
+          setShowCreateAssignmentModal(false)
+          setEditingAssignmentId(null)
+          setAssignmentForm({
+            title: '',
+            description: '',
+            dueDate: '',
+            fileTypeRequired: '',
+            assignedMembers: [],
+            selectedTeam: uniqueTeams && uniqueTeams.length === 1 ? uniqueTeams[0] : '',
+            otDates: []
+          })
         }
-        setShowCreateAssignmentModal(false)
-        setEditingAssignmentId(null)
-        setAssignmentForm({
-          title: '',
-          description: '',
-          dueDate: '',
-          fileTypeRequired: '',
-          assignedMembers: [],
-          selectedTeam: uniqueTeams && uniqueTeams.length === 1 ? uniqueTeams[0] : '',
-          otDates: []
-        })
-        fetchAssignments()
+        // Always do a silent refresh to replace temp/optimistic data with real server data
+        silentFetchAssignments()
       } else {
-        setError(data.message || `Failed to ${editingAssignmentId ? 'update' : 'create'} assignment`)
+        // On server error, revert the optimistic update
+        if (isEditOnly) silentFetchAssignments()
+        if (isCreateOnly) {
+          // Remove the temp placeholder
+          setAssignments(prev => prev.filter(a => !a._isTemp))
+          setError(data.message || 'Failed to create assignment')
+        } else {
+          setError(data.message || `Failed to ${capturedEditingId ? 'update' : 'create'} assignment`)
+        }
       }
     };
 
@@ -504,10 +578,10 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
       let response
 
       // choose url/method for both create and update using main endpoint so we can handle removals
-      const url = editingAssignmentId
-        ? `${API_BASE_URL}/api/assignments/${editingAssignmentId}`
+      const url = capturedEditingId
+        ? `${API_BASE_URL}/api/assignments/${capturedEditingId}`
         : `${API_BASE_URL}/api/assignments/create`
-      const method = editingAssignmentId ? 'PUT' : 'POST'
+      const method = capturedEditingId ? 'PUT' : 'POST'
 
       if (hasAttachments || (removedAttachmentIds && removedAttachmentIds.length > 0)) {
         // Request a one-time nonce from the server before uploading.
@@ -568,8 +642,8 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
           // If server rejected due to a stale/replayed nonce
           if (error.message && error.message.toLowerCase().includes('nonce')) {
             console.warn('⚠️ Nonce rejected — falling back to JSON request (no attachments)')
-            const fallbackUrl = editingAssignmentId ? url : `/api/assignments/create-json`
-            const fallbackMethod = editingAssignmentId ? 'PUT' : 'POST'
+            const fallbackUrl = capturedEditingId ? url : `/api/assignments/create-json`
+            const fallbackMethod = capturedEditingId ? 'PUT' : 'POST'
             const fallbackData = await apiFetch(fallbackUrl, {
               method: fallbackMethod,
               body: JSON.stringify({
@@ -594,10 +668,10 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
         return handlePostDataResult(responseData, removeAttachmentIds)
       } else {
         // No file changes — use JSON-only endpoints (no nonce needed)
-        const jsonUrl = editingAssignmentId
+        const jsonUrl = capturedEditingId
           ? url
           : `/api/assignments/create-json`
-        const jsonMethod = editingAssignmentId ? 'PUT' : 'POST'
+        const jsonMethod = capturedEditingId ? 'PUT' : 'POST'
         const data = await apiFetch(jsonUrl, {
           method: jsonMethod,
           body: JSON.stringify({
@@ -622,8 +696,8 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
         console.log('ℹ️ Assignment creation cancelled by user')
         return
       }
-      console.error(`Error ${editingAssignmentId ? 'updating' : 'creating'} assignment:`, error)
-      setError(`Failed to ${editingAssignmentId ? 'update' : 'create'} assignment`)
+      console.error(`Error ${capturedEditingId ? 'updating' : 'creating'} assignment:`, error)
+      setError(`Failed to ${capturedEditingId ? 'update' : 'create'} assignment`)
     } finally {
       setIsProcessing(false)
       setUploadProgress(null)
@@ -633,59 +707,58 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
   }
 
   const handleEditAssignment = async (assignment) => {
-    // fetch fresh details (including attachments) in case list data is minimal
+    // Parse ot_dates — handles: null, JS array (MySQL JSON column), or JSON string.
+    // Always normalizes each entry to plain YYYY-MM-DD so that toggle includes() comparisons
+    // work correctly regardless of whether the DB returned ISO datetime strings.
+    const parseOtDates = (raw) => {
+      try {
+        if (!raw) return [];
+        let arr = Array.isArray(raw) ? raw : JSON.parse(raw);
+        if (!Array.isArray(arr)) return [];
+        return arr.map(d => (typeof d === 'string' ? d.slice(0, 10) : d)).filter(Boolean);
+      } catch { return []; }
+    };
+
+    const buildForm = (a) => {
+      let formattedDueDate = ''
+      if (a.due_date || a.dueDate) {
+        const dueDate = new Date(a.due_date || a.dueDate)
+        if (!isNaN(dueDate.getTime())) {
+          const y = dueDate.getFullYear()
+          const m = String(dueDate.getMonth() + 1).padStart(2, '0')
+          const d = String(dueDate.getDate()).padStart(2, '0')
+          formattedDueDate = `${y}-${m}-${d}`
+        }
+      }
+      return {
+        title: a.title || '',
+        description: a.description || '',
+        dueDate: formattedDueDate,
+        fileTypeRequired: a.file_type_required || a.fileTypeRequired || '',
+        assignedMembers: (a.assigned_member_details || []).map(m => m.id),
+        selectedTeam: a.team || '',
+        otDates: parseOtDates(a.ot_dates)
+      }
+    }
+
+    // Open the modal immediately with existing data so the user sees it right away
+    setEditingAssignmentId(assignment.id)
+    setModalInitialAttachments(assignment.attachments || [])
+    setAssignmentForm(buildForm(assignment))
+    setShowCreateAssignmentModal(true)
+
+    // Then fetch fresh details in the background — only update attachments,
+    // NOT the form fields (title, dueDate, otDates, etc.) since the user may
+    // have already started editing them before the fetch completes.
     try {
       const data = await apiFetch(`/api/assignments/${assignment.id}/details`)
       if (data.success && data.assignment) {
-        assignment = { ...assignment, ...data.assignment, attachments: data.assignment.attachments || assignment.attachments || [] }
+        const freshAttachments = data.assignment.attachments || assignment.attachments || []
+        setModalInitialAttachments(freshAttachments)
       }
     } catch (e) {
       console.warn('Failed to load full assignment details for edit', e)
     }
-
-    setEditingAssignmentId(assignment.id)
-
-    // keep copy of attachments so modal can show them
-    setModalInitialAttachments(assignment.attachments || [])
-
-    // Format the due date for the input field (YYYY-MM-DD format)
-    // IMPORTANT: use local date parts, NOT toISOString() — toISOString() returns
-    // UTC midnight which in UTC+8 is the previous calendar day, causing a −1 day shift.
-    let formattedDueDate = ''
-    if (assignment.due_date || assignment.dueDate) {
-      const dueDate = new Date(assignment.due_date || assignment.dueDate)
-      if (!isNaN(dueDate.getTime())) {
-        const y = dueDate.getFullYear()
-        const m = String(dueDate.getMonth() + 1).padStart(2, '0')
-        const d = String(dueDate.getDate()).padStart(2, '0')
-        formattedDueDate = `${y}-${m}-${d}`
-      }
-    }
-
-    // Get assigned member IDs
-    const assignedMemberIds = (assignment.assigned_member_details || []).map(m => m.id)
-
-    // Parse ot_dates — handles: null, JS array (MySQL JSON column), or JSON string
-    const parseOtDates = (raw) => {
-      try {
-        if (!raw) return [];
-        if (Array.isArray(raw)) return raw;
-        if (typeof raw === 'string') return JSON.parse(raw);
-        return [];
-      } catch { return []; }
-    };
-
-    setAssignmentForm({
-      title: assignment.title || '',
-      description: assignment.description || '',
-      dueDate: formattedDueDate,
-      fileTypeRequired: assignment.file_type_required || assignment.fileTypeRequired || '',
-      assignedMembers: assignedMemberIds,
-      selectedTeam: assignment.team || '',
-      otDates: parseOtDates(assignment.ot_dates)
-    })
-
-    setShowCreateAssignmentModal(true)
   }
 
   const deleteAssignment = async (assignmentId, title) => {
