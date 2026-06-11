@@ -22,7 +22,7 @@ const Sidebar = memo(({
       <div className="tl-brand">
         <div className="tl-brand-logo">TL</div>
         <div className="tl-brand-name" style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-          <span>Team Leader</span>
+          <span>{user?.fullName || user?.username || 'Team Leader'}</span>
           {user?.ledTeams && user.ledTeams.length > 0 ? (
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
               {user.ledTeams.map((team) => (
