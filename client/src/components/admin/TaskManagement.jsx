@@ -1,5 +1,6 @@
-import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
+import { useState, useEffect, useRef, useCallback, useMemo, useTransition, useDeferredValue } from 'react'
 import { apiFetch, API_BASE_URL } from '@/config/api'
+import { useAdminTasks } from '@/hooks/useAdminTasks'
 import './TaskManagement.css'
 import './SmartNavigation.css'
 import FileIcon from '../shared/FileIcon.jsx'
@@ -39,9 +40,20 @@ const TaskManagement = ({
   const { user: authUser } = useAuth()
   const { isConnected } = useNetwork()
 
-  const [assignments, setAssignments] = useState([])
+  // ── React Query cache ────────────────────────────────────────────────────
+  const {
+    assignments,
+    nextCursor,
+    hasMore,
+    loading,
+    isFetching,
+    error: fetchError,
+    loadMore: loadMoreAssignments,
+    refetch: refetchAssignments,
+    removeAssignment,
+  } = useAdminTasks()
+
   const [searchQuery, setSearchQuery] = useState('')
-  const [loading, setLoading] = useState(true)
   const [loadingMore, setLoadingMore] = useState(false)
   const [expandedAssignments, setExpandedAssignments] = useState({})
   const [showCommentsModal, setShowCommentsModal] = useState(false)
@@ -68,6 +80,13 @@ const TaskManagement = ({
   const [openedFilesStorageReady, setOpenedFilesStorageReady] = useState(false)
   // Map of fileId -> viewer count for instant badge update
   const [viewerCounts, setViewerCounts] = useState({})
+  // Tab toggle: 'tasks' | 'done'
+  const [activeTaskTab, setActiveTaskTab] = useState('tasks')
+  const [isTabPending, startTabTransition] = useTransition()
+  const deferredTab = useDeferredValue(activeTaskTab)
+  // Render only first N cards, expand as user scrolls
+  const BATCH_SIZE = 8
+  const [visibleCount, setVisibleCount] = useState(BATCH_SIZE)
 
   // Load from persistent storage on mount
   useEffect(() => {
@@ -94,16 +113,19 @@ const TaskManagement = ({
     try { localStorage.setItem('kmti_opened_files_admin', data) } catch { }
   }, [openedFileIds, openedFilesStorageReady])
 
-  // Pagination state
-  const [nextCursor, setNextCursor] = useState(null)
-  const [hasMore, setHasMore] = useState(true)
-
   // Ref for infinite scroll
   const observerRef = useRef(null)
   const loadMoreRef = useRef(null)
 
+  const { activeAssignments, doneAssignments } = useMemo(() => {
+    const active = assignments.filter(a => a.status !== 'completed')
+    const done = assignments.filter(a => a.status === 'completed')
+    return { activeAssignments: active, doneAssignments: done }
+  }, [assignments])
+
   const filteredAssignments = useMemo(() => {
-    if (!searchQuery.trim()) return assignments
+    const base = deferredTab === 'done' ? doneAssignments : activeAssignments
+    if (!searchQuery.trim()) return base
     const q = searchQuery.toLowerCase()
     
     // Normalization helper to handle accents like ñ and common typos like Micheal/Michael
@@ -124,7 +146,7 @@ const TaskManagement = ({
       return false;
     };
 
-    return assignments.filter(a =>
+    return base.filter(a =>
       matchesQuery(a.title) ||
       matchesQuery(a.description) ||
       matchesQuery(a.team_leader_fullname) ||
@@ -144,11 +166,10 @@ const TaskManagement = ({
         matchesQuery(f.folder_name)
       )
     )
-  }, [assignments, searchQuery])
+  }, [activeAssignments, doneAssignments, deferredTab, searchQuery])
 
-  useEffect(() => {
-    fetchInitialAssignments()
-  }, [])
+  // Data is fetched by useAdminTasks hook (React Query)
+  // No manual fetchInitialAssignments needed
 
   // Handle context from notifications (open assignment and highlight comment)
   useEffect(() => {
@@ -223,65 +244,20 @@ const TaskManagement = ({
     }
   }, [showMenuForAssignment])
 
-  const fetchInitialAssignments = async () => {
-    try {
-      setLoading(true)
-      clearMessages()
-
-      const data = await apiFetch(`/api/assignments/admin/all`)
-
-      console.log('Initial assignments response:', data)
-
-      if (!data.success) {
-        setError(data.message || 'Failed to fetch assignments')
-        setLoading(false)
-        return
-      }
-
-      const allAssignments = data.assignments || []
-      console.log(`Fetched ${allAssignments.length} initial assignments`)
-
-      setAssignments(allAssignments)
-      setNextCursor(data.nextCursor)
-      setHasMore(data.hasMore)
-    } catch (error) {
-      console.error('Error fetching assignments:', error)
-      setError('Failed to load assignments')
-    } finally {
-      setLoading(false)
-    }
-  }
+  // fetchInitialAssignments replaced by useAdminTasks hook (React Query)
 
   const fetchMoreAssignments = useCallback(async () => {
-    if (loadingMore || !hasMore || !nextCursor) {
-      console.log('Skipping fetch:', { loadingMore, hasMore, nextCursor })
-      return
-    }
-
+    if (loadingMore || !hasMore || !nextCursor) return
     try {
       setLoadingMore(true)
-      const data = await apiFetch(`/api/assignments/admin/all?cursor=${nextCursor}`)
-
-      console.log('More assignments response:', data)
-
-      if (!data.success) {
-        setError(data.message || 'Failed to fetch more assignments')
-        return
-      }
-
-      const newAssignments = data.assignments || []
-      console.log(`Fetched ${newAssignments.length} more assignments`)
-
-      setAssignments(prev => [...prev, ...newAssignments])
-      setNextCursor(data.nextCursor)
-      setHasMore(data.hasMore)
+      await loadMoreAssignments(nextCursor)
     } catch (error) {
       console.error('Error fetching more assignments:', error)
       setError('Failed to load more assignments')
     } finally {
       setLoadingMore(false)
     }
-  }, [nextCursor, hasMore, loadingMore])
+  }, [nextCursor, hasMore, loadingMore, loadMoreAssignments])
 
   // ⚡ OPTIMIZATION: Memoized fetchComments to prevent recreation
   const fetchComments = useCallback(async (assignmentId) => {
@@ -787,8 +763,8 @@ const TaskManagement = ({
       })
 
       if (data.success) {
-        // Remove the assignment from the local state
-        setAssignments(prev => prev.filter(assignment => assignment.id !== assignmentToDelete.id))
+        // Remove from React Query cache instantly (optimistic)
+        removeAssignment(assignmentToDelete.id)
         setSuccess('Assignment deleted successfully')
         setTimeout(() => setSuccess(''), 3000)
         setShowDeleteModal(false)
@@ -897,6 +873,52 @@ const TaskManagement = ({
           <h2>All Tasks</h2>
         </div>
 
+        {/* Tasks / Done Tasks Tab Toggle */}
+        <div style={{ display: 'flex', gap: '0', marginBottom: '18px', background: '#f3f4f6', borderRadius: '10px', padding: '4px', width: 'fit-content' }}>
+          <button
+            onClick={() => { setVisibleCount(BATCH_SIZE); startTabTransition(() => setActiveTaskTab('tasks')) }}
+            style={{
+              padding: '7px 22px', borderRadius: '8px', border: 'none',
+              fontWeight: '600', fontSize: '13.5px', cursor: 'pointer',
+              transition: 'all 0.18s',
+              background: activeTaskTab === 'tasks' ? '#fff' : 'transparent',
+              color: activeTaskTab === 'tasks' ? '#111827' : '#6b7280',
+              boxShadow: activeTaskTab === 'tasks' ? '0 1px 4px rgba(0,0,0,0.10)' : 'none',
+              display: 'flex', alignItems: 'center', gap: '6px',
+            }}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><path d="M9 12h6M9 16h4"/></svg>
+            Tasks
+            <span style={{
+              marginLeft: '4px', fontSize: '12px', fontWeight: '700',
+              background: activeTaskTab === 'tasks' ? '#e0e7ff' : '#e5e7eb',
+              color: activeTaskTab === 'tasks' ? '#4338ca' : '#9ca3af',
+              padding: '1px 8px', borderRadius: '10px'
+            }}>{activeAssignments.length}</span>
+          </button>
+          <button
+            onClick={() => { setVisibleCount(BATCH_SIZE); startTabTransition(() => setActiveTaskTab('done')) }}
+            style={{
+              padding: '7px 22px', borderRadius: '8px', border: 'none',
+              fontWeight: '600', fontSize: '13.5px', cursor: 'pointer',
+              transition: 'all 0.18s',
+              background: activeTaskTab === 'done' ? '#fff' : 'transparent',
+              color: activeTaskTab === 'done' ? '#111827' : '#6b7280',
+              boxShadow: activeTaskTab === 'done' ? '0 1px 4px rgba(0,0,0,0.10)' : 'none',
+              display: 'flex', alignItems: 'center', gap: '6px',
+            }}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+            Done Tasks
+            <span style={{
+              marginLeft: '4px', fontSize: '12px', fontWeight: '700',
+              background: activeTaskTab === 'done' ? '#dcfce7' : '#e5e7eb',
+              color: activeTaskTab === 'done' ? '#15803d' : '#9ca3af',
+              padding: '1px 8px', borderRadius: '10px'
+            }}>{doneAssignments.length}</span>
+          </button>
+        </div>
+
         {/* Search Bar */}
         <div style={{ margin: '0 0 10px 0', position: 'relative', maxWidth: '320px' }}>
           <svg style={{ position: 'absolute', left: '9px', top: '50%', transform: 'translateY(-50%)', color: '#c4c9d4', pointerEvents: 'none' }} width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -907,7 +929,7 @@ const TaskManagement = ({
             type="text"
             placeholder="Search tasks..."
             value={searchQuery}
-            onChange={e => setSearchQuery(e.target.value)}
+            onChange={e => { setSearchQuery(e.target.value); setVisibleCount(BATCH_SIZE) }}
             style={{
               width: '100%', boxSizing: 'border-box',
               padding: '8px 28px 8px 28px',
@@ -936,7 +958,7 @@ const TaskManagement = ({
         )}
 
         {/* Feed */}
-        <div className="feed-container">
+        <div className="feed-container" style={{ opacity: isTabPending ? 0.5 : 1, transition: 'opacity 0.15s ease' }}>
           {filteredAssignments.length === 0 ? (
             <div className="empty-feed">
               <div className="empty-icon"><svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M22 12h-6l-2 3h-4l-2-3H2" /><path d="M5.45 5.11L2 12v6a2 2 0 002 2h16a2 2 0 002-2v-6l-3.45-6.89A2 2 0 0016.76 4H7.24a2 2 0 00-1.79 1.11z" /></svg></div>
@@ -945,7 +967,7 @@ const TaskManagement = ({
             </div>
           ) : (
             <>
-              {filteredAssignments.map(assignment => {
+              {filteredAssignments.slice(0, visibleCount).map(assignment => {
                 const renderRecursiveItems = (files, level = 1, parentKey = '', parentIsLastArr = [], isAttachment = true) => {
                   const { subfolders, rootFiles } = recursiveGroupByPath(files);
                   const subItems = [];
@@ -1388,6 +1410,23 @@ const TaskManagement = ({
               {/* Load More Trigger (Hidden) */}
               {hasMore && !loadingMore && (
                 <div ref={loadMoreRef} style={{ height: '20px', margin: '20px 0' }} />
+              )}
+
+              {/* Batch render sentinel — loads next 8 cards as user scrolls */}
+              {visibleCount < filteredAssignments.length && (
+                <div
+                  ref={el => {
+                    if (!el) return
+                    const obs = new IntersectionObserver(([entry]) => {
+                      if (entry.isIntersecting) {
+                        setVisibleCount(c => c + BATCH_SIZE)
+                        obs.disconnect()
+                      }
+                    }, { rootMargin: '200px' })
+                    obs.observe(el)
+                  }}
+                  style={{ height: '1px' }}
+                />
               )}
             </>
           )}
