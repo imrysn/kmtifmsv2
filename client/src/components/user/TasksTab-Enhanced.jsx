@@ -195,11 +195,11 @@ const CheckingModal = memo(({ isOpen, onClose, file, assignment, onMarkForEditin
                   return (
                     <label
                       key={item}
-                      style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 10px', borderRadius: '6px', cursor: 'pointer', background: isWrong ? '#fef2f2' : 'transparent', border: isWrong ? '1px solid #fecaca' : '1px solid transparent', transition: 'all 0.12s' }}
+                      onClick={() => toggleItem(item)}
+                      style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 10px', borderRadius: '6px', cursor: 'pointer', background: isWrong ? '#fef2f2' : 'transparent', border: isWrong ? '1px solid #fecaca' : '1px solid transparent', transition: 'all 0.12s', userSelect: 'none' }}
                     >
                       {/* Custom white checkbox */}
                       <div
-                        onClick={() => toggleItem(item)}
                         style={{
                           width: '16px', height: '16px', borderRadius: '3px', flexShrink: 0, cursor: 'pointer',
                           border: isWrong ? '2px solid #dc2626' : '2px solid #d1d5db',
