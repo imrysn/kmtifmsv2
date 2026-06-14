@@ -906,8 +906,12 @@ const TasksTab = memo(({
       if (data.success) {
         setSuccessModal({ isOpen: true, title: 'Review Complete', message: `Done Checked by: ${user.fullName || user.username}. Team Leader has been notified.`, type: 'success' });
         fetchAssignments();
-      } else { showError(data.message || 'Failed to update status'); }
-    } catch { showError('Failed to update status'); }
+      } else {
+        showError(data.message || 'Failed to update status');
+      }
+    } catch (err) {
+      showError(err?.message || 'Failed to update status');
+    }
   }, [user, fetchAssignments, showError]);
 
   const handleMarkFileChecked = useCallback(async (assignment, fileId, checkerNote = '') => {

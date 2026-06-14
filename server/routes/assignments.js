@@ -1933,6 +1933,7 @@ router.put('/:assignmentId/mark-for-editing', authenticateToken, async (req, res
 });
 
 // PUT /:assignmentId/mark-checked  — checker marks review as done, notifies TL
+// Only promotes assignment to 'checked' if ALL submitted files have been individually checked.
 router.put('/:assignmentId/mark-checked', authenticateToken, async (req, res) => {
   try {
     const { assignmentId } = req.params;
@@ -1942,17 +1943,35 @@ router.put('/:assignmentId/mark-checked', authenticateToken, async (req, res) =>
     if (!assignment) return res.status(404).json({ success: false, message: 'Assignment not found' });
 
     const now = new Date().toISOString().slice(0, 19).replace('T', ' ');
-    await query('UPDATE assignments SET status = ?, updated_at = ? WHERE id = ?', ['checked', now, assignmentId]);
 
-    // Update all submitted files for this assignment to 'checked' status
-    // and record who checked them
-    await query(
-      `UPDATE files f
-       JOIN assignment_submissions asub ON asub.file_id = f.id
-       SET f.status = 'checked', f.checked_by = ?, f.updated_at = ?
-       WHERE asub.assignment_id = ?`,
-      [checkerName, now, assignmentId]
+    // Count total submitted files and how many are already individually checked
+    const [totalRow] = await query(
+      'SELECT COUNT(*) as total FROM assignment_submissions WHERE assignment_id = ?',
+      [assignmentId]
     );
+    const [checkedRow] = await query(
+      `SELECT COUNT(*) as checked_count FROM assignment_submissions asub
+       JOIN files f ON f.id = asub.file_id
+       WHERE asub.assignment_id = ? AND f.status IN ('checked', 'revision')`,
+      [assignmentId]
+    );
+
+    const total = totalRow?.total || 0;
+    const reviewed = checkedRow?.checked_count || 0;
+    const unchecked = total - reviewed;
+
+    // Block promotion if there are still unchecked files
+    if (total > 0 && unchecked > 0) {
+      return res.status(400).json({
+        success: false,
+        message: `Cannot mark task as Checked — ${unchecked} file${unchecked !== 1 ? 's have' : ' has'} not been reviewed yet. Please check all files individually first.`,
+        uncheckedCount: unchecked,
+        totalCount: total,
+      });
+    }
+
+    // All files are individually reviewed — promote assignment to 'checked'
+    await query('UPDATE assignments SET status = ?, updated_at = ? WHERE id = ?', ['checked', now, assignmentId]);
 
     // Notify the Team Leader
     const tlId = assignment.team_leader_id;
