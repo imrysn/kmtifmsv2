@@ -792,6 +792,7 @@ const TasksTab = memo(({
   const [isUploading, setIsUploading] = useState(false);
   const [uploadMode, setUploadMode] = useState('files');
   const [targetFolder, setTargetFolder] = useState(null);
+  const uploadAbortControllerRef = useRef(null); // ref to abort in-progress XHR upload
 
   // Delete modal
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -1266,12 +1267,18 @@ const TasksTab = memo(({
 
   // ─── Submit modal helpers ─────────────────────────────────────────────────
   const resetSubmitModal = useCallback(() => {
+    // Abort any in-flight XHR upload before clearing state
+    if (uploadAbortControllerRef.current) {
+      uploadAbortControllerRef.current.abort();
+      uploadAbortControllerRef.current = null;
+    }
     setUploadedFiles([]);
     setFileDescription('');
     setFileTag('');
     setUploadMode('files');
     setTargetFolder(null);
     setUploadProgress(0);
+    setIsUploading(false);
     if (fileInputRef.current) fileInputRef.current.value = '';
     if (folderInputRef.current) folderInputRef.current.value = '';
   }, []);
@@ -1321,6 +1328,14 @@ const TasksTab = memo(({
 
   const handleFileUpload = useCallback(async () => {
     if (!uploadedFiles.length || !currentAssignment) return;
+
+    // Cancel any previous in-flight upload before starting a new one
+    if (uploadAbortControllerRef.current) {
+      uploadAbortControllerRef.current.abort();
+    }
+    const abortController = new AbortController();
+    uploadAbortControllerRef.current = abortController;
+
     setIsUploading(true);
     setUploadProgress(0);
 
@@ -1351,8 +1366,15 @@ const TasksTab = memo(({
       const result = await uploadWithProgress(
         '/api/files/bulk-upload',
         fd,
-        { onProgress: (p) => setUploadProgress(Math.min(p, 99)) }
+        {
+          onProgress: (p) => setUploadProgress(Math.min(p, 99)),
+          signal: abortController.signal,  // ← wire AbortController so cancel kills the XHR
+        }
       );
+
+      // Guard: if the user cancelled while the last bytes were in-flight, bail out
+      if (abortController.signal.aborted) return;
+
       setUploadProgress(100);
 
       if (result.success) {
@@ -1369,9 +1391,11 @@ const TasksTab = memo(({
         throw new Error(result.message || 'Upload failed');
       }
     } catch (err) {
-      // Error already shown via showError above
+      // Silently ignore intentional cancellations
+      if (err.name === 'AbortError') return;
       showError(err.message || 'Failed to upload files');
     } finally {
+      uploadAbortControllerRef.current = null;
       setIsUploading(false);
       setUploadProgress(0);
     }
@@ -2588,7 +2612,7 @@ const TasksTab = memo(({
                   )}
                 </div>
               </div>
-              <button className="tasks-modal-close" onClick={() => { setShowSubmitModal(false); resetSubmitModal(); }}>×</button>
+              <button className="tasks-modal-close" onClick={() => { resetSubmitModal(); setShowSubmitModal(false); }}>×</button>
             </div>
 
             <div className="tasks-modal-body">
@@ -2738,10 +2762,11 @@ const TasksTab = memo(({
               )}
               <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
                 <button
-                  onClick={() => { setShowSubmitModal(false); resetSubmitModal(); }}
+                  onClick={() => { resetSubmitModal(); setShowSubmitModal(false); }}
+                  disabled={false}
                   style={{ padding: '10px 20px', borderRadius: '8px', border: '1px solid #d1d5db', backgroundColor: '#fff', color: '#374151', fontSize: '14px', fontWeight: '500', cursor: 'pointer' }}
                 >
-                  Cancel
+                  {isUploading ? 'Stop Upload' : 'Cancel'}
                 </button>
                 <button
                   onClick={handleFileUpload}
