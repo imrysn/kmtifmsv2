@@ -17,24 +17,26 @@ body {
   display: flex;
   justify-content: center;
   align-items: center;
-  min-height: 100vh;
-  background: #F3F4F6;
-  padding: 24px;
+  height: 100vh;
+  background: white;
+  padding: 0;
   position: relative;
+  overflow: hidden;
 }
 
 /* Main Container */
 .main-login-card {
   display: flex;
   background: white;
-  border-radius: 16px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
   width: 100%;
-  max-width: 1000px;
-  min-height: 600px;
+  height: 100%;
+  max-width: none;
+  min-height: 100vh;
   position: relative;
   overflow: hidden;
-  border: 1px solid #E5E7EB;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
   animation: fadeIn 0.6s ease-out;
 }
 

@@ -62,10 +62,19 @@ function App() {
   }, [user])
   // ───────────────────────────────────────────────────────────────────────
 
-  // Log user session restoration
+  // Handle window resizing based on auth state and log session restoration
   useEffect(() => {
-    if (user && _hasHydrated) {
-      logger.info('User session restored from store')
+    if (_hasHydrated) {
+      if (user) {
+        logger.info('User session restored from store');
+        if (window.electron?.windowControl) {
+          window.electron.windowControl.resizeForDashboard();
+        }
+      } else {
+        if (window.electron?.windowControl) {
+          window.electron.windowControl.resizeForLogin();
+        }
+      }
     }
   }, [user, _hasHydrated])
 
