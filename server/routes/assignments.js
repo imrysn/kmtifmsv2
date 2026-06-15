@@ -30,6 +30,62 @@ async function ensureOtDatesColumn() {
 // Run immediately on module load
 ensureOtDatesColumn();
 
+/**
+ * Revert an assignment from 'checked' to 'for_checking' when its submitted files
+ * are deleted (so an empty checked task is never left in a misleading 'checked' state).
+ *
+ * Rules:
+ *  - If assignment has NO remaining submitted files → status becomes 'for_checking'
+ *  - If assignment still has some files but not all are checked → status becomes 'for_checking'
+ *  - If assignment is not currently 'checked' → do nothing (no-op)
+ */
+async function revertCheckedIfNoFiles(assignmentId) {
+  try {
+    const assignment = await queryOne(
+      'SELECT id, status FROM assignments WHERE id = ?',
+      [assignmentId]
+    );
+    if (!assignment || assignment.status !== 'checked') return; // not checked — nothing to do
+
+    // Count remaining submitted files for this assignment
+    const [remaining] = await query(
+      'SELECT COUNT(*) as cnt FROM assignment_submissions WHERE assignment_id = ?',
+      [assignmentId]
+    );
+    const now = new Date().toISOString().slice(0, 19).replace('T', ' ');
+
+    if (!remaining || remaining.cnt === 0) {
+      // No files left at all — task is missing files
+      await query(
+        "UPDATE assignments SET status = 'for_checking', updated_at = ? WHERE id = ?",
+        [now, assignmentId]
+      );
+      console.log(`⚠️  Assignment ${assignmentId} reverted to 'for_checking' — no submitted files remain after deletion.`);
+      return;
+    }
+
+    // Some files remain — check if ALL are still in a checked/revision state
+    const [checkedCount] = await query(
+      `SELECT COUNT(*) as cnt FROM assignment_submissions asub
+       JOIN files f ON f.id = asub.file_id
+       WHERE asub.assignment_id = ? AND f.status IN ('checked', 'revision')`,
+      [assignmentId]
+    );
+    const allStillChecked = checkedCount?.cnt >= remaining.cnt;
+
+    if (!allStillChecked) {
+      // Some unchecked files now exist (e.g. re-uploaded) — revert
+      await query(
+        "UPDATE assignments SET status = 'for_checking', updated_at = ? WHERE id = ?",
+        [now, assignmentId]
+      );
+      console.log(`⚠️  Assignment ${assignmentId} reverted to 'for_checking' — not all files are checked after deletion.`);
+    }
+  } catch (e) {
+    console.warn('⚠️  revertCheckedIfNoFiles: non-fatal error:', e.message);
+  }
+}
+
 // ── Multer: write to LOCAL temp disk, NOT the NAS ────────────────────────────
 // Previously multer wrote directly to uploadsDir (NAS), causing a double NAS
 // write: multer NAS write + moveToUserFolder NAS write = 2× slow.
@@ -2383,6 +2439,10 @@ router.delete('/:assignmentId/files/:fileId', authenticateToken, async (req, res
     }
 
     await query('DELETE FROM files WHERE id = ?', [fileId]);
+
+    // If assignment was 'checked' but now has no submitted files, revert it to 'for_checking'
+    await revertCheckedIfNoFiles(assignmentId);
+
     res.json({ success: true, message: 'File deleted successfully' });
   } catch (error) {
     console.error('❌ Error removing submitted file:', error);
@@ -2509,3 +2569,5 @@ router.get('/:assignmentId/latest-submission', authenticateToken, async (req, re
 
 console.log('✅ Assignments routes registered');
 module.exports = router;
+module.exports.revertCheckedIfNoFiles = revertCheckedIfNoFiles;
+

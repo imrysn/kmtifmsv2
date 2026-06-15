@@ -539,7 +539,34 @@ class FileController {
         // Construct a user object from the body if req.user is somehow incomplete,
         // though req.user from authenticateToken should normally be used.
         const user = req.user || { id: userId, username, role: userRole, team };
+
+        // Look up which assignments contain these files BEFORE deletion so we can
+        // revert any 'checked' assignment that loses all its submitted files.
+        let affectedAssignmentIds = [];
+        if (fileIds && fileIds.length > 0) {
+            try {
+                const { query: dbQuery } = require('../config/database');
+                const rows = await dbQuery(
+                    `SELECT DISTINCT assignment_id FROM assignment_submissions WHERE file_id IN (${fileIds.map(() => '?').join(',')})`,
+                    fileIds
+                );
+                affectedAssignmentIds = rows.map(r => r.assignment_id).filter(Boolean);
+            } catch (_) {}
+        }
+
         await fileService.deleteFolder(folderName, fileIds, user);
+
+        // Revert any affected assignments from 'checked' → 'for_checking' if they
+        // now have no submitted files (or have unchecked files remaining).
+        if (affectedAssignmentIds.length > 0) {
+            try {
+                const { revertCheckedIfNoFiles } = require('../routes/assignments');
+                await Promise.all(affectedAssignmentIds.map(aid => revertCheckedIfNoFiles(aid)));
+            } catch (e) {
+                console.warn('⚠️  deleteFolder: revertCheckedIfNoFiles non-fatal error:', e.message);
+            }
+        }
+
         res.json({ success: true, message: `Folder "${folderName}" deleted successfully` });
     });
 
