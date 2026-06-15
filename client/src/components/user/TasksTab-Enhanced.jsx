@@ -85,7 +85,7 @@ const getAssignmentStatus = (assignment) => {
 };
 
 // ─── Checklist categories & items (from the drawing review sheet) ────────────
-const CHECKLIST_SECTIONS = [
+const CHECKLIST_SECTIONS_2D = [
   {
     section: 'Drawing Views',
     items: ['Origin','Alignment of Views','Line Attributes','Dimensions','Hole Properties','Chamfer/Radius','Machining Symbol','Welding Symbol','Geometric/Fitting Tolerances','Additional Views','Text Attributes'],
@@ -112,14 +112,34 @@ const CHECKLIST_SECTIONS = [
   },
 ];
 
+const CHECKLIST_SECTIONS_3D = [
+  {
+    section: 'Part Modeling',
+    items: ['Fully Defined Sketches', 'Unused Sketches/Features', 'Fillets & Chamfers Location', 'Draft Angles', 'No Errors/Warnings in FeatureManager'],
+  },
+  {
+    section: 'Assembly / Mates',
+    items: ['No Interference', 'Proper Mates', 'Degrees of Freedom', 'Collision Detection', 'Sub-assemblies structured correctly'],
+  },
+  {
+    section: 'Properties',
+    items: ['Material Applied', 'Mass Properties Computed', 'Custom Properties Filled'],
+  },
+  {
+    section: 'Others',
+    items: ['Tree View Organization', 'Standard Planes Alignment'],
+  }
+];
+
 // ─── Checking Modal ───────────────────────────────────────────────────────────
 const CheckingModal = memo(({ isOpen, onClose, file, assignment, onMarkForEditing, onDoneChecking }) => {
   const [checkedItems, setCheckedItems] = useState({});
   const [additionalComment, setAdditionalComment] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [checklistType, setChecklistType] = useState('2D');
 
   useEffect(() => {
-    if (isOpen) { setCheckedItems({}); setAdditionalComment(''); }
+    if (isOpen) { setCheckedItems({}); setAdditionalComment(''); setChecklistType('2D'); }
   }, [isOpen, file?.id]);
 
   if (!isOpen || !file) return null;
@@ -166,9 +186,29 @@ const CheckingModal = memo(({ isOpen, onClose, file, assignment, onMarkForEditin
             <p style={{ margin: '4px 0 0', fontSize: '13px', color: '#6b7280', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '420px' }}>
               {file.original_name || file.filename}
             </p>
-            <p style={{ margin: '2px 0 0', fontSize: '12px', color: '#9ca3af' }}>
+            <p style={{ margin: '4px 0 0', fontSize: '12px', color: '#9ca3af' }}>
               Check items that are <span style={{ color: '#dc2626', fontWeight: '600' }}>wrong</span> in this file
             </p>
+            
+            {/* 2D / 3D Toggle */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '12px' }}>
+              <div style={{ display: 'inline-flex', background: '#f3f4f6', borderRadius: '8px', padding: '4px' }}>
+                <button
+                  type="button"
+                  onClick={() => setChecklistType('2D')}
+                  style={{ padding: '6px 16px', borderRadius: '6px', fontSize: '13px', fontWeight: '600', border: 'none', cursor: 'pointer', background: checklistType === '2D' ? '#fff' : 'transparent', color: checklistType === '2D' ? '#111827' : '#6b7280', boxShadow: checklistType === '2D' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none', transition: 'all 0.2s' }}
+                >
+                  2D Checklist
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setChecklistType('3D')}
+                  style={{ padding: '6px 16px', borderRadius: '6px', fontSize: '13px', fontWeight: '600', border: 'none', cursor: 'pointer', background: checklistType === '3D' ? '#fff' : 'transparent', color: checklistType === '3D' ? '#111827' : '#6b7280', boxShadow: checklistType === '3D' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none', transition: 'all 0.2s' }}
+                >
+                  3D Checklist
+                </button>
+              </div>
+            </div>
           </div>
           <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: '22px', cursor: 'pointer', color: '#9ca3af', lineHeight: 1, padding: '0', flexShrink: 0 }}>×</button>
         </div>
@@ -184,7 +224,7 @@ const CheckingModal = memo(({ isOpen, onClose, file, assignment, onMarkForEditin
 
         {/* Checklist */}
         <div style={{ overflowY: 'auto', flex: 1, padding: '16px 24px' }}>
-          {CHECKLIST_SECTIONS.map(({ section, items }) => (
+          {(checklistType === '2D' ? CHECKLIST_SECTIONS_2D : CHECKLIST_SECTIONS_3D).map(({ section, items }) => (
             <div key={section} style={{ marginBottom: '16px' }}>
               <div style={{ fontSize: '11px', fontWeight: '700', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.08em', padding: '6px 10px', background: '#f3f4f6', borderRadius: '6px', marginBottom: '6px' }}>
                 {section}
