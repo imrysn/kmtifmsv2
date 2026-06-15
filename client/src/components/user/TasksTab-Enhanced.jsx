@@ -330,6 +330,7 @@ CheckingModal.displayName = 'CheckingModal';
 const ChecklistViewModal = memo(({ isOpen, onClose, file }) => {
   const [resolvedNote, setResolvedNote] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [checklistType, setChecklistType] = useState('2D');
 
   useEffect(() => {
     if (!isOpen || !file) { setResolvedNote(null); setLoading(false); return; }
@@ -346,6 +347,25 @@ const ChecklistViewModal = memo(({ isOpen, onClose, file }) => {
       .catch(() => setResolvedNote(''))
       .finally(() => setLoading(false));
   }, [isOpen, file?.id]);
+
+  // Auto-detect the right checklist if any wrong items exist in 3D
+  useEffect(() => {
+    if (!isOpen || !file) return;
+    
+    // We need to re-parse the wrong items here to do the detection since we moved this above the return.
+    const note = file.checker_note !== undefined ? (file.checker_note || '') : resolvedNote;
+    if (!note) return;
+    
+    const noteBody = note.split('|')[0];
+    const match = noteBody.match(/Wrong items?:\s*(.+)/i);
+    let items = [];
+    if (match) items = match[1].trim().split(',').map(s => s.trim()).filter(Boolean);
+    
+    if (items.length > 0) {
+      const has3D = items.some(item => CHECKLIST_SECTIONS_3D.some(sec => sec.items.includes(item)));
+      setChecklistType(has3D ? '3D' : '2D');
+    }
+  }, [isOpen, file, resolvedNote]);
 
   if (!isOpen || !file) return null;
 
@@ -394,6 +414,27 @@ const ChecklistViewModal = memo(({ isOpen, onClose, file }) => {
             <p style={{ margin: 0, fontSize: '12px', color: '#6b7280', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '400px' }}>
               {filename}
             </p>
+            
+            {/* 2D / 3D Toggle */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '12px' }}>
+              <div style={{ display: 'inline-flex', background: '#f3f4f6', borderRadius: '8px', padding: '4px' }}>
+                <button
+                  type="button"
+                  onClick={() => setChecklistType('2D')}
+                  style={{ padding: '6px 16px', borderRadius: '6px', fontSize: '13px', fontWeight: '600', border: 'none', cursor: 'pointer', background: checklistType === '2D' ? '#fff' : 'transparent', color: checklistType === '2D' ? '#111827' : '#6b7280', boxShadow: checklistType === '2D' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none', transition: 'all 0.2s' }}
+                >
+                  2D Checklist
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setChecklistType('3D')}
+                  style={{ padding: '6px 16px', borderRadius: '6px', fontSize: '13px', fontWeight: '600', border: 'none', cursor: 'pointer', background: checklistType === '3D' ? '#fff' : 'transparent', color: checklistType === '3D' ? '#111827' : '#6b7280', boxShadow: checklistType === '3D' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none', transition: 'all 0.2s' }}
+                >
+                  3D Checklist
+                </button>
+              </div>
+            </div>
+            
           </div>
           <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: '22px', cursor: 'pointer', color: '#9ca3af', lineHeight: 1, padding: '0', flexShrink: 0 }}>×</button>
         </div>
@@ -438,7 +479,7 @@ const ChecklistViewModal = memo(({ isOpen, onClose, file }) => {
 
         {/* Checklist (read-only) */}
         <div style={{ overflowY: 'auto', flex: 1, padding: '14px 22px 18px' }}>
-          {CHECKLIST_SECTIONS.map(({ section, items }) => (
+          {(checklistType === '2D' ? CHECKLIST_SECTIONS_2D : CHECKLIST_SECTIONS_3D).map(({ section, items }) => (
             <div key={section} style={{ marginBottom: '14px' }}>
               <div style={{ fontSize: '11px', fontWeight: '700', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.08em', padding: '5px 10px', background: '#f3f4f6', borderRadius: '6px', marginBottom: '4px' }}>
                 {section}
