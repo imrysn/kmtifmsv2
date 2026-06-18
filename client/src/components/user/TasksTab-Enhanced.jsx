@@ -861,6 +861,7 @@ const TasksTab = memo(({
   const [showCommentsModal, setShowCommentsModal] = useState(false);
   const [currentCommentsAssignment, setCurrentCommentsAssignment] = useState(null);
   const [highlightCommentBy, setHighlightCommentBy] = useState(null);
+  const [highlightTargetCommentId, setHighlightTargetCommentId] = useState(null);
   const [isPostingReply, setIsPostingReply] = useState(false);
   const [loadingComments, setLoadingComments] = useState(false);
   const [visibleReplies, setVisibleReplies] = useState({});
@@ -1084,6 +1085,8 @@ const TasksTab = memo(({
     showCommentsModal,
     selectedItem: currentCommentsAssignment,
     comments: comments[currentCommentsAssignment?.id] || [],
+    setHighlightUsername: setHighlightCommentBy,
+    setHighlightCommentId: setHighlightTargetCommentId
   });
 
   // Auto-set team filter to ensure the highlighted assignment is visible
@@ -2564,6 +2567,7 @@ const TasksTab = memo(({
           formatTimeAgo={formatRelativeTime}
           user={user}
           highlightUsername={highlightCommentBy}
+          highlightCommentId={highlightTargetCommentId}
         />
       )}
 

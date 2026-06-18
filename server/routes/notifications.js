@@ -189,7 +189,7 @@ router.get('/user/:userId', async (req, res) => {
       LEFT JOIN files f ON n.file_id = f.id
       LEFT JOIN assignments a ON n.assignment_id = a.id
       LEFT JOIN assignment_comments ac ON n.assignment_id = ac.assignment_id 
-        AND n.type = 'comment' 
+        AND n.type IN ('comment', 'mention', 'reply')
         AND n.created_at <= DATE_ADD(ac.created_at, INTERVAL 1 SECOND)
         AND n.created_at >= DATE_SUB(ac.created_at, INTERVAL 1 SECOND)
       WHERE n.user_id = ?

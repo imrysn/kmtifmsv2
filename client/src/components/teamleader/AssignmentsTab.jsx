@@ -379,6 +379,8 @@ const AssignmentsTab = ({
   const [viewerCounts, setViewerCounts] = useState({})
   const [isPostingComment, setIsPostingComment] = useState(false)
   const [isPostingReply, setIsPostingReply] = useState(false)
+  const [highlightCommentBy, setHighlightCommentBy] = useState(null)
+  const [highlightTargetCommentId, setHighlightTargetCommentId] = useState(null)
 
   // Warm up the server's path cache when a folder is expanded
   const prefetchFolderFiles = (files, type = 'file') => {
@@ -826,7 +828,9 @@ const AssignmentsTab = ({
     setVisibleReplies,
     showCommentsModal,
     selectedItem: selectedAssignment,
-    comments
+    comments,
+    setHighlightUsername: setHighlightCommentBy,
+    setHighlightCommentId: setHighlightTargetCommentId
   });
 
   // Track which highlightedFileId we've already processed so the effect
@@ -1821,26 +1825,30 @@ const AssignmentsTab = ({
         onClose={closeCommentsModal}
         assignment={selectedAssignment}
         comments={comments}
-        loadingComments={loadingComments}
+        loading={loadingComments}
         newComment={newComment}
         setNewComment={setNewComment}
         onPostComment={postComment}
+        isPosting={isPostingComment}
         replyingTo={replyingTo}
         setReplyingTo={setReplyingTo}
         replyText={replyText}
         setReplyText={setReplyText}
         onPostReply={postReply}
+        isPostingReply={isPostingReply}
         onDeleteComment={deleteComment}
         onEditComment={editComment}
+        visibleReplies={visibleReplies}
+        setVisibleReplies={setVisibleReplies}
         onDeleteReply={deleteReply}
         onEditReply={editReply}
-        visibleReplies={visibleReplies}
+        user={user}
+        highlightUsername={highlightCommentBy}
+        highlightCommentId={highlightTargetCommentId}
         toggleRepliesVisibility={toggleRepliesVisibility}
         getInitials={getInitials}
         formatTimeAgo={formatRelativeTime}
-        user={user}
         onRefreshAssignments={onRefreshAssignments}
-        isPostingComment={isPostingComment}
         isPostingReply={isPostingReply}
       />
 

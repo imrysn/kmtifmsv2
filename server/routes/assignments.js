@@ -1608,26 +1608,36 @@ router.post('/:assignmentId/comments', authenticateToken, async (req, res) => {
         pushToUser(uid);
       };
 
-      if (user.role === 'ADMIN') {
-        const tlId = assignment.team_leader_id || assignment.teamLeaderId;
-        if (tlId && !mentionedUserIds.has(tlId)) {
-          await notifyUser(tlId, 'New Admin Comment on Assignment', `Admin ${user.fullName} commented on "${assignment.title}": ${comment.substring(0, 100)}...`);
-        }
-        for (const member of assignedMembers) {
-          if (!mentionedUserIds.has(member.user_id)) {
-            await notifyUser(member.user_id, 'New Admin Comment on Assignment', `Admin ${user.fullName} commented on "${assignment.title}": ${comment.substring(0, 100)}...`);
-          }
-        }
-      } else if (user.role === 'TEAM_LEADER') {
-        for (const member of assignedMembers) {
-          if (!mentionedUserIds.has(member.user_id)) {
-            await notifyUser(member.user_id, 'New Comment on Assignment', `${user.fullName} commented on "${assignment.title}": ${comment.substring(0, 100)}...`);
-          }
-        }
-      } else if (user.role === 'USER' && assignment.team_leader_id && String(assignment.team_leader_id) !== String(userId)) {
-        if (!mentionedUserIds.has(assignment.team_leader_id)) {
-          await notifyUser(assignment.team_leader_id, 'New Comment on Assignment', `${user.fullName} commented on "${assignment.title}": ${comment.substring(0, 100)}...`);
-        }
+      // Unified Notification Logic: Notify Admin, Team Leader, and Assigned Members
+      const usersToNotify = new Set();
+
+      // 1. Add Admins
+      const admins = await query('SELECT id FROM users WHERE role = "ADMIN"');
+      admins.forEach(admin => usersToNotify.add(admin.id));
+
+      // 2. Add Team Leader
+      if (assignment.team_leader_id) {
+        usersToNotify.add(assignment.team_leader_id);
+      }
+
+      // 3. Add Assigned Members
+      for (const member of assignedMembers) {
+        usersToNotify.add(member.user_id);
+      }
+
+      // Remove the person making the comment (don't notify yourself)
+      usersToNotify.delete(parseInt(userId, 10));
+      usersToNotify.delete(String(userId)); // just in case
+
+      // Remove specifically mentioned users (they get a dedicated mention notification)
+      mentionedUserIds.forEach(id => usersToNotify.delete(id));
+
+      const title = user.role === 'ADMIN' ? 'New Admin Comment on Assignment' : 'New Comment on Assignment';
+      const msgPrefix = user.role === 'ADMIN' ? `Admin ${user.fullName}` : user.fullName;
+      const msg = `${msgPrefix} commented on "${assignment.title}": ${comment.substring(0, 100)}...`;
+
+      for (const uid of usersToNotify) {
+        await notifyUser(uid, title, msg);
       }
 
       // @mention notifications

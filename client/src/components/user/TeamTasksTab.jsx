@@ -1272,13 +1272,28 @@ const TeamTasksTab = ({ user }) => {
                     style={{
                       padding: '0', backgroundColor: 'transparent', border: 'none',
                       color: '#1c1e21', fontSize: '14px', fontWeight: '500',
-                      cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '4px'
+                      cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px'
                     }}
                   >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" />
+                    </svg>
                     <span>Comment</span>
-                    {comments[assignment.id]?.length > 0 && (
-                      <span>({comments[assignment.id].length})</span>
-                    )}
+                    {(() => {
+                      const count = comments[assignment.id]?.length > 0 ? comments[assignment.id].length : (assignment.comment_count || 0);
+                      const hasRejected = assignment.recent_submissions?.some(f =>
+                        ['rejected_by_team_leader', 'rejected_by_admin'].includes(f.status)
+                      );
+                      return (
+                        <span style={{
+                          backgroundColor: hasRejected && count > 0 ? '#fee2e2' : '#f3f4f6',
+                          color: hasRejected && count > 0 ? '#dc2626' : '#6b7280',
+                          borderRadius: '10px', padding: '1px 8px', fontSize: '12px', fontWeight: '600',
+                        }}>
+                          {count}
+                        </span>
+                      );
+                    })()}
                   </button>
                 </div>
               </div>

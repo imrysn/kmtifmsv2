@@ -540,23 +540,39 @@ ReplyInputBox.displayName = 'ReplyInputBox';
 const CommentItem = memo(({
   comment, assignmentId, isReplying, mentionText, repliesVisible,
   onReply, onToggleReplies, onPostReply, onEditComment, onDeleteComment,
-  onEditReply, onDeleteReply, user, highlightUsername, currentUserId, mentionableUsers,
+  onEditReply, onDeleteReply, user, highlightUsername, highlightCommentId, currentUserId, mentionableUsers,
 }) => {
   const MAX_LEN = 150;
   const [isExpanded, setIsExpanded] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+  const commentRef = useRef(null);
   const isLong = comment.comment.length > MAX_LEN;
   const isOwner = useMemo(() => String(comment.user_id) === String(currentUserId), [comment.user_id, currentUserId]);
   const displayName = useMemo(() => comment.user_fullname || comment.fullName || comment.username, [comment.user_fullname, comment.fullName, comment.username]);
   const roleCls = useMemo(() => `role-badge ${comment.user_role ? comment.user_role.toLowerCase().replace(/[\s_]/g, '-') : 'user'}`, [comment.user_role]);
-  const isHighlighted = useMemo(() => !!(highlightUsername && (comment.username === highlightUsername || comment.user_fullname === highlightUsername)), [highlightUsername, comment.username, comment.user_fullname]);
+  
+  const isHighlighted = useMemo(() => {
+    if (highlightCommentId) {
+      return String(comment.id) === String(highlightCommentId);
+    }
+    return !!(highlightUsername && (comment.username === highlightUsername || comment.user_fullname === highlightUsername));
+  }, [highlightCommentId, highlightUsername, comment.id, comment.username, comment.user_fullname]);
+
   const renderedText = useMemo(() => {
     const content = isLong && !isExpanded ? comment.comment.substring(0, MAX_LEN) + '...' : comment.comment;
     return renderTextWithMentions(content, mentionableUsers);
   }, [comment.comment, isLong, isExpanded, mentionableUsers]);
   const replyCount = useMemo(() => comment.replies?.length ?? 0, [comment.replies]);
   
+  useEffect(() => {
+    if (isHighlighted && commentRef.current) {
+      setTimeout(() => {
+        commentRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }, 300);
+    }
+  }, [isHighlighted]);
+
   const handleReplyClick = useCallback(() => onReply(comment.id, displayName), [comment.id, displayName, onReply]);
   const handleToggleReplies = useCallback(() => onToggleReplies(comment.id), [comment.id, onToggleReplies]);
   
@@ -576,7 +592,7 @@ const CommentItem = memo(({
   };
 
   return (
-    <div className={`${isHighlighted ? 'comment-thread highlight-comment' : 'comment-thread'} ${isProcessing ? 'is-processing' : ''}`} data-comment-id={comment.id}>
+    <div ref={commentRef} className={`${isHighlighted ? 'comment-thread highlight-comment' : 'comment-thread'} ${isProcessing ? 'is-processing' : ''}`} data-comment-id={comment.id}>
       <div className="comment-item">
         <Avatar user={{ fullName: displayName, profile_picture: comment.user_profile_picture }} size="md" />
         <div className="comment-content">
@@ -652,7 +668,7 @@ const CommentsModal = memo(({
   newComment, setNewComment, onPostComment, onPostReply,
   onEditComment, onDeleteComment, onEditReply, onDeleteReply,
   visibleReplies, toggleRepliesVisibility,
-  getInitials, formatTimeAgo, user, highlightUsername = null,
+  getInitials, formatTimeAgo, user, highlightUsername = null, highlightCommentId = null,
   isPostingComment = false, isPostingReply = false,
 }) => {
   const [replyingTo, setReplyingTo] = useState(null);
@@ -744,6 +760,7 @@ const CommentsModal = memo(({
                   onDeleteReply={onDeleteReply}
                   user={user}
                   highlightUsername={highlightUsername}
+                  highlightCommentId={highlightCommentId}
                   currentUserId={user.id}
                   mentionableUsers={mentionableUsers}
                 />

@@ -1334,6 +1334,7 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
                   const assignmentId = typeof data === 'object' ? data.assignmentId : data
                   const shouldOpenComments = typeof data === 'object' ? data.shouldOpenComments : false
                   const expandAllReplies = typeof data === 'object' ? data.expandAllReplies : false
+                  const highlightUser = typeof data === 'object' ? data.highlightUser : null
                   const fileId = typeof data === 'object' ? data.fileId : null
                   const fileStatus = typeof data === 'object' ? data.fileStatus : null
 
@@ -1355,7 +1356,7 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
                     }
 
                     if (shouldOpenComments) {
-                      setNotificationCommentContext({ assignmentId, expandAllReplies })
+                      setNotificationCommentContext({ assignmentId, expandAllReplies, highlightUser })
                     }
                   }
                 } else if (tab === 'file-collection') {
