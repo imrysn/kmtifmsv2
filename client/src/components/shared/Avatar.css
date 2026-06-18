@@ -74,6 +74,7 @@
   opacity: 0;
   transition: opacity 0.2s ease, background 0.2s ease;
   cursor: pointer;
+  z-index: 10;
 }
 
 /* Full circle — used when no photo (click to upload) */
@@ -123,6 +124,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  z-index: 20;
 }
 
 .av-spinner {
