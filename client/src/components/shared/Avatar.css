@@ -1,0 +1,156 @@
+/* ============================================================
+   Avatar Component — shared/Avatar.css
+   ============================================================ */
+
+/* ── Root wrapper ── */
+.av-root {
+  position: relative;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+/* ── Size tokens ── */
+.av-sm .av-circle { width: 32px; height: 32px; font-size: 13px; }
+.av-md .av-circle { width: 44px; height: 44px; font-size: 17px; }
+.av-lg .av-circle { width: 60px; height: 60px; font-size: 22px; }
+
+/* ── Circle ── */
+.av-circle {
+  border-radius: 50%;
+  overflow: hidden;           /* clips ALL children to the circle shape */
+  position: relative;
+  flex-shrink: 0;
+  background: hsl(var(--av-hue, 220) 55% 55%);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18);
+  transition: box-shadow 0.2s ease, transform 0.15s ease;
+  user-select: none;
+}
+
+.av-editable .av-circle:hover {
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
+  transform: scale(1.06);
+}
+
+/* ── Photo ── */
+.av-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+}
+
+/* ── Initials ── */
+.av-initials {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  line-height: 1;
+  font-family: inherit;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* ────────────────────────────────────────────────────────────
+   Hover overlays — all INSIDE the circle (no overflow escaping)
+   ──────────────────────────────────────────────────────────── */
+
+/* Base overlay style */
+.av-overlay {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+  opacity: 0;
+  transition: opacity 0.2s ease, background 0.2s ease;
+  cursor: pointer;
+}
+
+/* Full circle — used when no photo (click to upload) */
+.av-overlay-full {
+  inset: 0;
+  background: rgba(0, 0, 0, 0.46);
+}
+
+/* Top half — change photo */
+.av-overlay-top {
+  inset: 0 0 50% 0;          /* occupies top 50% of the circle */
+  background: rgba(0, 0, 0, 0.50);
+  border-bottom: 1px solid rgba(255,255,255,0.2);
+}
+
+/* Bottom half — remove photo */
+.av-overlay-bottom {
+  inset: 50% 0 0 0;          /* occupies bottom 50% of the circle */
+  background: rgba(239, 68, 68, 0.65);
+}
+
+/* Show overlays on circle hover */
+.av-editable .av-circle:hover .av-overlay {
+  opacity: 1;
+}
+
+/* Individual hover feedback */
+.av-overlay-full:hover,
+.av-overlay-top:hover {
+  background: rgba(0, 0, 0, 0.62);
+}
+
+.av-overlay-bottom:hover {
+  background: rgba(220, 38, 38, 0.82);
+}
+
+/* ── Uploading state ── */
+.av-uploading {
+  pointer-events: none;
+  opacity: 0.72;
+}
+
+.av-spinner-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.50);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.av-spinner {
+  width: 18px;
+  height: 18px;
+  border: 2.5px solid rgba(255, 255, 255, 0.3);
+  border-top-color: #ffffff;
+  border-radius: 50%;
+  animation: av-spin 0.65s linear infinite;
+}
+
+@keyframes av-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ── Inline error ── */
+.av-error-inline {
+  margin-top: 4px;
+  background: #FEF2F2;
+  color: #EF4444;
+  font-size: 10px;
+  font-weight: 500;
+  padding: 3px 7px;
+  border-radius: 5px;
+  white-space: nowrap;
+  border: 1px solid #FECACA;
+  max-width: 140px;
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}

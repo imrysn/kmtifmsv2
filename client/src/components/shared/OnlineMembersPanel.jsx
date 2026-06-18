@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { apiFetch, API_BASE_URL } from '@/config/api'
 import useStore from '../../store/useStore'
+import Avatar from './Avatar'
 
 const PING_INTERVAL = 30000 // 30s heartbeat
 const MEMBERS_REFRESH_INTERVAL = 60000 // refresh full member list every 60s
@@ -210,23 +211,23 @@ const OnlineMembersPanel = ({ user, teamFilter }) => {
         }}
       >
         {/* Avatar with status dot */}
-        <div style={{ position: 'relative', flexShrink: 0 }}>
+        <div style={{ position: 'relative', flexShrink: 0, display: 'flex', alignItems: 'center' }}>
           <div style={{
-            width: '38px', height: '38px', borderRadius: '50%',
-            background: getAvatarColor(user?.fullName || user?.username),
+            background: 'transparent',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            color: '#fff', fontSize: '13px', fontWeight: '700',
             boxShadow: open ? 'none' : '0 0 0 2px #e5e7eb',
-            transition: 'box-shadow 0.2s'
+            transition: 'box-shadow 0.2s',
+            borderRadius: '50%'
           }}>
-            {getInitials(user?.fullName || user?.username)}
+            <Avatar user={user} size="sm" />
           </div>
           <span style={{
-            position: 'absolute', bottom: '1px', right: '1px',
+            position: 'absolute', bottom: '-2px', right: '-2px',
             width: '10px', height: '10px', borderRadius: '50%',
             background: connected ? '#22c55e' : '#9ca3af',
             border: '2px solid #fff',
-            transition: 'background 0.3s'
+            transition: 'background 0.3s',
+            zIndex: 1
           }} />
         </div>
         {/* Name + status — only when open */}
@@ -314,21 +315,20 @@ const OnlineMembersPanel = ({ user, teamFilter }) => {
                   }}
                 >
                   {/* Avatar + status dot */}
-                  <div style={{ position: 'relative', flexShrink: 0 }}>
+                  <div style={{ position: 'relative', flexShrink: 0, display: 'flex', alignItems: 'center' }}>
                     <div style={{
-                      width: '36px', height: '36px', borderRadius: '50%',
-                      background: getAvatarColor(member.fullName || member.username),
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      color: '#fff', fontSize: '12px', fontWeight: '700',
+                      background: 'transparent',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center'
                     }}>
-                      {getInitials(member.fullName || member.username)}
+                      <Avatar user={member} size="sm" />
                     </div>
                     <span style={{
-                      position: 'absolute', bottom: '1px', right: '1px',
+                      position: 'absolute', bottom: '-2px', right: '-2px',
                       width: '10px', height: '10px', borderRadius: '50%',
                       background: member.online ? '#22c55e' : '#9ca3af',
                       border: '2px solid #fff',
-                      transition: 'background 0.3s'
+                      transition: 'background 0.3s',
+                      zIndex: 1
                     }} />
                   </div>
 

@@ -2086,7 +2086,11 @@ async function recordView(fileId, { userId, username, fullName, role }, fileSour
 
 async function getViewers(fileId, fileSource = 'submission') {
     const rows = await query(
-        'SELECT user_id, username, full_name, role, viewed_at FROM file_views WHERE file_id = ? AND file_source = ? ORDER BY viewed_at DESC',
+        `SELECT fv.user_id, fv.username, fv.full_name, fv.role, fv.viewed_at, u.profile_picture 
+         FROM file_views fv
+         LEFT JOIN users u ON fv.user_id = u.id
+         WHERE fv.file_id = ? AND fv.file_source = ? 
+         ORDER BY fv.viewed_at DESC`,
         [fileId, fileSource]
     );
     return rows || [];

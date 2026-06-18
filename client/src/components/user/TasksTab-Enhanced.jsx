@@ -4,6 +4,7 @@ import './css/TasksTab-Enhanced.css';
 import './css/TasksTab-Comments.css';
 import { FileIcon, FileOpenModal } from '../shared';
 import FileModal from './FileModal';
+import Avatar from '../shared/Avatar';
 import CommentsModal from '../shared/CommentsModal';
 import { recursiveGroupByPath } from '@utils/folderUtils';
 import { formatBusinessDaysLeft, getBusinessDaysColor } from '@utils/otDatesUtils';
@@ -2128,8 +2129,12 @@ const TasksTab = memo(({
                 {/* Header */}
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    <div style={{ width: '48px', height: '48px', borderRadius: '50%', background: '#4f39f6', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontWeight: '600', fontSize: '18px' }}>
-                      {getInitials(assignment.team_leader_fullname || assignment.team_leader_username)}
+                    <div style={{ width: '48px', height: '48px', background: 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <Avatar user={{
+                        username: assignment.team_leader_username,
+                        fullName: assignment.team_leader_fullname || assignment.team_leader_full_name,
+                        profile_picture: assignment.team_leader_profile_picture
+                      }} size="md" />
                     </div>
                     <div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px', flexWrap: 'wrap' }}>

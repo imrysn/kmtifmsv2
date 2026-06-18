@@ -4,7 +4,7 @@ import { apiFetch, API_BASE_URL } from '@/config/api'
 import './css/AssignmentsTab.css'
 import './modals/css/AssignmentDetailsModal.css'
 import { CardSkeleton } from '../common/InlineSkeletonLoader'
-import { ConfirmationModal, CommentsModal, FileIcon, FileOpenModal, FileViewersButton } from '../shared'
+import { ConfirmationModal, CommentsModal, FileIcon, FileOpenModal, FileViewersButton, Avatar } from '../shared'
 import { useSmartNavigation } from '../shared/SmartNavigation'
 import '../shared/SmartNavigation/SmartNavigation.css'
 import SuccessModal from '../user/SuccessModal'
@@ -1280,8 +1280,12 @@ const AssignmentsTab = ({
               >
                 <div className="tl-assignment-card-header">
                   <div className="tl-assignment-header-left">
-                    <div className="tl-assignment-avatar">
-                      {getInitials(assignment.team_leader_username || 'TL')}
+                    <div className="tl-assignment-avatar" style={{ background: 'transparent' }}>
+                      <Avatar user={{
+                        username: assignment.team_leader_username,
+                        fullName: assignment.team_leader_fullname || assignment.team_leader_full_name,
+                        profile_picture: assignment.team_leader_profile_picture
+                      }} size="md" />
                     </div>
                     <div className="tl-assignment-header-info">
                       <div className="tl-assignment-team-leader-info">
@@ -1851,8 +1855,8 @@ const AssignmentsTab = ({
               <div className="tl-modal-members-list">
                 {selectedMembers.map((member) => (
                   <div key={member.id} className="tl-modal-member-item">
-                    <div className="tl-modal-member-avatar">
-                      {(member.fullName || member.username).charAt(0).toUpperCase()}
+                    <div className="tl-modal-member-avatar" style={{ background: 'transparent' }}>
+                      <Avatar user={member} size="sm" />
                     </div>
                     <div className="tl-member-info">
                       <div className="tl-member-name">
@@ -2185,8 +2189,8 @@ const AssignmentsTab = ({
                             )}
                           </div>
                           {/* Avatar */}
-                          <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: isSelected ? '#4f46e5' : '#e5e7eb', display: 'flex', alignItems: 'center', justifyContent: 'center', color: isSelected ? '#fff' : '#374151', fontWeight: '700', fontSize: '14px', flexShrink: 0 }}>
-                            {getInitials(member.fullName || member.username)}
+                          <div style={{ background: 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                            <Avatar user={member} size="sm" />
                           </div>
                           <div style={{ flex: 1 }}>
                             <div style={{ fontWeight: '600', fontSize: '14px', color: '#111827' }}>{member.fullName || member.username}</div>

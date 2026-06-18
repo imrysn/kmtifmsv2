@@ -37,7 +37,8 @@ async function runMigrations() {
       { name: '017-add-project-folder-path',              run: require('./017-add-project-folder-path') },
       { name: '018-add-ot-dates',                          run: require('./018-add-ot-dates') },
       { name: '019-add-checker-note-to-files',               run: require('./019-add-checker-note-to-files') },
-      { name: '020-backfill-legacy-submissions',             run: require('./020-backfill-legacy-submissions') }
+      { name: '020-backfill-legacy-submissions',             run: require('./020-backfill-legacy-submissions') },
+      { name: '021-add-profile-picture-to-users',            run: require('./021-add-profile-picture-to-users') }
     ];
 
     // Fetch all already-applied migrations in one query

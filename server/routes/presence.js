@@ -124,12 +124,12 @@ router.get('/members', authenticateToken, asyncHandler(async (req, res) => {
   let members;
   if (team) {
     members = await dbQuery(
-      `SELECT id, fullName, username, role, team FROM users WHERE team = ? ORDER BY fullName`,
+      `SELECT id, fullName, username, role, team, profile_picture FROM users WHERE team = ? ORDER BY fullName`,
       [team]
     );
   } else {
     members = await dbQuery(
-      `SELECT id, fullName, username, role, team FROM users ORDER BY fullName`
+      `SELECT id, fullName, username, role, team, profile_picture FROM users ORDER BY fullName`
     );
   }
 
@@ -143,6 +143,7 @@ router.get('/members', authenticateToken, asyncHandler(async (req, res) => {
       fullName: m.fullName,
       role: m.role,
       team: m.team,
+      profile_picture: m.profile_picture,
       online: isOnline,
       lastSeen: presence ? presence.lastSeen : null,
     };

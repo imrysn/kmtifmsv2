@@ -5,6 +5,7 @@ import './TaskManagement.css'
 import './SmartNavigation.css'
 import FileIcon from '../shared/FileIcon.jsx'
 import FileViewersButton from '../shared/FileViewersButton.jsx'
+import Avatar from '../shared/Avatar.jsx'
 import { AlertMessage, ConfirmationModal, CommentsModal, FileOpenModal } from './modals'
 import { useAuth, useNetwork } from '../../contexts'
 import { withErrorBoundary } from '../common'
@@ -1201,8 +1202,12 @@ const TaskManagement = ({
                     {/* Card Header */}
                     <div className="admin-card-header">
                       <div className="admin-header-left">
-                        <div className="admin-avatar">
-                          {getInitials(assignment.team_leader_fullname || assignment.team_leader_username)}
+                        <div className="admin-avatar" style={{ background: 'transparent' }}>
+                          <Avatar user={{
+                            username: assignment.team_leader_username,
+                            fullName: assignment.team_leader_fullname || assignment.team_leader_full_name,
+                            profile_picture: assignment.team_leader_profile_picture
+                          }} size="md" />
                         </div>
                         <div className="admin-header-info">
                           <div className="admin-assignment-assigned">

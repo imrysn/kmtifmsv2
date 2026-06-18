@@ -1,15 +1,75 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
 const { db, query: dbQuery, queryOne: dbQueryOne } = require('../config/database');
+const { networkDataPath } = require('../config/database');
 const { logActivity, logInfo, logWarn } = require('../utils/logger');
 const { getCache, setCache, clearCache } = require('../utils/cache');
 const { validate, schemas, validateId } = require('../middleware/validation');
 const { asyncHandler, DatabaseError, NotFoundError } = require('../middleware/errorHandler');
 const { authenticateToken, authorizeRole } = require('../middleware/auth');
 
+// ── Profile picture storage (memory → save to disk manually) ─────────────────
+const profilePicUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5 MB max
+  fileFilter: (req, file, cb) => {
+    const allowed = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif'];
+    if (allowed.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only JPEG, PNG, WebP, and GIF images are allowed'));
+    }
+  }
+});
+
 const router = express.Router();
 
-// Apply authentication to all routes in this router
+/**
+ * GET /api/users/profile/picture/:userId   — PUBLIC (no auth required)
+ * Serve a user's profile picture so <img> tags work without auth headers.
+ * Uses createReadStream for UNC/NAS path compatibility on Windows.
+ */
+router.get('/profile/picture/:userId', async (req, res) => {
+  const { userId } = req.params;
+  if (!userId || !/^\d+$/.test(userId)) {
+    return res.status(400).json({ success: false, message: 'Invalid user id' });
+  }
+
+  const profilePicsDir = path.join(networkDataPath, 'uploads', 'profile_pictures');
+  const extensions = ['jpg', 'jpeg', 'png', 'webp', 'gif'];
+  const mimeMap = { jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', webp: 'image/webp', gif: 'image/gif' };
+
+  let found = null;
+  let foundExt = null;
+  for (const ext of extensions) {
+    const candidate = path.join(profilePicsDir, `${userId}.${ext}`);
+    try {
+      await fs.promises.access(candidate);
+      found = candidate;
+      foundExt = ext;
+      break;
+    } catch (_) { /* try next */ }
+  }
+
+  if (!found) {
+    return res.status(404).json({ success: false, message: 'Profile picture not found' });
+  }
+
+  try {
+    const stat = await fs.promises.stat(found);
+    res.setHeader('Content-Type', mimeMap[foundExt] || 'image/jpeg');
+    res.setHeader('Content-Length', stat.size);
+    res.setHeader('Cache-Control', 'public, max-age=60'); // allow short caching
+    fs.createReadStream(found).pipe(res);
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'Failed to read profile picture' });
+  }
+});
+
+// Apply authentication to all routes BELOW this point
 router.use(authenticateToken);
 
 /**
@@ -51,6 +111,89 @@ router.get('/profile', asyncHandler(async (req, res) => {
   });
 }));
 
+/**
+ * POST /api/users/profile/picture
+ * Upload / replace the current user's profile picture.
+ * Saves to <uploadsDir>/profile_pictures/<userId>.<ext>  (inside the NAS uploads folder)
+ */
+router.post('/profile/picture', profilePicUpload.single('profilePicture'), asyncHandler(async (req, res) => {
+  if (!req.file) {
+    return res.status(400).json({ success: false, message: 'No image file provided' });
+  }
+
+  const userId = req.user.id;
+  const ext = req.file.mimetype === 'image/jpeg' || req.file.mimetype === 'image/jpg'
+    ? 'jpg'
+    : req.file.mimetype === 'image/png'
+      ? 'png'
+      : req.file.mimetype === 'image/webp'
+        ? 'webp'
+        : 'gif';
+
+  // Ensure the profile_pictures directory exists inside the NAS uploads folder
+  const profilePicsDir = path.join(networkDataPath, 'uploads', 'profile_pictures');
+  try {
+    await fs.promises.mkdir(profilePicsDir, { recursive: true });
+  } catch (_) { /* already exists */ }
+
+  // Remove any existing picture for this user (clean up old extension variants)
+  const existingFiles = await fs.promises.readdir(profilePicsDir).catch(() => []);
+  for (const f of existingFiles) {
+    if (f.startsWith(`${userId}.`)) {
+      await fs.promises.unlink(path.join(profilePicsDir, f)).catch(() => {});
+    }
+  }
+
+  // Save new file
+  const filename = `${userId}.${ext}`;
+  const filepath = path.join(profilePicsDir, filename);
+  await fs.promises.writeFile(filepath, req.file.buffer);
+
+  // Store relative URL in the database
+  const pictureUrl = `/api/users/profile/picture/${userId}`;
+  await dbQuery(
+    'UPDATE users SET profile_picture = ? WHERE id = ?',
+    [pictureUrl, userId]
+  );
+
+  logInfo('Profile picture updated', { userId });
+
+  res.json({
+    success: true,
+    message: 'Profile picture updated successfully',
+    profilePictureUrl: pictureUrl
+  });
+}));
+
+/**
+ * GET /api/users/profile/picture/:userId
+ * (Moved above authenticateToken — see public route at top of file)
+ */
+// NOTE: This route is now registered publicly before authenticateToken above.
+
+/**
+ * DELETE /api/users/profile/picture
+ * Remove the current user's profile picture (reset to initials).
+ */
+router.delete('/profile/picture', asyncHandler(async (req, res) => {
+  const userId = req.user.id;
+  const profilePicsDir = path.join(networkDataPath, 'uploads', 'profile_pictures');
+
+  // Delete file(s) for this user
+  const existingFiles = await fs.promises.readdir(profilePicsDir).catch(() => []);
+  for (const f of existingFiles) {
+    if (f.startsWith(`${userId}.`)) {
+      await fs.promises.unlink(path.join(profilePicsDir, f)).catch(() => {});
+    }
+  }
+
+  // Clear from database
+  await dbQuery('UPDATE users SET profile_picture = NULL WHERE id = ?', [userId]);
+
+  logInfo('Profile picture removed', { userId });
+  res.json({ success: true, message: 'Profile picture removed' });
+}));
+
 // Shared helper: attach file counts to an array of user/member objects using a single bulk query
 async function attachFileCounts(db, members) {
   if (!members || members.length === 0) return members;
@@ -83,7 +226,7 @@ router.get('/', authorizeRole('ADMIN'), asyncHandler(async (req, res) => {
   console.log('📈 Getting all users...');
   try {
     const users = await dbQuery(
-      'SELECT id, fullName, username, email, role, team, created_at FROM users ORDER BY created_at DESC'
+      'SELECT id, fullName, username, email, role, team, profile_picture, created_at FROM users ORDER BY created_at DESC'
     );
     console.log(`✅ Retrieved ${users.length} users`);
     setCache(cacheKey, users);
@@ -433,7 +576,7 @@ router.get('/team-leader/:userId', authorizeRole(['TEAM_LEADER', 'ADMIN']), asyn
 // NOTE: Defined before /:teamName to prevent the catch-all from swallowing this route
 router.get('/mentionable', (req, res) => {
   db.all(
-    `SELECT id, username, fullName, role FROM users
+    `SELECT id, username, fullName, role, profile_picture FROM users
      WHERE role IN ('ADMIN', 'TEAM_LEADER', 'USER')
      ORDER BY
        CASE role

@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import ReactDOM from 'react-dom'
 import { apiFetch, API_BASE_URL } from '@/config/api'
 import './css/TeamTasksTab.css'
-import { FileIcon, FileOpenModal, FileViewersButton } from '../shared'
+import { FileIcon, FileOpenModal, FileViewersButton, Avatar } from '../shared'
 import CommentsModal from '../shared/CommentsModal'
 import SuccessModal from './SuccessModal'
 import { recursiveGroupByPath } from '@utils/folderUtils'
@@ -965,8 +965,12 @@ const TeamTasksTab = ({ user }) => {
                 {/* Card Header */}
                 <div className="team-task-header">
                   <div className="team-task-header-left">
-                    <div className="team-task-avatar">
-                      {getInitials(assignment.team_leader_fullname || assignment.team_leader_username)}
+                    <div className="team-task-avatar" style={{ background: 'transparent' }}>
+                      <Avatar user={{
+                        username: assignment.team_leader_username,
+                        fullName: assignment.team_leader_fullname || assignment.team_leader_full_name,
+                        profile_picture: assignment.team_leader_profile_picture
+                      }} size="md" />
                     </div>
                     <div className="team-task-header-info">
                       <div className="team-task-assigned">

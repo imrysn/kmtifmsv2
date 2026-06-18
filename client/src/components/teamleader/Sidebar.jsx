@@ -1,4 +1,5 @@
 import { memo, useCallback } from 'react'
+import Avatar from '../shared/Avatar'
 
 const Sidebar = memo(({ 
   activeTab, 
@@ -20,9 +21,13 @@ const Sidebar = memo(({
     <aside className={`tl-sidebar ${sidebarOpen ? 'open' : ''}`}>
       {/* Brand */}
       <div className="tl-brand">
-        <div className="tl-brand-logo">TL</div>
-        <div className="tl-brand-name" style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-          <span>{user?.fullName || user?.username || 'Team Leader'}</span>
+        <div className="tl-brand-avatar">
+          <Avatar user={user} size="md" editable />
+        </div>
+        <div className="tl-brand-name" style={{ display: 'flex', flexDirection: 'column', gap: '4px', overflow: 'hidden' }}>
+          <span style={{ fontWeight: 600, fontSize: '13px', color: '#111827', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            {user?.fullName || user?.username || 'Team Leader'}
+          </span>
           {user?.ledTeams && user.ledTeams.length > 0 ? (
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
               {user.ledTeams.map((team) => (
