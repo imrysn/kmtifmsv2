@@ -13,22 +13,34 @@ router.use(authenticateToken);
 const sseClients = new Map();
 
 const addClient = (userId, res) => {
-  if (!sseClients.has(userId)) sseClients.set(userId, new Set());
+  if (!sseClients.has(userId)) {
+    sseClients.set(userId, new Set());
+  }
   sseClients.get(userId).add(res);
 };
 
 const removeClient = (userId, res) => {
   const set = sseClients.get(userId);
-  if (set) { set.delete(res); if (set.size === 0) sseClients.delete(userId); }
+  if (set) {
+    set.delete(res); if (set.size === 0) {
+      sseClients.delete(userId);
+    }
+  }
 };
 
 // Push a ping to a specific user so the client refetches immediately
 const pushToUser = (userId) => {
   const set = sseClients.get(String(userId));
-  if (!set || set.size === 0) return;
-  const payload = `data: ping\n\n`;
+  if (!set || set.size === 0) {
+    return;
+  }
+  const payload = 'data: ping\n\n';
   for (const res of set) {
-    try { res.write(payload); } catch (_) { removeClient(String(userId), res); }
+    try {
+      res.write(payload);
+    } catch {
+      removeClient(String(userId), res);
+    }
   }
 };
 
@@ -43,7 +55,11 @@ router.get('/user/:userId/stream', (req, res) => {
 
   // Send a heartbeat every 25s to keep the connection alive through proxies
   const heartbeat = setInterval(() => {
-    try { res.write(': heartbeat\n\n'); } catch (_) { clearInterval(heartbeat); }
+    try {
+      res.write(': heartbeat\n\n');
+    } catch {
+      clearInterval(heartbeat);
+    }
   }, 25000);
 
   addClient(userId, res);
@@ -155,7 +171,7 @@ router.get('/user/:userId', async (req, res) => {
 
     // Ownership check: users can only see their own notifications; ADMIN can see any
     // Use loose == comparison so string userId from URL matches integer req.user.id from JWT
-    const isOwner = req.user.id == userId; // intentional == not ===
+    const isOwner = req.user.id === parseInt(userId, 10);
     const isAdmin = req.user.role === 'ADMIN';
     console.log(`📬 Notifications fetch: reqUser.id=${req.user.id}(${typeof req.user.id}) userId=${userId}(${typeof userId}) isOwner=${isOwner} role=${req.user.role}`);
     if (!isOwner && !isAdmin) {
@@ -240,7 +256,7 @@ router.get('/user/:userId/unread-count', async (req, res) => {
     const { userId } = req.params;
 
     // Ownership check (loose == to handle string/int mismatch between URL param and JWT)
-    if (req.user.id != userId && req.user.role !== 'ADMIN') {
+    if (req.user.id !== parseInt(userId, 10) && req.user.role !== 'ADMIN') {
       return res.status(403).json({ success: false, message: 'Access denied' });
     }
 
@@ -295,7 +311,7 @@ router.put('/user/:userId/read-all', async (req, res) => {
     const now = new Date().toISOString().slice(0, 19).replace('T', ' ');
 
     // Ownership check (loose == to handle string/int mismatch between URL param and JWT)
-    if (req.user.id != userId && req.user.role !== 'ADMIN') {
+    if (req.user.id !== parseInt(userId, 10) && req.user.role !== 'ADMIN') {
       return res.status(403).json({ success: false, message: 'Access denied' });
     }
 
@@ -351,7 +367,7 @@ router.delete('/user/:userId/delete-all', async (req, res) => {
     const { userId } = req.params;
 
     // Ownership check (loose == to handle string/int mismatch between URL param and JWT)
-    if (req.user.id != userId && req.user.role !== 'ADMIN') {
+    if (req.user.id !== parseInt(userId, 10) && req.user.role !== 'ADMIN') {
       return res.status(403).json({ success: false, message: 'Access denied' });
     }
 

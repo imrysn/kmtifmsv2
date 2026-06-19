@@ -20,7 +20,9 @@ const emailConfig = {
 let transporter = null;
 
 function getTransporter() {
-  if (!nodemailer) return null;
+  if (!nodemailer) {
+    return null;
+  }
   if (!transporter) {
     transporter = nodemailer.createTransport(emailConfig);
   }

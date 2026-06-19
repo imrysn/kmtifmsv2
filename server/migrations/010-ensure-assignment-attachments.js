@@ -48,13 +48,13 @@ async function up() {
     const colNames = (existingCols || []).map(r => r.COLUMN_NAME || r.column_name);
 
     const columnsToAdd = [
-      { name: 'public_network_url',  sql: "ALTER TABLE assignment_attachments ADD COLUMN public_network_url TEXT DEFAULT NULL AFTER file_path" },
-      { name: 'folder_name',         sql: "ALTER TABLE assignment_attachments ADD COLUMN folder_name VARCHAR(255) DEFAULT NULL" },
-      { name: 'relative_path',       sql: "ALTER TABLE assignment_attachments ADD COLUMN relative_path VARCHAR(1000) DEFAULT NULL" },
+      { name: 'public_network_url',  sql: 'ALTER TABLE assignment_attachments ADD COLUMN public_network_url TEXT DEFAULT NULL AFTER file_path' },
+      { name: 'folder_name',         sql: 'ALTER TABLE assignment_attachments ADD COLUMN folder_name VARCHAR(255) DEFAULT NULL' },
+      { name: 'relative_path',       sql: 'ALTER TABLE assignment_attachments ADD COLUMN relative_path VARCHAR(1000) DEFAULT NULL' },
       { name: 'status',              sql: "ALTER TABLE assignment_attachments ADD COLUMN status VARCHAR(50) DEFAULT 'team_leader_approved'" },
       { name: 'current_stage',       sql: "ALTER TABLE assignment_attachments ADD COLUMN current_stage VARCHAR(50) DEFAULT 'pending_admin'" },
-      { name: 'uploaded_by_id',      sql: "ALTER TABLE assignment_attachments ADD COLUMN uploaded_by_id INT DEFAULT NULL" },
-      { name: 'uploaded_by_username',sql: "ALTER TABLE assignment_attachments ADD COLUMN uploaded_by_username VARCHAR(100) DEFAULT NULL" },
+      { name: 'uploaded_by_id',      sql: 'ALTER TABLE assignment_attachments ADD COLUMN uploaded_by_id INT DEFAULT NULL' },
+      { name: 'uploaded_by_username',sql: 'ALTER TABLE assignment_attachments ADD COLUMN uploaded_by_username VARCHAR(100) DEFAULT NULL' }
     ];
 
     for (const col of columnsToAdd) {

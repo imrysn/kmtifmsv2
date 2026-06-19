@@ -1,6 +1,6 @@
 /**
  * Notification Service
- * 
+ *
  * Centralizes notification creation logic for all application events.
  */
 
@@ -21,68 +21,68 @@ const { DatabaseError } = require('../middleware/errorHandler');
  * @returns {Promise<number>} - Inserted notification ID
  */
 async function createNotification(
-    userId,
-    fileId = null,
-    type = null,
-    title = null,
-    message = null,
-    actionById = null,
-    actionByUsername = null,
-    actionByRole = null,
-    assignmentId = null
+  userId,
+  fileId = null,
+  type = null,
+  title = null,
+  message = null,
+  actionById = null,
+  actionByUsername = null,
+  actionByRole = null,
+  assignmentId = null
 ) {
-    // Support object style: createNotification({ user_id, ... })
-    let data = {};
-    if (typeof userId === 'object' && userId !== null) {
-        data = userId;
-    } else {
-        data = {
-            user_id: userId,
-            file_id: fileId,
-            type: type,
-            title: title,
-            message: message,
-            action_by_id: actionById,
-            action_by_username: actionByUsername,
-            action_by_role: actionByRole,
-            assignment_id: assignmentId
-        };
-    }
+  // Support object style: createNotification({ user_id, ... })
+  let data = {};
+  if (typeof userId === 'object' && userId !== null) {
+    data = userId;
+  } else {
+    data = {
+      user_id: userId,
+      file_id: fileId,
+      type: type,
+      title: title,
+      message: message,
+      action_by_id: actionById,
+      action_by_username: actionByUsername,
+      action_by_role: actionByRole,
+      assignment_id: assignmentId
+    };
+  }
 
-    const query = `
+  const query = `
         INSERT INTO notifications (
             user_id, file_id, assignment_id, type, title, message,
             action_by_id, action_by_username, action_by_role, created_at
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
     `;
 
-    // Ensure all parameters are null instead of undefined for MySQL compatibility
-    // Provide defaults for NOT NULL columns in database
-    const params = [
-        data.user_id ?? data.userId ?? null,
-        data.file_id ?? data.fileId ?? null,
-        data.assignment_id ?? data.assignmentId ?? null,
-        data.type ?? null,
-        data.title ?? null,
-        data.message ?? null,
-        data.action_by_id ?? data.actionById ?? null,
-        data.action_by_username ?? data.actionByUsername ?? 'System',
-        data.action_by_role ?? data.actionByRole ?? 'ADMIN'
-    ];
+  // Ensure all parameters are null instead of undefined for MySQL compatibility
+  // Provide defaults for NOT NULL columns in database
+  const params = [
+    data.user_id ?? data.userId ?? null,
+    data.file_id ?? data.fileId ?? null,
+    data.assignment_id ?? data.assignmentId ?? null,
+    data.type ?? null,
+    data.title ?? null,
+    data.message ?? null,
+    data.action_by_id ?? data.actionById ?? null,
+    data.action_by_username ?? data.actionByUsername ?? 'System',
+    data.action_by_role ?? data.actionByRole ?? 'ADMIN'
+  ];
 
+  try {
+    const result = await db.run(query, params);
+    const insertedId = result.insertId || result.lastID;
+    // Push real-time SSE ping so the client badge updates instantly
     try {
-        const result = await db.run(query, params);
-        const insertedId = result.insertId || result.lastID;
-        // Push real-time SSE ping so the client badge updates instantly
-        try {
-            const { pushToUser } = require('../routes/notifications');
-            pushToUser(data.user_id ?? data.userId);
-        } catch (_) {}
-        return insertedId;
-    } catch (err) {
-        console.error('❌ Failed to create notification:', err);
-        return null;
-    }
+      const { pushToUser } = require('../routes/notifications');
+      pushToUser(data.user_id ?? data.userId);
+    } catch (_) {}
+    return insertedId;
+  } catch (err) {
+    console.error('❌ Failed to create notification:', err);
+    return null;
+  }
 }
 
 /**
@@ -98,43 +98,47 @@ async function createNotification(
  * @returns {Promise<number>} - Number of notifications created
  */
 async function createAdminNotification(
-    fileId,
-    type,
-    title,
-    message,
-    actionById,
-    actionByUsername,
-    actionByRole,
-    assignmentId = null
+  fileId,
+  type,
+  title,
+  message,
+  actionById,
+  actionByUsername,
+  actionByRole,
+  assignmentId = null
 ) {
-    try {
-        // Find all admins
-        const admins = await db.all('SELECT id FROM users WHERE role = "ADMIN"');
-        if (!admins || admins.length === 0) return 0;
-
-        let createdCount = 0;
-        for (const admin of admins) {
-            const id = await createNotification(
-                admin.id,
-                fileId,
-                type,
-                title,
-                message,
-                actionById,
-                actionByUsername,
-                actionByRole,
-                assignmentId
-            );
-            if (id) createdCount++;
-        }
-        return createdCount;
-    } catch (err) {
-        console.error('❌ Failed to create admin notifications:', err);
-        return 0;
+  try {
+    // Find all admins
+    const admins = await db.all('SELECT id FROM users WHERE role = "ADMIN"');
+    if (!admins || admins.length === 0) {
+      return 0;
     }
+
+    let createdCount = 0;
+    for (const admin of admins) {
+      const id = await createNotification(
+        admin.id,
+        fileId,
+        type,
+        title,
+        message,
+        actionById,
+        actionByUsername,
+        actionByRole,
+        assignmentId
+      );
+      if (id) {
+        createdCount++;
+      }
+    }
+    return createdCount;
+  } catch (err) {
+    console.error('❌ Failed to create admin notifications:', err);
+    return 0;
+  }
 }
 
 module.exports = {
-    createNotification,
-    createAdminNotification
+  createNotification,
+  createAdminNotification
 };

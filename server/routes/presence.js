@@ -16,7 +16,9 @@ function broadcastOnlineUsers() {
   const cutoff = Date.now() - ONLINE_THRESHOLD_MS;
   const online = [];
   for (const data of presenceStore.values()) {
-    if (data.lastSeen >= cutoff) online.push(data);
+    if (data.lastSeen >= cutoff) {
+      online.push(data);
+    }
   }
   online.sort((a, b) => b.lastSeen - a.lastSeen);
 
@@ -40,7 +42,9 @@ setInterval(() => {
       changed = true;
     }
   }
-  if (changed) broadcastOnlineUsers();
+  if (changed) {
+    broadcastOnlineUsers();
+  }
 }, 30 * 1000);
 
 // ── GET /api/presence/stream — real-time SSE stream ──────────────────────────
@@ -55,7 +59,9 @@ router.get('/stream', authenticateToken, (req, res) => {
   const cutoff = Date.now() - ONLINE_THRESHOLD_MS;
   const online = [];
   for (const data of presenceStore.values()) {
-    if (data.lastSeen >= cutoff) online.push(data);
+    if (data.lastSeen >= cutoff) {
+      online.push(data);
+    }
   }
   online.sort((a, b) => b.lastSeen - a.lastSeen);
   res.write(`data: ${JSON.stringify({ online, count: online.length })}\n\n`);
@@ -64,7 +70,11 @@ router.get('/stream', authenticateToken, (req, res) => {
 
   // Keepalive every 25s to prevent proxy/firewall timeouts
   const keepalive = setInterval(() => {
-    try { res.write(': ping\n\n'); } catch { clearInterval(keepalive); }
+    try {
+      res.write(': ping\n\n');
+    } catch {
+      clearInterval(keepalive);
+    }
   }, 25000);
 
   req.on('close', () => {
@@ -80,7 +90,9 @@ router.post('/ping', authenticateToken, (req, res) => {
     const { id: userId } = req.user;
     const wasOnline = presenceStore.has(String(userId));
     presenceStore.delete(String(userId));
-    if (wasOnline) broadcastOnlineUsers();
+    if (wasOnline) {
+      broadcastOnlineUsers();
+    }
     return res.json({ success: true });
   }
 
@@ -107,7 +119,9 @@ router.delete('/ping', authenticateToken, (req, res) => {
   const { id: userId } = req.user;
   const wasOnline = presenceStore.has(String(userId));
   presenceStore.delete(String(userId));
-  if (wasOnline) broadcastOnlineUsers();
+  if (wasOnline) {
+    broadcastOnlineUsers();
+  }
   res.json({ success: true });
 });
 
@@ -124,12 +138,12 @@ router.get('/members', authenticateToken, asyncHandler(async (req, res) => {
   let members;
   if (team) {
     members = await dbQuery(
-      `SELECT id, fullName, username, role, team, profile_picture FROM users WHERE team = ? ORDER BY fullName`,
+      'SELECT id, fullName, username, role, team, profile_picture FROM users WHERE team = ? ORDER BY fullName',
       [team]
     );
   } else {
     members = await dbQuery(
-      `SELECT id, fullName, username, role, team, profile_picture FROM users ORDER BY fullName`
+      'SELECT id, fullName, username, role, team, profile_picture FROM users ORDER BY fullName'
     );
   }
 
@@ -145,13 +159,15 @@ router.get('/members', authenticateToken, asyncHandler(async (req, res) => {
       team: m.team,
       profile_picture: m.profile_picture,
       online: isOnline,
-      lastSeen: presence ? presence.lastSeen : null,
+      lastSeen: presence ? presence.lastSeen : null
     };
   });
 
   // Online first, then offline alphabetically
   result.sort((a, b) => {
-    if (a.online !== b.online) return a.online ? -1 : 1;
+    if (a.online !== b.online) {
+      return a.online ? -1 : 1;
+    }
     return (a.fullName || a.username).localeCompare(b.fullName || b.username);
   });
 
@@ -164,9 +180,13 @@ router.get('/online', authenticateToken, (req, res) => {
 
   let online = [];
   for (const data of presenceStore.values()) {
-    if (data.lastSeen >= cutoff) online.push(data);
+    if (data.lastSeen >= cutoff) {
+      online.push(data);
+    }
   }
-  if (team) online = online.filter(u => u.team === team);
+  if (team) {
+    online = online.filter(u => u.team === team);
+  }
   online.sort((a, b) => b.lastSeen - a.lastSeen);
 
   res.json({ success: true, online, count: online.length });

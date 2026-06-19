@@ -9,7 +9,9 @@
  * @returns {string[]} array of "YYYY-MM-DD" strings for weekend dates
  */
 function getWeekendDatesBetween(startDateStr, dueDateStr) {
-  if (!dueDateStr) return [];
+  if (!dueDateStr) {
+    return [];
+  }
   const start = new Date(startDateStr || new Date());
   const end   = new Date(dueDateStr);
 
@@ -48,7 +50,9 @@ function getWeekendDatesBetween(startDateStr, dueDateStr) {
  * @returns {number}  positive = days left, 0 = due today, negative = overdue
  */
 function calcBusinessDaysLeft(dueDateStr, otDates = [], from = new Date()) {
-  if (!dueDateStr) return null;
+  if (!dueDateStr) {
+    return null;
+  }
 
   const today = new Date(from);
   today.setHours(0, 0, 0, 0);
@@ -85,8 +89,11 @@ function calcBusinessDaysLeft(dueDateStr, otDates = [], from = new Date()) {
     while (c2 <= today) {
       const day = c2.getDay();
       const iso = toLocalISO(c2);
-      if (day !== 0 && day !== 6) overdue++;
-      else if (otSet.has(iso)) overdue++;
+      if (day !== 0 && day !== 6) {
+        overdue++;
+      } else if (otSet.has(iso)) {
+        overdue++;
+      }
       c2.setDate(c2.getDate() + 1);
     }
     return -overdue;

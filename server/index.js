@@ -17,7 +17,7 @@ if (process.platform === 'win32' && process.pkg) {
   try {
     const { execSync } = require('child_process');
     // Use PowerShell to hide the current console window
-    // eslint-disable-next-line no-useless-escape
+
     execSync('powershell -command "(Get-Process -Id $PID).MainWindowHandle | ForEach-Object { $hwnd = $_; Add-Type -TypeDefinition \'using System; using System.Runtime.InteropServices; public class Win32 { [DllImport(\\"user32.dll\\")] public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow); }\'; [Win32]::ShowWindow($hwnd, 0) }" 2>nul', { stdio: 'ignore' });
   } catch (_e) {
     // If PowerShell method fails, try direct API calls
@@ -217,7 +217,9 @@ function cleanupTempFiles() {
 
 // Kill any process already using our port (Windows-safe, with retry)
 async function freePort(port) {
-  if (process.platform !== 'win32') return;
+  if (process.platform !== 'win32') {
+    return;
+  }
 
   const { exec } = require('child_process');
   const net = require('net');
@@ -227,7 +229,9 @@ async function freePort(port) {
     return new Promise((resolve) => {
       const tester = net.createServer();
       tester.once('error', () => resolve(false));
-      tester.once('listening', () => { tester.close(); resolve(true); });
+      tester.once('listening', () => {
+        tester.close(); resolve(true);
+      });
       tester.listen(port, '127.0.0.1');
     });
   }
@@ -245,13 +249,17 @@ async function freePort(port) {
   function getPidsOnPort() {
     return new Promise((resolve) => {
       exec(`netstat -ano | findstr :${port}`, (err, stdout) => {
-        if (err || !stdout) { resolve(new Set()); return; }
+        if (err || !stdout) {
+          resolve(new Set()); return;
+        }
         const pids = new Set();
         stdout.split('\n').forEach(line => {
           if (line.toUpperCase().includes('LISTENING')) {
             const parts = line.trim().split(/\s+/);
             const pid = parseInt(parts[parts.length - 1]);
-            if (!isNaN(pid) && pid !== process.pid) pids.add(pid);
+            if (!isNaN(pid) && pid !== process.pid) {
+              pids.add(pid);
+            }
           }
         });
         resolve(pids);
@@ -319,7 +327,7 @@ async function initDbWithRetry(attempt = 1) {
       const watchPaths = [
         uploadsDir,                                          // pending uploads
         require('path').join(networkDataPath, 'user_approvals'), // approved files
-        require('path').join(networkDataPath, 'PROJECTS'),       // moved-to-projects files
+        require('path').join(networkDataPath, 'PROJECTS')       // moved-to-projects files
       ].filter(Boolean);
       startWatcher(watchPaths);
     } catch (watchErr) {
@@ -353,7 +361,7 @@ async function startServer() {
         server.once('listening', () => {
           console.log('\n' + '='.repeat(70));
           console.log(`🚀 Express server running on http://localhost:${PORT}`);
-          console.log(`🗄️  Database Type: MySQL (connecting in background…)`);
+          console.log('🗄️  Database Type: MySQL (connecting in background…)');
           console.log('='.repeat(70) + '\n');
           resolve(server);
         });

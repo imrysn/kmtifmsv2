@@ -15,11 +15,13 @@ const { decodeUTF8Filename, ensureDirectory, moveToUserFolder } = require('../ut
 // ── Ensure ot_dates column exists (one-time silent migration) ──────────────────────────────
 let otDatesColumnReady = false;
 async function ensureOtDatesColumn() {
-  if (otDatesColumnReady) return;
+  if (otDatesColumnReady) {
+    return;
+  }
   try {
-    const cols = await query(`SHOW COLUMNS FROM assignments LIKE 'ot_dates'`);
+    const cols = await query('SHOW COLUMNS FROM assignments LIKE \'ot_dates\'');
     if (!cols || cols.length === 0) {
-      await query(`ALTER TABLE assignments ADD COLUMN ot_dates TEXT NULL AFTER due_date`);
+      await query('ALTER TABLE assignments ADD COLUMN ot_dates TEXT NULL AFTER due_date');
       console.log('✅ ot_dates column added to assignments table');
     }
     otDatesColumnReady = true;
@@ -45,7 +47,9 @@ async function revertCheckedIfNoFiles(assignmentId) {
       'SELECT id, status FROM assignments WHERE id = ?',
       [assignmentId]
     );
-    if (!assignment || assignment.status !== 'checked') return; // not checked — nothing to do
+    if (!assignment || assignment.status !== 'checked') {
+      return;
+    } // not checked — nothing to do
 
     // Count remaining submitted files for this assignment
     const [remaining] = await query(
@@ -168,10 +172,20 @@ async function createBatchedSubmissionNotification(teamLeaderId, assignmentId, s
     // Skip the submitter themselves and the TL (already notified above).
     try {
       const checkerAssignment = await queryOne('SELECT checker_ids, title FROM assignments WHERE id = ?', [assignmentId]);
-      const checkerIds = (() => { try { return JSON.parse(checkerAssignment?.checker_ids || '[]').map(String); } catch { return []; } })();
+      const checkerIds = (() => {
+        try {
+          return JSON.parse(checkerAssignment?.checker_ids || '[]').map(String);
+        } catch {
+          return [];
+        }
+      })();
       for (const checkerId of checkerIds) {
-        if (String(checkerId) === String(firstSubmission.userId)) continue; // submitter is the checker
-        if (String(checkerId) === String(finalTeamLeaderId)) continue;       // TL already notified
+        if (String(checkerId) === String(firstSubmission.userId)) {
+          continue;
+        } // submitter is the checker
+        if (String(checkerId) === String(finalTeamLeaderId)) {
+          continue;
+        }       // TL already notified
         await query(
           `INSERT INTO notifications (user_id, assignment_id, file_id, type, title, message, action_by_id, action_by_username, action_by_role)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -208,71 +222,75 @@ setInterval(() => {
 // IMPORTANT: finalPath is ALWAYS the absolute NAS path — never a temp path.
 const CONCURRENCY = 25; // Increased to parallelize more NAS moves
 async function processAttachments(uploadedFiles, relativePaths, finalTeamLeaderUsername, assignmentId) {
-    const results = [];
-    const batchSize = Math.max(CONCURRENCY, Math.ceil(uploadedFiles.length / 2));
+  const results = [];
+  const batchSize = Math.max(CONCURRENCY, Math.ceil(uploadedFiles.length / 2));
 
-    // ── Replace existing folders/files with the same name ────────────────────
-    // Collect all incoming top-level folder names and individual file names
-    const incomingFolders = new Set();
-    const incomingFileNames = new Set();
-    uploadedFiles.forEach((file, i) => {
-        const relPath = relativePaths[i] || file.originalname;
-        const parts = relPath.split('/');
-        if (parts.length > 1) {
-            incomingFolders.add(parts[0]);
-        } else {
-            incomingFileNames.add(parts[0]);
-        }
-    });
-
-    if (assignmentId && (incomingFolders.size > 0 || incomingFileNames.size > 0)) {
-        try {
-            const existing = await query(
-                'SELECT id, file_path, folder_name, original_name FROM assignment_attachments WHERE assignment_id = ?',
-                [assignmentId]
-            );
-            const toDelete = (existing || []).filter(att => {
-                if (att.folder_name && incomingFolders.has(att.folder_name)) return true;
-                if (!att.folder_name && incomingFileNames.has(att.original_name)) return true;
-                return false;
-            });
-            for (const att of toDelete) {
-                // SAFETY: Only delete files that are in the teamleader/ path.
-                // Never delete files in the projects/ path (those are user-submitted files).
-                if (att.file_path) {
-                    try {
-                        // Verify the file is in the teamleader directory before deleting
-                        const teamleaderBase = path.join(networkDataPath, 'teamleader');
-                        const isTeamLeaderFile = att.file_path.startsWith(teamleaderBase) ||
-                            att.file_path.replace(/\\/g, '/').includes('/teamleader/');
-                        if (isTeamLeaderFile && fs.existsSync(att.file_path)) {
-                            fs.unlinkSync(att.file_path);
-                        } else if (!isTeamLeaderFile) {
-                            console.warn(`⚠️ processAttachments: skipping deletion of non-teamleader file: ${att.file_path}`);
-                        }
-                    } catch (_) {}
-                }
-                await query('DELETE FROM assignment_attachments WHERE id = ?', [att.id]);
-            }
-            // Delete now-empty folder directories on NAS — only in the teamleader/ path.
-            // NEVER delete folders in the projects/ path (user submitted files live there).
-            const teamleaderBase = path.join(networkDataPath, 'teamleader');
-            for (const folderName of incomingFolders) {
-                const folderPath = path.join(teamleaderBase, finalTeamLeaderUsername, folderName);
-                try {
-                    if (fs.existsSync(folderPath)) {
-                        fs.rmSync(folderPath, { recursive: true, force: true });
-                    }
-                } catch (_) {}
-            }
-        } catch (e) {
-            console.warn('⚠️ Could not clean up replaced attachments:', e.message);
-        }
+  // ── Replace existing folders/files with the same name ────────────────────
+  // Collect all incoming top-level folder names and individual file names
+  const incomingFolders = new Set();
+  const incomingFileNames = new Set();
+  uploadedFiles.forEach((file, i) => {
+    const relPath = relativePaths[i] || file.originalname;
+    const parts = relPath.split('/');
+    if (parts.length > 1) {
+      incomingFolders.add(parts[0]);
+    } else {
+      incomingFileNames.add(parts[0]);
     }
-    // ─────────────────────────────────────────────────────────────────────────
+  });
 
-    for (let i = 0; i < uploadedFiles.length; i += batchSize) {
-        const batch = uploadedFiles.slice(i, i + batchSize);
+  if (assignmentId && (incomingFolders.size > 0 || incomingFileNames.size > 0)) {
+    try {
+      const existing = await query(
+        'SELECT id, file_path, folder_name, original_name FROM assignment_attachments WHERE assignment_id = ?',
+        [assignmentId]
+      );
+      const toDelete = (existing || []).filter(att => {
+        if (att.folder_name && incomingFolders.has(att.folder_name)) {
+          return true;
+        }
+        if (!att.folder_name && incomingFileNames.has(att.original_name)) {
+          return true;
+        }
+        return false;
+      });
+      for (const att of toDelete) {
+        // SAFETY: Only delete files that are in the teamleader/ path.
+        // Never delete files in the projects/ path (those are user-submitted files).
+        if (att.file_path) {
+          try {
+            // Verify the file is in the teamleader directory before deleting
+            const teamleaderBase = path.join(networkDataPath, 'teamleader');
+            const isTeamLeaderFile = att.file_path.startsWith(teamleaderBase) ||
+                            att.file_path.replace(/\\/g, '/').includes('/teamleader/');
+            if (isTeamLeaderFile && fs.existsSync(att.file_path)) {
+              fs.unlinkSync(att.file_path);
+            } else if (!isTeamLeaderFile) {
+              console.warn(`⚠️ processAttachments: skipping deletion of non-teamleader file: ${att.file_path}`);
+            }
+          } catch { /* ignored */ }
+        }
+        await query('DELETE FROM assignment_attachments WHERE id = ?', [att.id]);
+      }
+      // Delete now-empty folder directories on NAS — only in the teamleader/ path.
+      // NEVER delete folders in the projects/ path (user submitted files live there).
+      const teamleaderBase = path.join(networkDataPath, 'teamleader');
+      for (const folderName of incomingFolders) {
+        const folderPath = path.join(teamleaderBase, finalTeamLeaderUsername, folderName);
+        try {
+          if (fs.existsSync(folderPath)) {
+            fs.rmSync(folderPath, { recursive: true, force: true });
+          }
+        } catch { /* ignored */ }
+      }
+    } catch (e) {
+      console.warn('⚠️ Could not clean up replaced attachments:', e.message);
+    }
+  }
+  // ─────────────────────────────────────────────────────────────────────────
+
+  for (let i = 0; i < uploadedFiles.length; i += batchSize) {
+    const batch = uploadedFiles.slice(i, i + batchSize);
     // Pre-create all unique directories for this batch only (not all files every iteration)
     const uniqueDirs = new Set(batch.map((file, batchIdx) => {
       const idx = i + batchIdx;
@@ -281,7 +299,7 @@ async function processAttachments(uploadedFiles, relativePaths, finalTeamLeaderU
       const sanitizedRelPath = (relPath || '').split('/').map(seg => seg.replace(/[<>:"/\\|?*\x00-\x1F]/g, '_')).join(path.sep);
       return path.dirname(path.join(baseDir, sanitizedRelPath));
     }));
-    
+
     await Promise.all([...uniqueDirs].map(dir => ensureDirectory(dir)));
 
     const batchResults = await Promise.all(
@@ -319,7 +337,11 @@ router.post('/add-attachments', authenticateToken, authorizeRole(['TEAM_LEADER',
     const { assignmentId, hasAttachments } = req.body;
 
     if (!assignmentId) {
-      for (const f of rawFiles) { try { fs.unlinkSync(f.path); } catch (_) {} }
+      for (const f of rawFiles) {
+        try {
+          fs.unlinkSync(f.path);
+        } catch { /* ignored */ }
+      }
       return res.status(400).json({ success: false, message: 'Missing assignmentId' });
     }
 
@@ -330,12 +352,18 @@ router.post('/add-attachments', authenticateToken, authorizeRole(['TEAM_LEADER',
 
     const assignment = await queryOne('SELECT * FROM assignments WHERE id = ?', [assignmentId]);
     if (!assignment) {
-      for (const f of rawFiles) { try { fs.unlinkSync(f.path); } catch (_) {} }
+      for (const f of rawFiles) {
+        try {
+          fs.unlinkSync(f.path);
+        } catch { /* ignored */ }
+      }
       return res.status(404).json({ success: false, message: 'Assignment not found' });
     }
 
     let relativePaths = [];
-    try { relativePaths = JSON.parse(req.body.relativePaths || '[]'); } catch (_) {}
+    try {
+      relativePaths = JSON.parse(req.body.relativePaths || '[]');
+    } catch { /* ignored */ }
 
     const processed = await processAttachments(rawFiles, relativePaths, assignment.team_leader_username, assignmentId);
     let attachmentsCreated = 0;
@@ -425,17 +453,33 @@ router.get('/admin/all', authenticateToken, authorizeRole(['ADMIN']), async (req
       ]);
 
       const membersByAsgn = {}; const attachByAsgn = {}; const subsByAsgn = {};
-      (allMembers || []).forEach(r => { const k = r.assignment_id; if (!membersByAsgn[k]) membersByAsgn[k] = []; membersByAsgn[k].push(r); });
-      (allAttachments || []).forEach(r => { const k = r.assignment_id; if (!attachByAsgn[k]) attachByAsgn[k] = []; attachByAsgn[k].push(r); });
-      (allSubmissions || []).forEach(r => { const k = r.assignment_id; if (!subsByAsgn[k]) subsByAsgn[k] = []; subsByAsgn[k].push(r); });
-      const tlMap = {}; (allTLs || []).forEach(u => { tlMap[u.id] = u; });
+      (allMembers || []).forEach(r => {
+        const k = r.assignment_id; if (!membersByAsgn[k]) {
+          membersByAsgn[k] = [];
+        } membersByAsgn[k].push(r);
+      });
+      (allAttachments || []).forEach(r => {
+        const k = r.assignment_id; if (!attachByAsgn[k]) {
+          attachByAsgn[k] = [];
+        } attachByAsgn[k].push(r);
+      });
+      (allSubmissions || []).forEach(r => {
+        const k = r.assignment_id; if (!subsByAsgn[k]) {
+          subsByAsgn[k] = [];
+        } subsByAsgn[k].push(r);
+      });
+      const tlMap = {}; (allTLs || []).forEach(u => {
+        tlMap[u.id] = u;
+      });
 
       assignmentsToReturn.forEach(assignment => {
         assignment.assigned_member_details = membersByAsgn[assignment.id] || [];
         assignment.attachments = attachByAsgn[assignment.id] || [];
         assignment.recent_submissions = subsByAsgn[assignment.id] || [];
         const tl = tlMap[assignment.team_leader_id || assignment.teamLeaderId];
-        if (tl) { assignment.team_leader_fullname = tl.fullName; assignment.team_leader_username = tl.username; assignment.team_leader_email = tl.email; assignment.team_leader_profile_picture = tl.profile_picture; }
+        if (tl) {
+          assignment.team_leader_fullname = tl.fullName; assignment.team_leader_username = tl.username; assignment.team_leader_email = tl.email; assignment.team_leader_profile_picture = tl.profile_picture;
+        }
       });
     }
 
@@ -462,8 +506,12 @@ router.get('/all', authenticateToken, authorizeRole(['ADMIN']), async (req, res)
     `;
     const queryParams = [];
     const conditions = [];
-    if (cursor) { conditions.push('a.id < ?'); queryParams.push(cursor); }
-    if (conditions.length > 0) queryStr += ' WHERE ' + conditions.join(' AND ');
+    if (cursor) {
+      conditions.push('a.id < ?'); queryParams.push(cursor);
+    }
+    if (conditions.length > 0) {
+      queryStr += ' WHERE ' + conditions.join(' AND ');
+    }
     queryStr += ' ORDER BY a.created_at DESC, a.id DESC';
     if (parsedLimit) {
       queryStr += ' LIMIT ?';
@@ -488,16 +536,32 @@ router.get('/all', authenticateToken, authorizeRole(['ADMIN']), async (req, res)
         tlIds.length > 0 ? query(`SELECT id, fullName, username, email, profile_picture FROM users WHERE id IN (${tlPh})`, tlIds) : []
       ]);
       const membersByAsgn = {}; const attachByAsgn = {}; const subsByAsgn = {};
-      (allMembers || []).forEach(r => { const k = r.assignment_id; if (!membersByAsgn[k]) membersByAsgn[k] = []; membersByAsgn[k].push(r); });
-      (allAttachments || []).forEach(r => { const k = r.assignment_id; if (!attachByAsgn[k]) attachByAsgn[k] = []; attachByAsgn[k].push(r); });
-      (allSubmissions || []).forEach(r => { const k = r.assignment_id; if (!subsByAsgn[k]) subsByAsgn[k] = []; subsByAsgn[k].push(r); });
-      const tlMap = {}; (allTLs || []).forEach(u => { tlMap[u.id] = u; });
+      (allMembers || []).forEach(r => {
+        const k = r.assignment_id; if (!membersByAsgn[k]) {
+          membersByAsgn[k] = [];
+        } membersByAsgn[k].push(r);
+      });
+      (allAttachments || []).forEach(r => {
+        const k = r.assignment_id; if (!attachByAsgn[k]) {
+          attachByAsgn[k] = [];
+        } attachByAsgn[k].push(r);
+      });
+      (allSubmissions || []).forEach(r => {
+        const k = r.assignment_id; if (!subsByAsgn[k]) {
+          subsByAsgn[k] = [];
+        } subsByAsgn[k].push(r);
+      });
+      const tlMap = {}; (allTLs || []).forEach(u => {
+        tlMap[u.id] = u;
+      });
       assignmentsToReturn.forEach(assignment => {
         assignment.assigned_member_details = membersByAsgn[assignment.id] || [];
         assignment.attachments = attachByAsgn[assignment.id] || [];
         assignment.recent_submissions = subsByAsgn[assignment.id] || [];
         const tl = tlMap[assignment.team_leader_id || assignment.teamLeaderId];
-        if (tl) { assignment.team_leader_fullname = tl.fullName; assignment.team_leader_username = tl.username; assignment.team_leader_email = tl.email; assignment.team_leader_profile_picture = tl.profile_picture; }
+        if (tl) {
+          assignment.team_leader_fullname = tl.fullName; assignment.team_leader_username = tl.username; assignment.team_leader_email = tl.email; assignment.team_leader_profile_picture = tl.profile_picture;
+        }
       });
     }
     res.json({ success: true, assignments: assignmentsToReturn || [], nextCursor, hasMore });
@@ -647,16 +711,32 @@ router.get('/team/:team/all-tasks', authenticateToken, async (req, res) => {
         tlIds.length > 0 ? query(`SELECT id, fullName, username, email, profile_picture FROM users WHERE id IN (${tlIds.map(() => '?').join(',')})`, tlIds) : []
       ]);
       const membersByAsgn = {}; const attachByAsgn = {}; const subsByAsgn = {};
-      (allMembers || []).forEach(r => { const k = r.assignment_id; if (!membersByAsgn[k]) membersByAsgn[k] = []; membersByAsgn[k].push(r); });
-      (allAttachments || []).forEach(r => { const k = r.assignment_id; if (!attachByAsgn[k]) attachByAsgn[k] = []; attachByAsgn[k].push(r); });
-      (allSubmissions || []).forEach(r => { const k = r.assignment_id; if (!subsByAsgn[k]) subsByAsgn[k] = []; subsByAsgn[k].push(r); });
-      const tlMap = {}; (allTLs || []).forEach(u => { tlMap[u.id] = u; });
+      (allMembers || []).forEach(r => {
+        const k = r.assignment_id; if (!membersByAsgn[k]) {
+          membersByAsgn[k] = [];
+        } membersByAsgn[k].push(r);
+      });
+      (allAttachments || []).forEach(r => {
+        const k = r.assignment_id; if (!attachByAsgn[k]) {
+          attachByAsgn[k] = [];
+        } attachByAsgn[k].push(r);
+      });
+      (allSubmissions || []).forEach(r => {
+        const k = r.assignment_id; if (!subsByAsgn[k]) {
+          subsByAsgn[k] = [];
+        } subsByAsgn[k].push(r);
+      });
+      const tlMap = {}; (allTLs || []).forEach(u => {
+        tlMap[u.id] = u;
+      });
       assignmentsToReturn.forEach(a => {
         a.assigned_member_details = membersByAsgn[a.id] || [];
         a.attachments = attachByAsgn[a.id] || [];
         a.recent_submissions = subsByAsgn[a.id] || [];
         const tl = tlMap[a.team_leader_id || a.teamLeaderId];
-        if (tl) { a.team_leader_fullname = tl.fullName; a.team_leader_username = tl.username; a.team_leader_email = tl.email; a.team_leader_profile_picture = tl.profile_picture; }
+        if (tl) {
+          a.team_leader_fullname = tl.fullName; a.team_leader_username = tl.username; a.team_leader_email = tl.email; a.team_leader_profile_picture = tl.profile_picture;
+        }
       });
     }
 
@@ -684,7 +764,7 @@ router.get('/team-leader/:userId', authenticateToken, authorizeRole(['TEAM_LEADE
 
     const teamNames = ledTeams.map(t => t.name);
     const placeholders = teamNames.map(() => '?').join(',');
-    
+
     let queryStr = `
       SELECT a.*, 
         (SELECT COUNT(id) FROM assignment_submissions WHERE assignment_id = a.id) as submission_count, 
@@ -693,14 +773,14 @@ router.get('/team-leader/:userId', authenticateToken, authorizeRole(['TEAM_LEADE
       WHERE a.team IN (${placeholders})
     `;
     const queryParams = [...teamNames];
-    
+
     if (cursor) {
       queryStr += ' AND a.id < ?';
       queryParams.push(cursor);
     }
-    
+
     queryStr += ' ORDER BY a.created_at DESC, a.id DESC';
-    
+
     if (parsedLimit) {
       queryStr += ' LIMIT ?';
       queryParams.push(parsedLimit + 1);
@@ -735,17 +815,33 @@ router.get('/team-leader/:userId', authenticateToken, authorizeRole(['TEAM_LEADE
 
       // Group by assignment_id
       const membersByAsgn = {}; const attachByAsgn = {}; const subsByAsgn = {};
-      (allMembers || []).forEach(r => { const k = r.assignment_id; if (!membersByAsgn[k]) membersByAsgn[k] = []; membersByAsgn[k].push(r); });
-      (allAttachments || []).forEach(r => { const k = r.assignment_id; if (!attachByAsgn[k]) attachByAsgn[k] = []; attachByAsgn[k].push(r); });
-      (allSubmissions || []).forEach(r => { const k = r.assignment_id; if (!subsByAsgn[k]) subsByAsgn[k] = []; subsByAsgn[k].push(r); });
-      const tlMap = {}; (allTLs || []).forEach(u => { tlMap[u.id] = u; });
+      (allMembers || []).forEach(r => {
+        const k = r.assignment_id; if (!membersByAsgn[k]) {
+          membersByAsgn[k] = [];
+        } membersByAsgn[k].push(r);
+      });
+      (allAttachments || []).forEach(r => {
+        const k = r.assignment_id; if (!attachByAsgn[k]) {
+          attachByAsgn[k] = [];
+        } attachByAsgn[k].push(r);
+      });
+      (allSubmissions || []).forEach(r => {
+        const k = r.assignment_id; if (!subsByAsgn[k]) {
+          subsByAsgn[k] = [];
+        } subsByAsgn[k].push(r);
+      });
+      const tlMap = {}; (allTLs || []).forEach(u => {
+        tlMap[u.id] = u;
+      });
 
       tlAssignments.forEach(assignment => {
         assignment.assigned_member_details = membersByAsgn[assignment.id] || [];
         assignment.attachments = attachByAsgn[assignment.id] || [];
         assignment.recent_submissions = subsByAsgn[assignment.id] || [];
         const tl = tlMap[assignment.team_leader_id || assignment.teamLeaderId];
-        if (tl) { assignment.team_leader_fullname = tl.fullName; assignment.team_leader_username = tl.username; assignment.team_leader_email = tl.email; assignment.team_leader_profile_picture = tl.profile_picture; }
+        if (tl) {
+          assignment.team_leader_fullname = tl.fullName; assignment.team_leader_username = tl.username; assignment.team_leader_email = tl.email; assignment.team_leader_profile_picture = tl.profile_picture;
+        }
       });
     }
 
@@ -812,7 +908,9 @@ router.post('/create-json', authenticateToken, authorizeRole(['TEAM_LEADER', 'AD
         const parsed = typeof raw === 'string' ? JSON.parse(raw) : (Array.isArray(raw) ? raw : []);
         finalOtDates = parsed.length > 0 ? JSON.stringify(parsed) : null;
       }
-    } catch (_) { finalOtDates = null; }
+    } catch {
+      finalOtDates = null;
+    }
 
     const assignmentResult = await (async () => {
       try {
@@ -823,7 +921,9 @@ router.post('/create-json', authenticateToken, authorizeRole(['TEAM_LEADER', 'AD
         );
       } catch (insertErr) {
         if (insertErr.message && insertErr.message.toLowerCase().includes('ot_dates')) {
-          try { await query(`ALTER TABLE assignments ADD COLUMN ot_dates TEXT NULL AFTER due_date`); } catch (_) {}
+          try {
+            await query('ALTER TABLE assignments ADD COLUMN ot_dates TEXT NULL AFTER due_date');
+          } catch { /* ignored */ }
           return await query(
             `INSERT INTO assignments (title, description, due_date, ot_dates, file_type_required, assigned_to, max_file_size, team_leader_id, team_leader_username, team, created_at, status)
              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), 'active')`,
@@ -862,7 +962,9 @@ router.post('/create-json', authenticateToken, authorizeRole(['TEAM_LEADER', 'AD
       membersAssigned = finalMembers.length;
       for (const uid of finalMembers) {
         // Don't notify the team leader who created the task
-        if (String(uid) === String(teamLeaderId)) continue;
+        if (String(uid) === String(teamLeaderId)) {
+          continue;
+        }
         try {
           await query(
             'INSERT INTO notifications (user_id, assignment_id, file_id, type, title, message, action_by_id, action_by_username, action_by_role) VALUES (?,?,?,?,?,?,?,?,?)',
@@ -920,7 +1022,9 @@ router.post('/create', authenticateToken, authorizeRole(['TEAM_LEADER', 'ADMIN']
       const raw = req.body.otDates || req.body.ot_dates;
       const parsed = typeof raw === 'string' ? JSON.parse(raw) : (Array.isArray(raw) ? raw : []);
       finalOtDates = parsed.length > 0 ? JSON.stringify(parsed) : null;
-    } catch (_) { finalOtDates = null; }
+    } catch {
+      finalOtDates = null;
+    }
 
     // Nonce validation for multipart requests only
     const isMultipart = req.is('multipart/form-data');
@@ -966,10 +1070,10 @@ router.post('/create', authenticateToken, authorizeRole(['TEAM_LEADER', 'ADMIN']
     }
 
     const assignmentResult = await query(
-          `INSERT INTO assignments (title, description, due_date, ot_dates, file_type_required, assigned_to, max_file_size, team_leader_id, team_leader_username, team, created_at, status)
+      `INSERT INTO assignments (title, description, due_date, ot_dates, file_type_required, assigned_to, max_file_size, team_leader_id, team_leader_username, team, created_at, status)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), 'active')`,
-          [title, description || null, finalDueDate || null, finalOtDates, finalFileType || null, finalAssignedTo, finalMaxSize, finalTeamLeaderId, finalTeamLeaderUsername, team]
-        );
+      [title, description || null, finalDueDate || null, finalOtDates, finalFileType || null, finalAssignedTo, finalMaxSize, finalTeamLeaderId, finalTeamLeaderUsername, team]
+    );
     const assignmentId = assignmentResult.insertId;
 
     // Provision task project folder on NAS (non-blocking)
@@ -998,7 +1102,9 @@ router.post('/create', authenticateToken, authorizeRole(['TEAM_LEADER', 'ADMIN']
     if (uploadedFiles.length > 0) {
       try {
         let relativePaths = [];
-        try { relativePaths = JSON.parse(req.body.relativePaths || '[]'); } catch (e) { /* ignore */ }
+        try {
+          relativePaths = JSON.parse(req.body.relativePaths || '[]');
+        } catch (e) { /* ignore */ }
 
         const processed = await processAttachments(uploadedFiles, relativePaths, finalTeamLeaderUsername, assignmentId);
         if (processed.length > 0) {
@@ -1042,11 +1148,11 @@ router.post('/create', authenticateToken, authorizeRole(['TEAM_LEADER', 'ADMIN']
       try {
         const memberIds = finalAssignedTo === 'specific' ? (finalMembers || []) :
           (await query('SELECT id FROM users WHERE team = ? AND role = ?', [team, 'USER'])).map(m => m.id);
-        
+
         if (memberIds.length > 0) {
           const notificationValues = [];
           const notificationPlaceholders = [];
-          
+
           for (const uid of memberIds) {
             notificationPlaceholders.push('(?,?,?,?,?,?,?,?,?)');
             notificationValues.push(
@@ -1055,7 +1161,7 @@ router.post('/create', authenticateToken, authorizeRole(['TEAM_LEADER', 'ADMIN']
               finalTeamLeaderId, finalTeamLeaderUsername, 'TEAM_LEADER'
             );
           }
-          
+
           if (notificationValues.length > 0) {
             await query(
               `INSERT INTO notifications (user_id, assignment_id, file_id, type, title, message, action_by_id, action_by_username, action_by_role) 
@@ -1117,7 +1223,9 @@ router.put('/:id', authenticateToken, authorizeRole(['TEAM_LEADER', 'ADMIN']), u
         // Always store a JSON string (even '[]') so COALESCE doesn't keep the old value
         finalOtDates = JSON.stringify(parsed);
       }
-    } catch (_) { finalOtDates = undefined; }
+    } catch {
+      finalOtDates = undefined;
+    }
 
     // ── Fast path: JSON-only edit with no file changes and no member changes ──
     // Skip the expensive queryOne + member diff + notifications for simple metadata updates.
@@ -1126,14 +1234,18 @@ router.put('/:id', authenticateToken, authorizeRole(['TEAM_LEADER', 'ADMIN']), u
       const now = new Date().toISOString().slice(0, 19).replace('T', ' ');
       // Track due date change (need the existing row to compare)
       const existingForFast = await queryOne('SELECT due_date, due_date_edited, original_due_date FROM assignments WHERE id = ?', [id]);
-      if (!existingForFast) return res.status(404).json({ success: false, message: 'Assignment not found' });
+      if (!existingForFast) {
+        return res.status(404).json({ success: false, message: 'Assignment not found' });
+      }
       const prevDD = existingForFast.due_date ? new Date(existingForFast.due_date).toISOString().slice(0, 10) : null;
       const nextDD = finalDueDate ? new Date(finalDueDate).toISOString().slice(0, 10) : null;
       let dueDateEdited = existingForFast.due_date_edited ? 1 : 0;
       let originalDueDate = existingForFast.original_due_date || null;
       if (prevDD && nextDD && prevDD !== nextDD) {
         dueDateEdited = 1;
-        if (!originalDueDate) originalDueDate = existingForFast.due_date;
+        if (!originalDueDate) {
+          originalDueDate = existingForFast.due_date;
+        }
       }
       await query(
         'UPDATE assignments SET title=?, description=?, due_date=?, ot_dates=COALESCE(?,ot_dates), file_type_required=?, due_date_edited=?, original_due_date=?, updated_at=? WHERE id=?',
@@ -1267,7 +1379,9 @@ router.put('/:id', authenticateToken, authorizeRole(['TEAM_LEADER', 'ADMIN']), u
     if (uploadedFiles.length > 0) {
       try {
         let relativePaths = [];
-        try { relativePaths = JSON.parse(req.body.relativePaths || '[]'); } catch (e) { /* ignore */ }
+        try {
+          relativePaths = JSON.parse(req.body.relativePaths || '[]');
+        } catch (e) { /* ignore */ }
 
         const processed = await processAttachments(uploadedFiles, relativePaths, finalTeamLeaderUsername, id);
         if (processed.length > 0) {
@@ -1328,7 +1442,7 @@ router.put('/:id', authenticateToken, authorizeRole(['TEAM_LEADER', 'ADMIN']), u
       try {
         await query('INSERT INTO activity_logs (user_id, username, role, team, activity) VALUES (?, ?, ?, ?, ?)',
           [finalTeamLeaderId || existingAssignment.team_leader_id,
-          finalTeamLeaderUsername || existingAssignment.team_leader_username,
+            finalTeamLeaderUsername || existingAssignment.team_leader_username,
             'TEAM_LEADER', team || existingAssignment.team, `Updated assignment: ${title}`]);
       } catch (e) { /* ignore */ }
 
@@ -1411,11 +1525,15 @@ router.get('/user/:userId', authenticateToken, async (req, res) => {
           // Split assignments into two buckets
           const checkerAssignmentIds = ids.filter(id => {
             const a = userAssignments.find(a => a.id === id);
-            if (!a) return false;
+            if (!a) {
+              return false;
+            }
             try {
               const checkerIds = JSON.parse(a.checker_ids || '[]').map(String);
               return checkerIds.includes(String(userId));
-            } catch { return false; }
+            } catch {
+              return false;
+            }
           });
           const myTaskIds = ids.filter(id => !checkerAssignmentIds.includes(id));
 
@@ -1448,9 +1566,21 @@ router.get('/user/:userId', authenticateToken, async (req, res) => {
         })()
       ]);
       const membersByAsgn = {}; const attachByAsgn = {}; const subsByAsgn = {};
-      (allMembers || []).forEach(r => { const k = r.assignment_id; if (!membersByAsgn[k]) membersByAsgn[k] = []; membersByAsgn[k].push(r); });
-      (allAttachments || []).forEach(r => { const k = r.assignment_id; if (!attachByAsgn[k]) attachByAsgn[k] = []; attachByAsgn[k].push(r); });
-      (allSubmitted || []).forEach(r => { const k = r.assignment_id; if (!subsByAsgn[k]) subsByAsgn[k] = []; subsByAsgn[k].push(r); });
+      (allMembers || []).forEach(r => {
+        const k = r.assignment_id; if (!membersByAsgn[k]) {
+          membersByAsgn[k] = [];
+        } membersByAsgn[k].push(r);
+      });
+      (allAttachments || []).forEach(r => {
+        const k = r.assignment_id; if (!attachByAsgn[k]) {
+          attachByAsgn[k] = [];
+        } attachByAsgn[k].push(r);
+      });
+      (allSubmitted || []).forEach(r => {
+        const k = r.assignment_id; if (!subsByAsgn[k]) {
+          subsByAsgn[k] = [];
+        } subsByAsgn[k].push(r);
+      });
       userAssignments.forEach(a => {
         a.assigned_member_details = membersByAsgn[a.id] || [];
         a.attachments = attachByAsgn[a.id] || [];
@@ -1547,12 +1677,18 @@ router.get('/:assignmentId/comments', authenticateToken, async (req, res) => {
       ) || [];
       const repliesByComment = {};
       allReplies.forEach(r => {
-        if (!repliesByComment[r.comment_id]) repliesByComment[r.comment_id] = [];
+        if (!repliesByComment[r.comment_id]) {
+          repliesByComment[r.comment_id] = [];
+        }
         repliesByComment[r.comment_id].push(r);
       });
-      comments.forEach(c => { c.replies = repliesByComment[c.id] || []; });
+      comments.forEach(c => {
+        c.replies = repliesByComment[c.id] || [];
+      });
     } else if (comments) {
-      comments.forEach(c => { c.replies = []; });
+      comments.forEach(c => {
+        c.replies = [];
+      });
     }
     res.json({ success: true, comments: comments || [] });
   } catch (error) {
@@ -1652,7 +1788,7 @@ router.post('/:assignmentId/comments', authenticateToken, async (req, res) => {
           const info = await queryOne('SELECT title FROM assignments WHERE id = ?', [assignmentId]);
           await query('INSERT INTO notifications (user_id,assignment_id,file_id,type,title,message,action_by_id,action_by_username,action_by_role) VALUES (?,?,?,?,?,?,?,?,?)',
             [mentioned.id, assignmentId, null, 'mention', `${user.fullName} mentioned you`,
-            `${user.fullName} mentioned you in a comment on "${info?.title || 'an assignment'}": ${comment.substring(0, 100)}...`,
+              `${user.fullName} mentioned you in a comment on "${info?.title || 'an assignment'}": ${comment.substring(0, 100)}...`,
               userId, username, user.role]);
           pushToUser(mentioned.id);
         }
@@ -1701,7 +1837,7 @@ router.post('/:assignmentId/comments/:commentId/reply', authenticateToken, async
         const assignment = await queryOne('SELECT title FROM assignments WHERE id = ?', [assignmentId]);
         await query('INSERT INTO notifications (user_id,assignment_id,file_id,type,title,message,action_by_id,action_by_username,action_by_role) VALUES (?,?,?,?,?,?,?,?,?)',
           [comment.user_id, assignmentId, null, 'comment', 'New Reply on Assignment',
-          `${user.fullName} replied to your comment on "${assignment.title}": ${reply.substring(0, 100)}...`,
+            `${user.fullName} replied to your comment on "${assignment.title}": ${reply.substring(0, 100)}...`,
             userId, username, user.role]);
         pushToUser(comment.user_id);
       } catch (e) {
@@ -1722,7 +1858,7 @@ router.post('/:assignmentId/comments/:commentId/reply', authenticateToken, async
           const info = await queryOne('SELECT title FROM assignments WHERE id = ?', [assignmentId]);
           await query('INSERT INTO notifications (user_id,assignment_id,file_id,type,title,message,action_by_id,action_by_username,action_by_role) VALUES (?,?,?,?,?,?,?,?,?)',
             [mentioned.id, assignmentId, null, 'mention', `${user.fullName} mentioned you`,
-            `${user.fullName} mentioned you in a reply on "${info?.title || 'an assignment'}": ${reply.substring(0, 100)}...`,
+              `${user.fullName} mentioned you in a reply on "${info?.title || 'an assignment'}": ${reply.substring(0, 100)}...`,
               userId, username, user.role]);
           pushToUser(mentioned.id);
         }
@@ -1853,14 +1989,22 @@ router.put('/:assignmentId/assign-checker', authenticateToken, authorizeRole(['T
   try {
     const { assignmentId } = req.params;
     const { checkerIds, checkerNames } = req.body; // arrays
-    if (!assignmentId) return res.status(400).json({ success: false, message: 'Missing assignmentId' });
+    if (!assignmentId) {
+      return res.status(400).json({ success: false, message: 'Missing assignmentId' });
+    }
 
     const ids = Array.isArray(checkerIds) ? checkerIds.map(String) : [];
     const names = Array.isArray(checkerNames) ? checkerNames : [];
 
     // Fetch current checker_ids BEFORE updating so we know who was removed
     const current = await queryOne('SELECT checker_ids, title, team_leader_id, team_leader_username FROM assignments WHERE id = ?', [assignmentId]);
-    const previousIds = (() => { try { return JSON.parse(current?.checker_ids || '[]').map(String); } catch { return []; } })();
+    const previousIds = (() => {
+      try {
+        return JSON.parse(current?.checker_ids || '[]').map(String);
+      } catch {
+        return [];
+      }
+    })();
     const removedIds = previousIds.filter(id => !ids.includes(id));
 
     await query('UPDATE assignments SET checker_ids = ?, checker_names = ? WHERE id = ?', [
@@ -1884,7 +2028,9 @@ router.put('/:assignmentId/assign-checker', authenticateToken, authorizeRole(['T
               assignment.team_leader_id, assignment.team_leader_username, 'TEAM_LEADER']
           );
           pushToUser(checkerId);
-        } catch (e) { console.warn('Checker assigned notification failed:', e.message); }
+        } catch (e) {
+          console.warn('Checker assigned notification failed:', e.message);
+        }
       }
     }
 
@@ -1899,7 +2045,9 @@ router.put('/:assignmentId/assign-checker', authenticateToken, authorizeRole(['T
               assignment.team_leader_id, assignment.team_leader_username, 'TEAM_LEADER']
           );
           pushToUser(removedId);
-        } catch (e) { console.warn('Checker removed notification failed:', e.message); }
+        } catch (e) {
+          console.warn('Checker removed notification failed:', e.message);
+        }
       }
     }
 
@@ -1918,14 +2066,16 @@ router.put('/:assignmentId/mark-for-editing', authenticateToken, async (req, res
     const { checkerName, checkerId, note, fileId } = req.body;
 
     const assignment = await queryOne('SELECT * FROM assignments WHERE id = ?', [assignmentId]);
-    if (!assignment) return res.status(404).json({ success: false, message: 'Assignment not found' });
+    if (!assignment) {
+      return res.status(404).json({ success: false, message: 'Assignment not found' });
+    }
 
     const now = new Date().toISOString().slice(0, 19).replace('T', ' ');
 
     if (fileId) {
       // Per-file revision: only mark the specific file, keep assignment status as-is
       await query(
-        `UPDATE files SET status = 'revision', checker_note = ?, updated_at = ? WHERE id = ?`,
+        'UPDATE files SET status = \'revision\', checker_note = ?, updated_at = ? WHERE id = ?',
         [note || null, now, fileId]
       );
     } else {
@@ -1952,7 +2102,7 @@ router.put('/:assignmentId/mark-for-editing', authenticateToken, async (req, res
     );
     const allUserIds = new Set([
       ...(members || []).map(m => m.user_id),
-      ...(submitters || []).map(s => s.user_id),
+      ...(submitters || []).map(s => s.user_id)
     ]);
 
     const notifMsg = note
@@ -1963,7 +2113,9 @@ router.put('/:assignmentId/mark-for-editing', authenticateToken, async (req, res
       // Skip the checker who performed the action — they already know what they marked.
       // This prevents the checker from receiving a "Submission Needs Editing" notification
       // on a task they are also assigned to (e.g. checker is a team member too).
-      if (String(uid) === String(checkerId)) continue;
+      if (String(uid) === String(checkerId)) {
+        continue;
+      }
       try {
         await query(
           'INSERT INTO notifications (user_id, assignment_id, file_id, type, title, message, action_by_id, action_by_username, action_by_role) VALUES (?,?,?,?,?,?,?,?,?)',
@@ -1971,7 +2123,9 @@ router.put('/:assignmentId/mark-for-editing', authenticateToken, async (req, res
             notifMsg, checkerId, checkerName, req.user?.role || 'TEAM_LEADER']
         );
         pushToUser(uid);
-      } catch (e) { console.warn('For-editing notification failed:', e.message); }
+      } catch (e) {
+        console.warn('For-editing notification failed:', e.message);
+      }
     }
 
     // Notify the Team Leader that the checker flagged this submission for editing
@@ -1988,7 +2142,9 @@ router.put('/:assignmentId/mark-for-editing', authenticateToken, async (req, res
         );
         pushToUser(tlId);
         console.log(`mark-for-editing: notified TL ${tlId} — checker=${checkerName}`);
-      } catch (e) { console.warn('For-editing TL notification failed:', e.message); }
+      } catch (e) {
+        console.warn('For-editing TL notification failed:', e.message);
+      }
     }
 
     res.json({ success: true, message: fileId ? 'File marked as For Editing — user and Team Leader notified.' : 'Status changed to For Editing — users and Team Leader notified.' });
@@ -2006,7 +2162,9 @@ router.put('/:assignmentId/mark-checked', authenticateToken, async (req, res) =>
     const { checkerName, checkerId } = req.body;
 
     const assignment = await queryOne('SELECT * FROM assignments WHERE id = ?', [assignmentId]);
-    if (!assignment) return res.status(404).json({ success: false, message: 'Assignment not found' });
+    if (!assignment) {
+      return res.status(404).json({ success: false, message: 'Assignment not found' });
+    }
 
     const now = new Date().toISOString().slice(0, 19).replace('T', ' ');
 
@@ -2032,7 +2190,7 @@ router.put('/:assignmentId/mark-checked', authenticateToken, async (req, res) =>
         success: false,
         message: `Cannot mark task as Checked — ${unchecked} file${unchecked !== 1 ? 's have' : ' has'} not been reviewed yet. Please check all files individually first.`,
         uncheckedCount: unchecked,
-        totalCount: total,
+        totalCount: total
       });
     }
 
@@ -2051,7 +2209,9 @@ router.put('/:assignmentId/mark-checked', authenticateToken, async (req, res) =>
             checkerId, checkerName, 'USER']
         );
         pushToUser(tlId);
-      } catch (e) { console.warn('Checker-done TL notification failed:', e.message); }
+      } catch (e) {
+        console.warn('Checker-done TL notification failed:', e.message);
+      }
     }
 
     res.json({ success: true, message: `Done Checked by: ${checkerName}` });
@@ -2069,7 +2229,9 @@ router.put('/:assignmentId/files/:fileId/mark-file-checked', authenticateToken, 
     const { checkerName, checkerId, checkerNote } = req.body;
 
     const assignment = await queryOne('SELECT * FROM assignments WHERE id = ?', [assignmentId]);
-    if (!assignment) return res.status(404).json({ success: false, message: 'Assignment not found' });
+    if (!assignment) {
+      return res.status(404).json({ success: false, message: 'Assignment not found' });
+    }
 
     // Verify this file belongs to this assignment (via submissions OR attachments)
     const submission = await queryOne(
@@ -2078,9 +2240,9 @@ router.put('/:assignmentId/files/:fileId/mark-file-checked', authenticateToken, 
     );
     const attachment = !submission
       ? await queryOne(
-          'SELECT id FROM assignment_attachments WHERE assignment_id = ? AND id = ?',
-          [assignmentId, fileId]
-        )
+        'SELECT id FROM assignment_attachments WHERE assignment_id = ? AND id = ?',
+        [assignmentId, fileId]
+      )
       : null;
 
     if (!submission && !attachment) {
@@ -2110,7 +2272,9 @@ router.put('/:assignmentId/files/:fileId/mark-file-checked', authenticateToken, 
               checkerId, checkerName, 'USER']
           );
           pushToUser(submitterRow.user_id);
-        } catch (e) { console.warn('Checker-done submitter notification failed:', e.message); }
+        } catch (e) {
+          console.warn('Checker-done submitter notification failed:', e.message);
+        }
       }
     }
 
@@ -2143,7 +2307,9 @@ router.put('/:assignmentId/files/:fileId/mark-file-checked', authenticateToken, 
               checkerId, checkerName, 'USER']
           );
           pushToUser(tlId);
-        } catch (e) { console.warn('Checker-done TL notification failed:', e.message); }
+        } catch (e) {
+          console.warn('Checker-done TL notification failed:', e.message);
+        }
       }
     } else {
       // Notify the Team Leader — progress update (not all files done yet)
@@ -2160,14 +2326,16 @@ router.put('/:assignmentId/files/:fileId/mark-file-checked', authenticateToken, 
           );
           pushToUser(tlId);
           console.log(`🔔 mark-file-checked: notified TL ${tlId} — checker=${checkerName}, file=${fileId}`);
-        } catch (e) { console.warn('Checker-file TL notification failed:', e.message); }
+        } catch (e) {
+          console.warn('Checker-file TL notification failed:', e.message);
+        }
       }
     }
 
     res.json({
       success: true,
-      message: allChecked ? `All files checked — assignment marked as Checked.` : `File marked as Checked.`,
-      allChecked,
+      message: allChecked ? 'All files checked — assignment marked as Checked.' : 'File marked as Checked.',
+      allChecked
     });
   } catch (error) {
     console.error('Error marking file checked:', error);
@@ -2180,7 +2348,9 @@ router.put('/:assignmentId/mark-done', authenticateToken, authorizeRole(['TEAM_L
   try {
     const { assignmentId } = req.params;
     const assignment = await queryOne('SELECT * FROM assignments WHERE id = ?', [assignmentId]);
-    if (!assignment) return res.status(404).json({ success: false, message: 'Assignment not found' });
+    if (!assignment) {
+      return res.status(404).json({ success: false, message: 'Assignment not found' });
+    }
 
     const now = new Date().toISOString().slice(0, 19).replace('T', ' ');
 
@@ -2270,7 +2440,9 @@ router.put('/:assignmentId/undo-mark-done', authenticateToken, authorizeRole(['T
   try {
     const { assignmentId } = req.params;
     const assignment = await queryOne('SELECT * FROM assignments WHERE id = ?', [assignmentId]);
-    if (!assignment) return res.status(404).json({ success: false, message: 'Assignment not found' });
+    if (!assignment) {
+      return res.status(404).json({ success: false, message: 'Assignment not found' });
+    }
 
     if (assignment.status !== 'completed') {
       return res.status(400).json({ success: false, message: 'Assignment is not completed — nothing to undo.' });

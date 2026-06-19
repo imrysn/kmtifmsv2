@@ -10,13 +10,15 @@ const { query } = require('../config/database');
 let watcher = null;
 let isStarted = false;
 let watchPathsList = [];
-let watcherLog = [];  // keep last 50 events for debug endpoint
+const watcherLog = [];  // keep last 50 events for debug endpoint
 
 function logEvent(msg) {
   const entry = `[${new Date().toISOString()}] ${msg}`;
   console.log(entry);
   watcherLog.push(entry);
-  if (watcherLog.length > 50) watcherLog.shift();
+  if (watcherLog.length > 50) {
+    watcherLog.shift();
+  }
 }
 
 function getStatus() {
@@ -38,7 +40,9 @@ function relPart(p) {
   const n = norm(p);
   for (const seg of ['uploads/', 'user_approvals/', 'projects/']) {
     const idx = n.indexOf(seg);
-    if (idx !== -1) return n.slice(idx + seg.length);
+    if (idx !== -1) {
+      return n.slice(idx + seg.length);
+    }
   }
   return n;
 }
@@ -96,7 +100,9 @@ async function handleFileDeletion(deletedPath) {
 
     const matchedFiles = (fileRows || []).filter(row => {
       const storedRel = relPart(row.public_network_url || row.file_path || '');
-      if (!storedRel) return true;
+      if (!storedRel) {
+        return true;
+      }
       return storedRel === relDeleted ||
              relDeleted.endsWith(storedRel) ||
              storedRel.endsWith(relDeleted);
@@ -125,11 +131,11 @@ async function handleFileDeletion(deletedPath) {
         [file.id]
       ).catch(() => {});
 
-      await query(`DELETE FROM assignment_submissions  WHERE file_id = ?`, [file.id]).catch(() => {});
-      await query(`DELETE FROM notifications           WHERE file_id = ?`, [file.id]).catch(() => {});
-      await query(`DELETE FROM file_comments           WHERE file_id = ?`, [file.id]).catch(() => {});
-      await query(`DELETE FROM file_status_history     WHERE file_id = ?`, [file.id]).catch(() => {});
-      await query(`DELETE FROM files                   WHERE id      = ?`, [file.id]);
+      await query('DELETE FROM assignment_submissions  WHERE file_id = ?', [file.id]).catch(() => {});
+      await query('DELETE FROM notifications           WHERE file_id = ?', [file.id]).catch(() => {});
+      await query('DELETE FROM file_comments           WHERE file_id = ?', [file.id]).catch(() => {});
+      await query('DELETE FROM file_status_history     WHERE file_id = ?', [file.id]).catch(() => {});
+      await query('DELETE FROM files                   WHERE id      = ?', [file.id]);
 
       logEvent(`✅ File ID ${file.id} (${file.original_name}) removed from DB`);
     }
@@ -155,7 +161,7 @@ async function handleFileDeletion(deletedPath) {
           logEvent(`⏭️  Physical attachment exists — skipping DB removal for attachment ID ${att.id}`);
           continue;
         }
-        await query(`DELETE FROM assignment_attachments WHERE id = ?`, [att.id]);
+        await query('DELETE FROM assignment_attachments WHERE id = ?', [att.id]);
         console.log(`  ✅ Attachment ID ${att.id} (${att.original_name}) removed from DB`);
       }
     }
@@ -199,12 +205,12 @@ async function handleDirectoryDeletion(dirPath) {
         console.log(`ℹ️  [Watcher] Skipping folder deletion for approved file: ${file.original_name} (ID: ${file.id})`);
         continue;
       }
-      await query(`UPDATE assignment_members SET file_id = NULL, status = 'pending', submitted_at = NULL WHERE file_id = ?`, [file.id]).catch(() => {});
-      await query(`DELETE FROM assignment_submissions  WHERE file_id = ?`, [file.id]).catch(() => {});
-      await query(`DELETE FROM notifications           WHERE file_id = ?`, [file.id]).catch(() => {});
-      await query(`DELETE FROM file_comments           WHERE file_id = ?`, [file.id]).catch(() => {});
-      await query(`DELETE FROM file_status_history     WHERE file_id = ?`, [file.id]).catch(() => {});
-      await query(`DELETE FROM files                   WHERE id      = ?`, [file.id]).catch(() => {});
+      await query('UPDATE assignment_members SET file_id = NULL, status = \'pending\', submitted_at = NULL WHERE file_id = ?', [file.id]).catch(() => {});
+      await query('DELETE FROM assignment_submissions  WHERE file_id = ?', [file.id]).catch(() => {});
+      await query('DELETE FROM notifications           WHERE file_id = ?', [file.id]).catch(() => {});
+      await query('DELETE FROM file_comments           WHERE file_id = ?', [file.id]).catch(() => {});
+      await query('DELETE FROM file_status_history     WHERE file_id = ?', [file.id]).catch(() => {});
+      await query('DELETE FROM files                   WHERE id      = ?', [file.id]).catch(() => {});
     }
 
     const attRows = await query(
@@ -214,14 +220,14 @@ async function handleDirectoryDeletion(dirPath) {
     ).catch(() => []);
 
     for (const att of (attRows || [])) {
-      await query(`DELETE FROM assignment_attachments WHERE id = ?`, [att.id]).catch(() => {});
+      await query('DELETE FROM assignment_attachments WHERE id = ?', [att.id]).catch(() => {});
     }
 
     const total = (fileRows || []).length + (attRows || []).length;
     console.log(`  ✅ Removed ${total} DB record(s) for deleted directory "${path.basename(dirPath)}"`);
 
   } catch (err) {
-    console.error(`  ❌ [Watcher] Directory deletion error:`, err.message);
+    console.error('  ❌ [Watcher] Directory deletion error:', err.message);
   }
 }
 
@@ -246,7 +252,11 @@ function startWatcher(watchPaths) {
 
   const fs = require('fs');
   const validPaths = watchPaths.filter(p => {
-    try { return fs.existsSync(p); } catch (_) { return false; }
+    try {
+      return fs.existsSync(p);
+    } catch (_) {
+      return false;
+    }
   });
 
   if (validPaths.length === 0) {
@@ -265,13 +275,13 @@ function startWatcher(watchPaths) {
     binaryInterval: 15000,
     awaitWriteFinish: {
       stabilityThreshold: 3000,
-      pollInterval: 1000,
+      pollInterval: 1000
     },
     ignored: [
       /(^|[\/\\])\../,       // hidden/dot files
-      /temp_\d+_[a-z0-9]+$/, // multer temp files
+      /temp_\d+_[a-z0-9]+$/ // multer temp files
     ],
-    depth: 15,
+    depth: 15
   });
 
   watcher

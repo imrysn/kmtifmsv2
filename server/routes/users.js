@@ -78,17 +78,17 @@ router.use(authenticateToken);
  */
 router.get('/profile', asyncHandler(async (req, res) => {
   const userId = req.user.id;
-  
+
   // 1. Get user basic info
   const user = await dbQueryOne(
     'SELECT id, fullName, username, email, role, team, created_at, profile_picture FROM users WHERE id = ?',
     [userId]
   );
-  
+
   if (!user) {
     throw new NotFoundError('User not found');
   }
-  
+
   // 2. If Team Leader or Admin, get teams they lead
   let ledTeams = [];
   if (user.role === 'TEAM_LEADER' || user.role === 'ADMIN') {
@@ -101,7 +101,7 @@ router.get('/profile', asyncHandler(async (req, res) => {
     );
     ledTeams = teams || [];
   }
-  
+
   res.json({
     success: true,
     user: {
@@ -196,7 +196,9 @@ router.delete('/profile/picture', asyncHandler(async (req, res) => {
 
 // Shared helper: attach file counts to an array of user/member objects using a single bulk query
 async function attachFileCounts(db, members) {
-  if (!members || members.length === 0) return members;
+  if (!members || members.length === 0) {
+    return members;
+  }
   const ids = members.map(m => m.id);
   const ph = ids.map(() => '?').join(',');
   try {
@@ -205,10 +207,16 @@ async function attachFileCounts(db, members) {
       ids
     );
     const countMap = {};
-    (rows || []).forEach(r => { countMap[r.user_id] = r.totalFiles || 0; });
-    members.forEach(m => { m.totalFiles = countMap[m.id] || 0; });
+    (rows || []).forEach(r => {
+      countMap[r.user_id] = r.totalFiles || 0;
+    });
+    members.forEach(m => {
+      m.totalFiles = countMap[m.id] || 0;
+    });
   } catch (_) {
-    members.forEach(m => { m.totalFiles = 0; });
+    members.forEach(m => {
+      m.totalFiles = 0;
+    });
   }
   return members;
 }
@@ -243,7 +251,8 @@ router.get('/', authorizeRole('ADMIN'), asyncHandler(async (req, res) => {
 
 // Create new user (Admin only)
 router.post('/', authorizeRole('ADMIN'), validate(schemas.createUser), asyncHandler(async (req, res) => {
-  let { fullName, username, email, password, role = 'USER', team = 'General', adminId, adminUsername, adminRole, adminTeam } = req.body;
+  const { fullName, username, email, password, adminId, adminUsername, adminRole, adminTeam } = req.body;
+  let { role = 'USER', team = 'General' } = req.body;
   role = (role || 'USER').toString().trim().toUpperCase();
   team = (team || 'General').toString().trim();
   logInfo('Creating new user', { fullName, username, email, role, team });
@@ -304,7 +313,8 @@ router.post('/', authorizeRole('ADMIN'), validate(schemas.createUser), asyncHand
 // Update user (Admin only)
 router.put('/:id', authorizeRole('ADMIN'), asyncHandler(async (req, res) => {
   const userId = req.params.id;
-  let { fullName, username, email, role, team, adminId, adminUsername, adminRole, adminTeam } = req.body;
+  const { fullName, username, email, adminId, adminUsername, adminRole, adminTeam } = req.body;
+  let { role, team } = req.body;
   role = (role || '').toString().trim().toUpperCase();
   team = (team || 'General').toString().trim();
   console.log(`✏️ Updating user ${userId}:`, { fullName, username, email, role, team });
@@ -552,7 +562,7 @@ router.get('/team-leader/:userId', authorizeRole(['TEAM_LEADER', 'ADMIN']), asyn
   console.log(`👥 Getting team members for team leader: ${userId}`);
 
   const ledTeams = await dbQuery(
-    `SELECT DISTINCT t.name FROM team_leaders tl JOIN teams t ON tl.team_id = t.id WHERE tl.user_id = ?`,
+    'SELECT DISTINCT t.name FROM team_leaders tl JOIN teams t ON tl.team_id = t.id WHERE tl.user_id = ?',
     [userId]
   );
 

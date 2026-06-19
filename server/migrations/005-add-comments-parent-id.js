@@ -18,7 +18,7 @@ async function up() {
     );
     if (cols.length === 0) {
       await query(
-        `ALTER TABLE assignment_comments ADD COLUMN parent_id INT NULL DEFAULT NULL AFTER assignment_id`
+        'ALTER TABLE assignment_comments ADD COLUMN parent_id INT NULL DEFAULT NULL AFTER assignment_id'
       );
       console.log('  ✅ assignment_comments.parent_id column added');
     } else {

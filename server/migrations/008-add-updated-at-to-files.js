@@ -15,7 +15,7 @@ async function up() {
     );
 
     if (cols.length === 0) {
-      await query(`ALTER TABLE files ADD COLUMN updated_at DATETIME NULL AFTER uploaded_at`);
+      await query('ALTER TABLE files ADD COLUMN updated_at DATETIME NULL AFTER uploaded_at');
       console.log('  ✅ files.updated_at column added (DATETIME)');
     } else {
       console.log('  ⏭️  files.updated_at already exists');

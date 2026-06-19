@@ -31,8 +31,11 @@ router.post('/login', validate(schemas.login), asyncHandler(async (req, res) => 
   try {
     user = await new Promise((resolve, reject) => {
       db.get(query, [email], (err, row) => {
-        if (err) reject(err);
-        else resolve(row);
+        if (err) {
+          reject(err);
+        } else {
+          resolve(row);
+        }
       });
     });
   } catch (dbErr) {
@@ -123,8 +126,11 @@ router.post('/login', validate(schemas.login), asyncHandler(async (req, res) => 
           'SELECT t.id, t.name, t.color FROM team_leaders tl JOIN teams t ON tl.team_id = t.id WHERE tl.user_id = ?',
           [user.id],
           (err, rows) => {
-            if (err) reject(err);
-            else resolve(rows || []);
+            if (err) {
+              reject(err);
+            } else {
+              resolve(rows || []);
+            }
           }
         );
       });

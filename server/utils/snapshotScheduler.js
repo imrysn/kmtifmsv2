@@ -28,12 +28,12 @@ async function takeWeeklySnapshots() {
           on_time_rate = VALUES(on_time_rate),
           overdue_count = VALUES(overdue_count)
       `, [
-        userId, 
-        data.overallScore, 
-        data.qualityFactor, 
-        data.efficiencyRatio, 
-        data.onTimeRate, 
-        data.overdue, 
+        userId,
+        data.overallScore,
+        data.qualityFactor,
+        data.efficiencyRatio,
+        data.onTimeRate,
+        data.overdue,
         snapshotDate
       ]);
       savedCount++;
@@ -53,7 +53,7 @@ function scheduleWeeklyJob() {
   nextSunday.setHours(24, 0, 0, 0); // Next midnight
 
   let timeUntilNextJob = nextSunday.getTime() - now.getTime();
-  
+
   // If it's already Sunday midnight or close, push it to next week
   if (timeUntilNextJob < 1000) {
     timeUntilNextJob += 7 * 24 * 60 * 60 * 1000;

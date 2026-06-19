@@ -118,7 +118,7 @@ router.post('/', authorizeRole('ADMIN'), (req, res) => {
 
             // Insert into team_leaders table
             let completed = 0;
-            let firstLeader = users[0];
+            const firstLeader = users[0];
 
             users.forEach((user, index) => {
               db.run(
@@ -151,7 +151,9 @@ router.post('/', authorizeRole('ADMIN'), (req, res) => {
                       'UPDATE teams SET leader_id = ?, leader_username = ? WHERE id = ?',
                       [firstLeader.id, firstLeader.username, teamId],
                       (err) => {
-                        if (err) console.error('❌ Error updating team leader_id:', err);
+                        if (err) {
+                          console.error('❌ Error updating team leader_id:', err);
+                        }
                         finishCreation(teamId, name, firstLeader.id, firstLeader.username);
                       }
                     );
@@ -293,70 +295,70 @@ router.put('/:id', authorizeRole('ADMIN'), (req, res) => {
 
           Promise.all(resetPromises).then(() => {
 
-          // Step 4: Insert new team leaders if any
-          if (leaderIds && leaderIds.length > 0) {
-            console.log(`📝 Assigning ${leaderIds.length} new team leader(s)...`);
+            // Step 4: Insert new team leaders if any
+            if (leaderIds && leaderIds.length > 0) {
+              console.log(`📝 Assigning ${leaderIds.length} new team leader(s)...`);
 
-            // Get user details for the leaders
-            const placeholders = leaderIds.map(() => '?').join(',');
-            db.all(
-              `SELECT id, username FROM users WHERE id IN (${placeholders}) AND role IN ('TEAM_LEADER', 'ADMIN')`,
-              leaderIds,
-              (err, users) => {
-                if (err) {
-                  console.error('❌ Error fetching leader details:', err);
-                  return finishUpdate(null, null);
-                }
+              // Get user details for the leaders
+              const placeholders = leaderIds.map(() => '?').join(',');
+              db.all(
+                `SELECT id, username FROM users WHERE id IN (${placeholders}) AND role IN ('TEAM_LEADER', 'ADMIN')`,
+                leaderIds,
+                (err, users) => {
+                  if (err) {
+                    console.error('❌ Error fetching leader details:', err);
+                    return finishUpdate(null, null);
+                  }
 
-                if (users.length === 0) {
-                  console.log('⚠️  No valid team leaders found');
-                  return finishUpdate(null, null);
-                }
+                  if (users.length === 0) {
+                    console.log('⚠️  No valid team leaders found');
+                    return finishUpdate(null, null);
+                  }
 
-                // Insert into team_leaders table
-                let completed = 0;
-                let firstLeader = users[0];
+                  // Insert into team_leaders table
+                  let completed = 0;
+                  const firstLeader = users[0];
 
-                console.log(`🔍 DEBUG: About to insert ${users.length} leaders:`, users.map(u => `${u.username}(${u.id})`));
+                  console.log(`🔍 DEBUG: About to insert ${users.length} leaders:`, users.map(u => `${u.username}(${u.id})`));
 
-                users.forEach((user) => {
-                  db.run(
-                    'INSERT INTO team_leaders (team_id, user_id, username) VALUES (?, ?, ?)',
-                    [teamId, user.id, user.username],
-                    (err) => {
-                      if (err) {
-                        console.error(`❌ Error assigning leader ${user.username}:`, err);
-                      } else {
-                        console.log(`✅ Assigned ${user.username} as team leader`);
+                  users.forEach((user) => {
+                    db.run(
+                      'INSERT INTO team_leaders (team_id, user_id, username) VALUES (?, ?, ?)',
+                      [teamId, user.id, user.username],
+                      (err) => {
+                        if (err) {
+                          console.error(`❌ Error assigning leader ${user.username}:`, err);
+                        } else {
+                          console.log(`✅ Assigned ${user.username} as team leader`);
 
-                        // Automatically update user's team to match the team they're leading
-                        db.run(
-                          'UPDATE users SET team = ? WHERE id = ?',
-                          [name.trim(), user.id],
-                          (updateErr) => {
-                            if (updateErr) {
-                              console.error(`❌ Error updating team for ${user.username}:`, updateErr);
-                            } else {
-                              console.log(`📡 ✅ Updated ${user.username}'s team to ${name.trim()}`);
+                          // Automatically update user's team to match the team they're leading
+                          db.run(
+                            'UPDATE users SET team = ? WHERE id = ?',
+                            [name.trim(), user.id],
+                            (updateErr) => {
+                              if (updateErr) {
+                                console.error(`❌ Error updating team for ${user.username}:`, updateErr);
+                              } else {
+                                console.log(`📡 ✅ Updated ${user.username}'s team to ${name.trim()}`);
+                              }
                             }
-                          }
-                        );
-                      }
+                          );
+                        }
 
-                      completed++;
-                      console.log(`🔍 DEBUG: Completed ${completed} of ${users.length} insertions`);
-                      if (completed === users.length) {
-                        finishUpdate(firstLeader.id, firstLeader.username);
+                        completed++;
+                        console.log(`🔍 DEBUG: Completed ${completed} of ${users.length} insertions`);
+                        if (completed === users.length) {
+                          finishUpdate(firstLeader.id, firstLeader.username);
+                        }
                       }
-                    }
-                  );
-                });
-              }
-            );
-          } else {
+                    );
+                  });
+                }
+              );
+            } else {
             // No leaders selected
-            finishUpdate(null, null);
-          }
+              finishUpdate(null, null);
+            }
 
           }); // end Promise.all(resetPromises).then
 
