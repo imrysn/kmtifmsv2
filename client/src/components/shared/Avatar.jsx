@@ -40,10 +40,7 @@ const Avatar = ({ user, size = 'md', editable = false, onUpdate }) => {
 
   const buildImageUrl = (url) => {
     if (!url) return null;
-    // Strip any existing cache-bust param then add a fresh one
-    const base = url.startsWith('http') ? url : `${API_BASE_URL}${url}`;
-    const clean = base.split('?')[0]; // remove old ?t=
-    return `${clean}?t=${Date.now()}`;
+    return url.startsWith('http') ? url : `${API_BASE_URL}${url}`;
   };
 
   /* ── upload ───────────────────────────────────────────── */
