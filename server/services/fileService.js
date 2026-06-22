@@ -260,6 +260,13 @@ async function uploadFile(fileData, user) {
       [finalFilePath, 'under_revision', 'pending_team_leader', user.id, user.username, user.team, existingFileId]
     );
     fileId = existingFileId;
+
+    if (assignmentId) {
+      await query(
+        'UPDATE assignment_submissions SET submitted_at = NOW() WHERE file_id = ? AND assignment_id = ?',
+        [existingFileId, assignmentId]
+      );
+    }
   } else {
     const data = {
       ...fileData,
@@ -765,6 +772,13 @@ async function bulkUpload(filesData, user, assignmentId = null) {
           [finalFilePath, 'under_revision', 'pending_team_leader', user.id, user.username, user.team, existingFileId]
         );
         fileId = existingFileId;
+
+        if (assignmentId) {
+          await query(
+            'UPDATE assignment_submissions SET submitted_at = NOW() WHERE file_id = ? AND assignment_id = ?',
+            [existingFileId, assignmentId]
+          );
+        }
       } else {
         const isLegacyRevision = existing && (existing.status === 'rejected_by_team_leader' || existing.status === 'rejected_by_admin' || existing.status === 'revision' || existing.status === 'under_revision' || existing.status === 'checked' || (existing.status && existing.status.startsWith('modified by ')));
         const dbData = { ...fileData, original_name: originalName, file_path: finalFilePath, user_id: user.id, username: user.username, user_team: user.team, status: isLegacyRevision ? 'under_revision' : 'uploaded', current_stage: 'pending_team_leader' };

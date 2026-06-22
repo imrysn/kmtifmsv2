@@ -1849,7 +1849,6 @@ const AssignmentsTab = ({
         getInitials={getInitials}
         formatTimeAgo={formatRelativeTime}
         onRefreshAssignments={onRefreshAssignments}
-        isPostingReply={isPostingReply}
       />
 
       {showMembersModal && (
