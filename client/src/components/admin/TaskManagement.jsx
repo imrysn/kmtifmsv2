@@ -150,6 +150,7 @@ const TaskManagement = ({
     return base.filter(a =>
       matchesQuery(a.title) ||
       matchesQuery(a.description) ||
+      matchesQuery(a.team) ||
       matchesQuery(a.team_leader_fullname) ||
       matchesQuery(a.team_leader_username) ||
       (a.assigned_member_details || []).some(m =>
@@ -1215,6 +1216,11 @@ const TaskManagement = ({
                               {assignment.team_leader_fullname || assignment.team_leader_username}
                             </span>
                             <span className="role-badge team-leader">TEAM LEADER</span>
+                            {assignment.team && (
+                              <span className="team-badge">
+                                {assignment.team}
+                              </span>
+                            )}
                             assigned to{' '}
                             <span className="admin-assigned-user">
                               {assignment.assigned_member_details && assignment.assigned_member_details.length > 0
