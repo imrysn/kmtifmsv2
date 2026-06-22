@@ -38,7 +38,7 @@ router.get('/profile/picture/:userId', async (req, res) => {
     return res.status(400).json({ success: false, message: 'Invalid user id' });
   }
 
-  const profilePicsDir = path.join(networkDataPath, 'uploads', 'profile_pictures');
+  const profilePicsDir = path.join(networkDataPath, 'uploads', 'Profile');
   const extensions = ['jpg', 'jpeg', 'png', 'webp', 'gif'];
   const mimeMap = { jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', webp: 'image/webp', gif: 'image/gif' };
 
@@ -114,7 +114,7 @@ router.get('/profile', asyncHandler(async (req, res) => {
 /**
  * POST /api/users/profile/picture
  * Upload / replace the current user's profile picture.
- * Saves to <uploadsDir>/profile_pictures/<userId>.<ext>  (inside the NAS uploads folder)
+ * Saves to <uploadsDir>/Profile/<userId>.<ext>  (inside the NAS uploads folder)
  */
 router.post('/profile/picture', profilePicUpload.single('profilePicture'), asyncHandler(async (req, res) => {
   if (!req.file) {
@@ -130,19 +130,17 @@ router.post('/profile/picture', profilePicUpload.single('profilePicture'), async
         ? 'webp'
         : 'gif';
 
-  // Ensure the profile_pictures directory exists inside the NAS uploads folder
-  const profilePicsDir = path.join(networkDataPath, 'uploads', 'profile_pictures');
+  // Ensure the Profile directory exists inside the NAS uploads folder
+  const profilePicsDir = path.join(networkDataPath, 'uploads', 'Profile');
   try {
     await fs.promises.mkdir(profilePicsDir, { recursive: true });
   } catch (_) { /* already exists */ }
 
   // Remove any existing picture for this user (clean up old extension variants)
-  const existingFiles = await fs.promises.readdir(profilePicsDir).catch(() => []);
-  for (const f of existingFiles) {
-    if (f.startsWith(`${userId}.`)) {
-      await fs.promises.unlink(path.join(profilePicsDir, f)).catch(() => {});
-    }
-  }
+  const possibleExts = ['jpg', 'jpeg', 'png', 'webp', 'gif'];
+  await Promise.all(
+    possibleExts.map(e => fs.promises.unlink(path.join(profilePicsDir, `${userId}.${e}`)).catch(() => {}))
+  );
 
   // Save new file
   const filename = `${userId}.${ext}`;
@@ -150,7 +148,7 @@ router.post('/profile/picture', profilePicUpload.single('profilePicture'), async
   await fs.promises.writeFile(filepath, req.file.buffer);
 
   // Store relative URL in the database
-  const pictureUrl = `/api/users/profile/picture/${userId}`;
+  const pictureUrl = `/api/users/profile/picture/${userId}?t=${Date.now()}`;
   await dbQuery(
     'UPDATE users SET profile_picture = ? WHERE id = ?',
     [pictureUrl, userId]
@@ -177,15 +175,13 @@ router.post('/profile/picture', profilePicUpload.single('profilePicture'), async
  */
 router.delete('/profile/picture', asyncHandler(async (req, res) => {
   const userId = req.user.id;
-  const profilePicsDir = path.join(networkDataPath, 'uploads', 'profile_pictures');
+  const profilePicsDir = path.join(networkDataPath, 'uploads', 'Profile');
 
   // Delete file(s) for this user
-  const existingFiles = await fs.promises.readdir(profilePicsDir).catch(() => []);
-  for (const f of existingFiles) {
-    if (f.startsWith(`${userId}.`)) {
-      await fs.promises.unlink(path.join(profilePicsDir, f)).catch(() => {});
-    }
-  }
+  const possibleExts = ['jpg', 'jpeg', 'png', 'webp', 'gif'];
+  await Promise.all(
+    possibleExts.map(e => fs.promises.unlink(path.join(profilePicsDir, `${userId}.${e}`)).catch(() => {}))
+  );
 
   // Clear from database
   await dbQuery('UPDATE users SET profile_picture = NULL WHERE id = ?', [userId]);

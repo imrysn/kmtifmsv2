@@ -61,7 +61,8 @@ const Avatar = ({ user, size = 'md', editable = false, onUpdate }) => {
       });
 
       if (data.success) {
-        const freshUrl = `${data.profilePictureUrl}?t=${Date.now()}`;
+        const baseUrl = data.profilePictureUrl.split('?')[0];
+        const freshUrl = `${baseUrl}?t=${Date.now()}`;
         updateUser({ profile_picture: freshUrl });
         if (onUpdate) onUpdate(freshUrl);
       }
@@ -125,12 +126,14 @@ const Avatar = ({ user, size = 'md', editable = false, onUpdate }) => {
           {initials}
         </span>
 
-        {/* Photo */}
         {hasPhoto && (
           <img
             src={imageUrl}
             alt={user?.fullName || 'Profile'}
             className="av-img"
+            onLoad={(e) => {
+              e.target.style.display = 'block';
+            }}
             onError={(e) => {
               // fallback if image fails to load
               e.target.style.display = 'none';
