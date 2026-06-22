@@ -914,6 +914,7 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
     setError('')
 
     try {
+      const fileIdToProcess = selectedFile.file_id || selectedFile.id;
       // Use the correct endpoint: reject goes to team-leader-reject, approve to team-leader-review
       const endpoint = actionToUse === 'reject'
         ? `/api/files/${fileIdToProcess}/team-leader-reject`
