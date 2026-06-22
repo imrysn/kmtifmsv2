@@ -150,12 +150,14 @@
   text-align: left;
   opacity: 0;
   width: 0;
+  margin-left: 0;
   transition: all var(--transition-speed) var(--transition-easing);
 }
 
 .admin-sidebar:hover .admin-info {
   opacity: 1;
   width: auto;
+  margin-left: 10px;
 }
 
 .admin-name {

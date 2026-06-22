@@ -34,7 +34,6 @@
 .user-sidebar .user-info {
   display: flex;
   align-items: center;
-  gap: 10px;
   white-space: nowrap;
   overflow: hidden;
   width: 100%;
@@ -60,15 +59,18 @@
   overflow: hidden;
   max-width: 0;
   opacity: 0;
+  margin-left: 0;
   transition:
     max-width calc(var(--transition-speed, 0.3s) * 0.8) var(--transition-easing, cubic-bezier(0.4, 0, 0.2, 1)),
-    opacity   calc(var(--transition-speed, 0.3s) * 0.8) var(--transition-easing, cubic-bezier(0.4, 0, 0.2, 1));
+    opacity   calc(var(--transition-speed, 0.3s) * 0.8) var(--transition-easing, cubic-bezier(0.4, 0, 0.2, 1)),
+    margin-left calc(var(--transition-speed, 0.3s) * 0.8) var(--transition-easing, cubic-bezier(0.4, 0, 0.2, 1));
   transition-delay: calc(var(--transition-speed, 0.3s) * 0.2);
 }
 
 .user-sidebar:hover .user-text {
   max-width: 160px;
   opacity: 1;
+  margin-left: 10px;
 }
 
 .user-sidebar .user-name {
