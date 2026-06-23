@@ -328,7 +328,8 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
           fullName: user.fullName,
           username: user.username,
           role: user.role,
-          team: user.team
+          team: user.team,
+          profile_picture: user.profile_picture
         }
 
         // Add team leader at the beginning of the array
@@ -344,7 +345,8 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
           status: 'Active',
           fullName: user.fullName,
           username: user.username,
-          role: user.role
+          role: user.role,
+          profile_picture: user.profile_picture
         }
         setTeamMembers([teamLeaderMember])
       }

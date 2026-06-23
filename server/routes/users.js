@@ -522,7 +522,7 @@ router.get('/team/:teamName', authorizeRole(['TEAM_LEADER', 'ADMIN']), asyncHand
   }
   console.log(`👥 Getting team members for team: ${teamName}`);
   const members = await dbQuery(
-    'SELECT id, fullName, username, email, role, team, created_at FROM users WHERE team = ? AND role != ? ORDER BY fullName',
+    'SELECT id, fullName, username, email, role, team, profile_picture, created_at FROM users WHERE team = ? AND role != ? ORDER BY fullName',
     [teamName, 'TEAM_LEADER']
   );
   console.log(`✅ Retrieved ${members.length} members for team ${teamName}`);
@@ -569,7 +569,7 @@ router.get('/team-leader/:userId', authorizeRole(['TEAM_LEADER', 'ADMIN']), asyn
   const teamNames = ledTeams.map(t => t.name);
   const placeholders = teamNames.map(() => '?').join(',');
   const members = await dbQuery(
-    `SELECT id, fullName, username, email, role, team, created_at
+    `SELECT id, fullName, username, email, role, team, profile_picture, created_at
      FROM users WHERE team IN (${placeholders}) AND role != ? ORDER BY fullName`,
     [...teamNames, 'TEAM_LEADER']
   );
@@ -611,7 +611,7 @@ router.get('/:teamName', authorizeRole(['TEAM_LEADER', 'ADMIN']), asyncHandler(a
   }
   console.log(`👥 Getting team members for team: ${teamName}`);
   const members = await dbQuery(
-    'SELECT id, fullName, username, email, role, team, created_at FROM users WHERE team = ? AND role != ? ORDER BY fullName',
+    'SELECT id, fullName, username, email, role, team, profile_picture, created_at FROM users WHERE team = ? AND role != ? ORDER BY fullName',
     [teamName, 'TEAM_LEADER']
   );
   console.log(`✅ Retrieved ${members.length} members for team ${teamName}`);
