@@ -1633,13 +1633,19 @@ if (ipcMain) {
 
   // ── Persistent App Storage ──────────────────────────────────────────────────
   // Uses Node.js fs.writeFileSync (synchronous) so data is guaranteed to be
-  // written to disk before the process exits — unlike browser localStorage
-  // which Chromium may not flush in time when the app is closed.
+  // written to disk before the process exits. We use an in-memory cache to 
+  // prevent race conditions if the user hard-refreshes (Ctrl+R) while the file 
+  // is being written to disk, which would otherwise result in a corrupted read
+  // and force a logout.
+  let appStorageCache = null;
+
   ipcMain.handle('app-storage:get', (event, key) => {
     try {
+      if (appStorageCache) return appStorageCache[key] ?? null;
       const filePath = path.join(app.getPath('userData'), 'app-storage.json');
       if (!fs.existsSync(filePath)) return null;
       const data = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+      appStorageCache = data;
       return data[key] ?? null;
     } catch { return null; }
   });
@@ -1647,19 +1653,25 @@ if (ipcMain) {
   ipcMain.handle('app-storage:set', (event, key, value) => {
     try {
       const filePath = path.join(app.getPath('userData'), 'app-storage.json');
-      let data = {};
-      if (fs.existsSync(filePath)) {
-        data = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+      let data = appStorageCache || {};
+      if (!appStorageCache && fs.existsSync(filePath)) {
+        try { data = JSON.parse(fs.readFileSync(filePath, 'utf8')); } catch {}
       }
       data[key] = value;
+      appStorageCache = data;
       fs.writeFileSync(filePath, JSON.stringify(data), 'utf8');
       return true;
     } catch { return false; }
   });
 
   // ── Window Resizing for Login / Dashboard ───────────────────────────────────
+  let currentWindowMode = null;
+
   ipcMain.on('window:resizeForDashboard', () => {
     if (mainWindow && !mainWindow.isDestroyed()) {
+      if (currentWindowMode === 'dashboard') return;
+      currentWindowMode = 'dashboard';
+
       mainWindow.setResizable(true);
       mainWindow.setMaximizable(true);
       mainWindow.setFullScreenable(true);
@@ -1677,6 +1689,9 @@ if (ipcMain) {
 
   ipcMain.on('window:resizeForLogin', () => {
     if (mainWindow && !mainWindow.isDestroyed()) {
+      if (currentWindowMode === 'login') return;
+      currentWindowMode = 'login';
+
       mainWindow.unmaximize();
       mainWindow.setSize(850, 650);
       mainWindow.center();
