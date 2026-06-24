@@ -200,18 +200,12 @@ class AppUpdater {
       this.stateManager.state.updateDownloaded = true;
       this.stateManager.saveState();
 
-      // Show the strict custom HTML pop-up window
+      // Show the strict custom HTML pop-up window, passing mainWindow to make it modal
       const updaterWindow = require('./updater-window');
       updaterWindow.showUpdaterWindow('downloaded', {
         version: info.version,
         releaseDate: info.releaseDate
-      });
-
-      // Keep toast notification just in case frontend still listens for it
-      this.notifyRenderer('downloaded', {
-        version: info.version,
-        releaseDate: info.releaseDate
-      });
+      }, this.mainWindow);
     });
 
     autoUpdater.on('error', (error) => {

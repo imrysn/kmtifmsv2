@@ -37,13 +37,19 @@ const WINDOW_CONFIG = {
 /**
  * Create the standalone updater window
  */
-function createUpdaterWindow() {
+function createUpdaterWindow(parentWindow = null) {
   if (updaterWindow && !updaterWindow.isDestroyed()) {
     updaterWindow.focus();
     return updaterWindow;
   }
 
-  updaterWindow = new BrowserWindow(WINDOW_CONFIG);
+  const config = { ...WINDOW_CONFIG };
+  if (parentWindow && !parentWindow.isDestroyed()) {
+    config.parent = parentWindow;
+    config.modal = true;
+  }
+
+  updaterWindow = new BrowserWindow(config);
 
   // Load the updater UI
   const updaterHtml = `
@@ -339,16 +345,18 @@ function createUpdaterWindow() {
 }
 
 let currentUpdateInfo = {};
+let currentParentWindow = null;
 
 /**
  * Show the updater window with specific status
  */
-function showUpdaterWindow(status, data = {}) {
+function showUpdaterWindow(status, data = {}, parentWindow = null) {
   if (status === 'downloaded') {
     currentUpdateInfo = data;
+    if (parentWindow) currentParentWindow = parentWindow;
   }
   
-  const window = createUpdaterWindow();
+  const window = createUpdaterWindow(currentParentWindow);
   // Send initial status to the window
   setTimeout(() => {
     if (window && !window.isDestroyed()) {
