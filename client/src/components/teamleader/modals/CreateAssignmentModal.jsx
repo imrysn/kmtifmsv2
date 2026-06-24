@@ -72,6 +72,20 @@ const CreateAssignmentModal = ({
   const fileTypeButtonRef = React.useRef(null)
   const fileInputRef = React.useRef(null)
   const folderInputRef = React.useRef(null)
+  const modalBodyRef = React.useRef(null)
+
+  // Close dropdowns when the modal body is scrolled so the fixed-position
+  // menu does not drift away from its trigger button.
+  React.useEffect(() => {
+    const el = modalBodyRef.current
+    if (!el) return
+    const handleScroll = () => {
+      setShowMemberDropdown(false)
+      setShowFileTypeDropdown(false)
+    }
+    el.addEventListener('scroll', handleScroll, { passive: true })
+    return () => el.removeEventListener('scroll', handleScroll)
+  }, [showCreateAssignmentModal])
 
   const fileTypeOptions = [
     { value: '', label: 'Any file type' },
@@ -379,7 +393,7 @@ const CreateAssignmentModal = ({
           </div>
           <button onClick={handleClose} disabled={isProcessing} style={{ opacity: isProcessing ? 0.5 : 1, cursor: isProcessing ? 'not-allowed' : 'pointer' }}>×</button>
         </div>
-        <div className="tl-modal-body-large">
+        <div className="tl-modal-body-large" ref={modalBodyRef}>
           <div onSubmit={e => e.preventDefault()}>
             <div className="tl-form-group">
               <label>Task Title *</label>
