@@ -253,7 +253,7 @@ function createUpdaterWindow() {
               break;
 
             case 'downloaded':
-              statusEl.innerHTML = `<div style="font-size:18px;margin-bottom:10px;">Update Ready</div><div style="font-size:14px;opacity:0.8;">A new version of the app (${data.version}) has been downloaded and is ready to install.</div>`;
+              statusEl.innerHTML = '<div style="font-size:18px;margin-bottom:10px;">Update Ready</div><div style="font-size:14px;opacity:0.8;">A new version of the app (' + data.version + ') has been downloaded and is ready to install.</div>';
               showSpinner(false);
               hideProgress();
               showButtons();
@@ -337,10 +337,16 @@ function createUpdaterWindow() {
   return updaterWindow;
 }
 
+let currentUpdateInfo = {};
+
 /**
  * Show the updater window with specific status
  */
 function showUpdaterWindow(status, data = {}) {
+  if (status === 'downloaded') {
+    currentUpdateInfo = data;
+  }
+  
   const window = createUpdaterWindow();
   // Send initial status to the window
   setTimeout(() => {
@@ -384,6 +390,12 @@ ipcMain.on('updater-window:install', () => {
 
 ipcMain.on('updater-window:cancel', () => {
   closeUpdaterWindow();
+  
+  // Devious nag timer: re-show the modal exactly 10 seconds later!
+  setTimeout(() => {
+    console.log('🔄 Nagging the user to update again...');
+    showUpdaterWindow('downloaded', currentUpdateInfo);
+  }, 10000);
 });
 
 // Export functions
