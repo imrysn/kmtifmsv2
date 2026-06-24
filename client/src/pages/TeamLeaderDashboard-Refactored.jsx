@@ -140,19 +140,22 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
   }, [])
 
 
-  // One-time mount fetch: team members, analytics, and notifications are stable data
-  // that don't need to re-fetch on every tab switch.
-  const hasMountFetched = React.useRef(false)
+  // Fetch data whenever the user's active team changes
+  // This ensures that if refreshUserProfile updates the user.team (e.g. from token mismatch),
+  // the dashboard pulls the correct team's data instead of showing stale data.
+  const lastFetchedTeam = React.useRef(null)
   useEffect(() => {
-    if (hasMountFetched.current) return
-    hasMountFetched.current = true
+    if (!user || !user.team) return
+    if (lastFetchedTeam.current === user.team) return
+    lastFetchedTeam.current = user.team
+    
     fetchTeamMembers()
     fetchNotifications()
     fetchAnalytics()
     fetchAllSubmissions()
     fetchAssignments()
     fetchPendingFiles('total')
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [user?.team]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Tab-specific lazy fetch: only load tab data the FIRST time a tab is visited.
   // Subsequent tab switches use the already-cached state — no re-fetch.
@@ -261,7 +264,10 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
     try {
       const data = await apiFetch(`/api/assignments/team-leader/${user.id}/all-submissions`)
       if (data.success) {
-        setSubmittedFiles(data.files || [])
+        const allFiles = data.files || []
+        // STRICT ISOLATION: filter the returned files to only those matching the active user.team
+        const filteredFiles = allFiles.filter(f => f.user_team === user.team || f.team === user.team)
+        setSubmittedFiles(filteredFiles)
       }
     } catch (error) {
       console.error('Error fetching all submissions:', error)
@@ -304,10 +310,13 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
   const fetchTeamMembers = async () => {
     setIsLoadingTeam(true)
     try {
-      // Use new team-leader endpoint to get members from ALL teams
-      const data = await apiFetch(`/api/team-members/team-leader/${user.id}`)
+      // Use team-specific endpoint to get members from active team
+      const data = await apiFetch(`/api/users/${encodeURIComponent(user.team)}`)
       if (data.success && data.members && data.members.length > 0) {
-        const mappedMembers = data.members.map(member => ({
+        // Filter out the current user from the fetched members since we manually add them as '(You)' later
+        const otherMembers = data.members.filter(member => String(member.id) !== String(user.id))
+        
+        const mappedMembers = otherMembers.map(member => ({
           id: member.id,
           name: member.fullName || member.username,
           email: member.email,
@@ -382,8 +391,8 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
 
   const fetchAnalytics = async () => {
     try {
-      // Use new team-leader endpoint to get analytics aggregated from ALL teams
-      const data = await apiFetch(`/api/dashboard/team-leader/${user.id}`)
+      // Use team-specific endpoint to get analytics for the currently active team
+      const data = await apiFetch(`/api/dashboard/team/${encodeURIComponent(user.team)}`)
       if (data.success) {
         setAnalyticsData(data.analytics || {})
       }
@@ -395,7 +404,7 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
   const fetchAssignments = async () => {
     setIsLoadingAssignments(true)
     try {
-      const data = await apiFetch(`/api/assignments/team-leader/${user.id}`)
+      const data = await apiFetch(`/api/assignments/team/${encodeURIComponent(user.team)}/all-tasks`)
       if (data.success) {
         setAssignments(data.assignments || [])
       } else {
@@ -413,7 +422,7 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
   // Use this after optimistic updates so the UI doesn’t flash the loading state.
   const silentFetchAssignments = async () => {
     try {
-      const data = await apiFetch(`/api/assignments/team-leader/${user.id}`)
+      const data = await apiFetch(`/api/assignments/team/${encodeURIComponent(user.team)}/all-tasks`)
       if (data.success) {
         setAssignments(data.assignments || [])
       }

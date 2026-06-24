@@ -1,6 +1,7 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const multer = require('multer');
+const jwt = require('jsonwebtoken');
 const path = require('path');
 const fs = require('fs');
 const { db, query: dbQuery, queryOne: dbQueryOne } = require('../config/database');
@@ -10,6 +11,7 @@ const { getCache, setCache, clearCache } = require('../utils/cache');
 const { validate, schemas, validateId } = require('../middleware/validation');
 const { asyncHandler, DatabaseError, NotFoundError } = require('../middleware/errorHandler');
 const { authenticateToken, authorizeRole } = require('../middleware/auth');
+const { secret } = require('../config/jwt');
 
 // ── Profile picture storage (memory → save to disk manually) ─────────────────
 const profilePicUpload = multer({
@@ -188,6 +190,50 @@ router.delete('/profile/picture', asyncHandler(async (req, res) => {
 
   logInfo('Profile picture removed', { userId });
   res.json({ success: true, message: 'Profile picture removed' });
+}));
+
+/**
+ * PUT /api/users/profile/team
+ * Update the current user's active team. (Mainly for Team Leaders to switch context)
+ */
+router.put('/profile/team', authorizeRole(['TEAM_LEADER', 'ADMIN']), asyncHandler(async (req, res) => {
+  const userId = req.user.id;
+  const { team } = req.body;
+
+  if (!team || team.trim() === '') {
+    return res.status(400).json({ success: false, message: 'Team name is required' });
+  }
+
+  // Validate that the requested team exists
+  const teamRow = await dbQueryOne('SELECT id FROM teams WHERE name = ?', [team.trim()]);
+  if (!teamRow) {
+    return res.status(404).json({ success: false, message: 'Team not found' });
+  }
+
+  await dbQuery('UPDATE users SET team = ? WHERE id = ?', [team.trim(), userId]);
+
+  // Fetch fresh user data to generate a new token
+  const updatedUser = await dbQueryOne('SELECT * FROM users WHERE id = ?', [userId]);
+  
+  const token = jwt.sign(
+    { 
+      id: updatedUser.id, 
+      username: updatedUser.username, 
+      role: updatedUser.role,
+      team: updatedUser.team
+    }, 
+    secret, 
+    { expiresIn: '24h' }
+  );
+
+  clearCache('all_users');
+  logInfo('Active team updated by user', { userId, team: team.trim() });
+
+  res.json({
+    success: true,
+    message: 'Active team updated successfully',
+    team: team.trim()
+  });
 }));
 
 // Shared helper: attach file counts to an array of user/member objects using a single bulk query
@@ -611,8 +657,8 @@ router.get('/:teamName', authorizeRole(['TEAM_LEADER', 'ADMIN']), asyncHandler(a
   }
   console.log(`👥 Getting team members for team: ${teamName}`);
   const members = await dbQuery(
-    'SELECT id, fullName, username, email, role, team, profile_picture, created_at FROM users WHERE team = ? AND role != ? ORDER BY fullName',
-    [teamName, 'TEAM_LEADER']
+    'SELECT id, fullName, username, email, role, team, profile_picture, created_at FROM users WHERE team = ? ORDER BY fullName',
+    [teamName]
   );
   console.log(`✅ Retrieved ${members.length} members for team ${teamName}`);
   await attachFileCounts(db, members);
