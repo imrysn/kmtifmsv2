@@ -1,10 +1,13 @@
-const { app, BrowserWindow, ipcMain, dialog, shell, screen } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, shell, screen, nativeTheme } = require('electron');
 const path = require('path');
 const { spawn } = require('child_process');
 const http = require('http');
 const fs = require('fs');
 const updaterWindow = require('./updater-window');
 const updater = require('./updater'); // Import updater module for window registration
+
+// Let the OS handle the theme (this brings back the black titlebar in Windows Dark Mode)
+nativeTheme.themeSource = 'system';
 
 let mainWindow;
 let splashWindow;
@@ -286,12 +289,13 @@ function checkViteConnection() {
 
 /*** Create and show splash window - SHOWS IMMEDIATELY, NO BLOCKING */
 function createSplashWindow() {
-  // Get primary display dimensions for fullscreen splash
-  const { width: screenWidth, height: screenHeight } = screen.getPrimaryDisplay().workAreaSize;
+  // Create a compact frameless splash screen
+  const splashWidth = 500;
+  const splashHeight = 400;
 
   splashWindow = new BrowserWindow({
-    width: screenWidth,
-    height: screenHeight,
+    width: splashWidth,
+    height: splashHeight,
     frame: false,
     alwaysOnTop: true,
     center: true,
@@ -559,17 +563,17 @@ function createWindow() {
   const primaryDisplay = screen.getPrimaryDisplay();
   const { width: screenWidth, height: screenHeight } = primaryDisplay.workAreaSize;
 
-  const windowWidth = Math.floor(screenWidth * 0.8);
-  const windowHeight = Math.floor(screenHeight * 0.8);
   const shouldAutoMaximize = screenWidth <= 1920 || screenHeight <= 1080;
 
   log(LogLevel.DEBUG, `Screen detected: ${screenWidth}x${screenHeight}`);
-  log(LogLevel.DEBUG, `Window size: ${windowWidth}x${windowHeight}`);
-  log(LogLevel.DEBUG, `Auto-maximize: ${shouldAutoMaximize ? 'Yes' : 'No'}`);
+  log(LogLevel.DEBUG, `Auto-maximize on login: ${shouldAutoMaximize ? 'Yes' : 'No'}`);
 
   mainWindow = new BrowserWindow({
-    width: windowWidth,
-    height: windowHeight,
+    width: 850,
+    height: 650,
+    resizable: false,
+    maximizable: false,
+    fullscreenable: false,
     backgroundColor: '#ffffff',
     show: false,
     icon: path.join(__dirname, 'client/src/assets/fms-icon.png'),
@@ -589,10 +593,9 @@ function createWindow() {
     },
   });
 
-  if (shouldAutoMaximize) {
-    mainWindow.maximize();
-    log(LogLevel.DEBUG, 'Window auto-maximized');
-  }
+  // Do NOT maximize on initial launch (login screen)
+  // mainWindow.maximize();
+  log(LogLevel.DEBUG, 'Window started in compact login mode');
 
   mainWindow.setMenuBarVisibility(false);
 
@@ -1149,8 +1152,8 @@ if (app) {
             ...details.responseHeaders,
             'Content-Security-Policy': [
               isDev
-                ? "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: blob:; font-src 'self' data: https://fonts.gstatic.com; connect-src 'self' http://localhost:* ws://localhost:* wss://localhost:* https://fonts.googleapis.com https://fonts.gstatic.com http: https:; media-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none';"
-                : "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: blob:; font-src 'self' data: https://fonts.gstatic.com; connect-src 'self' http://localhost:* ws://localhost:* https://fonts.googleapis.com https://fonts.gstatic.com http: https:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none';"
+                ? "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: blob: http://localhost:*; font-src 'self' data: https://fonts.gstatic.com; connect-src 'self' http://localhost:* ws://localhost:* wss://localhost:* https://fonts.googleapis.com https://fonts.gstatic.com http: https:; media-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none';"
+                : "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: blob: http://localhost:*; font-src 'self' data: https://fonts.gstatic.com; connect-src 'self' http://localhost:* ws://localhost:* https://fonts.googleapis.com https://fonts.gstatic.com http: https:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none';"
             ]
           }
         });
@@ -1652,6 +1655,36 @@ if (ipcMain) {
       fs.writeFileSync(filePath, JSON.stringify(data), 'utf8');
       return true;
     } catch { return false; }
+  });
+
+  // ── Window Resizing for Login / Dashboard ───────────────────────────────────
+  ipcMain.on('window:resizeForDashboard', () => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.setResizable(true);
+      mainWindow.setMaximizable(true);
+      mainWindow.setFullScreenable(true);
+      
+      const { width: sw, height: sh } = screen.getPrimaryDisplay().workAreaSize;
+      // Unconditionally set the restored size to 80% of the screen so when
+      // the user clicks "Restore Down", it doesn't shrink to the 850x650 login size.
+      // We no longer auto-maximize, leaving it up to the user to maximize if they want.
+      mainWindow.setSize(Math.floor(sw * 0.8), Math.floor(sh * 0.8));
+      mainWindow.center();
+      
+      log(LogLevel.INFO, 'Window resized for dashboard mode');
+    }
+  });
+
+  ipcMain.on('window:resizeForLogin', () => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.unmaximize();
+      mainWindow.setSize(850, 650);
+      mainWindow.center();
+      mainWindow.setResizable(false);
+      mainWindow.setMaximizable(false);
+      mainWindow.setFullScreenable(false);
+      log(LogLevel.INFO, 'Window resized for compact login mode');
+    }
   });
 }
 // Handle opening external links

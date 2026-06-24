@@ -140,19 +140,22 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
   }, [])
 
 
-  // One-time mount fetch: team members, analytics, and notifications are stable data
-  // that don't need to re-fetch on every tab switch.
-  const hasMountFetched = React.useRef(false)
+  // Fetch data whenever the user's active team changes
+  // This ensures that if refreshUserProfile updates the user.team (e.g. from token mismatch),
+  // the dashboard pulls the correct team's data instead of showing stale data.
+  const lastFetchedTeam = React.useRef(null)
   useEffect(() => {
-    if (hasMountFetched.current) return
-    hasMountFetched.current = true
+    if (!user || !user.team) return
+    if (lastFetchedTeam.current === user.team) return
+    lastFetchedTeam.current = user.team
+    
     fetchTeamMembers()
     fetchNotifications()
     fetchAnalytics()
     fetchAllSubmissions()
     fetchAssignments()
     fetchPendingFiles('total')
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [user?.team]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Tab-specific lazy fetch: only load tab data the FIRST time a tab is visited.
   // Subsequent tab switches use the already-cached state — no re-fetch.
@@ -261,7 +264,10 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
     try {
       const data = await apiFetch(`/api/assignments/team-leader/${user.id}/all-submissions`)
       if (data.success) {
-        setSubmittedFiles(data.files || [])
+        const allFiles = data.files || []
+        // STRICT ISOLATION: filter the returned files to only those matching the active user.team
+        const filteredFiles = allFiles.filter(f => f.user_team === user.team || f.team === user.team)
+        setSubmittedFiles(filteredFiles)
       }
     } catch (error) {
       console.error('Error fetching all submissions:', error)
@@ -304,10 +310,13 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
   const fetchTeamMembers = async () => {
     setIsLoadingTeam(true)
     try {
-      // Use new team-leader endpoint to get members from ALL teams
-      const data = await apiFetch(`/api/team-members/team-leader/${user.id}`)
+      // Use team-specific endpoint to get members from active team
+      const data = await apiFetch(`/api/users/${encodeURIComponent(user.team)}`)
       if (data.success && data.members && data.members.length > 0) {
-        const mappedMembers = data.members.map(member => ({
+        // Filter out the current user from the fetched members since we manually add them as '(You)' later
+        const otherMembers = data.members.filter(member => String(member.id) !== String(user.id))
+        
+        const mappedMembers = otherMembers.map(member => ({
           id: member.id,
           name: member.fullName || member.username,
           email: member.email,
@@ -328,7 +337,8 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
           fullName: user.fullName,
           username: user.username,
           role: user.role,
-          team: user.team
+          team: user.team,
+          profile_picture: user.profile_picture
         }
 
         // Add team leader at the beginning of the array
@@ -344,7 +354,8 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
           status: 'Active',
           fullName: user.fullName,
           username: user.username,
-          role: user.role
+          role: user.role,
+          profile_picture: user.profile_picture
         }
         setTeamMembers([teamLeaderMember])
       }
@@ -380,8 +391,8 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
 
   const fetchAnalytics = async () => {
     try {
-      // Use new team-leader endpoint to get analytics aggregated from ALL teams
-      const data = await apiFetch(`/api/dashboard/team-leader/${user.id}`)
+      // Use team-specific endpoint to get analytics for the currently active team
+      const data = await apiFetch(`/api/dashboard/team/${encodeURIComponent(user.team)}`)
       if (data.success) {
         setAnalyticsData(data.analytics || {})
       }
@@ -393,7 +404,7 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
   const fetchAssignments = async () => {
     setIsLoadingAssignments(true)
     try {
-      const data = await apiFetch(`/api/assignments/team-leader/${user.id}`)
+      const data = await apiFetch(`/api/assignments/team/${encodeURIComponent(user.team)}/all-tasks`)
       if (data.success) {
         setAssignments(data.assignments || [])
       } else {
@@ -404,6 +415,19 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
       setAssignments([])
     } finally {
       setIsLoadingAssignments(false)
+    }
+  }
+
+  // Silent background refresh — updates data without showing the skeleton loader.
+  // Use this after optimistic updates so the UI doesn’t flash the loading state.
+  const silentFetchAssignments = async () => {
+    try {
+      const data = await apiFetch(`/api/assignments/team/${encodeURIComponent(user.team)}/all-tasks`)
+      if (data.success) {
+        setAssignments(data.assignments || [])
+      }
+    } catch (error) {
+      console.error('Error silently refreshing assignments:', error)
     }
   }
 
@@ -439,10 +463,73 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
 
     setIsProcessing(true)
 
+    // Capture editingAssignmentId now before any optimistic state resets
+    const capturedEditingId = editingAssignmentId
+    // and update the local assignments list instantly, then confirm with the server.
+    const isEditOnly = !!editingAssignmentId && !(attachedFiles && attachedFiles.length > 0) && !(removedAttachmentIds && removedAttachmentIds.length > 0)
+    if (isEditOnly) {
+      const optimisticOtDates = JSON.stringify(otDates || [])
+      setAssignments(prev => prev.map(a =>
+        a.id === editingAssignmentId
+          ? { ...a, title: assignmentForm.title, description: assignmentForm.description || '', due_date: assignmentForm.dueDate || a.due_date, ot_dates: optimisticOtDates, file_type_required: assignmentForm.fileTypeRequired || a.file_type_required }
+          : a
+      ))
+      setSuccess('Task updated successfully!')
+      setIsProcessing(false) // reset immediately so re-opening Edit doesn't show stale "Updating..." state
+      setShowCreateAssignmentModal(false)
+      setEditingAssignmentId(null)
+      setAssignmentForm({
+        title: '',
+        description: '',
+        dueDate: '',
+        fileTypeRequired: '',
+        assignedMembers: [],
+        selectedTeam: uniqueTeams && uniqueTeams.length === 1 ? uniqueTeams[0] : '',
+        otDates: []
+      })
+    }
+
+    // For create with no attachments, also close optimistically
+    const isCreateOnly = !editingAssignmentId && !(attachedFiles && attachedFiles.length > 0)
+    if (isCreateOnly) {
+      // Add a placeholder task immediately so the list updates right away
+      const tempId = `temp_${Date.now()}`
+      const tempTask = {
+        id: tempId,
+        title: assignmentForm.title,
+        description: assignmentForm.description || '',
+        due_date: assignmentForm.dueDate || null,
+        ot_dates: JSON.stringify(otDates || []),
+        file_type_required: assignmentForm.fileTypeRequired || null,
+        team: assignmentForm.selectedTeam || user.team,
+        team_leader_id: user.id,
+        team_leader_username: user.username,
+        status: 'active',
+        assigned_member_details: [],
+        attachments: [],
+        recent_submissions: [],
+        created_at: new Date().toISOString(),
+        _isTemp: true
+      }
+      setAssignments(prev => [tempTask, ...prev])
+      setSuccess('Assignment created!')
+      setIsProcessing(false)
+      setShowCreateAssignmentModal(false)
+      setAssignmentForm({
+        title: '',
+        description: '',
+        dueDate: '',
+        fileTypeRequired: '',
+        assignedMembers: [],
+        selectedTeam: uniqueTeams && uniqueTeams.length === 1 ? uniqueTeams[0] : '',
+        otDates: []
+      })
+    }
+
     const handlePostDataResult = (data, removeAttachmentIds) => {
       // Check the ref — this is synchronous and works even in Electron
       if (createAssignmentCancelled.current) {
-        if (data.success && data.assignmentId && !editingAssignmentId) {
+        if (data.success && data.assignmentId && !capturedEditingId) {
           // User cancelled after server already created it — delete it immediately
           apiFetch(`/api/assignments/${data.assignmentId}`, {
             method: 'DELETE',
@@ -452,36 +539,47 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
         return
       }
       if (data.success) {
-        setSuccess(editingAssignmentId
-          ? 'Task updated successfully!'
-          : `Assignment created! ${data.membersAssigned} members assigned.`
-        )
-        // immediately remove attachments locally so UI reflects change even before server refetch
-        if (editingAssignmentId && removeAttachmentIds.length > 0) {
-          setAssignments(prev => prev.map(a => {
-            if (a.id === editingAssignmentId) {
-              return {
-                ...a,
-                attachments: (a.attachments || []).filter(att => !removeAttachmentIds.includes(att.id))
+        if (!isEditOnly && !isCreateOnly) {
+          setSuccess(capturedEditingId
+            ? 'Task updated successfully!'
+            : `Assignment created! ${data.membersAssigned} members assigned.`
+          )
+          // immediately remove attachments locally so UI reflects change even before server refetch
+          if (capturedEditingId && removeAttachmentIds.length > 0) {
+            setAssignments(prev => prev.map(a => {
+              if (a.id === capturedEditingId) {
+                return {
+                  ...a,
+                  attachments: (a.attachments || []).filter(att => !removeAttachmentIds.includes(att.id))
+                }
               }
-            }
-            return a
-          }))
+              return a
+            }))
+          }
+          setShowCreateAssignmentModal(false)
+          setEditingAssignmentId(null)
+          setAssignmentForm({
+            title: '',
+            description: '',
+            dueDate: '',
+            fileTypeRequired: '',
+            assignedMembers: [],
+            selectedTeam: uniqueTeams && uniqueTeams.length === 1 ? uniqueTeams[0] : '',
+            otDates: []
+          })
         }
-        setShowCreateAssignmentModal(false)
-        setEditingAssignmentId(null)
-        setAssignmentForm({
-          title: '',
-          description: '',
-          dueDate: '',
-          fileTypeRequired: '',
-          assignedMembers: [],
-          selectedTeam: uniqueTeams && uniqueTeams.length === 1 ? uniqueTeams[0] : '',
-          otDates: []
-        })
-        fetchAssignments()
+        // Always do a silent refresh to replace temp/optimistic data with real server data
+        silentFetchAssignments()
       } else {
-        setError(data.message || `Failed to ${editingAssignmentId ? 'update' : 'create'} assignment`)
+        // On server error, revert the optimistic update
+        if (isEditOnly) silentFetchAssignments()
+        if (isCreateOnly) {
+          // Remove the temp placeholder
+          setAssignments(prev => prev.filter(a => !a._isTemp))
+          setError(data.message || 'Failed to create assignment')
+        } else {
+          setError(data.message || `Failed to ${capturedEditingId ? 'update' : 'create'} assignment`)
+        }
       }
     };
 
@@ -491,10 +589,10 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
       let response
 
       // choose url/method for both create and update using main endpoint so we can handle removals
-      const url = editingAssignmentId
-        ? `${API_BASE_URL}/api/assignments/${editingAssignmentId}`
+      const url = capturedEditingId
+        ? `${API_BASE_URL}/api/assignments/${capturedEditingId}`
         : `${API_BASE_URL}/api/assignments/create`
-      const method = editingAssignmentId ? 'PUT' : 'POST'
+      const method = capturedEditingId ? 'PUT' : 'POST'
 
       if (hasAttachments || (removedAttachmentIds && removedAttachmentIds.length > 0)) {
         // Request a one-time nonce from the server before uploading.
@@ -555,8 +653,8 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
           // If server rejected due to a stale/replayed nonce
           if (error.message && error.message.toLowerCase().includes('nonce')) {
             console.warn('⚠️ Nonce rejected — falling back to JSON request (no attachments)')
-            const fallbackUrl = editingAssignmentId ? url : `/api/assignments/create-json`
-            const fallbackMethod = editingAssignmentId ? 'PUT' : 'POST'
+            const fallbackUrl = capturedEditingId ? url : `/api/assignments/create-json`
+            const fallbackMethod = capturedEditingId ? 'PUT' : 'POST'
             const fallbackData = await apiFetch(fallbackUrl, {
               method: fallbackMethod,
               body: JSON.stringify({
@@ -581,10 +679,10 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
         return handlePostDataResult(responseData, removeAttachmentIds)
       } else {
         // No file changes — use JSON-only endpoints (no nonce needed)
-        const jsonUrl = editingAssignmentId
+        const jsonUrl = capturedEditingId
           ? url
           : `/api/assignments/create-json`
-        const jsonMethod = editingAssignmentId ? 'PUT' : 'POST'
+        const jsonMethod = capturedEditingId ? 'PUT' : 'POST'
         const data = await apiFetch(jsonUrl, {
           method: jsonMethod,
           body: JSON.stringify({
@@ -609,8 +707,8 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
         console.log('ℹ️ Assignment creation cancelled by user')
         return
       }
-      console.error(`Error ${editingAssignmentId ? 'updating' : 'creating'} assignment:`, error)
-      setError(`Failed to ${editingAssignmentId ? 'update' : 'create'} assignment`)
+      console.error(`Error ${capturedEditingId ? 'updating' : 'creating'} assignment:`, error)
+      setError(`Failed to ${capturedEditingId ? 'update' : 'create'} assignment`)
     } finally {
       setIsProcessing(false)
       setUploadProgress(null)
@@ -620,54 +718,58 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
   }
 
   const handleEditAssignment = async (assignment) => {
-    // fetch fresh details (including attachments) in case list data is minimal
+    // Parse ot_dates — handles: null, JS array (MySQL JSON column), or JSON string.
+    // Always normalizes each entry to plain YYYY-MM-DD so that toggle includes() comparisons
+    // work correctly regardless of whether the DB returned ISO datetime strings.
+    const parseOtDates = (raw) => {
+      try {
+        if (!raw) return [];
+        let arr = Array.isArray(raw) ? raw : JSON.parse(raw);
+        if (!Array.isArray(arr)) return [];
+        return arr.map(d => (typeof d === 'string' ? d.slice(0, 10) : d)).filter(Boolean);
+      } catch { return []; }
+    };
+
+    const buildForm = (a) => {
+      let formattedDueDate = ''
+      if (a.due_date || a.dueDate) {
+        const dueDate = new Date(a.due_date || a.dueDate)
+        if (!isNaN(dueDate.getTime())) {
+          const y = dueDate.getFullYear()
+          const m = String(dueDate.getMonth() + 1).padStart(2, '0')
+          const d = String(dueDate.getDate()).padStart(2, '0')
+          formattedDueDate = `${y}-${m}-${d}`
+        }
+      }
+      return {
+        title: a.title || '',
+        description: a.description || '',
+        dueDate: formattedDueDate,
+        fileTypeRequired: a.file_type_required || a.fileTypeRequired || '',
+        assignedMembers: (a.assigned_member_details || []).map(m => m.id),
+        selectedTeam: a.team || '',
+        otDates: parseOtDates(a.ot_dates)
+      }
+    }
+
+    // Open the modal immediately with existing data so the user sees it right away
+    setEditingAssignmentId(assignment.id)
+    setModalInitialAttachments(assignment.attachments || [])
+    setAssignmentForm(buildForm(assignment))
+    setShowCreateAssignmentModal(true)
+
+    // Then fetch fresh details in the background — only update attachments,
+    // NOT the form fields (title, dueDate, otDates, etc.) since the user may
+    // have already started editing them before the fetch completes.
     try {
       const data = await apiFetch(`/api/assignments/${assignment.id}/details`)
       if (data.success && data.assignment) {
-        assignment = { ...assignment, ...data.assignment, attachments: data.assignment.attachments || assignment.attachments || [] }
+        const freshAttachments = data.assignment.attachments || assignment.attachments || []
+        setModalInitialAttachments(freshAttachments)
       }
     } catch (e) {
       console.warn('Failed to load full assignment details for edit', e)
     }
-
-    setEditingAssignmentId(assignment.id)
-
-    // keep copy of attachments so modal can show them
-    setModalInitialAttachments(assignment.attachments || [])
-
-    // Format the due date for the input field (YYYY-MM-DD format)
-    let formattedDueDate = ''
-    if (assignment.due_date || assignment.dueDate) {
-      const dueDate = new Date(assignment.due_date || assignment.dueDate)
-      if (!isNaN(dueDate.getTime())) {
-        formattedDueDate = dueDate.toISOString().split('T')[0]
-      }
-    }
-
-    // Get assigned member IDs
-    const assignedMemberIds = (assignment.assigned_member_details || []).map(m => m.id)
-
-    // Parse ot_dates — handles: null, JS array (MySQL JSON column), or JSON string
-    const parseOtDates = (raw) => {
-      try {
-        if (!raw) return [];
-        if (Array.isArray(raw)) return raw;
-        if (typeof raw === 'string') return JSON.parse(raw);
-        return [];
-      } catch { return []; }
-    };
-
-    setAssignmentForm({
-      title: assignment.title || '',
-      description: assignment.description || '',
-      dueDate: formattedDueDate,
-      fileTypeRequired: assignment.file_type_required || assignment.fileTypeRequired || '',
-      assignedMembers: assignedMemberIds,
-      selectedTeam: assignment.team || '',
-      otDates: parseOtDates(assignment.ot_dates)
-    })
-
-    setShowCreateAssignmentModal(true)
   }
 
   const deleteAssignment = async (assignmentId, title) => {
@@ -715,6 +817,42 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
     }
   }
 
+  const undoMarkAsDone = async (assignmentId, title) => {
+    // ── Optimistic update: flip the status locally right away so the UI
+    // responds instantly without waiting for a full re-fetch.
+    setAssignments(prev =>
+      prev.map(a =>
+        a.id === assignmentId ? { ...a, status: 'active' } : a
+      )
+    )
+
+    try {
+      const data = await apiFetch(`/api/assignments/${assignmentId}/undo-mark-done`, {
+        method: 'PUT',
+        body: JSON.stringify({
+          teamLeaderId: user.id,
+          teamLeaderUsername: user.username,
+          team: user.team
+        })
+      })
+
+      if (data.success) {
+        setSuccess(`Task "${title}" moved back to active`)
+        // Silent background refresh — keeps data in sync without showing skeleton loader
+        silentFetchAssignments()
+      } else {
+        // Revert the optimistic update on failure using functional update
+        setAssignments(prev => prev.map(a => a.id === assignmentId ? { ...a, status: 'completed' } : a))
+        setError(data.message || 'Failed to undo mark as done')
+      }
+    } catch (error) {
+      // Revert the optimistic update on network error using functional update
+      setAssignments(prev => prev.map(a => a.id === assignmentId ? { ...a, status: 'completed' } : a))
+      console.error('Error undoing mark as done:', error)
+      setError('Failed to undo mark as done')
+    }
+  }
+
   const openReviewModal = async (file, action, onFileViewed) => {
     setSelectedFile(file)
     setReviewAction(action)
@@ -723,7 +861,8 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
     if (onFileViewed) setOnFileViewedCallback(() => onFileViewed)
 
     try {
-      const data = await apiFetch(`/api/files/${file.id}/comments`)
+      const fileIdToUse = file.file_id || file.id;
+      const data = await apiFetch(`/api/files/${fileIdToUse}/comments`)
       if (data.success) {
         setFileComments(data.comments || [])
       }
@@ -735,12 +874,13 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
 
   const openFileViewModal = async (file) => {
     try {
+      const actualFileId = file.file_id || file.id;
       setSuccess(`Opening ${file.original_name || file.name || 'file'}...`);
       setError('');
       // Check if running in Electron and has capability to open files locally
       if (window.electron && window.electron.openFileInApp) {
         // Get the absolute file path from server
-        const data = await apiFetch(`/api/files/${file.id}/path?type=file`);
+        const data = await apiFetch(`/api/files/${actualFileId}/path?type=file`);
 
         if (data.success && data.filePath) {
           const result = await window.electron.openFileInApp(data.filePath);
@@ -750,8 +890,8 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
           } else {
             setSuccess('File opened successfully');
             // Record view only when file is actually opened
-            try { await apiFetch(`/api/files/${file.id}/view`, { method: 'POST', body: JSON.stringify({ userId: user.id, username: user.username, fullName: user.fullName, role: user.role || 'TEAM_LEADER' }) }) } catch {}
-            if (onFileViewedCallback) { onFileViewedCallback(file.id); setOnFileViewedCallback(null) }
+            try { await apiFetch(`/api/files/${actualFileId}/view`, { method: 'POST', body: JSON.stringify({ userId: user.id, username: user.username, fullName: user.fullName, role: user.role || 'TEAM_LEADER' }) }) } catch {}
+            if (onFileViewedCallback) { onFileViewedCallback(actualFileId); setOnFileViewedCallback(null) }
           }
         } else {
           setError('Could not retrieve file path');
@@ -761,12 +901,12 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
         // We'll keep API_BASE_URL for window.open but use it sparingly
         const data = await apiFetch(`/api/files/open-file`, {
           method: 'POST',
-          body: JSON.stringify({ fileId: file.id })
+          body: JSON.stringify({ fileId: actualFileId })
         });
         setSuccess('File opened in new tab');
         // Record view only when file is actually opened
-        try { await apiFetch(`/api/files/${file.id}/view`, { method: 'POST', body: JSON.stringify({ userId: user.id, username: user.username, fullName: user.fullName, role: user.role || 'TEAM_LEADER' }) }) } catch {}
-        if (onFileViewedCallback) { onFileViewedCallback(file.id); setOnFileViewedCallback(null) }
+        try { await apiFetch(`/api/files/${actualFileId}/view`, { method: 'POST', body: JSON.stringify({ userId: user.id, username: user.username, fullName: user.fullName, role: user.role || 'TEAM_LEADER' }) }) } catch {}
+        if (onFileViewedCallback) { onFileViewedCallback(actualFileId); setOnFileViewedCallback(null) }
       }
     } catch (error) {
       console.error('Error opening file:', error);
@@ -785,10 +925,11 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
     setError('')
 
     try {
+      const fileIdToProcess = selectedFile.file_id || selectedFile.id;
       // Use the correct endpoint: reject goes to team-leader-reject, approve to team-leader-review
       const endpoint = actionToUse === 'reject'
-        ? `/api/files/${selectedFile.id}/team-leader-reject`
-        : `/api/files/${selectedFile.id}/team-leader-review`
+        ? `/api/files/${fileIdToProcess}/team-leader-reject`
+        : `/api/files/${fileIdToProcess}/team-leader-review`
 
       const data = await apiFetch(endpoint, {
         method: 'POST',
@@ -1185,6 +1326,7 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
                 setHighlightedFileStatus(null)
               }}
               markAssignmentAsDone={markAssignmentAsDone}
+              undoMarkAsDone={undoMarkAsDone}
               handleEditAssignment={handleEditAssignment}
               onRefreshAssignments={fetchAssignments}
               teamMembers={teamMembers}
@@ -1204,6 +1346,7 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
                   const assignmentId = typeof data === 'object' ? data.assignmentId : data
                   const shouldOpenComments = typeof data === 'object' ? data.shouldOpenComments : false
                   const expandAllReplies = typeof data === 'object' ? data.expandAllReplies : false
+                  const highlightUser = typeof data === 'object' ? data.highlightUser : null
                   const fileId = typeof data === 'object' ? data.fileId : null
                   const fileStatus = typeof data === 'object' ? data.fileStatus : null
 
@@ -1225,7 +1368,7 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
                     }
 
                     if (shouldOpenComments) {
-                      setNotificationCommentContext({ assignmentId, expandAllReplies })
+                      setNotificationCommentContext({ assignmentId, expandAllReplies, highlightUser })
                     }
                   }
                 } else if (tab === 'file-collection') {
@@ -1281,7 +1424,7 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
         <main className="tl-main">
           {/* Online Members Panel — top right */}
           <div style={{ position: 'fixed', top: '16px', right: '24px', zIndex: 1000 }}>
-            <OnlineMembersPanel user={user} teamFilter={user?.team} />
+            <OnlineMembersPanel user={user} />
           </div>
 
           <AlertMessage

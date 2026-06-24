@@ -4,6 +4,7 @@ export { useOptimisticUpdate } from './useOptimisticUpdate'
 export { useNetworkStatus } from './useNetworkStatus'
 export { useAssignments, useTeamAssignments } from './useAssignments'
 export { useComments } from './useComments'
+export { useAdminTasks } from './useAdminTasks'
 
 // Re-export existing hooks
 export { useTaskbarFlash } from '../utils/useTaskbarFlash'

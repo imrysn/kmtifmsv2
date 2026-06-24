@@ -22,14 +22,14 @@ async function up() {
     const existing = new Set((cols || []).map(r => r.COLUMN_NAME));
 
     if (!existing.has('due_date_edited')) {
-      await query(`ALTER TABLE assignments ADD COLUMN due_date_edited TINYINT(1) NOT NULL DEFAULT 0`);
+      await query('ALTER TABLE assignments ADD COLUMN due_date_edited TINYINT(1) NOT NULL DEFAULT 0');
       console.log('✅ [016] assignments.due_date_edited column added.');
     } else {
       console.log('✅ [016] assignments.due_date_edited already exists — skipping.');
     }
 
     if (!existing.has('original_due_date')) {
-      await query(`ALTER TABLE assignments ADD COLUMN original_due_date DATETIME DEFAULT NULL`);
+      await query('ALTER TABLE assignments ADD COLUMN original_due_date DATETIME DEFAULT NULL');
       console.log('✅ [016] assignments.original_due_date column added.');
     } else {
       console.log('✅ [016] assignments.original_due_date already exists — skipping.');

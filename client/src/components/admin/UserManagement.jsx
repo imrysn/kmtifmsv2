@@ -3,6 +3,7 @@ import { apiFetch } from '@/config/api'
 import './UserManagement.css'
 import { AlertMessage, ConfirmationModal, FormModal } from './modals'
 import { UserPerformanceCard } from '../shared'
+import Avatar from '../shared/Avatar'
 
 import { SkeletonLoader } from '../common/SkeletonLoader'
 import { useAuth, useNetwork } from '../../contexts'
@@ -65,19 +66,12 @@ const MemberPerfRow = React.memo(({ user, score, performanceData, onScoreLoad })
         paddingLeft: '4px'
       }}>
         <div style={{
-          width: '36px',
-          height: '36px',
-          background: isStar ? 'rgba(99, 102, 241, 0.1)' : isExcellent ? 'rgba(16, 185, 129, 0.1)' : '#f1f5f9',
-          borderRadius: '10px',
+          flexShrink: 0,
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          fontWeight: '800',
-          color: isStar ? '#6366f1' : isExcellent ? '#10b981' : '#475569',
-          fontSize: '13px',
-          border: isStar ? '1px solid rgba(99, 102, 241, 0.2)' : isExcellent ? '1px solid rgba(16, 185, 129, 0.2)' : 'none'
         }}>
-          {user.fullName.substring(0, 2).toUpperCase()}
+          <Avatar user={user} size="md" />
         </div>
         <div style={{ minWidth: 0 }}>
           <h3 style={{

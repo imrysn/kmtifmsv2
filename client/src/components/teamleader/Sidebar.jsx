@@ -1,4 +1,7 @@
-import { memo, useCallback } from 'react'
+import { memo, useCallback, useState, useEffect } from 'react'
+import Avatar from '../shared/Avatar'
+import { apiFetch } from '@/config/api'
+import useStore from '../../store/useStore'
 
 const Sidebar = memo(({ 
   activeTab, 
@@ -16,48 +19,85 @@ const Sidebar = memo(({
     setSidebarOpen(false)
   }, [setActiveTab, clearMessages, setSidebarOpen])
 
+  const [teams, setTeams] = useState([])
+  const [isChangingTeam, setIsChangingTeam] = useState(false)
+
+  useEffect(() => {
+    const fetchTeams = async () => {
+      try {
+        const data = await apiFetch('/api/teams')
+        if (data.success && data.teams) {
+          setTeams(data.teams)
+        }
+      } catch (err) {
+        console.error('Failed to fetch teams', err)
+      }
+    }
+    fetchTeams()
+  }, [])
+
+  const handleTeamChange = async (e) => {
+    const newTeam = e.target.value
+    if (!newTeam || newTeam === user?.team) return
+    setIsChangingTeam(true)
+    try {
+      const data = await apiFetch('/api/users/profile/team', {
+        method: 'PUT',
+        body: JSON.stringify({ team: newTeam })
+      })
+      if (data.success) {
+        if (data.token) {
+          useStore.getState().setToken(data.token)
+        }
+        window.location.reload()
+      } else {
+        setIsChangingTeam(false)
+      }
+    } catch (err) {
+      console.error('Error changing team:', err)
+      setIsChangingTeam(false)
+    }
+  }
+
   return (
     <aside className={`tl-sidebar ${sidebarOpen ? 'open' : ''}`}>
       {/* Brand */}
       <div className="tl-brand">
-        <div className="tl-brand-logo">TL</div>
-        <div className="tl-brand-name" style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-          <span>Team Leader</span>
-          {user?.ledTeams && user.ledTeams.length > 0 ? (
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
-              {user.ledTeams.map((team) => (
-                <span key={team.id} style={{
-                  backgroundColor: 'transparent',
-                  color: '#374151',
-                  fontSize: '11px',
-                  fontWeight: '600',
-                  padding: '2px 8px',
-                  borderRadius: '20px',
-                  border: `1.5px solid ${team.color || '#6b7280'}`,
-                  whiteSpace: 'nowrap',
-                  display: 'inline-block',
-                  textAlign: 'center'
-                }}>
-                  {team.name}
-                </span>
-              ))}
-            </div>
-          ) : user?.team && (
-            <span style={{
+        <div className="tl-brand-avatar">
+          <Avatar user={user} size="md" editable />
+        </div>
+        <div className="tl-brand-name" style={{ display: 'flex', flexDirection: 'column', gap: '4px', overflow: 'hidden' }}>
+          <span style={{ fontWeight: 600, fontSize: '13px', color: '#111827', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            {user?.fullName || user?.username || 'Team Leader'}
+          </span>
+          <select 
+            value={user?.team || ''} 
+            onChange={handleTeamChange}
+            disabled={isChangingTeam}
+            style={{
               backgroundColor: 'transparent',
               color: '#374151',
               fontSize: '12px',
               fontWeight: '600',
-              padding: '3px 10px',
+              padding: '3px 8px',
               borderRadius: '20px',
               border: '1.5px solid #6b7280',
-              whiteSpace: 'nowrap',
-              display: 'inline-block',
-              textAlign: 'center'
-            }}>
-              {user.team}
-            </span>
-          )}
+              outline: 'none',
+              cursor: 'pointer',
+              width: '100%',
+              maxWidth: '140px'
+            }}
+          >
+            {teams.length > 0 ? (
+              teams.map(team => (
+                <option key={team.id} value={team.name}>{team.name}</option>
+              ))
+            ) : user?.team ? (
+              <option value={user.team}>{user.team}</option>
+            ) : (
+              <option value="">Select Team</option>
+            )}
+          </select>
         </div>
       </div>
 

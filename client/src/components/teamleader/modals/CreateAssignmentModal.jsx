@@ -1,5 +1,5 @@
 import { FileIcon } from '../../shared';
-import { getWeekendDatesBetween } from '@utils/otDatesUtils';
+import { getWeekendDatesBetween, calcBusinessDaysLeft } from '@utils/otDatesUtils';
 
 const recursiveGroupByPath = (files, pathKey = 'relative_path') => {
   const result = { subfolders: {}, rootFiles: [] };
@@ -410,6 +410,35 @@ const CreateAssignmentModal = ({
                   value={assignmentForm.dueDate}
                   onChange={(e) => setAssignmentForm({ ...assignmentForm, dueDate: e.target.value, otDates: [] })}
                 />
+                {/* Live business-days preview — updates when date or OT Saturdays change */}
+                {assignmentForm.dueDate && (() => {
+                  const days = calcBusinessDaysLeft(assignmentForm.dueDate, assignmentForm.otDates || []);
+                  if (days === null) return null;
+                  const isOverdue = days < 0;
+                  const isToday = days === 0;
+                  const label = isOverdue
+                    ? `${Math.abs(days)} working ${Math.abs(days) === 1 ? 'day' : 'days'} overdue`
+                    : isToday
+                    ? 'Due today'
+                    : `${days} working ${days === 1 ? 'day' : 'days'} left`;
+                  const bg = isOverdue ? '#FEF2F2' : isToday ? '#FFFBEB' : '#F0FDF4';
+                  const color = isOverdue ? '#DC2626' : isToday ? '#D97706' : '#16A34A';
+                  const border = isOverdue ? '#FECACA' : isToday ? '#FDE68A' : '#BBF7D0';
+                  return (
+                    <div style={{
+                      marginTop: '6px',
+                      display: 'inline-flex', alignItems: 'center', gap: '5px',
+                      padding: '4px 10px', borderRadius: '20px',
+                      background: bg, border: `1px solid ${border}`,
+                      fontSize: '12px', fontWeight: '600', color,
+                    }}>
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                        <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+                      </svg>
+                      {label}
+                    </div>
+                  );
+                })()}
               </div>
 
               <div className="tl-form-group">

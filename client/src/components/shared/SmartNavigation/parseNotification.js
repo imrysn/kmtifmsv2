@@ -47,7 +47,9 @@ export function parseNotification(notification, role) {
                 context: {
                     assignmentId: notification.assignment_id,
                     shouldOpenComments: true,
-                    expandAllReplies: isReplyNotification
+                    expandAllReplies: isReplyNotification,
+                    highlightUser: notification.action_by_username || notification.action_by_id,
+                    commentId: notification.comment_id // Passing the exact comment ID
                 },
                 notificationType: notification.type === 'mention' ? 'mention' : (isReplyNotification ? 'reply' : 'comment')
             };

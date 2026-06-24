@@ -27,7 +27,9 @@ export function useSmartNavigation({
     setVisibleReplies,
     showCommentsModal,
     selectedItem,
-    comments = []
+    comments = [],
+    setHighlightUsername, // Handle user-based comment highlighting
+    setHighlightCommentId // Handle exact comment highlighting
 }) {
     const shouldExpandRepliesRef = useRef(false);
     const pendingContextRef = useRef(null);
@@ -64,11 +66,19 @@ export function useSmartNavigation({
             shouldExpandRepliesRef.current = true;
         }
 
+        if (setHighlightCommentId && ctx.commentId) {
+            setHighlightCommentId(ctx.commentId);
+            setTimeout(() => setHighlightCommentId(null), 4000);
+        } else if (setHighlightUsername && ctx.highlightUser) {
+            setHighlightUsername(ctx.highlightUser);
+            setTimeout(() => setHighlightUsername(null), 4000);
+        }
+
         if (openCommentsModal) {
             openCommentsModal(item);
         }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [items, openCommentsModal]);
+    }, [items, openCommentsModal, setHighlightUsername, setHighlightCommentId]);
 
     // EFFECT 2: Auto-expand replies when modal + comments are ready
     useEffect(() => {

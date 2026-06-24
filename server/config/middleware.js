@@ -22,7 +22,7 @@ console.log(`📁 Uploads directory configured: ${uploadsDir}`);
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
     // REVERT to local OS temp dir.
-    // Writing directly to NAS over SMB in small chunks (multer behavior) 
+    // Writing directly to NAS over SMB in small chunks (multer behavior)
     // can be very slow due to network latency. Writing to local disk is faster.
     // We then move the completed file to the NAS in one fast operation.
     cb(null, os.tmpdir());
@@ -56,26 +56,30 @@ function setupMiddleware(app) {
         defaultSrc: ["'self'"],
         styleSrc: ["'self'", "'unsafe-inline'"], // Allow inline styles for React
         scriptSrc: ["'self'", "'unsafe-inline'"], // Allow inline scripts for React
-        imgSrc: ["'self'", "data:", "blob:"],
-        connectSrc: ["'self'", "http://localhost:*", "http://192.168.*.*"], // Allow local network
-        fontSrc: ["'self'", "data:"],
+        imgSrc: ["'self'", 'data:', 'blob:'],
+        connectSrc: ["'self'", 'http://localhost:*', 'http://192.168.*.*'], // Allow local network
+        fontSrc: ["'self'", 'data:'],
         objectSrc: ["'none'"],
         mediaSrc: ["'self'"],
         frameSrc: ["'none'"]
       }
     },
     crossOriginEmbedderPolicy: false, // Disable for file uploads
-    crossOriginResourcePolicy: { policy: "cross-origin" } // Allow cross-origin for local network
+    crossOriginResourcePolicy: { policy: 'cross-origin' } // Allow cross-origin for local network
   }));
 
   // CORS configuration with UTF-8 support
   app.use(cors({
     origin: function (origin, callback) {
       // Allow requests with no origin (like mobile apps, curl, or Electron file://)
-      if (!origin) return callback(null, true);
+      if (!origin) {
+        return callback(null, true);
+      }
 
       // Allow file:// protocol
-      if (origin === 'file://') return callback(null, true);
+      if (origin === 'file://') {
+        return callback(null, true);
+      }
 
       // Allow localhost and local network IPs
       const allowedOrigins = [

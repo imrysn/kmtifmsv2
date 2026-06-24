@@ -40,7 +40,7 @@ async function up() {
     );
     if (cols.length === 0) {
       await query(
-        `ALTER TABLE assignment_comments ADD COLUMN updated_at DATETIME NULL DEFAULT NULL`
+        'ALTER TABLE assignment_comments ADD COLUMN updated_at DATETIME NULL DEFAULT NULL'
       );
       console.log('  ✅ assignment_comments.updated_at column added');
     } else {

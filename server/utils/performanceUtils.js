@@ -12,9 +12,13 @@
 const getBusinessHoursDiff = (start, end) => {
   const dStart = new Date(start);
   const dEnd = new Date(end);
-  
-  if (isNaN(dStart.getTime()) || isNaN(dEnd.getTime())) return 0;
-  if (dEnd < dStart) return 0;
+
+  if (isNaN(dStart.getTime()) || isNaN(dEnd.getTime())) {
+    return 0;
+  }
+  if (dEnd < dStart) {
+    return 0;
+  }
 
   let totalHours = 0;
   const current = new Date(dStart);
@@ -27,12 +31,12 @@ const getBusinessHoursDiff = (start, end) => {
       // Calculate remaining time in the current day or until the end date
       const endOfDay = new Date(current);
       endOfDay.setHours(23, 59, 59, 999);
-      
+
       const segmentEnd = dEnd < endOfDay ? dEnd : endOfDay;
       const diffMs = segmentEnd - current;
       totalHours += diffMs / (1000 * 60 * 60);
     }
-    
+
     // Move to the start of the next day
     current.setDate(current.getDate() + 1);
     current.setHours(0, 0, 0, 0);
@@ -48,7 +52,9 @@ const getBusinessHoursDiff = (start, end) => {
  * @returns {number} Clamped speed factor
  */
 const calculateSpeedFactor = (timeAllocated, timeTaken) => {
-  if (timeTaken <= 0) return 1.0; // Avoid division by zero
+  if (timeTaken <= 0) {
+    return 1.0;
+  } // Avoid division by zero
   const factor = timeAllocated / timeTaken;
   return Math.min(1.5, Math.max(0, factor));
 };

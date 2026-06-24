@@ -32,7 +32,7 @@ async function up() {
         }
       } catch (_) { /* ignore if FK already gone */ }
 
-      await query(`ALTER TABLE notifications MODIFY COLUMN file_id INT NULL`);
+      await query('ALTER TABLE notifications MODIFY COLUMN file_id INT NULL');
 
       // Re-add FK allowing NULL
       try {
@@ -59,7 +59,7 @@ async function up() {
     if (cols.length) {
       const currentType = cols[0].COLUMN_TYPE.toLowerCase();
       if (!currentType.includes('varchar')) {
-        await query(`ALTER TABLE notifications MODIFY COLUMN type VARCHAR(100) NOT NULL`);
+        await query('ALTER TABLE notifications MODIFY COLUMN type VARCHAR(100) NOT NULL');
         console.log('  ✅ notifications.type widened to VARCHAR(100)');
       } else {
         console.log('  ⏭️  notifications.type already VARCHAR');
@@ -76,7 +76,7 @@ async function up() {
        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'notifications' AND COLUMN_NAME = 'assignment_id'`
     );
     if (cols.length === 0) {
-      await query(`ALTER TABLE notifications ADD COLUMN assignment_id INT NULL AFTER file_id`);
+      await query('ALTER TABLE notifications ADD COLUMN assignment_id INT NULL AFTER file_id');
       try {
         await query(
           `ALTER TABLE notifications ADD CONSTRAINT fk_notif_assignment
@@ -104,11 +104,11 @@ async function up() {
 
     if (actionCol.length > 0 && activityCol.length === 0) {
       // Old DB: has 'action' but not 'activity' — rename it
-      await query("ALTER TABLE activity_logs CHANGE COLUMN `action` activity TEXT NOT NULL");
+      await query('ALTER TABLE activity_logs CHANGE COLUMN `action` activity TEXT NOT NULL');
       console.log('  ✅ activity_logs.action renamed to activity');
     } else if (actionCol.length > 0 && activityCol.length > 0) {
       // Both columns exist — drop the old 'action' column
-      await query("ALTER TABLE activity_logs DROP COLUMN `action`");
+      await query('ALTER TABLE activity_logs DROP COLUMN `action`');
       console.log('  ✅ activity_logs.action (duplicate) dropped');
     } else {
       console.log('  ⏭️  activity_logs.activity column is correct');

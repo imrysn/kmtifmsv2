@@ -5,7 +5,7 @@
 
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes — serve stale data instantly, recompute in background
 
-let performanceCache = {
+const performanceCache = {
   data: null,
   timestamp: 0,
   isDirty: true // Start dirty to force first load
@@ -20,7 +20,9 @@ const getCache = () => {
   if (performanceCache.data && (Date.now() - performanceCache.timestamp) < CACHE_TTL_MS) {
     return performanceCache;
   }
-  if (performanceCache.isDirty) return null;
+  if (performanceCache.isDirty) {
+    return null;
+  }
   return performanceCache;
 };
 
@@ -36,7 +38,9 @@ const setCache = (data) => {
  * so callers don't spawn duplicate calculateAllUserPerformance() calls.
  */
 const getRecomputePromise = () => recomputePromise;
-const setRecomputePromise = (p) => { recomputePromise = p; };
+const setRecomputePromise = (p) => {
+  recomputePromise = p;
+};
 
 /**
  * Call this whenever a performance-impacting event occurs:
@@ -56,5 +60,5 @@ module.exports = {
   setCache,
   invalidateCache,
   getRecomputePromise,
-  setRecomputePromise,
+  setRecomputePromise
 };

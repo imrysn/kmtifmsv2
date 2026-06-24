@@ -26,20 +26,24 @@ async function getAssignedUserIds(assignment) {
       'SELECT id FROM users WHERE team = ? AND role = ?',
       [assignment.team, 'USER']
     );
-    for (const m of (members || [])) ids.add(m.id);
+    for (const m of (members || [])) {
+      ids.add(m.id);
+    }
   } else {
     const members = await query(
       'SELECT user_id FROM assignment_members WHERE assignment_id = ?',
       [assignment.id]
     );
-    for (const m of (members || [])) ids.add(m.user_id);
+    for (const m of (members || [])) {
+      ids.add(m.user_id);
+    }
   }
   return [...ids];
 }
 
 async function alreadyNotified(userId, assignmentId, type) {
   const rows = await query(
-    `SELECT id FROM notifications WHERE user_id = ? AND assignment_id = ? AND type = ? LIMIT 1`,
+    'SELECT id FROM notifications WHERE user_id = ? AND assignment_id = ? AND type = ? LIMIT 1',
     [userId, assignmentId, type]
   );
   return rows && rows.length > 0;
@@ -74,7 +78,9 @@ async function checkDueDates() {
     for (const asgn of (dueSoonAssignments || [])) {
       const userIds = await getAssignedUserIds(asgn);
       for (const uid of userIds) {
-        if (await alreadyNotified(uid, asgn.id, 'due_soon')) continue;
+        if (await alreadyNotified(uid, asgn.id, 'due_soon')) {
+          continue;
+        }
 
         await insertNotification(
           uid,
@@ -102,7 +108,9 @@ async function checkDueDates() {
     for (const asgn of (overdueAssignments || [])) {
       const userIds = await getAssignedUserIds(asgn);
       for (const uid of userIds) {
-        if (await alreadyNotified(uid, asgn.id, 'overdue')) continue;
+        if (await alreadyNotified(uid, asgn.id, 'overdue')) {
+          continue;
+        }
 
         await insertNotification(
           uid,

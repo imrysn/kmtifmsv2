@@ -90,7 +90,9 @@ router.get('/summary', authorizeRole('ADMIN'), asyncHandler(async (req, res) => 
       },
       approvalTrends: (trends || []).map(t => {
         const d = new Date(t.date);
-        if (isNaN(d.getTime())) return { month: 'Invalid', date: t.date, approved: 0, rejected: 0 };
+        if (isNaN(d.getTime())) {
+          return { month: 'Invalid', date: t.date, approved: 0, rejected: 0 };
+        }
         return {
           month: `${monthNames[d.getMonth()]} ${d.getDate()}`,
           date: t.date,
@@ -249,7 +251,9 @@ router.get('/user-quickstats/:userId', authorizeRole(['USER', 'TEAM_LEADER', 'AD
   }
 
   const user = await queryOne('SELECT team FROM users WHERE id = ?', [userId]);
-  if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+  if (!user) {
+    return res.status(404).json({ success: false, message: 'User not found' });
+  }
   const { team } = user;
 
   const [taskRows, fileRows, teamTaskRows, notifRows] = await queryBatch([
@@ -261,7 +265,7 @@ router.get('/user-quickstats/:userId', authorizeRole(['USER', 'TEAM_LEADER', 'AD
       FROM assignments a
       LEFT JOIN assignment_members am ON a.id = am.assignment_id AND am.user_id = ?
       WHERE (a.assigned_to = 'all' AND a.team = ?) OR (a.assigned_to = 'specific' AND am.user_id = ?)`,
-      [userId, team, userId]],
+    [userId, team, userId]],
 
     // File stats: total, pending, approved, rejected
     [`SELECT
@@ -270,15 +274,15 @@ router.get('/user-quickstats/:userId', authorizeRole(['USER', 'TEAM_LEADER', 'AD
         SUM(CASE WHEN status = 'final_approved' THEN 1 ELSE 0 END) as approved,
         SUM(CASE WHEN status LIKE 'rejected%' OR current_stage LIKE 'rejected%' THEN 1 ELSE 0 END) as rejected
       FROM files WHERE user_id = ?`,
-      [userId]],
+    [userId]],
 
     // Team task count
-    [`SELECT COUNT(*) as total FROM assignments WHERE team = ?`, [team]],
+    ['SELECT COUNT(*) as total FROM assignments WHERE team = ?', [team]],
 
     // 3 most recent notifications
     [`SELECT id, title, type, is_read, created_at, assignment_id, file_id
       FROM notifications WHERE user_id = ? ORDER BY created_at DESC LIMIT 3`,
-      [userId]]
+    [userId]]
   ]);
 
   const tasks = taskRows[0] || {};
@@ -322,7 +326,7 @@ router.get('/bulk-performance', authorizeRole(['TEAM_LEADER', 'ADMIN']), asyncHa
       timestamp: cached.timestamp
     });
   }
-  
+
   const performanceMap = await calculateAllUserPerformance(teamId);
 
   // Save to cache if global (no team filter)
@@ -360,7 +364,9 @@ router.get('/user-performance/:userId', authorizeRole(['USER', 'TEAM_LEADER', 'A
     if (cached.isDirty && !getRecomputePromise()) {
       const p = calculateAllUserPerformance()
         .then(map => setCache(map))
-        .catch(err => { console.error('Background perf recompute failed:', err); setRecomputePromise(null); });
+        .catch(err => {
+          console.error('Background perf recompute failed:', err); setRecomputePromise(null);
+        });
       setRecomputePromise(p);
     }
 
@@ -381,8 +387,12 @@ router.get('/user-performance/:userId', authorizeRole(['USER', 'TEAM_LEADER', 'A
   let recompute = getRecomputePromise();
   if (!recompute) {
     recompute = calculateAllUserPerformance()
-      .then(map => { setCache(map); return map; })
-      .catch(err => { setRecomputePromise(null); throw err; });
+      .then(map => {
+        setCache(map); return map;
+      })
+      .catch(err => {
+        setRecomputePromise(null); throw err;
+      });
     setRecomputePromise(recompute);
   }
 
@@ -416,7 +426,7 @@ router.get('/user-performance/:userId', authorizeRole(['USER', 'TEAM_LEADER', 'A
  */
 router.get('/user-performance/:userId/history', authorizeRole(['USER', 'TEAM_LEADER', 'ADMIN']), asyncHandler(async (req, res) => {
   const { userId } = req.params;
-  
+
   if (req.user.id !== parseInt(userId) && req.user.role === 'USER') {
     return res.status(403).json({ success: false, message: 'Access denied' });
   }
@@ -449,13 +459,19 @@ router.get('/user-performance/:userId/history', authorizeRole(['USER', 'TEAM_LEA
   allHistory.forEach((snapshot, index) => {
     if (snapshot.overall_score >= 85) {
       tempStreak++;
-      if (index === currentStreak) currentStreak++; // Still in current streak
+      if (index === currentStreak) {
+        currentStreak++;
+      } // Still in current streak
     } else {
-      if (tempStreak > longestStreak) longestStreak = tempStreak;
+      if (tempStreak > longestStreak) {
+        longestStreak = tempStreak;
+      }
       tempStreak = 0;
     }
   });
-  if (tempStreak > longestStreak) longestStreak = tempStreak;
+  if (tempStreak > longestStreak) {
+    longestStreak = tempStreak;
+  }
 
   res.json({
     success: true,

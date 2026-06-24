@@ -4,6 +4,7 @@ import './css/TasksTab-Enhanced.css';
 import './css/TasksTab-Comments.css';
 import { FileIcon, FileOpenModal } from '../shared';
 import FileModal from './FileModal';
+import Avatar from '../shared/Avatar';
 import CommentsModal from '../shared/CommentsModal';
 import { recursiveGroupByPath } from '@utils/folderUtils';
 import { formatBusinessDaysLeft, getBusinessDaysColor } from '@utils/otDatesUtils';
@@ -71,25 +72,6 @@ const groupFilesByFolder = (files) => {
   return { folders: sortedFolders, individualFiles };
 };
 
-// Groups files within an already-resolved top-level folder into their immediate subfolders.
-// e.g. relative_path="checklist-main/ChecklistApp/file.php" → subfolderName="ChecklistApp"
-const groupBySubfolder = (files) => {
-  const subfolders = {};
-  const rootFiles = [];
-  for (const file of files) {
-    const parts = (file.relative_path || '').split('/');
-    // parts[0]=topFolder, parts[last]=filename, parts[1..-2]=subfolder chain
-    if (parts.length > 2) {
-      const subName = parts[1];
-      if (!subfolders[subName]) subfolders[subName] = [];
-      subfolders[subName].push(file);
-    } else {
-      rootFiles.push(file);
-    }
-  }
-  return { subfolders, rootFiles };
-};
-
 const getAssignmentStatus = (assignment) => {
   // Only truly completed when the team leader/admin explicitly marks it done
   if (assignment.status === 'completed') return 'completed';
@@ -104,7 +86,7 @@ const getAssignmentStatus = (assignment) => {
 };
 
 // ─── Checklist categories & items (from the drawing review sheet) ────────────
-const CHECKLIST_SECTIONS = [
+const CHECKLIST_SECTIONS_2D = [
   {
     section: 'Drawing Views',
     items: ['Origin','Alignment of Views','Line Attributes','Dimensions','Hole Properties','Chamfer/Radius','Machining Symbol','Welding Symbol','Geometric/Fitting Tolerances','Additional Views','Text Attributes'],
@@ -131,14 +113,34 @@ const CHECKLIST_SECTIONS = [
   },
 ];
 
+const CHECKLIST_SECTIONS_3D = [
+  {
+    section: 'Part Modeling',
+    items: ['Fully Defined Sketches', 'Unused Sketches/Features', 'Fillets & Chamfers Location', 'Draft Angles', 'No Errors/Warnings in FeatureManager'],
+  },
+  {
+    section: 'Assembly / Mates',
+    items: ['No Interference', 'Proper Mates', 'Degrees of Freedom', 'Collision Detection', 'Sub-assemblies structured correctly'],
+  },
+  {
+    section: 'Properties',
+    items: ['Material Applied', 'Mass Properties Computed', 'Custom Properties Filled'],
+  },
+  {
+    section: 'Others',
+    items: ['Tree View Organization', 'Standard Planes Alignment'],
+  }
+];
+
 // ─── Checking Modal ───────────────────────────────────────────────────────────
 const CheckingModal = memo(({ isOpen, onClose, file, assignment, onMarkForEditing, onDoneChecking }) => {
   const [checkedItems, setCheckedItems] = useState({});
   const [additionalComment, setAdditionalComment] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [checklistType, setChecklistType] = useState('2D');
 
   useEffect(() => {
-    if (isOpen) { setCheckedItems({}); setAdditionalComment(''); }
+    if (isOpen) { setCheckedItems({}); setAdditionalComment(''); setChecklistType('2D'); }
   }, [isOpen, file?.id]);
 
   if (!isOpen || !file) return null;
@@ -160,7 +162,7 @@ const CheckingModal = memo(({ isOpen, onClose, file, assignment, onMarkForEditin
   const handleDoneChecking = async () => {
     setIsSubmitting(true);
     try {
-      await onDoneChecking(file.id);
+      await onDoneChecking(file.id, additionalComment.trim());
       onClose();
     } finally {
       setIsSubmitting(false);
@@ -185,9 +187,29 @@ const CheckingModal = memo(({ isOpen, onClose, file, assignment, onMarkForEditin
             <p style={{ margin: '4px 0 0', fontSize: '13px', color: '#6b7280', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '420px' }}>
               {file.original_name || file.filename}
             </p>
-            <p style={{ margin: '2px 0 0', fontSize: '12px', color: '#9ca3af' }}>
+            <p style={{ margin: '4px 0 0', fontSize: '12px', color: '#9ca3af' }}>
               Check items that are <span style={{ color: '#dc2626', fontWeight: '600' }}>wrong</span> in this file
             </p>
+            
+            {/* 2D / 3D Toggle */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '12px' }}>
+              <div style={{ display: 'inline-flex', background: '#f3f4f6', borderRadius: '8px', padding: '4px' }}>
+                <button
+                  type="button"
+                  onClick={() => setChecklistType('2D')}
+                  style={{ padding: '6px 16px', borderRadius: '6px', fontSize: '13px', fontWeight: '600', border: 'none', cursor: 'pointer', background: checklistType === '2D' ? '#fff' : 'transparent', color: checklistType === '2D' ? '#111827' : '#6b7280', boxShadow: checklistType === '2D' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none', transition: 'all 0.2s' }}
+                >
+                  2D Checklist
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setChecklistType('3D')}
+                  style={{ padding: '6px 16px', borderRadius: '6px', fontSize: '13px', fontWeight: '600', border: 'none', cursor: 'pointer', background: checklistType === '3D' ? '#fff' : 'transparent', color: checklistType === '3D' ? '#111827' : '#6b7280', boxShadow: checklistType === '3D' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none', transition: 'all 0.2s' }}
+                >
+                  3D Checklist
+                </button>
+              </div>
+            </div>
           </div>
           <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: '22px', cursor: 'pointer', color: '#9ca3af', lineHeight: 1, padding: '0', flexShrink: 0 }}>×</button>
         </div>
@@ -203,7 +225,7 @@ const CheckingModal = memo(({ isOpen, onClose, file, assignment, onMarkForEditin
 
         {/* Checklist */}
         <div style={{ overflowY: 'auto', flex: 1, padding: '16px 24px' }}>
-          {CHECKLIST_SECTIONS.map(({ section, items }) => (
+          {(checklistType === '2D' ? CHECKLIST_SECTIONS_2D : CHECKLIST_SECTIONS_3D).map(({ section, items }) => (
             <div key={section} style={{ marginBottom: '16px' }}>
               <div style={{ fontSize: '11px', fontWeight: '700', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.08em', padding: '6px 10px', background: '#f3f4f6', borderRadius: '6px', marginBottom: '6px' }}>
                 {section}
@@ -214,11 +236,11 @@ const CheckingModal = memo(({ isOpen, onClose, file, assignment, onMarkForEditin
                   return (
                     <label
                       key={item}
-                      style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 10px', borderRadius: '6px', cursor: 'pointer', background: isWrong ? '#fef2f2' : 'transparent', border: isWrong ? '1px solid #fecaca' : '1px solid transparent', transition: 'all 0.12s' }}
+                      onClick={() => toggleItem(item)}
+                      style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 10px', borderRadius: '6px', cursor: 'pointer', background: isWrong ? '#fef2f2' : 'transparent', border: isWrong ? '1px solid #fecaca' : '1px solid transparent', transition: 'all 0.12s', userSelect: 'none' }}
                     >
                       {/* Custom white checkbox */}
                       <div
-                        onClick={() => toggleItem(item)}
                         style={{
                           width: '16px', height: '16px', borderRadius: '3px', flexShrink: 0, cursor: 'pointer',
                           border: isWrong ? '2px solid #dc2626' : '2px solid #d1d5db',
@@ -278,9 +300,9 @@ const CheckingModal = memo(({ isOpen, onClose, file, assignment, onMarkForEditin
           </button>
           <button
             onClick={handleMarkForEditing}
-            disabled={isSubmitting || wrongItems.length === 0}
-            style={{ padding: '9px 18px', borderRadius: '8px', border: 'none', background: wrongItems.length === 0 ? '#e5e7eb' : '#f59e0b', color: wrongItems.length === 0 ? '#9ca3af' : '#fff', fontSize: '14px', fontWeight: '600', cursor: wrongItems.length === 0 || isSubmitting ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}
-            title={wrongItems.length === 0 ? 'Check at least one wrong item first' : ''}
+            disabled={isSubmitting}
+            style={{ padding: '9px 18px', borderRadius: '8px', border: 'none', background: '#f59e0b', color: '#fff', fontSize: '14px', fontWeight: '600', cursor: isSubmitting ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}
+            title="Mark this file as needing edits"
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
               <path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/>
@@ -309,6 +331,7 @@ CheckingModal.displayName = 'CheckingModal';
 const ChecklistViewModal = memo(({ isOpen, onClose, file }) => {
   const [resolvedNote, setResolvedNote] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [checklistType, setChecklistType] = useState('2D');
 
   useEffect(() => {
     if (!isOpen || !file) { setResolvedNote(null); setLoading(false); return; }
@@ -326,6 +349,25 @@ const ChecklistViewModal = memo(({ isOpen, onClose, file }) => {
       .finally(() => setLoading(false));
   }, [isOpen, file?.id]);
 
+  // Auto-detect the right checklist if any wrong items exist in 3D
+  useEffect(() => {
+    if (!isOpen || !file) return;
+    
+    // We need to re-parse the wrong items here to do the detection since we moved this above the return.
+    const note = file.checker_note !== undefined ? (file.checker_note || '') : resolvedNote;
+    if (!note) return;
+    
+    const noteBody = note.split('|')[0];
+    const match = noteBody.match(/Wrong items?:\s*(.+)/i);
+    let items = [];
+    if (match) items = match[1].trim().split(',').map(s => s.trim()).filter(Boolean);
+    
+    if (items.length > 0) {
+      const has3D = items.some(item => CHECKLIST_SECTIONS_3D.some(sec => sec.items.includes(item)));
+      setChecklistType(has3D ? '3D' : '2D');
+    }
+  }, [isOpen, file, resolvedNote]);
+
   if (!isOpen || !file) return null;
 
   // Parse wrong items and additional comment from checker_note
@@ -340,8 +382,14 @@ const ChecklistViewModal = memo(({ isOpen, onClose, file }) => {
 
   const additionalComment = (() => {
     if (!resolvedNote) return '';
-    const match = resolvedNote.match(/\|\s*Comment:\s*(.+)/i);
-    return match ? match[1].trim() : '';
+    // Handles both formats:
+    //   "Wrong items: X, Y | Comment: Z"  (mark-for-editing with wrong items)
+    //   "Comment: Z"                       (done-checking with note only)
+    const pipeMatch = resolvedNote.match(/\|\s*Comment:\s*(.+)/i);
+    if (pipeMatch) return pipeMatch[1].trim();
+    const directMatch = resolvedNote.match(/^Comment:\s*(.+)/i);
+    if (directMatch) return directMatch[1].trim();
+    return '';
   })();
 
   const wrongSet = new Set(wrongItems);
@@ -367,6 +415,27 @@ const ChecklistViewModal = memo(({ isOpen, onClose, file }) => {
             <p style={{ margin: 0, fontSize: '12px', color: '#6b7280', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '400px' }}>
               {filename}
             </p>
+            
+            {/* 2D / 3D Toggle */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '12px' }}>
+              <div style={{ display: 'inline-flex', background: '#f3f4f6', borderRadius: '8px', padding: '4px' }}>
+                <button
+                  type="button"
+                  onClick={() => setChecklistType('2D')}
+                  style={{ padding: '6px 16px', borderRadius: '6px', fontSize: '13px', fontWeight: '600', border: 'none', cursor: 'pointer', background: checklistType === '2D' ? '#fff' : 'transparent', color: checklistType === '2D' ? '#111827' : '#6b7280', boxShadow: checklistType === '2D' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none', transition: 'all 0.2s' }}
+                >
+                  2D Checklist
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setChecklistType('3D')}
+                  style={{ padding: '6px 16px', borderRadius: '6px', fontSize: '13px', fontWeight: '600', border: 'none', cursor: 'pointer', background: checklistType === '3D' ? '#fff' : 'transparent', color: checklistType === '3D' ? '#111827' : '#6b7280', boxShadow: checklistType === '3D' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none', transition: 'all 0.2s' }}
+                >
+                  3D Checklist
+                </button>
+              </div>
+            </div>
+            
           </div>
           <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: '22px', cursor: 'pointer', color: '#9ca3af', lineHeight: 1, padding: '0', flexShrink: 0 }}>×</button>
         </div>
@@ -381,6 +450,14 @@ const ChecklistViewModal = memo(({ isOpen, onClose, file }) => {
             <p style={{ margin: 0, fontSize: '13px', fontWeight: '600', color: '#dc2626' }}>
               ⚠ {wrongItems.length} item{wrongItems.length !== 1 ? 's' : ''} marked as wrong: {wrongItems.join(', ')}
             </p>
+          </div>
+        ) : file?.status === 'revision' ? (
+          <div style={{ margin: '14px 22px 0', padding: '10px 14px', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '8px' }}>
+            <p style={{ margin: 0, fontSize: '13px', fontWeight: '600', color: '#dc2626' }}>✎ Need to Edit{additionalComment ? ' — see note below' : ''}</p>
+          </div>
+        ) : additionalComment ? (
+          <div style={{ margin: '14px 22px 0', padding: '10px 14px', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '8px' }}>
+            <p style={{ margin: 0, fontSize: '13px', fontWeight: '600', color: '#15803d' }}>✓ No wrong items — checker left a note below</p>
           </div>
         ) : (
           <div style={{ margin: '14px 22px 0', padding: '10px 14px', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '8px' }}>
@@ -403,7 +480,7 @@ const ChecklistViewModal = memo(({ isOpen, onClose, file }) => {
 
         {/* Checklist (read-only) */}
         <div style={{ overflowY: 'auto', flex: 1, padding: '14px 22px 18px' }}>
-          {CHECKLIST_SECTIONS.map(({ section, items }) => (
+          {(checklistType === '2D' ? CHECKLIST_SECTIONS_2D : CHECKLIST_SECTIONS_3D).map(({ section, items }) => (
             <div key={section} style={{ marginBottom: '14px' }}>
               <div style={{ fontSize: '11px', fontWeight: '700', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.08em', padding: '5px 10px', background: '#f3f4f6', borderRadius: '6px', marginBottom: '4px' }}>
                 {section}
@@ -767,6 +844,8 @@ const TasksTab = memo(({
 
   // UI state
   const [sortFilter, setSortFilter] = useState('all');
+  // Team filter toggle: 'all' | 'KUSAKABE' | 'IT Dept'
+  const [teamFilter, setTeamFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const prevSearchQueryRef = useRef('');
   const [successModal, setSuccessModal] = useState({ isOpen: false, title: '', message: '', type: 'success' });
@@ -782,6 +861,7 @@ const TasksTab = memo(({
   const [showCommentsModal, setShowCommentsModal] = useState(false);
   const [currentCommentsAssignment, setCurrentCommentsAssignment] = useState(null);
   const [highlightCommentBy, setHighlightCommentBy] = useState(null);
+  const [highlightTargetCommentId, setHighlightTargetCommentId] = useState(null);
   const [isPostingReply, setIsPostingReply] = useState(false);
   const [loadingComments, setLoadingComments] = useState(false);
   const [visibleReplies, setVisibleReplies] = useState({});
@@ -795,6 +875,7 @@ const TasksTab = memo(({
   const [isUploading, setIsUploading] = useState(false);
   const [uploadMode, setUploadMode] = useState('files');
   const [targetFolder, setTargetFolder] = useState(null);
+  const uploadAbortControllerRef = useRef(null); // ref to abort in-progress XHR upload
 
   // Delete modal
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -908,17 +989,21 @@ const TasksTab = memo(({
       if (data.success) {
         setSuccessModal({ isOpen: true, title: 'Review Complete', message: `Done Checked by: ${user.fullName || user.username}. Team Leader has been notified.`, type: 'success' });
         fetchAssignments();
-      } else { showError(data.message || 'Failed to update status'); }
-    } catch { showError('Failed to update status'); }
+      } else {
+        showError(data.message || 'Failed to update status');
+      }
+    } catch (err) {
+      showError(err?.message || 'Failed to update status');
+    }
   }, [user, fetchAssignments, showError]);
 
-  const handleMarkFileChecked = useCallback(async (assignment, fileId) => {
+  const handleMarkFileChecked = useCallback(async (assignment, fileId, checkerNote = '') => {
     setCheckerMenuOpen(null);
     if (!fileId) { showError('Cannot mark file: file ID is missing.'); return; }
     try {
       const data = await apiFetch(`/api/assignments/${assignment.id}/files/${fileId}/mark-file-checked`, {
         method: 'PUT',
-        body: JSON.stringify({ checkerId: user.id, checkerName: user.fullName || user.username }),
+        body: JSON.stringify({ checkerId: user.id, checkerName: user.fullName || user.username, checkerNote }),
       });
       if (data.success) {
         if (data.allChecked) {
@@ -1000,24 +1085,67 @@ const TasksTab = memo(({
     showCommentsModal,
     selectedItem: currentCommentsAssignment,
     comments: comments[currentCommentsAssignment?.id] || [],
+    setHighlightUsername: setHighlightCommentBy,
+    setHighlightCommentId: setHighlightTargetCommentId
   });
 
-  // Auto-expand the folder that contains highlightedFileId so the file is visible
+  // Auto-set team filter to ensure the highlighted assignment is visible
+  useEffect(() => {
+    if (highlightedAssignmentId && assignments.length > 0) {
+      const assignment = assignments.find(a => a.id === parseInt(highlightedAssignmentId));
+      if (assignment) {
+        const assignmentTeam = assignment.team || user?.team || 'IT Dept';
+        setTeamFilter(assignmentTeam);
+      }
+    }
+  }, [highlightedAssignmentId, assignments, user?.team]);
+
+  // Auto-expand the folder that contains highlightedFileId so the file is visible.
+  // activeTab dependency ensures this runs after the tab has switched (For Checking vs My Tasks).
   useEffect(() => {
     if (!highlightedFileId || assignments.length === 0) return;
     const fid = parseInt(highlightedFileId);
     for (const assignment of assignments) {
       const allFiles = assignment.submitted_files || [];
       const targetFile = allFiles.find(f => f.id === fid);
-      if (targetFile && targetFile.folder_name) {
-        const key = `${assignment.id}-${targetFile.folder_name}`;
-        setExpandedFolders(prev => prev[key] ? prev : { ...prev, [key]: true });
-        // Also show all submitted files in case it's behind "See more"
+      if (targetFile) {
+        // Always expand "See more" so the file isn't hidden behind the limit
         setShowAllSubmittedFiles(prev => prev[assignment.id] ? prev : { ...prev, [assignment.id]: true });
+        // If the file is inside a folder, expand that folder too
+        if (targetFile.folder_name) {
+          const key = `${assignment.id}-${targetFile.folder_name}`;
+          setExpandedFolders(prev => prev[key] ? prev : { ...prev, [key]: true });
+        }
         break;
       }
     }
-  }, [highlightedFileId, assignments]);
+  }, [highlightedFileId, assignments, activeTab]);
+
+  // Scroll to and visually highlight the file card after expand/show-all state settles.
+  // activeTab is a dependency so this re-runs after the tab switch renders the correct cards.
+  // NOTE: onClearFileHighlight is NOT called here — useSmartNavigation.js EFFECT 4 handles
+  // that cleanup via its own retry loop. Calling it here too would double-clear and cause
+  // a second re-render. This effect only handles the visual scroll+pulse.
+  useEffect(() => {
+    if (!highlightedFileId || assignments.length === 0) return;
+    const fid = parseInt(highlightedFileId);
+    // 500ms gives time for: tab switch render + folder auto-expand render + show-all render
+    const timer = setTimeout(() => {
+      const el = document.querySelector(`[data-file-id="${fid}"]`);
+      if (!el) return;
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      // Pulse highlight: indigo ring + light indigo background, fades after 2.5s
+      el.style.transition = 'box-shadow 0.3s, background-color 0.3s';
+      el.style.boxShadow = '0 0 0 3px #6366f1';
+      el.style.backgroundColor = '#eef2ff';
+      const cleanup = setTimeout(() => {
+        el.style.boxShadow = '';
+        el.style.backgroundColor = '';
+      }, 2500);
+      return () => clearTimeout(cleanup);
+    }, 500); // 500ms — tab switch + folder expand + see-all settle
+    return () => clearTimeout(timer);
+  }, [highlightedFileId, assignments, activeTab]); // activeTab ensures re-run after tab switch
 
   // Auto-open ChecklistViewModal when navigating from a "Submission Needs Editing" notification
   useEffect(() => {
@@ -1228,12 +1356,18 @@ const TasksTab = memo(({
 
   // ─── Submit modal helpers ─────────────────────────────────────────────────
   const resetSubmitModal = useCallback(() => {
+    // Abort any in-flight XHR upload before clearing state
+    if (uploadAbortControllerRef.current) {
+      uploadAbortControllerRef.current.abort();
+      uploadAbortControllerRef.current = null;
+    }
     setUploadedFiles([]);
     setFileDescription('');
     setFileTag('');
     setUploadMode('files');
     setTargetFolder(null);
     setUploadProgress(0);
+    setIsUploading(false);
     if (fileInputRef.current) fileInputRef.current.value = '';
     if (folderInputRef.current) folderInputRef.current.value = '';
   }, []);
@@ -1283,6 +1417,14 @@ const TasksTab = memo(({
 
   const handleFileUpload = useCallback(async () => {
     if (!uploadedFiles.length || !currentAssignment) return;
+
+    // Cancel any previous in-flight upload before starting a new one
+    if (uploadAbortControllerRef.current) {
+      uploadAbortControllerRef.current.abort();
+    }
+    const abortController = new AbortController();
+    uploadAbortControllerRef.current = abortController;
+
     setIsUploading(true);
     setUploadProgress(0);
 
@@ -1313,8 +1455,15 @@ const TasksTab = memo(({
       const result = await uploadWithProgress(
         '/api/files/bulk-upload',
         fd,
-        { onProgress: (p) => setUploadProgress(Math.min(p, 99)) }
+        {
+          onProgress: (p) => setUploadProgress(Math.min(p, 99)),
+          signal: abortController.signal,  // ← wire AbortController so cancel kills the XHR
+        }
       );
+
+      // Guard: if the user cancelled while the last bytes were in-flight, bail out
+      if (abortController.signal.aborted) return;
+
       setUploadProgress(100);
 
       if (result.success) {
@@ -1331,9 +1480,11 @@ const TasksTab = memo(({
         throw new Error(result.message || 'Upload failed');
       }
     } catch (err) {
-      // Error already shown via showError above
+      // Silently ignore intentional cancellations
+      if (err.name === 'AbortError') return;
       showError(err.message || 'Failed to upload files');
     } finally {
+      uploadAbortControllerRef.current = null;
       setIsUploading(false);
       setUploadProgress(0);
     }
@@ -1431,7 +1582,8 @@ const TasksTab = memo(({
     const base = activeTab === 'for-checking' ? forCheckingAssignments : myTaskAssignments
     const sorted = [...base].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
     const bySort = sortFilter === 'all' ? sorted : sorted.filter(a => getAssignmentStatus(a) === sortFilter);
-    if (!searchQuery.trim()) return bySort;
+    const byTeam = teamFilter === 'all' ? bySort : bySort.filter(a => (a.team || 'IT Dept') === teamFilter);
+    if (!searchQuery.trim()) return byTeam;
     
     const q = searchQuery.toLowerCase();
     
@@ -1453,7 +1605,7 @@ const TasksTab = memo(({
       return false;
     };
 
-    return bySort.filter(a =>
+    return byTeam.filter(a =>
       matchesQuery(a.title) ||
       matchesQuery(a.description) ||
       matchesQuery(a.team_leader_username) ||
@@ -1475,7 +1627,7 @@ const TasksTab = memo(({
         matchesQuery(f.folder_name)
       )
     );
-  }, [myTaskAssignments, forCheckingAssignments, activeTab, sortFilter, searchQuery]);
+  }, [myTaskAssignments, forCheckingAssignments, activeTab, sortFilter, teamFilter, searchQuery]);
 
   const filterCounts = useMemo(() => {
     const counts = { all: assignments.length, completed: 0, overdue: 0, no_due_date: 0 };
@@ -1909,6 +2061,58 @@ const TasksTab = memo(({
         )}
       </div>
 
+      {/* Team Filter Toggle */}
+      {(() => {
+        const teams = (user?.role === 'TEAM_LEADER' || user?.role === 'ADMIN') && user?.ledTeams?.length > 0
+          ? user.ledTeams.map(t => t.name).sort()
+          : [...new Set(assignments.map(a => a.team).filter(Boolean))].sort()
+        if (teams.length < 2) return null
+        const palette = [
+          { bg: '#7c3aed', shadow: 'rgba(124,58,237,0.30)', dot: '#7c3aed' },
+          { bg: '#0284c7', shadow: 'rgba(2,132,199,0.30)',   dot: '#0284c7' },
+          { bg: '#059669', shadow: 'rgba(5,150,105,0.30)',   dot: '#059669' },
+          { bg: '#d97706', shadow: 'rgba(217,119,6,0.30)',   dot: '#d97706' },
+          { bg: '#dc2626', shadow: 'rgba(220,38,38,0.30)',   dot: '#dc2626' },
+          { bg: '#db2777', shadow: 'rgba(219,39,119,0.30)',  dot: '#db2777' },
+        ]
+        const filterOptions = [
+          { value: 'all', label: 'All Teams', color: null },
+          ...teams.map((t, i) => ({ value: t, label: t, color: palette[i % palette.length] }))
+        ]
+        return (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 20px 10px', flexWrap: 'wrap' }}>
+            <span style={{ fontSize: '12.5px', fontWeight: '600', color: '#6b7280', letterSpacing: '0.03em', userSelect: 'none' }}>Filter by team:</span>
+            <div style={{ display: 'flex', gap: '0', background: '#f3f4f6', borderRadius: '10px', padding: '3px', flexWrap: 'wrap' }}>
+              {filterOptions.map(opt => {
+                const isActive = teamFilter === opt.value
+                const c = opt.color
+                const activeBg = c && isActive ? c.bg : (isActive ? '#fff' : 'transparent')
+                const activeColor = c && isActive ? '#fff' : (isActive ? '#111827' : '#6b7280')
+                const activeShadow = c && isActive ? `0 2px 8px ${c.shadow}` : (isActive ? '0 1px 4px rgba(0,0,0,0.10)' : 'none')
+                return (
+                  <button
+                    key={opt.value}
+                    onClick={() => setTeamFilter(opt.value)}
+                    style={{
+                      padding: '5px 16px', borderRadius: '8px', border: 'none',
+                      fontWeight: '600', fontSize: '12.5px', cursor: 'pointer',
+                      transition: 'all 0.18s',
+                      background: activeBg, color: activeColor, boxShadow: activeShadow,
+                      display: 'flex', alignItems: 'center', gap: '5px',
+                    }}
+                  >
+                    {c && (
+                      <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: isActive ? 'rgba(255,255,255,0.7)' : c.dot, display: 'inline-block', flexShrink: 0 }} />
+                    )}
+                    {opt.label}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        )
+      })()}
+
       {isLoading ? (
         <div style={{ padding: '0 20px', maxWidth: '1400px', margin: '0 auto' }}>
           <LoadingCards count={3} />
@@ -1928,8 +2132,12 @@ const TasksTab = memo(({
                 {/* Header */}
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    <div style={{ width: '48px', height: '48px', borderRadius: '50%', background: '#4f39f6', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontWeight: '600', fontSize: '18px' }}>
-                      {getInitials(assignment.team_leader_fullname || assignment.team_leader_username)}
+                    <div style={{ width: '48px', height: '48px', background: 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <Avatar user={{
+                        username: assignment.team_leader_username,
+                        fullName: assignment.team_leader_fullname || assignment.team_leader_full_name,
+                        profile_picture: assignment.team_leader_profile_picture
+                      }} size="md" />
                     </div>
                     <div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px', flexWrap: 'wrap' }}>
@@ -2359,6 +2567,7 @@ const TasksTab = memo(({
           formatTimeAgo={formatRelativeTime}
           user={user}
           highlightUsername={highlightCommentBy}
+          highlightCommentId={highlightTargetCommentId}
         />
       )}
 
@@ -2446,8 +2655,9 @@ const TasksTab = memo(({
           await handleMarkForEditing(checkingModal.assignment, fileId, note);
           setCheckingModal({ isOpen: false, file: null, assignment: null });
         }}
-        onDoneChecking={async (fileId) => {
-          await handleMarkFileChecked(checkingModal.assignment, fileId);
+        onDoneChecking={async (fileId, additionalComment) => {
+          const note = additionalComment ? `Comment: ${additionalComment}` : '';
+          await handleMarkFileChecked(checkingModal.assignment, fileId, note);
           setCheckingModal({ isOpen: false, file: null, assignment: null });
         }}
       />
@@ -2496,7 +2706,7 @@ const TasksTab = memo(({
                   )}
                 </div>
               </div>
-              <button className="tasks-modal-close" onClick={() => { setShowSubmitModal(false); resetSubmitModal(); }}>×</button>
+              <button className="tasks-modal-close" onClick={() => { resetSubmitModal(); setShowSubmitModal(false); }}>×</button>
             </div>
 
             <div className="tasks-modal-body">
@@ -2646,10 +2856,11 @@ const TasksTab = memo(({
               )}
               <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
                 <button
-                  onClick={() => { setShowSubmitModal(false); resetSubmitModal(); }}
+                  onClick={() => { resetSubmitModal(); setShowSubmitModal(false); }}
+                  disabled={false}
                   style={{ padding: '10px 20px', borderRadius: '8px', border: '1px solid #d1d5db', backgroundColor: '#fff', color: '#374151', fontSize: '14px', fontWeight: '500', cursor: 'pointer' }}
                 >
-                  Cancel
+                  {isUploading ? 'Stop Upload' : 'Cancel'}
                 </button>
                 <button
                   onClick={handleFileUpload}

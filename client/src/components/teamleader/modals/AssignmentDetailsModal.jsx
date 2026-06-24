@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { apiFetch, API_BASE_URL } from '@/config/api'
 import './css/AssignmentDetailsModal.css'
 import FileIcon from '../../shared/FileIcon'
+import { Avatar } from '../../shared'
 
 const AssignmentDetailsModal = ({
   showAssignmentDetailsModal,
@@ -629,20 +630,8 @@ const AssignmentDetailsModal = ({
                         gap: '8px',
                         marginBottom: '8px'
                       }}>
-                        <div style={{
-                          width: '32px',
-                          height: '32px',
-                          borderRadius: '50%',
-                          background: 'var(--primary-color)',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          color: 'white',
-                          fontWeight: '600',
-                          fontSize: '14px',
-                          flexShrink: 0
-                        }}>
-                          {getInitials(comment.username)}
+                        <div style={{ background: 'transparent', flexShrink: 0 }}>
+                          <Avatar user={comment} size="sm" />
                         </div>
                         <div>
                           <div style={{ fontWeight: '600', fontSize: '14px', color: 'var(--text-primary)' }}>
@@ -677,20 +666,8 @@ const AssignmentDetailsModal = ({
                                 gap: '8px',
                                 marginBottom: '6px'
                               }}>
-                                <div style={{
-                                  width: '24px',
-                                  height: '24px',
-                                  borderRadius: '50%',
-                                  background: 'var(--primary-color)',
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  justifyContent: 'center',
-                                  color: 'white',
-                                  fontWeight: '600',
-                                  fontSize: '11px',
-                                  flexShrink: 0
-                                }}>
-                                  {getInitials(reply.username)}
+                                <div style={{ background: 'transparent', flexShrink: 0 }}>
+                                  <Avatar user={reply} size="xs" />
                                 </div>
                                 <div>
                                   <div style={{ fontWeight: '600', fontSize: '13px', color: 'var(--text-primary)' }}>
@@ -939,8 +916,8 @@ const AssignmentDetailsModal = ({
               <div className="members-list">
                 {selectedAssignment.assigned_member_details.map((member) => (
                   <div key={member.id} className="member-item">
-                    <div className="member-avatar">
-                      {(member.fullName || member.username).charAt(0).toUpperCase()}
+                    <div className="member-avatar" style={{ background: 'transparent' }}>
+                      <Avatar user={member} size="md" />
                     </div>
                     <div className="member-details">
                       <div className="member-name">{member.fullName || member.username}</div>

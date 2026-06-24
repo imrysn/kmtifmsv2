@@ -39,6 +39,12 @@ try {
       get: (key) => ipcRenderer.invoke('app-storage:get', key),
       set: (key, value) => ipcRenderer.invoke('app-storage:set', key, value),
     },
+
+    // Window resizing controls for login/dashboard transitions
+    windowControl: {
+      resizeForDashboard: () => ipcRenderer.send('window:resizeForDashboard'),
+      resizeForLogin: () => ipcRenderer.send('window:resizeForLogin')
+    },
   });
 
   // Expose updater API - secure and scoped

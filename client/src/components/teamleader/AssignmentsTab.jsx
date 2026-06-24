@@ -4,7 +4,7 @@ import { apiFetch, API_BASE_URL } from '@/config/api'
 import './css/AssignmentsTab.css'
 import './modals/css/AssignmentDetailsModal.css'
 import { CardSkeleton } from '../common/InlineSkeletonLoader'
-import { ConfirmationModal, CommentsModal, FileIcon, FileOpenModal, FileViewersButton } from '../shared'
+import { ConfirmationModal, CommentsModal, FileIcon, FileOpenModal, FileViewersButton, Avatar } from '../shared'
 import { useSmartNavigation } from '../shared/SmartNavigation'
 import '../shared/SmartNavigation/SmartNavigation.css'
 import SuccessModal from '../user/SuccessModal'
@@ -346,6 +346,7 @@ const AssignmentsTab = ({
   highlightedFileStatus,
   onClearFileHighlight,
   markAssignmentAsDone,
+  undoMarkAsDone,
   handleEditAssignment,
   onRefreshAssignments,
   teamMembers
@@ -378,6 +379,8 @@ const AssignmentsTab = ({
   const [viewerCounts, setViewerCounts] = useState({})
   const [isPostingComment, setIsPostingComment] = useState(false)
   const [isPostingReply, setIsPostingReply] = useState(false)
+  const [highlightCommentBy, setHighlightCommentBy] = useState(null)
+  const [highlightTargetCommentId, setHighlightTargetCommentId] = useState(null)
 
   // Warm up the server's path cache when a folder is expanded
   const prefetchFolderFiles = (files, type = 'file') => {
@@ -445,17 +448,28 @@ const AssignmentsTab = ({
   // Tab toggle: 'tasks' = active tasks, 'done' = completed tasks
   const [activeTaskTab, setActiveTaskTab] = useState('tasks')
 
-  // Auto-switch to 'done' tab when navigating to a completed task (e.g. from File Collection "Go to Task")
+  // Team filter toggle: 'all' | 'KUSAKABE' | 'IT Dept'
+  const [teamFilter, setTeamFilter] = useState('all')
+
+  // Auto-switch to 'done' tab and correct team filter when navigating to a task
   useEffect(() => {
     if (!highlightedAssignmentId || assignments.length === 0) return
     const target = assignments.find(a => a.id === highlightedAssignmentId || String(a.id) === String(highlightedAssignmentId))
-    if (target && target.status === 'completed') {
-      setActiveTaskTab('done')
+    if (target) {
+      if (target.status === 'completed') {
+        setActiveTaskTab('done')
+      }
+      if (target.team) {
+        setTeamFilter(target.team)
+      }
     }
   }, [highlightedAssignmentId, assignments])
 
   // Loading state for Mark as Done
   const [markingDoneId, setMarkingDoneId] = useState(null)
+
+  // Confirmation modal state for Mark as Done
+  const [markDoneConfirmModal, setMarkDoneConfirmModal] = useState({ isOpen: false, assignmentId: null, title: '' })
 
   const handleMarkAsDone = async (assignmentId, title) => {
     setMarkingDoneId(assignmentId)
@@ -464,6 +478,19 @@ const AssignmentsTab = ({
     } finally {
       setMarkingDoneId(null)
     }
+  }
+
+  // Undo Mark as Done
+  const [undoConfirmModal, setUndoConfirmModal] = useState({ isOpen: false, assignmentId: null, title: '' })
+  const [undoingDoneId, setUndoingDoneId] = useState(null)
+
+  const handleUndoMarkAsDone = (assignmentId, title) => {
+    setUndoingDoneId(assignmentId)
+    // Fire API call in the background — don't block on it since the
+    // optimistic update already updated the UI instantly.
+    // Dismiss the loading overlay after a short visual-feedback window.
+    undoMarkAsDone(assignmentId, title)
+    setTimeout(() => setUndoingDoneId(null), 700)
   }
 
   // Remove attachment confirmation modal
@@ -801,7 +828,9 @@ const AssignmentsTab = ({
     setVisibleReplies,
     showCommentsModal,
     selectedItem: selectedAssignment,
-    comments
+    comments,
+    setHighlightUsername: setHighlightCommentBy,
+    setHighlightCommentId: setHighlightTargetCommentId
   });
 
   // Track which highlightedFileId we've already processed so the effect
@@ -822,7 +851,7 @@ const AssignmentsTab = ({
     const fid = parseInt(highlightedFileId);
     for (const assignment of assignments) {
       const allFiles = assignment.recent_submissions || assignment.submitted_files || [];
-      const targetFile = allFiles.find(f => f.id === fid);
+      const targetFile = allFiles.find(f => f.id === fid || f.file_id === fid);
       if (targetFile) {
         // Mark as processed BEFORE any async/timeout work
         processedHighlightFileIdRef.current = highlightedFileId;
@@ -835,7 +864,7 @@ const AssignmentsTab = ({
           let attempts = 0;
           const MAX = 30;
           const tryHighlightFolder = () => {
-            const folderEl = document.querySelector(`[data-folder-key="${folderKey}"]`);
+            const folderEl = document.querySelector(`[data-folder-key=${CSS.escape(folderKey)}]`);
             if (!folderEl) {
               if (++attempts < MAX) setTimeout(tryHighlightFolder, 100);
               return;
@@ -1072,7 +1101,7 @@ const AssignmentsTab = ({
               color: activeTaskTab === 'tasks' ? '#4338ca' : '#9ca3af',
               padding: '1px 8px', borderRadius: '10px'
             }}>
-              {assignments.filter(a => a.status !== 'completed').length}
+              {assignments.filter(a => a.status !== 'completed' && (teamFilter === 'all' || (a.team || 'IT Dept') === teamFilter)).length}
             </span>
           </button>
           <button
@@ -1095,10 +1124,65 @@ const AssignmentsTab = ({
               color: activeTaskTab === 'done' ? '#15803d' : '#9ca3af',
               padding: '1px 8px', borderRadius: '10px'
             }}>
-              {assignments.filter(a => a.status === 'completed').length}
+              {assignments.filter(a => a.status === 'completed' && (teamFilter === 'all' || (a.team || 'IT Dept') === teamFilter)).length}
             </span>
           </button>
         </div>
+
+        {/* Team Filter Toggle */}
+        {(() => {
+          // Derive which teams actually exist in the assignments list
+          const teams = [...new Set(assignments.map(a => a.team).filter(Boolean))].sort()
+          // Only show the toggle if there are 2+ distinct teams
+          if (teams.length < 2) return null
+          // Color palette — cycles for any number of teams
+          const palette = [
+            { bg: '#7c3aed', shadow: 'rgba(124,58,237,0.30)', dot: '#7c3aed' },
+            { bg: '#0284c7', shadow: 'rgba(2,132,199,0.30)',   dot: '#0284c7' },
+            { bg: '#059669', shadow: 'rgba(5,150,105,0.30)',   dot: '#059669' },
+            { bg: '#d97706', shadow: 'rgba(217,119,6,0.30)',   dot: '#d97706' },
+            { bg: '#dc2626', shadow: 'rgba(220,38,38,0.30)',   dot: '#dc2626' },
+            { bg: '#db2777', shadow: 'rgba(219,39,119,0.30)',  dot: '#db2777' },
+          ]
+          const filterOptions = [
+            { value: 'all', label: 'All Teams', color: null },
+            ...teams.map((t, i) => ({ value: t, label: t, color: palette[i % palette.length] }))
+          ]
+          return (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px', flexWrap: 'wrap' }}>
+              <span style={{ fontSize: '12.5px', fontWeight: '600', color: '#6b7280', letterSpacing: '0.03em', userSelect: 'none' }}>Filter by team:</span>
+              <div style={{ display: 'flex', gap: '0', background: '#f3f4f6', borderRadius: '10px', padding: '3px', flexWrap: 'wrap' }}>
+                {filterOptions.map(opt => {
+                  const isActive = teamFilter === opt.value
+                  const c = opt.color
+                  const activeBg = c && isActive ? c.bg : (isActive ? '#fff' : 'transparent')
+                  const activeColor = c && isActive ? '#fff' : (isActive ? '#111827' : '#6b7280')
+                  const activeShadow = c && isActive ? `0 2px 8px ${c.shadow}` : (isActive ? '0 1px 4px rgba(0,0,0,0.10)' : 'none')
+                  return (
+                    <button
+                      key={opt.value}
+                      onClick={() => setTeamFilter(opt.value)}
+                      style={{
+                        padding: '5px 16px', borderRadius: '8px', border: 'none',
+                        fontWeight: '600', fontSize: '12.5px', cursor: 'pointer',
+                        transition: 'all 0.18s',
+                        background: activeBg,
+                        color: activeColor,
+                        boxShadow: activeShadow,
+                        display: 'flex', alignItems: 'center', gap: '5px',
+                      }}
+                    >
+                      {c && (
+                        <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: isActive ? 'rgba(255,255,255,0.7)' : c.dot, display: 'inline-block', flexShrink: 0 }} />
+                      )}
+                      {opt.label}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          )
+        })()}
 
         {/* Search Bar */}
         <div style={{ margin: '0 0 16px 0', position: 'relative', maxWidth: '320px' }}>
@@ -1132,9 +1216,11 @@ const AssignmentsTab = ({
         </div>
 
         {(() => {
-          const tabFiltered = assignments.filter(a =>
-            activeTaskTab === 'done' ? a.status === 'completed' : a.status !== 'completed'
-          )
+          const tabFiltered = assignments.filter(a => {
+            const tabMatch = activeTaskTab === 'done' ? a.status === 'completed' : a.status !== 'completed'
+            const teamMatch = teamFilter === 'all' || (a.team || 'IT Dept') === teamFilter
+            return tabMatch && teamMatch
+          })
           const filteredAssignments = searchQuery.trim()
             ? tabFiltered.filter(a => {
                 const q = searchQuery.toLowerCase()
@@ -1198,8 +1284,12 @@ const AssignmentsTab = ({
               >
                 <div className="tl-assignment-card-header">
                   <div className="tl-assignment-header-left">
-                    <div className="tl-assignment-avatar">
-                      {getInitials(assignment.team_leader_username || 'TL')}
+                    <div className="tl-assignment-avatar" style={{ background: 'transparent' }}>
+                      <Avatar user={{
+                        username: assignment.team_leader_username,
+                        fullName: assignment.team_leader_fullname || assignment.team_leader_full_name,
+                        profile_picture: assignment.team_leader_profile_picture
+                      }} size="md" />
                     </div>
                     <div className="tl-assignment-header-info">
                       <div className="tl-assignment-team-leader-info">
@@ -1307,7 +1397,9 @@ const AssignmentsTab = ({
                         <div className="tl-assignment-menu-dropdown">
                           <button
                             className="tl-assignment-menu-item"
-                            onClick={() => {
+                            onClick={(e) => {
+                              e.preventDefault()
+                              e.stopPropagation()
                               setAssignCheckerModal({ assignment })
                               const existingIds = (() => { try { return new Set((JSON.parse(assignment.checker_ids || '[]')).map(String)) } catch { return new Set() } })()
                               setSelectedCheckerIds(existingIds)
@@ -1318,17 +1410,33 @@ const AssignmentsTab = ({
                           </button>
                           <button
                             className="tl-assignment-menu-item"
-                            onClick={() => {
-                              handleMarkAsDone(assignment.id, assignment.title)
+                            onClick={(e) => {
+                              e.preventDefault()
+                              e.stopPropagation()
+                              setMarkDoneConfirmModal({ isOpen: true, assignmentId: assignment.id, title: assignment.title })
                               setShowMenuForAssignment(null)
                             }}
                             disabled={assignment.status === 'completed'}
                           >
                             {assignment.status === 'completed' ? '✓ Marked as Done' : 'Mark as Done'}
                           </button>
+                          {assignment.status === 'completed' && (
+                            <button
+                              className="tl-assignment-menu-item"
+                              style={{ color: '#d97706' }}
+                              onClick={() => {
+                                setUndoConfirmModal({ isOpen: true, assignmentId: assignment.id, title: assignment.title })
+                                setShowMenuForAssignment(null)
+                              }}
+                            >
+                              ↩ Undo Mark as Done
+                            </button>
+                          )}
                           <button
                             className="tl-assignment-menu-item"
-                            onClick={() => {
+                            onClick={(e) => {
+                              e.preventDefault()
+                              e.stopPropagation()
                               handleEditAssignment(assignment)
                               setShowMenuForAssignment(null)
                             }}
@@ -1337,7 +1445,9 @@ const AssignmentsTab = ({
                           </button>
                           <button
                             className="tl-assignment-menu-item tl-assignment-delete-menu-item"
-                            onClick={() => {
+                            onClick={(e) => {
+                              e.preventDefault()
+                              e.stopPropagation()
                               setAssignmentToDelete({ id: assignment.id, title: assignment.title })
                               setShowDeleteConfirmation(true)
                               setShowMenuForAssignment(null)
@@ -1546,7 +1656,7 @@ const AssignmentsTab = ({
                                 ))}
                                 {level > 0 && <div className={`tl-tree-line-connector ${isLast ? 'last-item' : ''}`} />}
                                 <div
-                                  data-file-id={submission.id}
+                                  data-file-id={submission.file_id || submission.id}
                                   className={`tl-assignment-file-item ${isViewed ? 'file-card-opened' : ''} ${level > 0 ? 'tl-in-tree' : ''}`}
                                   onClick={(e) => {
                                     e.stopPropagation();
@@ -1715,27 +1825,30 @@ const AssignmentsTab = ({
         onClose={closeCommentsModal}
         assignment={selectedAssignment}
         comments={comments}
-        loadingComments={loadingComments}
+        loading={loadingComments}
         newComment={newComment}
         setNewComment={setNewComment}
         onPostComment={postComment}
+        isPosting={isPostingComment}
         replyingTo={replyingTo}
         setReplyingTo={setReplyingTo}
         replyText={replyText}
         setReplyText={setReplyText}
         onPostReply={postReply}
+        isPostingReply={isPostingReply}
         onDeleteComment={deleteComment}
         onEditComment={editComment}
+        visibleReplies={visibleReplies}
+        setVisibleReplies={setVisibleReplies}
         onDeleteReply={deleteReply}
         onEditReply={editReply}
-        visibleReplies={visibleReplies}
+        user={user}
+        highlightUsername={highlightCommentBy}
+        highlightCommentId={highlightTargetCommentId}
         toggleRepliesVisibility={toggleRepliesVisibility}
         getInitials={getInitials}
         formatTimeAgo={formatRelativeTime}
-        user={user}
         onRefreshAssignments={onRefreshAssignments}
-        isPostingComment={isPostingComment}
-        isPostingReply={isPostingReply}
       />
 
       {showMembersModal && (
@@ -1749,8 +1862,8 @@ const AssignmentsTab = ({
               <div className="tl-modal-members-list">
                 {selectedMembers.map((member) => (
                   <div key={member.id} className="tl-modal-member-item">
-                    <div className="tl-modal-member-avatar">
-                      {(member.fullName || member.username).charAt(0).toUpperCase()}
+                    <div className="tl-modal-member-avatar" style={{ background: 'transparent' }}>
+                      <Avatar user={member} size="sm" />
                     </div>
                     <div className="tl-member-info">
                       <div className="tl-member-name">
@@ -2083,8 +2196,8 @@ const AssignmentsTab = ({
                             )}
                           </div>
                           {/* Avatar */}
-                          <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: isSelected ? '#4f46e5' : '#e5e7eb', display: 'flex', alignItems: 'center', justifyContent: 'center', color: isSelected ? '#fff' : '#374151', fontWeight: '700', fontSize: '14px', flexShrink: 0 }}>
-                            {getInitials(member.fullName || member.username)}
+                          <div style={{ background: 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                            <Avatar user={member} size="sm" />
                           </div>
                           <div style={{ flex: 1 }}>
                             <div style={{ fontWeight: '600', fontSize: '14px', color: '#111827' }}>{member.fullName || member.username}</div>
@@ -2224,6 +2337,199 @@ const AssignmentsTab = ({
         type={toast.type}
       />
 
+      {/* Mark as Done Confirmation Modal */}
+      {markDoneConfirmModal.isOpen && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+          backgroundColor: 'rgba(0,0,0,0.45)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          zIndex: 9999
+        }}>
+          <div style={{
+            background: '#fff',
+            borderRadius: '20px',
+            boxShadow: '0 20px 60px rgba(0,0,0,0.2)',
+            padding: '32px 36px',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: '16px',
+            minWidth: '320px',
+            maxWidth: '420px',
+            textAlign: 'center'
+          }}>
+            {/* Icon */}
+            <div style={{
+              width: '60px', height: '60px',
+              borderRadius: '50%',
+              background: 'linear-gradient(135deg, #16a34a 0%, #22c55e 100%)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              boxShadow: '0 4px 16px rgba(22,163,74,0.3)',
+              flexShrink: 0
+            }}>
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M20 6L9 17l-5-5"/>
+              </svg>
+            </div>
+
+            {/* Text */}
+            <div>
+              <div style={{ fontSize: '18px', fontWeight: '700', color: '#111827', marginBottom: '8px' }}>Mark as Done?</div>
+              <div style={{ fontSize: '13px', color: '#6b7280', lineHeight: 1.6 }}>
+                Are you sure you want to mark
+                <span style={{ fontWeight: '600', color: '#374151' }}> "{markDoneConfirmModal.title}" </span>
+                as done? This will complete the task and clean up associated files.
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div style={{ display: 'flex', gap: '12px', width: '100%', marginTop: '4px' }}>
+              <button
+                onClick={() => setMarkDoneConfirmModal({ isOpen: false, assignmentId: null, title: '' })}
+                style={{
+                  flex: 1,
+                  padding: '11px 0',
+                  borderRadius: '10px',
+                  border: '1.5px solid #e5e7eb',
+                  background: '#f9fafb',
+                  color: '#374151',
+                  fontWeight: '600',
+                  fontSize: '14px',
+                  cursor: 'pointer',
+                  transition: 'all 0.15s'
+                }}
+                onMouseEnter={e => { e.currentTarget.style.background = '#f3f4f6'; e.currentTarget.style.borderColor = '#d1d5db' }}
+                onMouseLeave={e => { e.currentTarget.style.background = '#f9fafb'; e.currentTarget.style.borderColor = '#e5e7eb' }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  const { assignmentId, title } = markDoneConfirmModal
+                  setMarkDoneConfirmModal({ isOpen: false, assignmentId: null, title: '' })
+                  handleMarkAsDone(assignmentId, title)
+                }}
+                style={{
+                  flex: 1,
+                  padding: '11px 0',
+                  borderRadius: '10px',
+                  border: 'none',
+                  background: 'linear-gradient(135deg, #16a34a 0%, #22c55e 100%)',
+                  color: '#fff',
+                  fontWeight: '600',
+                  fontSize: '14px',
+                  cursor: 'pointer',
+                  boxShadow: '0 2px 8px rgba(22,163,74,0.3)',
+                  transition: 'all 0.15s'
+                }}
+                onMouseEnter={e => { e.currentTarget.style.opacity = '0.9'; e.currentTarget.style.transform = 'translateY(-1px)' }}
+                onMouseLeave={e => { e.currentTarget.style.opacity = '1'; e.currentTarget.style.transform = 'translateY(0)' }}
+              >
+                Confirm
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Undo Mark as Done Confirmation Modal */}
+      {undoConfirmModal.isOpen && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+          backgroundColor: 'rgba(0,0,0,0.45)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          zIndex: 9999
+        }}>
+          <div style={{
+            background: '#fff',
+            borderRadius: '20px',
+            boxShadow: '0 20px 60px rgba(0,0,0,0.2)',
+            padding: '32px 36px',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: '16px',
+            minWidth: '320px',
+            maxWidth: '440px',
+            textAlign: 'center'
+          }}>
+            {/* Icon */}
+            <div style={{
+              width: '60px', height: '60px',
+              borderRadius: '50%',
+              background: 'linear-gradient(135deg, #d97706 0%, #f59e0b 100%)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              boxShadow: '0 4px 16px rgba(217,119,6,0.3)',
+              flexShrink: 0
+            }}>
+              <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M3 7v6h6"/>
+                <path d="M21 17a9 9 0 00-9-9 9 9 0 00-6 2.3L3 13"/>
+              </svg>
+            </div>
+
+            {/* Text */}
+            <div>
+              <div style={{ fontSize: '18px', fontWeight: '700', color: '#111827', marginBottom: '8px' }}>Undo Mark as Done?</div>
+              <div style={{ fontSize: '13px', color: '#6b7280', lineHeight: 1.6 }}>
+                This will move
+                <span style={{ fontWeight: '600', color: '#374151' }}> "{undoConfirmModal.title}" </span>
+                back to <strong>Active</strong> status.
+                <br/>
+                <span style={{ color: '#dc2626', fontWeight: '500' }}>Note:</span> Attachment files that were deleted when the task was marked as done cannot be restored.
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div style={{ display: 'flex', gap: '12px', width: '100%', marginTop: '4px' }}>
+              <button
+                onClick={() => setUndoConfirmModal({ isOpen: false, assignmentId: null, title: '' })}
+                style={{
+                  flex: 1,
+                  padding: '11px 0',
+                  borderRadius: '10px',
+                  border: '1.5px solid #e5e7eb',
+                  background: '#f9fafb',
+                  color: '#374151',
+                  fontWeight: '600',
+                  fontSize: '14px',
+                  cursor: 'pointer',
+                  transition: 'all 0.15s'
+                }}
+                onMouseEnter={e => { e.currentTarget.style.background = '#f3f4f6'; e.currentTarget.style.borderColor = '#d1d5db' }}
+                onMouseLeave={e => { e.currentTarget.style.background = '#f9fafb'; e.currentTarget.style.borderColor = '#e5e7eb' }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  const { assignmentId, title } = undoConfirmModal
+                  setUndoConfirmModal({ isOpen: false, assignmentId: null, title: '' })
+                  handleUndoMarkAsDone(assignmentId, title)
+                }}
+                style={{
+                  flex: 1,
+                  padding: '11px 0',
+                  borderRadius: '10px',
+                  border: 'none',
+                  background: 'linear-gradient(135deg, #d97706 0%, #f59e0b 100%)',
+                  color: '#fff',
+                  fontWeight: '600',
+                  fontSize: '14px',
+                  cursor: 'pointer',
+                  boxShadow: '0 2px 8px rgba(217,119,6,0.3)',
+                  transition: 'all 0.15s'
+                }}
+                onMouseEnter={e => { e.currentTarget.style.opacity = '0.9'; e.currentTarget.style.transform = 'translateY(-1px)' }}
+                onMouseLeave={e => { e.currentTarget.style.opacity = '1'; e.currentTarget.style.transform = 'translateY(0)' }}
+              >
+                Undo
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Mark as Done Loading Overlay */}
       {markingDoneId !== null && (
         <div style={{
@@ -2267,6 +2573,56 @@ const AssignmentsTab = ({
               <div style={{
                 height: '100%', borderRadius: '2px',
                 background: 'linear-gradient(90deg, #16a34a, #22c55e)',
+                animation: 'markDoneBar 1.5s ease-in-out infinite alternate'
+              }} />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Undo Mark as Done Loading Overlay */}
+      {undoingDoneId !== null && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+          backgroundColor: 'rgba(0,0,0,0.45)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          zIndex: 9998
+        }}>
+          <div style={{
+            background: '#fff',
+            borderRadius: '20px',
+            boxShadow: '0 20px 60px rgba(0,0,0,0.2)',
+            padding: '36px 44px',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: '20px',
+            minWidth: '280px'
+          }}>
+            <div style={{
+              width: '56px', height: '56px',
+              borderRadius: '50%',
+              background: 'linear-gradient(135deg, #d97706, #f59e0b)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              boxShadow: '0 4px 16px rgba(217,119,6,0.3)'
+            }}>
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+                style={{ animation: 'markDoneSpin 1.2s linear infinite' }}>
+                <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
+              </svg>
+            </div>
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ fontSize: '17px', fontWeight: '700', color: '#111827', marginBottom: '6px' }}>
+                Undoing Mark as Done…
+              </div>
+              <div style={{ fontSize: '13px', color: '#6b7280', lineHeight: 1.5 }}>
+                Moving task back to active.<br/>Please wait.
+              </div>
+            </div>
+            <div style={{ width: '100%', height: '4px', background: '#e5e7eb', borderRadius: '2px', overflow: 'hidden' }}>
+              <div style={{
+                height: '100%', borderRadius: '2px',
+                background: 'linear-gradient(90deg, #d97706, #f59e0b)',
                 animation: 'markDoneBar 1.5s ease-in-out infinite alternate'
               }} />
             </div>

@@ -2,6 +2,7 @@ import { LoadingTable } from '../common/InlineSkeletonLoader'
 import { useState, useMemo, useCallback, useEffect, memo } from 'react'
 import { apiFetch } from '@/config/api'
 import UserPerformanceCard from '../shared/UserPerformanceCard'
+import Avatar from '../shared/Avatar'
 
 const MemberCard = memo(({ member, bulkPerformance, memberScores, handleScoreLoad }) => {
   const score = memberScores[member.id] || 0;
@@ -41,21 +42,7 @@ const MemberCard = memo(({ member, bulkPerformance, memberScores, handleScoreLoa
         marginBottom: '16px',
         paddingLeft: '4px'
       }}>
-        <div style={{
-          width: '36px',
-          height: '36px',
-          background: isStar ? 'rgba(99, 102, 241, 0.1)' : isExcellent ? 'rgba(16, 185, 129, 0.1)' : '#f1f5f9',
-          borderRadius: '10px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          fontWeight: '800',
-          color: isStar ? '#6366f1' : isExcellent ? '#10b981' : '#475569',
-          fontSize: '13px',
-          border: isStar ? '1px solid rgba(99, 102, 241, 0.2)' : isExcellent ? '1px solid rgba(16, 185, 129, 0.2)' : 'none'
-        }}>
-          {member.name.substring(0, 2).toUpperCase()}
-        </div>
+        <Avatar user={{ ...member, fullName: member.name }} size="sm" />
         <div style={{ minWidth: 0 }}>
           <h3 style={{
             fontSize: '15px',
@@ -309,7 +296,8 @@ const TeamManagementTab = ({
               <tbody>
                 {filteredMembers.map((member) => (
                   <tr key={member.id}>
-                    <td>
+                    <td style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <Avatar user={{ ...member, fullName: member.name }} size="sm" />
                       <strong>{member.name}</strong>
                     </td>
                     <td style={{ color: 'var(--text-secondary)' }}>{member.email}</td>

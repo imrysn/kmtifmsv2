@@ -1418,3 +1418,15 @@
   margin-left: 0 !important;
   flex: 1;
 }
+
+/* Highlight Animation for Folder */
+.tl-assignment-folder-highlighted {
+  animation: folderItemHighlightPulse 1.5s ease-in-out;
+  border-radius: 12px;
+}
+
+@keyframes folderItemHighlightPulse {
+  0% { background: #fef08a !important; border-color: #facc15 !important; box-shadow: 0 0 0 2px rgba(250, 204, 21, 0.5) !important; }
+  50% { background: #fef9c3 !important; border-color: #fef08a !important; }
+  100% { background: transparent !important; }
+}

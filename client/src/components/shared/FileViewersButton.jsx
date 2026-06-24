@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { apiFetch, API_BASE_URL } from '@/config/api'
+import Avatar from './Avatar'
 
 /**
  * FileViewersButton
@@ -265,15 +266,15 @@ const FileViewersButton = ({ fileId, size = 14, externalCount, minDate, fileSour
                     borderBottom: i < viewers.length - 1 ? '1px solid #f3f4f6' : 'none',
                   }}
                 >
-                  {/* Avatar circle with initials */}
                   <div style={{
-                    width: '34px', height: '34px', borderRadius: '50%',
-                    background: getRoleColor(v.role),
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    color: '#fff', fontSize: '11px', fontWeight: '700', flexShrink: 0,
-                    letterSpacing: '0.5px',
+                    flexShrink: 0,
                   }}>
-                    {getInitials(getDisplayName(v))}
+                    <Avatar user={{
+                      username: v.username,
+                      fullName: getDisplayName(v),
+                      profile_picture: v.profile_picture
+                    }} size="sm" />
                   </div>
 
                   {/* Name + username + role + time */}

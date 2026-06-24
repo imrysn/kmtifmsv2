@@ -8,4 +8,4 @@ export { default as FileOpenModal } from './FileOpenModal'
 export { default as FileViewersButton } from './FileViewersButton'
 export { default as UserPerformanceCard } from './UserPerformanceCard'
 export { default as OnlineMembersPanel } from './OnlineMembersPanel'
-
+export { default as Avatar } from './Avatar'

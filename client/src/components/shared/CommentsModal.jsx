@@ -1,6 +1,7 @@
 import React, { memo, useCallback, useState, useEffect, useRef, useMemo } from 'react';
 import ReactDOM from 'react-dom';
 import { apiFetch } from '@/config/api';
+import Avatar from './Avatar';
 import './CommentsModal.css';
 
 // Renders text with @mention highlights
@@ -292,7 +293,7 @@ const MentionInput = memo((
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                       <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/>
                     </svg>
-                  ) : computeInitials(u.fullName || u.username)}
+                  ) : <Avatar user={u} size="sm" />}
                 </div>
                 <div className="mention-picker-info">
                   <span className="mention-picker-name">{isEveryone ? '@everyone' : (u.fullName || u.username)}</span>
@@ -437,7 +438,6 @@ const ReplyItem = memo(({ reply, parentCommentId, assignmentId, onReplyToReply, 
   const [isProcessing, setIsProcessing] = useState(false);
   const isLong = reply.reply.length > MAX_REPLY_LENGTH;
   const isOwner = useMemo(() => String(reply.user_id) === String(currentUserId), [reply.user_id, currentUserId]);
-  const initials = useMemo(() => computeInitials(reply.user_fullname || reply.fullName || reply.username), [reply.user_fullname, reply.fullName, reply.username]);
   const displayName = useMemo(() => reply.user_fullname || reply.fullName || reply.username, [reply.user_fullname, reply.fullName, reply.username]);
   const roleCls = useMemo(() => `role-badge ${reply.user_role ? reply.user_role.toLowerCase().replace(/[\s_]/g, '-') : 'user'}`, [reply.user_role]);
   const renderedText = useMemo(() => {
@@ -465,7 +465,7 @@ const ReplyItem = memo(({ reply, parentCommentId, assignmentId, onReplyToReply, 
 
   return (
     <div className={`reply-item ${isProcessing ? 'is-processing' : ''}`}>
-      <div className="reply-avatar">{initials}</div>
+      <Avatar user={{ fullName: displayName, profile_picture: reply.user_profile_picture }} size="sm" />
       <div className="reply-content">
         {isEditing ? (
           <EditInput initialText={reply.reply} onSave={handleSaveEdit} onCancel={() => setIsEditing(false)} />
@@ -499,7 +499,7 @@ const ReplyItem = memo(({ reply, parentCommentId, assignmentId, onReplyToReply, 
 ReplyItem.displayName = 'ReplyItem';
 
 // ─── ReplyInputBox ────────────────────────────────────────────────────────────
-const ReplyInputBox = memo(({ comment, initialText, onPostReply, userInitials, mentionableUsers, isProcessing }) => {
+const ReplyInputBox = memo(({ comment, initialText, onPostReply, user, mentionableUsers, isProcessing }) => {
   const [text, setText] = useState(initialText || '');
   const prevInitial = useRef(initialText);
 
@@ -516,7 +516,7 @@ const ReplyInputBox = memo(({ comment, initialText, onPostReply, userInitials, m
 
   return (
     <div className={`reply-input-box ${isProcessing ? 'is-processing' : ''}`}>
-      <div className="reply-avatar">{userInitials}</div>
+      <Avatar user={user} size="sm" />
       <div className="comment-input-wrapper">
         <MentionInput
           value={text}
@@ -540,24 +540,39 @@ ReplyInputBox.displayName = 'ReplyInputBox';
 const CommentItem = memo(({
   comment, assignmentId, isReplying, mentionText, repliesVisible,
   onReply, onToggleReplies, onPostReply, onEditComment, onDeleteComment,
-  onEditReply, onDeleteReply, userInitials, highlightUsername, currentUserId, mentionableUsers,
+  onEditReply, onDeleteReply, user, highlightUsername, highlightCommentId, currentUserId, mentionableUsers,
 }) => {
   const MAX_LEN = 150;
   const [isExpanded, setIsExpanded] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+  const commentRef = useRef(null);
   const isLong = comment.comment.length > MAX_LEN;
   const isOwner = useMemo(() => String(comment.user_id) === String(currentUserId), [comment.user_id, currentUserId]);
-  const initials = useMemo(() => computeInitials(comment.user_fullname || comment.fullName || comment.username), [comment.user_fullname, comment.fullName, comment.username]);
   const displayName = useMemo(() => comment.user_fullname || comment.fullName || comment.username, [comment.user_fullname, comment.fullName, comment.username]);
   const roleCls = useMemo(() => `role-badge ${comment.user_role ? comment.user_role.toLowerCase().replace(/[\s_]/g, '-') : 'user'}`, [comment.user_role]);
-  const isHighlighted = useMemo(() => !!(highlightUsername && (comment.username === highlightUsername || comment.user_fullname === highlightUsername)), [highlightUsername, comment.username, comment.user_fullname]);
+  
+  const isHighlighted = useMemo(() => {
+    if (highlightCommentId) {
+      return String(comment.id) === String(highlightCommentId);
+    }
+    return !!(highlightUsername && (comment.username === highlightUsername || comment.user_fullname === highlightUsername));
+  }, [highlightCommentId, highlightUsername, comment.id, comment.username, comment.user_fullname]);
+
   const renderedText = useMemo(() => {
     const content = isLong && !isExpanded ? comment.comment.substring(0, MAX_LEN) + '...' : comment.comment;
     return renderTextWithMentions(content, mentionableUsers);
   }, [comment.comment, isLong, isExpanded, mentionableUsers]);
   const replyCount = useMemo(() => comment.replies?.length ?? 0, [comment.replies]);
   
+  useEffect(() => {
+    if (isHighlighted && commentRef.current) {
+      setTimeout(() => {
+        commentRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }, 300);
+    }
+  }, [isHighlighted]);
+
   const handleReplyClick = useCallback(() => onReply(comment.id, displayName), [comment.id, displayName, onReply]);
   const handleToggleReplies = useCallback(() => onToggleReplies(comment.id), [comment.id, onToggleReplies]);
   
@@ -577,9 +592,9 @@ const CommentItem = memo(({
   };
 
   return (
-    <div className={`${isHighlighted ? 'comment-thread highlight-comment' : 'comment-thread'} ${isProcessing ? 'is-processing' : ''}`} data-comment-id={comment.id}>
+    <div ref={commentRef} className={`${isHighlighted ? 'comment-thread highlight-comment' : 'comment-thread'} ${isProcessing ? 'is-processing' : ''}`} data-comment-id={comment.id}>
       <div className="comment-item">
-        <div className="comment-avatar">{initials}</div>
+        <Avatar user={{ fullName: displayName, profile_picture: comment.user_profile_picture }} size="md" />
         <div className="comment-content">
           {isEditing ? (
             <EditInput initialText={comment.comment} onSave={handleSaveEdit} onCancel={() => setIsEditing(false)} />
@@ -637,7 +652,7 @@ const CommentItem = memo(({
           comment={comment}
           initialText={mentionText}
           onPostReply={onPostReply}
-          userInitials={userInitials}
+          user={user}
           mentionableUsers={mentionableUsers}
           isProcessing={isProcessing}
         />
@@ -653,7 +668,7 @@ const CommentsModal = memo(({
   newComment, setNewComment, onPostComment, onPostReply,
   onEditComment, onDeleteComment, onEditReply, onDeleteReply,
   visibleReplies, toggleRepliesVisibility,
-  getInitials, formatTimeAgo, user, highlightUsername = null,
+  getInitials, formatTimeAgo, user, highlightUsername = null, highlightCommentId = null,
   isPostingComment = false, isPostingReply = false,
 }) => {
   const [replyingTo, setReplyingTo] = useState(null);
@@ -691,7 +706,6 @@ const CommentsModal = memo(({
     }));
   }, [comments, formatTimeAgo]);
 
-  const userInitials = useMemo(() => computeInitials(user.username || user.fullName), [user.username, user.fullName]);
 
   const handleSetReplyingTo = useCallback((commentId, authorName) => {
     setReplyingTo(prev => {
@@ -744,8 +758,9 @@ const CommentsModal = memo(({
                   onDeleteComment={onDeleteComment}
                   onEditReply={onEditReply}
                   onDeleteReply={onDeleteReply}
-                  userInitials={userInitials}
+                  user={user}
                   highlightUsername={highlightUsername}
+                  highlightCommentId={highlightCommentId}
                   currentUserId={user.id}
                   mentionableUsers={mentionableUsers}
                 />
@@ -756,7 +771,7 @@ const CommentsModal = memo(({
 
         <div className="comments-modal-footer">
           <div className="add-comment">
-            <div className="comment-avatar">{userInitials}</div>
+            <Avatar user={user} size="md" />
             <div className={`comment-input-wrapper ${isPostingComment ? 'is-processing' : ''}`}>
               <MentionInput
                 value={newComment}

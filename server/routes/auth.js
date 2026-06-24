@@ -31,8 +31,11 @@ router.post('/login', validate(schemas.login), asyncHandler(async (req, res) => 
   try {
     user = await new Promise((resolve, reject) => {
       db.get(query, [email], (err, row) => {
-        if (err) reject(err);
-        else resolve(row);
+        if (err) {
+          reject(err);
+        } else {
+          resolve(row);
+        }
       });
     });
   } catch (dbErr) {
@@ -113,6 +116,30 @@ router.post('/login', validate(schemas.login), asyncHandler(async (req, res) => 
 
   // Remove password from user object before sending response
   const { password: _password, ...userWithoutPassword } = user;
+
+  // Fetch ledTeams if TEAM_LEADER or ADMIN
+  let ledTeams = [];
+  if (normalizedRole === 'TEAM_LEADER' || normalizedRole === 'ADMIN') {
+    try {
+      ledTeams = await new Promise((resolve, reject) => {
+        db.all(
+          'SELECT t.id, t.name, t.color FROM team_leaders tl JOIN teams t ON tl.team_id = t.id WHERE tl.user_id = ?',
+          [user.id],
+          (err, rows) => {
+            if (err) {
+              reject(err);
+            } else {
+              resolve(rows || []);
+            }
+          }
+        );
+      });
+    } catch (err) {
+      logWarn('Failed to fetch ledTeams during login', { userId: user.id, err: err.message });
+    }
+  }
+
+  userWithoutPassword.ledTeams = ledTeams;
 
   // Generate JWT
   const tokenPayload = {

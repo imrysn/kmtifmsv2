@@ -9,31 +9,46 @@
   gap: 1rem;
 }
 
-.spinner {
-  border: 3px solid rgba(255, 255, 255, 0.1);
-  border-top-color: #4CAF50;
-  border-radius: 50%;
-  animation: spinner-rotate 0.8s linear infinite;
-  /* Use transform for better performance */
-  will-change: transform;
+.spinner-fullpage {
+  min-height: 100vh;
+  width: 100%;
 }
 
-.spinner-small {
-  width: 24px;
-  height: 24px;
-  border-width: 2px;
+/* Infinity Square Snake Animation */
+@keyframes loading-ui-infinity-square-snake {
+  0%, 100% { transform: translate(4ch, 0); }
+  12.5% { transform: translate(0, 0); }
+  25% { transform: translate(0, 4ch); }
+  37.5% { transform: translate(4ch, 4ch); }
+  50% { transform: translate(4ch, 0); }
+  62.5% { transform: translate(8ch, 0); }
+  75% { transform: translate(8ch, 4ch); }
+  87.5% { transform: translate(4ch, 4ch); }
 }
 
-.spinner-medium {
-  width: 40px;
-  height: 40px;
-  border-width: 3px;
+.infinity-snake-container {
+  position: relative;
+  display: inline-flex;
+  height: 5ch;
+  width: 9ch;
+  overflow: hidden;
+  font-family: monospace;
+  line-height: 1;
+  color: currentColor;
+  user-select: none;
 }
 
-.spinner-large {
-  width: 60px;
-  height: 60px;
-  border-width: 4px;
+.infinity-snake-glyph {
+  pointer-events: none;
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: flex;
+  height: 1ch;
+  width: 1ch;
+  align-items: center;
+  justify-content: center;
+  animation: loading-ui-infinity-square-snake 3.2s linear infinite;
 }
 
 .spinner-fullscreen {

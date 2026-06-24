@@ -62,17 +62,26 @@ function App() {
   }, [user])
   // ───────────────────────────────────────────────────────────────────────
 
-  // Log user session restoration
+  // Handle window resizing based on auth state and log session restoration
   useEffect(() => {
-    if (user && _hasHydrated) {
-      logger.info('User session restored from store')
+    if (_hasHydrated) {
+      if (user) {
+        logger.info('User session restored from store');
+        if (window.electron?.windowControl) {
+          window.electron.windowControl.resizeForDashboard();
+        }
+      } else {
+        if (window.electron?.windowControl) {
+          window.electron.windowControl.resizeForLogin();
+        }
+      }
     }
   }, [user, _hasHydrated])
 
   // Don't render until persisted store is rehydrated — prevents 401s from
   // components firing apiFetch before the token is available
   if (!_hasHydrated) {
-    return <LoadingSpinner message="Loading..." />
+    return <LoadingSpinner message="Loading..." fullPage={true} />
   }
 
   // Handle login
@@ -105,7 +114,7 @@ function App() {
     // Show a brief connecting screen until MySQL is ready.
     // This ensures all tabs load together instead of hammering 503s independently.
     if (!dbReady) {
-      return <LoadingSpinner message="Connecting to database..." />
+      return <LoadingSpinner message="Connecting to database..." fullPage={true} />
     }
 
     logger.logNavigation('login', `${user.panelType}-dashboard`)
@@ -130,7 +139,7 @@ function App() {
           {/* Toast notifications - handles ALL notifications including updates */}
           <ToastContainer />
 
-          <Suspense fallback={<LoadingSpinner message="Loading dashboard..." />}>
+          <Suspense fallback={<LoadingSpinner message="Loading dashboard..." fullPage={true} />}>
             <Routes>
               <Route
                 path="/login"

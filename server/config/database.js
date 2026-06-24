@@ -9,7 +9,13 @@ const _envPaths = [
   _path0.join(__dirname, '../../../.env'),
   _path0.join(process.resourcesPath || '', '.env')
 ];
-const _envFile = _envPaths.find(p => { try { return _fs0.existsSync(p); } catch(_){return false;} });
+const _envFile = _envPaths.find(p => {
+  try {
+    return _fs0.existsSync(p);
+  } catch (_) {
+    return false;
+  }
+});
 require('dotenv').config({ path: _envFile });
 
 const path = require('path');
@@ -38,36 +44,53 @@ const db = {
       const result = await mysqlConfig.query(sql, Array.isArray(params) ? params : []);
       if (callback) {
         const context = {};
-        if (result && typeof result.insertId !== 'undefined') context.lastID = result.insertId;
-        if (result && typeof result.affectedRows !== 'undefined') context.changes = result.affectedRows;
+        if (result && typeof result.insertId !== 'undefined') {
+          context.lastID = result.insertId;
+        }
+        if (result && typeof result.affectedRows !== 'undefined') {
+          context.changes = result.affectedRows;
+        }
         callback.call(context, null, result);
       }
       return result;
     } catch (error) {
-      if (callback) callback(error);
-      else throw error;
+      if (callback) {
+        callback(error);
+      } else {
+        throw error;
+      }
     }
   },
 
   get: async (sql, params, callback) => {
     try {
       const result = await mysqlConfig.queryOne(sql, Array.isArray(params) ? params : []);
-      if (callback) callback(null, result);
+      if (callback) {
+        callback(null, result);
+      }
       return result;
     } catch (error) {
-      if (callback) callback(error);
-      else throw error;
+      if (callback) {
+        callback(error);
+      } else {
+        throw error;
+      }
     }
   },
 
   all: async (sql, params, callback) => {
     try {
       const results = await mysqlConfig.query(sql, Array.isArray(params) ? params : []);
-      if (callback) callback(null, results);
+      if (callback) {
+        callback(null, results);
+      }
       return results;
     } catch (error) {
-      if (callback) callback(error);
-      else throw error;
+      if (callback) {
+        callback(error);
+      } else {
+        throw error;
+      }
     }
   }
 };

@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import ReactDOM from 'react-dom'
 import { apiFetch, API_BASE_URL } from '@/config/api'
 import './css/TeamTasksTab.css'
-import { FileIcon, FileOpenModal, FileViewersButton } from '../shared'
+import { FileIcon, FileOpenModal, FileViewersButton, Avatar } from '../shared'
 import CommentsModal from '../shared/CommentsModal'
 import SuccessModal from './SuccessModal'
 import { recursiveGroupByPath } from '@utils/folderUtils'
@@ -191,6 +191,8 @@ const TeamTasksTab = ({ user }) => {
   const [loading, setLoading] = useState(true)
   const [loadingMore, setLoadingMore] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
+  // Team filter toggle: 'all' | 'KUSAKABE' | 'IT Dept'
+  const [teamFilter, setTeamFilter] = useState('all')
   const [expandedAssignments, setExpandedAssignments] = useState({})
   const [error, setError] = useState('')
   const [successModal, setSuccessModal] = useState({ isOpen: false, title: '', message: '', type: 'success' })
@@ -296,7 +298,11 @@ const TeamTasksTab = ({ user }) => {
     try {
       setLoading(true)
       setError('')
-      const data = await apiFetch(`/api/assignments/team/${user.team}/all-tasks?limit=20`)
+      const endpoint = user.role === 'TEAM_LEADER' || user.role === 'ADMIN'
+        ? `/api/assignments/team-leader/${user.id}?limit=20`
+        : `/api/assignments/team/${user.team}/all-tasks?limit=20`
+        
+      const data = await apiFetch(endpoint)
       if (!data.success) {
         setError(data.message || 'Failed to fetch team assignments')
         return
@@ -317,7 +323,11 @@ const TeamTasksTab = ({ user }) => {
     if (loadingMore || !hasMore || !nextCursor) return
     try {
       setLoadingMore(true)
-      const data = await apiFetch(`/api/assignments/team/${user.team}/all-tasks?cursor=${nextCursor}&limit=20`)
+      const endpoint = user.role === 'TEAM_LEADER' || user.role === 'ADMIN'
+        ? `/api/assignments/team-leader/${user.id}?cursor=${nextCursor}&limit=20`
+        : `/api/assignments/team/${user.team}/all-tasks?cursor=${nextCursor}&limit=20`
+        
+      const data = await apiFetch(endpoint)
       if (!data.success) {
         setError(data.message || 'Failed to fetch more assignments')
         return
@@ -658,8 +668,20 @@ const TeamTasksTab = ({ user }) => {
     )
   }
 
-  const renderRecursiveItems = (assignment, files, level = 1, parentKey = '', parentIsLastArr = [], isAttachment = true) => {
-    const { subfolders, rootFiles } = recursiveGroupByPath(files)
+  const renderRecursiveItems = (assignment, files, level = 1, parentKey = '', parentIsLastArr = [], isAttachment = true, stripPrefix = null) => {
+    // Strip the top-level folder prefix from relative_path so recursiveGroupByPath
+    // sees paths relative to the current folder, not the global root.
+    const normalizedFiles = stripPrefix
+      ? files.map(f => {
+          const file = f.file || f;
+          const rp = (file.relative_path || '').replace(/\\/g, '/');
+          const prefix = stripPrefix.replace(/\\/g, '/') + '/';
+          const stripped = rp.startsWith(prefix) ? rp.slice(prefix.length) : rp;
+          return { ...f, file: { ...file, relative_path: stripped } };
+        })
+      : files;
+
+    const { subfolders, rootFiles } = recursiveGroupByPath(normalizedFiles)
     const subItems = []
 
     const subfolderEntries = Object.entries(subfolders)
@@ -811,6 +833,58 @@ const TeamTasksTab = ({ user }) => {
         )}
       </div>
 
+      {/* Team Filter Toggle */}
+      {(() => {
+        const teams = (user?.role === 'TEAM_LEADER' || user?.role === 'ADMIN') && user?.ledTeams?.length > 0
+          ? user.ledTeams.map(t => t.name).sort()
+          : [...new Set(assignments.map(a => a.team).filter(Boolean))].sort()
+        if (teams.length < 2) return null
+        const palette = [
+          { bg: '#7c3aed', shadow: 'rgba(124,58,237,0.30)', dot: '#7c3aed' },
+          { bg: '#0284c7', shadow: 'rgba(2,132,199,0.30)',   dot: '#0284c7' },
+          { bg: '#059669', shadow: 'rgba(5,150,105,0.30)',   dot: '#059669' },
+          { bg: '#d97706', shadow: 'rgba(217,119,6,0.30)',   dot: '#d97706' },
+          { bg: '#dc2626', shadow: 'rgba(220,38,38,0.30)',   dot: '#dc2626' },
+          { bg: '#db2777', shadow: 'rgba(219,39,119,0.30)',  dot: '#db2777' },
+        ]
+        const filterOptions = [
+          { value: 'all', label: 'All Teams', color: null },
+          ...teams.map((t, i) => ({ value: t, label: t, color: palette[i % palette.length] }))
+        ]
+        return (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px', flexWrap: 'wrap' }}>
+            <span style={{ fontSize: '12.5px', fontWeight: '600', color: '#6b7280', letterSpacing: '0.03em', userSelect: 'none' }}>Filter by team:</span>
+            <div style={{ display: 'flex', gap: '0', background: '#f3f4f6', borderRadius: '10px', padding: '3px', flexWrap: 'wrap' }}>
+              {filterOptions.map(opt => {
+                const isActive = teamFilter === opt.value
+                const c = opt.color
+                const activeBg = c && isActive ? c.bg : (isActive ? '#fff' : 'transparent')
+                const activeColor = c && isActive ? '#fff' : (isActive ? '#111827' : '#6b7280')
+                const activeShadow = c && isActive ? `0 2px 8px ${c.shadow}` : (isActive ? '0 1px 4px rgba(0,0,0,0.10)' : 'none')
+                return (
+                  <button
+                    key={opt.value}
+                    onClick={() => setTeamFilter(opt.value)}
+                    style={{
+                      padding: '5px 16px', borderRadius: '8px', border: 'none',
+                      fontWeight: '600', fontSize: '12.5px', cursor: 'pointer',
+                      transition: 'all 0.18s',
+                      background: activeBg, color: activeColor, boxShadow: activeShadow,
+                      display: 'flex', alignItems: 'center', gap: '5px',
+                    }}
+                  >
+                    {c && (
+                      <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: isActive ? 'rgba(255,255,255,0.7)' : c.dot, display: 'inline-block', flexShrink: 0 }} />
+                    )}
+                    {opt.label}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        )
+      })()}
+
       <div className="team-tasks-count">
         {searchQuery
           ? `${assignments.filter(a => {
@@ -877,7 +951,8 @@ const TeamTasksTab = ({ user }) => {
                 )
               })
             : assignments
-          return filtered.length === 0 ? (
+          const teamFiltered = teamFilter === 'all' ? filtered : filtered.filter(a => (a.team || 'IT Dept') === teamFilter)
+          return teamFiltered.length === 0 ? (
           <div className="empty-team-tasks">
             <div className="empty-icon">📋</div>
             <h3>{searchQuery ? 'No Results Found' : 'No Team Tasks Yet'}</h3>
@@ -885,13 +960,17 @@ const TeamTasksTab = ({ user }) => {
           </div>
         ) : (
           <>
-            {filtered.map(assignment => (
+            {teamFiltered.map(assignment => (
               <div key={assignment.id} className="team-task-card">
                 {/* Card Header */}
                 <div className="team-task-header">
                   <div className="team-task-header-left">
-                    <div className="team-task-avatar">
-                      {getInitials(assignment.team_leader_fullname || assignment.team_leader_username)}
+                    <div className="team-task-avatar" style={{ background: 'transparent' }}>
+                      <Avatar user={{
+                        username: assignment.team_leader_username,
+                        fullName: assignment.team_leader_fullname || assignment.team_leader_full_name,
+                        profile_picture: assignment.team_leader_profile_picture
+                      }} size="md" />
                     </div>
                     <div className="team-task-header-info">
                       <div className="team-task-assigned">
@@ -998,7 +1077,7 @@ const TeamTasksTab = ({ user }) => {
                           )
 
                           if (isExpanded) {
-                            items.push(...renderRecursiveItems(assignment, folderFiles, 1, folderKey, [], true))
+                            items.push(...renderRecursiveItems(assignment, folderFiles, 1, folderKey, [], true, folderName))
                           }
                         })
 
@@ -1110,7 +1189,7 @@ const TeamTasksTab = ({ user }) => {
                           )
 
                           if (isExpanded) {
-                            items.push(...renderRecursiveItems(assignment, folderFiles, 1, folderKey, [], false))
+                            items.push(...renderRecursiveItems(assignment, folderFiles, 1, folderKey, [], false, folderName))
                           }
                         })
 
@@ -1193,13 +1272,28 @@ const TeamTasksTab = ({ user }) => {
                     style={{
                       padding: '0', backgroundColor: 'transparent', border: 'none',
                       color: '#1c1e21', fontSize: '14px', fontWeight: '500',
-                      cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '4px'
+                      cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px'
                     }}
                   >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" />
+                    </svg>
                     <span>Comment</span>
-                    {comments[assignment.id]?.length > 0 && (
-                      <span>({comments[assignment.id].length})</span>
-                    )}
+                    {(() => {
+                      const count = comments[assignment.id]?.length > 0 ? comments[assignment.id].length : (assignment.comment_count || 0);
+                      const hasRejected = assignment.recent_submissions?.some(f =>
+                        ['rejected_by_team_leader', 'rejected_by_admin'].includes(f.status)
+                      );
+                      return (
+                        <span style={{
+                          backgroundColor: hasRejected && count > 0 ? '#fee2e2' : '#f3f4f6',
+                          color: hasRejected && count > 0 ? '#dc2626' : '#6b7280',
+                          borderRadius: '10px', padding: '1px 8px', fontSize: '12px', fontWeight: '600',
+                        }}>
+                          {count}
+                        </span>
+                      );
+                    })()}
                   </button>
                 </div>
               </div>

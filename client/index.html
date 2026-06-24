@@ -20,12 +20,10 @@
       align-items: center;
       justify-content: center;
       z-index: 9999;
-      transition: opacity 0.3s ease-out;
     }
 
     #initial-loader.loaded {
-      opacity: 0;
-      pointer-events: none;
+      display: none;
     }
 
     .loader-content {
@@ -54,36 +52,48 @@
       margin-bottom: 50px;
     }
 
-    .loader-gear-wrapper {
-      margin: 40px 0;
-      position: relative;
-      height: 80px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
+    @keyframes loading-ui-infinity-square-snake {
+      0%, 100% { transform: translate(4ch, 0); }
+      12.5% { transform: translate(0, 0); }
+      25% { transform: translate(0, 4ch); }
+      37.5% { transform: translate(4ch, 4ch); }
+      50% { transform: translate(4ch, 0); }
+      62.5% { transform: translate(8ch, 0); }
+      75% { transform: translate(8ch, 4ch); }
+      87.5% { transform: translate(4ch, 4ch); }
     }
 
-    .loader-gear {
-      width: 60px;
-      height: 60px;
-      animation: rotate 2s linear infinite;
+    .infinity-snake-container {
+      position: relative;
+      display: inline-flex;
+      height: 5ch;
+      width: 9ch;
+      overflow: hidden;
+      font-family: monospace;
+      line-height: 1;
+      color: #000000;
+      font-size: 1.5rem;
+      user-select: none;
+      margin: 40px auto;
+    }
+
+    .infinity-snake-glyph {
+      pointer-events: none;
+      position: absolute;
+      top: 0;
+      left: 0;
+      display: flex;
+      height: 1ch;
+      width: 1ch;
+      align-items: center;
+      justify-content: center;
+      animation: loading-ui-infinity-square-snake 3.2s linear infinite;
     }
 
     .loader-message {
       font-size: 12px;
       color: #9ca3af;
-      margin-top: 50px;
       font-weight: 500;
-    }
-
-    @keyframes rotate {
-      0% {
-        transform: rotate(0deg);
-      }
-
-      100% {
-        transform: rotate(360deg);
-      }
     }
 
     @keyframes fadeIn {
@@ -110,8 +120,11 @@
       <div class="loader-logo">KMTI</div>
       <div class="loader-title">File Management System</div>
 
-      <div class="loader-gear-wrapper">
-        <img src="/src/assets/gearicon.png" class="loader-gear" alt="Loading">
+      <div class="infinity-snake-container">
+        <span class="infinity-snake-glyph" style="animation-delay: calc(0.1s * -3)">█</span>
+        <span class="infinity-snake-glyph" style="animation-delay: calc(0.1s * -2)">▓</span>
+        <span class="infinity-snake-glyph" style="animation-delay: calc(0.1s * -1)">▒</span>
+        <span class="infinity-snake-glyph" style="animation-delay: calc(0.1s * 0)">░</span>
       </div>
 
       <div class="loader-message">Loading application...</div>

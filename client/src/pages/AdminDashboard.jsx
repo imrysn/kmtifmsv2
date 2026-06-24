@@ -7,6 +7,7 @@ import { getSidebarIcon } from '../components/shared/FileIcon'
 import { AuthProvider, NetworkProvider } from '../contexts'
 import { ToastNotification } from '../components/shared'
 import OnlineMembersPanel from '../components/shared/OnlineMembersPanel'
+import Avatar from '../components/shared/Avatar'
 import useStore from '../store/useStore'
 
 // Sync unread count to Electron taskbar badge + icon flash
@@ -30,9 +31,10 @@ import {
 // Memoized sidebar so state changes in the main dashboard don't re-render it
 const AdminSidebar = memo(({ sidebarRef, activeTab, sidebarOpen, unreadCount, user, handleTabChange, closeSidebar, handleLogout }) => (
   <div className={`admin-sidebar ${sidebarOpen ? 'open' : ''}`} ref={sidebarRef}>
-    <div className="sidebar-header">
-      <div className="admin-info">
-        <div className="admin-name">{user.fullName || 'Admin User'}</div>
+    <div className="sidebar-header" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+      <Avatar user={user} size="md" editable />
+      <div className="admin-info" style={{ flex: 1, minWidth: 0 }}>
+        <div className="admin-name" style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{user.fullName || 'Admin User'}</div>
         <div className="admin-role">{user.role || 'Administrator'}</div>
       </div>
     </div>

@@ -5,11 +5,15 @@ const path = require('path');
 // Cache of already-created directories to avoid redundant mkdir NAS round-trips
 const _createdDirs = new Set();
 async function ensureDirCached(dirPath) {
-  if (_createdDirs.has(dirPath)) return;
+  if (_createdDirs.has(dirPath)) {
+    return;
+  }
   try {
     await fs.mkdir(dirPath, { recursive: true });
   } catch (e) {
-    if (e.code !== 'EEXIST') throw new Error(`Failed to create folder: ${e.message}`);
+    if (e.code !== 'EEXIST') {
+      throw new Error(`Failed to create folder: ${e.message}`);
+    }
   }
   _createdDirs.add(dirPath);
 }
@@ -36,7 +40,9 @@ function streamCopy(src, dest) {
  * This utility recovers the original UTF-8 characters.
  */
 function decodeUTF8Filename(name) {
-  if (!name) return name;
+  if (!name) {
+    return name;
+  }
   try {
     // Re-interpret the string as raw bytes (latin1), then decode as UTF-8.
     const buffer = Buffer.from(name, 'latin1');
@@ -47,7 +53,7 @@ function decodeUTF8Filename(name) {
     if (utf8Attempt !== name && !utf8Attempt.includes('\uFFFD')) {
       return utf8Attempt;
     }
-  } catch (_) {
+  } catch {
     // Fallback to original if any error occurs
   }
   return name;
@@ -124,6 +130,7 @@ function sanitizeFilename(filename) {
   // Windows forbidden: < > : " / \ | ? *
   // Control chars: 0x00-0x1F
   const sanitized = filename
+    // eslint-disable-next-line no-control-regex
     .replace(/[<>:"/\\|?*\x00-\x1F]/g, '_')
     .replace(/^\.+|\.+$/g, '_')  // No leading/trailing dots
     .trim();
@@ -139,7 +146,9 @@ async function safeDeleteFile(filePath) {
     await fs.unlink(filePath);
     return { success: true };
   } catch (error) {
-    if (error.code === 'ENOENT') return { success: true, notFound: true };
+    if (error.code === 'ENOENT') {
+      return { success: true, notFound: true };
+    }
     console.error(`Failed to delete ${filePath}:`, error.message);
     return { success: false, error, message: error.message };
   }

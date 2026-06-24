@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { apiFetch, API_BASE_URL } from '@/config/api'
 import useStore from '../../store/useStore'
+import Avatar from './Avatar'
 
 const PING_INTERVAL = 30000 // 30s heartbeat
 const MEMBERS_REFRESH_INTERVAL = 60000 // refresh full member list every 60s
@@ -47,8 +48,7 @@ const OnlineMembersPanel = ({ user, teamFilter }) => {
   const fetchMembers = useCallback(async () => {
     if (!user?.id) return
     try {
-      const params = teamFilter ? `?team=${encodeURIComponent(teamFilter)}` : ''
-      const data = await apiFetch(`/api/presence/members${params}`)
+      const data = await apiFetch(`/api/presence/members`)
       if (data.success) {
         setAllMembers(data.members || [])
         // Sync onlineIds from the fresh server snapshot
@@ -57,7 +57,7 @@ const OnlineMembersPanel = ({ user, teamFilter }) => {
         forceUpdate(n => n + 1)
       }
     } catch { }
-  }, [user, teamFilter])
+  }, [user])
 
   // ── Heartbeat ping ────────────────────────────────────────────────────────
   const ping = useCallback(async () => {
@@ -92,9 +92,7 @@ const OnlineMembersPanel = ({ user, teamFilter }) => {
         const { online } = JSON.parse(event.data)
         // Update onlineIds from SSE push, then re-apply to allMembers
         const ids = new Set(
-          (online || [])
-            .filter(u => !teamFilter || u.team === teamFilter)
-            .map(u => u.userId)
+          (online || []).map(u => u.userId)
         )
         onlineIdsRef.current = ids
         // Update allMembers online flags in-place and re-sort
@@ -146,7 +144,7 @@ const OnlineMembersPanel = ({ user, teamFilter }) => {
       clearTimeout(reconnectTimer.current)
       const { token } = useStore.getState()
       if (token) {
-        apiFetch('/api/presence/ping', { method: 'DELETE' }).catch(() => {})
+        apiFetch('/api/presence/ping', { method: 'DELETE' }).catch(() => { })
       }
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
@@ -213,23 +211,23 @@ const OnlineMembersPanel = ({ user, teamFilter }) => {
         }}
       >
         {/* Avatar with status dot */}
-        <div style={{ position: 'relative', flexShrink: 0 }}>
+        <div style={{ position: 'relative', flexShrink: 0, display: 'flex', alignItems: 'center' }}>
           <div style={{
-            width: '38px', height: '38px', borderRadius: '50%',
-            background: getAvatarColor(user?.fullName || user?.username),
+            background: 'transparent',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            color: '#fff', fontSize: '13px', fontWeight: '700',
             boxShadow: open ? 'none' : '0 0 0 2px #e5e7eb',
-            transition: 'box-shadow 0.2s'
+            transition: 'box-shadow 0.2s',
+            borderRadius: '50%'
           }}>
-            {getInitials(user?.fullName || user?.username)}
+            <Avatar user={user} size="sm" />
           </div>
           <span style={{
-            position: 'absolute', bottom: '1px', right: '1px',
+            position: 'absolute', bottom: '-2px', right: '-2px',
             width: '10px', height: '10px', borderRadius: '50%',
             background: connected ? '#22c55e' : '#9ca3af',
             border: '2px solid #fff',
-            transition: 'background 0.3s'
+            transition: 'background 0.3s',
+            zIndex: 1
           }} />
         </div>
         {/* Name + status — only when open */}
@@ -317,21 +315,20 @@ const OnlineMembersPanel = ({ user, teamFilter }) => {
                   }}
                 >
                   {/* Avatar + status dot */}
-                  <div style={{ position: 'relative', flexShrink: 0 }}>
+                  <div style={{ position: 'relative', flexShrink: 0, display: 'flex', alignItems: 'center' }}>
                     <div style={{
-                      width: '36px', height: '36px', borderRadius: '50%',
-                      background: getAvatarColor(member.fullName || member.username),
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      color: '#fff', fontSize: '12px', fontWeight: '700',
+                      background: 'transparent',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center'
                     }}>
-                      {getInitials(member.fullName || member.username)}
+                      <Avatar user={member} size="sm" />
                     </div>
                     <span style={{
-                      position: 'absolute', bottom: '1px', right: '1px',
+                      position: 'absolute', bottom: '-2px', right: '-2px',
                       width: '10px', height: '10px', borderRadius: '50%',
                       background: member.online ? '#22c55e' : '#9ca3af',
                       border: '2px solid #fff',
-                      transition: 'background 0.3s'
+                      transition: 'background 0.3s',
+                      zIndex: 1
                     }} />
                   </div>
 

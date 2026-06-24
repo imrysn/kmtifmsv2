@@ -1,5 +1,6 @@
 import { memo, useCallback } from 'react';
 import { getSidebarIcon } from '../shared/FileIcon';
+import Avatar from '../shared/Avatar';
 import './css/Sidebar.css';
 
 const Sidebar = memo(({ activeTab, setActiveTab, filesCount, notificationCount, onLogout, user }) => {
@@ -10,10 +11,15 @@ const Sidebar = memo(({ activeTab, setActiveTab, filesCount, notificationCount, 
   return (
     <div className="user-sidebar">
       {/* User Profile Section */}
-      <div className="sidebar-header">
-        <div className="user-info">
-          <div className="user-name">{user?.fullName || 'User'}</div>
-          <div className="user-role">{user?.team || 'No Team'}</div>
+      <div className="sidebar-header" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+        <Avatar user={user} size="md" editable />
+        <div className="user-text" style={{ flex: 1, minWidth: 0 }}>
+          <div className="user-name" style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{user?.fullName || 'User'}</div>
+          <div className="user-role" style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            {user?.role === 'TEAM_LEADER' || user?.role === 'ADMIN'
+              ? (user?.ledTeams?.length > 0 ? user.ledTeams.map(t => t.name).join(', ') : (user?.team || 'No Team'))
+              : (user?.team || 'No Team')}
+          </div>
         </div>
       </div>
 

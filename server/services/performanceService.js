@@ -87,16 +87,20 @@ async function calculateAllUserPerformance(teamId = null) {
   ]);
 
   const [taskStats, reliabilityStats, overdueStats, qualityStats, speedRaw, managementStats, managementQueue] = results;
-  
+
   // Group speed data by user
   const speedMap = {};
   speedRaw.forEach(row => {
-    if (!speedMap[row.user_id]) speedMap[row.user_id] = [];
-    if (speedMap[row.user_id].length < 20) speedMap[row.user_id].push(row);
+    if (!speedMap[row.user_id]) {
+      speedMap[row.user_id] = [];
+    }
+    if (speedMap[row.user_id].length < 20) {
+      speedMap[row.user_id].push(row);
+    }
   });
 
   const performanceMap = {};
-  
+
   // Process all users
   taskStats.forEach(stat => {
     const userId = stat.user_id;
@@ -107,7 +111,7 @@ async function calculateAllUserPerformance(teamId = null) {
 
     const totalFilesVolume = stat.total_files || 0;
     const submittedFilesVolume = stat.submitted_files || 0;
-    
+
     // Reliability (File-Weighted)
     const totalFilesWithDeadline = rStat.total_files_with_deadline || 0;
     const onTimeFiles = rStat.on_time_files || 0;
