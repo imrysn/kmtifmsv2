@@ -149,7 +149,7 @@ class AppUpdater {
 
     // Configure update behavior
     autoUpdater.autoDownload = true;
-    autoUpdater.autoInstallOnAppQuit = true;
+    autoUpdater.autoInstallOnAppQuit = false; // NEVER force install when app closes
     autoUpdater.allowDowngrade = true;
     autoUpdater.allowPrerelease = false;
 
@@ -167,8 +167,6 @@ class AppUpdater {
   setupEventHandlers() {
     autoUpdater.on('checking-for-update', () => {
       console.log('🔍 Checking for updates...');
-      // REMOVED: updaterWindow.showUpdaterWindow('checking');
-      // Using toast notifications only
       this.notifyRenderer('checking');
     });
 
@@ -177,7 +175,6 @@ class AppUpdater {
       console.log(`   Current: ${app.getVersion()}`);
       console.log(`   Release date: ${info.releaseDate}`);
 
-      // REMOVED: updaterWindow.updateStatus - using toast only
       this.notifyRenderer('available', {
         version: info.version,
         releaseDate: info.releaseDate,
@@ -187,16 +184,12 @@ class AppUpdater {
 
     autoUpdater.on('update-not-available', (info) => {
       console.log('✅ Application is up to date');
-      // REMOVED: updaterWindow.closeUpdaterWindow - no window to close
       this.notifyRenderer('not-available');
     });
 
     autoUpdater.on('download-progress', (progressObj) => {
       const percent = Math.round(progressObj.percent);
       console.log(`⬇️  Downloading update: ${percent}% (${this.formatBytes(progressObj.transferred)}/${this.formatBytes(progressObj.total)})`);
-
-      // REMOVED: updaterWindow.updateStatus - silent background download
-      // No UI notifications during download to keep it clean
     });
 
     autoUpdater.on('update-downloaded', (info) => {
@@ -207,24 +200,12 @@ class AppUpdater {
       this.stateManager.state.updateDownloaded = true;
       this.stateManager.saveState();
 
-      // Show native dialog for update installation
-      const { dialog } = require('electron');
-      const win = (this.mainWindow && !this.mainWindow.isDestroyed()) ? this.mainWindow : null;
-      dialog.showMessageBox(win, {
-        type: 'info',
-        title: 'Update Ready',
-        message: 'A new version of the app has been downloaded and is ready to install.',
-        detail: 'Would you like to install the update now and restart the app, or update later?',
-        buttons: ['Update Now', 'Update Later'],
-        defaultId: 0,
-        cancelId: 1
-      }).then((result) => {
-        if (result.response === 0) {
-          // User clicked 'Update Now'
-          this.quitAndInstall();
-        }
-        // If 'Update Later', do nothing. autoInstallOnAppQuit is true, so it will install on normal exit.
-      }).catch(err => console.error('Dialog error:', err));
+      // Show the strict custom HTML pop-up window
+      const updaterWindow = require('./updater-window');
+      updaterWindow.showUpdaterWindow('downloaded', {
+        version: info.version,
+        releaseDate: info.releaseDate
+      });
 
       // Keep toast notification just in case frontend still listens for it
       this.notifyRenderer('downloaded', {

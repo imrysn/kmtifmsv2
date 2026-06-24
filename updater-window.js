@@ -203,8 +203,8 @@ function createUpdaterWindow() {
         </div>
 
         <div class="buttons" id="buttons">
-          <button class="btn btn-primary" id="installBtn">Install & Restart</button>
-          <button class="btn btn-secondary" id="cancelBtn">Cancel</button>
+          <button class="btn btn-primary" id="installBtn">Update Now</button>
+          <button class="btn btn-secondary" id="cancelBtn">Update Later</button>
         </div>
 
         <div class="error-message" id="errorMessage"></div>
@@ -253,7 +253,7 @@ function createUpdaterWindow() {
               break;
 
             case 'downloaded':
-              statusEl.textContent = \`Update ${data.version} downloaded\`;
+              statusEl.innerHTML = `<div style="font-size:18px;margin-bottom:10px;">Update Ready</div><div style="font-size:14px;opacity:0.8;">A new version of the app (${data.version}) has been downloaded and is ready to install.</div>`;
               showSpinner(false);
               hideProgress();
               showButtons();
