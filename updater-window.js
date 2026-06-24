@@ -237,7 +237,7 @@ function createUpdaterWindow() {
               break;
 
             case 'available':
-              statusEl.textContent = \`Update ${data.version} available\`;
+              statusEl.textContent = 'Update ' + data.version + ' available';
               showSpinner(false);
               hideProgress();
               hideButtons();
