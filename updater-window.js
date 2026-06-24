@@ -21,6 +21,7 @@ const WINDOW_CONFIG = {
   show: false,
   frame: false,
   alwaysOnTop: true,
+  skipTaskbar: true,
   center: true,
   resizable: false,
   backgroundColor: '#1a1a1a',
