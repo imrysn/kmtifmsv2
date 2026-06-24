@@ -431,6 +431,20 @@ class FileController {
   });
 
   /**
+     * Get all files for a specific team (Team Leader overview / 'total' filter).
+     * GET /api/files/team/:team
+     */
+  getTeamFiles = asyncHandler(async (req, res) => {
+    const { team } = req.params;
+    if (req.user.role === 'TEAM_LEADER' && team !== req.user.team) {
+      return res.status(403).json({ success: false, message: 'Access denied' });
+    }
+    const limit = parseInt(req.query.limit) || 1000;
+    const files = await fileService.getAllFiles({ team, limit });
+    res.json({ success: true, files });
+  });
+
+  /**
      * Get files by status for a team (Analytics)
      */
   getFilesByStatus = asyncHandler(async (req, res) => {

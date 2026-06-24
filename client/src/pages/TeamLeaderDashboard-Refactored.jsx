@@ -361,7 +361,7 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
       }
     } catch (error) {
       console.error('Error fetching team members:', error)
-      setError('Failed to load team members')
+      // Don't show error toast for background team member fetch failures — they retry automatically
       setTeamMembers([])
     } finally {
       setIsLoadingTeam(false)

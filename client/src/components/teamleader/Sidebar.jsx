@@ -2,6 +2,7 @@ import { memo, useCallback, useState, useEffect } from 'react'
 import Avatar from '../shared/Avatar'
 import { apiFetch } from '@/config/api'
 import useStore from '../../store/useStore'
+import LoadingSpinner from '../LoadingSpinner'
 
 const Sidebar = memo(({ 
   activeTab, 
@@ -49,7 +50,11 @@ const Sidebar = memo(({
         if (data.token) {
           useStore.getState().setToken(data.token)
         }
-        window.location.reload()
+        // Added a 2-second artificial loading delay as requested
+        setTimeout(() => {
+          useStore.getState().updateUser({ team: data.team || newTeam })
+          setIsChangingTeam(false)
+        }, 2000)
       } else {
         setIsChangingTeam(false)
       }
@@ -60,8 +65,14 @@ const Sidebar = memo(({
   }
 
   return (
-    <aside className={`tl-sidebar ${sidebarOpen ? 'open' : ''}`}>
-      {/* Brand */}
+    <>
+      {isChangingTeam && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'white', zIndex: 99999, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <LoadingSpinner message="Loading dashboard..." />
+        </div>
+      )}
+      <aside className={`tl-sidebar ${sidebarOpen ? 'open' : ''}`}>
+        {/* Brand */}
       <div className="tl-brand">
         <div className="tl-brand-avatar">
           <Avatar user={user} size="md" editable />
@@ -71,7 +82,7 @@ const Sidebar = memo(({
             {user?.fullName || user?.username || 'Team Leader'}
           </span>
           <select 
-            value={user?.team || ''} 
+            value={isChangingTeam ? 'loading' : (user?.team || '')} 
             onChange={handleTeamChange}
             disabled={isChangingTeam}
             style={{
@@ -83,12 +94,14 @@ const Sidebar = memo(({
               borderRadius: '20px',
               border: '1.5px solid #6b7280',
               outline: 'none',
-              cursor: 'pointer',
+              cursor: isChangingTeam ? 'wait' : 'pointer',
               width: '100%',
               maxWidth: '140px'
             }}
           >
-            {teams.length > 0 ? (
+            {isChangingTeam ? (
+              <option value="loading">Switching Team...</option>
+            ) : teams.length > 0 ? (
               teams.map(team => (
                 <option key={team.id} value={team.name}>{team.name}</option>
               ))
@@ -199,6 +212,7 @@ const Sidebar = memo(({
         </button>
       </div>
     </aside>
+    </>
   )
 })
 

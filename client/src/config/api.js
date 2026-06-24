@@ -172,22 +172,30 @@ export const apiFetch = async (endpoint, options = {}) => {
     }
 
     if (!response.ok) {
-      if (response.status === 401) {
-        console.warn('🔒 Authentication expired or invalid. Logging out user.');
-        // Clear session state — App.jsx will automatically redirect to /login
-        useStore.getState().logout();
-      } else if (response.status === 403) {
-        console.error('🚫 Access denied: Insufficient permissions.');
-      }
-
       let errorMessage = `HTTP error! status: ${response.status}`;
+      let errorData = null;
       try {
-        const errorData = await response.json();
+        errorData = await response.json();
         if (errorData && errorData.message) {
           errorMessage = errorData.message;
         }
       } catch (_e) {
         // Not a JSON response or body already read
+      }
+
+      if (response.status === 401) {
+        // Only logout if the token is truly invalid/expired — not on permission errors
+        // that happen to return 401 (e.g. a background data-fetch with a valid token)
+        const isTokenError = !errorData || errorData.message?.toLowerCase().includes('token') ||
+          errorData.message?.toLowerCase().includes('invalid') ||
+          errorData.message?.toLowerCase().includes('expired') ||
+          errorData.message?.toLowerCase().includes('unauthorized');
+        if (isTokenError) {
+          console.warn('🔒 Authentication expired or invalid. Logging out user.');
+          useStore.getState().logout();
+        }
+      } else if (response.status === 403) {
+        console.error('🚫 Access denied: Insufficient permissions.');
       }
 
       throw new Error(errorMessage);

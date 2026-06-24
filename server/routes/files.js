@@ -59,6 +59,7 @@ router.post('/:id/move-to-projects', authenticateToken, authorizeRole(['ADMIN'])
 router.post('/folder/move-to-nas', authenticateToken, authorizeRole(['ADMIN']), fileController.moveFolderToNas);
 router.post('/bulk-action', authenticateToken, authorizeRole(['TEAM_LEADER', 'ADMIN']), fileController.bulkAction);
 router.patch('/:id/priority', authenticateToken, authorizeRole(['TEAM_LEADER', 'ADMIN']), fileController.setPriority);
+router.get('/team/:team', authenticateToken, authorizeRole(['TEAM_LEADER', 'ADMIN']), fileController.getTeamFiles);
 router.get('/team/:team/status/:status', authenticateToken, fileController.getFilesByStatus);
 
 // ─── Folder Operations ────────────────────────────────────────────────────────

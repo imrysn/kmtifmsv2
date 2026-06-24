@@ -152,10 +152,21 @@ const FileCollectionTab = ({
     return ''
   }
 
+  // Split files by view: File Collection = member submissions, Reference Files = TL attachments
+  const collectionFiles = useMemo(() =>
+    submittedFiles.filter(f => f.source_type !== 'assignment_attachment'),
+    [submittedFiles]
+  )
+  const referenceFiles = useMemo(() =>
+    submittedFiles.filter(f => f.source_type === 'assignment_attachment'),
+    [submittedFiles]
+  )
+  const activeFiles = activeView === 'reference' ? referenceFiles : collectionFiles
+
   const calculateStats = () => {
-    const total = submittedFiles.length
-    const approved = submittedFiles.filter(f => f.status === 'approved' || f.status === 'final_approved').length
-    const rejected = submittedFiles.filter(f => f.status === 'rejected' || f.status === 'rejected_by_team_leader' || f.status === 'rejected_by_admin').length
+    const total = activeFiles.length
+    const approved = activeFiles.filter(f => f.status === 'approved' || f.status === 'final_approved').length
+    const rejected = activeFiles.filter(f => f.status === 'rejected' || f.status === 'rejected_by_team_leader' || f.status === 'rejected_by_admin').length
     const pending = total - approved - rejected
     return { total, approved, rejected, pending }
   }
@@ -169,17 +180,6 @@ const FileCollectionTab = ({
       setFileToOpen(null)
     }
   }
-
-  // Split files by view: File Collection = member submissions, Reference Files = TL attachments
-  const collectionFiles = useMemo(() =>
-    submittedFiles.filter(f => f.source_type !== 'assignment_attachment'),
-    [submittedFiles]
-  )
-  const referenceFiles = useMemo(() =>
-    submittedFiles.filter(f => f.source_type === 'assignment_attachment'),
-    [submittedFiles]
-  )
-  const activeFiles = activeView === 'reference' ? referenceFiles : collectionFiles
 
   const filteredAndSortedFiles = useMemo(() => {
     let filtered = activeFiles

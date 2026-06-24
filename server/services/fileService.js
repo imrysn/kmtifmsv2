@@ -937,14 +937,8 @@ async function approveByTeamLeader(fileId, teamLeader, comments = '') {
     throw new NotFoundError('File');
   }
 
-  if (teamLeader.role !== 'ADMIN') {
-    const isLeader = await queryOne(
-      'SELECT 1 FROM team_leaders tl JOIN teams t ON tl.team_id = t.id WHERE tl.user_id = ? AND t.name = ?',
-      [teamLeader.id, file.user_team]
-    );
-    if (!isLeader) {
-      throw new ValidationError('You can only approve files from your team');
-    }
+  if (teamLeader.role !== 'ADMIN' && file.user_team !== teamLeader.team) {
+    throw new ValidationError('You can only approve files from your team');
   }
 
   // Attachments might not have a current_stage in the same way, but we can check status
@@ -1024,14 +1018,8 @@ async function rejectByTeamLeader(fileId, teamLeader, reason) {
     throw new NotFoundError('File');
   }
 
-  if (teamLeader.role !== 'ADMIN') {
-    const isLeader = await queryOne(
-      'SELECT 1 FROM team_leaders tl JOIN teams t ON tl.team_id = t.id WHERE tl.user_id = ? AND t.name = ?',
-      [teamLeader.id, file.user_team]
-    );
-    if (!isLeader) {
-      throw new ValidationError('You can only reject files from your team');
-    }
+  if (teamLeader.role !== 'ADMIN' && file.user_team !== teamLeader.team) {
+    throw new ValidationError('You can only reject files from your team');
   }
 
   const newStatus = 'rejected_by_team_leader';

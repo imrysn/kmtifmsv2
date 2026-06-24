@@ -214,15 +214,15 @@ router.put('/profile/team', authorizeRole(['TEAM_LEADER', 'ADMIN']), asyncHandle
 
   // Fetch fresh user data to generate a new token
   const updatedUser = await dbQueryOne('SELECT * FROM users WHERE id = ?', [userId]);
-  
+
   const token = jwt.sign(
-    { 
-      id: updatedUser.id, 
-      username: updatedUser.username, 
+    {
+      id: updatedUser.id,
+      username: updatedUser.username,
       role: updatedUser.role,
       team: updatedUser.team
-    }, 
-    secret, 
+    },
+    secret,
     { expiresIn: '24h' }
   );
 
@@ -232,7 +232,8 @@ router.put('/profile/team', authorizeRole(['TEAM_LEADER', 'ADMIN']), asyncHandle
   res.json({
     success: true,
     message: 'Active team updated successfully',
-    team: team.trim()
+    team: team.trim(),
+    token  // return the refreshed token so the client can store it before reloading
   });
 }));
 
@@ -563,7 +564,7 @@ router.delete('/:id', authorizeRole('ADMIN'), asyncHandler(async (req, res) => {
 // Get team members (Team Leader and Admin)
 router.get('/team/:teamName', authorizeRole(['TEAM_LEADER', 'ADMIN']), asyncHandler(async (req, res) => {
   const { teamName } = req.params;
-  if (req.user.role === 'TEAM_LEADER' && req.user.team !== teamName) {
+  if (req.user.role === 'TEAM_LEADER' && teamName !== req.user.team) {
     return res.status(403).json({ success: false, message: 'Access denied: You do not lead this team' });
   }
   console.log(`👥 Getting team members for team: ${teamName}`);
@@ -652,7 +653,7 @@ router.get('/mentionable', (req, res) => {
 // IMPORTANT: This must be LAST to avoid conflicts with other named routes
 router.get('/:teamName', authorizeRole(['TEAM_LEADER', 'ADMIN']), asyncHandler(async (req, res) => {
   const { teamName } = req.params;
-  if (req.user.role === 'TEAM_LEADER' && req.user.team !== teamName) {
+  if (req.user.role === 'TEAM_LEADER' && teamName !== req.user.team) {
     return res.status(403).json({ success: false, message: 'Access denied: You do not lead this team' });
   }
   console.log(`👥 Getting team members for team: ${teamName}`);

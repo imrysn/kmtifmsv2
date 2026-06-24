@@ -182,11 +182,12 @@ router.get('/team-leader/:userId', authorizeRole(['TEAM_LEADER', 'ADMIN']), asyn
 
 /**
  * GET /api/dashboard/team/:teamName
+ * Analytics for a single team — used by TeamLeaderDashboard when filtering by team.
  */
 router.get('/team/:teamName', authorizeRole(['TEAM_LEADER', 'ADMIN']), asyncHandler(async (req, res) => {
   const { teamName } = req.params;
 
-  if (req.user.role === 'TEAM_LEADER' && req.user.team !== teamName) {
+  if (req.user.role === 'TEAM_LEADER' && teamName !== req.user.team) {
     return res.status(403).json({ success: false, message: 'Access denied: You do not lead this team' });
   }
 
@@ -460,8 +461,8 @@ router.get('/user-performance/:userId/history', authorizeRole(['USER', 'TEAM_LEA
     if (snapshot.overall_score >= 85) {
       tempStreak++;
       if (index === currentStreak) {
-        currentStreak++;
-      } // Still in current streak
+        currentStreak++; // Still in current streak
+      }
     } else {
       if (tempStreak > longestStreak) {
         longestStreak = tempStreak;

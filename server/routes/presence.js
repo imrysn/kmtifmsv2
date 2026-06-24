@@ -13,7 +13,7 @@ const sseClients = new Set();
 async function broadcastOnlineUsers() {
   try {
     const cutoff = Date.now() - ONLINE_THRESHOLD_MS;
-    
+
     // Fetch currently online users directly from DB
     const onlineUsers = await dbQuery(
       'SELECT id as userId, username, fullName, role, team, last_seen as lastSeen FROM users WHERE last_seen >= ? ORDER BY last_seen DESC',
@@ -174,7 +174,7 @@ router.get('/online', authenticateToken, asyncHandler(async (req, res) => {
       [cutoff]
     );
   }
-  
+
   const online = onlineUsers.map(u => ({ ...u, userId: String(u.userId) }));
 
   res.json({ success: true, online, count: online.length });

@@ -581,7 +581,7 @@ router.get('/team-leader/:userId/all-submissions', authenticateToken, authorizeR
       'SELECT DISTINCT t.name FROM team_leaders tl JOIN teams t ON tl.team_id = t.id WHERE tl.user_id = ?',
       [userId]
     );
-    const teamNames = (ledTeams || []).map(t => t.name);
+    const teamNames = [...new Set([...(ledTeams || []).map(t => t.name), req.user.team])].filter(Boolean);
 
     let memberSubmissions = [];
     if (teamNames.length > 0) {
@@ -627,23 +627,9 @@ router.get('/team-leader/:userId/all-submissions', authenticateToken, authorizeR
          FROM assignment_attachments aa
          JOIN assignments a ON aa.assignment_id = a.id
          JOIN users u ON aa.uploaded_by_id = u.id
-         ORDER BY aa.created_at DESC`
-      );
-    } else {
-      tlAttachments = await query(
-        `SELECT aa.id, aa.original_name, aa.filename, aa.file_type, aa.file_path,
-                COALESCE(aa.public_network_url, NULL) as public_network_url,
-                aa.file_size, aa.created_at as uploaded_at,
-                COALESCE(aa.status, 'team_leader_approved') as status,
-                a.team as user_team, aa.folder_name, aa.relative_path, 0 as is_folder,
-                aa.uploaded_by_username as username, u.fullName,
-                aa.created_at as submitted_at, aa.created_at as created_at,
-                a.id as assignment_id, a.title as assignment_title, a.due_date as assignment_due_date,
-                a.team as team, 'assignment_attachment' as source_type
-         FROM assignment_attachments aa
-         JOIN assignments a ON aa.assignment_id = a.id
-         JOIN users u ON aa.uploaded_by_id = u.id
-         ORDER BY aa.created_at DESC`
+         WHERE a.team IN (${placeholders})
+         ORDER BY aa.created_at DESC`,
+        teamNames
       );
     }
 
@@ -758,11 +744,11 @@ router.get('/team-leader/:userId', authenticateToken, authorizeRole(['TEAM_LEADE
       'SELECT DISTINCT t.name FROM team_leaders tl JOIN teams t ON tl.team_id = t.id WHERE tl.user_id = ?',
       [userId]
     );
-    if (!ledTeams || ledTeams.length === 0) {
+    const teamNames = [...new Set([...(ledTeams || []).map(t => t.name), req.user.team])].filter(Boolean);
+    if (teamNames.length === 0) {
       return res.json({ success: true, assignments: [], hasMore: false, nextCursor: null });
     }
 
-    const teamNames = ledTeams.map(t => t.name);
     const placeholders = teamNames.map(() => '?').join(',');
 
     let queryStr = `
