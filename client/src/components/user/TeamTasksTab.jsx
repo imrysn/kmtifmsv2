@@ -298,9 +298,7 @@ const TeamTasksTab = ({ user }) => {
     try {
       setLoading(true)
       setError('')
-      const endpoint = user.role === 'TEAM_LEADER' || user.role === 'ADMIN'
-        ? `/api/assignments/team-leader/${user.id}?limit=20`
-        : `/api/assignments/team/${user.team}/all-tasks?limit=20`
+      const endpoint = `/api/assignments/team/${user.team}/all-tasks?limit=20`
         
       const data = await apiFetch(endpoint)
       if (!data.success) {
@@ -323,9 +321,7 @@ const TeamTasksTab = ({ user }) => {
     if (loadingMore || !hasMore || !nextCursor) return
     try {
       setLoadingMore(true)
-      const endpoint = user.role === 'TEAM_LEADER' || user.role === 'ADMIN'
-        ? `/api/assignments/team-leader/${user.id}?cursor=${nextCursor}&limit=20`
-        : `/api/assignments/team/${user.team}/all-tasks?cursor=${nextCursor}&limit=20`
+      const endpoint = `/api/assignments/team/${user.team}/all-tasks?cursor=${nextCursor}&limit=20`
         
       const data = await apiFetch(endpoint)
       if (!data.success) {

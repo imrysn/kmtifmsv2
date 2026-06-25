@@ -50,11 +50,10 @@ const Sidebar = memo(({
         if (data.token) {
           useStore.getState().setToken(data.token)
         }
-        // Added a 2-second artificial loading delay as requested
         setTimeout(() => {
           useStore.getState().updateUser({ team: data.team || newTeam })
-          setIsChangingTeam(false)
-        }, 2000)
+          window.location.reload()
+        }, 150)
       } else {
         setIsChangingTeam(false)
       }

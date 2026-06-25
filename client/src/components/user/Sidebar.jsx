@@ -16,9 +16,7 @@ const Sidebar = memo(({ activeTab, setActiveTab, filesCount, notificationCount, 
         <div className="user-text" style={{ flex: 1, minWidth: 0 }}>
           <div className="user-name" style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{user?.fullName || 'User'}</div>
           <div className="user-role" style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-            {user?.role === 'TEAM_LEADER' || user?.role === 'ADMIN'
-              ? (user?.ledTeams?.length > 0 ? user.ledTeams.map(t => t.name).join(', ') : (user?.team || 'No Team'))
-              : (user?.team || 'No Team')}
+            {user?.team || 'No Team'}
           </div>
         </div>
       </div>
