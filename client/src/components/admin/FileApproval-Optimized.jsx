@@ -51,15 +51,33 @@ const getFolderStatus = (folderFiles) => {
   return { status: 'uploaded', label: 'Pending Team Leader', cls: 'pending' }
 }
 
-// Hook to compute fixed dropdown position
+// Hook to compute fixed dropdown position and track scroll
 const useDropdownPosition = (btnRef, isOpen) => {
   const [pos, setPos] = React.useState({ top: 0, left: 0 })
+  
   useEffect(() => {
-    if (isOpen && btnRef.current) {
-      const rect = btnRef.current.getBoundingClientRect()
-      setPos({ top: rect.bottom + window.scrollY + 4, left: rect.right + window.scrollX - 145 })
+    if (!isOpen || !btnRef.current) return
+    
+    const updatePosition = () => {
+      if (btnRef.current) {
+        const rect = btnRef.current.getBoundingClientRect()
+        // position: fixed is relative to viewport, so we don't add scrollY/X
+        setPos({ top: rect.bottom + 4, left: rect.right - 145 })
+      }
+    }
+    
+    updatePosition()
+    
+    // Add scroll listener with capture: true to catch scrolling in any parent container
+    window.addEventListener('scroll', updatePosition, true)
+    window.addEventListener('resize', updatePosition)
+    
+    return () => {
+      window.removeEventListener('scroll', updatePosition, true)
+      window.removeEventListener('resize', updatePosition)
     }
   }, [isOpen, btnRef])
+  
   return pos
 }
 
