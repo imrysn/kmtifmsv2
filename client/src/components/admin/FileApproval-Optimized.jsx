@@ -22,6 +22,7 @@ const StatusCard = memo(({ icon, label, count, className }) => (
 
 const FileRowSkeleton = memo(() => (
   <tr className="file-row-skeleton">
+    <td><div className="skeleton" style={{ width: '16px', height: '16px', borderRadius: '4px', margin: '0 auto' }}></div></td>
     <td><div className="skeleton skeleton-text-lg"></div></td>
     <td><div className="skeleton skeleton-text"></div></td>
     <td><div className="skeleton skeleton-text"></div></td>
@@ -73,6 +74,9 @@ const FolderRow = memo(({
   onOpenFolderPath,
   isReference = false,
   isHighlighted = false,
+  isSelected = false,
+  isPartiallySelected = false,
+  onSelectFolder,
 }) => {
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const dropdownRef = useRef(null)
@@ -122,6 +126,16 @@ const FolderRow = memo(({
         outlineOffset: '-2px',
       }}
     >
+      <td style={{ width: '40px', textAlign: 'center', paddingLeft: '15px' }} onClick={(e) => e.stopPropagation()}>
+        <input 
+          type="checkbox" 
+          checked={isSelected} 
+          ref={input => { if (input) input.indeterminate = isPartiallySelected }}
+          onChange={() => onSelectFolder && onSelectFolder(folderFiles)}
+          className="file-checkbox"
+          style={{ width: '16px', height: '16px', cursor: 'pointer', accentColor: '#16a34a' }}
+        />
+      </td>
       <td>
         <div className="file-cell">
           <div className="file-icon" style={{ width: '34px', height: '34px', position: 'relative', zIndex: 2 }}>
@@ -206,6 +220,9 @@ const SubFolderRow = memo(({
   parentIsLastArr,
   isReference = false,
   isHighlighted = false,
+  isSelected = false,
+  isPartiallySelected = false,
+  onSelectFolder,
 }) => {
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const dropdownRef = useRef(null)
@@ -256,6 +273,16 @@ const SubFolderRow = memo(({
         outlineOffset: '-2px',
       }}
     >
+      <td style={{ width: '40px', textAlign: 'center', paddingLeft: '15px' }} onClick={(e) => e.stopPropagation()}>
+        <input 
+          type="checkbox" 
+          checked={isSelected} 
+          ref={input => { if (input) input.indeterminate = isPartiallySelected }}
+          onChange={() => onSelectFolder && onSelectFolder(folderFiles)}
+          className="file-checkbox"
+          style={{ width: '16px', height: '16px', cursor: 'pointer', accentColor: '#16a34a' }}
+        />
+      </td>
       <td>
         <div className="tl-tree-container">
           {parentIsLastArr.map((isLastParent, i) => (
@@ -352,6 +379,8 @@ const FileRow = memo(({
   parentIsLastArr = [],
   isReference = false,
   isHighlighted = false,
+  isSelected = false,
+  onSelectFile,
 }) => {
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const dropdownRef = useRef(null)
@@ -401,6 +430,15 @@ const FileRow = memo(({
         outlineOffset: '-2px',
       }}
     >
+      <td style={{ width: '40px', textAlign: 'center', paddingLeft: '15px' }} onClick={(e) => e.stopPropagation()}>
+        <input 
+          type="checkbox" 
+          checked={isSelected} 
+          onChange={() => onSelectFile && onSelectFile(file.id)}
+          className="file-checkbox"
+          style={{ width: '16px', height: '16px', cursor: 'pointer', accentColor: '#16a34a' }}
+        />
+      </td>
       <td>
         {isNested ? (
           <div className="tl-tree-container">
@@ -507,6 +545,11 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess, hig
   const [folderReviewComment, setFolderReviewComment] = useState('')
   const [deleteAlert, setDeleteAlert] = useState(null)
   const [activeView, setActiveView] = useState('approval') // 'approval' | 'reference'
+
+  const [selectedFileIds, setSelectedFileIds] = useState(new Set())
+  const [showBulkApproveModal, setShowBulkApproveModal] = useState(false)
+  const [showBulkRejectModal, setShowBulkRejectModal] = useState(false)
+  const [bulkReviewComment, setBulkReviewComment] = useState('')
 
   const fetchAbortController = useRef(null)
 
@@ -667,6 +710,46 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess, hig
     if (diffDays <= 7) return 'This Week'
     if (diffDays <= 30) return 'This Month'
     return date.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })
+  }, [])
+
+  const toggleSelectAll = useCallback(() => {
+    if (selectedFileIds.size === filteredFiles.length && filteredFiles.length > 0) {
+      setSelectedFileIds(new Set())
+    } else {
+      setSelectedFileIds(new Set(filteredFiles.map(f => String(f.id))))
+    }
+  }, [filteredFiles, selectedFileIds.size])
+
+  const toggleSelectFile = useCallback((fileId) => {
+    const idStr = String(fileId)
+    setSelectedFileIds(prev => {
+      const newSet = new Set(prev)
+      if (newSet.has(idStr)) newSet.delete(idStr)
+      else newSet.add(idStr)
+      return newSet
+    })
+  }, [])
+
+  const toggleSelectFolder = useCallback((folderFiles) => {
+    setSelectedFileIds(prev => {
+      const newSet = new Set(prev)
+      const allSelected = folderFiles.every(f => {
+        const file = f.file || f
+        return newSet.has(String(file.id))
+      })
+      if (allSelected) {
+        folderFiles.forEach(f => {
+          const file = f.file || f
+          newSet.delete(String(file.id))
+        })
+      } else {
+        folderFiles.forEach(f => {
+          const file = f.file || f
+          newSet.add(String(file.id))
+        })
+      }
+      return newSet
+    })
   }, [])
 
   const paginationItems = useMemo(() => {
@@ -1176,6 +1259,124 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess, hig
     }
   }, [fileToReject, authUser, setError, closeFileModal, closeRejectModal, fetchFiles])
 
+  const confirmBulkApprove = useCallback(async () => {
+    setIsLoading(true)
+    try {
+      let destinationPath = null
+      if (window.electron && typeof window.electron.openDirectoryDialog === 'function') {
+        const options = {}
+        try {
+          if (typeof window.electron.getNetworkProjectsPath === 'function') {
+            const dp = await window.electron.getNetworkProjectsPath()
+            if (dp) options.defaultPath = dp
+          }
+        } catch (err) {}
+        const result = await window.electron.openDirectoryDialog(options)
+        if (!result || result.canceled || !result.filePaths?.length) {
+          setIsLoading(false)
+          return
+        }
+        destinationPath = result.filePaths[0]
+      } else {
+        throw new Error('File system access not available')
+      }
+
+      const selectedFilesList = files.filter(f => selectedFileIds.has(String(f.id)))
+      let successCount = 0
+      
+      await Promise.all(selectedFilesList.map(async (file) => {
+        try {
+          const moveData = await apiFetch(`${API_BASE}/files/${file.id}/move-to-projects`, {
+            method: 'POST',
+            body: JSON.stringify({
+              destinationPath,
+              adminId: authUser.id,
+              adminUsername: authUser.username,
+              adminRole: authUser.role,
+              team: authUser.team,
+              deleteFromUploads: false
+            })
+          })
+          if (!moveData.success) throw new Error(moveData.message)
+
+          const approveData = await apiFetch(`${API_BASE}/files/${file.id}/admin-review`, {
+            method: 'POST',
+            body: JSON.stringify({
+              action: 'approve',
+              comments: bulkReviewComment || null,
+              adminId: authUser.id,
+              adminUsername: authUser.username,
+              adminRole: authUser.role,
+              team: authUser.team
+            })
+          })
+          if (!approveData.success) throw new Error(approveData.message)
+          
+          successCount++
+        } catch (err) {
+          console.warn(`Failed to approve file ${file.id}:`, err)
+        }
+      }))
+
+      if (successCount > 0) {
+        setSuccess(`Successfully approved ${successCount} files and moved to NAS`)
+        setSelectedFileIds(new Set())
+        setShowBulkApproveModal(false)
+        fetchFiles()
+      } else {
+        setError('Failed to approve selected files')
+      }
+    } catch (err) {
+      console.error('Bulk approval error:', err)
+      setError(err.message || 'Failed to approve files')
+    } finally {
+      setIsLoading(false)
+      setBulkReviewComment('')
+    }
+  }, [selectedFileIds, files, bulkReviewComment, authUser, setError, setSuccess, fetchFiles])
+
+  const confirmBulkReject = useCallback(async () => {
+    setIsLoading(true)
+    try {
+      const selectedFilesList = files.filter(f => selectedFileIds.has(String(f.id)))
+      let successCount = 0
+
+      await Promise.all(selectedFilesList.map(async (file) => {
+        try {
+          const data = await apiFetch(`${API_BASE}/files/${file.id}/admin-review`, {
+            method: 'POST',
+            body: JSON.stringify({
+              action: 'reject',
+              comments: bulkReviewComment || null,
+              adminId: authUser.id,
+              adminUsername: authUser.username,
+              adminRole: authUser.role,
+              team: authUser.team
+            })
+          })
+          if (data.success) successCount++
+        } catch (err) {
+          console.warn(`Failed to reject file ${file.id}:`, err)
+        }
+      }))
+
+      if (successCount > 0) {
+        setError(`Successfully rejected ${successCount} files`) // Using setError for red alert
+        setSelectedFileIds(new Set())
+        setShowBulkRejectModal(false)
+        fetchFiles()
+      } else {
+        setError('Failed to reject selected files')
+      }
+    } catch (err) {
+      console.error('Bulk rejection error:', err)
+      setError(err.message || 'Failed to reject files')
+    } finally {
+      setIsLoading(false)
+      setBulkReviewComment('')
+    }
+  }, [selectedFileIds, files, bulkReviewComment, authUser, setError, fetchFiles])
+
   const renderFileRows = useMemo(() => {
     const rows = []
 
@@ -1196,6 +1397,10 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess, hig
           return String(file.id) === String(highlightedFileId)
         })
 
+        const rawFiles = folderFiles.map(f => f.file || f)
+        const isSelected = rawFiles.every(f => selectedFileIds.has(String(f.id)))
+        const isPartiallySelected = rawFiles.some(f => selectedFileIds.has(String(f.id))) && !isSelected
+
         items.push(
           <React.Fragment key={`folder-${currentKey}`}>
             <SubFolderRow
@@ -1211,6 +1416,9 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess, hig
               parentIsLastArr={parentIsLastArr}
               isReference={activeView === 'reference'}
               isHighlighted={!!folderHasHighlight}
+              isSelected={isSelected}
+              isPartiallySelected={isPartiallySelected}
+              onSelectFolder={() => toggleSelectFolder(folderFiles)}
             />
             {isSubFolderExpanded && renderRecursiveItems(folderFiles, level + 1, currentKey, [...parentIsLastArr, isLast])}
           </React.Fragment>
@@ -1235,6 +1443,8 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess, hig
             parentIsLastArr={parentIsLastArr}
             isReference={activeView === 'reference'}
             isHighlighted={String(file.id) === String(highlightedFileId)}
+            isSelected={selectedFileIds.has(String(file.id))}
+            onSelectFile={toggleSelectFile}
           />
         );
       });
@@ -1246,7 +1456,7 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess, hig
       if (item.type === 'date-header') {
         rows.push(
           <tr key={`date-header-${item.label}`} className="date-header-row">
-            <td colSpan="6">
+            <td colSpan="7">
               <div className="date-header-label">
                 <span className="date-header-icon">📅</span>
                 {item.label}
@@ -1258,6 +1468,9 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess, hig
         const folderKey = item.folderKey || item.name
         const isExpanded = expandedFolders[folderKey]
         const folderHasHighlight = highlightedFileId && item.files.some(f => String(f.id) === String(highlightedFileId))
+        
+        const isSelected = item.files.every(f => selectedFileIds.has(String(f.id)))
+        const isPartiallySelected = item.files.some(f => selectedFileIds.has(String(f.id))) && !isSelected
 
         rows.push(
           <FolderRow
@@ -1271,6 +1484,9 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess, hig
             onOpenFolderPath={openFilePath}
             isReference={activeView === 'reference'}
             isHighlighted={!!folderHasHighlight}
+            isSelected={isSelected}
+            isPartiallySelected={isPartiallySelected}
+            onSelectFolder={() => toggleSelectFolder(item.files)}
           />
         )
 
@@ -1301,13 +1517,15 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess, hig
             isNested={false}
             isReference={activeView === 'reference'}
             isHighlighted={String(item.file.id) === String(highlightedFileId)}
+            isSelected={selectedFileIds.has(String(item.file.id))}
+            onSelectFile={toggleSelectFile}
           />
         )
       }
     })
 
     return rows
-  }, [currentPageItems, expandedFolders, activeView, highlightedFileId, toggleFolder, openFolderDeleteModal, openFolderReviewModal, openFilePath, openDeleteModal, openFileModal, formatFileSize, mapFileStatus, getStatusDisplayName])
+  }, [currentPageItems, expandedFolders, activeView, highlightedFileId, toggleFolder, openFolderDeleteModal, openFolderReviewModal, openFilePath, openDeleteModal, openFileModal, formatFileSize, mapFileStatus, getStatusDisplayName, selectedFileIds, toggleSelectFile, toggleSelectFolder])
 
   const renderPaginationNumbers = useMemo(() => {
     const pageNumbers = []
@@ -1437,11 +1655,27 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess, hig
         </div>
       </div>
 
+      {selectedFileIds.size > 0 && activeView === 'approval' && (
+        <div className="bulk-actions" style={{ display: 'flex', gap: '12px', marginBottom: '16px', alignItems: 'center', backgroundColor: '#e0f2fe', padding: '12px 20px', borderRadius: '8px', border: '1px solid #bae6fd' }}>
+          <span style={{ fontWeight: 600, color: '#0369a1', flex: 1 }}>{selectedFileIds.size} file(s) selected</span>
+          <button className="btn btn-success" onClick={() => setShowBulkApproveModal(true)} style={{ padding: '6px 14px', fontSize: '14px', backgroundColor: '#16a34a', color: 'white', border: 'none' }}>
+            Approve Selected
+          </button>
+          <button className="btn btn-danger" onClick={() => setShowBulkRejectModal(true)} style={{ padding: '6px 14px', fontSize: '14px', backgroundColor: '#ef4444', color: 'white', border: 'none' }}>
+            Reject Selected
+          </button>
+          <button className="btn btn-secondary" onClick={() => setSelectedFileIds(new Set())} style={{ padding: '6px 14px', fontSize: '14px', backgroundColor: '#fff', color: '#4b5563', border: '1px solid #d1d5db' }}>
+            Clear Selection
+          </button>
+        </div>
+      )}
+
       <div className="table-section">
         <div className="files-table-container">
           <table className="files-table">
             <thead>
               <tr>
+                <th style={{ width: '40px', textAlign: 'center', paddingLeft: '15px' }}></th>
                 <th>Filename</th>
                 <th>Submitted By</th>
                 <th>Date & Time</th>
@@ -1457,7 +1691,7 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess, hig
                 renderFileRows
               ) : (
                 <tr>
-                  <td colSpan="6">
+                  <td colSpan="7">
                     <div className="empty-state">
                       <h3>No files found</h3>
                       <p>No files match the current filter or search query.</p>
@@ -1609,6 +1843,32 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess, hig
             </div>
           </div>
         </div>
+      )}
+
+      {showBulkApproveModal && (
+        <ConfirmationModal
+          isOpen={showBulkApproveModal}
+          onClose={() => setShowBulkApproveModal(false)}
+          onConfirm={confirmBulkApprove}
+          title="Bulk Approve Files"
+          message={`Are you sure you want to approve ${selectedFileIds.size} selected file(s)? You will be prompted to select a NAS folder to move them to.`}
+          confirmText="Approve & Move Files"
+          variant="success"
+          isLoading={isLoading}
+        />
+      )}
+
+      {showBulkRejectModal && (
+        <ConfirmationModal
+          isOpen={showBulkRejectModal}
+          onClose={() => setShowBulkRejectModal(false)}
+          onConfirm={confirmBulkReject}
+          title="Bulk Reject Files"
+          message={`Are you sure you want to reject ${selectedFileIds.size} selected file(s)? The users who submitted these files will be notified.`}
+          confirmText="Reject Files"
+          variant="danger"
+          isLoading={isLoading}
+        />
       )}
     </div>
   )

@@ -1129,3 +1129,52 @@
   position: relative;
   z-index: 1;
 }
+
+/* Custom Checkbox Styles */
+.file-approval-section .file-checkbox {
+  appearance: none;
+  -webkit-appearance: none;
+  border: 1px solid #000000;
+  border-radius: 4px;
+  background-color: #ffffff;
+  position: relative;
+  transition: all 0.2s ease;
+  margin: 0;
+}
+
+.file-approval-section .file-checkbox:hover {
+  border-color: #16a34a;
+}
+
+.file-approval-section .file-checkbox:checked {
+  background-color: #16a34a;
+  border-color: #16a34a;
+}
+
+.file-approval-section .file-checkbox:checked::after {
+  content: '';
+  position: absolute;
+  left: 5px;
+  top: 2px;
+  width: 4px;
+  height: 8px;
+  border: solid white;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+
+.file-approval-section .file-checkbox:indeterminate {
+  background-color: #f3f4f6;
+  border-color: #000000;
+}
+
+.file-approval-section .file-checkbox:indeterminate::after {
+  content: '';
+  position: absolute;
+  left: 3px;
+  top: 6px;
+  width: 8px;
+  height: 2px;
+  background-color: #000000;
+  border-radius: 1px;
+}
