@@ -191,6 +191,7 @@ const TeamTasksTab = ({ user }) => {
   const [loading, setLoading] = useState(true)
   const [loadingMore, setLoadingMore] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
+  const [activeTab, setActiveTab] = useState('tasks')
   // Team filter toggle: 'all' | 'KUSAKABE' | 'IT Dept'
   const [teamFilter, setTeamFilter] = useState('all')
   const [expandedAssignments, setExpandedAssignments] = useState({})
@@ -794,8 +795,66 @@ const TeamTasksTab = ({ user }) => {
       )}
 
       <div className="team-tasks-header">
-        <h2>Team Tasks</h2>
-        <p className="team-tasks-subtitle">Tasks assigned to your team members</p>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px' }}>
+          <div>
+            <h2>Team Tasks</h2>
+            <p className="team-tasks-subtitle">Tasks assigned to your team members</p>
+          </div>
+          <div style={{
+            display: 'inline-flex', alignItems: 'center',
+            backgroundColor: '#f1f5f9', borderRadius: '10px',
+            padding: '4px', gap: '4px'
+          }}>
+            {/* Tasks Tab */}
+            <button
+              onClick={() => setActiveTab('tasks')}
+              style={{
+                padding: '6px 14px', border: 'none', cursor: 'pointer',
+                borderRadius: '8px',
+                fontSize: '13px', fontWeight: activeTab === 'tasks' ? '600' : '500',
+                transition: 'all 0.2s ease',
+                background: activeTab === 'tasks' ? '#ffffff' : 'transparent',
+                color: activeTab === 'tasks' ? '#0f172a' : '#64748b',
+                boxShadow: activeTab === 'tasks' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+                display: 'flex', alignItems: 'center', gap: '6px'
+              }}
+            >
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path><rect x="8" y="2" width="8" height="4" rx="1" ry="1"></rect><path d="M9 12h6"></path><path d="M9 16h6"></path></svg>
+              Tasks
+              <span style={{
+                backgroundColor: '#e2e8f0', color: '#475569',
+                borderRadius: '10px', padding: '2px 8px',
+                fontSize: '12px', fontWeight: '600', marginLeft: '2px'
+              }}>
+                {assignments.filter(a => a.status !== 'completed').length}
+              </span>
+            </button>
+            {/* Done Tasks Tab */}
+            <button
+              onClick={() => setActiveTab('done-tasks')}
+              style={{
+                padding: '6px 14px', border: 'none', cursor: 'pointer',
+                borderRadius: '8px',
+                fontSize: '13px', fontWeight: activeTab === 'done-tasks' ? '600' : '500',
+                transition: 'all 0.2s ease',
+                background: activeTab === 'done-tasks' ? '#ffffff' : 'transparent',
+                color: activeTab === 'done-tasks' ? '#0f172a' : '#64748b',
+                boxShadow: activeTab === 'done-tasks' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+                display: 'flex', alignItems: 'center', gap: '6px'
+              }}
+            >
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="9 12 11 14 15 10"></polyline></svg>
+              Done Tasks
+              <span style={{
+                backgroundColor: '#dcfce7', color: '#166534',
+                borderRadius: '10px', padding: '2px 8px',
+                fontSize: '12px', fontWeight: '600', marginLeft: '2px'
+              }}>
+                {assignments.filter(a => a.status === 'completed').length}
+              </span>
+            </button>
+          </div>
+        </div>
       </div>
 
       {/* Search Bar */}
@@ -882,52 +941,39 @@ const TeamTasksTab = ({ user }) => {
       })()}
 
       <div className="team-tasks-count">
-        {searchQuery
-          ? `${assignments.filter(a => {
-              const q = searchQuery.toLowerCase();
-              return (
-                (a.title||'').toLowerCase().includes(q) ||
-                (a.description||'').toLowerCase().includes(q) ||
-                (a.team_leader_fullname||'').toLowerCase().includes(q) ||
-                (a.team_leader_username||'').toLowerCase().includes(q) ||
-                (a.attachments || []).some(f => 
-                  (f.original_name || '').toLowerCase().includes(q) ||
-                  (f.file_name || '').toLowerCase().includes(q) ||
-                  (f.folder_name || '').toLowerCase().includes(q)
-                ) ||
-                (a.recent_submissions || []).some(f => 
-                  (f.original_name || '').toLowerCase().includes(q) ||
-                  (f.file_name || '').toLowerCase().includes(q) ||
-                  (f.folder_name || '').toLowerCase().includes(q)
-                )
-              );
-            }).length} result${assignments.filter(a => {
-              const q = searchQuery.toLowerCase();
-              return (
-                (a.title||'').toLowerCase().includes(q) ||
-                (a.description||'').toLowerCase().includes(q) ||
-                (a.team_leader_fullname||'').toLowerCase().includes(q) ||
-                (a.team_leader_username||'').toLowerCase().includes(q) ||
-                (a.attachments || []).some(f => 
-                  (f.original_name || '').toLowerCase().includes(q) ||
-                  (f.file_name || '').toLowerCase().includes(q) ||
-                  (f.folder_name || '').toLowerCase().includes(q)
-                ) ||
-                (a.recent_submissions || []).some(f => 
-                  (f.original_name || '').toLowerCase().includes(q) ||
-                  (f.file_name || '').toLowerCase().includes(q) ||
-                  (f.folder_name || '').toLowerCase().includes(q)
-                )
-              );
-            }).length !== 1 ? 's' : ''} for "${searchQuery}"`
-          : `${assignments.length} task${assignments.length !== 1 ? 's' : ''}${hasMore ? ' • Scroll for more' : ''}`
-        }
+        {(() => {
+          const activeFilteredBase = assignments.filter(a => activeTab === 'done-tasks' ? a.status === 'completed' : a.status !== 'completed');
+          const searchFiltered = searchQuery.trim() ? activeFilteredBase.filter(a => {
+            const q = searchQuery.toLowerCase();
+            return (
+              (a.title||'').toLowerCase().includes(q) ||
+              (a.description||'').toLowerCase().includes(q) ||
+              (a.team_leader_fullname||'').toLowerCase().includes(q) ||
+              (a.team_leader_username||'').toLowerCase().includes(q) ||
+              (a.attachments || []).some(f => 
+                (f.original_name || '').toLowerCase().includes(q) ||
+                (f.file_name || '').toLowerCase().includes(q) ||
+                (f.folder_name || '').toLowerCase().includes(q)
+              ) ||
+              (a.recent_submissions || []).some(f => 
+                (f.original_name || '').toLowerCase().includes(q) ||
+                (f.file_name || '').toLowerCase().includes(q) ||
+                (f.folder_name || '').toLowerCase().includes(q)
+              )
+            );
+          }) : activeFilteredBase;
+          const teamFiltered = teamFilter === 'all' ? searchFiltered : searchFiltered.filter(a => (a.team || 'IT Dept') === teamFilter);
+          return searchQuery
+            ? `${teamFiltered.length} result${teamFiltered.length !== 1 ? 's' : ''} for "${searchQuery}"`
+            : `${teamFiltered.length} task${teamFiltered.length !== 1 ? 's' : ''}${hasMore ? ' • Scroll for more' : ''}`;
+        })()}
       </div>
 
       <div className="team-tasks-container">
         {(() => {
+          const activeFilteredBase = assignments.filter(a => activeTab === 'done-tasks' ? a.status === 'completed' : a.status !== 'completed');
           const filtered = searchQuery.trim()
-            ? assignments.filter(a => {
+            ? activeFilteredBase.filter(a => {
                 const q = searchQuery.toLowerCase()
                 return (
                   (a.title || '').toLowerCase().includes(q) ||
@@ -946,13 +992,13 @@ const TeamTasksTab = ({ user }) => {
                   )
                 )
               })
-            : assignments
+            : activeFilteredBase
           const teamFiltered = teamFilter === 'all' ? filtered : filtered.filter(a => (a.team || 'IT Dept') === teamFilter)
           return teamFiltered.length === 0 ? (
           <div className="empty-team-tasks">
             <div className="empty-icon">📋</div>
-            <h3>{searchQuery ? 'No Results Found' : 'No Team Tasks Yet'}</h3>
-            <p>{searchQuery ? `No tasks match "${searchQuery}".` : "Your team leader hasn't created any assignments yet."}</p>
+            <h3>{searchQuery ? 'No Results Found' : activeTab === 'done-tasks' ? 'No Completed Tasks Yet' : 'No Team Tasks Yet'}</h3>
+            <p>{searchQuery ? `No tasks match "${searchQuery}".` : activeTab === 'done-tasks' ? "Your team hasn't completed any tasks." : "Your team leader hasn't created any assignments yet."}</p>
           </div>
         ) : (
           <>

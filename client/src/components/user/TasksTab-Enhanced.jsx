@@ -1567,7 +1567,14 @@ const TasksTab = memo(({
   const myTaskAssignments = useMemo(() => {
     return assignments.filter(a => {
       const isAssigned = a.assigned_to === 'all' || (a.assigned_member_details || []).some(m => String(m.id) === String(user.id))
-      return isAssigned
+      return isAssigned && getAssignmentStatus(a) !== 'completed'
+    })
+  }, [assignments, user.id])
+
+  const doneTaskAssignments = useMemo(() => {
+    return assignments.filter(a => {
+      const isAssigned = a.assigned_to === 'all' || (a.assigned_member_details || []).some(m => String(m.id) === String(user.id))
+      return isAssigned && getAssignmentStatus(a) === 'completed'
     })
   }, [assignments, user.id])
 
@@ -1579,7 +1586,9 @@ const TasksTab = memo(({
   }, [assignments, user.id])
 
   const filteredAssignments = useMemo(() => {
-    const base = activeTab === 'for-checking' ? forCheckingAssignments : myTaskAssignments
+    let base = myTaskAssignments;
+    if (activeTab === 'for-checking') base = forCheckingAssignments;
+    else if (activeTab === 'done-tasks') base = doneTaskAssignments;
     const sorted = [...base].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
     const bySort = sortFilter === 'all' ? sorted : sorted.filter(a => getAssignmentStatus(a) === sortFilter);
     const byTeam = teamFilter === 'all' ? bySort : bySort.filter(a => (a.team || 'IT Dept') === teamFilter);
@@ -1627,7 +1636,7 @@ const TasksTab = memo(({
         matchesQuery(f.folder_name)
       )
     );
-  }, [myTaskAssignments, forCheckingAssignments, activeTab, sortFilter, teamFilter, searchQuery]);
+  }, [myTaskAssignments, forCheckingAssignments, doneTaskAssignments, activeTab, sortFilter, teamFilter, searchQuery]);
 
   const filterCounts = useMemo(() => {
     const counts = { all: assignments.length, completed: 0, overdue: 0, no_due_date: 0 };
@@ -1942,58 +1951,103 @@ const TasksTab = memo(({
             <p className="tasks-subtitle" style={{ margin: '2px 0 0' }}>
               {activeTab === 'for-checking'
                 ? `${forCheckingAssignments.length} task${forCheckingAssignments.length !== 1 ? 's' : ''} to check`
-                : `${myTaskAssignments.length} assignment${myTaskAssignments.length !== 1 ? 's' : ''}`}
+                : activeTab === 'done-tasks'
+                ? `${doneTaskAssignments.length} completed task${doneTaskAssignments.length !== 1 ? 's' : ''}`
+                : `${myTaskAssignments.length} active assignment${myTaskAssignments.length !== 1 ? 's' : ''}`}
             </p>
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px' }}>
             <div style={{
-              display: 'flex', alignItems: 'center',
-              border: '1.5px solid #d1d5db', borderRadius: '8px',
-              overflow: 'hidden', backgroundColor: '#f9fafb',
+              display: 'inline-flex', alignItems: 'center',
+              backgroundColor: '#f1f5f9', borderRadius: '10px',
+              padding: '4px', gap: '4px'
             }}>
+              {/* My Tasks Tab */}
               <button
                 onClick={() => setActiveTab('my-tasks')}
                 style={{
-                  padding: '7px 20px', border: 'none', cursor: 'pointer',
-                  fontSize: '13px', fontWeight: activeTab === 'my-tasks' ? '700' : '500',
-                  transition: 'all 0.18s',
+                  padding: '6px 14px', border: 'none', cursor: 'pointer',
+                  borderRadius: '8px',
+                  fontSize: '13px', fontWeight: activeTab === 'my-tasks' ? '600' : '500',
+                  transition: 'all 0.2s ease',
                   background: activeTab === 'my-tasks' ? '#ffffff' : 'transparent',
-                  color: activeTab === 'my-tasks' ? '#111827' : '#9ca3af',
-                  borderRight: '1.5px solid #d1d5db',
-                  boxShadow: activeTab === 'my-tasks' ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
+                  color: activeTab === 'my-tasks' ? '#0f172a' : '#64748b',
+                  boxShadow: activeTab === 'my-tasks' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+                  display: 'flex', alignItems: 'center', gap: '6px'
                 }}
               >
-                My Tasks
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path><rect x="8" y="2" width="8" height="4" rx="1" ry="1"></rect><path d="M9 12h6"></path><path d="M9 16h6"></path></svg>
+                Tasks
+                <span style={{
+                  backgroundColor: '#e2e8f0',
+                  color: '#475569',
+                  borderRadius: '10px',
+                  padding: '2px 8px',
+                  fontSize: '12px',
+                  fontWeight: '600',
+                  marginLeft: '2px'
+                }}>
+                  {myTaskAssignments.length}
+                </span>
               </button>
+
+              {/* For Checking Tab */}
               <button
                 onClick={() => setActiveTab('for-checking')}
                 style={{
-                  padding: '7px 20px', border: 'none', cursor: 'pointer',
-                  fontSize: '13px', fontWeight: activeTab === 'for-checking' ? '700' : '500',
-                  transition: 'all 0.18s',
+                  padding: '6px 14px', border: 'none', cursor: 'pointer',
+                  borderRadius: '8px',
+                  fontSize: '13px', fontWeight: activeTab === 'for-checking' ? '600' : '500',
+                  transition: 'all 0.2s ease',
                   background: activeTab === 'for-checking' ? '#ffffff' : 'transparent',
-                  color: activeTab === 'for-checking' ? '#111827' : '#9ca3af',
-                  boxShadow: activeTab === 'for-checking' ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
-                  display: 'flex', alignItems: 'center', gap: '6px',
+                  color: activeTab === 'for-checking' ? '#0f172a' : '#64748b',
+                  boxShadow: activeTab === 'for-checking' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+                  display: 'flex', alignItems: 'center', gap: '6px'
                 }}
               >
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" /><circle cx="12" cy="12" r="3" /></svg>
                 For Checking
-                {forCheckingAssignments.length > 0 && (
-                  <span style={{
-                    backgroundColor: activeTab === 'for-checking' ? '#f97316' : '#f97316',
-                    color: '#fff',
-                    borderRadius: '50px',
-                    padding: '1px 7px',
-                    fontSize: '11px',
-                    fontWeight: '700',
-                    lineHeight: '18px',
-                    minWidth: '18px',
-                    textAlign: 'center',
-                  }}>
-                    {forCheckingAssignments.length}
-                  </span>
-                )}
+                <span style={{
+                  backgroundColor: '#ffedd5',
+                  color: '#c2410c',
+                  borderRadius: '10px',
+                  padding: '2px 8px',
+                  fontSize: '12px',
+                  fontWeight: '600',
+                  marginLeft: '2px'
+                }}>
+                  {forCheckingAssignments.length}
+                </span>
+              </button>
+
+              {/* Done Tasks Tab */}
+              <button
+                onClick={() => setActiveTab('done-tasks')}
+                style={{
+                  padding: '6px 14px', border: 'none', cursor: 'pointer',
+                  borderRadius: '8px',
+                  fontSize: '13px', fontWeight: activeTab === 'done-tasks' ? '600' : '500',
+                  transition: 'all 0.2s ease',
+                  background: activeTab === 'done-tasks' ? '#ffffff' : 'transparent',
+                  color: activeTab === 'done-tasks' ? '#0f172a' : '#64748b',
+                  boxShadow: activeTab === 'done-tasks' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+                  display: 'flex', alignItems: 'center', gap: '6px'
+                }}
+              >
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="9 12 11 14 15 10"></polyline></svg>
+                Done Tasks
+                <span style={{
+                  backgroundColor: '#dcfce7',
+                  color: '#166534',
+                  borderRadius: '10px',
+                  padding: '2px 8px',
+                  fontSize: '12px',
+                  fontWeight: '600',
+                  marginLeft: '2px'
+                }}>
+                  {doneTaskAssignments.length}
+                </span>
               </button>
             </div>
 
