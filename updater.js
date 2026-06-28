@@ -17,7 +17,7 @@ const updaterWindow = require('./updater-window');
 
 // Constants
 const isDev = process.env.NODE_ENV === 'development';
-const UPDATE_CHECK_INTERVAL = 4 * 60 * 60 * 1000; // Check every 4 hours
+const UPDATE_CHECK_INTERVAL = 10 * 60 * 1000; // Check every 10 minutes
 const MAX_STARTUP_FAILURES = 2;
 const HEALTH_CHECK_TIMEOUT = 10000; // 10 seconds
 
