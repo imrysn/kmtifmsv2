@@ -800,65 +800,67 @@ const TeamTasksTab = ({ user }) => {
             <h2>Team Tasks</h2>
             <p className="team-tasks-subtitle">Tasks assigned to your team members</p>
           </div>
-          <div style={{
-            display: 'inline-flex', alignItems: 'center',
-            backgroundColor: '#f1f5f9', borderRadius: '10px',
-            padding: '4px', gap: '4px'
-          }}>
-            {/* Tasks Tab */}
-            <button
-              onClick={() => setActiveTab('tasks')}
-              style={{
-                padding: '6px 14px', border: 'none', cursor: 'pointer',
-                borderRadius: '8px',
-                fontSize: '13px', fontWeight: activeTab === 'tasks' ? '600' : '500',
-                transition: 'all 0.2s ease',
-                background: activeTab === 'tasks' ? '#ffffff' : 'transparent',
-                color: activeTab === 'tasks' ? '#0f172a' : '#64748b',
-                boxShadow: activeTab === 'tasks' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
-                display: 'flex', alignItems: 'center', gap: '6px'
-              }}
-            >
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path><rect x="8" y="2" width="8" height="4" rx="1" ry="1"></rect><path d="M9 12h6"></path><path d="M9 16h6"></path></svg>
-              Tasks
-              <span style={{
-                backgroundColor: '#e2e8f0', color: '#475569',
-                borderRadius: '10px', padding: '2px 8px',
-                fontSize: '12px', fontWeight: '600', marginLeft: '2px'
-              }}>
-                {assignments.filter(a => a.status !== 'completed').length}
-              </span>
-            </button>
-            {/* Done Tasks Tab */}
-            <button
-              onClick={() => setActiveTab('done-tasks')}
-              style={{
-                padding: '6px 14px', border: 'none', cursor: 'pointer',
-                borderRadius: '8px',
-                fontSize: '13px', fontWeight: activeTab === 'done-tasks' ? '600' : '500',
-                transition: 'all 0.2s ease',
-                background: activeTab === 'done-tasks' ? '#ffffff' : 'transparent',
-                color: activeTab === 'done-tasks' ? '#0f172a' : '#64748b',
-                boxShadow: activeTab === 'done-tasks' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
-                display: 'flex', alignItems: 'center', gap: '6px'
-              }}
-            >
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="9 12 11 14 15 10"></polyline></svg>
-              Done Tasks
-              <span style={{
-                backgroundColor: '#dcfce7', color: '#166534',
-                borderRadius: '10px', padding: '2px 8px',
-                fontSize: '12px', fontWeight: '600', marginLeft: '2px'
-              }}>
-                {assignments.filter(a => a.status === 'completed').length}
-              </span>
-            </button>
-          </div>
         </div>
       </div>
 
+      {/* Tabs */}
+      <div style={{
+        display: 'inline-flex', alignItems: 'center',
+        backgroundColor: '#f1f5f9', borderRadius: '10px',
+        padding: '4px', gap: '4px', marginBottom: '14px'
+      }}>
+        {/* Tasks Tab */}
+        <button
+          onClick={() => setActiveTab('tasks')}
+          style={{
+            padding: '6px 14px', border: 'none', cursor: 'pointer',
+            borderRadius: '8px',
+            fontSize: '13px', fontWeight: activeTab === 'tasks' ? '600' : '500',
+            transition: 'all 0.2s ease',
+            background: activeTab === 'tasks' ? '#ffffff' : 'transparent',
+            color: activeTab === 'tasks' ? '#0f172a' : '#64748b',
+            boxShadow: activeTab === 'tasks' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+            display: 'flex', alignItems: 'center', gap: '6px'
+          }}
+        >
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path><rect x="8" y="2" width="8" height="4" rx="1" ry="1"></rect><path d="M9 12h6"></path><path d="M9 16h6"></path></svg>
+          Tasks
+          <span style={{
+            backgroundColor: '#e2e8f0', color: '#475569',
+            borderRadius: '10px', padding: '2px 8px',
+            fontSize: '12px', fontWeight: '600', marginLeft: '2px'
+          }}>
+            {assignments.filter(a => a.status !== 'completed').length}
+          </span>
+        </button>
+        {/* Done Tasks Tab */}
+        <button
+          onClick={() => setActiveTab('done-tasks')}
+          style={{
+            padding: '6px 14px', border: 'none', cursor: 'pointer',
+            borderRadius: '8px',
+            fontSize: '13px', fontWeight: activeTab === 'done-tasks' ? '600' : '500',
+            transition: 'all 0.2s ease',
+            background: activeTab === 'done-tasks' ? '#ffffff' : 'transparent',
+            color: activeTab === 'done-tasks' ? '#0f172a' : '#64748b',
+            boxShadow: activeTab === 'done-tasks' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+            display: 'flex', alignItems: 'center', gap: '6px'
+          }}
+        >
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="9 12 11 14 15 10"></polyline></svg>
+          Done Tasks
+          <span style={{
+            backgroundColor: '#dcfce7', color: '#166534',
+            borderRadius: '10px', padding: '2px 8px',
+            fontSize: '12px', fontWeight: '600', marginLeft: '2px'
+          }}>
+            {assignments.filter(a => a.status === 'completed').length}
+          </span>
+        </button>
+      </div>
+
       {/* Search Bar */}
-      <div style={{ margin: '0 0 4px 0', position: 'relative', maxWidth: '320px' }}>
+      <div style={{ margin: '0 0 14px 0', position: 'relative', maxWidth: '320px' }}>
         <svg style={{ position: 'absolute', left: '9px', top: '50%', transform: 'translateY(-50%)', color: '#c4c9d4', pointerEvents: 'none' }} width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <circle cx="11" cy="11" r="8" />
           <line x1="21" y1="21" x2="16.65" y2="16.65" />
