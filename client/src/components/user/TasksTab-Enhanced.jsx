@@ -1957,7 +1957,37 @@ const TasksTab = memo(({
             </p>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '10px' }}>
+            <div style={{ position: 'relative' }}>
+              <select
+                value={sortFilter}
+                onChange={e => setSortFilter(e.target.value)}
+                style={{
+                  appearance: 'none', WebkitAppearance: 'none',
+                  padding: '5px 30px 5px 12px', borderRadius: '20px',
+                  border: '1.5px solid #d1d5db', backgroundColor: '#ffffff',
+                  color: '#374151', fontSize: '13px', fontWeight: '500',
+                  cursor: 'pointer', outline: 'none',
+                  boxShadow: '0 1px 2px rgba(0,0,0,0.06)', transition: 'border-color 0.15s',
+                }}
+                onFocus={e => { e.currentTarget.style.borderColor = '#9ca3af'; }}
+                onBlur={e => { e.currentTarget.style.borderColor = '#d1d5db'; }}
+              >
+                {SORT_OPTIONS.map(opt => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label} ({filterCounts[opt.value] ?? 0})
+                  </option>
+                ))}
+              </select>
+              <svg
+                width="12" height="12" viewBox="0 0 24 24" fill="none"
+                stroke="#6b7280" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+                style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}
+              >
+                <polyline points="6 9 12 15 18 9" />
+              </svg>
+            </div>
+
             <div style={{
               display: 'inline-flex', alignItems: 'center',
               backgroundColor: '#f1f5f9', borderRadius: '10px',
@@ -2049,36 +2079,6 @@ const TasksTab = memo(({
                   {doneTaskAssignments.length}
                 </span>
               </button>
-            </div>
-
-            <div style={{ position: 'relative' }}>
-              <select
-                value={sortFilter}
-                onChange={e => setSortFilter(e.target.value)}
-                style={{
-                  appearance: 'none', WebkitAppearance: 'none',
-                  padding: '5px 30px 5px 12px', borderRadius: '20px',
-                  border: '1.5px solid #d1d5db', backgroundColor: '#ffffff',
-                  color: '#374151', fontSize: '13px', fontWeight: '500',
-                  cursor: 'pointer', outline: 'none',
-                  boxShadow: '0 1px 2px rgba(0,0,0,0.06)', transition: 'border-color 0.15s',
-                }}
-                onFocus={e => { e.currentTarget.style.borderColor = '#9ca3af'; }}
-                onBlur={e => { e.currentTarget.style.borderColor = '#d1d5db'; }}
-              >
-                {SORT_OPTIONS.map(opt => (
-                  <option key={opt.value} value={opt.value}>
-                    {opt.label} ({filterCounts[opt.value] ?? 0})
-                  </option>
-                ))}
-              </select>
-              <svg
-                width="12" height="12" viewBox="0 0 24 24" fill="none"
-                stroke="#6b7280" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
-                style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}
-              >
-                <polyline points="6 9 12 15 18 9" />
-              </svg>
             </div>
           </div>
         </div>
