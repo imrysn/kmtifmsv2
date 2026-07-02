@@ -88,7 +88,7 @@
 
 .comments-modal-header {
   padding: 16px 20px;
-  border-bottom: 1px solid #e4e6eb;
+  border-bottom: 1px solid var(--border-color);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -102,7 +102,7 @@
   margin: 0;
   font-size: 20px;
   font-weight: 700;
-  color: #050505;
+  color: var(--text-primary);
   flex: 1;
   text-align: center;
   overflow: hidden;
@@ -121,7 +121,7 @@
   justify-content: center;
   cursor: pointer;
   font-size: 18px;
-  color: #050505;
+  color: var(--text-primary);
   transition: background 0.15s;
   position: absolute;
   right: 16px;
@@ -131,7 +131,7 @@
 }
 
 .close-modal-btn:hover {
-  background: #d8dadf;
+  background: var(--background-primary);
 }
 
 /* =================================================================
@@ -184,7 +184,7 @@
 .loading-comments .spinner {
   width: 32px;
   height: 32px;
-  border: 2px solid #e4e6eb;
+  border: 2px solid var(--border-color);
   border-top-color: var(--status-review-text);
   border-radius: 50%;
   animation: spin 0.7s linear infinite;
@@ -296,7 +296,7 @@
 .comment-author {
   font-size: 13.5px;
   font-weight: 700;
-  color: #050505;
+  color: var(--text-primary);
 }
 
 .role-badge {
@@ -338,7 +338,7 @@
   background: transparent;
   padding: 0;
   font-size: 14px;
-  color: #050505;
+  color: var(--text-primary);
   line-height: 1.5;
   margin: 0;
   overflow-wrap: break-word;
@@ -360,7 +360,7 @@
 
 .see-more-btn:hover {
   text-decoration: underline;
-  color: #050505;
+  color: var(--text-primary);
 }
 
 /* FB-style action row: Reply · View replies */
@@ -385,7 +385,7 @@
 }
 
 .reply-button:hover {
-  color: #050505;
+  color: var(--text-primary);
   text-decoration: underline;
 }
 
@@ -405,7 +405,7 @@
 }
 
 .view-replies-button:hover {
-  color: #050505;
+  color: var(--text-primary);
   text-decoration: underline;
 }
 
@@ -482,7 +482,7 @@
 .reply-author {
   font-size: 13px;
   font-weight: 700;
-  color: #050505;
+  color: var(--text-primary);
 }
 
 .reply-time {
@@ -496,7 +496,7 @@
   background: transparent;
   padding: 0;
   font-size: 13.5px;
-  color: #050505;
+  color: var(--text-primary);
   line-height: 1.45;
   overflow-wrap: break-word;
   word-break: break-word;
@@ -546,7 +546,7 @@
 
 .comments-modal-footer {
   padding: 10px 16px 14px;
-  border-top: 1px solid #e4e6eb;
+  border-top: 1px solid var(--border-color);
   background: var(--background-secondary);
   flex-shrink: 0;
   border-radius: 0 0 16px 16px;
@@ -585,7 +585,7 @@
   outline: none;
   box-shadow: none;
   font-size: 15px;
-  color: #050505;
+  color: var(--text-primary);
   background: transparent;
   padding: 0;
   font-family: inherit;
@@ -632,7 +632,7 @@
   background: var(--background-secondary);
   border-radius: 12px;
   box-shadow: 0 4px 24px rgba(0, 0, 0, 0.15);
-  border: 1px solid #e4e6eb;
+  border: 1px solid var(--border-color);
   min-width: 280px;
   max-width: 320px;
   max-height: 280px;
@@ -701,7 +701,7 @@
 .mention-picker-name {
   font-size: 14px;
   font-weight: 600;
-  color: #050505;
+  color: var(--text-primary);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -800,7 +800,7 @@
 
 .more-menu-btn:hover {
   background: var(--background-secondary);
-  color: #050505;
+  color: var(--text-primary);
 }
 
 .more-menu-wrapper.disabled {
@@ -811,7 +811,7 @@
 .menu-spinner {
   width: 14px;
   height: 14px;
-  border: 2px solid #e4e6eb;
+  border: 2px solid var(--border-color);
   border-top-color: var(--text-secondary);
   border-radius: 50%;
   animation: spin 0.7s linear infinite;
@@ -841,7 +841,7 @@
   cursor: pointer;
   font-size: 13.5px;
   font-weight: 500;
-  color: #050505;
+  color: var(--text-primary);
   text-align: left;
   transition: background 0.1s;
   font-family: inherit;
@@ -878,7 +878,7 @@
   border-radius: 10px;
   font-size: 14px;
   font-family: inherit;
-  color: #050505;
+  color: var(--text-primary);
   background: var(--background-secondary);
   outline: none;
   box-sizing: border-box;
@@ -914,7 +914,7 @@
 .edit-cancel-btn {
   padding: 4px 12px;
   background: var(--background-secondary);
-  color: #050505;
+  color: var(--text-primary);
   border: none;
   border-radius: 6px;
   font-size: 12.5px;
@@ -925,7 +925,7 @@
 }
 
 .edit-cancel-btn:hover {
-  background: #d8dadf;
+  background: var(--background-primary);
 }
 
 /* =================================================================
@@ -952,7 +952,7 @@
   font-size: 15px;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
   line-height: 1.5;
-  color: #050505;
+  color: var(--text-primary);
   background: transparent;
   box-sizing: border-box;
   white-space: pre-wrap;

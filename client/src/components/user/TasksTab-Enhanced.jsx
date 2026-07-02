@@ -2572,8 +2572,8 @@ const TasksTab = memo(({
                       );
                       return (
                         <span style={{
-                          backgroundColor: hasRejected && count > 0 ? 'var(--status-rejected)' : 'var(--background-secondary)',
-                          color: hasRejected && count > 0 ? 'var(--status-rejected-text)' : 'var(--text-tertiary)',
+                          backgroundColor: hasRejected && count > 0 ? 'var(--status-rejected)' : 'var(--background-primary)',
+                          color: hasRejected && count > 0 ? 'var(--status-rejected-text)' : 'var(--text-secondary)',
                           borderRadius: '10px', padding: '1px 8px', fontSize: '12px', fontWeight: '600',
                         }}>
                           {count}
