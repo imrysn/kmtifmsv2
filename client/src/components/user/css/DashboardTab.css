@@ -49,7 +49,7 @@
 .dashboard-title {
   font-size: 32px;
   font-weight: 700;
-  color: #1d1d1f;
+  color: var(--text-primary);
   margin: 0;
   letter-spacing: -0.5px;
 }
@@ -68,7 +68,7 @@
   align-items: center;
   margin-bottom: 24px;
   padding-bottom: 16px;
-  border-bottom: 1px solid #e5e7eb;
+  border-bottom: 1px solid var(--border-color);
 }
 
 .dashboard-info {
@@ -80,7 +80,7 @@
 .dashboard-heading {
   font-size: 28px;
   font-weight: 700;
-  color: #1d1d1f;
+  color: var(--text-primary);
   margin: 0;
   letter-spacing: -0.5px;
 }
@@ -135,8 +135,8 @@
 }
 
 .stat-card-modern {
-  background: #ffffff;
-  border: 1px solid #e5e7eb;
+  background: var(--background-secondary);
+  border: 1px solid var(--border-color);
   border-radius: 12px;
   padding: 20px;
   display: flex;
@@ -184,7 +184,7 @@
 .stat-card-value {
   font-size: 32px;
   font-weight: 700;
-  color: #1d1d1f;
+  color: var(--text-primary);
   line-height: 1;
   margin-bottom: 6px;
 }
@@ -196,28 +196,28 @@
 }
 
 .stat-card-detail .pending-count {
-  color: #6b7280;
+  color: var(--text-secondary);
   font-weight: 600;
 }
 
 .stat-card-detail .submitted-count {
-  color: #6b7280;
+  color: var(--text-secondary);
   font-weight: 600;
 }
 
 .stat-card-detail .approved-count {
-  color: #6b7280;
+  color: var(--text-secondary);
   font-weight: 600;
 }
 
 .stat-card-detail .rejected-count {
-  color: #6b7280;
+  color: var(--text-secondary);
   font-weight: 600;
 }
 
 /* Team Activity - Gray/Neutral Colors */
 .stat-card-modern:nth-child(3) .stat-card-detail {
-  color: #6b7280;
+  color: var(--text-secondary);
   font-weight: 600;
 }
 
@@ -230,8 +230,8 @@
 
 /* Performance Analytics Card */
 .analytics-card-modern {
-  background: #ffffff;
-  border: 1px solid #e5e7eb;
+  background: var(--background-secondary);
+  border: 1px solid var(--border-color);
   border-radius: 12px;
   padding: 24px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
@@ -249,7 +249,7 @@
 .analytics-card-title {
   font-size: 20px;
   font-weight: 600;
-  color: #1d1d1f;
+  color: var(--text-primary);
   margin: 0;
 }
 
@@ -262,9 +262,9 @@
 /* Overall Score Section - Circular Gauge */
 .overall-score-section {
   padding: 32px;
-  background: #f8f9fa;
+  background: transparent;
   border-radius: 16px;
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--border-color);
 }
 
 .score-content-wrapper {
@@ -340,7 +340,7 @@
 
 .score-message {
   font-size: 15px;
-  color: #6b7280;
+  color: var(--text-secondary);
   line-height: 1.6;
   margin: 0;
   font-weight: 500;
@@ -358,7 +358,7 @@
   align-items: center;
   gap: 8px;
   font-size: 13px;
-  color: #6b7280;
+  color: var(--text-secondary);
   font-weight: 500;
 }
 
@@ -415,9 +415,9 @@
   align-items: flex-start;
   gap: 12px;
   padding: 16px;
-  background: #f9f9fb;
+  background: transparent;
   border-radius: 10px;
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--border-color);
 }
 
 .metric-icon {
@@ -428,8 +428,8 @@
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  background: white;
-  border: 1px solid #e5e7eb;
+  background: var(--background-secondary);
+  border: 1px solid var(--border-color);
 }
 
 .task-completion-icon svg {
@@ -437,7 +437,7 @@
 }
 
 .ontime-icon svg {
-  color: #3b82f6;
+  color: var(--status-review-text);
 }
 
 .approval-icon svg {
@@ -449,7 +449,7 @@
 }
 
 .overdue-icon svg {
-  color: #ef4444;
+  color: var(--status-rejected-text);
 }
 
 .metric-content {
@@ -469,7 +469,7 @@
 .metric-value {
   font-size: 24px;
   font-weight: 700;
-  color: #1d1d1f;
+  color: var(--text-primary);
   line-height: 1;
   margin-bottom: 4px;
 }
@@ -482,8 +482,8 @@
 
 /* Notifications Card */
 .notifications-card-modern {
-  background: #ffffff;
-  border: 1px solid #e5e7eb;
+  background: var(--background-secondary);
+  border: 1px solid var(--border-color);
   border-radius: 12px;
   padding: 24px;
   display: flex;
@@ -502,7 +502,7 @@
 .notifications-card-title {
   font-size: 20px;
   font-weight: 600;
-  color: #1d1d1f;
+  color: var(--text-primary);
   margin: 0;
   display: flex;
   align-items: center;
@@ -510,7 +510,7 @@
 }
 
 .notifications-card-title svg {
-  color: #1d1d1f;
+  color: var(--text-primary);
   flex-shrink: 0;
 }
 
@@ -536,8 +536,8 @@
 
 .notification-item-modern {
   padding: 16px;
-  background: #f9f9fb;
-  border: 1px solid #e5e7eb;
+  background: transparent;
+  border: 1px solid var(--border-color);
   border-radius: 10px;
   transition: all 0.3s ease !important;
   cursor: pointer;
@@ -550,28 +550,28 @@
   right: 16px;
   top: 50%;
   transform: translateY(-50%);
-  color: #9ca3af;
+  color: var(--text-tertiary);
   font-size: 18px;
   opacity: 0;
   transition: all 0.3s ease !important;
 }
 
 .notification-item-modern:hover {
-  background: #fff;
-  border-color: #3b82f6;
+  background: var(--background-secondary);
+  border-color: var(--status-review-text);
   box-shadow: 0 4px 12px rgba(59, 130, 246, 0.2);
   transform: translateY(-2px) !important;
 }
 
 .notification-item-modern:hover::after {
   opacity: 1;
-  color: #3b82f6;
+  color: var(--status-review-text);
   transform: translateY(-50%) translateX(4px);
 }
 
 .notification-item-modern.unread {
-  background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
-  border-color: #93c5fd;
+  background: var(--status-review);
+  border-color: var(--status-review-text);
   border-left: 3px solid #3b82f6;
 }
 
@@ -584,7 +584,7 @@
 .notification-title-modern {
   font-size: 14px;
   font-weight: 600;
-  color: #1d1d1f;
+  color: var(--text-primary);
   line-height: 1.4;
 }
 
@@ -646,7 +646,7 @@
 .spinner {
   width: 40px;
   height: 40px;
-  border: 3px solid #e5e7eb;
+  border: 3px solid var(--border-color);
   border-top-color: #5856d6;
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
@@ -805,7 +805,7 @@
 }
 
 .skeleton-card {
-  background: white;
+  background: var(--background-secondary);
   border-radius: 12px;
   padding: 24px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);

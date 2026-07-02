@@ -59,7 +59,7 @@
   display: block !important;
   width: fit-content !important;
   max-width: 100% !important;
-  background: #f0f2f5 !important;
+  background: var(--background-secondary) !important;
   border: none !important;
   box-shadow: none !important;
 }
@@ -69,7 +69,7 @@
    ================================================================= */
 
 .comments-modal {
-  background: #fff;
+  background: var(--background-secondary);
   border-radius: 16px;
   width: 90%;
   max-width: 680px;
@@ -93,7 +93,7 @@
   align-items: center;
   justify-content: space-between;
   flex-shrink: 0;
-  background: #fff;
+  background: var(--background-secondary);
   border-radius: 16px 16px 0 0;
   position: relative;
 }
@@ -111,7 +111,7 @@
 }
 
 .close-modal-btn {
-  background: #e4e6eb;
+  background: var(--background-secondary);
   border: none;
   width: 36px;
   height: 36px;
@@ -143,7 +143,7 @@
   overflow-y: scroll; /* 'scroll' reserves scrollbar space — avoids layout shift on show/hide */
   overflow-x: hidden;
   padding: 8px 16px 4px;
-  background: #fff;
+  background: var(--background-secondary);
   -webkit-overflow-scrolling: touch;
   /* Promote to own compositor layer — eliminates repaint on scroll */
   will-change: transform;
@@ -178,14 +178,14 @@
   align-items: center;
   justify-content: center;
   padding: 48px 20px;
-  color: #65676b;
+  color: var(--text-secondary);
 }
 
 .loading-comments .spinner {
   width: 32px;
   height: 32px;
   border: 2px solid #e4e6eb;
-  border-top-color: #1877f2;
+  border-top-color: var(--status-review-text);
   border-radius: 50%;
   animation: spin 0.7s linear infinite;
   margin-bottom: 12px;
@@ -199,13 +199,13 @@
   margin: 0;
   font-size: 14px;
   font-weight: 500;
-  color: #65676b;
+  color: var(--text-secondary);
 }
 
 .no-comments p {
   margin: 0;
   font-size: 15px;
-  color: #65676b;
+  color: var(--text-secondary);
 }
 
 /* =================================================================
@@ -277,7 +277,7 @@
   display: block;
   width: fit-content;
   max-width: 100%;
-  background: #f0f2f5 !important;
+  background: var(--background-secondary) !important;
   border-radius: 18px !important;
   padding: 8px 14px 10px !important;
   word-break: break-word;
@@ -313,12 +313,12 @@
 }
 
 .role-badge.admin {
-  color: #dc2626;
-  background: #fee2e2 !important;
+  color: var(--status-rejected-text);
+  background: var(--status-rejected) !important;
 }
 
 .role-badge.team-leader {
-  color: #1877f2;
+  color: var(--status-review-text);
   background: #dbeafe !important;
 }
 
@@ -328,7 +328,7 @@
 }
 
 .comment-time {
-  color: #65676b;
+  color: var(--text-secondary);
   font-size: 12px;
   font-weight: 400;
   margin-left: 2px;
@@ -348,7 +348,7 @@
 .see-more-btn {
   background: none;
   border: none;
-  color: #65676b;
+  color: var(--text-secondary);
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
@@ -375,7 +375,7 @@
 .reply-button {
   background: none;
   border: none;
-  color: #65676b;
+  color: var(--text-secondary);
   font-size: 12.5px;
   font-weight: 700;
   cursor: pointer;
@@ -392,7 +392,7 @@
 .view-replies-button {
   background: none;
   border: none;
-  color: #65676b;
+  color: var(--text-secondary);
   font-size: 12.5px;
   font-weight: 700;
   cursor: pointer;
@@ -457,7 +457,7 @@
   display: block;
   width: fit-content;
   max-width: 100%;
-  background: #f0f2f5;
+  background: var(--background-secondary);
   border-radius: 12px;
   padding: 7px 12px 8px;
   word-break: break-word;
@@ -486,7 +486,7 @@
 }
 
 .reply-time {
-  color: #65676b;
+  color: var(--text-secondary);
   font-size: 11.5px;
   display: block;
   padding-top: 1px;
@@ -509,8 +509,8 @@
 }
 
 .is-saving .edit-input {
-  background: #f0f2f5 !important;
-  color: #65676b !important;
+  background: var(--background-secondary) !important;
+  color: var(--text-secondary) !important;
 }
 
 /* Replaces the inline style that was generating a new object every render */
@@ -547,7 +547,7 @@
 .comments-modal-footer {
   padding: 10px 16px 14px;
   border-top: 1px solid #e4e6eb;
-  background: #fff;
+  background: var(--background-secondary);
   flex-shrink: 0;
   border-radius: 0 0 16px 16px;
 }
@@ -565,7 +565,7 @@
   display: flex;
   gap: 6px;
   align-items: center;
-  background: #f0f2f5;
+  background: var(--background-secondary);
   border-radius: 20px;
   padding: 6px 10px 6px 14px;
   border: none;
@@ -573,7 +573,7 @@
 }
 
 .comment-input-wrapper:focus-within {
-  background: #e4e6eb;
+  background: var(--background-secondary);
   outline: none;
   box-shadow: none;
 }
@@ -595,7 +595,7 @@
 }
 
 .comment-input::placeholder {
-  color: #65676b;
+  color: var(--text-secondary);
   font-size: 15px;
 }
 
@@ -629,7 +629,7 @@
    ================================================================= */
 
 .mention-picker {
-  background: #ffffff;
+  background: var(--background-secondary);
   border-radius: 12px;
   box-shadow: 0 4px 24px rgba(0, 0, 0, 0.15);
   border: 1px solid #e4e6eb;
@@ -647,7 +647,7 @@
 }
 
 .mention-picker::-webkit-scrollbar-thumb {
-  background: #e4e6eb;
+  background: var(--background-secondary);
   border-radius: 3px;
 }
 
@@ -663,12 +663,12 @@
 }
 
 .mention-picker-item:hover {
-  background: #f0f2f5;
+  background: var(--background-secondary);
 }
 
 .mention-picker-item--active {
-  background: #f0f2f5;
-  border-color: #1877f2;
+  background: var(--background-secondary);
+  border-color: var(--status-review-text);
 }
 
 .mention-picker-avatar {
@@ -688,7 +688,7 @@
 
 .mention-picker-avatar.everyone {
   background: #e7f0fd;
-  color: #1877f2;
+  color: var(--status-review-text);
 }
 
 .mention-picker-info {
@@ -709,14 +709,14 @@
 
 .mention-picker-subtitle {
   font-size: 12px;
-  color: #65676b;
+  color: var(--text-secondary);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
 .mention-highlight {
-  color: #1877f2;
+  color: var(--status-review-text);
   font-weight: 600;
   /* No transition — hover transitions repaint during scroll */
 }
@@ -788,7 +788,7 @@
   background: none;
   border: none;
   cursor: pointer;
-  color: #65676b;
+  color: var(--text-secondary);
   padding: 2px 6px;
   border-radius: 4px;
   display: flex;
@@ -799,7 +799,7 @@
 }
 
 .more-menu-btn:hover {
-  background: #e4e6eb;
+  background: var(--background-secondary);
   color: #050505;
 }
 
@@ -812,7 +812,7 @@
   width: 14px;
   height: 14px;
   border: 2px solid #e4e6eb;
-  border-top-color: #65676b;
+  border-top-color: var(--text-secondary);
   border-radius: 50%;
   animation: spin 0.7s linear infinite;
 }
@@ -820,10 +820,10 @@
 /* Dropdown portaled to document.body — never clipped by scroll containers */
 .more-menu-dropdown {
   position: fixed;
-  background: #fff;
+  background: var(--background-secondary);
   border-radius: 10px;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--border-color);
   min-width: 130px;
   z-index: 10001;
   padding: 4px 0;
@@ -848,15 +848,15 @@
 }
 
 .more-menu-item:hover {
-  background: #f0f2f5;
+  background: var(--background-secondary);
 }
 
 .more-menu-item--danger {
-  color: #dc2626;
+  color: var(--status-rejected-text);
 }
 
 .more-menu-item--danger:hover {
-  background: #fee2e2;
+  background: var(--status-rejected);
 }
 
 /* =================================================================
@@ -879,7 +879,7 @@
   font-size: 14px;
   font-family: inherit;
   color: #050505;
-  background: #fff;
+  background: var(--background-secondary);
   outline: none;
   box-sizing: border-box;
 }
@@ -913,7 +913,7 @@
 
 .edit-cancel-btn {
   padding: 4px 12px;
-  background: #e4e6eb;
+  background: var(--background-secondary);
   color: #050505;
   border: none;
   border-radius: 6px;
@@ -968,7 +968,7 @@
 /* Placeholder via ::before on empty unfocused state */
 .mention-input-editor.is-empty:not(:focus)::before {
   content: attr(data-placeholder);
-  color: #65676b;
+  color: var(--text-secondary);
   pointer-events: none;
   font-size: 15px;
 }
@@ -976,7 +976,7 @@
 /* @mention highlight — blue, used in editor spans AND in posted comments */
 .mention-highlight,
 .input-mention-highlight {
-  color: #1877f2;
+  color: var(--status-review-text);
   font-weight: 600;
   border-radius: 3px;
   background: #e7f0fd;

@@ -11,7 +11,7 @@
   justify-content: space-between;
   min-height: 44px;
   padding: 8px 12px;
-  background: white;
+  background: var(--background-secondary);
   border: 1px solid #d2d2d7;
   border-radius: 8px;
   cursor: pointer;
@@ -56,7 +56,7 @@
   border: 1px solid rgba(0, 122, 255, 0.3);
   border-radius: 6px;
   font-size: 13px;
-  color: #1d1d1f;
+  color: var(--text-primary);
   white-space: nowrap;
 }
 
@@ -100,7 +100,7 @@
   top: calc(100% + 4px);
   left: 0;
   right: 0;
-  background: white;
+  background: var(--background-secondary);
   border: 1px solid #d2d2d7;
   border-radius: 8px;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
@@ -141,7 +141,7 @@
   background: #f9f9fb;
   border: 1px solid #d2d2d7;
   border-radius: 6px;
-  color: #1d1d1f;
+  color: var(--text-primary);
   font-size: 14px;
   outline: none;
   transition: all 0.2s ease;
@@ -153,7 +153,7 @@
   gap: 6px;
   padding: 6px 14px;
   background: #007aff;
-  color: white;
+  color: var(--background-secondary);
   border: none;
   border-radius: 20px;
   font-size: 13px;
@@ -175,7 +175,7 @@
 }
 
 .user-multi-select-tags-component .search-input:focus {
-  background: white;
+  background: var(--background-secondary);
   border-color: #007aff;
   box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.1);
 }
@@ -232,7 +232,7 @@
 }
 
 .user-multi-select-tags-component .tag-label {
-  color: #1d1d1f;
+  color: var(--text-primary);
   font-size: 14px;
   flex: 1;
   user-select: none;
@@ -261,7 +261,7 @@
 
 .user-multi-select-tags-component .clear-all-btn {
   padding: 6px 12px;
-  background: white;
+  background: var(--background-secondary);
   border: 1px solid #d2d2d7;
   border-radius: 6px;
   color: #ff3b30;
@@ -294,7 +294,7 @@
 }
 
 .custom-tag-modal {
-  background: white;
+  background: var(--background-secondary);
   border-radius: 16px;
   width: 90%;
   max-width: 500px;
@@ -315,7 +315,7 @@
   margin: 0;
   font-size: 20px;
   font-weight: 600;
-  color: #1d1d1f;
+  color: var(--text-primary);
 }
 
 .custom-tag-modal .modal-close {
@@ -332,8 +332,8 @@
 }
 
 .custom-tag-modal .modal-close:hover {
-  background: #f5f5f5;
-  color: #1d1d1f;
+  background: var(--background-secondary);
+  color: var(--text-primary);
 }
 
 .custom-tag-modal .modal-close svg {
@@ -343,13 +343,13 @@
 
 .custom-tag-modal .modal-body {
   padding: 8px 28px 24px 28px;
-  background: white;
+  background: var(--background-secondary);
 }
 
 .custom-tag-modal .custom-tag-label {
   display: block;
   font-size: 14px;
-  color: #1d1d1f;
+  color: var(--text-primary);
   margin-bottom: 12px;
   font-weight: 500;
 }
@@ -357,10 +357,10 @@
 .custom-tag-modal .custom-tag-input {
   width: 100%;
   padding: 12px 16px;
-  background: white;
+  background: var(--background-secondary);
   border: 2px solid #d2d2d7;
   border-radius: 10px;
-  color: #1d1d1f;
+  color: var(--text-primary);
   font-size: 15px;
   outline: none;
   transition: all 0.2s ease;
@@ -368,7 +368,7 @@
 }
 
 .custom-tag-modal .custom-tag-input:focus {
-  background: white;
+  background: var(--background-secondary);
   border-color: #007aff;
   box-shadow: 0 0 0 4px rgba(0, 122, 255, 0.1);
 }
@@ -382,7 +382,7 @@
   gap: 12px;
   padding: 0px 28px 28px 28px;
   border-top: none;
-  background: white;
+  background: var(--background-secondary);
 }
 
 .custom-tag-modal .btn {
@@ -397,8 +397,8 @@
 }
 
 .custom-tag-modal .btn.secondary {
-  background: #f5f5f5;
-  color: #1d1d1f;
+  background: var(--background-secondary);
+  color: var(--text-primary);
   border: none;
 }
 
@@ -408,7 +408,7 @@
 
 .custom-tag-modal .btn.primary {
   background: #007aff;
-  color: white;
+  color: var(--background-secondary);
 }
 
 .custom-tag-modal .btn.primary:hover {

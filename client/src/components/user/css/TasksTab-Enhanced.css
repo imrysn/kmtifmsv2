@@ -19,7 +19,7 @@
 .tasks-header-content h1 {
   font-size: 32px;
   font-weight: 600;
-  color: #1a1a1a;
+  color: var(--text-primary);
   margin: 0 0 4px 0;
 }
 
@@ -57,14 +57,14 @@
 
 .tasks-alert-error {
   background: linear-gradient(135deg, #fff5f5 0%, #ffebee 100%);
-  color: #c62828;
-  border: 1px solid #ef9a9a;
+  color: var(--status-rejected-text);
+  border: 1px solid var(--status-rejected-text);
 }
 
 .tasks-alert-success {
   background: linear-gradient(135deg, #f1f8f4 0%, #e8f5e9 100%);
-  color: #2e7d32;
-  border: 1px solid #a5d6a7;
+  color: var(--status-success-text);
+  border: 1px solid var(--status-success-text);
 }
 
 .tasks-alert span {
@@ -84,7 +84,7 @@
 .tasks-alert-success span::before {
   content: '✓';
   background: #4caf50;
-  color: white;
+  color: var(--background-secondary);
   border-radius: 50%;
   display: flex;
   align-items: center;
@@ -98,7 +98,7 @@
 .tasks-alert-error span::before {
   content: '✕';
   background: #ef5350;
-  color: white;
+  color: var(--background-secondary);
   border-radius: 50%;
   display: flex;
   align-items: center;
@@ -143,7 +143,7 @@
 }
 
 .tasks-stat-card {
-  background: #ffffff;
+  background: var(--background-secondary);
   border-radius: 12px;
   padding: 24px;
   display: flex;
@@ -169,11 +169,11 @@
 }
 
 .tasks-stat-pending .tasks-stat-icon {
-  background: #fff3e0;
+  background: var(--status-pending);
 }
 
 .tasks-stat-submitted .tasks-stat-icon {
-  background: #e8f5e9;
+  background: var(--status-success);
 }
 
 .tasks-stat-info {
@@ -208,7 +208,7 @@
 .tasks-spinner {
   width: 40px;
   height: 40px;
-  border: 4px solid #e0e0e0;
+  border: 4px solid var(--border-color);
   border-top-color: #5b8def;
   border-radius: 50%;
   animation: tasks-spin 0.8s linear infinite;
@@ -225,7 +225,7 @@
 .tasks-empty {
   text-align: center;
   padding: 80px 20px;
-  background: #ffffff;
+  background: var(--background-secondary);
   border-radius: 12px;
 }
 
@@ -238,7 +238,7 @@
 .tasks-empty h3 {
   font-size: 20px;
   font-weight: 600;
-  color: #1a1a1a;
+  color: var(--text-primary);
   margin: 0 0 8px 0;
 }
 
@@ -258,7 +258,7 @@
 .tasks-section-title {
   font-size: 20px;
   font-weight: 600;
-  color: #1a1a1a;
+  color: var(--text-primary);
   margin: 0 0 20px 0;
   padding-left: 12px;
   border-left: 4px solid #5b8def;
@@ -276,7 +276,7 @@
    ============================================ */
 
 .tasks-post-card {
-  background: #ffffff;
+  background: var(--background-secondary);
   border-radius: 12px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
   transition: box-shadow 0.2s;
@@ -290,7 +290,7 @@
 }
 
 .tasks-post-card.submitted-post {
-  background: #f8f9fa;
+  background: var(--background-secondary);
 }
 
 /* Post Header */
@@ -299,7 +299,7 @@
   justify-content: space-between;
   align-items: flex-start;
   padding: 16px 20px;
-  border-bottom: 1px solid #e4e6eb;
+  border-bottom: 1px solid var(--border-color);
 }
 
 .post-author {
@@ -314,7 +314,7 @@
   height: 40px;
   border-radius: 50%;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
+  color: var(--background-secondary);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -332,12 +332,12 @@
 .author-name {
   font-size: 15px;
   font-weight: 600;
-  color: #1a1a1a;
+  color: var(--text-primary);
 }
 
 .post-timestamp {
   font-size: 13px;
-  color: #65676b;
+  color: var(--text-secondary);
 }
 
 /* Status Badges */
@@ -355,28 +355,28 @@
 }
 
 .status-pending {
-  background: #fff3e0;
+  background: var(--status-pending);
   color: #e65100;
 }
 
 .status-pending-review {
-  background: #e3f2fd;
-  color: #1565c0;
+  background: var(--status-review);
+  color: var(--status-review-text);
 }
 
 .status-due-soon {
-  background: #fff3e0;
+  background: var(--status-pending);
   color: #f57c00;
 }
 
 .status-overdue {
-  background: #ffebee;
-  color: #c62828;
+  background: var(--status-rejected);
+  color: var(--status-rejected-text);
 }
 
 .status-submitted {
-  background: #e8f5e9;
-  color: #2e7d32;
+  background: var(--status-success);
+  color: var(--status-success-text);
 }
 
 /* Post Content */
@@ -390,7 +390,7 @@
 .post-title {
   font-size: 18px;
   font-weight: 600;
-  color: #1a1a1a;
+  color: var(--text-primary);
   margin: 0 0 8px 0;
   min-height: 27px;
 }
@@ -409,7 +409,7 @@
   flex-direction: column;
   gap: 8px;
   padding: 12px;
-  background: #f7f8fa;
+  background: var(--background-secondary);
   border-radius: 8px;
   margin-bottom: 16px;
 }
@@ -419,7 +419,7 @@
   align-items: center;
   gap: 8px;
   font-size: 14px;
-  color: #1a1a1a;
+  color: var(--text-primary);
 }
 
 .detail-icon {
@@ -436,7 +436,7 @@
 }
 
 .days-indicator.overdue {
-  color: #c62828;
+  color: var(--status-rejected-text);
 }
 
 .days-indicator.urgent {
@@ -451,7 +451,7 @@
   width: 100%;
   padding: 12px;
   background: #1877f2;
-  color: white;
+  color: var(--background-secondary);
   border: none;
   border-radius: 6px;
   font-size: 15px;
@@ -465,7 +465,7 @@
 }
 
 .submit-assignment-btn:disabled {
-  background: #e4e6eb;
+  background: var(--background-secondary);
   color: #bcc0c4;
   cursor: not-allowed;
 }
@@ -475,25 +475,25 @@
   align-items: center;
   gap: 8px;
   padding: 12px;
-  background: #e8f5e9;
+  background: var(--status-success);
   border-radius: 8px;
   font-size: 14px;
-  color: #2e7d32;
+  color: var(--status-success-text);
   margin-bottom: 12px;
 }
 
 /* Attached File Section */
 .attached-file-section {
   padding: 12px;
-  background: #f0f7ff;
+  background: var(--status-review);
   border-radius: 8px;
-  border: 1px solid #e3f2fd;
+  border: 1px solid var(--status-review-text);
 }
 
 .attached-file-label {
   font-size: 13px;
   font-weight: 600;
-  color: #1565c0;
+  color: var(--status-review-text);
   margin-bottom: 8px;
 }
 
@@ -506,7 +506,7 @@
 
 .attached-file-info .file-name {
   font-size: 14px;
-  color: #1a1a1a;
+  color: var(--text-primary);
   font-weight: 500;
   flex: 1;
   overflow: hidden;
@@ -517,7 +517,7 @@
 .open-file-btn {
   padding: 6px 16px;
   background: #1877f2;
-  color: white;
+  color: var(--background-secondary);
   border: none;
   border-radius: 6px;
   font-size: 13px;
@@ -534,7 +534,7 @@
 /* Post Footer - Comment Button */
 .post-footer {
   padding: 8px 20px;
-  border-top: 1px solid #e4e6eb;
+  border-top: 1px solid var(--border-color);
 }
 
 .comment-toggle-btn {
@@ -542,7 +542,7 @@
   padding: 8px;
   background: none;
   border: none;
-  color: #65676b;
+  color: var(--text-secondary);
   font-size: 15px;
   font-weight: 600;
   cursor: pointer;
@@ -555,7 +555,7 @@
 }
 
 .comment-toggle-btn:hover {
-  background: #f2f3f5;
+  background: var(--background-secondary);
 }
 
 /* ============================================
@@ -563,7 +563,7 @@
    ============================================ */
 
 .comments-section {
-  background: #ffffff;
+  background: var(--background-secondary);
   padding: 20px;
   border-left: none !important;
   border-right: none !important;
@@ -589,7 +589,7 @@
   height: 32px;
   border-radius: 50%;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
+  color: var(--background-secondary);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -621,20 +621,20 @@
 .comment-author {
   font-weight: 600;
   font-size: 14px;
-  color: #1c1e21;
+  color: var(--text-primary);
 }
 
 .comment-time {
-  color: #65676b;
+  color: var(--text-secondary);
   font-size: 12px;
 }
 
 .comment-text {
-  background: #f7f7f7;
+  background: var(--background-secondary);
   padding: 12px;
   border-radius: 12px;
   font-size: 14px;
-  color: #1c1e21;
+  color: var(--text-primary);
   line-height: 1.5;
   margin-bottom: 8px;
   white-space: pre-wrap;
@@ -651,13 +651,13 @@
 
 .comment-timestamp {
   font-size: 12px;
-  color: #65676b;
+  color: var(--text-secondary);
 }
 
 .comment-action-btn {
   font-size: 12px;
   font-weight: 600;
-  color: #65676b;
+  color: var(--text-secondary);
   background: none;
   border: none;
   cursor: pointer;
@@ -666,17 +666,17 @@
 }
 
 .comment-action-btn:hover {
-  color: #1a1a1a;
+  color: var(--text-primary);
   text-decoration: underline;
 }
 
 .view-replies-btn {
-  color: #65676b;
+  color: var(--text-secondary);
   font-weight: 600;
 }
 
 .view-replies-btn:hover {
-  color: #1a1a1a;
+  color: var(--text-primary);
 }
 
 /* Replies Section */
@@ -702,20 +702,20 @@
 .reply-author {
   font-weight: 600;
   font-size: 13px;
-  color: #1c1e21;
+  color: var(--text-primary);
 }
 
 .reply-time {
-  color: #65676b;
+  color: var(--text-secondary);
   font-size: 11px;
 }
 
 .reply-text {
-  background: #f7f7f7;
+  background: var(--background-secondary);
   padding: 10px;
   border-radius: 10px;
   font-size: 13px;
-  color: #1c1e21;
+  color: var(--text-primary);
   line-height: 1.5;
   white-space: pre-wrap;
   word-wrap: break-word;
@@ -758,15 +758,15 @@
   display: flex;
   gap: 8px;
   align-items: center;
-  background: #ffffff;
+  background: var(--background-secondary);
   border-radius: 20px;
   padding: 8px 12px;
-  border: 1px solid #e4e6eb;
+  border: 1px solid var(--border-color);
   transition: border-color 0.2s;
 }
 
 .comment-input-wrapper:focus-within {
-  border-color: #1877f2;
+  border-color: var(--status-review-text);
 }
 
 .comment-input {
@@ -774,7 +774,7 @@
   border: none;
   outline: none;
   font-size: 15px;
-  color: #1a1a1a;
+  color: var(--text-primary);
   background: transparent;
   padding: 0;
 }
@@ -788,7 +788,7 @@
   height: 32px;
   border-radius: 50%;
   background: #1877f2;
-  color: white;
+  color: var(--background-secondary);
   border: none;
   display: flex;
   align-items: center;
@@ -804,7 +804,7 @@
 }
 
 .comment-submit-btn:disabled {
-  background: #e4e6eb;
+  background: var(--background-secondary);
   color: #bcc0c4;
   cursor: not-allowed;
 }
@@ -830,7 +830,7 @@
 }
 
 .tasks-modal {
-  background: #ffffff;
+  background: var(--background-secondary);
   border-radius: 12px;
   width: 100%;
   max-width: 600px;
@@ -864,7 +864,7 @@
 .tasks-modal-header h3 {
   font-size: 20px;
   font-weight: 600;
-  color: #1a1a1a;
+  color: var(--text-primary);
   margin: 0;
 }
 
@@ -874,9 +874,9 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #f2f3f5;
+  background: var(--background-secondary);
   border: none;
-  color: #65676b;
+  color: var(--text-secondary);
   font-size: 24px;
   cursor: pointer;
   border-radius: 50%;
@@ -884,8 +884,8 @@
 }
 
 .tasks-modal-close:hover {
-  background: #e4e6eb;
-  color: #1a1a1a;
+  background: var(--background-secondary);
+  color: var(--text-primary);
 }
 
 .tasks-modal-body {
@@ -914,15 +914,15 @@
 
 .tasks-assignment-info {
   padding: 16px 20px;
-  background: #f8f9fa;
-  border-left: 4px solid #1877f2;
+  background: var(--background-secondary);
+  border-left: 4px solid var(--primary-color);
   border-radius: 8px;
 }
 
 .tasks-assignment-title {
   font-size: 16px;
   font-weight: 600;
-  color: #1a1a1a;
+  color: var(--text-primary);
   margin: 0 0 8px 0;
 }
 
@@ -942,7 +942,7 @@
 .tasks-selection-title {
   font-size: 15px;
   font-weight: 600;
-  color: #1a1a1a;
+  color: var(--text-primary);
   margin: 0;
 }
 
@@ -956,7 +956,7 @@
 .upload-label {
   font-size: 15px;
   font-weight: 600;
-  color: #1a1a1a;
+  color: var(--text-primary);
   margin: 0;
 }
 
@@ -976,16 +976,16 @@
 .file-upload-label {
   display: block;
   cursor: pointer;
-  border: 2px dashed #d1d5db;
+  border: 2px dashed var(--border-color);
   border-radius: 12px;
   padding: 32px 20px;
-  background: #f9fafb;
+  background: var(--background-secondary);
   transition: all 0.3s ease;
 }
 
 .file-upload-label:hover {
-  border-color: #1877f2;
-  background: #f0f7ff;
+  border-color: var(--status-review-text);
+  background: var(--status-review);
 }
 
 .file-upload-content {
@@ -1007,13 +1007,13 @@
 .upload-main-text {
   font-size: 15px;
   font-weight: 600;
-  color: #1a1a1a;
+  color: var(--text-primary);
   margin: 0 0 4px 0;
 }
 
 .upload-sub-text {
   font-size: 13px;
-  color: #6b7280;
+  color: var(--text-tertiary);
   margin: 0;
 }
 
@@ -1023,8 +1023,8 @@
   align-items: center;
   gap: 12px;
   padding: 14px 16px;
-  background: #f0f7ff;
-  border: 1px solid #bfdbfe;
+  background: var(--status-review);
+  border: 1px solid var(--status-review-text);
   border-radius: 10px;
 }
 
@@ -1042,7 +1042,7 @@
 .uploaded-file-preview .file-name {
   font-size: 14px;
   font-weight: 600;
-  color: #1a1a1a;
+  color: var(--text-primary);
   margin-bottom: 4px;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1051,7 +1051,7 @@
 
 .uploaded-file-preview .file-size {
   font-size: 13px;
-  color: #6b7280;
+  color: var(--text-tertiary);
 }
 
 /* Form Field Styles */
@@ -1064,7 +1064,7 @@
 .field-label {
   font-size: 14px;
   font-weight: 600;
-  color: #1a1a1a;
+  color: var(--text-primary);
 }
 
 .tasks-file-list {
@@ -1075,8 +1075,8 @@
 
 .team-task-attached-file .tasks-file-item {
   padding: 12px 16px;
-  background: #f7f8fa;
-  border: 2px solid #e4e6eb;
+  background: var(--background-secondary);
+  border: 2px solid var(--border-color);
   border-radius: 8px;
   cursor: pointer;
   transition: all 0.2s;
@@ -1087,13 +1087,13 @@
 }
 
 .tasks-file-item:hover {
-  border-color: #1877f2;
-  background: #f0f7ff;
+  border-color: var(--status-review-text);
+  background: var(--status-review);
 }
 
 .tasks-file-item.selected {
-  border-color: #1877f2;
-  background: #e7f3ff;
+  border-color: var(--status-review-text);
+  background: var(--status-review);
 }
 
 .tasks-file-details {
@@ -1104,7 +1104,7 @@
 .tasks-file-name {
   font-size: 14px;
   font-weight: 600;
-  color: #1a1a1a;
+  color: var(--text-primary);
   margin-bottom: 4px;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1113,13 +1113,13 @@
 
 .tasks-file-meta {
   font-size: 13px;
-  color: #65676b;
+  color: var(--text-secondary);
 }
 
 .tasks-radio {
   width: 20px;
   height: 20px;
-  border: 2px solid #bcc0c4;
+  border: 2px solid var(--border-color);
   border-radius: 50%;
   display: flex;
   align-items: center;
@@ -1129,7 +1129,7 @@
 }
 
 .tasks-file-item.selected .tasks-radio {
-  border-color: #1877f2;
+  border-color: var(--status-review-text);
 }
 
 .tasks-radio-dot {
@@ -1141,7 +1141,7 @@
 
 .tasks-no-files {
   padding: 24px;
-  background: #fff8e1;
+  background: var(--status-pending);
   border-radius: 8px;
   text-align: center;
 }
@@ -1159,11 +1159,11 @@
 
 .tasks-modal-footer {
   padding: 16px 24px;
-  border-top: 1px solid #e4e6eb;
+  border-top: 1px solid var(--border-color);
   display: flex;
   justify-content: flex-end;
   gap: 12px;
-  background: #f7f8fa;
+  background: var(--background-secondary);
 }
 
 .tasks-btn {
@@ -1177,17 +1177,17 @@
 }
 
 .tasks-btn-cancel {
-  background: #e4e6eb;
-  color: #1a1a1a;
+  background: var(--background-secondary);
+  color: var(--text-primary);
 }
 
 .tasks-btn-cancel:hover {
-  background: #d8dadf;
+  background: var(--background-secondary);
 }
 
 .tasks-btn-submit {
   background: #1877f2;
-  color: #ffffff;
+  color: var(--background-secondary);
 }
 
 .tasks-btn-submit:hover:not(:disabled) {
@@ -1195,7 +1195,7 @@
 }
 
 .tasks-btn-submit:disabled {
-  background: #e4e6eb;
+  background: var(--background-secondary);
   color: #bcc0c4;
   cursor: not-allowed;
 }
@@ -1204,66 +1204,66 @@
 .file-description-textarea {
   width: 100%;
   padding: 12px 14px;
-  border: 1px solid #d1d5db;
+  border: 1px solid var(--border-color);
   border-radius: 8px;
   font-size: 14px;
   font-family: inherit;
   line-height: 1.5;
   resize: vertical;
   min-height: 80px;
-  color: #1a1a1a !important;
-  background-color: #ffffff !important;
+  color: var(--text-primary) !important;
+  background-color: var(--background-secondary) !important;
   transition: border-color 0.2s, box-shadow 0.2s;
 }
 
 .file-description-textarea:focus {
   outline: none;
-  border-color: #1877f2;
+  border-color: var(--status-review-text);
   box-shadow: 0 0 0 3px rgba(24, 119, 242, 0.1);
-  color: #1a1a1a !important;
+  color: var(--text-primary) !important;
 }
 
 .file-description-textarea::placeholder {
-  color: #9ca3af !important;
+  color: var(--text-tertiary) !important;
 }
 
 .file-description-textarea:disabled {
-  background-color: #f3f4f6;
+  background-color: var(--background-secondary);
   cursor: not-allowed;
   opacity: 0.6;
 }
 
 /* Global textarea color fix - Ensure all textareas have visible text */
 textarea {
-  color: #1a1a1a !important;
+  color: var(--text-primary) !important;
 }
 
 textarea::placeholder {
-  color: #9ca3af !important;
+  color: var(--text-tertiary) !important;
 }
 
 textarea:focus {
-  color: #1a1a1a !important;
+  color: var(--text-primary) !important;
 }
 
 /* File Description Text */
 .file-description-text {
-  color: #1F2937 !important;
+  color: var(--text-primary) !important;
 }
 
 /* Submitted Files Section with Blue Background */
 .submitted-files-section {
-  background: #EFF6FF;
+  background: var(--status-review);
   border-radius: 12px;
   padding: 20px;
   margin-bottom: 16px;
-  border: 1px solid #BFDBFE;
+  border: 1px solid var(--status-review-text);
 }
 
 .submitted-files-header {
   font-size: 14px;
   font-weight: 600;
-  color: #1e40af;
+  color: var(--status-review-text);
   margin-bottom: 16px;
   display: flex;
   align-items: center;
@@ -1271,13 +1271,13 @@ textarea:focus {
 }
 
 .submitted-file-card {
-  background: #DBEAFE;
-  border: 1px solid #93C5FD;
+  background: var(--background-primary);
+  border: 1px solid var(--border-color);
   border-radius: 10px;
   padding: 16px;
   margin-bottom: 12px;
   transition: all 0.2s;
-  box-shadow: 0 1px 2px rgba(59, 130, 246, 0.1);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
   display: block;
   width: 100%;
   box-sizing: border-box;
@@ -1288,21 +1288,21 @@ textarea:focus {
 }
 
 .submitted-file-card:hover {
-  background-color: #BFDBFE !important;
-  border-color: #60A5FA;
-  box-shadow: 0 2px 4px rgba(59, 130, 246, 0.15);
+  background-color: var(--background-secondary) !important;
+  border-color: var(--border-color);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.12);
 }
 
 /* Opened / already-viewed file card */
 .submitted-file-card.file-card-opened {
-  background: #f0fdf4;
-  border-color: #86efac;
+  background: var(--status-approved);
+  border-color: var(--status-approved-text);
   border-left: 3px solid #16a34a;
 }
 
 .submitted-file-card.file-card-opened:hover {
-  background-color: #dcfce7 !important;
-  border-color: #4ade80;
+  background-color: var(--status-approved) !important;
+  border-color: var(--status-approved-text);
 }
 
 /* ============================================
@@ -1393,22 +1393,22 @@ textarea:focus {
 }
 
 .role-badge.user {
-  border-color: #059669;
-  color: #059669;
+  border-color: var(--status-approved-text);
+  color: var(--status-approved-text);
   background: transparent !important;
   background-color: transparent !important;
 }
 
 .role-badge.team-leader {
-  border-color: #1d4ed8;
-  color: #1d4ed8;
+  border-color: var(--status-review-text);
+  color: var(--status-review-text);
   background: transparent !important;
   background-color: transparent !important;
 }
 
 .role-badge.admin {
-  border-color: #dc2626;
-  color: #dc2626;
+  border-color: var(--status-rejected-text);
+  color: var(--status-rejected-text);
   background: transparent !important;
   background-color: transparent !important;
 }
@@ -1426,12 +1426,12 @@ textarea:focus {
 .comment-time,
 .reply-time {
   font-size: 12px;
-  color: #65676b;
+  color: var(--text-secondary);
 }
 
-/* Submit Button Label - Force white text */
+/* Submit Button Label - Force var(--background-secondary) text */
 .submit-button-label {
-  color: #ffffff !important;
+  color: var(--background-secondary) !important;
 }
 
 /* See More/Less Button - Admin Style (Same as TeamTasksTab) */
@@ -1465,8 +1465,8 @@ textarea:focus {
   height: 36px;
   border-radius: 10px;
   border: none;
-  background-color: #fee2e2;
-  color: #dc2626;
+  background-color: var(--status-rejected);
+  color: var(--status-rejected-text);
   font-size: 20px;
   font-weight: 300;
   cursor: pointer;
@@ -1478,8 +1478,8 @@ textarea:focus {
 }
 
 .folder-remove-btn:hover {
-  background-color: #fecaca;
-  color: #b91c1c;
+  background-color: var(--status-rejected);
+  color: var(--status-rejected-text);
 }
 
 /* Hierarchy Tree Lines */
@@ -1503,7 +1503,7 @@ textarea:focus {
   top: -7px; /* Connect to previous item */
   bottom: -7px; /* Connect to next item */
   width: 2px;
-  background-color: #cbd5e1; /* slate-300 */
+  background-color: var(--background-secondary); /* slate-300 */
 }
 
 .tl-tree-line-empty {
@@ -1524,7 +1524,7 @@ textarea:focus {
   top: -7px;
   bottom: -7px;
   width: 2px;
-  background-color: #cbd5e1;
+  background-color: var(--background-secondary);
 }
 
 .tl-tree-line-connector::after {
@@ -1534,7 +1534,7 @@ textarea:focus {
   top: 50%;
   width: 15px;
   height: 2px;
-  background-color: #cbd5e1;
+  background-color: var(--background-secondary);
 }
 
 /* For the last item in a folder, stop the vertical line at the horizontal connector */
@@ -1563,7 +1563,7 @@ textarea:focus {
   }
   50% {
     box-shadow: 0 0 0 6px rgba(99, 102, 241, 0.4);
-    border-color: #4f46e5;
+    border-color: var(--status-review-text);
   }
 }
 
@@ -1582,7 +1582,7 @@ textarea:focus {
   }
   50% {
     background: rgba(99, 102, 241, 0.16);
-    border-color: #4f46e5;
+    border-color: var(--status-review-text);
   }
 }
 
@@ -1597,11 +1597,11 @@ textarea:focus {
 @keyframes userFileHighlightRejected {
   0%, 100% {
     background: rgba(220, 38, 38, 0.08);
-    border-color: #dc2626;
+    border-color: var(--status-rejected-text);
   }
   50% {
     background: rgba(220, 38, 38, 0.16);
-    border-color: #b91c1c;
+    border-color: var(--status-rejected-text);
   }
 }
 
@@ -1616,10 +1616,27 @@ textarea:focus {
 @keyframes userFileHighlightRevision {
   0%, 100% {
     background: rgba(245, 158, 11, 0.08);
-    border-color: #f59e0b;
+    border-color: var(--status-pending-text);
   }
   50% {
     background: rgba(245, 158, 11, 0.16);
-    border-color: #d97706;
+    border-color: var(--status-pending-text);
   }
+}
+/* Forced text color for submitted file cards */
+:root[data-theme="dark"] body .submitted-file-card [style*="color: 'var(--text-primary)'"] {
+  color: #F9FAFB !important;
+}
+:root[data-theme="light"] body .submitted-file-card [style*="color: 'var(--text-primary)'"] {
+  color: #111827 !important;
+}
+
+:root[data-theme="dark"] body .submitted-file-card div {
+  color: #F9FAFB !important;
+}
+:root[data-theme="light"] body .submitted-file-card div {
+  color: #111827 !important;
+}
+:root[data-theme="dark"] body .submitted-file-card div[style*="color: var(--text-tertiary)"], :root[data-theme="dark"] body .submitted-file-card span[style*="color: var(--text-tertiary)"] {
+  color: #9CA3AF !important;
 }

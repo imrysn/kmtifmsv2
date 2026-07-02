@@ -52,7 +52,7 @@
     right: 0;
     max-height: 250px;
     overflow-y: auto;
-    background: #ffffff;
+    background: var(--background-secondary);
     border: 1px solid var(--border-color);
     border-radius: 8px;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
@@ -79,8 +79,8 @@
     cursor: pointer;
     width: 12px;
     height: 12px;
-    background: white;
-    border: 1px solid #000000;
+    background: var(--background-secondary);
+    border: 1px solid var(--text-primary);
     border-radius: 3px;
     appearance: none;
     -webkit-appearance: none;
@@ -89,8 +89,8 @@
 }
 
 .dropdown-item input[type="checkbox"]:checked {
-    background: white;
-    border-color: #000000;
+    background: var(--background-secondary);
+    border-color: var(--text-primary);
 }
 
 .dropdown-item input[type="checkbox"]:checked::after {
@@ -99,7 +99,7 @@
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
-    color: #000000;
+    color: var(--text-primary);
     font-size: 12px;
     font-weight: bold;
 }

@@ -207,7 +207,7 @@ const MyFilesTabSkeleton = () => (
 
     {/* Files Table */}
     <div style={{ 
-      background: 'white',
+      background: 'var(--background-secondary)',
       border: '1px solid #d5d5d9',
       borderRadius: '12px',
       overflow: 'hidden'
@@ -218,7 +218,7 @@ const MyFilesTabSkeleton = () => (
         gridTemplateColumns: '1fr 180px 120px 220px 120px',
         gap: '30px',
         padding: '14px 20px',
-        background: 'white',
+        background: 'var(--background-secondary)',
         borderBottom: '1px solid #d5d5d9'
       }}>
         {['FILENAME', 'DATE & TIME', 'TEAM', 'STATUS', 'ACTIONS'].map((header, i) => (
@@ -271,7 +271,7 @@ const MyFilesTabSkeleton = () => (
       justifyContent: 'space-between',
       alignItems: 'center',
       padding: '20px 24px',
-      background: 'white',
+      background: 'var(--background-secondary)',
       borderTop: '1px solid #e5e5ea',
       marginTop: '-1px',
       borderRadius: '0 0 12px 12px'

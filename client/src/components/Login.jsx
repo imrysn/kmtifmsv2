@@ -296,7 +296,7 @@ const Login = ({ onLogin }) => {
               )}
 
               {forgotPasswordMessage && (
-                <div className="api-error" style={{ backgroundColor: '#DCFCE7', color: '#166534', borderColor: '#BBF7D0' }}>
+                <div className="api-error" style={{ backgroundColor: 'var(--status-approved)', color: 'var(--status-approved-text)', borderColor: 'var(--status-approved-text)' }}>
                   {forgotPasswordMessage}
                 </div>
               )}

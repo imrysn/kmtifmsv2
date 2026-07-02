@@ -208,7 +208,7 @@ const FileReviewTab = ({
                       )}
                       {file.due_date && (
                         <span className="tl-badge" style={{
-                          background: new Date(file.due_date) < new Date() ? 'var(--status-rejected)' : '#E0E7FF',
+                          background: new Date(file.due_date) < new Date() ? 'var(--status-rejected)' : 'var(--status-review)',
                           color: new Date(file.due_date) < new Date() ? 'var(--status-rejected-text)' : 'var(--primary-color)',
                           fontSize: '11px',
                           padding: '4px 8px'

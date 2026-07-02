@@ -1572,7 +1572,7 @@ export const FILE_TAGS = [
   "Wheel Shaft",
   "Wheels",
   "Whirlstop",
-  "White",
+  "var(--background-secondary)",
   "Wind Jet Blow-Off Nozzle",
   "Window Frame",
   "Wiper",

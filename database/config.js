@@ -24,15 +24,15 @@ const MYSQL_CONFIG = {
   password: process.env.DB_PASSWORD || '',
   database: process.env.DB_NAME || (isProduction ? 'kmtifms' : 'kmtifms_dev'),
   waitForConnections: true,
-  connectionLimit: 100,           // Use HEAD: NAS needs more headroom
-  queueLimit: 100,              // Use HEAD: More requests can wait
-  acquireTimeout: 10000,        // Use Incoming: Max time to get a conn from pool
-  connectTimeout: 15000,        // Use HEAD: NAS can be slow to establish handshake
+  connectionLimit: 20,           // Optimized for NAS connection limits
+  queueLimit: 0,                 // 0 = unlimited queueing in memory instead of failing
+  acquireTimeout: 10000,        // Max time to get a conn from pool
+  connectTimeout: 15000,        // Handshake timeout
   enableKeepAlive: true,
-  keepAliveInitialDelay: 10000, // Use HEAD: Keep the NAS awake
-  charset: 'utf8mb4',           // Use Incoming: Critical for Japanese characters
-  maxIdle: 10,                  // Use Incoming: Better resource cleanup
-  idleTimeout: 60000            // Use Incoming: Close stale connections after 1m
+  keepAliveInitialDelay: 10000, // Keep connection active
+  charset: 'utf8mb4',           
+  maxIdle: 10,                  // Cleanup idle connections
+  idleTimeout: 60000            
 };
 
 const currentConfig = MYSQL_CONFIG;

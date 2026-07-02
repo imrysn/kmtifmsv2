@@ -42,43 +42,43 @@ const FolderPathErrorModal = ({ isOpen, onClose, message, storageLabel }) => {
       onClick={onClose}
     >
       <div
-        style={{ background: '#fff', borderRadius: '20px', boxShadow: '0 20px 60px rgba(0,0,0,0.18)', width: '380px', maxWidth: '95vw', overflow: 'hidden' }}
+        style={{ background: 'var(--background-secondary)', borderRadius: '20px', boxShadow: '0 20px 60px rgba(0,0,0,0.18)', width: '380px', maxWidth: '95vw', overflow: 'hidden' }}
         onClick={e => e.stopPropagation()}
       >
         <div style={{ background: 'linear-gradient(135deg, #f97316, #ea580c)', padding: '20px 22px', display: 'flex', alignItems: 'center', gap: '14px' }}>
           <div style={{ width: '44px', height: '44px', borderRadius: '12px', background: 'rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--background-secondary)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
               <line x1="12" y1="10" x2="12" y2="14"/><line x1="12" y1="17" x2="12.01" y2="17"/>
             </svg>
           </div>
           <div>
-            <div style={{ fontWeight: '700', fontSize: '16px', color: '#fff', lineHeight: 1.2 }}>Folder No Longer Available</div>
+            <div style={{ fontWeight: '700', fontSize: '16px', color: 'var(--background-secondary)', lineHeight: 1.2 }}>Folder No Longer Available</div>
             <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.8)', marginTop: '3px' }}>kmti-file-management</div>
           </div>
         </div>
         <div style={{ padding: '22px' }}>
-          <div style={{ background: '#fff9f0', border: '1px solid #fed7aa', borderRadius: '12px', padding: '14px 16px', display: 'flex', alignItems: 'flex-start', gap: '10px', marginBottom: '16px' }}>
+          <div style={{ background: 'var(--status-pending)', border: '1px solid var(--status-pending-text)', borderRadius: '12px', padding: '14px 16px', display: 'flex', alignItems: 'flex-start', gap: '10px', marginBottom: '16px' }}>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#ea580c" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: '1px' }}>
               <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
             </svg>
-            <p style={{ margin: 0, fontSize: '14px', color: '#7c2d12', lineHeight: 1.5 }}>
+            <p style={{ margin: 0, fontSize: '14px', color: 'var(--status-pending-text)', lineHeight: 1.5 }}>
               {message || 'Unable to open folder path. This task is already done — the reference folder has been deleted from the NAS.'}
             </p>
           </div>
           {storageLabel && (
-            <div style={{ background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: '10px', padding: '10px 14px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6b7280" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <div style={{ background: 'var(--background-secondary)', border: '1px solid #e5e7eb', borderRadius: '10px', padding: '10px 14px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--text-tertiary)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/>
               </svg>
-              <span style={{ fontSize: '13px', color: '#374151', fontWeight: '500' }}>{storageLabel}</span>
+              <span style={{ fontSize: '13px', color: 'var(--text-secondary)', fontWeight: '500' }}>{storageLabel}</span>
             </div>
           )}
         </div>
         <div style={{ padding: '0 22px 20px', display: 'flex', justifyContent: 'flex-end' }}>
           <button
             onClick={onClose}
-            style={{ padding: '10px 28px', borderRadius: '10px', border: 'none', background: 'linear-gradient(135deg, #f97316, #ea580c)', color: '#fff', fontSize: '14px', fontWeight: '700', cursor: 'pointer', boxShadow: '0 4px 12px rgba(234,88,12,0.35)' }}
+            style={{ padding: '10px 28px', borderRadius: '10px', border: 'none', background: 'linear-gradient(135deg, #f97316, #ea580c)', color: 'var(--background-secondary)', fontSize: '14px', fontWeight: '700', cursor: 'pointer', boxShadow: '0 4px 12px rgba(234,88,12,0.35)' }}
           >
             OK
           </button>
@@ -133,7 +133,7 @@ const FolderActionDropdown = ({ assignment, folderName, folderFiles, handleDownl
             maxWidth: 'fit-content',
             zIndex: 99999, 
             whiteSpace: 'normal',
-            background: 'white',
+            background: 'var(--background-secondary)',
             border: '1px solid #e5e7eb',
             borderRadius: '8px',
             boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
@@ -199,13 +199,13 @@ const FolderActionDropdown = ({ assignment, folderName, folderFiles, handleDownl
               }}
             >
               <svg width="15" height="15" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ flexShrink: 0 }}>
-                <path d="M10 2C5.58172 2 2 5.58172 2 10C2 14.4183 5.58172 18 10 18C14.4183 18 18 14.4183 18 10C18 5.58172 14.4183 2 10 2Z" fill="#16a34a" opacity="0.15"/>
-                <path d="M10 2C5.58172 2 2 5.58172 2 10C2 14.4183 5.58172 18 10 18C14.4183 18 18 14.4183 18 10C18 5.58172 14.4183 2 10 2Z" stroke="#16a34a" strokeWidth="1.5"/>
-                <path d="M6.5 10L9 12.5L13.5 7.5" stroke="#16a34a" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+                <path d="M10 2C5.58172 2 2 5.58172 2 10C2 14.4183 5.58172 18 10 18C14.4183 18 18 14.4183 18 10C18 5.58172 14.4183 2 10 2Z" fill='var(--status-approved-text)' opacity="0.15"/>
+                <path d="M10 2C5.58172 2 2 5.58172 2 10C2 14.4183 5.58172 18 10 18C14.4183 18 18 14.4183 18 10C18 5.58172 14.4183 2 10 2Z" stroke='var(--status-approved-text)' strokeWidth="1.5"/>
+                <path d="M6.5 10L9 12.5L13.5 7.5" stroke='var(--status-approved-text)' strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>
-              <span style={{ color: '#16a34a' }}>Approve</span>
-              <span style={{ color: '#9ca3af' }}> / </span>
-              <span style={{ color: '#dc2626' }}>Reject Folder</span>
+              <span style={{ color: 'var(--status-approved-text)' }}>Approve</span>
+              <span style={{ color: 'var(--text-tertiary)' }}> / </span>
+              <span style={{ color: 'var(--status-rejected-text)' }}>Reject Folder</span>
             </button>
           )}
         </div>,
@@ -264,7 +264,7 @@ const FileActionDropdown = ({ assignment, submission, isReference, handleDownloa
             maxWidth: 'fit-content',
             zIndex: 99999, 
             whiteSpace: 'normal',
-            background: 'white',
+            background: 'var(--background-secondary)',
             border: '1px solid #e5e7eb',
             borderRadius: '8px',
             boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
@@ -1080,15 +1080,15 @@ const AssignmentsTab = ({
         </div>
 
         {/* Tasks / Done Tasks Toggle */}
-        <div style={{ display: 'flex', gap: '0', marginBottom: '18px', background: '#f3f4f6', borderRadius: '10px', padding: '4px', width: 'fit-content' }}>
+        <div style={{ display: 'flex', gap: '0', marginBottom: '18px', background: 'var(--background-secondary)', borderRadius: '10px', padding: '4px', width: 'fit-content' }}>
           <button
             onClick={() => setActiveTaskTab('tasks')}
             style={{
               padding: '7px 22px', borderRadius: '8px', border: 'none',
               fontWeight: '600', fontSize: '13.5px', cursor: 'pointer',
               transition: 'all 0.18s',
-              background: activeTaskTab === 'tasks' ? '#fff' : 'transparent',
-              color: activeTaskTab === 'tasks' ? '#111827' : '#6b7280',
+              background: activeTaskTab === 'tasks' ? 'var(--background-primary)' : 'transparent',
+              color: activeTaskTab === 'tasks' ? 'var(--text-primary)' : 'var(--text-tertiary)',
               boxShadow: activeTaskTab === 'tasks' ? '0 1px 4px rgba(0,0,0,0.10)' : 'none',
               display: 'flex', alignItems: 'center', gap: '6px',
             }}
@@ -1097,8 +1097,8 @@ const AssignmentsTab = ({
             Tasks
             <span style={{
               marginLeft: '7px', fontSize: '12px', fontWeight: '700',
-              background: activeTaskTab === 'tasks' ? '#e0e7ff' : '#e5e7eb',
-              color: activeTaskTab === 'tasks' ? '#4338ca' : '#9ca3af',
+              background: activeTaskTab === 'tasks' ? 'var(--status-review)' : '#e5e7eb',
+              color: activeTaskTab === 'tasks' ? '#4338ca' : 'var(--text-tertiary)',
               padding: '1px 8px', borderRadius: '10px'
             }}>
               {assignments.filter(a => a.status !== 'completed' && (teamFilter === 'all' || (a.team || 'IT Dept') === teamFilter)).length}
@@ -1110,8 +1110,8 @@ const AssignmentsTab = ({
               padding: '7px 22px', borderRadius: '8px', border: 'none',
               fontWeight: '600', fontSize: '13.5px', cursor: 'pointer',
               transition: 'all 0.18s',
-              background: activeTaskTab === 'done' ? '#fff' : 'transparent',
-              color: activeTaskTab === 'done' ? '#111827' : '#6b7280',
+              background: activeTaskTab === 'done' ? 'var(--background-primary)' : 'transparent',
+              color: activeTaskTab === 'done' ? 'var(--text-primary)' : 'var(--text-tertiary)',
               boxShadow: activeTaskTab === 'done' ? '0 1px 4px rgba(0,0,0,0.10)' : 'none',
               display: 'flex', alignItems: 'center', gap: '6px',
             }}
@@ -1120,8 +1120,8 @@ const AssignmentsTab = ({
             Done Tasks
             <span style={{
               marginLeft: '7px', fontSize: '12px', fontWeight: '700',
-              background: activeTaskTab === 'done' ? '#dcfce7' : '#e5e7eb',
-              color: activeTaskTab === 'done' ? '#15803d' : '#9ca3af',
+              background: activeTaskTab === 'done' ? 'var(--status-approved)' : '#e5e7eb',
+              color: activeTaskTab === 'done' ? 'var(--status-approved-text)' : 'var(--text-tertiary)',
               padding: '1px 8px', borderRadius: '10px'
             }}>
               {assignments.filter(a => a.status === 'completed' && (teamFilter === 'all' || (a.team || 'IT Dept') === teamFilter)).length}
@@ -1139,9 +1139,9 @@ const AssignmentsTab = ({
           const palette = [
             { bg: '#7c3aed', shadow: 'rgba(124,58,237,0.30)', dot: '#7c3aed' },
             { bg: '#0284c7', shadow: 'rgba(2,132,199,0.30)',   dot: '#0284c7' },
-            { bg: '#059669', shadow: 'rgba(5,150,105,0.30)',   dot: '#059669' },
-            { bg: '#d97706', shadow: 'rgba(217,119,6,0.30)',   dot: '#d97706' },
-            { bg: '#dc2626', shadow: 'rgba(220,38,38,0.30)',   dot: '#dc2626' },
+            { bg: 'var(--status-approved-text)', shadow: 'rgba(5,150,105,0.30)',   dot: 'var(--status-approved-text)' },
+            { bg: 'var(--status-pending-text)', shadow: 'rgba(217,119,6,0.30)',   dot: 'var(--status-pending-text)' },
+            { bg: 'var(--status-rejected-text)', shadow: 'rgba(220,38,38,0.30)',   dot: 'var(--status-rejected-text)' },
             { bg: '#db2777', shadow: 'rgba(219,39,119,0.30)',  dot: '#db2777' },
           ]
           const filterOptions = [
@@ -1150,13 +1150,13 @@ const AssignmentsTab = ({
           ]
           return (
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px', flexWrap: 'wrap' }}>
-              <span style={{ fontSize: '12.5px', fontWeight: '600', color: '#6b7280', letterSpacing: '0.03em', userSelect: 'none' }}>Filter by team:</span>
-              <div style={{ display: 'flex', gap: '0', background: '#f3f4f6', borderRadius: '10px', padding: '3px', flexWrap: 'wrap' }}>
+              <span style={{ fontSize: '12.5px', fontWeight: '600', color: 'var(--text-tertiary)', letterSpacing: '0.03em', userSelect: 'none' }}>Filter by team:</span>
+              <div style={{ display: 'flex', gap: '0', background: 'var(--background-secondary)', borderRadius: '10px', padding: '3px', flexWrap: 'wrap' }}>
                 {filterOptions.map(opt => {
                   const isActive = teamFilter === opt.value
                   const c = opt.color
-                  const activeBg = c && isActive ? c.bg : (isActive ? '#fff' : 'transparent')
-                  const activeColor = c && isActive ? '#fff' : (isActive ? '#111827' : '#6b7280')
+                  const activeBg = c && isActive ? c.bg : (isActive ? 'var(--background-primary)' : 'transparent')
+                  const activeColor = c && isActive ? 'var(--background-secondary)' : (isActive ? 'var(--text-primary)' : 'var(--text-tertiary)')
                   const activeShadow = c && isActive ? `0 2px 8px ${c.shadow}` : (isActive ? '0 1px 4px rgba(0,0,0,0.10)' : 'none')
                   return (
                     <button
@@ -1199,8 +1199,8 @@ const AssignmentsTab = ({
               width: '100%', boxSizing: 'border-box',
               padding: '8px 28px 8px 28px',
               border: '1.5px solid #e8eaed', borderRadius: '8px',
-              fontSize: '13.5px', color: '#374151',
-              outline: 'none', background: '#fff',
+              fontSize: '13.5px', color: 'var(--text-secondary)',
+              outline: 'none', background: 'var(--background-secondary)',
               transition: 'border-color 0.15s',
               boxShadow: 'none'
             }}
@@ -1307,10 +1307,10 @@ const AssignmentsTab = ({
                           const names = JSON.parse(assignment.checker_names || '[]')
                           if (!names.length) return null
                           return (
-                            <div style={{ fontSize: '15px', color: '#6b7280', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '5px', flexWrap: 'wrap' }}>
-                              <span style={{ fontWeight: '700', color: '#374151' }}>Check by:</span>
+                            <div style={{ fontSize: '15px', color: 'var(--text-tertiary)', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '5px', flexWrap: 'wrap' }}>
+                              <span style={{ fontWeight: '700', color: 'var(--text-secondary)' }}>Check by:</span>
                               {names.map((name, i) => (
-                                <span key={i} style={{ color: '#4f46e5', fontWeight: '700' }}>
+                                <span key={i} style={{ color: 'var(--status-review-text)', fontWeight: '700' }}>
                                   {name}{i < names.length - 1 ? ',' : ''}
                                 </span>
                               ))}
@@ -1330,22 +1330,22 @@ const AssignmentsTab = ({
                       </div>
                     ) : assignment.status === 'checked' ? (
                       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px' }}>
-                        <div style={{ backgroundColor: '#EFF6FF', color: '#1D4ED8', padding: '6px 12px', borderRadius: '20px', fontSize: '13px', fontWeight: '600', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                        <div style={{ backgroundColor: 'var(--status-review)', color: 'var(--status-review-text)', padding: '6px 12px', borderRadius: '20px', fontSize: '13px', fontWeight: '600', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
                           ✓ Checked
                         </div>
                         {(() => {
                           const checkerName = assignment.recent_submissions?.find(f => f.checked_by)?.checked_by;
                           if (!checkerName) return null;
                           return (
-                            <div style={{ fontSize: '12px', color: '#6b7280', fontWeight: '500' }}>
-                              Checked by : <span style={{ color: '#1D4ED8', fontWeight: '700' }}>{checkerName}</span>
+                            <div style={{ fontSize: '12px', color: 'var(--text-tertiary)', fontWeight: '500' }}>
+                              Checked by : <span style={{ color: 'var(--status-review-text)', fontWeight: '700' }}>{checkerName}</span>
                             </div>
                           );
                         })()} 
                       </div>
                     ) : assignment.recent_submissions?.length > 0 ? (
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px' }}>
-                    <div style={{ backgroundColor: 'transparent', color: '#C2410C', padding: '6px 12px', borderRadius: '20px', fontSize: '13px', fontWeight: '600', display: 'inline-flex', alignItems: 'center', border: '1.5px solid #FDBA74' }}>
+                    <div style={{ backgroundColor: 'transparent', color: 'var(--status-pending-text)', padding: '6px 12px', borderRadius: '20px', fontSize: '13px', fontWeight: '600', display: 'inline-flex', alignItems: 'center', border: '1.5px solid #FDBA74' }}>
                     For Checking
                     </div>
                     {(assignment.due_date || assignment.dueDate) && (
@@ -1358,7 +1358,7 @@ const AssignmentsTab = ({
                     )}
                         {assignment.due_date_edited ? (
                           <div style={{ marginTop: '4px' }}>
-                            <span style={{ backgroundColor: '#fef3c7', color: '#92400e', padding: '2px 8px', borderRadius: '10px', fontSize: '11px', fontWeight: '600', border: '1px solid #fde68a', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                            <span style={{ backgroundColor: 'var(--status-pending)', color: 'var(--status-pending-text)', padding: '2px 8px', borderRadius: '10px', fontSize: '11px', fontWeight: '600', border: '1px solid #fde68a', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
                               ✎ Due Date Edited
                             </span>
                           </div>
@@ -1377,7 +1377,7 @@ const AssignmentsTab = ({
                             </span>
                           </div>
                           {assignment.due_date_edited ? (
-                            <span style={{ backgroundColor: '#fef3c7', color: '#92400e', padding: '2px 8px', borderRadius: '10px', fontSize: '11px', fontWeight: '600', border: '1px solid #fde68a', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                            <span style={{ backgroundColor: 'var(--status-pending)', color: 'var(--status-pending-text)', padding: '2px 8px', borderRadius: '10px', fontSize: '11px', fontWeight: '600', border: '1px solid #fde68a', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
                               ✎ Due Date Edited
                             </span>
                           ) : null}
@@ -1423,7 +1423,7 @@ const AssignmentsTab = ({
                           {assignment.status === 'completed' && (
                             <button
                               className="tl-assignment-menu-item"
-                              style={{ color: '#d97706' }}
+                              style={{ color: 'var(--status-pending-text)' }}
                               onClick={() => {
                                 setUndoConfirmModal({ isOpen: true, assignmentId: assignment.id, title: assignment.title })
                                 setShowMenuForAssignment(null)
@@ -1524,7 +1524,7 @@ const AssignmentsTab = ({
                                     }}
                                     style={{ 
                                       cursor: 'pointer', 
-                                      background: isExpanded ? 'linear-gradient(90deg, #eff6ff 0%, #ffffff 100%)' : '#f8fafc', 
+                                      background: isExpanded ? 'var(--status-review)' : 'var(--background-secondary)', 
                                       padding: '14px 20px', 
                                       marginBottom: '8px', 
                                       borderRadius: '12px',
@@ -1543,8 +1543,8 @@ const AssignmentsTab = ({
                                       display: 'flex', 
                                       alignItems: 'center', 
                                       justifyContent: 'center',
-                                      background: isExpanded ? '#dbeafe' : '#f1f5f9',
-                                      color: isExpanded ? '#2563eb' : '#64748b',
+                                      background: isExpanded ? 'var(--status-review)' : 'var(--background-secondary)',
+                                      color: isExpanded ? 'var(--status-review-text)' : 'var(--text-secondary)',
                                       borderRadius: '8px',
                                       marginRight: '14px',
                                       flexShrink: 0,
@@ -1554,19 +1554,19 @@ const AssignmentsTab = ({
                                       {isExpanded ? '📂' : '📁'}
                                     </div>
                                     <div className="tl-assignment-file-details">
-                                      <div className="tl-assignment-file-name" style={{ fontWeight: '700', fontSize: '15.5px', color: '#1e293b' }}>{folderName}</div>
+                                      <div className="tl-assignment-file-name" style={{ fontWeight: '700', fontSize: '15.5px', color: 'var(--text-primary)' }}>{folderName}</div>
                                       <div className="tl-assignment-file-meta" style={{ fontSize: '12px' }}>
-                                        <span style={{ color: '#64748b', fontWeight: '500' }}>{folderFiles.length} items</span>
+                                        <span style={{ color: 'var(--text-secondary)', fontWeight: '500' }}>{folderFiles.length} items</span>
                                         {!isReference && (() => {
                                           const firstFile = folderFiles[0]?.file || folderFiles[0];
                                           const submitter = firstFile?.fullName || firstFile?.username;
                                           const submittedAt = firstFile?.submitted_at || firstFile?.uploaded_at;
                                           return submitter ? (
                                             <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', flexWrap: 'wrap', marginLeft: '6px' }}>
-                                              <span style={{ color: '#9ca3af' }}>•</span>
-                                              <span style={{ color: '#374151' }}>by <span style={{ fontWeight: '600', color: '#2563eb' }}>{submitter}</span></span>
+                                              <span style={{ color: 'var(--text-tertiary)' }}>•</span>
+                                              <span style={{ color: 'var(--text-secondary)' }}>by <span style={{ fontWeight: '600', color: 'var(--status-review-text)' }}>{submitter}</span></span>
                                               {submittedAt && (
-                                                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', color: '#6b7280' }}>
+                                                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', color: 'var(--text-tertiary)' }}>
                                                   <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
                                                     <circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" />
                                                   </svg>
@@ -1580,7 +1580,7 @@ const AssignmentsTab = ({
                                           const firstFile = folderFiles[0]?.file || folderFiles[0];
                                           const uploadedAt = firstFile?.created_at || firstFile?.uploaded_at;
                                           return uploadedAt ? (
-                                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', color: '#6b7280', marginLeft: '6px' }}>
+                                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', color: 'var(--text-tertiary)', marginLeft: '6px' }}>
                                               <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
                                                 <circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" />
                                               </svg>
@@ -1595,12 +1595,12 @@ const AssignmentsTab = ({
                                           </span>
                                         )}
                                         {!isReference && folderFiles.every(f => (f.file?.status || f.status) === 'checked') && (
-                                          <span style={{ marginLeft: '8px', background: '#EFF6FF', color: '#1D4ED8', padding: '2px 8px', borderRadius: '10px', fontSize: '11px', fontWeight: '600' }}>
+                                          <span style={{ marginLeft: '8px', background: 'var(--status-review)', color: 'var(--status-review-text)', padding: '2px 8px', borderRadius: '10px', fontSize: '11px', fontWeight: '600' }}>
                                             ✓ All Checked
                                           </span>
                                         )}
                                         {!isReference && !folderFiles.every(f => (f.file?.status || f.status) === 'checked') && folderFiles.some(f => (f.file?.status || f.status) === 'checked') && (
-                                          <span style={{ marginLeft: '8px', background: '#EFF6FF', color: '#1D4ED8', padding: '2px 8px', borderRadius: '10px', fontSize: '11px', fontWeight: '600' }}>
+                                          <span style={{ marginLeft: '8px', background: 'var(--status-review)', color: 'var(--status-review-text)', padding: '2px 8px', borderRadius: '10px', fontSize: '11px', fontWeight: '600' }}>
                                             Checked ({folderFiles.filter(f => (f.file?.status || f.status) === 'checked').length})
                                           </span>
                                         )}
@@ -1610,7 +1610,7 @@ const AssignmentsTab = ({
                                             return s === 'rejected' || s === 'rejected_by_team_leader' || s === 'rejected_by_admin';
                                           }).length;
                                           return rejectedCount > 0 ? (
-                                            <span style={{ marginLeft: '8px', background: '#FEE2E2', color: '#DC2626', padding: '2px 8px', borderRadius: '10px', fontSize: '11px', fontWeight: '600', border: '1px solid #FECACA' }}>
+                                            <span style={{ marginLeft: '8px', background: 'var(--status-rejected)', color: 'var(--status-rejected-text)', padding: '2px 8px', borderRadius: '10px', fontSize: '11px', fontWeight: '600', border: '1px solid #FECACA' }}>
                                               ✕ Rejected ({rejectedCount})
                                             </span>
                                           ) : null;
@@ -1618,7 +1618,7 @@ const AssignmentsTab = ({
                                         {!isReference && (() => {
                                           const pendingAdminCount = folderFiles.filter(f => (f.file?.status || f.status) === 'team_leader_approved').length;
                                           return pendingAdminCount > 0 ? (
-                                            <span style={{ marginLeft: '8px', background: '#EFF6FF', color: '#1D4ED8', padding: '2px 8px', borderRadius: '10px', fontSize: '11px', fontWeight: '600', border: '1px solid #BFDBFE' }}>
+                                            <span style={{ marginLeft: '8px', background: 'var(--status-review)', color: 'var(--status-review-text)', padding: '2px 8px', borderRadius: '10px', fontSize: '11px', fontWeight: '600', border: '1px solid #BFDBFE' }}>
                                               Pending Admin ({pendingAdminCount})
                                             </span>
                                           ) : null;
@@ -1698,7 +1698,7 @@ const AssignmentsTab = ({
                                         <>
                                           <span>by <span className="tl-assignment-file-submitter">{submission.fullName || submission.username || 'Unknown'}</span></span>
                                           {submission.submitted_at || submission.uploaded_at ? (
-                                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', color: '#6b7280' }}>
+                                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', color: 'var(--text-tertiary)' }}>
                                               <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
                                                 <circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" />
                                               </svg>
@@ -1716,8 +1716,8 @@ const AssignmentsTab = ({
                              (submission.status === 'rejected_by_team_leader' || submission.status === 'rejected_by_admin') ? 'X Rejected' : 'Pending'}
                                           </span>
                                           {submission.status === 'checked' && submission.checked_by && (
-                                            <span style={{ fontSize: '11px', color: '#6b7280', fontWeight: '500' }}>
-                                              Checked by : <span style={{ color: '#1D4ED8', fontWeight: '700' }}>{submission.checked_by}</span>
+                                            <span style={{ fontSize: '11px', color: 'var(--text-tertiary)', fontWeight: '500' }}>
+                                              Checked by : <span style={{ color: 'var(--status-review-text)', fontWeight: '700' }}>{submission.checked_by}</span>
                                             </span>
                                           )}
                                         </>
@@ -1754,7 +1754,7 @@ const AssignmentsTab = ({
                             {/* Section 1: Attached Files */}
                             {attachments.length > 0 && (
                               <div className="tl-assignment-attached-file">
-                                <div className="tl-assignment-file-label" style={{ color: '#2563eb', marginBottom: '12px' }}>
+                                <div className="tl-assignment-file-label" style={{ color: 'var(--status-review-text)', marginBottom: '12px' }}>
                                   📎 Attached Files ({attachments.length})
                                 </div>
                                 {referenceItems.slice(0, refLimit)}
@@ -1773,7 +1773,7 @@ const AssignmentsTab = ({
                             {/* Section 2: Member Submissions */}
                             {submissions.length > 0 && (
                               <div className="tl-assignment-attached-file">
-                                <div className="tl-assignment-file-label" style={{ color: '#059669', marginBottom: '12px' }}>
+                                <div className="tl-assignment-file-label" style={{ color: 'var(--status-approved-text)', marginBottom: '12px' }}>
                                   📤 Member Submissions ({submissions.length})
                                 </div>
                                 {submissionItems.slice(0, subLimit)}
@@ -1954,7 +1954,7 @@ const AssignmentsTab = ({
                 </div>
               </div>
 
-              <div className="folder-files-section" style={{ marginTop: '20px', borderTop: '1px solid #f3f4f6', paddingTop: '16px' }}>
+              <div className="folder-files-section" style={{ marginTop: '20px', borderTop: '1px solid var(--background-secondary)', paddingTop: '16px' }}>
                 <h4 className="section-title">Files in this Folder</h4>
                 <div className="folder-files-list" style={{ maxHeight: '250px', overflowY: 'auto', paddingRight: '4px' }}>
                   {folderReviewModal.folderFiles.map(file => {
@@ -1980,7 +1980,7 @@ const AssignmentsTab = ({
                             <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{file.original_name || file.file_name}</span>
                             {isViewed && <span className="tl-viewed-badge">✓ Viewed</span>}
                           </div>
-                          <div className="tl-assignment-file-meta" style={{ fontSize: '11px', color: '#6b7280' }}>
+                          <div className="tl-assignment-file-meta" style={{ fontSize: '11px', color: 'var(--text-tertiary)' }}>
                             <span className={`tl-assignment-file-status ${file.status}`}>
                               {file.status === 'uploaded' ? 'New' : 
                                file.status === 'under_revision' ? '✎ Revised' :
@@ -1991,7 +1991,7 @@ const AssignmentsTab = ({
                                (file.status === 'rejected_by_team_leader' || file.status === 'rejected_by_admin') ? 'X Rejected' : 'Pending Review'}
                             </span>
                             {file.status === 'checked' && file.checked_by && (
-                              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', color: '#1D4ED8', fontWeight: '600', fontSize: '11px', background: '#EFF6FF', padding: '1px 7px', borderRadius: '8px', border: '1px solid #BFDBFE', marginLeft: '6px' }}>
+                              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', color: 'var(--status-review-text)', fontWeight: '600', fontSize: '11px', background: 'var(--status-review)', padding: '1px 7px', borderRadius: '8px', border: '1px solid #BFDBFE', marginLeft: '6px' }}>
                                 <svg width="10" height="10" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M16 7l-7 7-3-3"/></svg>
                                 {file.checked_by}
                               </span>
@@ -2137,31 +2137,31 @@ const AssignmentsTab = ({
             onClick={() => setAssignCheckerModal(null)}
           >
             <div
-              style={{ background: '#fff', borderRadius: '16px', boxShadow: '0 10px 40px rgba(0,0,0,0.18)', width: '460px', maxWidth: '95vw', overflow: 'hidden' }}
+              style={{ background: 'var(--background-secondary)', borderRadius: '16px', boxShadow: '0 10px 40px rgba(0,0,0,0.18)', width: '460px', maxWidth: '95vw', overflow: 'hidden' }}
               onClick={e => e.stopPropagation()}
             >
               {/* Header */}
               <div style={{ padding: '20px 24px', borderBottom: '1px solid #e5e7eb', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <div>
-                  <h3 style={{ margin: 0, fontSize: '17px', fontWeight: '700', color: '#111827' }}>Assign Checker</h3>
-                  <p style={{ margin: '4px 0 0', fontSize: '13px', color: '#6b7280' }}>{assignment.title}</p>
+                  <h3 style={{ margin: 0, fontSize: '17px', fontWeight: '700', color: 'var(--text-primary)' }}>Assign Checker</h3>
+                  <p style={{ margin: '4px 0 0', fontSize: '13px', color: 'var(--text-tertiary)' }}>{assignment.title}</p>
                 </div>
-                <button onClick={() => setAssignCheckerModal(null)} style={{ background: 'none', border: 'none', fontSize: '22px', cursor: 'pointer', color: '#9ca3af', lineHeight: 1 }}>×</button>
+                <button onClick={() => setAssignCheckerModal(null)} style={{ background: 'none', border: 'none', fontSize: '22px', cursor: 'pointer', color: 'var(--text-tertiary)', lineHeight: 1 }}>×</button>
               </div>
 
               {/* Body */}
               <div style={{ padding: '20px 24px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
-                  <p style={{ margin: 0, fontSize: '13px', color: '#374151' }}>Select one or more members to review the submitted files.</p>
+                  <p style={{ margin: 0, fontSize: '13px', color: 'var(--text-secondary)' }}>Select one or more members to review the submitted files.</p>
                   {selectedCheckerIds.size > 0 && (
-                    <span style={{ fontSize: '12px', fontWeight: '600', color: '#4f46e5', background: '#eef2ff', padding: '2px 10px', borderRadius: '10px', whiteSpace: 'nowrap', marginLeft: '10px' }}>
+                    <span style={{ fontSize: '12px', fontWeight: '600', color: 'var(--status-review-text)', background: 'var(--status-review)', padding: '2px 10px', borderRadius: '10px', whiteSpace: 'nowrap', marginLeft: '10px' }}>
                       {selectedCheckerIds.size} selected
                     </span>
                   )}
                 </div>
 
                 {members.length === 0 ? (
-                  <div style={{ textAlign: 'center', padding: '24px', color: '#9ca3af', fontSize: '14px' }}>No assigned members found.</div>
+                  <div style={{ textAlign: 'center', padding: '24px', color: 'var(--text-tertiary)', fontSize: '14px' }}>No assigned members found.</div>
                 ) : (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '300px', overflowY: 'auto' }}>
                     {members.map(member => {
@@ -2176,21 +2176,21 @@ const AssignmentsTab = ({
                           style={{
                             display: 'flex', alignItems: 'center', gap: '12px',
                             padding: '12px 14px', borderRadius: '10px', cursor: 'pointer',
-                            border: `1.5px solid ${isSelected ? '#4f46e5' : '#e5e7eb'}`,
-                            background: isSelected ? '#eef2ff' : '#fafafa',
+                            border: `1.5px solid ${isSelected ? 'var(--status-review-text)' : '#e5e7eb'}`,
+                            background: isSelected ? '#eef2ff' : 'var(--background-secondary)',
                             transition: 'all 0.15s'
                           }}
                         >
                           {/* Checkbox */}
                           <div style={{
                             width: '20px', height: '20px', borderRadius: '6px', flexShrink: 0,
-                            border: `2px solid ${isSelected ? '#4f46e5' : '#d1d5db'}`,
-                            background: isSelected ? '#4f46e5' : '#fff',
+                            border: `2px solid ${isSelected ? 'var(--status-review-text)' : '#d1d5db'}`,
+                            background: isSelected ? 'var(--status-review-text)' : 'var(--background-secondary)',
                             display: 'flex', alignItems: 'center', justifyContent: 'center',
                             transition: 'all 0.15s'
                           }}>
                             {isSelected && (
-                              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="var(--background-secondary)" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
                                 <path d="M20 6L9 17l-5-5"/>
                               </svg>
                             )}
@@ -2200,11 +2200,11 @@ const AssignmentsTab = ({
                             <Avatar user={member} size="sm" />
                           </div>
                           <div style={{ flex: 1 }}>
-                            <div style={{ fontWeight: '600', fontSize: '14px', color: '#111827' }}>{member.fullName || member.username}</div>
-                            <div style={{ fontSize: '12px', color: '#6b7280' }}>@{member.username}</div>
+                            <div style={{ fontWeight: '600', fontSize: '14px', color: 'var(--text-primary)' }}>{member.fullName || member.username}</div>
+                            <div style={{ fontSize: '12px', color: 'var(--text-tertiary)' }}>@{member.username}</div>
                           </div>
                           {isCurrent && (
-                            <span style={{ fontSize: '11px', color: '#059669', fontWeight: '600', background: '#d1fae5', padding: '2px 8px', borderRadius: '10px', flexShrink: 0 }}>Current</span>
+                            <span style={{ fontSize: '11px', color: 'var(--status-approved-text)', fontWeight: '600', background: '#d1fae5', padding: '2px 8px', borderRadius: '10px', flexShrink: 0 }}>Current</span>
                           )}
                         </div>
                       )
@@ -2217,14 +2217,14 @@ const AssignmentsTab = ({
               <div style={{ padding: '16px 24px', borderTop: '1px solid #e5e7eb', display: 'flex', gap: '10px', justifyContent: 'space-between', alignItems: 'center' }}>
                 <button
                   onClick={() => setSelectedCheckerIds(new Set())}
-                  style={{ background: 'none', border: 'none', color: '#6b7280', fontSize: '13px', cursor: 'pointer', padding: '4px', textDecoration: 'underline' }}
+                  style={{ background: 'none', border: 'none', color: 'var(--text-tertiary)', fontSize: '13px', cursor: 'pointer', padding: '4px', textDecoration: 'underline' }}
                 >
                   Clear all
                 </button>
                 <div style={{ display: 'flex', gap: '10px' }}>
                   <button
                     onClick={() => setAssignCheckerModal(null)}
-                    style={{ padding: '9px 18px', borderRadius: '8px', border: '1px solid #d1d5db', background: '#fff', color: '#374151', fontSize: '14px', fontWeight: '500', cursor: 'pointer' }}
+                    style={{ padding: '9px 18px', borderRadius: '8px', border: '1px solid #d1d5db', background: 'var(--background-secondary)', color: 'var(--text-secondary)', fontSize: '14px', fontWeight: '500', cursor: 'pointer' }}
                   >
                     Cancel
                   </button>
@@ -2254,7 +2254,7 @@ const AssignmentsTab = ({
                         setIsAssigningChecker(false)
                       }
                     }}
-                    style={{ padding: '9px 18px', borderRadius: '8px', border: 'none', background: isAssigningChecker ? '#a5b4fc' : '#4f46e5', color: '#fff', fontSize: '14px', fontWeight: '600', cursor: isAssigningChecker ? 'not-allowed' : 'pointer' }}
+                    style={{ padding: '9px 18px', borderRadius: '8px', border: 'none', background: isAssigningChecker ? '#a5b4fc' : 'var(--status-review-text)', color: 'var(--background-secondary)', fontSize: '14px', fontWeight: '600', cursor: isAssigningChecker ? 'not-allowed' : 'pointer' }}
                   >
                     {isAssigningChecker ? 'Saving...' : selectedCheckerIds.size === 0 ? 'Remove Checkers' : `Assign ${selectedCheckerIds.size} Checker${selectedCheckerIds.size > 1 ? 's' : ''}`}
                   </button>
@@ -2272,36 +2272,36 @@ const AssignmentsTab = ({
           onClick={() => setRemoveAttachmentModal({ isOpen: false, attachmentId: null, attachmentName: '', assignmentId: null })}
         >
           <div
-            style={{ background: '#fff', borderRadius: '16px', boxShadow: '0 10px 40px rgba(0,0,0,0.15)', maxWidth: '480px', width: '90%' }}
+            style={{ background: 'var(--background-secondary)', borderRadius: '16px', boxShadow: '0 10px 40px rgba(0,0,0,0.15)', maxWidth: '480px', width: '90%' }}
             onClick={(e) => e.stopPropagation()}
           >
             <div style={{ padding: '1.5rem', borderBottom: '1px solid #e5e7eb', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <h3 style={{ margin: 0, color: '#dc2626', fontSize: '1.25rem', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <h3 style={{ margin: 0, color: 'var(--status-rejected-text)', fontSize: '1.25rem', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <span>⚠️</span> Delete File
               </h3>
               <button
                 onClick={() => setRemoveAttachmentModal({ isOpen: false, attachmentId: null, attachmentName: '', assignmentId: null })}
-                style={{ background: 'none', border: 'none', fontSize: '1.5rem', cursor: 'pointer', color: '#6b7280', width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '6px' }}
+                style={{ background: 'none', border: 'none', fontSize: '1.5rem', cursor: 'pointer', color: 'var(--text-tertiary)', width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '6px' }}
               >×</button>
             </div>
             <div style={{ padding: '1.5rem' }}>
-              <p style={{ fontSize: '15px', color: '#374151', marginBottom: '16px', lineHeight: 1.6 }}>
+              <p style={{ fontSize: '15px', color: 'var(--text-secondary)', marginBottom: '16px', lineHeight: 1.6 }}>
                 Are you sure you want to permanently delete this file?
               </p>
-              <div style={{ backgroundColor: '#fee2e2', border: '1px solid #fecaca', borderRadius: '8px', padding: '12px 16px', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <div style={{ backgroundColor: 'var(--status-rejected)', border: '1px solid #fecaca', borderRadius: '8px', padding: '12px 16px', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <span style={{ fontSize: '16px' }}>📄</span>
                 <span style={{ fontSize: '14px', fontWeight: '500', color: '#991b1b' }}>{removeAttachmentModal.attachmentName}</span>
               </div>
-              <p style={{ fontSize: '13px', color: '#6b7280', margin: 0 }}>
+              <p style={{ fontSize: '13px', color: 'var(--text-tertiary)', margin: 0 }}>
                 This action will permanently delete the file from the database and storage. This cannot be undone.
               </p>
             </div>
             <div style={{ padding: '1rem 1.5rem', borderTop: '1px solid #e5e7eb', display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
               <button
                 onClick={() => setRemoveAttachmentModal({ isOpen: false, attachmentId: null, attachmentName: '', assignmentId: null })}
-                style={{ padding: '10px 20px', borderRadius: '8px', border: '1px solid #d1d5db', backgroundColor: '#fff', color: '#374151', fontSize: '14px', fontWeight: '500', cursor: 'pointer' }}
-                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f9fafb'}
-                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#fff'}
+                style={{ padding: '10px 20px', borderRadius: '8px', border: '1px solid #d1d5db', backgroundColor: 'var(--background-secondary)', color: 'var(--text-secondary)', fontSize: '14px', fontWeight: '500', cursor: 'pointer' }}
+                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--background-secondary)'}
+                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'var(--background-secondary)'}
               >
                 Cancel
               </button>
@@ -2317,9 +2317,9 @@ const AssignmentsTab = ({
                     }
                   } catch (err) { console.error('Failed to delete attachment:', err) }
                 }}
-                style={{ padding: '10px 20px', borderRadius: '8px', border: 'none', backgroundColor: '#dc2626', color: '#fff', fontSize: '14px', fontWeight: '500', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}
+                style={{ padding: '10px 20px', borderRadius: '8px', border: 'none', backgroundColor: 'var(--status-rejected-text)', color: 'var(--background-secondary)', fontSize: '14px', fontWeight: '500', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}
                 onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#b91c1c'}
-                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#dc2626'}
+                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'var(--status-rejected-text)'}
               >
                 <span>🗑️</span> Delete File
               </button>
@@ -2346,7 +2346,7 @@ const AssignmentsTab = ({
           zIndex: 9999
         }}>
           <div style={{
-            background: '#fff',
+            background: 'var(--background-secondary)',
             borderRadius: '20px',
             boxShadow: '0 20px 60px rgba(0,0,0,0.2)',
             padding: '32px 36px',
@@ -2367,17 +2367,17 @@ const AssignmentsTab = ({
               boxShadow: '0 4px 16px rgba(22,163,74,0.3)',
               flexShrink: 0
             }}>
-              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--background-secondary)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M20 6L9 17l-5-5"/>
               </svg>
             </div>
 
             {/* Text */}
             <div>
-              <div style={{ fontSize: '18px', fontWeight: '700', color: '#111827', marginBottom: '8px' }}>Mark as Done?</div>
-              <div style={{ fontSize: '13px', color: '#6b7280', lineHeight: 1.6 }}>
+              <div style={{ fontSize: '18px', fontWeight: '700', color: 'var(--text-primary)', marginBottom: '8px' }}>Mark as Done?</div>
+              <div style={{ fontSize: '13px', color: 'var(--text-tertiary)', lineHeight: 1.6 }}>
                 Are you sure you want to mark
-                <span style={{ fontWeight: '600', color: '#374151' }}> "{markDoneConfirmModal.title}" </span>
+                <span style={{ fontWeight: '600', color: 'var(--text-secondary)' }}> "{markDoneConfirmModal.title}" </span>
                 as done? This will complete the task and clean up associated files.
               </div>
             </div>
@@ -2391,15 +2391,15 @@ const AssignmentsTab = ({
                   padding: '11px 0',
                   borderRadius: '10px',
                   border: '1.5px solid #e5e7eb',
-                  background: '#f9fafb',
-                  color: '#374151',
+                  background: 'var(--background-secondary)',
+                  color: 'var(--text-secondary)',
                   fontWeight: '600',
                   fontSize: '14px',
                   cursor: 'pointer',
                   transition: 'all 0.15s'
                 }}
-                onMouseEnter={e => { e.currentTarget.style.background = '#f3f4f6'; e.currentTarget.style.borderColor = '#d1d5db' }}
-                onMouseLeave={e => { e.currentTarget.style.background = '#f9fafb'; e.currentTarget.style.borderColor = '#e5e7eb' }}
+                onMouseEnter={e => { e.currentTarget.style.background = 'var(--background-secondary)'; e.currentTarget.style.borderColor = '#d1d5db' }}
+                onMouseLeave={e => { e.currentTarget.style.background = 'var(--background-secondary)'; e.currentTarget.style.borderColor = '#e5e7eb' }}
               >
                 Cancel
               </button>
@@ -2415,7 +2415,7 @@ const AssignmentsTab = ({
                   borderRadius: '10px',
                   border: 'none',
                   background: 'linear-gradient(135deg, #16a34a 0%, #22c55e 100%)',
-                  color: '#fff',
+                  color: 'var(--background-secondary)',
                   fontWeight: '600',
                   fontSize: '14px',
                   cursor: 'pointer',
@@ -2441,7 +2441,7 @@ const AssignmentsTab = ({
           zIndex: 9999
         }}>
           <div style={{
-            background: '#fff',
+            background: 'var(--background-secondary)',
             borderRadius: '20px',
             boxShadow: '0 20px 60px rgba(0,0,0,0.2)',
             padding: '32px 36px',
@@ -2462,7 +2462,7 @@ const AssignmentsTab = ({
               boxShadow: '0 4px 16px rgba(217,119,6,0.3)',
               flexShrink: 0
             }}>
-              <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="var(--background-secondary)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M3 7v6h6"/>
                 <path d="M21 17a9 9 0 00-9-9 9 9 0 00-6 2.3L3 13"/>
               </svg>
@@ -2470,13 +2470,13 @@ const AssignmentsTab = ({
 
             {/* Text */}
             <div>
-              <div style={{ fontSize: '18px', fontWeight: '700', color: '#111827', marginBottom: '8px' }}>Undo Mark as Done?</div>
-              <div style={{ fontSize: '13px', color: '#6b7280', lineHeight: 1.6 }}>
+              <div style={{ fontSize: '18px', fontWeight: '700', color: 'var(--text-primary)', marginBottom: '8px' }}>Undo Mark as Done?</div>
+              <div style={{ fontSize: '13px', color: 'var(--text-tertiary)', lineHeight: 1.6 }}>
                 This will move
-                <span style={{ fontWeight: '600', color: '#374151' }}> "{undoConfirmModal.title}" </span>
+                <span style={{ fontWeight: '600', color: 'var(--text-secondary)' }}> "{undoConfirmModal.title}" </span>
                 back to <strong>Active</strong> status.
                 <br/>
-                <span style={{ color: '#dc2626', fontWeight: '500' }}>Note:</span> Attachment files that were deleted when the task was marked as done cannot be restored.
+                <span style={{ color: 'var(--status-rejected-text)', fontWeight: '500' }}>Note:</span> Attachment files that were deleted when the task was marked as done cannot be restored.
               </div>
             </div>
 
@@ -2489,15 +2489,15 @@ const AssignmentsTab = ({
                   padding: '11px 0',
                   borderRadius: '10px',
                   border: '1.5px solid #e5e7eb',
-                  background: '#f9fafb',
-                  color: '#374151',
+                  background: 'var(--background-secondary)',
+                  color: 'var(--text-secondary)',
                   fontWeight: '600',
                   fontSize: '14px',
                   cursor: 'pointer',
                   transition: 'all 0.15s'
                 }}
-                onMouseEnter={e => { e.currentTarget.style.background = '#f3f4f6'; e.currentTarget.style.borderColor = '#d1d5db' }}
-                onMouseLeave={e => { e.currentTarget.style.background = '#f9fafb'; e.currentTarget.style.borderColor = '#e5e7eb' }}
+                onMouseEnter={e => { e.currentTarget.style.background = 'var(--background-secondary)'; e.currentTarget.style.borderColor = '#d1d5db' }}
+                onMouseLeave={e => { e.currentTarget.style.background = 'var(--background-secondary)'; e.currentTarget.style.borderColor = '#e5e7eb' }}
               >
                 Cancel
               </button>
@@ -2513,7 +2513,7 @@ const AssignmentsTab = ({
                   borderRadius: '10px',
                   border: 'none',
                   background: 'linear-gradient(135deg, #d97706 0%, #f59e0b 100%)',
-                  color: '#fff',
+                  color: 'var(--background-secondary)',
                   fontWeight: '600',
                   fontSize: '14px',
                   cursor: 'pointer',
@@ -2539,7 +2539,7 @@ const AssignmentsTab = ({
           zIndex: 9998
         }}>
           <div style={{
-            background: '#fff',
+            background: 'var(--background-secondary)',
             borderRadius: '20px',
             boxShadow: '0 20px 60px rgba(0,0,0,0.2)',
             padding: '36px 44px',
@@ -2556,16 +2556,16 @@ const AssignmentsTab = ({
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               boxShadow: '0 4px 16px rgba(22,163,74,0.3)'
             }}>
-              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--background-secondary)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
                 style={{ animation: 'markDoneSpin 1.2s linear infinite' }}>
                 <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
               </svg>
             </div>
             <div style={{ textAlign: 'center' }}>
-              <div style={{ fontSize: '17px', fontWeight: '700', color: '#111827', marginBottom: '6px' }}>
+              <div style={{ fontSize: '17px', fontWeight: '700', color: 'var(--text-primary)', marginBottom: '6px' }}>
                 Marking as Done…
               </div>
-              <div style={{ fontSize: '13px', color: '#6b7280', lineHeight: 1.5 }}>
+              <div style={{ fontSize: '13px', color: 'var(--text-tertiary)', lineHeight: 1.5 }}>
                 Completing task and cleaning up files.<br/>Please wait.
               </div>
             </div>
@@ -2589,7 +2589,7 @@ const AssignmentsTab = ({
           zIndex: 9998
         }}>
           <div style={{
-            background: '#fff',
+            background: 'var(--background-secondary)',
             borderRadius: '20px',
             boxShadow: '0 20px 60px rgba(0,0,0,0.2)',
             padding: '36px 44px',
@@ -2606,16 +2606,16 @@ const AssignmentsTab = ({
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               boxShadow: '0 4px 16px rgba(217,119,6,0.3)'
             }}>
-              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--background-secondary)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
                 style={{ animation: 'markDoneSpin 1.2s linear infinite' }}>
                 <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
               </svg>
             </div>
             <div style={{ textAlign: 'center' }}>
-              <div style={{ fontSize: '17px', fontWeight: '700', color: '#111827', marginBottom: '6px' }}>
+              <div style={{ fontSize: '17px', fontWeight: '700', color: 'var(--text-primary)', marginBottom: '6px' }}>
                 Undoing Mark as Done…
               </div>
-              <div style={{ fontSize: '13px', color: '#6b7280', lineHeight: 1.5 }}>
+              <div style={{ fontSize: '13px', color: 'var(--text-tertiary)', lineHeight: 1.5 }}>
                 Moving task back to active.<br/>Please wait.
               </div>
             </div>
@@ -2638,7 +2638,7 @@ const AssignmentsTab = ({
             top: '28px',
             right: '28px',
             zIndex: 9999,
-            background: '#fff',
+            background: 'var(--background-secondary)',
             border: '1px solid #bbf7d0',
             borderRadius: '16px',
             boxShadow: '0 8px 32px rgba(0,0,0,0.13)',
@@ -2653,24 +2653,24 @@ const AssignmentsTab = ({
         >
           <div style={{
             width: '40px', height: '40px', borderRadius: '50%',
-            background: '#dcfce7', border: '2px solid #86efac',
+            background: 'var(--status-approved)', border: '2px solid #86efac',
             display: 'flex', alignItems: 'center',
             justifyContent: 'center', flexShrink: 0, marginTop: '1px'
           }}>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke='var(--status-approved-text)' strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
               <path d="M20 6L9 17l-5-5"/>
             </svg>
           </div>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: '15px', fontWeight: '700', color: '#15803d', marginBottom: '4px' }}>
+            <div style={{ fontSize: '15px', fontWeight: '700', color: 'var(--status-approved-text)', marginBottom: '4px' }}>
               Success
             </div>
-            <div style={{ fontSize: '13px', color: '#374151', lineHeight: '1.4' }}>
+            <div style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: '1.4' }}>
               {downloadToast.fileName
                 ? `"${downloadToast.fileName}" downloaded successfully!`
                 : 'File downloaded successfully!'}
             </div>
-            <div style={{ marginTop: '10px', height: '4px', borderRadius: '2px', background: '#dcfce7', overflow: 'hidden' }}>
+            <div style={{ marginTop: '10px', height: '4px', borderRadius: '2px', background: 'var(--status-approved)', overflow: 'hidden' }}>
               <div style={{
                 height: '100%', borderRadius: '2px', background: '#22c55e',
                 animation: 'tlShrinkBar 3.5s linear forwards'
@@ -2681,12 +2681,12 @@ const AssignmentsTab = ({
             onClick={() => setDownloadToast({ show: false, fileName: '' })}
             style={{
               background: 'transparent', border: 'none', cursor: 'pointer',
-              color: '#9ca3af', fontSize: '20px', lineHeight: 1,
+              color: 'var(--text-tertiary)', fontSize: '20px', lineHeight: 1,
               padding: '0', flexShrink: 0, borderRadius: '4px',
               marginTop: '-2px'
             }}
-            onMouseEnter={e => e.currentTarget.style.color = '#374151'}
-            onMouseLeave={e => e.currentTarget.style.color = '#9ca3af'}
+            onMouseEnter={e => e.currentTarget.style.color = 'var(--text-secondary)'}
+            onMouseLeave={e => e.currentTarget.style.color = 'var(--text-tertiary)'}
           >×</button>
         </div>
       )}

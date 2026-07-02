@@ -309,30 +309,30 @@ const CreateAssignmentModal = ({
           }, 0);
           
           return (
-            <div key={currentKey} style={{ borderRadius: '8px', border: '1px solid #E5E7EB', overflow: 'hidden', background: 'white' }}>
+            <div key={currentKey} style={{ borderRadius: '8px', border: '1px solid #E5E7EB', overflow: 'hidden', background: 'var(--background-secondary)' }}>
               <div 
                 onClick={() => setExpandedFolders(prev => ({ ...prev, [currentKey]: !prev[currentKey] }))}
-                style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 12px', cursor: 'pointer', userSelect: 'none', background: isExpanded ? '#f8faff' : '#ffffff' }}
+                style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 12px', cursor: 'pointer', userSelect: 'none', background: isExpanded ? '#f8faff' : 'var(--background-secondary)' }}
               >
                 <svg width="14" height="14" viewBox="0 0 16 16" fill="none" style={{ flexShrink: 0, transition: 'transform 0.2s', transform: isExpanded ? 'rotate(90deg)' : 'rotate(0deg)' }}>
-                  <path d="M6 4L10 8L6 12" stroke="#64748b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                  <path d="M6 4L10 8L6 12" stroke='var(--text-secondary)' strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
-                <div style={{ fontSize: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', width: '32px', height: '32px', background: isExpanded ? '#dbeafe' : '#f1f5f9', borderRadius: '6px', color: isExpanded ? '#2563eb' : '#64748b' }}>
+                <div style={{ fontSize: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', width: '32px', height: '32px', background: isExpanded ? 'var(--status-review)' : 'var(--background-secondary)', borderRadius: '6px', color: isExpanded ? 'var(--status-review-text)' : 'var(--text-secondary)' }}>
                   {isExpanded ? '📂' : '📁'}
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: '13.5px', fontWeight: '600', color: '#1e293b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{folderName}</div>
-                  <div style={{ fontSize: '11px', color: '#64748b' }}>{folderFiles.length} item{folderFiles.length !== 1 ? 's' : ''} &bull; {formatFileSize(totalSize)}</div>
+                  <div style={{ fontSize: '13.5px', fontWeight: '600', color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{folderName}</div>
+                  <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>{folderFiles.length} item{folderFiles.length !== 1 ? 's' : ''} &bull; {formatFileSize(totalSize)}</div>
                 </div>
                 {onRemoveFolder && level === 0 && (
-                  <button type="button" onClick={(e) => { e.stopPropagation(); onRemoveFolder(folderName); }} style={{ padding: '6px', background: 'transparent', border: 'none', cursor: 'pointer', color: '#ef4444', display: 'flex', alignItems: 'center' }}>
+                  <button type="button" onClick={(e) => { e.stopPropagation(); onRemoveFolder(folderName); }} style={{ padding: '6px', background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--status-rejected-text)', display: 'flex', alignItems: 'center' }}>
                     <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M12 4L4 12M4 4L12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
                   </button>
                 )}
               </div>
               
               {isExpanded && (
-                <div style={{ background: '#fafafa', padding: '2px 0 2px 24px', borderLeft: '1px solid #f1f5f9' }}>
+                <div style={{ background: 'var(--background-secondary)', padding: '2px 0 2px 24px', borderLeft: '1px solid var(--background-secondary)' }}>
                   <FolderTree 
                     files={folderFiles} 
                     level={level + 1} 
@@ -357,18 +357,18 @@ const CreateAssignmentModal = ({
               alignItems: 'center', 
               gap: '10px', 
               padding: '8px 12px 8px 12px', 
-              background: 'white', 
-              borderBottom: idx === rootFiles.length - 1 && level > 0 ? 'none' : '1px solid #f1f5f9', 
+              background: 'var(--background-secondary)', 
+              borderBottom: idx === rootFiles.length - 1 && level > 0 ? 'none' : '1px solid var(--background-secondary)', 
               position: 'relative' 
             }}>
               <div style={{ width: '14px', flexShrink: 0 }} /> {/* Spacer to align with chevron/gap */}
-              <FileIcon fileType={fileName.split('.').pop()} size="small" style={{ color: '#64748b', flexShrink: 0 }} />
+              <FileIcon fileType={fileName.split('.').pop()} size="small" style={{ color: 'var(--text-secondary)', flexShrink: 0 }} />
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontSize: '13px', fontWeight: '500', color: '#334155', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{fileName}</div>
-                <div style={{ fontSize: '11px', color: '#94a3b8' }}>{formatFileSize(isExisting ? actualFile.file_size : actualFile.size)}</div>
+                <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>{formatFileSize(isExisting ? actualFile.file_size : actualFile.size)}</div>
               </div>
               {onRemoveFile && (
-                <button type="button" onClick={() => onRemoveFile(isExisting ? actualFile : item._original_idx)} style={{ padding: '4px', background: 'transparent', border: 'none', cursor: 'pointer', color: '#ef4444', display: 'flex', alignItems: 'center' }}>
+                <button type="button" onClick={() => onRemoveFile(isExisting ? actualFile : item._original_idx)} style={{ padding: '4px', background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--status-rejected-text)', display: 'flex', alignItems: 'center' }}>
                   <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M12 4L4 12M4 4L12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
                 </button>
               )}
@@ -386,7 +386,7 @@ const CreateAssignmentModal = ({
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <h3 style={{ margin: 0 }}>{isEditMode ? 'Edit Task' : 'Create New Task'}</h3>
             {assignmentForm.selectedTeam && (!teams || teams.length <= 1) && (
-              <span style={{ fontWeight: 400, fontSize: '0.85rem', color: '#6B7280' }}>
+              <span style={{ fontWeight: 400, fontSize: '0.85rem', color: 'var(--text-tertiary)' }}>
                 ({assignmentForm.selectedTeam})
               </span>
             )}
@@ -435,9 +435,9 @@ const CreateAssignmentModal = ({
                     : isToday
                     ? 'Due today'
                     : `${days} working ${days === 1 ? 'day' : 'days'} left`;
-                  const bg = isOverdue ? '#FEF2F2' : isToday ? '#FFFBEB' : '#F0FDF4';
-                  const color = isOverdue ? '#DC2626' : isToday ? '#D97706' : '#16A34A';
-                  const border = isOverdue ? '#FECACA' : isToday ? '#FDE68A' : '#BBF7D0';
+                  const bg = isOverdue ? 'var(--status-rejected)' : isToday ? 'var(--status-pending)' : 'var(--status-approved)';
+                  const color = isOverdue ? 'var(--status-rejected-text)' : isToday ? 'var(--status-pending-text)' : 'var(--status-approved-text)';
+                  const border = isOverdue ? 'var(--status-rejected-text)' : isToday ? 'var(--status-pending-text)' : 'var(--status-approved-text)';
                   return (
                     <div style={{
                       marginTop: '6px',
@@ -503,13 +503,13 @@ const CreateAssignmentModal = ({
                 <div className="tl-form-group" style={{ marginTop: '4px' }}>
                   <label style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                     Approved Overtime (OT) Weekends
-                    <span style={{ fontSize: '11px', fontWeight: '400', color: '#6B7280', fontStyle: 'italic' }}>
+                    <span style={{ fontSize: '11px', fontWeight: '400', color: 'var(--text-tertiary)', fontStyle: 'italic' }}>
                       — counted as working days in the countdown
                     </span>
                   </label>
                   <div style={{
                     display: 'flex', flexWrap: 'wrap', gap: '8px',
-                    padding: '12px', background: '#F9FAFB', borderRadius: '8px',
+                    padding: '12px', background: 'var(--background-secondary)', borderRadius: '8px',
                     border: '1px solid #E5E7EB', maxHeight: '180px', overflowY: 'auto'
                   }}>
                     {weekends.map(dateStr => {
@@ -535,9 +535,9 @@ const CreateAssignmentModal = ({
                             display: 'flex', alignItems: 'center', gap: '6px',
                             padding: '6px 10px', borderRadius: '20px', cursor: 'pointer',
                             fontSize: '12.5px', fontWeight: '500', userSelect: 'none',
-                            background: checked ? '#EEF2FF' : '#fff',
+                            background: checked ? '#EEF2FF' : 'var(--background-secondary)',
                             border: checked ? '1.5px solid #6366F1' : '1.5px solid #D1D5DB',
-                            color: checked ? '#4338CA' : '#374151',
+                            color: checked ? '#4338CA' : 'var(--text-secondary)',
                             transition: 'all 0.12s'
                           }}
                         >
@@ -568,7 +568,7 @@ const CreateAssignmentModal = ({
                       padding: '8px 12px',
                       borderRadius: '4px',
                       border: '1px solid #D1D5DB',
-                      background: 'white'
+                      background: 'var(--background-secondary)'
                     }}
                   >
                     <option value="">Select team</option>
@@ -631,7 +631,7 @@ const CreateAssignmentModal = ({
                                   <span style={{
                                     marginLeft: '6px',
                                     fontSize: '12px',
-                                    color: '#6B7280',
+                                    color: 'var(--text-tertiary)',
                                     fontWeight: '500'
                                   }}>
                                     (You)
@@ -712,8 +712,8 @@ const CreateAssignmentModal = ({
                 </div>
 
                 {existingAttachments.length > 0 && (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', padding: '16px', background: '#F9FAFB', borderRadius: '12px', border: '1px solid #E5E7EB' }}>
-                    <div style={{ fontSize: '12px', fontWeight: '600', color: '#4B5563', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>Existing Server Attachments</div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', padding: '16px', background: 'var(--background-secondary)', borderRadius: '12px', border: '1px solid #E5E7EB' }}>
+                    <div style={{ fontSize: '12px', fontWeight: '600', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>Existing Server Attachments</div>
                     <FolderTree 
                       files={existingAttachments} 
                       isExisting={true} 
@@ -733,8 +733,8 @@ const CreateAssignmentModal = ({
                 )}
 
                 {attachedFiles.length > 0 && (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', padding: '16px', background: '#F9FAFB', borderRadius: '12px', border: '1px solid #E5E7EB' }}>
-                    <div style={{ fontSize: '12px', fontWeight: '600', color: '#4B5563', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>Newly Added Files</div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', padding: '16px', background: 'var(--background-secondary)', borderRadius: '12px', border: '1px solid #E5E7EB' }}>
+                    <div style={{ fontSize: '12px', fontWeight: '600', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>Newly Added Files</div>
                     <FolderTree 
                       files={attachedFiles} 
                       pathKey="relativeFolderPath"
@@ -753,7 +753,7 @@ const CreateAssignmentModal = ({
 
             <div className="tl-modal-footer">
               {isProcessing && (
-                <span style={{ fontSize: '13px', color: '#6B7280', display: 'flex', flexDirection: 'column', gap: '4px', marginRight: 'auto', minWidth: '220px' }}>
+                <span style={{ fontSize: '13px', color: 'var(--text-tertiary)', display: 'flex', flexDirection: 'column', gap: '4px', marginRight: 'auto', minWidth: '220px' }}>
                   <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style={{ animation: 'spin 1s linear infinite', flexShrink: 0 }}>
                       <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" strokeDasharray="60" strokeDashoffset="20" strokeLinecap="round"/>
@@ -770,14 +770,14 @@ const CreateAssignmentModal = ({
                       <div style={{
                         height: '100%',
                         width: uploadProgress < 100 ? `${uploadProgress}%` : '100%',
-                        background: uploadProgress < 100 ? '#16A34A' : '#F59E0B',
+                        background: uploadProgress < 100 ? 'var(--status-approved-text)' : 'var(--status-pending-text)',
                         borderRadius: '2px',
                         transition: 'width 0.3s ease, background 0.3s ease'
                       }} />
                     </div>
                   )}
                   {uploadProgress === 100 && (
-                    <span style={{ fontSize: '11px', color: '#92400E' }}>Moving files to server… please wait</span>
+                    <span style={{ fontSize: '11px', color: 'var(--status-pending-text)' }}>Moving files to server… please wait</span>
                   )}
                 </span>
               )}
@@ -814,7 +814,7 @@ const CreateAssignmentModal = ({
               <h3>Remove File</h3>
             </div>
             <div className="tl-modal-body">
-              <p style={{ margin: 0, color: '#374151' }}>
+              <p style={{ margin: 0, color: 'var(--text-secondary)' }}>
                 Are you sure you want to remove <strong>{fileToRemove.file.original_name}</strong> from this task?
                 This action cannot be undone.
               </p>

@@ -81,12 +81,12 @@
 
 .tag.prerelease {
     background-color: #fbbf24;
-    color: #000;
+    color: var(--text-primary);
 }
 
 .tag.current-tag {
     background-color: var(--primary-color);
-    color: #fff;
+    color: var(--background-secondary);
 }
 
 .release-date {
@@ -101,7 +101,7 @@
 }
 
 .error-message {
-    color: #ef4444;
+    color: var(--status-rejected-text);
     text-align: center;
     padding: 10px;
 }

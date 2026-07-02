@@ -321,7 +321,7 @@ const FileCollectionTab = ({
         data-file-id={submission.id}
         className={`tl-clickable-row ${isNested ? 'tl-folder-file-row' : ''}`}
         onClick={() => { setFileToOpen(submission); setShowOpenFileModal(true) }}
-        style={isNested ? { backgroundColor: '#fafafa' } : {}}
+        style={isNested ? { backgroundColor: 'var(--background-secondary)' } : {}}
       >
         <td>
           <div className="tl-tree-container">
@@ -395,13 +395,13 @@ const FileCollectionTab = ({
           <h1>File Collection</h1>
           <p>View all submitted files from assignments in one place</p>
           {/* Toggle */}
-          <div style={{ display: 'inline-flex', marginTop: '12px', border: '1px solid #e5e7eb', borderRadius: '8px', overflow: 'hidden', background: '#f9fafb' }}>
+          <div style={{ display: 'inline-flex', marginTop: '12px', border: '1px solid #e5e7eb', borderRadius: '8px', overflow: 'hidden', background: 'var(--background-secondary)' }}>
             <button
               onClick={() => setActiveView('collection')}
               style={{
                 padding: '7px 20px', fontSize: '14px', fontWeight: 500, border: 'none', cursor: 'pointer',
-                background: activeView === 'collection' ? 'white' : 'transparent',
-                color: activeView === 'collection' ? '#111827' : '#6b7280',
+                background: activeView === 'collection' ? 'var(--background-primary)' : 'transparent',
+                color: activeView === 'collection' ? 'var(--text-primary)' : 'var(--text-tertiary)',
                 boxShadow: activeView === 'collection' ? '0 1px 4px rgba(0,0,0,0.08)' : 'none',
                 borderRadius: '7px', margin: '2px', transition: 'all 0.2s ease',
               }}
@@ -410,8 +410,8 @@ const FileCollectionTab = ({
               onClick={() => setActiveView('reference')}
               style={{
                 padding: '7px 20px', fontSize: '14px', fontWeight: 500, border: 'none', cursor: 'pointer',
-                background: activeView === 'reference' ? 'white' : 'transparent',
-                color: activeView === 'reference' ? '#111827' : '#6b7280',
+                background: activeView === 'reference' ? 'var(--background-primary)' : 'transparent',
+                color: activeView === 'reference' ? 'var(--text-primary)' : 'var(--text-tertiary)',
                 boxShadow: activeView === 'reference' ? '0 1px 4px rgba(0,0,0,0.08)' : 'none',
                 borderRadius: '7px', margin: '2px', transition: 'all 0.2s ease',
               }}
@@ -512,7 +512,7 @@ const FileCollectionTab = ({
                         <tr
                           className="tl-clickable-row tl-folder-row"
                           onClick={() => setExpandedFolders(prev => ({ ...prev, [currentKey]: !prev[currentKey] }))}
-                          style={{ backgroundColor: isExpanded ? '#f9fafb' : '#ffffff' }}
+                          style={{ backgroundColor: isExpanded ? 'var(--background-secondary)' : 'var(--background-secondary)' }}
                         >
                           <td>
                             <div className="tl-tree-container">
@@ -590,7 +590,7 @@ const FileCollectionTab = ({
                         <tr
                           className="tl-clickable-row tl-folder-row"
                           onClick={() => setExpandedFolders(prev => ({ ...prev, [folderKey]: !prev[folderKey] }))}
-                          style={{ backgroundColor: isExpanded ? '#f9fafb' : '#ffffff' }}
+                          style={{ backgroundColor: isExpanded ? 'var(--background-secondary)' : 'var(--background-secondary)' }}
                         >
                           <td>
                             <div className="file-cell">

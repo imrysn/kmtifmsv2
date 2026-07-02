@@ -13,7 +13,7 @@
 }
 
 .form-modal {
-  background: var(--card-bg, #ffffff);
+  background: var(--card-bg, var(--background-secondary));
   border-radius: 8px;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
   width: 90%;
@@ -38,7 +38,7 @@
   justify-content: space-between;
   align-items: center;
   padding: 1.5rem;
-  border-bottom: 1px solid var(--border-color, #e5e7eb);
+  border-bottom: 1px solid var(--border-color, var(--border-color));
 }
 
 .form-modal .modal-header h3 {
@@ -64,8 +64,8 @@
 }
 
 .form-modal .modal-close:hover:not(:disabled) {
-  background-color: var(--hover-bg, #f3f4f6);
-  color: var(--text-primary, #111827);
+  background-color: var(--hover-bg, var(--background-primary));
+  color: var(--text-primary, var(--text-primary));
 }
 
 .form-modal .modal-close:disabled {
@@ -79,7 +79,7 @@
 
 .form-modal .modal-footer {
   padding: 1rem 1.5rem;
-  border-top: 1px solid var(--border-color, #e5e7eb);
+  border-top: 1px solid var(--border-color, var(--border-color));
   display: flex;
   justify-content: flex-end;
   gap: 0.75rem;
@@ -106,11 +106,11 @@
 .form-modal .form-textarea {
   width: 100%;
   padding: 0.625rem 0.875rem;
-  border: 1px solid var(--border-color, #d1d5db);
+  border: 1px solid var(--border-color, var(--border-color));
   border-radius: 6px;
   font-size: 0.875rem;
-  color: var(--text-primary, #111827);
-  background-color: var(--input-bg, #ffffff);
+  color: var(--text-primary, var(--text-primary));
+  background-color: var(--input-bg, var(--background-primary));
 }
 
 .form-modal .form-input:focus,
@@ -156,12 +156,12 @@
 }
 
 .form-modal .btn-secondary {
-  background-color: var(--secondary-bg, #f3f4f6);
-  color: var(--text-primary, #111827);
+  background-color: var(--secondary-bg, var(--background-primary));
+  color: var(--text-primary, var(--text-primary));
 }
 
 .form-modal .btn-secondary:hover:not(:disabled) {
-  background-color: var(--secondary-hover, #e5e7eb);
+  background-color: var(--secondary-hover, var(--background-hover));
 }
 
 .form-modal .btn-primary {

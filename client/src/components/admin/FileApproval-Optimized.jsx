@@ -54,10 +54,10 @@ const getFolderStatus = (folderFiles) => {
 // Hook to compute fixed dropdown position and track scroll
 const useDropdownPosition = (btnRef, isOpen) => {
   const [pos, setPos] = React.useState({ top: 0, left: 0 })
-  
+
   useEffect(() => {
     if (!isOpen || !btnRef.current) return
-    
+
     const updatePosition = () => {
       if (btnRef.current) {
         const rect = btnRef.current.getBoundingClientRect()
@@ -65,19 +65,19 @@ const useDropdownPosition = (btnRef, isOpen) => {
         setPos({ top: rect.bottom + 4, left: rect.right - 145 })
       }
     }
-    
+
     updatePosition()
-    
+
     // Add scroll listener with capture: true to catch scrolling in any parent container
     window.addEventListener('scroll', updatePosition, true)
     window.addEventListener('resize', updatePosition)
-    
+
     return () => {
       window.removeEventListener('scroll', updatePosition, true)
       window.removeEventListener('resize', updatePosition)
     }
   }, [isOpen, btnRef])
-  
+
   return pos
 }
 
@@ -105,7 +105,7 @@ const FolderRow = memo(({
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target) &&
-          btnRef.current && !btnRef.current.contains(event.target)) {
+        btnRef.current && !btnRef.current.contains(event.target)) {
         setDropdownOpen(false)
       }
     }
@@ -138,20 +138,20 @@ const FolderRow = memo(({
       onClick={handleClick}
       style={{
         cursor: 'pointer',
-        backgroundColor: isHighlighted ? '#eff6ff' : isExpanded ? '#f9fafb' : '#ffffff',
+        backgroundColor: isHighlighted ? 'var(--status-review)' : isExpanded ? 'var(--background-secondary)' : 'var(--background-secondary)',
         fontWeight: '600',
         outline: isHighlighted ? '2px solid #3b82f6' : 'none',
         outlineOffset: '-2px',
       }}
     >
       <td style={{ width: '40px', textAlign: 'center', paddingLeft: '15px' }} onClick={(e) => e.stopPropagation()}>
-        <input 
-          type="checkbox" 
-          checked={isSelected} 
+        <input
+          type="checkbox"
+          checked={isSelected}
           ref={input => { if (input) input.indeterminate = isPartiallySelected }}
           onChange={() => onSelectFolder && onSelectFolder(folderFiles)}
           className="file-checkbox"
-          style={{ width: '16px', height: '16px', cursor: 'pointer', accentColor: '#16a34a' }}
+          style={{ width: '16px', height: '16px', cursor: 'pointer', accentColor: 'var(--status-approved-text)' }}
         />
       </td>
       <td>
@@ -191,9 +191,9 @@ const FolderRow = memo(({
                   onClick={(e) => { e.stopPropagation(); setDropdownOpen(false); onApproveFolder(folderName, folderFiles) }}
                 >
                   <svg className="dropdown-svg-icon" width="15" height="15" viewBox="0 0 20 20" fill="none">
-                    <path d="M10 2C5.58172 2 2 5.58172 2 10C2 14.4183 5.58172 18 10 18C14.4183 18 18 14.4183 18 10C18 5.58172 14.4183 2 10 2Z" fill="#16a34a" opacity="0.15"/>
-                    <path d="M10 2C5.58172 2 2 5.58172 2 10C2 14.4183 5.58172 18 10 18C14.4183 18 18 14.4183 18 10C18 5.58172 14.4183 2 10 2Z" stroke="#16a34a" strokeWidth="1.5"/>
-                    <path d="M6.5 10L9 12.5L13.5 7.5" stroke="#16a34a" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+                    <path d="M10 2C5.58172 2 2 5.58172 2 10C2 14.4183 5.58172 18 10 18C14.4183 18 18 14.4183 18 10C18 5.58172 14.4183 2 10 2Z" fill='var(--status-approved-text)' opacity="0.15" />
+                    <path d="M10 2C5.58172 2 2 5.58172 2 10C2 14.4183 5.58172 18 10 18C14.4183 18 18 14.4183 18 10C18 5.58172 14.4183 2 10 2Z" stroke='var(--status-approved-text)' strokeWidth="1.5" />
+                    <path d="M6.5 10L9 12.5L13.5 7.5" stroke='var(--status-approved-text)' strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
                   </svg>
                   <span className="dropdown-approve-text">Approve</span>
                   <span className="dropdown-slash"> / </span>
@@ -212,8 +212,8 @@ const FolderRow = memo(({
                 className="dropdown-item dropdown-delete"
                 onClick={(e) => { e.stopPropagation(); setDropdownOpen(false); onDelete(folderName, folderFiles) }}
               >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style={{color:'#ef4444',flexShrink:0}}>
-                  <path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style={{ color: 'var(--status-rejected-text)', flexShrink: 0 }}>
+                  <path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                 </svg> Delete
               </button>
             </div>
@@ -251,7 +251,7 @@ const SubFolderRow = memo(({
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target) &&
-          btnRef.current && !btnRef.current.contains(event.target)) {
+        btnRef.current && !btnRef.current.contains(event.target)) {
         setDropdownOpen(false)
       }
     }
@@ -285,20 +285,20 @@ const SubFolderRow = memo(({
       onClick={handleClick}
       style={{
         cursor: 'pointer',
-        backgroundColor: isHighlighted ? '#eff6ff' : isExpanded ? '#f9fafb' : '#ffffff',
+        backgroundColor: isHighlighted ? 'var(--status-review)' : isExpanded ? 'var(--background-secondary)' : 'var(--background-secondary)',
         fontWeight: '600',
         outline: isHighlighted ? '2px solid #3b82f6' : 'none',
         outlineOffset: '-2px',
       }}
     >
       <td style={{ width: '40px', textAlign: 'center', paddingLeft: '15px' }} onClick={(e) => e.stopPropagation()}>
-        <input 
-          type="checkbox" 
-          checked={isSelected} 
+        <input
+          type="checkbox"
+          checked={isSelected}
           ref={input => { if (input) input.indeterminate = isPartiallySelected }}
           onChange={() => onSelectFolder && onSelectFolder(folderFiles)}
           className="file-checkbox"
-          style={{ width: '16px', height: '16px', cursor: 'pointer', accentColor: '#16a34a' }}
+          style={{ width: '16px', height: '16px', cursor: 'pointer', accentColor: 'var(--status-approved-text)' }}
         />
       </td>
       <td>
@@ -328,7 +328,7 @@ const SubFolderRow = memo(({
       {!isReference && <td><span className={`status-badge status-${folderStatus.cls}`}>{folderStatus.label}</span></td>}
       {isReference && (
         <td>
-          <span className="status-badge" style={{ border: '1px solid #6b7280', color: '#6b7280' }}>
+          <span className="status-badge" style={{ border: '1px solid #6b7280', color: 'var(--text-tertiary)' }}>
             Reference Task
           </span>
         </td>
@@ -351,9 +351,9 @@ const SubFolderRow = memo(({
                   onClick={(e) => { e.stopPropagation(); setDropdownOpen(false); onApproveFolder(folderName, rawFiles) }}
                 >
                   <svg className="dropdown-svg-icon" width="15" height="15" viewBox="0 0 20 20" fill="none">
-                    <path d="M10 2C5.58172 2 2 5.58172 2 10C2 14.4183 5.58172 18 10 18C14.4183 18 18 14.4183 18 10C18 5.58172 14.4183 2 10 2Z" fill="#16a34a" opacity="0.15"/>
-                    <path d="M10 2C5.58172 2 2 5.58172 2 10C2 14.4183 5.58172 18 10 18C14.4183 18 18 14.4183 18 10C18 5.58172 14.4183 2 10 2Z" stroke="#16a34a" strokeWidth="1.5"/>
-                    <path d="M6.5 10L9 12.5L13.5 7.5" stroke="#16a34a" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+                    <path d="M10 2C5.58172 2 2 5.58172 2 10C2 14.4183 5.58172 18 10 18C14.4183 18 18 14.4183 18 10C18 5.58172 14.4183 2 10 2Z" fill='var(--status-approved-text)' opacity="0.15" />
+                    <path d="M10 2C5.58172 2 2 5.58172 2 10C2 14.4183 5.58172 18 10 18C14.4183 18 18 14.4183 18 10C18 5.58172 14.4183 2 10 2Z" stroke='var(--status-approved-text)' strokeWidth="1.5" />
+                    <path d="M6.5 10L9 12.5L13.5 7.5" stroke='var(--status-approved-text)' strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
                   </svg>
                   <span className="dropdown-approve-text">Approve</span>
                   <span className="dropdown-slash"> / </span>
@@ -372,8 +372,8 @@ const SubFolderRow = memo(({
                 className="dropdown-item dropdown-delete"
                 onClick={(e) => { e.stopPropagation(); setDropdownOpen(false); onDelete(folderName, rawFiles) }}
               >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style={{color:'#ef4444',flexShrink:0}}>
-                  <path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style={{ color: 'var(--status-rejected-text)', flexShrink: 0 }}>
+                  <path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                 </svg> Delete
               </button>
             </div>
@@ -409,7 +409,7 @@ const FileRow = memo(({
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target) &&
-          btnRef.current && !btnRef.current.contains(event.target)) {
+        btnRef.current && !btnRef.current.contains(event.target)) {
         setDropdownOpen(false)
       }
     }
@@ -443,18 +443,18 @@ const FileRow = memo(({
       onClick={handleRowClick}
       style={{
         cursor: 'pointer',
-        backgroundColor: isHighlighted ? '#eff6ff' : undefined,
+        backgroundColor: isHighlighted ? 'var(--status-review)' : undefined,
         outline: isHighlighted ? '2px solid #3b82f6' : 'none',
         outlineOffset: '-2px',
       }}
     >
       <td style={{ width: '40px', textAlign: 'center', paddingLeft: '15px' }} onClick={(e) => e.stopPropagation()}>
-        <input 
-          type="checkbox" 
-          checked={isSelected} 
+        <input
+          type="checkbox"
+          checked={isSelected}
           onChange={() => onSelectFile && onSelectFile(file.id)}
           className="file-checkbox"
-          style={{ width: '16px', height: '16px', cursor: 'pointer', accentColor: '#16a34a' }}
+          style={{ width: '16px', height: '16px', cursor: 'pointer', accentColor: 'var(--status-approved-text)' }}
         />
       </td>
       <td>
@@ -497,7 +497,7 @@ const FileRow = memo(({
       {!isReference && <td><span className={`status-badge status-${fileStatus}`}>{statusLabel}</span></td>}
       {isReference && (
         <td>
-          <span className="status-badge" style={{ border: '1px solid #6b7280', color: '#6b7280' }}>
+          <span className="status-badge" style={{ border: '1px solid #6b7280', color: 'var(--text-tertiary)' }}>
             Reference Task
           </span>
         </td>
@@ -525,8 +525,8 @@ const FileRow = memo(({
                 className="dropdown-item dropdown-delete"
                 onClick={(e) => { e.stopPropagation(); setDropdownOpen(false); onDelete(file) }}
               >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style={{color:'#ef4444',flexShrink:0}}>
-                  <path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style={{ color: 'var(--status-rejected-text)', flexShrink: 0 }}>
+                  <path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                 </svg> Delete
               </button>
             </div>
@@ -684,9 +684,9 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess, hig
       filtered = filtered.filter(file => {
         switch (fileFilter) {
           case 'pending-team-leader': return file.status === 'uploaded'
-          case 'pending-admin':       return file.status === 'team_leader_approved'
-          case 'approved':            return file.status === 'final_approved'
-          case 'rejected':            return file.status === 'rejected_by_team_leader' || file.status === 'rejected_by_admin'
+          case 'pending-admin': return file.status === 'team_leader_approved'
+          case 'approved': return file.status === 'final_approved'
+          case 'rejected': return file.status === 'rejected_by_team_leader' || file.status === 'rejected_by_admin'
           default: return false
         }
       })
@@ -704,12 +704,12 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess, hig
 
     return [...filtered].sort((a, b) => {
       switch (fileSortBy) {
-        case 'date-desc':     return new Date(b.uploaded_at) - new Date(a.uploaded_at)
-        case 'date-asc':      return new Date(a.uploaded_at) - new Date(b.uploaded_at)
-        case 'filename-asc':  return a.original_name.localeCompare(b.original_name)
+        case 'date-desc': return new Date(b.uploaded_at) - new Date(a.uploaded_at)
+        case 'date-asc': return new Date(a.uploaded_at) - new Date(b.uploaded_at)
+        case 'filename-asc': return a.original_name.localeCompare(b.original_name)
         case 'filename-desc': return b.original_name.localeCompare(a.original_name)
-        case 'user-asc':      return a.username.localeCompare(b.username)
-        case 'user-desc':     return b.username.localeCompare(a.username)
+        case 'user-asc': return a.username.localeCompare(b.username)
+        case 'user-desc': return b.username.localeCompare(a.username)
         default: return 0
       }
     })
@@ -816,12 +816,12 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess, hig
 
     allItems.sort((a, b) => {
       switch (fileSortBy) {
-        case 'date-desc':     return b._date - a._date
-        case 'date-asc':      return a._date - b._date
-        case 'filename-asc':  return a._name.localeCompare(b._name)
+        case 'date-desc': return b._date - a._date
+        case 'date-asc': return a._date - b._date
+        case 'filename-asc': return a._name.localeCompare(b._name)
         case 'filename-desc': return b._name.localeCompare(a._name)
-        case 'user-asc':      return a._user.localeCompare(b._user)
-        case 'user-desc':     return b._user.localeCompare(a._user)
+        case 'user-asc': return a._user.localeCompare(b._user)
+        case 'user-desc': return b._user.localeCompare(a._user)
         default: return b._date - a._date
       }
     })
@@ -863,21 +863,21 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess, hig
       case 'uploaded':
       case 'revision':
       case 'team_leader_approved': return 'pending'
-      case 'final_approved':       return 'approved'
+      case 'final_approved': return 'approved'
       case 'rejected_by_team_leader':
-      case 'rejected_by_admin':    return 'rejected'
+      case 'rejected_by_admin': return 'rejected'
       default: return 'pending'
     }
   }, [])
 
   const getStatusDisplayName = useCallback((dbStatus) => {
     switch (dbStatus) {
-      case 'uploaded':              return 'Pending Team Leader'
-      case 'revision':              return 'Revision (New Submission)'
-      case 'team_leader_approved':  return 'Pending Admin'
-      case 'final_approved':        return 'Approved'
+      case 'uploaded': return 'Pending Team Leader'
+      case 'revision': return 'Revision (New Submission)'
+      case 'team_leader_approved': return 'Pending Admin'
+      case 'final_approved': return 'Approved'
       case 'rejected_by_team_leader': return 'Rejected by Team Leader'
-      case 'rejected_by_admin':     return 'Rejected by Admin'
+      case 'rejected_by_admin': return 'Rejected by Admin'
       default: return dbStatus.charAt(0).toUpperCase() + dbStatus.slice(1)
     }
   }, [])
@@ -1053,7 +1053,7 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess, hig
       } else {
         // Web fallback: stream the file in a new tab
         const ext = (pathData.filePath.split('.').pop() || '').toLowerCase()
-        const browserViewable = ['pdf','png','jpg','jpeg','gif','svg','webp','txt','html','css','js','json','xml','mp4','mp3']
+        const browserViewable = ['pdf', 'png', 'jpg', 'jpeg', 'gif', 'svg', 'webp', 'txt', 'html', 'css', 'js', 'json', 'xml', 'mp4', 'mp3']
         if (browserViewable.includes(ext)) {
           window.open(`/api/files/${file.id}/stream`, '_blank', 'noopener,noreferrer')
         } else {
@@ -1288,7 +1288,7 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess, hig
             const dp = await window.electron.getNetworkProjectsPath()
             if (dp) options.defaultPath = dp
           }
-        } catch (err) {}
+        } catch (err) { }
         const result = await window.electron.openDirectoryDialog(options)
         if (!result || result.canceled || !result.filePaths?.length) {
           setIsLoading(false)
@@ -1301,7 +1301,7 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess, hig
 
       const selectedFilesList = files.filter(f => selectedFileIds.has(String(f.id)))
       let successCount = 0
-      
+
       await Promise.all(selectedFilesList.map(async (file) => {
         try {
           const moveData = await apiFetch(`${API_BASE}/files/${file.id}/move-to-projects`, {
@@ -1329,7 +1329,7 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess, hig
             })
           })
           if (!approveData.success) throw new Error(approveData.message)
-          
+
           successCount++
         } catch (err) {
           console.warn(`Failed to approve file ${file.id}:`, err)
@@ -1486,7 +1486,7 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess, hig
         const folderKey = item.folderKey || item.name
         const isExpanded = expandedFolders[folderKey]
         const folderHasHighlight = highlightedFileId && item.files.some(f => String(f.id) === String(highlightedFileId))
-        
+
         const isSelected = item.files.every(f => selectedFileIds.has(String(f.id)))
         const isPartiallySelected = item.files.some(f => selectedFileIds.has(String(f.id))) && !isSelected
 
@@ -1598,13 +1598,13 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess, hig
       </div>
 
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem', flexWrap: 'wrap', gap: '1rem' }}>
-        <div style={{ display: 'inline-flex', border: '1px solid #e5e7eb', borderRadius: '8px', overflow: 'hidden', background: '#f9fafb' }}>
+        <div style={{ display: 'inline-flex', border: '1px solid #e5e7eb', borderRadius: '8px', overflow: 'hidden', background: 'var(--background-secondary)' }}>
           <button
             onClick={() => { setActiveView('approval'); setCurrentPage(1) }}
             style={{
               padding: '7px 20px', fontSize: '14px', fontWeight: 500, border: 'none', cursor: 'pointer',
-              background: activeView === 'approval' ? 'white' : 'transparent',
-              color: activeView === 'approval' ? '#111827' : '#6b7280',
+              background: activeView === 'approval' ? 'var(--background-primary)' : 'transparent',
+              color: activeView === 'approval' ? 'var(--text-primary)' : 'var(--text-tertiary)',
               boxShadow: activeView === 'approval' ? '0 1px 4px rgba(0,0,0,0.08)' : 'none',
               borderRadius: '7px', margin: '2px', transition: 'all 0.2s ease',
             }}
@@ -1613,8 +1613,8 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess, hig
             onClick={() => { setActiveView('reference'); setCurrentPage(1) }}
             style={{
               padding: '7px 20px', fontSize: '14px', fontWeight: 500, border: 'none', cursor: 'pointer',
-              background: activeView === 'reference' ? 'white' : 'transparent',
-              color: activeView === 'reference' ? '#111827' : '#6b7280',
+              background: activeView === 'reference' ? 'var(--background-primary)' : 'transparent',
+              color: activeView === 'reference' ? 'var(--text-primary)' : 'var(--text-tertiary)',
               boxShadow: activeView === 'reference' ? '0 1px 4px rgba(0,0,0,0.08)' : 'none',
               borderRadius: '7px', margin: '2px', transition: 'all 0.2s ease',
             }}
@@ -1674,15 +1674,15 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess, hig
       </div>
 
       {selectedFileIds.size > 0 && activeView === 'approval' && (
-        <div className="bulk-actions" style={{ display: 'flex', gap: '12px', marginBottom: '16px', alignItems: 'center', backgroundColor: '#e0f2fe', padding: '12px 20px', borderRadius: '8px', border: '1px solid #bae6fd' }}>
-          <span style={{ fontWeight: 600, color: '#0369a1', flex: 1 }}>{selectedFileIds.size} file(s) selected</span>
-          <button className="btn btn-success" onClick={() => setShowBulkApproveModal(true)} style={{ padding: '6px 14px', fontSize: '14px', backgroundColor: '#16a34a', color: 'white', border: 'none' }}>
+        <div className="bulk-actions" style={{ display: 'flex', gap: '12px', marginBottom: '16px', alignItems: 'center', backgroundColor: 'var(--status-review)', padding: '12px 20px', borderRadius: '8px', border: '1px solid var(--status-review-text)' }}>
+          <span style={{ fontWeight: 600, color: 'var(--status-review-text)', flex: 1 }}>{selectedFileIds.size} file(s) selected</span>
+          <button className="btn btn-success" onClick={() => setShowBulkApproveModal(true)} style={{ padding: '6px 14px', fontSize: '14px', backgroundColor: 'var(--status-approved-text)', color: 'var(--background-secondary)', border: 'none' }}>
             Approve Selected
           </button>
-          <button className="btn btn-danger" onClick={() => setShowBulkRejectModal(true)} style={{ padding: '6px 14px', fontSize: '14px', backgroundColor: '#ef4444', color: 'white', border: 'none' }}>
+          <button className="btn btn-danger" onClick={() => setShowBulkRejectModal(true)} style={{ padding: '6px 14px', fontSize: '14px', backgroundColor: 'var(--status-rejected-text)', color: 'var(--background-secondary)', border: 'none' }}>
             Reject Selected
           </button>
-          <button className="btn btn-secondary" onClick={() => setSelectedFileIds(new Set())} style={{ padding: '6px 14px', fontSize: '14px', backgroundColor: '#fff', color: '#4b5563', border: '1px solid #d1d5db' }}>
+          <button className="btn btn-secondary" onClick={() => setSelectedFileIds(new Set())} style={{ padding: '6px 14px', fontSize: '14px', backgroundColor: 'var(--background-secondary)', color: 'var(--text-secondary)', border: '1px solid var(--border-color)' }}>
             Clear Selection
           </button>
         </div>

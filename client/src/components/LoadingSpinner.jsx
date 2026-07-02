@@ -3,7 +3,7 @@ import '../css/LoadingSpinner.css'
 
 const INFINITY_SQUARE_SNAKE_BLOCKS = ["█", "▓", "▒", "░"];
 
-const LoadingSpinner = ({ size = 'medium', color = '#000000', fullScreen = false, fullPage = false, message = 'Loading...' }) => {
+const LoadingSpinner = ({ size = 'medium', color = 'var(--text-primary)', fullScreen = false, fullPage = false, message = 'Loading...' }) => {
   const sizeMap = {
     small: '1rem',
     medium: '1.5rem',

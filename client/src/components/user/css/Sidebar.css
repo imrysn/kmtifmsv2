@@ -3,7 +3,7 @@
 .user-sidebar {
   width: var(--sidebar-collapsed-width, 75px);
   background: var(--sidebar-bg, #FFFFFF);
-  border-right: 1px solid var(--border-color, #E5E7EB);
+  border-right: 1px solid var(--border-color, var(--border-color));
   display: flex;
   flex-direction: column;
   position: fixed;
@@ -23,7 +23,7 @@
 /* Header */
 .user-sidebar .sidebar-header {
   padding: 16px 12px;
-  border-bottom: 1px solid var(--border-color, #E5E7EB);
+  border-bottom: 1px solid var(--border-color, var(--border-color));
   display: flex;
   justify-content: center;
   align-items: center;
@@ -174,7 +174,7 @@
 /* Footer */
 .user-sidebar .sidebar-footer {
   padding: var(--spacing-md, 16px);
-  border-top: 1px solid var(--border-color, #E5E7EB);
+  border-top: 1px solid var(--border-color, var(--border-color));
 }
 
 .user-sidebar .logout-btn {

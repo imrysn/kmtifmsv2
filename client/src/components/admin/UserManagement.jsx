@@ -39,8 +39,8 @@ const MemberPerfRow = React.memo(({ user, score, performanceData, onScoreLoad })
 
   return (
     <div className={`member-perf-wrapper ${isStar ? 'card-star' : isExcellent ? 'card-excellent' : ''}`} style={{
-      background: '#ffffff',
-      border: (isStar || isExcellent) ? 'none' : '1px solid #f1f5f9',
+      background: 'var(--background-secondary)',
+      border: (isStar || isExcellent) ? 'none' : '1px solid var(--background-secondary)',
       borderRadius: '16px',
       padding: '16px',
       boxShadow: (isStar || isExcellent) ? 'none' : '0 2px 10px rgba(0,0,0,0.02)',
@@ -77,13 +77,13 @@ const MemberPerfRow = React.memo(({ user, score, performanceData, onScoreLoad })
           <h3 style={{
             fontSize: '15px',
             fontWeight: '800',
-            color: '#0f172a',
+            color: 'var(--text-primary)',
             margin: 0,
             whiteSpace: 'nowrap',
             overflow: 'hidden',
             textOverflow: 'ellipsis'
           }}>{user.fullName}</h3>
-          <span style={{ fontSize: '12px', color: '#64748b' }}>{user.email}</span>
+          <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>{user.email}</span>
         </div>
       </div>
       <UserPerformanceCard
@@ -522,7 +522,7 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess, u
 
         <div className="action-buttons" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           <div className="sort-section" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span style={{ fontSize: '12px', fontWeight: '700', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Sort By:</span>
+            <span style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Sort By:</span>
             <select
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value)}
@@ -530,10 +530,10 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess, u
                 padding: '8px 12px',
                 borderRadius: '10px',
                 border: '1px solid #e2e8f0',
-                background: '#ffffff',
+                background: 'var(--background-secondary)',
                 fontSize: '13px',
                 fontWeight: '700',
-                color: '#0f172a',
+                color: 'var(--text-primary)',
                 cursor: 'pointer',
                 outline: 'none',
                 transition: 'all 0.2s ease',
@@ -551,7 +551,7 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess, u
 
           <div className="view-mode-toggle" style={{
             display: 'flex',
-            background: '#f1f5f9',
+            background: 'var(--background-secondary)',
             padding: '4px',
             borderRadius: '10px',
             border: '1px solid #e2e8f0'
@@ -562,8 +562,8 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess, u
                 padding: '8px 16px',
                 borderRadius: '8px',
                 border: 'none',
-                background: viewMode === 'performance' ? '#ffffff' : 'transparent',
-                color: viewMode === 'performance' ? '#0f172a' : '#64748b',
+                background: viewMode === 'performance' ? 'var(--background-primary)' : 'transparent',
+                color: viewMode === 'performance' ? 'var(--text-primary)' : 'var(--text-secondary)',
                 fontSize: '13px',
                 fontWeight: '700',
                 cursor: 'pointer',
@@ -585,8 +585,8 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess, u
                 padding: '8px 16px',
                 borderRadius: '8px',
                 border: 'none',
-                background: viewMode === 'list' ? '#ffffff' : 'transparent',
-                color: viewMode === 'list' ? '#0f172a' : '#64748b',
+                background: viewMode === 'list' ? 'var(--background-primary)' : 'transparent',
+                color: viewMode === 'list' ? 'var(--text-primary)' : 'var(--text-secondary)',
                 fontSize: '13px',
                 fontWeight: '700',
                 cursor: 'pointer',
@@ -810,12 +810,12 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess, u
         >
           {modalError && (
             <div style={{
-              background: '#fef2f2',
+              background: 'var(--status-rejected)',
               border: '1px solid #fecaca',
               borderRadius: '8px',
               padding: '10px 14px',
               marginBottom: '16px',
-              color: '#dc2626',
+              color: 'var(--status-rejected-text)',
               fontSize: '13px',
               fontWeight: '600',
               display: 'flex',
@@ -914,12 +914,12 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess, u
         >
           {modalError && (
             <div style={{
-              background: '#fef2f2',
+              background: 'var(--status-rejected)',
               border: '1px solid #fecaca',
               borderRadius: '8px',
               padding: '10px 14px',
               marginBottom: '16px',
-              color: '#dc2626',
+              color: 'var(--status-rejected-text)',
               fontSize: '13px',
               fontWeight: '600',
               display: 'flex',
@@ -1007,12 +1007,12 @@ const UserManagement = ({ clearMessages, error, success, setError, setSuccess, u
         >
           {modalError && (
             <div style={{
-              background: '#fef2f2',
+              background: 'var(--status-rejected)',
               border: '1px solid #fecaca',
               borderRadius: '8px',
               padding: '10px 14px',
               marginBottom: '16px',
-              color: '#dc2626',
+              color: 'var(--status-rejected-text)',
               fontSize: '13px',
               fontWeight: '600',
               display: 'flex',

@@ -55,16 +55,16 @@
 /* Success Alert */
 .alert-message-component .alert.alert-success {
   background-color: #d1fae5;
-  color: #065f46;
+  color: var(--status-approved-text);
   border: 1px solid #a7f3d0;
 }
 
 .alert-message-component .alert.alert-success .alert-icon {
-  color: #059669;
+  color: var(--status-approved-text);
 }
 
 .alert-message-component .alert.alert-success .alert-close {
-  color: #065f46;
+  color: var(--status-approved-text);
 }
 
 .alert-message-component .alert.alert-success .alert-close:hover {
@@ -73,17 +73,17 @@
 
 /* Error Alert */
 .alert-message-component .alert.alert-error {
-  background-color: #fee2e2;
-  color: #991b1b;
+  background-color: var(--status-rejected);
+  color: var(--status-rejected-text);
   border: 1px solid #fecaca;
 }
 
 .alert-message-component .alert.alert-error .alert-icon {
-  color: #dc2626;
+  color: var(--status-rejected-text);
 }
 
 .alert-message-component .alert.alert-error .alert-close {
-  color: #991b1b;
+  color: var(--status-rejected-text);
 }
 
 .alert-message-component .alert.alert-error .alert-close:hover {
@@ -92,17 +92,17 @@
 
 /* Warning Alert */
 .alert-message-component .alert.alert-warning {
-  background-color: #fef3c7;
-  color: #92400e;
+  background-color: var(--status-pending);
+  color: var(--status-pending-text);
   border: 1px solid #fde68a;
 }
 
 .alert-message-component .alert.alert-warning .alert-icon {
-  color: #f59e0b;
+  color: var(--status-pending-text);
 }
 
 .alert-message-component .alert.alert-warning .alert-close {
-  color: #92400e;
+  color: var(--status-pending-text);
 }
 
 .alert-message-component .alert.alert-warning .alert-close:hover {
@@ -112,16 +112,16 @@
 /* Info Alert */
 .alert-message-component .alert.alert-info {
   background-color: #dbeafe;
-  color: #1e40af;
+  color: var(--status-review-text);
   border: 1px solid #bfdbfe;
 }
 
 .alert-message-component .alert.alert-info .alert-icon {
-  color: #3b82f6;
+  color: var(--status-review-text);
 }
 
 .alert-message-component .alert.alert-info .alert-close {
-  color: #1e40af;
+  color: var(--status-review-text);
 }
 
 .alert-message-component .alert.alert-info .alert-close:hover {

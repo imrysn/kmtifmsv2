@@ -549,7 +549,7 @@ const MyFilesTab = ({
             key={`folder-${folderName}`}
             className="file-row-new folder-row"
             onClick={() => toggleFolder(folderName)}
-            style={{ cursor: 'pointer', backgroundColor: isExpanded ? '#f9fafb' : '#ffffff' }}
+            style={{ cursor: 'pointer', backgroundColor: isExpanded ? 'var(--background-secondary)' : 'var(--background-secondary)' }}
           >
             <div className="col-filename">
               <FileIcon
@@ -610,7 +610,7 @@ const MyFilesTab = ({
                   <div
                     className="file-row-new folder-row"
                     onClick={() => setExpandedFolders(prev => ({ ...prev, [subKey]: !prev[subKey] }))}
-                    style={{ cursor: 'pointer', backgroundColor: isSubOpen ? '#f0f4ff' : '#f5f7ff' }}
+                    style={{ cursor: 'pointer', backgroundColor: isSubOpen ? 'var(--status-review)' : 'var(--background-secondary)' }}
                   >
                     <div className="col-filename">
                       <div className="tl-tree-container">
@@ -789,11 +789,11 @@ const MyFilesTab = ({
                       alignItems: 'center',
                       gap: '6px',
                       padding: '6px 12px',
-                      border: '1px solid #d5d5d9',
+                      border: '1px solid var(--border-color)',
                       borderRadius: '6px',
-                      background: 'white',
+                      background: 'var(--background-secondary)',
                       fontSize: '14px',
-                      color: '#1d1d1f',
+                      color: 'var(--text-primary)',
                       fontWeight: 500,
                       cursor: 'pointer',
                       whiteSpace: 'nowrap',
@@ -814,8 +814,8 @@ const MyFilesTab = ({
                       position: 'absolute',
                       top: 'calc(100% + 4px)',
                       left: 0,
-                      background: 'white',
-                      border: '1px solid #d5d5d9',
+                      background: 'var(--background-secondary)',
+                      border: '1px solid var(--border-color)',
                       borderRadius: '8px',
                       boxShadow: '0 4px 16px rgba(0,0,0,0.12)',
                       zIndex: 100,
@@ -838,12 +838,12 @@ const MyFilesTab = ({
                             padding: '8px 16px',
                             fontSize: '14px',
                             fontWeight: sortOrder === opt.value ? 600 : 400,
-                            color: sortOrder === opt.value ? '#5856d6' : '#1d1d1f',
-                            background: sortOrder === opt.value ? '#f0f0ff' : 'white',
+                            color: sortOrder === opt.value ? '#5856d6' : 'var(--text-primary)',
+                            background: sortOrder === opt.value ? 'var(--status-review)' : 'var(--background-secondary)',
                             cursor: 'pointer',
                           }}
-                          onMouseEnter={e => e.currentTarget.style.background = sortOrder === opt.value ? '#f0f0ff' : '#f5f5f7'}
-                          onMouseLeave={e => e.currentTarget.style.background = sortOrder === opt.value ? '#f0f0ff' : 'white'}
+                          onMouseEnter={e => e.currentTarget.style.background = sortOrder === opt.value ? 'var(--status-review)' : 'var(--status-review)'}
+                          onMouseLeave={e => e.currentTarget.style.background = sortOrder === opt.value ? 'var(--status-review)' : 'var(--background-secondary)'}
                         >
                           {opt.label}
                         </div>

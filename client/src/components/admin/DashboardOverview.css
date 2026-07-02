@@ -54,22 +54,22 @@
 }
 
 .stat-icon.pending {
-  background: #FEF3C7;
-  color: #D97706;
+  background: var(--status-pending);
+  color: var(--status-pending-text);
 }
 
 .stat-icon.approved {
   background: #D1FAE5;
-  color: #059669;
+  color: var(--status-approved-text);
 }
 
 .stat-icon.rejected {
-  background: #FEE2E2;
-  color: #DC2626;
+  background: var(--status-rejected);
+  color: var(--status-rejected-text);
 }
 
 .stat-icon.total {
-  background: #E0E7FF;
+  background: var(--status-review);
   color: #4F46E5;
 }
 
@@ -227,17 +227,17 @@
 
 .activity-badge.upload {
   background: #DBEAFE;
-  color: #1E40AF;
+  color: var(--status-review-text);
 }
 
 .activity-badge.approved {
   background: #D1FAE5;
-  color: #065F46;
+  color: var(--status-approved-text);
 }
 
 .activity-badge.rejected {
-  background: #FEE2E2;
-  color: #991B1B;
+  background: var(--status-rejected);
+  color: var(--status-rejected-text);
 }
 
 .activity-description {

@@ -162,7 +162,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  color: white;
+  color: var(--background-secondary);
   font-weight: 600;
   font-size: 0.9rem;
 }
@@ -185,28 +185,28 @@
 }
 
 .activity-logs-section .role-badge {
-  color: white;
+  color: var(--background-secondary);
 }
 
 .activity-logs-section .role-badge.user {
   border: 1px solid linear-gradient(135deg, #10b981 0%, #059669 100%);
-  color: #059669;
+  color: var(--status-approved-text);
 }
 
 .activity-logs-section .role-badge.team-leader {
   border: 1px solid linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
-  color: #1d4ed8;
+  color: var(--status-review-text);
 }
 
 .activity-logs-section .role-badge.admin {
   border: 1px solid linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
-  color: #dc2626;
+  color: var(--status-rejected-text);
 }
 
 .activity-logs-section .team-badge {
   background: transparent;
-  color: #000000;
-  border: 1px solid #000000;
+  color: var(--text-primary);
+  border: 1px solid var(--text-primary);
   transition: all 0.2s ease;
   backdrop-filter: blur(4px);
 }
@@ -290,7 +290,7 @@
 
 .activity-logs-section .btn-primary {
   background: var(--primary-color);
-  color: white;
+  color: var(--background-secondary);
 }
 
 .activity-logs-section .btn-primary:hover:not(:disabled) {
@@ -311,7 +311,7 @@
 
 .activity-logs-section .btn-danger {
   background: #ef4444;
-  color: white;
+  color: var(--background-secondary);
 }
 
 .activity-logs-section .btn-danger:hover:not(:disabled) {
@@ -330,15 +330,15 @@
 }
 
 .activity-logs-section .alert-error {
-  background: #fef2f2;
+  background: var(--status-rejected);
   border: 1px solid #fecaca;
-  color: #dc2626;
+  color: var(--status-rejected-text);
 }
 
 .activity-logs-section .alert-success {
-  background: #f0fdf4;
+  background: var(--status-approved);
   border: 1px solid #bbf7d0;
-  color: #059669;
+  color: var(--status-approved-text);
 }
 
 .activity-logs-section .alert-message {
@@ -517,7 +517,7 @@
 
 .activity-logs-section .pagination-btn.active {
   background: var(--primary-color);
-  color: white;
+  color: var(--background-secondary);
   border-color: var(--primary-color);
 }
 

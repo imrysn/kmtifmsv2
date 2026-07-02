@@ -182,7 +182,7 @@ const ReviewModal = ({
             selectedFile.status !== 'final_approved' &&
             selectedFile.status !== 'rejected_by_team_leader' &&
             selectedFile.status !== 'rejected_by_admin' && (
-              <div className="comments-section" style={{ marginBottom: '20px', backgroundColor: 'white' }}>
+              <div className="comments-section" style={{ marginBottom: '20px', backgroundColor: 'var(--background-secondary)' }}>
                 <h4 className="section-title">Comments (Optional)</h4>
                 <textarea
                   value={reviewComments}
@@ -193,8 +193,8 @@ const ReviewModal = ({
                     width: '100%',
                     padding: '12px',
                     border: '1px solid #E5E7EB',
-                    color: '#000',
-                    background: '#fff',
+                    color: 'var(--text-primary)',
+                    background: 'var(--background-secondary)',
                     borderRadius: '8px',
                     fontSize: '14px',
                     fontFamily: 'inherit',
@@ -210,8 +210,8 @@ const ReviewModal = ({
             selectedFile.status === 'rejected_by_team_leader' || selectedFile.status === 'rejected_by_admin') && (
               <div className="review-notice" style={{
                 padding: '12px 16px',
-                background: selectedFile.status === 'team_leader_approved' ? '#FEF3C7' :
-                  selectedFile.status === 'final_approved' ? '#D1FAE5' : '#FEE2E2',
+                background: selectedFile.status === 'team_leader_approved' ? 'var(--status-pending)' :
+                  selectedFile.status === 'final_approved' ? '#D1FAE5' : 'var(--status-rejected)',
                 border: '1px solid ' + (selectedFile.status === 'team_leader_approved' ? '#FCD34D' :
                   selectedFile.status === 'final_approved' ? '#34D399' : '#FCA5A5'),
                 borderRadius: '8px',
@@ -219,16 +219,16 @@ const ReviewModal = ({
               }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <svg width="20" height="20" viewBox="0 0 20 20" fill="none" style={{
-                    color: selectedFile.status === 'team_leader_approved' ? '#92400E' :
-                      selectedFile.status === 'final_approved' ? '#065F46' : '#991B1B'
+                    color: selectedFile.status === 'team_leader_approved' ? 'var(--status-pending-text)' :
+                      selectedFile.status === 'final_approved' ? 'var(--status-approved-text)' : '#991B1B'
                   }}>
                     <path d="M10 18C14.4183 18 18 14.4183 18 10C18 5.58172 14.4183 2 10 2C5.58172 2 2 5.58172 2 10C2 14.4183 5.58172 18 10 18Z" stroke="currentColor" strokeWidth="2" />
                     <path d="M10 6V10M10 14H10.01" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
                   </svg>
                   <span style={{
                     fontWeight: '500',
-                    color: selectedFile.status === 'team_leader_approved' ? '#92400E' :
-                      selectedFile.status === 'final_approved' ? '#065F46' : '#991B1B'
+                    color: selectedFile.status === 'team_leader_approved' ? 'var(--status-pending-text)' :
+                      selectedFile.status === 'final_approved' ? 'var(--status-approved-text)' : '#991B1B'
                   }}>
                     {selectedFile.status === 'team_leader_approved' ? `This file has been approved by ${user.fullName || user.username || 'the team leader'} and is now pending admin review.` :
                       selectedFile.status === 'final_approved' ? 'This file has been fully approved and published.' :
@@ -295,7 +295,7 @@ const ReviewModal = ({
         variant="warning"
         isLoading={isProcessing}
       >
-        <p className="warning-text" style={{ marginTop: '12px', fontSize: '14px', color: '#6B7280' }}>
+        <p className="warning-text" style={{ marginTop: '12px', fontSize: '14px', color: 'var(--text-tertiary)' }}>
           Consider adding a comment to help the submitter understand why the file was rejected.
         </p>
       </ConfirmationModal>

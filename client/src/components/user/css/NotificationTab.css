@@ -7,7 +7,7 @@
   overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
   contain: layout style;
-  background: #F9FAFB;
+  background: var(--background-primary);
   display: flex;
   flex-direction: column;
 }
@@ -35,7 +35,7 @@
 .user-notification-component .page-header h2 {
   font-size: 32px;
   font-weight: 600;
-  color: #1d1d1f;
+  color: var(--text-primary);
   margin: 0 0 8px 0;
 }
 
@@ -47,7 +47,7 @@
 
 .user-notification-component .notification-stats {
   font-size: 14px;
-  color: #6b7280;
+  color: var(--text-secondary);
   font-weight: 500;
 }
 
@@ -59,7 +59,7 @@
 
 .user-notification-component .mark-all-read-btn {
   padding: 12px 24px;
-  background-color: #3b82f6;
+  background-color: var(--status-review-text);
   color: white;
   border: none;
   border-radius: 8px;
@@ -75,7 +75,7 @@
 }
 
 .user-notification-component .mark-all-read-btn:hover:not(:disabled) {
-  background-color: #2563eb;
+  background-color: var(--status-review-text);
 }
 
 .user-notification-component .mark-all-read-btn:disabled {
@@ -85,7 +85,7 @@
 
 .user-notification-component .delete-all-btn {
   padding: 12px 24px;
-  background-color: #ef4444;
+  background-color: var(--status-rejected-text);
   color: white;
   border: none;
   border-radius: 8px;
@@ -101,7 +101,7 @@
 }
 
 .user-notification-component .delete-all-btn:hover {
-  background-color: #dc2626;
+  background-color: var(--status-rejected-text);
 }
 
 .user-notification-component .notifications-container {
@@ -125,8 +125,8 @@
   display: flex;
   gap: 20px;
   padding: 24px;
-  background-color: white;
-  border: 1px solid #e5e7eb;
+  background-color: var(--background-secondary);
+  border: 1px solid var(--border-color);
   border-radius: 12px;
   position: relative;
   cursor: pointer;
@@ -136,7 +136,7 @@
 }
 
 .user-notification-component .notification-card.clickable:hover {
-  border-color: #3b82f6;
+  border-color: var(--status-review-text);
   box-shadow: 0 4px 16px rgba(59, 130, 246, 0.2);
   transform: translateY(-3px);
 }
@@ -147,8 +147,8 @@
 }
 
 .user-notification-component .notification-card.unread {
-  background-color: #eff6ff;
-  border-color: #bfdbfe;
+  background-color: var(--status-review);
+  border-color: var(--status-review-text);
 }
 
 .user-notification-component .notification-icon {
@@ -168,7 +168,7 @@
 }
 
 .user-notification-component .notification-card.notification-comment .notification-icon svg {
-  color: #3b82f6;
+  color: var(--status-review-text);
   stroke: #3b82f6;
 }
 
@@ -199,40 +199,40 @@
 
 .user-notification-component .notification-card.notification-error .notification-icon svg,
 .user-notification-component .notification-card.notification-rejection .notification-icon svg {
-  color: #ef4444;
+  color: var(--status-rejected-text);
   stroke: #ef4444;
 }
 
 /* Info (comment/mention) */
 .user-notification-component .notification-card.notification-info .notification-icon svg {
-  color: #3b82f6;
+  color: var(--status-review-text);
   stroke: #3b82f6;
 }
 
 /* Warning (revision_request / for_editing) */
 .user-notification-component .notification-card.notification-warning .notification-icon svg {
-  color: #f59e0b;
+  color: var(--status-pending-text);
   stroke: #f59e0b;
 }
 
 /* Due Soon (1 day remaining) — amber clock */
 .user-notification-component .notification-card.notification-due-soon .notification-icon svg {
-  color: #d97706;
+  color: var(--status-pending-text);
   stroke: #d97706;
 }
 .user-notification-component .notification-card.notification-due-soon.unread {
-  background-color: #fffbeb;
-  border-color: #fcd34d;
+  background-color: var(--status-pending);
+  border-color: var(--status-pending-text);
 }
 
 /* Overdue — red warning triangle */
 .user-notification-component .notification-card.notification-overdue .notification-icon svg {
-  color: #dc2626;
+  color: var(--status-rejected-text);
   stroke: #dc2626;
 }
 .user-notification-component .notification-card.notification-overdue.unread {
-  background-color: #fff1f2;
-  border-color: #fca5a5;
+  background-color: var(--status-rejected);
+  border-color: var(--status-rejected-text);
 }
 
 .user-notification-component .notification-card .notification-icon svg {
@@ -264,7 +264,7 @@
 .user-notification-component .notification-title {
   font-size: 17px;
   font-weight: 600;
-  color: #1d1d1f;
+  color: var(--text-primary);
   margin: 0;
   flex: 1;
 }
@@ -272,7 +272,7 @@
 .user-notification-component .arrow-icon {
   width: 20px;
   height: 20px;
-  color: #9ca3af;
+  color: var(--text-tertiary);
   opacity: 0;
   transition: all 0.3s ease;
   flex-shrink: 0;
@@ -280,13 +280,13 @@
 
 .user-notification-component .notification-card.clickable:hover .arrow-icon {
   opacity: 1;
-  color: #3b82f6;
+  color: var(--status-review-text);
   transform: translateX(4px);
 }
 
 .user-notification-component .notification-message {
   font-size: 15px;
-  color: #4b5563;
+  color: var(--text-secondary);
   line-height: 1.6;
   margin: 0 0 12px 0;
 }
@@ -297,7 +297,7 @@
   align-items: center;
   gap: 8px;
   font-size: 13px;
-  color: #6b7280;
+  color: var(--text-secondary);
 }
 
 .user-notification-component .notification-action-by {
@@ -305,7 +305,7 @@
   align-items: center;
   gap: 6px;
   font-weight: 500;
-  color: #4b5563;
+  color: var(--text-secondary);
 }
 
 .user-notification-component .notification-action-by svg {
@@ -316,14 +316,14 @@
 
 .user-notification-component .notification-time {
   font-size: 13px;
-  color: #9ca3af;
+  color: var(--text-tertiary);
   white-space: nowrap;
 }
 
 .user-notification-component .delete-notification-btn {
   background: transparent;
   border: none;
-  color: #9ca3af;
+  color: var(--text-tertiary);
   font-size: 20px;
   cursor: pointer;
   padding: 4px 8px;
@@ -333,12 +333,12 @@
 }
 
 .user-notification-component .delete-notification-btn:hover {
-  background-color: #fee2e2;
-  color: #ef4444;
+  background-color: var(--status-rejected);
+  color: var(--status-rejected-text);
 }
 
 .user-notification-component .notification-file {
-  color: #3b82f6;
+  color: var(--status-review-text);
   font-weight: 500;
 }
 
@@ -349,16 +349,16 @@
 
 .user-notification-component .notification-due-date {
   font-weight: 500;
-  color: #f59e0b;
+  color: var(--status-pending-text);
 }
 
 .user-notification-component .notification-status {
   padding: 4px 10px;
-  background-color: #f3f4f6;
+  background-color: var(--background-secondary);
   border-radius: 6px;
   font-weight: 500;
   font-size: 12px;
-  color: #374151;
+  color: var(--text-primary);
 }
 
 .user-notification-component .empty-notifications {
@@ -368,28 +368,28 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  background: white;
+  background: var(--background-secondary);
   border-radius: 12px;
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--border-color);
 }
 
 .user-notification-component .empty-icon {
   font-size: 72px;
   margin-bottom: 20px;
   opacity: 0.3;
-  color: #9ca3af;
+  color: var(--text-tertiary);
 }
 
 .user-notification-component .empty-notifications h3 {
   font-size: 20px;
   font-weight: 600;
-  color: #1d1d1f;
+  color: var(--text-primary);
   margin: 0 0 8px 0;
 }
 
 .user-notification-component .empty-notifications p {
   font-size: 15px;
-  color: #6b7280;
+  color: var(--text-secondary);
   margin: 0;
   max-width: 400px;
   line-height: 1.6;
@@ -476,7 +476,7 @@
 }
 
 .custom-modal {
-  background: #ffffff;
+  background: var(--background-secondary);
   border-radius: 16px;
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
   max-width: 500px;
@@ -488,17 +488,17 @@
 
 .custom-modal-header {
   padding: 1.5rem;
-  border-bottom: 1px solid #e5e7eb;
+  border-bottom: 1px solid var(--border-color);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  background: #ffffff;
+  background: var(--background-secondary);
   border-radius: 12px 12px 0 0;
 }
 
 .custom-modal-header h3 {
   margin: 0;
-  color: #1f2937;
+  color: var(--text-primary);
   font-size: 1.25rem;
   font-weight: 600;
 }
@@ -508,7 +508,7 @@
   border: none;
   font-size: 1.5rem;
   cursor: pointer;
-  color: #6b7280;
+  color: var(--text-secondary);
   width: 32px;
   height: 32px;
   display: flex;
@@ -519,8 +519,8 @@
 }
 
 .custom-modal-close:hover {
-  background: #f3f4f6;
-  color: #1f2937;
+  background: var(--background-secondary);
+  color: var(--text-primary);
 }
 
 .custom-modal-body {
@@ -538,7 +538,7 @@
 .warning-icon {
   font-size: 2rem;
   flex-shrink: 0;
-  color: #f59e0b;
+  color: var(--status-pending-text);
 }
 
 .warning-content {
@@ -546,7 +546,7 @@
 }
 
 .warning-content h4 {
-  color: #1f2937;
+  color: var(--text-primary);
   margin: 0 0 1rem 0;
   font-size: 1.1rem;
   font-weight: 600;
@@ -561,7 +561,7 @@
 
 .item-name {
   font-weight: 500;
-  color: #1f2937;
+  color: var(--text-primary);
   font-size: 0.9375rem;
   word-wrap: break-word;
   word-break: break-word;
@@ -572,28 +572,28 @@
 
 .item-details {
   font-size: 0.8125rem;
-  color: #6b7280;
+  color: var(--text-secondary);
   margin-top: 0.25rem;
 }
 
 .warning-text {
-  background: #fef2f2;
+  background: var(--status-rejected);
   border: 1px solid #fecaca;
   border-radius: 8px;
   padding: 1rem;
   margin: 0;
   font-size: 0.875rem;
   line-height: 1.5;
-  color: #1f2937;
+  color: var(--text-primary);
 }
 
 .custom-modal-footer {
   padding: 1.5rem;
-  border-top: 1px solid #e5e7eb;
+  border-top: 1px solid var(--border-color);
   display: flex;
   gap: 0.75rem;
   justify-content: flex-end;
-  background: #ffffff;
+  background: var(--background-secondary);
   border-radius: 0 0 12px 12px;
 }
 
@@ -628,13 +628,13 @@
 }
 
 .modal-cancel-btn {
-  background: #f3f4f6;
-  color: #374151;
-  border: 1px solid #e5e7eb;
+  background: var(--background-secondary);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
 }
 
 .modal-cancel-btn:hover:not(:disabled) {
-  background: #e5e7eb;
+  background: var(--background-secondary);
   border-color: #d1d5db;
 }
 
@@ -660,7 +660,7 @@
   padding: 12px 24px;
   background: transparent;
   border: none;
-  color: #3b82f6;
+  color: var(--status-review-text);
   font-size: 14px;
   font-weight: 600;
   cursor: pointer;
@@ -668,7 +668,7 @@
 }
 
 .see-more-btn:hover {
-  color: #2563eb;
+  color: var(--status-review-text);
 }
 
 /* Responsive Design */
@@ -727,7 +727,7 @@
 .user-notification-component .notification-delete-btn {
   background: transparent;
   border: none;
-  color: #9ca3af;
+  color: var(--text-tertiary);
   font-size: 24px;
   line-height: 1;
   cursor: pointer;
@@ -749,6 +749,6 @@
 }
 
 .user-notification-component .notification-delete-btn:hover {
-  background-color: #fee2e2;
-  color: #ef4444;
+  background-color: var(--status-rejected);
+  color: var(--status-rejected-text);
 }

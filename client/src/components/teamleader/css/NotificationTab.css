@@ -18,14 +18,14 @@
 
 .tl-notifications-header h2 {
   font-size: 32px;
-  color: #1c1e21;
+  color: var(--text-primary);
   font-weight: 700;
   margin: 0 0 4px 0;
 }
 
 .tl-notifications-subtitle {
   font-size: 15px;
-  color: #65676b;
+  color: var(--text-secondary);
   margin: 0;
 }
 
@@ -68,14 +68,14 @@
 .tl-notifications-loading {
   text-align: center;
   padding: 60px 20px;
-  color: #6b7280;
+  color: var(--text-secondary);
   font-size: 16px;
 }
 
 .tl-error-message {
-  background: #fee2e2;
+  background: var(--status-rejected);
   border: 1px solid #fecaca;
-  color: #dc2626;
+  color: var(--status-rejected-text);
   padding: 12px 16px;
   border-radius: 8px;
   margin-bottom: 20px;
@@ -96,12 +96,12 @@
 .tl-no-notifications h3 {
   font-size: 20px;
   font-weight: 600;
-  color: #1a1a1a;
+  color: var(--text-primary);
   margin: 0 0 8px 0;
 }
 
 .tl-no-notifications p {
-  color: #6b7280;
+  color: var(--text-secondary);
   font-size: 14px;
   margin: 0;
 }
@@ -113,8 +113,8 @@
 }
 
 .tl-notification-item {
-  background: white;
-  border: 1px solid #e5e7eb;
+  background: var(--background-secondary);
+  border: 1px solid var(--border-color);
   border-radius: 12px;
   padding: 16px;
   display: flex;
@@ -127,15 +127,15 @@
 }
 
 .tl-notification-item:hover {
-  border-color: #000000;
+  border-color: var(--text-primary);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
   transform: translateY(-2px);
   z-index: 10;
 }
 
 .tl-notification-item.unread {
-  background: #eff6ff;
-  border-color: #3b82f6;
+  background: var(--status-review);
+  border-color: var(--status-review-text);
 }
 
 .tl-notification-icon {
@@ -152,7 +152,7 @@
 .tl-notification-title {
   font-size: 16px;
   font-weight: 600;
-  color: #1a1a1a;
+  color: var(--text-primary);
   margin-bottom: 6px;
   display: flex;
   align-items: center;
@@ -171,7 +171,7 @@
 
 .tl-notification-message {
   font-size: 14px;
-  color: #4b5563;
+  color: var(--text-secondary);
   margin-bottom: 12px;
   line-height: 1.5;
 }
@@ -188,7 +188,7 @@
 .tl-notification-assignment,
 .tl-notification-file,
 .tl-notification-due-date {
-  color: #6b7280;
+  color: var(--text-secondary);
   display: inline-flex;
   align-items: center;
   gap: 4px;
@@ -203,12 +203,12 @@
 }
 
 .tl-notification-due-date {
-  color: #f59e0b;
+  color: var(--status-pending-text);
 }
 
 .tl-notification-time {
   font-size: 12px;
-  color: #9ca3af;
+  color: var(--text-tertiary);
 }
 
 .tl-notification-delete {
@@ -218,8 +218,8 @@
   width: 28px;
   height: 28px;
   border: none;
-  background: #f3f4f6;
-  color: #6b7280;
+  background: var(--background-secondary);
+  color: var(--text-secondary);
   border-radius: 6px;
   font-size: 16px;
   cursor: pointer;
@@ -243,7 +243,7 @@
 /* Notification Stats */
 .tl-notifications-stats {
   font-size: 16px;
-  color: #6b7280;
+  color: var(--text-secondary);
   padding: 0;
   background: transparent;
   border-radius: 0;
@@ -261,8 +261,8 @@
 }
 
 .tl-notification-skeleton-item {
-  background: white;
-  border: 1px solid #e5e7eb;
+  background: var(--background-secondary);
+  border: 1px solid var(--border-color);
   border-radius: 12px;
   padding: 16px;
   display: flex;
@@ -335,7 +335,7 @@
 .tl-end-of-list {
   text-align: center;
   padding: 30px 20px;
-  color: #9ca3af;
+  color: var(--text-tertiary);
   font-size: 14px;
 }
 
@@ -369,7 +369,7 @@
   .tl-skeleton-icon,
   .tl-skeleton-line {
     animation: none !important;
-    background: #f3f4f6 !important;
+    background: var(--background-secondary) !important;
   }
 }
 
@@ -486,7 +486,7 @@
 }
 
 .custom-modal {
-  background: #ffffff;
+  background: var(--background-secondary);
   border-radius: 16px;
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
   max-width: 500px;
@@ -498,17 +498,17 @@
 
 .custom-modal-header {
   padding: 1.5rem;
-  border-bottom: 1px solid #e5e7eb;
+  border-bottom: 1px solid var(--border-color);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  background: #ffffff;
+  background: var(--background-secondary);
   border-radius: 12px 12px 0 0;
 }
 
 .custom-modal-header h3 {
   margin: 0;
-  color: #1f2937;
+  color: var(--text-primary);
   font-size: 1.25rem;
   font-weight: 600;
 }
@@ -518,7 +518,7 @@
   border: none;
   font-size: 1.5rem;
   cursor: pointer;
-  color: #6b7280;
+  color: var(--text-secondary);
   width: 32px;
   height: 32px;
   display: flex;
@@ -529,8 +529,8 @@
 }
 
 .custom-modal-close:hover:not(:disabled) {
-  background: #f3f4f6;
-  color: #1f2937;
+  background: var(--background-secondary);
+  color: var(--text-primary);
 }
 
 .custom-modal-close:disabled {
@@ -553,7 +553,7 @@
 .warning-icon {
   font-size: 2rem;
   flex-shrink: 0;
-  color: #f59e0b;
+  color: var(--status-pending-text);
 }
 
 .warning-content {
@@ -561,7 +561,7 @@
 }
 
 .warning-content h4 {
-  color: #1f2937;
+  color: var(--text-primary);
   margin: 0 0 1rem 0;
   font-size: 1.1rem;
   font-weight: 600;
@@ -576,7 +576,7 @@
 
 .item-name {
   font-weight: 500;
-  color: #1f2937;
+  color: var(--text-primary);
   font-size: 0.9375rem;
   word-wrap: break-word;
   word-break: break-word;
@@ -587,28 +587,28 @@
 
 .item-details {
   font-size: 0.8125rem;
-  color: #6b7280;
+  color: var(--text-secondary);
   margin-top: 0.25rem;
 }
 
 .warning-text {
-  background: #fef2f2;
+  background: var(--status-rejected);
   border: 1px solid #fecaca;
   border-radius: 8px;
   padding: 1rem;
   margin: 0;
   font-size: 0.875rem;
   line-height: 1.5;
-  color: #1f2937;
+  color: var(--text-primary);
 }
 
 .custom-modal-footer {
   padding: 1.5rem;
-  border-top: 1px solid #e5e7eb;
+  border-top: 1px solid var(--border-color);
   display: flex;
   gap: 0.75rem;
   justify-content: flex-end;
-  background: #ffffff;
+  background: var(--background-secondary);
   border-radius: 0 0 12px 12px;
 }
 
@@ -643,13 +643,13 @@
 }
 
 .modal-cancel-btn {
-  background: #f3f4f6;
-  color: #374151;
-  border: 1px solid #e5e7eb;
+  background: var(--background-secondary);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
 }
 
 .modal-cancel-btn:hover:not(:disabled) {
-  background: #e5e7eb;
+  background: var(--background-secondary);
   border-color: #d1d5db;
 }
 

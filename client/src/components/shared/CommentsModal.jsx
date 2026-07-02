@@ -41,8 +41,8 @@ const computeInitials = (name) => {
 
 // Role badge colour map
 const ROLE_BADGE_STYLE = {
-  ADMIN:       { background: '#fee2e2', color: '#dc2626' },
-  TEAM_LEADER: { background: '#dbeafe', color: '#1877f2' },
+  ADMIN:       { background: 'var(--status-rejected)', color: 'var(--status-rejected-text)' },
+  TEAM_LEADER: { background: 'var(--status-review)', color: 'var(--status-review-text)' },
   USER:        { background: '#d3f1d8', color: '#1a7f37' },
 };
 

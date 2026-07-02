@@ -29,7 +29,7 @@
 }
 
 .my-files-header-top h1 {
-  color: #1d1d1f;
+  color: var(--text-primary);
   font-size: 28px;
   font-weight: 700;
   margin: 0;
@@ -37,7 +37,7 @@
 }
 
 .header-subtitle {
-  color: #86868b;
+  color: var(--text-secondary);
   font-size: 14px;
   margin: 0;
   font-weight: 400;
@@ -58,7 +58,7 @@
 
 /* Skeleton Loading Styles */
 .stat-box-skeleton {
-  border-right: 1px solid #d5d5d9;
+  border-right: 1px solid var(--border-color);
   padding: 0 24px;
   display: flex;
   align-items: center;
@@ -112,7 +112,7 @@
 }
 
 .stat-box {
-  border-right: 1px solid #d5d5d9;
+  border-right: 1px solid var(--border-color);
   padding: 0 24px;
   display: flex;
   align-items: center;
@@ -134,13 +134,13 @@
   width: 56px;
   height: 56px;
   border-radius: 12px;
-  border: 1.5px solid #000000;
+  border: 1px solid var(--border-color);
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 15px;
   font-weight: 600;
-  color: #1d1d1f;
+  color: var(--text-primary);
   flex-shrink: 0;
   background: transparent;
 }
@@ -154,7 +154,7 @@
 .stat-number {
   font-size: 28px;
   font-weight: 700;
-  color: #1d1d1f;
+  color: var(--text-primary);
   margin-bottom: 4px;
   line-height: 1;
 }
@@ -162,12 +162,12 @@
 .stat-name {
   font-size: 13px;
   font-weight: 400;
-  color: #86868b;
+  color: var(--text-secondary);
   line-height: 1.2;
 }
 
 .header-subtitle {
-  color: #86868b;
+  color: var(--text-secondary);
   font-size: 14px;
   margin: 0;
   font-weight: 400;
@@ -177,8 +177,8 @@
 
 /* Files Table Wrapper */
 .files-table-wrapper {
-  background: white;
-  border: 1px solid #d5d5d9;
+  background: var(--background-secondary);
+  border: 1px solid var(--border-color);
   border-radius: 12px;
   overflow: hidden;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
@@ -191,14 +191,14 @@
   align-items: center;
   justify-content: center;
   padding: 60px 40px;
-  color: #86868b;
+  color: var(--text-secondary);
   gap: 12px;
 }
 
 .spinner {
   width: 24px;
   height: 24px;
-  border: 2px solid #e5e5ea;
+  border: 2px solid var(--border-color);
   border-top-color: #007aff;
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
@@ -226,8 +226,8 @@
   grid-template-columns: 2fr 200px 140px 200px 80px;
   gap: 20px;
   padding: 14px 20px;
-  background: white;
-  border-bottom: 1px solid #d5d5d9;
+  background: var(--background-secondary);
+  border-bottom: 1px solid var(--border-color);
   align-items: center;
   position: sticky;
   top: 0;
@@ -237,7 +237,7 @@
 .table-header>div {
   font-size: 11px;
   font-weight: 700;
-  color: #86868b;
+  color: var(--text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
@@ -248,7 +248,7 @@
   grid-template-columns: 2fr 200px 140px 200px 80px;
   gap: 20px;
   padding: 10px 20px;
-  border-bottom: 1px solid #e5e5ea;
+  border-bottom: 1px solid var(--border-color);
   align-items: center;
   transition: background 0.15s ease;
   cursor: pointer;
@@ -263,24 +263,24 @@
 }
 
 .file-row-new:hover {
-  background: #f9f9fb;
+  background: var(--status-review);
   box-shadow: inset 0 0 0 1px #e5e5ea;
 }
 
 /* Visual hint for double-click */
 .file-row-new:active {
-  background: #f3f4f6;
+  background: var(--status-review);
 }
 
 /* Folder Row Specific Styles */
 .file-row-new.folder-row {
-  background: #fafafa;
+  background: var(--background-secondary);
   font-weight: 600;
   padding: 10px 20px;
 }
 
 .file-row-new.folder-row:hover {
-  background: #f3f4f6;
+  background: var(--status-review);
 }
 
 .file-row-new.folder-row .col-filename {
@@ -289,12 +289,12 @@
 
 /* Nested File Styles */
 .file-row-new.nested-file {
-  background: #fafafa;
+  background: var(--background-secondary);
   border-left: 3px solid #e5e5ea;
 }
 
 .file-row-new.nested-file:hover {
-  background: #f0f0f2;
+  background: var(--status-review);
 }
 
 /* Column - Filename */
@@ -317,7 +317,7 @@
 .filename {
   font-size: 14px;
   font-weight: 600;
-  color: #1d1d1f;
+  color: var(--text-primary);
   word-break: break-word;
   line-height: 1.4;
   margin: 0;
@@ -325,7 +325,7 @@
 
 .filesize {
   font-size: 12px;
-  color: #86868b;
+  color: var(--text-secondary);
   font-weight: 500;
   margin: 0;
 }
@@ -345,14 +345,14 @@
 .date-label {
   font-size: 13px;
   font-weight: 600;
-  color: #1d1d1f;
+  color: var(--text-primary);
   line-height: 1.2;
 }
 
 .time-label {
   font-size: 12px;
   font-weight: 500;
-  color: #86868b;
+  color: var(--text-secondary);
   line-height: 1.2;
 }
 
@@ -365,12 +365,11 @@
 
 .team-text {
   font-size: 13px;
-  color: #1d1d1f;
+  color: var(--text-primary);
   font-weight: 600;
-  padding: 6px 12px;
-  background: #f5f5f7;
-  border-radius: 6px;
-  border: 1px solid #e5e5ea;
+  padding: 0;
+  background: transparent;
+  border: none;
 }
 
 /* Column - Status */
@@ -441,14 +440,14 @@
 }
 
 .empty-state h3 {
-  color: #1d1d1f;
+  color: var(--text-primary);
   font-size: 20px;
   font-weight: 600;
   margin: 0 0 8px 0;
 }
 
 .empty-state p {
-  color: #86868b;
+  color: var(--text-secondary);
   font-size: 14px;
   margin: 0;
   max-width: 400px;
@@ -466,8 +465,8 @@
   justify-content: space-between;
   align-items: center;
   padding: 20px 24px;
-  background: white;
-  border-top: 1px solid #e5e5ea;
+  background: var(--background-secondary);
+  border-top: 1px solid var(--border-color);
   border-radius: 0 0 12px 12px;
   margin-top: -1px;
 }
@@ -480,7 +479,7 @@
 
 .pagination-text {
   font-size: 14px;
-  color: #86868b;
+  color: var(--text-secondary);
   font-weight: 500;
 }
 
@@ -492,17 +491,17 @@
 
 .items-per-page label {
   font-size: 14px;
-  color: #1d1d1f;
+  color: var(--text-primary);
   font-weight: 500;
 }
 
 .items-select {
   padding: 6px 32px 6px 12px;
-  border: 1px solid #d5d5d9;
+  border: 1px solid var(--border-color);
   border-radius: 6px;
-  background: white;
+  background: var(--background-secondary);
   font-size: 14px;
-  color: #1d1d1f;
+  color: var(--text-primary);
   font-weight: 500;
   cursor: pointer;
   transition: all 0.2s ease;
@@ -534,19 +533,19 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: white;
-  border: 1px solid #d5d5d9;
+  background: var(--background-secondary);
+  border: 1px solid var(--border-color);
   border-radius: 6px;
   font-size: 14px;
   font-weight: 600;
-  color: #1d1d1f;
+  color: var(--text-primary);
   cursor: pointer;
   transition: all 0.2s ease;
   user-select: none;
 }
 
 .pagination-btn:hover:not(:disabled) {
-  background: #f9f9fb;
+  background: var(--status-review);
   border-color: #5856d6;
   color: #5856d6;
 }
@@ -579,7 +578,7 @@
   justify-content: center;
   min-width: 36px;
   height: 36px;
-  color: #86868b;
+  color: var(--text-secondary);
   font-size: 14px;
   font-weight: 600;
   user-select: none;
@@ -736,9 +735,7 @@
 }
 
 /* Force black color for stat numbers */
-.my-files-wrapper .stats-row .stat-box .stat-text .stat-number {
-  color: #1d1d1f !important;
-}
+
 
 /* Actions Column */
 .col-actions {
@@ -788,7 +785,7 @@
 }
 
 .delete-modal-content {
-  background: white;
+  background: var(--background-secondary);
   border-radius: 12px;
   width: 90%;
   max-width: 400px;
@@ -805,7 +802,7 @@
   align-items: center;
   gap: 12px;
   padding: 20px 20px 14px 20px;
-  border-bottom: 1px solid #f5f5f7;
+  border-bottom: 1px solid var(--border-color);
 }
 
 .delete-icon-wrapper {
@@ -821,7 +818,7 @@
 }
 
 .delete-modal-header h2 {
-  color: #1d1d1f;
+  color: var(--text-primary);
   font-size: 18px;
   font-weight: 600;
   margin: 0;
@@ -832,26 +829,26 @@
 }
 
 .delete-warning {
-  color: #1d1d1f;
+  color: var(--text-primary);
   font-size: 14px;
   font-weight: 500;
   margin: 0 0 10px 0;
 }
 
 .delete-filename {
-  color: #1d1d1f;
+  color: var(--text-primary);
   font-size: 13px;
   font-weight: 600;
   margin: 0 0 12px 0;
   padding: 10px;
-  background: #f5f5f7;
+  background: var(--background-primary);
   border-radius: 8px;
-  border: 1px solid #e5e5ea;
+  border: 1px solid var(--border-color);
   word-break: break-word;
 }
 
 .delete-note {
-  color: #86868b;
+  color: var(--text-secondary);
   font-size: 12px;
   margin: 0;
   line-height: 1.5;
@@ -861,7 +858,7 @@
   display: flex;
   gap: 10px;
   padding: 16px 20px 20px 20px;
-  border-top: 1px solid #f5f5f7;
+  border-top: 1px solid var(--border-color);
 }
 
 .delete-cancel-btn,
@@ -880,14 +877,14 @@
 }
 
 .delete-cancel-btn {
-  background: white;
-  border: 1px solid #d5d5d9;
-  color: #1d1d1f;
+  background: var(--background-secondary);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
 }
 
 .delete-cancel-btn:hover:not(:disabled) {
-  background: #f9f9fb;
-  border-color: #86868b;
+  background: var(--status-review);
+  border-color: var(--text-secondary);
 }
 
 .delete-confirm-btn {

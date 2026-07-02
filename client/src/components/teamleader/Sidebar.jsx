@@ -3,6 +3,7 @@ import Avatar from '../shared/Avatar'
 import { apiFetch } from '@/config/api'
 import useStore from '../../store/useStore'
 import LoadingSpinner from '../LoadingSpinner'
+import ThemeToggle from '../shared/ThemeToggle'
 
 const Sidebar = memo(({ 
   activeTab, 
@@ -66,7 +67,7 @@ const Sidebar = memo(({
   return (
     <>
       {isChangingTeam && (
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'white', zIndex: 99999, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'var(--background-secondary)', zIndex: 99999, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <LoadingSpinner message="Loading dashboard..." />
         </div>
       )}
@@ -77,7 +78,7 @@ const Sidebar = memo(({
           <Avatar user={user} size="md" editable />
         </div>
         <div className="tl-brand-name" style={{ display: 'flex', flexDirection: 'column', gap: '4px', overflow: 'hidden' }}>
-          <span style={{ fontWeight: 600, fontSize: '13px', color: '#111827', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+          <span style={{ fontWeight: 600, fontSize: '13px', color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
             {user?.fullName || user?.username || 'Team Leader'}
           </span>
           <select 
@@ -86,7 +87,7 @@ const Sidebar = memo(({
             disabled={isChangingTeam}
             style={{
               backgroundColor: 'transparent',
-              color: '#374151',
+              color: 'var(--text-secondary)',
               fontSize: '12px',
               fontWeight: '600',
               padding: '3px 8px',
@@ -140,8 +141,8 @@ const Sidebar = memo(({
                 position: 'absolute',
                 top: '-6px',
                 right: '-8px',
-                backgroundColor: '#ef4444',
-                color: '#ffffff',
+                backgroundColor: 'var(--status-rejected-text)',
+                color: 'var(--background-secondary)',
                 fontSize: '10px',
                 fontWeight: '700',
                 borderRadius: '50%',
@@ -201,6 +202,7 @@ const Sidebar = memo(({
 
       {/* Footer */}
       <div className="tl-sidebar-footer">
+        <ThemeToggle variant="tl" />
         <button className="tl-logout-btn" onClick={onLogout}>
           <svg className="tl-logout-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>

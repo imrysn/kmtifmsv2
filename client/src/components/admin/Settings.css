@@ -15,15 +15,15 @@
 }
 
 .settings-section .alert-error {
-  background: #fef2f2;
+  background: var(--status-rejected);
   border: 1px solid #fecaca;
-  color: #dc2626;
+  color: var(--status-rejected-text);
 }
 
 .settings-section .alert-success {
-  background: #f0fdf4;
+  background: var(--status-approved);
   border: 1px solid #bbf7d0;
-  color: #059669;
+  color: var(--status-approved-text);
 }
 
 .settings-section .alert-message {
@@ -234,7 +234,7 @@
 
 .settings-section .btn-primary {
   background: var(--primary-color);
-  color: white;
+  color: var(--background-secondary);
 }
 
 .settings-section .btn-primary:hover:not(:disabled) {
@@ -256,7 +256,7 @@
 
 .settings-section .btn-danger {
   background: #ef4444;
-  color: white;
+  color: var(--background-secondary);
 }
 
 .settings-section .btn-danger:hover:not(:disabled) {
@@ -448,11 +448,11 @@
 }
 
 .settings-section .status.active {
-  color: #059669;
+  color: var(--status-approved-text);
 }
 
 .settings-section .status.inactive {
-  color: #dc2626;
+  color: var(--status-rejected-text);
 }
 
 .settings-section .team-actions {
@@ -694,7 +694,7 @@
 
 .settings-section .form-select-multiple option:checked {
   background: var(--primary-color);
-  color: white;
+  color: var(--background-secondary);
 }
 
 .settings-section .form-select-multiple option:hover {

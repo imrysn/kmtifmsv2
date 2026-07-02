@@ -11,7 +11,7 @@ const PdfIcon = () => (
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="file-icon-svg">
     <path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6z" fill="#E74C3C" />
     <path d="M14 2v6h6" fill="#C0392B" />
-    <text x="12" y="17" fontSize="6" textAnchor="middle" fill="white" fontWeight="bold">PDF</text>
+    <text x="12" y="17" fontSize="6" textAnchor="middle" fill="var(--background-secondary)" fontWeight="bold">PDF</text>
   </svg>
 );
 
@@ -19,7 +19,7 @@ const DocIcon = () => (
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="file-icon-svg">
     <path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6z" fill="#2980B9" />
     <path d="M14 2v6h6" fill="#3498DB" />
-    <text x="12" y="17" fontSize="5" textAnchor="middle" fill="white" fontWeight="bold">DOC</text>
+    <text x="12" y="17" fontSize="5" textAnchor="middle" fill="var(--background-secondary)" fontWeight="bold">DOC</text>
   </svg>
 );
 
@@ -27,7 +27,7 @@ const ExcelIcon = () => (
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="file-icon-svg">
     <path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6z" fill="#27AE60" />
     <path d="M14 2v6h6" fill="#229954" />
-    <text x="12" y="17" fontSize="5" textAnchor="middle" fill="white" fontWeight="bold">XLS</text>
+    <text x="12" y="17" fontSize="5" textAnchor="middle" fill="var(--background-secondary)" fontWeight="bold">XLS</text>
   </svg>
 );
 
@@ -41,14 +41,14 @@ const ZipIcon = () => (
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="file-icon-svg">
     <path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6z" fill="#95A5A6" />
     <path d="M14 2v6h6M10 8h2v2h-2v-2zm0 2h2v2h-2v-2z" fill="#7F8C8D" />
-    <text x="12" y="17" fontSize="5" textAnchor="middle" fill="white" fontWeight="bold">ZIP</text>
+    <text x="12" y="17" fontSize="5" textAnchor="middle" fill="var(--background-secondary)" fontWeight="bold">ZIP</text>
   </svg>
 );
 
 const VideoIcon = () => (
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="file-icon-svg">
     <path d="M18 4l2 3h-3l-2-3h-2l2 3h-3l-2-3H8l2 3H7L5 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V4h-4z" fill="#E67E22" />
-    <path d="M10 12l5 3-5 3v-6z" fill="white" />
+    <path d="M10 12l5 3-5 3v-6z" fill="var(--background-secondary)" />
   </svg>
 );
 
@@ -62,9 +62,9 @@ const TextIcon = () => (
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="file-icon-svg">
     <path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6z" fill="#34495E" />
     <path d="M14 2v6h6" fill="#2C3E50" />
-    <rect x="8" y="12" width="8" height="1" fill="white" />
-    <rect x="8" y="14" width="8" height="1" fill="white" />
-    <rect x="8" y="16" width="6" height="1" fill="white" />
+    <rect x="8" y="12" width="8" height="1" fill="var(--background-secondary)" />
+    <rect x="8" y="14" width="8" height="1" fill="var(--background-secondary)" />
+    <rect x="8" y="16" width="6" height="1" fill="var(--background-secondary)" />
   </svg>
 );
 
@@ -72,9 +72,9 @@ const CadIcon = () => (
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="file-icon-svg">
     <path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6z" fill="#3498DB" />
     <path d="M14 2v6h6" fill="#2980B9" />
-    <circle cx="12" cy="14" r="3" fill="none" stroke="white" strokeWidth="0.5" />
-    <line x1="12" y1="11" x2="12" y2="17" stroke="white" strokeWidth="0.5" />
-    <line x1="9" y1="14" x2="15" y2="14" stroke="white" strokeWidth="0.5" />
+    <circle cx="12" cy="14" r="3" fill="none" stroke="var(--background-secondary)" strokeWidth="0.5" />
+    <line x1="12" y1="11" x2="12" y2="17" stroke="var(--background-secondary)" strokeWidth="0.5" />
+    <line x1="9" y1="14" x2="15" y2="14" stroke="var(--background-secondary)" strokeWidth="0.5" />
   </svg>
 );
 

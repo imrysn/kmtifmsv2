@@ -13,13 +13,13 @@
 .team-tasks-header h2 {
   margin: 0;
   font-size: 32px;
-  color: #1c1e21;
+  color: var(--text-primary);
   font-weight: 700;
   text-align: left;
 }
 
 .team-tasks-subtitle {
-  color: #65676b;
+  color: var(--text-secondary);
   font-size: 15px;
   margin: 4px 0 0 0;
   text-align: left;
@@ -27,7 +27,7 @@
 
 /* Task Count */
 .team-tasks-count {
-  color: #65676b;
+  color: var(--text-secondary);
   font-size: 15px;
   margin-bottom: 24px;
   text-align: left;
@@ -45,15 +45,15 @@
 }
 
 .error-message {
-  background: #fee;
-  color: #c0392b;
-  border: 1px solid #e74c3c;
+  background: var(--status-rejected);
+  color: var(--status-rejected-text);
+  border: 1px solid var(--status-rejected-text);
 }
 
 .success-message {
-  background: #efd;
-  color: #27ae60;
-  border: 1px solid #2ecc71;
+  background: var(--status-approved);
+  color: var(--status-approved-text);
+  border: 1px solid var(--status-approved-text);
 }
 
 .close-message-btn {
@@ -84,7 +84,7 @@
 }
 
 .skeleton-card {
-  background: white;
+  background: var(--background-secondary);
   border-radius: 12px;
   padding: 16px;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
@@ -154,15 +154,15 @@
 
 /* Team Task Card */
 .team-task-card {
-  background: white;
-  border: 1px solid #e5e7eb;
+  background: var(--background-secondary);
+  border: 1px solid var(--border-color);
   border-radius: 8px;
   overflow: hidden;
 }
 
 /* Card Header */
 .team-task-header {
-  background: white;
+  background: var(--background-secondary);
   padding: 16px 20px;
   display: flex;
   justify-content: space-between;
@@ -181,7 +181,7 @@
   height: 40px;
   border-radius: 50%;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
+  color: var(--background-secondary);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -197,14 +197,14 @@
 
 .team-task-assigned {
   font-size: 15px;
-  color: #1c1e21;
+  color: var(--text-primary);
   line-height: 1.3;
   margin-bottom: 4px;
 }
 
 .team-leader-name {
   font-weight: 700;
-  color: #1c1e21;
+  color: var(--text-primary);
 }
 
 /* Role Badge - Unified Style */
@@ -222,34 +222,34 @@
 }
 
 .role-badge.user {
-  border-color: #059669;
-  color: #059669;
+  border-color: var(--status-approved-text);
+  color: var(--status-approved-text);
   background: transparent !important;
   background-color: transparent !important;
 }
 
 .role-badge.team-leader {
-  border-color: #1d4ed8;
-  color: #1d4ed8;
+  border-color: var(--status-review-text);
+  color: var(--status-review-text);
   background: transparent !important;
   background-color: transparent !important;
 }
 
 .role-badge.admin {
-  border-color: #dc2626;
-  color: #dc2626;
+  border-color: var(--status-rejected-text);
+  color: var(--status-rejected-text);
   background: transparent !important;
   background-color: transparent !important;
 }
 
 .assigned-user {
   font-weight: 700;
-  color: #1c1e21;
+  color: var(--text-primary);
 }
 
 .team-task-created {
   font-size: 13px;
-  color: #65676b;
+  color: var(--text-secondary);
 }
 
 .team-task-header-right {
@@ -262,7 +262,7 @@
 
 .team-task-due-date {
   font-size: 14px;
-  color: #374151;
+  color: var(--text-primary);
   font-weight: 500;
   text-align: right;
 }
@@ -280,7 +280,7 @@
 .team-task-title {
   font-weight: 700;
   font-size: 18px;
-  color: #1c1e21;
+  color: var(--text-primary);
   margin: 0;
   line-height: 1.3;
 }
@@ -292,7 +292,7 @@
 
 .team-task-description {
   font-size: 15px;
-  color: #1c1e21;
+  color: var(--text-primary);
   line-height: 1.5;
   margin: 0;
   white-space: pre-wrap;
@@ -302,7 +302,7 @@
 .expand-btn {
   background: none;
   border: none;
-  color: #3b82f6;
+  color: var(--status-review-text);
   font-size: 14px;
   font-weight: 500;
   cursor: pointer;
@@ -320,16 +320,16 @@
 }
 
 .team-task-attached-file {
-  background: #EFF6FF;
+  background: var(--status-review);
   padding: 20px;
   border-radius: 12px;
-  border: 1px solid #BFDBFE;
+  border: 1px solid var(--status-review-text);
 }
 
 .file-label {
   font-size: 14px;
   font-weight: 600;
-  color: #1e40af;
+  color: var(--status-review-text);
   margin-bottom: 12px;
   display: flex;
   align-items: center;
@@ -342,10 +342,10 @@
   padding: 16px;
   gap: 12px;
   transition: all 0.2s ease;
-  border: 1px solid #93C5FD;
+  border: 1px solid var(--border-color);
   border-radius: 10px;
-  background: #DBEAFE;
-  box-shadow: 0 1px 2px rgba(59, 130, 246, 0.1);
+  background: var(--background-secondary);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
   margin-bottom: 12px;
   cursor: pointer;
 }
@@ -355,16 +355,16 @@
 }
 
 .file-item:hover {
-  background: #BFDBFE;
-  border-color: #60A5FA;
-  box-shadow: 0 2px 4px rgba(59, 130, 246, 0.15);
+  background: var(--status-review);
+  border-color: var(--status-review-text);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
 }
 
 
 
 /* No Attachment Message */
 .no-attachment {
-  background: #f3f4f6;
+  background: var(--background-secondary);
   padding: 20px;
   border-radius: 6px;
   display: flex;
@@ -375,12 +375,12 @@
 
 .no-attachment-icon {
   font-size: 16px;
-  color: #9ca3af;
+  color: var(--text-tertiary);
 }
 
 .no-attachment-text {
   font-size: 14px;
-  color: #6b7280;
+  color: var(--text-secondary);
   font-weight: 500;
 }
 
@@ -391,7 +391,7 @@
   margin-top: 8px;
   background: transparent;
   border: none;
-  color: #6563ff;
+  color: var(--primary-color);
   font-size: 14px;
   font-weight: 500;
   cursor: pointer;
@@ -401,17 +401,17 @@
 }
 
 .see-more-files-btn:hover {
-  color: #4f46e5;
+  color: var(--primary-color);
   text-decoration: underline;
 }
 
 .see-more-files-btn:active {
-  color: #4338ca;
+  color: var(--primary-color);
 }
 
 /* Empty State */
 .empty-team-tasks {
-  background: white;
+  background: var(--background-secondary);
   border-radius: 12px;
   padding: 60px 20px;
   text-align: center;
@@ -426,13 +426,13 @@
 .empty-team-tasks h3 {
   margin: 0 0 8px 0;
   font-size: 20px;
-  color: #1c1e21;
+  color: var(--text-primary);
   font-weight: 600;
 }
 
 .empty-team-tasks p {
   margin: 0;
-  color: #65676b;
+  color: var(--text-secondary);
   font-size: 15px;
 }
 
@@ -456,7 +456,7 @@
 /* Comments Section */
 .team-task-comments-section {
   padding: 16px 20px;
-  border-top: 1px solid #e5e7eb;
+  border-top: 1px solid var(--border-color);
   display: flex;
   justify-content: flex-start;
 }
@@ -468,7 +468,7 @@
   cursor: pointer;
   font-size: 14px;
   font-weight: 500;
-  color: #65676b;
+  color: var(--text-secondary);
   display: inline-flex;
   align-items: center;
   gap: 4px;
@@ -476,7 +476,7 @@
 }
 
 .toggle-comments-btn:hover {
-  color: #1c1e21;
+  color: var(--text-primary);
 }
 
 
@@ -514,7 +514,7 @@
 }
 
 .comments-modal {
-  background: white;
+  background: var(--background-secondary);
   border-radius: 12px;
   width: 100%;
   max-width: 700px;
@@ -540,7 +540,7 @@
 
 .comments-modal-header {
   padding: 20px 24px;
-  border-bottom: 1px solid #e5e7eb;
+  border-bottom: 1px solid var(--border-color);
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -550,7 +550,7 @@
   margin: 0;
   font-size: 20px;
   font-weight: 600;
-  color: #1a1a1a;
+  color: var(--text-primary);
 }
 
 .close-modal-btn {
@@ -559,9 +559,9 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #f2f3f5;
+  background: var(--background-secondary);
   border: none;
-  color: #65676b;
+  color: var(--text-secondary);
   font-size: 24px;
   cursor: pointer;
   border-radius: 50%;
@@ -569,8 +569,8 @@
 }
 
 .close-modal-btn:hover {
-  background: #e4e6eb;
-  color: #1a1a1a;
+  background: var(--background-secondary);
+  color: var(--text-primary);
 }
 
 .comments-modal-body {
@@ -601,7 +601,7 @@
    ============================================ */
 
 .comments-section {
-  background: #ffffff;
+  background: var(--background-secondary);
 }
 
 .comments-list {
@@ -622,7 +622,7 @@
   height: 32px;
   border-radius: 50%;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
+  color: var(--background-secondary);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -642,13 +642,13 @@
 .comment-author {
   font-size: 13px;
   font-weight: 600;
-  color: #1a1a1a;
+  color: var(--text-primary);
   margin-bottom: 2px;
 }
 
 .comment-text {
   font-size: 15px;
-  color: #1a1a1a;
+  color: var(--text-primary);
   line-height: 1.4;
   white-space: pre-wrap;
 }
@@ -679,7 +679,7 @@
   top: 16px;
   width: 10px;
   height: 2px;
-  background: #e4e6eb;
+  background: var(--background-secondary);
 }
 
 .reply-avatar {
@@ -705,7 +705,7 @@
   top: -12px;
   width: 2px;
   height: calc(100% + 12px);
-  background: #e4e6eb;
+  background: var(--background-secondary);
 }
 
 /* Add Comment Input */
@@ -720,15 +720,15 @@
   display: flex;
   gap: 8px;
   align-items: center;
-  background: #f0f2f5;
+  background: var(--background-secondary);
   border-radius: 20px;
   padding: 8px 12px;
-  border: 1px solid #e4e6eb;
+  border: 1px solid var(--border-color);
   transition: border-color 0.2s;
 }
 
 .comment-input-wrapper:focus-within {
-  border-color: #1877f2;
+  border-color: var(--status-review-text);
 }
 
 .comment-input {
@@ -736,21 +736,21 @@
   border: none;
   outline: none;
   font-size: 15px;
-  color: #1a1a1a;
+  color: var(--text-primary);
   background: transparent;
   padding: 0;
 }
 
 .comment-input::placeholder {
-  color: #8a8d91;
+  color: var(--text-secondary);
 }
 
 .comment-submit-btn {
   width: 32px;
   height: 32px;
   border-radius: 50%;
-  background: #1877f2;
-  color: white;
+  background: var(--primary-color);
+  color: var(--background-secondary);
   border: none;
   display: flex;
   align-items: center;
@@ -762,12 +762,12 @@
 }
 
 .comment-submit-btn:hover:not(:disabled) {
-  background: #166fe5;
+  background: var(--primary-hover);
 }
 
 .comment-submit-btn:disabled {
-  background: #e4e6eb;
-  color: #bcc0c4;
+  background: var(--background-secondary);
+  color: var(--text-tertiary);
   cursor: not-allowed;
 }
 
@@ -950,7 +950,7 @@
   top: -7px; /* Connect to previous item */
   bottom: -7px; /* Connect to next item */
   width: 2px;
-  background-color: #cbd5e1; /* slate-300 */
+  background-color: var(--background-secondary); /* slate-300 */
 }
 
 .tl-tree-line-empty {
@@ -971,7 +971,7 @@
   top: -7px;
   bottom: -7px;
   width: 2px;
-  background-color: #cbd5e1;
+  background-color: var(--background-secondary);
 }
 
 .tl-tree-line-connector::after {
@@ -981,7 +981,7 @@
   top: 50%;
   width: 15px;
   height: 2px;
-  background-color: #cbd5e1;
+  background-color: var(--background-secondary);
 }
 
 /* For the last item in a folder, stop the vertical line at the horizontal connector */

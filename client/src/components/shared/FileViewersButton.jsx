@@ -129,11 +129,11 @@ const FileViewersButton = ({ fileId, size = 14, externalCount, minDate, fileSour
   }
 
   const getRoleColor = (role) => {
-    if (!role) return '#6b7280'
+    if (!role) return 'var(--text-tertiary)'
     const r = role.toUpperCase()
     if (r.includes('ADMIN')) return '#7c3aed'
-    if (r.includes('TEAM_LEADER')) return '#1d4ed8'
-    return '#059669'
+    if (r.includes('TEAM_LEADER')) return 'var(--status-review-text)'
+    return 'var(--status-approved-text)'
   }
 
   const getRoleLabel = (role) => {
@@ -154,7 +154,7 @@ const FileViewersButton = ({ fileId, size = 14, externalCount, minDate, fileSour
         onClick={handleClick}
         title={displayCount > 0 ? `${displayCount} view${displayCount !== 1 ? 's' : ''} — click to see who` : 'No views yet'}
         style={{
-          background: open ? '#f0fdf4' : 'transparent',
+          background: open ? 'var(--status-approved)' : 'transparent',
           border: 'none',
           borderRadius: '6px',
           width: `${size + 14}px`,
@@ -163,19 +163,19 @@ const FileViewersButton = ({ fileId, size = 14, externalCount, minDate, fileSour
           alignItems: 'center',
           justifyContent: 'center',
           cursor: 'pointer',
-          color: open ? '#16a34a' : displayCount > 0 ? '#16a34a' : '#9ca3af',
+          color: open ? 'var(--status-approved-text)' : displayCount > 0 ? 'var(--status-approved-text)' : 'var(--text-tertiary)',
           flexShrink: 0,
           transition: 'all 0.15s',
           position: 'relative',
         }}
         onMouseEnter={e => {
-          e.currentTarget.style.backgroundColor = '#f0fdf4'
-          e.currentTarget.style.color = '#16a34a'
+          e.currentTarget.style.backgroundColor = 'var(--status-approved)'
+          e.currentTarget.style.color = 'var(--status-approved-text)'
         }}
         onMouseLeave={e => {
           if (!open) {
             e.currentTarget.style.backgroundColor = 'transparent'
-            e.currentTarget.style.color = displayCount > 0 ? '#16a34a' : '#9ca3af'
+            e.currentTarget.style.color = displayCount > 0 ? 'var(--status-approved-text)' : 'var(--text-tertiary)'
           }
         }}
       >
@@ -190,8 +190,8 @@ const FileViewersButton = ({ fileId, size = 14, externalCount, minDate, fileSour
             position: 'absolute',
             top: '1px',
             right: '1px',
-            background: '#16a34a',
-            color: '#fff',
+            background: 'var(--status-approved-text)',
+            color: 'var(--background-secondary)',
             fontSize: '9px',
             fontWeight: '700',
             borderRadius: '8px',
@@ -217,7 +217,7 @@ const FileViewersButton = ({ fileId, size = 14, externalCount, minDate, fileSour
           top: `${popoverPos.top}px`,
           right: `${popoverPos.right}px`,
           zIndex: 99999,
-          background: '#fff',
+          background: 'var(--background-secondary)',
           border: '1px solid #e5e7eb',
           borderRadius: '12px',
           boxShadow: '0 8px 28px rgba(0,0,0,0.14)',
@@ -229,20 +229,20 @@ const FileViewersButton = ({ fileId, size = 14, externalCount, minDate, fileSour
           <div style={{
             display: 'flex', alignItems: 'center', gap: '7px',
             marginBottom: '10px', paddingBottom: '8px',
-            borderBottom: '1px solid #f3f4f6'
+            borderBottom: '1px solid var(--background-secondary)'
           }}>
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke='var(--status-approved-text)' strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
               <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
               <circle cx="12" cy="12" r="3" />
             </svg>
-            <span style={{ fontSize: '12px', fontWeight: '700', color: '#374151' }}>
+            <span style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-secondary)' }}>
               Viewed by{!loading && viewers.length > 0 ? ` (${viewers.length})` : ''}
             </span>
           </div>
 
           {/* Content */}
           {loading ? (
-            <div style={{ textAlign: 'center', padding: '16px 8px', color: '#9ca3af', fontSize: '13px' }}>
+            <div style={{ textAlign: 'center', padding: '16px 8px', color: 'var(--text-tertiary)', fontSize: '13px' }}>
               Loading...
             </div>
           ) : viewers.length === 0 ? (
@@ -251,7 +251,7 @@ const FileViewersButton = ({ fileId, size = 14, externalCount, minDate, fileSour
                 <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
                 <circle cx="12" cy="12" r="3"/>
               </svg>
-              <div style={{ fontSize: '12px', color: '#9ca3af' }}>No views yet</div>
+              <div style={{ fontSize: '12px', color: 'var(--text-tertiary)' }}>No views yet</div>
             </div>
           ) : (
             <div style={{ maxHeight: '240px', overflowY: 'auto' }}>
@@ -263,7 +263,7 @@ const FileViewersButton = ({ fileId, size = 14, externalCount, minDate, fileSour
                     alignItems: 'center',
                     gap: '10px',
                     padding: '8px 0',
-                    borderBottom: i < viewers.length - 1 ? '1px solid #f3f4f6' : 'none',
+                    borderBottom: i < viewers.length - 1 ? '1px solid var(--background-secondary)' : 'none',
                   }}
                 >
                   <div style={{
@@ -281,7 +281,7 @@ const FileViewersButton = ({ fileId, size = 14, externalCount, minDate, fileSour
                   <div style={{ flex: 1, minWidth: 0 }}>
                     {/* Full name (big, bold) */}
                     <div style={{
-                      fontSize: '13px', fontWeight: '700', color: '#111827',
+                      fontSize: '13px', fontWeight: '700', color: 'var(--text-primary)',
                       overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                     }}>
                       {getDisplayName(v)}
@@ -290,7 +290,7 @@ const FileViewersButton = ({ fileId, size = 14, externalCount, minDate, fileSour
                     {/* Username (if different from full_name) */}
                     {v.username && v.full_name && v.username !== v.full_name && (
                       <div style={{
-                        fontSize: '11px', color: '#6b7280',
+                        fontSize: '11px', color: 'var(--text-tertiary)',
                         overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                         marginTop: '1px',
                       }}>
@@ -312,7 +312,7 @@ const FileViewersButton = ({ fileId, size = 14, externalCount, minDate, fileSour
                       {v.viewed_at && (
                         <>
                           <span style={{ fontSize: '10px', color: '#d1d5db' }}>·</span>
-                          <span style={{ fontSize: '10px', color: '#9ca3af', whiteSpace: 'nowrap' }}>
+                          <span style={{ fontSize: '10px', color: 'var(--text-tertiary)', whiteSpace: 'nowrap' }}>
                             {formatTime(v.viewed_at)}
                           </span>
                         </>

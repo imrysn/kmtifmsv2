@@ -12,19 +12,19 @@ const formatDate = (dateString) => {
 };
 
 const STATUS_CONFIG = {
-  uploaded:                 { label: 'Pending Review',          bg: '#eff6ff', color: '#1d4ed8', border: '#bfdbfe', icon: '⏳' },
-  revision:                 { label: 'Checked – Need to Edit',  bg: '#fffbeb', color: '#92400e', border: '#fde68a', icon: '✎' },
-  under_revision:           { label: 'Under Revision',          bg: '#fffbeb', color: '#92400e', border: '#fde68a', icon: '✎' },
-  checked:                  { label: 'Checked',                 bg: '#eff6ff', color: '#1d4ed8', border: '#bfdbfe', icon: '✓' },
-  team_leader_approved:     { label: 'Pending Admin',           bg: '#fefce8', color: '#713f12', border: '#fde68a', icon: '⏳' },
-  final_approved:           { label: 'Approved',                bg: '#f0fdf4', color: '#15803d', border: '#bbf7d0', icon: '✓' },
-  rejected_by_team_leader:  { label: 'Rejected by Team Leader', bg: '#fef2f2', color: '#b91c1c', border: '#fecaca', icon: '✕' },
-  rejected_by_admin:        { label: 'Rejected by Admin',       bg: '#fef2f2', color: '#b91c1c', border: '#fecaca', icon: '✕' },
+  uploaded:                 { label: 'Pending Review',          bg: 'var(--status-review)', color: 'var(--status-review-text)', border: 'var(--status-review-text)', icon: '⏳' },
+  revision:                 { label: 'Checked – Need to Edit',  bg: 'var(--status-pending)', color: 'var(--status-pending-text)', border: 'var(--status-pending-text)', icon: '✎' },
+  under_revision:           { label: 'Under Revision',          bg: 'var(--status-pending)', color: 'var(--status-pending-text)', border: 'var(--status-pending-text)', icon: '✎' },
+  checked:                  { label: 'Checked',                 bg: 'var(--status-review)', color: 'var(--status-review-text)', border: 'var(--status-review-text)', icon: '✓' },
+  team_leader_approved:     { label: 'Pending Admin',           bg: '#fefce8', color: '#713f12', border: 'var(--status-pending-text)', icon: '⏳' },
+  final_approved:           { label: 'Approved',                bg: 'var(--status-approved)', color: 'var(--status-approved-text)', border: 'var(--status-approved-text)', icon: '✓' },
+  rejected_by_team_leader:  { label: 'Rejected by Team Leader', bg: 'var(--status-rejected)', color: '#b91c1c', border: 'var(--status-rejected-text)', icon: '✕' },
+  rejected_by_admin:        { label: 'Rejected by Admin',       bg: 'var(--status-rejected)', color: '#b91c1c', border: 'var(--status-rejected-text)', icon: '✕' },
 };
 
 const getStatusConfig = (status) => {
-  if (!status) return { label: 'Unknown', bg: '#f9fafb', color: '#6b7280', border: '#e5e7eb', icon: '?' };
-  return STATUS_CONFIG[status] || { label: status.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()), bg: '#f9fafb', color: '#6b7280', border: '#e5e7eb', icon: '•' };
+  if (!status) return { label: 'Unknown', bg: 'var(--background-secondary)', color: 'var(--text-tertiary)', border: '#e5e7eb', icon: '?' };
+  return STATUS_CONFIG[status] || { label: status.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()), bg: 'var(--background-secondary)', color: 'var(--text-tertiary)', border: '#e5e7eb', icon: '•' };
 };
 
 const STAGE_LABELS = {
@@ -50,8 +50,8 @@ const parseWrongItems = (note) => {
 const InfoRow = ({ label, value, mono = false }) => (
   value ? (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
-      <span style={{ fontSize: '10px', fontWeight: '700', color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.07em' }}>{label}</span>
-      <span style={{ fontSize: '13.5px', fontWeight: '500', color: '#1f2937', wordBreak: mono ? 'break-all' : 'normal', fontFamily: mono ? 'monospace' : 'inherit' }}>{value}</span>
+      <span style={{ fontSize: '10px', fontWeight: '700', color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.07em' }}>{label}</span>
+      <span style={{ fontSize: '13.5px', fontWeight: '500', color: 'var(--text-primary)', wordBreak: mono ? 'break-all' : 'normal', fontFamily: mono ? 'monospace' : 'inherit' }}>{value}</span>
     </div>
   ) : null
 );
@@ -102,7 +102,7 @@ const FileModal = memo(({
       <div
         onClick={e => e.stopPropagation()}
         style={{
-          background: '#fff', borderRadius: '20px', width: '100%', maxWidth: '580px',
+          background: 'var(--background-secondary)', borderRadius: '20px', width: '100%', maxWidth: '580px',
           maxHeight: '88vh', display: 'flex', flexDirection: 'column', overflow: 'hidden',
           boxShadow: '0 25px 60px rgba(0,0,0,0.25)',
         }}
@@ -118,7 +118,7 @@ const FileModal = memo(({
           <button onClick={handleClose} style={{
             position: 'absolute', top: '14px', right: '16px',
             background: 'rgba(255,255,255,0.2)', border: 'none', borderRadius: '50%',
-            width: '28px', height: '28px', cursor: 'pointer', color: '#fff',
+            width: '28px', height: '28px', cursor: 'pointer', color: 'var(--background-secondary)',
             fontSize: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center',
           }}>×</button>
 
@@ -128,7 +128,7 @@ const FileModal = memo(({
               <div style={{
                 background: 'rgba(255,255,255,0.2)', border: '1px solid rgba(255,255,255,0.3)',
                 borderRadius: '8px', padding: '4px 10px', fontSize: '11px',
-                fontWeight: '700', color: '#fff', letterSpacing: '0.08em',
+                fontWeight: '700', color: 'var(--background-secondary)', letterSpacing: '0.08em',
               }}>{ext}</div>
             )}
             <span style={{
@@ -141,7 +141,7 @@ const FileModal = memo(({
           {selectedFile.assignment_title && (
             <div style={{ marginBottom: '14px' }}>
               <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.6)', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '3px' }}>Task</div>
-              <div style={{ fontSize: '15px', fontWeight: '700', color: '#fff' }}>{selectedFile.assignment_title}</div>
+              <div style={{ fontSize: '15px', fontWeight: '700', color: 'var(--background-secondary)' }}>{selectedFile.assignment_title}</div>
             </div>
           )}
 
@@ -160,15 +160,15 @@ const FileModal = memo(({
           {/* Checker revision alert */}
           {isCheckerRevision && (
             <div style={{
-              background: '#fffbeb', border: '1px solid #fde68a', borderRadius: '12px',
+              background: 'var(--status-pending)', border: '1px solid #fde68a', borderRadius: '12px',
               padding: '14px 16px', marginBottom: '18px',
             }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: wrongItems.length ? '10px' : 0 }}>
                 <span style={{ fontSize: '16px' }}>✎</span>
                 <div>
-                  <div style={{ fontSize: '13px', fontWeight: '700', color: '#92400e' }}>Checked – Needs Editing</div>
+                  <div style={{ fontSize: '13px', fontWeight: '700', color: 'var(--status-pending-text)' }}>Checked – Needs Editing</div>
                   {selectedFile.checked_by && (
-                    <div style={{ fontSize: '12px', color: '#b45309', marginTop: '2px' }}>
+                    <div style={{ fontSize: '12px', color: 'var(--status-pending-text)', marginTop: '2px' }}>
                       Reviewed by <strong>{selectedFile.checked_by}</strong>
                     </div>
                   )}
@@ -176,20 +176,20 @@ const FileModal = memo(({
               </div>
               {wrongItems.length > 0 && (
                 <div>
-                  <div style={{ fontSize: '11px', fontWeight: '700', color: '#92400e', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '6px' }}>Wrong Items Found</div>
+                  <div style={{ fontSize: '11px', fontWeight: '700', color: 'var(--status-pending-text)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '6px' }}>Wrong Items Found</div>
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
                     {wrongItems.map((item, i) => (
                       <span key={i} style={{
-                        background: '#fef3c7', border: '1px solid #fcd34d',
+                        background: 'var(--status-pending)', border: '1px solid #fcd34d',
                         borderRadius: '6px', padding: '3px 10px',
-                        fontSize: '12px', fontWeight: '600', color: '#92400e',
+                        fontSize: '12px', fontWeight: '600', color: 'var(--status-pending-text)',
                       }}>{item}</span>
                     ))}
                   </div>
                 </div>
               )}
               {selectedFile.checker_note && !wrongItems.length && (
-                <div style={{ fontSize: '12.5px', color: '#92400e', marginTop: '4px', fontStyle: 'italic' }}>{selectedFile.checker_note}</div>
+                <div style={{ fontSize: '12.5px', color: 'var(--status-pending-text)', marginTop: '4px', fontStyle: 'italic' }}>{selectedFile.checker_note}</div>
               )}
             </div>
           )}
@@ -197,14 +197,14 @@ const FileModal = memo(({
           {/* Checked OK banner */}
           {isChecked && selectedFile.checked_by && (
             <div style={{
-              background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '12px',
+              background: 'var(--status-review)', border: '1px solid #bfdbfe', borderRadius: '12px',
               padding: '12px 16px', marginBottom: '18px',
               display: 'flex', alignItems: 'center', gap: '10px',
             }}>
               <span style={{ fontSize: '20px' }}>✓</span>
               <div>
-                <div style={{ fontSize: '13px', fontWeight: '700', color: '#1d4ed8' }}>Checked & Approved</div>
-                <div style={{ fontSize: '12px', color: '#3b82f6', marginTop: '1px' }}>
+                <div style={{ fontSize: '13px', fontWeight: '700', color: 'var(--status-review-text)' }}>Checked & Approved</div>
+                <div style={{ fontSize: '12px', color: 'var(--status-review-text)', marginTop: '1px' }}>
                   Checked by <strong>{selectedFile.checked_by}</strong>
                 </div>
               </div>
@@ -214,19 +214,19 @@ const FileModal = memo(({
           {/* Rejection banner */}
           {isRejected && (
             <div style={{
-              background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '12px',
+              background: 'var(--status-rejected)', border: '1px solid #fecaca', borderRadius: '12px',
               padding: '14px 16px', marginBottom: '18px',
             }}>
               <div style={{ fontSize: '13px', fontWeight: '700', color: '#b91c1c', marginBottom: '4px' }}>
                 ✕ {selectedFile.status === 'rejected_by_team_leader' ? 'Rejected by Team Leader' : 'Rejected by Admin'}
               </div>
               {(selectedFile.rejection_reason || selectedFile.team_leader_comments || selectedFile.admin_comments) && (
-                <div style={{ fontSize: '12.5px', color: '#dc2626', fontStyle: 'italic' }}>
+                <div style={{ fontSize: '12.5px', color: 'var(--status-rejected-text)', fontStyle: 'italic' }}>
                   "{selectedFile.rejection_reason || selectedFile.team_leader_comments || selectedFile.admin_comments}"
                 </div>
               )}
               {selectedFile.rejected_by && (
-                <div style={{ fontSize: '11.5px', color: '#ef4444', marginTop: '4px' }}>
+                <div style={{ fontSize: '11.5px', color: 'var(--status-rejected-text)', marginTop: '4px' }}>
                   By: <strong>{selectedFile.rejected_by}</strong>
                   {selectedFile.rejected_at && <> · {formatDate(selectedFile.rejected_at)}</>}
                 </div>
@@ -237,8 +237,8 @@ const FileModal = memo(({
           {/* File Info grid */}
           <div style={{
             display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px',
-            background: '#f9fafb', borderRadius: '12px', padding: '16px',
-            marginBottom: '16px', border: '1px solid #f3f4f6',
+            background: 'var(--background-secondary)', borderRadius: '12px', padding: '16px',
+            marginBottom: '16px', border: '1px solid var(--background-secondary)',
           }}>
             <InfoRow label="Filename" value={filename} mono />
             <InfoRow label="File Type" value={selectedFile.file_type || selectedFile.fileType || 'Unknown'} />
@@ -250,20 +250,20 @@ const FileModal = memo(({
 
           {/* Description */}
           {selectedFile.description && (
-            <div style={{ marginBottom: '16px', background: '#f9fafb', borderRadius: '10px', padding: '12px 14px', border: '1px solid #f3f4f6' }}>
-              <div style={{ fontSize: '10px', fontWeight: '700', color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: '5px' }}>Description</div>
-              <div style={{ fontSize: '13px', color: '#374151', lineHeight: '1.6' }}>{selectedFile.description}</div>
+            <div style={{ marginBottom: '16px', background: 'var(--background-secondary)', borderRadius: '10px', padding: '12px 14px', border: '1px solid var(--background-secondary)' }}>
+              <div style={{ fontSize: '10px', fontWeight: '700', color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: '5px' }}>Description</div>
+              <div style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: '1.6' }}>{selectedFile.description}</div>
             </div>
           )}
 
           {/* Tags */}
           {(tags.length > 0 || selectedFile.tag) && (
             <div style={{ marginBottom: '16px' }}>
-              <div style={{ fontSize: '10px', fontWeight: '700', color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: '6px' }}>Tags</div>
+              <div style={{ fontSize: '10px', fontWeight: '700', color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: '6px' }}>Tags</div>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
                 {(tags.length > 0 ? tags : [selectedFile.tag]).filter(Boolean).map((tag, i) => (
                   <span key={i} style={{
-                    background: '#eff6ff', color: '#1e40af', border: '1px solid #bfdbfe',
+                    background: 'var(--status-review)', color: 'var(--status-review-text)', border: '1px solid #bfdbfe',
                     padding: '3px 10px', borderRadius: '20px', fontSize: '12px', fontWeight: '600',
                   }}>🏷 {tag}</span>
                 ))}
@@ -274,17 +274,17 @@ const FileModal = memo(({
           {/* TL Review section */}
           {(selectedFile.team_leader_reviewed_at || (selectedFile.team_leader_comments && !isRejected)) && (
             <div style={{
-              background: selectedFile.status === 'rejected_by_team_leader' ? '#fef2f2' : '#fff9f2',
-              border: `1px solid ${selectedFile.status === 'rejected_by_team_leader' ? '#fecaca' : '#fed7aa'}`,
+              background: selectedFile.status === 'rejected_by_team_leader' ? 'var(--status-rejected)' : '#fff9f2',
+              border: `1px solid ${selectedFile.status === 'rejected_by_team_leader' ? 'var(--status-rejected-text)' : '#fed7aa'}`,
               borderRadius: '10px', padding: '12px 14px', marginBottom: '12px',
             }}>
-              <div style={{ fontSize: '11px', fontWeight: '700', color: selectedFile.status === 'rejected_by_team_leader' ? '#b91c1c' : '#c2410c', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: '8px' }}>
+              <div style={{ fontSize: '11px', fontWeight: '700', color: selectedFile.status === 'rejected_by_team_leader' ? '#b91c1c' : 'var(--status-pending-text)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: '8px' }}>
                 Team Leader Review
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                {selectedFile.team_leader_username && <div style={{ fontSize: '12.5px', color: '#374151' }}><span style={{ fontWeight: '600' }}>Reviewed by:</span> {selectedFile.team_leader_username}</div>}
-                {selectedFile.team_leader_reviewed_at && <div style={{ fontSize: '12.5px', color: '#374151' }}><span style={{ fontWeight: '600' }}>Date:</span> {formatDate(selectedFile.team_leader_reviewed_at)}</div>}
-                {selectedFile.team_leader_comments && <div style={{ fontSize: '12.5px', color: '#374151', marginTop: '4px', fontStyle: 'italic' }}>"{selectedFile.team_leader_comments}"</div>}
+                {selectedFile.team_leader_username && <div style={{ fontSize: '12.5px', color: 'var(--text-secondary)' }}><span style={{ fontWeight: '600' }}>Reviewed by:</span> {selectedFile.team_leader_username}</div>}
+                {selectedFile.team_leader_reviewed_at && <div style={{ fontSize: '12.5px', color: 'var(--text-secondary)' }}><span style={{ fontWeight: '600' }}>Date:</span> {formatDate(selectedFile.team_leader_reviewed_at)}</div>}
+                {selectedFile.team_leader_comments && <div style={{ fontSize: '12.5px', color: 'var(--text-secondary)', marginTop: '4px', fontStyle: 'italic' }}>"{selectedFile.team_leader_comments}"</div>}
               </div>
             </div>
           )}
@@ -292,17 +292,17 @@ const FileModal = memo(({
           {/* Admin Review section */}
           {(selectedFile.admin_reviewed_at || (selectedFile.admin_comments && !isRejected)) && (
             <div style={{
-              background: selectedFile.status === 'rejected_by_admin' ? '#fef2f2' : '#f5f3ff',
-              border: `1px solid ${selectedFile.status === 'rejected_by_admin' ? '#fecaca' : '#ddd6fe'}`,
+              background: selectedFile.status === 'rejected_by_admin' ? 'var(--status-rejected)' : '#f5f3ff',
+              border: `1px solid ${selectedFile.status === 'rejected_by_admin' ? 'var(--status-rejected-text)' : '#ddd6fe'}`,
               borderRadius: '10px', padding: '12px 14px',
             }}>
               <div style={{ fontSize: '11px', fontWeight: '700', color: selectedFile.status === 'rejected_by_admin' ? '#b91c1c' : '#5b21b6', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: '8px' }}>
                 Admin Review
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                {selectedFile.admin_username && <div style={{ fontSize: '12.5px', color: '#374151' }}><span style={{ fontWeight: '600' }}>Reviewed by:</span> {selectedFile.admin_username}</div>}
-                {selectedFile.admin_reviewed_at && <div style={{ fontSize: '12.5px', color: '#374151' }}><span style={{ fontWeight: '600' }}>Date:</span> {formatDate(selectedFile.admin_reviewed_at)}</div>}
-                {selectedFile.admin_comments && <div style={{ fontSize: '12.5px', color: '#374151', marginTop: '4px', fontStyle: 'italic' }}>"{selectedFile.admin_comments}"</div>}
+                {selectedFile.admin_username && <div style={{ fontSize: '12.5px', color: 'var(--text-secondary)' }}><span style={{ fontWeight: '600' }}>Reviewed by:</span> {selectedFile.admin_username}</div>}
+                {selectedFile.admin_reviewed_at && <div style={{ fontSize: '12.5px', color: 'var(--text-secondary)' }}><span style={{ fontWeight: '600' }}>Date:</span> {formatDate(selectedFile.admin_reviewed_at)}</div>}
+                {selectedFile.admin_comments && <div style={{ fontSize: '12.5px', color: 'var(--text-secondary)', marginTop: '4px', fontStyle: 'italic' }}>"{selectedFile.admin_comments}"</div>}
               </div>
             </div>
           )}
@@ -310,18 +310,18 @@ const FileModal = memo(({
 
         {/* ── Footer ── */}
         <div style={{
-          padding: '14px 22px', borderTop: '1px solid #f3f4f6',
-          background: '#fafafa', display: 'flex', gap: '10px', justifyContent: 'flex-end', flexShrink: 0,
+          padding: '14px 22px', borderTop: '1px solid var(--background-secondary)',
+          background: 'var(--background-secondary)', display: 'flex', gap: '10px', justifyContent: 'flex-end', flexShrink: 0,
         }}>
           <button onClick={handleClose} style={{
             padding: '9px 20px', borderRadius: '8px', border: '1px solid #d1d5db',
-            background: '#fff', color: '#374151', fontSize: '14px', fontWeight: '500', cursor: 'pointer',
+            background: 'var(--background-secondary)', color: 'var(--text-secondary)', fontSize: '14px', fontWeight: '500', cursor: 'pointer',
           }}>Close</button>
 
           {onOpenFile && (
             <button onClick={onOpenFile} style={{
               padding: '9px 20px', borderRadius: '8px', border: 'none',
-              background: 'linear-gradient(135deg, #4f46e5, #6366f1)', color: '#fff',
+              background: 'linear-gradient(135deg, #4f46e5, #6366f1)', color: 'var(--background-secondary)',
               fontSize: '14px', fontWeight: '600', cursor: 'pointer',
               display: 'flex', alignItems: 'center', gap: '7px',
               boxShadow: '0 2px 8px rgba(79,70,229,0.3)',

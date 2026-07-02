@@ -8,6 +8,7 @@ import { AuthProvider, NetworkProvider } from '../contexts'
 import { ToastNotification } from '../components/shared'
 import OnlineMembersPanel from '../components/shared/OnlineMembersPanel'
 import Avatar from '../components/shared/Avatar'
+import ThemeToggle from '../components/shared/ThemeToggle'
 import useStore from '../store/useStore'
 
 // Sync unread count to Electron taskbar badge + icon flash
@@ -99,6 +100,7 @@ const AdminSidebar = memo(({ sidebarRef, activeTab, sidebarOpen, unreadCount, us
     </nav>
 
     <div className="sidebar-footer">
+      <ThemeToggle />
       <button onClick={handleLogout} className="logout-btn">
         <span className="nav-icon">{getSidebarIcon('logout')}</span>
         <span className="logout-btn-text">Logout</span>

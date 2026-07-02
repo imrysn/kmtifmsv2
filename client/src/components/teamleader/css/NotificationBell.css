@@ -26,7 +26,7 @@
   top: 4px;
   right: 4px;
   background: #ef4444;
-  color: white;
+  color: var(--background-secondary);
   font-size: 10px;
   font-weight: 700;
   padding: 2px 5px;

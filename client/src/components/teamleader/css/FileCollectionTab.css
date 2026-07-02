@@ -56,31 +56,31 @@
 
 .total-icon {
   border: 1px solid #000;
-  color: #000;
+  color: var(--text-primary);
   background: transparent;
 }
 
 .pending-icon {
   border: 1px solid #000;
-  color: #000;
+  color: var(--text-primary);
   background: transparent;
 }
 
 .approved-icon {
   border: 1px solid #000;
-  color: #000;
+  color: var(--text-primary);
   background: transparent;
 }
 
 .rejected-icon {
   border: 1px solid #000;
-  color: #000;
+  color: var(--text-primary);
   background: transparent;
 }
 
 .pending-admin-icon {
   border: 1px solid #000;
-  color: #000;
+  color: var(--text-primary);
   background: transparent;
 }
 
@@ -202,7 +202,7 @@
   padding: 0.75rem 1rem;
   border: 1px solid var(--border-color);
   border-radius: 8px;
-  background: white;
+  background: var(--background-secondary);
   color: var(--text-primary);
   font-size: 0.9rem;
   transition: border-color 0.15s ease;
@@ -210,7 +210,7 @@
 
 .search-input:focus {
   outline: none;
-  border-color: #000000;
+  border-color: var(--text-primary);
 }
 
 .search-input::placeholder {
@@ -231,7 +231,7 @@
 
 .form-select:focus {
   outline: none;
-  border-color: #000000;
+  border-color: var(--text-primary);
 }
 
 .form-select option {
@@ -362,7 +362,7 @@
 
 .status-badge.status-rejected {
   border: 1px solid #ef4444;
-  color: #ef4444;
+  color: var(--status-rejected-text);
   background: transparent;
 }
 
@@ -373,8 +373,8 @@
   font-size: 0.75rem;
   font-weight: 500;
   background: transparent;
-  color: #000000;
-  border: 1px solid #000000;
+  color: var(--text-primary);
+  border: 1px solid var(--text-primary);
   width: 130px;
   text-align: center;
   display: inline-block;
@@ -483,7 +483,7 @@
 }
 
 .tl-file-highlighted td {
-  border-color: #9ca3af !important;
+  border-color: var(--text-tertiary) !important;
 }
 
 @keyframes fileHighlightPulse {
@@ -530,7 +530,7 @@
   height: 36px;
   padding: 0 0.5rem;
   border: 1px solid var(--border-color);
-  background: white;
+  background: var(--background-secondary);
   color: var(--text-primary);
   border-radius: 6px;
   font-size: 0.875rem;
@@ -543,7 +543,7 @@
 .pagination-btn:hover:not(:disabled) {
   background: var(--background-primary);
   border-color: #999999;
-  color: #000000;
+  color: var(--text-primary);
 }
 
 .pagination-btn:active {
@@ -560,7 +560,7 @@
 .pagination-btn.active {
   background: #555555;
   border-color: #555555;
-  color: white;
+  color: var(--background-secondary);
   font-weight: 600;
 }
 
@@ -583,7 +583,7 @@
 
 /* Folder Rows Styling */
 .tl-folder-row {
-  background-color: #ffffff !important;
+  
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s ease;
@@ -599,12 +599,12 @@
 }
 
 .tl-folder-row:hover {
-  background-color: #f3f4f6 !important;
+  
   box-shadow: 0 2px 4px rgba(0,0,0,0.05);
 }
 
 .tl-folder-file-row {
-  background-color: #ffffff !important;
+  
 }
 
 .tl-folder-file-row td {
@@ -652,7 +652,7 @@
 }
 
 .tl-folder-file-row:hover {
-  background-color: #f9fafb !important;
+  
 }
 
 /* Responsive Pagination */

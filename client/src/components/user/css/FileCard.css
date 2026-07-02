@@ -30,7 +30,7 @@
   width: 56px;
   height: 56px;
   background: var(--user-accent);
-  color: white;
+  color: var(--background-secondary);
   border-radius: var(--radius-md);
   display: flex;
   align-items: center;
@@ -57,7 +57,7 @@
 }
 
 .user-file-card-component .file-main-info h3 {
-  color: #1D1D1F;
+  color: var(--text-primary);
   font-size: 16px;
   font-weight: 600;
   margin: 0;
@@ -84,7 +84,7 @@
   font-size: 13px;
   font-weight: 600;
   background: linear-gradient(135deg, #DBEAFE 0%, #BFDBFE 100%);
-  color: #1E40AF;
+  color: var(--status-review-text);
   border: 1px solid rgba(59, 130, 246, 0.2);
   display: inline-block;
 }
@@ -115,8 +115,8 @@
   border-radius: 6px;
   font-size: 12px;
   font-weight: 600;
-  background: linear-gradient(135deg, #F3F4F6 0%, #E5E7EB 100%);
-  color: #4B5563;
+  background: linear-gradient(135deg, var(--background-secondary) 0%, #E5E7EB 100%);
+  color: var(--text-secondary);
   border: 1px solid rgba(107, 114, 128, 0.15);
   cursor: pointer;
   transition: all 0.2s ease;
@@ -142,7 +142,7 @@
   top: 100%;
   left: 0;
   margin-top: 4px;
-  background: white;
+  background: var(--background-secondary);
   border-radius: 8px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   border: 1px solid rgba(0, 0, 0, 0.1);
@@ -165,8 +165,8 @@
 .user-file-card-component .tag-item {
   padding: 8px 12px;
   font-size: 12px;
-  color: #4B5563;
-  border-bottom: 1px solid #F3F4F6;
+  color: var(--text-secondary);
+  border-bottom: 1px solid var(--background-secondary);
   transition: background 0.2s ease;
   white-space: nowrap;
 }
@@ -176,8 +176,8 @@
 }
 
 .user-file-card-component .tag-item:hover {
-  background: #F9FAFB;
-  color: #1F2937;
+  background: var(--background-secondary);
+  color: var(--text-primary);
 }
 
 /* Metadata Row */
@@ -200,7 +200,7 @@
 }
 
 .user-file-card-component .metadata-value {
-  color: #1D1D1F;
+  color: var(--text-primary);
   font-weight: 600;
 }
 
@@ -255,7 +255,7 @@
 
 .user-file-card-component .status-stage {
   font-size: 12px;
-  color: #4B5563;
+  color: var(--text-secondary);
   font-weight: 500;
   text-align: right;
 }

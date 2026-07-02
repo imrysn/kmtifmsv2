@@ -16,8 +16,8 @@ const MemberCard = memo(({ member, bulkPerformance, memberScores, handleScoreLoa
 
   return (
     <div className={`member-perf-wrapper ${isStar ? 'card-star' : isExcellent ? 'card-excellent' : ''}`} style={{
-      background: '#ffffff',
-      border: (isStar || isExcellent) ? 'none' : '1px solid #f1f5f9',
+      background: 'var(--background-secondary)',
+      border: (isStar || isExcellent) ? 'none' : '1px solid var(--background-secondary)',
       borderRadius: '16px',
       padding: '16px',
       boxShadow: (isStar || isExcellent) ? 'none' : '0 2px 10px rgba(0,0,0,0.02)',
@@ -47,13 +47,13 @@ const MemberCard = memo(({ member, bulkPerformance, memberScores, handleScoreLoa
           <h3 style={{
             fontSize: '15px',
             fontWeight: '800',
-            color: '#0f172a',
+            color: 'var(--text-primary)',
             margin: 0,
             whiteSpace: 'nowrap',
             overflow: 'hidden',
             textOverflow: 'ellipsis'
           }}>{member.name}</h3>
-          <span style={{ fontSize: '12px', color: '#64748b' }}>{member.email}</span>
+          <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>{member.email}</span>
         </div>
       </div>
       <UserPerformanceCard
@@ -174,7 +174,7 @@ const TeamManagementTab = ({
           {/* View Mode Toggle */}
           <div className="view-mode-toggle" style={{
             display: 'flex',
-            background: '#f1f5f9',
+            background: 'var(--background-secondary)',
             padding: '4px',
             borderRadius: '10px',
             border: '1px solid #e2e8f0'
@@ -189,8 +189,8 @@ const TeamManagementTab = ({
                 fontWeight: '700',
                 cursor: 'pointer',
                 transition: 'all 0.2s ease',
-                background: viewMode === 'performance' ? '#ffffff' : 'transparent',
-                color: viewMode === 'performance' ? '#0f172a' : '#64748b',
+                background: viewMode === 'performance' ? 'var(--background-primary)' : 'transparent',
+                color: viewMode === 'performance' ? 'var(--text-primary)' : 'var(--text-secondary)',
                 boxShadow: viewMode === 'performance' ? '0 2px 8px rgba(0,0,0,0.05)' : 'none'
               }}
             >
@@ -206,8 +206,8 @@ const TeamManagementTab = ({
                 fontWeight: '700',
                 cursor: 'pointer',
                 transition: 'all 0.2s ease',
-                background: viewMode === 'table' ? '#ffffff' : 'transparent',
-                color: viewMode === 'table' ? '#0f172a' : '#64748b',
+                background: viewMode === 'table' ? 'var(--background-primary)' : 'transparent',
+                color: viewMode === 'table' ? 'var(--text-primary)' : 'var(--text-secondary)',
                 boxShadow: viewMode === 'table' ? '0 2px 8px rgba(0,0,0,0.05)' : 'none'
               }}
             >
@@ -308,7 +308,7 @@ const TeamManagementTab = ({
                     </td>
                     <td style={{ color: 'var(--text-secondary)' }}>{member.joined}</td>
                     <td>
-                      <span className="tl-badge" style={{ background: '#E0E7FF', color: 'var(--primary-color)' }}>
+                      <span className="tl-badge" style={{ background: 'var(--status-review)', color: 'var(--primary-color)' }}>
                         {member.files} files
                       </span>
                     </td>

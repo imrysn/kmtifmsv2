@@ -9,9 +9,36 @@ html {
   line-height: 1.5;
   font-weight: 400;
 
-  color-scheme: light dark;
-  color: rgba(255, 255, 255, 0.87);
-  background-color: #242424;
+  /* ── Light Theme Defaults ────────────────────────────────────────────── */
+  --primary-color: #4f46e5;
+  --primary-hover: #4338ca;
+  --danger-color: #ef4444;
+  
+  /* Neutral Colors */
+  --text-primary: #111827;
+  --text-secondary: #4b5563;
+  --text-tertiary: #6b7280;
+
+  /* Background Colors */
+  --background-primary: #f3f4f6;
+  --background-secondary: #ffffff;
+  --sidebar-bg: #ffffff;
+
+  /* Border Colors */
+  --border-color: #e5e7eb;
+  --border-light: #f9fafb;
+
+  /* Status Colors */
+  --status-approved: rgba(16, 185, 129, 0.15);
+  --status-approved-text: #059669;
+  --status-pending: rgba(245, 158, 11, 0.15);
+  --status-pending-text: #d97706;
+  --status-rejected: rgba(239, 68, 68, 0.15);
+  --status-rejected-text: #dc2626;
+  --status-review: rgba(59, 130, 246, 0.15);
+  --status-review-text: #2563eb;
+  
+  color-scheme: light;
 
   font-synthesis: none;
   text-rendering: optimizeLegibility;
@@ -25,8 +52,8 @@ body {
   padding: 0;
   min-width: 320px;
   min-height: 100vh;
-  background-color: #ffffff;
-  color: #333333;
+  background-color: var(--background-primary);
+  color: var(--text-primary);
 }
 
 * {
@@ -117,15 +144,15 @@ a {
 
 /* Alert Type Specific Styles */
 .alert-error {
-  background: #fef2f2;
+  background: var(--status-rejected);
   border: 1px solid #fecaca;
-  color: #dc2626;
+  color: var(--status-rejected-text);
 }
 
 .alert-success {
-  background: #f0fdf4;
+  background: var(--status-approved);
   border: 1px solid #bbf7d0;
-  color: #059669;
+  color: var(--status-approved-text);
 }
 
 .alert-message {
@@ -156,4 +183,49 @@ a {
     max-width: none; /* Remove max-width constraint */
     min-width: auto; /* Remove min-width constraint */
   }
+}
+
+/* ── Dark Theme Overrides ────────────────────────────────────────────────── */
+:root[data-theme="dark"] {
+  --primary-color: #818cf8;
+  --primary-hover: #6366f1;
+  
+  /* Neutral Colors */
+  --text-primary: #F9FAFB;
+  --text-secondary: #D1D5DB;
+  --text-tertiary: #9CA3AF;
+
+  /* Background Colors */
+  --background-primary: #111827;
+  --background-secondary: #1F2937;
+  --sidebar-bg: #1F2937;
+  --surface-color: #374151;
+
+  /* Border Colors */
+  --border-color: rgba(255, 255, 255, 0.05);
+  --border-light: rgba(255, 255, 255, 0.02);
+
+  /* Status Colors */
+  --status-approved: rgba(16, 185, 129, 0.2);
+  --status-approved-text: #34D399;
+  --status-pending: rgba(245, 158, 11, 0.2);
+  --status-pending-text: #FBBF24;
+  --status-rejected: rgba(239, 68, 68, 0.2);
+  --status-rejected-text: #F87171;
+  --status-review: rgba(59, 130, 246, 0.2);
+  --status-review-text: #60A5FA;
+  
+  color-scheme: dark;
+}
+
+:root[data-theme="dark"] body {
+  background-color: var(--background-primary);
+  color: var(--text-primary);
+}
+
+
+/* Global Form Select Options Fix */
+select option {
+  background: var(--surface-color, var(--background-secondary, var(--background-secondary)));
+  color: var(--text-primary);
 }

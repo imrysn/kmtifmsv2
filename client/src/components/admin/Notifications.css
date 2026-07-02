@@ -15,12 +15,12 @@
 .notifications-header h2 {
   font-size: 28px;
   font-weight: 600;
-  color: #1a1a1a;
+  color: var(--text-primary);
   margin: 0 0 8px 0;
 }
 
 .notifications-subtitle {
-  color: #6b7280;
+  color: var(--text-secondary);
   font-size: 14px;
   margin: 0;
 }
@@ -64,14 +64,14 @@
 .notifications-loading {
   text-align: center;
   padding: 60px 20px;
-  color: #6b7280;
+  color: var(--text-secondary);
   font-size: 16px;
 }
 
 .error-message {
-  background: #fee2e2;
+  background: var(--status-rejected);
   border: 1px solid #fecaca;
-  color: #dc2626;
+  color: var(--status-rejected-text);
   padding: 12px 16px;
   border-radius: 8px;
   margin-bottom: 20px;
@@ -92,12 +92,12 @@
 .no-notifications h3 {
   font-size: 20px;
   font-weight: 600;
-  color: #1a1a1a;
+  color: var(--text-primary);
   margin: 0 0 8px 0;
 }
 
 .no-notifications p {
-  color: #6b7280;
+  color: var(--text-secondary);
   font-size: 14px;
   margin: 0;
 }
@@ -109,8 +109,8 @@
 }
 
 .notification-item {
-  background: white;
-  border: 1px solid #e5e7eb;
+  background: var(--background-secondary);
+  border: 1px solid var(--border-color);
   border-radius: 12px;
   padding: 16px;
   display: flex;
@@ -121,13 +121,13 @@
 }
 
 .notification-item:hover {
-  border-color: #000000;
+  border-color: var(--text-primary);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
 .notification-item.unread {
-  background: #eff6ff;
-  border-color: #3b82f6;
+  background: var(--status-review);
+  border-color: var(--status-review-text);
 }
 
 .notification-icon {
@@ -144,7 +144,7 @@
 .notification-title {
   font-size: 16px;
   font-weight: 600;
-  color: #1a1a1a;
+  color: var(--text-primary);
   margin-bottom: 6px;
   display: flex;
   align-items: center;
@@ -163,7 +163,7 @@
 
 .notification-message {
   font-size: 14px;
-  color: #4b5563;
+  color: var(--text-secondary);
   margin-bottom: 12px;
   line-height: 1.5;
 }
@@ -180,7 +180,7 @@
 .notification-assignment,
 .notification-file,
 .notification-due-date {
-  color: #6b7280;
+  color: var(--text-secondary);
   display: inline-flex;
   align-items: center;
   gap: 4px;
@@ -195,12 +195,12 @@
 }
 
 .notification-due-date {
-  color: #f59e0b;
+  color: var(--status-pending-text);
 }
 
 .notification-time {
   font-size: 12px;
-  color: #9ca3af;
+  color: var(--text-tertiary);
 }
 
 .notification-delete {
@@ -210,8 +210,8 @@
   width: 28px;
   height: 28px;
   border: none;
-  background: #f3f4f6;
-  color: #6b7280;
+  background: var(--background-secondary);
+  color: var(--text-secondary);
   border-radius: 6px;
   font-size: 16px;
   cursor: pointer;
@@ -235,9 +235,9 @@
 /* Notification Stats */
 .notifications-stats {
   font-size: 16px;
-  color: #6b7280;
+  color: var(--text-secondary);
   padding: 12px 16px;
-  background: #f9fafb;
+  background: var(--background-secondary);
   border-radius: 8px;
 }
 
@@ -250,8 +250,8 @@
 }
 
 .notification-skeleton-item {
-  background: white;
-  border: 1px solid #e5e7eb;
+  background: var(--background-secondary);
+  border: 1px solid var(--border-color);
   border-radius: 12px;
   padding: 16px;
   display: flex;
@@ -324,7 +324,7 @@
 .end-of-list {
   text-align: center;
   padding: 30px 20px;
-  color: #9ca3af;
+  color: var(--text-tertiary);
   font-size: 14px;
 }
 
@@ -358,7 +358,7 @@
   .skeleton-icon,
   .skeleton-line {
     animation: none !important;
-    background: #f3f4f6 !important;
+    background: var(--background-secondary) !important;
   }
 }
 

@@ -8,7 +8,7 @@ ChartJS.register(ArcElement, Tooltip, Legend);
 
 // Define colors outside component to prevent re-creation on every render
 const COLORS = [
-    '#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6',
+    '#3B82F6', '#10b981', '#F59E0B', '#EF4444', '#8b5cf6',
     '#ec4899', '#06b6d4', '#f97316', '#14b8a6', '#6366f1',
     '#84cc16', '#a855f7'
 ];
@@ -36,10 +36,10 @@ const CHART_OPTIONS = {
             }
         },
         tooltip: {
-            backgroundColor: '#ffffff',
-            titleColor: '#1f2937',
-            bodyColor: '#6b7280',
-            borderColor: '#e5e7eb',
+            backgroundColor: 'rgba(0, 0, 0, 0.8)',
+            titleColor: '#ffffff',
+            bodyColor: '#e5e7eb',
+            borderColor: 'rgba(255, 255, 255, 0.1)',
             borderWidth: 1,
             padding: 12,
             boxPadding: 6,
@@ -72,8 +72,8 @@ const AnimatedPieChart = memo(({ fileTypes, loading }) => {
             datasets: [{
                 data: sorted.map(item => item.count),
                 backgroundColor: sorted.map((_, i) => COLORS[i % COLORS.length]),
-                borderWidth: 2,
-                borderColor: '#ffffff',
+                borderWidth: 0,
+                borderColor: 'transparent',
                 hoverOffset: 6
             }]
         };

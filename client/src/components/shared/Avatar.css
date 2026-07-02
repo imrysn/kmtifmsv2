@@ -51,7 +51,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #ffffff;
+  color: var(--background-secondary);
   font-weight: 700;
   letter-spacing: 0.04em;
   line-height: 1;
@@ -70,7 +70,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #ffffff;
+  color: var(--background-secondary);
   opacity: 0;
   transition: opacity 0.2s ease, background 0.2s ease;
   cursor: pointer;
@@ -131,7 +131,7 @@
   width: 18px;
   height: 18px;
   border: 2.5px solid rgba(255, 255, 255, 0.3);
-  border-top-color: #ffffff;
+  border-top-color: var(--background-secondary);
   border-radius: 50%;
   animation: av-spin 0.65s linear infinite;
 }
@@ -143,8 +143,8 @@
 /* ── Inline error ── */
 .av-error-inline {
   margin-top: 4px;
-  background: #FEF2F2;
-  color: #EF4444;
+  background: var(--status-rejected);
+  color: var(--status-rejected-text);
   font-size: 10px;
   font-weight: 500;
   padding: 3px 7px;

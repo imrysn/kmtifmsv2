@@ -17,7 +17,7 @@ const PerfSparkline = ({ data = [], width = 60, height = 24 }) => {
   // Determine trend color
   const first = data[0];
   const last = data[data.length - 1];
-  let strokeColor = '#94a3b8'; // Neutral
+  let strokeColor = 'var(--text-secondary)'; // Neutral
   if (last > first + 2) strokeColor = '#10b981'; // Trending Up
   if (last < first - 2) strokeColor = '#f43f5e'; // Trending Down
 
@@ -53,7 +53,7 @@ const PerfSparkline = ({ data = [], width = 60, height = 24 }) => {
           cy={height - ((last - min) / range) * height} 
           r="2.5" 
           fill={strokeColor} 
-          stroke="white" 
+          stroke="var(--background-secondary)" 
           strokeWidth="1"
         />
       </svg>

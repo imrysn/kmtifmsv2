@@ -722,7 +722,7 @@ const AssignmentDetailsModal = ({
                               style={{
                                 padding: '8px 16px',
                                 backgroundColor: 'var(--primary-color)',
-                                color: 'white',
+                                color: 'var(--background-secondary)',
                                 border: 'none',
                                 borderRadius: '6px',
                                 cursor: 'pointer',
@@ -814,7 +814,7 @@ const AssignmentDetailsModal = ({
                   style={{
                     padding: '10px 20px',
                     backgroundColor: 'var(--primary-color)',
-                    color: 'white',
+                    color: 'var(--background-secondary)',
                     border: 'none',
                     borderRadius: '8px',
                     cursor: 'pointer',

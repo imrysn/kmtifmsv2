@@ -6,9 +6,9 @@
   --primary-color: #6366F1;
   --primary-hover: #4F46E5;
   --success-color: #10B981;
-  --warning-color: #F59E0B;
-  --danger-color: #EF4444;
-  --info-color: #3B82F6;
+  --warning-color: var(--status-pending-text);
+  --danger-color: #DC2626;
+  --info-color: var(--status-review-text);
 
   /* Neutral Colors */
   --text-primary: #111827;
@@ -565,15 +565,15 @@ body {
 }
 
 .tl-alert.error {
-  background: #fef2f2;
+  background: var(--status-rejected);
   border: 1px solid #fecaca;
-  color: #dc2626;
+  color: var(--status-rejected-text);
 }
 
 .tl-alert.success {
-  background: #f0fdf4;
+  background: var(--status-approved);
   border: 1px solid #bbf7d0;
-  color: #059669;
+  color: var(--status-approved-text);
 }
 
 .tl-alert button {
@@ -604,7 +604,7 @@ body {
 .tl-modal,
 .tl-modal-large,
 .tl-modal-small {
-  background: white;
+  background: var(--background-secondary);
   border-radius: var(--radius-lg);
   box-shadow: 0 20px 32px rgba(0, 0, 0, 0.15);
   max-width: 800px;
@@ -629,7 +629,7 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  background: white;
+  background: var(--background-secondary);
 }
 
 .tl-modal-header h3 {
@@ -662,7 +662,7 @@ body {
   padding: 1.5rem;
   flex: 1;
   overflow-y: auto;
-  background: white;
+  background: var(--background-secondary);
 }
 
 .tl-modal-body::-webkit-scrollbar,
@@ -672,7 +672,7 @@ body {
 
 .tl-modal-body::-webkit-scrollbar-track,
 .tl-modal-body-large::-webkit-scrollbar-track {
-  background: #F3F4F6;
+  background: var(--background-secondary);
   border-radius: 4px;
 }
 
@@ -719,10 +719,10 @@ body {
 .tl-form-group textarea {
   width: 100%;
   padding: 0.65rem 0.875rem;
-  border: 1px solid #E5E7EB;
+  border: 1px solid var(--border-color);
   border-radius: 8px;
-  background: white;
-  color: #374151;
+  background: var(--background-secondary);
+  color: var(--text-primary);
   font-size: 14px;
   font-weight: 400;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
@@ -742,7 +742,7 @@ body {
   outline: none;
   border-color: #6366F1;
   box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.08);
-  background: white;
+  background: var(--background-secondary);
 }
 
 /* Date input styling to ensure calendar icon shows */
@@ -786,10 +786,10 @@ body {
 
 .tl-form-select {
   padding: 0.65rem 0.875rem;
-  border: 1px solid #E5E7EB;
+  border: 1px solid var(--border-color);
   border-radius: 8px;
-  background: white;
-  color: #374151;
+  background: var(--background-secondary);
+  color: var(--text-primary);
   font-size: 14px;
   font-weight: 400;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
@@ -806,7 +806,7 @@ body {
   outline: none;
   border-color: #6366F1;
   box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.08);
-  background: white;
+  background: var(--background-secondary);
 }
 
 /* Mini Buttons */
@@ -818,7 +818,7 @@ body {
   justify-content: center;
   border-radius: var(--radius-sm);
   border: 1px solid var(--border-color);
-  background: white;
+  background: var(--background-secondary);
   cursor: pointer;
   transition: all 0.2s ease;
 }
@@ -868,7 +868,7 @@ body {
   top: 100%;
   right: 0;
   margin-top: 4px;
-  background: white;
+  background: var(--background-secondary);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
@@ -938,7 +938,7 @@ body {
 /* Top Bar - REMOVED */
 
 .tl-modal {
-  background: white;
+  background: var(--background-secondary);
   border-radius: 16px;
   box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
   width: 100%;
@@ -948,7 +948,7 @@ body {
 }
 
 .tl-modal-large {
-  background: white;
+  background: var(--background-secondary);
   border-radius: 16px;
   box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
   width: 100%;
@@ -961,7 +961,7 @@ body {
 
 .tl-modal-header {
   padding: 24px;
-  border-bottom: 1px solid #E5E7EB;
+  border-bottom: 1px solid var(--border-color);
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -970,7 +970,7 @@ body {
 .tl-modal-header h3 {
   font-size: 18px;
   font-weight: 600;
-  color: #101828;
+  color: var(--text-primary);
   font-family: Arial, sans-serif;
 }
 
@@ -982,7 +982,7 @@ body {
   justify-content: center;
   background: none;
   border: none;
-  color: #6a7282;
+  color: var(--text-secondary);
   font-size: 24px;
   cursor: pointer;
   border-radius: 6px;
@@ -990,7 +990,7 @@ body {
 }
 
 .tl-modal-header button:hover {
-  background: #F3F4F6;
+  background: var(--background-secondary);
 }
 
 .tl-modal-body {
@@ -1009,7 +1009,7 @@ body {
 
 .tl-modal-footer {
   padding: 24px;
-  border-top: 1px solid #E5E7EB;
+  border-top: 1px solid var(--border-color);
   display: flex;
   justify-content: flex-end;
   gap: 12px;
@@ -1017,7 +1017,7 @@ body {
 
 /* Modal Sections */
 .tl-modal-section {
-  background: #F9FAFB;
+  background: var(--background-secondary);
   border-radius: 12px;
   padding: 28px;
 }
@@ -1025,14 +1025,14 @@ body {
 .tl-section-title {
   font-size: 18px;
   font-weight: 600;
-  color: #101828;
+  color: var(--text-primary);
   margin-bottom: 20px;
   font-family: Arial, sans-serif;
 }
 
 .tl-description-text {
   font-size: 15px;
-  color: #101828;
+  color: var(--text-primary);
   line-height: 1.7;
   margin: 0;
 }
@@ -1089,7 +1089,7 @@ body {
 .tl-detail-label {
   font-size: 14px;
   font-weight: 500;
-  color: #6a7282;
+  color: var(--text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
@@ -1097,7 +1097,7 @@ body {
 .tl-detail-value {
   font-size: 14px;
   font-weight: 400;
-  color: #101828;
+  color: var(--text-primary);
   overflow-wrap: break-word;
   word-wrap: break-word;
   word-break: break-word;
@@ -1106,18 +1106,18 @@ body {
 .tl-team-badge-inline {
   display: inline-block;
   padding: 6px 12px;
-  background: #ffffff;
-  border: 1px solid #E5E7EB;
+  background: var(--background-secondary);
+  border: 1px solid var(--border-color);
   border-radius: 16px;
   font-size: 14px;
   font-weight: 500;
-  color: #101828;
+  color: var(--text-primary);
   text-align: center;
 }
 
 .tl-modal-section,
 .tl-section-card {
-  background: #F9FAFB;
+  background: var(--background-secondary);
   border-radius: 12px;
   padding: 20px;
   border: 1px solid var(--border-color);
@@ -1127,7 +1127,7 @@ body {
 .tl-section-title {
   font-size: 18px;
   font-weight: 600;
-  color: #101828;
+  color: var(--text-primary);
   margin-bottom: 16px;
 }
 
@@ -1138,7 +1138,7 @@ body {
 }
 
 .tl-comment-item {
-  background: white;
+  background: var(--background-secondary);
   border-radius: var(--radius-md);
   padding: var(--spacing-md);
   border: 1px solid var(--border-color);
@@ -1161,7 +1161,7 @@ body {
 .tl-comment-role {
   font-size: 12px;
   padding: 2px 8px;
-  background: #E0E7FF;
+  background: var(--status-review);
   color: var(--primary-color);
   border-radius: var(--radius-sm);
 }
@@ -1189,17 +1189,17 @@ body {
 
 .tl-comment-action.approve {
   background: #D1FAE5;
-  color: #065F46;
+  color: var(--status-approved-text);
 }
 
 .tl-comment-action.reject {
-  background: #FEE2E2;
-  color: #991B1B;
+  background: var(--status-rejected);
+  color: var(--status-rejected-text);
 }
 
 .tl-comment-body p {
   font-size: 14px;
-  color: #101828;
+  color: var(--text-primary);
   margin: 0;
   line-height: 1.5;
 }
@@ -1207,7 +1207,7 @@ body {
 .tl-no-comments {
   text-align: center;
   padding: 32px;
-  color: #6a7282;
+  color: var(--text-secondary);
   font-size: 14px;
 }
 
@@ -1218,14 +1218,14 @@ body {
   justify-content: center;
   gap: 12px;
   padding: 32px;
-  color: #6a7282;
+  color: var(--text-secondary);
   font-size: 14px;
 }
 
 .tl-spinner-small {
   width: 16px;
   height: 16px;
-  border: 2px solid #E5E7EB;
+  border: 2px solid var(--border-color);
   border-top-color: var(--primary-color);
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
@@ -1251,7 +1251,7 @@ body {
 
 /* Description Section */
 .tl-description-section {
-  background: #F9FAFB;
+  background: var(--background-secondary);
   border-radius: 12px;
   padding: 20px;
   margin-bottom: 24px;
@@ -1260,7 +1260,7 @@ body {
 
 .tl-description-text {
   font-size: 14px;
-  color: #101828;
+  color: var(--text-primary);
   line-height: 1.6;
   margin: 0;
   white-space: pre-wrap;
@@ -1310,13 +1310,13 @@ body {
 }
 
 .tl-action-buttons-large .tl-btn.secondary {
-  background: #F3F4F6;
-  color: #101828;
-  border: 1px solid #E5E7EB;
+  background: var(--background-secondary);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
 }
 
 .tl-action-buttons-large .tl-btn.secondary:hover:not(:disabled) {
-  background: #E5E7EB;
+  background: var(--background-secondary);
 }
 
 /* Modal Actions at Bottom */
@@ -1426,8 +1426,8 @@ body {
   justify-content: space-between;
   align-items: center;
   padding: 16px 24px;
-  background: #F9FAFB;
-  border-bottom: 1px solid #E5E7EB;
+  background: var(--background-secondary);
+  border-bottom: 1px solid var(--border-color);
   gap: 16px;
   border-radius: 16px 16px 0 0;
 }
@@ -1448,19 +1448,19 @@ body {
 .tl-sort-select {
   padding: 10px 16px;
   border-radius: 8px;
-  border: 1px solid #E5E7EB;
+  border: 1px solid var(--border-color);
   font-size: 14px;
   font-family: Arial, sans-serif;
   cursor: pointer;
-  background: #ffffff;
-  color: #101828;
+  background: var(--background-secondary);
+  color: var(--text-primary);
   min-width: 180px;
   transition: all 0.2s ease;
 }
 
 .tl-sort-select:hover {
   border-color: #D1D5DC;
-  background: #F9FAFB;
+  background: var(--background-secondary);
 }
 
 .tl-sort-select:focus {
@@ -1470,8 +1470,8 @@ body {
 }
 
 .tl-sort-select option {
-  background: #ffffff;
-  color: #101828;
+  background: var(--background-secondary);
+  color: var(--text-primary);
   padding: 10px;
 }
 
@@ -1487,13 +1487,13 @@ body {
 }
 
 .tl-priority-badge.high {
-  background: #FEF3C7;
-  color: #92400E;
+  background: var(--status-pending);
+  color: var(--status-pending-text);
 }
 
 .tl-priority-badge.urgent {
-  background: #FEE2E2;
-  color: #991B1B;
+  background: var(--status-rejected);
+  color: var(--status-rejected-text);
 }
 
 .tl-due-date {
@@ -1501,15 +1501,15 @@ body {
   padding: 4px 8px;
   border-radius: 4px;
   font-size: 11px;
-  background: #E0E7FF;
+  background: var(--status-review);
   color: #4f39f6;
   margin-left: 4px;
   font-family: Arial, sans-serif;
 }
 
 .tl-due-date.overdue {
-  background: #FEE2E2;
-  color: #991B1B;
+  background: var(--status-rejected);
+  color: var(--status-rejected-text);
   font-weight: 600;
 }
 
@@ -1526,11 +1526,11 @@ body {
   align-items: center;
   justify-content: center;
   transition: background 0.2s;
-  color: #101828;
+  color: var(--text-primary);
 }
 
 .tl-notification-btn:hover {
-  background: #F3F4F6;
+  background: var(--background-secondary);
 }
 
 .tl-notification-count {
@@ -1587,10 +1587,10 @@ input[type="checkbox"] {
 }
 
 .tl-detail-card {
-  background: white;
+  background: var(--background-secondary);
   padding: 20px;
   border-radius: 10px;
-  border: 1px solid #E5E7EB;
+  border: 1px solid var(--border-color);
 }
 
 .tl-detail-card:hover {
@@ -1601,7 +1601,7 @@ input[type="checkbox"] {
 .tl-detail-card .tl-detail-label {
   font-size: 12px;
   font-weight: 600;
-  color: #6a7282;
+  color: var(--text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.5px;
   font-family: Arial, sans-serif;
@@ -1611,7 +1611,7 @@ input[type="checkbox"] {
 .tl-detail-card .tl-detail-value {
   font-size: 15px;
   font-weight: 500;
-  color: #101828;
+  color: var(--text-primary);
   font-family: Arial, sans-serif;
   line-height: 1.6;
 }
@@ -1634,7 +1634,7 @@ input[type="checkbox"] {
 }
 
 .tl-submissions-table thead {
-  background: white;
+  background: var(--background-secondary);
 }
 
 .tl-submissions-table th {
@@ -1642,11 +1642,11 @@ input[type="checkbox"] {
   text-align: left;
   font-size: 11px;
   font-weight: 600;
-  color: #6a7282;
+  color: var(--text-secondary);
   font-family: Arial, sans-serif;
   text-transform: uppercase;
   letter-spacing: 0.6px;
-  border-bottom: 1px solid #E5E7EB;
+  border-bottom: 1px solid var(--border-color);
 }
 
 .tl-submissions-table th:last-child {
@@ -1657,7 +1657,7 @@ input[type="checkbox"] {
   padding: 16px;
   font-size: 14px;
   font-weight: 400;
-  color: #101828;
+  color: var(--text-primary);
   font-family: Arial, sans-serif;
   border-bottom: 1px solid #F3F4F6;
 }
@@ -1674,13 +1674,13 @@ input[type="checkbox"] {
 }
 
 .tl-submissions-table tbody tr:hover {
-  background: #F9FAFB;
+  background: var(--background-secondary);
 }
 
 .tl-no-submissions {
   text-align: center;
   padding: 48px 24px;
-  color: #6a7282;
+  color: var(--text-secondary);
 }
 
 .tl-no-submissions .tl-empty-icon {
@@ -1738,9 +1738,9 @@ input[type="checkbox"] {
   max-height: 240px;
   overflow-y: auto;
   padding: 16px;
-  background: #F9FAFB;
+  background: var(--background-secondary);
   border-radius: 8px;
-  border: 1px solid #E5E7EB;
+  border: 1px solid var(--border-color);
 }
 
 .tl-member-checkbox {
@@ -1750,14 +1750,14 @@ input[type="checkbox"] {
   border-radius: 6px;
   transition: all 0.2s ease;
   font-size: 14px;
-  color: #101828;
+  color: var(--text-primary);
   font-family: Arial, sans-serif;
-  background: white;
-  border: 1px solid #E5E7EB;
+  background: var(--background-secondary);
+  border: 1px solid var(--border-color);
 }
 
 .tl-member-checkbox:hover {
-  background: #F9FAFB;
+  background: var(--background-secondary);
   border-color: #4f39f6;
 }
 
@@ -1790,9 +1790,9 @@ input[type="checkbox"] {
 .tl-member-dropdown-button {
   width: 100%;
   padding: 0.65rem 0.875rem;
-  border: 1px solid #E5E7EB;
+  border: 1px solid var(--border-color);
   border-radius: 8px;
-  background: white;
+  background: var(--background-secondary);
   color: var(--text-primary);
   font-size: 14px;
   font-weight: 400;
@@ -1822,13 +1822,13 @@ input[type="checkbox"] {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  color: #374151;
+  color: var(--text-primary);
 }
 
 .tl-member-dropdown-button svg {
   flex-shrink: 0;
   transition: transform 0.2s ease;
-  color: #9CA3AF;
+  color: var(--text-tertiary);
   width: 14px;
   height: 14px;
 }
@@ -1839,8 +1839,8 @@ input[type="checkbox"] {
 
 .tl-member-dropdown-menu {
   position: fixed;
-  background: white;
-  border: 1px solid #E5E7EB;
+  background: var(--background-secondary);
+  border: 1px solid var(--border-color);
   border-radius: 8px;
   box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
   max-height: 240px;
@@ -1871,14 +1871,14 @@ input[type="checkbox"] {
   border-radius: 5px;
   transition: background 0.15s ease;
   font-size: 14px;
-  color: #374151;
+  color: var(--text-primary);
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   user-select: none;
   line-height: normal !important;
 }
 
 .tl-member-dropdown-item:hover {
-  background: #F3F4F6;
+  background: var(--background-secondary);
 }
 
 .tl-member-dropdown-item input[type="checkbox"] {
@@ -1899,12 +1899,12 @@ input[type="checkbox"] {
   flex-shrink: 0;
   position: relative;
   transition: all 0.15s ease;
-  background: white;
+  background: var(--background-secondary);
   vertical-align: middle;
 }
 
 .tl-member-dropdown-item input[type="checkbox"]:hover {
-  border-color: #9CA3AF;
+  border-color: var(--text-tertiary);
 }
 
 .tl-member-dropdown-item input[type="checkbox"]:checked {
@@ -1943,14 +1943,14 @@ input[type="checkbox"] {
   border-radius: 5px;
   transition: background 0.15s ease;
   font-size: 14px;
-  color: #374151;
+  color: var(--text-primary);
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   user-select: none;
   line-height: normal !important;
 }
 
 .tl-file-type-dropdown-item:hover {
-  background: #F3F4F6;
+  background: var(--background-secondary);
 }
 
 .tl-file-type-dropdown-item span {
@@ -1965,7 +1965,7 @@ input[type="checkbox"] {
 .tl-member-dropdown-empty {
   padding: 24px 16px;
   text-align: center;
-  color: #9CA3AF;
+  color: var(--text-tertiary);
   font-size: 13px;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 }
@@ -1979,7 +1979,7 @@ input[type="checkbox"] {
 }
 
 .tl-member-dropdown-menu::-webkit-scrollbar-thumb {
-  background: #E5E7EB;
+  background: var(--background-secondary);
   border-radius: 3px;
 }
 
@@ -1992,9 +1992,9 @@ input[type="checkbox"] {
   padding: 24px;
   color: var(--text-secondary);
   font-size: 14px;
-  background: #F9FAFB;
+  background: var(--background-secondary);
   border-radius: 8px;
-  border: 1px solid #E5E7EB;
+  border: 1px solid var(--border-color);
 }
 
 .tl-selected-count {
@@ -2092,7 +2092,7 @@ input[type="checkbox"] {
 }
 
 .tl-comment-bubble-assignment {
-  background: #F3F4F6;
+  background: var(--background-secondary);
   padding: 10px 14px;
   border-radius: 18px;
   max-width: fit-content;
@@ -2101,14 +2101,14 @@ input[type="checkbox"] {
 .tl-comment-author-assignment {
   font-size: 13px;
   font-weight: 600;
-  color: #101828;
+  color: var(--text-primary);
   margin-bottom: 4px;
   font-family: Arial, sans-serif;
 }
 
 .tl-comment-text-assignment {
   font-size: 14px;
-  color: #101828;
+  color: var(--text-primary);
   line-height: 1.5;
   word-wrap: break-word;
   font-family: Arial, sans-serif;
@@ -2116,7 +2116,7 @@ input[type="checkbox"] {
 
 .tl-comment-timestamp-assignment {
   font-size: 11px;
-  color: #6a7282;
+  color: var(--text-secondary);
   padding-left: 14px;
   font-family: Arial, sans-serif;
 }
@@ -2126,7 +2126,7 @@ input[type="checkbox"] {
   display: flex;
   gap: 12px;
   padding-top: 12px;
-  border-top: 1px solid #E5E7EB;
+  border-top: 1px solid var(--border-color);
 }
 
 .tl-comment-input-wrapper-assignment {
@@ -2134,15 +2134,15 @@ input[type="checkbox"] {
   display: flex;
   gap: 8px;
   align-items: center;
-  background: #F9FAFB;
-  border: 1px solid #E5E7EB;
+  background: var(--background-secondary);
+  border: 1px solid var(--border-color);
   border-radius: 20px;
   padding: 8px 12px;
   transition: all 0.2s ease;
 }
 
 .tl-comment-input-wrapper-assignment:focus-within {
-  background: #ffffff;
+  background: var(--background-secondary);
   border-color: #4f39f6;
   box-shadow: 0 0 0 3px rgba(79, 57, 246, 0.1);
 }
@@ -2152,13 +2152,13 @@ input[type="checkbox"] {
   border: none;
   background: transparent;
   font-size: 14px;
-  color: #101828;
+  color: var(--text-primary);
   font-family: Arial, sans-serif;
   outline: none;
 }
 
 .tl-comment-input-assignment::placeholder {
-  color: #9ca3af;
+  color: var(--text-tertiary);
 }
 
 .tl-comment-input-assignment:disabled {
@@ -2203,7 +2203,7 @@ input[type="checkbox"] {
 }
 
 .tl-comments-list-assignment::-webkit-scrollbar-track {
-  background: #F3F4F6;
+  background: var(--background-secondary);
   border-radius: 3px;
 }
 
@@ -2231,7 +2231,7 @@ input[type="checkbox"] {
 }
 
 .tl-modal-body-large .tl-files-list::-webkit-scrollbar-track {
-  background: #F3F4F6;
+  background: var(--background-secondary);
   border-radius: 4px;
 }
 
@@ -2252,7 +2252,7 @@ input[type="checkbox"] {
 .tl-member-files-table {
   width: 100%;
   border-collapse: collapse;
-  background: white;
+  background: var(--background-secondary);
   border-radius: var(--radius-lg);
   overflow: hidden;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
@@ -2286,7 +2286,7 @@ input[type="checkbox"] {
 }
 
 .tl-member-files-table tbody tr:hover {
-  background: #f3f4f6;
+  background: var(--background-secondary);
 }
 
 .tl-file-name-cell {
@@ -2340,8 +2340,8 @@ input[type="checkbox"] {
 }
 
 .tl-status-badge.pending-admin {
-  background: #FEF3C7;
-  color: #92400E;
+  background: var(--status-pending);
+  color: var(--status-pending-text);
 }
 
 .tl-empty-icon {
@@ -2351,7 +2351,7 @@ input[type="checkbox"] {
 }
 
 .tl-files-list {
-  background: white;
+  background: var(--background-secondary);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-lg);
   overflow: hidden;

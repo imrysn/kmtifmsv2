@@ -28,7 +28,7 @@
   padding: 0.75rem 1rem;
   border: 1px solid var(--border-color);
   border-radius: 8px;
-  background: #ffffff;
+  background: var(--background-secondary);
   color: var(--text-primary);
   font-size: 0.9rem;
 }
@@ -36,7 +36,7 @@
 .users-management .search-input:focus {
   outline: none;
   border-color: var(--primary-color);
-  background: #ffffff;
+  background: var(--background-secondary);
 }
 
 .users-management .search-input::placeholder {
@@ -90,12 +90,12 @@
 /* Highlight animation for user row */
 .users-management .user-row.highlight-user {
   animation: highlightUser 2s ease-in-out;
-  background: #fef3c7 !important;
+  background: var(--status-pending) !important;
 }
 
 @keyframes highlightUser {
   0% {
-    background: #fef3c7;
+    background: var(--status-pending);
     box-shadow: 0 0 0 3px #fbbf24;
   }
   100% {
@@ -132,7 +132,7 @@
 
 .users-management .password-reset-btn {
   background: var(--primary-color);
-  color: white;
+  color: var(--background-secondary);
   border: none;
   border-radius: 4px;
   padding: 0.25rem 0.5rem;
@@ -159,33 +159,33 @@
 
 /* Fallback: keeps any unrecognised role visible instead of white-on-white */
 .users-management .role-badge {
-  color: #374151;
-  border-color: #9ca3af;
+  color: var(--text-secondary);
+  border-color: var(--text-tertiary);
 }
 
 /* USER */
 .users-management .role-badge.user {
-  border-color: #059669;
-  color: #059669;
+  border-color: var(--status-approved-text);
+  color: var(--status-approved-text);
 }
 
 /* TEAM_LEADER — handles "TEAM_LEADER" from the DB */
 .users-management .role-badge.team-leader,
 .users-management .role-badge.team_leader {
-  border-color: #1d4ed8;
-  color: #1d4ed8;
+  border-color: var(--status-review-text);
+  color: var(--status-review-text);
 }
 
 /* ADMIN */
 .users-management .role-badge.admin {
-  border-color: #dc2626;
-  color: #dc2626;
+  border-color: var(--status-rejected-text);
+  color: var(--status-rejected-text);
 }
 
 .users-management .team-badge {
   background: transparent;
-  color: #000000;
-  border: 1px solid #000000;
+  color: var(--text-primary);
+  border: 1px solid var(--text-primary);
 }
 
 /* ── Action buttons ─────────────────────────────────────────────────────── */
@@ -205,7 +205,7 @@
 
 .users-management .edit-btn {
   background: var(--primary-color);
-  color: white;
+  color: var(--background-secondary);
 }
 
 .users-management .edit-btn:hover {
@@ -214,7 +214,7 @@
 
 .users-management .delete-btn {
   background: #ef4444;
-  color: white;
+  color: var(--background-secondary);
 }
 
 .users-management .delete-btn:hover {
@@ -223,7 +223,7 @@
 
 .users-management .perf-btn {
   background: #10b981;
-  color: white;
+  color: var(--background-secondary);
 }
 
 .users-management .perf-btn:hover {
@@ -279,7 +279,7 @@
 
 .users-management .btn-primary {
   background: var(--primary-color);
-  color: white;
+  color: var(--background-secondary);
 }
 
 .users-management .btn-primary:hover:not(:disabled) {
@@ -316,7 +316,7 @@
   padding: 0.75rem;
   border: 2px solid var(--border-color);
   border-radius: 8px;
-  background: white;
+  background: var(--background-secondary);
   color: var(--text-primary);
   font-size: 0.9rem;
 }
@@ -325,7 +325,7 @@
 .users-management .form-select:focus {
   outline: none;
   border-color: var(--primary-color);
-  background: white;
+  background: var(--background-secondary);
 }
 
 .users-management .form-input::placeholder {
@@ -334,7 +334,7 @@
 }
 
 .users-management .form-select option {
-  background: white;
+  background: var(--background-secondary);
   color: var(--text-primary);
   padding: 0.5rem;
 }
@@ -343,7 +343,7 @@
 .users-management .form-select:disabled {
   background: #e9ecef;
   border-color: #d1d5db;
-  color: #6b7280;
+  color: var(--text-tertiary);
   cursor: not-allowed;
   opacity: 0.7;
 }
@@ -439,7 +439,7 @@
 
 .users-management .pagination-number.active {
   background: var(--primary-color);
-  color: white;
+  color: var(--background-secondary);
   border-color: var(--primary-color);
   font-weight: 600;
 }

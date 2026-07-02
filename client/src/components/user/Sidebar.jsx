@@ -1,6 +1,7 @@
 import { memo, useCallback } from 'react';
 import { getSidebarIcon } from '../shared/FileIcon';
 import Avatar from '../shared/Avatar';
+import ThemeToggle from '../shared/ThemeToggle';
 import './css/Sidebar.css';
 
 const Sidebar = memo(({ activeTab, setActiveTab, filesCount, notificationCount, onLogout, user }) => {
@@ -65,6 +66,7 @@ const Sidebar = memo(({ activeTab, setActiveTab, filesCount, notificationCount, 
 
       {/* Logout */}
       <div className="sidebar-footer">
+        <ThemeToggle />
         <button className="logout-btn" onClick={onLogout}>
           <span className="nav-icon">{getSidebarIcon('logout')}</span>
           <span className="logout-btn-text">Logout</span>

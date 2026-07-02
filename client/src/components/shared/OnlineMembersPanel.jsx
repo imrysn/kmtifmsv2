@@ -13,8 +13,8 @@ const getInitials = (name) => {
 }
 
 const AVATAR_COLORS = [
-  '#7c3aed', '#1d4ed8', '#059669', '#dc2626',
-  '#d97706', '#0891b2', '#be185d', '#4f46e5'
+  '#7c3aed', 'var(--status-review-text)', 'var(--status-approved-text)', 'var(--status-rejected-text)',
+  'var(--status-pending-text)', 'var(--status-review-text)', '#be185d', 'var(--status-review-text)'
 ]
 
 const getAvatarColor = (name = '') => {
@@ -201,7 +201,7 @@ const OnlineMembersPanel = ({ user, teamFilter }) => {
         title="Online Members"
         style={{
           display: 'flex', alignItems: 'center', gap: open ? '8px' : '0',
-          background: open ? '#f0fdf4' : 'transparent',
+          background: open ? 'var(--status-approved)' : 'transparent',
           border: open ? '1.5px solid #86efac' : 'none',
           borderRadius: '999px',
           padding: open ? '5px 12px 5px 6px' : '0',
@@ -224,7 +224,7 @@ const OnlineMembersPanel = ({ user, teamFilter }) => {
           <span style={{
             position: 'absolute', bottom: '-2px', right: '-2px',
             width: '10px', height: '10px', borderRadius: '50%',
-            background: connected ? '#22c55e' : '#9ca3af',
+            background: connected ? '#22c55e' : 'var(--text-tertiary)',
             border: '2px solid #fff',
             transition: 'background 0.3s',
             zIndex: 1
@@ -233,11 +233,11 @@ const OnlineMembersPanel = ({ user, teamFilter }) => {
         {/* Name + status — only when open */}
         {open && (
           <div style={{ lineHeight: 1.2 }}>
-            <div style={{ fontSize: '12px', fontWeight: '600', color: '#111827' }}>
+            <div style={{ fontSize: '12px', fontWeight: '600', color: 'var(--text-primary)' }}>
               {user?.fullName || user?.username}
             </div>
-            <div style={{ fontSize: '10.5px', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '3px', color: connected ? '#16a34a' : '#9ca3af' }}>
-              <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: connected ? '#22c55e' : '#9ca3af', display: 'inline-block', transition: 'background 0.3s' }} />
+            <div style={{ fontSize: '10.5px', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '3px', color: connected ? 'var(--status-approved-text)' : 'var(--text-tertiary)' }}>
+              <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: connected ? '#22c55e' : 'var(--text-tertiary)', display: 'inline-block', transition: 'background 0.3s' }} />
               {connected ? 'Online' : 'Connecting...'}
             </div>
           </div>
@@ -253,7 +253,7 @@ const OnlineMembersPanel = ({ user, teamFilter }) => {
             top: `${panelPos.top}px`,
             right: `${panelPos.right}px`,
             zIndex: 99999,
-            background: '#fff',
+            background: 'var(--background-secondary)',
             border: '1px solid #e5e7eb',
             borderRadius: '16px',
             boxShadow: '0 8px 32px rgba(0,0,0,0.13)',
@@ -265,7 +265,7 @@ const OnlineMembersPanel = ({ user, teamFilter }) => {
           {/* Header */}
           <div style={{
             padding: '14px 16px 10px',
-            borderBottom: '1px solid #f3f4f6',
+            borderBottom: '1px solid var(--background-secondary)',
             display: 'flex', alignItems: 'center', gap: '7px'
           }}>
             {/* Pulsing green dot */}
@@ -277,13 +277,13 @@ const OnlineMembersPanel = ({ user, teamFilter }) => {
               }} />
               <span style={{ position: 'relative', width: '10px', height: '10px', borderRadius: '50%', background: '#22c55e' }} />
             </span>
-            <span style={{ fontSize: '13px', fontWeight: '700', color: '#111827' }}>
+            <span style={{ fontSize: '13px', fontWeight: '700', color: 'var(--text-primary)' }}>
               Online Members ({onlineCount}/{totalCount})
             </span>
             {/* Live indicator */}
             <span style={{
               marginLeft: 'auto', fontSize: '9.5px', fontWeight: '700',
-              color: '#16a34a', background: '#dcfce7',
+              color: 'var(--status-approved-text)', background: 'var(--status-approved)',
               padding: '2px 6px', borderRadius: '4px', letterSpacing: '0.3px'
             }}>LIVE</span>
           </div>
@@ -291,7 +291,7 @@ const OnlineMembersPanel = ({ user, teamFilter }) => {
           {/* Members list */}
           <div style={{ maxHeight: '300px', overflowY: 'auto', padding: '8px 0' }}>
             {allMembers.length === 0 ? (
-              <div style={{ padding: '20px 16px', textAlign: 'center', color: '#9ca3af', fontSize: '13px' }}>
+              <div style={{ padding: '20px 16px', textAlign: 'center', color: 'var(--text-tertiary)', fontSize: '13px' }}>
                 No members found
               </div>
             ) : (
@@ -301,13 +301,13 @@ const OnlineMembersPanel = ({ user, teamFilter }) => {
                   style={{
                     display: 'flex', alignItems: 'center', gap: '10px',
                     padding: '8px 16px',
-                    background: member.userId === String(user?.id) ? '#f0fdf4' : 'transparent',
+                    background: member.userId === String(user?.id) ? 'var(--status-approved)' : 'transparent',
                     opacity: member.online ? 1 : 0.65,
                     transition: 'background 0.1s'
                   }}
                   onMouseEnter={e => {
                     if (member.userId !== String(user?.id))
-                      e.currentTarget.style.background = '#f9fafb'
+                      e.currentTarget.style.background = 'var(--background-secondary)'
                   }}
                   onMouseLeave={e => {
                     if (member.userId !== String(user?.id))
@@ -325,7 +325,7 @@ const OnlineMembersPanel = ({ user, teamFilter }) => {
                     <span style={{
                       position: 'absolute', bottom: '-2px', right: '-2px',
                       width: '10px', height: '10px', borderRadius: '50%',
-                      background: member.online ? '#22c55e' : '#9ca3af',
+                      background: member.online ? '#22c55e' : 'var(--text-tertiary)',
                       border: '2px solid #fff',
                       transition: 'background 0.3s',
                       zIndex: 1
@@ -335,27 +335,27 @@ const OnlineMembersPanel = ({ user, teamFilter }) => {
                   {/* Name + status */}
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{
-                      fontSize: '13px', fontWeight: '600', color: '#111827',
+                      fontSize: '13px', fontWeight: '600', color: 'var(--text-primary)',
                       overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                       display: 'flex', alignItems: 'center', gap: '5px'
                     }}>
                       {member.fullName || member.username}
                       {member.userId === String(user?.id) && (
                         <span style={{
-                          fontSize: '9.5px', fontWeight: '600', color: '#16a34a',
-                          background: '#dcfce7', padding: '1px 5px', borderRadius: '4px', flexShrink: 0
+                          fontSize: '9.5px', fontWeight: '600', color: 'var(--status-approved-text)',
+                          background: 'var(--status-approved)', padding: '1px 5px', borderRadius: '4px', flexShrink: 0
                         }}>You</span>
                       )}
                     </div>
                     <div style={{
                       fontSize: '11px',
-                      color: member.online ? '#16a34a' : '#9ca3af',
+                      color: member.online ? 'var(--status-approved-text)' : 'var(--text-tertiary)',
                       fontWeight: '500',
                       display: 'flex', alignItems: 'center', gap: '3px', marginTop: '1px'
                     }}>
                       <span style={{
                         width: '5px', height: '5px', borderRadius: '50%',
-                        background: member.online ? '#22c55e' : '#9ca3af',
+                        background: member.online ? '#22c55e' : 'var(--text-tertiary)',
                         display: 'inline-block'
                       }} />
                       {member.online ? 'Active now' : 'Offline'}

@@ -12,12 +12,12 @@ const PerformanceInfoModal = React.memo(({ isOpen, onClose, performance }) => {
           <div>
             <h2 className="perf-modal-title">Performance Criteria</h2>
           </div>
-          <button className="perf-modal-close" onClick={onClose} style={{ background: 'none', border: 'none', fontSize: '24px', cursor: 'pointer', color: '#94a3b8' }}>&times;</button>
+          <button className="perf-modal-close" onClick={onClose} style={{ background: 'none', border: 'none', fontSize: '24px', cursor: 'pointer', color: 'var(--text-secondary)' }}>&times;</button>
         </div>
 
         {performance && (
           <div className="perf-live-summary" style={{
-            background: '#f8fafc',
+            background: 'var(--background-secondary)',
             margin: '0 24px 20px',
             padding: '16px',
             borderRadius: '12px',
@@ -27,11 +27,11 @@ const PerformanceInfoModal = React.memo(({ isOpen, onClose, performance }) => {
             alignItems: 'center'
           }}>
             <div>
-              <span style={{ fontSize: '12px', color: '#64748b', fontWeight: '600', textTransform: 'uppercase' }}>Your Current Score</span>
-              <div style={{ fontSize: '28px', fontWeight: '900', color: '#0f172a' }}>{performance.overallScore}%</div>
+              <span style={{ fontSize: '12px', color: 'var(--text-secondary)', fontWeight: '600', textTransform: 'uppercase' }}>Your Current Score</span>
+              <div style={{ fontSize: '28px', fontWeight: '900', color: 'var(--text-primary)' }}>{performance.overallScore}%</div>
             </div>
             <div style={{ textAlign: 'right' }}>
-              <span style={{ fontSize: '12px', color: '#64748b', fontWeight: '600', textTransform: 'uppercase' }}>Formula Breakdown</span>
+              <span style={{ fontSize: '12px', color: 'var(--text-secondary)', fontWeight: '600', textTransform: 'uppercase' }}>Formula Breakdown</span>
               <div style={{ fontSize: '14px', fontWeight: '700', color: '#6366f1' }}>
                 {Math.round(performance.qualityFactor * 0.45)} + {Math.round(performance.efficiencyRatio * 100 * 0.35)} + {Math.round(performance.onTimeRate * 0.20)} pts
               </div>
@@ -93,14 +93,14 @@ const PerformanceInfoModal = React.memo(({ isOpen, onClose, performance }) => {
           }}>
             <div style={{ fontSize: '24px' }}>🛡️</div>
             <div>
-              <h4 style={{ margin: '0 0 4px 0', color: '#4f46e5', fontSize: '14px', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Fair Play Policy</h4>
-              <p style={{ margin: '0 0 12px 0', fontSize: '13px', color: '#475569', lineHeight: '1.5' }}>
+              <h4 style={{ margin: '0 0 4px 0', color: 'var(--status-review-text)', fontSize: '14px', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Fair Play Policy</h4>
+              <p style={{ margin: '0 0 12px 0', fontSize: '13px', color: 'var(--text-secondary)', lineHeight: '1.5' }}>
                 Your performance metrics are strictly tied to <strong>your actions</strong>. The moment you click <strong>Submit</strong>, your Speed and Reliability are <strong>locked in</strong>. 
                 Any delays in Team Leader or Admin approval times do <u>not</u> affect your scores. You are rewarded for when you finish, not when we review.
               </p>
               
-              <h4 style={{ margin: '0 0 4px 0', color: '#0891b2', fontSize: '14px', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '0.5px' }}>🔄 Revision Safety Net</h4>
-              <p style={{ margin: 0, fontSize: '13px', color: '#475569', lineHeight: '1.5' }}>
+              <h4 style={{ margin: '0 0 4px 0', color: 'var(--status-review-text)', fontSize: '14px', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '0.5px' }}>🔄 Revision Safety Net</h4>
+              <p style={{ margin: 0, fontSize: '13px', color: 'var(--text-secondary)', lineHeight: '1.5' }}>
                 If a task requires <strong>revisions</strong>, the rejection will impact your Quality score. However, Team Leaders can adjust the <strong>Due Date</strong> to give you extra time. 
                 This acts as a safety net — ensuring that while your Quality takes a hit, your <strong>Speed and Reliability stay protected</strong> during the rework process.
               </p>

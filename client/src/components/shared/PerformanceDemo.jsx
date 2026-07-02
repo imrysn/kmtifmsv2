@@ -50,10 +50,10 @@ const PerformanceDemo = () => {
   ];
 
   return (
-    <div className="performance-demo-container" style={{ padding: '40px', background: '#f8fafc', minHeight: '100vh' }}>
+    <div className="performance-demo-container" style={{ padding: '40px', background: 'var(--background-secondary)', minHeight: '100vh' }}>
       <div style={{ marginBottom: '32px' }}>
-        <h1 style={{ fontSize: '24px', fontWeight: '900', color: '#0f172a' }}>Performance Demo</h1>
-        <p style={{ color: '#64748b' }}>This data shows a demo of the new <span style={{ fontWeight: 'bold' }}>Performance Metrics</span> of each team members.</p>
+        <h1 style={{ fontSize: '24px', fontWeight: '900', color: 'var(--text-primary)' }}>Performance Demo</h1>
+        <p style={{ color: 'var(--text-secondary)' }}>This data shows a demo of the new <span style={{ fontWeight: 'bold' }}>Performance Metrics</span> of each team members.</p>
       </div>
 
       <div style={{
@@ -67,8 +67,8 @@ const PerformanceDemo = () => {
 
           return (
             <div key={item.user.id} className={`demo-card-wrapper ${isStar ? 'card-star' : isExcellent ? 'card-excellent' : ''}`} style={{
-              background: '#ffffff',
-              border: (isStar || isExcellent) ? 'none' : '1px solid #f1f5f9',
+              background: 'var(--background-secondary)',
+              border: (isStar || isExcellent) ? 'none' : '1px solid var(--background-secondary)',
               borderRadius: '16px',
               padding: '20px',
               boxShadow: (isStar || isExcellent) ? 'none' : '0 4px 20px rgba(0,0,0,0.03)',
@@ -91,20 +91,20 @@ const PerformanceDemo = () => {
                 <div style={{
                   width: '40px',
                   height: '40px',
-                  background: isStar ? 'rgba(99, 102, 241, 0.1)' : isExcellent ? 'rgba(16, 185, 129, 0.1)' : '#f1f5f9',
+                  background: isStar ? 'rgba(99, 102, 241, 0.1)' : isExcellent ? 'rgba(16, 185, 129, 0.1)' : 'var(--background-secondary)',
                   borderRadius: '12px',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
                   fontWeight: '900',
-                  color: isStar ? '#6366f1' : isExcellent ? '#10b981' : '#475569',
+                  color: isStar ? '#6366f1' : isExcellent ? '#10b981' : 'var(--text-secondary)',
                   border: isStar ? '1px solid rgba(99, 102, 241, 0.2)' : isExcellent ? '1px solid rgba(16, 185, 129, 0.2)' : 'none'
                 }}>
                   {item.user.name.substring(0, 2).toUpperCase()}
                 </div>
                 <div>
-                  <h3 style={{ fontSize: '16px', fontWeight: '800', color: '#0f172a', margin: 0 }}>{item.user.name}</h3>
-                  <span style={{ fontSize: '13px', color: '#64748b' }}>{item.user.email}</span>
+                  <h3 style={{ fontSize: '16px', fontWeight: '800', color: 'var(--text-primary)', margin: 0 }}>{item.user.name}</h3>
+                  <span style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>{item.user.email}</span>
                 </div>
               </div>
 

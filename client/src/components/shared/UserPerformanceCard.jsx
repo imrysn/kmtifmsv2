@@ -184,7 +184,7 @@ const UserPerformanceCard = memo(({ user, performanceData, fallbackStats, isColl
           <div className="perf-hero-header">
             <div className="perf-hero-status-group">
               <div className="perf-hero-score">
-                {formatHyperMetric(mode === 'management' ? (performance?.management?.managementScore || 0) : overallScore, mode === 'management' ? '#0891b2' : '#6366f1')}
+                {formatHyperMetric(mode === 'management' ? (performance?.management?.managementScore || 0) : overallScore, mode === 'management' ? 'var(--status-review-text)' : '#6366f1')}
               </div>
               <div className="perf-hero-label">
                 <span className={`perf-status-dot ${(mode === 'management' ? performance?.management?.managementScore : overallScore) > 100 ? 'dot-star' :
@@ -415,16 +415,16 @@ const UserPerformanceCard = memo(({ user, performanceData, fallbackStats, isColl
             <div className="perf-insight-box" style={{
               marginTop: '16px',
               padding: '12px',
-              background: '#f8fafc',
+              background: 'var(--background-secondary)',
               borderRadius: '10px',
-              borderLeft: `4px solid ${mode === 'management' ? '#0891b2' : '#6366f1'}`,
+              borderLeft: `4px solid ${mode === 'management' ? 'var(--status-review-text)' : '#6366f1'}`,
               display: 'flex',
               gap: '12px',
               alignItems: 'center'
             }}>
               <div style={{
-                background: '#0f172a',
-                color: 'white',
+                background: 'var(--text-primary)',
+                color: 'var(--background-secondary)',
                 borderRadius: '6px',
                 padding: '4px 8px',
                 fontSize: '10px',
@@ -434,7 +434,7 @@ const UserPerformanceCard = memo(({ user, performanceData, fallbackStats, isColl
               <p style={{
                 fontSize: '12px',
                 fontWeight: '600',
-                color: '#475569',
+                color: 'var(--text-secondary)',
                 margin: 0,
                 lineHeight: '1.4'
               }}>

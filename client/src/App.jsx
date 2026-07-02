@@ -22,7 +22,12 @@ const logger = createLogger('App')
 
 function App() {
   // Use Zustand store instead of local state
-  const { user, login, logout, _hasHydrated } = useStore()
+  const { user, login, logout, _hasHydrated, theme } = useStore()
+
+  // Apply theme to document root
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+  }, [theme]);
 
   // ── DB-ready gate ──────────────────────────────────────────────────────
   // Poll /api/health until MySQL is connected before letting the dashboard

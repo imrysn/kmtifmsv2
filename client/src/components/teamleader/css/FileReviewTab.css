@@ -56,25 +56,25 @@
 
 .pending-icon {
   border: 1px solid #000;
-  color: #000;
+  color: var(--text-primary);
   background: transparent;
 }
 
 .approved-icon {
   border: 1px solid #000;
-  color: #000;
+  color: var(--text-primary);
   background: transparent;
 }
 
 .rejected-icon {
   border: 1px solid #000;
-  color: #000;
+  color: var(--text-primary);
   background: transparent;
 }
 
 .pending-admin-icon {
   border: 1px solid #000;
-  color: #000;
+  color: var(--text-primary);
   background: transparent;
 }
 
@@ -145,7 +145,7 @@
 /* Filter Badge */
 .tl-toolbar .tl-badge.active {
   background: var(--primary-color);
-  color: white;
+  color: var(--background-secondary);
   border: none;
 }
 
@@ -234,7 +234,7 @@
 
 .status-badge.status-rejected {
   border: 1px solid #ef4444;
-  color: #ef4444;
+  color: var(--status-rejected-text);
   background: transparent;
 }
 
@@ -245,8 +245,8 @@
   font-size: 0.75rem;
   font-weight: 500;
   background: transparent;
-  color: #000000;
-  border: 1px solid #000000;
+  color: var(--text-primary);
+  border: 1px solid var(--text-primary);
   width: 130px;
   text-align: center;
   display: inline-block;

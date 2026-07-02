@@ -70,7 +70,7 @@ function FileMoreMenu({ onDownload, onOpenPath, isFolder = false }) {
           width: '28px', height: '28px', display: 'flex', alignItems: 'center',
           justifyContent: 'center', cursor: 'pointer', color: '#9ca3af', padding: 0,
         }}
-        onMouseEnter={e => { e.currentTarget.style.backgroundColor = '#f3f4f6'; e.currentTarget.style.color = '#374151' }}
+        onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'var(--background-primary)'; e.currentTarget.style.color = 'var(--text-primary)' }}
         onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = '#9ca3af' }}
         title="More options"
       >
@@ -99,9 +99,9 @@ function FileMoreMenu({ onDownload, onOpenPath, isFolder = false }) {
               style={{
                 display: 'flex', alignItems: 'center', gap: '8px', width: '100%',
                 padding: '8px 12px', background: 'transparent', border: 'none',
-                borderRadius: '6px', cursor: 'pointer', fontSize: '13px', color: '#374151', textAlign: 'left',
+                borderRadius: '6px', cursor: 'pointer', fontSize: '13px', color: 'var(--text-primary)', textAlign: 'left',
               }}
-              onMouseEnter={e => e.currentTarget.style.backgroundColor = '#f3f4f6'}
+              onMouseEnter={e => e.currentTarget.style.backgroundColor = 'var(--background-primary)'}
               onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
             >
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -115,9 +115,9 @@ function FileMoreMenu({ onDownload, onOpenPath, isFolder = false }) {
             style={{
               display: 'flex', alignItems: 'center', gap: '8px', width: '100%',
               padding: '8px 12px', background: 'transparent', border: 'none',
-              borderRadius: '6px', cursor: 'pointer', fontSize: '13px', color: '#374151', textAlign: 'left',
+              borderRadius: '6px', cursor: 'pointer', fontSize: '13px', color: 'var(--text-primary)', textAlign: 'left',
             }}
-            onMouseEnter={e => e.currentTarget.style.backgroundColor = '#f3f4f6'}
+            onMouseEnter={e => e.currentTarget.style.backgroundColor = 'var(--background-primary)'}
             onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -708,7 +708,7 @@ const TeamTasksTab = ({ user }) => {
               }}
               style={{ 
                 cursor: 'pointer', 
-                backgroundColor: isSubOpen ? '#C7D7FD' : '#DBE9FE', 
+                backgroundColor: isSubOpen ? 'var(--background-primary)' : 'var(--background-secondary)', 
                 padding: '14px 20px',
                 flex: 1
               }}
@@ -716,15 +716,15 @@ const TeamTasksTab = ({ user }) => {
               <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1 }}>
                 <div style={{ fontSize: '32px', flexShrink: 0 }}>{isSubOpen ? '📂' : '📁'}</div>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontWeight: '600', fontSize: '15px', color: '#111827' }}>{subName}</div>
-                  <div style={{ fontSize: '12px', color: '#4b5563', marginTop: '1px' }}>
+                  <div style={{ fontWeight: '600', fontSize: '15px', color: 'var(--text-primary)' }}>{subName}</div>
+                  <div style={{ fontSize: '12px', color: 'var(--text-tertiary)', marginTop: '1px' }}>
                     {isAttachment
                       ? `${assignment.team_leader_fullname || assignment.team_leader_username || 'Team Leader'} • ${subFiles.length} file${subFiles.length !== 1 ? 's' : ''}`
                       : `Submitted by ${subFirstFile.fullName || subFirstFile.username} • ${subFiles.length} file${subFiles.length !== 1 ? 's' : ''}`}
                   </div>
                 </div>
                 <svg width="14" height="14" viewBox="0 0 16 16" fill="none" style={{ transform: isSubOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s', flexShrink: 0 }}>
-                  <path d="M4 6L8 10L12 6" stroke="#6B7280" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round" />
+                  <path d="M4 6L8 10L12 6" stroke="var(--text-tertiary)" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
               </div>
             </div>
@@ -754,7 +754,7 @@ const TeamTasksTab = ({ user }) => {
               setShowOpenFileConfirmation(true)
             }}
             style={{ 
-              backgroundColor: openedFileIds.has(file.id) ? '#f0fdf4' : '#fafafa',
+              backgroundColor: openedFileIds.has(file.id) ? 'var(--status-approved)' : 'var(--background-secondary)',
               padding: '14px 20px',
               flex: 1
             }}
@@ -762,11 +762,11 @@ const TeamTasksTab = ({ user }) => {
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1 }}>
               <FileIcon fileType={file.original_name.split('.').pop()} size="default" style={{ width: '34px', height: '34px', minWidth: '34px', minHeight: '34px' }} />
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontWeight: '500', fontSize: '15px', color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <div style={{ fontWeight: '500', fontSize: '15px', color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <span>{file.original_name}</span>
-                  {openedFileIds.has(file.id) && <span style={{ fontSize: '10.5px', fontWeight: '600', color: '#16a34a', backgroundColor: '#dcfce7', border: '1px solid #86efac', padding: '1px 6px', borderRadius: '10px' }}>✓ Viewed</span>}
+                  {openedFileIds.has(file.id) && <span style={{ fontSize: '10.5px', fontWeight: '600', color: 'var(--status-approved-text)', backgroundColor: 'var(--status-approved)', border: '1px solid var(--status-approved-text)', padding: '1px 6px', borderRadius: '10px' }}>✓ Viewed</span>}
                 </div>
-                <div style={{ fontSize: '12px', color: '#4b5563', marginTop: '1px' }}>
+                <div style={{ fontSize: '12px', color: 'var(--text-tertiary)', marginTop: '1px' }}>
                   {isAttachment
                     ? formatFileSize(file.file_size)
                     : `by ${file.fullName || file.username} • ${formatFileSize(file.file_size)}`}
@@ -806,7 +806,7 @@ const TeamTasksTab = ({ user }) => {
       {/* Tabs */}
       <div style={{
         display: 'inline-flex', alignItems: 'center',
-        backgroundColor: '#f1f5f9', borderRadius: '10px',
+        backgroundColor: 'var(--background-primary)', borderRadius: '10px',
         padding: '4px', gap: '4px', marginBottom: '14px'
       }}>
         {/* Tasks Tab */}
@@ -817,8 +817,8 @@ const TeamTasksTab = ({ user }) => {
             borderRadius: '8px',
             fontSize: '13px', fontWeight: activeTab === 'tasks' ? '600' : '500',
             transition: 'all 0.2s ease',
-            background: activeTab === 'tasks' ? '#ffffff' : 'transparent',
-            color: activeTab === 'tasks' ? '#0f172a' : '#64748b',
+            background: activeTab === 'tasks' ? 'var(--background-secondary)' : 'transparent',
+            color: activeTab === 'tasks' ? 'var(--text-primary)' : 'var(--text-secondary)',
             boxShadow: activeTab === 'tasks' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
             display: 'flex', alignItems: 'center', gap: '6px'
           }}
@@ -826,7 +826,7 @@ const TeamTasksTab = ({ user }) => {
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path><rect x="8" y="2" width="8" height="4" rx="1" ry="1"></rect><path d="M9 12h6"></path><path d="M9 16h6"></path></svg>
           Tasks
           <span style={{
-            backgroundColor: '#e2e8f0', color: '#475569',
+            backgroundColor: 'var(--background-primary)', color: 'var(--text-secondary)',
             borderRadius: '10px', padding: '2px 8px',
             fontSize: '12px', fontWeight: '600', marginLeft: '2px'
           }}>
@@ -841,8 +841,8 @@ const TeamTasksTab = ({ user }) => {
             borderRadius: '8px',
             fontSize: '13px', fontWeight: activeTab === 'done-tasks' ? '600' : '500',
             transition: 'all 0.2s ease',
-            background: activeTab === 'done-tasks' ? '#ffffff' : 'transparent',
-            color: activeTab === 'done-tasks' ? '#0f172a' : '#64748b',
+            background: activeTab === 'done-tasks' ? 'var(--background-secondary)' : 'transparent',
+            color: activeTab === 'done-tasks' ? 'var(--text-primary)' : 'var(--text-secondary)',
             boxShadow: activeTab === 'done-tasks' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
             display: 'flex', alignItems: 'center', gap: '6px'
           }}
@@ -850,7 +850,7 @@ const TeamTasksTab = ({ user }) => {
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="9 12 11 14 15 10"></polyline></svg>
           Done Tasks
           <span style={{
-            backgroundColor: '#dcfce7', color: '#166534',
+            backgroundColor: 'var(--status-approved)', color: 'var(--status-approved-text)',
             borderRadius: '10px', padding: '2px 8px',
             fontSize: '12px', fontWeight: '600', marginLeft: '2px'
           }}>
@@ -861,7 +861,7 @@ const TeamTasksTab = ({ user }) => {
 
       {/* Search Bar */}
       <div style={{ margin: '0 0 14px 0', position: 'relative', maxWidth: '320px' }}>
-        <svg style={{ position: 'absolute', left: '9px', top: '50%', transform: 'translateY(-50%)', color: '#c4c9d4', pointerEvents: 'none' }} width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <svg style={{ position: 'absolute', left: '9px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-tertiary)', pointerEvents: 'none' }} width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <circle cx="11" cy="11" r="8" />
           <line x1="21" y1="21" x2="16.65" y2="16.65" />
         </svg>
@@ -873,19 +873,19 @@ const TeamTasksTab = ({ user }) => {
           style={{
             width: '100%', boxSizing: 'border-box',
             padding: '8px 28px 8px 28px',
-            border: '1.5px solid #e8eaed', borderRadius: '8px',
-            fontSize: '13.5px', color: '#374151',
-            outline: 'none', background: '#fff',
+            border: '1.5px solid var(--border-color)', borderRadius: '8px',
+            fontSize: '13.5px', color: 'var(--text-primary)',
+            outline: 'none', background: 'var(--background-secondary)',
             transition: 'border-color 0.15s',
             boxShadow: 'none'
           }}
-          onFocus={e => e.target.style.borderColor = '#c4c9d4'}
-          onBlur={e => e.target.style.borderColor = '#e8eaed'}
+          onFocus={e => e.target.style.borderColor = 'var(--text-tertiary)'}
+          onBlur={e => e.target.style.borderColor = 'var(--border-color)'}
         />
         {searchQuery && (
           <button
             onClick={() => setSearchQuery('')}
-            style={{ position: 'absolute', right: '8px', top: '50%', transform: 'translateY(-50%)', background: 'transparent', border: 'none', cursor: 'pointer', color: '#c4c9d4', fontSize: '15px', lineHeight: 1, padding: '1px' }}
+            style={{ position: 'absolute', right: '8px', top: '50%', transform: 'translateY(-50%)', background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--text-tertiary)', fontSize: '15px', lineHeight: 1, padding: '1px' }}
           >×</button>
         )}
       </div>
@@ -910,13 +910,13 @@ const TeamTasksTab = ({ user }) => {
         ]
         return (
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px', flexWrap: 'wrap' }}>
-            <span style={{ fontSize: '12.5px', fontWeight: '600', color: '#6b7280', letterSpacing: '0.03em', userSelect: 'none' }}>Filter by team:</span>
-            <div style={{ display: 'flex', gap: '0', background: '#f3f4f6', borderRadius: '10px', padding: '3px', flexWrap: 'wrap' }}>
+            <span style={{ fontSize: '12.5px', fontWeight: '600', color: 'var(--text-tertiary)', letterSpacing: '0.03em', userSelect: 'none' }}>Filter by team:</span>
+            <div style={{ display: 'flex', gap: '0', background: 'var(--background-primary)', borderRadius: '10px', padding: '3px', flexWrap: 'wrap' }}>
               {filterOptions.map(opt => {
                 const isActive = teamFilter === opt.value
                 const c = opt.color
                 const activeBg = c && isActive ? c.bg : (isActive ? '#fff' : 'transparent')
-                const activeColor = c && isActive ? '#fff' : (isActive ? '#111827' : '#6b7280')
+                const activeColor = c && isActive ? '#fff' : (isActive ? 'var(--text-primary)' : 'var(--text-secondary)')
                 const activeShadow = c && isActive ? `0 2px 8px ${c.shadow}` : (isActive ? '0 1px 4px rgba(0,0,0,0.10)' : 'none')
                 return (
                   <button
@@ -1072,7 +1072,7 @@ const TeamTasksTab = ({ user }) => {
                   {/* Section 1: Team Leader Attached Files (isAttachment = true) */}
                   {assignment.attachments?.length > 0 && (
                     <div className="team-task-attached-file tl-attachments" style={{ marginBottom: '16px' }}>
-                      <div className="file-label" style={{ color: '#1d4ed8' }}>
+                      <div className="file-label" style={{ color: 'var(--status-review-text)' }}>
                         <span style={{ fontSize: '16px' }}>📎</span>
                         Attached Files ({assignment.attachments.length}):
                       </div>
@@ -1094,19 +1094,19 @@ const TeamTasksTab = ({ user }) => {
                                 e.stopPropagation()
                                 setExpandedFolders(prev => ({ ...prev, [folderKey]: !prev[folderKey] }))
                               }}
-                              style={{ cursor: 'pointer', backgroundColor: isExpanded ? '#BFDBFE' : '#DBEAFE' }}
+                              style={{ cursor: 'pointer', backgroundColor: isExpanded ? 'var(--background-primary)' : 'var(--background-secondary)' }}
                             >
                               <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1 }}>
                                 <div style={{ fontSize: '32px', flexShrink: 0 }}>{isExpanded ? '📂' : '📁'}</div>
                                 <div style={{ flex: 1, minWidth: 0 }}>
-                                  <div style={{ fontWeight: '600', fontSize: '14px', color: '#111827' }}>{folderName}</div>
-                                  <div style={{ fontSize: '12px', color: '#6b7280' }}>
+                                  <div style={{ fontWeight: '600', fontSize: '14px', color: 'var(--text-primary)' }}>{folderName}</div>
+                                  <div style={{ fontSize: '12px', color: 'var(--text-tertiary)' }}>
                                     {assignment.team_leader_fullname || assignment.team_leader_username || 'Team Leader'} • {folderFiles.length} file{folderFiles.length !== 1 ? 's' : ''}
                                   </div>
                                 </div>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
                                   <svg width="16" height="16" viewBox="0 0 16 16" fill="none" style={{ transform: isExpanded ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }}>
-                                    <path d="M4 6L8 10L12 6" stroke="#6B7280" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                    <path d="M4 6L8 10L12 6" stroke="var(--text-tertiary)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                                   </svg>
                                   <div onClick={e => e.stopPropagation()}>
                                     <FileMoreMenu
@@ -1136,16 +1136,16 @@ const TeamTasksTab = ({ user }) => {
                                 setOpenModalType('file')
                                 setShowOpenFileConfirmation(true)
                               }}
-                              style={{ backgroundColor: openedFileIds.has(file.id) ? '#f0fdf4' : undefined }}
+                              style={{ backgroundColor: openedFileIds.has(file.id) ? 'var(--status-approved)' : undefined }}
                             >
                               <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1 }}>
                                 <FileIcon fileType={file.original_name.split('.').pop()} size="small" style={{ width: '48px', height: '48px', flexShrink: 0 }}/>
                                 <div style={{ flex: 1, minWidth: 0 }}>
-                                  <div style={{ fontWeight: '500', fontSize: '14px', color: '#111827', marginBottom: '2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                  <div style={{ fontWeight: '500', fontSize: '14px', color: 'var(--text-primary)', marginBottom: '2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '8px' }}>
                                     <span>{file.original_name}</span>
-                                    {openedFileIds.has(file.id) && <span style={{ fontSize: '10px', color: '#16a34a' }}>✓ Viewed</span>}
+                                    {openedFileIds.has(file.id) && <span style={{ fontSize: '10px', color: 'var(--status-approved-text)' }}>✓ Viewed</span>}
                                   </div>
-                                  <div style={{ fontSize: '12px', color: '#6b7280', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                  <div style={{ fontSize: '12px', color: 'var(--text-tertiary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
                                     <span>by <span style={{ fontWeight: '500', color: '#2563eb' }}>{assignment.team_leader_fullname || assignment.team_leader_username || 'Team Leader'}</span></span>
                                     <span style={{ color: '#9ca3af' }}>•</span>
                                     <span>{formatFileSize(file.file_size)}</span>
@@ -1213,13 +1213,13 @@ const TeamTasksTab = ({ user }) => {
                                 e.stopPropagation()
                                 setExpandedFolders(prev => ({ ...prev, [folderKey]: !prev[folderKey] }))
                               }}
-                              style={{ cursor: 'pointer', backgroundColor: isExpanded ? '#BFDBFE' : '#DBEAFE' }}
+                              style={{ cursor: 'pointer', backgroundColor: isExpanded ? 'var(--background-primary)' : 'var(--background-secondary)' }}
                             >
                               <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1 }}>
                                 <div style={{ fontSize: '32px', flexShrink: 0 }}>{isExpanded ? '📂' : '📁'}</div>
                                 <div style={{ flex: 1, minWidth: 0 }}>
-                                  <div style={{ fontWeight: '600', fontSize: '14px', color: '#111827' }}>{folderName}</div>
-                                  <div style={{ fontSize: '12px', color: '#6b7280' }}>
+                                  <div style={{ fontWeight: '600', fontSize: '14px', color: 'var(--text-primary)' }}>{folderName}</div>
+                                  <div style={{ fontSize: '12px', color: 'var(--text-tertiary)' }}>
                                     Submitted by <span style={{ fontWeight: '500' }}>{firstFile.fullName || firstFile.username}</span> • {folderFiles.length} files
                                   </div>
                                 </div>
@@ -1248,16 +1248,16 @@ const TeamTasksTab = ({ user }) => {
                                 setOpenModalType('file')
                                 setShowOpenFileConfirmation(true)
                               }}
-                              style={{ backgroundColor: openedFileIds.has(file.id) ? '#f0fdf4' : undefined }}
+                              style={{ backgroundColor: openedFileIds.has(file.id) ? 'var(--status-approved)' : undefined }}
                             >
                               <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1 }}>
                                 <FileIcon fileType={file.original_name.split('.').pop()} size="small" style={{ width: '48px', height: '48px', flexShrink: 0 }}/>
                                 <div style={{ flex: 1, minWidth: 0 }}>
-                                  <div style={{ fontWeight: '500', fontSize: '15px', color: '#111827', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                  <div style={{ fontWeight: '500', fontSize: '15px', color: 'var(--text-primary)', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '8px' }}>
                                     <span>{file.original_name}</span>
                                     {openedFileIds.has(file.id) && <span style={{ fontSize: '10px', color: '#16a34a' }}>✓ Viewed</span>}
                                   </div>
-                                  <div style={{ fontSize: '13px', color: '#6b7280' }}>
+                                  <div style={{ fontSize: '13px', color: 'var(--text-tertiary)' }}>
                                     Submitted by {file.fullName || file.username} on {formatDate(file.submitted_at)}
                                   </div>
                                 </div>
@@ -1308,7 +1308,7 @@ const TeamTasksTab = ({ user }) => {
                 {/* Comments trigger */}
                 <div className="team-task-comments-section" style={{
                   display: 'flex', justifyContent: 'flex-start',
-                  paddingTop: '12px', borderTop: '1px solid #f3f4f6'
+                  paddingTop: '12px', borderTop: '1px solid var(--border-color)'
                 }}>
                   <button
                     className="toggle-comments-btn"
@@ -1330,8 +1330,8 @@ const TeamTasksTab = ({ user }) => {
                       );
                       return (
                         <span style={{
-                          backgroundColor: hasRejected && count > 0 ? '#fee2e2' : '#f3f4f6',
-                          color: hasRejected && count > 0 ? '#dc2626' : '#6b7280',
+                          backgroundColor: hasRejected && count > 0 ? '#fee2e2' : 'var(--background-primary)',
+                          color: hasRejected && count > 0 ? '#dc2626' : 'var(--text-tertiary)',
                           borderRadius: '10px', padding: '1px 8px', fontSize: '12px', fontWeight: '600',
                         }}>
                           {count}

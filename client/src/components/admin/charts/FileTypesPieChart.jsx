@@ -16,7 +16,7 @@ const FileTypesPieChart = memo(({ fileTypes, loading }) => {
 
     const total = fileTypes.reduce((sum, t) => sum + t.count, 0);
     const colors = [
-        '#6366F1', '#10B981', '#F59E0B', '#EF4444',
+        '#6366F1', '#10B981', 'var(--status-pending-text)', 'var(--status-rejected-text)',
         '#8B5CF6', '#EC4899', '#06B6D4', '#84CC16',
         '#F97316', '#14B8A6', '#A855F7', '#F43F5E'
     ];

@@ -43,7 +43,7 @@
 
 /* ===== Modal Container ===== */
 .update-alert-modal {
-  background: white;
+  background: var(--background-secondary);
   border-radius: 8px;
   padding: 20px;
   max-width: 500px;
@@ -123,7 +123,7 @@
 /* ===== Install Button (Primary Action) ===== */
 .update-install-btn {
   background: #28a745;
-  color: white;
+  color: var(--background-secondary);
   box-shadow: 0 2px 4px rgba(40, 167, 69, 0.2);
 }
 
@@ -141,7 +141,7 @@
 /* ===== Cancel Button (Secondary Action) ===== */
 .update-cancel-btn {
   background: #6c757d;
-  color: white;
+  color: var(--background-secondary);
   box-shadow: 0 2px 4px rgba(108, 117, 125, 0.2);
 }
 
@@ -296,7 +296,7 @@
   margin-left: -8px;
   margin-top: -8px;
   border: 2px solid rgba(255, 255, 255, 0.3);
-  border-top-color: white;
+  border-top-color: var(--background-secondary);
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
 }

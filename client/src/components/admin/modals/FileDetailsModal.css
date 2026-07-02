@@ -16,7 +16,7 @@
 }
 
 .file-details-modal-component .modal.file-modal {
-  background: #ffffff;
+  background: var(--background-secondary);
   border-radius: 16px;
   box-shadow: 0 20px 32px rgba(0, 0, 0, 0.15);
   max-width: 720px;
@@ -29,11 +29,11 @@
 
 .file-details-modal-component .modal-header {
   padding: 1.5rem;
-  border-bottom: 1px solid #e5e7eb;
+  border-bottom: 1px solid var(--border-color);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  background: white;
+  background: var(--background-secondary);
   border-radius: 16px 16px 0 0;
   position: sticky;
   top: 0;
@@ -43,7 +43,7 @@
 .file-details-modal-component .modal-header h3 {
   font-size: 1.125rem;
   font-weight: 600;
-  color: #111827;
+  color: var(--text-primary);
   margin: 0;
 }
 
@@ -52,7 +52,7 @@
   border: none;
   font-size: 1.5rem;
   cursor: pointer;
-  color: #6b7280;
+  color: var(--text-secondary);
   width: 32px;
   height: 32px;
   display: flex;
@@ -63,7 +63,7 @@
 }
 
 .file-details-modal-component .modal-close:hover {
-  background: #f3f4f6;
+  background: var(--background-secondary);
 }
 
 .file-details-modal-component .file-modal .modal-body {
@@ -172,13 +172,13 @@
 }
 
 .file-details-modal-component .btn-secondary-large {
-  background: #f9fafb;
-  color: #374151;
+  background: var(--background-secondary);
+  color: var(--text-primary);
   border: 1px solid #d1d5db;
 }
 
 .file-details-modal-component .btn-secondary-large:hover:not(:disabled) {
-  background: #f3f4f6;
+  background: var(--background-secondary);
   transform: translateY(-1px);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }

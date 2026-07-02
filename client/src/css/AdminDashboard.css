@@ -6,9 +6,9 @@
   --primary-color: #6366F1;
   --primary-hover: #4F46E5;
   --success-color: #10B981;
-  --warning-color: #F59E0B;
-  --danger-color: #EF4444;
-  --info-color: #3B82F6;
+  --warning-color: var(--status-pending-text);
+  --danger-color: #DC2626;
+  --info-color: var(--status-review-text);
 
   /* Neutral Colors */
   --text-primary: #111827;
@@ -533,7 +533,7 @@
 }
 
 .burger-menu-btn.active .burger-menu-icon span {
-  background: white;
+  background: var(--background-secondary);
 }
 
 .burger-menu-btn.active .burger-menu-icon span:nth-child(1) {

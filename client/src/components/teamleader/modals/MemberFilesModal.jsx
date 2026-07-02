@@ -145,7 +145,7 @@ const MemberFilesModal = ({
                   size="small"
                   style={{ width: '18px', height: '18px' }}
                 />
-                <strong style={{ fontSize: '14.5px', fontWeight: isNested ? '500' : '600', color: '#1e293b' }}>{file.original_name}</strong>
+                <strong style={{ fontSize: '14.5px', fontWeight: isNested ? '500' : '600', color: 'var(--text-primary)' }}>{file.original_name}</strong>
               </div>
             </div>
           </td>
@@ -198,7 +198,7 @@ const MemberFilesModal = ({
                 <tr 
                   className="tl-clickable-row tl-folder-row"
                   onClick={() => toggleFolder(currentKey)}
-                  style={{ cursor: 'pointer', backgroundColor: isExpanded ? '#f8fafc' : '#ffffff' }}
+                  style={{ cursor: 'pointer', backgroundColor: isExpanded ? 'var(--background-secondary)' : 'var(--background-secondary)' }}
                 >
                   <td>
                     <div className="tl-tree-container" style={{ paddingLeft: '0.75rem' }}>
@@ -208,8 +208,8 @@ const MemberFilesModal = ({
                       {level > 0 && <div className={`tl-tree-line-connector ${isLast ? 'last-item' : ''}`} />}
                       <div className="tl-file-name-cell" style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '10px' }}>
                         <div style={{ fontSize: '24px' }}>{isExpanded ? '📂' : '📁'}</div>
-                        <strong style={{ fontSize: '14.5px', fontWeight: '600', color: '#1e293b' }}>{folderName}</strong>
-                        <span style={{ fontSize: '11px', color: '#64748b' }}>({folderFiles.length})</span>
+                        <strong style={{ fontSize: '14.5px', fontWeight: '600', color: 'var(--text-primary)' }}>{folderName}</strong>
+                        <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>({folderFiles.length})</span>
                       </div>
                     </div>
                   </td>
@@ -287,7 +287,7 @@ const MemberFilesModal = ({
             borderBottom: '1px solid var(--border-color)',
             padding: '0 1.5rem',
             flexShrink: 0,
-            background: 'var(--bg-primary, #fff)'
+            background: 'transparent'
           }}>
             {tabs.map(tab => (
               <button
@@ -311,8 +311,8 @@ const MemberFilesModal = ({
               >
                 {tab.label}
                 <span style={{
-                  background: activeTab === tab.key ? 'var(--primary-color)' : '#e5e7eb',
-                  color: activeTab === tab.key ? '#fff' : 'var(--text-secondary)',
+                  background: activeTab === tab.key ? 'var(--primary-color)' : 'var(--background-secondary)',
+                  color: activeTab === tab.key ? 'var(--background-secondary)' : 'var(--text-secondary)',
                   borderRadius: '999px',
                   fontSize: '11px',
                   fontWeight: '600',
@@ -358,7 +358,7 @@ const MemberFilesModal = ({
                       <div key={folderName} style={{
                         borderRadius: '10px',
                         overflow: 'hidden',
-                        background: 'white'
+                        background: 'var(--background-secondary)'
                       }}>
                         {/* Folder row */}
                         <div
@@ -370,12 +370,12 @@ const MemberFilesModal = ({
                             padding: '0.9rem 1rem',
                             cursor: 'pointer',
                             userSelect: 'none',
-                            background: 'white',
+                            background: 'var(--background-secondary)',
                             borderBottom: isExpanded ? '1px solid var(--border-color, #e5e7eb)' : 'none',
                             transition: 'background 0.15s'
                           }}
-                          onMouseEnter={e => e.currentTarget.style.background = '#f3f4f6'}
-                          onMouseLeave={e => e.currentTarget.style.background = 'white'}
+                          onMouseEnter={e => e.currentTarget.style.background = 'var(--background-secondary)'}
+                          onMouseLeave={e => e.currentTarget.style.background = 'var(--background-secondary)'}
                         >
                           {/* Folder icon */}
                           <FileIcon isFolder={true} size="small" />
@@ -426,7 +426,7 @@ const MemberFilesModal = ({
                         Individual Files
                       </span>
                       <span style={{
-                        background: '#e5e7eb',
+                        background: 'var(--background-secondary)',
                         color: 'var(--text-secondary)',
                         borderRadius: '999px',
                         fontSize: '11px',

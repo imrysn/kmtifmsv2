@@ -98,10 +98,10 @@ const ApprovalTrendChart = memo(({ trends, loading }) => {
                 }
             },
             tooltip: {
-                backgroundColor: '#ffffff',
-                titleColor: '#1f2937',
-                bodyColor: '#666666',
-                borderColor: '#e5e7eb',
+                backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                titleColor: '#ffffff',
+                bodyColor: '#e5e7eb',
+                borderColor: 'rgba(255, 255, 255, 0.1)',
                 borderWidth: 1,
                 padding: 10,
                 usePointStyle: true,
@@ -114,7 +114,7 @@ const ApprovalTrendChart = memo(({ trends, loading }) => {
                 beginAtZero: true,
                 ticks: {
                     precision: 0, // Only show whole numbers
-                    color: '#6B7280',
+                    color: '#9CA3AF',
                     font: { size: 11 }
                 },
                 grid: {
@@ -126,7 +126,7 @@ const ApprovalTrendChart = memo(({ trends, loading }) => {
             x: {
                 ticks: {
                     maxTicksLimit: 6, // Don't crowd the x-axis
-                    color: '#6B7280',
+                    color: '#9CA3AF',
                     font: { size: 11 }
                 },
                 grid: {
@@ -138,11 +138,11 @@ const ApprovalTrendChart = memo(({ trends, loading }) => {
     }), []);
 
     if (loading) {
-        return <div style={{ padding: '1rem', textAlign: 'center', color: '#9CA3AF' }}>Loading trends...</div>;
+        return <div style={{ padding: '1rem', textAlign: 'center', color: 'var(--text-tertiary)' }}>Loading trends...</div>;
     }
 
     if (!trends || trends.length === 0) {
-        return <div style={{ padding: '1rem', textAlign: 'center', color: '#9CA3AF' }}>No trend data available</div>;
+        return <div style={{ padding: '1rem', textAlign: 'center', color: 'var(--text-tertiary)' }}>No trend data available</div>;
     }
 
     return (

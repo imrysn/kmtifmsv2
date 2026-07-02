@@ -96,11 +96,11 @@ const styles = {
     justifyContent: 'center',
     alignItems: 'center',
     minHeight: '100vh',
-    backgroundColor: '#f5f5f5',
+    backgroundColor: 'var(--background-secondary)',
     padding: '20px'
   },
   card: {
-    backgroundColor: 'white',
+    backgroundColor: 'var(--background-secondary)',
     borderRadius: '8px',
     padding: '40px',
     maxWidth: '600px',
@@ -128,7 +128,7 @@ const styles = {
     padding: '12px 24px',
     fontSize: '16px',
     backgroundColor: '#4CAF50',
-    color: 'white',
+    color: 'var(--background-secondary)',
     border: 'none',
     borderRadius: '4px',
     cursor: 'pointer',
@@ -137,7 +137,7 @@ const styles = {
   secondaryButton: {
     padding: '12px 24px',
     fontSize: '16px',
-    backgroundColor: '#fff',
+    backgroundColor: 'var(--background-secondary)',
     color: '#333',
     border: '2px solid #ddd',
     borderRadius: '4px',

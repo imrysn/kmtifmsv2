@@ -876,15 +876,15 @@ const TaskManagement = ({
         </div>
 
         {/* Tasks / Done Tasks Tab Toggle */}
-        <div style={{ display: 'flex', gap: '0', marginBottom: '18px', background: '#f3f4f6', borderRadius: '10px', padding: '4px', width: 'fit-content' }}>
+        <div style={{ display: 'flex', gap: '0', marginBottom: '18px', background: 'var(--background-secondary)', borderRadius: '10px', padding: '4px', width: 'fit-content' }}>
           <button
             onClick={() => { setVisibleCount(BATCH_SIZE); startTabTransition(() => setActiveTaskTab('tasks')) }}
             style={{
               padding: '7px 22px', borderRadius: '8px', border: 'none',
               fontWeight: '600', fontSize: '13.5px', cursor: 'pointer',
               transition: 'all 0.18s',
-              background: activeTaskTab === 'tasks' ? '#fff' : 'transparent',
-              color: activeTaskTab === 'tasks' ? '#111827' : '#6b7280',
+              background: activeTaskTab === 'tasks' ? 'var(--background-primary)' : 'transparent',
+              color: activeTaskTab === 'tasks' ? 'var(--text-primary)' : 'var(--text-tertiary)',
               boxShadow: activeTaskTab === 'tasks' ? '0 1px 4px rgba(0,0,0,0.10)' : 'none',
               display: 'flex', alignItems: 'center', gap: '6px',
             }}
@@ -893,8 +893,8 @@ const TaskManagement = ({
             Tasks
             <span style={{
               marginLeft: '4px', fontSize: '12px', fontWeight: '700',
-              background: activeTaskTab === 'tasks' ? '#e0e7ff' : '#e5e7eb',
-              color: activeTaskTab === 'tasks' ? '#4338ca' : '#9ca3af',
+              background: activeTaskTab === 'tasks' ? 'var(--status-review)' : '#e5e7eb',
+              color: activeTaskTab === 'tasks' ? '#4338ca' : 'var(--text-tertiary)',
               padding: '1px 8px', borderRadius: '10px'
             }}>{activeAssignments.length}</span>
           </button>
@@ -904,8 +904,8 @@ const TaskManagement = ({
               padding: '7px 22px', borderRadius: '8px', border: 'none',
               fontWeight: '600', fontSize: '13.5px', cursor: 'pointer',
               transition: 'all 0.18s',
-              background: activeTaskTab === 'done' ? '#fff' : 'transparent',
-              color: activeTaskTab === 'done' ? '#111827' : '#6b7280',
+              background: activeTaskTab === 'done' ? 'var(--background-primary)' : 'transparent',
+              color: activeTaskTab === 'done' ? 'var(--text-primary)' : 'var(--text-tertiary)',
               boxShadow: activeTaskTab === 'done' ? '0 1px 4px rgba(0,0,0,0.10)' : 'none',
               display: 'flex', alignItems: 'center', gap: '6px',
             }}
@@ -914,8 +914,8 @@ const TaskManagement = ({
             Done Tasks
             <span style={{
               marginLeft: '4px', fontSize: '12px', fontWeight: '700',
-              background: activeTaskTab === 'done' ? '#dcfce7' : '#e5e7eb',
-              color: activeTaskTab === 'done' ? '#15803d' : '#9ca3af',
+              background: activeTaskTab === 'done' ? 'var(--status-approved)' : '#e5e7eb',
+              color: activeTaskTab === 'done' ? 'var(--status-approved-text)' : 'var(--text-tertiary)',
               padding: '1px 8px', borderRadius: '10px'
             }}>{doneAssignments.length}</span>
           </button>
@@ -936,8 +936,8 @@ const TaskManagement = ({
               width: '100%', boxSizing: 'border-box',
               padding: '8px 28px 8px 28px',
               border: '1.5px solid #e8eaed', borderRadius: '8px',
-              fontSize: '13.5px', color: '#374151',
-              outline: 'none', background: '#fff',
+              fontSize: '13.5px', color: 'var(--text-secondary)',
+              outline: 'none', background: 'var(--background-secondary)',
               transition: 'border-color 0.15s',
               boxShadow: 'none'
             }}
@@ -1001,26 +1001,26 @@ const TaskManagement = ({
                             }}
                             style={{ 
                               cursor: 'pointer', 
-                              backgroundColor: isSubOpen ? '#BFDBFE' : '#DBEAFE', 
+                              backgroundColor: isSubOpen ? 'var(--status-review)' : 'var(--background-secondary)', 
                               padding: '14px 20px',
                               flex: 1,
                               display: 'flex',
                               alignItems: 'center',
                               gap: '12px',
-                              border: isAttachment ? '1px solid #000000' : '1px solid #93c5fd'
+                              border: isAttachment ? '1px solid var(--border-color)' : '1px solid var(--border-color)'
                             }}
                           >
                             <div style={{ fontSize: '32px', flexShrink: 0 }}>{isSubOpen ? '📂' : '📁'}</div>
                             <div className="admin-file-details" style={{ flex: 1, minWidth: 0 }}>
-                              <div className="admin-file-name" style={{ fontWeight: '600', fontSize: '15px', color: '#111827' }}>{subName}</div>
-                              <div className="admin-file-meta" style={{ fontSize: '12px', color: '#4b5563', marginTop: '1px' }}>
+                              <div className="admin-file-name" style={{ fontWeight: '600', fontSize: '15px', color: 'var(--text-primary)' }}>{subName}</div>
+                              <div className="admin-file-meta" style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '1px' }}>
                               {isAttachment ? (
                               <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
                               <span>Submitted by {assignment.team_leader_fullname || assignment.team_leader_username || 'Team Leader'}</span>
-                              <span style={{ color: '#9ca3af' }}>•</span>
+                              <span style={{ color: 'var(--text-tertiary)' }}>•</span>
                               <span>{subFiles.length} file{subFiles.length !== 1 ? 's' : ''}</span>
                                   {(subFirstFile.submitted_at || subFirstFile.uploaded_at || subFirstFile.created_at) && (
-                                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', color: '#6b7280' }}>
+                                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', color: 'var(--text-tertiary)' }}>
                                   <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
                                     <circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" />
                                   </svg>
@@ -1030,11 +1030,11 @@ const TaskManagement = ({
                               </span>
                               ) : (
                               <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
-                              <span>Submitted by <span style={{ fontWeight: '600', color: '#2563eb' }}>{subFirstFile.fullName || subFirstFile.username || 'Member'}</span></span>
-                              <span style={{ color: '#9ca3af' }}>•</span>
+                              <span>Submitted by <span style={{ fontWeight: '600', color: 'var(--status-review-text)' }}>{subFirstFile.fullName || subFirstFile.username || 'Member'}</span></span>
+                              <span style={{ color: 'var(--text-tertiary)' }}>•</span>
                                 <span>{subFiles.length} file{subFiles.length !== 1 ? 's' : ''}</span>
                                   {(subFirstFile.submitted_at || subFirstFile.uploaded_at || subFirstFile.created_at) && (
-                                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', color: '#6b7280' }}>
+                                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', color: 'var(--text-tertiary)' }}>
                                       <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
                                         <circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" />
                                       </svg>
@@ -1051,11 +1051,11 @@ const TaskManagement = ({
                               style={{
                                 background: 'transparent', border: 'none', borderRadius: '6px',
                                 width: '32px', height: '32px', display: 'flex', alignItems: 'center',
-                                justifyContent: 'center', cursor: 'pointer', color: '#6b7280',
+                                justifyContent: 'center', cursor: 'pointer', color: 'var(--text-tertiary)',
                                 flexShrink: 0, transition: 'all 0.15s'
                               }}
-                              onMouseEnter={e => { e.currentTarget.style.backgroundColor = '#dbeafe'; e.currentTarget.style.color = '#1d4ed8' }}
-                              onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = '#6b7280' }}
+                              onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'var(--status-review)'; e.currentTarget.style.color = 'var(--status-review-text)' }}
+                              onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = 'var(--text-tertiary)' }}
                             >
                               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                                 <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
@@ -1088,13 +1088,13 @@ const TaskManagement = ({
                           className={`admin-file-item${hasViewed ? ' admin-file-card-opened' : ''}`}
                           style={{ 
                             cursor: 'pointer', 
-                            backgroundColor: '#fafafa',
+                            backgroundColor: 'var(--background-secondary)',
                             flex: 1,
                             display: 'flex',
                             alignItems: 'center',
                             padding: '14px 20px',
                             gap: '12px',
-                            border: isAttachment ? '1px solid #000000' : '1px solid #dbeafe'
+                            border: isAttachment ? '1px solid var(--border-color)' : '1px solid var(--status-review)'
                           }}
                         >
                           <FileIcon fileType={file.original_name.split('.').pop()} size="default" style={{ width: '34px', height: '34px', minWidth: '34px', minHeight: '34px' }} />
@@ -1102,18 +1102,18 @@ const TaskManagement = ({
                             <div className="admin-file-name" style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: '500', fontSize: '15px' }}>
                               <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{file.original_name}</span>
                               {hasViewed && (
-                                <span style={{ fontSize: '10.5px', fontWeight: '600', color: '#16a34a', backgroundColor: '#dcfce7', border: '1px solid #86efac', padding: '1px 6px', borderRadius: '10px', flexShrink: 0 }}>
+                                <span style={{ fontSize: '10.5px', fontWeight: '600', color: 'var(--status-approved-text)', backgroundColor: 'var(--status-approved)', border: '1px solid #86efac', padding: '1px 6px', borderRadius: '10px', flexShrink: 0 }}>
                                   ✓ Viewed
                                 </span>
                               )}
                             </div>
-                            <div className="admin-file-meta" style={{ fontSize: '12px', color: '#4b5563', marginTop: '1px', display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
-                              <span>Submitted by <span className="admin-file-submitter" style={{ fontWeight: '600', color: '#2563eb' }}>
+                            <div className="admin-file-meta" style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '1px', display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                              <span>Submitted by <span className="admin-file-submitter" style={{ fontWeight: '600', color: 'var(--status-review-text)' }}>
                                 {isAttachment
                                   ? (assignment.team_leader_fullname || assignment.team_leader_username || 'Team Leader')
                                   : (file.fullName || file.username || 'Member')}
                               </span></span>
-                              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', color: '#6b7280', fontWeight: '500' }}>
+                              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', color: 'var(--text-tertiary)', fontWeight: '500' }}>
                                 <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
                                   <circle cx="12" cy="12" r="10" />
                                   <polyline points="12 6 12 12 16 14" />
@@ -1123,13 +1123,13 @@ const TaskManagement = ({
                               
                               {file.tag && (
                                 <span style={{
-                                  backgroundColor: '#dbeafe',
-                                  color: '#1e40af',
+                                  backgroundColor: 'var(--status-review)',
+                                  color: 'var(--status-review-text)',
                                   padding: '2px 8px',
                                   borderRadius: '12px',
                                   fontSize: '11px',
                                   fontWeight: '600',
-                                  border: '1px solid #93c5fd',
+                                  border: '1px solid var(--border-color)',
                                   display: 'inline-flex',
                                   alignItems: 'center',
                                   gap: '4px'
@@ -1178,11 +1178,11 @@ const TaskManagement = ({
                             style={{
                               background: 'transparent', border: 'none', borderRadius: '6px',
                               width: '32px', height: '32px', display: 'flex', alignItems: 'center',
-                              justifyContent: 'center', cursor: 'pointer', color: '#9ca3af',
+                              justifyContent: 'center', cursor: 'pointer', color: 'var(--text-tertiary)',
                               flexShrink: 0, transition: 'all 0.15s'
                             }}
-                            onMouseEnter={e => { e.currentTarget.style.backgroundColor = '#dbeafe'; e.currentTarget.style.color = '#1d4ed8' }}
-                            onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = '#9ca3af' }}
+                            onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'var(--status-review)'; e.currentTarget.style.color = 'var(--status-review-text)' }}
+                            onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = 'var(--text-tertiary)' }}
                           >
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                               <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
@@ -1243,7 +1243,7 @@ const TaskManagement = ({
                         {assignment.status === 'completed' ? (
                           <div style={{
                             backgroundColor: '#d1fae5',
-                            color: '#059669',
+                            color: 'var(--status-approved-text)',
                             padding: '6px 12px',
                             borderRadius: '20px',
                             fontSize: '13px',
@@ -1339,11 +1339,11 @@ const TaskManagement = ({
                           title="More options"
                           style={{
                             background: 'transparent', border: 'none', cursor: 'pointer',
-                            padding: '6px 8px', borderRadius: '8px', color: '#6b7280',
+                            padding: '6px 8px', borderRadius: '8px', color: 'var(--text-tertiary)',
                             display: 'flex', alignItems: 'center', justifyContent: 'center',
                             transition: 'background 0.15s'
                           }}
-                          onMouseEnter={e => e.currentTarget.style.background = '#f3f4f6'}
+                          onMouseEnter={e => e.currentTarget.style.background = 'var(--background-secondary)'}
                           onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
                         >
                           <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
@@ -1357,7 +1357,7 @@ const TaskManagement = ({
                             className="admin-menu-dropdown"
                             style={{
                               position: 'absolute', bottom: '110%', right: 0,
-                              background: '#fff', border: '1px solid #e5e7eb',
+                              background: 'var(--background-secondary)', border: '1px solid #e5e7eb',
                               borderRadius: '10px', boxShadow: '0 4px 20px rgba(0,0,0,0.12)',
                               minWidth: '140px', zIndex: 9999, overflow: 'hidden'
                             }}
@@ -1373,11 +1373,11 @@ const TaskManagement = ({
                               style={{
                                 display: 'flex', alignItems: 'center', gap: '8px',
                                 width: '100%', padding: '10px 14px', background: 'transparent',
-                                border: 'none', cursor: 'pointer', color: '#dc2626',
+                                border: 'none', cursor: 'pointer', color: 'var(--status-rejected-text)',
                                 fontSize: '13px', fontWeight: '500', textAlign: 'left',
                                 transition: 'background 0.15s'
                               }}
-                              onMouseEnter={e => e.currentTarget.style.background = '#fee2e2'}
+                              onMouseEnter={e => e.currentTarget.style.background = 'var(--status-rejected)'}
                               onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
                             >
                               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -1524,7 +1524,7 @@ const TaskManagement = ({
               top: '28px',
               right: '28px',
               zIndex: 9999,
-              background: '#fff',
+              background: 'var(--background-secondary)',
               border: '1px solid #bbf7d0',
               borderRadius: '16px',
               boxShadow: '0 8px 32px rgba(0,0,0,0.13)',
@@ -1539,24 +1539,24 @@ const TaskManagement = ({
           >
             <div style={{
               width: '40px', height: '40px', borderRadius: '50%',
-              background: '#dcfce7', border: '2px solid #86efac',
+              background: 'var(--status-approved)', border: '2px solid #86efac',
               display: 'flex', alignItems: 'center',
               justifyContent: 'center', flexShrink: 0, marginTop: '1px'
             }}>
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke='var(--status-approved-text)' strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M20 6L9 17l-5-5" />
               </svg>
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: '15px', fontWeight: '700', color: '#15803d', marginBottom: '4px' }}>
+              <div style={{ fontSize: '15px', fontWeight: '700', color: 'var(--status-approved-text)', marginBottom: '4px' }}>
                 Success
               </div>
-              <div style={{ fontSize: '13px', color: '#374151', lineHeight: '1.4' }}>
+              <div style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: '1.4' }}>
                 {downloadToast.fileName
                   ? `"${downloadToast.fileName}" downloaded successfully!`
                   : 'File downloaded successfully!'}
               </div>
-              <div style={{ marginTop: '10px', height: '4px', borderRadius: '2px', background: '#dcfce7', overflow: 'hidden' }}>
+              <div style={{ marginTop: '10px', height: '4px', borderRadius: '2px', background: 'var(--status-approved)', overflow: 'hidden' }}>
                 <div style={{
                   height: '100%', borderRadius: '2px', background: '#22c55e',
                   animation: 'adminShrinkBar 3.5s linear forwards'
@@ -1567,11 +1567,11 @@ const TaskManagement = ({
               onClick={() => setDownloadToast({ show: false, fileName: '' })}
               style={{
                 background: 'transparent', border: 'none', cursor: 'pointer',
-                color: '#9ca3af', fontSize: '20px', lineHeight: 1,
+                color: 'var(--text-tertiary)', fontSize: '20px', lineHeight: 1,
                 padding: '0', flexShrink: 0, borderRadius: '4px', marginTop: '-2px'
               }}
-              onMouseEnter={e => e.currentTarget.style.color = '#374151'}
-              onMouseLeave={e => e.currentTarget.style.color = '#9ca3af'}
+              onMouseEnter={e => e.currentTarget.style.color = 'var(--text-secondary)'}
+              onMouseLeave={e => e.currentTarget.style.color = 'var(--text-tertiary)'}
             >×</button>
           </div>
         )}
