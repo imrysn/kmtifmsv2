@@ -229,3 +229,147 @@ select option {
   background: var(--surface-color, var(--background-secondary, var(--background-secondary)));
   color: var(--text-primary);
 }
+
+/* ── Pride/LGBT Theme Overrides ─────────────────────────────────────────── */
+:root[data-theme="pride"] {
+  --primary-color: #ec4899; /* Pink */
+  --primary-hover: #db2777;
+  
+  /* Neutral Colors */
+  --text-primary: #ffffff;
+  --text-secondary: #f472b6;
+  --text-tertiary: #fbcfe8;
+
+  /* Background Colors - Deep Purple Pride Space Theme */
+  --background-primary: #120b24;
+  --background-secondary: #1a0f30;
+  --sidebar-bg: #150926;
+  --surface-color: #291747;
+
+  /* Border Colors */
+  --border-color: rgba(236, 72, 153, 0.25);
+  --border-light: rgba(236, 72, 153, 0.15);
+
+  /* Status Colors */
+  --status-approved: rgba(16, 185, 129, 0.25);
+  --status-approved-text: #34D399;
+  --status-pending: rgba(245, 158, 11, 0.25);
+  --status-pending-text: #FBBF24;
+  --status-rejected: rgba(239, 68, 68, 0.25);
+  --status-rejected-text: #F87171;
+  --status-review: rgba(59, 130, 246, 0.25);
+  --status-review-text: #60A5FA;
+  
+  color-scheme: dark;
+}
+
+:root[data-theme="pride"] body,
+:root[data-theme="pride"] #root,
+:root[data-theme="pride"] .app-layout,
+:root[data-theme="pride"] .user-dashboard,
+:root[data-theme="pride"] .dashboard-container,
+:root[data-theme="pride"] .tasks-tab-container,
+:root[data-theme="pride"] .team-tasks-container,
+:root[data-theme="pride"] .my-files-container,
+:root[data-theme="pride"] .admin-dashboard-container {
+  background: linear-gradient(135deg, 
+    rgba(255, 51, 102, 0.12) 0%, 
+    rgba(255, 153, 51, 0.12) 20%, 
+    rgba(202, 138, 4, 0.12) 40%, 
+    rgba(22, 163, 74, 0.12) 60%, 
+    rgba(37, 99, 235, 0.12) 80%, 
+    rgba(153, 51, 255, 0.12) 100%
+  ) #120b24 !important;
+  background-attachment: fixed !important;
+  color: var(--text-primary);
+}
+
+/* Rainbow Glowing Borders for Pride Mode */
+:root[data-theme="pride"] .minimal-sidebar {
+  border-right: 2px solid transparent !important;
+  border-image: linear-gradient(to bottom, #ff007f, #ff7f00, #ffc000, #00ff00, #00c0ff, #7f00ff) 1 !important;
+}
+
+:root[data-theme="pride"] .tl-sidebar {
+  border-right: 1px solid var(--border-color) !important;
+  border-image: none !important;
+}
+
+
+:root[data-theme="pride"] .nav-item.active,
+:root[data-theme="pride"] .tl-nav-item.active {
+  background: linear-gradient(135deg, rgba(236, 72, 153, 0.2), rgba(127, 0, 255, 0.2)) !important;
+  border-left: 3px solid #ec4899 !important;
+}
+
+/* Extra LGBT pride colors and designs */
+:root[data-theme="pride"] h1,
+:root[data-theme="pride"] h2,
+:root[data-theme="pride"] h3,
+:root[data-theme="pride"] .dashboard-title,
+:root[data-theme="pride"] .welcome-heading {
+  background: linear-gradient(to right, #ff3366, #ff9933, #ca8a04, #16a34a, #2563eb, #9933ff) !important;
+  -webkit-background-clip: text !important;
+  -webkit-text-fill-color: transparent !important;
+  color: transparent !important;
+  display: inline-block;
+}
+
+:root[data-theme="pride"] .submit-btn,
+:root[data-theme="pride"] .btn-primary,
+:root[data-theme="pride"] .comment-submit-btn,
+:root[data-theme="pride"] .primary-action-btn,
+:root[data-theme="pride"] button[style*="--primary-color"],
+:root[data-theme="pride"] button[style*="var(--primary-color)"] {
+  background: linear-gradient(90deg, #ff3366, #ff9933, #ca8a04, #16a34a, #2563eb, #9933ff) !important;
+  border: none !important;
+  color: #ffffff !important;
+  box-shadow: 0 0 10px rgba(236, 72, 153, 0.4) !important;
+}
+
+:root[data-theme="pride"] .task-card,
+:root[data-theme="pride"] .file-card,
+:root[data-theme="pride"] .assignment-card,
+:root[data-theme="pride"] .dashboard-section-card {
+  border-left: 4px solid transparent !important;
+  border-image: linear-gradient(to bottom, #ff3366, #ff9933, #ca8a04, #16a34a, #2563eb, #9933ff) 1 !important;
+  box-shadow: 0 4px 15px rgba(127, 0, 255, 0.1) !important;
+}
+
+:root[data-theme="pride"] .user-avatar,
+:root[data-theme="pride"] .avatar,
+:root[data-theme="pride"] .comment-avatar {
+  border: 2px solid #ff3366 !important;
+}
+
+/* Comprehensive LGBT UI element styling overrides */
+:root[data-theme="pride"] ::-webkit-scrollbar-thumb {
+  background: linear-gradient(to bottom, #ff3366, #ff9933, #ca8a04, #16a34a, #2563eb, #9933ff) !important;
+  border-radius: 4px !important;
+}
+
+:root[data-theme="pride"] input:focus,
+:root[data-theme="pride"] select:focus,
+:root[data-theme="pride"] textarea:focus {
+  border: 1.5px solid transparent !important;
+  border-image: linear-gradient(to right, #ff3366, #ff9933, #2563eb, #9933ff) 1 !important;
+  box-shadow: 0 0 8px rgba(236, 72, 153, 0.3) !important;
+}
+
+:root[data-theme="pride"] .task-item:hover,
+:root[data-theme="pride"] .file-row:hover,
+:root[data-theme="pride"] .table-row:hover,
+:root[data-theme="pride"] tr:hover {
+  background: rgba(236, 72, 153, 0.08) !important;
+}
+
+:root[data-theme="pride"] .active-tab-indicator,
+:root[data-theme="pride"] .tab-btn.active {
+  border-bottom: 3px solid #ec4899 !important;
+  color: #ff3366 !important;
+}
+
+:root[data-theme="pride"] .comment-bubble,
+:root[data-theme="pride"] .reply-bubble {
+  border: 1px solid rgba(236, 72, 153, 0.2) !important;
+}

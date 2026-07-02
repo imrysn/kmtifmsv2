@@ -12,8 +12,8 @@ try {
     // File operations - uses Windows default file associations
     openFileInApp: (filePath) => ipcRenderer.invoke('file:openInApp', filePath),
 
-    // Download a file via native Save dialog
-    downloadFile: (fileUrl, fileName) => ipcRenderer.invoke('file:download', { fileUrl, fileName }),
+    // Download a file via native Save dialog (token required for authenticated endpoints)
+    downloadFile: (fileUrl, fileName, token) => ipcRenderer.invoke('file:download', { fileUrl, fileName, token }),
 
     // Open external links in default browser
     openExternal: (url) => ipcRenderer.invoke('app:open-external', url),

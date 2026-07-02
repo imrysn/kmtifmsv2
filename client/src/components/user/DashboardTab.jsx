@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, startTransition } from 'react';
+import useStore from '../../store/useStore';
 import { apiFetch } from '@/config/api';
 import './css/DashboardTab.css';
 import { LoadingCards } from '../common/InlineSkeletonLoader';
@@ -6,6 +7,8 @@ import { UserPerformanceCard } from '../shared';
 
 
 const DashboardTab = ({ user, files, setActiveTab, onOpenFile, onNavigateToTasks }) => {
+  const { theme } = useStore();
+  const isPride = theme === 'pride';
   const [assignments, setAssignments] = useState([]);
   const [teamTasks, setTeamTasks] = useState([]);
   const [notifications, setNotifications] = useState([]);
@@ -258,12 +261,44 @@ const DashboardTab = ({ user, files, setActiveTab, onOpenFile, onNavigateToTasks
 
         <div className="stat-card-modern" onClick={() => setActiveTab('team-files')}>
           <div className="stat-card-icon">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
-              <circle cx="9" cy="7" r="4"></circle>
-              <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
-              <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
-            </svg>
+            {isPride ? (
+              /* Gay Kiss Line Icon for Pride Mode - two profiles leaning in */
+              <svg width="24" height="24" viewBox="0 0 100 80" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                {/* Left person - facing right */}
+                {/* Head */}
+                <path d="M8 18 Q8 8 18 8 Q28 8 28 18 Q28 26 22 28 Q18 30 16 28 Q8 28 8 18Z"/>
+                {/* Neck */}
+                <path d="M16 28 Q16 32 15 34"/>
+                {/* Body/shoulder leaning forward */}
+                <path d="M8 52 Q8 40 15 34 Q20 32 26 35 Q32 38 34 44"/>
+                {/* Arm reaching out */}
+                <path d="M26 35 Q30 46 34 48"/>
+                {/* Lips puckered - kissing */}
+                <path d="M28 20 Q31 19 33 21"/>
+
+                {/* Right person - facing left (mirrored) */}
+                {/* Head */}
+                <path d="M92 18 Q92 8 82 8 Q72 8 72 18 Q72 26 78 28 Q82 30 84 28 Q92 28 92 18Z"/>
+                {/* Neck */}
+                <path d="M84 28 Q84 32 85 34"/>
+                {/* Body/shoulder leaning forward */}
+                <path d="M92 52 Q92 40 85 34 Q80 32 74 35 Q68 38 66 44"/>
+                {/* Arm reaching out */}
+                <path d="M74 35 Q70 46 66 48"/>
+                {/* Lips puckered - kissing */}
+                <path d="M72 20 Q69 19 67 21"/>
+
+                {/* Heart in the middle between them */}
+                <path d="M46 22 Q50 17 54 22 Q58 27 50 34 Q42 27 46 22Z" fill="currentColor" stroke="none"/>
+              </svg>
+            ) : (
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                <circle cx="9" cy="7" r="4"></circle>
+                <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+              </svg>
+            )}
           </div>
           <div className="stat-card-content">
             <div className="stat-card-label">Team Activity</div>

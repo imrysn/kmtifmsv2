@@ -103,6 +103,12 @@ const isDbNotReady = async (response) => {
 };
 
 /**
+ * Returns the current auth token from the Zustand store.
+ * Use this when you need the token outside of React hooks (e.g., Electron IPC calls).
+ */
+export const getAuthToken = () => useStore.getState().token;
+
+/**
  * Perform a single raw fetch attempt (builds headers, attaches token).
  * Returns the Response object — does NOT throw on non-2xx.
  */

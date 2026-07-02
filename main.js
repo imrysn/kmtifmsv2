@@ -1306,7 +1306,7 @@ if (ipcMain) {
   });
 
   // Handle file downloads — show native Save dialog
-  ipcMain.handle('file:download', async (event, { fileUrl, fileName }) => {
+  ipcMain.handle('file:download', async (event, { fileUrl, fileName, token }) => {
     try {
       // Ensure the save dialog defaultPath always includes the correct extension
       const downloadsDir = app.getPath('downloads');
@@ -1340,24 +1340,35 @@ if (ipcMain) {
 
       const https = require('https');
       const httpModule = fileUrl.startsWith('https') ? https : http;
+
+      // Build request options — include Authorization header when a token is provided
+      const requestOptions = {};
+      if (token) {
+        requestOptions.headers = { Authorization: `Bearer ${token}` };
+      }
+
       await new Promise((resolve, reject) => {
         const dest = fs.createWriteStream(savePath);
-        httpModule.get(fileUrl, (response) => {
-          // Follow redirects
-          if (response.statusCode === 301 || response.statusCode === 302) {
-            const redirectUrl = response.headers.location;
-            const redirectModule = redirectUrl.startsWith('https') ? https : http;
-            redirectModule.get(redirectUrl, (r2) => {
-              r2.pipe(dest);
-              dest.on('finish', () => { dest.close(); resolve(); });
-              dest.on('error', reject);
-            }).on('error', reject);
-            return;
-          }
-          response.pipe(dest);
-          dest.on('finish', () => { dest.close(); resolve(); });
-          dest.on('error', reject);
-        }).on('error', reject);
+        const makeRequest = (url, mod) => {
+          mod.get(url, requestOptions, (response) => {
+            // Follow redirects
+            if (response.statusCode === 301 || response.statusCode === 302) {
+              const redirectUrl = response.headers.location;
+              const redirectMod = redirectUrl.startsWith('https') ? https : http;
+              makeRequest(redirectUrl, redirectMod);
+              return;
+            }
+            if (response.statusCode >= 400) {
+              dest.destroy();
+              fs.unlink(savePath, () => {});
+              return reject(new Error(`Server returned ${response.statusCode} for download`));
+            }
+            response.pipe(dest);
+            dest.on('finish', () => { dest.close(); resolve(); });
+            dest.on('error', reject);
+          }).on('error', reject);
+        };
+        makeRequest(fileUrl, httpModule);
       });
       return { success: true, savedTo: savePath };
     } catch (err) {

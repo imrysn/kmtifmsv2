@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useMemo, useTransition, useDeferredValue } from 'react'
-import { apiFetch, API_BASE_URL } from '@/config/api'
+import { apiFetch, API_BASE_URL, getAuthToken } from '@/config/api'
 import { useAdminTasks } from '@/hooks/useAdminTasks'
 import './TaskManagement.css'
 import './SmartNavigation.css'
@@ -573,7 +573,7 @@ const TaskManagement = ({
     const fileUrl = `${API_BASE_URL}/api/files/${file.id}/download`
     const fileName = file.original_name || file.filename || 'file'
     if (window.electron && window.electron.downloadFile) {
-      const result = await window.electron.downloadFile(fileUrl, fileName)
+      const result = await window.electron.downloadFile(fileUrl, fileName, getAuthToken())
       if (result && !result.success && !result.canceled) {
         setError(result.error || 'Download failed')
       } else if (result && result.success) {

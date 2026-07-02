@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import ReactDOM from 'react-dom'
-import { apiFetch, API_BASE_URL } from '@/config/api'
+import { apiFetch, API_BASE_URL, getAuthToken } from '@/config/api'
 import './css/TeamTasksTab.css'
 import { FileIcon, FileOpenModal, FileViewersButton, Avatar } from '../shared'
 import CommentsModal from '../shared/CommentsModal'
@@ -490,7 +490,7 @@ const TeamTasksTab = ({ user }) => {
     const fileUrl = `${API_BASE_URL}/api/files/${file.id}/download`
     const fileName = file.original_name || file.filename || 'file'
     if (window.electron?.downloadFile) {
-      await window.electron.downloadFile(fileUrl, fileName)
+      await window.electron.downloadFile(fileUrl, fileName, getAuthToken())
     } else {
       const a = Object.assign(document.createElement('a'), { href: fileUrl, download: fileName })
       document.body.appendChild(a); a.click(); document.body.removeChild(a)
@@ -1315,7 +1315,7 @@ const TeamTasksTab = ({ user }) => {
                     onClick={(e) => { e.stopPropagation(); openCommentsModal(assignment) }}
                     style={{
                       padding: '0', backgroundColor: 'transparent', border: 'none',
-                      color: '#1c1e21', fontSize: '14px', fontWeight: '500',
+                      color: 'var(--text-primary)', fontSize: '14px', fontWeight: '500',
                       cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px'
                     }}
                   >

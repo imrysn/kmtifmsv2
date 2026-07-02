@@ -210,7 +210,7 @@ const useStore = create(
 
             toggleTheme: () => {
                 set((state) => ({
-                    theme: state.theme === 'dark' ? 'light' : 'dark'
+                    theme: state.theme === 'dark' ? 'light' : (state.theme === 'pride' ? 'light' : 'dark')
                 }));
             }
         }),

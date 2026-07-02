@@ -1,5 +1,5 @@
 import { useRef, useCallback, useState, useEffect, startTransition, useMemo, memo } from 'react';
-import { apiFetch, API_BASE_URL, uploadWithProgress } from '@/config/api';
+import { apiFetch, API_BASE_URL, uploadWithProgress, getAuthToken } from '@/config/api';
 import './css/TasksTab-Enhanced.css';
 import './css/TasksTab-Comments.css';
 import { FileIcon, FileOpenModal } from '../shared';
@@ -1253,7 +1253,7 @@ const TasksTab = memo(({
     const fileUrl = `${API_BASE_URL}/api/files/${file.id}/download`;
     const fileName = file.original_name || file.filename || 'file';
     if (window.electron?.downloadFile) {
-      const result = await window.electron.downloadFile(fileUrl, fileName);
+      const result = await window.electron.downloadFile(fileUrl, fileName, getAuthToken());
       if (result?.success) {
         setDownloadToast({ show: true, fileName });
         setTimeout(() => setDownloadToast({ show: false, fileName: '' }), 3500);

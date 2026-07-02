@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import ReactDOM from 'react-dom'
-import { apiFetch, API_BASE_URL } from '@/config/api'
+import { apiFetch, API_BASE_URL, getAuthToken } from '@/config/api'
 import './css/AssignmentsTab.css'
 import './modals/css/AssignmentDetailsModal.css'
 import { CardSkeleton } from '../common/InlineSkeletonLoader'
@@ -527,7 +527,7 @@ const AssignmentsTab = ({
   const handleDownloadFile = async (fileId, fileName) => {
     const fileUrl = `${API_BASE_URL}/api/files/${fileId}/download`
     if (window.electron && window.electron.downloadFile) {
-      const result = await window.electron.downloadFile(fileUrl, fileName)
+      const result = await window.electron.downloadFile(fileUrl, fileName, getAuthToken())
       if (result && !result.success && !result.canceled) {
         alert('Download failed: ' + (result.error || 'Unknown error'))
       } else if (result && result.success) {
