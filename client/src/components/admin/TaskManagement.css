@@ -888,7 +888,7 @@
 
 .task-management-container .team-badge {
   padding: 2px 8px;
-  border: 1px solid #000000;
+  border: 1px solid var(--text-tertiary);
   border-radius: 12px;
   font-size: 0.7rem;
   font-weight: 600;

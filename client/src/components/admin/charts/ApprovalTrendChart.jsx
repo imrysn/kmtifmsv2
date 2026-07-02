@@ -73,7 +73,14 @@ const ApprovalTrendChart = memo(({ trends, loading }) => {
     }, [trends]);
 
     // Chart.js options
-    const options = useMemo(() => ({
+    const options = useMemo(() => {
+        // Read theme colors from CSS variables at render time so they adapt to dark/light mode
+        const textColor = getComputedStyle(document.documentElement)
+            .getPropertyValue('--text-secondary').trim() || '#9CA3AF';
+        const gridColor = getComputedStyle(document.documentElement)
+            .getPropertyValue('--border-color').trim() || '#E5E7EB';
+
+        return {
         responsive: true,
         maintainAspectRatio: false,
         interaction: {
@@ -91,6 +98,7 @@ const ApprovalTrendChart = memo(({ trends, loading }) => {
                 labels: {
                     usePointStyle: true,
                     boxWidth: 8,
+                    color: textColor,
                     font: {
                         family: "system-ui, -apple-system, sans-serif",
                         size: 12
@@ -113,20 +121,20 @@ const ApprovalTrendChart = memo(({ trends, loading }) => {
             y: {
                 beginAtZero: true,
                 ticks: {
-                    precision: 0, // Only show whole numbers
-                    color: '#9CA3AF',
+                    precision: 0,
+                    color: textColor,
                     font: { size: 11 }
                 },
                 grid: {
-                    color: '#E5E7EB',
+                    color: gridColor,
                     drawBorder: false,
                     borderDash: [4, 4]
                 }
             },
             x: {
                 ticks: {
-                    maxTicksLimit: 6, // Don't crowd the x-axis
-                    color: '#9CA3AF',
+                    maxTicksLimit: 6,
+                    color: textColor,
                     font: { size: 11 }
                 },
                 grid: {
@@ -135,7 +143,9 @@ const ApprovalTrendChart = memo(({ trends, loading }) => {
                 }
             }
         }
-    }), []);
+    };
+    }, []);
+
 
     if (loading) {
         return <div style={{ padding: '1rem', textAlign: 'center', color: 'var(--text-tertiary)' }}>Loading trends...</div>;
