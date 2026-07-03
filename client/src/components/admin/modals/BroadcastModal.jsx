@@ -192,20 +192,27 @@ const BroadcastModal = ({ isOpen, onClose, onSuccess }) => {
           {/* Target Selection */}
           <div style={{ marginTop: '16px' }}>
             <label style={{ display: 'block', fontSize: '14px', color: isLight ? '#475569' : '#cbd5e1', marginBottom: '8px', fontWeight: '600' }}>Target Audience</label>
-            <div style={{ display: 'flex', gap: '12px' }}>
+            <div style={{ 
+              display: 'inline-flex', 
+              background: isLight ? '#f1f5f9' : 'rgba(15, 23, 42, 0.6)', 
+              borderRadius: '8px', 
+              padding: '3px',
+              border: `1px solid ${isLight ? '#e2e8f0' : 'rgba(255,255,255,0.05)'}`
+            }}>
               <button
                 type="button"
                 onClick={() => setTargetType('all')}
                 style={{
-                  flex: 1,
-                  padding: '10px',
-                  background: targetType === 'all' ? 'rgba(249, 115, 22, 0.1)' : (isLight ? '#f1f5f9' : 'rgba(15, 23, 42, 0.6)'),
-                  border: `1px solid ${targetType === 'all' ? 'rgba(249, 115, 22, 0.5)' : (isLight ? '#e2e8f0' : 'rgba(255,255,255,0.1)')}`,
-                  color: targetType === 'all' ? '#f97316' : (isLight ? '#64748b' : '#94a3b8'),
-                  borderRadius: '12px',
+                  padding: '6px 16px',
+                  background: targetType === 'all' ? (isLight ? '#ffffff' : 'rgba(30, 41, 59, 0.8)') : 'transparent',
+                  border: 'none',
+                  borderRadius: '6px',
+                  color: targetType === 'all' ? '#ea580c' : (isLight ? '#64748b' : '#94a3b8'),
+                  fontWeight: targetType === 'all' ? '600' : '500',
+                  fontSize: '13px',
+                  boxShadow: targetType === 'all' ? (isLight ? '0 1px 3px rgba(0,0,0,0.1)' : '0 2px 4px rgba(0,0,0,0.4)') : 'none',
                   cursor: 'pointer',
-                  fontWeight: '600',
-                  transition: 'all 0.2s'
+                  transition: 'all 0.2s ease'
                 }}
               >
                 All Users
@@ -214,15 +221,16 @@ const BroadcastModal = ({ isOpen, onClose, onSuccess }) => {
                 type="button"
                 onClick={() => setTargetType('specific')}
                 style={{
-                  flex: 1,
-                  padding: '10px',
-                  background: targetType === 'specific' ? 'rgba(249, 115, 22, 0.1)' : (isLight ? '#f1f5f9' : 'rgba(15, 23, 42, 0.6)'),
-                  border: `1px solid ${targetType === 'specific' ? 'rgba(249, 115, 22, 0.5)' : (isLight ? '#e2e8f0' : 'rgba(255,255,255,0.1)')}`,
-                  color: targetType === 'specific' ? '#f97316' : (isLight ? '#64748b' : '#94a3b8'),
-                  borderRadius: '12px',
+                  padding: '6px 16px',
+                  background: targetType === 'specific' ? (isLight ? '#ffffff' : 'rgba(30, 41, 59, 0.8)') : 'transparent',
+                  border: 'none',
+                  borderRadius: '6px',
+                  color: targetType === 'specific' ? '#ea580c' : (isLight ? '#64748b' : '#94a3b8'),
+                  fontWeight: targetType === 'specific' ? '600' : '500',
+                  fontSize: '13px',
+                  boxShadow: targetType === 'specific' ? (isLight ? '0 1px 3px rgba(0,0,0,0.1)' : '0 2px 4px rgba(0,0,0,0.4)') : 'none',
                   cursor: 'pointer',
-                  fontWeight: '600',
-                  transition: 'all 0.2s'
+                  transition: 'all 0.2s ease'
                 }}
               >
                 Specific Users
