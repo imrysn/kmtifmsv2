@@ -105,9 +105,7 @@ const BroadcastModal = ({ isOpen, onClose, onSuccess }) => {
         left: 0,
         right: 0,
         bottom: 0,
-        backgroundColor: isLight ? 'rgba(255, 255, 255, 0.4)' : 'rgba(15, 23, 42, 0.6)',
-        backdropFilter: 'blur(5px)',
-        WebkitBackdropFilter: 'blur(5px)',
+        backgroundColor: isLight ? 'rgba(0, 0, 0, 0.3)' : 'rgba(15, 23, 42, 0.6)',
         display: 'flex',
         justifyContent: 'center',
         alignItems: 'center',
@@ -138,7 +136,7 @@ const BroadcastModal = ({ isOpen, onClose, onSuccess }) => {
           maxHeight: '90vh'
         }}
       >
-        <div style={{ padding: '32px 32px 24px', borderBottom: `1px solid ${isLight ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.05)'}`, flexShrink: 0 }}>
+        <div style={{ padding: '24px 32px 16px', borderBottom: `1px solid ${isLight ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.05)'}`, flexShrink: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', marginBottom: '8px' }}>
             <div style={{
               background: 'linear-gradient(135deg, #f97316 0%, #ea580c 100%)',
@@ -186,7 +184,7 @@ const BroadcastModal = ({ isOpen, onClose, onSuccess }) => {
           )}
 
           {/* Target Selection */}
-          <div style={{ marginTop: '24px' }}>
+          <div style={{ marginTop: '16px' }}>
             <label style={{ display: 'block', fontSize: '14px', color: isLight ? '#475569' : '#cbd5e1', marginBottom: '8px', fontWeight: '600' }}>Target Audience</label>
             <div style={{ display: 'flex', gap: '12px' }}>
               <button
@@ -285,7 +283,7 @@ const BroadcastModal = ({ isOpen, onClose, onSuccess }) => {
             </div>
           )}
           
-          <div style={{ marginTop: '24px', marginBottom: '24px' }}>
+          <div style={{ marginTop: '20px', marginBottom: '16px' }}>
             <label style={{ display: 'block', fontSize: '14px', color: isLight ? '#475569' : '#cbd5e1', marginBottom: '8px', fontWeight: '600' }}>Message</label>
             <textarea
               id="broadcast-message"
@@ -323,7 +321,7 @@ const BroadcastModal = ({ isOpen, onClose, onSuccess }) => {
           </div>
           
           <div style={{ 
-            padding: '16px 0 32px', 
+            padding: '8px 0 24px', 
             display: 'flex', 
             justifyContent: 'flex-end', 
             gap: '12px' 

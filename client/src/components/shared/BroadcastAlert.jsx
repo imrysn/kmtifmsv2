@@ -30,9 +30,7 @@ const BroadcastAlert = ({ broadcast, onClose }) => {
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
-      backgroundColor: isLight ? 'rgba(255, 255, 255, 0.4)' : 'rgba(15, 23, 42, 0.6)',
-      backdropFilter: 'blur(5px)',
-      WebkitBackdropFilter: 'blur(5px)',
+      backgroundColor: isLight ? 'rgba(0, 0, 0, 0.3)' : 'rgba(15, 23, 42, 0.6)',
       opacity: isVisible ? 1 : 0,
       transition: 'opacity 0.3s ease',
       padding: '24px'
