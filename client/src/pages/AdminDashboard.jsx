@@ -9,6 +9,7 @@ import { ToastNotification } from '../components/shared'
 import OnlineMembersPanel from '../components/shared/OnlineMembersPanel'
 import Avatar from '../components/shared/Avatar'
 import ThemeToggle from '../components/shared/ThemeToggle'
+import BroadcastAlert from '../components/shared/BroadcastAlert'
 import useStore from '../store/useStore'
 
 // Sync unread count to Electron taskbar badge + icon flash
@@ -28,9 +29,10 @@ import {
   TaskManagement,
   Notifications
 } from '../components/admin'
+import { BroadcastModal } from '../components/admin/modals'
 
 // Memoized sidebar so state changes in the main dashboard don't re-render it
-const AdminSidebar = memo(({ sidebarRef, activeTab, sidebarOpen, unreadCount, user, handleTabChange, closeSidebar, handleLogout }) => (
+const AdminSidebar = memo(({ sidebarRef, activeTab, sidebarOpen, unreadCount, user, handleTabChange, closeSidebar, handleLogout, setShowBroadcastModal }) => (
   <div className={`admin-sidebar ${sidebarOpen ? 'open' : ''}`} ref={sidebarRef}>
     <div className="sidebar-header" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
       <Avatar user={user} size="md" editable />
@@ -100,6 +102,21 @@ const AdminSidebar = memo(({ sidebarRef, activeTab, sidebarOpen, unreadCount, us
     </nav>
 
     <div className="sidebar-footer">
+      <button 
+        type="button" 
+        className="nav-item" 
+        onClick={() => setShowBroadcastModal(true)} 
+        style={{ marginBottom: '8px', width: '100%', border: '1px solid var(--border-color)', background: 'transparent' }} 
+        aria-label="Send Broadcast"
+      >
+        <span className="nav-icon">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="20" height="20">
+            <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+            <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+          </svg>
+        </span>
+        <span className="nav-label">Broadcast</span>
+      </button>
       <ThemeToggle />
       <button onClick={handleLogout} className="logout-btn">
         <span className="nav-icon">{getSidebarIcon('logout')}</span>
@@ -119,6 +136,9 @@ const AdminDashboard = ({ user, onLogout }) => {
   const [unreadCount, setUnreadCount] = useState(0)
   const [contextData, setContextData] = useState(null)
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [showBroadcastModal, setShowBroadcastModal] = useState(false)
+  const [activeBroadcast, setActiveBroadcast] = useState(null)
+  const [debugSseData, setDebugSseData] = useState('No SSE received yet')
 
   // Smart Navigation State
   const [highlightedFileId, setHighlightedFileId] = useState(null)
@@ -189,12 +209,24 @@ const AdminDashboard = ({ user, onLogout }) => {
       const url = `${API_BASE_URL}/api/notifications/user/${user.id}/stream${token ? `?token=${token}` : ''}`
       es = new EventSource(url)
       es.onmessage = (event) => {
+        console.log('SSE Event received:', event.data);
         if (event.data === 'ping') {
           // Debounce: ignore pings that arrive within 5s of the last fetch
           const now = Date.now()
           if (now - lastNotifFetch.current < 5000) return
           lastNotifFetch.current = now
           fetchNotifications()
+        } else {
+          try {
+            const data = JSON.parse(event.data);
+            setDebugSseData(event.data); // UPDATE DEBUG STATE
+            if (data.type === 'broadcast') {
+              console.log('Broadcasting alert!', data);
+              setActiveBroadcast({ title: data.title, message: data.message });
+            }
+          } catch(e) {
+            console.error('SSE Parse Error:', e);
+          }
         }
       }
       es.onerror = () => {
@@ -279,6 +311,7 @@ const AdminDashboard = ({ user, onLogout }) => {
   return (
     <AuthProvider initialUser={user}>
       <NetworkProvider>
+
           <Suspense fallback={<SkeletonLoader type="admin" />}>
             <div className="minimal-admin-dashboard">
               {/* Burger Menu Button */}
@@ -310,6 +343,7 @@ const AdminDashboard = ({ user, onLogout }) => {
                 handleTabChange={handleTabChange}
                 closeSidebar={closeSidebar}
                 handleLogout={handleLogout}
+                setShowBroadcastModal={setShowBroadcastModal}
               />
               {/* Main Content */}
               <div className="admin-main-content" ref={mainContentRef}>
@@ -346,6 +380,27 @@ const AdminDashboard = ({ user, onLogout }) => {
                   {activeTab !== 'dashboard' && activeTab !== 'users' && activeTab !== 'activity-logs' && activeTab !== 'file-approval' && activeTab !== 'tasks' && activeTab !== 'notifications' && activeTab !== 'settings' && <DashboardOverview />}
                 </div>
               </div>
+
+              {showBroadcastModal && (
+                <BroadcastModal
+                  isOpen={showBroadcastModal}
+                  onClose={() => setShowBroadcastModal(false)}
+                  onSuccess={(count) => {
+                    window.toastContainer?.addToast({
+                      type: 'success',
+                      title: 'Broadcast Sent',
+                      message: `Broadcast message sent to ${count} active users.`,
+                      duration: 5000
+                    });
+                  }}
+                />
+              )}
+              {activeBroadcast && (
+                <BroadcastAlert 
+                  broadcast={activeBroadcast} 
+                  onClose={() => setActiveBroadcast(null)} 
+                />
+              )}
             </div>
           </Suspense>
       </NetworkProvider>

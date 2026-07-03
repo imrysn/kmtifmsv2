@@ -5,6 +5,7 @@ import '../css/UserDashboard.css'
 import SkeletonLoader from '../components/common/SkeletonLoader'
 import { AlertMessage } from '../components/shared'
 import OnlineMembersPanel from '../components/shared/OnlineMembersPanel'
+import BroadcastAlert from '../components/shared/BroadcastAlert'
 
 // Sync unread count to Electron taskbar badge + icon flash
 const syncElectronBadge = (count) => {
@@ -27,6 +28,7 @@ const TasksTab = lazy(() => import('../components/user/TasksTab-Enhanced'))
 const UserDashboard = ({ user, onLogout }) => {
   const [activeTab, setActiveTab] = useState('dashboard')
   const [files, setFiles] = useState([])
+  const [activeBroadcast, setActiveBroadcast] = useState(null)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
   const [selectedFile, setSelectedFile] = useState(null)
@@ -67,7 +69,16 @@ const UserDashboard = ({ user, onLogout }) => {
       const url = `${API_BASE_URL}/api/notifications/user/${user.id}/stream${token ? `?token=${token}` : ''}`
       es = new EventSource(url)
       es.onmessage = (event) => {
-        if (event.data === 'ping') fetchUnreadCount()
+        if (event.data === 'ping') {
+          fetchUnreadCount()
+        } else {
+          try {
+            const data = JSON.parse(event.data);
+            if (data.type === 'broadcast') {
+              setActiveBroadcast({ title: data.title, message: data.message });
+            }
+          } catch(e) {}
+        }
       }
       es.onerror = () => {
         es.close()
@@ -350,6 +361,13 @@ const UserDashboard = ({ user, onLogout }) => {
 
         {/* Toast notifications handled inside NotificationTab */}
       </div>
+
+      {activeBroadcast && (
+        <BroadcastAlert 
+          broadcast={activeBroadcast} 
+          onClose={() => setActiveBroadcast(null)} 
+        />
+      )}
     </Suspense>
   )
 }

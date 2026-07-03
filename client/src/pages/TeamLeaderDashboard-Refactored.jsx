@@ -5,6 +5,7 @@ import '../css/TeamLeaderDashboard.css'
 import SkeletonLoader from '../components/common/SkeletonLoader'
 import { AlertMessage } from '../components/shared'
 import OnlineMembersPanel from '../components/shared/OnlineMembersPanel'
+import BroadcastAlert from '../components/shared/BroadcastAlert'
 
 // Sync unread count to Electron taskbar badge + icon flash
 const syncElectronBadge = (count) => {
@@ -121,6 +122,7 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
   const [highlightedFileId, setHighlightedFileId] = useState(null)
   const [highlightedSubmissionFileId, setHighlightedSubmissionFileId] = useState(null)
   const [highlightedFileStatus, setHighlightedFileStatus] = useState(null)
+  const [activeBroadcast, setActiveBroadcast] = useState(null)
   const updateUser = useStore(state => state.updateUser)
 
   const refreshUserProfile = async () => {
@@ -215,6 +217,13 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
           lastFetch = now
           fetchNotifications()
           fetchAssignments()  // refresh assignments so new member submissions appear instantly
+        } else {
+          try {
+            const data = JSON.parse(event.data);
+            if (data.type === 'broadcast') {
+              setActiveBroadcast({ title: data.title, message: data.message });
+            }
+          } catch(e) {}
         }
       }
       es.onerror = () => {
@@ -1574,6 +1583,13 @@ const TeamLeaderDashboard = ({ user, onLogout }) => {
               user={user}
             />
           </Suspense>
+        )}
+
+        {activeBroadcast && (
+          <BroadcastAlert 
+            broadcast={activeBroadcast} 
+            onClose={() => setActiveBroadcast(null)} 
+          />
         )}
       </div>
     </Suspense>

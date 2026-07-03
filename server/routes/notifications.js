@@ -29,12 +29,12 @@ const removeClient = (userId, res) => {
 };
 
 // Push a ping to a specific user so the client refetches immediately
-const pushToUser = (userId) => {
+const pushToUser = (userId, customPayload = null) => {
   const set = sseClients.get(String(userId));
   if (!set || set.size === 0) {
     return;
   }
-  const payload = 'data: ping\n\n';
+  const payload = customPayload ? `data: ${JSON.stringify(customPayload)}\n\n` : 'data: ping\n\n';
   for (const res of set) {
     try {
       res.write(payload);
@@ -390,6 +390,55 @@ router.delete('/user/:userId/delete-all', async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Failed to delete all notifications'
+    });
+  }
+});
+
+// Broadcast a notification to all users (Admin only)
+router.post('/broadcast', async (req, res) => {
+  try {
+    const { title, message, targetUserIds } = req.body;
+    
+    if (req.user.role !== 'ADMIN') {
+      return res.status(403).json({ success: false, message: 'Access denied: Only admins can broadcast' });
+    }
+    
+    if (!title || !message) {
+      return res.status(400).json({ success: false, message: 'Title and message are required' });
+    }
+
+    console.log(`📢 Sending broadcast announcement: ${title}`);
+
+    // Get users based on targetUserIds or get all users
+    let users = [];
+    if (targetUserIds && Array.isArray(targetUserIds) && targetUserIds.length > 0) {
+      // Fetch only specific users
+      const placeholders = targetUserIds.map(() => '?').join(',');
+      users = await query(`SELECT id FROM users WHERE id IN (${placeholders})`, targetUserIds);
+    } else {
+      // Send to all users
+      users = await query("SELECT id FROM users");
+    }
+
+    let count = 0;
+    for (const user of users) {
+      // Push SSE ping with broadcast payload ONLY (do not save to DB)
+      pushToUser(user.id, { type: 'broadcast', title, message });
+      count++;
+    }
+
+    console.log(`✅ Broadcast sent to ${count} users`);
+
+    res.json({
+      success: true,
+      message: 'Broadcast sent successfully',
+      count
+    });
+  } catch (error) {
+    console.error('❌ Error sending broadcast:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to send broadcast'
     });
   }
 });
