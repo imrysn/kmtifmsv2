@@ -128,7 +128,7 @@ const CHECKLIST_SECTIONS_3D = [
   },
   {
     section: 'Others',
-    items: ['Tree View Organization', 'Standard Planes Alignment'],
+    items: ['Tree View Organization', 'Standard Planes Alignment', 'Layer(s)'],
   }
 ];
 
