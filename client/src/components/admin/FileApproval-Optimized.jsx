@@ -1676,10 +1676,10 @@ const FileApproval = ({ clearMessages, error, success, setError, setSuccess, hig
       {selectedFileIds.size > 0 && activeView === 'approval' && (
         <div className="bulk-actions" style={{ display: 'flex', gap: '12px', marginBottom: '16px', alignItems: 'center', backgroundColor: 'var(--status-review)', padding: '12px 20px', borderRadius: '8px', border: '1px solid var(--status-review-text)' }}>
           <span style={{ fontWeight: 600, color: 'var(--status-review-text)', flex: 1 }}>{selectedFileIds.size} file(s) selected</span>
-          <button className="btn btn-success" onClick={() => setShowBulkApproveModal(true)} style={{ padding: '6px 14px', fontSize: '14px', backgroundColor: 'var(--status-approved-text)', color: 'var(--background-secondary)', border: 'none' }}>
+          <button className="btn btn-success" onClick={() => setShowBulkApproveModal(true)} style={{ padding: '6px 14px', fontSize: '14px', backgroundColor: 'var(--success-color, #10B981)', color: 'var(--background-secondary)', border: 'none' }}>
             Approve Selected
           </button>
-          <button className="btn btn-danger" onClick={() => setShowBulkRejectModal(true)} style={{ padding: '6px 14px', fontSize: '14px', backgroundColor: 'var(--status-rejected-text)', color: 'var(--background-secondary)', border: 'none' }}>
+          <button className="btn btn-danger" onClick={() => setShowBulkRejectModal(true)} style={{ padding: '6px 14px', fontSize: '14px', backgroundColor: 'var(--danger-color, #DC2626)', color: 'var(--background-secondary)', border: 'none' }}>
             Reject Selected
           </button>
           <button className="btn btn-secondary" onClick={() => setSelectedFileIds(new Set())} style={{ padding: '6px 14px', fontSize: '14px', backgroundColor: 'var(--background-secondary)', color: 'var(--text-secondary)', border: '1px solid var(--border-color)' }}>

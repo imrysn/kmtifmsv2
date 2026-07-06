@@ -1450,6 +1450,7 @@ const TasksTab = memo(({
       fd.append('tag', fileTag || '');
       fd.append('description', fileDescription || '');
       fd.append('relativePaths', JSON.stringify(allPaths));
+      if (targetFolder) fd.append('targetFolder', targetFolder);
       uploadedFiles.forEach(f => fd.append('files', f.file));
 
       const result = await uploadWithProgress(
@@ -2768,15 +2769,21 @@ const TasksTab = memo(({
                 <div className="upload-section">
                   {(() => {
                     const existingFolders = [...new Set((currentAssignment.submitted_files || []).filter(f => f.folder_name).map(f => f.folder_name))];
-                    if (!existingFolders.length) return null;
                     return (
                       <div style={{ marginBottom: '16px', padding: '14px 16px', backgroundColor: 'var(--status-review)', borderRadius: '10px', border: '1px solid var(--status-review-text)' }}>
-                        <label style={{ fontSize: '13px', fontWeight: '600', color: 'var(--status-review-text)', marginBottom: '8px', display: 'block' }}>📁 Add files to an existing folder (optional)</label>
-                        <select value={targetFolder || ''} onChange={e => setTargetFolder(e.target.value || null)} style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid var(--border-color)', fontSize: '14px', backgroundColor: 'var(--background-secondary)', color: 'var(--text-primary)', cursor: 'pointer', outline: 'none' }}>
-                          <option value=''>— Upload as separate files —</option>
-                          {existingFolders.map(fn => <option key={fn} value={fn}>📁 {fn}</option>)}
-                        </select>
-                        {targetFolder && <p style={{ fontSize: '12px', color: 'var(--status-review-text)', marginTop: '6px', margin: '6px 0 0' }}>✓ Files will be added into <strong>{targetFolder}</strong></p>}
+                        <label style={{ fontSize: '13px', fontWeight: '600', color: 'var(--status-review-text)', marginBottom: '8px', display: 'block' }}>📁 Group files into a folder (optional)</label>
+                        <input
+                          type="text"
+                          list="existing-folders"
+                          value={targetFolder || ''}
+                          onChange={e => setTargetFolder(e.target.value || null)}
+                          placeholder="Type a new folder name or select an existing one"
+                          style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid var(--border-color)', fontSize: '14px', backgroundColor: 'var(--background-secondary)', color: 'var(--text-primary)', outline: 'none' }}
+                        />
+                        <datalist id="existing-folders">
+                          {existingFolders.map(fn => <option key={fn} value={fn} />)}
+                        </datalist>
+                        {targetFolder && <p style={{ fontSize: '12px', color: 'var(--status-review-text)', marginTop: '6px', margin: '6px 0 0' }}>✓ Files will be grouped under <strong>{targetFolder}</strong></p>}
                       </div>
                     );
                   })()}

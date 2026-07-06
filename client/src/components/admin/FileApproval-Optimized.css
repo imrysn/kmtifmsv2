@@ -1147,12 +1147,12 @@
 }
 
 .file-approval-section .file-checkbox:hover {
-  border-color: var(--status-approved-text);
+  border-color: var(--success-color, #10B981);
 }
 
 .file-approval-section .file-checkbox:checked {
-  background-color: var(--status-approved-text);
-  border-color: var(--status-approved-text);
+  background-color: var(--success-color, #10B981);
+  border-color: var(--success-color, #10B981);
 }
 
 .file-approval-section .file-checkbox:checked::after {

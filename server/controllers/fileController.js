@@ -69,7 +69,7 @@ class FileController {
       throw new ValidationError('No files uploaded');
     }
 
-    const { assignmentId, tag, description } = req.body;
+    const { assignmentId, tag, description, targetFolder } = req.body;
     let relativePaths = [];
     try {
       relativePaths = JSON.parse(req.body.relativePaths || '[]');
@@ -93,7 +93,7 @@ class FileController {
     });
 
     // ── Phase 1: DB inserts only (fast — no NAS I/O) ──────────────────────
-    const { assignmentLinks, fileRecords } = await fileService.bulkUploadFast(filesData, req.user, assignmentId);
+    const { assignmentLinks, fileRecords } = await fileService.bulkUploadFast(filesData, req.user, assignmentId, targetFolder);
 
     invalidateCache();
 

@@ -351,7 +351,7 @@ async function uploadFile(fileData, user) {
  * No NAS I/O at all. Returns fileRecords (for the response) and assignmentLinks
  * (for the background NAS move phase).
  */
-async function bulkUploadFast(filesData, user, assignmentId = null) {
+async function bulkUploadFast(filesData, user, assignmentId = null, targetFolder = null) {
   const MAX_CONCURRENT = 50;
   const assignmentLinks = [];   // {fileId, tempPath, fileData} — for background move
   const fileRecords = [];        // results sent to client
@@ -474,6 +474,10 @@ async function bulkUploadFast(filesData, user, assignmentId = null) {
             fileData.relative_path = pathSource.relative_path;
           }
           fileData.is_folder = !!(fileData.relative_path && fileData.relative_path.includes('/'));
+        } else if (targetFolder) {
+          fileData.folder_name = targetFolder;
+          fileData.relative_path = targetFolder + '/' + (fileData.relative_path || originalName);
+          fileData.is_folder = true;
         }
       }
 
