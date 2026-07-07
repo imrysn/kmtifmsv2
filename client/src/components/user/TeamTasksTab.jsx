@@ -708,7 +708,7 @@ const TeamTasksTab = ({ user }) => {
               }}
               style={{ 
                 cursor: 'pointer', 
-                backgroundColor: isSubOpen ? 'var(--background-primary)' : 'var(--background-secondary)', 
+                backgroundColor: isSubOpen ? 'var(--status-review)' : 'var(--background-secondary)', 
                 padding: '14px 20px',
                 flex: 1
               }}
@@ -1071,8 +1071,8 @@ const TeamTasksTab = ({ user }) => {
 
                   {/* Section 1: Team Leader Attached Files (isAttachment = true) */}
                   {assignment.attachments?.length > 0 && (
-                    <div className="team-task-attached-file tl-attachments" style={{ marginBottom: '16px' }}>
-                      <div className="file-label" style={{ color: 'var(--status-review-text)' }}>
+                    <div className="team-task-attached-file tl-attachments" style={{ background: 'rgba(59, 130, 246, 0.05)', border: '1px solid rgba(59, 130, 246, 0.15)', borderRadius: '12px', padding: '20px', marginBottom: '16px' }}>
+                      <div className="file-label" style={{ fontSize: '15px', fontWeight: '600', color: 'var(--text-primary)', marginBottom: '16px', paddingBottom: '12px', borderBottom: '1px solid var(--border-light)', display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <span style={{ fontSize: '16px' }}>📎</span>
                         Attached Files ({assignment.attachments.length}):
                       </div>
@@ -1094,7 +1094,7 @@ const TeamTasksTab = ({ user }) => {
                                 e.stopPropagation()
                                 setExpandedFolders(prev => ({ ...prev, [folderKey]: !prev[folderKey] }))
                               }}
-                              style={{ cursor: 'pointer', backgroundColor: isExpanded ? 'var(--background-primary)' : 'var(--background-secondary)' }}
+                              style={{ cursor: 'pointer', backgroundColor: isExpanded ? 'var(--status-review)' : 'var(--background-secondary)' }}
                             >
                               <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1 }}>
                                 <div style={{ fontSize: '32px', flexShrink: 0 }}>{isExpanded ? '📂' : '📁'}</div>
@@ -1136,7 +1136,7 @@ const TeamTasksTab = ({ user }) => {
                                 setOpenModalType('file')
                                 setShowOpenFileConfirmation(true)
                               }}
-                              style={{ backgroundColor: openedFileIds.has(file.id) ? 'var(--status-approved)' : undefined }}
+                              style={{ backgroundColor: openedFileIds.has(file.id) ? 'var(--status-approved)' : 'var(--background-secondary)' }}
                             >
                               <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1 }}>
                                 <FileIcon fileType={file.original_name.split('.').pop()} size="small" style={{ width: '48px', height: '48px', flexShrink: 0 }}/>
@@ -1190,8 +1190,8 @@ const TeamTasksTab = ({ user }) => {
 
                   {/* Section 2: Member Submissions (isAttachment = false) */}
                   {assignment.recent_submissions?.length > 0 && (
-                    <div className="team-task-attached-file member-submissions">
-                      <div className="file-label">
+                    <div className="team-task-attached-file member-submissions" style={{ background: 'rgba(59, 130, 246, 0.05)', border: '1px solid rgba(59, 130, 246, 0.15)', borderRadius: '12px', padding: '20px', marginBottom: '16px' }}>
+                      <div className="file-label" style={{ fontSize: '15px', fontWeight: '600', color: 'var(--text-primary)', marginBottom: '16px', paddingBottom: '12px', borderBottom: '1px solid var(--border-light)', display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <span style={{ fontSize: '16px' }}>📤</span>
                         Submitted Files ({assignment.recent_submissions.length}):
                       </div>
@@ -1213,7 +1213,7 @@ const TeamTasksTab = ({ user }) => {
                                 e.stopPropagation()
                                 setExpandedFolders(prev => ({ ...prev, [folderKey]: !prev[folderKey] }))
                               }}
-                              style={{ cursor: 'pointer', backgroundColor: isExpanded ? 'var(--background-primary)' : 'var(--background-secondary)' }}
+                              style={{ cursor: 'pointer', backgroundColor: isExpanded ? 'var(--status-review)' : 'var(--background-secondary)' }}
                             >
                               <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1 }}>
                                 <div style={{ fontSize: '32px', flexShrink: 0 }}>{isExpanded ? '📂' : '📁'}</div>
@@ -1248,7 +1248,7 @@ const TeamTasksTab = ({ user }) => {
                                 setOpenModalType('file')
                                 setShowOpenFileConfirmation(true)
                               }}
-                              style={{ backgroundColor: openedFileIds.has(file.id) ? 'var(--status-approved)' : undefined }}
+                              style={{ backgroundColor: openedFileIds.has(file.id) ? 'var(--status-approved)' : 'var(--background-secondary)' }}
                             >
                               <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1 }}>
                                 <FileIcon fileType={file.original_name.split('.').pop()} size="small" style={{ width: '48px', height: '48px', flexShrink: 0 }}/>

@@ -389,16 +389,20 @@
 
 /* Attached File */
 .tl-assignment-attached-file {
-  background: var(--status-review);
-  padding: 32px 20px;
-  border-radius: 6px;
+  background: rgba(59, 130, 246, 0.05);
+  border: 1px solid rgba(59, 130, 246, 0.15);
+  padding: 20px;
+  border-radius: 8px;
+  margin-bottom: 16px;
 }
 
 .tl-assignment-file-label {
   font-size: 13px;
   font-weight: 600;
-  color: var(--status-review-text);
-  margin-bottom: 8px;
+  color: var(--text-primary);
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border-light);
 }
 
 .tl-assignment-file-item {

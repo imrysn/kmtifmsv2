@@ -142,7 +142,7 @@ const Sidebar = memo(({
                 top: '-6px',
                 right: '-8px',
                 backgroundColor: 'var(--danger-color)',
-                color: 'var(--background-secondary)',
+                color: 'white',
                 fontSize: '10px',
                 fontWeight: '700',
                 borderRadius: '50%',
@@ -153,7 +153,7 @@ const Sidebar = memo(({
                 justifyContent: 'center',
                 padding: '0 3px',
                 lineHeight: 1,
-                boxShadow: '0 0 0 2px white',
+                boxShadow: '0 0 0 2px var(--sidebar-bg)',
                 pointerEvents: 'none'
               }}>
                 {unreadCount > 99 ? '99+' : unreadCount}

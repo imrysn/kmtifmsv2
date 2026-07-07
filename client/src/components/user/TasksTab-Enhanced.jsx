@@ -1703,7 +1703,7 @@ const TasksTab = memo(({
         data-file-id={file.id}
         className="submitted-file-card"
         onClick={() => confirmOpenFile({ ...file, isAttachment })}
-        style={{ cursor: 'pointer', marginBottom: indented ? '4px' : undefined }}
+        style={{ cursor: 'pointer', backgroundColor: 'var(--background-secondary)', marginBottom: indented ? '4px' : undefined }}
       >
         <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
           <div style={{ flexShrink: 0 }}>
@@ -1787,7 +1787,7 @@ const TasksTab = memo(({
               }}
               style={{ 
                 cursor: 'pointer', 
-                backgroundColor: isSubOpen ? 'var(--background-primary)' : 'var(--background-secondary)', 
+                backgroundColor: isSubOpen ? 'var(--status-review)' : 'var(--background-secondary)', 
                 padding: '14px 20px',
                 flex: 1
               }}
@@ -2470,8 +2470,8 @@ const TasksTab = memo(({
                   }
 
                   return (
-                    <div className="submitted-files-section">
-                      <div className="submitted-files-header">
+                    <div className="submitted-files-section" style={{ background: 'rgba(59, 130, 246, 0.05)', border: '1px solid rgba(59, 130, 246, 0.15)', borderRadius: '12px', padding: '20px', marginBottom: '16px' }}>
+                      <div className="submitted-files-header" style={{ fontSize: '15px', fontWeight: '600', color: 'var(--text-primary)', marginBottom: '16px', paddingBottom: '12px', borderBottom: '1px solid var(--border-light)', display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <span style={{ fontSize: '16px' }}>📎</span>
                         Submitted Files ({visibleFiles.length}):
                       </div>
@@ -2489,7 +2489,7 @@ const TasksTab = memo(({
                                 setExpandedFolders(prev => ({ ...prev, [key]: newState }));
                                 if (newState && folderFiles) prefetchFolderFiles(folderFiles, 'file');
                               }}
-                              style={{ cursor: 'pointer', backgroundColor: isExpanded ? 'var(--background-primary)' : 'var(--background-secondary)' }}
+                              style={{ cursor: 'pointer', backgroundColor: isExpanded ? 'var(--status-review)' : 'var(--background-secondary)' }}
                             >
                               <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                                 <div style={{ fontSize: '32px', flexShrink: 0 }}>{isExpanded ? '📂' : '📁'}</div>

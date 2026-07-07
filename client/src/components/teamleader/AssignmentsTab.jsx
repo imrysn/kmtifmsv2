@@ -1524,29 +1524,22 @@ const AssignmentsTab = ({
                                     }}
                                     style={{ 
                                       cursor: 'pointer', 
-                                      background: isExpanded ? 'var(--status-review)' : 'var(--background-secondary)', 
+                                      backgroundColor: isExpanded ? 'var(--status-review)' : 'var(--background-secondary)', 
                                       padding: '14px 20px', 
                                       marginBottom: '8px', 
-                                      borderRadius: '12px',
+                                      borderRadius: '6px',
+                                      border: '1px solid var(--border-color)',
                                       marginLeft: level === 0 ? '0px' : '0px', // We use tree lines now
-                                      boxShadow: isExpanded ? '0 2px 8px rgba(0, 0, 0, 0.08)' : 'none',
+                                      boxShadow: 'none',
                                       transition: 'all 0.2s ease',
                                       display: 'flex',
                                       alignItems: 'center',
+                                      gap: '12px',
                                       flex: 1
                                     }}
                                   >
                                     <div style={{ 
-                                      fontSize: '30px', 
-                                      width: '44px', 
-                                      height: '44px', 
-                                      display: 'flex', 
-                                      alignItems: 'center', 
-                                      justifyContent: 'center',
-                                      background: isExpanded ? 'var(--status-review)' : 'var(--background-secondary)',
-                                      color: isExpanded ? 'var(--status-review-text)' : 'var(--text-secondary)',
-                                      borderRadius: '8px',
-                                      marginRight: '14px',
+                                      fontSize: '32px', 
                                       flexShrink: 0,
                                       position: 'relative',
                                       zIndex: 2
@@ -1674,9 +1667,15 @@ const AssignmentsTab = ({
                                   }}
                                   style={{ 
                                     cursor: 'pointer', 
+                                    backgroundColor: 'var(--background-secondary)',
                                     marginLeft: level === 0 ? '0px' : '0px', 
                                     padding: '14px 20px', 
                                     marginBottom: '8px',
+                                    borderRadius: '6px',
+                                    border: isReference ? '1px solid var(--border-color)' : '1px solid var(--status-review)',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '12px',
                                     flex: 1
                                   }}
                                 >
