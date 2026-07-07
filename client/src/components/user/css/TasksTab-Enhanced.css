@@ -1251,20 +1251,22 @@ textarea:focus {
   color: var(--text-primary) !important;
 }
 
-/* Submitted Files Section with Blue Background */
+/* Submitted Files Section */
 .submitted-files-section {
-  background: var(--status-review);
+  background: rgba(59, 130, 246, 0.05);
+  border: 1px solid rgba(59, 130, 246, 0.15);
   border-radius: 12px;
   padding: 20px;
   margin-bottom: 16px;
-  border: 1px solid var(--status-review-text);
 }
 
 .submitted-files-header {
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 600;
-  color: var(--status-review-text);
+  color: var(--text-primary);
   margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border-light);
   display: flex;
   align-items: center;
   gap: 8px;

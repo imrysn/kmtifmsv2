@@ -6,9 +6,9 @@
   --primary-color: #6366F1;
   --primary-hover: #4F46E5;
   --success-color: #10B981;
-  --warning-color: var(--status-pending-text);
-  --danger-color: #DC2626;
-  --info-color: var(--status-review-text);
+  --warning-color: #FF8C00;
+  --danger-color: #FF3333;
+  --info-color: #3B82F6;
 
   /* Neutral Colors */
   --text-primary: #111827;
@@ -52,6 +52,17 @@
   --sidebar-expanded-width: 230px;
   --transition-speed: 0.3s;
   --transition-easing: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+:root[data-theme="dark"] {
+  --danger-color: #FF3333;
+  --warning-color: #FF8C00;
+  --success-color: #10B981;
+  --info-color: #3B82F6;
+  --status-pending-text: #FBBF24;
+  --status-approved-text: #34D399;
+  --status-rejected-text: #F87171;
+  --status-review-text: #60A5FA;
 }
 
 * {

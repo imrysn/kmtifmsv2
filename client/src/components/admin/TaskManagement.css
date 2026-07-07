@@ -696,16 +696,20 @@
   background-color: rgba(161, 161, 161, 0.1);
 }
 
-/* Submitted Files - Blue background for user submissions */
+/* Submitted Files Section */
 .admin-submitted-file {
-  background: var(--status-review);
-  padding: 32px 20px;
-  border-radius: 6px;
+  background: rgba(59, 130, 246, 0.05);
+  border: 1px solid rgba(59, 130, 246, 0.15);
+  padding: 20px;
+  border-radius: 8px;
   margin-bottom: 16px;
 }
 
 .admin-submitted-label {
-  color: var(--status-review-text);
+  color: var(--text-primary);
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border-light);
 }
 
 /* File items inside submitted files section should have blue styling */
@@ -741,10 +745,6 @@
 .admin-file-submitter {
   font-weight: 600;
   color: var(--status-review-text);
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  background-clip: text;
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
   font-size: 13px;
 }
 

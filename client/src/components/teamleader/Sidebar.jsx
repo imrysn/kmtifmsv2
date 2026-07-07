@@ -141,7 +141,7 @@ const Sidebar = memo(({
                 position: 'absolute',
                 top: '-6px',
                 right: '-8px',
-                backgroundColor: 'var(--status-rejected-text)',
+                backgroundColor: 'var(--danger-color)',
                 color: 'var(--background-secondary)',
                 fontSize: '10px',
                 fontWeight: '700',
